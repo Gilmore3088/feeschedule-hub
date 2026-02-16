@@ -6,6 +6,8 @@ import {
   getFinancialsByInstitution,
   getComplaintsByInstitution,
 } from "@/lib/crawler-db";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { formatAssets, formatAmount } from "@/lib/format";
 
 const TIER_LABELS: Record<string, string> = {
   community_small: "Community (<$300M)",
@@ -30,19 +32,6 @@ const DISTRICT_NAMES: Record<number, string> = {
   11: "Dallas",
   12: "San Francisco",
 };
-
-function formatAssets(assets: number | null): string {
-  if (!assets) return "N/A";
-  if (assets > 1_000_000) return `$${(assets / 1_000_000).toFixed(1)}B`;
-  if (assets > 1_000) return `$${(assets / 1_000).toFixed(0)}M`;
-  return `$${assets}K`;
-}
-
-function formatAmount(amount: number | null): string {
-  if (amount === null || amount === undefined) return "-";
-  if (amount === 0) return "$0.00";
-  return `$${amount.toFixed(2)}`;
-}
 
 interface FeeComparisonRow {
   canonical_name: string;
@@ -103,17 +92,11 @@ export default async function PeerDetailPage({
   return (
     <>
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <Link href="/admin" className="hover:text-gray-900">
-            Dashboard
-          </Link>
-          <span>/</span>
-          <Link href="/admin/peers" className="hover:text-gray-900">
-            Peers
-          </Link>
-          <span>/</span>
-          <span>{institution.institution_name}</span>
-        </div>
+        <Breadcrumbs items={[
+          { label: "Dashboard", href: "/admin" },
+          { label: "Peer Groups", href: "/admin/peers" },
+          { label: institution.institution_name },
+        ]} />
         <h1 className="text-xl font-semibold text-gray-900">
           {institution.institution_name}
         </h1>
@@ -371,8 +354,13 @@ export default async function PeerDetailPage({
                                   : ""
                             }`}
                           >
-                            <td className="px-6 py-3 font-medium text-gray-900">
-                              {fc.display_name}
+                            <td className="px-6 py-3 font-medium">
+                              <Link
+                                href={`/admin/fees/catalog/${fc.canonical_name}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {fc.display_name}
+                              </Link>
                             </td>
                             <td className="px-6 py-3 text-right font-mono font-semibold text-gray-900">
                               {formatAmount(fc.target_amount)}

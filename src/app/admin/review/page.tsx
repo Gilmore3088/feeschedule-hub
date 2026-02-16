@@ -3,6 +3,8 @@ import { requireAuth } from "@/lib/auth";
 import { getReviewStats, getFeesByStatus, type ReviewableFee } from "@/lib/crawler-db";
 import { ApproveButton, RejectButton, BulkApproveButton } from "./review-actions";
 import { FeeSearchForm } from "./fee-search";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { formatAmount } from "@/lib/format";
 
 const STATUS_TABS = ["staged", "flagged", "pending", "approved", "rejected"] as const;
 
@@ -13,13 +15,6 @@ const STATUS_COLORS: Record<string, string> = {
   approved: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
 };
-
-function formatAmount(amount: number | null): string {
-  if (amount === null || amount === undefined) return "Free/N/A";
-  if (amount === 0) return "$0.00";
-  if (amount < 1) return `${(amount * 100).toFixed(1)}%`;
-  return `$${amount.toFixed(2)}`;
-}
 
 function confidenceBadge(conf: number) {
   const cls =
@@ -97,13 +92,10 @@ export default async function ReviewPage({
     <>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Link href="/admin" className="hover:text-gray-900">
-              Dashboard
-            </Link>
-            <span>/</span>
-            <span>Review Fees</span>
-          </div>
+          <Breadcrumbs items={[
+            { label: "Dashboard", href: "/admin" },
+            { label: "Review Fees" },
+          ]} />
           <h1 className="text-xl font-semibold text-gray-900">
             Fee Review Queue
           </h1>
@@ -234,9 +226,12 @@ function FeeRow({
   return (
     <tr className="border-b last:border-0 hover:bg-gray-50">
       <td className="px-4 py-3">
-        <div className="font-medium text-gray-900 text-xs">
+        <Link
+          href={`/admin/peers/${fee.crawl_target_id}`}
+          className="font-medium text-blue-600 hover:underline text-xs"
+        >
           {fee.institution_name}
-        </div>
+        </Link>
         <div className="text-xs text-gray-400">
           {fee.state_code} | {fee.charter_type === "bank" ? "Bank" : "CU"}
         </div>

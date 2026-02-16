@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser, type User } from "@/lib/auth";
 import { LogoutButton } from "./logout-button";
+import { AdminNav } from "./admin-nav";
 
 export default async function AdminLayout({
   children,
@@ -40,32 +41,7 @@ export default async function AdminLayout({
               </Link>
               <p className="text-sm text-gray-500">Crawler dashboard</p>
             </div>
-            <nav className="hidden md:flex items-center gap-4 ml-4">
-              <Link
-                href="/admin"
-                className="text-sm text-gray-600 hover:text-gray-900 font-medium"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/admin/review"
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Review Fees
-              </Link>
-              <Link
-                href="/admin/peers"
-                className="text-sm text-gray-600 hover:text-gray-900 font-medium"
-              >
-                Peer Groups
-              </Link>
-              <Link
-                href="/admin/fees"
-                className="text-sm text-gray-600 hover:text-gray-900 font-medium"
-              >
-                All Fees
-              </Link>
-            </nav>
+            <AdminNav />
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">

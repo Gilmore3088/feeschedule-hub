@@ -5,6 +5,8 @@ import {
   getTierCounts,
   getDistrictCounts,
 } from "@/lib/crawler-db";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { formatAssets } from "@/lib/format";
 
 const TIER_LABELS: Record<string, string> = {
   community_small: "Community (<$300M)",
@@ -29,13 +31,6 @@ const DISTRICT_NAMES: Record<number, string> = {
   11: "Dallas",
   12: "San Francisco",
 };
-
-function formatAssets(assets: number | null): string {
-  if (!assets) return "N/A";
-  if (assets > 1_000_000) return `$${(assets / 1_000_000).toFixed(0)}B`;
-  if (assets > 1_000) return `$${(assets / 1_000).toFixed(0)}M`;
-  return `$${assets}K`;
-}
 
 export default async function PeersPage({
   searchParams,
@@ -70,13 +65,10 @@ export default async function PeersPage({
   return (
     <>
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <Link href="/admin" className="hover:text-gray-900">
-            Dashboard
-          </Link>
-          <span>/</span>
-          <span>Peer Groups</span>
-        </div>
+        <Breadcrumbs items={[
+          { label: "Dashboard", href: "/admin" },
+          { label: "Peer Groups" },
+        ]} />
         <h1 className="text-xl font-semibold text-gray-900">
           Peer Group Browser
         </h1>

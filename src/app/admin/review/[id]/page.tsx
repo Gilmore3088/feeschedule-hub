@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { getFeeById, getAuditTrail } from "@/lib/crawler-db";
 import { ApproveButton, RejectButton } from "../review-actions";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { formatAmount } from "@/lib/format";
 
 interface ValidationFlag {
   rule: string;
@@ -16,13 +18,6 @@ function parseFlags(flags: string | null): ValidationFlag[] {
   } catch {
     return [];
   }
-}
-
-function formatAmount(amount: number | null): string {
-  if (amount === null || amount === undefined) return "Free/N/A";
-  if (amount === 0) return "$0.00";
-  if (amount < 1) return `${(amount * 100).toFixed(1)}%`;
-  return `$${amount.toFixed(2)}`;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -75,17 +70,11 @@ export default async function FeeDetailPage({
   return (
     <>
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <Link href="/admin" className="hover:text-gray-900">
-            Dashboard
-          </Link>
-          <span>/</span>
-          <Link href="/admin/review" className="hover:text-gray-900">
-            Review
-          </Link>
-          <span>/</span>
-          <span>Fee #{feeId}</span>
-        </div>
+        <Breadcrumbs items={[
+          { label: "Dashboard", href: "/admin" },
+          { label: "Review", href: "/admin/review" },
+          { label: `Fee #${feeId}` },
+        ]} />
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold text-gray-900">
             {fee.fee_name}

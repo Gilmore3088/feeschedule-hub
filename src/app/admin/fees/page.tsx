@@ -1,13 +1,8 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { getFeesByInstitution, getAllFees } from "@/lib/crawler-db";
-
-function formatAmount(amount: number | null): string {
-  if (amount === null || amount === undefined) return "Free/N/A";
-  if (amount === 0) return "$0.00";
-  if (amount < 1) return `${(amount * 100).toFixed(1)}%`;
-  return `$${amount.toFixed(2)}`;
-}
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { formatAmount } from "@/lib/format";
 
 function frequencyLabel(freq: string | null): string {
   const labels: Record<string, string> = {
@@ -64,13 +59,10 @@ export default async function FeesPage({
   return (
     <>
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <Link href="/admin" className="hover:text-gray-900">
-            Dashboard
-          </Link>
-          <span>/</span>
-          <span>Fees</span>
-        </div>
+        <Breadcrumbs items={[
+          { label: "Dashboard", href: "/admin" },
+          { label: "Fees" },
+        ]} />
         <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           {fees.length} fee{fees.length !== 1 ? "s" : ""} extracted
@@ -81,7 +73,12 @@ export default async function FeesPage({
         <div key={instName} className="bg-white rounded-lg border mb-6">
           {!targetId && (
             <div className="px-6 py-3 border-b bg-gray-50">
-              <h2 className="font-semibold text-gray-900">{instName}</h2>
+              <Link
+                href={`/admin/peers/${instFees[0].crawl_target_id}`}
+                className="font-semibold text-blue-600 hover:underline"
+              >
+                {instName}
+              </Link>
               <p className="text-xs text-gray-500">
                 {instFees.length} fee{instFees.length !== 1 ? "s" : ""}
               </p>
