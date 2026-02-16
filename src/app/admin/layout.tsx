@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser, type User } from "@/lib/auth";
 import { LogoutButton } from "./logout-button";
 import { AdminNav } from "./admin-nav";
+import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
 
 export default async function AdminLayout({
   children,
@@ -30,7 +31,7 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div>
               <Link
@@ -44,6 +45,7 @@ export default async function AdminLayout({
             <AdminNav />
           </div>
           <div className="flex items-center gap-3">
+            <CommandPaletteTrigger />
             <div className="text-right">
               <p className="text-sm font-medium text-gray-700">
                 {user.display_name}
@@ -64,7 +66,8 @@ export default async function AdminLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <CommandPalette />
     </div>
   );
 }
