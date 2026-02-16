@@ -1,0 +1,26 @@
+# Fee Crawler Configuration
+# Copy to config.local.yaml and edit for your environment
+
+database:
+  # Local SQLite for dev; swap to Supabase PostgreSQL for production
+  type: sqlite
+  path: data/crawler.db
+
+fdic_api:
+  base_url: https://api.fdic.gov/banks
+  page_size: 1000
+
+ncua_api:
+  # NCUA data via FFIEC or direct download
+  base_url: https://www.ncua.gov/files/publications/analysis
+
+crawl:
+  delay_seconds: 2.0
+  max_retries: 3
+  user_agent: "FeeScheduleHub/1.0 (fee-benchmarking; contact@feeschedulehub.com)"
+  respect_robots_txt: true
+  concurrent_per_domain: 1
+
+extraction:
+  confidence_auto_stage_threshold: 0.85
+  outlier_std_dev_threshold: 3.0
