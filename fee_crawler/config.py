@@ -42,6 +42,22 @@ class ExtractionConfig(BaseModel):
     document_storage_dir: str = "data/documents"
 
 
+class FedContentConfig(BaseModel):
+    crawl_delay: float = 2.0
+    speeches_feed: str = "https://www.federalreserve.gov/feeds/speeches.xml"
+
+
+class FREDConfig(BaseModel):
+    api_key: str = ""  # Or FRED_API_KEY env var
+    base_url: str = "https://api.stlouisfed.org/fred"
+    series: list[str] = [
+        "UNRATE",
+        "USNIM",
+        "EQTA",
+        "DPSACBM027NBOG",
+    ]
+
+
 class SeedUser(BaseModel):
     username: str
     password: str
@@ -65,6 +81,8 @@ class Config(BaseModel):
     claude: ClaudeConfig = ClaudeConfig()
     extraction: ExtractionConfig = ExtractionConfig()
     auth: AuthConfig = AuthConfig()
+    fed_content: FedContentConfig = FedContentConfig()
+    fred: FREDConfig = FREDConfig()
 
 
 def load_config(path: Path | None = None) -> Config:

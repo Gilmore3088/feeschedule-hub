@@ -216,6 +216,50 @@ CREATE TABLE IF NOT EXISTS fee_change_events (
 );
 """
 
+_CREATE_FED_BEIGE_BOOK = """
+CREATE TABLE IF NOT EXISTS fed_beige_book (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    release_date TEXT NOT NULL,
+    release_code TEXT NOT NULL,
+    fed_district INTEGER,
+    section_name TEXT NOT NULL,
+    content_text TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(release_code, fed_district, section_name)
+);
+"""
+
+_CREATE_FED_CONTENT = """
+CREATE TABLE IF NOT EXISTS fed_content (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    speaker TEXT,
+    fed_district INTEGER,
+    source_url TEXT NOT NULL UNIQUE,
+    published_at TEXT NOT NULL,
+    description TEXT,
+    source_feed TEXT,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
+_CREATE_FED_ECONOMIC_INDICATORS = """
+CREATE TABLE IF NOT EXISTS fed_economic_indicators (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    series_id TEXT NOT NULL,
+    series_title TEXT,
+    fed_district INTEGER,
+    observation_date TEXT NOT NULL,
+    value REAL,
+    units TEXT,
+    frequency TEXT,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(series_id, observation_date)
+);
+"""
+
 
 class Database:
     """Thin wrapper around SQLite for local dev."""
@@ -223,7 +267,7 @@ class Database:
     def __init__(self, config: Config) -> None:
         db_path = Path(config.database.path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(db_path))
+        self.conn = sqlite3.connect(str(db_path), timeout=30)
         self.conn.row_factory = sqlite3.Row
         self._set_pragmas()
         self._init_tables()
@@ -231,6 +275,7 @@ class Database:
     def _set_pragmas(self) -> None:
         """Enable WAL mode and performance PRAGMAs."""
         self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA busy_timeout=30000")
         self.conn.execute("PRAGMA synchronous=NORMAL")
         self.conn.execute("PRAGMA cache_size=-32000")
         self.conn.execute("PRAGMA mmap_size=268435456")
@@ -249,6 +294,9 @@ class Database:
         self.conn.executescript(_CREATE_INSTITUTION_COMPLAINTS)
         self.conn.executescript(_CREATE_FEE_SNAPSHOTS)
         self.conn.executescript(_CREATE_FEE_CHANGE_EVENTS)
+        self.conn.executescript(_CREATE_FED_BEIGE_BOOK)
+        self.conn.executescript(_CREATE_FED_CONTENT)
+        self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -265,6 +313,10 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_financials_target_date ON institution_financials(crawl_target_id, report_date)",
             "CREATE INDEX IF NOT EXISTS idx_complaints_target ON institution_complaints(crawl_target_id)",
             "CREATE INDEX IF NOT EXISTS idx_snapshots_target_cat ON fee_snapshots(crawl_target_id, fee_category)",
+            "CREATE INDEX IF NOT EXISTS idx_beige_book_district ON fed_beige_book(fed_district, release_date)",
+            "CREATE INDEX IF NOT EXISTS idx_fed_content_district ON fed_content(fed_district, published_at)",
+            "CREATE INDEX IF NOT EXISTS idx_fed_content_type ON fed_content(content_type)",
+            "CREATE INDEX IF NOT EXISTS idx_fed_indicators_series ON fed_economic_indicators(series_id, observation_date)",
         ]
         for sql in indexes:
             try:
