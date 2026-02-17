@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -119,10 +119,163 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
-    @apply bg-background text-foreground;
   }
+}
+
+/* ─── Shadow depth system ─── */
+:root {
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.dark {
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Admin page staggered reveal ─── */
+@keyframes admin-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-content > * {
+  animation: admin-fade-up 0.35s ease-out both;
+}
+.admin-content > *:nth-child(1) { animation-delay: 0ms; }
+.admin-content > *:nth-child(2) { animation-delay: 40ms; }
+.admin-content > *:nth-child(3) { animation-delay: 80ms; }
+.admin-content > *:nth-child(4) { animation-delay: 120ms; }
+.admin-content > *:nth-child(5) { animation-delay: 160ms; }
+.admin-content > *:nth-child(6) { animation-delay: 200ms; }
+.admin-content > *:nth-child(7) { animation-delay: 240ms; }
+.admin-content > *:nth-child(8) { animation-delay: 280ms; }
+.admin-content > *:nth-child(9) { animation-delay: 320ms; }
+.admin-content > *:nth-child(10) { animation-delay: 360ms; }
+
+/* ─── Admin card refinements ─── */
+.admin-card {
+  background: white;
+  border: 1px solid rgb(229 231 235 / 0.8);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.admin-card:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: rgb(209 213 219);
+}
+
+.dark .admin-card {
+  background: oklch(0.205 0 0);
+  border-color: oklch(1 0 0 / 8%);
+}
+.dark .admin-card:hover {
+  border-color: oklch(1 0 0 / 15%);
+}
+
+/* ─── Skeleton shimmer ─── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgb(243 244 246) 25%, rgb(229 231 235) 50%, rgb(243 244 246) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.25rem;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, oklch(0.269 0 0) 25%, oklch(0.32 0 0) 50%, oklch(0.269 0 0) 75%);
+  background-size: 200% 100%;
+}
+
+/* ─── Review row transitions ─── */
+@keyframes row-exit {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.row-exiting {
+  animation: row-exit 0.3s ease-out forwards;
+  overflow: hidden;
+}
+
+/* ─── Dark mode overrides for admin ─── */
+.dark .admin-content .bg-white,
+.dark .bg-white { background: oklch(0.205 0 0); }
+.dark .bg-gray-50\/80 { background: oklch(0.22 0 0 / 80%); }
+.dark .bg-gray-50\/50 { background: oklch(0.22 0 0 / 50%); }
+.dark .bg-gray-50 { background: oklch(0.20 0 0); }
+.dark .bg-gray-100 { background: oklch(0.24 0 0); }
+
+/* Text */
+.dark .admin-content .text-gray-900 { color: oklch(0.93 0 0); }
+.dark .admin-content .text-gray-800 { color: oklch(0.88 0 0); }
+.dark .admin-content .text-gray-700 { color: oklch(0.82 0 0); }
+.dark .admin-content .text-gray-600 { color: oklch(0.72 0 0); }
+.dark .admin-content .text-gray-500 { color: oklch(0.62 0 0); }
+
+/* Borders in admin */
+.dark .admin-content .border-b,
+.dark .admin-content .border-t { border-color: oklch(1 0 0 / 8%); }
+.dark .admin-content .border { border-color: oklch(1 0 0 / 8%); }
+.dark .admin-content .divide-y > :not(:last-child) { border-color: oklch(1 0 0 / 6%); }
+.dark .admin-content .border-gray-200 { border-color: oklch(1 0 0 / 10%); }
+.dark .admin-content .border-gray-100 { border-color: oklch(1 0 0 / 6%); }
+.dark .admin-content .border-gray-300 { border-color: oklch(1 0 0 / 12%); }
+
+/* Interactive states */
+.dark .admin-content .hover\:bg-gray-50:hover { background: oklch(0.22 0 0); }
+.dark .admin-content .hover\:bg-gray-100:hover { background: oklch(0.25 0 0); }
+.dark .admin-content .hover\:text-gray-700:hover { color: oklch(0.85 0 0); }
+.dark .admin-content .hover\:text-gray-900:hover { color: oklch(0.95 0 0); }
+.dark .admin-content .hover\:text-blue-600:hover { color: oklch(0.65 0.2 260); }
+
+/* Badge overrides for status colors in dark mode */
+.dark .bg-emerald-50 { background: oklch(0.35 0.08 165 / 25%); }
+.dark .text-emerald-600 { color: oklch(0.72 0.14 165); }
+.dark .bg-blue-50 { background: oklch(0.35 0.08 260 / 25%); }
+.dark .text-blue-600 { color: oklch(0.72 0.14 260); }
+.dark .bg-orange-50 { background: oklch(0.38 0.08 65 / 25%); }
+.dark .text-orange-600 { color: oklch(0.75 0.14 65); }
+.dark .bg-red-50 { background: oklch(0.35 0.08 25 / 25%); }
+.dark .text-red-600 { color: oklch(0.72 0.16 25); }
+.dark .bg-amber-50 { background: oklch(0.38 0.08 80 / 25%); }
+.dark .text-amber-600 { color: oklch(0.78 0.14 80); }
+
+/* Inputs in dark mode */
+.dark .admin-content input[type="text"],
+.dark .admin-content input[type="search"],
+.dark .admin-content input[type="password"],
+.dark .admin-content select {
+  background: oklch(0.18 0 0);
+  border-color: oklch(1 0 0 / 12%);
+  color: oklch(0.93 0 0);
+}
+
+/* ─── Tabular nums get mono font ─── */
+.tabular-nums {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }
