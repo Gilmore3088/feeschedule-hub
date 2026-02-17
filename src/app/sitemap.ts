@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
+import { getRecentPublishedSlugs } from "@/lib/crawler-db";
 
 const BASE_URL = "https://bankfeeindex.com";
 
@@ -56,5 +57,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })
   );
 
-  return [...staticPages, ...categoryPages, ...districtPages, ...statePages];
+  // Research articles
+  let articlePages: MetadataRoute.Sitemap = [];
+  try {
+    const slugs = getRecentPublishedSlugs(500);
+    articlePages = slugs.map((slug) => ({
+      url: `${BASE_URL}/research/${slug}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    }));
+  } catch {
+    // articles table may not exist yet
+  }
+
+  return [...staticPages, ...categoryPages, ...districtPages, ...statePages, ...articlePages];
 }
