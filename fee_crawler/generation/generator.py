@@ -22,7 +22,9 @@ from fee_crawler.generation.article_data import (
 )
 from fee_crawler.generation.prompts import (
     SYSTEM_PROMPT,
+    SEO_EDITOR_SYSTEM,
     build_section_prompt,
+    build_seo_edit_prompt,
     build_fact_check_prompt,
 )
 from fee_crawler.generation.templates import (
@@ -35,6 +37,7 @@ from fee_crawler.generation.templates import (
 logger = logging.getLogger(__name__)
 
 GENERATION_MODEL = "claude-sonnet-4-5-20250929"
+SEO_EDIT_MODEL = "claude-sonnet-4-5-20250929"
 FACT_CHECK_MODEL = "claude-haiku-4-5-20251001"
 
 
@@ -51,15 +54,27 @@ def _call_claude(
     system: str,
     user_prompt: str,
     max_tokens: int = 1500,
+    max_retries: int = 3,
 ) -> str:
-    """Make a single Claude API call and return the text response."""
-    message = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-    return message.content[0].text.strip()
+    """Make a single Claude API call with retry on transient errors."""
+    import time
+
+    for attempt in range(max_retries):
+        try:
+            message = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            return message.content[0].text.strip()
+        except anthropic.APIStatusError as e:
+            if e.status_code in (429, 529) and attempt < max_retries - 1:
+                wait = 2 ** (attempt + 1)
+                logger.warning("  API %d, retrying in %ds...", e.status_code, wait)
+                time.sleep(wait)
+            else:
+                raise
 
 
 def _query_data(db: Database, article_type: str, category: str | None, district: int | None):
@@ -109,6 +124,34 @@ def _build_title_kwargs(data, article_type: str) -> dict[str, str]:
         kwargs["category"] = data.category
 
     return kwargs
+
+
+def _build_seo_keywords(article_type: str, data) -> list[str]:
+    """Build target SEO keywords from the article data context."""
+    keywords = ["bank fees 2026", "fee benchmark"]
+
+    if hasattr(data, "display_name"):
+        name = data.display_name.lower()
+        keywords.insert(0, f"{name} fee")
+        keywords.append(f"{name} fee comparison")
+        keywords.append(f"average {name} fee")
+
+    if hasattr(data, "district_name"):
+        keywords.append(f"{data.district_name} district bank fees")
+
+    if article_type == "charter_comparison":
+        keywords = [
+            "credit union vs bank fees",
+            "bank fees vs credit union fees 2026",
+            "credit union fee comparison",
+            "bank fee benchmark",
+        ]
+
+    if article_type == "top_10":
+        keywords.append(f"lowest {data.display_name.lower()} fees")
+        keywords.append(f"cheapest {data.display_name.lower()}")
+
+    return keywords[:6]
 
 
 def generate_article(
@@ -169,6 +212,23 @@ def generate_article(
     # 5. Assemble full article
     article_md = f"# {title}\n\n" + "\n\n".join(sections_md)
 
+    # 5b. SEO editorial pass
+    logger.info("  Running SEO editorial pass...")
+    seo_keywords = _build_seo_keywords(article_type, data)
+    seo_prompt = build_seo_edit_prompt(article_md, category, seo_keywords)
+    edited_md = _call_claude(
+        client, SEO_EDIT_MODEL, SEO_EDITOR_SYSTEM, seo_prompt, max_tokens=4000
+    )
+
+    # Extract meta description if present
+    meta_description = None
+    if "META_DESCRIPTION:" in edited_md:
+        parts = edited_md.split("META_DESCRIPTION:", 1)
+        article_md = parts[0].strip()
+        meta_description = parts[1].strip().strip('"').strip("'")
+    else:
+        article_md = edited_md
+
     # 6. Generate summary
     summary_prompt = f"""Write a 1-2 sentence summary of this article for use as an excerpt/preview card. \
 Be specific — include the key statistic (e.g., national median). Keep it under 30 words.
@@ -183,6 +243,10 @@ ARTICLE TITLE: {title}"""
     summary = _call_claude(
         client, GENERATION_MODEL, SYSTEM_PROMPT, summary_prompt, max_tokens=100
     )
+
+    # Use SEO meta description as summary if available (better for search)
+    if meta_description and len(meta_description) > 20:
+        summary = meta_description
 
     # 7. Fact-check validation pass
     logger.info("  Running fact-check validation...")

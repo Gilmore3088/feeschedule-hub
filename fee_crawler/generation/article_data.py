@@ -19,6 +19,28 @@ from fee_crawler.fee_analysis import (
 from fee_crawler.peer import FED_DISTRICT_NAMES, TIER_ORDER
 
 
+def _trim_outliers(amounts: list[float], iqr_multiplier: float = 3.0) -> list[float]:
+    """Remove extreme outliers using IQR fencing.
+
+    Keeps values within [Q1 - k*IQR, Q3 + k*IQR] where k defaults to 3.0.
+    This is generous enough to keep legitimate variation while cutting
+    data-entry errors and misclassified fees (e.g., $179 "overdraft" that
+    is actually a daily cap or aggregated amount).
+    """
+    if len(amounts) < 4:
+        return amounts
+    sorted_a = sorted(amounts)
+    n = len(sorted_a)
+    q1 = sorted_a[n // 4]
+    q3 = sorted_a[(3 * n) // 4]
+    iqr = q3 - q1
+    if iqr == 0:
+        return amounts  # All values clustered — nothing to trim
+    lower = q1 - iqr_multiplier * iqr
+    upper = q3 + iqr_multiplier * iqr
+    return [a for a in sorted_a if lower <= a <= upper]
+
+
 @dataclass
 class FeeStats:
     """Statistical summary for a set of fee amounts."""
@@ -30,13 +52,18 @@ class FeeStats:
     min: float | None = None
     max: float | None = None
     count: int = 0
+    trimmed: int = 0  # How many outliers were removed
 
     @classmethod
-    def from_amounts(cls, amounts: list[float]) -> FeeStats:
+    def from_amounts(cls, amounts: list[float], trim: bool = True) -> FeeStats:
         if not amounts:
             return cls()
-        sorted_a = sorted(amounts)
+        trimmed_amounts = _trim_outliers(amounts) if trim else amounts
+        n_trimmed = len(amounts) - len(trimmed_amounts)
+        sorted_a = sorted(trimmed_amounts)
         n = len(sorted_a)
+        if n == 0:
+            return cls()
         return cls(
             median=statistics.median(sorted_a),
             mean=round(statistics.mean(sorted_a), 2),
@@ -45,6 +72,7 @@ class FeeStats:
             min=sorted_a[0],
             max=sorted_a[-1],
             count=n,
+            trimmed=n_trimmed,
         )
 
 
