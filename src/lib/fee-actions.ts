@@ -208,6 +208,50 @@ export async function editFee(
   }
 }
 
+export async function updateFeeCategory(
+  feeId: number,
+  category: string | null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requirePermission("edit");
+    const db = getWriteDb();
+    try {
+      const fee = db
+        .prepare("SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ?")
+        .get(feeId) as { id: number; fee_category: string | null; review_status: string } | undefined;
+
+      if (!fee) return { success: false, error: "Fee not found" };
+
+      const previousCategory = fee.fee_category;
+      db.prepare("UPDATE extracted_fees SET fee_category = ? WHERE id = ?").run(
+        category,
+        feeId,
+      );
+
+      db.prepare(
+        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+         VALUES (?, 'recategorize', ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        feeId,
+        user.id,
+        user.username,
+        fee.review_status,
+        fee.review_status,
+        JSON.stringify({ fee_category: previousCategory }),
+        JSON.stringify({ fee_category: category }),
+        `Category changed from ${previousCategory || "none"} to ${category || "none"}`,
+      );
+
+      revalidatePath("/admin/review");
+      return { success: true };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
 export async function bulkApproveStagedFees(
   notes?: string
 ): Promise<{ success: boolean; count: number; error?: string }> {

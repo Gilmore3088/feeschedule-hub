@@ -1,33 +1,51 @@
+import { Skeleton } from "@/components/skeleton";
+
 export default function IndexLoading() {
   return (
-    <>
-      <div className="mb-6">
-        <div className="h-4 w-40 bg-gray-200 rounded animate-pulse mb-2" />
-        <div className="h-6 w-56 bg-gray-200 rounded animate-pulse mb-1" />
-        <div className="h-4 w-72 bg-gray-200 rounded animate-pulse" />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-40" />
+        <Skeleton className="h-6 w-56" />
+        <Skeleton className="h-3.5 w-72" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-lg border bg-white px-4 py-3">
-            <div className="h-3 w-24 bg-gray-200 rounded animate-pulse mb-2" />
-            <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="admin-card px-4 py-3 space-y-2">
+            <Skeleton className="h-2.5 w-24" />
+            <Skeleton className="h-5 w-16" />
           </div>
         ))}
       </div>
 
-      <div className="space-y-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="rounded-lg border bg-white p-4">
-            <div className="h-5 w-48 bg-gray-200 rounded animate-pulse mb-3" />
-            <div className="space-y-2">
-              {[1, 2, 3].map((j) => (
-                <div key={j} className="h-4 w-full bg-gray-100 rounded animate-pulse" />
-              ))}
-            </div>
-          </div>
-        ))}
+      {/* Search + filter bar */}
+      <div className="flex gap-3">
+        <Skeleton className="h-9 flex-1" />
+        <Skeleton className="h-9 w-36" />
+        <Skeleton className="h-9 w-28" />
       </div>
-    </>
+
+      {/* Category families */}
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="admin-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-white/[0.04] bg-gray-50/80 dark:bg-white/[0.03]">
+            <Skeleton className="h-4 w-48" />
+          </div>
+          <div className="divide-y divide-gray-100 dark:divide-white/[0.04]">
+            {Array.from({ length: 3 }).map((_, j) => (
+              <div key={j} className="flex items-center gap-4 px-4 py-2.5">
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="h-3.5 w-16 ml-auto" />
+                <Skeleton className="h-3.5 w-20" />
+                <Skeleton className="h-3.5 w-12" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

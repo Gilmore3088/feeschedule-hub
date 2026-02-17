@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useCallback } from "react";
+import { FEATURED_COUNT, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 
 export function IndexFilters({ families }: { families: string[] }) {
   const searchParams = useSearchParams();
@@ -11,6 +12,7 @@ export function IndexFilters({ families }: { families: string[] }) {
   const q = searchParams.get("q") ?? "";
   const family = searchParams.get("family") ?? "";
   const approved = searchParams.get("approved") === "1";
+  const showAll = searchParams.get("show") === "all";
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -30,6 +32,18 @@ export function IndexFilters({ families }: { families: string[] }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3 mb-6">
+      <button
+        onClick={() => updateParams({ show: showAll ? null : "all" })}
+        aria-pressed={showAll}
+        className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+          showAll
+            ? "bg-gray-900 border-gray-900 text-white"
+            : "border-gray-300 text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        {showAll ? `All (${TAXONOMY_COUNT})` : `Featured (${FEATURED_COUNT})`}
+      </button>
+
       <input
         type="search"
         placeholder="Search fee categories..."
@@ -63,9 +77,9 @@ export function IndexFilters({ families }: { families: string[] }) {
         Approved only
       </label>
 
-      {(q || family || approved) && (
+      {(q || family || approved || showAll) && (
         <button
-          onClick={() => updateParams({ q: null, family: null, approved: null })}
+          onClick={() => updateParams({ q: null, family: null, approved: null, show: null })}
           className="text-xs text-gray-500 hover:text-gray-700 underline"
         >
           Reset

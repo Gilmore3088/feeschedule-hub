@@ -12,23 +12,18 @@ import {
   getRecentCrawlActivity,
   getRecentReviews,
   getIndexSnapshot,
+  getDailyTrends,
 } from "@/lib/crawler-db";
 import { formatAmount } from "@/lib/format";
 import { parsePeerFilters } from "@/lib/fed-districts";
-import { getDisplayName, getFeeFamily, getFamilyColor } from "@/lib/fee-taxonomy";
+import { getDisplayName, getFeeFamily, getFamilyColor, getSpotlightCategories, getFeeTier, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { PeerFiltersBar } from "@/components/peer-filters-bar";
 import { ReviewQueueHero } from "@/components/review-queue-hero";
 import { CrawlStatusStrip } from "@/components/crawl-status-strip";
 import { MapMetricSelector } from "@/components/map-metric-selector";
+import { HealthTile, SummaryKPI, CrawlStatusDot, ReviewActionDot } from "./dashboard-helpers";
 
-const HERO_CATEGORIES = [
-  "monthly_maintenance",
-  "nsf",
-  "overdraft",
-  "atm_non_network",
-  "wire_domestic_outgoing",
-  "stop_payment",
-];
+const HERO_CATEGORIES = getSpotlightCategories();
 
 export default async function AdminDashboard({
   searchParams,
@@ -68,6 +63,7 @@ export default async function AdminDashboard({
   const volatileCategories = getVolatileCategories(dbFilters, 10);
   const riskOutliers = getRiskOutliers(dbFilters);
   const recentCrawls = getRecentCrawlActivity(dbFilters, 20);
+  const dailyTrends = getDailyTrends(14);
 
   const hasFilters = peerFilters.charter || peerFilters.tiers || peerFilters.districts;
 
@@ -145,7 +141,7 @@ export default async function AdminDashboard({
               <Link
                 key={entry!.fee_category}
                 href={`/admin/fees/catalog/${entry!.fee_category}`}
-                className="group rounded-lg border bg-white p-4 hover:shadow-md hover:border-gray-300 transition-all"
+                className="group admin-card p-4 hover:shadow-md transition-all"
               >
                 <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 truncate">
                   {getDisplayName(entry!.fee_category)}
@@ -166,6 +162,8 @@ export default async function AdminDashboard({
                           : "bg-gray-300"
                     }`}
                     title={entry!.maturity_tier}
+                    role="img"
+                    aria-label={`Maturity: ${entry!.maturity_tier}`}
                   />
                 </div>
               </Link>
@@ -175,7 +173,7 @@ export default async function AdminDashboard({
 
         {/* Index Table */}
         {indexSnapshot.length > 0 && (
-          <div className="rounded-lg border bg-white overflow-hidden">
+          <div className="admin-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -210,6 +208,11 @@ export default async function AdminDashboard({
                         >
                           {getDisplayName(entry.fee_category)}
                         </Link>
+                        {!isFeaturedFee(entry.fee_category) && (
+                          <span className="ml-1.5 text-[9px] text-gray-300 uppercase">
+                            {getFeeTier(entry.fee_category)}
+                          </span>
+                        )}
                         {entry.fee_family && (
                           <span className="ml-2 text-[10px] text-gray-400">
                             {entry.fee_family}
@@ -260,6 +263,7 @@ export default async function AdminDashboard({
           label="Institutions"
           value={peerStats.total_institutions.toLocaleString()}
           global={!hasFilters}
+          trend={dailyTrends.map((d) => d.institutions)}
         />
         <HealthTile
           label="With Website"
@@ -279,6 +283,7 @@ export default async function AdminDashboard({
           }
           sub={`${peerStats.with_fee_url.toLocaleString()} institutions`}
           highlight
+          trend={dailyTrends.map((d) => d.fee_urls)}
           delta={
             hasFilters && nationalStats && nationalStats.total_institutions > 0
               ? ((peerStats.with_fee_url / peerStats.total_institutions) * 100) -
@@ -290,13 +295,14 @@ export default async function AdminDashboard({
           label="Fees Extracted"
           value={peerStats.total_fees.toLocaleString()}
           href="/admin/fees"
+          trend={dailyTrends.map((d) => d.fees_extracted)}
         />
       </div>
 
       {/* ─── PEER INTELLIGENCE: Districts + Peer Summary ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
         {/* Fed District Grid */}
-        <div className="lg:col-span-2 rounded-lg border bg-white">
+        <div className="lg:col-span-2 admin-card overflow-hidden">
           <div className="px-5 py-3 border-b bg-gray-50/80 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-800">
               Fed Districts
@@ -317,8 +323,8 @@ export default async function AdminDashboard({
                     }).toString()}`}
                     className={`rounded-lg border p-2.5 text-sm transition-all ${
                       isSelected
-                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-sm"
-                        : "hover:border-gray-300 hover:shadow-sm"
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-800 shadow-sm"
+                        : "hover:border-gray-300 dark:hover:border-white/15 hover:shadow-sm"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -383,7 +389,7 @@ export default async function AdminDashboard({
         </div>
 
         {/* Peer Summary Panel — with national deltas */}
-        <div className="rounded-lg border bg-white">
+        <div className="admin-card overflow-hidden">
           <div className="px-5 py-3 border-b bg-gray-50/80">
             <h3 className="text-sm font-bold text-gray-800">
               {hasFilters ? "Peer Summary" : "National Summary"}
@@ -455,7 +461,7 @@ export default async function AdminDashboard({
       {/* ─── INSIGHTS: Volatile Categories + Risk & Outliers ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-10">
         {/* Volatile fee categories — 3 cols */}
-        <div className="lg:col-span-3 rounded-lg border bg-white">
+        <div className="lg:col-span-3 admin-card overflow-hidden">
           <div className="px-5 py-3 border-b bg-gray-50/80">
             <h2 className="text-sm font-bold text-gray-800">
               Most Volatile Fee Categories
@@ -521,6 +527,11 @@ export default async function AdminDashboard({
                               {family}
                             </span>
                           )}
+                          {!isFeaturedFee(vc.fee_category) && (
+                            <span className="ml-1 text-[9px] text-gray-300 uppercase">
+                              {getFeeTier(vc.fee_category)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums text-gray-900 font-medium">
                           {formatAmount(vc.median_amount)}
@@ -530,7 +541,11 @@ export default async function AdminDashboard({
                         </td>
                         <td className="px-4 py-2">
                           {/* Visual IQR bar */}
-                          <div className="relative h-4 w-full">
+                          <div
+                            className="relative h-4 w-full"
+                            role="img"
+                            aria-label={`Range ${formatAmount(rangeMin)} to ${formatAmount(rangeMax)}, IQR ${formatAmount(p25)} to ${formatAmount(p75)}, median ${formatAmount(vc.median_amount)}`}
+                          >
                             {/* Full range line */}
                             <div
                               className="absolute top-1/2 h-px bg-gray-200"
@@ -581,8 +596,8 @@ export default async function AdminDashboard({
         </div>
 
         {/* Risk & Outliers — 2 cols, elevated */}
-        <div className="lg:col-span-2 rounded-lg border border-red-100 bg-white">
-          <div className="px-5 py-3 border-b border-red-100 bg-red-50/50">
+        <div className="lg:col-span-2 admin-card !border-red-100 dark:!border-red-900/30">
+          <div className="px-5 py-3 border-b border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-red-500" />
               <h2 className="text-sm font-bold text-gray-800">
@@ -607,7 +622,7 @@ export default async function AdminDashboard({
                       <Link
                         key={fc.fee_category}
                         href="/admin/review?status=flagged"
-                        className="flex items-center justify-between text-sm hover:bg-red-50/50 rounded px-2 py-1.5 -mx-2 transition-colors"
+                        className="flex items-center justify-between text-sm hover:bg-red-50/50 dark:hover:bg-red-900/10 rounded px-2 py-1.5 -mx-2 transition-colors"
                       >
                         <span className="text-gray-700 font-medium text-xs">
                           {getDisplayName(fc.fee_category)}
@@ -649,7 +664,7 @@ export default async function AdminDashboard({
                     <Link
                       key={rf.id}
                       href={`/admin/peers/${rf.id}`}
-                      className="flex items-center justify-between text-sm hover:bg-red-50/50 rounded px-2 py-1.5 -mx-2 transition-colors"
+                      className="flex items-center justify-between text-sm hover:bg-red-50/50 dark:hover:bg-red-900/10 rounded px-2 py-1.5 -mx-2 transition-colors"
                     >
                       <span className="text-gray-700 truncate max-w-[180px] text-xs">
                         {rf.institution_name}
@@ -719,7 +734,7 @@ export default async function AdminDashboard({
       {/* ─── OPERATIONAL TABLES ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recently Crawled */}
-        <div className="rounded-lg border bg-white">
+        <div className="admin-card overflow-hidden">
           <div className="px-4 py-2.5 border-b bg-gray-50/80 flex items-center justify-between">
             <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
               Recent Crawls
@@ -775,7 +790,7 @@ export default async function AdminDashboard({
         </div>
 
         {/* Recent Reviews */}
-        <div className="rounded-lg border bg-white">
+        <div className="admin-card overflow-hidden">
           <div className="px-4 py-2.5 border-b bg-gray-50/80 flex items-center justify-between">
             <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
               Recent Reviews
@@ -837,147 +852,3 @@ export default async function AdminDashboard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helper components
-// ---------------------------------------------------------------------------
-
-function HealthTile({
-  label,
-  value,
-  sub,
-  highlight,
-  href,
-  global,
-  delta,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  highlight?: boolean;
-  href?: string;
-  global?: boolean;
-  delta?: number;
-}) {
-  const content = (
-    <div
-      className={`rounded-lg border bg-white px-4 py-3 transition-all ${
-        href ? "hover:shadow-md hover:border-gray-300 cursor-pointer" : ""
-      } ${highlight ? "ring-1 ring-blue-100 border-blue-200" : ""}`}
-    >
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-          {label}
-        </p>
-        {global && (
-          <span className="text-[9px] text-gray-300 uppercase">global</span>
-        )}
-      </div>
-      <p
-        className={`text-2xl font-bold tabular-nums mt-1 ${
-          highlight ? "text-blue-600" : "text-gray-900"
-        }`}
-      >
-        {value}
-      </p>
-      <div className="flex items-center gap-2 mt-0.5">
-        {sub && <p className="text-[11px] text-gray-400">{sub}</p>}
-        {delta !== undefined && delta !== 0 && (
-          <span
-            className={`text-[11px] font-semibold tabular-nums ${
-              delta > 0 ? "text-emerald-600" : "text-red-500"
-            }`}
-          >
-            {delta > 0 ? "+" : ""}{delta.toFixed(1)}% vs national
-          </span>
-        )}
-      </div>
-    </div>
-  );
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-  return content;
-}
-
-function SummaryKPI({
-  label,
-  value,
-  delta,
-  deltaLabel,
-  deltaFormat,
-}: {
-  label: string;
-  value: string;
-  delta?: number;
-  deltaLabel?: string;
-  deltaFormat?: "pct" | "abs";
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-gray-500">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-bold tabular-nums text-gray-900">
-          {value}
-        </span>
-        {delta !== undefined && deltaLabel && (
-          <span className="text-[10px] text-gray-400">{deltaLabel}</span>
-        )}
-        {delta !== undefined && !deltaLabel && delta !== 0 && (
-          <span
-            className={`text-[10px] font-semibold tabular-nums ${
-              delta > 0 ? "text-emerald-600" : "text-red-500"
-            }`}
-          >
-            {deltaFormat === "pct"
-              ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}pp`
-              : `${delta > 0 ? "+" : ""}${delta.toFixed(0)}`}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CrawlStatusDot({ status }: { status: string }) {
-  const color: Record<string, string> = {
-    success: "bg-emerald-400",
-    failed: "bg-red-400",
-    unchanged: "bg-gray-300",
-  };
-  return (
-    <span className="inline-flex items-center gap-1.5 text-gray-500">
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${color[status] ?? "bg-gray-300"}`}
-      />
-      {status}
-    </span>
-  );
-}
-
-function ReviewActionDot({ action }: { action: string }) {
-  const color: Record<string, string> = {
-    approve: "bg-emerald-400",
-    reject: "bg-red-400",
-    edit: "bg-blue-400",
-    bulk_approve: "bg-emerald-400",
-    flag: "bg-orange-400",
-    stage: "bg-blue-400",
-  };
-  const labels: Record<string, string> = {
-    approve: "Approved",
-    reject: "Rejected",
-    edit: "Edited",
-    bulk_approve: "Bulk",
-    flag: "Flagged",
-    stage: "Staged",
-  };
-  return (
-    <span className="inline-flex items-center gap-1.5 text-gray-500">
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${color[action] ?? "bg-gray-300"}`}
-      />
-      {labels[action] ?? action}
-    </span>
-  );
-}

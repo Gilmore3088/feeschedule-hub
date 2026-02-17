@@ -9,6 +9,9 @@ import {
   getFeeFamily,
   getFamilyColor,
   FEE_FAMILIES,
+  isFeaturedFee,
+  FEATURED_COUNT,
+  TAXONOMY_COUNT,
 } from "@/lib/fee-taxonomy";
 import { MaturityBadge } from "@/app/admin/index/maturity-badge";
 import { DeltaPill } from "./hero-cards";
@@ -32,6 +35,7 @@ export function CategoryExplorer({
     () => new Set(Object.keys(FEE_FAMILIES))
   );
   const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -73,14 +77,21 @@ export function CategoryExplorer({
   }, []);
 
   const filteredEntries = useMemo(() => {
-    if (!search) return entries;
-    const q = search.toLowerCase();
-    return entries.filter(
-      (e) =>
-        getDisplayName(e.fee_category).toLowerCase().includes(q) ||
-        e.fee_category.toLowerCase().includes(q)
-    );
-  }, [entries, search]);
+    let result = entries;
+    // Search always searches all categories
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (e) =>
+          getDisplayName(e.fee_category).toLowerCase().includes(q) ||
+          e.fee_category.toLowerCase().includes(q)
+      );
+    } else if (!showAll) {
+      // Apply tier filter only when not searching
+      result = result.filter((e) => isFeaturedFee(e.fee_category));
+    }
+    return result;
+  }, [entries, search, showAll]);
 
   const groupedByFamily = useMemo(() => {
     const groups = new Map<string, MarketIndexEntry[]>();
@@ -105,13 +116,24 @@ export function CategoryExplorer({
       <div className="px-5 py-3 border-b bg-gray-50/80 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-bold text-gray-800">
-            All Fee Categories
+            Fee Categories
           </h2>
           <span className="text-[11px] text-gray-400">
             {hasFilters ? "Segment View" : "National View"}
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAll((prev) => !prev)}
+            aria-pressed={showAll}
+            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+              showAll
+                ? "bg-gray-900 border-gray-900 text-white"
+                : "border-gray-200 text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {showAll ? `All (${TAXONOMY_COUNT})` : `Featured (${FEATURED_COUNT})`}
+          </button>
           <input
             type="text"
             value={search}

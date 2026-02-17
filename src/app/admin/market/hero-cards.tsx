@@ -1,14 +1,9 @@
 import { formatAmount } from "@/lib/format";
-import { getDisplayName } from "@/lib/fee-taxonomy";
+import { getDisplayName, getSpotlightCategories } from "@/lib/fee-taxonomy";
 import { MaturityBadge } from "@/app/admin/index/maturity-badge";
 import type { MarketIndexEntry } from "@/lib/crawler-db";
 
-const HERO_CATEGORIES = [
-  "monthly_maintenance",
-  "nsf",
-  "overdraft",
-  "atm_non_network",
-] as const;
+const HERO_CATEGORIES = getSpotlightCategories();
 
 interface HeroBenchmarkCardsProps {
   entries: MarketIndexEntry[];
@@ -22,7 +17,7 @@ export function HeroBenchmarkCards({
   const entryMap = new Map(entries.map((e) => [e.fee_category, e]));
 
   return (
-    <div className="grid grid-cols-2 gap-3 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
       {HERO_CATEGORIES.map((cat) => {
         const entry = entryMap.get(cat);
         if (!entry) return <EmptyCard key={cat} category={cat} />;

@@ -10,6 +10,9 @@ import {
   getDisplayName,
   getFeeFamily,
   getFamilyColor,
+  isFeaturedFee,
+  TAXONOMY_COUNT,
+  FEATURED_COUNT,
 } from "@/lib/fee-taxonomy";
 import { CollapsibleSection } from "@/components/collapsible-section";
 import { IndexFilters } from "./index-filters";
@@ -122,6 +125,7 @@ export default async function FeeIndexPage({
     family?: string;
     approved?: string;
     sort?: string;
+    show?: string;
     charter?: string;
     tier?: string;
     district?: string;
@@ -134,6 +138,7 @@ export default async function FeeIndexPage({
   const activeFamily = params.family ?? "";
   const approvedOnly = params.approved === "1";
   const sortKey = params.sort ?? "institution_count";
+  const showAll = params.show === "all";
 
   const peerFilters = parsePeerFilters(params);
   const hasPeerFilters = peerFilters.charter || peerFilters.tiers || peerFilters.districts;
@@ -154,12 +159,18 @@ export default async function FeeIndexPage({
 
   const filterDescription = hasPeerFilters ? buildFilterDescription(peerFilters) : null;
 
+  // Search always queries all categories (regardless of tier filter)
   if (searchTerm) {
     entries = entries.filter((e) =>
       getDisplayName(e.fee_category)
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
     );
+  }
+
+  // Apply tier filter: default to featured only, unless searching or show=all
+  if (!showAll && !searchTerm) {
+    entries = entries.filter((e) => isFeaturedFee(e.fee_category));
   }
 
   if (sortKey === "median_amount") {
@@ -238,7 +249,7 @@ export default async function FeeIndexPage({
             {totalCategories} categories
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">
-            of 47 defined in taxonomy
+            of {showAll || searchTerm ? TAXONOMY_COUNT : FEATURED_COUNT} {showAll || searchTerm ? "in taxonomy" : "featured"}
           </p>
         </div>
         <div className="rounded-lg border bg-white px-4 py-3">

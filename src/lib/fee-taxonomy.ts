@@ -160,3 +160,97 @@ export function getFeeFamily(category: string): string | null {
 export function getFamilyColor(family: string) {
   return FAMILY_COLORS[family] ?? { border: "border-l-gray-400", bg: "bg-gray-50", text: "text-gray-700" };
 }
+
+// --- Fee Tier System ---
+
+export type FeeTier = "spotlight" | "core" | "extended" | "comprehensive";
+
+/**
+ * Maps every fee category to a tier based on industry benchmarking importance.
+ * Spotlight + Core = "Featured" (15 fees shown by default).
+ * Extended + Comprehensive = shown only via "Show all" toggle.
+ */
+export const FEE_TIERS: Record<string, FeeTier> = {
+  // Spotlight (6) — FDIC-mandated, Bankrate headline, CFPB regulatory targets
+  monthly_maintenance: "spotlight",
+  overdraft: "spotlight",
+  nsf: "spotlight",
+  atm_non_network: "spotlight",
+  card_foreign_txn: "spotlight",
+  wire_domestic_outgoing: "spotlight",
+
+  // Core (9) — frequently compared in surveys, on most fee schedules
+  stop_payment: "core",
+  wire_intl_outgoing: "core",
+  wire_domestic_incoming: "core",
+  cashiers_check: "core",
+  od_protection_transfer: "core",
+  paper_statement: "core",
+  minimum_balance: "core",
+  card_replacement: "core",
+  deposited_item_return: "core",
+
+  // Extended (15) — tracked, accessible via expansion
+  dormant_account: "extended",
+  early_closure: "extended",
+  money_order: "extended",
+  wire_intl_incoming: "extended",
+  continuous_od: "extended",
+  atm_international: "extended",
+  garnishment_levy: "extended",
+  safe_deposit_box: "extended",
+  account_research: "extended",
+  check_printing: "extended",
+  coin_counting: "extended",
+  ach_origination: "extended",
+  ach_return: "extended",
+  rush_card: "extended",
+  late_payment: "extended",
+
+  // Comprehensive (19) — rarely benchmarked, often free, or niche
+  od_daily_cap: "comprehensive",
+  nsf_daily_cap: "comprehensive",
+  od_line_of_credit: "comprehensive",
+  counter_check: "comprehensive",
+  check_cashing: "comprehensive",
+  check_image: "comprehensive",
+  bill_pay: "comprehensive",
+  mobile_deposit: "comprehensive",
+  zelle_fee: "comprehensive",
+  cash_advance: "comprehensive",
+  night_deposit: "comprehensive",
+  notary_fee: "comprehensive",
+  legal_process: "comprehensive",
+  account_verification: "comprehensive",
+  balance_inquiry: "comprehensive",
+  estatement_fee: "comprehensive",
+  loan_origination: "comprehensive",
+  appraisal_fee: "comprehensive",
+  card_dispute: "comprehensive",
+};
+
+const FEATURED_TIERS: Set<FeeTier> = new Set(["spotlight", "core"]);
+
+export function getFeeTier(category: string): FeeTier {
+  return FEE_TIERS[category] ?? "comprehensive";
+}
+
+export function isFeaturedFee(category: string): boolean {
+  return FEATURED_TIERS.has(getFeeTier(category));
+}
+
+export function getFeaturedCategories(): string[] {
+  return Object.entries(FEE_TIERS)
+    .filter(([, tier]) => FEATURED_TIERS.has(tier))
+    .map(([cat]) => cat);
+}
+
+export function getSpotlightCategories(): string[] {
+  return Object.entries(FEE_TIERS)
+    .filter(([, tier]) => tier === "spotlight")
+    .map(([cat]) => cat);
+}
+
+/** Total number of categories in the taxonomy. */
+export const TAXONOMY_COUNT = Object.values(FEE_FAMILIES).flat().length;
+export const FEATURED_COUNT = getFeaturedCategories().length;

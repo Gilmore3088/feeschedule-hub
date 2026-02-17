@@ -30,7 +30,7 @@ export function CrawlStatusStrip({ health }: CrawlStatusStripProps) {
   const confStatus = getHealthStatus(health.avg_confidence);
 
   return (
-    <div className="rounded-lg border bg-white px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+    <div className="admin-card px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
       <div className="flex items-center gap-2">
         <StatusDot status={health.last_run_status === "completed" ? "green" : "amber"} />
         <span className="text-gray-500">Last crawl</span>

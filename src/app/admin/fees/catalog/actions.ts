@@ -2,7 +2,7 @@
 
 import { requireAuth } from "@/lib/auth";
 import { getFeeCategorySummaries } from "@/lib/crawler-db";
-import { getDisplayName, getFeeFamily } from "@/lib/fee-taxonomy";
+import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 
 export async function exportCatalogCsv(): Promise<string> {
   await requireAuth("view");
@@ -12,6 +12,7 @@ export async function exportCatalogCsv(): Promise<string> {
   const headers = [
     "Fee Category",
     "Family",
+    "Tier",
     "Institutions",
     "Min",
     "P25",
@@ -32,6 +33,7 @@ export async function exportCatalogCsv(): Promise<string> {
     return [
       getDisplayName(s.fee_category),
       getFeeFamily(s.fee_category) ?? "Other",
+      getFeeTier(s.fee_category),
       s.institution_count,
       s.min_amount?.toFixed(2) ?? "",
       s.p25_amount?.toFixed(2) ?? "",

@@ -9,6 +9,8 @@ import {
   getDisplayName,
   getFeeFamily,
   getFamilyColor,
+  isFeaturedFee,
+  getFeeTier,
 } from "@/lib/fee-taxonomy";
 import { CollapsibleSection } from "@/components/collapsible-section";
 import { CatalogFilters } from "@/components/catalog-filters";
@@ -71,6 +73,11 @@ function FamilyTable({
                   >
                     {getDisplayName(item.fee_category)}
                   </Link>
+                  {!isFeaturedFee(item.fee_category) && (
+                    <span className="ml-1.5 text-[9px] text-gray-300 uppercase">
+                      {getFeeTier(item.fee_category)}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900">
                   {item.institution_count}
@@ -153,6 +160,7 @@ export default async function FeeCatalogPage({
     family?: string;
     sort?: string;
     columns?: string;
+    show?: string;
   }>;
 }) {
   await requireAuth("view");
@@ -162,15 +170,22 @@ export default async function FeeCatalogPage({
   const activeFamily = params.family ?? "";
   const sortKey = params.sort ?? "institution_count";
   const showAllColumns = params.columns === "full";
+  const showAll = params.show === "all";
 
   let summaries = getFeeCategorySummaries();
 
+  // Search always searches all categories
   if (searchTerm) {
     summaries = summaries.filter((s) =>
       getDisplayName(s.fee_category)
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
     );
+  }
+
+  // Apply tier filter: default to featured only, unless searching or show=all
+  if (!showAll && !searchTerm) {
+    summaries = summaries.filter((s) => isFeaturedFee(s.fee_category));
   }
 
   if (sortKey === "median_amount") {

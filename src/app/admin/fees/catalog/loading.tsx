@@ -1,29 +1,42 @@
+import { Skeleton } from "@/components/skeleton";
+
 export default function Loading() {
   return (
-    <div className="animate-pulse">
-      <div className="mb-6">
-        <div className="h-3 w-32 bg-gray-200 rounded mb-2" />
-        <div className="h-6 w-48 bg-gray-200 rounded" />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-6 w-48" />
       </div>
-      <div className="grid grid-cols-3 gap-4 mb-6">
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-lg border bg-white px-4 py-3">
-            <div className="h-3 w-20 bg-gray-200 rounded" />
-            <div className="h-5 w-32 bg-gray-200 rounded mt-2" />
+          <div key={i} className="admin-card px-4 py-3 space-y-2">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-5 w-32" />
           </div>
         ))}
       </div>
-      <div className="h-10 w-full bg-gray-200 rounded mb-4" />
+
+      {/* Search bar */}
+      <Skeleton className="h-10 w-full" />
+
+      {/* Category families */}
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="bg-white rounded-lg border mb-4">
-          <div className="px-6 py-3 border-b bg-gray-50">
-            <div className="h-4 w-32 bg-gray-200 rounded" />
+        <div key={i} className="admin-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-white/[0.04] bg-gray-50/80 dark:bg-white/[0.03]">
+            <Skeleton className="h-4 w-32" />
           </div>
-          {Array.from({ length: 3 }).map((_, j) => (
-            <div key={j} className="px-6 py-3 border-b last:border-0">
-              <div className="h-4 w-full bg-gray-100 rounded" />
-            </div>
-          ))}
+          <div className="divide-y divide-gray-100 dark:divide-white/[0.04]">
+            {Array.from({ length: 3 }).map((_, j) => (
+              <div key={j} className="flex items-center gap-4 px-4 py-2.5">
+                <Skeleton className="h-3.5 w-36" />
+                <Skeleton className="h-3.5 w-16 ml-auto" />
+                <Skeleton className="h-3.5 w-16" />
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>

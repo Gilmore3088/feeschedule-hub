@@ -18,7 +18,7 @@ export function ReviewQueueHero({ stats, stuck, isAdmin }: ReviewQueueHeroProps)
   const rejectedPct = total > 0 ? (stats.rejected / total) * 100 : 0;
 
   return (
-    <div className="rounded-lg border bg-white">
+    <div className="admin-card">
       <div className="px-5 py-4">
         <div className="flex items-start justify-between">
           <div>
@@ -51,7 +51,7 @@ export function ReviewQueueHero({ stats, stuck, isAdmin }: ReviewQueueHeroProps)
 
         {/* Segmented progress bar */}
         <div className="mt-4">
-          <div className="w-full bg-gray-100 rounded-full h-2.5 flex overflow-hidden">
+          <div className="w-full bg-gray-100 dark:bg-white/[0.06] rounded-full h-2.5 flex overflow-hidden">
             {approvedPct > 0 && (
               <div
                 className="bg-emerald-500 h-full transition-all"
