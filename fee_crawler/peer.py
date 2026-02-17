@@ -17,9 +17,9 @@ STATE_TO_FED_DISTRICT: dict[str, int] = {
     # District 3 - Philadelphia
     "PA": 3, "DE": 3,
     # District 4 - Cleveland
-    "OH": 4, "WV": 4, "KY": 4,
+    "OH": 4, "KY": 4,
     # District 5 - Richmond
-    "VA": 5, "MD": 5, "DC": 5, "NC": 5, "SC": 5,
+    "VA": 5, "MD": 5, "DC": 5, "NC": 5, "SC": 5, "WV": 5,
     # District 6 - Atlanta
     "GA": 6, "FL": 6, "AL": 6, "TN": 6, "MS": 6, "LA": 6,
     # District 7 - Chicago
@@ -31,9 +31,9 @@ STATE_TO_FED_DISTRICT: dict[str, int] = {
     # District 10 - Kansas City
     "KS": 10, "NE": 10, "OK": 10, "CO": 10, "WY": 10, "NM": 10,
     # District 11 - Dallas
-    "TX": 11, "AZ": 11,
+    "TX": 11,
     # District 12 - San Francisco
-    "CA": 12, "WA": 12, "OR": 12, "NV": 12, "UT": 12, "ID": 12,
+    "CA": 12, "WA": 12, "OR": 12, "NV": 12, "UT": 12, "ID": 12, "AZ": 12,
     "HI": 12, "AK": 12, "GU": 12, "AS": 12,
 }
 

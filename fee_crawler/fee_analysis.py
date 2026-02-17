@@ -31,6 +31,8 @@ FEE_FAMILIES: dict[str, list[str]] = {
         "continuous_od",
         "od_protection_transfer",
         "od_line_of_credit",
+        "od_daily_cap",
+        "nsf_daily_cap",
     ],
     "ATM & Card": [
         "atm_non_network",
@@ -93,24 +95,48 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "maintenance fee": "monthly_maintenance",
     "account maintenance fee": "monthly_maintenance",
     "service charge": "monthly_maintenance",
+    "membership fee": "monthly_maintenance",
     "minimum balance fee": "minimum_balance",
     "below minimum balance fee": "minimum_balance",
     "minimum daily balance fee": "minimum_balance",
     "early account closure fee": "early_closure",
     "early closing fee": "early_closure",
     "account closing fee": "early_closure",
+    "account closing": "early_closure",
+    "early closure fee": "early_closure",
+    "account closure": "early_closure",
+    "account closure fee": "early_closure",
     "dormant account fee": "dormant_account",
+    "dormant account": "dormant_account",
     "inactive account fee": "dormant_account",
+    "inactive account": "dormant_account",
     "inactivity fee": "dormant_account",
+    "escheatment fee": "dormant_account",
+    "escheat fee": "dormant_account",
     "account research fee": "account_research",
     "research fee": "account_research",
     "account research": "account_research",
+    "research": "account_research",
+    "account reconciliation": "account_research",
+    "account activity printout": "account_research",
+    "account history printout": "account_research",
+    "account history": "account_research",
     "paper statement fee": "paper_statement",
     "statement fee": "paper_statement",
     "printed statement fee": "paper_statement",
     "statement copy fee": "paper_statement",
+    "statement copy": "paper_statement",
+    "statement copies": "paper_statement",
+    "copy of statement": "paper_statement",
     "electronic statement fee": "estatement_fee",
     "e-statement fee": "estatement_fee",
+    "estatements": "estatement_fee",
+    "duplicate statement": "paper_statement",
+    "paper statements": "paper_statement",
+    "statement reprint": "paper_statement",
+    "statement reprints": "paper_statement",
+    "reprint statement": "paper_statement",
+    "copies": "check_image",
     # --- Overdraft & NSF ---
     "overdraft fee": "overdraft",
     "od fee": "overdraft",
@@ -118,19 +144,48 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "overdraft item fee": "overdraft",
     "paid overdraft fee": "overdraft",
     "overdraft privilege fee": "overdraft",
+    "courtesy pay": "overdraft",
+    "courtesy pay fee": "overdraft",
+    "courtesy pay item": "overdraft",
+    "negative balance fee": "overdraft",
+    "overdraft/courtesy pay": "overdraft",
     "nsf fee": "nsf",
     "non-sufficient funds fee": "nsf",
     "non sufficient funds": "nsf",
+    "nonsufficient funds": "nsf",
     "insufficient funds fee": "nsf",
+    "insufficient funds": "nsf",
     "returned item fee": "nsf",
+    "returned item": "nsf",
     "returned check fee": "nsf",
-    "returned deposit item": "nsf",
+    "returned check": "nsf",
+    "nsf/returned item": "nsf",
+    "daily nsf fee": "nsf",
+    "nsf returned item fee": "nsf",
     "continuous overdraft fee": "continuous_od",
+    "continuous overdraft charge": "continuous_od",
+    "continuous overdraft": "continuous_od",
+    "continuous od charge": "continuous_od",
+    "continuous od fee": "continuous_od",
+    "continuous negative balance fee": "continuous_od",
     "sustained overdraft fee": "continuous_od",
+    "sustained overdraft charge": "continuous_od",
+    "sustained od fee": "continuous_od",
     "extended overdraft fee": "continuous_od",
+    "extended overdraft charge": "continuous_od",
     "daily overdraft fee": "continuous_od",
+    "daily overdraft charge": "continuous_od",
+    "daily negative balance fee": "continuous_od",
+    "daily continuous overdraft": "continuous_od",
+    "recurring overdraft fee": "continuous_od",
+    "continuous od": "continuous_od",
+    "continuous od overdraft": "continuous_od",
+    "overdraft fee daily": "continuous_od",
+    "daily fee for negative balance": "continuous_od",
     "overdraft protection transfer fee": "od_protection_transfer",
     "overdraft transfer fee": "od_protection_transfer",
+    "overdraft transfer": "od_protection_transfer",
+    "overdraft protection transfer": "od_protection_transfer",
     "od transfer fee": "od_protection_transfer",
     "overdraft line of credit fee": "od_line_of_credit",
     "od loc fee": "od_line_of_credit",
@@ -141,17 +196,32 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "atm fee non-network": "atm_non_network",
     "atm surcharge": "atm_non_network",
     "atm withdrawal fee": "atm_non_network",
+    "atm fee": "atm_non_network",
+    "non-network atm": "atm_non_network",
     "international atm fee": "atm_international",
     "atm international withdrawal": "atm_international",
     "debit card replacement fee": "card_replacement",
     "card replacement fee": "card_replacement",
     "replacement card fee": "card_replacement",
+    "debit card replacement": "card_replacement",
+    "card replacement": "card_replacement",
+    "replacement card": "card_replacement",
+    "replacement debit card": "card_replacement",
+    "lost card replacement": "card_replacement",
     "rush card fee": "rush_card",
     "expedited card fee": "rush_card",
     "rush delivery fee": "rush_card",
+    "rush replacement card": "rush_card",
+    "expedited card delivery": "rush_card",
+    "emergency card replacement fee": "rush_card",
+    "emergency card replacement": "rush_card",
+    "emergency replacement card": "rush_card",
+    "emergency replacement": "rush_card",
     "foreign transaction fee": "card_foreign_txn",
     "international transaction fee": "card_foreign_txn",
     "international purchase transaction fee": "card_foreign_txn",
+    "cross border fee": "card_foreign_txn",
+    "currency conversion fee": "card_foreign_txn",
     "debit card dispute fee": "card_dispute",
     "chargeback fee": "card_dispute",
     # --- Wire Transfers ---
@@ -159,40 +229,80 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "outgoing domestic wire": "wire_domestic_outgoing",
     "wire transfer domestic outgoing": "wire_domestic_outgoing",
     "outgoing wire transfer": "wire_domestic_outgoing",
+    "outgoing wire": "wire_domestic_outgoing",
     "domestic wire out": "wire_domestic_outgoing",
+    "wire transfer outgoing": "wire_domestic_outgoing",
+    "wire transfer  outgoing": "wire_domestic_outgoing",
     "domestic wire transfer incoming": "wire_domestic_incoming",
     "incoming domestic wire": "wire_domestic_incoming",
     "incoming wire transfer": "wire_domestic_incoming",
+    "incoming wire": "wire_domestic_incoming",
     "domestic wire in": "wire_domestic_incoming",
+    "wire transfer incoming": "wire_domestic_incoming",
+    "wire transfer  incoming": "wire_domestic_incoming",
     "international wire transfer outgoing": "wire_intl_outgoing",
     "outgoing international wire": "wire_intl_outgoing",
     "international wire out": "wire_intl_outgoing",
+    "international wire": "wire_intl_outgoing",
     "international wire transfer incoming": "wire_intl_incoming",
     "incoming international wire": "wire_intl_incoming",
     "international wire in": "wire_intl_incoming",
+    "wire transfers incoming": "wire_domestic_incoming",
+    "wire transfers  incoming": "wire_domestic_incoming",
+    "wire transfers outgoing": "wire_domestic_outgoing",
+    "wire transfers  outgoing": "wire_domestic_outgoing",
+    "wire transfer domestic incoming": "wire_domestic_incoming",
+    "wire transfer domestic outgoing": "wire_domestic_outgoing",
+    "wire transfer domestic": "wire_domestic_outgoing",
+    "domestic wire transfer": "wire_domestic_outgoing",
+    "wire transfer": "wire_domestic_outgoing",
+    "wire transfer international": "wire_intl_outgoing",
+    "international wire transfer": "wire_intl_outgoing",
     # --- Check Services ---
     "cashiers check fee": "cashiers_check",
     "cashiers check": "cashiers_check",
+    "cashiers checks": "cashiers_check",
     "official check fee": "cashiers_check",
+    "official check": "cashiers_check",
     "bank check fee": "cashiers_check",
+    "bank check": "cashiers_check",
     "treasurers check fee": "cashiers_check",
+    "treasurers check": "cashiers_check",
+    "certified check": "cashiers_check",
+    "certified check fee": "cashiers_check",
     "money order fee": "money_order",
     "money order": "money_order",
+    "money orders": "money_order",
     "check printing": "check_printing",
     "check order fee": "check_printing",
+    "check order": "check_printing",
+    "check orders": "check_printing",
     "personal checks": "check_printing",
     "check reorder fee": "check_printing",
+    "check reorder": "check_printing",
+    "share draft printing": "check_printing",
+    "share drafts": "check_printing",
     "stop payment fee": "stop_payment",
     "stop payment": "stop_payment",
     "stop payment order": "stop_payment",
+    "stop payments": "stop_payment",
     "counter check fee": "counter_check",
     "temporary check fee": "counter_check",
     "counter checks": "counter_check",
+    "temporary checks": "counter_check",
+    "temporary check": "counter_check",
+    "starter checks": "counter_check",
     "check cashing fee": "check_cashing",
+    "check cashing": "check_cashing",
     "non-customer check cashing": "check_cashing",
     "check image fee": "check_image",
     "check copy fee": "check_image",
+    "check copy": "check_image",
+    "check copies": "check_image",
     "copy of check": "check_image",
+    "photocopies": "check_image",
+    "photocopy": "check_image",
+    "paid check copy": "check_image",
     # --- Digital & Electronic ---
     "ach origination fee": "ach_origination",
     "ach transfer fee": "ach_origination",
@@ -202,7 +312,9 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "ach returned item": "ach_return",
     "bill pay fee": "bill_pay",
     "online bill pay fee": "bill_pay",
+    "online bill pay": "bill_pay",
     "bill payment fee": "bill_pay",
+    "bill payment": "bill_pay",
     "mobile deposit fee": "mobile_deposit",
     "remote deposit fee": "mobile_deposit",
     "zelle fee": "zelle_fee",
@@ -210,26 +322,53 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "coin counting fee": "coin_counting",
     "coin machine fee": "coin_counting",
     "coin wrapping fee": "coin_counting",
+    "coin counter fee": "coin_counting",
+    "coin machine": "coin_counting",
     "cash advance fee": "cash_advance",
     "deposited item return fee": "deposited_item_return",
     "deposited item returned": "deposited_item_return",
+    "returned deposited item": "deposited_item_return",
+    "returned deposit item": "deposited_item_return",
     "cashed check return fee": "deposited_item_return",
+    "collection item": "deposited_item_return",
+    "collection items": "deposited_item_return",
+    "return deposit item": "deposited_item_return",
+    "return item fee": "nsf",
     "night deposit fee": "night_deposit",
     "night depository fee": "night_deposit",
+    "night drop fee": "night_deposit",
     # --- Account Services ---
     "notary fee": "notary_fee",
     "notary service": "notary_fee",
+    "notary": "notary_fee",
+    "notary services": "notary_fee",
     "safe deposit box": "safe_deposit_box",
     "safe deposit box fee": "safe_deposit_box",
     "safety deposit box": "safe_deposit_box",
+    "safe deposit": "safe_deposit_box",
+    "safe deposit box rental": "safe_deposit_box",
     "garnishment fee": "garnishment_levy",
+    "garnishment": "garnishment_levy",
+    "garnishment/levy": "garnishment_levy",
     "levy processing fee": "garnishment_levy",
+    "levy fee": "garnishment_levy",
+    "levies": "garnishment_levy",
+    "processing garnishments or levies": "garnishment_levy",
     "legal process fee": "legal_process",
+    "legal processing": "legal_process",
+    "legal process": "legal_process",
     "subpoena processing fee": "legal_process",
+    "subpoena fee": "legal_process",
+    "legal fee": "legal_process",
     "account verification fee": "account_verification",
+    "account verification": "account_verification",
     "verification of deposit": "account_verification",
+    "deposit verification": "account_verification",
     "balance inquiry fee": "balance_inquiry",
     "teller balance inquiry": "balance_inquiry",
+    "balance inquiry": "balance_inquiry",
+    "signature guarantee": "account_verification",
+    "signature guarantees": "account_verification",
     # --- Lending Fees ---
     "late payment fee": "late_payment",
     "late fee": "late_payment",
@@ -253,6 +392,8 @@ CANONICAL_DISPLAY_NAMES: dict[str, str] = {
     "continuous_od": "Continuous Overdraft",
     "od_protection_transfer": "OD Protection Transfer",
     "od_line_of_credit": "OD Line of Credit",
+    "od_daily_cap": "OD Daily Fee Cap",
+    "nsf_daily_cap": "NSF Daily Fee Cap",
     # ATM & Card
     "atm_non_network": "Non-Network ATM",
     "atm_international": "International ATM",
@@ -306,6 +447,87 @@ def get_fee_family(canonical: str) -> str | None:
     return None
 
 
+def _detect_cap_category(cleaned_name: str) -> str | None:
+    """Classify fee cap/limit entries into cap categories.
+
+    Returns 'od_daily_cap', 'nsf_daily_cap', or None if not a cap entry.
+    """
+    # Skip item-count limits ("max 4 per day") — amount is per-item fee, not cap
+    if re.search(r"\b(max|maximum|limit)\s+\d+\b", cleaned_name):
+        return None
+
+    # Skip "no daily limit" / "no limit" — explicitly says there is NO cap
+    if re.search(r"\bno\s+(daily\s+)?limit\b", cleaned_name):
+        return None
+
+    # Skip coverage/credit limits (not fee caps)
+    if any(w in cleaned_name for w in (
+        "access", "credit limit", "overlimit", "over limit", "over the limit",
+    )):
+        return None
+
+    is_cap = False
+
+    # "fee cap", "overdraft fee cap", etc. (but not "capture")
+    if re.search(r"\bcap\b", cleaned_name) and "capture" not in cleaned_name:
+        is_cap = True
+    # "maximum" or "max" combined with "daily" or "per day"
+    elif re.search(r"\b(maximum|max)\b", cleaned_name) and re.search(
+        r"\b(daily|per day)\b", cleaned_name
+    ):
+        is_cap = True
+    # "daily limit" or "[fee-type] limit"
+    elif re.search(
+        r"\b(daily|overdraft|nsf|od|courtesy|bounce)\b.*\blimit\b", cleaned_name
+    ):
+        is_cap = True
+    # "daily maximum"
+    elif "daily maximum" in cleaned_name:
+        is_cap = True
+    # "maximum charge per day"
+    elif "maximum charge" in cleaned_name or "max charge" in cleaned_name:
+        is_cap = True
+    # "Maximum [fee-type]" at start — e.g. "Maximum overdraft/NSF fee"
+    elif re.search(r"^(maximum|max)\b", cleaned_name) and re.search(
+        r"\b(overdraft|nsf|od|fee|item|charge)\b", cleaned_name
+    ):
+        is_cap = True
+
+    if not is_cap:
+        return None
+
+    # Must relate to OD/NSF fees — skip transaction/withdrawal/deposit limits
+    # Note: punctuation stripping joins words (e.g. "overdraft/nsf" → "overdraftnsf")
+    # so we relax leading word boundaries for compound terms
+    has_nsf = bool(re.search(
+        r"(nsf|nonsufficient|insufficient|returned item|returned check)",
+        cleaned_name,
+    ))
+    has_od = bool(re.search(
+        r"(overdraft|\bod\b|courtesy|bounce|paid item)", cleaned_name
+    ))
+
+    if not has_nsf and not has_od:
+        return None  # transaction/withdrawal/deposit limit, not a fee cap
+
+    if has_nsf and not has_od:
+        return "nsf_daily_cap"
+    return "od_daily_cap"
+
+
+# Pre-sorted alias list: longest aliases first so specific matches win
+_SORTED_ALIASES: list[tuple[str, str]] | None = None
+
+
+def _get_sorted_aliases() -> list[tuple[str, str]]:
+    global _SORTED_ALIASES
+    if _SORTED_ALIASES is None:
+        _SORTED_ALIASES = sorted(
+            FEE_NAME_ALIASES.items(), key=lambda x: -len(x[0])
+        )
+    return _SORTED_ALIASES
+
+
 def normalize_fee_name(raw_name: str) -> str:
     """Map a raw fee name to its canonical form.
 
@@ -315,12 +537,25 @@ def normalize_fee_name(raw_name: str) -> str:
     cleaned = re.sub(r"[^\w\s]", "", raw_name.lower()).strip()
     cleaned = re.sub(r"\s+", " ", cleaned)
 
+    # Detect fee caps/limits — route to dedicated cap categories
+    cap_category = _detect_cap_category(cleaned)
+    if cap_category:
+        return cap_category
+
+    # Force international/foreign wire classification before alias matching
+    # (aliases can't reliably handle all word-order variations)
+    if ("international" in cleaned or "foreign" in cleaned) and "wire" in cleaned:
+        if "incoming" in cleaned:
+            return "wire_intl_incoming"
+        return "wire_intl_outgoing"
+
     # Direct alias match
     if cleaned in FEE_NAME_ALIASES:
         return FEE_NAME_ALIASES[cleaned]
 
     # Fuzzy: check if any alias is contained in the cleaned name
-    for alias, canonical in FEE_NAME_ALIASES.items():
+    # Sorted longest-first so "continuous overdraft fee" matches before "overdraft fee"
+    for alias, canonical in _get_sorted_aliases():
         if alias in cleaned:
             return canonical
 
