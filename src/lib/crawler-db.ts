@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import path from "path";
+import { getFeeFamily } from "@/lib/fee-taxonomy";
 
 const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
 
@@ -172,8 +173,8 @@ export function getAllFees(): ExtractedFee[] {
 
 export function getInstitutionsByFilter(filters: {
   charter_type?: string;
-  asset_tier?: string;
-  fed_district?: number;
+  asset_tiers?: string[];
+  fed_districts?: number[];
   state_code?: string;
 }): InstitutionDetail[] {
   const db = getDb();
@@ -185,13 +186,15 @@ export function getInstitutionsByFilter(filters: {
       conditions.push("ct.charter_type = ?");
       params.push(filters.charter_type);
     }
-    if (filters.asset_tier) {
-      conditions.push("ct.asset_size_tier = ?");
-      params.push(filters.asset_tier);
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
     }
-    if (filters.fed_district) {
-      conditions.push("ct.fed_district = ?");
-      params.push(filters.fed_district);
+    if (filters.fed_districts && filters.fed_districts.length > 0) {
+      const placeholders = filters.fed_districts.map(() => "?").join(",");
+      conditions.push(`ct.fed_district IN (${placeholders})`);
+      params.push(...filters.fed_districts);
     }
     if (filters.state_code) {
       conditions.push("ct.state_code = ?");
@@ -900,7 +903,7 @@ export interface DistrictMetric {
 
 export function getDistrictMetrics(filters?: {
   charter_type?: string;
-  asset_tier?: string;
+  asset_tiers?: string[];
 }): DistrictMetric[] {
   const db = getDb();
   try {
@@ -911,9 +914,10 @@ export function getDistrictMetrics(filters?: {
       conditions.push("ct.charter_type = ?");
       params.push(filters.charter_type);
     }
-    if (filters?.asset_tier) {
-      conditions.push("ct.asset_size_tier = ?");
-      params.push(filters.asset_tier);
+    if (filters?.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
     }
 
     const where = conditions.join(" AND ");
@@ -977,7 +981,7 @@ export interface PeerFilteredStats {
 
 export function getPeerFilteredStats(filters: {
   charter_type?: string;
-  asset_tier?: string;
+  asset_tiers?: string[];
   fed_districts?: number[];
 }): PeerFilteredStats {
   const db = getDb();
@@ -989,9 +993,10 @@ export function getPeerFilteredStats(filters: {
       conditions.push("ct.charter_type = ?");
       params.push(filters.charter_type);
     }
-    if (filters.asset_tier) {
-      conditions.push("ct.asset_size_tier = ?");
-      params.push(filters.asset_tier);
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
     }
     if (filters.fed_districts && filters.fed_districts.length > 0) {
       const placeholders = filters.fed_districts.map(() => "?").join(",");
@@ -1059,7 +1064,7 @@ export interface VolatileCategory {
 export function getVolatileCategories(
   filters?: {
     charter_type?: string;
-    asset_tier?: string;
+    asset_tiers?: string[];
     fed_districts?: number[];
   },
   limit = 10
@@ -1073,9 +1078,10 @@ export function getVolatileCategories(
       conditions.push("ct.charter_type = ?");
       params.push(filters.charter_type);
     }
-    if (filters?.asset_tier) {
-      conditions.push("ct.asset_size_tier = ?");
-      params.push(filters.asset_tier);
+    if (filters?.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
     }
     if (filters?.fed_districts && filters.fed_districts.length > 0) {
       const placeholders = filters.fed_districts.map(() => "?").join(",");
@@ -1182,7 +1188,7 @@ export interface RiskOutlierData {
 
 export function getRiskOutliers(filters?: {
   charter_type?: string;
-  asset_tier?: string;
+  asset_tiers?: string[];
   fed_districts?: number[];
 }): RiskOutlierData {
   const db = getDb();
@@ -1194,9 +1200,10 @@ export function getRiskOutliers(filters?: {
       conditions.push("ct.charter_type = ?");
       params.push(filters.charter_type);
     }
-    if (filters?.asset_tier) {
-      conditions.push("ct.asset_size_tier = ?");
-      params.push(filters.asset_tier);
+    if (filters?.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
     }
     if (filters?.fed_districts && filters.fed_districts.length > 0) {
       const placeholders = filters.fed_districts.map(() => "?").join(",");
@@ -1342,7 +1349,7 @@ export interface RecentCrawlResult {
 export function getRecentCrawlActivity(
   filters?: {
     charter_type?: string;
-    asset_tier?: string;
+    asset_tiers?: string[];
     fed_districts?: number[];
   },
   limit = 20
@@ -1356,9 +1363,10 @@ export function getRecentCrawlActivity(
       conditions.push("ct.charter_type = ?");
       params.push(filters.charter_type);
     }
-    if (filters?.asset_tier) {
-      conditions.push("ct.asset_size_tier = ?");
-      params.push(filters.asset_tier);
+    if (filters?.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
     }
     if (filters?.fed_districts && filters.fed_districts.length > 0) {
       const placeholders = filters.fed_districts.map(() => "?").join(",");
@@ -1418,6 +1426,1027 @@ export function getRecentReviews(limit = 15): RecentReviewAction[] {
          LIMIT ?`
       )
       .all(limit) as RecentReviewAction[];
+  } finally {
+    db.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Peer segmentation queries
+// ---------------------------------------------------------------------------
+
+export interface PeerTopCategory {
+  fee_category: string;
+  institution_count: number;
+  median_amount: number | null;
+  fee_family: string | null;
+}
+
+export function getTopCategoriesForPeerSet(
+  filters: { charter_type?: string; asset_tiers?: string[]; fed_districts?: number[] },
+  limit = 5
+): PeerTopCategory[] {
+  const db = getDb();
+  try {
+    const conditions = ["ef.fee_category IS NOT NULL"];
+    const params: (string | number)[] = [];
+
+    if (filters.charter_type) {
+      conditions.push("ct.charter_type = ?");
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
+    }
+    if (filters.fed_districts && filters.fed_districts.length > 0) {
+      const placeholders = filters.fed_districts.map(() => "?").join(",");
+      conditions.push(`ct.fed_district IN (${placeholders})`);
+      params.push(...filters.fed_districts);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const rows = db
+      .prepare(
+        `SELECT ef.fee_category, ef.amount, ef.crawl_target_id
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ${where}`
+      )
+      .all(...params) as {
+      fee_category: string;
+      amount: number | null;
+      crawl_target_id: number;
+    }[];
+
+    const grouped = new Map<string, { amounts: number[]; institutions: Set<number> }>();
+    for (const row of rows) {
+      if (!grouped.has(row.fee_category)) {
+        grouped.set(row.fee_category, { amounts: [], institutions: new Set() });
+      }
+      const entry = grouped.get(row.fee_category)!;
+      entry.institutions.add(row.crawl_target_id);
+      if (row.amount !== null && row.amount > 0) {
+        entry.amounts.push(row.amount);
+      }
+    }
+
+    const results: PeerTopCategory[] = [];
+    for (const [category, data] of grouped.entries()) {
+      const sorted = [...data.amounts].sort((a, b) => a - b);
+      const median = sorted.length > 0
+        ? Math.round(computePercentile(sorted, 50) * 100) / 100
+        : null;
+      results.push({
+        fee_category: category,
+        institution_count: data.institutions.size,
+        median_amount: median,
+        fee_family: null,
+      });
+    }
+
+    results.sort((a, b) => b.institution_count - a.institution_count);
+    return results.slice(0, limit);
+  } finally {
+    db.close();
+  }
+}
+
+export interface PeerPreviewStats extends PeerFilteredStats {
+  fee_url_pct: number;
+  flagged_count: number;
+  flag_rate: number;
+  avg_confidence: number;
+}
+
+export function getPeerPreviewStats(filters: {
+  charter_type?: string;
+  asset_tiers?: string[];
+  fed_districts?: number[];
+}): PeerPreviewStats {
+  const db = getDb();
+  try {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (filters.charter_type) {
+      conditions.push("ct.charter_type = ?");
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
+    }
+    if (filters.fed_districts && filters.fed_districts.length > 0) {
+      const placeholders = filters.fed_districts.map(() => "?").join(",");
+      conditions.push(`ct.fed_district IN (${placeholders})`);
+      params.push(...filters.fed_districts);
+    }
+
+    const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) as total,
+                SUM(CASE WHEN ct.website_url IS NOT NULL THEN 1 ELSE 0 END) as with_website,
+                SUM(CASE WHEN ct.fee_schedule_url IS NOT NULL THEN 1 ELSE 0 END) as with_fee_url,
+                SUM(CASE WHEN ct.charter_type = 'bank' THEN 1 ELSE 0 END) as banks,
+                SUM(CASE WHEN ct.charter_type = 'credit_union' THEN 1 ELSE 0 END) as credit_unions
+         FROM crawl_targets ct
+         ${where}`
+      )
+      .get(...params) as {
+      total: number;
+      with_website: number;
+      with_fee_url: number;
+      banks: number;
+      credit_unions: number;
+    };
+
+    const feeRow = db
+      .prepare(
+        `SELECT COUNT(*) as cnt,
+                SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+                AVG(ef.extraction_confidence) as avg_conf
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         ${where}`
+      )
+      .get(...params) as { cnt: number; flagged: number; avg_conf: number | null };
+
+    const total = row.total || 0;
+    const totalFees = feeRow.cnt || 0;
+    const flagged = feeRow.flagged || 0;
+
+    return {
+      total_institutions: total,
+      with_website: row.with_website || 0,
+      with_fee_url: row.with_fee_url || 0,
+      total_fees: totalFees,
+      banks: row.banks || 0,
+      credit_unions: row.credit_unions || 0,
+      fee_url_pct: total > 0 ? (row.with_fee_url || 0) / total : 0,
+      flagged_count: flagged,
+      flag_rate: totalFees > 0 ? flagged / totalFees : 0,
+      avg_confidence: feeRow.avg_conf ?? 0,
+    };
+  } finally {
+    db.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Saved peer sets
+// ---------------------------------------------------------------------------
+
+export interface SavedPeerSet {
+  id: number;
+  name: string;
+  tiers: string | null;
+  districts: string | null;
+  charter_type: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export function ensureSavedPeerSetsTable(): void {
+  const dbPath = path.join(process.cwd(), "data", "crawler.db");
+  const db = new Database(dbPath);
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS saved_peer_sets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        tiers TEXT,
+        districts TEXT,
+        charter_type TEXT,
+        created_by TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } finally {
+    db.close();
+  }
+}
+
+export function getSavedPeerSets(userId: string): SavedPeerSet[] {
+  ensureSavedPeerSetsTable();
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT id, name, tiers, districts, charter_type, created_by, created_at
+         FROM saved_peer_sets
+         WHERE created_by = ?
+         ORDER BY created_at DESC`
+      )
+      .all(userId) as SavedPeerSet[];
+  } finally {
+    db.close();
+  }
+}
+
+export function savePeerSet(
+  name: string,
+  filters: { charter_type?: string; asset_tiers?: string[]; fed_districts?: number[] },
+  userId: string
+): number {
+  ensureSavedPeerSetsTable();
+  const dbPath = path.join(process.cwd(), "data", "crawler.db");
+  const db = new Database(dbPath);
+  try {
+    const result = db
+      .prepare(
+        `INSERT INTO saved_peer_sets (name, tiers, districts, charter_type, created_by)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .run(
+        name,
+        filters.asset_tiers?.join(",") ?? null,
+        filters.fed_districts?.join(",") ?? null,
+        filters.charter_type ?? null,
+        userId
+      );
+    return Number(result.lastInsertRowid);
+  } finally {
+    db.close();
+  }
+}
+
+export function deletePeerSet(id: number, userId: string): boolean {
+  ensureSavedPeerSetsTable();
+  const dbPath = path.join(process.cwd(), "data", "crawler.db");
+  const db = new Database(dbPath);
+  try {
+    const result = db
+      .prepare("DELETE FROM saved_peer_sets WHERE id = ? AND created_by = ?")
+      .run(id, userId);
+    return result.changes > 0;
+  } finally {
+    db.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fed district commentary queries
+// ---------------------------------------------------------------------------
+
+export interface BeigeBookSection {
+  id: number;
+  release_date: string;
+  release_code: string;
+  fed_district: number | null;
+  section_name: string;
+  content_text: string;
+  source_url: string;
+}
+
+export function getLatestBeigeBook(district: number): BeigeBookSection[] {
+  const db = getDb();
+  try {
+    const latest = db
+      .prepare(
+        `SELECT release_code FROM fed_beige_book
+         WHERE fed_district = ?
+         ORDER BY release_date DESC
+         LIMIT 1`
+      )
+      .get(district) as { release_code: string } | undefined;
+
+    if (!latest) return [];
+
+    return db
+      .prepare(
+        `SELECT id, release_date, release_code, fed_district, section_name,
+                content_text, source_url
+         FROM fed_beige_book
+         WHERE fed_district = ? AND release_code = ?
+         ORDER BY id`
+      )
+      .all(district, latest.release_code) as BeigeBookSection[];
+  } catch {
+    return [];
+  } finally {
+    db.close();
+  }
+}
+
+export function getBeigeBookEditions(
+  limit = 8
+): { release_code: string; release_date: string }[] {
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT DISTINCT release_code, release_date
+         FROM fed_beige_book
+         ORDER BY release_date DESC
+         LIMIT ?`
+      )
+      .all(limit) as { release_code: string; release_date: string }[];
+  } catch {
+    return [];
+  } finally {
+    db.close();
+  }
+}
+
+export function getBeigeBookHeadline(
+  district: number
+): { text: string; release_date: string } | null {
+  const db = getDb();
+  try {
+    const row = db
+      .prepare(
+        `SELECT content_text, release_date
+         FROM fed_beige_book
+         WHERE fed_district = ? AND section_name = 'Summary of Economic Activity'
+         ORDER BY release_date DESC
+         LIMIT 1`
+      )
+      .get(district) as { content_text: string; release_date: string } | undefined;
+
+    if (!row) return null;
+
+    // Extract first sentence for headline
+    const firstSentence = row.content_text.split(/(?<=[.!?])\s+/)[0] ?? "";
+    const text =
+      firstSentence.length > 80
+        ? firstSentence.slice(0, 77) + "..."
+        : firstSentence;
+
+    return { text, release_date: row.release_date };
+  } catch {
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
+export interface FedContentItem {
+  id: number;
+  content_type: string;
+  title: string;
+  speaker: string | null;
+  fed_district: number | null;
+  source_url: string;
+  published_at: string;
+  description: string | null;
+}
+
+export function getDistrictContent(
+  district: number,
+  limit = 10
+): FedContentItem[] {
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT id, content_type, title, speaker, fed_district, source_url,
+                published_at, description
+         FROM fed_content
+         WHERE fed_district = ?
+         ORDER BY published_at DESC
+         LIMIT ?`
+      )
+      .all(district, limit) as FedContentItem[];
+  } catch {
+    return [];
+  } finally {
+    db.close();
+  }
+}
+
+export function getRecentSpeeches(limit = 10): FedContentItem[] {
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT id, content_type, title, speaker, fed_district, source_url,
+                published_at, description
+         FROM fed_content
+         WHERE content_type IN ('speech', 'testimony')
+         ORDER BY published_at DESC
+         LIMIT ?`
+      )
+      .all(limit) as FedContentItem[];
+  } catch {
+    return [];
+  } finally {
+    db.close();
+  }
+}
+
+export interface EconomicIndicator {
+  series_id: string;
+  series_title: string | null;
+  observation_date: string;
+  value: number | null;
+  units: string | null;
+}
+
+export function getDistrictIndicators(
+  district: number
+): EconomicIndicator[] {
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT series_id, series_title, observation_date, value, units
+         FROM fed_economic_indicators
+         WHERE fed_district = ? OR fed_district IS NULL
+         ORDER BY series_id, observation_date DESC`
+      )
+      .all(district) as EconomicIndicator[];
+  } catch {
+    return [];
+  } finally {
+    db.close();
+  }
+}
+
+export function getBeigeBookHeadlines(): Map<number, { text: string; release_date: string }> {
+  const db = getDb();
+  try {
+    const rows = db
+      .prepare(
+        `SELECT fed_district, content_text, release_date
+         FROM fed_beige_book bb1
+         WHERE section_name = 'Summary of Economic Activity'
+           AND fed_district IS NOT NULL
+           AND release_date = (
+             SELECT MAX(bb2.release_date)
+             FROM fed_beige_book bb2
+             WHERE bb2.fed_district = bb1.fed_district
+           )`
+      )
+      .all() as { fed_district: number; content_text: string; release_date: string }[];
+
+    const map = new Map<number, { text: string; release_date: string }>();
+    for (const row of rows) {
+      const firstSentence = row.content_text.split(/(?<=[.!?])\s+/)[0] ?? "";
+      const text =
+        firstSentence.length > 80
+          ? firstSentence.slice(0, 77) + "..."
+          : firstSentence;
+      map.set(row.fed_district, { text, release_date: row.release_date });
+    }
+    return map;
+  } catch {
+    return new Map();
+  } finally {
+    db.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bank Fee Index queries
+// ---------------------------------------------------------------------------
+
+export interface IndexEntry {
+  fee_category: string;
+  fee_family: string | null;
+  median_amount: number | null;
+  p25_amount: number | null;
+  p75_amount: number | null;
+  min_amount: number | null;
+  max_amount: number | null;
+  institution_count: number;
+  observation_count: number;
+  approved_count: number;
+  bank_count: number;
+  cu_count: number;
+  maturity_tier: "strong" | "provisional" | "insufficient";
+  last_updated: string | null;
+}
+
+export function getNationalIndex(approvedOnly = false): IndexEntry[] {
+  const db = getDb();
+  try {
+    const statusFilter = approvedOnly
+      ? "ef.review_status = 'approved'"
+      : "ef.review_status != 'rejected'";
+
+    const rows = db
+      .prepare(
+        `SELECT ef.fee_category, ef.amount, ef.crawl_target_id,
+                ef.review_status, ef.created_at, ct.charter_type
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ef.fee_category IS NOT NULL AND ${statusFilter}`
+      )
+      .all() as {
+      fee_category: string;
+      amount: number | null;
+      crawl_target_id: number;
+      review_status: string;
+      created_at: string;
+      charter_type: string;
+    }[];
+
+    return buildIndexEntries(rows);
+  } finally {
+    db.close();
+  }
+}
+
+export function getPeerIndex(
+  filters: {
+    charter_type?: string;
+    asset_tiers?: string[];
+    fed_districts?: number[];
+  },
+  approvedOnly = false
+): IndexEntry[] {
+  const db = getDb();
+  try {
+    const conditions = ["ef.fee_category IS NOT NULL"];
+    const params: (string | number)[] = [];
+
+    conditions.push(
+      approvedOnly
+        ? "ef.review_status = 'approved'"
+        : "ef.review_status != 'rejected'"
+    );
+
+    if (filters.charter_type) {
+      conditions.push("ct.charter_type = ?");
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
+    }
+    if (filters.fed_districts && filters.fed_districts.length > 0) {
+      const placeholders = filters.fed_districts.map(() => "?").join(",");
+      conditions.push(`ct.fed_district IN (${placeholders})`);
+      params.push(...filters.fed_districts);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const rows = db
+      .prepare(
+        `SELECT ef.fee_category, ef.amount, ef.crawl_target_id,
+                ef.review_status, ef.created_at, ct.charter_type
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ${where}`
+      )
+      .all(...params) as {
+      fee_category: string;
+      amount: number | null;
+      crawl_target_id: number;
+      review_status: string;
+      created_at: string;
+      charter_type: string;
+    }[];
+
+    return buildIndexEntries(rows);
+  } finally {
+    db.close();
+  }
+}
+
+export function getIndexSnapshot(
+  filters?: {
+    charter_type?: string;
+    asset_tiers?: string[];
+    fed_districts?: number[];
+  },
+  limit = 10
+): IndexEntry[] {
+  const entries = filters
+    ? getPeerIndex(filters)
+    : getNationalIndex();
+  return entries.slice(0, limit);
+}
+
+export function getDistrictMedianByCategory(
+  category: string,
+  filters?: { charter_type?: string; asset_tiers?: string[] }
+): { district: number; median_amount: number | null; institution_count: number }[] {
+  const db = getDb();
+  try {
+    const conditions = [
+      "ef.fee_category = ?",
+      "ef.review_status != 'rejected'",
+      "ct.fed_district IS NOT NULL",
+    ];
+    const params: (string | number)[] = [category];
+
+    if (filters?.charter_type) {
+      conditions.push("ct.charter_type = ?");
+      params.push(filters.charter_type);
+    }
+    if (filters?.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
+    }
+
+    const rows = db
+      .prepare(
+        `SELECT ef.amount, ct.fed_district, ef.crawl_target_id
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ${conditions.join(" AND ")}`
+      )
+      .all(...params) as {
+      amount: number | null;
+      fed_district: number;
+      crawl_target_id: number;
+    }[];
+
+    const grouped = new Map<
+      number,
+      { amounts: number[]; institutions: Set<number> }
+    >();
+
+    for (const row of rows) {
+      if (!grouped.has(row.fed_district)) {
+        grouped.set(row.fed_district, { amounts: [], institutions: new Set() });
+      }
+      const entry = grouped.get(row.fed_district)!;
+      entry.institutions.add(row.crawl_target_id);
+      if (row.amount !== null && row.amount > 0) {
+        entry.amounts.push(row.amount);
+      }
+    }
+
+    const results: { district: number; median_amount: number | null; institution_count: number }[] = [];
+    for (const [district, data] of grouped.entries()) {
+      const stats = computeStats(data.amounts);
+      results.push({
+        district,
+        median_amount: stats.median,
+        institution_count: data.institutions.size,
+      });
+    }
+
+    results.sort((a, b) => a.district - b.district);
+    return results;
+  } finally {
+    db.close();
+  }
+}
+
+function buildIndexEntries(
+  rows: {
+    fee_category: string;
+    amount: number | null;
+    crawl_target_id: number;
+    review_status: string;
+    created_at: string;
+    charter_type: string;
+  }[]
+): IndexEntry[] {
+  const grouped = new Map<
+    string,
+    {
+      amounts: number[];
+      banks: Set<number>;
+      cus: Set<number>;
+      approved: number;
+      total: number;
+      latest: string;
+    }
+  >();
+
+  for (const row of rows) {
+    if (!grouped.has(row.fee_category)) {
+      grouped.set(row.fee_category, {
+        amounts: [],
+        banks: new Set(),
+        cus: new Set(),
+        approved: 0,
+        total: 0,
+        latest: "",
+      });
+    }
+    const entry = grouped.get(row.fee_category)!;
+    entry.total++;
+    if (row.amount !== null && row.amount > 0) {
+      entry.amounts.push(row.amount);
+    }
+    if (row.charter_type === "bank") {
+      entry.banks.add(row.crawl_target_id);
+    } else {
+      entry.cus.add(row.crawl_target_id);
+    }
+    if (row.review_status === "approved") {
+      entry.approved++;
+    }
+    if (row.created_at > entry.latest) {
+      entry.latest = row.created_at;
+    }
+  }
+
+  const results: IndexEntry[] = [];
+  for (const [category, data] of grouped.entries()) {
+    const stats = computeStats(data.amounts);
+    const institutionCount = new Set([...data.banks, ...data.cus]).size;
+
+    let maturity_tier: IndexEntry["maturity_tier"] = "insufficient";
+    if (data.approved >= 10) {
+      maturity_tier = "strong";
+    } else if (data.total >= 10) {
+      maturity_tier = "provisional";
+    }
+
+    results.push({
+      fee_category: category,
+      fee_family: getFeeFamily(category),
+      median_amount: stats.median,
+      p25_amount: stats.p25,
+      p75_amount: stats.p75,
+      min_amount: stats.min,
+      max_amount: stats.max,
+      institution_count: institutionCount,
+      observation_count: data.total,
+      approved_count: data.approved,
+      bank_count: data.banks.size,
+      cu_count: data.cus.size,
+      maturity_tier,
+      last_updated: data.latest || null,
+    });
+  }
+
+  results.sort((a, b) => b.institution_count - a.institution_count);
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Market Index Explorer queries
+// ---------------------------------------------------------------------------
+
+export interface MarketIndexEntry extends IndexEntry {
+  national_median: number | null;
+  national_p25: number | null;
+  national_p75: number | null;
+  national_institution_count: number;
+  delta_pct: number | null;
+}
+
+export function buildMarketIndex(
+  national: IndexEntry[],
+  segment: IndexEntry[] | null
+): MarketIndexEntry[] {
+  const nationalMap = new Map(national.map((e) => [e.fee_category, e]));
+
+  if (!segment) {
+    return national.map((n) => ({
+      ...n,
+      national_median: n.median_amount,
+      national_p25: n.p25_amount,
+      national_p75: n.p75_amount,
+      national_institution_count: n.institution_count,
+      delta_pct: null,
+    }));
+  }
+
+  const segmentMap = new Map(segment.map((e) => [e.fee_category, e]));
+  const result: MarketIndexEntry[] = [];
+
+  for (const [cat, nat] of nationalMap) {
+    const seg = segmentMap.get(cat);
+    const segMedian = seg?.median_amount ?? null;
+    const natMedian = nat.median_amount;
+    const delta =
+      segMedian !== null && natMedian !== null && natMedian !== 0
+        ? Math.round(((segMedian - natMedian) / natMedian) * 1000) / 10
+        : null;
+
+    if (seg) {
+      result.push({
+        ...seg,
+        national_median: natMedian,
+        national_p25: nat.p25_amount,
+        national_p75: nat.p75_amount,
+        national_institution_count: nat.institution_count,
+        delta_pct: delta,
+      });
+    } else {
+      result.push({
+        ...nat,
+        institution_count: 0,
+        observation_count: 0,
+        approved_count: 0,
+        bank_count: 0,
+        cu_count: 0,
+        maturity_tier: "insufficient",
+        national_median: natMedian,
+        national_p25: nat.p25_amount,
+        national_p75: nat.p75_amount,
+        national_institution_count: nat.institution_count,
+        delta_pct: null,
+      });
+    }
+  }
+
+  result.sort((a, b) => b.institution_count - a.institution_count);
+  return result;
+}
+
+export function getFilteredTierCounts(filters: {
+  charter_type?: string;
+  asset_tiers?: string[];
+  fed_districts?: number[];
+}): { tier: string; count: number }[] {
+  const db = getDb();
+  try {
+    const conditions = ["asset_size_tier IS NOT NULL"];
+    const params: (string | number)[] = [];
+
+    if (filters.charter_type) {
+      conditions.push("charter_type = ?");
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
+    }
+    if (filters.fed_districts && filters.fed_districts.length > 0) {
+      const placeholders = filters.fed_districts.map(() => "?").join(",");
+      conditions.push(`fed_district IN (${placeholders})`);
+      params.push(...filters.fed_districts);
+    }
+
+    return db
+      .prepare(
+        `SELECT asset_size_tier as tier, COUNT(*) as count
+         FROM crawl_targets
+         WHERE ${conditions.join(" AND ")}
+         GROUP BY asset_size_tier
+         ORDER BY MIN(asset_size)`
+      )
+      .all(...params) as { tier: string; count: number }[];
+  } finally {
+    db.close();
+  }
+}
+
+export function getFeesForCategory(
+  category: string,
+  filters: {
+    charter_type?: string;
+    asset_tiers?: string[];
+    fed_districts?: number[];
+  },
+  approvedOnly = false
+): { amount: number; charter_type: string; institution_name: string }[] {
+  const db = getDb();
+  try {
+    const conditions = [
+      "ef.fee_category = ?",
+      "ef.amount IS NOT NULL",
+      "ef.amount > 0",
+      approvedOnly
+        ? "ef.review_status = 'approved'"
+        : "ef.review_status != 'rejected'",
+    ];
+    const params: (string | number)[] = [category];
+
+    if (filters.charter_type) {
+      conditions.push("ct.charter_type = ?");
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
+    }
+    if (filters.fed_districts && filters.fed_districts.length > 0) {
+      const placeholders = filters.fed_districts.map(() => "?").join(",");
+      conditions.push(`ct.fed_district IN (${placeholders})`);
+      params.push(...filters.fed_districts);
+    }
+
+    return db
+      .prepare(
+        `SELECT ef.amount, ct.charter_type, ct.institution_name
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY ef.amount`
+      )
+      .all(...params) as {
+      amount: number;
+      charter_type: string;
+      institution_name: string;
+    }[];
+  } finally {
+    db.close();
+  }
+}
+
+export interface SegmentOutlier {
+  fee_category: string;
+  institution_name: string;
+  institution_id: number;
+  amount: number;
+  type: "highest" | "lowest" | "most_flagged";
+}
+
+export function getSegmentOutliers(
+  filters: {
+    charter_type?: string;
+    asset_tiers?: string[];
+    fed_districts?: number[];
+  },
+  limit = 3
+): SegmentOutlier[] {
+  const db = getDb();
+  try {
+    const conditions = [
+      "ef.fee_category IS NOT NULL",
+      "ef.review_status != 'rejected'",
+      "ef.amount IS NOT NULL",
+      "ef.amount > 0",
+    ];
+    const params: (string | number)[] = [];
+
+    if (filters.charter_type) {
+      conditions.push("ct.charter_type = ?");
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+      const placeholders = filters.asset_tiers.map(() => "?").join(",");
+      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+      params.push(...filters.asset_tiers);
+    }
+    if (filters.fed_districts && filters.fed_districts.length > 0) {
+      const placeholders = filters.fed_districts.map(() => "?").join(",");
+      conditions.push(`ct.fed_district IN (${placeholders})`);
+      params.push(...filters.fed_districts);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const highest = db
+      .prepare(
+        `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ${where}
+         ORDER BY ef.amount DESC
+         LIMIT ?`
+      )
+      .all(...params, limit) as {
+      fee_category: string;
+      institution_name: string;
+      institution_id: number;
+      amount: number;
+    }[];
+
+    const lowest = db
+      .prepare(
+        `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ${where}
+         ORDER BY ef.amount ASC
+         LIMIT ?`
+      )
+      .all(...params, limit) as {
+      fee_category: string;
+      institution_name: string;
+      institution_id: number;
+      amount: number;
+    }[];
+
+    const flaggedConditions = [
+      ...conditions.filter((c) => c !== "ef.amount IS NOT NULL" && c !== "ef.amount > 0"),
+      "ef.review_status = 'flagged'",
+    ];
+
+    const flagged = db
+      .prepare(
+        `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id,
+                COALESCE(ef.amount, 0) as amount
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ${flaggedConditions.join(" AND ")}
+         ORDER BY ef.amount DESC
+         LIMIT ?`
+      )
+      .all(...params, limit) as {
+      fee_category: string;
+      institution_name: string;
+      institution_id: number;
+      amount: number;
+    }[];
+
+    return [
+      ...highest.map((r) => ({ ...r, type: "highest" as const })),
+      ...lowest.map((r) => ({ ...r, type: "lowest" as const })),
+      ...flagged.map((r) => ({ ...r, type: "most_flagged" as const })),
+    ];
   } finally {
     db.close();
   }

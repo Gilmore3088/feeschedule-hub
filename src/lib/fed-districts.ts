@@ -35,20 +35,20 @@ export const STATE_TO_DISTRICT: Record<string, number> = {
   CT: 1, ME: 1, MA: 1, NH: 1, RI: 1, VT: 1,
   NY: 2, NJ: 2, PR: 2, VI: 2,
   PA: 3, DE: 3,
-  OH: 4, WV: 4, KY: 4,
-  VA: 5, MD: 5, DC: 5, NC: 5, SC: 5,
+  OH: 4, KY: 4,
+  VA: 5, MD: 5, DC: 5, NC: 5, SC: 5, WV: 5,
   GA: 6, FL: 6, AL: 6, TN: 6, MS: 6, LA: 6,
   IL: 7, IN: 7, IA: 7, MI: 7, WI: 7,
   MO: 8, AR: 8,
   MN: 9, MT: 9, ND: 9, SD: 9,
   KS: 10, NE: 10, OK: 10, CO: 10, WY: 10, NM: 10,
-  TX: 11, AZ: 11,
-  CA: 12, WA: 12, OR: 12, NV: 12, UT: 12, ID: 12, HI: 12, AK: 12, GU: 12, AS: 12,
+  TX: 11,
+  CA: 12, WA: 12, OR: 12, NV: 12, UT: 12, ID: 12, AZ: 12, HI: 12, AK: 12, GU: 12, AS: 12,
 };
 
 export interface PeerFilters {
   charter?: string;
-  tier?: string;
+  tiers?: string[];
   districts?: number[];
   range?: string;
 }
@@ -65,8 +65,13 @@ export function parsePeerFilters(params: {
     filters.charter = params.charter;
   }
 
-  if (params.tier && params.tier in TIER_LABELS) {
-    filters.tier = params.tier;
+  if (params.tier) {
+    const tiers = params.tier
+      .split(",")
+      .filter((t) => t in TIER_LABELS);
+    if (tiers.length > 0) {
+      filters.tiers = tiers;
+    }
   }
 
   if (params.district) {
@@ -84,4 +89,26 @@ export function parsePeerFilters(params: {
   }
 
   return filters;
+}
+
+export function buildFilterDescription(filters: PeerFilters): string {
+  const parts: string[] = [];
+
+  if (filters.districts && filters.districts.length > 0) {
+    const districtLabels = filters.districts.map(
+      (d) => `${d} - ${DISTRICT_NAMES[d] ?? "Unknown"}`
+    );
+    parts.push(`District ${districtLabels.join(", ")}`);
+  }
+
+  if (filters.tiers && filters.tiers.length > 0) {
+    const tierLabels = filters.tiers.map((t) => TIER_LABELS[t] ?? t);
+    parts.push(tierLabels.join(", "));
+  }
+
+  if (filters.charter) {
+    parts.push(filters.charter === "bank" ? "Banks" : "Credit Unions");
+  }
+
+  return parts.length > 0 ? parts.join(" | ") : "All Institutions";
 }

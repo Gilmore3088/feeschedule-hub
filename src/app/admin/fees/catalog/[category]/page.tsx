@@ -28,43 +28,43 @@ function BreakdownTable({
 
   return (
     <div className="bg-white rounded-lg border">
-      <div className="px-4 py-3 border-b bg-gray-50">
-        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+      <div className="px-4 py-3 border-b bg-gray-50/80">
+        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b text-left text-gray-500">
-              <th className="px-4 py-2 font-medium">Segment</th>
-              <th className="px-4 py-2 font-medium text-right">Count</th>
-              <th className="px-4 py-2 font-medium text-right">Min</th>
-              <th className="px-4 py-2 font-medium text-right">Median</th>
-              <th className="px-4 py-2 font-medium text-right">Max</th>
-              <th className="px-4 py-2 font-medium text-right">Avg</th>
+            <tr className="border-b bg-gray-50/80 text-left">
+              <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Segment</th>
+              <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Count</th>
+              <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Min</th>
+              <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Median</th>
+              <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Max</th>
+              <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Avg</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr
                 key={row.dimension_value}
-                className="border-b last:border-0 hover:bg-gray-50"
+                className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
               >
                 <td className="px-4 py-2 font-medium text-gray-900">
                   {row.dimension_value}
                 </td>
-                <td className="px-4 py-2 text-right text-gray-600">
+                <td className="px-4 py-2 text-right tabular-nums text-gray-600">
                   {row.count}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-gray-600">
+                <td className="px-4 py-2 text-right tabular-nums text-gray-600">
                   {formatAmount(row.min_amount)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">
+                <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">
                   {formatAmount(row.median_amount)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-gray-600">
+                <td className="px-4 py-2 text-right tabular-nums text-gray-600">
                   {formatAmount(row.max_amount)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-gray-500">
+                <td className="px-4 py-2 text-right tabular-nums text-gray-500">
                   {formatAmount(row.avg_amount)}
                 </td>
               </tr>
@@ -94,7 +94,6 @@ export default async function FeeCategoryDetailPage({
   const { category } = await params;
   const { tab = "overview" } = await searchParams;
 
-  // Validate category exists
   if (!(category in DISPLAY_NAMES) && !category.includes("_")) {
     notFound();
   }
@@ -109,7 +108,7 @@ export default async function FeeCategoryDetailPage({
         </p>
         <Link
           href="/admin/fees/catalog"
-          className="text-blue-600 hover:underline text-sm mt-2 inline-block"
+          className="text-gray-500 hover:text-gray-700 transition-colors text-sm mt-2 inline-block"
         >
           Back to Fee Catalog
         </Link>
@@ -121,7 +120,6 @@ export default async function FeeCategoryDetailPage({
   const family = getFeeFamily(category);
   const familyColors = family ? getFamilyColor(family) : null;
 
-  // Compute overall stats
   const amounts = detail.fees
     .map((f) => f.amount)
     .filter((a): a is number => a !== null && a > 0)
@@ -158,7 +156,7 @@ export default async function FeeCategoryDetailPage({
           { label: displayName },
         ]} />
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
             {displayName}
           </h1>
           {family && familyColors && (
@@ -200,13 +198,13 @@ export default async function FeeCategoryDetailPage({
             href={`/admin/fees/catalog/${category}?tab=${t.key}`}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t.key
-                ? "border-blue-600 text-blue-600"
+                ? "border-gray-900 text-gray-900"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             {t.label}
             {t.key === "institutions" && (
-              <span className="ml-1 text-xs text-gray-400">
+              <span className="ml-1 text-xs text-gray-400 tabular-nums">
                 ({detail.fees.length})
               </span>
             )}
@@ -220,26 +218,26 @@ export default async function FeeCategoryDetailPage({
           {/* Charter type quick bar */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="rounded-lg border bg-white px-4 py-3 flex items-center gap-3">
-              <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+              <span className="inline-block rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600">
                 Banks
               </span>
-              <span className="text-lg font-semibold text-gray-900">
+              <span className="text-lg font-bold tabular-nums text-gray-900">
                 {stats.banks}
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 tabular-nums">
                 {stats.count > 0
                   ? `${((stats.banks / stats.count) * 100).toFixed(0)}%`
                   : "0%"}
               </span>
             </div>
             <div className="rounded-lg border bg-white px-4 py-3 flex items-center gap-3">
-              <span className="inline-block rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+              <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
                 Credit Unions
               </span>
-              <span className="text-lg font-semibold text-gray-900">
+              <span className="text-lg font-bold tabular-nums text-gray-900">
                 {stats.cus}
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 tabular-nums">
                 {stats.count > 0
                   ? `${((stats.cus / stats.count) * 100).toFixed(0)}%`
                   : "0%"}
@@ -253,13 +251,13 @@ export default async function FeeCategoryDetailPage({
           {/* Quick breakdown preview */}
           {detail.by_charter_type.length > 0 && (
             <div className="bg-white rounded-lg border mb-6">
-              <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">
+              <div className="px-4 py-3 border-b bg-gray-50/80 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-800">
                   Fee Range by Charter Type
                 </h3>
                 <Link
                   href={`/admin/fees/catalog/${category}?tab=breakdowns`}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   View all breakdowns
                 </Link>
@@ -267,33 +265,33 @@ export default async function FeeCategoryDetailPage({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-left text-gray-500">
-                      <th className="px-4 py-2 font-medium">Type</th>
-                      <th className="px-4 py-2 font-medium text-right">Count</th>
-                      <th className="px-4 py-2 font-medium text-right">Min</th>
-                      <th className="px-4 py-2 font-medium text-right">Median</th>
-                      <th className="px-4 py-2 font-medium text-right">Max</th>
+                    <tr className="border-b bg-gray-50/80 text-left">
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Type</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Count</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Min</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Median</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Max</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.by_charter_type.map((row) => (
                       <tr
                         key={row.dimension_value}
-                        className="border-b last:border-0"
+                        className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
                       >
                         <td className="px-4 py-2 font-medium text-gray-900">
                           {row.dimension_value}
                         </td>
-                        <td className="px-4 py-2 text-right text-gray-600">
+                        <td className="px-4 py-2 text-right tabular-nums text-gray-600">
                           {row.count}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-600">
+                        <td className="px-4 py-2 text-right tabular-nums text-gray-600">
                           {formatAmount(row.min_amount)}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">
+                        <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">
                           {formatAmount(row.median_amount)}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-600">
+                        <td className="px-4 py-2 text-right tabular-nums text-gray-600">
                           {formatAmount(row.max_amount)}
                         </td>
                       </tr>
@@ -307,51 +305,51 @@ export default async function FeeCategoryDetailPage({
           {/* Fee change events */}
           {detail.change_events.length > 0 && (
             <div className="bg-white rounded-lg border">
-              <div className="px-4 py-3 border-b bg-gray-50">
-                <h3 className="text-sm font-semibold text-gray-700">
+              <div className="px-4 py-3 border-b bg-gray-50/80">
+                <h3 className="text-sm font-bold text-gray-800">
                   Recent Fee Changes
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-left text-gray-500">
-                      <th className="px-4 py-2 font-medium">Institution</th>
-                      <th className="px-4 py-2 font-medium text-right">Previous</th>
-                      <th className="px-4 py-2 font-medium text-right">New</th>
-                      <th className="px-4 py-2 font-medium">Type</th>
-                      <th className="px-4 py-2 font-medium">Date</th>
+                    <tr className="border-b bg-gray-50/80 text-left">
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Institution</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Previous</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">New</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Type</th>
+                      <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.change_events.map((evt, i) => (
                       <tr
                         key={i}
-                        className="border-b last:border-0 hover:bg-gray-50"
+                        className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
                       >
                         <td className="px-4 py-2 font-medium text-gray-900">
                           {evt.institution_name}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-500">
+                        <td className="px-4 py-2 text-right tabular-nums text-gray-500">
                           {formatAmount(evt.previous_amount)}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-900">
+                        <td className="px-4 py-2 text-right tabular-nums text-gray-900">
                           {formatAmount(evt.new_amount)}
                         </td>
                         <td className="px-4 py-2">
                           <span
                             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                               evt.change_type === "increase"
-                                ? "bg-red-100 text-red-700"
+                                ? "bg-red-50 text-red-600"
                                 : evt.change_type === "decrease"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-gray-100 text-gray-600"
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-gray-100 text-gray-500"
                             }`}
                           >
                             {evt.change_type}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-gray-500">
+                        <td className="px-4 py-2 text-gray-500 text-xs">
                           {evt.detected_at?.slice(0, 10) ?? "-"}
                         </td>
                       </tr>
@@ -406,9 +404,9 @@ function StatCard({
 }) {
   return (
     <div className="rounded-lg border bg-white px-4 py-3">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
       <p
-        className={`text-xl font-semibold mt-1 ${
+        className={`text-xl font-bold tabular-nums mt-1 ${
           highlight ? "text-blue-600" : "text-gray-900"
         }`}
       >

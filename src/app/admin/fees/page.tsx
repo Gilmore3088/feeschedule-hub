@@ -18,22 +18,30 @@ function frequencyLabel(freq: string | null): string {
 function confidenceBadge(conf: number) {
   if (conf >= 0.9)
     return (
-      <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+      <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600 tabular-nums">
         {(conf * 100).toFixed(0)}%
       </span>
     );
   if (conf >= 0.7)
     return (
-      <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+      <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600 tabular-nums">
         {(conf * 100).toFixed(0)}%
       </span>
     );
   return (
-    <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+    <span className="inline-block rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 tabular-nums">
       {(conf * 100).toFixed(0)}%
     </span>
   );
 }
+
+const STATUS_COLORS: Record<string, string> = {
+  approved: "bg-emerald-50 text-emerald-600",
+  rejected: "bg-red-50 text-red-600",
+  staged: "bg-blue-50 text-blue-600",
+  flagged: "bg-orange-50 text-orange-600",
+  pending: "bg-gray-100 text-gray-500",
+};
 
 export default async function FeesPage({
   searchParams,
@@ -63,7 +71,7 @@ export default async function FeesPage({
           { label: "Dashboard", href: "/admin" },
           { label: "Fees" },
         ]} />
-        <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-gray-900">{title}</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           {fees.length} fee{fees.length !== 1 ? "s" : ""} extracted
         </p>
@@ -72,14 +80,14 @@ export default async function FeesPage({
       {Array.from(grouped.entries()).map(([instName, instFees]) => (
         <div key={instName} className="bg-white rounded-lg border mb-6">
           {!targetId && (
-            <div className="px-6 py-3 border-b bg-gray-50">
+            <div className="px-5 py-3 border-b bg-gray-50/80">
               <Link
                 href={`/admin/peers/${instFees[0].crawl_target_id}`}
-                className="font-semibold text-blue-600 hover:underline"
+                className="text-sm font-bold text-gray-800 hover:text-blue-600 transition-colors"
               >
                 {instName}
               </Link>
-              <p className="text-xs text-gray-500">
+              <p className="text-[11px] text-gray-400">
                 {instFees.length} fee{instFees.length !== 1 ? "s" : ""}
               </p>
             </div>
@@ -87,15 +95,15 @@ export default async function FeesPage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left text-gray-500">
-                  <th className="px-6 py-3 font-medium">Fee Name</th>
-                  <th className="px-6 py-3 font-medium text-right">Amount</th>
-                  <th className="px-6 py-3 font-medium">Frequency</th>
-                  <th className="px-6 py-3 font-medium">Conditions</th>
-                  <th className="px-6 py-3 font-medium text-center">
+                <tr className="border-b bg-gray-50/80 text-left">
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Fee Name</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Frequency</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Conditions</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
                     Confidence
                   </th>
-                  <th className="px-6 py-3 font-medium text-center">
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
                     Status
                   </th>
                 </tr>
@@ -104,35 +112,27 @@ export default async function FeesPage({
                 {instFees.map((fee) => (
                   <tr
                     key={fee.id}
-                    className="border-b last:border-0 hover:bg-gray-50"
+                    className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
                   >
-                    <td className="px-6 py-3 font-medium text-gray-900">
+                    <td className="px-4 py-2.5 font-medium text-gray-900">
                       {fee.fee_name}
                     </td>
-                    <td className="px-6 py-3 text-right font-mono text-gray-900">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-900">
                       {formatAmount(fee.amount)}
                     </td>
-                    <td className="px-6 py-3 text-gray-600">
+                    <td className="px-4 py-2.5 text-gray-600 text-xs">
                       {frequencyLabel(fee.frequency)}
                     </td>
-                    <td className="px-6 py-3 text-gray-500 max-w-xs truncate">
+                    <td className="px-4 py-2.5 text-gray-500 max-w-xs truncate text-xs">
                       {fee.conditions || "-"}
                     </td>
-                    <td className="px-6 py-3 text-center">
+                    <td className="px-4 py-2.5 text-center">
                       {confidenceBadge(fee.extraction_confidence)}
                     </td>
-                    <td className="px-6 py-3 text-center">
+                    <td className="px-4 py-2.5 text-center">
                       <span
                         className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                          fee.review_status === "approved"
-                            ? "bg-green-100 text-green-700"
-                            : fee.review_status === "rejected"
-                              ? "bg-red-100 text-red-700"
-                              : fee.review_status === "staged"
-                                ? "bg-blue-100 text-blue-700"
-                                : fee.review_status === "flagged"
-                                  ? "bg-orange-100 text-orange-700"
-                                  : "bg-gray-100 text-gray-600"
+                          STATUS_COLORS[fee.review_status] || "bg-gray-100 text-gray-500"
                         }`}
                       >
                         {fee.review_status}

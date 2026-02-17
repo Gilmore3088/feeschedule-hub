@@ -11,6 +11,7 @@ import {
   getRiskOutliers,
   getRecentCrawlActivity,
   getRecentReviews,
+  getIndexSnapshot,
 } from "@/lib/crawler-db";
 import { formatAmount } from "@/lib/format";
 import { parsePeerFilters } from "@/lib/fed-districts";
@@ -18,6 +19,16 @@ import { getDisplayName, getFeeFamily, getFamilyColor } from "@/lib/fee-taxonomy
 import { PeerFiltersBar } from "@/components/peer-filters-bar";
 import { ReviewQueueHero } from "@/components/review-queue-hero";
 import { CrawlStatusStrip } from "@/components/crawl-status-strip";
+import { MapMetricSelector } from "@/components/map-metric-selector";
+
+const HERO_CATEGORIES = [
+  "monthly_maintenance",
+  "nsf",
+  "overdraft",
+  "atm_non_network",
+  "wire_domestic_outgoing",
+  "stop_payment",
+];
 
 export default async function AdminDashboard({
   searchParams,
@@ -38,7 +49,7 @@ export default async function AdminDashboard({
 
   const dbFilters = {
     charter_type: peerFilters.charter,
-    asset_tier: peerFilters.tier,
+    asset_tiers: peerFilters.tiers,
     fed_districts: peerFilters.districts,
   };
 
@@ -52,13 +63,44 @@ export default async function AdminDashboard({
   const peerStats = getPeerFilteredStats(dbFilters);
   const districtMetrics = getDistrictMetrics({
     charter_type: peerFilters.charter,
-    asset_tier: peerFilters.tier,
+    asset_tiers: peerFilters.tiers,
   });
   const volatileCategories = getVolatileCategories(dbFilters, 10);
   const riskOutliers = getRiskOutliers(dbFilters);
   const recentCrawls = getRecentCrawlActivity(dbFilters, 20);
 
-  const hasFilters = peerFilters.charter || peerFilters.tier || peerFilters.districts;
+  const hasFilters = peerFilters.charter || peerFilters.tiers || peerFilters.districts;
+
+  // Index snapshot (respects peer filters)
+  const indexSnapshot = getIndexSnapshot(
+    hasFilters ? dbFilters : undefined,
+    10
+  );
+
+  // National stats for comparison deltas (only when peer filters active)
+  const nationalStats = hasFilters ? getPeerFilteredStats({}) : null;
+
+  // Extract hero entries from the index
+  const heroEntries = HERO_CATEGORIES.map((cat) =>
+    indexSnapshot.find((e) => e.fee_category === cat)
+  ).filter(Boolean);
+
+  // Build filter-forwarding query string
+  const filterQs = hasFilters
+    ? `?${new URLSearchParams(
+        Object.entries({
+          charter: peerFilters.charter,
+          tier: peerFilters.tiers?.join(","),
+          district: peerFilters.districts?.map(String).join(","),
+        }).filter(([, v]) => v) as [string, string][]
+      ).toString()}`
+    : "";
+
+  // IQR bar normalization — find max range for scaling
+  const maxRange = Math.max(
+    ...volatileCategories.map((vc) => vc.range_width ?? 0),
+    1
+  );
 
   return (
     <>
@@ -67,8 +109,8 @@ export default async function AdminDashboard({
         <PeerFiltersBar />
       </Suspense>
 
-      {/* Row 1: Command Center - Review Queue + Crawl Health */}
-      <div className="space-y-4 mb-8">
+      {/* ─── TOP BAND: OPERATIONAL ─── */}
+      <div className="space-y-3 mb-10">
         <ReviewQueueHero
           stats={reviewStats}
           stuck={stuckItems}
@@ -77,10 +119,145 @@ export default async function AdminDashboard({
         <CrawlStatusStrip health={crawlHealth} />
       </div>
 
-      {/* Row 2: Health Tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* ─── SECOND BAND: BENCHMARK AUTHORITY ─── */}
+      <section className="mb-10">
+        <div className="flex items-end justify-between mb-5">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-gray-900">
+              {hasFilters ? "Peer Fee Index" : "National Bank Fee Index"}
+            </h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Validated median benchmarks across {indexSnapshot.length} categories
+            </p>
+          </div>
+          <Link
+            href={`/admin/index${filterQs}`}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+          >
+            View Full Index &rarr;
+          </Link>
+        </div>
+
+        {/* Hero Metric Cards */}
+        {heroEntries.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            {heroEntries.map((entry) => (
+              <Link
+                key={entry!.fee_category}
+                href={`/admin/fees/catalog/${entry!.fee_category}`}
+                className="group rounded-lg border bg-white p-4 hover:shadow-md hover:border-gray-300 transition-all"
+              >
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 truncate">
+                  {getDisplayName(entry!.fee_category)}
+                </p>
+                <p className="text-2xl font-bold tabular-nums text-gray-900 group-hover:text-blue-600 transition-colors">
+                  {formatAmount(entry!.median_amount)}
+                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[11px] text-gray-400 tabular-nums">
+                    {entry!.institution_count} inst.
+                  </span>
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${
+                      entry!.maturity_tier === "strong"
+                        ? "bg-emerald-400"
+                        : entry!.maturity_tier === "provisional"
+                          ? "bg-amber-400"
+                          : "bg-gray-300"
+                    }`}
+                    title={entry!.maturity_tier}
+                  />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Index Table */}
+        {indexSnapshot.length > 0 && (
+          <div className="rounded-lg border bg-white overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50/80 text-left">
+                    <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Fee Category
+                    </th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                      Median
+                    </th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                      P25 &ndash; P75
+                    </th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                      Inst.
+                    </th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
+                      Maturity
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {indexSnapshot.map((entry) => (
+                    <tr
+                      key={entry.fee_category}
+                      className="border-b last:border-0 hover:bg-blue-50/30 transition-colors"
+                    >
+                      <td className="px-4 py-2.5">
+                        <Link
+                          href={`/admin/fees/catalog/${entry.fee_category}`}
+                          className="text-gray-900 hover:text-blue-600 font-medium transition-colors"
+                        >
+                          {getDisplayName(entry.fee_category)}
+                        </Link>
+                        {entry.fee_family && (
+                          <span className="ml-2 text-[10px] text-gray-400">
+                            {entry.fee_family}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900">
+                        {formatAmount(entry.median_amount)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-400 text-xs">
+                        {entry.p25_amount !== null && entry.p75_amount !== null
+                          ? `${formatAmount(entry.p25_amount)} - ${formatAmount(entry.p75_amount)}`
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                        {entry.institution_count}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            entry.maturity_tier === "strong"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : entry.maturity_tier === "provisional"
+                                ? "bg-amber-50 text-amber-600"
+                                : "bg-gray-100 text-gray-400"
+                          }`}
+                          title={`${entry.approved_count} approved of ${entry.observation_count} total`}
+                        >
+                          {entry.maturity_tier === "strong"
+                            ? "Strong"
+                            : entry.maturity_tier === "provisional"
+                              ? "Provisional"
+                              : "Insufficient"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ─── HEALTH TILES ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
         <HealthTile
-          label="Total Institutions"
+          label="Institutions"
           value={peerStats.total_institutions.toLocaleString()}
           global={!hasFilters}
         />
@@ -94,14 +271,20 @@ export default async function AdminDashboard({
           }
         />
         <HealthTile
-          label="With Fee URL"
-          value={peerStats.with_fee_url.toLocaleString()}
-          sub={
+          label="Fee URL Coverage"
+          value={
             peerStats.total_institutions > 0
-              ? `${((peerStats.with_fee_url / peerStats.total_institutions) * 100).toFixed(0)}% coverage`
+              ? `${((peerStats.with_fee_url / peerStats.total_institutions) * 100).toFixed(0)}%`
               : "0%"
           }
+          sub={`${peerStats.with_fee_url.toLocaleString()} institutions`}
           highlight
+          delta={
+            hasFilters && nationalStats && nationalStats.total_institutions > 0
+              ? ((peerStats.with_fee_url / peerStats.total_institutions) * 100) -
+                ((nationalStats.with_fee_url / nationalStats.total_institutions) * 100)
+              : undefined
+          }
         />
         <HealthTile
           label="Fees Extracted"
@@ -110,25 +293,18 @@ export default async function AdminDashboard({
         />
       </div>
 
-      {/* Row 3: Peer Intelligence - Map + Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Fed District Map placeholder - will be replaced in Phase 3 */}
+      {/* ─── PEER INTELLIGENCE: Districts + Peer Summary ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+        {/* Fed District Grid */}
         <div className="lg:col-span-2 rounded-lg border bg-white">
-          <div className="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">
-              Peer Intelligence (Fed Districts)
+          <div className="px-5 py-3 border-b bg-gray-50/80 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-800">
+              Fed Districts
             </h2>
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded font-medium">
-                Fed Districts
-              </span>
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded cursor-not-allowed">
-                States (coming soon)
-              </span>
-            </div>
+            <MapMetricSelector />
           </div>
-          <div className="p-5">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
               {districtMetrics.map((dm) => {
                 const isSelected = peerFilters.districts?.includes(dm.district);
                 return (
@@ -136,44 +312,66 @@ export default async function AdminDashboard({
                     key={dm.district}
                     href={`/admin?${new URLSearchParams({
                       ...(peerFilters.charter ? { charter: peerFilters.charter } : {}),
-                      ...(peerFilters.tier ? { tier: peerFilters.tier } : {}),
+                      ...(peerFilters.tiers ? { tier: peerFilters.tiers.join(",") } : {}),
                       district: String(dm.district),
                     }).toString()}`}
-                    className={`rounded-lg border p-3 text-sm transition hover:shadow-sm ${
+                    className={`rounded-lg border p-2.5 text-sm transition-all ${
                       isSelected
-                        ? "border-blue-500 bg-blue-50 ring-1 ring-blue-200"
-                        : "hover:border-gray-300"
+                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-sm"
+                        : "hover:border-gray-300 hover:shadow-sm"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-gray-900">
+                      <span className="text-sm font-bold text-gray-900">
                         {dm.district}
                       </span>
-                      <span className="text-xs text-gray-500">{dm.name}</span>
+                      <span className="text-[10px] text-gray-400 truncate ml-1">
+                        {dm.name}
+                      </span>
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+                    <div className="mt-1.5 grid grid-cols-2 gap-0.5 text-[11px]">
                       <div>
-                        <span className="text-gray-500">Inst.</span>{" "}
-                        <span className="font-medium text-gray-700">
+                        <span className="text-gray-400">Inst</span>{" "}
+                        <span className="font-semibold text-gray-700">
                           {dm.institution_count}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-500">URL%</span>{" "}
-                        <span className="font-medium text-gray-700">
+                        <span className="text-gray-400">URL</span>{" "}
+                        <span
+                          className={`font-semibold ${
+                            !params.mapMetric || params.mapMetric === ""
+                              ? "text-blue-600"
+                              : "text-gray-600"
+                          }`}
+                        >
                           {(dm.fee_url_pct * 100).toFixed(0)}%
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-500">Fees</span>{" "}
-                        <span className="font-medium text-gray-700">
+                        <span className="text-gray-400">Fees</span>{" "}
+                        <span
+                          className={`font-semibold ${
+                            params.mapMetric === "fees"
+                              ? "text-blue-600"
+                              : "text-gray-600"
+                          }`}
+                        >
                           {dm.total_fees}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-500">Conf.</span>{" "}
-                        <span className="font-medium text-gray-700">
-                          {(dm.avg_confidence * 100).toFixed(0)}%
+                        <span className="text-gray-400">Flag</span>{" "}
+                        <span
+                          className={`font-semibold ${
+                            params.mapMetric === "flag_rate"
+                              ? "text-blue-600"
+                              : dm.flag_rate > 0.25
+                                ? "text-red-500"
+                                : "text-gray-600"
+                          }`}
+                        >
+                          {(dm.flag_rate * 100).toFixed(0)}%
                         </span>
                       </div>
                     </div>
@@ -184,26 +382,32 @@ export default async function AdminDashboard({
           </div>
         </div>
 
-        {/* Peer Summary Panel */}
+        {/* Peer Summary Panel — with national deltas */}
         <div className="rounded-lg border bg-white">
-          <div className="px-5 py-3 border-b bg-gray-50">
-            <h3 className="text-sm font-semibold text-gray-700">
-              Peer Set Summary
+          <div className="px-5 py-3 border-b bg-gray-50/80">
+            <h3 className="text-sm font-bold text-gray-800">
+              {hasFilters ? "Peer Summary" : "National Summary"}
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-[11px] text-gray-400 mt-0.5">
               {peerFilters.districts?.length
                 ? `District ${peerFilters.districts.join(", ")}`
                 : "All Districts"}
               {peerFilters.charter
-                ? ` | ${peerFilters.charter === "bank" ? "Banks" : "Credit Unions"}`
+                ? ` / ${peerFilters.charter === "bank" ? "Banks" : "Credit Unions"}`
                 : ""}
-              {peerFilters.tier ? ` | ${peerFilters.tier}` : ""}
+              {peerFilters.tiers ? ` / ${peerFilters.tiers.join(", ")}` : ""}
             </p>
           </div>
-          <div className="p-5 space-y-4">
+          <div className="p-5 space-y-3">
             <SummaryKPI
               label="Institutions"
               value={peerStats.total_institutions.toLocaleString()}
+              delta={
+                hasFilters && nationalStats
+                  ? peerStats.total_institutions - nationalStats.total_institutions
+                  : undefined
+              }
+              deltaLabel={nationalStats ? `of ${nationalStats.total_institutions.toLocaleString()}` : undefined}
             />
             <SummaryKPI
               label="Fee URL Coverage"
@@ -212,11 +416,21 @@ export default async function AdminDashboard({
                   ? `${((peerStats.with_fee_url / peerStats.total_institutions) * 100).toFixed(1)}%`
                   : "0%"
               }
+              delta={
+                hasFilters && nationalStats && nationalStats.total_institutions > 0
+                  ? ((peerStats.with_fee_url / peerStats.total_institutions) * 100) -
+                    ((nationalStats.with_fee_url / nationalStats.total_institutions) * 100)
+                  : undefined
+              }
+              deltaFormat="pct"
             />
             <SummaryKPI
               label="Fees Extracted"
               value={peerStats.total_fees.toLocaleString()}
             />
+
+            <div className="h-px bg-gray-100" />
+
             <SummaryKPI
               label="Banks"
               value={peerStats.banks.toLocaleString()}
@@ -226,27 +440,27 @@ export default async function AdminDashboard({
               value={peerStats.credit_unions.toLocaleString()}
             />
 
-            <div className="pt-3 border-t">
+            <div className="pt-2">
               <Link
                 href={`/admin/peers${peerFilters.districts?.length ? `?district=${peerFilters.districts[0]}` : ""}`}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
               >
-                View peers
+                Explore peer set &rarr;
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Row 4: Insights - Volatile Categories + Risk */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Volatile fee categories */}
-        <div className="rounded-lg border bg-white">
-          <div className="px-5 py-3 border-b bg-gray-50">
-            <h2 className="text-sm font-semibold text-gray-700">
+      {/* ─── INSIGHTS: Volatile Categories + Risk & Outliers ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-10">
+        {/* Volatile fee categories — 3 cols */}
+        <div className="lg:col-span-3 rounded-lg border bg-white">
+          <div className="px-5 py-3 border-b bg-gray-50/80">
+            <h2 className="text-sm font-bold text-gray-800">
               Most Volatile Fee Categories
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-[11px] text-gray-400 mt-0.5">
               Ranked by interquartile range (IQR)
             </p>
           </div>
@@ -254,49 +468,104 @@ export default async function AdminDashboard({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-gray-500">
-                    <th className="px-4 py-2 font-medium">Fee Type</th>
-                    <th className="px-4 py-2 font-medium text-right">Inst.</th>
-                    <th className="px-4 py-2 font-medium text-right">Median</th>
-                    <th className="px-4 py-2 font-medium text-right">IQR</th>
-                    <th className="px-4 py-2 font-medium text-right">Range</th>
+                  <tr className="border-b text-left">
+                    <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Category
+                    </th>
+                    <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                      Median
+                    </th>
+                    <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                      IQR
+                    </th>
+                    <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider w-40">
+                      Range
+                    </th>
+                    <th className="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                      Outliers
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {volatileCategories.map((vc) => {
                     const family = getFeeFamily(vc.fee_category);
                     const colors = family ? getFamilyColor(family) : null;
+                    // IQR bar positions (normalized to maxRange)
+                    const rangeMin = vc.min_amount ?? 0;
+                    const rangeMax = vc.max_amount ?? 0;
+                    const p25 = vc.p25_amount ?? 0;
+                    const p75 = vc.p75_amount ?? 0;
+                    const barScale = maxRange > 0 ? 100 / maxRange : 0;
+                    const leftPct = rangeMin * barScale;
+                    const iqrLeftPct = p25 * barScale;
+                    const iqrWidthPct = (p75 - p25) * barScale;
+                    const rightPct = rangeMax * barScale;
+                    // Flag as outlier if high flag rate
+                    const outlierCount = vc.flagged_count;
                     return (
                       <tr
                         key={vc.fee_category}
-                        className="border-b last:border-0 hover:bg-gray-50"
+                        className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
                       >
                         <td className="px-4 py-2">
                           <Link
                             href={`/admin/fees/catalog/${vc.fee_category}`}
-                            className="text-blue-600 hover:underline font-medium text-xs"
+                            className="text-gray-900 hover:text-blue-600 font-medium text-xs transition-colors"
                           >
                             {getDisplayName(vc.fee_category)}
                           </Link>
                           {family && colors && (
                             <span
-                              className={`ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}
+                              className={`ml-1.5 inline-block rounded px-1 py-0.5 text-[9px] font-semibold ${colors.bg} ${colors.text}`}
                             >
                               {family}
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-2 text-right text-gray-600">
-                          {vc.institution_count}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-900">
+                        <td className="px-4 py-2 text-right tabular-nums text-gray-900 font-medium">
                           {formatAmount(vc.median_amount)}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">
+                        <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900">
                           {formatAmount(vc.iqr)}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-500">
-                          {formatAmount(vc.range_width)}
+                        <td className="px-4 py-2">
+                          {/* Visual IQR bar */}
+                          <div className="relative h-4 w-full">
+                            {/* Full range line */}
+                            <div
+                              className="absolute top-1/2 h-px bg-gray-200"
+                              style={{
+                                left: `${Math.min(leftPct, 100)}%`,
+                                width: `${Math.min(rightPct - leftPct, 100)}%`,
+                              }}
+                            />
+                            {/* IQR box */}
+                            <div
+                              className="absolute top-1 h-2 rounded-sm bg-blue-400/60"
+                              style={{
+                                left: `${Math.min(iqrLeftPct, 100)}%`,
+                                width: `${Math.min(iqrWidthPct, 100)}%`,
+                              }}
+                            />
+                            {/* Median dot */}
+                            {vc.median_amount !== null && (
+                              <div
+                                className="absolute top-0.5 w-1 h-3 rounded-full bg-gray-800"
+                                style={{
+                                  left: `${Math.min((vc.median_amount ?? 0) * barScale, 100)}%`,
+                                }}
+                              />
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {outlierCount > 0 ? (
+                            <span className="tabular-nums text-xs font-semibold text-orange-600">
+                              {outlierCount}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-300">&mdash;</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -305,68 +574,88 @@ export default async function AdminDashboard({
               </table>
             </div>
           ) : (
-            <div className="p-6 text-sm text-gray-500 text-center">
+            <div className="p-8 text-sm text-gray-400 text-center">
               No fee data available for current filters
             </div>
           )}
         </div>
 
-        {/* Risk & Outliers */}
-        <div className="rounded-lg border bg-white">
-          <div className="px-5 py-3 border-b bg-gray-50">
-            <h2 className="text-sm font-semibold text-gray-700">
-              Risk & Outliers
-            </h2>
+        {/* Risk & Outliers — 2 cols, elevated */}
+        <div className="lg:col-span-2 rounded-lg border border-red-100 bg-white">
+          <div className="px-5 py-3 border-b border-red-100 bg-red-50/50">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500" />
+              <h2 className="text-sm font-bold text-gray-800">
+                Risk &amp; Outliers
+              </h2>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Items requiring attention
+            </p>
           </div>
           <div className="p-4 space-y-5">
             {/* Top flagged categories */}
             {riskOutliers.top_flagged_categories.length > 0 && (
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <h3 className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">
                   Top Flagged Categories
                 </h3>
-                <div className="space-y-1.5">
-                  {riskOutliers.top_flagged_categories.map((fc) => (
-                    <Link
-                      key={fc.fee_category}
-                      href={`/admin/review?status=flagged`}
-                      className="flex items-center justify-between text-sm hover:bg-gray-50 rounded px-2 py-1 -mx-2"
-                    >
-                      <span className="text-gray-700">
-                        {getDisplayName(fc.fee_category)}
-                      </span>
-                      <span className="text-xs">
-                        <span className="text-orange-600 font-medium">
-                          {fc.flagged_count}
+                <div className="space-y-1">
+                  {riskOutliers.top_flagged_categories.map((fc) => {
+                    const flagRate = fc.total_count > 0 ? fc.flagged_count / fc.total_count : 0;
+                    return (
+                      <Link
+                        key={fc.fee_category}
+                        href="/admin/review?status=flagged"
+                        className="flex items-center justify-between text-sm hover:bg-red-50/50 rounded px-2 py-1.5 -mx-2 transition-colors"
+                      >
+                        <span className="text-gray-700 font-medium text-xs">
+                          {getDisplayName(fc.fee_category)}
                         </span>
-                        <span className="text-gray-400">
-                          /{fc.total_count}
-                        </span>
-                      </span>
-                    </Link>
-                  ))}
+                        <div className="flex items-center gap-2">
+                          {/* Mini bar */}
+                          <div className="w-12 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                flagRate > 0.25 ? "bg-red-500" : "bg-orange-400"
+                              }`}
+                              style={{ width: `${Math.min(flagRate * 100, 100)}%` }}
+                            />
+                          </div>
+                          <span className={`text-xs font-semibold tabular-nums ${
+                            flagRate > 0.25 ? "text-red-600" : "text-orange-600"
+                          }`}>
+                            {fc.flagged_count}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            /{fc.total_count}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Repeated crawl failures */}
+            {/* High flag-rate institutions */}
             {riskOutliers.repeated_failures.length > 0 && (
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <h3 className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">
                   Repeated Crawl Failures
                 </h3>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {riskOutliers.repeated_failures.slice(0, 5).map((rf) => (
                     <Link
                       key={rf.id}
                       href={`/admin/peers/${rf.id}`}
-                      className="flex items-center justify-between text-sm hover:bg-gray-50 rounded px-2 py-1 -mx-2"
+                      className="flex items-center justify-between text-sm hover:bg-red-50/50 rounded px-2 py-1.5 -mx-2 transition-colors"
                     >
-                      <span className="text-gray-700 truncate max-w-[200px]">
+                      <span className="text-gray-700 truncate max-w-[180px] text-xs">
                         {rf.institution_name}
                       </span>
-                      <span className="text-xs text-red-600 font-medium">
-                        {rf.consecutive_failures}x failed
+                      <span className="text-xs font-bold text-red-600 tabular-nums">
+                        {rf.consecutive_failures}x
                       </span>
                     </Link>
                   ))}
@@ -377,25 +666,25 @@ export default async function AdminDashboard({
             {/* Extreme outlier fees */}
             {riskOutliers.extreme_outlier_fees.length > 0 && (
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <h3 className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">
                   Extreme Outlier Fees
                 </h3>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {riskOutliers.extreme_outlier_fees.map((of) => (
                     <Link
                       key={of.id}
                       href={`/admin/review/${of.id}`}
-                      className="flex items-center justify-between text-sm hover:bg-gray-50 rounded px-2 py-1 -mx-2"
+                      className="flex items-center justify-between text-sm hover:bg-red-50/50 rounded px-2 py-1.5 -mx-2 transition-colors"
                     >
-                      <div>
-                        <span className="text-gray-700">
+                      <div className="min-w-0">
+                        <span className="text-gray-700 font-medium text-xs">
                           {getDisplayName(of.fee_category ?? of.fee_name)}
                         </span>
-                        <span className="text-xs text-gray-400 ml-1">
+                        <span className="text-[10px] text-gray-400 ml-1 truncate">
                           {of.institution_name}
                         </span>
                       </div>
-                      <span className="font-mono text-sm font-semibold text-red-600">
+                      <span className="tabular-nums text-sm font-bold text-red-600 shrink-0 ml-2">
                         {formatAmount(of.amount)}
                       </span>
                     </Link>
@@ -404,10 +693,22 @@ export default async function AdminDashboard({
               </div>
             )}
 
+            {/* Summary stat: categories with insufficient maturity */}
+            {indexSnapshot.length > 0 && (
+              <div className="pt-3 border-t border-red-100">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Insufficient maturity categories</span>
+                  <span className="font-bold text-red-600 tabular-nums">
+                    {indexSnapshot.filter((e) => e.maturity_tier === "insufficient").length}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {riskOutliers.top_flagged_categories.length === 0 &&
               riskOutliers.repeated_failures.length === 0 &&
               riskOutliers.extreme_outlier_fees.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
+                <p className="text-sm text-gray-400 text-center py-4">
                   No risk items for current filters
                 </p>
               )}
@@ -415,50 +716,50 @@ export default async function AdminDashboard({
         </div>
       </div>
 
-      {/* Row 5: Operational Tables */}
+      {/* ─── OPERATIONAL TABLES ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recently Crawled (peer-filtered) */}
+        {/* Recently Crawled */}
         <div className="rounded-lg border bg-white">
-          <div className="px-5 py-3 border-b bg-gray-50">
-            <h2 className="text-sm font-semibold text-gray-700">
-              Recently Crawled
+          <div className="px-4 py-2.5 border-b bg-gray-50/80 flex items-center justify-between">
+            <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+              Recent Crawls
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {hasFilters ? "Filtered by peer set" : "All institutions"}
-            </p>
+            <span className="text-[10px] text-gray-400">
+              {hasFilters ? "Filtered" : "All institutions"}
+            </span>
           </div>
           {recentCrawls.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b text-left text-gray-500">
-                    <th className="px-4 py-2 font-medium">Institution</th>
-                    <th className="px-4 py-2 font-medium text-center">Status</th>
-                    <th className="px-4 py-2 font-medium text-right">Fees</th>
-                    <th className="px-4 py-2 font-medium text-right">When</th>
+                  <tr className="border-b text-left text-gray-400">
+                    <th className="px-3 py-2 font-medium">Institution</th>
+                    <th className="px-3 py-2 font-medium text-center">Status</th>
+                    <th className="px-3 py-2 font-medium text-right">Fees</th>
+                    <th className="px-3 py-2 font-medium text-right">When</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentCrawls.slice(0, 10).map((rc, i) => (
                     <tr
                       key={`${rc.crawl_target_id}-${i}`}
-                      className="border-b last:border-0 hover:bg-gray-50"
+                      className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
                     >
-                      <td className="px-4 py-2">
+                      <td className="px-3 py-1.5">
                         <Link
                           href={`/admin/peers/${rc.crawl_target_id}`}
-                          className="text-blue-600 hover:underline text-xs font-medium"
+                          className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
                         >
                           {rc.institution_name}
                         </Link>
                       </td>
-                      <td className="px-4 py-2 text-center">
-                        <CrawlStatusBadge status={rc.status} />
+                      <td className="px-3 py-1.5 text-center">
+                        <CrawlStatusDot status={rc.status} />
                       </td>
-                      <td className="px-4 py-2 text-right text-gray-600">
+                      <td className="px-3 py-1.5 text-right tabular-nums text-gray-500">
                         {rc.fees_extracted}
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-gray-500">
+                      <td className="px-3 py-1.5 text-right text-gray-400">
                         {rc.crawled_at?.slice(0, 10) ?? "-"}
                       </td>
                     </tr>
@@ -467,59 +768,57 @@ export default async function AdminDashboard({
               </table>
             </div>
           ) : (
-            <div className="p-6 text-sm text-gray-500 text-center">
+            <div className="p-6 text-xs text-gray-400 text-center">
               No recent crawl activity
             </div>
           )}
         </div>
 
-        {/* Recently Reviewed (GLOBAL) */}
+        {/* Recent Reviews */}
         <div className="rounded-lg border bg-white">
-          <div className="px-5 py-3 border-b bg-gray-50">
-            <h2 className="text-sm font-semibold text-gray-700">
+          <div className="px-4 py-2.5 border-b bg-gray-50/80 flex items-center justify-between">
+            <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
               Recent Reviews
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Global activity feed
-            </p>
+            <span className="text-[10px] text-gray-400">Global</span>
           </div>
           {recentReviews.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b text-left text-gray-500">
-                    <th className="px-4 py-2 font-medium">Reviewer</th>
-                    <th className="px-4 py-2 font-medium">Action</th>
-                    <th className="px-4 py-2 font-medium">Fee</th>
-                    <th className="px-4 py-2 font-medium text-right">When</th>
+                  <tr className="border-b text-left text-gray-400">
+                    <th className="px-3 py-2 font-medium">Reviewer</th>
+                    <th className="px-3 py-2 font-medium">Action</th>
+                    <th className="px-3 py-2 font-medium">Fee</th>
+                    <th className="px-3 py-2 font-medium text-right">When</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentReviews.map((rr, i) => (
                     <tr
                       key={`${rr.fee_id}-${i}`}
-                      className="border-b last:border-0 hover:bg-gray-50"
+                      className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
                     >
-                      <td className="px-4 py-2 text-gray-700 text-xs">
+                      <td className="px-3 py-1.5 text-gray-600">
                         {rr.username ?? "system"}
                       </td>
-                      <td className="px-4 py-2">
-                        <ReviewActionBadge action={rr.action} />
+                      <td className="px-3 py-1.5">
+                        <ReviewActionDot action={rr.action} />
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-3 py-1.5">
                         <Link
                           href={`/admin/review/${rr.fee_id}`}
-                          className="text-blue-600 hover:underline text-xs"
+                          className="text-gray-700 hover:text-blue-600 transition-colors"
                         >
                           {rr.fee_category
                             ? getDisplayName(rr.fee_category)
                             : rr.fee_name}
                         </Link>
-                        <span className="text-xs text-gray-400 ml-1">
+                        <span className="text-gray-400 ml-1">
                           {rr.institution_name}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-right text-xs text-gray-500">
+                      <td className="px-3 py-1.5 text-right text-gray-400">
                         {rr.created_at?.slice(0, 10) ?? "-"}
                       </td>
                     </tr>
@@ -528,7 +827,7 @@ export default async function AdminDashboard({
               </table>
             </div>
           ) : (
-            <div className="p-6 text-sm text-gray-500 text-center">
+            <div className="p-6 text-xs text-gray-400 text-center">
               No recent review activity
             </div>
           )}
@@ -549,6 +848,7 @@ function HealthTile({
   highlight,
   href,
   global,
+  delta,
 }: {
   label: string;
   value: string;
@@ -556,27 +856,41 @@ function HealthTile({
   highlight?: boolean;
   href?: string;
   global?: boolean;
+  delta?: number;
 }) {
   const content = (
     <div
       className={`rounded-lg border bg-white px-4 py-3 transition-all ${
-        href ? "hover:shadow-sm hover:border-gray-300 cursor-pointer" : ""
+        href ? "hover:shadow-md hover:border-gray-300 cursor-pointer" : ""
       } ${highlight ? "ring-1 ring-blue-100 border-blue-200" : ""}`}
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+          {label}
+        </p>
         {global && (
-          <span className="text-[10px] text-gray-400">global</span>
+          <span className="text-[9px] text-gray-300 uppercase">global</span>
         )}
       </div>
       <p
-        className={`text-2xl font-semibold mt-1 ${
+        className={`text-2xl font-bold tabular-nums mt-1 ${
           highlight ? "text-blue-600" : "text-gray-900"
         }`}
       >
         {value}
       </p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      <div className="flex items-center gap-2 mt-0.5">
+        {sub && <p className="text-[11px] text-gray-400">{sub}</p>}
+        {delta !== undefined && delta !== 0 && (
+          <span
+            className={`text-[11px] font-semibold tabular-nums ${
+              delta > 0 ? "text-emerald-600" : "text-red-500"
+            }`}
+          >
+            {delta > 0 ? "+" : ""}{delta.toFixed(1)}% vs national
+          </span>
+        )}
+      </div>
     </div>
   );
 
@@ -586,40 +900,69 @@ function HealthTile({
   return content;
 }
 
-function SummaryKPI({ label, value }: { label: string; value: string }) {
+function SummaryKPI({
+  label,
+  value,
+  delta,
+  deltaLabel,
+  deltaFormat,
+}: {
+  label: string;
+  value: string;
+  delta?: number;
+  deltaLabel?: string;
+  deltaFormat?: "pct" | "abs";
+}) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-semibold text-gray-900">{value}</span>
+      <span className="text-xs text-gray-500">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold tabular-nums text-gray-900">
+          {value}
+        </span>
+        {delta !== undefined && deltaLabel && (
+          <span className="text-[10px] text-gray-400">{deltaLabel}</span>
+        )}
+        {delta !== undefined && !deltaLabel && delta !== 0 && (
+          <span
+            className={`text-[10px] font-semibold tabular-nums ${
+              delta > 0 ? "text-emerald-600" : "text-red-500"
+            }`}
+          >
+            {deltaFormat === "pct"
+              ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}pp`
+              : `${delta > 0 ? "+" : ""}${delta.toFixed(0)}`}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-function CrawlStatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    success: "bg-green-100 text-green-700",
-    failed: "bg-red-100 text-red-700",
-    unchanged: "bg-gray-100 text-gray-600",
+function CrawlStatusDot({ status }: { status: string }) {
+  const color: Record<string, string> = {
+    success: "bg-emerald-400",
+    failed: "bg-red-400",
+    unchanged: "bg-gray-300",
   };
   return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-        colors[status] ?? "bg-gray-100 text-gray-600"
-      }`}
-    >
+    <span className="inline-flex items-center gap-1.5 text-gray-500">
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${color[status] ?? "bg-gray-300"}`}
+      />
       {status}
     </span>
   );
 }
 
-function ReviewActionBadge({ action }: { action: string }) {
-  const colors: Record<string, string> = {
-    approve: "bg-green-100 text-green-700",
-    reject: "bg-red-100 text-red-700",
-    edit: "bg-blue-100 text-blue-700",
-    bulk_approve: "bg-green-100 text-green-700",
-    flag: "bg-orange-100 text-orange-700",
-    stage: "bg-blue-100 text-blue-700",
+function ReviewActionDot({ action }: { action: string }) {
+  const color: Record<string, string> = {
+    approve: "bg-emerald-400",
+    reject: "bg-red-400",
+    edit: "bg-blue-400",
+    bulk_approve: "bg-emerald-400",
+    flag: "bg-orange-400",
+    stage: "bg-blue-400",
   };
   const labels: Record<string, string> = {
     approve: "Approved",
@@ -630,11 +973,10 @@ function ReviewActionBadge({ action }: { action: string }) {
     stage: "Staged",
   };
   return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-        colors[action] ?? "bg-gray-100 text-gray-600"
-      }`}
-    >
+    <span className="inline-flex items-center gap-1.5 text-gray-500">
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${color[action] ?? "bg-gray-300"}`}
+      />
       {labels[action] ?? action}
     </span>
   );

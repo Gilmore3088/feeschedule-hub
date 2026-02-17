@@ -9,23 +9,23 @@ import { formatAmount } from "@/lib/format";
 const STATUS_TABS = ["staged", "flagged", "pending", "approved", "rejected"] as const;
 
 const STATUS_COLORS: Record<string, string> = {
-  staged: "bg-blue-100 text-blue-700",
-  flagged: "bg-orange-100 text-orange-700",
-  pending: "bg-gray-100 text-gray-600",
-  approved: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
+  staged: "bg-blue-50 text-blue-600",
+  flagged: "bg-orange-50 text-orange-600",
+  pending: "bg-gray-100 text-gray-500",
+  approved: "bg-emerald-50 text-emerald-600",
+  rejected: "bg-red-50 text-red-600",
 };
 
 function confidenceBadge(conf: number) {
   const cls =
     conf >= 0.9
-      ? "bg-green-100 text-green-700"
+      ? "bg-emerald-50 text-emerald-600"
       : conf >= 0.7
-        ? "bg-yellow-100 text-yellow-700"
-        : "bg-red-100 text-red-700";
+        ? "bg-amber-50 text-amber-600"
+        : "bg-red-50 text-red-600";
   return (
     <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}
+      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${cls}`}
     >
       {(conf * 100).toFixed(0)}%
     </span>
@@ -54,10 +54,10 @@ function FlagsBadges({ flags }: { flags: ValidationFlag[] }) {
       {flags.map((f, i) => {
         const cls =
           f.severity === "error"
-            ? "bg-red-100 text-red-700"
+            ? "bg-red-50 text-red-600"
             : f.severity === "warning"
-              ? "bg-orange-100 text-orange-700"
-              : "bg-gray-100 text-gray-600";
+              ? "bg-orange-50 text-orange-600"
+              : "bg-gray-100 text-gray-500";
         return (
           <span
             key={i}
@@ -94,9 +94,9 @@ export default async function ReviewPage({
         <div>
           <Breadcrumbs items={[
             { label: "Dashboard", href: "/admin" },
-            { label: "Review Fees" },
+            { label: "Review" },
           ]} />
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
             Fee Review Queue
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -117,15 +117,15 @@ export default async function ReviewPage({
             <Link
               key={tab}
               href={`/admin/review?status=${tab}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`}
-              className={`px-4 py-2.5 text-sm font-medium capitalize transition border-b-2 -mb-px ${
+              className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
                 isActive
-                  ? "border-blue-600 text-blue-600"
+                  ? "border-gray-900 text-gray-900"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               {tab}
               <span
-                className={`ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-xs ${
+                className={`ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-xs tabular-nums ${
                   isActive
                     ? STATUS_COLORS[tab]
                     : "bg-gray-100 text-gray-500"
@@ -154,7 +154,7 @@ export default async function ReviewPage({
           </span>
           <Link
             href={`/admin/review?status=${activeStatus}`}
-            className="text-blue-600 hover:underline text-xs"
+            className="text-gray-500 hover:text-gray-700 transition-colors text-xs"
           >
             Clear search
           </Link>
@@ -173,17 +173,17 @@ export default async function ReviewPage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left text-gray-500">
-                  <th className="px-4 py-3 font-medium">Institution</th>
-                  <th className="px-4 py-3 font-medium">Fee Name</th>
-                  <th className="px-4 py-3 font-medium text-right">Amount</th>
-                  <th className="px-4 py-3 font-medium">Frequency</th>
-                  <th className="px-4 py-3 font-medium text-center">
+                <tr className="border-b bg-gray-50/80 text-left">
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Institution</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Fee Name</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Frequency</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
                     Confidence
                   </th>
-                  <th className="px-4 py-3 font-medium">Flags</th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Flags</th>
                   {canApprove && (
-                    <th className="px-4 py-3 font-medium text-right">
+                    <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
                       Actions
                     </th>
                   )}
@@ -224,45 +224,45 @@ function FeeRow({
       activeStatus === "pending");
 
   return (
-    <tr className="border-b last:border-0 hover:bg-gray-50">
-      <td className="px-4 py-3">
+    <tr className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+      <td className="px-4 py-2.5">
         <Link
           href={`/admin/peers/${fee.crawl_target_id}`}
-          className="font-medium text-blue-600 hover:underline text-xs"
+          className="font-medium text-gray-900 hover:text-blue-600 transition-colors text-xs"
         >
           {fee.institution_name}
         </Link>
-        <div className="text-xs text-gray-400">
+        <div className="text-[11px] text-gray-400">
           {fee.state_code} | {fee.charter_type === "bank" ? "Bank" : "CU"}
         </div>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-2.5">
         <Link
           href={`/admin/review/${fee.id}`}
-          className="text-blue-600 hover:underline font-medium"
+          className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
         >
           {fee.fee_name}
         </Link>
         {fee.conditions && (
-          <div className="text-xs text-gray-400 mt-0.5 max-w-xs truncate">
+          <div className="text-[11px] text-gray-400 mt-0.5 max-w-xs truncate">
             {fee.conditions}
           </div>
         )}
       </td>
-      <td className="px-4 py-3 text-right font-mono text-gray-900">
+      <td className="px-4 py-2.5 text-right tabular-nums text-gray-900">
         {formatAmount(fee.amount)}
       </td>
-      <td className="px-4 py-3 text-gray-600 text-xs">
+      <td className="px-4 py-2.5 text-gray-600 text-xs">
         {fee.frequency || "-"}
       </td>
-      <td className="px-4 py-3 text-center">
+      <td className="px-4 py-2.5 text-center">
         {confidenceBadge(fee.extraction_confidence)}
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-2.5">
         <FlagsBadges flags={flags} />
       </td>
       {canApprove && (
-        <td className="px-4 py-3 text-right">
+        <td className="px-4 py-2.5 text-right">
           {showActions ? (
             <div className="flex gap-1 justify-end">
               <ApproveButton feeId={fee.id} />

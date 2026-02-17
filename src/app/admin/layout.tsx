@@ -29,29 +29,37 @@ export default async function AdminLayout({
         : "bg-gray-100 text-gray-600";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div>
-              <Link
-                href="/admin"
-                className="text-xl font-semibold text-gray-900 hover:text-gray-700"
+    <div className="min-h-screen bg-gray-50/50">
+      <header className="border-b bg-white sticky top-0 z-40">
+        <div className="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-5 w-5 text-blue-600"
+                stroke="currentColor"
+                strokeWidth="1.5"
               >
-                FeeSchedule Hub Admin
-              </Link>
-              <p className="text-sm text-gray-500">Crawler dashboard</p>
-            </div>
+                <path d="M3 17l4-8 4 5 4-10 6 13" />
+              </svg>
+              <span className="text-[15px] font-bold tracking-tight text-gray-900">
+                Bank Fee Index
+              </span>
+            </Link>
             <AdminNav />
           </div>
           <div className="flex items-center gap-3">
             <CommandPaletteTrigger />
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-xs font-medium text-gray-600">
                 {user.display_name}
               </p>
               <span
-                className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${roleBadgeColor}`}
+                className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${roleBadgeColor}`}
               >
                 {user.role}
               </span>
@@ -59,7 +67,7 @@ export default async function AdminLayout({
             <LogoutButton />
             <Link
               href="/"
-              className="text-sm text-gray-400 hover:text-gray-600"
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
               Site
             </Link>

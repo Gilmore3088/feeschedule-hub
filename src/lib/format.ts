@@ -13,8 +13,10 @@ export function formatAssets(assets: number | null): string {
 }
 
 export function timeAgo(dateString: string): string {
+  if (!dateString) return "";
   const now = Date.now();
   const then = new Date(dateString).getTime();
+  if (isNaN(then)) return "";
   const diffMs = now - then;
 
   if (diffMs < 0) return "just now";

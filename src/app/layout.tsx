@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "FeeSchedule Hub - Fee Benchmarking for Banks & Credit Unions",
+  title: "Bank Fee Index - National Fee Benchmarking for Banks & Credit Unions",
   description:
     "Submit your fee schedule. See how you compare to peers. Get quarterly benchmarking reports with pricing data and examples.",
 };

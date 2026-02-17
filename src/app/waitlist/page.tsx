@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WaitlistForm } from "./waitlist-form";
 
 export const metadata: Metadata = {
-  title: "Join the Waitlist - FeeSchedule Hub",
+  title: "Join the Waitlist - Bank Fee Index",
   description:
     "Sign up for early access to fee benchmarking for banks and credit unions.",
 };

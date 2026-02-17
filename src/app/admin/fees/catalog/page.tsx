@@ -26,30 +26,30 @@ function FamilyTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b bg-gray-50 text-left text-gray-500">
-            <th className="px-4 py-2.5 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">
+          <tr className="border-b bg-gray-50/80 text-left">
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50/80 z-10 min-w-[180px]">
               Fee Type
             </th>
-            <th className="px-4 py-2.5 font-medium text-right">Inst.</th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Inst.</th>
             {showAllColumns && (
-              <th className="px-4 py-2.5 font-medium text-right">Min</th>
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Min</th>
             )}
             {showAllColumns && (
-              <th className="px-4 py-2.5 font-medium text-right">P25</th>
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P25</th>
             )}
-            <th className="px-4 py-2.5 font-medium text-right">Median</th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Median</th>
             {showAllColumns && (
-              <th className="px-4 py-2.5 font-medium text-right">P75</th>
-            )}
-            {showAllColumns && (
-              <th className="px-4 py-2.5 font-medium text-right">Max</th>
-            )}
-            <th className="px-4 py-2.5 font-medium text-right">Spread</th>
-            {showAllColumns && (
-              <th className="px-4 py-2.5 font-medium text-center">Banks</th>
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P75</th>
             )}
             {showAllColumns && (
-              <th className="px-4 py-2.5 font-medium text-center">CUs</th>
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Max</th>
+            )}
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Spread</th>
+            {showAllColumns && (
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">Banks</th>
+            )}
+            {showAllColumns && (
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">CUs</th>
             )}
           </tr>
         </thead>
@@ -62,49 +62,49 @@ function FamilyTable({
             return (
               <tr
                 key={item.fee_category}
-                className="border-b last:border-0 hover:bg-gray-50"
+                className="border-b last:border-0 hover:bg-blue-50/30 transition-colors"
               >
                 <td className="px-4 py-2.5 sticky left-0 bg-white z-10">
                   <Link
                     href={`/admin/fees/catalog/${item.fee_category}`}
-                    className="text-blue-600 hover:underline font-medium"
+                    className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
                   >
                     {getDisplayName(item.fee_category)}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-right font-semibold text-gray-900">
+                <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900">
                   {item.institution_count}
                 </td>
                 {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right font-mono text-gray-600">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
                     {formatAmount(item.min_amount)}
                   </td>
                 )}
                 {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right font-mono text-gray-600">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
                     {formatAmount(item.p25_amount)}
                   </td>
                 )}
-                <td className="px-4 py-2.5 text-right font-mono font-semibold text-gray-900">
+                <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900">
                   {formatAmount(item.median_amount)}
                 </td>
                 {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right font-mono text-gray-600">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
                     {formatAmount(item.p75_amount)}
                   </td>
                 )}
                 {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right font-mono text-gray-600">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
                     {formatAmount(item.max_amount)}
                   </td>
                 )}
-                <td className="px-4 py-2.5 text-right font-mono text-gray-500">
+                <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
                   {spread !== null ? formatAmount(spread) : "-"}
                 </td>
                 {showAllColumns && (
                   <td className="px-4 py-2.5 text-center">
                     {item.bank_count > 0 ? (
-                      <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                      <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
                         {item.bank_count}
                       </span>
                     ) : (
@@ -115,7 +115,7 @@ function FamilyTable({
                 {showAllColumns && (
                   <td className="px-4 py-2.5 text-center">
                     {item.cu_count > 0 ? (
-                      <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
                         {item.cu_count}
                       </span>
                     ) : (
@@ -165,7 +165,6 @@ export default async function FeeCatalogPage({
 
   let summaries = getFeeCategorySummaries();
 
-  // Server-side search filter
   if (searchTerm) {
     summaries = summaries.filter((s) =>
       getDisplayName(s.fee_category)
@@ -174,7 +173,6 @@ export default async function FeeCatalogPage({
     );
   }
 
-  // Server-side sort
   if (sortKey === "median_amount") {
     summaries.sort(
       (a, b) => (b.median_amount ?? 0) - (a.median_amount ?? 0)
@@ -198,9 +196,7 @@ export default async function FeeCatalogPage({
       )
     );
   }
-  // default: institution_count (already sorted by DB query)
 
-  // Group summaries by family
   const byFamily = new Map<string, FeeCategorySummary[]>();
   const uncategorized: FeeCategorySummary[] = [];
 
@@ -226,7 +222,6 @@ export default async function FeeCatalogPage({
     0
   );
 
-  // Insight computations
   const highestMedian = [...summaries].sort(
     (a, b) => (b.median_amount ?? 0) - (a.median_amount ?? 0)
   )[0];
@@ -256,7 +251,7 @@ export default async function FeeCatalogPage({
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Fee Catalog</h1>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">Fee Catalog</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               Fee types across all institutions, grouped by category
             </p>
@@ -267,19 +262,19 @@ export default async function FeeCatalogPage({
 
       {/* Insight cards */}
       {summaries.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {mostCommon && (
             <Link
               href={`/admin/fees/catalog/${mostCommon.fee_category}`}
               className="rounded-lg border bg-white px-4 py-3 hover:shadow-sm transition-shadow"
             >
-              <p className="text-xs text-gray-500 uppercase tracking-wide">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                 Most Common Fee
               </p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">
+              <p className="text-lg font-bold text-gray-900 mt-1">
                 {getDisplayName(mostCommon.fee_category)}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-[11px] text-gray-400 mt-0.5">
                 {mostCommon.institution_count} institutions
               </p>
             </Link>
@@ -289,13 +284,13 @@ export default async function FeeCatalogPage({
               href={`/admin/fees/catalog/${highestMedian.fee_category}`}
               className="rounded-lg border bg-white px-4 py-3 hover:shadow-sm transition-shadow"
             >
-              <p className="text-xs text-gray-500 uppercase tracking-wide">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                 Highest Median Fee
               </p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">
+              <p className="text-lg font-bold text-gray-900 mt-1">
                 {getDisplayName(highestMedian.fee_category)}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-[11px] text-gray-400 mt-0.5">
                 {formatAmount(highestMedian.median_amount)} median
               </p>
             </Link>
@@ -305,13 +300,13 @@ export default async function FeeCatalogPage({
               href={`/admin/fees/catalog/${widestSpread.fee_category}`}
               className="rounded-lg border bg-white px-4 py-3 hover:shadow-sm transition-shadow"
             >
-              <p className="text-xs text-gray-500 uppercase tracking-wide">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                 Widest Spread
               </p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">
+              <p className="text-lg font-bold text-gray-900 mt-1">
                 {getDisplayName(widestSpread.fee_category)}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-[11px] text-gray-400 mt-0.5">
                 {formatAmount(
                   (widestSpread.max_amount ?? 0) -
                     (widestSpread.min_amount ?? 0)
