@@ -33,6 +33,7 @@ def cmd_discover(args: argparse.Namespace) -> None:
             state=args.state,
             source=args.source,
             force=args.force,
+            workers=args.workers,
         )
     finally:
         db.close()
@@ -45,7 +46,7 @@ def cmd_crawl(args: argparse.Namespace) -> None:
     config = load_config()
     db = Database(config)
     try:
-        run(db, config, limit=args.limit, state=args.state, dry_run=args.dry_run)
+        run(db, config, limit=args.limit, state=args.state, dry_run=args.dry_run, workers=args.workers)
     finally:
         db.close()
 
@@ -98,6 +99,30 @@ def cmd_validate(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_categorize(args: argparse.Namespace) -> None:
+    """Batch-categorize extracted fees using fee name aliases."""
+    from fee_crawler.commands.categorize_fees import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, dry_run=args.dry_run, force=args.force, limit=args.limit)
+    finally:
+        db.close()
+
+
+def cmd_backfill_ncua_urls(args: argparse.Namespace) -> None:
+    """Backfill website URLs for NCUA credit unions from mapping API."""
+    from fee_crawler.commands.backfill_ncua_urls import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, workers=args.workers, limit=args.limit)
+    finally:
+        db.close()
+
+
 def cmd_ingest_fdic(args: argparse.Namespace) -> None:
     """Ingest financial data from FDIC BankFind API."""
     from fee_crawler.commands.ingest_fdic import run
@@ -130,6 +155,42 @@ def cmd_ingest_cfpb(args: argparse.Namespace) -> None:
     db = Database(config)
     try:
         run(db, config, limit=args.limit)
+    finally:
+        db.close()
+
+
+def cmd_ingest_beige_book(args: argparse.Namespace) -> None:
+    """Ingest Federal Reserve Beige Book reports."""
+    from fee_crawler.commands.ingest_beige_book import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, edition=args.edition, all_editions=args.all)
+    finally:
+        db.close()
+
+
+def cmd_ingest_fed_content(args: argparse.Namespace) -> None:
+    """Ingest Fed speeches and research papers from RSS feeds."""
+    from fee_crawler.commands.ingest_fed_content import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, content_type=args.type, limit=args.limit)
+    finally:
+        db.close()
+
+
+def cmd_ingest_fred(args: argparse.Namespace) -> None:
+    """Ingest economic indicators from FRED API."""
+    from fee_crawler.commands.ingest_fred import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, series=args.series, from_date=args.from_date)
     finally:
         db.close()
 
@@ -285,6 +346,12 @@ def main() -> None:
         action="store_true",
         help="Re-discover even if fee_schedule_url already set",
     )
+    disc_parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of concurrent worker threads (default: 1)",
+    )
     disc_parser.set_defaults(func=cmd_discover)
 
     # crawl command
@@ -305,6 +372,12 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Download and extract text but skip LLM extraction (no API cost)",
+    )
+    crawl_parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of concurrent worker threads (default: 1)",
     )
     crawl_parser.set_defaults(func=cmd_crawl)
 
@@ -335,6 +408,44 @@ def main() -> None:
     # validate command
     validate_parser = subparsers.add_parser("validate", help="Retroactively validate existing fees")
     validate_parser.set_defaults(func=cmd_validate)
+
+    # categorize command
+    cat_parser = subparsers.add_parser("categorize", help="Batch-categorize fees using name aliases")
+    cat_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report what would be categorized without writing",
+    )
+    cat_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-categorize even if fee_category is already set",
+    )
+    cat_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Max rows to process (for testing)",
+    )
+    cat_parser.set_defaults(func=cmd_categorize)
+
+    # backfill-ncua-urls command
+    ncua_url_parser = subparsers.add_parser(
+        "backfill-ncua-urls", help="Backfill website URLs for NCUA credit unions"
+    )
+    ncua_url_parser.add_argument(
+        "--workers",
+        type=int,
+        default=8,
+        help="Number of concurrent worker threads (default: 8)",
+    )
+    ncua_url_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Max institutions to process (for testing)",
+    )
+    ncua_url_parser.set_defaults(func=cmd_backfill_ncua_urls)
 
     # ingest-fdic command
     fdic_parser = subparsers.add_parser("ingest-fdic", help="Ingest FDIC financial data")
@@ -371,6 +482,59 @@ def main() -> None:
         help="Max institutions to process (for testing)",
     )
     cfpb_parser.set_defaults(func=cmd_ingest_cfpb)
+
+    # ingest-beige-book command
+    beige_parser = subparsers.add_parser(
+        "ingest-beige-book", help="Ingest Federal Reserve Beige Book reports"
+    )
+    beige_parser.add_argument(
+        "--edition",
+        type=str,
+        default=None,
+        help="Specific edition code (YYYYMM), e.g. 202601. Default: latest",
+    )
+    beige_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Ingest all known editions (2024-2026)",
+    )
+    beige_parser.set_defaults(func=cmd_ingest_beige_book)
+
+    # ingest-fed-content command
+    fed_content_parser = subparsers.add_parser(
+        "ingest-fed-content", help="Ingest Fed speeches and research from RSS"
+    )
+    fed_content_parser.add_argument(
+        "--type",
+        choices=["speeches", "research"],
+        default=None,
+        help="Content type to ingest (default: all)",
+    )
+    fed_content_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Max items per feed (for testing)",
+    )
+    fed_content_parser.set_defaults(func=cmd_ingest_fed_content)
+
+    # ingest-fred command
+    fred_parser = subparsers.add_parser(
+        "ingest-fred", help="Ingest economic indicators from FRED API"
+    )
+    fred_parser.add_argument(
+        "--series",
+        type=str,
+        default=None,
+        help="Specific FRED series ID (e.g. UNRATE). Default: all configured",
+    )
+    fred_parser.add_argument(
+        "--from-date",
+        type=str,
+        default=None,
+        help="Start date for observations (YYYY-MM-DD). Default: last 10 years",
+    )
+    fred_parser.set_defaults(func=cmd_ingest_fred)
 
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
