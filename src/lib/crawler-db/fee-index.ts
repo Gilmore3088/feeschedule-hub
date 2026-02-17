@@ -191,6 +191,86 @@ export function getDistrictMedianByCategory(
   }
 }
 
+export interface StateFeeStats {
+  state_code: string;
+  median_amount: number | null;
+  p25_amount: number | null;
+  p75_amount: number | null;
+  min_amount: number | null;
+  max_amount: number | null;
+  institution_count: number;
+  bank_count: number;
+  cu_count: number;
+  top_lowest: { institution_name: string; amount: number; charter_type: string; city: string | null }[];
+}
+
+export function getStateFeeStats(
+  category: string,
+  stateCode: string
+): StateFeeStats | null {
+  const db = getDb();
+  try {
+    const rows = db
+      .prepare(
+        `SELECT ef.amount, ef.crawl_target_id, ct.charter_type,
+                ct.institution_name, ct.city
+         FROM extracted_fees ef
+         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+         WHERE ef.fee_category = ? AND ct.state_code = ?
+           AND ef.review_status != 'rejected'`
+      )
+      .all(category, stateCode.toUpperCase()) as {
+      amount: number | null;
+      crawl_target_id: number;
+      charter_type: string;
+      institution_name: string;
+      city: string | null;
+    }[];
+
+    if (rows.length === 0) return null;
+
+    const amounts: number[] = [];
+    const banks = new Set<number>();
+    const cus = new Set<number>();
+    const institutions: { institution_name: string; amount: number; charter_type: string; city: string | null }[] = [];
+
+    for (const row of rows) {
+      if (row.charter_type === "bank") {
+        banks.add(row.crawl_target_id);
+      } else {
+        cus.add(row.crawl_target_id);
+      }
+      if (row.amount !== null && row.amount > 0) {
+        amounts.push(row.amount);
+        institutions.push({
+          institution_name: row.institution_name,
+          amount: row.amount,
+          charter_type: row.charter_type,
+          city: row.city,
+        });
+      }
+    }
+
+    const stats = computeStats(amounts);
+    institutions.sort((a, b) => a.amount - b.amount);
+
+    return {
+      state_code: stateCode.toUpperCase(),
+      median_amount: stats.median,
+      p25_amount: stats.p25,
+      p75_amount: stats.p75,
+      min_amount: stats.min,
+      max_amount: stats.max,
+      institution_count: new Set([...banks, ...cus]).size,
+      bank_count: banks.size,
+      cu_count: cus.size,
+      top_lowest: institutions.slice(0, 5),
+    };
+  } finally {
+    db.close();
+  }
+}
+
 function buildIndexEntries(
   rows: {
     fee_category: string;
