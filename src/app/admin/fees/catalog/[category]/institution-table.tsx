@@ -97,8 +97,8 @@ export function InstitutionTable({
   }
 
   return (
-    <div className="bg-white rounded-lg border">
-      <div className="px-4 py-3 border-b bg-gray-50 flex flex-wrap items-center gap-3">
+    <div className="admin-card overflow-hidden">
+      <div className="px-4 py-3 border-b bg-gray-50 dark:bg-white/[0.03] flex flex-wrap items-center gap-3">
         <h3 className="text-sm font-semibold text-gray-700 mr-auto">
           All Institutions ({filtered.length})
         </h3>
@@ -109,7 +109,8 @@ export function InstitutionTable({
             placeholder="Search institutions..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="rounded-md border border-gray-300 pl-8 pr-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="rounded-md border border-gray-300 pl-8 pr-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                       dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100 dark:placeholder:text-gray-500"
           />
         </div>
         <div className="flex gap-1">
@@ -120,11 +121,11 @@ export function InstitutionTable({
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                 charterFilter === filter
                   ? filter === "bank"
-                    ? "bg-blue-100 text-blue-700"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                     : filter === "credit_union"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-200 text-gray-700"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : "bg-gray-200 text-gray-700 dark:bg-white/[0.12] dark:text-gray-300"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400 dark:hover:bg-white/[0.1]"
               }`}
             >
               {filter === "all" ? "All" : filter === "bank" ? "Banks" : "CUs"}
@@ -136,7 +137,7 @@ export function InstitutionTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-gray-500">
-              <th className="px-4 py-2 font-medium sticky left-0 bg-white z-10 min-w-[200px]">
+              <th className="px-4 py-2 font-medium sticky left-0 bg-white dark:bg-[oklch(0.205_0_0)] z-10 min-w-[200px]">
                 <button
                   onClick={() => handleSort("institution_name")}
                   className="flex items-center gap-1 hover:text-gray-900"
@@ -196,7 +197,7 @@ export function InstitutionTable({
                   key={fee.id}
                   className="border-b last:border-0 hover:bg-gray-50"
                 >
-                  <td className="px-4 py-2 sticky left-0 bg-white z-10">
+                  <td className="px-4 py-2 sticky left-0 bg-white dark:bg-[oklch(0.205_0_0)] z-10">
                     <Link
                       href={`/admin/peers/${fee.crawl_target_id}`}
                       className="text-blue-600 hover:underline font-medium"
@@ -207,10 +208,10 @@ export function InstitutionTable({
                   <td
                     className={`px-4 py-2 text-right font-mono font-semibold ${
                       isHigh
-                        ? "text-red-600"
+                        ? "text-red-600 dark:text-red-400"
                         : isLow
-                          ? "text-green-600"
-                          : "text-gray-900"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-gray-900 dark:text-gray-100"
                     }`}
                   >
                     {formatAmount(fee.amount)}
@@ -222,8 +223,8 @@ export function InstitutionTable({
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         fee.charter_type === "bank"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                       }`}
                     >
                       {fee.charter_type === "bank" ? "Bank" : "CU"}
@@ -239,12 +240,12 @@ export function InstitutionTable({
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         fee.review_status === "approved"
-                          ? "bg-green-100 text-green-700"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                           : fee.review_status === "staged"
-                            ? "bg-blue-100 text-blue-700"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                             : fee.review_status === "flagged"
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-gray-100 text-gray-600"
+                              ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                              : "bg-gray-100 text-gray-600 dark:bg-white/[0.08] dark:text-gray-400"
                       }`}
                     >
                       {fee.review_status}

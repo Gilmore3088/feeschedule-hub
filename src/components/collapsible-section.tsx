@@ -38,7 +38,7 @@ export function CollapsibleSection({
       </button>
       {/* Screen: show only when open. Print: always show. */}
       <div
-        className={`mt-1 bg-white rounded-lg border border-l-4 ${colorClasses.border} ${
+        className={`mt-1 bg-white dark:bg-[oklch(0.205_0_0)] rounded-lg border dark:border-white/[0.08] border-l-4 ${colorClasses.border} ${
           open ? "block" : "hidden print:block"
         }`}
       >

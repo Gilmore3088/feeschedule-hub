@@ -66,7 +66,7 @@ export default async function ExplorePeersPage({
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="admin-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -101,8 +101,8 @@ export default async function ExplorePeersPage({
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         inst.charter_type === "bank"
-                          ? "bg-blue-50 text-blue-600"
-                          : "bg-emerald-50 text-emerald-600"
+                          ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
                       }`}
                     >
                       {inst.charter_type === "bank" ? "Bank" : "CU"}

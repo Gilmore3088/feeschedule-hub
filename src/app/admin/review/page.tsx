@@ -2,27 +2,31 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { getReviewStats, getFeesByStatus, type ReviewableFee } from "@/lib/crawler-db";
 import { ApproveButton, RejectButton, BulkApproveButton } from "./review-actions";
+import { CategorySelect } from "./category-select";
 import { FeeSearchForm } from "./fee-search";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Pagination } from "@/components/pagination";
+import { SortableHeader } from "@/components/sortable-header";
+import { ReviewKeyboardNav } from "./keyboard-nav";
 import { formatAmount } from "@/lib/format";
 
 const STATUS_TABS = ["staged", "flagged", "pending", "approved", "rejected"] as const;
 
 const STATUS_COLORS: Record<string, string> = {
-  staged: "bg-blue-50 text-blue-600",
-  flagged: "bg-orange-50 text-orange-600",
-  pending: "bg-gray-100 text-gray-500",
-  approved: "bg-emerald-50 text-emerald-600",
-  rejected: "bg-red-50 text-red-600",
+  staged: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+  flagged: "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+  pending: "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400",
+  approved: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+  rejected: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
 };
 
 function confidenceBadge(conf: number) {
   const cls =
     conf >= 0.9
-      ? "bg-emerald-50 text-emerald-600"
+      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
       : conf >= 0.7
-        ? "bg-amber-50 text-amber-600"
-        : "bg-red-50 text-red-600";
+        ? "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+        : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400";
   return (
     <span
       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${cls}`}
@@ -48,16 +52,16 @@ function parseFlags(flags: string | null): ValidationFlag[] {
 }
 
 function FlagsBadges({ flags }: { flags: ValidationFlag[] }) {
-  if (flags.length === 0) return <span className="text-gray-400">-</span>;
+  if (flags.length === 0) return <span className="text-gray-400 dark:text-gray-600">-</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {flags.map((f, i) => {
         const cls =
           f.severity === "error"
-            ? "bg-red-50 text-red-600"
+            ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
             : f.severity === "warning"
-              ? "bg-orange-50 text-orange-600"
-              : "bg-gray-100 text-gray-500";
+              ? "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+              : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400";
         return (
           <span
             key={i}
@@ -72,18 +76,31 @@ function FlagsBadges({ flags }: { flags: ValidationFlag[] }) {
   );
 }
 
+const PAGE_SIZE = 100;
+
 export default async function ReviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string; sort?: string; dir?: string }>;
 }) {
   const user = await requireAuth("view");
 
   const params = await searchParams;
   const activeStatus = params.status || "staged";
   const searchQuery = params.q || "";
+  const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
+  const sortColumn = params.sort || undefined;
+  const sortDir = params.dir || undefined;
   const stats = getReviewStats();
-  const fees = getFeesByStatus(activeStatus, searchQuery || undefined);
+  const { fees, total } = getFeesByStatus(
+    activeStatus,
+    searchQuery || undefined,
+    PAGE_SIZE,
+    (currentPage - 1) * PAGE_SIZE,
+    sortColumn,
+    sortDir,
+  );
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const canApprove = user.role === "analyst" || user.role === "admin";
   const canBulkApprove = user.role === "admin";
@@ -103,8 +120,8 @@ export default async function ReviewPage({
             Review and approve extracted fee data
           </p>
         </div>
-        {canBulkApprove && activeStatus === "staged" && fees.length > 0 && (
-          <BulkApproveButton count={fees.length} />
+        {canBulkApprove && activeStatus === "staged" && total > 0 && (
+          <BulkApproveButton count={total} />
         )}
       </div>
 
@@ -149,7 +166,7 @@ export default async function ReviewPage({
       {searchQuery && (
         <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
           <span>
-            Showing {fees.length} result{fees.length !== 1 ? "s" : ""} for
+            {total} result{total !== 1 ? "s" : ""} for
             &quot;{searchQuery}&quot;
           </span>
           <Link
@@ -169,18 +186,17 @@ export default async function ReviewPage({
             : `No fees with status "${activeStatus}"`}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border">
+        <div className="admin-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50/80 text-left">
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Institution</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Fee Name</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Frequency</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
-                    Confidence
-                  </th>
+                  <SortableHeader column="institution" label="Institution" />
+                  <SortableHeader column="fee_name" label="Fee Name" />
+                  <SortableHeader column="amount" label="Amount" className="text-right" />
+                  <SortableHeader column="frequency" label="Frequency" />
+                  <SortableHeader column="confidence" label="Confidence" className="text-center" />
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Category</th>
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Flags</th>
                   {canApprove && (
                     <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
@@ -200,6 +216,22 @@ export default async function ReviewPage({
                 ))}
               </tbody>
             </table>
+          </div>
+          <ReviewKeyboardNav rowCount={fees.length} />
+          <div className="px-4 pb-3">
+            <Pagination
+              basePath="/admin/review"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={total}
+              pageSize={PAGE_SIZE}
+              params={{
+                status: activeStatus,
+                ...(searchQuery ? { q: searchQuery } : {}),
+                ...(sortColumn ? { sort: sortColumn } : {}),
+                ...(sortDir ? { dir: sortDir } : {}),
+              }}
+            />
           </div>
         </div>
       )}
@@ -224,7 +256,7 @@ function FeeRow({
       activeStatus === "pending");
 
   return (
-    <tr className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+    <tr data-fee-row className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
       <td className="px-4 py-2.5">
         <Link
           href={`/admin/peers/${fee.crawl_target_id}`}
@@ -238,6 +270,7 @@ function FeeRow({
       </td>
       <td className="px-4 py-2.5">
         <Link
+          data-detail-link
           href={`/admin/review/${fee.id}`}
           className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
         >
@@ -257,6 +290,9 @@ function FeeRow({
       </td>
       <td className="px-4 py-2.5 text-center">
         {confidenceBadge(fee.extraction_confidence)}
+      </td>
+      <td className="px-4 py-2.5">
+        <CategorySelect feeId={fee.id} currentCategory={fee.fee_category} />
       </td>
       <td className="px-4 py-2.5">
         <FlagsBadges flags={flags} />

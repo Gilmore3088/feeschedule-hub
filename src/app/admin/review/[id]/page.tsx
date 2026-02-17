@@ -21,17 +21,17 @@ function parseFlags(flags: string | null): ValidationFlag[] {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  staged: "bg-blue-50 text-blue-600",
-  flagged: "bg-orange-50 text-orange-600",
-  pending: "bg-gray-100 text-gray-500",
-  approved: "bg-emerald-50 text-emerald-600",
-  rejected: "bg-red-50 text-red-600",
+  staged: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+  flagged: "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+  pending: "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400",
+  approved: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+  rejected: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  error: "bg-red-50 text-red-600 border-red-200",
-  warning: "bg-orange-50 text-orange-600 border-orange-200",
-  info: "bg-blue-50 text-blue-600 border-blue-200",
+  error: "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/40",
+  warning: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/40",
+  info: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/40",
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -95,7 +95,7 @@ export default async function FeeDetailPage({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         {/* Fee details */}
-        <div className="md:col-span-2 bg-white rounded-lg border">
+        <div className="md:col-span-2 admin-card">
           <div className="px-5 py-3 border-b bg-gray-50/80">
             <h2 className="text-sm font-bold text-gray-800">Fee Details</h2>
           </div>
@@ -133,10 +133,10 @@ export default async function FeeDetailPage({
                   <span
                     className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
                       fee.extraction_confidence >= 0.9
-                        ? "bg-emerald-50 text-emerald-600"
+                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
                         : fee.extraction_confidence >= 0.7
-                          ? "bg-amber-50 text-amber-600"
-                          : "bg-red-50 text-red-600"
+                          ? "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+                          : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                     }`}
                   >
                     {(fee.extraction_confidence * 100).toFixed(0)}%
@@ -165,7 +165,7 @@ export default async function FeeDetailPage({
         </div>
 
         {/* Validation flags */}
-        <div className="bg-white rounded-lg border">
+        <div className="admin-card">
           <div className="px-5 py-3 border-b bg-gray-50/80">
             <h2 className="text-sm font-bold text-gray-800">Validation Flags</h2>
           </div>
@@ -197,7 +197,7 @@ export default async function FeeDetailPage({
       </div>
 
       {/* Audit trail */}
-      <div className="bg-white rounded-lg border">
+      <div className="admin-card">
         <div className="px-5 py-3 border-b bg-gray-50/80">
           <h2 className="text-sm font-bold text-gray-800">Audit Trail</h2>
         </div>

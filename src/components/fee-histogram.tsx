@@ -92,8 +92,8 @@ function CustomTooltip({
   const d = payload[0].payload;
 
   return (
-    <div className="rounded-lg border bg-white px-3 py-2 text-xs shadow-md">
-      <p className="font-semibold text-gray-900 mb-1">
+    <div className="rounded-lg border bg-white dark:bg-[oklch(0.24_0_0)] dark:border-white/[0.1] px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
         ${d.rangeStart.toFixed(2)} - ${d.rangeEnd.toFixed(2)}
       </p>
       <div className="flex flex-col gap-0.5 text-gray-600">
@@ -120,8 +120,8 @@ export function FeeHistogram({ fees, median }: FeeHistogramProps) {
   if (buckets.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg border mb-6">
-      <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
+    <div className="admin-card mb-6">
+      <div className="px-4 py-3 border-b bg-gray-50 dark:bg-white/[0.03] flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">
           Fee Distribution
         </h3>

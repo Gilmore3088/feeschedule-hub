@@ -53,8 +53,8 @@ function CustomTooltip({
     v !== null ? `$${v.toFixed(2)}` : "-";
 
   return (
-    <div className="rounded-lg border bg-white px-3 py-2 text-xs shadow-md">
-      <p className="font-semibold text-gray-900 mb-1">{d.name}</p>
+    <div className="rounded-lg border bg-white dark:bg-[oklch(0.24_0_0)] dark:border-white/[0.1] px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{d.name}</p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-gray-600">
         <span>Median</span>
         <span className="text-right font-mono font-semibold text-gray-900">
@@ -92,8 +92,8 @@ export function BreakdownChart({
   const height = isVertical ? Math.max(data.length * 32, 120) : 200;
 
   return (
-    <div className="bg-white rounded-lg border">
-      <div className="px-4 py-3 border-b bg-gray-50">
+    <div className="admin-card">
+      <div className="px-4 py-3 border-b bg-gray-50 dark:bg-white/[0.03]">
         <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
       </div>
       <div className="px-4 py-3">

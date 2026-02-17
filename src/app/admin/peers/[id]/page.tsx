@@ -108,8 +108,8 @@ export default async function PeerDetailPage({
           <span
             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
               institution.charter_type === "bank"
-                ? "bg-blue-50 text-blue-600"
-                : "bg-emerald-50 text-emerald-600"
+                ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
             }`}
           >
             {institution.charter_type === "bank" ? "Bank" : "Credit Union"}
@@ -141,7 +141,7 @@ export default async function PeerDetailPage({
 
       {/* Regional context */}
       {institution.fed_district && beigeBookHeadline && (
-        <div className="bg-white rounded-lg border mb-6">
+        <div className="admin-card mb-6">
           <div className="px-5 py-3 border-b bg-gray-50/80 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-800">Regional Context</h2>
             <span className="text-[11px] text-gray-400">
@@ -168,7 +168,7 @@ export default async function PeerDetailPage({
 
       {/* Financial data */}
       {financials.length > 0 && (
-        <div className="bg-white rounded-lg border mb-6">
+        <div className="admin-card mb-6">
           <div className="px-5 py-3 border-b bg-gray-50/80">
             <h2 className="text-sm font-bold text-gray-800">Financial Data</h2>
             <p className="text-[11px] text-gray-400 mt-0.5">
@@ -246,7 +246,7 @@ export default async function PeerDetailPage({
 
       {/* CFPB Complaints */}
       {complaints.length > 0 && (
-        <div className="bg-white rounded-lg border mb-6">
+        <div className="admin-card mb-6">
           <div className="px-5 py-3 border-b bg-gray-50/80">
             <h2 className="text-sm font-bold text-gray-800">
               CFPB Complaints (2024)
@@ -254,7 +254,7 @@ export default async function PeerDetailPage({
           </div>
           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
             {complaints.map((c) => (
-              <div key={c.product} className="rounded-lg border p-3">
+              <div key={c.product} className="rounded-lg border p-3 dark:border-white/[0.08]">
                 <div className="text-xs text-gray-500">{c.product}</div>
                 <div className="text-2xl font-bold tabular-nums text-gray-900 mt-1">
                   {c.complaint_count.toLocaleString()}
@@ -266,7 +266,7 @@ export default async function PeerDetailPage({
       )}
 
       {!analysis ? (
-        <div className="bg-white rounded-lg border p-8 text-center text-gray-500">
+        <div className="admin-card p-8 text-center text-gray-500">
           <p className="text-lg font-medium">No analysis available</p>
           <p className="mt-2 text-sm">
             Run{" "}
@@ -280,7 +280,7 @@ export default async function PeerDetailPage({
         <>
           {/* Highlights */}
           {analysis.highlights && analysis.highlights.length > 0 && (
-            <div className="bg-white rounded-lg border mb-6">
+            <div className="admin-card mb-6">
               <div className="px-5 py-3 border-b bg-gray-50/80">
                 <h2 className="text-sm font-bold text-gray-800">
                   Notable Findings
@@ -292,8 +292,8 @@ export default async function PeerDetailPage({
                     key={i}
                     className={`rounded-lg border p-3 ${
                       h.direction === "above"
-                        ? "border-red-200 bg-red-50/50"
-                        : "border-emerald-200 bg-emerald-50/50"
+                        ? "border-red-200 bg-red-50/50 dark:border-red-800/40 dark:bg-red-900/20"
+                        : "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/40 dark:bg-emerald-900/20"
                     }`}
                   >
                     <div className="font-medium text-gray-900">{h.fee}</div>
@@ -325,7 +325,7 @@ export default async function PeerDetailPage({
           {/* Fee comparison table */}
           {analysis.fee_comparisons &&
             analysis.fee_comparisons.length > 0 && (
-              <div className="bg-white rounded-lg border mb-6">
+              <div className="admin-card mb-6">
                 <div className="px-5 py-3 border-b bg-gray-50/80">
                   <h2 className="text-sm font-bold text-gray-800">
                     Fee Comparison
@@ -379,9 +379,9 @@ export default async function PeerDetailPage({
                             key={fc.canonical_name}
                             className={`border-b last:border-0 transition-colors ${
                               isAbove
-                                ? "bg-red-50/50"
+                                ? "bg-red-50/50 dark:bg-red-900/10"
                                 : isBelow
-                                  ? "bg-emerald-50/50"
+                                  ? "bg-emerald-50/50 dark:bg-emerald-900/10"
                                   : "hover:bg-gray-50/50"
                             }`}
                           >
@@ -416,10 +416,10 @@ export default async function PeerDetailPage({
                                 <span
                                   className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
                                     fc.percentile_rank >= 75
-                                      ? "bg-red-50 text-red-600"
+                                      ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                                       : fc.percentile_rank <= 25
-                                        ? "bg-emerald-50 text-emerald-600"
-                                        : "bg-gray-100 text-gray-500"
+                                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                        : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400"
                                   }`}
                                 >
                                   P{fc.percentile_rank}
@@ -442,7 +442,7 @@ export default async function PeerDetailPage({
 
           {/* Matched peers */}
           {analysis.peers && analysis.peers.length > 0 && (
-            <div className="bg-white rounded-lg border">
+            <div className="admin-card">
               <div className="px-5 py-3 border-b bg-gray-50/80">
                 <h2 className="text-sm font-bold text-gray-800">
                   Matched Peers ({analysis.peers.length})
@@ -498,10 +498,10 @@ export default async function PeerDetailPage({
                           <span
                             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
                               peer.score >= 5
-                                ? "bg-emerald-50 text-emerald-600"
+                                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
                                 : peer.score >= 3
-                                  ? "bg-amber-50 text-amber-600"
-                                  : "bg-gray-100 text-gray-500"
+                                  ? "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400"
                             }`}
                           >
                             {peer.score}

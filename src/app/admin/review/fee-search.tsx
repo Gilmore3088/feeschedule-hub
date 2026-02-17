@@ -71,8 +71,8 @@ export function FeeSearchForm({
                 }
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                   isActive
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800/40 dark:text-blue-400"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:bg-white/[0.04] dark:border-white/[0.1] dark:text-gray-400 dark:hover:bg-white/[0.08]"
                 }`}
               >
                 {ft.label}
@@ -90,12 +90,13 @@ export function FeeSearchForm({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Or type a custom search..."
           className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm
-                     focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                     focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500
+                     dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100 dark:placeholder:text-gray-500"
         />
         <button
           type="submit"
           className="rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-white
-                     hover:bg-gray-900"
+                     hover:bg-gray-900 dark:bg-white/[0.15] dark:hover:bg-white/[0.2]"
         >
           Search
         </button>

@@ -48,7 +48,8 @@ export function PeerFiltersBar() {
       <select
         value={charter}
         onChange={(e) => updateParams({ charter: e.target.value })}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
       >
         <option value="">All Charters</option>
         <option value="bank">Banks</option>
@@ -59,7 +60,8 @@ export function PeerFiltersBar() {
       <select
         value={tier}
         onChange={(e) => updateParams({ tier: e.target.value })}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
       >
         <option value="">All Tiers</option>
         {TIER_ORDER.map((t) => (
@@ -86,7 +88,8 @@ export function PeerFiltersBar() {
             updateParams({ district: val });
           }
         }}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
       >
         <option value="">All Districts</option>
         {Object.entries(DISTRICT_NAMES).map(([num, name]) => (
@@ -105,7 +108,8 @@ export function PeerFiltersBar() {
       <select
         value={range}
         onChange={(e) => updateParams({ range: e.target.value })}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
       >
         <option value="">All Time</option>
         <option value="7d">Last 7 days</option>
@@ -117,7 +121,8 @@ export function PeerFiltersBar() {
       {hasFilters && (
         <button
           onClick={resetAll}
-          className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors
+                     dark:border-white/[0.12] dark:text-gray-400 dark:hover:bg-white/[0.06]"
         >
           Reset
         </button>

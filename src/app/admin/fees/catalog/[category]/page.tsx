@@ -27,7 +27,7 @@ function BreakdownTable({
   if (rows.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg border">
+    <div className="admin-card">
       <div className="px-4 py-3 border-b bg-gray-50/80">
         <h3 className="text-sm font-bold text-gray-800">{title}</h3>
       </div>
@@ -217,8 +217,8 @@ export default async function FeeCategoryDetailPage({
         <>
           {/* Charter type quick bar */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="rounded-lg border bg-white px-4 py-3 flex items-center gap-3">
-              <span className="inline-block rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600">
+            <div className="admin-card px-4 py-3 flex items-center gap-3">
+              <span className="inline-block rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                 Banks
               </span>
               <span className="text-lg font-bold tabular-nums text-gray-900">
@@ -230,8 +230,8 @@ export default async function FeeCategoryDetailPage({
                   : "0%"}
               </span>
             </div>
-            <div className="rounded-lg border bg-white px-4 py-3 flex items-center gap-3">
-              <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
+            <div className="admin-card px-4 py-3 flex items-center gap-3">
+              <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
                 Credit Unions
               </span>
               <span className="text-lg font-bold tabular-nums text-gray-900">
@@ -250,7 +250,7 @@ export default async function FeeCategoryDetailPage({
 
           {/* Quick breakdown preview */}
           {detail.by_charter_type.length > 0 && (
-            <div className="bg-white rounded-lg border mb-6">
+            <div className="admin-card mb-6">
               <div className="px-4 py-3 border-b bg-gray-50/80 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-gray-800">
                   Fee Range by Charter Type
@@ -304,7 +304,7 @@ export default async function FeeCategoryDetailPage({
 
           {/* Fee change events */}
           {detail.change_events.length > 0 && (
-            <div className="bg-white rounded-lg border">
+            <div className="admin-card">
               <div className="px-4 py-3 border-b bg-gray-50/80">
                 <h3 className="text-sm font-bold text-gray-800">
                   Recent Fee Changes
@@ -340,10 +340,10 @@ export default async function FeeCategoryDetailPage({
                           <span
                             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                               evt.change_type === "increase"
-                                ? "bg-red-50 text-red-600"
+                                ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                                 : evt.change_type === "decrease"
-                                  ? "bg-emerald-50 text-emerald-600"
-                                  : "bg-gray-100 text-gray-500"
+                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                  : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400"
                             }`}
                           >
                             {evt.change_type}
@@ -403,11 +403,11 @@ function StatCard({
   highlight?: boolean;
 }) {
   return (
-    <div className="rounded-lg border bg-white px-4 py-3">
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+    <div className="admin-card px-4 py-3">
+      <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</p>
       <p
         className={`text-xl font-bold tabular-nums mt-1 ${
-          highlight ? "text-blue-600" : "text-gray-900"
+          highlight ? "text-blue-600 dark:text-blue-400" : "text-gray-900 dark:text-gray-100"
         }`}
       >
         {value}

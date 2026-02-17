@@ -119,10 +119,10 @@ export function CommandPalette() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden">
-        <div className="flex items-center border-b px-4">
+      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden dark:bg-[oklch(0.205_0_0)] dark:border-white/[0.08]">
+        <div className="flex items-center border-b px-4 dark:border-white/[0.08]">
           <svg
-            className="w-4 h-4 text-gray-400 mr-2 shrink-0"
+            className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 shrink-0"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -141,10 +141,10 @@ export function CommandPalette() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search institutions, fee categories, fee names..."
-            className="w-full py-3 text-sm outline-none placeholder:text-gray-400"
+            className="w-full py-3 text-sm outline-none placeholder:text-gray-400 dark:bg-transparent dark:text-gray-100 dark:placeholder:text-gray-500"
           />
           {loading && (
-            <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin shrink-0" />
+            <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin shrink-0 dark:border-gray-600 dark:border-t-blue-400" />
           )}
         </div>
 
@@ -152,7 +152,7 @@ export function CommandPalette() {
           <div className="max-h-72 overflow-y-auto py-2">
             {results.institutions.length > 0 && (
               <>
-                <p className="px-4 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <p className="px-4 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Institutions
                 </p>
                 {results.institutions.map((inst, i) => {
@@ -161,12 +161,12 @@ export function CommandPalette() {
                     <button
                       key={`inst-${inst.id}`}
                       onClick={() => navigate(`/admin/peers/${inst.id}`)}
-                      className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 ${
-                        selectedIndex === idx ? "bg-blue-50 text-blue-700" : ""
+                      className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 dark:hover:bg-white/[0.06] ${
+                        selectedIndex === idx ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "dark:text-gray-200"
                       }`}
                     >
                       <span className="font-medium">{inst.name}</span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         {inst.charter === "bank" ? "Bank" : "CU"} | {inst.state}
                       </span>
                     </button>
@@ -182,7 +182,7 @@ export function CommandPalette() {
 
             {results.categories.length > 0 && (
               <>
-                <p className="px-4 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">
+                <p className="px-4 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">
                   Fee Categories
                 </p>
                 {results.categories.map((cat, i) => {
@@ -193,14 +193,14 @@ export function CommandPalette() {
                       onClick={() =>
                         navigate(`/admin/fees/catalog/${cat.fee_category}`)
                       }
-                      className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 ${
-                        selectedIndex === idx ? "bg-blue-50 text-blue-700" : ""
+                      className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 dark:hover:bg-white/[0.06] ${
+                        selectedIndex === idx ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "dark:text-gray-200"
                       }`}
                     >
                       <span className="font-medium">
                         {getDisplayName(cat.fee_category)}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         {cat.count} inst.
                       </span>
                     </button>
@@ -216,7 +216,7 @@ export function CommandPalette() {
 
             {results.feeNames.length > 0 && (
               <>
-                <p className="px-4 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">
+                <p className="px-4 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">
                   Fee Names
                 </p>
                 {results.feeNames.map((fn, i) => {
@@ -225,12 +225,12 @@ export function CommandPalette() {
                     <button
                       key={`fn-${fn.fee_name}`}
                       onClick={() => navigate(`/admin/fees`)}
-                      className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 ${
-                        selectedIndex === idx ? "bg-blue-50 text-blue-700" : ""
+                      className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 dark:hover:bg-white/[0.06] ${
+                        selectedIndex === idx ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "dark:text-gray-200"
                       }`}
                     >
                       <span className="font-medium">{fn.fee_name}</span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         {fn.count}x
                       </span>
                     </button>
@@ -242,33 +242,33 @@ export function CommandPalette() {
         )}
 
         {results && items.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-gray-500">
+          <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             No results for &quot;{query}&quot;
           </div>
         )}
 
         {!results && query.length < 2 && (
-          <div className="px-4 py-6 text-center text-sm text-gray-400">
+          <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
             Type at least 2 characters to search
           </div>
         )}
 
-        <div className="border-t px-4 py-2 flex items-center justify-between text-xs text-gray-400">
+        <div className="border-t px-4 py-2 flex items-center justify-between text-xs text-gray-400 dark:border-white/[0.08] dark:text-gray-500">
           <div className="flex gap-3">
             <span>
-              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-mono">
+              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-mono dark:bg-white/[0.08] dark:text-gray-400">
                 ↑↓
               </kbd>{" "}
               navigate
             </span>
             <span>
-              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-mono">
+              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-mono dark:bg-white/[0.08] dark:text-gray-400">
                 ↵
               </kbd>{" "}
               select
             </span>
             <span>
-              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-mono">
+              <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-mono dark:bg-white/[0.08] dark:text-gray-400">
                 esc
               </kbd>{" "}
               close
@@ -298,7 +298,8 @@ export function CommandPaletteTrigger() {
   return (
     <button
       onClick={handleClick}
-      className="hidden md:flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+      className="hidden md:flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500
+                 hover:bg-gray-100 transition-colors dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08]"
     >
       <svg
         className="w-3.5 h-3.5"
@@ -314,7 +315,7 @@ export function CommandPaletteTrigger() {
         />
       </svg>
       Search...
-      <kbd className="ml-1 px-1 py-0.5 rounded bg-gray-200 text-[10px] font-mono text-gray-500">
+      <kbd className="ml-1 px-1 py-0.5 rounded bg-gray-200 text-[10px] font-mono text-gray-500 dark:bg-white/[0.1] dark:text-gray-400">
         ⌘K
       </kbd>
     </button>
