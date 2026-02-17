@@ -643,8 +643,13 @@ def compare_fees_across_peers(
         amounts_sorted = sorted(amounts)
         n = len(amounts_sorted)
         median = statistics.median(amounts_sorted)
-        p25 = amounts_sorted[n // 4] if n >= 4 else amounts_sorted[0]
-        p75 = amounts_sorted[3 * n // 4] if n >= 4 else amounts_sorted[-1]
+        if n >= 2:
+            quartiles = statistics.quantiles(amounts_sorted, n=4)
+            p25 = quartiles[0]
+            p75 = quartiles[2]
+        else:
+            p25 = amounts_sorted[0]
+            p75 = amounts_sorted[-1]
 
         # Compute percentile rank of target
         if target_amount is not None and n > 0:

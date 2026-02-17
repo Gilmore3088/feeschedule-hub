@@ -18,6 +18,7 @@ class FDICConfig(BaseModel):
 
 class NCUAConfig(BaseModel):
     base_url: str = "https://www.ncua.gov/files/publications/analysis"
+    mapping_api_url: str = "https://mapping.ncua.gov/api/CreditUnionDetails/GetCreditUnionDetails"
 
 
 class CrawlConfig(BaseModel):
@@ -45,6 +46,7 @@ class ExtractionConfig(BaseModel):
 class FedContentConfig(BaseModel):
     crawl_delay: float = 2.0
     speeches_feed: str = "https://www.federalreserve.gov/feeds/speeches.xml"
+    beige_book_base_url: str = "https://www.federalreserve.gov/monetarypolicy"
 
 
 class FREDConfig(BaseModel):

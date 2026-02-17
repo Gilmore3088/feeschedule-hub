@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from fee_crawler.config import Config
 from fee_crawler.db import Database
 
-BASE_URL = "https://www.federalreserve.gov/monetarypolicy"
+BASE_URL_DEFAULT = "https://www.federalreserve.gov/monetarypolicy"
 
 # District number -> URL slug used in Beige Book URLs
 DISTRICT_SLUGS: dict[int, str] = {
@@ -126,6 +126,7 @@ def ingest_edition(
     edition: str,
     *,
     delay: float = 2.0,
+    base_url: str = BASE_URL_DEFAULT,
 ) -> int:
     """Ingest a single Beige Book edition (all districts + national summary).
 
@@ -140,7 +141,7 @@ def ingest_edition(
     total_upserted = 0
 
     # Fetch national summary
-    summary_url = f"{BASE_URL}/beigebook{edition}-summary.htm"
+    summary_url = f"{base_url}/beigebook{edition}-summary.htm"
     print(f"Fetching summary: {summary_url}")
     html = _fetch_page(summary_url, delay)
     if not html:
@@ -165,7 +166,7 @@ def ingest_edition(
 
     # Fetch each district page
     for district, slug in DISTRICT_SLUGS.items():
-        district_url = f"{BASE_URL}/beigebook{edition}-{slug}.htm"
+        district_url = f"{base_url}/beigebook{edition}-{slug}.htm"
         print(f"  District {district} ({slug})...")
         html = _fetch_page(district_url, delay)
         if not html:
@@ -211,7 +212,7 @@ def run(
     total = 0
     for ed in editions:
         print(f"\n--- Beige Book {ed} ---")
-        count = ingest_edition(db, ed, delay=delay)
+        count = ingest_edition(db, ed, delay=delay, base_url=config.fed_content.beige_book_base_url)
         total += count
         print(f"  Upserted: {count} rows")
 

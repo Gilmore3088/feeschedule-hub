@@ -122,15 +122,16 @@ def run(
 
     where_sql = " AND ".join(where_clauses)
     order_sql = "ORDER BY asset_size DESC NULLS LAST"
-    limit_sql = f"LIMIT {limit}" if limit else ""
 
     query = f"""
         SELECT id, institution_name, website_url, state_code, asset_size
         FROM crawl_targets
         WHERE {where_sql}
         {order_sql}
-        {limit_sql}
     """
+    if limit and limit > 0:
+        query += " LIMIT ?"
+        params.append(limit)
 
     targets = db.fetchall(query, tuple(params))
     total = len(targets)

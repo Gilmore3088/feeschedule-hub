@@ -207,8 +207,8 @@ def _crawl_one(
                 (target_id,),
             )
             db.commit()
-        except Exception:
-            pass
+        except Exception as db_err:
+            print(f"  WARNING: Failed to record error for {name}: {db_err}")
         return result
     finally:
         db.close()
@@ -249,17 +249,17 @@ def run(
         params.append(state.upper())
 
     where_sql = " AND ".join(where_clauses)
-    limit_sql = f"LIMIT {limit}" if limit else ""
 
-    targets = db.fetchall(
-        f"""SELECT id, institution_name, fee_schedule_url, document_type,
+    query = f"""SELECT id, institution_name, fee_schedule_url, document_type,
                    last_content_hash, state_code, asset_size
             FROM crawl_targets
             WHERE {where_sql}
-            ORDER BY asset_size DESC NULLS LAST
-            {limit_sql}""",
-        tuple(params),
-    )
+            ORDER BY asset_size DESC NULLS LAST"""
+    if limit and limit > 0:
+        query += " LIMIT ?"
+        params.append(limit)
+
+    targets = db.fetchall(query, tuple(params))
 
     total = len(targets)
     if total == 0:

@@ -31,10 +31,12 @@ def run(
         sql = """SELECT id, fee_name, fee_category FROM extracted_fees
                  WHERE fee_name IS NOT NULL AND fee_category IS NULL"""
 
-    if limit:
-        sql += f" LIMIT {limit}"
+    params: list = []
+    if limit and limit > 0:
+        sql += " LIMIT ?"
+        params.append(limit)
 
-    rows = db.fetchall(sql)
+    rows = db.fetchall(sql, tuple(params))
     total = len(rows)
     print(f"Processing {total:,} fees ({'dry run' if dry_run else 'live'})...")
 

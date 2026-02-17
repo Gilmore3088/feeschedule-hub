@@ -1,7 +1,7 @@
 """Post-extraction validation rules for fee data quality.
 
 Runs after LLM extraction, before INSERT. Produces validation flags
-and determines initial review_status (staged/flagged/pending).
+and determines initial review_status (staged/flagged/pending/approved).
 """
 
 from __future__ import annotations
@@ -10,6 +10,11 @@ import json
 from dataclasses import dataclass
 
 from fee_crawler.config import Config
+from fee_crawler.fee_amount_rules import (
+    FALLBACK_RULES,
+    FEE_AMOUNT_RULES,
+    NON_FEE_SUBSTRINGS,
+)
 from fee_crawler.fee_analysis import normalize_fee_name
 from fee_crawler.pipeline.extract_llm import ExtractedFee
 
@@ -18,9 +23,7 @@ VALID_FREQUENCIES = {"per_occurrence", "monthly", "annual", "one_time", "other"}
 # Fee names that imply $0 / free / waived are normal
 FREE_FEE_KEYWORDS = {"free", "no charge", "no fee", "waived", "included", "$0"}
 
-# Typical amount ranges (in dollars)
-TYPICAL_FEE_MAX = 500.0
-TYPICAL_FEE_MIN = 0.0
+AUTO_APPROVE_CONFIDENCE = 0.90
 
 
 @dataclass(frozen=True)
@@ -44,23 +47,42 @@ def _check_required_fields(fee: ExtractedFee) -> list[ValidationFlag]:
     return flags
 
 
-def _check_amount_range(fee: ExtractedFee) -> list[ValidationFlag]:
-    """Flag amounts outside expected ranges."""
+def _check_amount_range(
+    fee: ExtractedFee, fee_category: str | None = None,
+) -> list[ValidationFlag]:
+    """Flag amounts outside expected ranges using category-specific bounds."""
     flags = []
     if fee.amount is None:
         return flags
 
-    if fee.amount < TYPICAL_FEE_MIN:
+    if fee_category and fee_category in FEE_AMOUNT_RULES:
+        min_amt, max_amt, hard_ceiling, _ = FEE_AMOUNT_RULES[fee_category]
+    else:
+        min_amt, max_amt, hard_ceiling, _ = FALLBACK_RULES
+
+    if fee.amount < 0:
         flags.append(ValidationFlag(
             rule="amount_out_of_range",
             severity="warning",
             message=f"Amount ${fee.amount:.2f} is negative",
         ))
-    elif fee.amount > TYPICAL_FEE_MAX:
+    elif fee.amount > hard_ceiling:
+        flags.append(ValidationFlag(
+            rule="amount_out_of_range",
+            severity="error",
+            message=f"Amount ${fee.amount:.2f} exceeds hard ceiling (${hard_ceiling:.0f}) for {fee_category or 'uncategorized'}",
+        ))
+    elif fee.amount > max_amt:
         flags.append(ValidationFlag(
             rule="amount_out_of_range",
             severity="warning",
-            message=f"Amount ${fee.amount:.2f} exceeds typical range ($0-$500)",
+            message=f"Amount ${fee.amount:.2f} exceeds typical max (${max_amt:.0f}) for {fee_category or 'uncategorized'}",
+        ))
+    elif fee.amount < min_amt and fee.amount > 0:
+        flags.append(ValidationFlag(
+            rule="amount_out_of_range",
+            severity="info",
+            message=f"Amount ${fee.amount:.2f} below typical min (${min_amt:.0f}) for {fee_category or 'uncategorized'}",
         ))
 
     return flags
@@ -108,7 +130,7 @@ def _check_duplicate(
     if canonical in existing_canonical:
         return [ValidationFlag(
             rule="duplicate_fee_name",
-            severity="warning",
+            severity="info",
             message=f"Duplicate canonical name '{canonical}' already seen for this institution",
         )]
     return []
@@ -127,16 +149,31 @@ def _check_frequency(fee: ExtractedFee) -> list[ValidationFlag]:
     return []
 
 
+def _check_non_fee_data(fee: ExtractedFee) -> list[ValidationFlag]:
+    """Flag entries that look like misextracted non-fee data."""
+    name_lower = fee.fee_name.lower()
+    for substring in NON_FEE_SUBSTRINGS:
+        if substring in name_lower:
+            return [ValidationFlag(
+                rule="non_fee_data",
+                severity="error",
+                message=f"Fee name contains '{substring}' — likely not a fee",
+            )]
+    return []
+
+
 def validate_fee(
     fee: ExtractedFee,
     existing_canonical: list[str],
     config: Config,
+    fee_category: str | None = None,
 ) -> list[ValidationFlag]:
     """Run all validation rules on a single fee."""
     threshold = config.extraction.confidence_auto_stage_threshold
     flags: list[ValidationFlag] = []
     flags.extend(_check_required_fields(fee))
-    flags.extend(_check_amount_range(fee))
+    flags.extend(_check_non_fee_data(fee))
+    flags.extend(_check_amount_range(fee, fee_category))
     flags.extend(_check_null_amount(fee))
     flags.extend(_check_low_confidence(fee, threshold))
     flags.extend(_check_duplicate(fee, existing_canonical))
@@ -144,23 +181,47 @@ def validate_fee(
     return flags
 
 
+def _amount_in_range(amount: float | None, fee_category: str) -> bool:
+    """Check if amount falls within the auto-approve range for a category."""
+    rules = FEE_AMOUNT_RULES.get(fee_category, FALLBACK_RULES)
+    min_amt, max_amt, _, allows_zero = rules
+
+    if amount is None:
+        return allows_zero
+    if amount == 0:
+        return allows_zero
+    return min_amt <= amount <= max_amt
+
+
 def determine_review_status(
     flags: list[ValidationFlag],
     confidence: float,
     config: Config,
+    fee_category: str | None = None,
+    amount: float | None = None,
 ) -> str:
     """Determine initial review_status based on validation results.
 
     Returns:
-        'staged' if confidence >= threshold AND no error/warning flags
+        'approved' if auto-approve criteria met (high confidence, in range, no warnings)
         'flagged' if any error or warning flags exist
+        'staged' if confidence >= threshold AND no error/warning flags
         'pending' otherwise
     """
     threshold = config.extraction.confidence_auto_stage_threshold
-    has_errors = any(f.severity in ("error", "warning") for f in flags)
+    has_blocking = any(f.severity in ("error", "warning") for f in flags)
 
-    if has_errors:
+    if has_blocking:
         return "flagged"
+
+    # Auto-approve: high confidence + categorized + amount in range
+    if (
+        fee_category
+        and confidence >= AUTO_APPROVE_CONFIDENCE
+        and _amount_in_range(amount, fee_category)
+    ):
+        return "approved"
+
     if confidence >= threshold:
         return "staged"
     return "pending"
@@ -183,6 +244,9 @@ def validate_and_classify_fees(
     """Validate a batch of fees for one institution.
 
     Returns list of (fee, flags, review_status) tuples.
+    Note: fee_category is not available at crawl time (categorization runs
+    separately), so auto-approve won't fire here. The backfill command
+    handles retroactive auto-approval with category data.
     """
     results = []
     seen_canonical: list[str] = []

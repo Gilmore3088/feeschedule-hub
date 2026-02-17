@@ -10,7 +10,7 @@ import requests
 from fee_crawler.config import Config
 from fee_crawler.db import Database
 
-FRED_BASE = "https://api.stlouisfed.org/fred"
+FRED_BASE_DEFAULT = "https://api.stlouisfed.org/fred"
 MAX_RETRIES = 3
 # FRED rate limit: 120 requests/minute
 REQUEST_DELAY = 0.5
@@ -38,6 +38,7 @@ def _fetch_series(
     series_id: str,
     *,
     from_date: str | None = None,
+    base_url: str = FRED_BASE_DEFAULT,
 ) -> list[dict] | None:
     """Fetch observations for a FRED series."""
     params: dict = {
@@ -54,7 +55,7 @@ def _fetch_series(
     for attempt in range(MAX_RETRIES):
         try:
             resp = requests.get(
-                f"{FRED_BASE}/series/observations",
+                f"{base_url}/series/observations",
                 params=params,
                 timeout=30,
             )
@@ -71,13 +72,13 @@ def _fetch_series(
     return None
 
 
-def _fetch_series_info(api_key: str, series_id: str) -> dict | None:
+def _fetch_series_info(api_key: str, series_id: str, base_url: str = FRED_BASE_DEFAULT) -> dict | None:
     """Fetch metadata for a FRED series (title, units, frequency)."""
     time.sleep(REQUEST_DELAY)
     for attempt in range(MAX_RETRIES):
         try:
             resp = requests.get(
-                f"{FRED_BASE}/series",
+                f"{base_url}/series",
                 params={
                     "series_id": series_id,
                     "api_key": api_key,
@@ -104,17 +105,18 @@ def ingest_series(
     series_id: str,
     *,
     from_date: str | None = None,
+    base_url: str = FRED_BASE_DEFAULT,
 ) -> int:
     """Ingest a single FRED series into fed_economic_indicators."""
     # Get series metadata
-    info = _fetch_series_info(api_key, series_id)
+    info = _fetch_series_info(api_key, series_id, base_url=base_url)
     title = info.get("title", SERIES_TITLES.get(series_id)) if info else SERIES_TITLES.get(series_id)
     units = info.get("units", "") if info else ""
     frequency = info.get("frequency", "") if info else ""
 
     print(f"  {series_id}: {title}")
 
-    observations = _fetch_series(api_key, series_id, from_date=from_date)
+    observations = _fetch_series(api_key, series_id, from_date=from_date, base_url=base_url)
     if observations is None:
         return 0
 
@@ -169,7 +171,7 @@ def run(
     print(f"Ingesting {len(series_list)} FRED series...")
     total = 0
     for s in series_list:
-        count = ingest_series(db, api_key, s, from_date=from_date)
+        count = ingest_series(db, api_key, s, from_date=from_date, base_url=config.fred.base_url)
         total += count
 
     db.commit()

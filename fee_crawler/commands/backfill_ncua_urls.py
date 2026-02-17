@@ -16,7 +16,7 @@ import requests
 from fee_crawler.db import Database
 from fee_crawler.config import Config
 
-NCUA_API_BASE = "https://mapping.ncua.gov/api/CreditUnionDetails/GetCreditUnionDetails"
+NCUA_API_BASE_DEFAULT = "https://mapping.ncua.gov/api/CreditUnionDetails/GetCreditUnionDetails"
 REQUEST_DELAY = 0.1  # seconds between requests per worker (politeness)
 
 
@@ -62,7 +62,8 @@ def _fetch_one(target: dict) -> dict:
 
     try:
         session = _get_session()
-        resp = session.get(f"{NCUA_API_BASE}/{cert_number}", timeout=15)
+        api_base = target.get("api_base", NCUA_API_BASE_DEFAULT)
+        resp = session.get(f"{api_base}/{cert_number}", timeout=15)
 
         if resp.status_code == 404:
             result["error"] = "not_found"
@@ -106,26 +107,28 @@ def run(
         limit: Max institutions to process (for testing).
     """
     # Get all NCUA CUs without website URLs
-    limit_sql = f"LIMIT {limit}" if limit else ""
-    targets = db.fetchall(
-        f"""SELECT id, cert_number
+    query = """SELECT id, cert_number
             FROM crawl_targets
             WHERE source = 'ncua' AND website_url IS NULL
-            ORDER BY asset_size DESC NULLS LAST
-            {limit_sql}"""
-    )
+            ORDER BY asset_size DESC NULLS LAST"""
+    query_params: list = []
+    if limit and limit > 0:
+        query += " LIMIT ?"
+        query_params.append(limit)
+    targets = db.fetchall(query, tuple(query_params))
 
     total = len(targets)
     if total == 0:
         print("No NCUA credit unions need URL backfill.")
         return
 
-    # Convert to plain dicts for thread safety
-    targets = [dict(t) for t in targets]
+    # Convert to plain dicts for thread safety, inject API base URL from config
+    api_base = config.ncua_api.mapping_api_url
+    targets = [{**dict(t), "api_base": api_base} for t in targets]
 
     print(f"Backfilling website URLs for {total:,} NCUA credit unions")
     print(f"  Workers: {workers}")
-    print(f"  API: {NCUA_API_BASE}/{{charter}}")
+    print(f"  API: {api_base}/{{charter}}")
     print()
 
     completed = 0
