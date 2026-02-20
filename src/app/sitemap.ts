@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
 import { getRecentPublishedSlugs, getCategoryStatePairs } from "@/lib/crawler-db";
+import { getInstitutionIdsWithFees } from "@/lib/crawler-db/institutions";
 
 const BASE_URL = "https://bankfeeindex.com";
 
@@ -42,6 +43,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${BASE_URL}/research`,
       lastModified: now,
       changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/institutions`,
+      lastModified: now,
+      changeFrequency: "weekly",
       priority: 0.8,
     },
     {
@@ -117,5 +124,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // articles table may not exist yet
   }
 
-  return [...staticPages, ...categoryPages, ...districtPages, ...statePages, ...articlePages];
+  // Institution profile pages (only those with fee data)
+  let institutionPages: MetadataRoute.Sitemap = [];
+  try {
+    const institutions = getInstitutionIdsWithFees();
+    institutionPages = institutions.map((inst) => ({
+      url: `${BASE_URL}/institutions/${inst.id}`,
+      lastModified: inst.last_crawl_at
+        ? new Date(inst.last_crawl_at)
+        : now,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    }));
+  } catch {
+    // institutions query may fail on empty DB
+  }
+
+  return [
+    ...staticPages,
+    ...categoryPages,
+    ...districtPages,
+    ...statePages,
+    ...articlePages,
+    ...institutionPages,
+  ];
 }

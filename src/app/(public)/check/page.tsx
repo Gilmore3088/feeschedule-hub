@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { FeeChecker } from "@/components/fee-checker";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -34,6 +35,23 @@ export default function CheckPage() {
       </div>
 
       <FeeChecker />
+
+      {/* Cross-link to institution search */}
+      <div className="mt-10 rounded-lg border border-slate-200 bg-slate-50/50 p-6 text-center">
+        <p className="text-sm text-slate-600">
+          Looking for a specific institution?
+        </p>
+        <p className="mt-1 text-[13px] text-slate-400">
+          Search for your bank or credit union to see their exact fees and
+          how they compare to competitors.
+        </p>
+        <Link
+          href="/institutions"
+          className="mt-3 inline-block rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-colors"
+        >
+          Find Your Bank
+        </Link>
+      </div>
 
       {/* JSON-LD */}
       <script
