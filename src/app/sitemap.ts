@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
-import { getRecentPublishedSlugs } from "@/lib/crawler-db";
+import { getRecentPublishedSlugs, getCategoryStatePairs } from "@/lib/crawler-db";
 
 const BASE_URL = "https://bankfeeindex.com";
 
@@ -71,14 +71,27 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  const statePages: MetadataRoute.Sitemap = allCategories.flatMap((cat) =>
-    allStates.map((state) => ({
-      url: `${BASE_URL}/fees/${cat}/by-state/${state.toLowerCase()}`,
+  // Only include state pages that have actual fee data
+  let statePages: MetadataRoute.Sitemap = [];
+  try {
+    const pairs = getCategoryStatePairs();
+    statePages = pairs.map(({ fee_category, state_code }) => ({
+      url: `${BASE_URL}/fees/${fee_category}/by-state/${state_code.toLowerCase()}`,
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: 0.5,
-    }))
-  );
+    }));
+  } catch {
+    // fall back to generating all combos if query fails
+    statePages = allCategories.flatMap((cat) =>
+      allStates.map((state) => ({
+        url: `${BASE_URL}/fees/${cat}/by-state/${state.toLowerCase()}`,
+        lastModified: now,
+        changeFrequency: "monthly" as const,
+        priority: 0.5,
+      }))
+    );
+  }
 
   const districtPages: MetadataRoute.Sitemap = Array.from(
     { length: 12 },

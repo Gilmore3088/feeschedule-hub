@@ -339,3 +339,17 @@ function buildIndexEntries(
   results.sort((a, b) => b.institution_count - a.institution_count);
   return results;
 }
+
+export function getCategoryStatePairs(): { fee_category: string; state_code: string }[] {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT DISTINCT ef.fee_category, ct.state_code
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ef.fee_category IS NOT NULL
+         AND ct.state_code IS NOT NULL
+         AND ef.review_status != 'rejected'`
+    )
+    .all() as { fee_category: string; state_code: string }[];
+}
