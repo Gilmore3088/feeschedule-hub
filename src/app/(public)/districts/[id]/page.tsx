@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import {
   getPeerIndex,
   getLatestBeigeBook,
@@ -38,6 +39,7 @@ export async function generateMetadata({
   return {
     title: `Fed District ${districtId} - ${name}: Banking Fee Benchmarks | Bank Fee Index`,
     description: `Banking fee benchmarks, Beige Book economic context, and institution data for Federal Reserve District ${districtId} (${name}).`,
+    alternates: { canonical: `/districts/${districtId}` },
   };
 }
 
@@ -93,6 +95,13 @@ export default async function DistrictPage({
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", href: "/" },
+          { name: "Districts", href: "/districts" },
+          { name: districtName, href: `/districts/${districtId}` },
+        ]}
+      />
       {/* Breadcrumb */}
       <nav className="mb-6 text-[13px] text-slate-400">
         <Link

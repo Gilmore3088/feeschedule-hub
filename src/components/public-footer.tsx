@@ -77,7 +77,7 @@ export function PublicFooter() {
             </ul>
           </div>
 
-          {/* Legal */}
+          {/* About & Legal */}
           <div>
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               About
@@ -89,6 +89,22 @@ export function PublicFooter() {
                   className="text-[13px] text-slate-600 hover:text-slate-900 transition-colors"
                 >
                   Methodology
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/privacy"
+                  className="text-[13px] text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/terms"
+                  className="text-[13px] text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  Terms of Service
                 </Link>
               </li>
               <li>

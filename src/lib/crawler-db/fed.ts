@@ -35,8 +35,6 @@ export function getLatestBeigeBook(district: number): BeigeBookSection[] {
       .all(district, latest.release_code) as BeigeBookSection[];
   } catch {
     return [];
-  } finally {
-    db.close();
   }
 }
 
@@ -55,8 +53,6 @@ export function getBeigeBookEditions(
       .all(limit) as { release_code: string; release_date: string }[];
   } catch {
     return [];
-  } finally {
-    db.close();
   }
 }
 
@@ -77,7 +73,6 @@ export function getBeigeBookHeadline(
 
     if (!row) return null;
 
-    // Extract first sentence for headline
     const firstSentence = row.content_text.split(/(?<=[.!?])\s+/)[0] ?? "";
     const text =
       firstSentence.length > 80
@@ -87,8 +82,6 @@ export function getBeigeBookHeadline(
     return { text, release_date: row.release_date };
   } catch {
     return null;
-  } finally {
-    db.close();
   }
 }
 
@@ -121,8 +114,6 @@ export function getDistrictContent(
       .all(district, limit) as FedContentItem[];
   } catch {
     return [];
-  } finally {
-    db.close();
   }
 }
 
@@ -141,8 +132,6 @@ export function getRecentSpeeches(limit = 10): FedContentItem[] {
       .all(limit) as FedContentItem[];
   } catch {
     return [];
-  } finally {
-    db.close();
   }
 }
 
@@ -169,8 +158,6 @@ export function getDistrictIndicators(
       .all(district) as EconomicIndicator[];
   } catch {
     return [];
-  } finally {
-    db.close();
   }
 }
 
@@ -203,7 +190,5 @@ export function getBeigeBookHeadlines(): Map<number, { text: string; release_dat
     return map;
   } catch {
     return new Map();
-  } finally {
-    db.close();
   }
 }

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getDisplayName } from "@/lib/fee-taxonomy";
+import { notFound } from "next/navigation";
+import { getDisplayName, FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
+
+const ALL_CATEGORIES = new Set(Object.values(FEE_FAMILIES).flat());
 
 export async function generateMetadata({
   params,
@@ -13,6 +16,7 @@ export async function generateMetadata({
   return {
     title: `${displayName} Fees by State | Bank Fee Index`,
     description: `Compare ${displayName.toLowerCase()} fees across all 50 U.S. states. See state-level medians, institution counts, and how each state compares to the national benchmark.`,
+    alternates: { canonical: `/fees/${category}/by-state` },
   };
 }
 
@@ -24,6 +28,7 @@ export default async function ByStatePage({
   params: Promise<{ category: string }>;
 }) {
   const { category } = await params;
+  if (!ALL_CATEGORIES.has(category)) notFound();
   const displayName = getDisplayName(category);
 
   const states = Object.entries(STATE_NAMES)

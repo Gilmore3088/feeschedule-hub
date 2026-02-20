@@ -31,6 +31,7 @@ export async function generateMetadata({
   return {
     title: `${article.title} | Bank Fee Index Research`,
     description: article.summary ?? `Research and analysis from Bank Fee Index.`,
+    alternates: { canonical: `/research/${slug}` },
     openGraph: {
       title: article.title,
       description: article.summary ?? undefined,
@@ -127,6 +128,11 @@ export default async function ResearchArticlePage({
           <span className="mx-2">|</span>
           Bank Fee Index Research
         </div>
+        <p className="mt-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
+          This article was generated with AI assistance and reviewed by the
+          Bank Fee Index team. Data and analysis are based on publicly available
+          fee schedule documents.
+        </p>
       </header>
 
       {/* Article body */}

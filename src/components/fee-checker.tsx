@@ -211,7 +211,7 @@ export function FeeChecker() {
                 Browse Fee Index
               </Link>
               <Link
-                href="/about"
+                href="/#request-access"
                 className="rounded-lg bg-amber-400 px-5 py-2.5 text-[13px] font-semibold text-slate-900 hover:bg-amber-300 transition-colors"
               >
                 Request Access

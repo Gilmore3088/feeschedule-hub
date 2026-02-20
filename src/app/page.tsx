@@ -7,6 +7,8 @@ import { PublicFooter } from "@/components/public-footer";
 import { RequestAccessForm } from "@/components/request-access-form";
 import { PeerIndexExplorer } from "@/components/peer-index-explorer";
 
+export const revalidate = 3600;
+
 const INDEX_CATEGORIES = [
   "monthly_maintenance",
   "nsf",

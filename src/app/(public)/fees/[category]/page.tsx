@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   getNationalIndex,
   getPeerIndex,
@@ -20,6 +21,8 @@ import { DataFreshness } from "@/components/data-freshness";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DistributionChart } from "@/components/distribution-chart";
 import { GlossaryTerm } from "@/components/glossary-tooltip";
+
+const ALL_CATEGORIES = new Set(Object.values(FEE_FAMILIES).flat());
 
 export async function generateStaticParams() {
   return getFeaturedCategories().map((cat) => ({ category: cat }));
@@ -42,6 +45,7 @@ export async function generateMetadata({
   return {
     title: `${displayName} Fees: 2026 National Benchmark | Bank Fee Index`,
     description: `National median ${displayName.toLowerCase()} fee is ${median != null ? `$${median.toFixed(2)}` : "unavailable"}. Compare across ${entry?.institution_count ?? 0} U.S. banks and credit unions by charter type, asset size, and Fed district.`,
+    alternates: { canonical: `/fees/${category}` },
   };
 }
 
@@ -51,6 +55,7 @@ export default async function CategoryPage({
   params: Promise<{ category: string }>;
 }) {
   const { category } = await params;
+  if (!ALL_CATEGORIES.has(category)) notFound();
   const displayName = getDisplayName(category);
   const family = getFeeFamily(category);
   const tier = getFeeTier(category);

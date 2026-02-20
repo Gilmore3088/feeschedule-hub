@@ -1,9 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getNationalIndex, getStateFeeStats } from "@/lib/crawler-db";
-import { getDisplayName, getFeeFamily, FAMILY_COLORS } from "@/lib/fee-taxonomy";
+import { getDisplayName, getFeeFamily, FEE_FAMILIES, FAMILY_COLORS } from "@/lib/fee-taxonomy";
 import { STATE_NAMES, STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";
+import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
+
+const ALL_CATEGORIES = new Set(Object.values(FEE_FAMILIES).flat());
 
 export async function generateStaticParams() {
   return [];
@@ -25,6 +29,7 @@ export async function generateMetadata({
   return {
     title: `${displayName} Fees in ${stateName}: 2026 Benchmark | Bank Fee Index`,
     description: `${displayName} fee benchmark data for ${stateName}. Compare local medians to the national average across banks and credit unions.`,
+    alternates: { canonical: `/fees/${category}/by-state/${stateCode.toLowerCase()}` },
   };
 }
 
@@ -35,8 +40,10 @@ export default async function StateBreakdownPage({
 }) {
   const { category, state } = await params;
   const stateCode = state.toUpperCase();
+  if (!ALL_CATEGORIES.has(category)) notFound();
+  if (!STATE_NAMES[stateCode]) notFound();
   const displayName = getDisplayName(category);
-  const stateName = STATE_NAMES[stateCode] ?? state.toUpperCase();
+  const stateName = STATE_NAMES[stateCode];
   const district = STATE_TO_DISTRICT[stateCode];
   const family = getFeeFamily(category);
   const familyColor = family ? FAMILY_COLORS[family] : null;
@@ -93,6 +100,15 @@ export default async function StateBreakdownPage({
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", href: "/" },
+          { name: "Fee Index", href: "/fees" },
+          { name: displayName, href: `/fees/${category}` },
+          { name: "By State", href: `/fees/${category}/by-state` },
+          { name: stateName, href: `/fees/${category}/by-state/${stateCode.toLowerCase()}` },
+        ]}
+      />
       {/* Breadcrumb */}
       <nav className="mb-6 text-[13px] text-slate-400">
         <Link href="/fees" className="hover:text-slate-600 transition-colors">
