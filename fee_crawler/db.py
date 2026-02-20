@@ -260,6 +260,30 @@ CREATE TABLE IF NOT EXISTS fed_economic_indicators (
 );
 """
 
+_CREATE_ARTICLES = """
+CREATE TABLE IF NOT EXISTS articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    article_type TEXT NOT NULL,
+    fee_category TEXT,
+    fed_district INTEGER,
+    status TEXT NOT NULL DEFAULT 'draft',
+    review_tier INTEGER NOT NULL DEFAULT 2,
+    content_md TEXT NOT NULL,
+    data_context TEXT NOT NULL,
+    summary TEXT,
+    model_id TEXT,
+    prompt_hash TEXT,
+    generated_at TEXT NOT NULL,
+    reviewed_by TEXT,
+    reviewed_at TEXT,
+    published_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
 
 class Database:
     """Thin wrapper around SQLite for local dev."""
@@ -297,6 +321,7 @@ class Database:
         self.conn.executescript(_CREATE_FED_BEIGE_BOOK)
         self.conn.executescript(_CREATE_FED_CONTENT)
         self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)
+        self.conn.executescript(_CREATE_ARTICLES)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -317,6 +342,10 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_fed_content_district ON fed_content(fed_district, published_at)",
             "CREATE INDEX IF NOT EXISTS idx_fed_content_type ON fed_content(content_type)",
             "CREATE INDEX IF NOT EXISTS idx_fed_indicators_series ON fed_economic_indicators(series_id, observation_date)",
+            "CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status)",
+            "CREATE INDEX IF NOT EXISTS idx_articles_type ON articles(article_type, fee_category)",
+            "CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at)",
+            "CREATE INDEX IF NOT EXISTS idx_articles_slug ON articles(slug)",
         ]
         for sql in indexes:
             try:

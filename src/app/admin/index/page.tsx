@@ -4,12 +4,14 @@ import { requireAuth } from "@/lib/auth";
 import { getNationalIndex, getPeerIndex, type IndexEntry } from "@/lib/crawler-db";
 import { formatAmount } from "@/lib/format";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { DistributionBar } from "@/components/distribution-bar";
 import { parsePeerFilters, buildFilterDescription } from "@/lib/fed-districts";
 import {
   FEE_FAMILIES,
   getDisplayName,
   getFeeFamily,
   getFamilyColor,
+  getSpotlightCategories,
   isFeaturedFee,
   TAXONOMY_COUNT,
   FEATURED_COUNT,
@@ -18,6 +20,57 @@ import { CollapsibleSection } from "@/components/collapsible-section";
 import { IndexFilters } from "./index-filters";
 import { PeerIndexFilters } from "./peer-index-filters";
 import { MaturityBadge } from "./maturity-badge";
+
+const FAMILY_DOT_COLORS: Record<string, string> = {
+  "Account Maintenance": "bg-blue-500",
+  "Overdraft & NSF": "bg-red-500",
+  "ATM & Card": "bg-amber-500",
+  "Wire Transfers": "bg-purple-500",
+  "Check Services": "bg-slate-500",
+  "Digital & Electronic": "bg-cyan-500",
+  "Cash & Deposit": "bg-emerald-500",
+  "Account Services": "bg-indigo-500",
+  "Lending Fees": "bg-orange-500",
+};
+
+function CharterMixBar({
+  bankCount,
+  cuCount,
+}: {
+  bankCount: number;
+  cuCount: number;
+}) {
+  const total = bankCount + cuCount;
+  if (total === 0) return <span className="text-gray-300">-</span>;
+  const bankWidth = Math.max((bankCount / total) * 40, 0);
+
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      title={`${bankCount} banks, ${cuCount} credit unions`}
+    >
+      <svg width={40} height={8} aria-hidden="true">
+        <rect
+          width={40}
+          height={8}
+          rx={4}
+          fill="currentColor"
+          className="text-emerald-200 dark:text-emerald-700"
+        />
+        <rect
+          width={bankWidth}
+          height={8}
+          rx={4}
+          fill="currentColor"
+          className="text-blue-400 dark:text-blue-500"
+        />
+      </svg>
+      <span className="text-[10px] tabular-nums text-gray-400 whitespace-nowrap">
+        {total}
+      </span>
+    </div>
+  );
+}
 
 function IndexTable({ items }: { items: IndexEntry[] }) {
   return (
@@ -28,76 +81,81 @@ function IndexTable({ items }: { items: IndexEntry[] }) {
             <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50/80 z-10 min-w-[180px]">
               Fee Category
             </th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Median</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P25</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P75</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Min</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Max</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Inst.</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">Banks</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">CUs</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">Maturity</th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+              Median
+            </th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center min-w-[160px]">
+              <span className="block">Distribution</span>
+              <span className="block text-[9px] font-normal tracking-normal normal-case text-gray-300">
+                P25 - P75 range
+              </span>
+            </th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+              Inst.
+            </th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
+              Charter Mix
+            </th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
+              Maturity
+            </th>
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
-            <tr
-              key={item.fee_category}
-              className="border-b last:border-0 hover:bg-blue-50/30 transition-colors"
-            >
-              <td className="px-4 py-2.5 sticky left-0 bg-white z-10">
-                <Link
-                  href={`/admin/fees/catalog/${item.fee_category}`}
-                  className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
-                >
-                  {getDisplayName(item.fee_category)}
-                </Link>
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900">
-                {formatAmount(item.median_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                {formatAmount(item.p25_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                {formatAmount(item.p75_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
-                {formatAmount(item.min_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
-                {formatAmount(item.max_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900">
-                {item.institution_count}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {item.bank_count > 0 ? (
-                  <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
-                    {item.bank_count}
-                  </span>
-                ) : (
-                  <span className="text-gray-300">-</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {item.cu_count > 0 ? (
-                  <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
-                    {item.cu_count}
-                  </span>
-                ) : (
-                  <span className="text-gray-300">-</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                <MaturityBadge
-                  tier={item.maturity_tier}
-                  approved={item.approved_count}
-                  total={item.observation_count}
-                />
-              </td>
-            </tr>
-          ))}
+          {items.map((item) => {
+            const family = getFeeFamily(item.fee_category);
+            const dotColor = family
+              ? (FAMILY_DOT_COLORS[family] ?? "bg-gray-400")
+              : "bg-gray-400";
+            return (
+              <tr
+                key={item.fee_category}
+                className="border-b last:border-0 hover:bg-blue-50/30 transition-colors"
+              >
+                <td className="px-4 py-2.5 sticky left-0 bg-white z-10">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`}
+                    />
+                    <Link
+                      href={`/admin/fees/catalog/${item.fee_category}`}
+                      className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
+                    >
+                      {getDisplayName(item.fee_category)}
+                    </Link>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900">
+                  {formatAmount(item.median_amount)}
+                </td>
+                <td className="px-4 py-2.5">
+                  <DistributionBar
+                    min={item.min_amount}
+                    p25={item.p25_amount}
+                    median={item.median_amount}
+                    p75={item.p75_amount}
+                    max={item.max_amount}
+                  />
+                </td>
+                <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900">
+                  {item.institution_count}
+                </td>
+                <td className="px-4 py-2.5">
+                  <CharterMixBar
+                    bankCount={item.bank_count}
+                    cuCount={item.cu_count}
+                  />
+                </td>
+                <td className="px-4 py-2.5 text-center">
+                  <MaturityBadge
+                    tier={item.maturity_tier}
+                    approved={item.approved_count}
+                    total={item.observation_count}
+                  />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -159,18 +217,22 @@ export default async function FeeIndexPage({
 
   const filterDescription = hasPeerFilters ? buildFilterDescription(peerFilters) : null;
 
-  // Search always queries all categories (regardless of tier filter)
+  // Apply tier filter: default to featured only, unless searching or show=all
+  if (!showAll && !searchTerm) {
+    entries = entries.filter((e) => isFeaturedFee(e.fee_category));
+  }
+
+  // Extract spotlight entries before search/family narrowing
+  const spotlightCats = new Set(getSpotlightCategories());
+  const spotlightEntries = entries.filter((e) => spotlightCats.has(e.fee_category));
+
+  // Search filter
   if (searchTerm) {
     entries = entries.filter((e) =>
       getDisplayName(e.fee_category)
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
     );
-  }
-
-  // Apply tier filter: default to featured only, unless searching or show=all
-  if (!showAll && !searchTerm) {
-    entries = entries.filter((e) => isFeaturedFee(e.fee_category));
   }
 
   if (sortKey === "median_amount") {
@@ -202,12 +264,37 @@ export default async function FeeIndexPage({
 
   const totalCategories = entries.length;
   const strongCount = entries.filter((e) => e.maturity_tier === "strong").length;
-  const allMedians = entries
-    .map((e) => e.median_amount)
-    .filter((m): m is number => m !== null);
-  const overallMedian =
-    allMedians.length > 0
-      ? allMedians.sort((a, b) => a - b)[Math.floor(allMedians.length / 2)]
+
+  // Summary card computations
+  const highestEntry = entries.reduce<IndexEntry | null>(
+    (best, e) =>
+      !best || (e.median_amount ?? 0) > (best.median_amount ?? 0) ? e : best,
+    null
+  );
+
+  const widestEntry = entries.reduce<IndexEntry | null>((best, e) => {
+    if (
+      e.p25_amount === null ||
+      e.p75_amount === null ||
+      e.median_amount === null ||
+      e.median_amount === 0
+    )
+      return best;
+    const relSpread = (e.p75_amount - e.p25_amount) / e.median_amount;
+    if (!best) return e;
+    const bestIqr = (best.p75_amount ?? 0) - (best.p25_amount ?? 0);
+    const bestRelSpread =
+      (best.median_amount ?? 1) > 0
+        ? bestIqr / (best.median_amount ?? 1)
+        : 0;
+    return relSpread > bestRelSpread ? e : best;
+  }, null);
+
+  const widestIqr =
+    widestEntry &&
+    widestEntry.p75_amount !== null &&
+    widestEntry.p25_amount !== null
+      ? widestEntry.p75_amount - widestEntry.p25_amount
       : null;
 
   return (
@@ -239,28 +326,89 @@ export default async function FeeIndexPage({
         <PeerIndexFilters />
       </Suspense>
 
-      {/* Insight cards */}
+      {/* Spotlight hero strip */}
+      {spotlightEntries.length > 0 && !searchTerm && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          {spotlightEntries.map((entry) => {
+            const family = getFeeFamily(entry.fee_category);
+            const colors = family
+              ? getFamilyColor(family)
+              : { border: "border-l-gray-400", bg: "bg-gray-50", text: "text-gray-700" };
+            return (
+              <Link
+                key={entry.fee_category}
+                href={`/admin/fees/catalog/${entry.fee_category}`}
+                className={`group rounded-lg border border-l-[3px] ${colors.border} bg-white px-3 py-2.5 hover:shadow-sm transition-shadow`}
+              >
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">
+                  {getDisplayName(entry.fee_category)}
+                </p>
+                <p className="text-lg font-bold tabular-nums text-gray-900 mt-0.5 group-hover:text-blue-600 transition-colors">
+                  {formatAmount(entry.median_amount)}
+                </p>
+                <div className="mt-1.5 text-gray-400">
+                  <DistributionBar
+                    min={entry.min_amount}
+                    p25={entry.p25_amount}
+                    median={entry.median_amount}
+                    p75={entry.p75_amount}
+                    max={entry.max_amount}
+                    width={100}
+                    height={14}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className="text-[10px] text-gray-400 tabular-nums">
+                    {entry.institution_count} inst
+                  </span>
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${
+                      entry.maturity_tier === "strong"
+                        ? "bg-emerald-400"
+                        : entry.maturity_tier === "provisional"
+                          ? "bg-amber-400"
+                          : "bg-gray-300 dark:bg-gray-600"
+                    }`}
+                    title={entry.maturity_tier}
+                  />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="rounded-lg border bg-white px-4 py-3">
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-            Index Coverage
+            Highest Fee
           </p>
           <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
-            {totalCategories} categories
+            {highestEntry ? formatAmount(highestEntry.median_amount) : "-"}
           </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            of {showAll || searchTerm ? TAXONOMY_COUNT : FEATURED_COUNT} {showAll || searchTerm ? "in taxonomy" : "featured"}
+          <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+            {highestEntry
+              ? getDisplayName(highestEntry.fee_category)
+              : "No data"}
           </p>
         </div>
         <div className="rounded-lg border bg-white px-4 py-3">
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-            Typical Median
+            Widest Price Spread
           </p>
           <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
-            {overallMedian !== null ? formatAmount(overallMedian) : "-"}
+            {widestIqr !== null ? formatAmount(widestIqr) : "-"}
+            {widestIqr !== null && (
+              <span className="text-xs font-normal text-gray-400 ml-1">
+                IQR
+              </span>
+            )}
           </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            middle of all category medians
+          <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+            {widestEntry
+              ? getDisplayName(widestEntry.fee_category)
+              : "No data"}
           </p>
         </div>
         <div className="rounded-lg border bg-white px-4 py-3">
@@ -268,14 +416,19 @@ export default async function FeeIndexPage({
             Data Maturity
           </p>
           <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
-            {totalCategories > 0
-              ? `${((strongCount / totalCategories) * 100).toFixed(0)}%`
-              : "0%"}{" "}
-            strong
+            {strongCount} of {totalCategories}
+            <span className="text-xs font-normal text-gray-400 ml-1">
+              strong
+            </span>
           </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            {strongCount} of {totalCategories} categories with 10+ approved
-          </p>
+          <div className="mt-1.5 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{
+                width: `${totalCategories > 0 ? (strongCount / totalCategories) * 100 : 0}%`,
+              }}
+            />
+          </div>
         </div>
       </div>
 

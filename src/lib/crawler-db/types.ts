@@ -62,14 +62,6 @@ export interface InstitutionDetail {
   fee_count: number;
 }
 
-export interface AnalysisResult {
-  id: number;
-  crawl_target_id: number;
-  analysis_type: string;
-  result_json: string;
-  computed_at: string;
-}
-
 export interface CrawlStats {
   total_institutions: number;
   banks: number;
@@ -78,4 +70,43 @@ export interface CrawlStats {
   with_fee_url: number;
   total_fees: number;
   crawl_runs: number;
+}
+
+export type ArticleStatus = "draft" | "review" | "approved" | "published" | "rejected";
+export type ArticleType = "national_benchmark" | "district_comparison" | "charter_comparison" | "top_10" | "quarterly_trend";
+
+export interface Article {
+  id: number;
+  slug: string;
+  title: string;
+  article_type: ArticleType;
+  fee_category: string | null;
+  fed_district: number | null;
+  status: ArticleStatus;
+  review_tier: number;
+  content_md: string;
+  data_context: string;
+  summary: string | null;
+  model_id: string | null;
+  prompt_hash: string | null;
+  generated_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArticleSummary {
+  id: number;
+  slug: string;
+  title: string;
+  article_type: ArticleType;
+  fee_category: string | null;
+  fed_district: number | null;
+  status: ArticleStatus;
+  review_tier: number;
+  summary: string | null;
+  generated_at: string;
+  published_at: string | null;
 }

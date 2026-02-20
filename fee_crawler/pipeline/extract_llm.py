@@ -1,47 +1,102 @@
-"""Send extracted text to Claude for structured fee extraction.
+"""Send extracted text to Claude for structured fee extraction using tool_use.
 
-Takes raw text from PDF/HTML extraction and returns structured JSON
-with fee names, amounts, frequencies, conditions, and confidence scores.
+Uses the Anthropic tool_use API with a strict JSON Schema so Claude returns
+structured, validated fee data with inline categorization against the
+49-category taxonomy.
 """
 
-import json
 from dataclasses import dataclass
 
 import anthropic
 
 from fee_crawler.config import Config
+from fee_crawler.fee_analysis import FEE_FAMILIES
+
+# Build the canonical category enum from the taxonomy
+_ALL_CATEGORIES: list[str] = []
+for _members in FEE_FAMILIES.values():
+    _ALL_CATEGORIES.extend(_members)
+_ALL_CATEGORIES.sort()
 
 EXTRACTION_PROMPT = """\
 You are a financial data extraction specialist. Extract ALL fees from this \
-bank/credit union fee schedule into structured JSON.
+bank/credit union fee schedule into structured data.
 
-Return ONLY a valid JSON array. For each fee include:
-- fee_name: exact name as shown in document (e.g., "Monthly Maintenance Fee")
-- amount: numeric value as a float (null if free, waived, or N/A)
-- frequency: one of "per_occurrence" | "monthly" | "annual" | "one_time" | "other"
-- conditions: any conditions, waivers, or qualifications as a string (null if none)
-- confidence: your confidence in this extraction from 0.0 to 1.0
+For each fee, assign the best-matching fee_category from this taxonomy, \
+or null if none fit:
 
-Be thorough: extract every fee mentioned, including:
-- Account maintenance/service fees
-- Overdraft and NSF fees
-- ATM fees (own and foreign)
-- Wire transfer fees (domestic and international)
-- Stop payment fees
-- Cashier's check fees
-- Statement fees
-- Account closing fees
-- Dormant/inactive account fees
-- Any other fees listed
+Account Maintenance: monthly_maintenance, minimum_balance, early_closure, \
+dormant_account, account_research, paper_statement, estatement_fee
+Overdraft & NSF: overdraft, nsf, continuous_od, od_protection_transfer, \
+od_line_of_credit, od_daily_cap, nsf_daily_cap
+ATM & Card: atm_non_network, atm_international, card_replacement, rush_card, \
+card_foreign_txn, card_dispute
+Wire Transfers: wire_domestic_outgoing, wire_domestic_incoming, \
+wire_intl_outgoing, wire_intl_incoming
+Check Services: cashiers_check, money_order, check_printing, stop_payment, \
+counter_check, check_cashing, check_image
+Digital & Electronic: ach_origination, ach_return, bill_pay, mobile_deposit, \
+zelle_fee
+Cash & Deposit: coin_counting, cash_advance, deposited_item_return, \
+night_deposit
+Account Services: notary_fee, safe_deposit_box, garnishment_levy, \
+legal_process, account_verification, balance_inquiry
+Lending Fees: late_payment, loan_origination, appraisal_fee
 
-Example output format:
-[
-  {{"fee_name": "Monthly Maintenance Fee", "amount": 12.00, "frequency": "monthly", "conditions": "Waived with $1,500 minimum daily balance", "confidence": 0.95}},
-  {{"fee_name": "Overdraft Fee", "amount": 35.00, "frequency": "per_occurrence", "conditions": "Maximum 3 per day", "confidence": 0.90}}
-]
+Be thorough: extract every fee mentioned, including account maintenance, \
+overdraft, NSF, ATM, wire transfer, stop payment, cashier's check, \
+statement, account closing, dormant/inactive, and any other fees listed.
 
 Fee schedule text:
 {text}"""
+
+# Tool schema for structured extraction
+RECORD_FEES_TOOL = {
+    "name": "record_fees",
+    "description": "Record all extracted fees from the fee schedule document.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "fees": {
+                "type": "array",
+                "description": "List of all fees extracted from the document.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "fee_name": {
+                            "type": "string",
+                            "description": "Exact name as shown in the document.",
+                        },
+                        "amount": {
+                            "type": ["number", "null"],
+                            "description": "Dollar amount as a float. Null if free, waived, or N/A.",
+                        },
+                        "frequency": {
+                            "type": "string",
+                            "enum": ["per_occurrence", "monthly", "annual", "one_time", "other"],
+                            "description": "How often the fee is charged.",
+                        },
+                        "conditions": {
+                            "type": ["string", "null"],
+                            "description": "Any conditions, waivers, or qualifications.",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "description": "Extraction confidence from 0.0 to 1.0.",
+                        },
+                        "fee_category": {
+                            "type": ["string", "null"],
+                            "enum": _ALL_CATEGORIES + [None],
+                            "description": "Best-matching canonical fee category, or null if none fit.",
+                        },
+                    },
+                    "required": ["fee_name", "amount", "frequency", "confidence", "fee_category"],
+                },
+            },
+        },
+        "required": ["fees"],
+    },
+}
 
 MAX_TEXT_LENGTH = 50_000  # ~12K tokens, well within Sonnet's 200K context
 
@@ -55,59 +110,20 @@ class ExtractedFee:
     frequency: str | None
     conditions: str | None
     confidence: float
+    llm_category: str | None = None
 
 
-def extract_fees_with_llm(text: str, config: Config) -> list[ExtractedFee]:
-    """Send text to Claude and parse structured fee data.
+def _parse_tool_use_response(message: anthropic.types.Message) -> list[ExtractedFee]:
+    """Parse a tool_use response into ExtractedFee instances."""
+    for block in message.content:
+        if block.type == "tool_use" and block.name == "record_fees":
+            return _parse_fees_input(block.input)
+    return []
 
-    Requires ANTHROPIC_API_KEY environment variable.
 
-    Returns list of ExtractedFee dataclass instances.
-    """
-    if not text or not text.strip():
-        return []
-
-    # Trim very long documents
-    if len(text) > MAX_TEXT_LENGTH:
-        text = text[:MAX_TEXT_LENGTH] + "\n\n[Document truncated]"
-
-    client = anthropic.Anthropic()
-
-    message = client.messages.create(
-        model=config.claude.model,
-        max_tokens=config.claude.max_tokens,
-        messages=[
-            {
-                "role": "user",
-                "content": EXTRACTION_PROMPT.format(text=text),
-            }
-        ],
-    )
-
-    # Parse response
-    response_text = message.content[0].text.strip()
-
-    # Handle cases where Claude wraps JSON in markdown code blocks
-    if response_text.startswith("```"):
-        lines = response_text.splitlines()
-        # Remove first and last lines (```json and ```)
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        response_text = "\n".join(lines).strip()
-
-    try:
-        fees_raw = json.loads(response_text)
-    except json.JSONDecodeError:
-        # Try to find JSON array in the response
-        start = response_text.find("[")
-        end = response_text.rfind("]")
-        if start != -1 and end != -1:
-            try:
-                fees_raw = json.loads(response_text[start : end + 1])
-            except json.JSONDecodeError:
-                return []
-        else:
-            return []
-
+def _parse_fees_input(tool_input: dict) -> list[ExtractedFee]:
+    """Parse the tool input dict into ExtractedFee instances."""
+    fees_raw = tool_input.get("fees", [])
     if not isinstance(fees_raw, list):
         return []
 
@@ -115,7 +131,10 @@ def extract_fees_with_llm(text: str, config: Config) -> list[ExtractedFee]:
     for item in fees_raw:
         if not isinstance(item, dict):
             continue
-        fee_name = item.get("fee_name", "").strip()
+
+        fee_name = item.get("fee_name", "")
+        if isinstance(fee_name, str):
+            fee_name = fee_name.strip()
         if not fee_name:
             continue
 
@@ -133,12 +152,48 @@ def extract_fees_with_llm(text: str, config: Config) -> list[ExtractedFee]:
         except (ValueError, TypeError):
             confidence = 0.5
 
+        llm_category = item.get("fee_category")
+        if llm_category is not None and llm_category not in _ALL_CATEGORIES:
+            llm_category = None
+
         fees.append(ExtractedFee(
             fee_name=fee_name,
             amount=amount,
             frequency=item.get("frequency"),
             conditions=item.get("conditions"),
             confidence=confidence,
+            llm_category=llm_category,
         ))
 
     return fees
+
+
+def extract_fees_with_llm(text: str, config: Config) -> list[ExtractedFee]:
+    """Send text to Claude and parse structured fee data via tool_use.
+
+    Requires ANTHROPIC_API_KEY environment variable.
+
+    Returns list of ExtractedFee dataclass instances.
+    """
+    if not text or not text.strip():
+        return []
+
+    if len(text) > MAX_TEXT_LENGTH:
+        text = text[:MAX_TEXT_LENGTH] + "\n\n[Document truncated]"
+
+    client = anthropic.Anthropic()
+
+    message = client.messages.create(
+        model=config.claude.model,
+        max_tokens=config.claude.max_tokens,
+        tools=[RECORD_FEES_TOOL],
+        tool_choice={"type": "tool", "name": "record_fees"},
+        messages=[
+            {
+                "role": "user",
+                "content": EXTRACTION_PROMPT.format(text=text),
+            }
+        ],
+    )
+
+    return _parse_tool_use_response(message)

@@ -11,62 +11,50 @@ import type {
 
 export function getStats(): CrawlStats {
   const db = getDb();
-  try {
-    const total = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets").get() as { cnt: number };
-    const banks = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='bank'").get() as { cnt: number };
-    const cus = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='credit_union'").get() as { cnt: number };
-    const withUrl = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL").get() as { cnt: number };
-    const withFee = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL").get() as { cnt: number };
-    const fees = db.prepare("SELECT COUNT(*) as cnt FROM extracted_fees").get() as { cnt: number };
-    const runs = db.prepare("SELECT COUNT(*) as cnt FROM crawl_runs").get() as { cnt: number };
+  const total = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets").get() as { cnt: number };
+  const banks = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='bank'").get() as { cnt: number };
+  const cus = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='credit_union'").get() as { cnt: number };
+  const withUrl = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL").get() as { cnt: number };
+  const withFee = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL").get() as { cnt: number };
+  const fees = db.prepare("SELECT COUNT(*) as cnt FROM extracted_fees").get() as { cnt: number };
+  const runs = db.prepare("SELECT COUNT(*) as cnt FROM crawl_runs").get() as { cnt: number };
 
-    return {
-      total_institutions: total.cnt,
-      banks: banks.cnt,
-      credit_unions: cus.cnt,
-      with_website: withUrl.cnt,
-      with_fee_url: withFee.cnt,
-      total_fees: fees.cnt,
-      crawl_runs: runs.cnt,
-    };
-  } finally {
-    db.close();
-  }
+  return {
+    total_institutions: total.cnt,
+    banks: banks.cnt,
+    credit_unions: cus.cnt,
+    with_website: withUrl.cnt,
+    with_fee_url: withFee.cnt,
+    total_fees: fees.cnt,
+    crawl_runs: runs.cnt,
+  };
 }
 
 export function getInstitutionsWithFees(): InstitutionSummary[] {
   const db = getDb();
-  try {
-    return db.prepare(`
-      SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
-             ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type,
-             COUNT(ef.id) as fee_count
-      FROM crawl_targets ct
-      LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
-      WHERE ct.fee_schedule_url IS NOT NULL
-      GROUP BY ct.id
-      ORDER BY ct.asset_size DESC NULLS LAST
-    `).all() as InstitutionSummary[];
-  } finally {
-    db.close();
-  }
+  return db.prepare(`
+    SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+           ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type,
+           COUNT(ef.id) as fee_count
+    FROM crawl_targets ct
+    LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+    WHERE ct.fee_schedule_url IS NOT NULL
+    GROUP BY ct.id
+    ORDER BY ct.asset_size DESC NULLS LAST
+  `).all() as InstitutionSummary[];
 }
 
 export function getFeesByInstitution(targetId: number): ExtractedFee[] {
   const db = getDb();
-  try {
-    return db.prepare(`
-      SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-             ef.extraction_confidence, ef.review_status,
-             ct.institution_name, ef.crawl_target_id
-      FROM extracted_fees ef
-      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-      WHERE ef.crawl_target_id = ?
-      ORDER BY ef.fee_name
-    `).all(targetId) as ExtractedFee[];
-  } finally {
-    db.close();
-  }
+  return db.prepare(`
+    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+           ef.extraction_confidence, ef.review_status,
+           ct.institution_name, ef.crawl_target_id
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.crawl_target_id = ?
+    ORDER BY ef.fee_name
+  `).all(targetId) as ExtractedFee[];
 }
 
 export function getAllFees(
@@ -75,46 +63,42 @@ export function getAllFees(
   search?: string,
 ): { fees: ExtractedFee[]; total: number } {
   const db = getDb();
-  try {
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
 
-    if (search) {
-      conditions.push(
-        "(ef.fee_name LIKE ? OR ct.institution_name LIKE ?)"
-      );
-      params.push(`%${search}%`, `%${search}%`);
-    }
-
-    const where =
-      conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
-
-    const { cnt } = db
-      .prepare(
-        `SELECT COUNT(*) as cnt
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         ${where}`
-      )
-      .get(...params) as { cnt: number };
-
-    const fees = db
-      .prepare(
-        `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-               ef.extraction_confidence, ef.review_status,
-               ct.institution_name, ef.crawl_target_id
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        ${where}
-        ORDER BY ct.institution_name, ef.fee_name
-        LIMIT ? OFFSET ?`
-      )
-      .all(...params, limit, offset) as ExtractedFee[];
-
-    return { fees, total: cnt };
-  } finally {
-    db.close();
+  if (search) {
+    conditions.push(
+      "(ef.fee_name LIKE ? OR ct.institution_name LIKE ?)"
+    );
+    params.push(`%${search}%`, `%${search}%`);
   }
+
+  const where =
+    conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+
+  const { cnt } = db
+    .prepare(
+      `SELECT COUNT(*) as cnt
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       ${where}`
+    )
+    .get(...params) as { cnt: number };
+
+  const fees = db
+    .prepare(
+      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+             ef.extraction_confidence, ef.review_status,
+             ct.institution_name, ef.crawl_target_id
+      FROM extracted_fees ef
+      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+      ${where}
+      ORDER BY ct.institution_name, ef.fee_name
+      LIMIT ? OFFSET ?`
+    )
+    .all(...params, limit, offset) as ExtractedFee[];
+
+  return { fees, total: cnt };
 }
 
 export function getInstitutionsByFilter(filters: {
@@ -124,136 +108,112 @@ export function getInstitutionsByFilter(filters: {
   state_code?: string;
 }): InstitutionDetail[] {
   const db = getDb();
-  try {
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
 
-    if (filters.charter_type) {
-      conditions.push("ct.charter_type = ?");
-      params.push(filters.charter_type);
-    }
-    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-      const placeholders = filters.asset_tiers.map(() => "?").join(",");
-      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
-      params.push(...filters.asset_tiers);
-    }
-    if (filters.fed_districts && filters.fed_districts.length > 0) {
-      const placeholders = filters.fed_districts.map(() => "?").join(",");
-      conditions.push(`ct.fed_district IN (${placeholders})`);
-      params.push(...filters.fed_districts);
-    }
-    if (filters.state_code) {
-      conditions.push("ct.state_code = ?");
-      params.push(filters.state_code);
-    }
-
-    const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
-
-    return db.prepare(`
-      SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
-             ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
-             COUNT(ef.id) as fee_count
-      FROM crawl_targets ct
-      LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
-      ${where}
-      GROUP BY ct.id
-      ORDER BY ct.asset_size DESC NULLS LAST
-      LIMIT 200
-    `).all(...params) as InstitutionDetail[];
-  } finally {
-    db.close();
+  if (filters.charter_type) {
+    conditions.push("ct.charter_type = ?");
+    params.push(filters.charter_type);
   }
+  if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+    const placeholders = filters.asset_tiers.map(() => "?").join(",");
+    conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+    params.push(...filters.asset_tiers);
+  }
+  if (filters.fed_districts && filters.fed_districts.length > 0) {
+    const placeholders = filters.fed_districts.map(() => "?").join(",");
+    conditions.push(`ct.fed_district IN (${placeholders})`);
+    params.push(...filters.fed_districts);
+  }
+  if (filters.state_code) {
+    conditions.push("ct.state_code = ?");
+    params.push(filters.state_code);
+  }
+
+  const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+
+  return db.prepare(`
+    SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+           ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+           COUNT(ef.id) as fee_count
+    FROM crawl_targets ct
+    LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+    ${where}
+    GROUP BY ct.id
+    ORDER BY ct.asset_size DESC NULLS LAST
+    LIMIT 200
+  `).all(...params) as InstitutionDetail[];
 }
 
 export function getInstitutionById(id: number): InstitutionDetail | null {
   const db = getDb();
-  try {
-    const row = db.prepare(`
-      SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
-             ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
-             COUNT(ef.id) as fee_count
-      FROM crawl_targets ct
-      LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
-      WHERE ct.id = ?
-      GROUP BY ct.id
-    `).get(id) as InstitutionDetail | undefined;
-    return row ?? null;
-  } finally {
-    db.close();
-  }
+  const row = db.prepare(`
+    SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+           ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+           COUNT(ef.id) as fee_count
+    FROM crawl_targets ct
+    LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+    WHERE ct.id = ?
+    GROUP BY ct.id
+  `).get(id) as InstitutionDetail | undefined;
+  return row ?? null;
 }
 
 export function getPeerAnalysis(targetId: number): Record<string, unknown> | null {
   const db = getDb();
-  try {
-    const row = db.prepare(`
-      SELECT result_json FROM analysis_results
-      WHERE crawl_target_id = ? AND analysis_type = 'peer_comparison'
-    `).get(targetId) as { result_json: string } | undefined;
-    if (!row) return null;
-    return JSON.parse(row.result_json);
-  } finally {
-    db.close();
-  }
+  const row = db.prepare(`
+    SELECT result_json FROM analysis_results
+    WHERE crawl_target_id = ? AND analysis_type = 'peer_comparison'
+  `).get(targetId) as { result_json: string } | undefined;
+  if (!row) return null;
+  return JSON.parse(row.result_json);
 }
 
 export function getTierCounts(): { tier: string; count: number }[] {
   const db = getDb();
-  try {
-    return db.prepare(`
-      SELECT asset_size_tier as tier, COUNT(*) as count
-      FROM crawl_targets
-      WHERE asset_size_tier IS NOT NULL
-      GROUP BY asset_size_tier
-      ORDER BY MIN(asset_size)
-    `).all() as { tier: string; count: number }[];
-  } finally {
-    db.close();
-  }
+  return db.prepare(`
+    SELECT asset_size_tier as tier, COUNT(*) as count
+    FROM crawl_targets
+    WHERE asset_size_tier IS NOT NULL
+    GROUP BY asset_size_tier
+    ORDER BY MIN(asset_size)
+  `).all() as { tier: string; count: number }[];
 }
 
 export function getDistrictCounts(): { district: number; count: number }[] {
   const db = getDb();
-  try {
-    return db.prepare(`
-      SELECT fed_district as district, COUNT(*) as count
-      FROM crawl_targets
-      WHERE fed_district IS NOT NULL
-      GROUP BY fed_district
-      ORDER BY fed_district
-    `).all() as { district: number; count: number }[];
-  } finally {
-    db.close();
-  }
+  return db.prepare(`
+    SELECT fed_district as district, COUNT(*) as count
+    FROM crawl_targets
+    WHERE fed_district IS NOT NULL
+    GROUP BY fed_district
+    ORDER BY fed_district
+  `).all() as { district: number; count: number }[];
 }
 
 export function getReviewStats(): ReviewStats {
   const db = getDb();
-  try {
-    const rows = db
-      .prepare(
-        `SELECT review_status, COUNT(*) as cnt
-         FROM extracted_fees
-         GROUP BY review_status`
-      )
-      .all() as { review_status: string; cnt: number }[];
+  const rows = db
+    .prepare(
+      `SELECT review_status, COUNT(*) as cnt
+       FROM extracted_fees
+       GROUP BY review_status`
+    )
+    .all() as { review_status: string; cnt: number }[];
 
-    const stats: ReviewStats = {
-      pending: 0,
-      staged: 0,
-      flagged: 0,
-      approved: 0,
-      rejected: 0,
-    };
-    for (const row of rows) {
-      if (row.review_status in stats) {
-        stats[row.review_status as keyof ReviewStats] = row.cnt;
-      }
+  const stats: ReviewStats = {
+    pending: 0,
+    staged: 0,
+    flagged: 0,
+    approved: 0,
+    rejected: 0,
+  };
+  for (const row of rows) {
+    if (row.review_status in stats) {
+      stats[row.review_status as keyof ReviewStats] = row.cnt;
     }
-    return stats;
-  } finally {
-    db.close();
   }
+  return stats;
 }
 
 const REVIEW_SORT_COLUMNS: Record<string, string> = {
@@ -273,82 +233,70 @@ export function getFeesByStatus(
   dir?: string,
 ): { fees: ReviewableFee[]; total: number } {
   const db = getDb();
-  try {
-    const conditions = ["ef.review_status = ?"];
-    const params: (string | number)[] = [status];
+  const conditions = ["ef.review_status = ?"];
+  const params: (string | number)[] = [status];
 
-    if (search) {
-      conditions.push("ef.fee_name LIKE ?");
-      params.push(`%${search}%`);
-    }
-
-    const whereClause = conditions.join(" AND ");
-
-    const { cnt } = db
-      .prepare(
-        `SELECT COUNT(*) as cnt
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         WHERE ${whereClause}`
-      )
-      .get(...params) as { cnt: number };
-
-    const sortCol = (sort && REVIEW_SORT_COLUMNS[sort]) || "ct.institution_name";
-    const sortDir = dir === "desc" ? "DESC" : "ASC";
-    const secondary = sortCol !== "ct.institution_name"
-      ? ", ct.institution_name ASC"
-      : ", ef.fee_name ASC";
-
-    const fees = db
-      .prepare(
-        `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-                ef.extraction_confidence, ef.review_status, ef.validation_flags,
-                ef.fee_category, ct.institution_name, ef.crawl_target_id,
-                ct.state_code, ct.charter_type
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         WHERE ${whereClause}
-         ORDER BY ${sortCol} ${sortDir}${secondary}
-         LIMIT ? OFFSET ?`
-      )
-      .all(...params, limit, offset) as ReviewableFee[];
-
-    return { fees, total: cnt };
-  } finally {
-    db.close();
+  if (search) {
+    conditions.push("ef.fee_name LIKE ?");
+    params.push(`%${search}%`);
   }
+
+  const whereClause = conditions.join(" AND ");
+
+  const { cnt } = db
+    .prepare(
+      `SELECT COUNT(*) as cnt
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${whereClause}`
+    )
+    .get(...params) as { cnt: number };
+
+  const sortCol = (sort && REVIEW_SORT_COLUMNS[sort]) || "ct.institution_name";
+  const sortDir = dir === "desc" ? "DESC" : "ASC";
+  const secondary = sortCol !== "ct.institution_name"
+    ? ", ct.institution_name ASC"
+    : ", ef.fee_name ASC";
+
+  const fees = db
+    .prepare(
+      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+              ef.extraction_confidence, ef.review_status, ef.validation_flags,
+              ef.fee_category, ct.institution_name, ef.crawl_target_id,
+              ct.state_code, ct.charter_type
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${whereClause}
+       ORDER BY ${sortCol} ${sortDir}${secondary}
+       LIMIT ? OFFSET ?`
+    )
+    .all(...params, limit, offset) as ReviewableFee[];
+
+  return { fees, total: cnt };
 }
 
 export function getDistinctFeeTypes(): string[] {
   const db = getDb();
-  try {
-    const rows = db
-      .prepare(
-        `SELECT DISTINCT fee_name FROM extracted_fees ORDER BY fee_name`
-      )
-      .all() as { fee_name: string }[];
-    return rows.map((r) => r.fee_name);
-  } finally {
-    db.close();
-  }
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT fee_name FROM extracted_fees ORDER BY fee_name`
+    )
+    .all() as { fee_name: string }[];
+  return rows.map((r) => r.fee_name);
 }
 
 export function getFeeById(feeId: number): ReviewableFee | null {
   const db = getDb();
-  try {
-    const row = db
-      .prepare(
-        `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-                ef.extraction_confidence, ef.review_status, ef.validation_flags,
-                ef.fee_category, ct.institution_name, ef.crawl_target_id,
-                ct.state_code, ct.charter_type
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         WHERE ef.id = ?`
-      )
-      .get(feeId) as ReviewableFee | undefined;
-    return row ?? null;
-  } finally {
-    db.close();
-  }
+  const row = db
+    .prepare(
+      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+              ef.extraction_confidence, ef.review_status, ef.validation_flags,
+              ef.fee_category, ct.institution_name, ef.crawl_target_id,
+              ct.state_code, ct.charter_type
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ef.id = ?`
+    )
+    .get(feeId) as ReviewableFee | undefined;
+  return row ?? null;
 }

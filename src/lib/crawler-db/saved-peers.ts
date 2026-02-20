@@ -1,6 +1,4 @@
-import Database from "better-sqlite3";
-import path from "path";
-import { getDb } from "./connection";
+import { getDb, getWriteDb } from "./connection";
 
 export interface SavedPeerSet {
   id: number;
@@ -13,8 +11,7 @@ export interface SavedPeerSet {
 }
 
 export function ensureSavedPeerSetsTable(): void {
-  const dbPath = path.join(process.cwd(), "data", "crawler.db");
-  const db = new Database(dbPath);
+  const db = getWriteDb();
   try {
     db.exec(`
       CREATE TABLE IF NOT EXISTS saved_peer_sets (
@@ -35,18 +32,14 @@ export function ensureSavedPeerSetsTable(): void {
 export function getSavedPeerSets(userId: string): SavedPeerSet[] {
   ensureSavedPeerSetsTable();
   const db = getDb();
-  try {
-    return db
-      .prepare(
-        `SELECT id, name, tiers, districts, charter_type, created_by, created_at
-         FROM saved_peer_sets
-         WHERE created_by = ?
-         ORDER BY created_at DESC`
-      )
-      .all(userId) as SavedPeerSet[];
-  } finally {
-    db.close();
-  }
+  return db
+    .prepare(
+      `SELECT id, name, tiers, districts, charter_type, created_by, created_at
+       FROM saved_peer_sets
+       WHERE created_by = ?
+       ORDER BY created_at DESC`
+    )
+    .all(userId) as SavedPeerSet[];
 }
 
 export function savePeerSet(
@@ -55,8 +48,7 @@ export function savePeerSet(
   userId: string
 ): number {
   ensureSavedPeerSetsTable();
-  const dbPath = path.join(process.cwd(), "data", "crawler.db");
-  const db = new Database(dbPath);
+  const db = getWriteDb();
   try {
     const result = db
       .prepare(
@@ -78,8 +70,7 @@ export function savePeerSet(
 
 export function deletePeerSet(id: number, userId: string): boolean {
   ensureSavedPeerSetsTable();
-  const dbPath = path.join(process.cwd(), "data", "crawler.db");
-  const db = new Database(dbPath);
+  const db = getWriteDb();
   try {
     const result = db
       .prepare("DELETE FROM saved_peer_sets WHERE id = ? AND created_by = ?")

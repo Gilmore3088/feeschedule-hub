@@ -182,15 +182,23 @@ def validate_fee(
 
 
 def _amount_in_range(amount: float | None, fee_category: str) -> bool:
-    """Check if amount falls within the auto-approve range for a category."""
-    rules = FEE_AMOUNT_RULES.get(fee_category, FALLBACK_RULES)
-    min_amt, max_amt, _, allows_zero = rules
+    """Check if amount is plausible for auto-approve.
 
+    Permissive: null amounts are accepted (means "varies" or "see schedule"),
+    and positive amounts just need to be below the hard ceiling. The soft
+    min/max bounds are used for validation flags, not for blocking approval.
+    """
     if amount is None:
-        return allows_zero
+        return True
+    if amount < 0:
+        return False
+
+    rules = FEE_AMOUNT_RULES.get(fee_category, FALLBACK_RULES)
+    _, _, hard_ceiling, allows_zero = rules
+
     if amount == 0:
         return allows_zero
-    return min_amt <= amount <= max_amt
+    return amount <= hard_ceiling
 
 
 def determine_review_status(
@@ -240,23 +248,30 @@ def flags_to_json(flags: list[ValidationFlag]) -> str | None:
 def validate_and_classify_fees(
     fees: list[ExtractedFee],
     config: Config,
+    *,
+    categories: list[str | None] | None = None,
 ) -> list[tuple[ExtractedFee, list[ValidationFlag], str]]:
     """Validate a batch of fees for one institution.
 
+    Args:
+        fees: List of extracted fees to validate.
+        config: Application config.
+        categories: Optional list of fee categories (same length as fees).
+            When provided, enables category-aware validation and auto-approve.
+
     Returns list of (fee, flags, review_status) tuples.
-    Note: fee_category is not available at crawl time (categorization runs
-    separately), so auto-approve won't fire here. The backfill command
-    handles retroactive auto-approval with category data.
     """
     results = []
     seen_canonical: list[str] = []
 
-    for fee in fees:
-        flags = validate_fee(fee, seen_canonical, config)
-        status = determine_review_status(flags, fee.confidence, config)
+    for i, fee in enumerate(fees):
+        cat = categories[i] if categories else None
+        flags = validate_fee(fee, seen_canonical, config, cat)
+        status = determine_review_status(
+            flags, fee.confidence, config, cat, fee.amount,
+        )
         results.append((fee, flags, status))
 
-        # Track canonical names for duplicate detection
         canonical = normalize_fee_name(fee.fee_name)
         seen_canonical.append(canonical)
 

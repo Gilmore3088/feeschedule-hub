@@ -1,10 +1,8 @@
-import Database from "better-sqlite3";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import path from "path";
+import { getDb, getWriteDb } from "./crawler-db/connection";
 
-const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
 const SESSION_COOKIE = "fsh_session";
 const SESSION_TTL_HOURS = 24;
 
@@ -29,27 +27,47 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   admin: ["view", "approve", "reject", "edit", "bulk_approve", "manage_users"],
 };
 
-function getWriteDb(): Database.Database {
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = normal");
-  db.pragma("cache_size = -32000");
-  db.pragma("mmap_size = 268435456");
-  db.pragma("temp_store = memory");
-  return db;
+function scryptHash(password: string, salt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey.toString("hex"));
+    });
+  });
 }
 
-function hashPassword(password: string, salt: string): string {
+function hashPasswordLegacy(password: string, salt: string): string {
   return crypto
     .createHash("sha256")
     .update(`${salt}:${password}`)
     .digest("hex");
 }
 
-function verifyPassword(password: string, stored: string): boolean {
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [salt, expected] = stored.split(":", 2);
-  const actual = hashPassword(password, salt);
-  return actual === expected;
+
+  // Try scrypt first (new format: salt is 32 hex chars = 16 bytes)
+  if (salt.length === 32) {
+    const actual = await scryptHash(password, salt);
+    const expectedBuf = Buffer.from(expected, "hex");
+    const actualBuf = Buffer.from(actual, "hex");
+    if (expectedBuf.length === actualBuf.length) {
+      return crypto.timingSafeEqual(expectedBuf, actualBuf);
+    }
+  }
+
+  // Fall back to legacy SHA-256
+  const actual = hashPasswordLegacy(password, salt);
+  const expectedBuf = Buffer.from(expected, "hex");
+  const actualBuf = Buffer.from(actual, "hex");
+  if (expectedBuf.length !== actualBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, actualBuf);
+}
+
+export async function hashNewPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = await scryptHash(password, salt);
+  return `${salt}:${hash}`;
 }
 
 export async function login(
@@ -66,8 +84,17 @@ export async function login(
       | (User & { password_hash: string })
       | undefined;
 
-    if (!row || !verifyPassword(password, row.password_hash)) {
+    if (!row || !(await verifyPassword(password, row.password_hash))) {
       return null;
+    }
+
+    // Upgrade legacy SHA-256 hash to scrypt on successful login
+    if (row.password_hash.split(":")[0].length !== 32) {
+      const upgraded = await hashNewPassword(password);
+      db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(
+        upgraded,
+        row.id
+      );
     }
 
     // Create session
@@ -84,7 +111,7 @@ export async function login(
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, sessionId, {
       httpOnly: true,
-      secure: false, // MVP: localhost only
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: SESSION_TTL_HOURS * 60 * 60,
       path: "/",
@@ -123,23 +150,17 @@ export async function getCurrentUser(): Promise<User | null> {
 
   if (!sessionId) return null;
 
-  const db = new Database(DB_PATH, { readonly: true });
-  db.pragma("journal_mode = WAL");
-  db.pragma("cache_size = -32000");
-  try {
-    const row = db
-      .prepare(
-        `SELECT u.id, u.username, u.display_name, u.role
-         FROM sessions s
-         JOIN users u ON s.user_id = u.id
-         WHERE s.id = ? AND s.expires_at > datetime('now') AND u.is_active = 1`
-      )
-      .get(sessionId) as User | undefined;
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT u.id, u.username, u.display_name, u.role
+       FROM sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.id = ? AND s.expires_at > datetime('now') AND u.is_active = 1`
+    )
+    .get(sessionId) as User | undefined;
 
-    return row ?? null;
-  } finally {
-    db.close();
-  }
+  return row ?? null;
 }
 
 export function hasPermission(user: User, permission: Permission): boolean {

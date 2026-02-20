@@ -101,6 +101,16 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/admin/articles",
+        label: "Articles",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M3 2.5h10a1 1 0 011 1v9a1 1 0 01-1 1H3a1 1 0 01-1-1v-9a1 1 0 011-1z" />
+            <path d="M5 5.5h6M5 8h4M5 10.5h5" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/fees",
         label: "Extracts",
         exact: true,
