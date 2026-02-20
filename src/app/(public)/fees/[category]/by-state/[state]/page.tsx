@@ -110,26 +110,26 @@ export default async function StateBreakdownPage({
         ]}
       />
       {/* Breadcrumb */}
-      <nav className="mb-6 text-[13px] text-slate-400">
+      <nav aria-label="Breadcrumb" className="mb-6 text-[13px] text-slate-400">
         <Link href="/fees" className="hover:text-slate-600 transition-colors">
           Fee Index
         </Link>
-        <span className="mx-2">/</span>
+        <span className="mx-2" aria-hidden="true">/</span>
         <Link
           href={`/fees/${category}`}
           className="hover:text-slate-600 transition-colors"
         >
           {displayName}
         </Link>
-        <span className="mx-2">/</span>
+        <span className="mx-2" aria-hidden="true">/</span>
         <Link
           href={`/fees/${category}/by-state`}
           className="hover:text-slate-600 transition-colors"
         >
           By State
         </Link>
-        <span className="mx-2">/</span>
-        <span className="text-slate-600">{stateName}</span>
+        <span className="mx-2" aria-hidden="true">/</span>
+        <span className="text-slate-600" aria-current="page">{stateName}</span>
       </nav>
 
       {/* Header */}
@@ -175,6 +175,7 @@ export default async function StateBreakdownPage({
                       ? "bg-red-50 text-red-600"
                       : "bg-slate-100 text-slate-500"
                 }`}
+                title={`${Math.abs(delta).toFixed(1)}% ${delta < 0 ? "below" : delta > 0 ? "above" : "at"} national median`}
               >
                 {delta > 0 ? "+" : ""}
                 {delta.toFixed(1)}% vs national
@@ -248,18 +249,21 @@ export default async function StateBreakdownPage({
           </h2>
           <div className="overflow-hidden rounded-lg border border-slate-200">
             <table className="w-full text-left">
+              <caption className="sr-only">
+                Lowest {displayName.toLowerCase()} fees in {stateName}
+              </caption>
               <thead>
                 <tr className="bg-slate-50/80">
-                  <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Institution
                   </th>
-                  <th className="hidden px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">
+                  <th scope="col" className="hidden px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">
                     City
                   </th>
-                  <th className="hidden px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">
+                  <th scope="col" className="hidden px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">
                     Type
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Fee
                   </th>
                 </tr>
@@ -316,6 +320,12 @@ export default async function StateBreakdownPage({
         >
           Compare all states
         </Link>
+        <a
+          href={`mailto:data@bankfeeindex.com?subject=Data correction: ${displayName} in ${stateName}&body=Fee category: ${displayName} (${category})%0AState: ${stateName}%0A%0AInstitution:%0ACurrent amount shown:%0ACorrect amount:%0ASource URL:`}
+          className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-colors"
+        >
+          Report an error
+        </a>
       </div>
     </div>
   );

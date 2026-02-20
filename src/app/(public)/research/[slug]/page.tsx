@@ -204,71 +204,158 @@ function ArticleContent({ content }: { content: string }) {
   const bodyLines = lines[0]?.startsWith("# ") ? lines.slice(1) : lines;
   const body = bodyLines.join("\n").trim();
 
-  // Simple markdown rendering
   const elements: React.ReactNode[] = [];
   const parts = body.split("\n");
-  let listItems: string[] = [];
+  let ulItems: string[] = [];
+  let olItems: string[] = [];
+  let blockquoteLines: string[] = [];
+  let tableRows: string[][] = [];
 
-  function flushList() {
-    if (listItems.length > 0) {
+  function flushUl() {
+    if (ulItems.length > 0) {
       elements.push(
         <ul key={`ul-${elements.length}`}>
-          {listItems.map((item, i) => (
-            <li key={i}>
-              <InlineMd text={item} />
-            </li>
+          {ulItems.map((item, i) => (
+            <li key={i}><InlineMd text={item} /></li>
           ))}
         </ul>
       );
-      listItems = [];
+      ulItems = [];
     }
+  }
+
+  function flushOl() {
+    if (olItems.length > 0) {
+      elements.push(
+        <ol key={`ol-${elements.length}`}>
+          {olItems.map((item, i) => (
+            <li key={i}><InlineMd text={item} /></li>
+          ))}
+        </ol>
+      );
+      olItems = [];
+    }
+  }
+
+  function flushBlockquote() {
+    if (blockquoteLines.length > 0) {
+      elements.push(
+        <blockquote key={`bq-${elements.length}`}>
+          {blockquoteLines.map((line, i) => (
+            <p key={i}><InlineMd text={line} /></p>
+          ))}
+        </blockquote>
+      );
+      blockquoteLines = [];
+    }
+  }
+
+  function flushTable() {
+    if (tableRows.length < 2) {
+      tableRows = [];
+      return;
+    }
+    const header = tableRows[0];
+    // Skip separator row (row index 1 with dashes)
+    const dataStart = tableRows.length > 1 && tableRows[1].every(c => /^[-:| ]+$/.test(c)) ? 2 : 1;
+    const dataRows = tableRows.slice(dataStart);
+    elements.push(
+      <div key={`tbl-${elements.length}`} className="overflow-x-auto my-4">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-200">
+              {header.map((cell, i) => (
+                <th key={i} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <InlineMd text={cell.trim()} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {dataRows.map((row, ri) => (
+              <tr key={ri}>
+                {row.map((cell, ci) => (
+                  <td key={ci} className="px-3 py-2 text-slate-600">
+                    <InlineMd text={cell.trim()} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    tableRows = [];
+  }
+
+  function flushAll() {
+    flushUl();
+    flushOl();
+    flushBlockquote();
+    flushTable();
   }
 
   for (let i = 0; i < parts.length; i++) {
     const line = parts[i];
 
-    if (/^[-*]\s/.test(line)) {
-      listItems.push(line.replace(/^[-*]\s+/, ""));
+    // Table rows
+    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+      flushUl();
+      flushOl();
+      flushBlockquote();
+      const cells = line.trim().slice(1, -1).split("|");
+      tableRows.push(cells);
       continue;
     }
-    if (/^\d+\.\s/.test(line)) {
-      listItems.push(line.replace(/^\d+\.\s+/, ""));
-      continue;
-    }
+    if (tableRows.length > 0) flushTable();
 
-    flushList();
+    // Blockquotes
+    if (line.startsWith("> ")) {
+      flushUl();
+      flushOl();
+      blockquoteLines.push(line.slice(2));
+      continue;
+    }
+    if (blockquoteLines.length > 0) flushBlockquote();
+
+    // Unordered list
+    if (/^[-*]\s/.test(line)) {
+      flushOl();
+      ulItems.push(line.replace(/^[-*]\s+/, ""));
+      continue;
+    }
+    if (ulItems.length > 0) flushUl();
+
+    // Ordered list
+    if (/^\d+\.\s/.test(line)) {
+      flushUl();
+      olItems.push(line.replace(/^\d+\.\s+/, ""));
+      continue;
+    }
+    if (olItems.length > 0) flushOl();
 
     if (line.startsWith("## ")) {
-      elements.push(
-        <h2 key={i}>
-          <InlineMd text={line.slice(3)} />
-        </h2>
-      );
+      elements.push(<h2 key={i}><InlineMd text={line.slice(3)} /></h2>);
     } else if (line.startsWith("### ")) {
-      elements.push(
-        <h3 key={i}>
-          <InlineMd text={line.slice(4)} />
-        </h3>
-      );
+      elements.push(<h3 key={i}><InlineMd text={line.slice(4)} /></h3>);
+    } else if (line.startsWith("#### ")) {
+      elements.push(<h4 key={i}><InlineMd text={line.slice(5)} /></h4>);
     } else if (line === "---") {
       elements.push(<hr key={i} />);
     } else if (line.trim() === "") {
-      // skip
+      // skip blank lines
     } else {
-      elements.push(
-        <p key={i}>
-          <InlineMd text={line} />
-        </p>
-      );
+      elements.push(<p key={i}><InlineMd text={line} /></p>);
     }
   }
 
-  flushList();
+  flushAll();
   return <>{elements}</>;
 }
 
 function InlineMd({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+  // Split on: **bold**, *italic*, `code`, [text](url)
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
   return (
     <>
       {parts.map((part, i) => {
@@ -280,6 +367,22 @@ function InlineMd({ text }: { text: string }) {
         }
         if (part.startsWith("`") && part.endsWith("`")) {
           return <code key={i}>{part.slice(1, -1)}</code>;
+        }
+        // [text](url)
+        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (linkMatch) {
+          const [, linkText, href] = linkMatch;
+          const isExternal = href.startsWith("http");
+          return (
+            <a
+              key={i}
+              href={href}
+              className="text-blue-600 underline decoration-blue-200 hover:decoration-blue-400 transition-colors"
+              {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            >
+              {linkText}
+            </a>
+          );
         }
         return part;
       })}

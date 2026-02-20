@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
-  getNationalIndex,
+  getCategoryIndex,
   getPeerIndex,
   getDistrictMedianByCategory,
 } from "@/lib/crawler-db";
@@ -38,8 +38,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { category } = await params;
   const displayName = getDisplayName(category);
-  const entries = getNationalIndex();
-  const entry = entries.find((e) => e.fee_category === category);
+  const entry = getCategoryIndex(category);
   const median = entry?.median_amount;
 
   return {
@@ -61,8 +60,7 @@ export default async function CategoryPage({
   const tier = getFeeTier(category);
   const familyColor = family ? FAMILY_COLORS[family] : null;
 
-  const allEntries = getNationalIndex();
-  const entry = allEntries.find((e) => e.fee_category === category);
+  const entry = getCategoryIndex(category);
 
   // Charter comparison
   const bankIndex = getPeerIndex({ charter_type: "bank" });
@@ -113,12 +111,12 @@ export default async function CategoryPage({
         ]}
       />
       {/* Breadcrumb */}
-      <nav className="mb-6 text-[13px] text-slate-400">
+      <nav aria-label="Breadcrumb" className="mb-6 text-[13px] text-slate-400">
         <Link href="/fees" className="hover:text-slate-600 transition-colors">
           Fee Index
         </Link>
-        <span className="mx-2">/</span>
-        <span className="text-slate-600">{displayName}</span>
+        <span className="mx-2" aria-hidden="true">/</span>
+        <span className="text-slate-600" aria-current="page">{displayName}</span>
       </nav>
 
       {/* Header */}
@@ -192,18 +190,21 @@ export default async function CategoryPage({
         </h2>
         <div className="overflow-hidden rounded-lg border border-slate-200">
           <table className="w-full text-left">
+            <caption className="sr-only">
+              {displayName} fee comparison: banks vs credit unions
+            </caption>
             <thead>
               <tr className="bg-slate-50/80">
-                <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   Charter
                 </th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   Median
                 </th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   P25 - P75
                 </th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   Institutions
                 </th>
               </tr>
@@ -225,18 +226,21 @@ export default async function CategoryPage({
           </h2>
           <div className="overflow-hidden rounded-lg border border-slate-200">
             <table className="w-full text-left">
+              <caption className="sr-only">
+                {displayName} fee by Federal Reserve district
+              </caption>
               <thead>
                 <tr className="bg-slate-50/80">
-                  <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     District
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Median
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     vs National
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Institutions
                   </th>
                 </tr>
@@ -333,6 +337,19 @@ export default async function CategoryPage({
           pending, staged, and approved fee extractions. This analysis may not be
           representative of the full market.
         </p>
+        <p className="mt-3 text-[13px] text-slate-500">
+          See an error?{" "}
+          <a
+            href={`mailto:data@bankfeeindex.com?subject=Data correction: ${displayName}&body=Fee category: ${displayName} (${category})%0A%0AInstitution:%0ACurrent amount shown:%0ACorrect amount:%0ASource URL:`}
+            className="text-blue-600 hover:underline"
+          >
+            Report a data correction
+          </a>{" "}
+          or{" "}
+          <Link href="/about#data-corrections" className="text-blue-600 hover:underline">
+            learn about our correction process
+          </Link>.
+        </p>
       </section>
 
       {/* JSON-LD */}
@@ -424,9 +441,11 @@ function DeltaPill({ delta }: { delta: number }) {
     : delta > 0
       ? "bg-red-50 text-red-600"
       : "bg-slate-100 text-slate-500";
+  const label = isBelow ? "below" : delta > 0 ? "above" : "at";
   return (
     <span
       className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${colorClass}`}
+      title={`${Math.abs(delta).toFixed(1)}% ${label} national median`}
     >
       {delta > 0 ? "+" : ""}
       {delta.toFixed(1)}%

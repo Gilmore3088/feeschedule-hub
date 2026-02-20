@@ -34,7 +34,7 @@ export function PublicNav() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -79,7 +79,7 @@ export function PublicNav() {
 
       {/* Mobile menu */}
       {open && (
-        <nav className="border-t border-white/10 bg-[#0f172a] px-6 py-4 md:hidden">
+        <nav aria-label="Mobile navigation" className="border-t border-white/10 bg-[#0f172a] px-6 py-4 md:hidden">
           <div className="flex flex-col gap-1">
             {NAV_LINKS.map((link) => (
               <Link

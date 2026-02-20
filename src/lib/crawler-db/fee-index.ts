@@ -45,6 +45,29 @@ export function getNationalIndex(approvedOnly = false): IndexEntry[] {
   return buildIndexEntries(rows);
 }
 
+export function getCategoryIndex(category: string): IndexEntry | null {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT ef.fee_category, ef.amount, ef.crawl_target_id,
+              ef.review_status, ef.created_at, ct.charter_type
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ef.fee_category = ? AND ef.review_status != 'rejected'`
+    )
+    .all(category) as {
+    fee_category: string;
+    amount: number | null;
+    crawl_target_id: number;
+    review_status: string;
+    created_at: string;
+    charter_type: string;
+  }[];
+
+  const entries = buildIndexEntries(rows);
+  return entries[0] ?? null;
+}
+
 export function getPeerIndex(
   filters: {
     charter_type?: string;

@@ -127,18 +127,21 @@ export function FeeChecker() {
           {/* Fee comparison table */}
           <div className="overflow-hidden rounded-xl border border-slate-200">
             <table className="w-full text-left">
+              <caption className="sr-only">
+                Fee comparison: {STATE_NAMES[result.state_code]} vs national averages
+              </caption>
               <thead>
                 <tr className="bg-slate-50/80">
-                  <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Fee Category
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Your Area
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     National
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th scope="col" className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Difference
                   </th>
                 </tr>
@@ -277,9 +280,9 @@ function ScoreRing({ delta }: { delta: number | null }) {
   const dashOffset = 100 - (pct / 30) * 100;
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center" role="img" aria-label={`${Math.abs(delta).toFixed(0)}% ${label}`}>
       <div className="relative h-16 w-16">
-        <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+        <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90" aria-hidden="true">
           <circle
             cx="18" cy="18" r="15.9"
             fill="none"
@@ -344,9 +347,11 @@ function DeltaPill({ delta }: { delta: number }) {
       ? "bg-red-50 text-red-600"
       : "bg-slate-100 text-slate-500";
   const arrow = isBelow ? "\u2193" : isAbove ? "\u2191" : "";
+  const label = isBelow ? "below" : isAbove ? "above" : "near";
   return (
     <span
       className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tabular-nums ${colorClass}`}
+      title={`${Math.abs(delta).toFixed(1)}% ${label} national average`}
     >
       {arrow}
       {delta > 0 ? "+" : ""}
