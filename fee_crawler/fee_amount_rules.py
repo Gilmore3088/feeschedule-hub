@@ -95,4 +95,10 @@ NON_FEE_SUBSTRINGS = [
     " apy",
     "ncua operating",
     "fdic assessment",
+    "amortization schedule",
+    "par value",
+    "membership share",
+    "business checking",
+    "online banking",
+    "mobile banking",
 ]

@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+data/
+*.db
+.env
+.env.local
+.claude/
+plans/
+docs/
+fee_crawler/
+__pycache__
+*.pyc
+.pytest_cache
+.venv

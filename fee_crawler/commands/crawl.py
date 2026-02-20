@@ -15,11 +15,39 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fee_crawler.config import Config
 from fee_crawler.db import Database
+from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family, FEE_FAMILIES
 from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
 from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
 from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf
 from fee_crawler.validation import validate_and_classify_fees, flags_to_json
+
+
+def _all_canonical() -> set[str]:
+    cats: set[str] = set()
+    for members in FEE_FAMILIES.values():
+        cats.update(members)
+    return cats
+
+
+_CANONICAL_SET = _all_canonical()
+
+
+def _categorize_fee(fee) -> tuple[str | None, str | None]:
+    """Dual categorization: alias-based (deterministic) wins, LLM fallback.
+
+    Returns (fee_category, fee_family) or (None, None).
+    """
+    canonical = normalize_fee_name(fee.fee_name)
+    if canonical in _CANONICAL_SET:
+        return canonical, get_fee_family(canonical)
+
+    # LLM fallback: use the category from tool_use output
+    llm_cat = getattr(fee, "llm_category", None)
+    if llm_cat and llm_cat in _CANONICAL_SET:
+        return llm_cat, get_fee_family(llm_cat)
+
+    return None, None
 
 
 def _crawl_one(
@@ -126,10 +154,16 @@ def _crawl_one(
             db.commit()
             return result
 
-        # Step 4: Validate fees
-        validated = validate_and_classify_fees(fees, config)
+        # Step 4: Categorize fees (dual: alias-based + LLM fallback)
+        categories = [_categorize_fee(fee)[0] for fee in fees]
 
-        # Step 5: Re-crawl overwrite - delete old fees for this institution
+        # Step 5: Validate fees (with categories for auto-approve)
+        validated = validate_and_classify_fees(fees, config, categories=categories)
+
+        # Pair categories with validated results
+        cat_families = [_categorize_fee(fee) for fee in fees]
+
+        # Step 6: Re-crawl overwrite - delete old fees for this institution
         old_fees = db.fetchall(
             "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ?",
             (target_id,),
@@ -147,7 +181,7 @@ def _crawl_one(
                 (target_id,),
             )
 
-        # Step 6: Store validated results
+        # Step 7: Store validated results
         result_id = _save_result(
             db, run_id, target_id, "success", url,
             content_hash=dl["content_hash"],
@@ -157,21 +191,25 @@ def _crawl_one(
 
         staged_count = 0
         flagged_count = 0
-        for fee, flags, review_status in validated:
+        approved_count = 0
+        for i, (fee, flags, review_status) in enumerate(validated):
+            fee_category, fee_family = cat_families[i]
             db.execute(
                 """INSERT INTO extracted_fees
                    (crawl_result_id, crawl_target_id, fee_name, amount,
                     frequency, conditions, extraction_confidence,
-                    review_status, validation_flags)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    review_status, validation_flags, fee_category, fee_family)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (result_id, target_id, fee.fee_name, fee.amount,
                  fee.frequency, fee.conditions, fee.confidence,
-                 review_status, flags_to_json(flags)),
+                 review_status, flags_to_json(flags), fee_category, fee_family),
             )
             if review_status == "staged":
                 staged_count += 1
             elif review_status == "flagged":
                 flagged_count += 1
+            elif review_status == "approved":
+                approved_count += 1
 
         db.execute(
             """UPDATE crawl_targets
@@ -187,13 +225,15 @@ def _crawl_one(
         result["staged"] = staged_count
         result["flagged"] = flagged_count
         status_summary = f"{len(validated)} fees"
+        parts = []
+        if approved_count:
+            parts.append(f"{approved_count} approved")
         if staged_count:
-            status_summary += f" ({staged_count} staged"
-            if flagged_count:
-                status_summary += f", {flagged_count} flagged"
-            status_summary += ")"
-        elif flagged_count:
-            status_summary += f" ({flagged_count} flagged)"
+            parts.append(f"{staged_count} staged")
+        if flagged_count:
+            parts.append(f"{flagged_count} flagged")
+        if parts:
+            status_summary += f" ({', '.join(parts)})"
         result["message"] = status_summary
         return result
 

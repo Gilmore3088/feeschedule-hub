@@ -75,37 +75,33 @@ export function getFilteredTierCounts(filters: {
   fed_districts?: number[];
 }): { tier: string; count: number }[] {
   const db = getDb();
-  try {
-    const conditions = ["asset_size_tier IS NOT NULL"];
-    const params: (string | number)[] = [];
+  const conditions = ["asset_size_tier IS NOT NULL"];
+  const params: (string | number)[] = [];
 
-    if (filters.charter_type) {
-      conditions.push("charter_type = ?");
-      params.push(filters.charter_type);
-    }
-    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-      const placeholders = filters.asset_tiers.map(() => "?").join(",");
-      conditions.push(`asset_size_tier IN (${placeholders})`);
-      params.push(...filters.asset_tiers);
-    }
-    if (filters.fed_districts && filters.fed_districts.length > 0) {
-      const placeholders = filters.fed_districts.map(() => "?").join(",");
-      conditions.push(`fed_district IN (${placeholders})`);
-      params.push(...filters.fed_districts);
-    }
-
-    return db
-      .prepare(
-        `SELECT asset_size_tier as tier, COUNT(*) as count
-         FROM crawl_targets
-         WHERE ${conditions.join(" AND ")}
-         GROUP BY asset_size_tier
-         ORDER BY MIN(asset_size)`
-      )
-      .all(...params) as { tier: string; count: number }[];
-  } finally {
-    db.close();
+  if (filters.charter_type) {
+    conditions.push("charter_type = ?");
+    params.push(filters.charter_type);
   }
+  if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+    const placeholders = filters.asset_tiers.map(() => "?").join(",");
+    conditions.push(`asset_size_tier IN (${placeholders})`);
+    params.push(...filters.asset_tiers);
+  }
+  if (filters.fed_districts && filters.fed_districts.length > 0) {
+    const placeholders = filters.fed_districts.map(() => "?").join(",");
+    conditions.push(`fed_district IN (${placeholders})`);
+    params.push(...filters.fed_districts);
+  }
+
+  return db
+    .prepare(
+      `SELECT asset_size_tier as tier, COUNT(*) as count
+       FROM crawl_targets
+       WHERE ${conditions.join(" AND ")}
+       GROUP BY asset_size_tier
+       ORDER BY MIN(asset_size)`
+    )
+    .all(...params) as { tier: string; count: number }[];
 }
 
 export function getFeesForCategory(
@@ -118,48 +114,44 @@ export function getFeesForCategory(
   approvedOnly = false
 ): { amount: number; charter_type: string; institution_name: string }[] {
   const db = getDb();
-  try {
-    const conditions = [
-      "ef.fee_category = ?",
-      "ef.amount IS NOT NULL",
-      "ef.amount > 0",
-      approvedOnly
-        ? "ef.review_status = 'approved'"
-        : "ef.review_status != 'rejected'",
-    ];
-    const params: (string | number)[] = [category];
+  const conditions = [
+    "ef.fee_category = ?",
+    "ef.amount IS NOT NULL",
+    "ef.amount > 0",
+    approvedOnly
+      ? "ef.review_status = 'approved'"
+      : "ef.review_status != 'rejected'",
+  ];
+  const params: (string | number)[] = [category];
 
-    if (filters.charter_type) {
-      conditions.push("ct.charter_type = ?");
-      params.push(filters.charter_type);
-    }
-    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-      const placeholders = filters.asset_tiers.map(() => "?").join(",");
-      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
-      params.push(...filters.asset_tiers);
-    }
-    if (filters.fed_districts && filters.fed_districts.length > 0) {
-      const placeholders = filters.fed_districts.map(() => "?").join(",");
-      conditions.push(`ct.fed_district IN (${placeholders})`);
-      params.push(...filters.fed_districts);
-    }
-
-    return db
-      .prepare(
-        `SELECT ef.amount, ct.charter_type, ct.institution_name
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         WHERE ${conditions.join(" AND ")}
-         ORDER BY ef.amount`
-      )
-      .all(...params) as {
-      amount: number;
-      charter_type: string;
-      institution_name: string;
-    }[];
-  } finally {
-    db.close();
+  if (filters.charter_type) {
+    conditions.push("ct.charter_type = ?");
+    params.push(filters.charter_type);
   }
+  if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+    const placeholders = filters.asset_tiers.map(() => "?").join(",");
+    conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+    params.push(...filters.asset_tiers);
+  }
+  if (filters.fed_districts && filters.fed_districts.length > 0) {
+    const placeholders = filters.fed_districts.map(() => "?").join(",");
+    conditions.push(`ct.fed_district IN (${placeholders})`);
+    params.push(...filters.fed_districts);
+  }
+
+  return db
+    .prepare(
+      `SELECT ef.amount, ct.charter_type, ct.institution_name
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY ef.amount`
+    )
+    .all(...params) as {
+    amount: number;
+    charter_type: string;
+    institution_name: string;
+  }[];
 }
 
 export interface SegmentOutlier {
@@ -179,92 +171,88 @@ export function getSegmentOutliers(
   limit = 3
 ): SegmentOutlier[] {
   const db = getDb();
-  try {
-    const conditions = [
-      "ef.fee_category IS NOT NULL",
-      "ef.review_status != 'rejected'",
-      "ef.amount IS NOT NULL",
-      "ef.amount > 0",
-    ];
-    const params: (string | number)[] = [];
+  const conditions = [
+    "ef.fee_category IS NOT NULL",
+    "ef.review_status != 'rejected'",
+    "ef.amount IS NOT NULL",
+    "ef.amount > 0",
+  ];
+  const params: (string | number)[] = [];
 
-    if (filters.charter_type) {
-      conditions.push("ct.charter_type = ?");
-      params.push(filters.charter_type);
-    }
-    if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-      const placeholders = filters.asset_tiers.map(() => "?").join(",");
-      conditions.push(`ct.asset_size_tier IN (${placeholders})`);
-      params.push(...filters.asset_tiers);
-    }
-    if (filters.fed_districts && filters.fed_districts.length > 0) {
-      const placeholders = filters.fed_districts.map(() => "?").join(",");
-      conditions.push(`ct.fed_district IN (${placeholders})`);
-      params.push(...filters.fed_districts);
-    }
-
-    const where = conditions.join(" AND ");
-
-    const highest = db
-      .prepare(
-        `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         WHERE ${where}
-         ORDER BY ef.amount DESC
-         LIMIT ?`
-      )
-      .all(...params, limit) as {
-      fee_category: string;
-      institution_name: string;
-      institution_id: number;
-      amount: number;
-    }[];
-
-    const lowest = db
-      .prepare(
-        `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         WHERE ${where}
-         ORDER BY ef.amount ASC
-         LIMIT ?`
-      )
-      .all(...params, limit) as {
-      fee_category: string;
-      institution_name: string;
-      institution_id: number;
-      amount: number;
-    }[];
-
-    const flaggedConditions = [
-      ...conditions.filter((c) => c !== "ef.amount IS NOT NULL" && c !== "ef.amount > 0"),
-      "ef.review_status = 'flagged'",
-    ];
-
-    const flagged = db
-      .prepare(
-        `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id,
-                COALESCE(ef.amount, 0) as amount
-         FROM extracted_fees ef
-         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-         WHERE ${flaggedConditions.join(" AND ")}
-         ORDER BY ef.amount DESC
-         LIMIT ?`
-      )
-      .all(...params, limit) as {
-      fee_category: string;
-      institution_name: string;
-      institution_id: number;
-      amount: number;
-    }[];
-
-    return [
-      ...highest.map((r) => ({ ...r, type: "highest" as const })),
-      ...lowest.map((r) => ({ ...r, type: "lowest" as const })),
-      ...flagged.map((r) => ({ ...r, type: "most_flagged" as const })),
-    ];
-  } finally {
-    db.close();
+  if (filters.charter_type) {
+    conditions.push("ct.charter_type = ?");
+    params.push(filters.charter_type);
   }
+  if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+    const placeholders = filters.asset_tiers.map(() => "?").join(",");
+    conditions.push(`ct.asset_size_tier IN (${placeholders})`);
+    params.push(...filters.asset_tiers);
+  }
+  if (filters.fed_districts && filters.fed_districts.length > 0) {
+    const placeholders = filters.fed_districts.map(() => "?").join(",");
+    conditions.push(`ct.fed_district IN (${placeholders})`);
+    params.push(...filters.fed_districts);
+  }
+
+  const where = conditions.join(" AND ");
+
+  const highest = db
+    .prepare(
+      `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${where}
+       ORDER BY ef.amount DESC
+       LIMIT ?`
+    )
+    .all(...params, limit) as {
+    fee_category: string;
+    institution_name: string;
+    institution_id: number;
+    amount: number;
+  }[];
+
+  const lowest = db
+    .prepare(
+      `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${where}
+       ORDER BY ef.amount ASC
+       LIMIT ?`
+    )
+    .all(...params, limit) as {
+    fee_category: string;
+    institution_name: string;
+    institution_id: number;
+    amount: number;
+  }[];
+
+  const flaggedConditions = [
+    ...conditions.filter((c) => c !== "ef.amount IS NOT NULL" && c !== "ef.amount > 0"),
+    "ef.review_status = 'flagged'",
+  ];
+
+  const flagged = db
+    .prepare(
+      `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id,
+              COALESCE(ef.amount, 0) as amount
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${flaggedConditions.join(" AND ")}
+       ORDER BY ef.amount DESC
+       LIMIT ?`
+    )
+    .all(...params, limit) as {
+    fee_category: string;
+    institution_name: string;
+    institution_id: number;
+    amount: number;
+  }[];
+
+  return [
+    ...highest.map((r) => ({ ...r, type: "highest" as const })),
+    ...lowest.map((r) => ({ ...r, type: "lowest" as const })),
+    ...flagged.map((r) => ({ ...r, type: "most_flagged" as const })),
+  ];
 }

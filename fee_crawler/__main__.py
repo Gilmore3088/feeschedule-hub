@@ -195,6 +195,26 @@ def cmd_ingest_fred(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_generate_articles(args: argparse.Namespace) -> None:
+    """Generate research articles from fee data using LLM."""
+    from fee_crawler.commands.generate_articles import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(
+            db,
+            article_type=args.type,
+            category=args.category,
+            district=args.district,
+            all_spotlight=args.all_spotlight,
+            dry_run=args.dry_run,
+            limit=args.limit,
+        )
+    finally:
+        db.close()
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     """Show database statistics."""
     config = load_config()
@@ -535,6 +555,51 @@ def main() -> None:
         help="Start date for observations (YYYY-MM-DD). Default: last 10 years",
     )
     fred_parser.set_defaults(func=cmd_ingest_fred)
+
+    # generate-articles command
+    gen_parser = subparsers.add_parser(
+        "generate-articles", help="Generate research articles from fee data"
+    )
+    gen_parser.add_argument(
+        "--type",
+        required=True,
+        choices=[
+            "national-benchmark",
+            "district-comparison",
+            "charter-comparison",
+            "top-10",
+        ],
+        help="Article type to generate",
+    )
+    gen_parser.add_argument(
+        "--category",
+        type=str,
+        default=None,
+        help="Fee category (e.g., overdraft, nsf, monthly_maintenance)",
+    )
+    gen_parser.add_argument(
+        "--district",
+        type=int,
+        default=None,
+        help="Fed district number (1-12), required for district-comparison",
+    )
+    gen_parser.add_argument(
+        "--all-spotlight",
+        action="store_true",
+        help="Generate for all 6 spotlight categories",
+    )
+    gen_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Output data context JSON only, no LLM calls",
+    )
+    gen_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Max articles to generate (with --all-spotlight)",
+    )
+    gen_parser.set_defaults(func=cmd_generate_articles)
 
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
