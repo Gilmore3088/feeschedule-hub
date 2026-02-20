@@ -16,6 +16,10 @@ import {
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT, STATE_NAMES } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";
+import { DataFreshness } from "@/components/data-freshness";
+import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
+import { DistributionChart } from "@/components/distribution-chart";
+import { GlossaryTerm } from "@/components/glossary-tooltip";
 
 export async function generateStaticParams() {
   return getFeaturedCategories().map((cat) => ({ category: cat }));
@@ -96,6 +100,13 @@ export default async function CategoryPage({
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", href: "/" },
+          { name: "Fee Index", href: "/fees" },
+          { name: displayName, href: `/fees/${category}` },
+        ]}
+      />
       {/* Breadcrumb */}
       <nav className="mb-6 text-[13px] text-slate-400">
         <Link href="/fees" className="hover:text-slate-600 transition-colors">
@@ -126,17 +137,18 @@ export default async function CategoryPage({
           National benchmark data from{" "}
           {entry.institution_count.toLocaleString()} institutions.
         </p>
+        <DataFreshness />
       </div>
 
       {/* Hero stats */}
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
-          label="National Median"
+          label={<GlossaryTerm term="median">National Median</GlossaryTerm>}
           value={formatAmount(entry.median_amount)}
           highlight
         />
         <StatCard
-          label="P25 - P75 Range"
+          label={<GlossaryTerm term="iqr">P25 - P75 Range</GlossaryTerm>}
           value={
             entry.p25_amount != null && entry.p75_amount != null
               ? `${formatAmount(entry.p25_amount)} - ${formatAmount(entry.p75_amount)}`
@@ -154,6 +166,17 @@ export default async function CategoryPage({
         <StatCard
           label="Institutions"
           value={entry.institution_count.toLocaleString()}
+        />
+      </div>
+
+      {/* Distribution visualization */}
+      <div className="mb-10">
+        <DistributionChart
+          min={entry.min_amount}
+          p25={entry.p25_amount}
+          median={entry.median_amount}
+          p75={entry.p75_amount}
+          max={entry.max_amount}
         />
       </div>
 
@@ -193,7 +216,7 @@ export default async function CategoryPage({
       {districtData.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-lg font-bold tracking-tight text-slate-900">
-            By Fed District
+            By <GlossaryTerm term="fed district">Fed District</GlossaryTerm>
           </h2>
           <div className="overflow-hidden rounded-lg border border-slate-200">
             <table className="w-full text-left">
@@ -340,7 +363,7 @@ function StatCard({
   value,
   highlight,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   highlight?: boolean;
 }) {

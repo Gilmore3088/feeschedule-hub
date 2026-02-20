@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getDistrictMetrics, getBeigeBookHeadlines } from "@/lib/crawler-db";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
+import { DistrictMapPublic } from "@/components/district-map-public";
 
 export const metadata: Metadata = {
   title: "Fed Districts - Regional Banking Fee Data | Bank Fee Index",
@@ -23,10 +24,16 @@ export default function DistrictsPage() {
         </h1>
         <p className="mt-2 text-[15px] text-slate-500">
           Regional banking fee benchmarks and economic context across all 12 Fed
-          districts.
+          districts. Click a district on the map or below to explore.
         </p>
       </div>
 
+      {/* Interactive map */}
+      <div className="mb-12 rounded-xl border border-slate-200 bg-white p-6">
+        <DistrictMapPublic />
+      </div>
+
+      {/* District cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 12 }, (_, i) => i + 1).map((districtId) => {
           const metric = metrics.find((m) => m.district === districtId);

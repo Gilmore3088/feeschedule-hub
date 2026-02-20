@@ -49,6 +49,14 @@ export function PublicFooter() {
                   Fed Districts
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/check"
+                  className="text-[13px] text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  Fee Checker
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -76,7 +84,12 @@ export function PublicFooter() {
             </h3>
             <ul className="mt-3 space-y-2">
               <li>
-                <span className="text-[13px] text-slate-600">Methodology</span>
+                <Link
+                  href="/about"
+                  className="text-[13px] text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  Methodology
+                </Link>
               </li>
               <li>
                 <Link

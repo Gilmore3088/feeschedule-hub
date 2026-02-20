@@ -33,9 +33,11 @@ export default function LandingPage() {
         totalInstitutions={stats.total_institutions}
         institutionsWithFees={stats.institutions_with_fees}
       />
+      <TrustStrip />
       <WhatIsSection />
       <NationalIndexSection snapshotEntries={snapshotEntries} totalCategories={TAXONOMY_COUNT} />
       <PeerIndexExplorer />
+      <ConsumerSection />
       <InstitutionalComparisonSection />
       <MethodologySection />
       <WhoUsesSection />
@@ -101,17 +103,23 @@ function HeroSection({
               </span>
             </div>
             <div className="mt-10 flex flex-wrap gap-3">
+              <Link
+                href="/check"
+                className="inline-flex items-center rounded bg-white px-5 py-2.5 text-[13px] font-semibold text-slate-900 hover:bg-slate-100 transition-colors"
+              >
+                Check Your Fees
+              </Link>
               <a
                 href="#request-access"
                 className="inline-flex items-center rounded bg-amber-400 px-5 py-2.5 text-[13px] font-semibold text-[#0f172a] hover:bg-amber-300 transition-colors"
               >
-                Request Institutional Access
+                Institutional Access
               </a>
               <Link
                 href="/fees"
                 className="inline-flex items-center rounded border border-slate-600 px-5 py-2.5 text-[13px] font-medium text-slate-300 hover:border-slate-400 hover:text-white transition-colors"
               >
-                View National Index
+                View Index
               </Link>
             </div>
           </div>
@@ -172,6 +180,31 @@ function HeroSection({
         </div>
       </div>
       <div className="h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
+    </section>
+  );
+}
+
+/* ========== Trust Strip ========== */
+function TrustStrip() {
+  return (
+    <section className="border-b border-slate-200 bg-white py-6">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-[12px] text-slate-400">
+          {[
+            { icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", label: "Public source data" },
+            { icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", label: "Multi-stage validation" },
+            { icon: "M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z", label: "Updated regularly" },
+            { icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064", label: "12 Fed districts covered" },
+          ].map(({ icon, label }) => (
+            <span key={label} className="flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+              </svg>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
@@ -310,6 +343,96 @@ function NationalIndexSection({
   );
 }
 
+
+/* ========== Consumer Section ========== */
+function ConsumerSection() {
+  return (
+    <section className="bg-white py-20 md:py-28 border-b border-slate-200">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 items-center">
+          {/* Copy */}
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-600">
+              For Consumers
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
+              Are you paying too much in bank fees?
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-slate-600">
+              Use our free Fee Checker to compare the most common banking
+              fees in your state against the national average. See where your
+              area ranks on overdraft charges, NSF fees, ATM costs, and more.
+            </p>
+            <ul className="mt-6 space-y-3">
+              {[
+                "Instant comparison across 6 key fee categories",
+                "See if your area is above or below national averages",
+                "Discover potential savings by switching institutions",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-[14px] text-slate-600">
+                  <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8">
+              <Link
+                href="/check"
+                className="inline-flex items-center rounded-lg bg-slate-900 px-6 py-3 text-[13px] font-semibold text-white hover:bg-slate-800 transition-colors"
+              >
+                Check Your Fees
+                <svg viewBox="0 0 20 20" className="ml-2 h-4 w-4" fill="currentColor">
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+
+          {/* Preview card */}
+          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="h-2 w-2 rounded-full bg-emerald-500" />
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Sample Fee Report
+              </p>
+            </div>
+            <div className="space-y-3">
+              {[
+                { fee: "Overdraft", local: "$30.00", nat: "$30.00", delta: "0.0%" },
+                { fee: "NSF Fee", local: "$28.00", nat: "$32.50", delta: "-13.8%", good: true },
+                { fee: "ATM (Non-Network)", local: "$3.50", nat: "$3.00", delta: "+16.7%", bad: true },
+                { fee: "Monthly Maintenance", local: "$6.00", nat: "$6.82", delta: "-12.0%", good: true },
+              ].map((row) => (
+                <div key={row.fee} className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-2.5">
+                  <span className="text-[13px] font-medium text-slate-700">{row.fee}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[13px] tabular-nums font-semibold text-slate-900">{row.local}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
+                        row.good
+                          ? "bg-emerald-50 text-emerald-600"
+                          : row.bad
+                            ? "bg-red-50 text-red-600"
+                            : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {row.delta}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-[11px] text-center text-slate-400">
+              Based on real aggregated fee data
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /* ========== Institutional Comparison ========== */
 function InstitutionalComparisonSection() {
