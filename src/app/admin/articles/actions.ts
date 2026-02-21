@@ -1,39 +1,48 @@
 "use server";
 
-import Database from "better-sqlite3";
 import { revalidatePath } from "next/cache";
-import path from "path";
 import { getCurrentUser } from "@/lib/auth";
+import { getWriteDb } from "@/lib/crawler-db/connection";
+import type { ArticleStatus } from "@/lib/crawler-db/types";
 
-const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
+type Role = "viewer" | "analyst" | "admin";
 
-function getWriteDb(): Database.Database {
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.pragma("busy_timeout = 5000");
-  db.pragma("foreign_keys = ON");
-  return db;
-}
-
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+const ALLOWED_TRANSITIONS: Record<ArticleStatus, readonly ArticleStatus[]> = {
   draft: ["review", "rejected"],
   review: ["approved", "rejected", "draft"],
   approved: ["published", "rejected"],
-  published: ["approved"],  // unpublish
+  published: ["approved"],
+  rejected: ["draft"],
+};
+
+const PUBLISH_PERMISSIONS: Record<ArticleStatus, readonly Role[]> = {
+  draft: ["analyst", "admin"],
+  review: ["analyst", "admin"],
+  approved: ["analyst", "admin"],
+  rejected: ["analyst", "admin"],
+  published: ["admin"],
 };
 
 export async function updateArticleStatus(
   articleId: number,
-  newStatus: string
+  newStatus: ArticleStatus
 ): Promise<{ success: boolean; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "Not authenticated" };
+
+  const requiredRoles = PUBLISH_PERMISSIONS[newStatus];
+  if (!requiredRoles || !requiredRoles.includes(user.role as Role)) {
+    return {
+      success: false,
+      error: `Role '${user.role}' cannot set status to '${newStatus}'`,
+    };
+  }
 
   const db = getWriteDb();
   try {
     const article = db
       .prepare("SELECT id, status FROM articles WHERE id = ?")
-      .get(articleId) as { id: number; status: string } | undefined;
+      .get(articleId) as { id: number; status: ArticleStatus } | undefined;
 
     if (!article) return { success: false, error: "Article not found" };
 
@@ -60,7 +69,6 @@ export async function updateArticleStatus(
     }
 
     if (newStatus === "approved" && article.status === "published") {
-      // Unpublishing
       updates.published_at = null;
     }
 

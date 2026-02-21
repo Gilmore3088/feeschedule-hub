@@ -28,6 +28,11 @@ export const metadata: Metadata = {
     description:
       "Compare bank fees across thousands of U.S. institutions. Free national benchmarks for 49 fee categories.",
   },
+  alternates: {
+    types: {
+      "application/atom+xml": "/research/feed.xml",
+    },
+  },
 };
 
 export default function RootLayout({

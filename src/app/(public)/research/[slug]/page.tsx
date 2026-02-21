@@ -8,6 +8,7 @@ import {
 } from "@/lib/crawler-db";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
+import { renderMarkdown } from "@/lib/markdown";
 
 export const revalidate = 3600;
 
@@ -80,6 +81,16 @@ export default async function ResearchArticlePage({
               "@type": "Organization",
               name: "Bank Fee Index",
             },
+            ...(article.fee_category && article.data_snapshot_date
+              ? {
+                  about: {
+                    "@type": "Dataset",
+                    name: `U.S. Banking Fee Data - ${getDisplayName(article.fee_category)}`,
+                    temporalCoverage: article.data_snapshot_date,
+                  },
+                }
+              : {}),
+            articleSection: article.article_type.replace(/_/g, " "),
           }).replace(/</g, "\\u003c"),
         }}
       />
@@ -118,16 +129,60 @@ export default async function ResearchArticlePage({
             {article.summary}
           </p>
         )}
-        <div className="mt-4 text-sm text-slate-400">
-          {article.published_at &&
-            new Date(article.published_at).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          <span className="mx-2">|</span>
-          Bank Fee Index Research
+        <div className="mt-4 flex flex-wrap items-center gap-x-2 text-sm text-slate-400">
+          {article.published_at && (
+            <span>
+              {new Date(article.published_at).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+          )}
+          {article.data_snapshot_date && (
+            <>
+              <span className="text-slate-300">|</span>
+              <span>
+                Based on data through{" "}
+                {new Date(article.data_snapshot_date + "T00:00:00").toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </span>
+            </>
+          )}
+          {article.reading_time_min && (
+            <>
+              <span className="text-slate-300">|</span>
+              <span>{article.reading_time_min} min read</span>
+            </>
+          )}
         </div>
+        {/* Staleness banner (>30 days since data snapshot) */}
+        {article.data_snapshot_date &&
+          (Date.now() - new Date(article.data_snapshot_date + "T00:00:00").getTime()) / 86400000 > 30 && (
+            <div className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+              This article was based on data from{" "}
+              {new Date(article.data_snapshot_date + "T00:00:00").toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+              . Newer fee data may be available.
+              {article.fee_category && (
+                <>
+                  {" "}
+                  <Link
+                    href={`/fees/${article.fee_category}`}
+                    className="font-medium text-amber-800 underline hover:text-amber-900"
+                  >
+                    View latest data
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         <p className="mt-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
           This article was generated with AI assistance and reviewed by the
           Bank Fee Index team. Data and analysis are based on publicly available
@@ -136,9 +191,7 @@ export default async function ResearchArticlePage({
       </header>
 
       {/* Article body */}
-      <div className="prose prose-slate max-w-none prose-headings:tracking-tight prose-h2:border-b prose-h2:border-slate-200 prose-h2:pb-2 prose-h2:mt-10 prose-h2:text-xl prose-p:leading-relaxed prose-li:leading-relaxed">
-        <ArticleContent content={article.content_md} />
-      </div>
+      <ArticleBody content={article.content_md} />
 
       {/* Related data link */}
       {article.fee_category && (
@@ -198,194 +251,17 @@ export default async function ResearchArticlePage({
   );
 }
 
-function ArticleContent({ content }: { content: string }) {
+async function ArticleBody({ content }: { content: string }) {
   // Strip the H1 title (already shown in header)
   const lines = content.split("\n");
   const bodyLines = lines[0]?.startsWith("# ") ? lines.slice(1) : lines;
   const body = bodyLines.join("\n").trim();
+  const html = await renderMarkdown(body);
 
-  const elements: React.ReactNode[] = [];
-  const parts = body.split("\n");
-  let ulItems: string[] = [];
-  let olItems: string[] = [];
-  let blockquoteLines: string[] = [];
-  let tableRows: string[][] = [];
-
-  function flushUl() {
-    if (ulItems.length > 0) {
-      elements.push(
-        <ul key={`ul-${elements.length}`}>
-          {ulItems.map((item, i) => (
-            <li key={i}><InlineMd text={item} /></li>
-          ))}
-        </ul>
-      );
-      ulItems = [];
-    }
-  }
-
-  function flushOl() {
-    if (olItems.length > 0) {
-      elements.push(
-        <ol key={`ol-${elements.length}`}>
-          {olItems.map((item, i) => (
-            <li key={i}><InlineMd text={item} /></li>
-          ))}
-        </ol>
-      );
-      olItems = [];
-    }
-  }
-
-  function flushBlockquote() {
-    if (blockquoteLines.length > 0) {
-      elements.push(
-        <blockquote key={`bq-${elements.length}`}>
-          {blockquoteLines.map((line, i) => (
-            <p key={i}><InlineMd text={line} /></p>
-          ))}
-        </blockquote>
-      );
-      blockquoteLines = [];
-    }
-  }
-
-  function flushTable() {
-    if (tableRows.length < 2) {
-      tableRows = [];
-      return;
-    }
-    const header = tableRows[0];
-    // Skip separator row (row index 1 with dashes)
-    const dataStart = tableRows.length > 1 && tableRows[1].every(c => /^[-:| ]+$/.test(c)) ? 2 : 1;
-    const dataRows = tableRows.slice(dataStart);
-    elements.push(
-      <div key={`tbl-${elements.length}`} className="overflow-x-auto my-4">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-200">
-              {header.map((cell, i) => (
-                <th key={i} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <InlineMd text={cell.trim()} />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {dataRows.map((row, ri) => (
-              <tr key={ri}>
-                {row.map((cell, ci) => (
-                  <td key={ci} className="px-3 py-2 text-slate-600">
-                    <InlineMd text={cell.trim()} />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-    tableRows = [];
-  }
-
-  function flushAll() {
-    flushUl();
-    flushOl();
-    flushBlockquote();
-    flushTable();
-  }
-
-  for (let i = 0; i < parts.length; i++) {
-    const line = parts[i];
-
-    // Table rows
-    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
-      flushUl();
-      flushOl();
-      flushBlockquote();
-      const cells = line.trim().slice(1, -1).split("|");
-      tableRows.push(cells);
-      continue;
-    }
-    if (tableRows.length > 0) flushTable();
-
-    // Blockquotes
-    if (line.startsWith("> ")) {
-      flushUl();
-      flushOl();
-      blockquoteLines.push(line.slice(2));
-      continue;
-    }
-    if (blockquoteLines.length > 0) flushBlockquote();
-
-    // Unordered list
-    if (/^[-*]\s/.test(line)) {
-      flushOl();
-      ulItems.push(line.replace(/^[-*]\s+/, ""));
-      continue;
-    }
-    if (ulItems.length > 0) flushUl();
-
-    // Ordered list
-    if (/^\d+\.\s/.test(line)) {
-      flushUl();
-      olItems.push(line.replace(/^\d+\.\s+/, ""));
-      continue;
-    }
-    if (olItems.length > 0) flushOl();
-
-    if (line.startsWith("## ")) {
-      elements.push(<h2 key={i}><InlineMd text={line.slice(3)} /></h2>);
-    } else if (line.startsWith("### ")) {
-      elements.push(<h3 key={i}><InlineMd text={line.slice(4)} /></h3>);
-    } else if (line.startsWith("#### ")) {
-      elements.push(<h4 key={i}><InlineMd text={line.slice(5)} /></h4>);
-    } else if (line === "---") {
-      elements.push(<hr key={i} />);
-    } else if (line.trim() === "") {
-      // skip blank lines
-    } else {
-      elements.push(<p key={i}><InlineMd text={line} /></p>);
-    }
-  }
-
-  flushAll();
-  return <>{elements}</>;
-}
-
-function InlineMd({ text }: { text: string }) {
-  // Split on: **bold**, *italic*, `code`, [text](url)
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
   return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i}>{part.slice(2, -2)}</strong>;
-        }
-        if (part.startsWith("*") && part.endsWith("*")) {
-          return <em key={i}>{part.slice(1, -1)}</em>;
-        }
-        if (part.startsWith("`") && part.endsWith("`")) {
-          return <code key={i}>{part.slice(1, -1)}</code>;
-        }
-        // [text](url)
-        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (linkMatch) {
-          const [, linkText, href] = linkMatch;
-          const isExternal = href.startsWith("http");
-          return (
-            <a
-              key={i}
-              href={href}
-              className="text-blue-600 underline decoration-blue-200 hover:decoration-blue-400 transition-colors"
-              {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            >
-              {linkText}
-            </a>
-          );
-        }
-        return part;
-      })}
-    </>
+    <div
+      className="prose prose-slate max-w-none prose-headings:tracking-tight prose-h2:border-b prose-h2:border-slate-200 prose-h2:pb-2 prose-h2:mt-10 prose-h2:text-xl prose-p:leading-relaxed prose-li:leading-relaxed prose-a:text-blue-600 prose-a:decoration-blue-200 hover:prose-a:decoration-blue-400"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }

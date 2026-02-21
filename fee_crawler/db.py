@@ -148,6 +148,13 @@ _MIGRATE_CRAWL_TARGETS_V2 = [
     "ALTER TABLE crawl_targets ADD COLUMN specialty TEXT",
 ]
 
+_MIGRATE_ARTICLES_V1 = [
+    "ALTER TABLE articles ADD COLUMN word_count INTEGER",
+    "ALTER TABLE articles ADD COLUMN reading_time_min INTEGER",
+    "ALTER TABLE articles ADD COLUMN data_snapshot_date TEXT",
+    "ALTER TABLE articles ADD COLUMN quality_gate_results TEXT",
+]
+
 _CREATE_INSTITUTION_FINANCIALS = """
 CREATE TABLE IF NOT EXISTS institution_financials (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -359,12 +366,14 @@ class Database:
             _MIGRATE_CRAWL_TARGETS
             + _MIGRATE_EXTRACTED_FEES
             + _MIGRATE_CRAWL_TARGETS_V2
+            + _MIGRATE_ARTICLES_V1
         )
         for sql in all_migrations:
             try:
                 self.conn.execute(sql)
-            except sqlite3.OperationalError:
-                pass  # column already exists
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise
 
     def insert_returning_id(self, sql: str, params: tuple = ()) -> int:
         """Execute an INSERT and return the new row's id."""

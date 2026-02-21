@@ -3,8 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { updateArticleStatus } from "../actions";
+import type { ArticleStatus } from "@/lib/crawler-db/types";
 
-const TRANSITIONS: Record<string, { label: string; target: string; style: string }[]> = {
+const TRANSITIONS: Record<string, { label: string; target: ArticleStatus; style: string }[]> = {
   draft: [
     { label: "Submit for Review", target: "review", style: "bg-blue-600 text-white hover:bg-blue-700" },
     { label: "Reject", target: "rejected", style: "bg-red-50 text-red-600 hover:bg-red-100" },
@@ -21,7 +22,9 @@ const TRANSITIONS: Record<string, { label: string; target: string; style: string
   published: [
     { label: "Unpublish", target: "approved", style: "bg-gray-100 text-gray-600 hover:bg-gray-200" },
   ],
-  rejected: [],
+  rejected: [
+    { label: "Back to Draft", target: "draft", style: "bg-gray-100 text-gray-600 hover:bg-gray-200" },
+  ],
 };
 
 export function ArticleActions({
@@ -37,7 +40,7 @@ export function ArticleActions({
 
   if (actions.length === 0) return null;
 
-  async function handleAction(target: string) {
+  async function handleAction(target: ArticleStatus) {
     setLoading(target);
     const result = await updateArticleStatus(articleId, target);
     if (result.success) {
