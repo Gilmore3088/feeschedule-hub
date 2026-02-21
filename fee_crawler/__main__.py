@@ -215,6 +215,18 @@ def cmd_generate_articles(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_schedule_articles(args: argparse.Namespace) -> None:
+    """Generate articles on a schedule with data change detection."""
+    from fee_crawler.commands.schedule_articles import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, frequency=args.frequency, dry_run=args.dry_run)
+    finally:
+        db.close()
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     """Show database statistics."""
     config = load_config()
@@ -600,6 +612,23 @@ def main() -> None:
         help="Max articles to generate (with --all-spotlight)",
     )
     gen_parser.set_defaults(func=cmd_generate_articles)
+
+    # schedule-articles command
+    sched_parser = subparsers.add_parser(
+        "schedule-articles", help="Generate articles on schedule with change detection"
+    )
+    sched_parser.add_argument(
+        "--frequency",
+        required=True,
+        choices=["weekly", "monthly"],
+        help="Generation frequency (weekly: spotlight benchmarks, monthly: district/charter)",
+    )
+    sched_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report what would be generated without making LLM calls",
+    )
+    sched_parser.set_defaults(func=cmd_schedule_articles)
 
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")

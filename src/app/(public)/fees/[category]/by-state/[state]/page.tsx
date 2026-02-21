@@ -6,6 +6,7 @@ import { getDisplayName, getFeeFamily, FEE_FAMILIES, FAMILY_COLORS } from "@/lib
 import { STATE_NAMES, STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
+import { DataQualityBanner, getDataQuality } from "@/components/data-quality-banner";
 
 const ALL_CATEGORIES = new Set(Object.values(FEE_FAMILIES).flat());
 
@@ -26,10 +27,14 @@ export async function generateMetadata({
   const displayName = getDisplayName(category);
   const stateName = STATE_NAMES[stateCode] ?? state;
 
+  const stats = getStateFeeStats(category, stateCode);
+  const obsCount = stats?.institution_count ?? 0;
+
   return {
     title: `${displayName} Fees in ${stateName}: 2026 Benchmark | Bank Fee Index`,
     description: `${displayName} fee benchmark data for ${stateName}. Compare local medians to the national average across banks and credit unions.`,
     alternates: { canonical: `/fees/${category}/by-state/${stateCode.toLowerCase()}` },
+    ...(obsCount < 5 ? { robots: { index: false } } : {}),
   };
 }
 
@@ -131,6 +136,11 @@ export default async function StateBreakdownPage({
         <span className="mx-2" aria-hidden="true">/</span>
         <span className="text-slate-600" aria-current="page">{stateName}</span>
       </nav>
+
+      <DataQualityBanner
+        quality={getDataQuality(stateStats.institution_count)}
+        count={stateStats.institution_count}
+      />
 
       {/* Header */}
       <div className="mb-10">

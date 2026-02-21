@@ -18,6 +18,7 @@ import {
 import { DISTRICT_NAMES, STATE_TO_DISTRICT, STATE_NAMES } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";
 import { DataFreshness } from "@/components/data-freshness";
+import { DataQualityBanner, getDataQuality } from "@/components/data-quality-banner";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DistributionChart } from "@/components/distribution-chart";
 import { GlossaryTerm } from "@/components/glossary-tooltip";
@@ -45,6 +46,7 @@ export async function generateMetadata({
     title: `${displayName} Fees: 2026 National Benchmark | Bank Fee Index`,
     description: `National median ${displayName.toLowerCase()} fee is ${median != null ? `$${median.toFixed(2)}` : "unavailable"}. Compare across ${entry?.institution_count ?? 0} U.S. banks and credit unions by charter type, asset size, and Fed district.`,
     alternates: { canonical: `/fees/${category}` },
+    ...((entry?.observation_count ?? 0) < 5 ? { robots: { index: false } } : {}),
   };
 }
 
@@ -118,6 +120,11 @@ export default async function CategoryPage({
         <span className="mx-2" aria-hidden="true">/</span>
         <span className="text-slate-600" aria-current="page">{displayName}</span>
       </nav>
+
+      <DataQualityBanner
+        quality={getDataQuality(entry.observation_count)}
+        count={entry.observation_count}
+      />
 
       {/* Header */}
       <div className="mb-10">
