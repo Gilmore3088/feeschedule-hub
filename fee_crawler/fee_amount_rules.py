@@ -101,4 +101,13 @@ NON_FEE_SUBSTRINGS = [
     "business checking",
     "online banking",
     "mobile banking",
+    "skip-a-payment",
+    "skip a payment",
+    "skip-a-pay",
+    "skip a pay",
+    "christmas club",
+    "ira transfer",
+    "western union",
+    "fresh start checking",
+    "lost passbook",
 ]

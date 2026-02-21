@@ -87,6 +87,10 @@ export interface Article {
   content_md: string;
   data_context: string;
   summary: string | null;
+  word_count: number | null;
+  reading_time_min: number | null;
+  data_snapshot_date: string | null;
+  quality_gate_results: string | null;
   model_id: string | null;
   prompt_hash: string | null;
   generated_at: string;
@@ -107,6 +111,9 @@ export interface ArticleSummary {
   status: ArticleStatus;
   review_tier: number;
   summary: string | null;
+  word_count: number | null;
+  reading_time_min: number | null;
+  data_snapshot_date: string | null;
   generated_at: string;
   published_at: string | null;
 }

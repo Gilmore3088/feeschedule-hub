@@ -116,3 +116,85 @@ export function getRecentPublishedSlugs(limit = 100): string[] {
     .all(limit) as { slug: string }[];
   return rows.map((r) => r.slug);
 }
+
+const SUMMARY_COLUMNS = `id, slug, title, article_type, fee_category, fed_district,
+              status, review_tier, summary, word_count, reading_time_min,
+              data_snapshot_date, generated_at, published_at`;
+
+export function searchPublishedArticles(
+  query: string,
+  limit = 20
+): ArticleSummary[] {
+  const db = getDb();
+  if (!hasArticlesTable(db)) return [];
+  const safe = query.replace(/[%_]/g, "\\$&");
+  return db
+    .prepare(
+      `SELECT ${SUMMARY_COLUMNS}
+       FROM articles
+       WHERE status = 'published'
+         AND (title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')
+       ORDER BY published_at DESC
+       LIMIT ?`
+    )
+    .all(`%${safe}%`, `%${safe}%`, limit) as ArticleSummary[];
+}
+
+export function getPublishedArticlesByType(
+  articleType: string,
+  limit = 50
+): ArticleSummary[] {
+  const db = getDb();
+  if (!hasArticlesTable(db)) return [];
+  return db
+    .prepare(
+      `SELECT ${SUMMARY_COLUMNS}
+       FROM articles
+       WHERE status = 'published' AND article_type = ?
+       ORDER BY published_at DESC
+       LIMIT ?`
+    )
+    .all(articleType, limit) as ArticleSummary[];
+}
+
+export function getFilteredPublishedArticles(filters: {
+  query?: string;
+  articleType?: string;
+  feeCategory?: string;
+  limit?: number;
+}): ArticleSummary[] {
+  const db = getDb();
+  if (!hasArticlesTable(db)) return [];
+
+  const conditions = ["status = 'published'"];
+  const params: (string | number)[] = [];
+
+  if (filters.query) {
+    const safe = filters.query.replace(/[%_]/g, "\\$&");
+    conditions.push("(title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')");
+    params.push(`%${safe}%`, `%${safe}%`);
+  }
+
+  if (filters.articleType) {
+    conditions.push("article_type = ?");
+    params.push(filters.articleType);
+  }
+
+  if (filters.feeCategory) {
+    conditions.push("fee_category = ?");
+    params.push(filters.feeCategory);
+  }
+
+  const limit = filters.limit ?? 50;
+  params.push(limit);
+
+  return db
+    .prepare(
+      `SELECT ${SUMMARY_COLUMNS}
+       FROM articles
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY published_at DESC
+       LIMIT ?`
+    )
+    .all(...params) as ArticleSummary[];
+}

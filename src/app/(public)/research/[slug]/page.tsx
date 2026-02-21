@@ -5,14 +5,17 @@ import {
   getArticleBySlug,
   getPublishedArticlesByCategory,
   getRecentPublishedSlugs,
+  getCategoryIndex,
 } from "@/lib/crawler-db";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
+import { renderMarkdown } from "@/lib/markdown";
+import { formatAmount } from "@/lib/format";
+import { TableOfContents } from "./table-of-contents";
 
 export const revalidate = 3600;
 
 export async function generateStaticParams() {
-  // Pre-build the most recent 20 published articles
   const slugs = getRecentPublishedSlugs(20);
   return slugs.map((slug) => ({ slug }));
 }
@@ -41,6 +44,30 @@ export async function generateMetadata({
   };
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  national_benchmark: "National Benchmark Report",
+  district_comparison: "District Comparison",
+  charter_comparison: "Charter Comparison",
+  top_10: "Top 10 Report",
+  quarterly_trend: "Quarterly Trend",
+};
+
+function extractHeadings(md: string): { id: string; text: string }[] {
+  const headings: { id: string; text: string }[] = [];
+  for (const line of md.split("\n")) {
+    const match = line.match(/^## (.+)/);
+    if (match) {
+      const text = match[1].replace(/\*\*/g, "");
+      const id = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      headings.push({ id, text });
+    }
+  }
+  return headings;
+}
+
 export default async function ResearchArticlePage({
   params,
 }: {
@@ -51,16 +78,25 @@ export default async function ResearchArticlePage({
 
   if (!article || article.status !== "published") notFound();
 
-  // Related articles by same category
   const related = article.fee_category
     ? getPublishedArticlesByCategory(article.fee_category, 5).filter(
         (a) => a.id !== article.id
       )
     : [];
 
+  // Get live index data for the key stats sidebar
+  const indexEntry = article.fee_category
+    ? getCategoryIndex(article.fee_category)
+    : null;
+
+  const lines = article.content_md.split("\n");
+  const bodyLines = lines[0]?.startsWith("# ") ? lines.slice(1) : lines;
+  const bodyMd = bodyLines.join("\n").trim();
+  const headings = extractHeadings(bodyMd);
+
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
-      {/* JSON-LD Article schema */}
+    <div className="bg-white">
+      {/* JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -71,321 +107,276 @@ export default async function ResearchArticlePage({
             description: article.summary,
             datePublished: article.published_at,
             dateModified: article.updated_at,
-            publisher: {
-              "@type": "Organization",
-              name: "Bank Fee Index",
-              url: "https://bankfeeindex.com",
-            },
-            author: {
-              "@type": "Organization",
-              name: "Bank Fee Index",
-            },
+            publisher: { "@type": "Organization", name: "Bank Fee Index", url: "https://bankfeeindex.com" },
+            author: { "@type": "Organization", name: "Bank Fee Index" },
+            ...(article.fee_category && article.data_snapshot_date
+              ? { about: { "@type": "Dataset", name: `U.S. Banking Fee Data - ${getDisplayName(article.fee_category)}`, temporalCoverage: article.data_snapshot_date } }
+              : {}),
+            articleSection: article.article_type.replace(/_/g, " "),
           }).replace(/</g, "\\u003c"),
         }}
       />
 
-      {/* Breadcrumb */}
-      <div className="mb-6 text-sm text-slate-400">
-        <Link href="/research" className="hover:text-slate-600 transition-colors">
-          Research
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-slate-600">{article.title}</span>
-      </div>
-
-      {/* Article header */}
-      <header className="mb-8">
-        <div className="mb-3 flex items-center gap-2 text-[11px] text-slate-400">
-          {article.fee_category && (
-            <Link
-              href={`/fees/${article.fee_category}`}
-              className="rounded-full bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-500 uppercase tracking-wider hover:bg-slate-200 transition-colors"
-            >
-              {getDisplayName(article.fee_category)}
+      {/* ─── Header band ─── */}
+      <div className="border-b border-slate-200 bg-gradient-to-b from-slate-50/80 to-white">
+        <div className="mx-auto max-w-6xl px-6 pt-10 pb-8">
+          {/* Breadcrumb */}
+          <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-[13px] text-slate-400">
+            <Link href="/research" className="hover:text-slate-600 transition-colors">
+              Research
             </Link>
-          )}
-          {article.fed_district && (
-            <span className="text-slate-400">
-              District {article.fed_district} - {DISTRICT_NAMES[article.fed_district]}
+            <svg className="h-3 w-3 text-slate-300" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 4l4 4-4 4" /></svg>
+            <span className="text-slate-500">
+              {TYPE_LABELS[article.article_type] ?? article.article_type}
             </span>
-          )}
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 leading-tight">
-          {article.title}
-        </h1>
-        {article.summary && (
-          <p className="mt-3 text-[15px] text-slate-500 leading-relaxed">
-            {article.summary}
-          </p>
-        )}
-        <div className="mt-4 text-sm text-slate-400">
-          {article.published_at &&
-            new Date(article.published_at).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          <span className="mx-2">|</span>
-          Bank Fee Index Research
-        </div>
-        <p className="mt-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
-          This article was generated with AI assistance and reviewed by the
-          Bank Fee Index team. Data and analysis are based on publicly available
-          fee schedule documents.
-        </p>
-      </header>
+          </nav>
 
-      {/* Article body */}
-      <div className="prose prose-slate max-w-none prose-headings:tracking-tight prose-h2:border-b prose-h2:border-slate-200 prose-h2:pb-2 prose-h2:mt-10 prose-h2:text-xl prose-p:leading-relaxed prose-li:leading-relaxed">
-        <ArticleContent content={article.content_md} />
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className="inline-flex items-center rounded bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-white uppercase tracking-widest">
+              {(TYPE_LABELS[article.article_type] ?? article.article_type).split(" ")[0]}
+            </span>
+            {article.fee_category && (
+              <Link
+                href={`/fees/${article.fee_category}`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                {getDisplayName(article.fee_category)}
+              </Link>
+            )}
+            {article.fed_district && (
+              <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+                District {article.fed_district} — {DISTRICT_NAMES[article.fed_district]}
+              </span>
+            )}
+          </div>
+
+          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-slate-900 leading-[1.2] max-w-4xl">
+            {article.title}
+          </h1>
+
+          {article.summary && (
+            <p className="mt-4 text-[16px] leading-relaxed text-slate-500 max-w-3xl">
+              {article.summary}
+            </p>
+          )}
+
+          {/* Meta bar */}
+          <div className="mt-6 flex flex-wrap items-center gap-x-1 text-[12px] text-slate-400">
+            <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5">
+              {article.published_at
+                ? new Date(article.published_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+                : "Draft"}
+            </span>
+            {article.data_snapshot_date && (
+              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5">
+                Data: {new Date(article.data_snapshot_date + "T00:00:00").toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+              </span>
+            )}
+            {article.reading_time_min && (
+              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5">
+                {article.reading_time_min} min read
+              </span>
+            )}
+            {indexEntry && (
+              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5">
+                {indexEntry.institution_count.toLocaleString()} institutions
+              </span>
+            )}
+          </div>
+
+          {/* Staleness banner */}
+          {article.data_snapshot_date &&
+            (Date.now() - new Date(article.data_snapshot_date + "T00:00:00").getTime()) / 86400000 > 30 && (
+              <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">
+                <svg className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8 2v6M8 11v1" /><circle cx="8" cy="8" r="7" /></svg>
+                <span>
+                  This report uses data from{" "}
+                  {new Date(article.data_snapshot_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  . Newer data may be available.
+                  {article.fee_category && (
+                    <> <Link href={`/fees/${article.fee_category}`} className="font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900">View latest</Link></>
+                  )}
+                </span>
+              </div>
+            )}
+        </div>
       </div>
 
-      {/* Related data link */}
-      {article.fee_category && (
-        <div className="mt-10 rounded-lg border border-blue-100 bg-blue-50/50 p-5">
-          <h3 className="text-sm font-bold text-slate-800 mb-1">
-            Explore the Data
-          </h3>
-          <p className="text-sm text-slate-500 mb-3">
-            See the full national benchmark data behind this article.
-          </p>
-          <Link
-            href={`/fees/${article.fee_category}`}
-            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-          >
-            View {getDisplayName(article.fee_category)} Data
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d="M6 4l4 4-4 4" />
-            </svg>
-          </Link>
-        </div>
-      )}
-
-      {/* Related articles */}
-      {related.length > 0 && (
-        <div className="mt-10 border-t border-slate-200 pt-8">
-          <h3 className="text-lg font-bold tracking-tight text-slate-900 mb-4">
-            Related Research
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {related.slice(0, 4).map((r) => (
-              <Link
-                key={r.id}
-                href={`/research/${r.slug}`}
-                className="group rounded-lg border border-slate-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition-all"
-              >
-                <h4 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2">
-                  {r.title}
-                </h4>
-                {r.summary && (
-                  <p className="mt-1 text-xs text-slate-500 line-clamp-2">
-                    {r.summary}
-                  </p>
-                )}
-              </Link>
-            ))}
+      {/* ─── Key stats bar (for benchmark articles) ─── */}
+      {indexEntry && (
+        <div className="border-b border-slate-100 bg-white">
+          <div className="mx-auto max-w-6xl px-6 py-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <StatCard label="National Median" value={formatAmount(indexEntry.median_amount)} />
+              <StatCard label="25th Percentile" value={formatAmount(indexEntry.p25_amount)} />
+              <StatCard label="75th Percentile" value={formatAmount(indexEntry.p75_amount)} />
+              <StatCard label="Institutions" value={indexEntry.institution_count.toLocaleString()} />
+            </div>
           </div>
         </div>
       )}
+
+      {/* ─── Two-column body ─── */}
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="lg:grid lg:grid-cols-[1fr_240px] lg:gap-12">
+
+          {/* Main content */}
+          <div className="min-w-0">
+            <ArticleBody content={bodyMd} />
+
+            {/* Explore data CTA */}
+            {article.fee_category && (
+              <div className="mt-12 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-900">
+                    <svg className="h-5 w-5 text-white" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M2 2v12h12M5 10V7M8 10V5M11 10V3" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold text-slate-900">
+                      Explore the Underlying Data
+                    </h3>
+                    <p className="mt-1 text-[13px] text-slate-500 leading-relaxed">
+                      Interactive charts, peer comparisons, and full distribution data for {getDisplayName(article.fee_category).toLowerCase()} fees.
+                    </p>
+                    <Link
+                      href={`/fees/${article.fee_category}`}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors"
+                    >
+                      View {getDisplayName(article.fee_category)} Data
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 4l4 4-4 4" /></svg>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Provenance */}
+            <div className="mt-8 rounded-lg border border-slate-100 bg-slate-50/50 px-4 py-3 text-[12px] text-slate-400 leading-relaxed">
+              This report was generated with AI assistance and reviewed by the Bank Fee Index team.
+              Data and analysis are based on publicly available fee schedule documents.
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-20 space-y-6">
+              {/* Table of contents */}
+              {headings.length > 2 && (
+                <div>
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                    In This Report
+                  </h4>
+                  <TableOfContents headings={headings} />
+                </div>
+              )}
+
+              {/* Quick links */}
+              {article.fee_category && (
+                <div className="border-t border-slate-100 pt-5">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                    Related Data
+                  </h4>
+                  <div className="space-y-1.5">
+                    <SidebarLink href={`/fees/${article.fee_category}`} label={`${getDisplayName(article.fee_category)} Index`} />
+                    <SidebarLink href={`/fees/${article.fee_category}/cheapest`} label="Lowest Fee Institutions" />
+                    <SidebarLink href="/fees" label="All Fee Categories" />
+                  </div>
+                </div>
+              )}
+
+              {/* Share / actions */}
+              <div className="border-t border-slate-100 pt-5">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Share
+                </h4>
+                <div className="flex gap-2">
+                  <CopyLinkButton />
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        {/* Related articles */}
+        {related.length > 0 && (
+          <div className="mt-14 border-t border-slate-200 pt-10">
+            <h3 className="text-lg font-bold tracking-tight text-slate-900 mb-5">
+              Related Research
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {related.slice(0, 3).map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/research/${r.slug}`}
+                  className="group rounded-lg border border-slate-200 bg-white p-5 hover:border-slate-300 hover:shadow-sm transition-all"
+                >
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {TYPE_LABELS[r.article_type]?.split(" ")[0] ?? r.article_type}
+                  </span>
+                  <h4 className="mt-2 text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                    {r.title}
+                  </h4>
+                  {r.summary && (
+                    <p className="mt-2 text-[12px] text-slate-500 line-clamp-2 leading-relaxed">
+                      {r.summary}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function ArticleContent({ content }: { content: string }) {
-  // Strip the H1 title (already shown in header)
-  const lines = content.split("\n");
-  const bodyLines = lines[0]?.startsWith("# ") ? lines.slice(1) : lines;
-  const body = bodyLines.join("\n").trim();
-
-  const elements: React.ReactNode[] = [];
-  const parts = body.split("\n");
-  let ulItems: string[] = [];
-  let olItems: string[] = [];
-  let blockquoteLines: string[] = [];
-  let tableRows: string[][] = [];
-
-  function flushUl() {
-    if (ulItems.length > 0) {
-      elements.push(
-        <ul key={`ul-${elements.length}`}>
-          {ulItems.map((item, i) => (
-            <li key={i}><InlineMd text={item} /></li>
-          ))}
-        </ul>
-      );
-      ulItems = [];
-    }
-  }
-
-  function flushOl() {
-    if (olItems.length > 0) {
-      elements.push(
-        <ol key={`ol-${elements.length}`}>
-          {olItems.map((item, i) => (
-            <li key={i}><InlineMd text={item} /></li>
-          ))}
-        </ol>
-      );
-      olItems = [];
-    }
-  }
-
-  function flushBlockquote() {
-    if (blockquoteLines.length > 0) {
-      elements.push(
-        <blockquote key={`bq-${elements.length}`}>
-          {blockquoteLines.map((line, i) => (
-            <p key={i}><InlineMd text={line} /></p>
-          ))}
-        </blockquote>
-      );
-      blockquoteLines = [];
-    }
-  }
-
-  function flushTable() {
-    if (tableRows.length < 2) {
-      tableRows = [];
-      return;
-    }
-    const header = tableRows[0];
-    // Skip separator row (row index 1 with dashes)
-    const dataStart = tableRows.length > 1 && tableRows[1].every(c => /^[-:| ]+$/.test(c)) ? 2 : 1;
-    const dataRows = tableRows.slice(dataStart);
-    elements.push(
-      <div key={`tbl-${elements.length}`} className="overflow-x-auto my-4">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-200">
-              {header.map((cell, i) => (
-                <th key={i} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <InlineMd text={cell.trim()} />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {dataRows.map((row, ri) => (
-              <tr key={ri}>
-                {row.map((cell, ci) => (
-                  <td key={ci} className="px-3 py-2 text-slate-600">
-                    <InlineMd text={cell.trim()} />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-    tableRows = [];
-  }
-
-  function flushAll() {
-    flushUl();
-    flushOl();
-    flushBlockquote();
-    flushTable();
-  }
-
-  for (let i = 0; i < parts.length; i++) {
-    const line = parts[i];
-
-    // Table rows
-    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
-      flushUl();
-      flushOl();
-      flushBlockquote();
-      const cells = line.trim().slice(1, -1).split("|");
-      tableRows.push(cells);
-      continue;
-    }
-    if (tableRows.length > 0) flushTable();
-
-    // Blockquotes
-    if (line.startsWith("> ")) {
-      flushUl();
-      flushOl();
-      blockquoteLines.push(line.slice(2));
-      continue;
-    }
-    if (blockquoteLines.length > 0) flushBlockquote();
-
-    // Unordered list
-    if (/^[-*]\s/.test(line)) {
-      flushOl();
-      ulItems.push(line.replace(/^[-*]\s+/, ""));
-      continue;
-    }
-    if (ulItems.length > 0) flushUl();
-
-    // Ordered list
-    if (/^\d+\.\s/.test(line)) {
-      flushUl();
-      olItems.push(line.replace(/^\d+\.\s+/, ""));
-      continue;
-    }
-    if (olItems.length > 0) flushOl();
-
-    if (line.startsWith("## ")) {
-      elements.push(<h2 key={i}><InlineMd text={line.slice(3)} /></h2>);
-    } else if (line.startsWith("### ")) {
-      elements.push(<h3 key={i}><InlineMd text={line.slice(4)} /></h3>);
-    } else if (line.startsWith("#### ")) {
-      elements.push(<h4 key={i}><InlineMd text={line.slice(5)} /></h4>);
-    } else if (line === "---") {
-      elements.push(<hr key={i} />);
-    } else if (line.trim() === "") {
-      // skip blank lines
-    } else {
-      elements.push(<p key={i}><InlineMd text={line} /></p>);
-    }
-  }
-
-  flushAll();
-  return <>{elements}</>;
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50/50 px-4 py-3">
+      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className="mt-1 text-xl font-bold text-slate-900 tabular-nums">{value}</div>
+    </div>
+  );
 }
 
-function InlineMd({ text }: { text: string }) {
-  // Split on: **bold**, *italic*, `code`, [text](url)
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
+function SidebarLink({ href, label }: { href: string; label: string }) {
   return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i}>{part.slice(2, -2)}</strong>;
-        }
-        if (part.startsWith("*") && part.endsWith("*")) {
-          return <em key={i}>{part.slice(1, -1)}</em>;
-        }
-        if (part.startsWith("`") && part.endsWith("`")) {
-          return <code key={i}>{part.slice(1, -1)}</code>;
-        }
-        // [text](url)
-        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (linkMatch) {
-          const [, linkText, href] = linkMatch;
-          const isExternal = href.startsWith("http");
-          return (
-            <a
-              key={i}
-              href={href}
-              className="text-blue-600 underline decoration-blue-200 hover:decoration-blue-400 transition-colors"
-              {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            >
-              {linkText}
-            </a>
-          );
-        }
-        return part;
-      })}
-    </>
+    <Link
+      href={href}
+      className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+    >
+      <svg className="h-3 w-3 text-slate-300 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 4l4 4-4 4" /></svg>
+      {label}
+    </Link>
+  );
+}
+
+function CopyLinkButton() {
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+      data-copy-link
+    >
+      <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <rect x="5" y="5" width="8" height="8" rx="1" />
+        <path d="M3 11V3h8" />
+      </svg>
+      Copy Link
+    </button>
+  );
+}
+
+async function ArticleBody({ content }: { content: string }) {
+  const html = await renderMarkdown(content);
+
+  return (
+    <article
+      className="prose-research"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }

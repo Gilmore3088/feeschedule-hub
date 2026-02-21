@@ -27,6 +27,7 @@ from fee_crawler.generation.prompts import (
     build_seo_edit_prompt,
     build_fact_check_prompt,
 )
+from fee_crawler.generation.quality_gates import run_quality_gates
 from fee_crawler.generation.templates import (
     DISCLAIMER_TEXT,
     get_article_type_def,
@@ -270,39 +271,83 @@ ARTICLE TITLE: {title}"""
     except (json.JSONDecodeError, AttributeError):
         logger.warning("  Could not parse fact-check response")
 
-    # 8. Compute prompt hash for reproducibility
+    # 8. Run quality gates
+    logger.info("  Running quality gates...")
+    quality_report = run_quality_gates(article_md)
+    if not quality_report.passed:
+        for gate in quality_report.gates:
+            if not gate.passed:
+                logger.warning("  Quality gate failed: %s - %s", gate.name, gate.message)
+
+    # 9. Compute prompt hash for reproducibility
     prompt_hash = hashlib.sha256(
         "\n---\n".join(all_prompts).encode()
     ).hexdigest()[:16]
 
-    # 9. Store in database
+    # 10. Compute metadata for new columns
+    word_count = len(article_md.split())
+    reading_time_min = max(1, round(word_count / 238))
+    data_snapshot_date = datetime.now().strftime("%Y-%m-%d")
+
+    # 11. Determine status
     now = datetime.now().isoformat()
-    status = "review" if fact_check_passed else "draft"
+    if not fact_check_passed or not quality_report.passed:
+        status = "draft"
+    else:
+        status = "review"
 
-    article_id = db.insert_returning_id(
-        """INSERT INTO articles (slug, title, article_type, fee_category, fed_district,
-                                 status, review_tier, content_md, data_context, summary,
-                                 model_id, prompt_hash, generated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (
-            slug,
-            title,
-            article_type,
-            category,
-            district,
-            status,
-            type_def.review_tier,
-            article_md,
-            data_json,
-            summary,
-            GENERATION_MODEL,
-            prompt_hash,
-            now,
-        ),
-    )
+    # 12. Store in database (UPSERT: overwrite draft/rejected, skip others)
+    quality_json = json.dumps(quality_report.to_dict())
+
+    existing = db.execute(
+        "SELECT id, status FROM articles WHERE slug = ?", (slug,)
+    ).fetchone()
+
+    if existing and existing["status"] not in ("draft", "rejected"):
+        logger.info("  Skipping %s: existing article in '%s' status", slug, existing["status"])
+        return {
+            "id": existing["id"],
+            "slug": slug,
+            "title": title,
+            "status": existing["status"],
+            "skipped": True,
+        }
+
+    if existing:
+        db.execute(
+            """UPDATE articles SET title = ?, content_md = ?, data_context = ?, summary = ?,
+                                   status = ?, model_id = ?, prompt_hash = ?,
+                                   word_count = ?, reading_time_min = ?,
+                                   data_snapshot_date = ?, quality_gate_results = ?,
+                                   updated_at = ?
+               WHERE id = ?""",
+            (
+                title, article_md, data_json, summary, status,
+                GENERATION_MODEL, prompt_hash,
+                word_count, reading_time_min, data_snapshot_date, quality_json,
+                now, existing["id"],
+            ),
+        )
+        article_id = existing["id"]
+        logger.info("  Updated article #%d: %s [%s]", article_id, slug, status)
+    else:
+        article_id = db.insert_returning_id(
+            """INSERT INTO articles (slug, title, article_type, fee_category, fed_district,
+                                     status, review_tier, content_md, data_context, summary,
+                                     word_count, reading_time_min, data_snapshot_date,
+                                     quality_gate_results,
+                                     model_id, prompt_hash, generated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                slug, title, article_type, category, district,
+                status, type_def.review_tier, article_md, data_json, summary,
+                word_count, reading_time_min, data_snapshot_date, quality_json,
+                GENERATION_MODEL, prompt_hash, now,
+            ),
+        )
+        logger.info("  Stored article #%d: %s [%s]", article_id, slug, status)
+
     db.commit()
-
-    logger.info("  Stored article #%d: %s [%s]", article_id, slug, status)
 
     return {
         "id": article_id,
@@ -310,4 +355,5 @@ ARTICLE TITLE: {title}"""
         "title": title,
         "status": status,
         "fact_check_passed": fact_check_passed,
+        "quality_gates_passed": quality_report.passed,
     }

@@ -430,7 +430,46 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "subordination fee": "loan_origination",
     "lien release fee": "loan_origination",
     "lien release": "loan_origination",
+    "subordination agreement": "loan_origination",
+    "mortgage subordination": "loan_origination",
+    "loan modification fee": "loan_origination",
+    "loan modification": "loan_origination",
     "appraisal fee": "appraisal_fee",
+    # --- Wave 2: Additional aliases from top uncategorized ---
+    # Account Maintenance / Research
+    "escheat": "dormant_account",
+    "abandoned property fee": "dormant_account",
+    "fax": "account_research",
+    "undeliverable mail": "account_research",
+    "returned statement": "account_research",
+    "statement printout": "paper_statement",
+    "key replacement": "safe_deposit_box",
+    "lost key": "safe_deposit_box",
+    "key deposit": "safe_deposit_box",
+    "zipper bags": "night_deposit",
+    "closed account fee": "early_closure",
+    # Overdraft / NSF
+    "debit card overdraft": "overdraft",
+    "return item": "nsf",
+    "returned loan payment": "nsf",
+    "uncollected funds": "nsf",
+    "uncollected funds fee": "nsf",
+    # ATM & Card
+    "atm transaction": "atm_non_network",
+    "foreign transaction": "card_foreign_txn",
+    "foreign currency exchange": "card_foreign_txn",
+    "foreign currency": "card_foreign_txn",
+    "debit card": "card_replacement",
+    # Check Services
+    "teller check": "cashiers_check",
+    "teller checks": "cashiers_check",
+    "credit union check": "cashiers_check",
+    "copy of paid check": "check_image",
+    "collection fee": "deposited_item_return",
+    # Lending
+    "late loan payment": "late_payment",
+    "levy": "garnishment_levy",
+    "balance transfer fee": "cash_advance",
 }
 
 CANONICAL_DISPLAY_NAMES: dict[str, str] = {
