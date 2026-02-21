@@ -119,6 +119,12 @@ NON_FEE_PDF_KEYWORDS = [
     "wire-transfer-agreement", "wire_transfer_agreement",
     "fund-prospectus", "mutual-fund",
     "credit-card-agreement", "creditcardagreement",
+    "skip-a-pay", "skip_a_pay", "skipapay", "skip-a-payment",
+    "switch-kit", "switch_kit", "switchkit",
+    "membership-application", "membership_application",
+    "account-opening", "account_opening",
+    "new-member", "new_member",
+    "signature-card", "signature_card",
 ]
 
 
@@ -223,11 +229,19 @@ class UrlDiscoverer:
         path = urlparse(url).path.lower()
         return path.endswith(".pdf")
 
-    def _is_fee_content(self, text: str) -> bool:
-        """Check if page content contains fee-related keywords (3+ required)."""
+    def _is_fee_content(self, text: str, strict: bool = False) -> bool:
+        """Check if page content contains fee-related keywords.
+
+        Args:
+            text: Page text to check.
+            strict: If True, require 5+ matches (use for pages that
+                    might be homepages or marketing pages). If False,
+                    require 3+ (for known fee-related paths).
+        """
         lower = text.lower()
         matches = sum(1 for kw in FEE_CONTENT_KEYWORDS if kw in lower)
-        return matches >= 3
+        threshold = 5 if strict else 3
+        return matches >= threshold
 
     def _is_fee_pdf_url(self, url: str) -> bool:
         """Check if a PDF URL likely points to a fee schedule (not CRA file, etc.)."""
@@ -247,12 +261,28 @@ class UrlDiscoverer:
         # Unknown PDF: don't auto-accept
         return False
 
+    @staticmethod
+    def _normalize_domain(netloc: str) -> str:
+        """Strip www. prefix for consistent domain comparison."""
+        netloc = netloc.lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        return netloc
+
     def _is_same_domain(self, url: str, base_url: str) -> bool:
         """Check if URL is on the same domain (or subdomain)."""
-        base_domain = urlparse(base_url).netloc.lower()
-        url_domain = urlparse(url).netloc.lower()
-        # Allow same domain or subdomains
+        base_domain = self._normalize_domain(urlparse(base_url).netloc)
+        url_domain = self._normalize_domain(urlparse(url).netloc)
         return url_domain == base_domain or url_domain.endswith("." + base_domain)
+
+    def _is_homepage_redirect(self, response_url: str, base_url: str) -> bool:
+        """Check if a response URL is effectively the homepage (redirect detected)."""
+        resp_parsed = urlparse(response_url)
+        base_parsed = urlparse(base_url)
+        resp_domain = self._normalize_domain(resp_parsed.netloc)
+        base_domain = self._normalize_domain(base_parsed.netloc)
+        resp_path = resp_parsed.path.rstrip("/")
+        return resp_domain == base_domain and resp_path in ("", "/")
 
     def _score_link(self, href: str, text: str) -> float:
         """Score a link based on how likely it is a fee schedule."""
@@ -342,13 +372,17 @@ class UrlDiscoverer:
         candidates.sort(key=lambda c: c.score, reverse=True)
         return candidates
 
-    def _verify_fee_page(self, url: str) -> tuple[bool, str | None]:
+    def _verify_fee_page(self, url: str, base_url: str | None = None) -> tuple[bool, str | None]:
         """Verify that a URL actually contains fee schedule content.
 
         Returns (is_fee_page, document_type).
         """
         resp = self._fetch(url)
         if resp is None or resp.status_code != 200:
+            return False, None
+
+        # Detect redirect back to homepage
+        if base_url and self._is_homepage_redirect(resp.url, base_url):
             return False, None
 
         content_type = resp.headers.get("Content-Type", "").lower()
@@ -360,9 +394,9 @@ class UrlDiscoverer:
             # Unknown PDF: reject (too many false positives)
             return False, None
 
-        # HTML: check content for fee keywords
+        # HTML: check content for fee keywords (strict when we don't know the source)
         if "text/html" in content_type:
-            if self._is_fee_content(resp.text):
+            if self._is_fee_content(resp.text, strict=True):
                 return True, "html"
 
         return False, None
@@ -395,6 +429,10 @@ class UrlDiscoverer:
             if resp is None or resp.status_code != 200:
                 continue
 
+            # Detect redirect to homepage (common: /fees -> /)
+            if self._is_homepage_redirect(resp.url, base_url):
+                continue
+
             content_type = resp.headers.get("Content-Type", "").lower()
 
             # PDF hit: verify URL path relates to fees
@@ -414,8 +452,9 @@ class UrlDiscoverer:
                 result.confidence = 0.8
                 return result
 
-            # HTML hit: verify content
-            if "text/html" in content_type and self._is_fee_content(resp.text):
+            # HTML hit: verify content (use strict=True since redirects could
+            # land on marketing pages that mention fees in passing)
+            if "text/html" in content_type and self._is_fee_content(resp.text, strict=True):
                 # Check if this page links to a PDF (prefer PDF)
                 page_candidates = self._scan_links(resp.text, resp.url)
                 pdf_candidates = [c for c in page_candidates if c.is_pdf and c.score >= 5]
@@ -454,6 +493,10 @@ class UrlDiscoverer:
             if not self._is_allowed(candidate.url, robots):
                 continue
 
+            # Skip candidates that point to the homepage itself
+            if self._is_homepage_redirect(candidate.url, base_url):
+                continue
+
             # PDF link from homepage: verify URL path is fee-related
             if candidate.is_pdf and candidate.score >= 8 and self._is_fee_pdf_url(candidate.url):
                 result.found = True
@@ -463,9 +506,9 @@ class UrlDiscoverer:
                 result.confidence = 0.85
                 return result
 
-            # Verify non-PDF pages
+            # Verify non-PDF pages (pass base_url for redirect detection)
             result.pages_checked += 1
-            is_fee, doc_type = self._verify_fee_page(candidate.url)
+            is_fee, doc_type = self._verify_fee_page(candidate.url, base_url)
             if is_fee:
                 result.found = True
                 result.fee_schedule_url = candidate.url
@@ -487,6 +530,10 @@ class UrlDiscoverer:
             if resp is None or resp.status_code != 200:
                 continue
 
+            # Detect redirect to homepage
+            if self._is_homepage_redirect(resp.url, base_url):
+                continue
+
             result.pages_checked += 1
             content_type = resp.headers.get("Content-Type", "").lower()
             if "text/html" not in content_type:
@@ -506,12 +553,48 @@ class UrlDiscoverer:
                     return result
 
                 result.pages_checked += 1
-                is_fee, doc_type = self._verify_fee_page(sub.url)
+                is_fee, doc_type = self._verify_fee_page(sub.url, base_url)
                 if is_fee:
                     result.found = True
                     result.fee_schedule_url = sub.url
                     result.document_type = doc_type
                     result.method = "deep_scan"
+                    result.confidence = 0.65
+                    return result
+
+        # Step 4: Subdomain probing - try common document hosting subdomains
+        base_domain = self._normalize_domain(urlparse(base_url).netloc)
+        subdomain_prefixes = ["pages", "docs", "documents", "files", "resources"]
+        for prefix in subdomain_prefixes:
+            sub_url = f"https://{prefix}.{base_domain}"
+            resp = self._probe_url(sub_url)
+            if resp is None or resp.status_code != 200:
+                continue
+
+            result.pages_checked += 1
+            content_type = resp.headers.get("Content-Type", "").lower()
+            if "text/html" not in content_type:
+                continue
+
+            # Scan for fee-related links on the subdomain page
+            sub_links = self._scan_links(resp.text, resp.url)
+            fee_links = [c for c in sub_links if c.score >= 8]
+            for link in fee_links[:3]:
+                if link.is_pdf and self._is_fee_pdf_url(link.url):
+                    result.found = True
+                    result.fee_schedule_url = link.url
+                    result.document_type = "pdf"
+                    result.method = "subdomain_scan"
+                    result.confidence = 0.75
+                    return result
+
+                result.pages_checked += 1
+                is_fee, doc_type = self._verify_fee_page(link.url, base_url)
+                if is_fee:
+                    result.found = True
+                    result.fee_schedule_url = link.url
+                    result.document_type = doc_type
+                    result.method = "subdomain_scan"
                     result.confidence = 0.65
                     return result
 

@@ -11,3 +11,5 @@ export * from "./fee-index";
 export * from "./market";
 export * from "./articles";
 export * from "./institutions";
+export * from "./states";
+export * from "./compare";

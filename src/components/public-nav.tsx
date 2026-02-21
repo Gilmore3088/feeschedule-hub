@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/check", label: "Fee Checker" },
   { href: "/institutions", label: "Find Your Bank" },
   { href: "/fees", label: "Fee Index" },
+  { href: "/states", label: "States" },
   { href: "/districts", label: "Districts" },
   { href: "/research", label: "Research" },
 ];
