@@ -3,25 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { getWriteDb } from "@/lib/crawler-db/connection";
+import { canTransition, canSetStatus } from "@/lib/article-permissions";
+import type { Role } from "@/lib/article-permissions";
 import type { ArticleStatus } from "@/lib/crawler-db/types";
-
-type Role = "viewer" | "analyst" | "admin";
-
-const ALLOWED_TRANSITIONS: Record<ArticleStatus, readonly ArticleStatus[]> = {
-  draft: ["review", "rejected"],
-  review: ["approved", "rejected", "draft"],
-  approved: ["published", "rejected"],
-  published: ["approved"],
-  rejected: ["draft"],
-};
-
-const PUBLISH_PERMISSIONS: Record<ArticleStatus, readonly Role[]> = {
-  draft: ["analyst", "admin"],
-  review: ["analyst", "admin"],
-  approved: ["analyst", "admin"],
-  rejected: ["analyst", "admin"],
-  published: ["admin"],
-};
 
 export async function updateArticleStatus(
   articleId: number,
@@ -30,8 +14,7 @@ export async function updateArticleStatus(
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "Not authenticated" };
 
-  const requiredRoles = PUBLISH_PERMISSIONS[newStatus];
-  if (!requiredRoles || !requiredRoles.includes(user.role as Role)) {
+  if (!canSetStatus(user.role as Role, newStatus)) {
     return {
       success: false,
       error: `Role '${user.role}' cannot set status to '${newStatus}'`,
@@ -46,8 +29,7 @@ export async function updateArticleStatus(
 
     if (!article) return { success: false, error: "Article not found" };
 
-    const allowed = ALLOWED_TRANSITIONS[article.status];
-    if (!allowed || !allowed.includes(newStatus)) {
+    if (!canTransition(article.status, newStatus)) {
       return {
         success: false,
         error: `Cannot transition from '${article.status}' to '${newStatus}'`,

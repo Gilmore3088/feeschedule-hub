@@ -795,7 +795,7 @@ const jsonLd = {
 - [x] All existing pytest tests pass (`python -m pytest fee_crawler/tests/`)
 - [x] New quality gate functions have unit tests
 - [x] New change detection logic has unit tests
-- [ ] Article permissions tested (viewer cannot publish, analyst cannot publish, admin can publish)
+- [x] Article permissions tested (viewer cannot publish, analyst cannot publish, admin can publish)
 
 ---
 
