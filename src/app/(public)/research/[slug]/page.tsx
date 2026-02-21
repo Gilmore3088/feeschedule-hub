@@ -375,47 +375,7 @@ async function ArticleBody({ content }: { content: string }) {
 
   return (
     <article
-      className="
-        prose prose-slate max-w-none
-
-        prose-headings:tracking-tight prose-headings:font-bold prose-headings:text-slate-900
-        prose-h2:text-[20px] prose-h2:mt-12 prose-h2:mb-4 prose-h2:pb-3
-        prose-h2:border-b prose-h2:border-slate-200
-        prose-h3:text-[16px] prose-h3:mt-8 prose-h3:mb-3 prose-h3:text-slate-800
-
-        prose-p:text-[15px] prose-p:leading-[1.8] prose-p:text-slate-600
-        prose-li:text-[15px] prose-li:leading-[1.8] prose-li:text-slate-600
-        prose-li:marker:text-slate-300
-
-        prose-strong:text-slate-900 prose-strong:font-semibold
-        prose-a:text-blue-600 prose-a:no-underline prose-a:font-medium
-        prose-a:border-b prose-a:border-blue-200
-        hover:prose-a:border-blue-500 hover:prose-a:text-blue-700
-
-        prose-table:my-6 prose-table:text-sm prose-table:border-collapse prose-table:w-full
-        prose-table:rounded-lg prose-table:overflow-hidden prose-table:border prose-table:border-slate-200
-        prose-thead:bg-slate-50
-        prose-th:text-[11px] prose-th:font-bold prose-th:text-slate-500
-        prose-th:uppercase prose-th:tracking-wider
-        prose-th:px-4 prose-th:py-3 prose-th:text-left
-        prose-th:border-b prose-th:border-slate-200
-        prose-td:px-4 prose-td:py-3
-        prose-td:border-b prose-td:border-slate-100
-        prose-td:text-slate-600 prose-td:align-top
-
-        prose-blockquote:border-l-[3px] prose-blockquote:border-slate-900
-        prose-blockquote:bg-slate-50 prose-blockquote:rounded-r-lg
-        prose-blockquote:py-3 prose-blockquote:px-5
-        prose-blockquote:not-italic prose-blockquote:text-slate-700
-
-        prose-code:text-[13px] prose-code:bg-slate-100
-        prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-        prose-code:before:content-none prose-code:after:content-none
-
-        prose-hr:my-10 prose-hr:border-slate-200
-
-        prose-ul:my-4 prose-ol:my-4
-      "
+      className="prose-research"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
