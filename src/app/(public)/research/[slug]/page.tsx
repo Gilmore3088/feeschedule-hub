@@ -12,6 +12,10 @@ import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { renderMarkdown } from "@/lib/markdown";
 import { formatAmount } from "@/lib/format";
 import { TableOfContents } from "./table-of-contents";
+import { checkResearchGate } from "@/lib/subscription-gate";
+import { trackUsage, getUsageCount } from "@/lib/subscriber-db";
+import { getCurrentSubscriber } from "@/lib/subscriber-auth";
+import { SoftPaywall } from "@/components/upgrade-prompt";
 
 export const revalidate = 3600;
 
@@ -88,6 +92,21 @@ export default async function ResearchArticlePage({
   const indexEntry = article.fee_category
     ? getCategoryIndex(article.fee_category)
     : null;
+
+  // Check free article limit (3/month for non-subscribers)
+  const gate = await checkResearchGate();
+  if (gate.allowed && !gate.isSubscriber) {
+    // Track this view for anonymous/free users
+    const subscriber = await getCurrentSubscriber();
+    const { getAnonymousId } = await import("@/lib/subscription-gate");
+    trackUsage({
+      organization_id: subscriber?.organizationId,
+      anonymous_id: subscriber ? undefined : await getAnonymousId(),
+      event_type: "research_view",
+      metadata: { slug },
+    });
+  }
+  const showPaywall = !gate.allowed;
 
   const lines = article.content_md.split("\n");
   const bodyLines = lines[0]?.startsWith("# ") ? lines.slice(1) : lines;
@@ -222,7 +241,13 @@ export default async function ResearchArticlePage({
 
           {/* Main content */}
           <div className="min-w-0">
-            <ArticleBody content={bodyMd} />
+            {showPaywall ? (
+              <SoftPaywall>
+                <ArticleBody content={bodyMd} />
+              </SoftPaywall>
+            ) : (
+              <ArticleBody content={bodyMd} />
+            )}
 
             {/* Explore data CTA */}
             {article.fee_category && (

@@ -54,7 +54,13 @@ export function PublicNav() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/login"
+            href="/pricing"
+            className="hidden text-[13px] text-slate-400 hover:text-white transition-colors sm:inline"
+          >
+            Pricing
+          </Link>
+          <Link
+            href="/login"
             className="hidden text-[13px] text-slate-500 hover:text-white transition-colors sm:inline"
           >
             Sign In
@@ -98,9 +104,16 @@ export function PublicNav() {
               </Link>
             ))}
             <Link
-              href="/admin/login"
+              href="/pricing"
               onClick={() => setOpen(false)}
-              className="mt-2 rounded border-t border-white/5 px-3 pt-4 pb-2 text-[13px] text-slate-500 hover:text-white transition-colors sm:hidden"
+              className="mt-2 rounded border-t border-white/5 px-3 pt-4 pb-2 text-[13px] text-slate-400 hover:text-white transition-colors"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/login"
+              onClick={() => setOpen(false)}
+              className="rounded px-3 py-2 text-[13px] text-slate-500 hover:text-white transition-colors"
             >
               Sign In
             </Link>
