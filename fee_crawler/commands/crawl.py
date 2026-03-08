@@ -5,21 +5,28 @@ For each institution with a fee_schedule_url:
 2. Check content hash for changes (skip if unchanged)
 3. Extract text (pdfplumber for PDFs, BeautifulSoup for HTML)
 4. Send to Claude for structured fee extraction
-5. Store results in crawl_results and extracted_fees tables
+5. Categorize and validate fees
+6. Store results in crawl_results and extracted_fees tables
 
 Supports concurrent crawling via --workers flag.
 """
 
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fee_crawler.config import Config
 from fee_crawler.db import Database
-from fee_crawler.pipeline.download import download_document
-from fee_crawler.pipeline.extract_html import extract_text_from_html
-from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
-from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf
-from fee_crawler.validation import validate_and_classify_fees, flags_to_json
+from fee_crawler.pipeline.steps import (
+    step_classify_and_validate,
+    step_download,
+    step_extract_text,
+    step_llm_extract,
+)
+from fee_crawler.pipeline.types import CrawlContext, CrawlOutcome
+from fee_crawler.validation import flags_to_json
+
+logger = logging.getLogger(__name__)
 
 
 def _crawl_one(
@@ -33,106 +40,82 @@ def _crawl_one(
     Creates its own Database connection (thread-safe).
     Returns a stats dict for the caller to aggregate.
     """
-    target_id = target["id"]
-    name = target["institution_name"]
-    url = target["fee_schedule_url"]
-    doc_type = target["document_type"] or "unknown"
-    last_hash = target["last_content_hash"]
-    state_code = target["state_code"] or "??"
+    ctx = CrawlContext(
+        target_id=target["id"],
+        institution_name=target["institution_name"],
+        url=target["fee_schedule_url"],
+        doc_type=target["document_type"] or "unknown",
+        state_code=target["state_code"] or "??",
+        last_content_hash=target["last_content_hash"],
+        run_id=run_id,
+        dry_run=dry_run,
+    )
 
     db = Database(config)
-    result = {
-        "target_id": target_id,
-        "name": name,
-        "state_code": state_code,
-        "doc_type": doc_type,
-        "status": "failed",
-        "fees": 0,
-        "staged": 0,
-        "flagged": 0,
-        "message": "",
-    }
+    outcome = CrawlOutcome(
+        target_id=ctx.target_id,
+        name=ctx.institution_name,
+        state_code=ctx.state_code,
+        doc_type=ctx.doc_type,
+        status="failed",
+    )
 
     try:
         # Step 1: Download
-        dl = download_document(url, target_id, config, last_hash=last_hash)
-
-        if not dl["success"]:
-            result["status"] = "failed"
-            result["message"] = f"DOWNLOAD FAILED: {dl['error']}"
-            _save_result(db, run_id, target_id, "failed", url, error=dl["error"])
-            db.execute(
-                "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
-                (target_id,),
+        dl = step_download(ctx, config)
+        if dl.status == "fail":
+            outcome.message = dl.error or "Download failed"
+            _record_failure(db, ctx, dl.error or "Download failed")
+            return _to_dict(outcome)
+        if dl.status == "skip":
+            outcome.status = "unchanged"
+            outcome.message = "UNCHANGED (hash match)"
+            _save_result(
+                db, run_id, ctx.target_id, "unchanged", ctx.url,
+                content_hash=dl.content_hash,
             )
             db.commit()
-            return result
-
-        if dl["unchanged"]:
-            result["status"] = "unchanged"
-            result["message"] = "UNCHANGED (hash match)"
-            _save_result(db, run_id, target_id, "unchanged", url, content_hash=dl["content_hash"])
-            db.commit()
-            return result
+            return _to_dict(outcome)
 
         # Step 2: Extract text
-        content = dl["content"]
-        content_type = dl["content_type"] or ""
-
-        if "application/pdf" in content_type or doc_type == "pdf":
-            try:
-                text = extract_text_from_pdf(content)
-            except Exception as e:
-                result["status"] = "failed"
-                result["message"] = f"PDF EXTRACT FAILED: {e}"
-                _save_result(db, run_id, target_id, "failed", url, error=f"PDF extraction: {e}")
-                db.commit()
-                return result
-        else:
-            text = extract_text_from_html(content)
-
-        if not text or len(text.strip()) < 50:
-            result["status"] = "failed"
-            result["message"] = "NO TEXT EXTRACTED"
-            _save_result(db, run_id, target_id, "failed", url, error="No text extracted from document")
-            db.commit()
-            return result
+        ext = step_extract_text(ctx, dl)
+        if ext.status == "fail":
+            outcome.message = ext.error or "Extraction failed"
+            _record_failure(db, ctx, ext.error or "Extraction failed")
+            return _to_dict(outcome)
 
         # Step 3: LLM extraction (skip in dry run)
         if dry_run:
-            result["status"] = "success"
-            result["message"] = f"text={len(text):,} chars (dry run)"
+            outcome.status = "success"
+            outcome.message = f"text={len(ext.text or ''):,} chars (dry run)"
             _save_result(
-                db, run_id, target_id, "success", url,
-                content_hash=dl["content_hash"],
-                document_path=dl["path"],
+                db, run_id, ctx.target_id, "success", ctx.url,
+                content_hash=dl.content_hash,
+                document_path=dl.document_path,
             )
             db.execute(
                 """UPDATE crawl_targets
                    SET last_content_hash = ?, last_crawl_at = datetime('now'),
                        last_success_at = datetime('now'), consecutive_failures = 0
                    WHERE id = ?""",
-                (dl["content_hash"], target_id),
+                (dl.content_hash, ctx.target_id),
             )
             db.commit()
-            return result
+            return _to_dict(outcome)
 
-        try:
-            fees = extract_fees_with_llm(text, config)
-        except Exception as e:
-            result["status"] = "failed"
-            result["message"] = f"LLM FAILED: {e}"
-            _save_result(db, run_id, target_id, "failed", url, error=f"LLM extraction: {e}")
-            db.commit()
-            return result
+        llm = step_llm_extract(ext, config)
+        if llm.status == "fail":
+            outcome.message = llm.error or "LLM extraction failed"
+            _record_failure(db, ctx, llm.error or "LLM extraction failed")
+            return _to_dict(outcome)
 
-        # Step 4: Validate fees
-        validated = validate_and_classify_fees(fees, config)
+        # Step 4+5: Categorize + validate
+        classified = step_classify_and_validate(llm.fees, config)
 
-        # Step 5: Re-crawl overwrite - delete old fees for this institution
+        # Step 6: Re-crawl overwrite -- delete old fees for this institution
         old_fees = db.fetchall(
             "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ?",
-            (target_id,),
+            (ctx.target_id,),
         )
         if old_fees:
             for old in old_fees:
@@ -144,74 +127,98 @@ def _crawl_one(
                 )
             db.execute(
                 "DELETE FROM extracted_fees WHERE crawl_target_id = ?",
-                (target_id,),
+                (ctx.target_id,),
             )
 
-        # Step 6: Store validated results
+        # Step 7: Store validated results
         result_id = _save_result(
-            db, run_id, target_id, "success", url,
-            content_hash=dl["content_hash"],
-            document_path=dl["path"],
-            fees_extracted=len(validated),
+            db, run_id, ctx.target_id, "success", ctx.url,
+            content_hash=dl.content_hash,
+            document_path=dl.document_path,
+            fees_extracted=len(classified),
         )
 
         staged_count = 0
         flagged_count = 0
-        for fee, flags, review_status in validated:
+        approved_count = 0
+        for fee, category, family, flags, review_status in classified:
             db.execute(
                 """INSERT INTO extracted_fees
                    (crawl_result_id, crawl_target_id, fee_name, amount,
                     frequency, conditions, extraction_confidence,
-                    review_status, validation_flags)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (result_id, target_id, fee.fee_name, fee.amount,
+                    review_status, validation_flags, fee_category, fee_family)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (result_id, ctx.target_id, fee.fee_name, fee.amount,
                  fee.frequency, fee.conditions, fee.confidence,
-                 review_status, flags_to_json(flags)),
+                 review_status, flags_to_json(flags), category, family),
             )
             if review_status == "staged":
                 staged_count += 1
             elif review_status == "flagged":
                 flagged_count += 1
+            elif review_status == "approved":
+                approved_count += 1
 
         db.execute(
             """UPDATE crawl_targets
                SET last_content_hash = ?, last_crawl_at = datetime('now'),
                    last_success_at = datetime('now'), consecutive_failures = 0
                WHERE id = ?""",
-            (dl["content_hash"], target_id),
+            (dl.content_hash, ctx.target_id),
         )
         db.commit()
 
-        result["status"] = "success"
-        result["fees"] = len(validated)
-        result["staged"] = staged_count
-        result["flagged"] = flagged_count
-        status_summary = f"{len(validated)} fees"
+        outcome.status = "success"
+        outcome.fees = len(classified)
+        outcome.staged = staged_count
+        outcome.flagged = flagged_count
+        status_summary = f"{len(classified)} fees"
+        parts = []
+        if approved_count:
+            parts.append(f"{approved_count} approved")
         if staged_count:
-            status_summary += f" ({staged_count} staged"
-            if flagged_count:
-                status_summary += f", {flagged_count} flagged"
-            status_summary += ")"
-        elif flagged_count:
-            status_summary += f" ({flagged_count} flagged)"
-        result["message"] = status_summary
-        return result
+            parts.append(f"{staged_count} staged")
+        if flagged_count:
+            parts.append(f"{flagged_count} flagged")
+        if parts:
+            status_summary += f" ({', '.join(parts)})"
+        outcome.message = status_summary
+        return _to_dict(outcome)
 
     except Exception as e:
-        result["status"] = "failed"
-        result["message"] = f"ERROR: {e}"
+        outcome.message = f"ERROR: {e}"
         try:
-            _save_result(db, run_id, target_id, "failed", url, error=str(e))
-            db.execute(
-                "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
-                (target_id,),
-            )
-            db.commit()
+            _record_failure(db, ctx, str(e))
         except Exception as db_err:
-            print(f"  WARNING: Failed to record error for {name}: {db_err}")
-        return result
+            logger.warning("Failed to record error for %s: %s", ctx.institution_name, db_err)
+        return _to_dict(outcome)
     finally:
         db.close()
+
+
+def _record_failure(db: Database, ctx: CrawlContext, error: str) -> None:
+    """Record a crawl failure: save result + increment failure counter."""
+    _save_result(db, ctx.run_id, ctx.target_id, "failed", ctx.url, error=error)
+    db.execute(
+        "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
+        (ctx.target_id,),
+    )
+    db.commit()
+
+
+def _to_dict(outcome: CrawlOutcome) -> dict:
+    """Convert CrawlOutcome to dict for backward compatibility with run functions."""
+    return {
+        "target_id": outcome.target_id,
+        "name": outcome.name,
+        "state_code": outcome.state_code,
+        "doc_type": outcome.doc_type,
+        "status": outcome.status,
+        "fees": outcome.fees,
+        "staged": outcome.staged,
+        "flagged": outcome.flagged,
+        "message": outcome.message,
+    }
 
 
 def run(

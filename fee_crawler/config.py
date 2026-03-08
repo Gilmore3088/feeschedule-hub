@@ -1,5 +1,6 @@
 """Configuration loader using Pydantic."""
 
+import os
 from pathlib import Path
 
 import yaml
@@ -67,12 +68,47 @@ class SeedUser(BaseModel):
     role: str = "viewer"
 
 
+_BANNED_PASSWORDS = frozenset([
+    "changeme", "password", "admin", "123456", "password1",
+    "admin123", "letmein", "welcome", "monkey", "master",
+])
+
+_MIN_PASSWORD_LENGTH = 10
+
+
 class AuthConfig(BaseModel):
     session_ttl_hours: int = 24
-    seed_users: list[SeedUser] = [
-        SeedUser(username="admin", password="changeme", display_name="Admin", role="admin"),
-        SeedUser(username="analyst", password="changeme", display_name="Analyst", role="analyst"),
-    ]
+    seed_users: list[SeedUser] = []
+
+    @staticmethod
+    def from_env() -> list[SeedUser]:
+        """Build seed users from environment variables."""
+        users: list[SeedUser] = []
+        admin_user = os.environ.get("BFI_ADMIN_USERNAME", "")
+        admin_pass = os.environ.get("BFI_ADMIN_PASSWORD", "")
+        if admin_user and admin_pass:
+            users.append(SeedUser(
+                username=admin_user, password=admin_pass,
+                display_name="Admin", role="admin",
+            ))
+        analyst_user = os.environ.get("BFI_ANALYST_USERNAME", "")
+        analyst_pass = os.environ.get("BFI_ANALYST_PASSWORD", "")
+        if analyst_user and analyst_pass:
+            users.append(SeedUser(
+                username=analyst_user, password=analyst_pass,
+                display_name="Analyst", role="analyst",
+            ))
+        return users
+
+    @staticmethod
+    def validate_password(password: str) -> None:
+        """Validate password meets security requirements."""
+        if password.lower() in _BANNED_PASSWORDS:
+            raise ValueError(f"Password is too common and not allowed")
+        if len(password) < _MIN_PASSWORD_LENGTH:
+            raise ValueError(
+                f"Password must be at least {_MIN_PASSWORD_LENGTH} characters"
+            )
 
 
 class Config(BaseModel):

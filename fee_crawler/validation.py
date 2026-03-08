@@ -240,20 +240,30 @@ def flags_to_json(flags: list[ValidationFlag]) -> str | None:
 def validate_and_classify_fees(
     fees: list[ExtractedFee],
     config: Config,
+    *,
+    categories: list[str | None] | None = None,
 ) -> list[tuple[ExtractedFee, list[ValidationFlag], str]]:
     """Validate a batch of fees for one institution.
 
+    Args:
+        fees: List of extracted fees to validate.
+        config: Application config.
+        categories: Optional parallel list of fee categories. When provided,
+            enables category-aware validation (amount range checks) and
+            auto-approve during crawl time.
+
     Returns list of (fee, flags, review_status) tuples.
-    Note: fee_category is not available at crawl time (categorization runs
-    separately), so auto-approve won't fire here. The backfill command
-    handles retroactive auto-approval with category data.
     """
     results = []
     seen_canonical: list[str] = []
 
-    for fee in fees:
-        flags = validate_fee(fee, seen_canonical, config)
-        status = determine_review_status(flags, fee.confidence, config)
+    for i, fee in enumerate(fees):
+        cat = categories[i] if categories and i < len(categories) else None
+        flags = validate_fee(fee, seen_canonical, config, fee_category=cat)
+        status = determine_review_status(
+            flags, fee.confidence, config,
+            fee_category=cat, amount=fee.amount,
+        )
         results.append((fee, flags, status))
 
         # Track canonical names for duplicate detection
