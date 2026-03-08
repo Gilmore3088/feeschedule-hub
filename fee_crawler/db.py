@@ -280,6 +280,7 @@ class Database:
         self.conn.execute("PRAGMA cache_size=-32000")
         self.conn.execute("PRAGMA mmap_size=268435456")
         self.conn.execute("PRAGMA temp_store=memory")
+        self.conn.execute("PRAGMA foreign_keys=ON")
 
     def _init_tables(self) -> None:
         self.conn.executescript(_CREATE_CRAWL_TARGETS)
@@ -357,7 +358,18 @@ class Database:
     def fetchall(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         return self.conn.execute(sql, params).fetchall()
 
+    _ALLOWED_TABLES = frozenset([
+        "institutions", "crawl_targets", "crawl_results", "crawl_runs",
+        "extracted_fees", "users", "fee_reviews", "sessions",
+        "analysis_results", "institution_financials", "institution_complaints",
+        "fee_snapshots", "fee_change_events",
+        "fed_beige_book", "fed_content", "fed_economic_indicators",
+        "articles",
+    ])
+
     def count(self, table: str) -> int:
+        if table not in self._ALLOWED_TABLES:
+            raise ValueError(f"Invalid table name: {table!r}")
         row = self.fetchone(f"SELECT COUNT(*) as cnt FROM {table}")
         return row["cnt"] if row else 0
 
