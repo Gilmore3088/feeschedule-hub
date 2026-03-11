@@ -274,6 +274,22 @@ CREATE TABLE IF NOT EXISTS discovery_cache (
 );
 """
 
+_CREATE_COMMUNITY_SUBMISSIONS = """
+CREATE TABLE IF NOT EXISTS community_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    crawl_target_id INTEGER REFERENCES crawl_targets(id),
+    institution_name TEXT NOT NULL,
+    fee_name TEXT NOT NULL,
+    fee_category TEXT,
+    amount REAL,
+    frequency TEXT,
+    source_url TEXT NOT NULL,
+    submitter_ip TEXT,
+    review_status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
 _MIGRATE_CRAWL_TARGETS_V3 = [
     "ALTER TABLE crawl_targets ADD COLUMN failure_reason TEXT",
     "ALTER TABLE crawl_targets ADD COLUMN cms_platform TEXT",
@@ -317,6 +333,7 @@ class Database:
         self.conn.executescript(_CREATE_FED_CONTENT)
         self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)
         self.conn.executescript(_CREATE_DISCOVERY_CACHE)
+        self.conn.executescript(_CREATE_COMMUNITY_SUBMISSIONS)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -386,7 +403,7 @@ class Database:
         "institution_financials", "institution_complaints",
         "fee_snapshots", "fee_change_events",
         "fed_beige_book", "fed_content", "fed_economic_indicators",
-        "discovery_cache",
+        "discovery_cache", "community_submissions",
     })
 
     def count(self, table: str) -> int:

@@ -7,6 +7,35 @@ import path from "path";
 const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
 const SESSION_COOKIE = "fsh_session";
 const SESSION_TTL_HOURS = 24;
+const COOKIE_SECRET = process.env.BFI_COOKIE_SECRET || "dev-secret-change-in-production";
+
+function signSessionId(sessionId: string): string {
+  const sig = crypto
+    .createHmac("sha256", COOKIE_SECRET)
+    .update(sessionId)
+    .digest("hex");
+  return `${sessionId}.${sig}`;
+}
+
+function verifyAndExtractSessionId(signed: string): string | null {
+  const dotIdx = signed.lastIndexOf(".");
+  if (dotIdx === -1) return null;
+  const sessionId = signed.substring(0, dotIdx);
+  const sig = signed.substring(dotIdx + 1);
+  if (!sessionId || !sig || sig.length !== 64) return null;
+  try {
+    const expected = crypto
+      .createHmac("sha256", COOKIE_SECRET)
+      .update(sessionId)
+      .digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"))) {
+      return null;
+    }
+    return sessionId;
+  } catch {
+    return null;
+  }
+}
 
 export interface User {
   id: number;
@@ -80,9 +109,9 @@ export async function login(
       "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)"
     ).run(sessionId, row.id, expiresAt);
 
-    // Set cookie
+    // Set signed cookie
     const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE, sessionId, {
+    cookieStore.set(SESSION_COOKIE, signSessionId(sessionId), {
       httpOnly: true,
       secure: false, // MVP: localhost only
       sameSite: "lax",
@@ -103,7 +132,8 @@ export async function login(
 
 export async function logout(): Promise<void> {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  const raw = cookieStore.get(SESSION_COOKIE)?.value;
+  const sessionId = raw ? verifyAndExtractSessionId(raw) : null;
 
   if (sessionId) {
     const db = getWriteDb();
@@ -119,8 +149,10 @@ export async function logout(): Promise<void> {
 
 export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  const raw = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!raw) return null;
 
+  const sessionId = verifyAndExtractSessionId(raw);
   if (!sessionId) return null;
 
   const db = new Database(DB_PATH, { readonly: true });

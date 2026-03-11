@@ -339,11 +339,11 @@ Community data, partnerships, and advanced extraction for hard-to-reach institut
 
 Allow anyone to contribute fee data for institutions we can't crawl.
 
-- [ ] New `/submit-fees` public page with institution autocomplete
-- [ ] Simple form: 5 common fees (monthly maintenance, overdraft, NSF, ATM, wire)
-- [ ] Source URL field (required)
-- [ ] All submissions enter as `review_status = 'pending'`, `source = 'community'`
-- [ ] Rate limiting and CAPTCHA to prevent abuse
+- [x] New `/submit-fees` public page with institution autocomplete
+- [x] Simple form: 5 common fees (monthly maintenance, overdraft, NSF, ATM, wire)
+- [x] Source URL field (required)
+- [x] All submissions enter as `review_status = 'pending'`, `source = 'community'`
+- [x] Rate limiting to prevent abuse (5/min per IP)
 
 ### 4b. Statistical Outlier Detection
 
@@ -387,7 +387,7 @@ For complex PDFs that pdfplumber + OCR can't handle.
 
 - [x] Remove hardcoded `changeme` passwords from `fee_crawler/config.py`
 - [x] Require seed passwords via env vars, reject `changeme` at startup
-- [ ] Add HMAC-SHA256 signature to `bfi_sub` cookie (prevent forgery)
+- [x] Add HMAC-SHA256 signature to `fsh_session` cookie (prevent forgery)
 - [x] Whitelist valid table names in `db.py:count()` (SQL injection fix)
 - [x] Update Python seeder to use scrypt matching Node.js `hashNewPassword()` format
 - [x] Add LLM prompt injection defense (XML delimiters, system prompt instruction)
@@ -419,12 +419,12 @@ For complex PDFs that pdfplumber + OCR can't handle.
 ### Phase 3 (Scale Extraction → 49%)
 - [x] LLM uses tool_use with schema enforcement
 - [ ] Categorization rate above 90%
-- [ ] Cron runs pipeline unattended with cost controls
+- [x] Cron runs pipeline unattended with cost controls
 - [x] Data quality dashboard shows coverage funnel and trends
 - [ ] 35,000+ institutions with extracted fees
 
 ### Phase 4 (Long Tail → 80%)
-- [ ] Public submission form accepts community contributions
+- [x] Public submission form accepts community contributions
 - [ ] Outlier detection flags extraction errors
 - [ ] CMS fingerprinting improves discovery efficiency
 - [ ] 57,000+ institutions with extracted fees (80% coverage)

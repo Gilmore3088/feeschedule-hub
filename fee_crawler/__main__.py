@@ -227,6 +227,33 @@ def cmd_ingest_fred(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_run_pipeline(args: argparse.Namespace) -> None:
+    """Run full pipeline: discover → crawl → categorize."""
+    import logging
+
+    from fee_crawler.commands.run_pipeline import run
+
+    if args.verbose:
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(
+            db, config,
+            limit=args.limit,
+            workers=args.workers,
+            max_llm_calls=args.max_llm_calls,
+            max_search_cost=args.max_search_cost,
+            skip_discover=args.skip_discover,
+            skip_crawl=args.skip_crawl,
+            skip_categorize=args.skip_categorize,
+            state=args.state,
+        )
+    finally:
+        db.close()
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     """Show database statistics."""
     config = load_config()
@@ -617,6 +644,22 @@ def main() -> None:
         help="Start date for observations (YYYY-MM-DD). Default: last 10 years",
     )
     fred_parser.set_defaults(func=cmd_ingest_fred)
+
+    # run-pipeline command
+    pipeline_parser = subparsers.add_parser(
+        "run-pipeline",
+        help="Run full pipeline: discover → crawl → categorize (cron-ready)",
+    )
+    pipeline_parser.add_argument("--limit", type=int, default=None, help="Max institutions per stage")
+    pipeline_parser.add_argument("--workers", type=int, default=4, help="Concurrent workers (default: 4)")
+    pipeline_parser.add_argument("--max-llm-calls", type=int, default=500, help="Max LLM API calls (default: 500)")
+    pipeline_parser.add_argument("--max-search-cost", type=float, default=10.0, help="Max search API budget in $ (default: 10)")
+    pipeline_parser.add_argument("--state", type=str, default=None, help="Filter by state code")
+    pipeline_parser.add_argument("--skip-discover", action="store_true", help="Skip URL discovery stage")
+    pipeline_parser.add_argument("--skip-crawl", action="store_true", help="Skip crawl/extraction stage")
+    pipeline_parser.add_argument("--skip-categorize", action="store_true", help="Skip categorization stage")
+    pipeline_parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    pipeline_parser.set_defaults(func=cmd_run_pipeline)
 
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
