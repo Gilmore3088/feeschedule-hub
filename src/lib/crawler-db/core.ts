@@ -34,6 +34,126 @@ export function getStats(): CrawlStats {
   }
 }
 
+const SORT_COLUMNS: Record<string, string> = {
+  name: "ct.institution_name",
+  state: "ct.state_code",
+  type: "ct.charter_type",
+  assets: "ct.asset_size",
+  fees: "fee_count",
+  district: "ct.fed_district",
+  last_crawl: "ct.last_crawl_at",
+};
+
+export function getAllInstitutions(opts: {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  filter?: "all" | "with_fees" | "no_fees";
+  urlStatus?: "all" | "no_website" | "no_fee_url" | "has_fee_url" | "crawl_ok" | "crawl_fail";
+  state?: string;
+  district?: string;
+  tier?: string;
+  sort?: string;
+  dir?: "asc" | "desc";
+}): { institutions: InstitutionSummary[]; total: number } {
+  const {
+    limit = 100, offset = 0, search, filter = "all", urlStatus = "all",
+    state, district, tier, sort = "assets", dir = "desc",
+  } = opts;
+
+  const db = getDb();
+  try {
+    const where: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (search) {
+      where.push("(ct.institution_name LIKE ? OR ct.state_code LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    if (state) {
+      where.push("ct.state_code = ?");
+      params.push(state.toUpperCase());
+    }
+    if (district) {
+      where.push("ct.fed_district = ?");
+      params.push(district);
+    }
+    if (tier) {
+      where.push("ct.asset_size_tier = ?");
+      params.push(tier);
+    }
+    if (urlStatus === "no_website") {
+      where.push("ct.website_url IS NULL");
+    } else if (urlStatus === "no_fee_url") {
+      where.push("ct.website_url IS NOT NULL AND ct.fee_schedule_url IS NULL");
+    } else if (urlStatus === "has_fee_url") {
+      where.push("ct.fee_schedule_url IS NOT NULL");
+    } else if (urlStatus === "crawl_ok") {
+      where.push("ct.last_success_at IS NOT NULL AND ct.consecutive_failures = 0");
+    } else if (urlStatus === "crawl_fail") {
+      where.push("ct.consecutive_failures > 0");
+    }
+
+    const whereSql = where.length > 0 ? "WHERE " + where.join(" AND ") : "";
+
+    const having =
+      filter === "with_fees" ? "HAVING fee_count > 0" :
+      filter === "no_fees" ? "HAVING fee_count = 0" : "";
+
+    const sortCol = SORT_COLUMNS[sort] || "ct.asset_size";
+    const sortDir = dir === "asc" ? "ASC" : "DESC";
+    const nulls = sortDir === "DESC" ? "NULLS LAST" : "NULLS FIRST";
+
+    // Count query uses a subquery to handle HAVING
+    const countParams = [...params];
+    const { cnt } = db
+      .prepare(
+        `SELECT COUNT(*) as cnt FROM (
+          SELECT ct.id, COUNT(ef.id) as fee_count
+          FROM crawl_targets ct
+          LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+          ${whereSql}
+          GROUP BY ct.id
+          ${having}
+        )`
+      )
+      .get(...countParams) as { cnt: number };
+
+    const institutions = db
+      .prepare(
+        `SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+               ct.asset_size, ct.asset_size_tier, ct.fed_district,
+               ct.website_url, ct.fee_schedule_url, ct.document_type,
+               ct.last_crawl_at, ct.last_success_at, ct.consecutive_failures,
+               COUNT(ef.id) as fee_count
+        FROM crawl_targets ct
+        LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+        ${whereSql}
+        GROUP BY ct.id
+        ${having}
+        ORDER BY ${sortCol} ${sortDir} ${nulls}
+        LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset) as InstitutionSummary[];
+
+    return { institutions, total: cnt };
+  } finally {
+    db.close();
+  }
+}
+
+export function getDistinctStates(): string[] {
+  const db = getDb();
+  try {
+    const rows = db.prepare(
+      "SELECT DISTINCT state_code FROM crawl_targets WHERE state_code IS NOT NULL ORDER BY state_code"
+    ).all() as { state_code: string }[];
+    return rows.map((r) => r.state_code);
+  } finally {
+    db.close();
+  }
+}
+
 export function getInstitutionsWithFees(): InstitutionSummary[] {
   const db = getDb();
   try {

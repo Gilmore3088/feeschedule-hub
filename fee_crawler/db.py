@@ -148,6 +148,49 @@ _MIGRATE_CRAWL_TARGETS_V2 = [
     "ALTER TABLE crawl_targets ADD COLUMN specialty TEXT",
 ]
 
+_MIGRATE_INSTITUTION_FINANCIALS_V2 = [
+    "ALTER TABLE institution_financials ADD COLUMN total_revenue INTEGER",
+    "ALTER TABLE institution_financials ADD COLUMN fee_income_ratio REAL",
+]
+
+_CREATE_CRAWL_TARGET_CHANGES = """
+CREATE TABLE IF NOT EXISTS crawl_target_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    crawl_target_id INTEGER NOT NULL REFERENCES crawl_targets(id),
+    field TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    user_id INTEGER REFERENCES users(id),
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
+_CREATE_UPLOAD_JOBS = """
+CREATE TABLE IF NOT EXISTS upload_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    crawl_target_id INTEGER NOT NULL REFERENCES crawl_targets(id),
+    user_id INTEGER REFERENCES users(id),
+    file_path TEXT NOT NULL,
+    file_name TEXT,
+    status TEXT NOT NULL DEFAULT 'queued',  -- queued | processing | completed | failed
+    fee_count INTEGER,
+    error_message TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT
+);
+"""
+
+_MIGRATE_CRAWL_TARGETS_V3 = [
+    "ALTER TABLE crawl_targets ADD COLUMN failure_reason TEXT",
+    "ALTER TABLE crawl_targets ADD COLUMN failure_reason_note TEXT",
+    "ALTER TABLE crawl_targets ADD COLUMN failure_reason_updated_at TEXT",
+]
+
+_MIGRATE_EXTRACTED_FEES_V2 = [
+    "ALTER TABLE extracted_fees ADD COLUMN source TEXT DEFAULT 'crawler'",
+]
+
 _CREATE_INSTITUTION_FINANCIALS = """
 CREATE TABLE IF NOT EXISTS institution_financials (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -297,6 +340,8 @@ class Database:
         self.conn.executescript(_CREATE_FED_BEIGE_BOOK)
         self.conn.executescript(_CREATE_FED_CONTENT)
         self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)
+        self.conn.executescript(_CREATE_CRAWL_TARGET_CHANGES)
+        self.conn.executescript(_CREATE_UPLOAD_JOBS)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -311,12 +356,15 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_targets_fee_url ON crawl_targets(fee_schedule_url) WHERE fee_schedule_url IS NOT NULL",
             "CREATE INDEX IF NOT EXISTS idx_analysis_target_type ON analysis_results(crawl_target_id, analysis_type)",
             "CREATE INDEX IF NOT EXISTS idx_financials_target_date ON institution_financials(crawl_target_id, report_date)",
+            "CREATE INDEX IF NOT EXISTS idx_financials_date_source ON institution_financials(report_date, source)",
             "CREATE INDEX IF NOT EXISTS idx_complaints_target ON institution_complaints(crawl_target_id)",
             "CREATE INDEX IF NOT EXISTS idx_snapshots_target_cat ON fee_snapshots(crawl_target_id, fee_category)",
             "CREATE INDEX IF NOT EXISTS idx_beige_book_district ON fed_beige_book(fed_district, release_date)",
             "CREATE INDEX IF NOT EXISTS idx_fed_content_district ON fed_content(fed_district, published_at)",
             "CREATE INDEX IF NOT EXISTS idx_fed_content_type ON fed_content(content_type)",
             "CREATE INDEX IF NOT EXISTS idx_fed_indicators_series ON fed_economic_indicators(series_id, observation_date)",
+            "CREATE INDEX IF NOT EXISTS idx_targets_failure_reason ON crawl_targets(failure_reason) WHERE failure_reason IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS idx_target_changes_target ON crawl_target_changes(crawl_target_id)",
         ]
         for sql in indexes:
             try:
@@ -330,6 +378,9 @@ class Database:
             _MIGRATE_CRAWL_TARGETS
             + _MIGRATE_EXTRACTED_FEES
             + _MIGRATE_CRAWL_TARGETS_V2
+            + _MIGRATE_INSTITUTION_FINANCIALS_V2
+            + _MIGRATE_CRAWL_TARGETS_V3
+            + _MIGRATE_EXTRACTED_FEES_V2
         )
         for sql in all_migrations:
             try:

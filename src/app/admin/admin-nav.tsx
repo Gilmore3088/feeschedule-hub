@@ -67,6 +67,15 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/admin/revenue",
+        label: "Revenue",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 2v12M5.5 4.5h3.75a1.75 1.75 0 010 3.5H5v0h4.25a1.75 1.75 0 010 3.5H5.5" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/fees/catalog",
         label: "Categories",
         icon: (
@@ -80,6 +89,17 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
     label: "Ops",
     items: [
+      {
+        href: "/admin/ops",
+        label: "Coverage",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5v13M1.5 8h13" />
+            <rect x="2.5" y="2.5" width="4.5" height="4.5" rx="0.5" />
+            <rect x="9" y="9" width="4.5" height="4.5" rx="0.5" />
+          </svg>
+        ),
+      },
       {
         href: "/admin/review",
         label: "Review",
@@ -97,6 +117,16 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
             <circle cx="8" cy="7" r="5.5" />
             <path d="M8 1.5v11M2.5 7h11M3.5 3.5c1.5 1 3 1.5 4.5 1.5s3-.5 4.5-1.5M3.5 10.5c1.5-1 3-1.5 4.5-1.5s3 .5 4.5 1.5" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/institutions",
+        label: "Institutions",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M2 14.5h12M4 14.5V6l4-4.5 4 4.5v8.5" />
+            <path d="M6.5 14.5v-3h3v3M6.5 8h3" />
           </svg>
         ),
       },

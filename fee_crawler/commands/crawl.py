@@ -129,22 +129,39 @@ def _crawl_one(
         # Step 4: Validate fees
         validated = validate_and_classify_fees(fees, config)
 
-        # Step 5: Re-crawl overwrite - delete old fees for this institution
+        # Step 4b: Auto-classify failure reason if no fees extracted
+        if len(validated) == 0:
+            failure_reason = _classify_extraction_failure(text, doc_type)
+            db.execute(
+                "UPDATE crawl_targets SET failure_reason = ? WHERE id = ?",
+                (failure_reason, target_id),
+            )
+        else:
+            # Clear any previous failure reason on successful extraction
+            db.execute(
+                "UPDATE crawl_targets SET failure_reason = NULL WHERE id = ?",
+                (target_id,),
+            )
+
+        # Step 5: Re-crawl overwrite - delete old crawler-sourced fees only
+        # Preserve manually entered fees (source='manual') and PDF uploads (source='pdf_upload')
         old_fees = db.fetchall(
-            "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ?",
+            """SELECT id FROM extracted_fees
+               WHERE crawl_target_id = ?
+               AND (source = 'crawler' OR source IS NULL)""",
             (target_id,),
         )
         if old_fees:
-            for old in old_fees:
-                db.execute(
-                    """INSERT INTO fee_reviews
-                       (fee_id, action, username, previous_status, new_status, notes)
-                       VALUES (?, 'reset', 'system', ?, 'deleted', 'Re-crawl replaced all fees')""",
-                    (old["id"], old["review_status"]),
-                )
+            old_ids = [old["id"] for old in old_fees]
+            placeholders = ",".join("?" * len(old_ids))
+            # Delete fee_reviews first (FK references extracted_fees)
             db.execute(
-                "DELETE FROM extracted_fees WHERE crawl_target_id = ?",
-                (target_id,),
+                f"DELETE FROM fee_reviews WHERE fee_id IN ({placeholders})",
+                tuple(old_ids),
+            )
+            db.execute(
+                f"DELETE FROM extracted_fees WHERE id IN ({placeholders})",
+                tuple(old_ids),
             )
 
         # Step 6: Store validated results
@@ -426,6 +443,47 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     print(f"  Failed:     {stats['failed']}")
     print(f"  Unchanged:  {stats['unchanged']}")
     print(f"  Fees found: {stats['total_fees']}")
+
+
+def _classify_extraction_failure(text: str, doc_type: str) -> str:
+    """Heuristic classification of why extraction produced zero fees."""
+    lower = text.lower()
+
+    # Check for fee-related keywords
+    fee_keywords = [
+        "fee", "charge", "service charge", "overdraft", "nsf",
+        "maintenance", "monthly", "atm", "wire transfer",
+    ]
+    has_fee_keywords = any(kw in lower for kw in fee_keywords)
+
+    if not has_fee_keywords:
+        return "no_fees_found"
+
+    # Check for login/auth indicators
+    auth_keywords = ["log in", "login", "sign in", "signin", "username", "password", "enroll"]
+    if sum(1 for kw in auth_keywords if kw in lower) >= 2:
+        return "login_required"
+
+    # Check for link-only pages (HTML with links to PDFs)
+    if doc_type != "pdf":
+        link_keywords = ["click here", "download", ".pdf", "view fee schedule", "fee schedule (pdf)"]
+        if sum(1 for kw in link_keywords if kw in lower) >= 2:
+            return "multiple_links"
+
+    # Check for scanned PDF (very little text relative to page count)
+    if doc_type == "pdf" and len(text.strip()) < 200:
+        return "pdf_scanned"
+
+    # Check for account agreement (long doc with non-fee content)
+    agreement_keywords = ["account agreement", "terms and conditions", "disclosure", "truth in savings"]
+    if sum(1 for kw in agreement_keywords if kw in lower) >= 2:
+        return "account_agreement"
+
+    # Default: parser found fee keywords but couldn't extract structured fees
+    if doc_type == "pdf":
+        return "pdf_complex"
+
+    return "no_fees_found"
 
 
 def _save_result(

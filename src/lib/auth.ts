@@ -20,13 +20,16 @@ export type Permission =
   | "approve"
   | "reject"
   | "edit"
+  | "submit_url"
+  | "manual_entry"
+  | "triage"
   | "bulk_approve"
   | "manage_users";
 
 const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   viewer: ["view"],
-  analyst: ["view", "approve", "reject"],
-  admin: ["view", "approve", "reject", "edit", "bulk_approve", "manage_users"],
+  analyst: ["view", "approve", "reject", "edit", "submit_url", "manual_entry", "triage"],
+  admin: ["view", "approve", "reject", "edit", "submit_url", "manual_entry", "triage", "bulk_approve", "manage_users"],
 };
 
 function getWriteDb(): Database.Database {
