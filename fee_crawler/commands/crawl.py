@@ -98,6 +98,21 @@ def _crawl_one(
             db.commit()
             return result
 
+        # Step 2b: Pre-LLM screening — skip non-fee documents to save API costs
+        if not _is_likely_fee_schedule(text):
+            failure_reason = _classify_extraction_failure(text, doc_type)
+            result["status"] = "failed"
+            result["message"] = f"PRE-SCREEN SKIP ({failure_reason})"
+            _save_result(db, run_id, target_id, "failed", url,
+                         content_hash=dl["content_hash"],
+                         error=f"Pre-LLM screening: not a fee schedule ({failure_reason})")
+            db.execute(
+                "UPDATE crawl_targets SET failure_reason = ?, last_crawl_at = datetime('now') WHERE id = ?",
+                (failure_reason, target_id),
+            )
+            db.commit()
+            return result
+
         # Step 3: LLM extraction (skip in dry run)
         if dry_run:
             result["status"] = "success"
@@ -129,58 +144,65 @@ def _crawl_one(
         # Step 4: Validate fees
         validated = validate_and_classify_fees(fees, config)
 
-        # Step 5: Re-crawl overwrite - delete old fees for this institution
-        old_fees = db.fetchall(
-            "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ?",
-            (target_id,),
-        )
-        if old_fees:
-            for old in old_fees:
-                db.execute(
-                    """INSERT INTO fee_reviews
-                       (fee_id, action, username, previous_status, new_status, notes)
-                       VALUES (?, 'reset', 'system', ?, 'deleted', 'Re-crawl replaced all fees')""",
-                    (old["id"], old["review_status"]),
-                )
-            db.execute(
-                "DELETE FROM extracted_fees WHERE crawl_target_id = ?",
+        # Steps 5-6: Replace old fees and store new ones in a single transaction
+        # This ensures we never lose data if the process crashes mid-replacement
+        db.execute("BEGIN IMMEDIATE")
+        try:
+            # Delete old fees for this institution (re-crawl overwrite)
+            old_fees = db.fetchall(
+                "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ?",
                 (target_id,),
             )
+            if old_fees:
+                for old in old_fees:
+                    db.execute(
+                        """INSERT INTO fee_reviews
+                           (fee_id, action, username, previous_status, new_status, notes)
+                           VALUES (?, 'reset', 'system', ?, 'deleted', 'Re-crawl replaced all fees')""",
+                        (old["id"], old["review_status"]),
+                    )
+                db.execute(
+                    "DELETE FROM extracted_fees WHERE crawl_target_id = ?",
+                    (target_id,),
+                )
 
-        # Step 6: Store validated results
-        result_id = _save_result(
-            db, run_id, target_id, "success", url,
-            content_hash=dl["content_hash"],
-            document_path=dl["path"],
-            fees_extracted=len(validated),
-        )
-
-        staged_count = 0
-        flagged_count = 0
-        for fee, flags, review_status in validated:
-            db.execute(
-                """INSERT INTO extracted_fees
-                   (crawl_result_id, crawl_target_id, fee_name, amount,
-                    frequency, conditions, extraction_confidence,
-                    review_status, validation_flags)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (result_id, target_id, fee.fee_name, fee.amount,
-                 fee.frequency, fee.conditions, fee.confidence,
-                 review_status, flags_to_json(flags)),
+            # Store validated results
+            result_id = _save_result(
+                db, run_id, target_id, "success", url,
+                content_hash=dl["content_hash"],
+                document_path=dl["path"],
+                fees_extracted=len(validated),
             )
-            if review_status == "staged":
-                staged_count += 1
-            elif review_status == "flagged":
-                flagged_count += 1
 
-        db.execute(
-            """UPDATE crawl_targets
-               SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                   last_success_at = datetime('now'), consecutive_failures = 0
-               WHERE id = ?""",
-            (dl["content_hash"], target_id),
-        )
-        db.commit()
+            staged_count = 0
+            flagged_count = 0
+            for fee, flags, review_status in validated:
+                db.execute(
+                    """INSERT INTO extracted_fees
+                       (crawl_result_id, crawl_target_id, fee_name, amount,
+                        frequency, conditions, extraction_confidence,
+                        review_status, validation_flags)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (result_id, target_id, fee.fee_name, fee.amount,
+                     fee.frequency, fee.conditions, fee.confidence,
+                     review_status, flags_to_json(flags)),
+                )
+                if review_status == "staged":
+                    staged_count += 1
+                elif review_status == "flagged":
+                    flagged_count += 1
+
+            db.execute(
+                """UPDATE crawl_targets
+                   SET last_content_hash = ?, last_crawl_at = datetime('now'),
+                       last_success_at = datetime('now'), consecutive_failures = 0
+                   WHERE id = ?""",
+                (dl["content_hash"], target_id),
+            )
+            db.commit()
+        except Exception:
+            db.execute("ROLLBACK")
+            raise
 
         result["status"] = "success"
         result["fees"] = len(validated)
@@ -222,6 +244,7 @@ def run(
     state: str | None = None,
     dry_run: bool = False,
     workers: int = 1,
+    include_failing: bool = False,
 ) -> None:
     """Run the crawl pipeline on institutions with discovered fee schedule URLs.
 
@@ -232,6 +255,7 @@ def run(
         state: Filter by state code.
         dry_run: Download and extract text but skip LLM extraction (no API cost).
         workers: Number of concurrent worker threads.
+        include_failing: Include institutions with 5+ consecutive failures (skipped by default).
     """
     # Create a crawl run record
     run_id = db.insert_returning_id(
@@ -243,6 +267,10 @@ def run(
     # Build query for targets with fee schedule URLs
     where_clauses = ["fee_schedule_url IS NOT NULL", "status = 'active'"]
     params: list = []
+
+    # Circuit breaker: skip institutions with too many consecutive failures
+    if not include_failing:
+        where_clauses.append("consecutive_failures < 5")
 
     if state:
         where_clauses.append("state_code = ?")
@@ -272,6 +300,15 @@ def run(
     # Update run with target count
     db.execute("UPDATE crawl_runs SET targets_total = ? WHERE id = ?", (total, run_id))
     db.commit()
+
+    # Log how many were skipped by circuit breaker
+    if not include_failing:
+        skipped = db.fetchone(
+            "SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND status = 'active' AND consecutive_failures >= 5"
+        )
+        skipped_count = skipped["cnt"] if skipped else 0
+        if skipped_count > 0:
+            print(f"Skipping {skipped_count} institutions with 5+ consecutive failures (use --include-failing to retry)")
 
     print(f"Crawling {total} institutions (run #{run_id})")
     print(f"  Workers: {workers}")
@@ -426,6 +463,65 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     print(f"  Failed:     {stats['failed']}")
     print(f"  Unchanged:  {stats['unchanged']}")
     print(f"  Fees found: {stats['total_fees']}")
+
+
+def _classify_extraction_failure(text: str, doc_type: str) -> str:
+    """Classify why a document failed pre-LLM screening.
+
+    Returns a short reason string stored in crawl_targets.failure_reason.
+    """
+    lower = text.lower()
+    text_len = len(text.strip())
+
+    if text_len < 50:
+        return "empty_document"
+    if doc_type == "pdf" and text_len < 200:
+        return "scanned_pdf_no_ocr"
+
+    # Check what's missing
+    import re
+    fee_keywords = [
+        "fee", "charge", "service charge", "overdraft", "nsf",
+        "maintenance", "wire transfer", "atm", "stop payment",
+        "schedule of fees", "fee schedule",
+    ]
+    keyword_matches = sum(1 for kw in fee_keywords if kw in lower)
+    dollar_matches = len(re.findall(r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?", text))
+
+    if keyword_matches == 0 and dollar_matches == 0:
+        return "not_fee_related"
+    if keyword_matches > 0 and dollar_matches == 0:
+        return "no_dollar_amounts"
+    if keyword_matches < 3:
+        return "too_few_fee_keywords"
+
+    return "unknown"
+
+
+def _is_likely_fee_schedule(text: str) -> bool:
+    """Pre-LLM screening: check if text is likely a fee schedule.
+
+    Requires at least 3 fee-related keywords AND 2 dollar amounts.
+    This avoids wasting API calls on non-fee documents.
+    """
+    import re
+
+    lower = text.lower()
+
+    fee_keywords = [
+        "fee", "charge", "service charge", "overdraft", "nsf",
+        "non-sufficient funds", "insufficient funds", "maintenance",
+        "monthly service", "wire transfer", "atm", "stop payment",
+        "dormant", "inactive account", "cashier", "statement fee",
+        "schedule of fees", "fee schedule", "per item",
+    ]
+    keyword_matches = sum(1 for kw in fee_keywords if kw in lower)
+
+    # Count dollar amounts like $12.00, $35, $1,500.00
+    dollar_pattern = r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?"
+    dollar_matches = len(re.findall(dollar_pattern, text))
+
+    return keyword_matches >= 3 and dollar_matches >= 2
 
 
 def _save_result(

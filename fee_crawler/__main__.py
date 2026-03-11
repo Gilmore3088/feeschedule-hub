@@ -46,7 +46,8 @@ def cmd_crawl(args: argparse.Namespace) -> None:
     config = load_config()
     db = Database(config)
     try:
-        run(db, config, limit=args.limit, state=args.state, dry_run=args.dry_run, workers=args.workers)
+        run(db, config, limit=args.limit, state=args.state, dry_run=args.dry_run,
+            workers=args.workers, include_failing=args.include_failing)
     finally:
         db.close()
 
@@ -378,6 +379,11 @@ def main() -> None:
         type=int,
         default=1,
         help="Number of concurrent worker threads (default: 1)",
+    )
+    crawl_parser.add_argument(
+        "--include-failing",
+        action="store_true",
+        help="Include institutions with 5+ consecutive failures (skipped by default)",
     )
     crawl_parser.set_defaults(func=cmd_crawl)
 

@@ -5,16 +5,83 @@ change detection, and stores files locally (Supabase Storage later).
 """
 
 import hashlib
+import time
 from pathlib import Path
 
 import requests
 
 from fee_crawler.config import Config
 
+# Status codes that warrant a retry (transient server errors + rate limiting)
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+# Maximum retries and backoff base (seconds)
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 2  # 2s, 4s, 8s
+
 
 def compute_hash(content: bytes) -> str:
     """Compute SHA-256 hash of document content."""
     return hashlib.sha256(content).hexdigest()
+
+
+def _download_with_retries(
+    url: str, user_agent: str, max_retries: int = _MAX_RETRIES
+) -> requests.Response:
+    """Download a URL with exponential backoff on transient failures.
+
+    Retries on 429/5xx status codes and connection errors.
+    Respects Retry-After header on 429 responses.
+    """
+    last_error: Exception | None = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            resp = requests.get(
+                url,
+                timeout=(30, 60),  # (connect, read) timeouts
+                headers={"User-Agent": user_agent},
+                allow_redirects=True,
+            )
+
+            # Success or non-retryable error — return immediately
+            if resp.status_code not in _RETRYABLE_STATUS_CODES:
+                resp.raise_for_status()
+                return resp
+
+            # Retryable status code — back off and retry
+            if attempt < max_retries:
+                wait = _BACKOFF_BASE * (2 ** attempt)
+                # Respect Retry-After header on 429
+                if resp.status_code == 429:
+                    retry_after = resp.headers.get("Retry-After")
+                    if retry_after:
+                        try:
+                            wait = max(wait, min(float(retry_after), 60))
+                        except ValueError:
+                            pass
+                time.sleep(wait)
+                continue
+
+            # Final attempt — raise the status error
+            resp.raise_for_status()
+            return resp  # unreachable, raise_for_status throws
+
+        except requests.ConnectionError as e:
+            last_error = e
+            if attempt < max_retries:
+                time.sleep(_BACKOFF_BASE * (2 ** attempt))
+                continue
+            raise
+        except requests.Timeout as e:
+            last_error = e
+            if attempt < max_retries:
+                time.sleep(_BACKOFF_BASE * (2 ** attempt))
+                continue
+            raise
+
+    # Should not reach here, but just in case
+    raise last_error or requests.RequestException("Download failed after retries")
 
 
 def download_document(
@@ -46,13 +113,7 @@ def download_document(
     }
 
     try:
-        resp = requests.get(
-            url,
-            timeout=30,
-            headers={"User-Agent": config.crawl.user_agent},
-            allow_redirects=True,
-        )
-        resp.raise_for_status()
+        resp = _download_with_retries(url, config.crawl.user_agent, config.crawl.max_retries)
     except requests.RequestException as e:
         result["error"] = str(e)[:200]
         return result

@@ -9,6 +9,7 @@ Strategy (in order):
 
 import re
 import time
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
@@ -18,22 +19,75 @@ from bs4 import BeautifulSoup
 
 from fee_crawler.config import Config
 
+# Sitemap XML namespaces
+_SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+
 # Common paths where banks publish fee schedules (ordered by likelihood)
+# Grouped by: generic, personal banking, business, CMS-specific, CU-specific, regulatory
 COMMON_PATHS = [
+    # Generic top-level
     "/fees",
     "/fee-schedule",
-    "/disclosures",
-    "/fee-schedules",
     "/feeschedule",
+    "/fee-schedules",
+    "/disclosures",
     "/rates-and-fees",
     "/account-fees",
     "/schedule-of-fees",
     "/pricing",
+    "/service-fees",
+    "/service-charges",
+    "/fees-and-charges",
+    "/fee-information",
+    "/deposit-account-fees",
+    # Personal banking paths
     "/personal/fees",
     "/personal/fee-schedule",
     "/personal/disclosures",
     "/personal-banking/fees",
+    "/personal-banking/fee-schedule",
+    "/personal-banking/disclosures",
+    "/personal/checking/fees",
+    "/personal-banking/checking/fees",
+    "/consumer/fees",
+    "/consumer/fee-schedule",
+    "/consumer-banking/fees",
+    # Business banking paths
+    "/business/fees",
+    "/business/fee-schedule",
+    "/business-banking/fees",
+    "/commercial/fees",
+    # Nested resource paths
     "/resources/disclosures",
+    "/resources/fee-schedule",
+    "/resources/fees",
+    "/about/fees",
+    "/about/fee-schedule",
+    "/legal/disclosures",
+    "/legal/fees",
+    "/documents/fee-schedule",
+    "/accounts/fee-schedule",
+    "/accounts/fees",
+    # Credit union-specific paths
+    "/membership/fees",
+    "/membership/fee-schedule",
+    "/share-account-fees",
+    "/member-services/fees",
+    "/member-services/fee-schedule",
+    # Regulatory / disclosure document paths
+    "/truth-in-savings",
+    "/truth-in-savings-disclosure",
+    "/reg-dd",
+    "/reg-dd-disclosure",
+    "/deposit-disclosures",
+    # CMS-specific patterns (Drupal, WordPress, etc.)
+    "/sites/default/files/fee-schedule.pdf",
+    "/sites/default/files/fees.pdf",
+    "/wp-content/uploads/fee-schedule.pdf",
+    "/wp-content/uploads/schedule-of-fees.pdf",
+    "/media/fee-schedule.pdf",
+    "/assets/pdf/fee-schedule.pdf",
+    "/docs/fee-schedule.pdf",
 ]
 
 # Keywords to match in link text or href
@@ -247,6 +301,130 @@ class UrlDiscoverer:
         # Unknown PDF: don't auto-accept
         return False
 
+    def _parse_sitemap(self, base_url: str, robots: RobotFileParser | None) -> str | None:
+        """Parse sitemap.xml to find fee schedule URLs.
+
+        Checks robots.txt for Sitemap directives first, then falls back
+        to /sitemap.xml and /sitemap_index.xml.
+
+        Returns the best fee schedule URL found, or None.
+        """
+        sitemap_urls: list[str] = []
+
+        # Try to get sitemap URLs from robots.txt
+        if robots is not None:
+            try:
+                site_maps = robots.site_maps()
+                if site_maps:
+                    sitemap_urls.extend(site_maps)
+            except Exception:
+                pass
+
+        # Fallback to well-known sitemap locations
+        if not sitemap_urls:
+            sitemap_urls = [
+                urljoin(base_url, "/sitemap.xml"),
+                urljoin(base_url, "/sitemap_index.xml"),
+            ]
+
+        fee_urls: list[tuple[str, float]] = []  # (url, score)
+
+        for sitemap_url in sitemap_urls[:3]:  # Cap at 3 sitemap sources
+            try:
+                urls = self._fetch_sitemap_urls(sitemap_url, depth=0)
+                for url in urls:
+                    score = self._score_sitemap_url(url)
+                    if score > 0:
+                        fee_urls.append((url, score))
+            except Exception:
+                continue
+
+        if not fee_urls:
+            return None
+
+        # Return highest-scoring URL
+        fee_urls.sort(key=lambda x: x[1], reverse=True)
+        return fee_urls[0][0]
+
+    def _fetch_sitemap_urls(self, sitemap_url: str, depth: int = 0) -> list[str]:
+        """Fetch and parse a sitemap, following sitemap index entries up to depth 2."""
+        if depth > 2:
+            return []
+
+        resp = self._fetch(sitemap_url, timeout=15)
+        if resp is None or resp.status_code != 200:
+            return []
+
+        content_type = resp.headers.get("Content-Type", "").lower()
+        if "xml" not in content_type and "text" not in content_type:
+            return []
+
+        try:
+            root = ET.fromstring(resp.text)
+        except ET.ParseError:
+            return []
+
+        urls: list[str] = []
+        tag = root.tag.lower()
+
+        # Sitemap index: follow child sitemaps
+        if "sitemapindex" in tag:
+            for sitemap in root.findall("sm:sitemap/sm:loc", _SITEMAP_NS):
+                if sitemap.text:
+                    child_urls = self._fetch_sitemap_urls(sitemap.text.strip(), depth + 1)
+                    urls.extend(child_urls)
+                    if len(urls) > 500:  # Cap total URLs parsed
+                        break
+            # Also try without namespace (some sitemaps don't use it)
+            if not urls:
+                for sitemap in root.iter():
+                    if sitemap.tag.endswith("loc") and sitemap.text:
+                        if sitemap.text.strip().endswith(".xml"):
+                            child_urls = self._fetch_sitemap_urls(sitemap.text.strip(), depth + 1)
+                            urls.extend(child_urls)
+                            if len(urls) > 500:
+                                break
+        else:
+            # URL set: extract all <loc> URLs
+            for loc in root.findall("sm:url/sm:loc", _SITEMAP_NS):
+                if loc.text:
+                    urls.append(loc.text.strip())
+            # Fallback: try without namespace
+            if not urls:
+                for elem in root.iter():
+                    if elem.tag.endswith("loc") and elem.text:
+                        text = elem.text.strip()
+                        if not text.endswith(".xml"):
+                            urls.append(text)
+
+        return urls[:500]  # Cap
+
+    def _score_sitemap_url(self, url: str) -> float:
+        """Score a sitemap URL for fee schedule relevance."""
+        path_lower = urlparse(url).path.lower()
+        score = 0.0
+
+        # Strong signals in URL path
+        for kw in FEE_PDF_URL_KEYWORDS:
+            if kw in path_lower:
+                score += 10.0
+
+        # Single-word signals
+        for kw in FEE_PDF_SINGLE_KEYWORDS:
+            if re.search(rf"\b{kw}\b", path_lower):
+                score += 5.0
+
+        # PDF bonus
+        if path_lower.endswith(".pdf"):
+            score += 3.0
+
+        # Penalty for non-fee documents
+        for kw in NON_FEE_PDF_KEYWORDS:
+            if kw in path_lower:
+                score -= 15.0
+
+        return max(score, 0.0)
+
     def _is_same_domain(self, url: str, base_url: str) -> bool:
         """Check if URL is on the same domain (or subdomain)."""
         base_domain = urlparse(base_url).netloc.lower()
@@ -383,6 +561,29 @@ class UrlDiscoverer:
         # Step 0: Check robots.txt
         robots = self._check_robots(base_url)
 
+        # Step 0.5: Parse sitemap.xml for fee schedule URLs
+        sitemap_url = self._parse_sitemap(base_url, robots)
+        if sitemap_url:
+            result.pages_checked += 1
+            if self._is_allowed(sitemap_url, robots):
+                # Verify the sitemap-discovered URL is actually a fee page
+                if self._is_pdf_url(sitemap_url):
+                    result.found = True
+                    result.fee_schedule_url = sitemap_url
+                    result.document_type = "pdf"
+                    result.method = "sitemap"
+                    result.confidence = 0.85
+                    return result
+                else:
+                    is_fee, doc_type = self._verify_fee_page(sitemap_url)
+                    if is_fee:
+                        result.found = True
+                        result.fee_schedule_url = sitemap_url
+                        result.document_type = doc_type
+                        result.method = "sitemap"
+                        result.confidence = 0.80
+                        return result
+
         # Step 1: Probe common paths (light HEAD check, then GET on 200)
         for path in COMMON_PATHS:
             probe_url = base_url + path
@@ -454,8 +655,8 @@ class UrlDiscoverer:
             if not self._is_allowed(candidate.url, robots):
                 continue
 
-            # PDF link from homepage: verify URL path is fee-related
-            if candidate.is_pdf and candidate.score >= 8 and self._is_fee_pdf_url(candidate.url):
+            # PDF link from homepage: accept if URL path is fee-related OR link text scored very high
+            if candidate.is_pdf and candidate.score >= 8 and (self._is_fee_pdf_url(candidate.url) or candidate.score >= 15):
                 result.found = True
                 result.fee_schedule_url = candidate.url
                 result.document_type = "pdf"
@@ -475,7 +676,7 @@ class UrlDiscoverer:
                 return result
 
         # Step 3: Deep scan - follow top links and look for PDFs/fee content
-        deep_candidates = candidates[:3]
+        deep_candidates = candidates[:5]
         for candidate in deep_candidates:
             if candidate.is_pdf:
                 continue  # Already tried above
@@ -493,7 +694,7 @@ class UrlDiscoverer:
                 continue
 
             sub_candidates = self._scan_links(resp.text, resp.url)
-            for sub in sub_candidates[:3]:
+            for sub in sub_candidates[:5]:
                 if not self._is_allowed(sub.url, robots):
                     continue
 
