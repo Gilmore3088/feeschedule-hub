@@ -41,6 +41,7 @@ const SORT_COLUMNS: Record<string, string> = {
   assets: "ct.asset_size",
   fees: "fee_count",
   district: "ct.fed_district",
+  last_crawl: "ct.last_crawl_at",
 };
 
 export function getAllInstitutions(opts: {
@@ -48,6 +49,7 @@ export function getAllInstitutions(opts: {
   offset?: number;
   search?: string;
   filter?: "all" | "with_fees" | "no_fees";
+  urlStatus?: "all" | "no_website" | "no_fee_url" | "has_fee_url" | "crawl_ok" | "crawl_fail";
   state?: string;
   district?: string;
   tier?: string;
@@ -55,7 +57,7 @@ export function getAllInstitutions(opts: {
   dir?: "asc" | "desc";
 }): { institutions: InstitutionSummary[]; total: number } {
   const {
-    limit = 100, offset = 0, search, filter = "all",
+    limit = 100, offset = 0, search, filter = "all", urlStatus = "all",
     state, district, tier, sort = "assets", dir = "desc",
   } = opts;
 
@@ -79,6 +81,17 @@ export function getAllInstitutions(opts: {
     if (tier) {
       where.push("ct.asset_size_tier = ?");
       params.push(tier);
+    }
+    if (urlStatus === "no_website") {
+      where.push("ct.website_url IS NULL");
+    } else if (urlStatus === "no_fee_url") {
+      where.push("ct.website_url IS NOT NULL AND ct.fee_schedule_url IS NULL");
+    } else if (urlStatus === "has_fee_url") {
+      where.push("ct.fee_schedule_url IS NOT NULL");
+    } else if (urlStatus === "crawl_ok") {
+      where.push("ct.last_success_at IS NOT NULL AND ct.consecutive_failures = 0");
+    } else if (urlStatus === "crawl_fail") {
+      where.push("ct.consecutive_failures > 0");
     }
 
     const whereSql = where.length > 0 ? "WHERE " + where.join(" AND ") : "";
@@ -111,6 +124,7 @@ export function getAllInstitutions(opts: {
         `SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
                ct.asset_size, ct.asset_size_tier, ct.fed_district,
                ct.website_url, ct.fee_schedule_url, ct.document_type,
+               ct.last_crawl_at, ct.last_success_at, ct.consecutive_failures,
                COUNT(ef.id) as fee_count
         FROM crawl_targets ct
         LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id

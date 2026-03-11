@@ -130,7 +130,7 @@ def cmd_ingest_fdic(args: argparse.Namespace) -> None:
     config = load_config()
     db = Database(config)
     try:
-        run(db, config, report_date=args.report_date, limit=args.limit)
+        run(db, config, report_date=args.report_date, quarters=args.quarters, limit=args.limit)
     finally:
         db.close()
 
@@ -454,6 +454,12 @@ def main() -> None:
         type=str,
         default=None,
         help="Specific report date (YYYYMMDD), e.g. 20240930. Default: last 4 quarters",
+    )
+    fdic_parser.add_argument(
+        "--quarters",
+        type=int,
+        default=None,
+        help="Number of quarters to fetch (default: 8)",
     )
     fdic_parser.add_argument(
         "--limit",

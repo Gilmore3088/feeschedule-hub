@@ -10,6 +10,9 @@ export interface InstitutionSummary {
   fee_schedule_url: string | null;
   document_type: string | null;
   fee_count: number;
+  last_crawl_at: string | null;
+  last_success_at: string | null;
+  consecutive_failures: number;
 }
 
 export interface ExtractedFee {
