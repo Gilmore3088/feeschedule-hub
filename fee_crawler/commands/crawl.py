@@ -160,8 +160,9 @@ def _crawl_one(
             db.commit()
             return result
 
-        # Step 4: Validate fees
-        validated = validate_and_classify_fees(fees, config)
+        # Step 4: Categorize + validate fees (category enables auto-approve)
+        categories = [normalize_fee_name(f.fee_name) for f in fees]
+        validated = validate_and_classify_fees(fees, config, fee_categories=categories)
 
         # Steps 5-6: Replace old fees and store new ones in a single transaction
         # This ensures we never lose data if the process crashes mid-replacement
@@ -195,8 +196,9 @@ def _crawl_one(
 
             staged_count = 0
             flagged_count = 0
-            for fee, flags, review_status in validated:
-                fee_category = normalize_fee_name(fee.fee_name)
+            approved_count = 0
+            for i, (fee, flags, review_status) in enumerate(validated):
+                fee_category = categories[i]
                 fee_family = get_fee_family(fee_category) if fee_category else None
                 db.execute(
                     """INSERT INTO extracted_fees
@@ -210,7 +212,9 @@ def _crawl_one(
                      review_status, flags_to_json(flags),
                      fee_category, fee_family),
                 )
-                if review_status == "staged":
+                if review_status == "approved":
+                    approved_count += 1
+                elif review_status == "staged":
                     staged_count += 1
                 elif review_status == "flagged":
                     flagged_count += 1
@@ -229,16 +233,19 @@ def _crawl_one(
 
         result["status"] = "success"
         result["fees"] = len(validated)
+        result["approved"] = approved_count
         result["staged"] = staged_count
         result["flagged"] = flagged_count
         status_summary = f"{len(validated)} fees"
+        parts = []
+        if approved_count:
+            parts.append(f"{approved_count} auto-approved")
         if staged_count:
-            status_summary += f" ({staged_count} staged"
-            if flagged_count:
-                status_summary += f", {flagged_count} flagged"
-            status_summary += ")"
-        elif flagged_count:
-            status_summary += f" ({flagged_count} flagged)"
+            parts.append(f"{staged_count} staged")
+        if flagged_count:
+            parts.append(f"{flagged_count} flagged")
+        if parts:
+            status_summary += f" ({', '.join(parts)})"
         result["message"] = status_summary
         return result
 

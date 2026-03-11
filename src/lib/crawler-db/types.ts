@@ -62,14 +62,6 @@ export interface InstitutionDetail {
   fee_count: number;
 }
 
-export interface AnalysisResult {
-  id: number;
-  crawl_target_id: number;
-  analysis_type: string;
-  result_json: string;
-  computed_at: string;
-}
-
 export interface CrawlStats {
   total_institutions: number;
   banks: number;
