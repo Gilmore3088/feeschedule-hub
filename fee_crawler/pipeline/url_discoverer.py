@@ -677,6 +677,38 @@ class UrlDiscoverer:
         result.pages_checked += 1
         homepage_html = homepage_resp.text
 
+        # CMS fingerprinting: detect platform and try CMS-specific paths
+        from fee_crawler.pipeline.cms_fingerprint import fingerprint, get_cms_paths
+        cms_result = fingerprint(
+            homepage_resp.url,
+            headers=dict(homepage_resp.headers),
+            html=homepage_html,
+        )
+        if cms_result.platform:
+            cms_paths = get_cms_paths(cms_result.platform)
+            for path in cms_paths:
+                cms_url = base_url + path
+                if not self._is_allowed(cms_url, robots):
+                    continue
+                result.pages_checked += 1
+                resp = self._probe_url(cms_url)
+                if resp and resp.status_code == 200:
+                    content_type = resp.headers.get("Content-Type", "").lower()
+                    if "application/pdf" in content_type:
+                        result.found = True
+                        result.fee_schedule_url = resp.url
+                        result.document_type = "pdf"
+                        result.method = "cms_path"
+                        result.confidence = 0.85
+                        return result
+                    if "text/html" in content_type and self._is_fee_content(resp.text):
+                        result.found = True
+                        result.fee_schedule_url = resp.url
+                        result.document_type = "html"
+                        result.method = "cms_path"
+                        result.confidence = 0.80
+                        return result
+
         # Playwright fallback: if BS4 yields very little text, try JS rendering
         from bs4 import BeautifulSoup as BS4
         plain_text = BS4(homepage_html, "lxml").get_text(strip=True)

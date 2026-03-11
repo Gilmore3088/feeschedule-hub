@@ -348,20 +348,20 @@ Allow anyone to contribute fee data for institutions we can't crawl.
 
 Cross-institutional validation to catch extraction errors at scale.
 
-- [ ] For each category, compute IQR from national median
-- [ ] Flag amounts > P75 + 3*IQR or < P25 - 3*IQR as `statistical_outlier`
-- [ ] Detect decimal errors: amounts that are 10x or 100x the median
-- [ ] Detect percentage confusion: "0.50%" extracted as $0.50
-- [ ] Run after each crawl batch, flag outliers for review
+- [x] For each category, compute IQR from national median
+- [x] Flag amounts > P75 + 3*IQR or < P25 - 3*IQR as `statistical_outlier`
+- [x] Detect decimal errors: amounts that are 10x or 100x the median
+- [x] Detect percentage confusion: "0.50%" extracted as $0.50
+- [x] Run via `outlier-detect` CLI command with `--auto-flag` option
 
 ### 4c. CMS Fingerprinting for Targeted Discovery
 
 Knowing a bank's CMS platform (Drupal, WordPress, Banno, Q2) dramatically narrows URL patterns.
 
-- [ ] Detect CMS from `X-Powered-By` header, `<meta name="generator">`, or URL patterns
-- [ ] Maintain CMS-to-path mapping (e.g., Drupal → `/sites/default/files/*.pdf`)
-- [ ] Skip irrelevant paths for known CMS platforms
-- [ ] Track CMS platform in `crawl_targets` for analytics
+- [x] Detect CMS from `X-Powered-By` header, `<meta name="generator">`, or URL patterns
+- [x] Maintain CMS-to-path mapping (WordPress, Drupal, Banno, Q2, NCR, FIS, Fiserv)
+- [x] Try CMS-specific paths first when platform is detected
+- [x] Track CMS platform in `crawl_targets.cms_platform` column
 
 ### 4d. Advanced PDF Handling
 
@@ -387,10 +387,10 @@ For complex PDFs that pdfplumber + OCR can't handle.
 - [ ] Remove hardcoded `changeme` passwords from `fee_crawler/config.py`
 - [ ] Require seed passwords via env vars, reject `changeme` at startup
 - [ ] Add HMAC-SHA256 signature to `bfi_sub` cookie (prevent forgery)
-- [ ] Whitelist valid table names in `db.py:count()` (SQL injection fix)
+- [x] Whitelist valid table names in `db.py:count()` (SQL injection fix)
 - [ ] Update Python seeder to use scrypt matching Node.js `hashNewPassword()` format
-- [ ] Add LLM prompt injection defense (XML delimiters, system prompt instruction)
-- [ ] SSRF protection in download.py (reject private IPs, cloud metadata endpoints)
+- [x] Add LLM prompt injection defense (XML delimiters, system prompt instruction)
+- [x] SSRF protection in download.py (reject private IPs, cloud metadata endpoints)
 
 ---
 

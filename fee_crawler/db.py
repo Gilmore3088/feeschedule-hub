@@ -276,6 +276,7 @@ CREATE TABLE IF NOT EXISTS discovery_cache (
 
 _MIGRATE_CRAWL_TARGETS_V3 = [
     "ALTER TABLE crawl_targets ADD COLUMN failure_reason TEXT",
+    "ALTER TABLE crawl_targets ADD COLUMN cms_platform TEXT",
 ]
 
 
@@ -378,7 +379,19 @@ class Database:
     def fetchall(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         return self.conn.execute(sql, params).fetchall()
 
+    # Whitelist of valid table names to prevent SQL injection in count()
+    _VALID_TABLES = frozenset({
+        "crawl_targets", "crawl_runs", "crawl_results", "extracted_fees",
+        "analysis_results", "users", "fee_reviews", "sessions",
+        "institution_financials", "institution_complaints",
+        "fee_snapshots", "fee_change_events",
+        "fed_beige_book", "fed_content", "fed_economic_indicators",
+        "discovery_cache",
+    })
+
     def count(self, table: str) -> int:
+        if table not in self._VALID_TABLES:
+            raise ValueError(f"Invalid table name: {table}")
         row = self.fetchone(f"SELECT COUNT(*) as cnt FROM {table}")
         return row["cnt"] if row else 0
 

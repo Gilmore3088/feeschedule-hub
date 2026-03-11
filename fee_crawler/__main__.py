@@ -101,6 +101,18 @@ def cmd_validate(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_outlier_detect(args: argparse.Namespace) -> None:
+    """Detect statistical outliers in extracted fee amounts."""
+    from fee_crawler.pipeline.outlier_detection import run_outlier_detection
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run_outlier_detection(db, auto_flag=args.auto_flag)
+    finally:
+        db.close()
+
+
 def cmd_categorize(args: argparse.Namespace) -> None:
     """Batch-categorize extracted fees using fee name aliases."""
     from fee_crawler.commands.categorize_fees import run
@@ -421,6 +433,15 @@ def main() -> None:
     # validate command
     validate_parser = subparsers.add_parser("validate", help="Retroactively validate existing fees")
     validate_parser.set_defaults(func=cmd_validate)
+
+    # outlier-detect command
+    outlier_parser = subparsers.add_parser("outlier-detect", help="Detect statistical outliers in fee amounts")
+    outlier_parser.add_argument(
+        "--auto-flag",
+        action="store_true",
+        help="Automatically flag detected outliers for review",
+    )
+    outlier_parser.set_defaults(func=cmd_outlier_detect)
 
     # categorize command
     cat_parser = subparsers.add_parser("categorize", help="Batch-categorize fees using name aliases")

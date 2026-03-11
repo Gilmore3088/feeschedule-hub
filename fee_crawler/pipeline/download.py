@@ -2,15 +2,51 @@
 
 Downloads PDFs/HTML from fee_schedule_url, computes content hash for
 change detection, and stores files locally (Supabase Storage later).
+
+Includes SSRF protection: blocks private IPs and cloud metadata endpoints.
 """
 
 import hashlib
+import ipaddress
+import socket
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 
 from fee_crawler.config import Config
+
+# SSRF protection: blocked IP ranges
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+_BLOCKED_HOSTS = {"metadata.google.internal", "metadata.google.internal."}
+
+
+def _is_safe_url(url: str) -> bool:
+    """Check if URL is safe to fetch (not a private/internal address)."""
+    hostname = urlparse(url).hostname
+    if not hostname:
+        return False
+    if hostname.lower() in _BLOCKED_HOSTS:
+        return False
+    try:
+        for info in socket.getaddrinfo(hostname, None):
+            ip = ipaddress.ip_address(info[4][0])
+            for network in _BLOCKED_NETWORKS:
+                if ip in network:
+                    return False
+    except (socket.gaierror, ValueError):
+        pass
+    return True
 
 # Status codes that warrant a retry (transient server errors + rate limiting)
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
@@ -111,6 +147,11 @@ def download_document(
         "content": None,
         "error": None,
     }
+
+    # SSRF protection
+    if not _is_safe_url(url):
+        result["error"] = "URL blocked by SSRF protection (private/internal address)"
+        return result
 
     try:
         resp = _download_with_retries(url, config.crawl.user_agent, config.crawl.max_retries)
