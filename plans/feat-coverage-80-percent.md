@@ -398,19 +398,19 @@ For complex PDFs that pdfplumber + OCR can't handle.
 ## Acceptance Criteria
 
 ### Phase 1 (Quick Wins → 7%)
-- [ ] Download retries implemented with exponential backoff
-- [ ] Common paths expanded to 50+
-- [ ] Sitemap parsing runs before path probing
-- [ ] OCR fallback produces text from scanned PDFs
-- [ ] Pre-LLM screening rejects non-fee documents
-- [ ] Circuit breaker skips institutions with 5+ consecutive failures
-- [ ] Re-crawl wrapped in transaction (no data loss on crash)
+- [x] Download retries implemented with exponential backoff
+- [x] Common paths expanded to 50+ (56 paths)
+- [x] Sitemap parsing runs before path probing
+- [x] OCR fallback produces text from scanned PDFs
+- [x] Pre-LLM screening rejects non-fee documents
+- [x] Circuit breaker skips institutions with 5+ consecutive failures
+- [x] Re-crawl wrapped in transaction (no data loss on crash)
 - [ ] Full re-discovery + re-crawl run shows 5,000+ institutions with fees
 
 ### Phase 2 (Discovery Engine → 21%)
-- [ ] SerpAPI integration finds URLs for 5,000+ previously-missed institutions
-- [ ] Playwright renders JS sites and extracts fee URLs
-- [ ] Discovery cache prevents re-trying exhausted methods
+- [x] SerpAPI integration finds URLs for previously-missed institutions
+- [x] Playwright renders JS sites and extracts fee URLs
+- [x] Discovery cache prevents re-trying exhausted methods
 - [x] Per-domain rate limiter prevents IP bans
 - [ ] NCUA website enrichment fills 1,000+ missing URLs
 - [x] Call Report data ingested for prioritization
@@ -425,8 +425,8 @@ For complex PDFs that pdfplumber + OCR can't handle.
 
 ### Phase 4 (Long Tail → 80%)
 - [x] Public submission form accepts community contributions
-- [ ] Outlier detection flags extraction errors
-- [ ] CMS fingerprinting improves discovery efficiency
+- [x] Outlier detection flags extraction errors
+- [x] CMS fingerprinting improves discovery efficiency
 - [ ] 57,000+ institutions with extracted fees (80% coverage)
 
 ---
