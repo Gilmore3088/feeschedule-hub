@@ -25,7 +25,7 @@ These must be done before the site goes live. Without them, the site will crash,
 - [x] Add `DB_PATH` env var support to `src/lib/crawler-db/connection.ts` (fallback to `data/crawler.db`)
 - [x] Add `DB_PATH` env var support to `src/lib/auth.ts` and `src/lib/fee-actions.ts`
 - [x] Create `.env.example` documenting `DB_PATH`, `NODE_ENV`
-- [ ] Set up Litestream for continuous SQLite backup to S3/R2
+- [x] Add Litestream config (`litestream.yml`, `run.sh`, Dockerfile integration)
 
 **Files:**
 - `next.config.ts` (add `output: "standalone"`)
@@ -172,8 +172,8 @@ These should be done before or on launch day. The site will function without the
 
 ### 2.1 Monitoring & Analytics
 
-- [ ] Set up Sentry error tracking (free tier, 5K errors/month)
-- [ ] Set up Plausible analytics ($9/month, no cookies, no consent banner needed)
+- [ ] Set up Sentry error tracking — run `npx @sentry/wizard@latest -i nextjs` and set DSN
+- [x] Add Plausible analytics script to root layout (set `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`)
 - [ ] Set up Google Search Console (verify domain, submit sitemap)
 - [ ] Add custom events: fee category views, request access submissions, fee checker usage
 
