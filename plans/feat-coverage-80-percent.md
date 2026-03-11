@@ -288,13 +288,13 @@ Improve extraction quality for the flood of new URLs from Phase 2.
 
 ### 3a. LLM Extraction Improvements
 
-- [ ] Switch from free-form JSON to `tool_use` with schema enforcement (eliminates JSON parsing failures)
-- [ ] Increase `MAX_TEXT_LENGTH` from 50K to 100K chars (Sonnet handles 200K context)
-- [ ] Add institution context to prompt: name, charter type, document type
-- [ ] Wrap extracted text in XML delimiters for prompt injection defense
-- [ ] Add system prompt: "Only extract data from within document_content tags"
-- [ ] Add retry on empty results with a more specific prompt ("Look for fee tables, schedules, or disclosures")
-- [ ] Add anomaly detection: flag if single institution returns 100+ fees
+- [x] Switch from free-form JSON to `tool_use` with schema enforcement (eliminates JSON parsing failures)
+- [x] Increase `MAX_TEXT_LENGTH` from 50K to 100K chars (Sonnet handles 200K context)
+- [x] Add institution context to prompt: name, charter type, document type
+- [x] Wrap extracted text in XML delimiters for prompt injection defense
+- [x] Add system prompt: "Only extract data from within document_content tags"
+- [x] Add retry on empty results with a more specific prompt ("Look for fee tables, schedules, or disclosures")
+- [x] Add anomaly detection: flag if single institution returns 100+ fees
 
 ### 3b. Expand Fee Categorization
 
@@ -310,12 +310,12 @@ Improve extraction quality for the flood of new URLs from Phase 2.
 
 ### 3c. Automated Scheduling (Cron)
 
-- [ ] Create `scripts/run_pipeline.sh` with lockfile (`flock -n`)
-- [ ] Tiered frequency: monthly for $10B+, quarterly for $1B-$10B, semi-annually for <$1B
-- [ ] API cost tracking with daily budget cap
-- [ ] Structured JSON logs for monitoring
-- [ ] Add `--max-cost` flag to limit per-run API spend
-- [ ] PID-based stale lockfile detection
+- [x] Create `scripts/run_pipeline.sh` with PID-based lockfile
+- [x] Tiered frequency: monthly for $10B+, quarterly for $1B-$10B, semi-annually for <$1B
+- [x] API cost tracking via --max-cost flag
+- [x] Structured JSON logs for monitoring
+- [x] Add `--max-cost` flag to limit per-run API spend
+- [x] PID-based stale lockfile detection
 
 ### 3d. Data Quality Dashboard
 

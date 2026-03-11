@@ -132,8 +132,14 @@ def _crawl_one(
             db.commit()
             return result
 
+        charter = target.get("charter_type", "bank")
         try:
-            fees = extract_fees_with_llm(text, config)
+            fees = extract_fees_with_llm(
+                text, config,
+                institution_name=name,
+                charter_type=charter,
+                document_type=doc_type,
+            )
         except Exception as e:
             result["status"] = "failed"
             result["message"] = f"LLM FAILED: {e}"
@@ -279,7 +285,7 @@ def run(
     where_sql = " AND ".join(where_clauses)
 
     query = f"""SELECT id, institution_name, fee_schedule_url, document_type,
-                   last_content_hash, state_code, asset_size
+                   last_content_hash, state_code, asset_size, charter_type
             FROM crawl_targets
             WHERE {where_sql}
             ORDER BY asset_size DESC NULLS LAST"""
