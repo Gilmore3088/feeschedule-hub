@@ -375,6 +375,208 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "loan origination fee": "loan_origination",
     "origination fee": "loan_origination",
     "appraisal fee": "appraisal_fee",
+    # --- Additional Account Maintenance aliases ---
+    "monthly account fee": "monthly_maintenance",
+    "monthly checking fee": "monthly_maintenance",
+    "monthly savings fee": "monthly_maintenance",
+    "account maintenance": "monthly_maintenance",
+    "account service charge": "monthly_maintenance",
+    "monthly account maintenance": "monthly_maintenance",
+    "account service fee": "monthly_maintenance",
+    "monthly account charge": "monthly_maintenance",
+    "monthly charge": "monthly_maintenance",
+    "checking account fee": "monthly_maintenance",
+    "savings account fee": "monthly_maintenance",
+    "account fee": "monthly_maintenance",
+    "low balance fee": "minimum_balance",
+    "minimum balance charge": "minimum_balance",
+    "average balance fee": "minimum_balance",
+    "below minimum fee": "minimum_balance",
+    "early termination fee": "early_closure",
+    "closing account fee": "early_closure",
+    "close account": "early_closure",
+    "early withdrawal penalty": "early_closure",
+    "dormancy fee": "dormant_account",
+    "abandoned account fee": "dormant_account",
+    "stale account fee": "dormant_account",
+    "unclaimed property fee": "dormant_account",
+    "record research fee": "account_research",
+    "document retrieval fee": "account_research",
+    "research per hour": "account_research",
+    "account inquiry fee": "account_research",
+    "statement mailing fee": "paper_statement",
+    "monthly paper statement": "paper_statement",
+    "mailed statement fee": "paper_statement",
+    "physical statement fee": "paper_statement",
+    # --- Additional Overdraft & NSF aliases ---
+    "overdraft paid fee": "overdraft",
+    "paid od fee": "overdraft",
+    "paid item fee": "overdraft",
+    "honor fee": "overdraft",
+    "honored overdraft": "overdraft",
+    "paid nsf fee": "overdraft",
+    "od paid item": "overdraft",
+    "overdraft per item": "overdraft",
+    "overdraft items": "overdraft",
+    "bounce protection fee": "overdraft",
+    "bounce fee": "overdraft",
+    "bounced check fee": "nsf",
+    "returned payment fee": "nsf",
+    "returned transaction fee": "nsf",
+    "returned ach": "nsf",
+    "returned ach item": "nsf",
+    "unpaid item fee": "nsf",
+    "unpaid nsf fee": "nsf",
+    "nsf item fee": "nsf",
+    "nsf check fee": "nsf",
+    "nsf per item": "nsf",
+    "dishonored check": "nsf",
+    "dishonored item": "nsf",
+    "per day overdraft fee": "continuous_od",
+    "overdraft per day": "continuous_od",
+    "od per day": "continuous_od",
+    "negative balance per day": "continuous_od",
+    "extended od fee": "continuous_od",
+    "extended negative balance": "continuous_od",
+    "overdraft sweep fee": "od_protection_transfer",
+    "od sweep fee": "od_protection_transfer",
+    "automatic transfer overdraft": "od_protection_transfer",
+    "auto transfer od": "od_protection_transfer",
+    "overdraft savings transfer": "od_protection_transfer",
+    "overdraft line of credit": "od_line_of_credit",
+    "od line of credit": "od_line_of_credit",
+    "overdraft loc advance": "od_line_of_credit",
+    # --- Additional ATM & Card aliases ---
+    "non network atm": "atm_non_network",
+    "out of network atm": "atm_non_network",
+    "atm non member": "atm_non_network",
+    "atm usage fee": "atm_non_network",
+    "atm transaction fee": "atm_non_network",
+    "other atm fee": "atm_non_network",
+    "third party atm": "atm_non_network",
+    "atm balance inquiry": "balance_inquiry",
+    "atm inquiry fee": "balance_inquiry",
+    "new card fee": "card_replacement",
+    "reissue card fee": "card_replacement",
+    "reissue debit card": "card_replacement",
+    "card reissue fee": "card_replacement",
+    "instant issue card": "rush_card",
+    "instant card fee": "rush_card",
+    "rush debit card": "rush_card",
+    "overnight card delivery": "rush_card",
+    "express card delivery": "rush_card",
+    "international purchase fee": "card_foreign_txn",
+    "foreign currency fee": "card_foreign_txn",
+    "foreign purchase fee": "card_foreign_txn",
+    "international service fee": "card_foreign_txn",
+    "debit card foreign transaction": "card_foreign_txn",
+    "visa international": "card_foreign_txn",
+    "mastercard international": "card_foreign_txn",
+    # --- Additional Wire Transfer aliases ---
+    "wire fee": "wire_domestic_outgoing",
+    "wire send fee": "wire_domestic_outgoing",
+    "wire receive fee": "wire_domestic_incoming",
+    "outbound wire": "wire_domestic_outgoing",
+    "inbound wire": "wire_domestic_incoming",
+    "domestic outgoing wire": "wire_domestic_outgoing",
+    "domestic incoming wire": "wire_domestic_incoming",
+    "domestic outbound wire": "wire_domestic_outgoing",
+    "domestic inbound wire": "wire_domestic_incoming",
+    "intl wire out": "wire_intl_outgoing",
+    "intl wire in": "wire_intl_incoming",
+    "intl wire transfer": "wire_intl_outgoing",
+    "foreign wire transfer": "wire_intl_outgoing",
+    "foreign outgoing wire": "wire_intl_outgoing",
+    "foreign incoming wire": "wire_intl_incoming",
+    # --- Additional Check Services aliases ---
+    "cashier check fee": "cashiers_check",
+    "cashier check": "cashiers_check",
+    "tellers check fee": "cashiers_check",
+    "tellers check": "cashiers_check",
+    "teller check fee": "cashiers_check",
+    "teller check": "cashiers_check",
+    "official bank check": "cashiers_check",
+    "bank draft fee": "cashiers_check",
+    "bank draft": "cashiers_check",
+    "money order purchase": "money_order",
+    "purchase money order": "money_order",
+    "reorder checks": "check_printing",
+    "check reorders": "check_printing",
+    "checks ordered": "check_printing",
+    "first order checks": "check_printing",
+    "stop payment per item": "stop_payment",
+    "stop payment request": "stop_payment",
+    "stop pay": "stop_payment",
+    "stop check": "stop_payment",
+    "revoke stop payment": "stop_payment",
+    "counter check": "counter_check",
+    "withdrawal slip": "counter_check",
+    "non customer check cashing": "check_cashing",
+    "non member check cashing": "check_cashing",
+    "check image copy": "check_image",
+    "cancelled check copy": "check_image",
+    "canceled check copy": "check_image",
+    "front and back copy": "check_image",
+    "check photocopy": "check_image",
+    # --- Additional Digital & Electronic aliases ---
+    "ach fee": "ach_origination",
+    "ach transfer": "ach_origination",
+    "ach origination": "ach_origination",
+    "outgoing ach": "ach_origination",
+    "incoming ach": "ach_origination",
+    "ach return": "ach_return",
+    "returned ach": "ach_return",
+    "ach returned item fee": "ach_return",
+    "online bill payment": "bill_pay",
+    "online bill payment fee": "bill_pay",
+    "electronic bill pay": "bill_pay",
+    "ebill pay": "bill_pay",
+    "remote deposit capture fee": "mobile_deposit",
+    "remote deposit capture": "mobile_deposit",
+    "mobile check deposit fee": "mobile_deposit",
+    "rdc fee": "mobile_deposit",
+    # --- Additional Cash & Deposit aliases ---
+    "coin counting": "coin_counting",
+    "coin processing": "coin_counting",
+    "coin deposit fee": "coin_counting",
+    "loose coin fee": "coin_counting",
+    "coin sorting fee": "coin_counting",
+    "cash handling fee": "coin_counting",
+    "cash advance": "cash_advance",
+    "deposited item returned": "deposited_item_return",
+    "returned deposit": "deposited_item_return",
+    "chargeback deposited item": "deposited_item_return",
+    "foreign item collection": "deposited_item_return",
+    "night depository": "night_deposit",
+    "night deposit bag": "night_deposit",
+    "after hours deposit": "night_deposit",
+    # --- Additional Account Services aliases ---
+    "notarize": "notary_fee",
+    "notary public": "notary_fee",
+    "notarization fee": "notary_fee",
+    "safe deposit box annual": "safe_deposit_box",
+    "safe deposit rental": "safe_deposit_box",
+    "safe deposit box drilling": "safe_deposit_box",
+    "lock box fee": "safe_deposit_box",
+    "garnishment processing": "garnishment_levy",
+    "levy processing": "garnishment_levy",
+    "attachment/levy": "garnishment_levy",
+    "tax levy fee": "garnishment_levy",
+    "irs levy": "garnishment_levy",
+    "court order fee": "legal_process",
+    "court order": "legal_process",
+    "legal attachment": "legal_process",
+    "levy/garnishment": "garnishment_levy",
+    "verification of deposit fee": "account_verification",
+    "vod fee": "account_verification",
+    "deposit verification letter": "account_verification",
+    "account confirmation": "account_verification",
+    "reference letter fee": "account_verification",
+    "credit reference": "account_verification",
+    "teller inquiry": "balance_inquiry",
+    "phone inquiry fee": "balance_inquiry",
+    "telephone inquiry": "balance_inquiry",
+    "automated balance inquiry": "balance_inquiry",
 }
 
 CANONICAL_DISPLAY_NAMES: dict[str, str] = {
@@ -528,6 +730,39 @@ def _get_sorted_aliases() -> list[tuple[str, str]]:
     return _SORTED_ALIASES
 
 
+# Regex patterns for fee names that can appear in many word orders
+# Each tuple: (compiled_regex, canonical_category)
+_REGEX_PATTERNS: list[tuple[re.Pattern, str]] = [
+    # Wire transfers (any word order with domestic/international + in/out)
+    (re.compile(r"(?=.*wire)(?=.*(?:intl|international|foreign))(?=.*\b(?:in\b|incoming|inbound|receive))"), "wire_intl_incoming"),
+    (re.compile(r"(?=.*wire)(?=.*(?:intl|international|foreign))"), "wire_intl_outgoing"),
+    (re.compile(r"(?=.*wire)(?=.*\b(?:in\b|incoming|inbound|receive))"), "wire_domestic_incoming"),
+    (re.compile(r"(?=.*wire)(?=.*\b(?:out\b|outgoing|outbound|send))"), "wire_domestic_outgoing"),
+    # Overdraft variations
+    (re.compile(r"(?=.*(?:overdraft|od))(?=.*(?:transfer|sweep|protection))"), "od_protection_transfer"),
+    (re.compile(r"(?=.*(?:overdraft|od))(?=.*(?:continuous|sustained|extended|daily|per day|recurring))"), "continuous_od"),
+    # NSF variations
+    (re.compile(r"(?=.*(?:nsf|non.?sufficient|insufficient|returned))(?=.*(?:item|check|payment|transaction))"), "nsf"),
+    # ATM variations
+    (re.compile(r"(?=.*atm)(?=.*(?:non.?network|out.?of.?network|foreign|non.?member|third.?party|surcharge))"), "atm_non_network"),
+    (re.compile(r"(?=.*atm)(?=.*(?:international|intl|overseas|abroad))"), "atm_international"),
+    # Card foreign transaction
+    (re.compile(r"(?=.*(?:card|debit|visa|mastercard))(?=.*(?:foreign|international|cross.?border|currency))"), "card_foreign_txn"),
+    # Stop payment
+    (re.compile(r"stop\s*(?:payment|pay|check)"), "stop_payment"),
+    # Garnishment/levy
+    (re.compile(r"(?:garnish|levy|attachment|tax levy|irs levy)"), "garnishment_levy"),
+]
+
+
+def _match_regex_patterns(cleaned: str) -> str | None:
+    """Try regex-based patterns for fee names with variable word order."""
+    for pattern, canonical in _REGEX_PATTERNS:
+        if pattern.search(cleaned):
+            return canonical
+    return None
+
+
 def normalize_fee_name(raw_name: str) -> str:
     """Map a raw fee name to its canonical form.
 
@@ -552,6 +787,11 @@ def normalize_fee_name(raw_name: str) -> str:
     # Direct alias match
     if cleaned in FEE_NAME_ALIASES:
         return FEE_NAME_ALIASES[cleaned]
+
+    # Regex-based pattern matching (catches word-order variations)
+    regex_match = _match_regex_patterns(cleaned)
+    if regex_match:
+        return regex_match
 
     # Fuzzy: check if any alias is contained in the cleaned name
     # Sorted longest-first so "continuous overdraft fee" matches before "overdraft fee"

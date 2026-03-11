@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 from fee_crawler.config import Config
 from fee_crawler.db import Database
+from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 from fee_crawler.pipeline.search_discovery import SearchDiscoverer
 from fee_crawler.pipeline.url_discoverer import DISCOVERY_METHODS, UrlDiscoverer
 
@@ -79,6 +80,7 @@ def _discover_one(
     force: bool = False,
     max_search_cost: float = 25.0,
     search_cost_so_far: float = 0.0,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> tuple[dict, object, float]:
     """Worker function: discover fee schedule URL for a single institution.
 
@@ -91,9 +93,10 @@ def _discover_one(
 
     db = Database(config)
     disc_config = config.model_copy()
-    if concurrent:
+    if concurrent and not rate_limiter:
+        # Only reduce delay if no rate limiter is managing timing
         disc_config.crawl = config.crawl.model_copy(update={"delay_seconds": 0.3})
-    discoverer = UrlDiscoverer(disc_config)
+    discoverer = UrlDiscoverer(disc_config, rate_limiter=rate_limiter)
 
     try:
         # Check which methods to skip based on cache
@@ -261,10 +264,17 @@ def run(
     else:
         print("  Search API: disabled (set SERPAPI_API_KEY to enable)")
 
+    # Create shared rate limiter for polite crawling
+    limiter = DomainRateLimiter(
+        default_delay=config.crawl.delay_seconds,
+        max_concurrent_domains=min(workers * 2, 20),
+    )
+    print(f"  Rate limit: {config.crawl.delay_seconds}s/domain, max {min(workers * 2, 20)} concurrent domains")
+
     if workers <= 1:
-        _run_serial(targets, config, total, force, max_search_cost)
+        _run_serial(targets, config, total, force, max_search_cost, limiter)
     else:
-        _run_concurrent(targets, config, total, workers, force, max_search_cost)
+        _run_concurrent(targets, config, total, workers, force, max_search_cost, limiter)
 
 
 def _run_serial(
@@ -273,6 +283,7 @@ def _run_serial(
     total: int,
     force: bool = False,
     max_search_cost: float = 25.0,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> None:
     """Serial discovery loop with cache cascade and search fallback."""
     found_count = 0
@@ -294,6 +305,7 @@ def _run_serial(
                     target, config, concurrent=False, force=force,
                     max_search_cost=max_search_cost,
                     search_cost_so_far=total_search_cost,
+                    rate_limiter=rate_limiter,
                 )
                 total_search_cost += search_cost
             except Exception as e:
@@ -333,6 +345,7 @@ def _run_concurrent(
     workers: int,
     force: bool = False,
     max_search_cost: float = 25.0,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> None:
     """Concurrent discovery using ThreadPoolExecutor."""
     found_count = 0
@@ -348,6 +361,7 @@ def _run_concurrent(
                 executor.submit(
                     _discover_one, target, config, True, force,
                     max_search_cost, 0.0,
+                    rate_limiter=rate_limiter,
                 ): target
                 for target in targets
             }

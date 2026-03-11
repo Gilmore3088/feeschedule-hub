@@ -137,6 +137,24 @@ def cmd_backfill_ncua_urls(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_ingest_call_reports(args: argparse.Namespace) -> None:
+    """Ingest Call Report service charge revenue data."""
+    from fee_crawler.commands.ingest_call_reports import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(
+            db, config,
+            csv_path=args.csv,
+            report_date=args.report_date,
+            source=args.source,
+            show_gaps=args.gaps,
+        )
+    finally:
+        db.close()
+
+
 def cmd_ingest_fdic(args: argparse.Namespace) -> None:
     """Ingest financial data from FDIC BankFind API."""
     from fee_crawler.commands.ingest_fdic import run
@@ -480,6 +498,36 @@ def main() -> None:
         help="Max institutions to process (for testing)",
     )
     ncua_url_parser.set_defaults(func=cmd_backfill_ncua_urls)
+
+    # ingest-call-reports command
+    call_report_parser = subparsers.add_parser(
+        "ingest-call-reports",
+        help="Ingest Call Report service charge revenue data for coverage gap analysis",
+    )
+    call_report_parser.add_argument(
+        "--csv",
+        type=str,
+        default=None,
+        help="Path to bulk Call Report CSV file",
+    )
+    call_report_parser.add_argument(
+        "--report-date",
+        type=str,
+        default=None,
+        help="Reporting period (e.g., 2024-12-31). Required with --csv",
+    )
+    call_report_parser.add_argument(
+        "--source",
+        type=str,
+        default="ffiec",
+        help="Data source identifier: ffiec or ncua_5300 (default: ffiec)",
+    )
+    call_report_parser.add_argument(
+        "--gaps",
+        action="store_true",
+        help="Show high-revenue institutions missing fee data",
+    )
+    call_report_parser.set_defaults(func=cmd_ingest_call_reports)
 
     # ingest-fdic command
     fdic_parser = subparsers.add_parser("ingest-fdic", help="Ingest FDIC financial data")

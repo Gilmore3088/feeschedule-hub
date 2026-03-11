@@ -11,10 +11,13 @@ Strategy (in order):
 Supports discovery caching to avoid re-trying methods that already failed.
 """
 
+from __future__ import annotations
+
 import re
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -22,6 +25,9 @@ import requests
 from bs4 import BeautifulSoup
 
 from fee_crawler.config import Config
+
+if TYPE_CHECKING:
+    from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 
 # Sitemap XML namespaces
 _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
@@ -212,7 +218,11 @@ class _LinkCandidate:
 class UrlDiscoverer:
     """Discovers fee schedule URLs on a single institution's website."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(
+        self,
+        config: Config,
+        rate_limiter: "DomainRateLimiter | None" = None,
+    ) -> None:
         self.config = config
         self.session = requests.Session()
         self.session.headers.update({
@@ -222,9 +232,17 @@ class UrlDiscoverer:
         })
         self.delay = config.crawl.delay_seconds
         self._last_request_time: float = 0
+        self._rate_limiter = rate_limiter
 
-    def _throttle(self) -> None:
-        """Enforce minimum delay between requests."""
+    def _throttle(self, url: str | None = None) -> None:
+        """Enforce minimum delay between requests.
+
+        If a DomainRateLimiter is configured, delegates to it for
+        per-domain rate limiting. Otherwise uses the built-in simple delay.
+        """
+        if self._rate_limiter and url:
+            self._rate_limiter.wait(url)
+            return
         elapsed = time.time() - self._last_request_time
         if elapsed < self.delay:
             time.sleep(self.delay - elapsed)
@@ -232,7 +250,7 @@ class UrlDiscoverer:
 
     def _fetch(self, url: str, timeout: int = 15, method: str = "GET") -> requests.Response | None:
         """Fetch a URL with throttling and error handling."""
-        self._throttle()
+        self._throttle(url)
         try:
             if method == "HEAD":
                 resp = self.session.head(url, timeout=timeout, allow_redirects=True)

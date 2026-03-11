@@ -6,16 +6,22 @@ change detection, and stores files locally (Supabase Storage later).
 Includes SSRF protection: blocks private IPs and cloud metadata endpoints.
 """
 
+from __future__ import annotations
+
 import hashlib
 import ipaddress
 import socket
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
 
 from fee_crawler.config import Config
+
+if TYPE_CHECKING:
+    from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 
 # SSRF protection: blocked IP ranges
 _BLOCKED_NETWORKS = [
@@ -62,17 +68,24 @@ def compute_hash(content: bytes) -> str:
 
 
 def _download_with_retries(
-    url: str, user_agent: str, max_retries: int = _MAX_RETRIES
+    url: str,
+    user_agent: str,
+    max_retries: int = _MAX_RETRIES,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> requests.Response:
     """Download a URL with exponential backoff on transient failures.
 
     Retries on 429/5xx status codes and connection errors.
     Respects Retry-After header on 429 responses.
+    If a rate_limiter is provided, waits for domain rate limit before each attempt.
     """
     last_error: Exception | None = None
 
     for attempt in range(max_retries + 1):
         try:
+            # Wait for domain rate limit before each attempt
+            if rate_limiter:
+                rate_limiter.wait(url)
             resp = requests.get(
                 url,
                 timeout=(30, 60),  # (connect, read) timeouts
@@ -126,6 +139,7 @@ def download_document(
     config: Config,
     *,
     last_hash: str | None = None,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> dict:
     """Download a document and save locally.
 
@@ -154,7 +168,10 @@ def download_document(
         return result
 
     try:
-        resp = _download_with_retries(url, config.crawl.user_agent, config.crawl.max_retries)
+        resp = _download_with_retries(
+            url, config.crawl.user_agent, config.crawl.max_retries,
+            rate_limiter=rate_limiter,
+        )
     except requests.RequestException as e:
         result["error"] = str(e)[:200]
         return result

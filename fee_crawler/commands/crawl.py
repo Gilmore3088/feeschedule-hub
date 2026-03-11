@@ -19,6 +19,7 @@ from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
 from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
 from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf
+from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 from fee_crawler.validation import validate_and_classify_fees, flags_to_json
 
 
@@ -27,6 +28,7 @@ def _crawl_one(
     config: Config,
     run_id: int,
     dry_run: bool = False,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> dict:
     """Worker function: crawl a single institution.
 
@@ -55,7 +57,7 @@ def _crawl_one(
 
     try:
         # Step 1: Download
-        dl = download_document(url, target_id, config, last_hash=last_hash)
+        dl = download_document(url, target_id, config, last_hash=last_hash, rate_limiter=rate_limiter)
 
         if not dl["success"]:
             result["status"] = "failed"
@@ -316,16 +318,23 @@ def run(
         if skipped_count > 0:
             print(f"Skipping {skipped_count} institutions with 5+ consecutive failures (use --include-failing to retry)")
 
+    # Create shared rate limiter for polite crawling
+    limiter = DomainRateLimiter(
+        default_delay=config.crawl.delay_seconds,
+        max_concurrent_domains=min(workers * 2, 20),
+    )
+
     print(f"Crawling {total} institutions (run #{run_id})")
     print(f"  Workers: {workers}")
+    print(f"  Rate limit: {config.crawl.delay_seconds}s/domain, max {min(workers * 2, 20)} concurrent domains")
     if dry_run:
         print("  DRY RUN: will extract text but skip LLM fee extraction")
     print()
 
     if workers <= 1:
-        _run_serial(targets, config, run_id, dry_run, total, db)
+        _run_serial(targets, config, run_id, dry_run, total, db, limiter)
     else:
-        _run_concurrent(targets, config, run_id, dry_run, total, workers, db)
+        _run_concurrent(targets, config, run_id, dry_run, total, workers, db, limiter)
 
 
 def _run_serial(
@@ -335,6 +344,7 @@ def _run_serial(
     dry_run: bool,
     total: int,
     db: Database,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> None:
     """Original serial crawl loop."""
     stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0}
@@ -348,7 +358,7 @@ def _run_serial(
             print(f"[{i}/{total}] {name[:45]:45s} ({state_code}) {doc_type:4s}", end="  ")
             stats["crawled"] += 1
 
-            result = _crawl_one(target, config, run_id, dry_run)
+            result = _crawl_one(target, config, run_id, dry_run, rate_limiter=rate_limiter)
 
             if result["status"] == "success":
                 stats["succeeded"] += 1
@@ -382,6 +392,7 @@ def _run_concurrent(
     total: int,
     workers: int,
     db: Database,
+    rate_limiter: DomainRateLimiter | None = None,
 ) -> None:
     """Concurrent crawl using ThreadPoolExecutor."""
     stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0}
@@ -391,7 +402,7 @@ def _run_concurrent(
     try:
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(_crawl_one, target, config, run_id, dry_run): target
+                executor.submit(_crawl_one, target, config, run_id, dry_run, rate_limiter=rate_limiter): target
                 for target in targets
             }
 

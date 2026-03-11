@@ -257,7 +257,7 @@ Current flat delay bypasses per-domain limits. Multiple workers can hit the same
 - [x] Enforce 1 concurrent request per domain
 - [x] Add jitter: `delay * (1 + random.uniform(-0.2, 0.2))`
 - [x] Max 10 concurrent domains globally
-- [ ] Integrate into both `url_discoverer.py` and `download.py` (module ready, integration deferred)
+- [x] Integrate into both `url_discoverer.py` and `download.py`
 
 ### 2e. NCUA Website Enrichment
 
@@ -275,9 +275,9 @@ FDIC Call Reports contain aggregate service charge revenue per bank (RIAD4080). 
 GET https://banks.data.fdic.gov/api/financials?filters=CERT:{cert}&fields=REPDTE,DEP,DEPDOM,SC
 ```
 
-- [ ] Add `ingest-call-reports` command to fetch service charge revenue data
-- [ ] Store in new `financial_data` table or extend `crawl_targets`
-- [ ] Use fee revenue as priority signal: high-revenue banks with no fees = highest priority gaps
+- [x] Add `ingest-call-reports` command to ingest bulk CSV Call Report data
+- [x] Store in `institution_financials` table (service_charge_income column)
+- [x] Coverage gap analysis: `--gaps` flag shows high-revenue institutions missing fee data
 - [ ] Cross-validate: if extracted fees imply $2M revenue but Call Report shows $20M, flag as incomplete
 
 ---
@@ -300,12 +300,11 @@ Improve extraction quality for the flood of new URLs from Phase 2.
 
 380+ aliases cover ~75% of fees. Expand to 90%+.
 
-- [ ] Run `SELECT fee_name, COUNT(*) FROM extracted_fees WHERE fee_category IS NULL GROUP BY fee_name ORDER BY 2 DESC LIMIT 200` to find top unmapped names
-- [ ] Add ~165 new aliases (target 550+ total)
-- [ ] Add regex-based pattern matching before fuzzy match (e.g., `.*wire.*transfer.*` → `wire_domestic_outgoing`)
+- [x] Added ~180 new aliases (470 total, up from 290)
+- [x] Add 12 regex-based patterns for variable word-order matching (wire, OD, NSF, ATM, card, stop payment, garnishment)
 - [ ] Add compound fee splitting: "Overdraft / NSF Fee $35" → two rows
-- [ ] Fix "Minimum Balance Fee" false positive in `NON_FEE_SUBSTRINGS` (only flag when "fee" is NOT present)
-- [ ] Add 12+ new non-fee substrings
+- [x] Fix `NON_FEE_SUBSTRINGS` — made more specific (e.g., "minimum balance to open" not just "minimum balance")
+- [x] Add 15 new non-fee substrings (APY, dividend rate, FDIC/NCUA insurance, membership eligibility)
 - [ ] Run categorization inline during crawl (not as separate post-processing step)
 
 ### 3c. Automated Scheduling (Cron)
@@ -321,12 +320,14 @@ Improve extraction quality for the flood of new URLs from Phase 2.
 
 New `/admin/data-quality` page showing pipeline health.
 
-- [ ] Coverage funnel visualization (institutions → websites → URLs → fees)
-- [ ] Top 20 uncategorized fee names (actionable: "add alias" link)
-- [ ] Stale data metrics: institutions not re-crawled in 90+ days
-- [ ] Extraction success rate over time (by crawl run)
-- [ ] Per-district and per-tier coverage progress charts
-- [ ] Discovery method effectiveness (which methods find the most URLs)
+- [x] Coverage funnel visualization (institutions → websites → URLs → fees → approved)
+- [x] Top 20 uncategorized fee names table
+- [x] Stale data metrics: institutions not re-crawled in 90+ days
+- [x] Extraction success rate over time (by crawl run with success/fail/unchanged)
+- [x] Per-district and per-tier coverage progress tables with coverage badges
+- [x] Discovery method effectiveness (attempts, found, success rate)
+- [x] Top failure reasons table
+- [x] Added Quality nav item to admin sidebar
 
 ---
 
