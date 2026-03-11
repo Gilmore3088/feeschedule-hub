@@ -20,6 +20,7 @@ import { getDisplayName, getFeeFamily, getFamilyColor, getSpotlightCategories, g
 import { PeerFiltersBar } from "@/components/peer-filters-bar";
 import { ReviewQueueHero } from "@/components/review-queue-hero";
 import { CrawlStatusStrip } from "@/components/crawl-status-strip";
+import { RefreshCacheButton } from "@/components/refresh-cache-button";
 import { MapMetricSelector } from "@/components/map-metric-selector";
 import { HealthTile, SummaryKPI, CrawlStatusDot, ReviewActionDot } from "./dashboard-helpers";
 
@@ -112,7 +113,10 @@ export default async function AdminDashboard({
           stuck={stuckItems}
           isAdmin={user.role === "admin"}
         />
-        <CrawlStatusStrip health={crawlHealth} />
+        <div className="flex items-center justify-between">
+          <CrawlStatusStrip health={crawlHealth} />
+          {user.role === "admin" && <RefreshCacheButton />}
+        </div>
       </div>
 
       {/* ─── SECOND BAND: BENCHMARK AUTHORITY ─── */}

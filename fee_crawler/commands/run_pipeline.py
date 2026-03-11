@@ -4,8 +4,11 @@ Designed for unattended cron execution with cost controls and logging.
 """
 
 import logging
+import os
 import time
 from datetime import datetime
+
+import requests
 
 from fee_crawler.config import Config
 from fee_crawler.db import Database
@@ -145,4 +148,34 @@ def run(
         pct = with_fees["cnt"] / total["cnt"] * 100 if total["cnt"] > 0 else 0
         print(f"\n  Coverage: {with_fees['cnt']:,} / {total['cnt']:,} ({pct:.1f}%)")
 
+    # Post-crawl: revalidate Next.js cache
+    _revalidate_cache()
+
     return results
+
+
+def _revalidate_cache() -> None:
+    """Call the Next.js revalidation endpoint to bust stale caches."""
+    base_url = os.environ.get("BFI_APP_URL", "").rstrip("/")
+    token = os.environ.get("BFI_REVALIDATE_TOKEN", "")
+
+    if not base_url or not token:
+        logger.info("Skipping cache revalidation (BFI_APP_URL or BFI_REVALIDATE_TOKEN not set)")
+        return
+
+    url = f"{base_url}/api/revalidate"
+    paths = ["/", "/fees", "/admin"]
+
+    try:
+        resp = requests.post(
+            url,
+            json={"paths": paths},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if resp.ok:
+            print(f"  Cache revalidated: {paths}")
+        else:
+            logger.warning("Revalidation returned %d: %s", resp.status_code, resp.text)
+    except requests.RequestException as e:
+        logger.warning("Cache revalidation failed: %s", e)
