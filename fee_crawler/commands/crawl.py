@@ -19,7 +19,7 @@ from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
 from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
 from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
-from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf
+from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf, PDFProtectedError
 from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 from fee_crawler.validation import validate_and_classify_fees, flags_to_json
 
@@ -85,6 +85,16 @@ def _crawl_one(
         if "application/pdf" in content_type or doc_type == "pdf":
             try:
                 text = extract_text_from_pdf(content)
+            except PDFProtectedError:
+                result["status"] = "failed"
+                result["message"] = "PDF is password-protected"
+                _save_result(db, run_id, target_id, "failed", url, error="pdf_protected")
+                db.execute(
+                    "UPDATE crawl_targets SET failure_reason = 'pdf_protected' WHERE id = ?",
+                    (target_id,),
+                )
+                db.commit()
+                return result
             except Exception as e:
                 result["status"] = "failed"
                 result["message"] = f"PDF EXTRACT FAILED: {e}"

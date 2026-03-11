@@ -1,5 +1,6 @@
 """Configuration loader using Pydantic."""
 
+import os
 from pathlib import Path
 
 import yaml
@@ -70,8 +71,18 @@ class SeedUser(BaseModel):
 class AuthConfig(BaseModel):
     session_ttl_hours: int = 24
     seed_users: list[SeedUser] = [
-        SeedUser(username="admin", password="changeme", display_name="Admin", role="admin"),
-        SeedUser(username="analyst", password="changeme", display_name="Analyst", role="analyst"),
+        SeedUser(
+            username="admin",
+            password=os.environ.get("BFI_ADMIN_PASSWORD", ""),
+            display_name="Admin",
+            role="admin",
+        ),
+        SeedUser(
+            username="analyst",
+            password=os.environ.get("BFI_ANALYST_PASSWORD", ""),
+            display_name="Analyst",
+            role="analyst",
+        ),
     ]
 
 

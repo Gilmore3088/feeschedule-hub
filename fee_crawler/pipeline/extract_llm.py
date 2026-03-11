@@ -88,6 +88,8 @@ _EXTRACT_FEES_TOOL = {
 }
 
 MAX_TEXT_LENGTH = 100_000  # ~25K tokens, well within Sonnet's 200K context
+_CHUNK_SIZE = 80_000  # chars per chunk for long documents
+_CHUNK_OVERLAP = 5_000  # overlap to avoid splitting fee entries
 _MAX_FEES_PER_INSTITUTION = 100  # Anomaly threshold
 
 
@@ -248,6 +250,105 @@ def _raw_to_fees(fees_raw: list[dict]) -> list[ExtractedFee]:
     return fees
 
 
+def _extract_single(
+    text: str,
+    config: Config,
+    *,
+    institution_name: str,
+    charter_type: str,
+    document_type: str,
+) -> list[dict]:
+    """Extract fees from a single text chunk via LLM."""
+    client = anthropic.Anthropic()
+
+    user_content = _USER_PROMPT.format(
+        text=text,
+        institution_name=institution_name,
+        charter_type=charter_type,
+        document_type=document_type,
+    )
+
+    message = client.messages.create(
+        model=config.claude.model,
+        max_tokens=config.claude.max_tokens,
+        system=_SYSTEM_PROMPT,
+        tools=[_EXTRACT_FEES_TOOL],
+        tool_choice={"type": "tool", "name": "extract_fees"},
+        messages=[{"role": "user", "content": user_content}],
+    )
+
+    fees_raw = _parse_tool_response(message)
+    if not fees_raw:
+        fees_raw = _parse_text_response(message)
+
+    # Retry with more specific prompt if still empty
+    if not fees_raw:
+        logger.info("Empty extraction for %s, retrying with specific prompt", institution_name)
+        retry_message = client.messages.create(
+            model=config.claude.model,
+            max_tokens=config.claude.max_tokens,
+            system=_SYSTEM_PROMPT,
+            tools=[_EXTRACT_FEES_TOOL],
+            tool_choice={"type": "tool", "name": "extract_fees"},
+            messages=[
+                {"role": "user", "content": user_content},
+                {"role": "assistant", "content": message.content},
+                {"role": "user", "content": _RETRY_PROMPT},
+            ],
+        )
+        fees_raw = _parse_tool_response(retry_message)
+        if not fees_raw:
+            fees_raw = _parse_text_response(retry_message)
+
+    return fees_raw
+
+
+def _extract_chunked(
+    text: str,
+    config: Config,
+    *,
+    institution_name: str,
+    charter_type: str,
+    document_type: str,
+) -> list[dict]:
+    """Split a long document into overlapping chunks, extract from each, deduplicate."""
+    chunks: list[str] = []
+    start = 0
+    while start < len(text):
+        end = start + _CHUNK_SIZE
+        chunks.append(text[start:end])
+        start = end - _CHUNK_OVERLAP
+
+    logger.info("Split %d chars into %d chunks for %s", len(text), len(chunks), institution_name)
+
+    all_fees: list[dict] = []
+    for i, chunk in enumerate(chunks):
+        chunk_fees = _extract_single(
+            chunk, config,
+            institution_name=institution_name,
+            charter_type=charter_type,
+            document_type=f"{document_type} (chunk {i + 1}/{len(chunks)})",
+        )
+        all_fees.extend(chunk_fees)
+
+    # Deduplicate by fee_name (keep highest confidence)
+    seen: dict[str, dict] = {}
+    for fee in all_fees:
+        name = str(fee.get("fee_name", "")).strip().lower()
+        if not name:
+            continue
+        existing = seen.get(name)
+        if existing is None or fee.get("confidence", 0) > existing.get("confidence", 0):
+            seen[name] = fee
+
+    deduped = list(seen.values())
+    logger.info(
+        "Chunked extraction for %s: %d raw → %d deduplicated",
+        institution_name, len(all_fees), len(deduped),
+    )
+    return deduped
+
+
 def extract_fees_with_llm(
     text: str,
     config: Config,
@@ -272,55 +373,27 @@ def extract_fees_with_llm(
     if not text or not text.strip():
         return []
 
-    # Trim very long documents
+    # For long documents, split into chunks and extract from each
     if len(text) > MAX_TEXT_LENGTH:
-        text = text[:MAX_TEXT_LENGTH] + "\n\n[Document truncated]"
-
-    client = anthropic.Anthropic()
-
-    user_content = _USER_PROMPT.format(
-        text=text,
-        institution_name=institution_name,
-        charter_type=charter_type,
-        document_type=document_type,
-    )
-
-    # Primary extraction with tool_use
-    message = client.messages.create(
-        model=config.claude.model,
-        max_tokens=config.claude.max_tokens,
-        system=_SYSTEM_PROMPT,
-        tools=[_EXTRACT_FEES_TOOL],
-        tool_choice={"type": "tool", "name": "extract_fees"},
-        messages=[{"role": "user", "content": user_content}],
-    )
-
-    fees_raw = _parse_tool_response(message)
-
-    # Fallback to text parsing if tool_use didn't produce results
-    if not fees_raw:
-        fees_raw = _parse_text_response(message)
-
-    # Retry with more specific prompt if still empty
-    if not fees_raw:
-        logger.info("Empty extraction for %s, retrying with specific prompt", institution_name)
-        retry_message = client.messages.create(
-            model=config.claude.model,
-            max_tokens=config.claude.max_tokens,
-            system=_SYSTEM_PROMPT,
-            tools=[_EXTRACT_FEES_TOOL],
-            tool_choice={"type": "tool", "name": "extract_fees"},
-            messages=[
-                {"role": "user", "content": user_content},
-                {"role": "assistant", "content": message.content},
-                {"role": "user", "content": _RETRY_PROMPT},
-            ],
+        logger.info(
+            "Document for %s is %d chars, using chunk-based extraction",
+            institution_name, len(text),
         )
-        fees_raw = _parse_tool_response(retry_message)
-        if not fees_raw:
-            fees_raw = _parse_text_response(retry_message)
+        fees = _extract_chunked(
+            text, config,
+            institution_name=institution_name,
+            charter_type=charter_type,
+            document_type=document_type,
+        )
+    else:
+        fees = _extract_single(
+            text, config,
+            institution_name=institution_name,
+            charter_type=charter_type,
+            document_type=document_type,
+        )
 
-    fees = _raw_to_fees(fees_raw)
+    fees = _raw_to_fees(fees)
 
     # Anomaly detection: flag if too many fees extracted
     if len(fees) > _MAX_FEES_PER_INSTITUTION:

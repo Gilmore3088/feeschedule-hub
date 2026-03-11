@@ -369,8 +369,8 @@ Knowing a bank's CMS platform (Drupal, WordPress, Banno, Q2) dramatically narrow
 For complex PDFs that pdfplumber + OCR can't handle.
 
 - [ ] Evaluate Docling (IBM TableFormer) as fallback for mangled table extraction
-- [ ] Add chunk-based extraction: split long documents, extract fees per chunk, deduplicate
-- [ ] Handle password-protected PDFs: log as `failure_reason = 'pdf_protected'`
+- [x] Add chunk-based extraction: split long documents, extract fees per chunk, deduplicate
+- [x] Handle password-protected PDFs: log as `failure_reason = 'pdf_protected'`
 
 ### 4e. Data Partnerships and Regulatory Sources
 
@@ -385,11 +385,11 @@ For complex PDFs that pdfplumber + OCR can't handle.
 
 **These MUST be done before expanding the pipeline:**
 
-- [ ] Remove hardcoded `changeme` passwords from `fee_crawler/config.py`
-- [ ] Require seed passwords via env vars, reject `changeme` at startup
+- [x] Remove hardcoded `changeme` passwords from `fee_crawler/config.py`
+- [x] Require seed passwords via env vars, reject `changeme` at startup
 - [ ] Add HMAC-SHA256 signature to `bfi_sub` cookie (prevent forgery)
 - [x] Whitelist valid table names in `db.py:count()` (SQL injection fix)
-- [ ] Update Python seeder to use scrypt matching Node.js `hashNewPassword()` format
+- [x] Update Python seeder to use scrypt matching Node.js `hashNewPassword()` format
 - [x] Add LLM prompt injection defense (XML delimiters, system prompt instruction)
 - [x] SSRF protection in download.py (reject private IPs, cloud metadata endpoints)
 

@@ -21,9 +21,19 @@ def verify_password(password: str, stored: str) -> bool:
     return actual == expected
 
 
+_WEAK_PASSWORDS = {"changeme", "password", "admin", "123456", ""}
+
+
 def run(db: Database, config: Config) -> None:
     """Seed users from config. Skips existing usernames."""
     for user in config.auth.seed_users:
+        if user.password in _WEAK_PASSWORDS:
+            print(
+                f"  Refusing to seed '{user.username}': password is empty or too weak.\n"
+                f"  Set BFI_{user.role.upper()}_PASSWORD environment variable."
+            )
+            continue
+
         existing = db.fetchone(
             "SELECT id FROM users WHERE username = ?",
             (user.username,),

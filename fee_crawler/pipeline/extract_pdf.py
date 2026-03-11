@@ -105,6 +105,10 @@ def _extract_with_ocr(content: bytes) -> str:
     return "\n\n".join(parts)
 
 
+class PDFProtectedError(Exception):
+    """Raised when a PDF is password-protected and cannot be opened."""
+
+
 def extract_text_from_pdf(content: bytes) -> str:
     """Extract all text from a PDF document.
 
@@ -113,11 +117,21 @@ def extract_text_from_pdf(content: bytes) -> str:
 
     Falls back to OCR (tesseract) if pdfplumber returns insufficient text.
 
+    Raises PDFProtectedError for password-protected PDFs.
+
     Returns the extracted text as a single string.
     """
     parts: list[str] = []
 
-    with pdfplumber.open(io.BytesIO(content)) as pdf:
+    try:
+        pdf_file = pdfplumber.open(io.BytesIO(content))
+    except Exception as e:
+        err_msg = str(e).lower()
+        if "password" in err_msg or "encrypted" in err_msg or "decrypt" in err_msg:
+            raise PDFProtectedError(f"PDF is password-protected: {e}") from e
+        raise
+
+    with pdf_file as pdf:
         for i, page in enumerate(pdf.pages):
             page_parts: list[str] = []
 
