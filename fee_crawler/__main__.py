@@ -34,6 +34,7 @@ def cmd_discover(args: argparse.Namespace) -> None:
             source=args.source,
             force=args.force,
             workers=args.workers,
+            max_search_cost=args.max_search_cost,
         )
     finally:
         db.close()
@@ -352,6 +353,12 @@ def main() -> None:
         type=int,
         default=1,
         help="Number of concurrent worker threads (default: 1)",
+    )
+    disc_parser.add_argument(
+        "--max-search-cost",
+        type=float,
+        default=25.0,
+        help="Maximum budget for search API queries in dollars (default: $25)",
     )
     disc_parser.set_defaults(func=cmd_discover)
 

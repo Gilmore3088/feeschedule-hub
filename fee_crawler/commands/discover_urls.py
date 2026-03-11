@@ -3,39 +3,136 @@
 Iterates through institutions that have a website_url but no fee_schedule_url,
 probes each site for fee schedule pages/PDFs, and updates the database.
 
-Supports concurrent discovery via --workers flag.
+Supports:
+- Discovery cache: tracks which methods have been tried per institution
+- Cascade: only tries methods not yet attempted or expired (30-day TTL)
+- Search API fallback: SerpAPI as last resort (gated by SERPAPI_API_KEY)
+- Concurrent discovery via --workers flag
 """
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urlparse
 
 from fee_crawler.config import Config
 from fee_crawler.db import Database
-from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
+from fee_crawler.pipeline.search_discovery import SearchDiscoverer
+from fee_crawler.pipeline.url_discoverer import DISCOVERY_METHODS, UrlDiscoverer
+
+
+_CACHE_TTL_DAYS = 30
+
+
+def _get_skip_methods(db: Database, target_id: int, force: bool = False) -> set[str]:
+    """Check discovery_cache for recently-tried methods that can be skipped.
+
+    Returns a set of method names that have been tried within the TTL
+    and returned 'not_found' (so we don't need to retry them yet).
+    Methods that returned 'error' are also retried.
+    """
+    if force:
+        return set()
+
+    rows = db.fetchall(
+        """SELECT discovery_method, result
+           FROM discovery_cache
+           WHERE crawl_target_id = ?
+             AND attempted_at > datetime('now', ?)""",
+        (target_id, f"-{_CACHE_TTL_DAYS} days"),
+    )
+
+    skip = set()
+    for row in rows:
+        # Only skip methods that definitively returned not_found
+        # Retry methods that errored (they might work now)
+        if row["result"] == "not_found":
+            skip.add(row["discovery_method"])
+    return skip
+
+
+def _save_discovery_attempt(
+    db: Database,
+    target_id: int,
+    method: str,
+    result: str,
+    found_url: str | None = None,
+    error: str | None = None,
+) -> None:
+    """Record a discovery attempt in the cache (upsert)."""
+    db.execute(
+        """INSERT INTO discovery_cache
+           (crawl_target_id, discovery_method, result, found_url, error_message)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(crawl_target_id, discovery_method) DO UPDATE SET
+             attempted_at = datetime('now'),
+             result = excluded.result,
+             found_url = excluded.found_url,
+             error_message = excluded.error_message""",
+        (target_id, method, result, found_url, error),
+    )
 
 
 def _discover_one(
     target: dict,
     config: Config,
     concurrent: bool = False,
-) -> tuple[dict, object]:
+    force: bool = False,
+    max_search_cost: float = 25.0,
+    search_cost_so_far: float = 0.0,
+) -> tuple[dict, object, float]:
     """Worker function: discover fee schedule URL for a single institution.
 
     Creates its own UrlDiscoverer and Database connection (thread-safe).
-    Returns (target_dict, DiscoveryResult) for the caller to aggregate.
+    Returns (target_dict, DiscoveryResult, search_cost_incurred) for the caller.
     """
     target_id = target["id"]
     url = target["website_url"]
+    search_cost = 0.0
 
     db = Database(config)
-    # Use shorter delay in concurrent mode (different domains, no conflict)
     disc_config = config.model_copy()
     if concurrent:
         disc_config.crawl = config.crawl.model_copy(update={"delay_seconds": 0.3})
     discoverer = UrlDiscoverer(disc_config)
 
     try:
-        result = discoverer.discover(url)
+        # Check which methods to skip based on cache
+        skip_methods = _get_skip_methods(db, target_id, force)
+
+        result = discoverer.discover(url, skip_methods=skip_methods)
+
+        # Record each tried method in the cache
+        for method in result.methods_tried:
+            if result.found and result.method == method:
+                _save_discovery_attempt(
+                    db, target_id, method, "found", found_url=result.fee_schedule_url
+                )
+            else:
+                _save_discovery_attempt(db, target_id, method, "not_found")
+
+        # If standard discovery failed, try search API as last resort
+        if not result.found and "search_api" not in skip_methods:
+            domain = urlparse(url).netloc
+            if domain:
+                search_disc = SearchDiscoverer(db)
+                if search_disc.available:
+                    search_result = search_disc.discover(
+                        target_id, domain,
+                        max_cost=max_search_cost,
+                        cost_so_far=search_cost_so_far,
+                    )
+                    search_cost = search_result.cost_incurred
+                    if search_result.found and search_result.url:
+                        result.found = True
+                        result.fee_schedule_url = search_result.url
+                        result.method = "search_api"
+                        result.confidence = 0.70
+                        # Determine doc type from URL
+                        result.document_type = (
+                            "pdf" if search_result.url.lower().endswith(".pdf") else "html"
+                        )
+                    result.methods_tried.append("search_api")
+                    search_disc.close()
 
         if result.found and result.fee_schedule_url:
             db.execute(
@@ -64,10 +161,9 @@ def _discover_one(
                 (target_id,),
             )
         db.commit()
-        return target, result
+        return target, result, search_cost
 
     except Exception as e:
-        # Catch all exceptions so one failure doesn't crash the pool
         db.execute(
             """UPDATE crawl_targets
                SET last_crawl_at = datetime('now'),
@@ -78,7 +174,7 @@ def _discover_one(
         db.commit()
 
         from fee_crawler.pipeline.url_discoverer import DiscoveryResult
-        return target, DiscoveryResult(error=str(e))
+        return target, DiscoveryResult(error=str(e)), 0.0
     finally:
         discoverer.close()
         db.close()
@@ -93,6 +189,7 @@ def run(
     source: str | None = None,
     force: bool = False,
     workers: int = 1,
+    max_search_cost: float = 25.0,
 ) -> None:
     """Run URL discovery for institutions missing fee schedule URLs.
 
@@ -102,8 +199,9 @@ def run(
         limit: Max institutions to process (for testing).
         state: Filter by state code (e.g., "TX", "CA").
         source: Filter by source ("fdic" or "ncua").
-        force: Re-discover even if fee_schedule_url already set.
+        force: Re-discover even if fee_schedule_url already set. Also retries cached methods.
         workers: Number of concurrent worker threads.
+        max_search_cost: Maximum budget for search API queries (default $25).
     """
     # Build query for institutions to process
     where_clauses = ["website_url IS NOT NULL", "status = 'active'"]
@@ -155,26 +253,36 @@ def run(
         print(f"  Source filter: {source}")
     print()
 
-    if workers <= 1:
-        _run_serial(targets, config, total)
+    # Check if search API is available
+    import os
+    search_available = bool(os.environ.get("SERPAPI_API_KEY"))
+    if search_available:
+        print(f"  Search API: enabled (budget ${max_search_cost:.0f}/run)")
     else:
-        _run_concurrent(targets, config, total, workers)
+        print("  Search API: disabled (set SERPAPI_API_KEY to enable)")
+
+    if workers <= 1:
+        _run_serial(targets, config, total, force, max_search_cost)
+    else:
+        _run_concurrent(targets, config, total, workers, force, max_search_cost)
 
 
-def _run_serial(targets: list[dict], config: Config, total: int) -> None:
-    """Original serial discovery loop."""
-    discoverer = UrlDiscoverer(config)
-
+def _run_serial(
+    targets: list[dict],
+    config: Config,
+    total: int,
+    force: bool = False,
+    max_search_cost: float = 25.0,
+) -> None:
+    """Serial discovery loop with cache cascade and search fallback."""
     found_count = 0
     error_count = 0
     skip_count = 0
+    total_search_cost = 0.0
 
-    db = Database(config)
     try:
         for i, target in enumerate(targets, 1):
             name = target["institution_name"]
-            url = target["website_url"]
-            target_id = target["id"]
             state_code = target["state_code"] or "??"
             assets = target["asset_size"]
             asset_str = f"${assets / 1_000:,.0f}M" if assets else "N/A"
@@ -182,92 +290,72 @@ def _run_serial(targets: list[dict], config: Config, total: int) -> None:
             print(f"[{i}/{total}] {name[:45]:45s} ({state_code}) {asset_str:>10s}", end="  ")
 
             try:
-                result = discoverer.discover(url)
+                _target, result, search_cost = _discover_one(
+                    target, config, concurrent=False, force=force,
+                    max_search_cost=max_search_cost,
+                    search_cost_so_far=total_search_cost,
+                )
+                total_search_cost += search_cost
             except Exception as e:
                 print(f"ERROR: {e}")
                 error_count += 1
-                db.execute(
-                    """UPDATE crawl_targets
-                       SET last_crawl_at = datetime('now'),
-                           consecutive_failures = consecutive_failures + 1
-                       WHERE id = ?""",
-                    (target_id,),
-                )
-                db.commit()
                 continue
 
             if result.found and result.fee_schedule_url:
                 found_count += 1
-                db.execute(
-                    """UPDATE crawl_targets
-                       SET fee_schedule_url = ?,
-                           document_type = ?,
-                           last_crawl_at = datetime('now'),
-                           last_success_at = datetime('now'),
-                           consecutive_failures = 0
-                       WHERE id = ?""",
-                    (result.fee_schedule_url, result.document_type, target_id),
-                )
-                db.commit()
+                methods_str = ",".join(result.methods_tried) if result.methods_tried else result.method
                 print(
                     f"FOUND ({result.method}, {result.document_type}, "
                     f"conf={result.confidence:.0%}, pages={result.pages_checked})"
                 )
             elif result.error:
                 error_count += 1
-                db.execute(
-                    """UPDATE crawl_targets
-                       SET last_crawl_at = datetime('now'),
-                           consecutive_failures = consecutive_failures + 1
-                       WHERE id = ?""",
-                    (target_id,),
-                )
-                db.commit()
                 print(f"ERROR: {result.error} (pages={result.pages_checked})")
             else:
                 skip_count += 1
-                db.execute(
-                    """UPDATE crawl_targets
-                       SET last_crawl_at = datetime('now')
-                       WHERE id = ?""",
-                    (target_id,),
-                )
-                db.commit()
                 print(f"NOT FOUND (pages={result.pages_checked})")
 
             if i % 25 == 0:
                 pct = found_count / i * 100
-                print(f"\n  --- Progress: {i}/{total} | Found: {found_count} ({pct:.0f}%) | Errors: {error_count} ---\n")
+                cost_str = f" | Search: ${total_search_cost:.2f}" if total_search_cost > 0 else ""
+                print(f"\n  --- Progress: {i}/{total} | Found: {found_count} ({pct:.0f}%) | Errors: {error_count}{cost_str} ---\n")
 
     except KeyboardInterrupt:
         print(f"\n\nInterrupted by user after processing.")
-    finally:
-        discoverer.close()
-        db.close()
 
-    _print_summary(found_count, error_count, skip_count, total, config)
+    _print_summary(found_count, error_count, skip_count, total, config, total_search_cost)
 
 
 def _run_concurrent(
-    targets: list[dict], config: Config, total: int, workers: int
+    targets: list[dict],
+    config: Config,
+    total: int,
+    workers: int,
+    force: bool = False,
+    max_search_cost: float = 25.0,
 ) -> None:
     """Concurrent discovery using ThreadPoolExecutor."""
     found_count = 0
     error_count = 0
     skip_count = 0
     completed = 0
+    total_search_cost = 0.0
     start_time = time.time()
 
     try:
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(_discover_one, target, config, True): target
+                executor.submit(
+                    _discover_one, target, config, True, force,
+                    max_search_cost, 0.0,
+                ): target
                 for target in targets
             }
 
             for future in as_completed(futures):
                 completed += 1
-                target, result = future.result()
+                target, result, search_cost = future.result()
+                total_search_cost += search_cost
 
                 name = target["institution_name"]
                 state_code = target["state_code"] or "??"
@@ -290,29 +378,28 @@ def _run_concurrent(
                         )
                 else:
                     skip_count += 1
-                    # Only print NOT FOUND for first 10 then suppress to reduce noise
                     if completed <= 10:
                         print(
                             f"[{completed}/{total}] {name[:45]:45s} ({state_code}) {asset_str:>10s}  "
                             f"NOT FOUND"
                         )
 
-                # Progress summary every 50 institutions
                 if completed % 50 == 0:
                     elapsed = time.time() - start_time
                     rate = completed / elapsed * 3600
                     pct = found_count / completed * 100 if completed > 0 else 0
+                    cost_str = f" | Search: ${total_search_cost:.2f}" if total_search_cost > 0 else ""
                     print(
                         f"\n  --- Progress: {completed}/{total} | "
                         f"Found: {found_count} ({pct:.0f}%) | "
                         f"Errors: {error_count} | "
-                        f"Rate: {rate:.0f}/hr ---\n"
+                        f"Rate: {rate:.0f}/hr{cost_str} ---\n"
                     )
 
     except KeyboardInterrupt:
         print(f"\n\nInterrupted by user after {completed} institutions.")
 
-    _print_summary(found_count, error_count, skip_count, total, config)
+    _print_summary(found_count, error_count, skip_count, total, config, total_search_cost)
 
     elapsed = time.time() - start_time
     if elapsed > 0 and completed > 0:
@@ -326,6 +413,7 @@ def _print_summary(
     skip_count: int,
     total: int,
     config: Config,
+    search_cost: float = 0.0,
 ) -> None:
     """Print final discovery summary."""
     processed = found_count + error_count + skip_count
@@ -334,6 +422,8 @@ def _print_summary(
     print(f"  Found:     {found_count} ({found_count * 100 // max(processed, 1)}%)")
     print(f"  Not found: {skip_count}")
     print(f"  Errors:    {error_count}")
+    if search_cost > 0:
+        print(f"  Search API cost: ${search_cost:.2f}")
 
     # Show total database stats
     db = Database(config)

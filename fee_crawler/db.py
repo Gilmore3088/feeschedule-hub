@@ -261,6 +261,24 @@ CREATE TABLE IF NOT EXISTS fed_economic_indicators (
 """
 
 
+_CREATE_DISCOVERY_CACHE = """
+CREATE TABLE IF NOT EXISTS discovery_cache (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    crawl_target_id INTEGER NOT NULL REFERENCES crawl_targets(id),
+    discovery_method TEXT NOT NULL,
+    attempted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    result TEXT NOT NULL,
+    found_url TEXT,
+    error_message TEXT,
+    UNIQUE(crawl_target_id, discovery_method)
+);
+"""
+
+_MIGRATE_CRAWL_TARGETS_V3 = [
+    "ALTER TABLE crawl_targets ADD COLUMN failure_reason TEXT",
+]
+
+
 class Database:
     """Thin wrapper around SQLite for local dev."""
 
@@ -297,6 +315,7 @@ class Database:
         self.conn.executescript(_CREATE_FED_BEIGE_BOOK)
         self.conn.executescript(_CREATE_FED_CONTENT)
         self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)
+        self.conn.executescript(_CREATE_DISCOVERY_CACHE)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -317,6 +336,7 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_fed_content_district ON fed_content(fed_district, published_at)",
             "CREATE INDEX IF NOT EXISTS idx_fed_content_type ON fed_content(content_type)",
             "CREATE INDEX IF NOT EXISTS idx_fed_indicators_series ON fed_economic_indicators(series_id, observation_date)",
+            "CREATE INDEX IF NOT EXISTS idx_discovery_cache_target ON discovery_cache(crawl_target_id)",
         ]
         for sql in indexes:
             try:
@@ -330,6 +350,7 @@ class Database:
             _MIGRATE_CRAWL_TARGETS
             + _MIGRATE_EXTRACTED_FEES
             + _MIGRATE_CRAWL_TARGETS_V2
+            + _MIGRATE_CRAWL_TARGETS_V3
         )
         for sql in all_migrations:
             try:

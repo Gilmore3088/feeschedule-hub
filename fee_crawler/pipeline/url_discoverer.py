@@ -2,9 +2,13 @@
 
 Strategy (in order):
 1. Check robots.txt compliance
-2. Probe common fee schedule URL paths
-3. Scan homepage links for fee-related keywords
-4. Follow promising internal links one level deep for PDF discovery
+2. Parse sitemap.xml for fee schedule URLs
+3. Probe common fee schedule URL paths
+4. Scan homepage links for fee-related keywords
+5. Follow promising internal links one level deep for PDF discovery
+6. (Optional) Search API fallback via SerpAPI
+
+Supports discovery caching to avoid re-trying methods that already failed.
 """
 
 import re
@@ -176,6 +180,10 @@ NON_FEE_PDF_KEYWORDS = [
 ]
 
 
+# Ordered list of discovery methods for the cascade
+DISCOVERY_METHODS = ["sitemap", "common_path", "link_scan", "deep_scan"]
+
+
 @dataclass
 class DiscoveryResult:
     """Result of URL discovery for a single institution."""
@@ -183,11 +191,12 @@ class DiscoveryResult:
     found: bool = False
     fee_schedule_url: str | None = None
     document_type: str | None = None  # pdf | html
-    method: str | None = None  # common_path | link_scan | deep_scan
+    method: str | None = None  # sitemap | common_path | link_scan | deep_scan | search_api
     confidence: float = 0.0
     pages_checked: int = 0
     error: str | None = None
     candidate_urls: list[str] = field(default_factory=list)
+    methods_tried: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -545,12 +554,23 @@ class UrlDiscoverer:
 
         return False, None
 
-    def discover(self, website_url: str) -> DiscoveryResult:
+    def discover(
+        self,
+        website_url: str,
+        *,
+        skip_methods: set[str] | None = None,
+    ) -> DiscoveryResult:
         """Run the full discovery pipeline for an institution's website.
+
+        Args:
+            website_url: The institution's website URL.
+            skip_methods: Set of method names to skip (from discovery_cache).
+                          Valid values: sitemap, common_path, link_scan, deep_scan.
 
         Returns a DiscoveryResult with the best fee schedule URL found.
         """
         result = DiscoveryResult()
+        skip = skip_methods or set()
 
         # Normalize base URL
         parsed = urlparse(website_url)
@@ -562,30 +582,37 @@ class UrlDiscoverer:
         robots = self._check_robots(base_url)
 
         # Step 0.5: Parse sitemap.xml for fee schedule URLs
-        sitemap_url = self._parse_sitemap(base_url, robots)
-        if sitemap_url:
-            result.pages_checked += 1
-            if self._is_allowed(sitemap_url, robots):
-                # Verify the sitemap-discovered URL is actually a fee page
-                if self._is_pdf_url(sitemap_url):
-                    result.found = True
-                    result.fee_schedule_url = sitemap_url
-                    result.document_type = "pdf"
-                    result.method = "sitemap"
-                    result.confidence = 0.85
-                    return result
-                else:
-                    is_fee, doc_type = self._verify_fee_page(sitemap_url)
-                    if is_fee:
+        if "sitemap" not in skip:
+            result.methods_tried.append("sitemap")
+            sitemap_url = self._parse_sitemap(base_url, robots)
+            if sitemap_url:
+                result.pages_checked += 1
+                if self._is_allowed(sitemap_url, robots):
+                    if self._is_pdf_url(sitemap_url):
                         result.found = True
                         result.fee_schedule_url = sitemap_url
-                        result.document_type = doc_type
+                        result.document_type = "pdf"
                         result.method = "sitemap"
-                        result.confidence = 0.80
+                        result.confidence = 0.85
                         return result
+                    else:
+                        is_fee, doc_type = self._verify_fee_page(sitemap_url)
+                        if is_fee:
+                            result.found = True
+                            result.fee_schedule_url = sitemap_url
+                            result.document_type = doc_type
+                            result.method = "sitemap"
+                            result.confidence = 0.80
+                            return result
 
         # Step 1: Probe common paths (light HEAD check, then GET on 200)
+        if "common_path" in skip:
+            pass  # Skip to link scan
+        else:
+            result.methods_tried.append("common_path")
         for path in COMMON_PATHS:
+            if "common_path" in skip:
+                break
             probe_url = base_url + path
             result.pages_checked += 1
 
@@ -636,6 +663,8 @@ class UrlDiscoverer:
                 return result
 
         # Step 2: Scan homepage for fee-related links
+        if "link_scan" in skip and "deep_scan" in skip:
+            return result
         if not self._is_allowed(website_url, robots):
             result.error = "robots.txt blocks homepage"
             return result
@@ -646,10 +675,25 @@ class UrlDiscoverer:
             return result
 
         result.pages_checked += 1
-        candidates = self._scan_links(homepage_resp.text, homepage_resp.url)
+        homepage_html = homepage_resp.text
 
-        # Try top candidates
+        # Playwright fallback: if BS4 yields very little text, try JS rendering
+        from bs4 import BeautifulSoup as BS4
+        plain_text = BS4(homepage_html, "lxml").get_text(strip=True)
+        if len(plain_text) < 100:
+            from fee_crawler.pipeline.playwright_fetcher import fetch_with_playwright
+            rendered = fetch_with_playwright(website_url)
+            if rendered and len(rendered) > len(homepage_html):
+                homepage_html = rendered
+
+        candidates = self._scan_links(homepage_html, homepage_resp.url)
+
+        # Try top candidates (link scan)
+        if "link_scan" not in skip:
+            result.methods_tried.append("link_scan")
         for candidate in candidates[:5]:
+            if "link_scan" in skip:
+                break
             result.candidate_urls.append(candidate.url)
 
             if not self._is_allowed(candidate.url, robots):
@@ -676,6 +720,9 @@ class UrlDiscoverer:
                 return result
 
         # Step 3: Deep scan - follow top links and look for PDFs/fee content
+        if "deep_scan" in skip:
+            return result
+        result.methods_tried.append("deep_scan")
         deep_candidates = candidates[:5]
         for candidate in deep_candidates:
             if candidate.is_pdf:

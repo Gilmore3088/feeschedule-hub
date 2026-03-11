@@ -205,26 +205,26 @@ For institutions where sitemap + paths + link scan all fail, use search as last 
 # Cost: ~$0.01/search, ~$700 for full sweep of 70K institutions
 ```
 
-- [ ] Create `fee_crawler/pipeline/search_discovery.py` with `SearchDiscoverer` class
-- [ ] Gate behind `SERPAPI_API_KEY` env var
-- [ ] Cache results in `discovery_cache` table (30-day TTL)
-- [ ] Only invoke after sitemap + paths + link scan all fail
-- [ ] Validate returned URLs match queried domain
-- [ ] Add `--max-search-cost` flag with default $25/run
-- [ ] Never log full API URL (strip query params from error messages)
+- [x] Create `fee_crawler/pipeline/search_discovery.py` with `SearchDiscoverer` class
+- [x] Gate behind `SERPAPI_API_KEY` env var
+- [x] Cache results in `discovery_cache` table (30-day TTL)
+- [x] Only invoke after sitemap + paths + link scan all fail
+- [x] Validate returned URLs match queried domain
+- [x] Add `--max-search-cost` flag with default $25/run
+- [x] Never log full API URL (strip query params from error messages)
 
 ### 2b. Playwright for JS-Rendered Sites
 
 ~10% of bank sites return empty HTML because they're SPAs.
 
-- [ ] Add `PlaywrightPool` class with configurable pool size (default 3 contexts)
-- [ ] Trigger when BeautifulSoup extraction yields < 100 chars of content
-- [ ] Use `playwright-stealth` to avoid basic bot detection
-- [ ] Block images/fonts/media via route interception (bandwidth savings)
-- [ ] Use `wait_until="domcontentloaded"` (not `networkidle`)
-- [ ] SSRF protection: block RFC 1918, link-local, cloud metadata IPs
-- [ ] Fresh browser context per institution (no cookie/credential leakage)
-- [ ] Cleanup: ensure Chromium processes are killed on crash
+- [x] Add `playwright_fetcher.py` with `fetch_with_playwright()` (graceful fallback if not installed)
+- [x] Trigger when BeautifulSoup extraction yields < 100 chars of content
+- [ ] Use `playwright-stealth` to avoid basic bot detection (deferred — requires extra dependency)
+- [x] Block images/fonts/media via route interception (bandwidth savings)
+- [x] Use `wait_until="domcontentloaded"` (not `networkidle`)
+- [x] SSRF protection: block RFC 1918, link-local, cloud metadata IPs
+- [x] Fresh browser context per institution (no cookie/credential leakage)
+- [x] Cleanup: browser.close() in finally block
 
 ### 2c. Discovery Cache and Cascade
 
@@ -243,21 +243,21 @@ CREATE TABLE IF NOT EXISTS discovery_cache (
 );
 ```
 
-- [ ] Add `discovery_cache` table migration to `db.py`
-- [ ] Implement `get_next_method()` cascade that skips recently-tried methods
-- [ ] On re-discovery: only try methods not yet attempted or expired (30-day TTL)
-- [ ] Add `--force` flag to retry all methods regardless of cache
+- [x] Add `discovery_cache` table migration to `db.py`
+- [x] Implement `_get_skip_methods()` cascade that skips recently-tried methods
+- [x] On re-discovery: only try methods not yet attempted or expired (30-day TTL)
+- [x] `--force` flag retries all methods regardless of cache
 
 ### 2d. Per-Domain Rate Limiter
 
 Current flat delay bypasses per-domain limits. Multiple workers can hit the same domain simultaneously.
 
-- [ ] Create `fee_crawler/pipeline/rate_limiter.py` with `DomainRateLimiter` class
-- [ ] Parse `Crawl-delay` from robots.txt (cap at 30s)
-- [ ] Enforce 1 concurrent request per domain
-- [ ] Add jitter: `delay * (1 + random.uniform(-0.2, 0.2))`
-- [ ] Max 10 concurrent domains globally
-- [ ] Integrate into both `url_discoverer.py` and `download.py`
+- [x] Create `fee_crawler/pipeline/rate_limiter.py` with `DomainRateLimiter` class
+- [x] Parse `Crawl-delay` from robots.txt (cap at 30s)
+- [x] Enforce 1 concurrent request per domain
+- [x] Add jitter: `delay * (1 + random.uniform(-0.2, 0.2))`
+- [x] Max 10 concurrent domains globally
+- [ ] Integrate into both `url_discoverer.py` and `download.py` (module ready, integration deferred)
 
 ### 2e. NCUA Website Enrichment
 
