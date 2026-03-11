@@ -158,7 +158,7 @@ Parse `sitemap.xml` before path probing — many banks have complete sitemaps wi
 - [x] Limit to first 10 pages, reject PDFs > 20 pages before OCR
 - [x] Add file size guard: reject > 50MB
 - [x] Add per-page timeout (30s) and total timeout (120s)
-- [ ] Document system dependencies: `tesseract-ocr`, `poppler-utils` (deferred to README update)
+- [x] Document system dependencies: `tesseract-ocr`, `poppler-utils` (in `.env.example`)
 
 **Expected impact:** Recover ~180 institutions from "no text extracted" failures.
 
