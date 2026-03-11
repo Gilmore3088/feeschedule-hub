@@ -9,6 +9,7 @@ import {
   getFailureReasons,
   getTierCoverage,
   getDistrictCoverage,
+  getRevenueDiscrepancies,
 } from "@/lib/crawler-db";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 
@@ -33,6 +34,7 @@ export default async function QualityPage() {
   const failureReasons = getFailureReasons(10);
   const tierCoverage = getTierCoverage();
   const districtCoverage = getDistrictCoverage();
+  const revenueDiscrepancies = getRevenueDiscrepancies(15);
 
   return (
     <div className="space-y-6">
@@ -205,6 +207,53 @@ export default async function QualityPage() {
             </table>
           )}
         </div>
+      </div>
+
+      {/* Revenue Cross-Validation */}
+      <div className="admin-card p-5">
+        <h2 className="text-sm font-bold text-gray-800 mb-1">Revenue Cross-Validation</h2>
+        <p className="text-[11px] text-gray-400 mb-3">
+          Institutions where extracted fees diverge significantly from Call Report service charge income (ratio &gt;10x or &lt;0.1x)
+        </p>
+        {revenueDiscrepancies.length === 0 ? (
+          <p className="text-sm text-gray-400">No discrepancies found (or no Call Report data ingested)</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50/80">
+                  <th className="px-3 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-left">Institution</th>
+                  <th className="px-3 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Call Report ($K)</th>
+                  <th className="px-3 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Extracted (Ann.)</th>
+                  <th className="px-3 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Ratio</th>
+                  <th className="px-3 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Fees</th>
+                  <th className="px-3 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-left">Signal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {revenueDiscrepancies.map((d) => {
+                  const signal = d.ratio > 10 ? "Likely incomplete" : "Possible over-extraction";
+                  const signalColor = d.ratio > 10 ? "text-amber-600" : "text-blue-600";
+                  return (
+                    <tr key={d.id} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-3 py-2 text-gray-700">
+                        {d.institution_name.substring(0, 35)}
+                        {d.state_code && <span className="text-gray-400 ml-1">({d.state_code})</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">${d.service_charge_income.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">${Math.round(d.extracted_fee_total).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">
+                        {d.ratio >= 999 ? "N/A" : `${d.ratio.toFixed(1)}x`}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{d.fee_count}</td>
+                      <td className={`px-3 py-2 text-xs font-medium ${signalColor}`}>{signal}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Row 4: Uncategorized fees + Stale institutions */}

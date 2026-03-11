@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fee_crawler.config import Config
 from fee_crawler.db import Database
+from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
 from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
 from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
@@ -185,15 +186,19 @@ def _crawl_one(
             staged_count = 0
             flagged_count = 0
             for fee, flags, review_status in validated:
+                fee_category = normalize_fee_name(fee.fee_name)
+                fee_family = get_fee_family(fee_category) if fee_category else None
                 db.execute(
                     """INSERT INTO extracted_fees
                        (crawl_result_id, crawl_target_id, fee_name, amount,
                         frequency, conditions, extraction_confidence,
-                        review_status, validation_flags)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        review_status, validation_flags,
+                        fee_category, fee_family)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (result_id, target_id, fee.fee_name, fee.amount,
                      fee.frequency, fee.conditions, fee.confidence,
-                     review_status, flags_to_json(flags)),
+                     review_status, flags_to_json(flags),
+                     fee_category, fee_family),
                 )
                 if review_status == "staged":
                     staged_count += 1

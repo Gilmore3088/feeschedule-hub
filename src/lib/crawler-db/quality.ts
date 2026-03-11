@@ -209,6 +209,58 @@ export function getTierCoverage(): TierCoverage[] {
   }
 }
 
+export interface RevenueDiscrepancy {
+  id: number;
+  institution_name: string;
+  state_code: string | null;
+  charter_type: string | null;
+  service_charge_income: number;
+  extracted_fee_total: number;
+  ratio: number;
+  fee_count: number;
+}
+
+export function getRevenueDiscrepancies(limit = 20): RevenueDiscrepancy[] {
+  const db = getDb();
+  try {
+    return db.prepare(`
+      SELECT
+        t.id,
+        t.institution_name,
+        t.state_code,
+        t.charter_type,
+        f.service_charge_income,
+        COALESCE(e.total_amount, 0) as extracted_fee_total,
+        CASE WHEN COALESCE(e.total_amount, 0) > 0
+          THEN f.service_charge_income * 1.0 / e.total_amount
+          ELSE 999
+        END as ratio,
+        COALESCE(e.fee_count, 0) as fee_count
+      FROM institution_financials f
+      JOIN crawl_targets t ON t.id = f.crawl_target_id
+      LEFT JOIN (
+        SELECT
+          crawl_target_id,
+          SUM(CASE WHEN amount IS NOT NULL THEN amount * 12 ELSE 0 END) as total_amount,
+          COUNT(*) as fee_count
+        FROM extracted_fees
+        WHERE review_status != 'rejected'
+        GROUP BY crawl_target_id
+      ) e ON e.crawl_target_id = t.id
+      WHERE f.service_charge_income > 100
+        AND e.fee_count > 0
+        AND (
+          f.service_charge_income * 1.0 / NULLIF(e.total_amount, 0) > 10
+          OR f.service_charge_income * 1.0 / NULLIF(e.total_amount, 0) < 0.1
+        )
+      ORDER BY f.service_charge_income DESC
+      LIMIT ?
+    `).all(limit) as RevenueDiscrepancy[];
+  } finally {
+    db.close();
+  }
+}
+
 export function getDistrictCoverage(): DistrictCoverage[] {
   const db = getDb();
   try {

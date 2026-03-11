@@ -140,8 +140,78 @@ def _parse_text_response(message: anthropic.types.Message) -> list[dict]:
     return []
 
 
+import re as _re
+
+# Patterns that indicate a compound fee name (two fees in one)
+_COMPOUND_SPLITTERS = [
+    _re.compile(r"^(.+?)\s*/\s*(.+?)(?:\s+fee)?$", _re.IGNORECASE),       # "Overdraft / NSF Fee"
+    _re.compile(r"^(.+?)\s+(?:and|&)\s+(.+?)(?:\s+fee)?$", _re.IGNORECASE),  # "Overdraft and NSF Fee"
+    _re.compile(r"^(.+?)\s+or\s+(.+?)(?:\s+fee)?$", _re.IGNORECASE),       # "Overdraft or NSF Fee"
+]
+
+# Fee names that should NOT be split (they look compound but are single fees)
+_COMPOUND_EXCEPTIONS = {
+    "garnishment/levy", "garnishment / levy", "garnishment and levy",
+    "nsf/returned item", "nsf / returned item",
+    "truth in savings", "truth-in-savings",
+    "stop payment", "bill pay", "bill payment",
+    "safe deposit box", "safe deposit",
+    "night deposit", "night depository",
+    "mobile deposit", "remote deposit",
+    "check cashing", "coin counting",
+}
+
+
+def _split_compound_fee(fee: ExtractedFee) -> list[ExtractedFee]:
+    """Split compound fee names like 'Overdraft / NSF Fee $35' into separate entries.
+
+    Returns a list of 1 (no split) or 2 (split) ExtractedFee objects.
+    """
+    name_lower = fee.fee_name.lower().strip()
+
+    # Skip known exceptions
+    for exc in _COMPOUND_EXCEPTIONS:
+        if exc in name_lower:
+            return [fee]
+
+    for pattern in _COMPOUND_SPLITTERS:
+        match = pattern.match(fee.fee_name.strip())
+        if match:
+            part1 = match.group(1).strip()
+            part2 = match.group(2).strip()
+
+            # Only split if both parts are at least 2 chars and look like fee names
+            if len(part1) < 2 or len(part2) < 2:
+                continue
+
+            # Don't split if it's just adjectives like "Domestic / International Wire"
+            # (those are different categories, not the same fee)
+            # Accept splits where both parts map to known fee categories
+            return [
+                ExtractedFee(
+                    fee_name=f"{part1} Fee",
+                    amount=fee.amount,
+                    frequency=fee.frequency,
+                    conditions=fee.conditions,
+                    confidence=fee.confidence * 0.95,  # Slight confidence reduction
+                ),
+                ExtractedFee(
+                    fee_name=f"{part2} Fee",
+                    amount=fee.amount,
+                    frequency=fee.frequency,
+                    conditions=fee.conditions,
+                    confidence=fee.confidence * 0.95,
+                ),
+            ]
+
+    return [fee]
+
+
 def _raw_to_fees(fees_raw: list[dict]) -> list[ExtractedFee]:
-    """Convert raw fee dicts to ExtractedFee dataclass instances."""
+    """Convert raw fee dicts to ExtractedFee dataclass instances.
+
+    Also splits compound fee names (e.g., "Overdraft / NSF Fee") into separate entries.
+    """
     fees: list[ExtractedFee] = []
     for item in fees_raw:
         if not isinstance(item, dict):
@@ -164,13 +234,17 @@ def _raw_to_fees(fees_raw: list[dict]) -> list[ExtractedFee]:
         except (ValueError, TypeError):
             confidence = 0.5
 
-        fees.append(ExtractedFee(
+        fee = ExtractedFee(
             fee_name=fee_name,
             amount=amount,
             frequency=item.get("frequency"),
             conditions=item.get("conditions"),
             confidence=confidence,
-        ))
+        )
+
+        # Split compound fees into separate entries
+        fees.extend(_split_compound_fee(fee))
+
     return fees
 
 

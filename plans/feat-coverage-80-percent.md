@@ -278,7 +278,7 @@ GET https://banks.data.fdic.gov/api/financials?filters=CERT:{cert}&fields=REPDTE
 - [x] Add `ingest-call-reports` command to ingest bulk CSV Call Report data
 - [x] Store in `institution_financials` table (service_charge_income column)
 - [x] Coverage gap analysis: `--gaps` flag shows high-revenue institutions missing fee data
-- [ ] Cross-validate: if extracted fees imply $2M revenue but Call Report shows $20M, flag as incomplete
+- [x] Cross-validate: if extracted fees imply $2M revenue but Call Report shows $20M, flag as incomplete
 
 ---
 
@@ -302,10 +302,10 @@ Improve extraction quality for the flood of new URLs from Phase 2.
 
 - [x] Added ~180 new aliases (470 total, up from 290)
 - [x] Add 12 regex-based patterns for variable word-order matching (wire, OD, NSF, ATM, card, stop payment, garnishment)
-- [ ] Add compound fee splitting: "Overdraft / NSF Fee $35" → two rows
+- [x] Add compound fee splitting: "Overdraft / NSF Fee $35" → two rows
 - [x] Fix `NON_FEE_SUBSTRINGS` — made more specific (e.g., "minimum balance to open" not just "minimum balance")
 - [x] Add 15 new non-fee substrings (APY, dividend rate, FDIC/NCUA insurance, membership eligibility)
-- [ ] Run categorization inline during crawl (not as separate post-processing step)
+- [x] Run categorization inline during crawl (not as separate post-processing step)
 
 ### 3c. Automated Scheduling (Cron)
 
@@ -411,16 +411,16 @@ For complex PDFs that pdfplumber + OCR can't handle.
 - [ ] SerpAPI integration finds URLs for 5,000+ previously-missed institutions
 - [ ] Playwright renders JS sites and extracts fee URLs
 - [ ] Discovery cache prevents re-trying exhausted methods
-- [ ] Per-domain rate limiter prevents IP bans
+- [x] Per-domain rate limiter prevents IP bans
 - [ ] NCUA website enrichment fills 1,000+ missing URLs
-- [ ] Call Report data ingested for prioritization
+- [x] Call Report data ingested for prioritization
 - [ ] Full re-discovery run shows 15,000+ institutions with fee URLs
 
 ### Phase 3 (Scale Extraction → 49%)
-- [ ] LLM uses tool_use with schema enforcement
+- [x] LLM uses tool_use with schema enforcement
 - [ ] Categorization rate above 90%
 - [ ] Cron runs pipeline unattended with cost controls
-- [ ] Data quality dashboard shows coverage funnel and trends
+- [x] Data quality dashboard shows coverage funnel and trends
 - [ ] 35,000+ institutions with extracted fees
 
 ### Phase 4 (Long Tail → 80%)
