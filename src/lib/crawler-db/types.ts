@@ -4,6 +4,8 @@ export interface InstitutionSummary {
   state_code: string | null;
   charter_type: string;
   asset_size: number | null;
+  asset_size_tier: string | null;
+  fed_district: number | null;
   website_url: string | null;
   fee_schedule_url: string | null;
   document_type: string | null;
