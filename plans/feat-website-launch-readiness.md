@@ -154,7 +154,7 @@ These should be done before or on launch day. The site will function without the
 ### 1.6 Cleanup
 
 - [x] Delete unused boilerplate from `public/`: `vercel.svg`, `next.svg`, `file.svg`, `globe.svg`, `window.svg`
-- [ ] Add `apple-icon.png` (180x180) and app icons
+- [x] Add `apple-icon.tsx` (180x180) and `icon.tsx` (32x32 favicon) via ImageResponse
 - [x] Create `src/app/manifest.ts` (basic PWA manifest)
 
 ### 1.7 Health Check Endpoint
@@ -219,7 +219,7 @@ These should be done before or on launch day. The site will function without the
 ### 3.3 Performance Optimization
 
 - [x] Refactor `/fees/[category]` to use a targeted DB query instead of fetching the entire national index
-- [ ] Consider `'use cache'` directive (Next.js 16) for granular query-level caching
+- [x] Add `'use cache'` directive with `cacheLife("hours")` to homepage
 - [x] Add `stale-while-revalidate` cache headers for self-hosted deployment
 
 ### 3.4 Advanced Security

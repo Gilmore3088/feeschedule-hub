@@ -1,3 +1,4 @@
+import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { getNationalIndex } from "@/lib/crawler-db";
 import { getDisplayName } from "@/lib/fee-taxonomy";
@@ -21,7 +22,9 @@ const TIERS = [
   "Large Regional ($10B+)",
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  "use cache";
+  cacheLife("hours");
   const allEntries = getNationalIndex();
   const snapshotEntries = INDEX_CATEGORIES.map((cat) =>
     allEntries.find((e) => e.fee_category === cat)
