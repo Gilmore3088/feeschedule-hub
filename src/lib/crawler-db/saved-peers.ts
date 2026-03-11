@@ -35,18 +35,14 @@ export function ensureSavedPeerSetsTable(): void {
 export function getSavedPeerSets(userId: string): SavedPeerSet[] {
   ensureSavedPeerSetsTable();
   const db = getDb();
-  try {
-    return db
-      .prepare(
-        `SELECT id, name, tiers, districts, charter_type, created_by, created_at
-         FROM saved_peer_sets
-         WHERE created_by = ?
-         ORDER BY created_at DESC`
-      )
-      .all(userId) as SavedPeerSet[];
-  } finally {
-    db.close();
-  }
+  return db
+    .prepare(
+      `SELECT id, name, tiers, districts, charter_type, created_by, created_at
+       FROM saved_peer_sets
+       WHERE created_by = ?
+       ORDER BY created_at DESC`
+    )
+    .all(userId) as SavedPeerSet[];
 }
 
 export function savePeerSet(

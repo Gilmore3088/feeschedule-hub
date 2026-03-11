@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+data/
+fee_crawler/
+plans/
+docs/
+.claude/
+*.md
+.env*
+!.env.example

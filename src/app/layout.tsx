@@ -4,9 +4,20 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Bank Fee Index - National Fee Benchmarking for Banks & Credit Unions",
+  metadataBase: new URL("https://bankfeeindex.com"),
+  title: {
+    default: "Bank Fee Index - National Fee Benchmarking for Banks & Credit Unions",
+    template: "%s | Bank Fee Index",
+  },
   description:
-    "Submit your fee schedule. See how you compare to peers. Get quarterly benchmarking reports with pricing data and examples.",
+    "Compare bank fees nationwide. Free benchmarking data on overdraft, NSF, ATM, wire, and maintenance fees for 10,000+ institutions.",
+  openGraph: {
+    type: "website",
+    siteName: "Bank Fee Index",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
