@@ -135,13 +135,13 @@ def _crawl_one(
             (target_id,),
         )
         if old_fees:
-            for old in old_fees:
-                db.execute(
-                    """INSERT INTO fee_reviews
-                       (fee_id, action, username, previous_status, new_status, notes)
-                       VALUES (?, 'reset', 'system', ?, 'deleted', 'Re-crawl replaced all fees')""",
-                    (old["id"], old["review_status"]),
-                )
+            old_ids = [old["id"] for old in old_fees]
+            placeholders = ",".join("?" * len(old_ids))
+            # Delete fee_reviews first (FK references extracted_fees)
+            db.execute(
+                f"DELETE FROM fee_reviews WHERE fee_id IN ({placeholders})",
+                tuple(old_ids),
+            )
             db.execute(
                 "DELETE FROM extracted_fees WHERE crawl_target_id = ?",
                 (target_id,),
