@@ -73,18 +73,24 @@ export default async function LandingPage() {
             </span>
           </Link>
           <nav className="hidden items-center gap-8 md:flex">
-            <a
-              href="#national-index"
+            <Link
+              href="/fees"
               className="text-[13px] text-slate-400 hover:text-white transition-colors"
             >
-              National Index
-            </a>
-            <a
-              href="#peer-index"
+              Fee Index
+            </Link>
+            <Link
+              href="/research"
               className="text-[13px] text-slate-400 hover:text-white transition-colors"
             >
-              Peer Index
-            </a>
+              Research
+            </Link>
+            <Link
+              href="/guides"
+              className="text-[13px] text-slate-400 hover:text-white transition-colors"
+            >
+              Guides
+            </Link>
             <a
               href="#methodology"
               className="text-[13px] text-slate-400 hover:text-white transition-colors"

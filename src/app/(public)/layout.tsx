@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AskWidgetLoader } from "@/components/public/ask-widget-loader";
+import { AskSearchBarLoader } from "@/components/public/ask-search-bar-loader";
 
 const NAV_ITEMS = [
   { label: "Fee Index", href: "/fees" },
@@ -15,27 +15,32 @@ export default function PublicLayout({
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-slate-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-lg font-bold tracking-tight text-slate-900">
-              Bank Fee Index
-            </span>
-          </Link>
-          <nav className="flex items-center gap-6">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-[13px] font-medium text-slate-500 hover:text-slate-900 transition-colors"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+        <div className="mx-auto max-w-6xl px-6 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="text-lg font-bold tracking-tight text-slate-900">
+                Bank Fee Index
+              </span>
+            </Link>
+            <nav className="flex items-center gap-6">
+              {NAV_ITEMS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-[13px] font-medium text-slate-500 hover:text-slate-900 transition-colors"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          {/* Inline AI search bar */}
+          <div className="mt-3">
+            <AskSearchBarLoader />
+          </div>
         </div>
       </header>
       <main>{children}</main>
-      <AskWidgetLoader />
       <footer className="border-t border-slate-200 bg-slate-50">
         <div className="mx-auto max-w-6xl px-6 py-10">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
