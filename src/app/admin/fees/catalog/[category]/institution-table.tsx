@@ -2,17 +2,31 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronRight, ChevronDown } from "lucide-react";
 import type { FeeInstance } from "@/lib/crawler-db";
 import { formatAmount, formatAssets } from "@/lib/format";
+
+interface InstitutionGroup {
+  crawl_target_id: number;
+  institution_name: string;
+  charter_type: string;
+  state_code: string | null;
+  asset_size_tier: string | null;
+  asset_size: number | null;
+  fees: FeeInstance[];
+  primary_amount: number | null;
+  min_amount: number | null;
+  max_amount: number | null;
+  fee_count: number;
+}
 
 type SortKey =
   | "institution_name"
   | "amount"
   | "charter_type"
   | "state_code"
-  | "asset_size_tier"
-  | "asset_size";
+  | "asset_size"
+  | "fee_count";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 25;
@@ -29,19 +43,65 @@ export function InstitutionTable({
   const [search, setSearch] = useState("");
   const [charterFilter, setCharterFilter] = useState<"all" | "bank" | "credit_union">("all");
   const [showAll, setShowAll] = useState(false);
+  const [expandedInst, setExpandedInst] = useState<Set<number>>(new Set());
+
+  // Group fees by institution
+  const groups = useMemo(() => {
+    const map = new Map<number, InstitutionGroup>();
+    for (const fee of fees) {
+      if (!map.has(fee.crawl_target_id)) {
+        map.set(fee.crawl_target_id, {
+          crawl_target_id: fee.crawl_target_id,
+          institution_name: fee.institution_name,
+          charter_type: fee.charter_type,
+          state_code: fee.state_code,
+          asset_size_tier: fee.asset_size_tier,
+          asset_size: fee.asset_size,
+          fees: [],
+          primary_amount: null,
+          min_amount: null,
+          max_amount: null,
+          fee_count: 0,
+        });
+      }
+      const group = map.get(fee.crawl_target_id)!;
+      group.fees.push(fee);
+      group.fee_count++;
+    }
+
+    // Compute aggregate amounts per institution
+    for (const group of map.values()) {
+      const amounts = group.fees
+        .map((f) => f.amount)
+        .filter((a): a is number => a !== null && a > 0)
+        .sort((a, b) => a - b);
+
+      if (amounts.length > 0) {
+        group.min_amount = amounts[0];
+        group.max_amount = amounts[amounts.length - 1];
+        // Primary = median of this institution's fees
+        group.primary_amount =
+          amounts.length % 2 === 0
+            ? (amounts[amounts.length / 2 - 1] + amounts[amounts.length / 2]) / 2
+            : amounts[Math.floor(amounts.length / 2)];
+      }
+    }
+
+    return Array.from(map.values());
+  }, [fees]);
 
   const filtered = useMemo(() => {
-    let result = fees;
+    let result = groups;
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((f) =>
-        f.institution_name.toLowerCase().includes(q)
+      result = result.filter((g) =>
+        g.institution_name.toLowerCase().includes(q)
       );
     }
 
     if (charterFilter !== "all") {
-      result = result.filter((f) => f.charter_type === charterFilter);
+      result = result.filter((g) => g.charter_type === charterFilter);
     }
 
     result = [...result].sort((a, b) => {
@@ -51,7 +111,7 @@ export function InstitutionTable({
           cmp = a.institution_name.localeCompare(b.institution_name);
           break;
         case "amount":
-          cmp = (a.amount ?? -1) - (b.amount ?? -1);
+          cmp = (a.primary_amount ?? -1) - (b.primary_amount ?? -1);
           break;
         case "charter_type":
           cmp = a.charter_type.localeCompare(b.charter_type);
@@ -59,20 +119,18 @@ export function InstitutionTable({
         case "state_code":
           cmp = (a.state_code ?? "").localeCompare(b.state_code ?? "");
           break;
-        case "asset_size_tier":
-          cmp = (a.asset_size_tier ?? "").localeCompare(
-            b.asset_size_tier ?? ""
-          );
-          break;
         case "asset_size":
           cmp = (a.asset_size ?? 0) - (b.asset_size ?? 0);
+          break;
+        case "fee_count":
+          cmp = a.fee_count - b.fee_count;
           break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
 
     return result;
-  }, [fees, search, charterFilter, sortKey, sortDir]);
+  }, [groups, search, charterFilter, sortKey, sortDir]);
 
   const displayed = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
 
@@ -83,6 +141,18 @@ export function InstitutionTable({
       setSortKey(key);
       setSortDir(key === "institution_name" ? "asc" : "desc");
     }
+  }
+
+  function toggleExpand(id: number) {
+    setExpandedInst((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   }
 
   function SortIcon({ column }: { column: SortKey }) {
@@ -100,7 +170,10 @@ export function InstitutionTable({
     <div className="admin-card overflow-hidden">
       <div className="px-4 py-3 border-b bg-gray-50 dark:bg-white/[0.03] flex flex-wrap items-center gap-3">
         <h3 className="text-sm font-semibold text-gray-700 mr-auto">
-          All Institutions ({filtered.length})
+          Institutions ({filtered.length})
+          <span className="text-xs font-normal text-gray-400 ml-2">
+            {fees.length} total fee entries
+          </span>
         </h3>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
@@ -137,6 +210,7 @@ export function InstitutionTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-gray-500">
+              <th className="px-4 py-2 font-medium w-8"></th>
               <th className="px-4 py-2 font-medium sticky left-0 bg-white dark:bg-[oklch(0.205_0_0)] z-10 min-w-[200px]">
                 <button
                   onClick={() => handleSort("institution_name")}
@@ -153,7 +227,14 @@ export function InstitutionTable({
                   Amount <SortIcon column="amount" />
                 </button>
               </th>
-              <th className="px-4 py-2 font-medium">Frequency</th>
+              <th className="px-4 py-2 font-medium text-center">
+                <button
+                  onClick={() => handleSort("fee_count")}
+                  className="flex items-center gap-1 mx-auto hover:text-gray-900"
+                >
+                  Entries <SortIcon column="fee_count" />
+                </button>
+              </th>
               <th className="px-4 py-2 font-medium">
                 <button
                   onClick={() => handleSort("charter_type")}
@@ -178,80 +259,134 @@ export function InstitutionTable({
                   Assets <SortIcon column="asset_size" />
                 </button>
               </th>
-              <th className="px-4 py-2 font-medium text-center">Status</th>
             </tr>
           </thead>
           <tbody>
-            {displayed.map((fee) => {
+            {displayed.map((group) => {
+              const isExpanded = expandedInst.has(group.crawl_target_id);
               const isHigh =
                 median !== null &&
-                fee.amount !== null &&
-                fee.amount > median * 1.5;
+                group.primary_amount !== null &&
+                group.primary_amount > median * 1.5;
               const isLow =
                 median !== null &&
-                fee.amount !== null &&
+                group.primary_amount !== null &&
                 median > 0 &&
-                fee.amount < median * 0.5;
+                group.primary_amount < median * 0.5;
+              const hasMultiple = group.fee_count > 1;
+
               return (
-                <tr
-                  key={fee.id}
-                  className="border-b last:border-0 hover:bg-gray-50"
-                >
-                  <td className="px-4 py-2 sticky left-0 bg-white dark:bg-[oklch(0.205_0_0)] z-10">
-                    <Link
-                      href={`/admin/peers/${fee.crawl_target_id}`}
-                      className="text-blue-600 hover:underline font-medium"
-                    >
-                      {fee.institution_name}
-                    </Link>
-                  </td>
-                  <td
-                    className={`px-4 py-2 text-right font-mono font-semibold ${
-                      isHigh
-                        ? "text-red-600 dark:text-red-400"
-                        : isLow
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-gray-900 dark:text-gray-100"
-                    }`}
+                <>
+                  <tr
+                    key={group.crawl_target_id}
+                    className={`border-b hover:bg-gray-50 dark:hover:bg-white/[0.03] ${
+                      hasMultiple ? "cursor-pointer" : ""
+                    } ${isExpanded ? "bg-blue-50/30 dark:bg-blue-900/10" : ""}`}
+                    onClick={hasMultiple ? () => toggleExpand(group.crawl_target_id) : undefined}
                   >
-                    {formatAmount(fee.amount)}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {fee.frequency ?? "-"}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        fee.charter_type === "bank"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                    <td className="px-4 py-2 text-gray-400">
+                      {hasMultiple ? (
+                        isExpanded ? (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        )
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-2 sticky left-0 bg-white dark:bg-[oklch(0.205_0_0)] z-10">
+                      <Link
+                        href={`/admin/peers/${group.crawl_target_id}`}
+                        className="text-blue-600 hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {group.institution_name}
+                      </Link>
+                    </td>
+                    <td
+                      className={`px-4 py-2 text-right tabular-nums font-semibold ${
+                        isHigh
+                          ? "text-red-600 dark:text-red-400"
+                          : isLow
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-gray-900 dark:text-gray-100"
                       }`}
                     >
-                      {fee.charter_type === "bank" ? "Bank" : "CU"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-500">
-                    {fee.state_code ?? "-"}
-                  </td>
-                  <td className="px-4 py-2 text-right text-gray-600">
-                    {formatAssets(fee.asset_size)}
-                  </td>
-                  <td className="px-4 py-2 text-center">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        fee.review_status === "approved"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : fee.review_status === "staged"
+                      {group.primary_amount !== null ? (
+                        hasMultiple && group.min_amount !== group.max_amount ? (
+                          <span>
+                            {formatAmount(group.min_amount)}{" "}
+                            <span className="text-gray-400 font-normal">-</span>{" "}
+                            {formatAmount(group.max_amount)}
+                          </span>
+                        ) : (
+                          formatAmount(group.primary_amount)
+                        )
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {hasMultiple ? (
+                        <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-white/[0.08] dark:text-gray-400">
+                          {group.fee_count}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">1</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                          group.charter_type === "bank"
                             ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                            : fee.review_status === "flagged"
-                              ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                              : "bg-gray-100 text-gray-600 dark:bg-white/[0.08] dark:text-gray-400"
-                      }`}
-                    >
-                      {fee.review_status}
-                    </span>
-                  </td>
-                </tr>
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        }`}
+                      >
+                        {group.charter_type === "bank" ? "Bank" : "CU"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-500">
+                      {group.state_code ?? "-"}
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-600 tabular-nums">
+                      {formatAssets(group.asset_size)}
+                    </td>
+                  </tr>
+                  {isExpanded &&
+                    group.fees.map((fee) => (
+                      <tr
+                        key={fee.id}
+                        className="border-b bg-gray-50/50 dark:bg-white/[0.02]"
+                      >
+                        <td className="px-4 py-1.5"></td>
+                        <td className="px-4 py-1.5 pl-8 text-xs text-gray-500 sticky left-0 bg-gray-50/50 dark:bg-[oklch(0.17_0_0)] z-10">
+                          {fee.conditions || fee.frequency || "—"}
+                        </td>
+                        <td className="px-4 py-1.5 text-right tabular-nums text-xs text-gray-700 dark:text-gray-300">
+                          {formatAmount(fee.amount)}
+                        </td>
+                        <td className="px-4 py-1.5 text-center text-xs text-gray-400">
+                          {fee.frequency ?? "-"}
+                        </td>
+                        <td className="px-4 py-1.5" colSpan={2}>
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              fee.review_status === "approved"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                : fee.review_status === "staged"
+                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                  : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400"
+                            }`}
+                          >
+                            {fee.review_status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-1.5 text-right text-[10px] text-gray-400 tabular-nums">
+                          {(fee.extraction_confidence * 100).toFixed(0)}%
+                        </td>
+                      </tr>
+                    ))}
+                </>
               );
             })}
           </tbody>
