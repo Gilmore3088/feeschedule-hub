@@ -197,9 +197,12 @@ def _crawl_one(
             staged_count = 0
             flagged_count = 0
             approved_count = 0
+            cap_categories = {"od_daily_cap", "nsf_daily_cap"}
             for i, (fee, flags, review_status) in enumerate(validated):
                 fee_category = categories[i]
                 fee_family = get_fee_family(fee_category) if fee_category else None
+                # Auto-normalize: daily caps always get frequency "daily"
+                frequency = "daily" if fee_category in cap_categories else fee.frequency
                 db.execute(
                     """INSERT INTO extracted_fees
                        (crawl_result_id, crawl_target_id, fee_name, amount,
@@ -208,7 +211,7 @@ def _crawl_one(
                         fee_category, fee_family)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (result_id, target_id, fee.fee_name, fee.amount,
-                     fee.frequency, fee.conditions, fee.confidence,
+                     frequency, fee.conditions, fee.confidence,
                      review_status, flags_to_json(flags),
                      fee_category, fee_family),
                 )

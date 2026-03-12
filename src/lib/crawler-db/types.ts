@@ -27,6 +27,7 @@ export interface ReviewableFee extends ExtractedFee {
   state_code: string | null;
   charter_type: string;
   fee_category: string | null;
+  document_url: string | null;
 }
 
 export interface FeeReview {

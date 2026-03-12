@@ -18,7 +18,9 @@ from fee_crawler.fee_amount_rules import (
 from fee_crawler.fee_analysis import normalize_fee_name
 from fee_crawler.pipeline.extract_llm import ExtractedFee
 
-VALID_FREQUENCIES = {"per_occurrence", "monthly", "annual", "one_time", "other"}
+VALID_FREQUENCIES = {"per_occurrence", "monthly", "annual", "one_time", "daily", "other"}
+
+CAP_CATEGORIES = {"od_daily_cap", "nsf_daily_cap"}
 
 # Fee names that imply $0 / free / waived are normal
 FREE_FEE_KEYWORDS = {"free", "no charge", "no fee", "waived", "included", "$0"}
@@ -149,6 +151,21 @@ def _check_frequency(fee: ExtractedFee) -> list[ValidationFlag]:
     return []
 
 
+def _check_cap_frequency(
+    fee: ExtractedFee, fee_category: str | None
+) -> list[ValidationFlag]:
+    """Flag cap fees that have a non-daily frequency."""
+    if fee_category not in CAP_CATEGORIES:
+        return []
+    if fee.frequency == "daily":
+        return []
+    return [ValidationFlag(
+        rule="cap_frequency_mismatch",
+        severity="info",
+        message=f"Daily fee cap has frequency '{fee.frequency}' (expected 'daily'); will be auto-corrected",
+    )]
+
+
 def _check_non_fee_data(fee: ExtractedFee) -> list[ValidationFlag]:
     """Flag entries that look like misextracted non-fee data."""
     name_lower = fee.fee_name.lower()
@@ -178,6 +195,7 @@ def validate_fee(
     flags.extend(_check_low_confidence(fee, threshold))
     flags.extend(_check_duplicate(fee, existing_canonical))
     flags.extend(_check_frequency(fee))
+    flags.extend(_check_cap_frequency(fee, fee_category))
     return flags
 
 

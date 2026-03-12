@@ -387,3 +387,152 @@ export async function bulkApproveStagedFees(
     return { success: false, count: 0, error: (e as Error).message };
   }
 }
+
+export async function bulkRejectFees(
+  feeIds: number[],
+  notes?: string,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const user = await requirePermission("reject");
+    if (feeIds.length === 0) return { success: true, count: 0 };
+    if (feeIds.length > 200) return { success: false, count: 0, error: "Too many fees (max 200)" };
+
+    const db = getWriteDb();
+    try {
+      const selectStmt = db.prepare(
+        "SELECT id, review_status FROM extracted_fees WHERE id = ?",
+      );
+      const updateStmt = db.prepare(
+        "UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ?",
+      );
+      const auditStmt = db.prepare(
+        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+         VALUES (?, 'bulk_reject', ?, ?, ?, 'rejected', ?)`,
+      );
+
+      const bulkNote = notes || `Bulk rejected ${feeIds.length} outlier fees`;
+      let count = 0;
+
+      const batchOp = db.transaction(() => {
+        for (const feeId of feeIds) {
+          const fee = selectStmt.get(feeId) as { id: number; review_status: string } | undefined;
+          if (!fee) continue;
+          if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
+          updateStmt.run(feeId);
+          auditStmt.run(feeId, user.id, user.username, fee.review_status, bulkNote);
+          count++;
+        }
+      });
+      batchOp();
+
+      revalidatePath("/admin/review");
+      return { success: true, count };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { success: false, count: 0, error: (e as Error).message };
+  }
+}
+
+export async function bulkEditAndApproveFees(
+  updates: { feeId: number; amount: number }[],
+  notes?: string,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const user = await requirePermission("edit");
+    if (updates.length === 0) return { success: true, count: 0 };
+    if (updates.length > 200) return { success: false, count: 0, error: "Too many fees (max 200)" };
+
+    const db = getWriteDb();
+    try {
+      const selectStmt = db.prepare(
+        "SELECT id, fee_name, amount, review_status FROM extracted_fees WHERE id = ?",
+      );
+      const updateStmt = db.prepare(
+        "UPDATE extracted_fees SET amount = ?, review_status = 'approved' WHERE id = ?",
+      );
+      const auditStmt = db.prepare(
+        `INSERT INTO fee_reviews
+         (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+         VALUES (?, 'edit_approve', ?, ?, ?, 'approved', ?, ?, ?)`,
+      );
+
+      const bulkNote = notes || `Bulk fixed and approved ${updates.length} outlier fees`;
+      let count = 0;
+
+      const batchOp = db.transaction(() => {
+        for (const { feeId, amount } of updates) {
+          const fee = selectStmt.get(feeId) as {
+            id: number; fee_name: string; amount: number | null; review_status: string;
+          } | undefined;
+          if (!fee) continue;
+          if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
+          updateStmt.run(amount, feeId);
+          auditStmt.run(
+            feeId, user.id, user.username, fee.review_status,
+            JSON.stringify({ amount: fee.amount }),
+            JSON.stringify({ amount }),
+            bulkNote,
+          );
+          count++;
+        }
+      });
+      batchOp();
+
+      revalidatePath("/admin/review");
+      return { success: true, count };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { success: false, count: 0, error: (e as Error).message };
+  }
+}
+
+export async function bulkApproveFees(
+  feeIds: number[],
+  notes?: string,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const user = await requirePermission("approve");
+    if (feeIds.length === 0) return { success: true, count: 0 };
+    if (feeIds.length > 200) return { success: false, count: 0, error: "Too many fees (max 200)" };
+
+    const db = getWriteDb();
+    try {
+      const selectStmt = db.prepare(
+        "SELECT id, review_status FROM extracted_fees WHERE id = ?",
+      );
+      const updateStmt = db.prepare(
+        "UPDATE extracted_fees SET review_status = 'approved' WHERE id = ?",
+      );
+      const auditStmt = db.prepare(
+        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+         VALUES (?, 'bulk_approve', ?, ?, ?, 'approved', ?)`,
+      );
+
+      const bulkNote = notes || `Bulk approved ${feeIds.length} fees`;
+      let count = 0;
+
+      const batchOp = db.transaction(() => {
+        for (const feeId of feeIds) {
+          const fee = selectStmt.get(feeId) as { id: number; review_status: string } | undefined;
+          if (!fee) continue;
+          if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
+          updateStmt.run(feeId);
+          auditStmt.run(feeId, user.id, user.username, fee.review_status, bulkNote);
+          count++;
+        }
+      });
+      batchOp();
+
+      revalidatePath("/admin/review");
+      return { success: true, count };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { success: false, count: 0, error: (e as Error).message };
+  }
+}

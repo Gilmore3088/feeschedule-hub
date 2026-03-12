@@ -90,6 +90,19 @@ export default async function FeeDetailPage({
         <p className="text-sm text-gray-500 mt-0.5">
           {fee.institution_name} | {fee.state_code} |{" "}
           {fee.charter_type === "bank" ? "Bank" : "Credit Union"}
+          {fee.document_url && (
+            <>
+              {" | "}
+              <a
+                href={fee.document_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:text-blue-700 transition-colors"
+              >
+                View Source
+              </a>
+            </>
+          )}
         </p>
       </div>
 

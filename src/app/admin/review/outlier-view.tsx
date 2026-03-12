@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { editAndApproveFee, rejectFee } from "@/lib/fee-actions";
+import { editAndApproveFee, rejectFee, bulkRejectFees, bulkEditAndApproveFees } from "@/lib/fee-actions";
 import { formatAmount } from "@/lib/format";
 import { InlineAmountEditor } from "./inline-amount-editor";
 import type { ReviewableFee } from "@/lib/crawler-db/types";
@@ -91,6 +91,8 @@ interface OutlierViewProps {
 export function OutlierView({ fees, total, medians, categories }: OutlierViewProps) {
   const [filterCategory, setFilterCategory] = useState("");
   const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkPending, startBulkTransition] = useTransition();
 
   const displayed = fees.filter((f) => {
     if (resolvedIds.has(f.id)) return false;
@@ -98,12 +100,112 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
     return true;
   });
 
+  const allSelected = displayed.length > 0 && displayed.every((f) => selectedIds.has(f.id));
+  const someSelected = selectedIds.size > 0;
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(displayed.map((f) => f.id)));
+    }
+  }
+
+  function toggleOne(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function handleBulkReject() {
+    const ids = Array.from(selectedIds);
+    startBulkTransition(async () => {
+      const result = await bulkRejectFees(ids, `Bulk rejected ${ids.length} outlier fees`);
+      if (result.success) {
+        setResolvedIds((prev) => {
+          const next = new Set(prev);
+          ids.forEach((id) => next.add(id));
+          return next;
+        });
+        setSelectedIds(new Set());
+      } else {
+        alert(result.error || "Bulk reject failed");
+      }
+    });
+  }
+
+  function handleBulkSetToMedian() {
+    const updates: { feeId: number; amount: number }[] = [];
+    for (const id of selectedIds) {
+      const fee = fees.find((f) => f.id === id);
+      if (!fee?.fee_category) continue;
+      const median = medians[fee.fee_category];
+      if (!median) continue;
+      updates.push({ feeId: id, amount: median.median });
+    }
+    if (updates.length === 0) {
+      alert("No selected fees have a category median to apply.");
+      return;
+    }
+    startBulkTransition(async () => {
+      const result = await bulkEditAndApproveFees(updates, `Bulk set to median and approved`);
+      if (result.success) {
+        setResolvedIds((prev) => {
+          const next = new Set(prev);
+          updates.forEach((u) => next.add(u.feeId));
+          return next;
+        });
+        setSelectedIds(new Set());
+      } else {
+        alert(result.error || "Bulk fix failed");
+      }
+    });
+  }
+
+  function handleBulkApproveAsIs() {
+    const updates = Array.from(selectedIds).map((id) => {
+      const fee = fees.find((f) => f.id === id);
+      return { feeId: id, amount: fee?.amount ?? 0 };
+    });
+    startBulkTransition(async () => {
+      const result = await bulkEditAndApproveFees(updates, `Bulk approved as-is`);
+      if (result.success) {
+        setResolvedIds((prev) => {
+          const next = new Set(prev);
+          updates.forEach((u) => next.add(u.feeId));
+          return next;
+        });
+        setSelectedIds(new Set());
+      } else {
+        alert(result.error || "Bulk approve failed");
+      }
+    });
+  }
+
+  function handleResolved(id: number) {
+    setResolvedIds((prev) => new Set(prev).add(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <select
           value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
+          onChange={(e) => {
+            setFilterCategory(e.target.value);
+            setSelectedIds(new Set());
+          }}
           className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm
                      dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
         >
@@ -119,6 +221,50 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
         </span>
       </div>
 
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div
+          className={`sticky top-[57px] z-20 flex items-center gap-3 rounded-lg border
+                      border-blue-200 bg-blue-50 px-4 py-2.5 shadow-sm
+                      dark:bg-blue-900/20 dark:border-blue-800 ${bulkPending ? "opacity-50" : ""}`}
+        >
+          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+            {selectedIds.size} selected
+          </span>
+          <div className="h-4 w-px bg-blue-200 dark:bg-blue-700" />
+          <button
+            disabled={bulkPending}
+            onClick={handleBulkReject}
+            className="rounded px-2.5 py-1 text-xs font-medium bg-red-50 text-red-700
+                       hover:bg-red-100 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 transition-colors"
+          >
+            Reject All
+          </button>
+          <button
+            disabled={bulkPending}
+            onClick={handleBulkSetToMedian}
+            className="rounded px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700
+                       hover:bg-emerald-100 disabled:opacity-50 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors"
+          >
+            Set to Median
+          </button>
+          <button
+            disabled={bulkPending}
+            onClick={handleBulkApproveAsIs}
+            className="rounded px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-700
+                       hover:bg-gray-200 disabled:opacity-50 dark:bg-white/[0.08] dark:text-gray-300 transition-colors"
+          >
+            Approve As-Is
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {displayed.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           {total === 0
@@ -131,6 +277,15 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50/80 text-left">
+                  <th className="px-3 py-2.5 w-8">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500
+                                 dark:border-white/20 dark:bg-[oklch(0.18_0_0)]"
+                    />
+                  </th>
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                     Institution
                   </th>
@@ -157,7 +312,9 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
                     key={fee.id}
                     fee={fee}
                     median={fee.fee_category ? medians[fee.fee_category] : undefined}
-                    onResolved={() => setResolvedIds((prev) => new Set(prev).add(fee.id))}
+                    selected={selectedIds.has(fee.id)}
+                    onToggle={() => toggleOne(fee.id)}
+                    onResolved={() => handleResolved(fee.id)}
                   />
                 ))}
               </tbody>
@@ -172,10 +329,14 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
 function OutlierRow({
   fee,
   median,
+  selected,
+  onToggle,
   onResolved,
 }: {
   fee: ReviewableFee;
   median: CategoryMedian | undefined;
+  selected: boolean;
+  onToggle: () => void;
   onResolved: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -210,8 +371,18 @@ function OutlierRow({
       data-fee-row
       className={`border-b last:border-0 hover:bg-gray-50/50 transition-colors ${
         pending ? "opacity-40" : ""
-      }`}
+      } ${selected ? "bg-blue-50/40 dark:bg-blue-900/10" : ""}`}
     >
+      <td className="px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          disabled={pending}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500
+                     dark:border-white/20 dark:bg-[oklch(0.18_0_0)]"
+        />
+      </td>
       <td className="px-4 py-2.5">
         <Link
           href={`/admin/peers/${fee.crawl_target_id}`}
@@ -221,6 +392,20 @@ function OutlierRow({
         </Link>
         <div className="text-[11px] text-gray-400">
           {fee.state_code} | {fee.charter_type === "bank" ? "Bank" : "CU"}
+          {fee.document_url && (
+            <>
+              {" | "}
+              <a
+                href={fee.document_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-600 transition-colors"
+                title={fee.document_url}
+              >
+                Source
+              </a>
+            </>
+          )}
         </div>
       </td>
       <td className="px-4 py-2.5">

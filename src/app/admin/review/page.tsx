@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
-import { getReviewStats, getFeesByStatus, getOutlierFlaggedFees, getOutlierCount, getCategoryMedians, type ReviewableFee } from "@/lib/crawler-db";
-import { ApproveButton, RejectButton, BulkApproveButton } from "./review-actions";
-import { CategorySelect } from "./category-select";
+import { getReviewStats, getFeesByStatus, getOutlierFlaggedFees, getOutlierCount, getCategoryMedians } from "@/lib/crawler-db";
+import { BulkApproveButton } from "./review-actions";
 import { FeeSearchForm } from "./fee-search";
 import { OutlierView } from "./outlier-view";
+import { ReviewTable } from "./review-table";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Pagination } from "@/components/pagination";
-import { SortableHeader } from "@/components/sortable-header";
 import { ReviewKeyboardNav } from "./keyboard-nav";
-import { formatAmount } from "@/lib/format";
 
 const STATUS_TABS = ["staged", "flagged", "outliers", "pending", "approved", "rejected"] as const;
 
@@ -20,62 +18,6 @@ const STATUS_COLORS: Record<string, string> = {
   approved: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
   rejected: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
 };
-
-function confidenceBadge(conf: number) {
-  const cls =
-    conf >= 0.9
-      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-      : conf >= 0.7
-        ? "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-        : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400";
-  return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${cls}`}
-    >
-      {(conf * 100).toFixed(0)}%
-    </span>
-  );
-}
-
-interface ValidationFlag {
-  rule: string;
-  severity: string;
-  message: string;
-}
-
-function parseFlags(flags: string | null): ValidationFlag[] {
-  if (!flags) return [];
-  try {
-    return JSON.parse(flags);
-  } catch {
-    return [];
-  }
-}
-
-function FlagsBadges({ flags }: { flags: ValidationFlag[] }) {
-  if (flags.length === 0) return <span className="text-gray-400 dark:text-gray-600">-</span>;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {flags.map((f, i) => {
-        const cls =
-          f.severity === "error"
-            ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-            : f.severity === "warning"
-              ? "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
-              : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400";
-        return (
-          <span
-            key={i}
-            className={`inline-block rounded px-1.5 py-0.5 text-xs ${cls}`}
-            title={f.message}
-          >
-            {f.rule.replace(/_/g, " ")}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
 
 const PAGE_SIZE = 100;
 
@@ -214,37 +156,12 @@ export default async function ReviewPage({
             : `No fees with status "${activeStatus}"`}
         </div>
       ) : !isOutlierView ? (
-        <div className="admin-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50/80 text-left">
-                  <SortableHeader column="institution" label="Institution" />
-                  <SortableHeader column="fee_name" label="Fee Name" />
-                  <SortableHeader column="amount" label="Amount" className="text-right" />
-                  <SortableHeader column="frequency" label="Frequency" />
-                  <SortableHeader column="confidence" label="Confidence" className="text-center" />
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Category</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Flags</th>
-                  {canApprove && (
-                    <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
-                      Actions
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {fees.map((fee) => (
-                  <FeeRow
-                    key={fee.id}
-                    fee={fee}
-                    canApprove={canApprove}
-                    activeStatus={activeStatus}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div>
+          <ReviewTable
+            fees={fees}
+            canApprove={canApprove}
+            activeStatus={activeStatus}
+          />
           <ReviewKeyboardNav rowCount={fees.length} />
           <div className="px-4 pb-3">
             <Pagination
@@ -264,79 +181,5 @@ export default async function ReviewPage({
         </div>
       ) : null}
     </>
-  );
-}
-
-function FeeRow({
-  fee,
-  canApprove,
-  activeStatus,
-}: {
-  fee: ReviewableFee;
-  canApprove: boolean;
-  activeStatus: string;
-}) {
-  const flags = parseFlags(fee.validation_flags);
-  const showActions =
-    canApprove &&
-    (activeStatus === "staged" ||
-      activeStatus === "flagged" ||
-      activeStatus === "pending");
-
-  return (
-    <tr data-fee-row className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-      <td className="px-4 py-2.5">
-        <Link
-          href={`/admin/peers/${fee.crawl_target_id}`}
-          className="font-medium text-gray-900 hover:text-blue-600 transition-colors text-xs"
-        >
-          {fee.institution_name}
-        </Link>
-        <div className="text-[11px] text-gray-400">
-          {fee.state_code} | {fee.charter_type === "bank" ? "Bank" : "CU"}
-        </div>
-      </td>
-      <td className="px-4 py-2.5">
-        <Link
-          data-detail-link
-          href={`/admin/review/${fee.id}`}
-          className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
-        >
-          {fee.fee_name}
-        </Link>
-        {fee.conditions && (
-          <div className="text-[11px] text-gray-400 mt-0.5 max-w-xs truncate">
-            {fee.conditions}
-          </div>
-        )}
-      </td>
-      <td className="px-4 py-2.5 text-right tabular-nums text-gray-900">
-        {formatAmount(fee.amount)}
-      </td>
-      <td className="px-4 py-2.5 text-gray-600 text-xs">
-        {fee.frequency || "-"}
-      </td>
-      <td className="px-4 py-2.5 text-center">
-        {confidenceBadge(fee.extraction_confidence)}
-      </td>
-      <td className="px-4 py-2.5">
-        <CategorySelect feeId={fee.id} currentCategory={fee.fee_category} />
-      </td>
-      <td className="px-4 py-2.5">
-        <FlagsBadges flags={flags} />
-      </td>
-      {canApprove && (
-        <td className="px-4 py-2.5 text-right">
-          {showActions ? (
-            <div className="flex gap-1 justify-end">
-              <ApproveButton feeId={fee.id} />
-              <RejectButton feeId={fee.id} />
-            </div>
-          ) : (
-            <span className="text-xs text-gray-400">{fee.review_status}</span>
-          )}
-        </td>
-      )}
-    </tr>
   );
 }

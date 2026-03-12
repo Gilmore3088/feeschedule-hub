@@ -65,7 +65,7 @@ _EXTRACT_FEES_TOOL = {
                         },
                         "frequency": {
                             "type": "string",
-                            "enum": ["per_occurrence", "monthly", "annual", "one_time", "other"],
+                            "enum": ["per_occurrence", "monthly", "annual", "one_time", "daily", "other"],
                             "description": "How often the fee is charged",
                         },
                         "conditions": {
