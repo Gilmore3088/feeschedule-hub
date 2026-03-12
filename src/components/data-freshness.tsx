@@ -1,5 +1,4 @@
 import { getDataFreshness } from "@/lib/crawler-db";
-import { timeAgo } from "@/lib/format";
 
 export function DataFreshness() {
   const freshness = getDataFreshness();
@@ -8,9 +7,15 @@ export function DataFreshness() {
 
   if (!lastUpdated) return null;
 
+  const dateStr = new Date(lastUpdated).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
   return (
     <p className="text-[11px] text-slate-400">
-      Data updated {timeAgo(lastUpdated)} &middot;{" "}
+      Data as of {dateStr} &middot;{" "}
       {freshness.total_observations.toLocaleString()} observations
     </p>
   );

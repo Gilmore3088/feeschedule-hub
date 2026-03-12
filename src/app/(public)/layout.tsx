@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AskWidgetLoader } from "@/components/public/ask-widget-loader";
 
 const NAV_ITEMS = [
   { label: "Fee Index", href: "/fees" },
@@ -34,6 +35,7 @@ export default function PublicLayout({
         </div>
       </header>
       <main>{children}</main>
+      <AskWidgetLoader />
       <footer className="border-t border-slate-200 bg-slate-50">
         <div className="mx-auto max-w-6xl px-6 py-10">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">

@@ -419,11 +419,11 @@ To build credibility as a research source:
 **Goal:** Offer programmatic access to research data.
 
 **Tasks:**
-- [ ] Design REST API with versioning (`/api/v1/`)
-- [ ] Build API route handlers for key datasets
+- [x] Design REST API with versioning (`/api/v1/`)
+- [x] Build API route handlers for key datasets
 - [ ] Add API key authentication for rate limiting
-- [ ] Create API documentation page
-- [ ] Add CSV/JSON download endpoints for each report
+- [x] Create API documentation page
+- [x] Add CSV/JSON download endpoints for each report
 - [ ] Consider webhook notifications for data updates
 
 **Files:**

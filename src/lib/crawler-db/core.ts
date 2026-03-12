@@ -453,7 +453,7 @@ export function getDataFreshness(): DataFreshness {
 
   const crawl = db
     .prepare(
-      `SELECT MAX(completed_at) as last_at FROM crawl_results WHERE status = 'success'`
+      `SELECT MAX(crawled_at) as last_at FROM crawl_results WHERE status = 'success'`
     )
     .get() as { last_at: string | null } | undefined;
 
