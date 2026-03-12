@@ -167,7 +167,7 @@ Server Component (page.tsx)
 - [x] Standard reject button still available for unfixable entries
 - [x] Category filter dropdown to focus on one fee type at a time
 - [x] Count badge on Outliers tab shows how many need attention
-- [ ] Keyboard nav (j/k) works in outlier view
+- [x] Keyboard nav (j/k) works in outlier view
 - [x] All edits create proper `fee_reviews` audit entries
 
 ## References

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { editAndApproveFee, rejectFee, bulkRejectFees, bulkEditAndApproveFees } from "@/lib/fee-actions";
 import { formatAmount } from "@/lib/format";
 import { InlineAmountEditor } from "./inline-amount-editor";
+import { ReviewKeyboardNav } from "./keyboard-nav";
 import type { ReviewableFee } from "@/lib/crawler-db/types";
 import type { CategoryMedian } from "@/lib/crawler-db/core";
 
@@ -320,6 +321,7 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
               </tbody>
             </table>
           </div>
+          <ReviewKeyboardNav rowCount={displayed.length} />
         </div>
       )}
     </div>
@@ -466,6 +468,7 @@ function OutlierRow({
       </td>
       <td className="px-4 py-2.5 text-right">
         <button
+          data-action="reject"
           disabled={pending}
           onClick={handleReject}
           className="rounded px-2 py-1 text-xs font-medium bg-red-50 text-red-700
