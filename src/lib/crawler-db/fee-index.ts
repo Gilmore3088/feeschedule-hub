@@ -50,6 +50,7 @@ export function getPeerIndex(
     charter_type?: string;
     asset_tiers?: string[];
     fed_districts?: number[];
+    state_code?: string;
   },
   approvedOnly = false
 ): IndexEntry[] {
@@ -76,6 +77,10 @@ export function getPeerIndex(
     const placeholders = filters.fed_districts.map(() => "?").join(",");
     conditions.push(`ct.fed_district IN (${placeholders})`);
     params.push(...filters.fed_districts);
+  }
+  if (filters.state_code) {
+    conditions.push("ct.state_code = ?");
+    params.push(filters.state_code);
   }
 
   const where = conditions.join(" AND ");
