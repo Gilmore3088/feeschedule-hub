@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getNationalIndex } from "@/lib/crawler-db";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
+import { PeerIndexPreview } from "@/components/peer-index-preview";
+import type { PeerPreviewResult } from "@/app/actions/peer-index";
 
 const INDEX_CATEGORIES = [
   "monthly_maintenance",
@@ -15,11 +17,12 @@ const INDEX_CATEGORIES = [
   "cashiers_check",
 ];
 
-const TIERS = [
-  "Community (<$300M)",
-  "Community ($300M-$1B)",
-  "Regional ($1B-$10B)",
-  "Large Regional ($10B+)",
+const PEER_PREVIEW_CATEGORIES = [
+  "monthly_maintenance",
+  "nsf",
+  "overdraft",
+  "atm_non_network",
+  "wire_domestic_outgoing",
 ];
 
 export default async function LandingPage() {
@@ -35,6 +38,20 @@ export default async function LandingPage() {
     0
   );
   const totalCategories = allEntries.length;
+
+  // Initial peer preview data (national, no filters)
+  const peerPreviewInitial: PeerPreviewResult = {
+    entries: PEER_PREVIEW_CATEGORIES.map((cat) => {
+      const entry = allEntries.find((e) => e.fee_category === cat);
+      return {
+        category: cat,
+        displayName: getDisplayName(cat),
+        peerMedian: entry?.median_amount ?? null,
+        nationalMedian: entry?.median_amount ?? null,
+      };
+    }),
+    label: "All Institutions",
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -382,143 +399,7 @@ export default async function LandingPage() {
       {/* ========== SECTION 4: Peer Index Segmentation ========== */}
       <section id="peer-index" className="bg-white py-20 md:py-28">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="grid grid-cols-1 gap-16 lg:grid-cols-2 items-center">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
-                Peer Index Segmentation
-              </h2>
-              <p className="mt-5 text-[15px] leading-relaxed text-slate-600">
-                Generate a tailored benchmark using asset tier, Federal Reserve
-                district, and charter type to reflect your institution&apos;s
-                competitive footprint.
-              </p>
-              <div className="mt-8 space-y-4">
-                <div className="rounded border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Asset Tier
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {TIERS.map((tier) => (
-                      <span
-                        key={tier}
-                        className="rounded bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
-                      >
-                        {tier}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Federal Reserve District
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      "Boston",
-                      "New York",
-                      "Philadelphia",
-                      "Cleveland",
-                      "Richmond",
-                      "Atlanta",
-                      "Chicago",
-                      "St. Louis",
-                      "Minneapolis",
-                      "Kansas City",
-                      "Dallas",
-                      "San Francisco",
-                    ].map((d) => (
-                      <span
-                        key={d}
-                        className="rounded bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
-                      >
-                        {d}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Charter Type
-                  </p>
-                  <div className="flex gap-2">
-                    <span className="rounded bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-700">
-                      Banks
-                    </span>
-                    <span className="rounded bg-green-50 border border-green-200 px-2.5 py-1 text-xs font-medium text-green-700">
-                      Credit Unions
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-8">
-                <a
-                  href="#request-access"
-                  className="inline-flex items-center rounded bg-[#0f172a] px-5 py-2.5 text-[13px] font-semibold text-white hover:bg-slate-800 transition-colors"
-                >
-                  Benchmark Your Institution
-                </a>
-              </div>
-            </div>
-
-            {/* Peer comparison preview */}
-            <div className="rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-200 bg-white">
-                <p className="text-[13px] font-semibold text-slate-900">
-                  Sample Peer Comparison
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Community Banks (&lt;$300M) &middot; District 7 - Chicago
-                </p>
-              </div>
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left">
-                    <th className="px-5 py-2.5 text-xs font-medium text-slate-500">
-                      Category
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-medium text-slate-500 text-right">
-                      Peer Median
-                    </th>
-                    <th className="px-5 py-2.5 text-xs font-medium text-slate-500 text-right">
-                      National
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white">
-                  {snapshotEntries.slice(0, 5).map((entry, i) => {
-                    // Deterministic peer offset based on category index
-                    const offsets = [0.93, 1.07, 0.88, 1.02, 0.95];
-                    const peerDelta = entry!.median_amount
-                      ? entry!.median_amount * offsets[i]
-                      : null;
-                    return (
-                      <tr
-                        key={entry!.fee_category}
-                        className={
-                          i < 4 ? "border-b border-slate-100" : ""
-                        }
-                      >
-                        <td className="px-5 py-2.5 text-slate-700">
-                          {getDisplayName(entry!.fee_category)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900">
-                          {peerDelta ? formatAmount(Math.round(peerDelta * 100) / 100) : "-"}
-                        </td>
-                        <td className="px-5 py-2.5 text-right tabular-nums text-slate-500">
-                          {formatAmount(entry!.median_amount)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <div className="px-5 py-2.5 border-t border-slate-200 bg-slate-50">
-                <p className="text-[11px] text-slate-400">
-                  Illustrative data. Actual peer medians computed from validated submissions.
-                </p>
-              </div>
-            </div>
-          </div>
+          <PeerIndexPreview initialData={peerPreviewInitial} />
         </div>
       </section>
 
