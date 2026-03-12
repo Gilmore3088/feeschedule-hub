@@ -300,3 +300,35 @@ export function getFeeById(feeId: number): ReviewableFee | null {
     .get(feeId) as ReviewableFee | undefined;
   return row ?? null;
 }
+
+export interface DataFreshness {
+  last_crawl_at: string | null;
+  last_fee_extracted_at: string | null;
+  total_observations: number;
+}
+
+export function getDataFreshness(): DataFreshness {
+  const db = getDb();
+
+  const crawl = db
+    .prepare(
+      `SELECT MAX(completed_at) as last_at FROM crawl_results WHERE status = 'success'`
+    )
+    .get() as { last_at: string | null } | undefined;
+
+  const fee = db
+    .prepare(`SELECT MAX(created_at) as last_at FROM extracted_fees`)
+    .get() as { last_at: string | null } | undefined;
+
+  const count = db
+    .prepare(
+      `SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status != 'rejected'`
+    )
+    .get() as { cnt: number };
+
+  return {
+    last_crawl_at: crawl?.last_at ?? null,
+    last_fee_extracted_at: fee?.last_at ?? null,
+    total_observations: count.cnt,
+  };
+}
