@@ -81,6 +81,18 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: "Ops",
     items: [
       {
+        href: "/admin/ops",
+        label: "Operations",
+        exact: true,
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5v3M8 11.5v3M14.5 8h-3M4.5 8h-3" />
+            <circle cx="8" cy="8" r="2.5" />
+            <path d="M12.5 3.5l-2 2M5.5 10.5l-2 2M12.5 12.5l-2-2M5.5 5.5l-2-2" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/institutions",
         label: "Institutions",
         icon: (

@@ -295,6 +295,27 @@ _MIGRATE_CRAWL_TARGETS_V3 = [
     "ALTER TABLE crawl_targets ADD COLUMN cms_platform TEXT",
 ]
 
+_CREATE_OPS_JOBS = """
+CREATE TABLE IF NOT EXISTS ops_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    command TEXT NOT NULL,
+    params_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'queued',
+    triggered_by TEXT NOT NULL,
+    target_id INTEGER,
+    crawl_run_id INTEGER,
+    pid INTEGER,
+    log_path TEXT,
+    started_at TEXT,
+    completed_at TEXT,
+    exit_code INTEGER,
+    stdout_tail TEXT,
+    error_summary TEXT,
+    result_summary TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
 
 class Database:
     """Thin wrapper around SQLite for local dev."""
@@ -334,6 +355,7 @@ class Database:
         self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)
         self.conn.executescript(_CREATE_DISCOVERY_CACHE)
         self.conn.executescript(_CREATE_COMMUNITY_SUBMISSIONS)
+        self.conn.executescript(_CREATE_OPS_JOBS)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -355,6 +377,8 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_fed_content_type ON fed_content(content_type)",
             "CREATE INDEX IF NOT EXISTS idx_fed_indicators_series ON fed_economic_indicators(series_id, observation_date)",
             "CREATE INDEX IF NOT EXISTS idx_discovery_cache_target ON discovery_cache(crawl_target_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ops_jobs_status ON ops_jobs(status)",
+            "CREATE INDEX IF NOT EXISTS idx_ops_jobs_created ON ops_jobs(created_at)",
         ]
         for sql in indexes:
             try:
@@ -403,7 +427,7 @@ class Database:
         "institution_financials", "institution_complaints",
         "fee_snapshots", "fee_change_events",
         "fed_beige_book", "fed_content", "fed_economic_indicators",
-        "discovery_cache", "community_submissions",
+        "discovery_cache", "community_submissions", "ops_jobs",
     })
 
     def count(self, table: str) -> int:
