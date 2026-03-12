@@ -121,7 +121,7 @@ async function AdminLayoutInner({
 
         {/* Main content */}
         <main className="admin-content flex-1 min-w-0 px-5 py-5 lg:px-7">
-          <div className="mx-auto max-w-[1200px]">{children}</div>
+          <div className="mx-auto max-w-[1600px]">{children}</div>
         </main>
       </div>
 
