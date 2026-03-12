@@ -35,7 +35,9 @@ export function CategoryExplorer({
     () => new Set(Object.keys(FEE_FAMILIES))
   );
   const [search, setSearch] = useState("");
-  const [showAll, setShowAll] = useState(false);
+
+  // Use URL param for showAll so state persists on refresh/share
+  const showAll = searchParams.get("show") === "all";
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -112,7 +114,7 @@ export function CategoryExplorer({
   }, [filteredEntries]);
 
   return (
-    <div className="rounded-lg border bg-white">
+    <div className="admin-card">
       <div className="px-5 py-3 border-b bg-gray-50/80 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-bold text-gray-800">
@@ -124,12 +126,12 @@ export function CategoryExplorer({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowAll((prev) => !prev)}
+            onClick={() => updateParams({ show: showAll ? null : "all" })}
             aria-pressed={showAll}
             className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
               showAll
-                ? "bg-gray-900 border-gray-900 text-white"
-                : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                ? "bg-gray-900 border-gray-900 text-white dark:bg-white/15 dark:border-white/15"
+                : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-white/[0.12] dark:text-gray-400"
             }`}
           >
             {showAll ? `All (${TAXONOMY_COUNT})` : `Featured (${FEATURED_COUNT})`}

@@ -106,7 +106,10 @@ export function getInstitutionsByFilter(filters: {
   asset_tiers?: string[];
   fed_districts?: number[];
   state_code?: string;
-}): InstitutionDetail[] {
+  gap?: boolean;
+  page?: number;
+  pageSize?: number;
+}): { rows: InstitutionDetail[]; total: number } {
   const db = getDb();
   const conditions: string[] = [];
   const params: (string | number)[] = [];
@@ -131,18 +134,40 @@ export function getInstitutionsByFilter(filters: {
   }
 
   const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+  const having = filters.gap ? "HAVING fee_count = 0" : "";
 
-  return db.prepare(`
+  const page = filters.page ?? 1;
+  const pageSize = filters.pageSize ?? 50;
+  const offset = (page - 1) * pageSize;
+
+  const countRow = db.prepare(`
+    SELECT COUNT(*) as cnt FROM (
+      SELECT ct.id, COUNT(ef.id) as fee_count
+      FROM crawl_targets ct
+      LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+        AND ef.review_status != 'rejected'
+      ${where}
+      GROUP BY ct.id
+      ${having}
+    )
+  `).get(...params) as { cnt: number };
+
+  const rows = db.prepare(`
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+           ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM crawl_targets ct
     LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+      AND ef.review_status != 'rejected'
     ${where}
     GROUP BY ct.id
+    ${having}
     ORDER BY ct.asset_size DESC NULLS LAST
-    LIMIT 200
-  `).all(...params) as InstitutionDetail[];
+    LIMIT ? OFFSET ?
+  `).all(...params, pageSize, offset) as InstitutionDetail[];
+
+  return { rows, total: countRow.cnt };
 }
 
 export function getInstitutionById(id: number): InstitutionDetail | null {

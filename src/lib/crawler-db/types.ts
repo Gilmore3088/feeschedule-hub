@@ -59,6 +59,8 @@ export interface InstitutionDetail {
   asset_size_tier: string | null;
   fed_district: number | null;
   city: string | null;
+  website_url: string | null;
+  fee_schedule_url: string | null;
   fee_count: number;
 }
 

@@ -9,113 +9,13 @@ import {
   FEE_FAMILIES,
   getDisplayName,
   getFeeFamily,
-  getFamilyColor,
+  getFeeTier,
   isFeaturedFee,
   TAXONOMY_COUNT,
   FEATURED_COUNT,
 } from "@/lib/fee-taxonomy";
-import { CollapsibleSection } from "@/components/collapsible-section";
-import { IndexFilters } from "./index-filters";
-import { PeerIndexFilters } from "./peer-index-filters";
+import { IndexFilterBar, SortHeader } from "./index-filter-bar";
 import { MaturityBadge } from "./maturity-badge";
-
-function IndexTable({ items }: { items: IndexEntry[] }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50/80 text-left">
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50/80 z-10 min-w-[180px]">
-              Fee Category
-            </th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Median</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P25</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P75</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Min</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Max</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Inst.</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">Banks</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">CUs</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">Maturity</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr
-              key={item.fee_category}
-              className="border-b last:border-0 hover:bg-blue-50/30 transition-colors"
-            >
-              <td className="px-4 py-2.5 sticky left-0 bg-white z-10">
-                <Link
-                  href={`/admin/fees/catalog/${item.fee_category}`}
-                  className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
-                >
-                  {getDisplayName(item.fee_category)}
-                </Link>
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900">
-                {formatAmount(item.median_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                {formatAmount(item.p25_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                {formatAmount(item.p75_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
-                {formatAmount(item.min_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
-                {formatAmount(item.max_amount)}
-              </td>
-              <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900">
-                {item.institution_count}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {item.bank_count > 0 ? (
-                  <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
-                    {item.bank_count}
-                  </span>
-                ) : (
-                  <span className="text-gray-300">-</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                {item.cu_count > 0 ? (
-                  <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
-                    {item.cu_count}
-                  </span>
-                ) : (
-                  <span className="text-gray-300">-</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5 text-center">
-                <MaturityBadge
-                  tier={item.maturity_tier}
-                  approved={item.approved_count}
-                  total={item.observation_count}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function buildFamilySummary(items: IndexEntry[]): string {
-  const medians = items
-    .map((i) => i.median_amount)
-    .filter((m): m is number => m !== null)
-    .sort((a, b) => a - b);
-  const medianRange =
-    medians.length > 0
-      ? `Median ${formatAmount(medians[0])} - ${formatAmount(medians[medians.length - 1])}`
-      : "";
-  const totalInst = items.reduce((s, i) => s + i.institution_count, 0);
-  return `${items.length} categories | ${medianRange} | ${totalInst} observations`;
-}
 
 export default async function FeeIndexPage({
   searchParams,
@@ -125,6 +25,7 @@ export default async function FeeIndexPage({
     family?: string;
     approved?: string;
     sort?: string;
+    dir?: string;
     show?: string;
     charter?: string;
     tier?: string;
@@ -137,11 +38,16 @@ export default async function FeeIndexPage({
   const searchTerm = params.q ?? "";
   const activeFamily = params.family ?? "";
   const approvedOnly = params.approved === "1";
-  const sortKey = params.sort ?? "institution_count";
+  const sortKey = params.sort ?? "";
+  const sortDir = params.dir ?? "asc";
   const showAll = params.show === "all";
 
   const peerFilters = parsePeerFilters(params);
-  const hasPeerFilters = peerFilters.charter || peerFilters.tiers || peerFilters.districts;
+  const hasPeerFilters = !!(
+    peerFilters.charter ||
+    peerFilters.tiers ||
+    peerFilters.districts
+  );
 
   let entries: IndexEntry[];
   if (hasPeerFilters) {
@@ -157,9 +63,11 @@ export default async function FeeIndexPage({
     entries = getNationalIndex(approvedOnly);
   }
 
-  const filterDescription = hasPeerFilters ? buildFilterDescription(peerFilters) : null;
+  const filterDescription = hasPeerFilters
+    ? buildFilterDescription(peerFilters)
+    : null;
 
-  // Search always queries all categories (regardless of tier filter)
+  // Search always queries all categories
   if (searchTerm) {
     entries = entries.filter((e) =>
       getDisplayName(e.fee_category)
@@ -168,40 +76,53 @@ export default async function FeeIndexPage({
     );
   }
 
-  // Apply tier filter: default to featured only, unless searching or show=all
+  // Apply featured filter unless searching or show=all
   if (!showAll && !searchTerm) {
     entries = entries.filter((e) => isFeaturedFee(e.fee_category));
   }
 
-  if (sortKey === "median_amount") {
-    entries.sort((a, b) => (b.median_amount ?? 0) - (a.median_amount ?? 0));
-  } else if (sortKey === "fee_category") {
-    entries.sort((a, b) =>
-      getDisplayName(a.fee_category).localeCompare(getDisplayName(b.fee_category))
+  // Family filter
+  if (activeFamily) {
+    entries = entries.filter(
+      (e) => getFeeFamily(e.fee_category) === activeFamily
     );
   }
 
-  const byFamily = new Map<string, IndexEntry[]>();
-  const uncategorized: IndexEntry[] = [];
+  // Sort
+  const SORT_FNS: Record<string, (a: IndexEntry, b: IndexEntry) => number> = {
+    category: (a, b) =>
+      getDisplayName(a.fee_category).localeCompare(
+        getDisplayName(b.fee_category)
+      ),
+    median: (a, b) => (a.median_amount ?? 0) - (b.median_amount ?? 0),
+    p25: (a, b) => (a.p25_amount ?? 0) - (b.p25_amount ?? 0),
+    p75: (a, b) => (a.p75_amount ?? 0) - (b.p75_amount ?? 0),
+    institutions: (a, b) => a.institution_count - b.institution_count,
+    maturity: (a, b) => {
+      const order = { strong: 0, provisional: 1, insufficient: 2 };
+      return order[a.maturity_tier] - order[b.maturity_tier];
+    },
+  };
 
-  for (const e of entries) {
-    const family = getFeeFamily(e.fee_category);
-    if (family) {
-      if (activeFamily && family !== activeFamily) continue;
-      if (!byFamily.has(family)) byFamily.set(family, []);
-      byFamily.get(family)!.push(e);
-    } else {
-      if (!activeFamily) uncategorized.push(e);
-    }
+  if (sortKey && SORT_FNS[sortKey]) {
+    entries.sort(SORT_FNS[sortKey]);
+    if (sortDir === "desc") entries.reverse();
   }
 
-  const familyOrder = Object.keys(FEE_FAMILIES);
-  const allFamilies = familyOrder.filter((f) =>
+  // Compute available families for filter dropdown
+  const allFamilies = Object.keys(FEE_FAMILIES).filter((f) =>
     entries.some((e) => getFeeFamily(e.fee_category) === f)
   );
 
+  // Insight card stats
   const totalCategories = entries.length;
-  const strongCount = entries.filter((e) => e.maturity_tier === "strong").length;
+  const strongCount = entries.filter(
+    (e) => e.maturity_tier === "strong"
+  ).length;
+  const totalObservations = entries.reduce(
+    (s, i) => s + i.observation_count,
+    0
+  );
   const allMedians = entries
     .map((e) => e.median_amount)
     .filter((m): m is number => m !== null);
@@ -219,40 +140,41 @@ export default async function FeeIndexPage({
             { label: "Fee Index" },
           ]}
         />
-        <h1 className="text-xl font-bold tracking-tight text-gray-900">
-          {hasPeerFilters ? "Peer Fee Index" : "National Fee Index"}
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {hasPeerFilters
-            ? filterDescription
-            : "Benchmark medians for all fee categories across U.S. financial institutions"}
-          {approvedOnly && (
-            <span className="ml-2 text-amber-600 font-medium">
-              (Approved fees only)
-            </span>
-          )}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">
+              {hasPeerFilters ? "Peer Fee Index" : "National Fee Index"}
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {hasPeerFilters
+                ? filterDescription
+                : "Benchmark medians across U.S. financial institutions"}
+              {approvedOnly && (
+                <span className="ml-2 text-amber-600 font-medium">
+                  (Approved only)
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Peer Filters */}
-      <Suspense fallback={null}>
-        <PeerIndexFilters />
-      </Suspense>
-
       {/* Insight cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="rounded-lg border bg-white px-4 py-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+        <div className="admin-card px-4 py-3">
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-            Index Coverage
+            Categories
           </p>
           <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
-            {totalCategories} categories
+            {totalCategories}
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">
-            of {showAll || searchTerm ? TAXONOMY_COUNT : FEATURED_COUNT} {showAll || searchTerm ? "in taxonomy" : "featured"}
+            of{" "}
+            {showAll || searchTerm ? TAXONOMY_COUNT : FEATURED_COUNT}{" "}
+            {showAll || searchTerm ? "total" : "featured"}
           </p>
         </div>
-        <div className="rounded-lg border bg-white px-4 py-3">
+        <div className="admin-card px-4 py-3">
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
             Typical Median
           </p>
@@ -260,10 +182,21 @@ export default async function FeeIndexPage({
             {overallMedian !== null ? formatAmount(overallMedian) : "-"}
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">
-            middle of all category medians
+            across all categories
           </p>
         </div>
-        <div className="rounded-lg border bg-white px-4 py-3">
+        <div className="admin-card px-4 py-3">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            Observations
+          </p>
+          <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
+            {totalObservations.toLocaleString()}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            data points
+          </p>
+        </div>
+        <div className="admin-card px-4 py-3">
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
             Data Maturity
           </p>
@@ -274,57 +207,156 @@ export default async function FeeIndexPage({
             strong
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">
-            {strongCount} of {totalCategories} categories with 10+ approved
+            {strongCount} of {totalCategories} with 10+ approved
           </p>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Unified filter bar */}
       <Suspense fallback={null}>
-        <IndexFilters families={allFamilies} />
+        <IndexFilterBar
+          families={allFamilies}
+          selectedTiers={peerFilters.tiers ?? []}
+          selectedCharter={peerFilters.charter ?? ""}
+          selectedDistricts={peerFilters.districts ?? []}
+        />
       </Suspense>
 
-      {/* Family sections */}
-      {familyOrder.map((family) => {
-        const familyItems = byFamily.get(family);
-        if (!familyItems || familyItems.length === 0) return null;
-        const colors = getFamilyColor(family);
+      {/* Flat table */}
+      <div className="admin-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50/80 dark:bg-[oklch(0.17_0_0)] z-10 min-w-[180px]">
+                  <Suspense fallback="Category">
+                    <SortHeader
+                      label="Category"
+                      sortKey="category"
+                      currentSort={sortKey}
+                      currentDir={sortDir}
+                    />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Family
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  <Suspense fallback="Median">
+                    <SortHeader
+                      label="Median"
+                      sortKey="median"
+                      currentSort={sortKey}
+                      currentDir={sortDir}
+                    />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  <Suspense fallback="P25">
+                    <SortHeader
+                      label="P25"
+                      sortKey="p25"
+                      currentSort={sortKey}
+                      currentDir={sortDir}
+                    />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  <Suspense fallback="P75">
+                    <SortHeader
+                      label="P75"
+                      sortKey="p75"
+                      currentSort={sortKey}
+                      currentDir={sortDir}
+                    />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  <Suspense fallback="Inst.">
+                    <SortHeader
+                      label="Inst."
+                      sortKey="institutions"
+                      currentSort={sortKey}
+                      currentDir={sortDir}
+                    />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
+                  <Suspense fallback="Maturity">
+                    <SortHeader
+                      label="Maturity"
+                      sortKey="maturity"
+                      currentSort={sortKey}
+                      currentDir={sortDir}
+                    />
+                  </Suspense>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((item) => {
+                const family = getFeeFamily(item.fee_category);
+                const tier = getFeeTier(item.fee_category);
+                const isFeatured = tier === "spotlight" || tier === "core";
 
-        return (
-          <CollapsibleSection
-            key={family}
-            title={family}
-            summary={buildFamilySummary(familyItems)}
-            colorClasses={colors}
-            defaultOpen={byFamily.size <= 3}
-          >
-            <IndexTable items={familyItems} />
-          </CollapsibleSection>
-        );
-      })}
-
-      {/* Uncategorized */}
-      {uncategorized.length > 0 && (
-        <CollapsibleSection
-          title="Other"
-          summary={`${uncategorized.length} categories`}
-          colorClasses={{
-            bg: "bg-gray-50",
-            text: "text-gray-700",
-            border: "border-l-gray-400",
-          }}
-        >
-          <IndexTable items={uncategorized} />
-        </CollapsibleSection>
-      )}
-
-      {entries.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          {approvedOnly
-            ? "No approved fees yet. Toggle off 'Approved only' to see provisional index."
-            : `No fee categories found${searchTerm ? ` matching "${searchTerm}"` : ""}.`}
+                return (
+                  <tr
+                    key={item.fee_category}
+                    className="border-b last:border-0 hover:bg-blue-50/30 dark:hover:bg-white/[0.03] transition-colors"
+                  >
+                    <td className="px-4 py-2.5 sticky left-0 bg-white dark:bg-[oklch(0.15_0_0)] z-10">
+                      <Link
+                        href={`/admin/fees/catalog/${item.fee_category}`}
+                        className="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                      >
+                        {getDisplayName(item.fee_category)}
+                      </Link>
+                      {!isFeatured && (
+                        <span className="ml-2 text-[9px] font-semibold text-gray-300 uppercase tracking-wider dark:text-gray-600">
+                          {tier}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">
+                      {family ?? "-"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">
+                      {formatAmount(item.median_amount)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                      {formatAmount(item.p25_amount)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                      {formatAmount(item.p75_amount)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-900 dark:text-gray-100 font-medium">
+                      {item.institution_count}
+                      <span className="text-gray-400 dark:text-gray-500 text-xs ml-1">
+                        ({item.bank_count}b/{item.cu_count}c)
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <MaturityBadge
+                        tier={item.maturity_tier}
+                        approved={item.approved_count}
+                        total={item.observation_count}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {entries.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            {approvedOnly
+              ? "No approved fees yet. Toggle off 'Approved only' to see provisional index."
+              : `No fee categories found${searchTerm ? ` matching "${searchTerm}"` : ""}.`}
+          </div>
+        )}
+      </div>
     </>
   );
 }

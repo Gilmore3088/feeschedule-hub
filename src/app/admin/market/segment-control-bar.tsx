@@ -81,7 +81,7 @@ export function SegmentControlBar({
       : "0";
 
   return (
-    <div className="sticky top-[57px] z-30 -mx-6 px-6 py-3 bg-white/95 backdrop-blur-sm border-b space-y-3">
+    <div className="sticky top-[57px] z-30 -mx-6 px-6 py-3 bg-white/95 backdrop-blur-sm border-b space-y-3 dark:bg-[oklch(0.15_0_0)]/95 dark:border-white/[0.08]">
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* District selector */}
@@ -230,10 +230,10 @@ function DistrictDropdown({
       {open && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-30"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute top-full left-0 mt-1 z-50 rounded-lg border bg-white shadow-lg p-2 w-56 max-h-64 overflow-y-auto">
+          <div className="absolute top-full left-0 mt-1 z-[35] rounded-lg border bg-white shadow-lg p-2 w-56 max-h-64 overflow-y-auto dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12]">
             {Array.from({ length: 12 }, (_, i) => i + 1).map((d) => (
               <button
                 key={d}

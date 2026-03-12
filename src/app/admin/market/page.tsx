@@ -38,6 +38,7 @@ export default async function MarketPage({
     cat?: string;
     mapMetric?: string;
     approved?: string;
+    show?: string;
   }>;
 }) {
   const user = await requireAuth("view");
@@ -175,7 +176,7 @@ export default async function MarketPage({
         </div>
 
         {/* Right panel: segment intelligence */}
-        <div className="lg:col-span-4 space-y-4 order-first lg:order-last">
+        <div className="lg:col-span-4 space-y-4">
           {/* District map */}
           <Suspense fallback={null}>
             <DistrictMapPanel
@@ -188,7 +189,7 @@ export default async function MarketPage({
           </Suspense>
 
           {/* Segment stats card */}
-          <div className="rounded-lg border bg-white">
+          <div className="admin-card">
             <div className="px-4 py-3 border-b bg-gray-50/80">
               <h3 className="text-sm font-bold text-gray-800">
                 Segment Summary
@@ -230,7 +231,7 @@ export default async function MarketPage({
           </div>
 
           {/* Tier breakdown card */}
-          <div className="rounded-lg border bg-white">
+          <div className="admin-card">
             <div className="px-4 py-3 border-b bg-gray-50/80">
               <h3 className="text-sm font-bold text-gray-800">
                 Tier Breakdown
@@ -268,7 +269,7 @@ export default async function MarketPage({
           </div>
 
           {/* Top outliers card */}
-          <div className="rounded-lg border bg-white">
+          <div className="admin-card">
             <div className="px-4 py-3 border-b bg-gray-50/80">
               <h3 className="text-sm font-bold text-gray-800">
                 Top Outliers

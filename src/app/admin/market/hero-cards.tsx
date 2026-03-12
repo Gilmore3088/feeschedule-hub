@@ -29,7 +29,7 @@ export function HeroBenchmarkCards({
         return (
           <div
             key={cat}
-            className="rounded-lg border bg-white p-4 space-y-1"
+            className="admin-card p-4 space-y-1"
           >
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
               {getDisplayName(cat)}
@@ -66,7 +66,7 @@ export function HeroBenchmarkCards({
 
 function EmptyCard({ category }: { category: string }) {
   return (
-    <div className="rounded-lg border bg-white p-4 opacity-50">
+    <div className="admin-card p-4 opacity-50">
       <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
         {getDisplayName(category)}
       </div>

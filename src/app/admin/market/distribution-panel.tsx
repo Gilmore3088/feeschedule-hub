@@ -45,7 +45,7 @@ export function DistributionPanel({
 }: DistributionPanelProps) {
   if (segmentFees.length === 0 && nationalFees.length === 0) {
     return (
-      <div className="rounded-lg border bg-white p-6 text-center text-sm text-gray-400 mt-4">
+      <div className="admin-card p-6 text-center text-sm text-gray-400 mt-4">
         No distribution data available for {getDisplayName(category)}.
       </div>
     );
@@ -92,7 +92,7 @@ export function DistributionPanel({
   };
 
   return (
-    <div className="rounded-lg border bg-white mt-4">
+    <div className="admin-card mt-4">
       <div className="px-5 py-3 border-b bg-gray-50/80 flex items-center justify-between">
         <h3 className="text-sm font-bold text-gray-800">
           {getDisplayName(category)}{" "}

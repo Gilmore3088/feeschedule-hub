@@ -45,7 +45,7 @@ export function DistrictMapPanel({
   );
 
   return (
-    <div className="rounded-lg border bg-white">
+    <div className="admin-card">
       <div className="px-4 py-3 border-b bg-gray-50/80 flex items-center justify-between">
         <h3 className="text-sm font-bold text-gray-800">
           Federal Reserve Districts
