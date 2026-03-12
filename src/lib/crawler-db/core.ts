@@ -326,6 +326,119 @@ export function getFeeById(feeId: number): ReviewableFee | null {
   return row ?? null;
 }
 
+export function getOutlierFlaggedFees(
+  limit = 100,
+  offset = 0,
+  category?: string,
+): { fees: ReviewableFee[]; total: number } {
+  const db = getDb();
+  const conditions = [
+    "ef.review_status IN ('flagged', 'pending', 'staged')",
+    `(ef.validation_flags LIKE '%statistical_outlier%'
+      OR ef.validation_flags LIKE '%decimal_error%'
+      OR ef.validation_flags LIKE '%percentage_confusion%')`,
+  ];
+  const params: (string | number)[] = [];
+
+  if (category) {
+    conditions.push("ef.fee_category = ?");
+    params.push(category);
+  }
+
+  const where = `WHERE ${conditions.join(" AND ")}`;
+
+  const { cnt } = db
+    .prepare(
+      `SELECT COUNT(*) as cnt
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       ${where}`,
+    )
+    .get(...params) as { cnt: number };
+
+  const fees = db
+    .prepare(
+      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+              ef.extraction_confidence, ef.review_status, ef.validation_flags,
+              ef.fee_category, ct.institution_name, ef.crawl_target_id,
+              ct.state_code, ct.charter_type
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       ${where}
+       ORDER BY ef.extraction_confidence ASC, ef.amount DESC
+       LIMIT ? OFFSET ?`,
+    )
+    .all(...params, limit, offset) as ReviewableFee[];
+
+  return { fees, total: cnt };
+}
+
+export function getOutlierCount(): number {
+  const db = getDb();
+  const { cnt } = db
+    .prepare(
+      `SELECT COUNT(*) as cnt
+       FROM extracted_fees
+       WHERE review_status IN ('flagged', 'pending', 'staged')
+         AND (validation_flags LIKE '%statistical_outlier%'
+              OR validation_flags LIKE '%decimal_error%'
+              OR validation_flags LIKE '%percentage_confusion%')`,
+    )
+    .get() as { cnt: number };
+  return cnt;
+}
+
+export interface CategoryMedian {
+  median: number;
+  p25: number;
+  p75: number;
+  count: number;
+}
+
+export function getCategoryMedians(): Record<string, CategoryMedian> {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT fee_category, amount
+       FROM extracted_fees
+       WHERE fee_category IS NOT NULL
+         AND amount IS NOT NULL
+         AND amount > 0
+         AND review_status != 'rejected'
+       ORDER BY fee_category, amount`,
+    )
+    .all() as { fee_category: string; amount: number }[];
+
+  const grouped = new Map<string, number[]>();
+  for (const row of rows) {
+    if (!grouped.has(row.fee_category)) {
+      grouped.set(row.fee_category, []);
+    }
+    grouped.get(row.fee_category)!.push(row.amount);
+  }
+
+  const result: Record<string, CategoryMedian> = {};
+  for (const [cat, amounts] of grouped) {
+    if (amounts.length < 5) continue;
+    const sorted = amounts.sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median =
+      sorted.length % 2 === 0
+        ? (sorted[mid - 1] + sorted[mid]) / 2
+        : sorted[mid];
+    const q1 = Math.floor(sorted.length / 4);
+    const q3 = Math.floor((3 * sorted.length) / 4);
+    result[cat] = {
+      median,
+      p25: sorted[q1],
+      p75: sorted[q3],
+      count: sorted.length,
+    };
+  }
+
+  return result;
+}
+
 export interface DataFreshness {
   last_crawl_at: string | null;
   last_fee_extracted_at: string | null;
