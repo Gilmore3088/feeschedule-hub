@@ -28,13 +28,29 @@ export default function ResearchHubPage() {
         Research
       </p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-        Geographic Fee Analysis
+        Fee Research & Analysis
       </h1>
       <p className="mt-2 max-w-2xl text-[14px] text-slate-600">
-        Explore bank and credit union fee data by state and Federal Reserve
-        district. Each report includes median fees, charter type comparisons,
-        and benchmarks against national averages.
+        Explore bank and credit union fee data by state, Federal Reserve
+        district, and nationally. Each report includes median fees, charter
+        type comparisons, and benchmarks.
       </p>
+
+      {/* National Index */}
+      <section className="mt-10">
+        <Link
+          href="/research/national-fee-index"
+          className="group block rounded-lg border border-blue-200 bg-blue-50/30 px-5 py-4 transition-colors hover:bg-blue-50/60"
+        >
+          <h2 className="text-sm font-bold text-blue-900 group-hover:text-blue-700">
+            National Fee Index
+          </h2>
+          <p className="mt-1 text-[13px] text-blue-700/70">
+            The definitive benchmark of US bank and credit union fees across 49
+            categories. Medians, percentiles, and maturity scores.
+          </p>
+        </Link>
+      </section>
 
       {/* State Reports */}
       <section className="mt-10">

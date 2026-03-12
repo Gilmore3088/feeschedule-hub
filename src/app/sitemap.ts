@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_CODES } from "@/lib/us-states";
+import { getInstitutionIdsWithFees } from "@/lib/crawler-db";
 
 const BASE_URL = "https://bankfeeindex.com";
 
@@ -40,5 +41,29 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...categoryPages, ...statePages, ...districtPages];
+  const nationalIndexPage: MetadataRoute.Sitemap = [
+    {
+      url: `${BASE_URL}/research/national-fee-index`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    },
+  ];
+
+  const institutionIds = getInstitutionIdsWithFees();
+  const institutionPages: MetadataRoute.Sitemap = institutionIds.map((id) => ({
+    url: `${BASE_URL}/institution/${id}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.6,
+  }));
+
+  return [
+    ...staticPages,
+    ...categoryPages,
+    ...statePages,
+    ...districtPages,
+    ...nationalIndexPage,
+    ...institutionPages,
+  ];
 }

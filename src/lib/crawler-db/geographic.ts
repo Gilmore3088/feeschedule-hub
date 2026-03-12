@@ -77,6 +77,19 @@ export function getDistrictStats(districtId: number): GeoStats {
   };
 }
 
+export function getInstitutionIdsWithFees(): number[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT crawl_target_id as id
+       FROM extracted_fees
+       WHERE review_status != 'rejected'
+       ORDER BY crawl_target_id`
+    )
+    .all() as { id: number }[];
+  return rows.map((r) => r.id);
+}
+
 export function getStatesWithFeeData(): { state_code: string; institution_count: number; fee_count: number }[] {
   const db = getDb();
   return db

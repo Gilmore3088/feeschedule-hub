@@ -8,9 +8,6 @@ import {
 } from "@/lib/crawler-db";
 import {
   getDisplayName,
-  getFeeFamily,
-  FEE_FAMILIES,
-  FEATURED_COUNT,
   isFeaturedFee,
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";

@@ -381,10 +381,10 @@ To build credibility as a research source:
 **Goal:** Ship 2,100+ institution pages and the flagship National Fee Index report.
 
 **Tasks:**
-- [ ] Create `src/lib/research-db/institution-profiles.ts`
-- [ ] Build `/institution/[id]` pages with fee cards and peer comparison
-- [ ] Create `src/lib/research-db/national-index.ts` (reuse admin's `buildIndexEntries`)
-- [ ] Build `/research/national-fee-index` page
+- [x] Create `src/lib/crawler-db/geographic.ts` with `getInstitutionIdsWithFees()`
+- [x] Build `/institution/[id]` pages with fee table, financial snapshot, peer comparison
+- [x] Reuse admin's `getNationalIndex()` for national medians (no new file needed)
+- [x] Build `/research/national-fee-index` page with full index by family
 - [ ] Populate `fee_snapshots` table (Python script to snapshot current fees quarterly)
 - [ ] Add fee change detection to crawl pipeline
 - [ ] Generate institution slugs for clean URLs
