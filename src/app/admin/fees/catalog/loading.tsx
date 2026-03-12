@@ -7,38 +7,54 @@ export default function Loading() {
       <div className="space-y-2">
         <Skeleton className="h-3 w-32" />
         <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-3.5 w-56" />
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+      {/* Insight cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="admin-card px-4 py-3 space-y-2">
             <Skeleton className="h-2.5 w-20" />
-            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-2.5 w-28" />
           </div>
         ))}
       </div>
 
-      {/* Search bar */}
-      <Skeleton className="h-10 w-full" />
+      {/* Filter bar placeholder */}
+      <Skeleton className="h-10 w-full rounded-md" />
 
-      {/* Category families */}
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="admin-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 dark:border-white/[0.04] bg-gray-50/80 dark:bg-white/[0.03]">
-            <Skeleton className="h-4 w-32" />
-          </div>
-          <div className="divide-y divide-gray-100 dark:divide-white/[0.04]">
-            {Array.from({ length: 3 }).map((_, j) => (
-              <div key={j} className="flex items-center gap-4 px-4 py-2.5">
-                <Skeleton className="h-3.5 w-36" />
-                <Skeleton className="h-3.5 w-16 ml-auto" />
-                <Skeleton className="h-3.5 w-16" />
-              </div>
-            ))}
-          </div>
+      {/* Table */}
+      <div className="admin-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03]">
+                {["Fee Type", "Family", "Inst.", "Median", "P25", "P75", "Range", "Banks", "CUs"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-left">
+                    <Skeleton className="h-3 w-12" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 10 }).map((_, i) => (
+                <tr key={i} className="border-b last:border-0">
+                  <td className="px-4 py-2.5"><Skeleton className="h-3.5 w-36" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-3.5 w-8 ml-auto" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-3.5 w-14 ml-auto" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-3.5 w-14 ml-auto" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-3.5 w-14 ml-auto" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-2 w-full rounded-full" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-5 w-8 mx-auto rounded-full" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-5 w-8 mx-auto rounded-full" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ))}
+      </div>
     </div>
   );
 }

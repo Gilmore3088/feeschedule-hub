@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireAuth } from "@/lib/auth";
-import { getFeeCategorySummaries, type FeeCategorySummary } from "@/lib/crawler-db";
+import {
+  getFeeCategorySummaries,
+  type FeeCategorySummary,
+} from "@/lib/crawler-db";
 import { formatAmount } from "@/lib/format";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
@@ -11,146 +14,11 @@ import {
   getFamilyColor,
   isFeaturedFee,
   getFeeTier,
+  TAXONOMY_COUNT,
+  FEATURED_COUNT,
 } from "@/lib/fee-taxonomy";
-import { CollapsibleSection } from "@/components/collapsible-section";
-import { CatalogFilters } from "@/components/catalog-filters";
-import { FeeRangeChart } from "@/components/fee-range-chart";
+import { CatalogFilterBar } from "./catalog-filter-bar";
 import { CatalogActions } from "@/components/catalog-actions";
-
-function FamilyTable({
-  items,
-  showAllColumns,
-}: {
-  items: FeeCategorySummary[];
-  showAllColumns: boolean;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50/80 text-left">
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50/80 z-10 min-w-[180px]">
-              Fee Type
-            </th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Inst.</th>
-            {showAllColumns && (
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Min</th>
-            )}
-            {showAllColumns && (
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P25</th>
-            )}
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Median</th>
-            {showAllColumns && (
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">P75</th>
-            )}
-            {showAllColumns && (
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Max</th>
-            )}
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Spread</th>
-            {showAllColumns && (
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">Banks</th>
-            )}
-            {showAllColumns && (
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">CUs</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => {
-            const spread =
-              item.max_amount !== null && item.min_amount !== null
-                ? item.max_amount - item.min_amount
-                : null;
-            return (
-              <tr
-                key={item.fee_category}
-                className="border-b last:border-0 hover:bg-blue-50/30 transition-colors"
-              >
-                <td className="px-4 py-2.5 sticky left-0 bg-white z-10">
-                  <Link
-                    href={`/admin/fees/catalog/${item.fee_category}`}
-                    className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
-                  >
-                    {getDisplayName(item.fee_category)}
-                  </Link>
-                  {!isFeaturedFee(item.fee_category) && (
-                    <span className="ml-1.5 text-[9px] text-gray-300 uppercase">
-                      {getFeeTier(item.fee_category)}
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900">
-                  {item.institution_count}
-                </td>
-                {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                    {formatAmount(item.min_amount)}
-                  </td>
-                )}
-                {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                    {formatAmount(item.p25_amount)}
-                  </td>
-                )}
-                <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900">
-                  {formatAmount(item.median_amount)}
-                </td>
-                {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                    {formatAmount(item.p75_amount)}
-                  </td>
-                )}
-                {showAllColumns && (
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                    {formatAmount(item.max_amount)}
-                  </td>
-                )}
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
-                  {spread !== null ? formatAmount(spread) : "-"}
-                </td>
-                {showAllColumns && (
-                  <td className="px-4 py-2.5 text-center">
-                    {item.bank_count > 0 ? (
-                      <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
-                        {item.bank_count}
-                      </span>
-                    ) : (
-                      <span className="text-gray-300">-</span>
-                    )}
-                  </td>
-                )}
-                {showAllColumns && (
-                  <td className="px-4 py-2.5 text-center">
-                    {item.cu_count > 0 ? (
-                      <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
-                        {item.cu_count}
-                      </span>
-                    ) : (
-                      <span className="text-gray-300">-</span>
-                    )}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function buildFamilySummary(items: FeeCategorySummary[]): string {
-  const medians = items
-    .map((i) => i.median_amount)
-    .filter((m): m is number => m !== null)
-    .sort((a, b) => a - b);
-  const medianRange =
-    medians.length > 0
-      ? `Median ${formatAmount(medians[0])} - ${formatAmount(medians[medians.length - 1])}`
-      : "";
-  const totalInst = items.reduce((s, i) => s + i.institution_count, 0);
-  return `${items.length} fee type${items.length !== 1 ? "s" : ""} | ${medianRange} | ${totalInst} observations`;
-}
 
 export default async function FeeCatalogPage({
   searchParams,
@@ -159,7 +27,7 @@ export default async function FeeCatalogPage({
     search?: string;
     family?: string;
     sort?: string;
-    columns?: string;
+    dir?: string;
     show?: string;
   }>;
 }) {
@@ -169,7 +37,7 @@ export default async function FeeCatalogPage({
   const searchTerm = params.search ?? "";
   const activeFamily = params.family ?? "";
   const sortKey = params.sort ?? "institution_count";
-  const showAllColumns = params.columns === "full";
+  const sortDir = params.dir ?? "desc";
   const showAll = params.show === "all";
 
   let summaries = getFeeCategorySummaries();
@@ -188,54 +56,57 @@ export default async function FeeCatalogPage({
     summaries = summaries.filter((s) => isFeaturedFee(s.fee_category));
   }
 
-  if (sortKey === "median_amount") {
-    summaries.sort(
-      (a, b) => (b.median_amount ?? 0) - (a.median_amount ?? 0)
+  // Family filter
+  if (activeFamily) {
+    summaries = summaries.filter(
+      (s) => getFeeFamily(s.fee_category) === activeFamily
     );
-  } else if (sortKey === "spread") {
-    summaries.sort((a, b) => {
-      const spreadA =
+  }
+
+  // Sort
+  const SORT_FNS: Record<
+    string,
+    (a: FeeCategorySummary, b: FeeCategorySummary) => number
+  > = {
+    institution_count: (a, b) => a.institution_count - b.institution_count,
+    median_amount: (a, b) =>
+      (a.median_amount ?? 0) - (b.median_amount ?? 0),
+    spread: (a, b) => {
+      const sa =
         a.max_amount !== null && a.min_amount !== null
           ? a.max_amount - a.min_amount
           : 0;
-      const spreadB =
+      const sb =
         b.max_amount !== null && b.min_amount !== null
           ? b.max_amount - b.min_amount
           : 0;
-      return spreadB - spreadA;
-    });
-  } else if (sortKey === "fee_category") {
-    summaries.sort((a, b) =>
+      return sa - sb;
+    },
+    fee_category: (a, b) =>
       getDisplayName(a.fee_category).localeCompare(
         getDisplayName(b.fee_category)
-      )
-    );
+      ),
+  };
+
+  if (SORT_FNS[sortKey]) {
+    summaries.sort(SORT_FNS[sortKey]);
+    if (sortDir === "desc") summaries.reverse();
   }
 
-  const byFamily = new Map<string, FeeCategorySummary[]>();
-  const uncategorized: FeeCategorySummary[] = [];
-
-  for (const s of summaries) {
-    const family = getFeeFamily(s.fee_category);
-    if (family) {
-      if (activeFamily && family !== activeFamily) continue;
-      if (!byFamily.has(family)) byFamily.set(family, []);
-      byFamily.get(family)!.push(s);
-    } else {
-      if (!activeFamily) uncategorized.push(s);
-    }
-  }
-
-  const familyOrder = Object.keys(FEE_FAMILIES);
-  const allFamilies = familyOrder.filter(
-    (f) => summaries.some((s) => getFeeFamily(s.fee_category) === f)
+  // Available families for filter
+  const allFamilies = Object.keys(FEE_FAMILIES).filter((f) =>
+    summaries.some((s) => getFeeFamily(s.fee_category) === f)
   );
 
+  // Stats
   const totalCategories = summaries.length;
   const totalObservations = summaries.reduce(
     (s, r) => s + r.total_observations,
     0
   );
+  const totalInstitutions = new Set(
+    summaries.flatMap((s) => Array(s.institution_count).fill(s.fee_category))
+  ).size;
 
   const highestMedian = [...summaries].sort(
     (a, b) => (b.median_amount ?? 0) - (a.median_amount ?? 0)
@@ -255,20 +126,33 @@ export default async function FeeCatalogPage({
     (a, b) => b.institution_count - a.institution_count
   )[0];
 
+  // Global max for range bar scaling
+  const globalMax = Math.max(
+    ...summaries
+      .map((s) => s.p75_amount ?? s.max_amount ?? 0)
+      .filter((v) => v > 0),
+    1
+  );
+
   return (
     <>
       <div className="mb-6">
         <div className="print:hidden">
-          <Breadcrumbs items={[
-            { label: "Dashboard", href: "/admin" },
-            { label: "Fee Catalog" },
-          ]} />
+          <Breadcrumbs
+            items={[
+              { label: "Dashboard", href: "/admin" },
+              { label: "Fee Catalog" },
+            ]}
+          />
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-gray-900">Fee Catalog</h1>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">
+              Fee Catalog
+            </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              Fee types across all institutions, grouped by category
+              {totalCategories} fee types across{" "}
+              {totalObservations.toLocaleString()} observations
             </p>
           </div>
           <CatalogActions />
@@ -277,19 +161,31 @@ export default async function FeeCatalogPage({
 
       {/* Insight cards */}
       {summaries.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+          <div className="admin-card px-4 py-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              Categories
+            </p>
+            <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
+              {totalCategories}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              of {showAll || searchTerm ? TAXONOMY_COUNT : FEATURED_COUNT}{" "}
+              {showAll || searchTerm ? "total" : "featured"}
+            </p>
+          </div>
           {mostCommon && (
             <Link
               href={`/admin/fees/catalog/${mostCommon.fee_category}`}
-              className="rounded-lg border bg-white px-4 py-3 hover:shadow-sm transition-shadow"
+              className="admin-card px-4 py-3 hover:shadow-sm transition-shadow"
             >
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Most Common Fee
+                Most Common
               </p>
-              <p className="text-lg font-bold text-gray-900 mt-1">
+              <p className="text-lg font-bold text-gray-900 mt-1 truncate">
                 {getDisplayName(mostCommon.fee_category)}
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <p className="text-[11px] text-gray-400 mt-0.5 tabular-nums">
                 {mostCommon.institution_count} institutions
               </p>
             </Link>
@@ -297,99 +193,258 @@ export default async function FeeCatalogPage({
           {highestMedian && (
             <Link
               href={`/admin/fees/catalog/${highestMedian.fee_category}`}
-              className="rounded-lg border bg-white px-4 py-3 hover:shadow-sm transition-shadow"
+              className="admin-card px-4 py-3 hover:shadow-sm transition-shadow"
             >
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Highest Median Fee
+                Highest Median
               </p>
-              <p className="text-lg font-bold text-gray-900 mt-1">
+              <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
+                {formatAmount(highestMedian.median_amount)}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
                 {getDisplayName(highestMedian.fee_category)}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                {formatAmount(highestMedian.median_amount)} median
               </p>
             </Link>
           )}
           {widestSpread && (
             <Link
               href={`/admin/fees/catalog/${widestSpread.fee_category}`}
-              className="rounded-lg border bg-white px-4 py-3 hover:shadow-sm transition-shadow"
+              className="admin-card px-4 py-3 hover:shadow-sm transition-shadow"
             >
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                 Widest Spread
               </p>
-              <p className="text-lg font-bold text-gray-900 mt-1">
-                {getDisplayName(widestSpread.fee_category)}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <p className="text-lg font-bold text-gray-900 mt-1 tabular-nums">
                 {formatAmount(
                   (widestSpread.max_amount ?? 0) -
                     (widestSpread.min_amount ?? 0)
-                )}{" "}
-                range
+                )}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                {getDisplayName(widestSpread.fee_category)}
               </p>
             </Link>
           )}
         </div>
       )}
 
-      {/* Filters */}
+      {/* Sticky filter bar */}
       <Suspense fallback={null}>
-        <CatalogFilters families={allFamilies} />
+        <CatalogFilterBar families={allFamilies} />
       </Suspense>
 
-      {/* Family sections */}
-      {familyOrder.map((family) => {
-        const familyItems = byFamily.get(family);
-        if (!familyItems || familyItems.length === 0) return null;
-        const colors = getFamilyColor(family);
+      {/* Flat table with inline family colors */}
+      <div className="admin-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50/80 dark:bg-[oklch(0.17_0_0)] z-10 min-w-[220px]">
+                  <Suspense fallback="Fee Type">
+                    <SortLink label="Fee Type" sortKey="fee_category" currentSort={sortKey} currentDir={sortDir} />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Family
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  <Suspense fallback="Inst.">
+                    <SortLink label="Inst." sortKey="institution_count" currentSort={sortKey} currentDir={sortDir} />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  <Suspense fallback="Median">
+                    <SortLink label="Median" sortKey="median_amount" currentSort={sortKey} currentDir={sortDir} />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  P25
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  P75
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider min-w-[120px]">
+                  <Suspense fallback="Range">
+                    <SortLink label="Range" sortKey="spread" currentSort={sortKey} currentDir={sortDir} />
+                  </Suspense>
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
+                  Banks
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
+                  CUs
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {summaries.map((item) => {
+                const family = getFeeFamily(item.fee_category);
+                const colors = family ? getFamilyColor(family) : null;
+                const tier = getFeeTier(item.fee_category);
+                const isFeatured = tier === "spotlight" || tier === "core";
+                const spread =
+                  item.max_amount !== null && item.min_amount !== null
+                    ? item.max_amount - item.min_amount
+                    : null;
 
-        return (
-          <CollapsibleSection
-            key={family}
-            title={family}
-            summary={buildFamilySummary(familyItems)}
-            colorClasses={colors}
-            defaultOpen={byFamily.size === 1}
-          >
-            {familyItems.length >= 2 && (
-              <FeeRangeChart
-                items={familyItems}
-                accentColor={colors.border}
-              />
-            )}
-            <FamilyTable
-              items={familyItems}
-              showAllColumns={showAllColumns}
-            />
-          </CollapsibleSection>
-        );
-      })}
+                // Inline range bar values
+                const p25 = item.p25_amount ?? 0;
+                const p75 = item.p75_amount ?? 0;
+                const barLeft = globalMax > 0 ? (p25 / globalMax) * 100 : 0;
+                const barWidth =
+                  globalMax > 0
+                    ? Math.max(((p75 - p25) / globalMax) * 100, 1)
+                    : 0;
 
-      {/* Uncategorized fees */}
-      {uncategorized.length > 0 && (
-        <CollapsibleSection
-          title="Other"
-          summary={`${uncategorized.length} fee type${uncategorized.length !== 1 ? "s" : ""}`}
-          colorClasses={{
-            bg: "bg-gray-50",
-            text: "text-gray-700",
-            border: "border-l-gray-400",
-          }}
-        >
-          <FamilyTable
-            items={uncategorized}
-            showAllColumns={showAllColumns}
-          />
-        </CollapsibleSection>
-      )}
-
-      {summaries.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          No fee categories found
-          {searchTerm ? ` matching "${searchTerm}"` : ""}.
+                return (
+                  <tr
+                    key={item.fee_category}
+                    className="border-b last:border-0 hover:bg-blue-50/30 dark:hover:bg-white/[0.03] transition-colors group"
+                  >
+                    <td className="px-4 py-2.5 sticky left-0 bg-white dark:bg-[oklch(0.15_0_0)] z-10">
+                      <div className="flex items-center gap-2">
+                        {colors && (
+                          <span
+                            className={`w-1 h-5 rounded-full flex-shrink-0 ${colors.border.replace("border-l-", "bg-")}`}
+                          />
+                        )}
+                        <div>
+                          <Link
+                            href={`/admin/fees/catalog/${item.fee_category}`}
+                            className="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                          >
+                            {getDisplayName(item.fee_category)}
+                          </Link>
+                          {!isFeatured && (
+                            <span className="ml-1.5 text-[9px] font-semibold text-gray-300 dark:text-gray-600 uppercase tracking-wider">
+                              {tier}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {family && colors ? (
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}
+                        >
+                          {family}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">Other</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                      {item.institution_count}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">
+                      {formatAmount(item.median_amount)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500 dark:text-gray-400">
+                      {formatAmount(item.p25_amount)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500 dark:text-gray-400">
+                      {formatAmount(item.p75_amount)}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {item.p25_amount !== null && item.p75_amount !== null ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden relative">
+                            <div
+                              className={`absolute h-full rounded-full opacity-60 group-hover:opacity-80 transition-opacity ${
+                                colors
+                                  ? colors.border.replace("border-l-", "bg-")
+                                  : "bg-gray-400"
+                              }`}
+                              style={{
+                                left: `${barLeft}%`,
+                                width: `${barWidth}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] tabular-nums text-gray-400 dark:text-gray-500 w-12 text-right flex-shrink-0">
+                            {formatAmount(spread)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600">
+                          -
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {item.bank_count > 0 ? (
+                        <span className="inline-block rounded-full bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+                          {item.bank_count}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600">
+                          -
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {item.cu_count > 0 ? (
+                        <span className="inline-block rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                          {item.cu_count}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600">
+                          -
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {summaries.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            No fee categories found
+            {searchTerm ? ` matching "${searchTerm}"` : ""}.
+          </div>
+        )}
+      </div>
     </>
+  );
+}
+
+function SortLink({
+  label,
+  sortKey,
+  currentSort,
+  currentDir,
+}: {
+  label: string;
+  sortKey: string;
+  currentSort: string;
+  currentDir: string;
+}) {
+  const isActive = currentSort === sortKey;
+  const nextDir = isActive && currentDir === "desc" ? "asc" : "desc";
+
+  return (
+    <Link
+      href={`/admin/fees/catalog?sort=${sortKey}&dir=${nextDir}`}
+      className="inline-flex items-center gap-1 group/sort"
+    >
+      {label}
+      <span
+        className={`text-[9px] ${
+          isActive
+            ? "text-gray-700 dark:text-gray-300"
+            : "text-gray-300 group-hover/sort:text-gray-400 dark:text-gray-600"
+        }`}
+      >
+        {isActive
+          ? currentDir === "desc"
+            ? "\u25BC"
+            : "\u25B2"
+          : "\u25B2\u25BC"}
+      </span>
+    </Link>
   );
 }
