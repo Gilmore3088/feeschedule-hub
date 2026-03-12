@@ -14,25 +14,167 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400",
 };
 
-const COMMAND_DESCRIPTIONS: Record<string, string> = {
-  crawl: "Download and extract fees from institution URLs",
-  discover: "Find fee schedule URLs on institution websites",
-  validate: "Re-validate existing extracted fees",
-  categorize: "Batch-categorize fees using name aliases",
-  analyze: "Compute peer comparisons and fee analysis",
-  enrich: "Backfill tiers, districts, fix NCUA units",
-  "outlier-detect": "Detect statistical outliers in fee amounts",
-  "run-pipeline": "Full pipeline: discover, crawl, categorize",
-  stats: "Show database statistics",
-  "ingest-call-reports": "Ingest Call Report service charge revenue",
-  "ingest-fdic": "Ingest FDIC financial data",
-  "ingest-ncua": "Ingest NCUA 5300 financial data",
-  "ingest-cfpb": "Ingest CFPB complaint data",
-  "ingest-beige-book": "Ingest Federal Reserve Beige Book reports",
-  "ingest-fed-content": "Ingest Fed speeches and research from RSS",
-  "ingest-fred": "Ingest economic indicators from FRED API",
-  seed: "Seed institution directory from FDIC/NCUA",
-  "backfill-ncua-urls": "Backfill website URLs for NCUA credit unions",
+interface CommandInfo {
+  description: string;
+  detail: string;
+  group: "pipeline" | "data-quality" | "ingest" | "setup";
+  usesLimit: boolean;
+  usesCharter: boolean;
+  typical: string;
+}
+
+const COMMAND_INFO: Record<string, CommandInfo> = {
+  "run-pipeline": {
+    description: "Run Full Pipeline",
+    detail: "Runs discover + crawl + categorize in sequence. This is the main command for collecting new fee data end-to-end.",
+    group: "pipeline",
+    usesLimit: true,
+    usesCharter: true,
+    typical: "python -m fee_crawler run-pipeline --limit 50",
+  },
+  crawl: {
+    description: "Crawl & Extract Fees",
+    detail: "Downloads fee schedule pages from institutions that already have a known URL, then uses LLM extraction to pull out individual fees and amounts.",
+    group: "pipeline",
+    usesLimit: true,
+    usesCharter: true,
+    typical: "python -m fee_crawler crawl --limit 20",
+  },
+  discover: {
+    description: "Discover Fee URLs",
+    detail: "Searches institution websites to find their fee schedule page. Tries common paths (/fees, /disclosures, etc.), sitemaps, and Google site: search.",
+    group: "pipeline",
+    usesLimit: true,
+    usesCharter: true,
+    typical: "python -m fee_crawler discover --limit 50",
+  },
+  categorize: {
+    description: "Categorize Fees",
+    detail: "Maps extracted fee names to the 49-category taxonomy using alias matching (e.g., 'Monthly Service Charge' → monthly_maintenance). Fast, no API calls.",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler categorize",
+  },
+  validate: {
+    description: "Validate Fees",
+    detail: "Re-runs validation rules on existing fees: amount bounds checking, frequency detection, duplicate detection, and confidence scoring.",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler validate",
+  },
+  analyze: {
+    description: "Compute Analysis",
+    detail: "Builds peer comparison reports and fee summary statistics per institution. Results power the dashboard and peer analysis pages.",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler analyze",
+  },
+  "outlier-detect": {
+    description: "Detect Outliers",
+    detail: "Flags fees with amounts that are statistical outliers within their category (e.g., $500 overdraft fee). Uses IQR and z-score methods.",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler outlier-detect",
+  },
+  enrich: {
+    description: "Enrich Institutions",
+    detail: "Backfills asset_size_tier, fed_district, and fixes NCUA asset units (thousands vs actual). Run after seeding new institutions.",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler enrich",
+  },
+  "ingest-fdic": {
+    description: "Ingest FDIC Data",
+    detail: "Pulls financial data (assets, deposits, income) from FDIC API for all bank institutions. Updates institution_financials table.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-fdic",
+  },
+  "ingest-ncua": {
+    description: "Ingest NCUA Data",
+    detail: "Pulls 5300 Call Report data from NCUA for credit unions. Updates institution_financials table.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-ncua",
+  },
+  "ingest-cfpb": {
+    description: "Ingest CFPB Complaints",
+    detail: "Pulls consumer complaint data from CFPB API, aggregated by institution and product. Updates institution_complaints table.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-cfpb",
+  },
+  "ingest-call-reports": {
+    description: "Ingest Call Reports",
+    detail: "Pulls service charge revenue data from Call Reports for coverage gap analysis. Shows how much fee revenue each bank earns.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-call-reports",
+  },
+  "ingest-beige-book": {
+    description: "Ingest Beige Book",
+    detail: "Downloads and stores Federal Reserve Beige Book reports by district. Powers the Fed District commentary pages.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-beige-book",
+  },
+  "ingest-fed-content": {
+    description: "Ingest Fed Content",
+    detail: "Pulls recent Fed speeches, research papers, and publications from RSS feeds. Powers the Fed in Print section.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-fed-content",
+  },
+  "ingest-fred": {
+    description: "Ingest FRED Data",
+    detail: "Pulls economic indicators (CPI, unemployment, interest rates) from FRED API by district. Powers district economic context.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-fred",
+  },
+  seed: {
+    description: "Seed Institutions",
+    detail: "Loads institution directory from FDIC and NCUA bulk data files. Only needed when setting up or expanding the institution list.",
+    group: "setup",
+    usesLimit: true,
+    usesCharter: true,
+    typical: "python -m fee_crawler seed --limit 100",
+  },
+  "backfill-ncua-urls": {
+    description: "Backfill NCUA URLs",
+    detail: "Fills in missing website URLs for NCUA credit unions using the NCUA API. Run after seeding to improve discover success rate.",
+    group: "setup",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler backfill-ncua-urls",
+  },
+  stats: {
+    description: "Show Stats",
+    detail: "Prints database statistics to the log (institution counts, fee counts, coverage). Quick health check, no data changes.",
+    group: "setup",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler stats",
+  },
+};
+
+const GROUP_LABELS: Record<string, string> = {
+  pipeline: "Pipeline",
+  "data-quality": "Data Quality",
+  ingest: "Data Ingestion",
+  setup: "Setup & Maintenance",
 };
 
 interface OpsClientProps {
@@ -151,47 +293,97 @@ export function OpsClient({
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
                            dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
               >
-                {commands.map((cmd) => (
-                  <option key={cmd} value={cmd}>
-                    {cmd}
-                  </option>
-                ))}
+                {(["pipeline", "data-quality", "ingest", "setup"] as const).map((group) => {
+                  const groupCmds = commands.filter((c) => COMMAND_INFO[c]?.group === group);
+                  if (groupCmds.length === 0) return null;
+                  return (
+                    <optgroup key={group} label={GROUP_LABELS[group]}>
+                      {groupCmds.map((cmd) => (
+                        <option key={cmd} value={cmd}>
+                          {COMMAND_INFO[cmd]?.description || cmd}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
               </select>
-              <p className="mt-1 text-[11px] text-gray-400">
-                {COMMAND_DESCRIPTIONS[selectedCommand] || ""}
-              </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Limit
-                </label>
-                <input
-                  type="number"
-                  value={limit}
-                  onChange={(e) => setLimit(e.target.value)}
-                  min="1"
-                  max="500"
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
-                             dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
-                />
+            {/* Command detail card */}
+            {COMMAND_INFO[selectedCommand] && (
+              <div className="rounded-md border border-gray-200 dark:border-white/[0.08] px-3 py-2.5 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className={`mt-0.5 inline-block rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                    COMMAND_INFO[selectedCommand].group === "pipeline"
+                      ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      : COMMAND_INFO[selectedCommand].group === "data-quality"
+                        ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+                        : COMMAND_INFO[selectedCommand].group === "ingest"
+                          ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+                          : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400"
+                  }`}>
+                    {GROUP_LABELS[COMMAND_INFO[selectedCommand].group]}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                  {COMMAND_INFO[selectedCommand].detail}
+                </p>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Charter Type
-                </label>
-                <select
-                  value={charterType}
-                  onChange={(e) => setCharterType(e.target.value as "" | "bank" | "credit_union")}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
-                             dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
-                >
-                  <option value="">All</option>
-                  <option value="bank">Banks</option>
-                  <option value="credit_union">Credit Unions</option>
-                </select>
+            )}
+
+            {/* Params - only show relevant ones */}
+            {(COMMAND_INFO[selectedCommand]?.usesLimit || COMMAND_INFO[selectedCommand]?.usesCharter) && (
+              <div className="grid grid-cols-2 gap-3">
+                {COMMAND_INFO[selectedCommand]?.usesLimit && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Limit
+                    </label>
+                    <input
+                      type="number"
+                      value={limit}
+                      onChange={(e) => setLimit(e.target.value)}
+                      min="1"
+                      max="500"
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
+                                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+                    />
+                  </div>
+                )}
+                {COMMAND_INFO[selectedCommand]?.usesCharter && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Charter Type
+                    </label>
+                    <select
+                      value={charterType}
+                      onChange={(e) => setCharterType(e.target.value as "" | "bank" | "credit_union")}
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
+                                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+                    >
+                      <option value="">All</option>
+                      <option value="bank">Banks</option>
+                      <option value="credit_union">Credit Unions</option>
+                    </select>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Command preview */}
+            <div className="rounded-md bg-gray-900 dark:bg-gray-950 px-3 py-2">
+              <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                Will execute
+              </div>
+              <code className="text-[11px] text-emerald-400 font-mono">
+                python -m fee_crawler {selectedCommand}
+                {COMMAND_INFO[selectedCommand]?.usesLimit && parseInt(limit, 10) > 0
+                  ? ` --limit ${limit}`
+                  : ""}
+                {COMMAND_INFO[selectedCommand]?.usesCharter && charterType
+                  ? ` --charter-type ${charterType}`
+                  : ""}
+              </code>
             </div>
 
             {message && (
@@ -213,7 +405,7 @@ export function OpsClient({
                          hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed
                          dark:bg-white/10 dark:hover:bg-white/15"
             >
-              {isSubmitting ? "Starting..." : "Run Job"}
+              {isSubmitting ? "Starting..." : `Run ${COMMAND_INFO[selectedCommand]?.description || selectedCommand}`}
             </button>
           </form>
         </div>
