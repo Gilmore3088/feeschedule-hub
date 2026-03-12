@@ -31,9 +31,22 @@ export function ResearchChat({
   const inputRef = useRef<HTMLInputElement>(null);
   const [showSidebar, setShowSidebar] = useState(false);
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: `/api/research/${agentId}` }),
+    onError: (err) => {
+      const msg = err?.message || "";
+      if (msg.includes("429") || msg.includes("rate limit")) {
+        setError("Rate limit exceeded. Please wait before sending more queries.");
+      } else if (msg.includes("503")) {
+        setError("AI service temporarily unavailable. Daily cost limit may have been reached.");
+      } else if (msg.includes("401") || msg.includes("403")) {
+        setError("Authentication error. Please refresh the page.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+    },
   });
 
   const isLoading = status === "streaming" || status === "submitted";
@@ -51,11 +64,13 @@ export function ResearchChat({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    setError(null);
     sendMessage({ text: input });
     setInput("");
   }
 
   function handleSuggestion(q: string) {
+    setError(null);
     sendMessage({ text: q });
   }
 
@@ -311,6 +326,18 @@ export function ResearchChat({
             <div className="mb-4 flex items-center gap-2 text-[12px] text-gray-400">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-gray-400" />
               Analyzing...
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[12px] text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+              {error}
+              <button
+                onClick={() => setError(null)}
+                className="ml-2 underline hover:no-underline"
+              >
+                Dismiss
+              </button>
             </div>
           )}
         </div>

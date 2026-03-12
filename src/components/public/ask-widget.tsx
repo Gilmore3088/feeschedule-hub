@@ -15,9 +15,20 @@ export function AskWidget() {
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: "/api/research/ask" }),
+    onError: (err) => {
+      const msg = err?.message || "";
+      if (msg.includes("429") || msg.includes("rate limit")) {
+        setError("You've reached the query limit. Please try again later.");
+      } else if (msg.includes("503")) {
+        setError("AI service is temporarily unavailable.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+    },
   });
 
   const isLoading = status === "streaming" || status === "submitted";
@@ -37,11 +48,13 @@ export function AskWidget() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    setError(null);
     sendMessage({ text: input });
     setInput("");
   }
 
   function handleSuggestion(q: string) {
+    setError(null);
     sendMessage({ text: q });
   }
 
@@ -173,6 +186,12 @@ export function AskWidget() {
           <div className="mb-3 flex items-center gap-1.5 text-[12px] text-slate-400">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400" />
             Analyzing...
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-600">
+            {error}
           </div>
         )}
       </div>

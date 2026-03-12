@@ -89,6 +89,13 @@ export function CommandPalette() {
         href: `/admin/fees`,
       });
     }
+    for (const conv of results.conversations ?? []) {
+      items.push({
+        label: conv.title,
+        sub: `${conv.agent_id} conversation`,
+        href: `/admin/research/${conv.agent_id}`,
+      });
+    }
     return items;
   }, [results]);
 
@@ -232,6 +239,38 @@ export function CommandPalette() {
                       <span className="font-medium">{fn.fee_name}</span>
                       <span className="text-xs text-gray-400 dark:text-gray-500">
                         {fn.count}x
+                      </span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+
+            {(() => {
+              sectionStart += results.feeNames.length;
+              return null;
+            })()}
+
+            {(results.conversations ?? []).length > 0 && (
+              <>
+                <p className="px-4 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">
+                  Research Conversations
+                </p>
+                {results.conversations.map((conv, i) => {
+                  const idx = sectionStart + i;
+                  return (
+                    <button
+                      key={`conv-${conv.id}`}
+                      onClick={() =>
+                        navigate(`/admin/research/${conv.agent_id}`)
+                      }
+                      className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 dark:hover:bg-white/[0.06] ${
+                        selectedIndex === idx ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "dark:text-gray-200"
+                      }`}
+                    >
+                      <span className="font-medium">{conv.title}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {conv.agent_id}
                       </span>
                     </button>
                   );

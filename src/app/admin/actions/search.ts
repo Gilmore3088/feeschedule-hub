@@ -20,11 +20,17 @@ export interface SearchResult {
     fee_name: string;
     count: number;
   }[];
+  conversations: {
+    id: number;
+    agent_id: string;
+    title: string;
+    updated_at: string;
+  }[];
 }
 
 export async function searchDashboard(query: string): Promise<SearchResult> {
   if (!query || query.length < 2) {
-    return { institutions: [], categories: [], feeNames: [] };
+    return { institutions: [], categories: [], feeNames: [], conversations: [] };
   }
 
   const db = new Database(DB_PATH, { readonly: true });
@@ -66,7 +72,23 @@ export async function searchDashboard(query: string): Promise<SearchResult> {
       )
       .all(pattern) as SearchResult["feeNames"];
 
-    return { institutions, categories, feeNames };
+    // Research conversations
+    let conversations: SearchResult["conversations"] = [];
+    try {
+      conversations = db
+        .prepare(
+          `SELECT id, agent_id, title, updated_at
+           FROM research_conversations
+           WHERE title LIKE ?
+           ORDER BY updated_at DESC
+           LIMIT 5`
+        )
+        .all(pattern) as SearchResult["conversations"];
+    } catch {
+      // Table may not exist yet
+    }
+
+    return { institutions, categories, feeNames, conversations };
   } finally {
     db.close();
   }

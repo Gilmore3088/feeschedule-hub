@@ -204,3 +204,108 @@ export function getUsageStats(userId: number): {
   };
   return row;
 }
+
+/** Full usage dashboard stats for admin view */
+export interface UsageDashboard {
+  today_queries: number;
+  today_cost_cents: number;
+  month_queries: number;
+  month_cost_cents: number;
+  total_queries: number;
+  total_cost_cents: number;
+  by_agent: { agent_id: string; queries: number; cost_cents: number }[];
+  by_day: { date: string; queries: number; cost_cents: number }[];
+  top_users: { user_id: number; username: string; queries: number; cost_cents: number }[];
+}
+
+export function getUsageDashboard(): UsageDashboard {
+  const db = getDb();
+
+  const totals = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM research_usage WHERE created_at >= date('now')) as today_queries,
+         (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE created_at >= date('now')) as today_cost_cents,
+         (SELECT COUNT(*) FROM research_usage WHERE created_at >= date('now', 'start of month')) as month_queries,
+         (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE created_at >= date('now', 'start of month')) as month_cost_cents,
+         (SELECT COUNT(*) FROM research_usage) as total_queries,
+         (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage) as total_cost_cents`
+    )
+    .get() as {
+    today_queries: number;
+    today_cost_cents: number;
+    month_queries: number;
+    month_cost_cents: number;
+    total_queries: number;
+    total_cost_cents: number;
+  };
+
+  const by_agent = db
+    .prepare(
+      `SELECT agent_id, COUNT(*) as queries, COALESCE(SUM(estimated_cost_cents), 0) as cost_cents
+       FROM research_usage
+       GROUP BY agent_id
+       ORDER BY queries DESC`
+    )
+    .all() as { agent_id: string; queries: number; cost_cents: number }[];
+
+  const by_day = db
+    .prepare(
+      `SELECT date(created_at) as date, COUNT(*) as queries, COALESCE(SUM(estimated_cost_cents), 0) as cost_cents
+       FROM research_usage
+       WHERE created_at >= date('now', '-30 days')
+       GROUP BY date(created_at)
+       ORDER BY date DESC`
+    )
+    .all() as { date: string; queries: number; cost_cents: number }[];
+
+  const top_users = db
+    .prepare(
+      `SELECT ru.user_id, COALESCE(u.username, 'public') as username,
+              COUNT(*) as queries, COALESCE(SUM(ru.estimated_cost_cents), 0) as cost_cents
+       FROM research_usage ru
+       LEFT JOIN users u ON ru.user_id = u.id
+       WHERE ru.created_at >= date('now', 'start of month')
+       GROUP BY ru.user_id
+       ORDER BY queries DESC
+       LIMIT 10`
+    )
+    .all() as { user_id: number; username: string; queries: number; cost_cents: number }[];
+
+  return { ...totals, by_agent, by_day, top_users };
+}
+
+/** Check if daily cost threshold is exceeded (circuit breaker) */
+export function getDailyCostCents(): number {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(estimated_cost_cents), 0) as cost
+       FROM research_usage
+       WHERE created_at >= date('now')`
+    )
+    .get() as { cost: number };
+  return row.cost;
+}
+
+/** Search conversations for Cmd+K */
+export function searchConversations(
+  query: string,
+  limit = 5
+): { id: number; agent_id: string; title: string; updated_at: string }[] {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT id, agent_id, title, updated_at
+       FROM research_conversations
+       WHERE title LIKE ?
+       ORDER BY updated_at DESC
+       LIMIT ?`
+    )
+    .all(`%${query}%`, limit) as {
+    id: number;
+    agent_id: string;
+    title: string;
+    updated_at: string;
+  }[];
+}

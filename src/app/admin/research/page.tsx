@@ -26,7 +26,7 @@ export default async function ResearchHubPage() {
       </div>
 
       {/* Usage summary */}
-      <div className="flex gap-4">
+      <div className="flex items-end gap-4">
         <div className="admin-card px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
             Queries Today
@@ -51,6 +51,12 @@ export default async function ResearchHubPage() {
             ${(usage.total_cost_cents / 100).toFixed(2)}
           </p>
         </div>
+        <Link
+          href="/admin/research/usage"
+          className="mb-0.5 text-[12px] font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+        >
+          View detailed usage →
+        </Link>
       </div>
 
       {/* Agent cards */}

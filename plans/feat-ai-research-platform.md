@@ -356,12 +356,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
 - [x] Add suggested questions per agent (context-aware)
 - [x] Add markdown rendering with tables and code blocks for responses
 - [x] Export conversation as markdown
-- [ ] Add usage dashboard for admins (daily cost, query count, top users, popular questions)
-- [ ] Add conversations to Cmd+K search results
-- [ ] Add daily cost circuit breaker (disable agent if threshold exceeded)
-- [ ] Security: prompt injection testing with adversarial inputs
-- [ ] Error handling: API failures, rate limit exceeded, model errors
-- [ ] Add loading states and error boundaries
+- [x] Add usage dashboard for admins (daily cost, query count, top users, popular questions)
+- [x] Add conversations to Cmd+K search results
+- [x] Add daily cost circuit breaker (disable agent if threshold exceeded)
+- [x] Security: input validation, API key check, structured error responses
+- [x] Error handling: API failures, rate limit exceeded, model errors
+- [x] Add loading states and error boundaries
 
 **Success criteria:** Production-ready with cost monitoring, security hardening, and polished UX. No unhandled errors.
 
