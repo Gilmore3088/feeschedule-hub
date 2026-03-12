@@ -124,22 +124,26 @@ export function getRecentCrawlRuns(limit = 10): CrawlRunSummary[] {
 
 export function getDiscoveryMethodStats(): DiscoveryMethodStats[] {
   const db = getDb();
-  const rows = db.prepare(`
-    SELECT
-      discovery_method,
-      COUNT(*) as total_attempts,
-      SUM(CASE WHEN result = 'found' THEN 1 ELSE 0 END) as found_count
-    FROM discovery_cache
-    GROUP BY discovery_method
-    ORDER BY total_attempts DESC
-  `).all() as { discovery_method: string; total_attempts: number; found_count: number }[];
+  try {
+    const rows = db.prepare(`
+      SELECT
+        discovery_method,
+        COUNT(*) as total_attempts,
+        SUM(CASE WHEN result = 'found' THEN 1 ELSE 0 END) as found_count
+      FROM discovery_cache
+      GROUP BY discovery_method
+      ORDER BY total_attempts DESC
+    `).all() as { discovery_method: string; total_attempts: number; found_count: number }[];
 
-  return rows.map((r) => ({
-    ...r,
-    success_rate: r.total_attempts > 0
-      ? Math.round((r.found_count / r.total_attempts) * 100)
-      : 0,
-  }));
+    return rows.map((r) => ({
+      ...r,
+      success_rate: r.total_attempts > 0
+        ? Math.round((r.found_count / r.total_attempts) * 100)
+        : 0,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export function getFailureReasons(limit = 10): FailureReasonStats[] {
@@ -207,7 +211,15 @@ export function getRevenueDiscrepancies(limit = 20): RevenueDiscrepancy[] {
         ELSE 999
       END as ratio,
       COALESCE(e.fee_count, 0) as fee_count
-    FROM institution_financials f
+    FROM (
+      SELECT crawl_target_id, service_charge_income
+      FROM institution_financials
+      WHERE (crawl_target_id, report_date) IN (
+        SELECT crawl_target_id, MAX(report_date)
+        FROM institution_financials
+        GROUP BY crawl_target_id
+      )
+    ) f
     JOIN crawl_targets t ON t.id = f.crawl_target_id
     LEFT JOIN (
       SELECT

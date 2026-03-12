@@ -6,16 +6,37 @@ interface CrawlStatusStripProps {
   health: CrawlHealth;
 }
 
-function StatusDot({ status }: { status: "green" | "amber" | "red" }) {
-  const colors = {
-    green: "bg-green-500",
-    amber: "bg-amber-500",
-    red: "bg-red-500",
+function Indicator({
+  status,
+  label,
+  value,
+  sub,
+}: {
+  status: "green" | "amber" | "red";
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  const ring = {
+    green: "bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.15)]",
+    amber: "bg-amber-500 shadow-[0_0_0_2px_rgba(245,158,11,0.15)]",
+    red: "bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.15)]",
   };
   return (
-    <span
-      className={`inline-block w-2 h-2 rounded-full ${colors[status]}`}
-    />
+    <div className="flex items-center gap-2">
+      <span className={`w-[6px] h-[6px] rounded-full ${ring[status]}`} />
+      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+        {label}
+      </span>
+      <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 tabular-nums">
+        {value}
+      </span>
+      {sub && (
+        <span className="text-[10px] text-gray-300 dark:text-gray-600 tabular-nums">
+          {sub}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -26,53 +47,46 @@ function getHealthStatus(rate: number): "green" | "amber" | "red" {
 }
 
 export function CrawlStatusStrip({ health }: CrawlStatusStripProps) {
-  const successStatus = getHealthStatus(health.success_rate_24h);
-  const confStatus = getHealthStatus(health.avg_confidence);
-
   return (
-    <div className="admin-card px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-      <div className="flex items-center gap-2">
-        <StatusDot status={health.last_run_status === "completed" ? "green" : "amber"} />
-        <span className="text-gray-500">Last crawl</span>
-        <span className="font-medium text-gray-900">
-          {health.last_run_at ? timeAgo(health.last_run_at) : "Never"}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <StatusDot status={successStatus} />
-        <span className="text-gray-500">Success (24h)</span>
-        <span className="font-medium text-gray-900">
-          {(health.success_rate_24h * 100).toFixed(0)}%
-        </span>
-        {health.total_crawled_24h > 0 && (
-          <span className="text-xs text-gray-400">
-            ({health.total_crawled_24h} crawled)
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <StatusDot status={confStatus} />
-        <span className="text-gray-500">Avg confidence</span>
-        <span className="font-medium text-gray-900">
-          {(health.avg_confidence * 100).toFixed(0)}%
-        </span>
-      </div>
+    <div className="admin-card px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+      <Indicator
+        status={health.last_run_status === "completed" ? "green" : "amber"}
+        label="Last crawl"
+        value={health.last_run_at ? timeAgo(health.last_run_at) : "Never"}
+      />
+      <Indicator
+        status={getHealthStatus(health.success_rate_24h)}
+        label="24h"
+        value={`${(health.success_rate_24h * 100).toFixed(0)}%`}
+        sub={
+          health.total_crawled_24h > 0
+            ? `(${health.total_crawled_24h})`
+            : undefined
+        }
+      />
+      <Indicator
+        status={getHealthStatus(health.avg_confidence)}
+        label="Conf"
+        value={`${(health.avg_confidence * 100).toFixed(0)}%`}
+      />
 
       {health.institutions_failing > 0 && (
         <Link
           href="/admin/peers"
-          className="flex items-center gap-2 text-red-600 hover:underline"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          <StatusDot status="red" />
-          <span>{health.institutions_failing} failing (&gt;3x)</span>
+          <span className="w-[6px] h-[6px] rounded-full bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.15)]" />
+          <span className="text-[11px] font-bold text-red-600 dark:text-red-400 tabular-nums">
+            {health.institutions_failing} failing
+          </span>
         </Link>
       )}
 
       <div className="flex items-center gap-2">
-        <span className="text-gray-500">Runs (7d)</span>
-        <span className="font-medium text-gray-900">
+        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+          7d runs
+        </span>
+        <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 tabular-nums">
           {health.crawl_runs_7d}
         </span>
       </div>

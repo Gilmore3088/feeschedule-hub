@@ -1,7 +1,7 @@
 export function Sparkline({
   data,
   width = 64,
-  height = 20,
+  height = 24,
   color = "currentColor",
   className = "",
 }: {
@@ -16,20 +16,27 @@ export function Sparkline({
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
-  const padding = 1;
+  const padX = 2;
+  const padY = 3;
 
   const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * (width - padding * 2) + padding;
-    const y = height - padding - ((v - min) / range) * (height - padding * 2);
-    return `${x},${y}`;
+    const x = (i / (data.length - 1)) * (width - padX * 2) + padX;
+    const y =
+      height - padY - ((v - min) / range) * (height - padY * 2);
+    return { x, y };
   });
+
+  const pathD = points
+    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+    .join(" ");
+
+  // Area fill path
+  const areaD = `${pathD} L${points[points.length - 1].x.toFixed(1)},${height} L${points[0].x.toFixed(1)},${height} Z`;
 
   const last = data[data.length - 1];
   const prev = data[data.length - 2];
-  const dotX =
-    ((data.length - 1) / (data.length - 1)) * (width - padding * 2) + padding;
-  const dotY =
-    height - padding - ((last - min) / range) * (height - padding * 2);
+  const lastPt = points[points.length - 1];
+  const trending = last >= prev;
 
   return (
     <svg
@@ -39,20 +46,36 @@ export function Sparkline({
       className={className}
       aria-hidden="true"
     >
-      <polyline
-        points={points.join(" ")}
+      <defs>
+        <linearGradient
+          id={`spark-fill-${color.replace(/[^a-z0-9]/gi, "")}`}
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="1"
+        >
+          <stop offset="0%" stopColor={color} stopOpacity="0.12" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path
+        d={areaD}
+        fill={`url(#spark-fill-${color.replace(/[^a-z0-9]/gi, "")})`}
+      />
+      <path
+        d={pathD}
         fill="none"
         stroke={color}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity={0.5}
+        opacity={0.6}
       />
       <circle
-        cx={dotX}
-        cy={dotY}
+        cx={lastPt.x}
+        cy={lastPt.y}
         r="2"
-        fill={last >= prev ? "rgb(16 185 129)" : "rgb(239 68 68)"}
+        fill={trending ? "rgb(16 185 129)" : "rgb(239 68 68)"}
       />
     </svg>
   );

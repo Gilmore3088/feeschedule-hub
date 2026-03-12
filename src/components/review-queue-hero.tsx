@@ -7,128 +7,136 @@ interface ReviewQueueHeroProps {
   isAdmin: boolean;
 }
 
-export function ReviewQueueHero({ stats, stuck, isAdmin }: ReviewQueueHeroProps) {
+export function ReviewQueueHero({
+  stats,
+  stuck,
+  isAdmin,
+}: ReviewQueueHeroProps) {
   const needsReview = stats.staged + stats.flagged + stats.pending;
   const total = needsReview + stats.approved + stats.rejected;
 
-  // Segment percentages
   const approvedPct = total > 0 ? (stats.approved / total) * 100 : 0;
   const stagedPct = total > 0 ? (stats.staged / total) * 100 : 0;
   const flaggedPct = total > 0 ? (stats.flagged / total) * 100 : 0;
   const rejectedPct = total > 0 ? (stats.rejected / total) * 100 : 0;
 
   return (
-    <div className="admin-card">
+    <div className="admin-card admin-card--elevated">
       <div className="px-5 py-4">
-        <div className="flex items-start justify-between">
-          <div>
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
                 Review Queue
               </h2>
               {needsReview > 0 && (
-                <span className="inline-flex items-center rounded-full bg-orange-50 border border-orange-200 px-2 py-0.5 text-[10px] font-semibold text-orange-600">
-                  {needsReview.toLocaleString()} pending review
+                <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-bold text-orange-600 dark:text-orange-400 tabular-nums">
+                  <span className="w-1 h-1 rounded-full bg-orange-500 animate-pulse" />
+                  {needsReview.toLocaleString()} awaiting
                 </span>
               )}
             </div>
-            <div className="flex items-baseline gap-3 mt-1.5">
-              <span className="text-2xl font-bold tabular-nums text-gray-900">
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold tabular-nums tracking-tight text-gray-900 dark:text-gray-100 leading-none">
                 {stats.approved.toLocaleString()}
               </span>
-              <span className="text-sm text-gray-500">
-                approved of {total.toLocaleString()} total
+              <span className="text-sm text-gray-400">
+                / {total.toLocaleString()}
+              </span>
+              <span className="text-xs text-gray-400 hidden sm:inline">
+                approved
               </span>
             </div>
           </div>
-          <Link
-            href="/admin/review?status=flagged"
-            className="rounded-md bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700 transition-colors"
-          >
-            Review flagged
-          </Link>
+          {stats.flagged > 0 && (
+            <Link
+              href="/admin/review?status=flagged"
+              className="shrink-0 rounded-lg bg-gray-900 dark:bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-gray-800 dark:hover:bg-white/15 transition-colors"
+            >
+              Review flagged ({stats.flagged})
+            </Link>
+          )}
         </div>
 
         {/* Segmented progress bar */}
         <div className="mt-4">
-          <div className="w-full bg-gray-100 dark:bg-white/[0.06] rounded-full h-2.5 flex overflow-hidden">
+          <div className="progress-bar flex">
             {approvedPct > 0 && (
               <div
-                className="bg-emerald-500 h-full transition-all"
+                className="h-full bg-emerald-500 transition-all first:rounded-l-[3px]"
                 style={{ width: `${approvedPct}%` }}
                 title={`${stats.approved.toLocaleString()} approved`}
               />
             )}
             {stagedPct > 0 && (
               <div
-                className="bg-blue-400 h-full transition-all"
+                className="h-full bg-blue-400 transition-all"
                 style={{ width: `${stagedPct}%` }}
                 title={`${stats.staged.toLocaleString()} staged`}
               />
             )}
             {flaggedPct > 0 && (
               <div
-                className="bg-orange-400 h-full transition-all"
+                className="h-full bg-orange-400 transition-all"
                 style={{ width: `${flaggedPct}%` }}
                 title={`${stats.flagged.toLocaleString()} flagged`}
               />
             )}
             {rejectedPct > 0 && (
               <div
-                className="bg-red-400 h-full transition-all"
+                className="h-full bg-red-400 transition-all last:rounded-r-[3px]"
                 style={{ width: `${rejectedPct}%` }}
                 title={`${stats.rejected.toLocaleString()} rejected`}
               />
             )}
           </div>
+
           {/* Legend */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
-            <Link
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5">
+            <LegendItem
               href="/admin/review?status=approved"
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              {stats.approved.toLocaleString()} Approved
-            </Link>
+              color="bg-emerald-500"
+              count={stats.approved}
+              label="Approved"
+            />
             {stats.staged > 0 && (
-              <Link
+              <LegendItem
                 href="/admin/review?status=staged"
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
-              >
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                {stats.staged.toLocaleString()} Staged
-              </Link>
+                color="bg-blue-400"
+                count={stats.staged}
+                label="Staged"
+              />
             )}
             {stats.flagged > 0 && (
-              <Link
+              <LegendItem
                 href="/admin/review?status=flagged"
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
-              >
-                <span className="w-2 h-2 rounded-full bg-orange-400" />
-                {stats.flagged.toLocaleString()} Flagged
-              </Link>
+                color="bg-orange-400"
+                count={stats.flagged}
+                label="Flagged"
+              />
             )}
-            <span className="flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="w-2 h-2 rounded-full bg-gray-200" />
+            <span className="flex items-center gap-1.5 text-[11px] text-gray-400 tabular-nums">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600" />
               {stats.pending.toLocaleString()} Pending
             </span>
           </div>
         </div>
 
-        {/* Secondary CTAs + stuck items */}
-        <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t">
+        {/* Actions + stuck warnings */}
+        <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-white/[0.06]">
           <Link
             href="/admin/review?status=staged"
-            className="text-xs text-blue-600 hover:underline font-medium"
+            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
           >
             Review staged
           </Link>
           {isAdmin && stats.staged > 0 && (
             <Link
               href="/admin/review?status=staged"
-              className="text-xs text-purple-600 hover:underline font-medium"
+              className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 transition-colors"
             >
-              Bulk approve staged
+              Bulk approve
             </Link>
           )}
 
@@ -137,19 +145,19 @@ export function ReviewQueueHero({ stats, stuck, isAdmin }: ReviewQueueHeroProps)
               {stuck.flagged_over_14d > 0 && (
                 <Link
                   href="/admin/review?status=flagged"
-                  className="flex items-center gap-1 text-[11px] text-orange-600 hover:underline"
+                  className="flex items-center gap-1 text-[10px] font-semibold text-orange-600 dark:text-orange-400 hover:underline tabular-nums"
                 >
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500" />
-                  {stuck.flagged_over_14d} flagged &gt;14d
+                  <span className="inline-block w-1 h-1 rounded-full bg-orange-500" />
+                  {stuck.flagged_over_14d} stale &gt;14d
                 </Link>
               )}
               {stuck.staged_over_30d > 0 && (
                 <Link
                   href="/admin/review?status=staged"
-                  className="flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
+                  className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline tabular-nums"
                 >
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
-                  {stuck.staged_over_30d} staged &gt;30d
+                  <span className="inline-block w-1 h-1 rounded-full bg-blue-500" />
+                  {stuck.staged_over_30d} stale &gt;30d
                 </Link>
               )}
             </div>
@@ -157,5 +165,27 @@ export function ReviewQueueHero({ stats, stuck, isAdmin }: ReviewQueueHeroProps)
         </div>
       </div>
     </div>
+  );
+}
+
+function LegendItem({
+  href,
+  color,
+  count,
+  label,
+}: {
+  href: string;
+  color: string;
+  count: number;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 tabular-nums transition-colors"
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
+      {count.toLocaleString()} {label}
+    </Link>
   );
 }

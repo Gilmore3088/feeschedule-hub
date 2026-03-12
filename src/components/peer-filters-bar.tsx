@@ -4,6 +4,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { TIER_LABELS, TIER_ORDER, DISTRICT_NAMES } from "@/lib/fed-districts";
 
+const selectClasses =
+  "rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-gray-700 " +
+  "focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 " +
+  "hover:border-gray-300 transition-colors " +
+  "dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.08] dark:text-gray-300 dark:hover:border-white/[0.15]";
+
 export function PeerFiltersBar() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -38,30 +44,45 @@ export function PeerFiltersBar() {
     router.push("/admin");
   }, [router]);
 
+  const activeCount = [charter, tier, district, range].filter(Boolean).length;
+
   return (
     <div className="flex flex-wrap items-center gap-2 mb-6 print:hidden">
-      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mr-1">
-        Peer Filters
-      </span>
+      <div className="flex items-center gap-1.5 mr-1">
+        <svg
+          viewBox="0 0 16 16"
+          className="w-3.5 h-3.5 text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        >
+          <path d="M1.5 3h13M3.5 7h9M5.5 11h5" />
+        </svg>
+        <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.08em]">
+          Filters
+        </span>
+        {activeCount > 0 && (
+          <span className="flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-[9px] font-bold text-white tabular-nums">
+            {activeCount}
+          </span>
+        )}
+      </div>
 
-      {/* Charter type */}
       <select
         value={charter}
         onChange={(e) => updateParams({ charter: e.target.value })}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+        className={selectClasses}
       >
         <option value="">All Charters</option>
         <option value="bank">Banks</option>
         <option value="credit_union">Credit Unions</option>
       </select>
 
-      {/* Asset tier */}
       <select
         value={tier}
         onChange={(e) => updateParams({ tier: e.target.value })}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+        className={selectClasses}
       >
         <option value="">All Tiers</option>
         {TIER_ORDER.map((t) => (
@@ -71,7 +92,6 @@ export function PeerFiltersBar() {
         ))}
       </select>
 
-      {/* Fed district */}
       <select
         value={
           selectedDistricts.length === 1
@@ -88,8 +108,7 @@ export function PeerFiltersBar() {
             updateParams({ district: val });
           }
         }}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+        className={selectClasses}
       >
         <option value="">All Districts</option>
         {Object.entries(DISTRICT_NAMES).map(([num, name]) => (
@@ -104,34 +123,30 @@ export function PeerFiltersBar() {
         )}
       </select>
 
-      {/* Date range */}
       <select
         value={range}
         onChange={(e) => updateParams({ range: e.target.value })}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+        className={selectClasses}
       >
         <option value="">All Time</option>
-        <option value="7d">Last 7 days</option>
-        <option value="30d">Last 30 days</option>
-        <option value="90d">Last 90 days</option>
+        <option value="7d">7 days</option>
+        <option value="30d">30 days</option>
+        <option value="90d">90 days</option>
       </select>
 
-      {/* Reset */}
       {hasFilters && (
         <button
           onClick={resetAll}
-          className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors
-                     dark:border-white/[0.12] dark:text-gray-400 dark:hover:bg-white/[0.06]"
+          className="rounded-md px-2 py-1.5 text-[11px] font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                     dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/[0.06] transition-colors"
         >
-          Reset
+          Clear
         </button>
       )}
 
-      {/* Active filter summary */}
       {selectedDistricts.length > 1 && (
-        <span className="text-xs text-blue-600">
-          Districts: {selectedDistricts.join(", ")}
+        <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium tabular-nums">
+          D{selectedDistricts.join(", ")}
         </span>
       )}
     </div>

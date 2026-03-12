@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import {
@@ -24,6 +25,14 @@ export default async function DistrictDetailPage({
     return <p className="text-gray-500">Invalid district number.</p>;
   }
 
+  return (
+    <Suspense fallback={null}>
+      <DistrictDetailContent districtId={districtId} />
+    </Suspense>
+  );
+}
+
+async function DistrictDetailContent({ districtId }: { districtId: number }) {
   const districtName = DISTRICT_NAMES[districtId] ?? `District ${districtId}`;
   const beigeBook = getLatestBeigeBook(districtId);
   const editions = getBeigeBookEditions(8);

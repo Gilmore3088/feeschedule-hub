@@ -10,7 +10,7 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const ICON_CLASS = "w-4 h-4 shrink-0";
+const ICON_CLASS = "w-[14px] h-[14px] shrink-0";
 
 const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
@@ -81,6 +81,17 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: "Ops",
     items: [
       {
+        href: "/admin/institutions",
+        label: "Institutions",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5l5.5 3v2H2.5v-2z" />
+            <path d="M4 6.5v5M8 6.5v5M12 6.5v5" />
+            <path d="M2 11.5h12v2H2z" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/review",
         label: "Review",
         icon: (
@@ -128,12 +139,14 @@ export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-col gap-1 px-3 py-2">
+    <nav className="flex flex-col gap-0.5 px-2.5 py-1">
       {NAV_GROUPS.map((group, gi) => (
         <div key={gi}>
-          {gi > 0 && <div className="mx-2 my-2 h-px bg-gray-200/60 dark:bg-white/[0.06]" />}
+          {gi > 0 && (
+            <div className="mx-2 my-2 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
+          )}
           {group.label && (
-            <span className="block px-2 mb-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            <span className="block px-2 mb-1 text-[9px] font-bold text-gray-400 dark:text-gray-600 uppercase tracking-[0.1em]">
               {group.label}
             </span>
           )}
@@ -145,10 +158,10 @@ export function AdminNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
+                className={`flex items-center gap-2 px-2 py-[5px] rounded-md text-[12px] font-medium transition-colors ${
                   isActive
                     ? "bg-gray-900 text-white dark:bg-white/10 dark:text-gray-100"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/80 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-white/[0.06]"
+                    : "text-gray-500 hover:text-gray-800 hover:bg-black/[0.03] dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/[0.04]"
                 }`}
               >
                 {item.icon}
@@ -162,7 +175,6 @@ export function AdminNav() {
   );
 }
 
-// Compact horizontal nav for header (mobile or inline use)
 export function AdminNavInline() {
   const pathname = usePathname();
 
@@ -177,7 +189,7 @@ export function AdminNavInline() {
             <Link
               key={item.href}
               href={item.href}
-              className={`text-xs font-medium px-2 py-1 rounded-md transition-colors whitespace-nowrap ${
+              className={`text-[11px] font-semibold px-2 py-1 rounded-md transition-colors whitespace-nowrap ${
                 isActive
                   ? "bg-gray-900 text-white"
                   : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -186,7 +198,7 @@ export function AdminNavInline() {
               {item.label}
             </Link>
           );
-        }),
+        })
       )}
     </nav>
   );

@@ -127,10 +127,12 @@
 
 /* ─── Shadow depth system ─── */
 :root {
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.09), 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 3px 8px rgba(0, 0, 0, 0.06);
 }
 
 .dark {
@@ -138,13 +140,15 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Admin page staggered reveal ─── */
 @keyframes admin-fade-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -153,38 +157,156 @@
 }
 
 .admin-content > * {
-  animation: admin-fade-up 0.35s ease-out both;
+  animation: admin-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .admin-content > *:nth-child(1) { animation-delay: 0ms; }
-.admin-content > *:nth-child(2) { animation-delay: 40ms; }
-.admin-content > *:nth-child(3) { animation-delay: 80ms; }
-.admin-content > *:nth-child(4) { animation-delay: 120ms; }
-.admin-content > *:nth-child(5) { animation-delay: 160ms; }
-.admin-content > *:nth-child(6) { animation-delay: 200ms; }
-.admin-content > *:nth-child(7) { animation-delay: 240ms; }
-.admin-content > *:nth-child(8) { animation-delay: 280ms; }
-.admin-content > *:nth-child(9) { animation-delay: 320ms; }
-.admin-content > *:nth-child(10) { animation-delay: 360ms; }
+.admin-content > *:nth-child(2) { animation-delay: 50ms; }
+.admin-content > *:nth-child(3) { animation-delay: 100ms; }
+.admin-content > *:nth-child(4) { animation-delay: 140ms; }
+.admin-content > *:nth-child(5) { animation-delay: 175ms; }
+.admin-content > *:nth-child(6) { animation-delay: 205ms; }
+.admin-content > *:nth-child(7) { animation-delay: 230ms; }
+.admin-content > *:nth-child(8) { animation-delay: 250ms; }
+.admin-content > *:nth-child(9) { animation-delay: 265ms; }
+.admin-content > *:nth-child(10) { animation-delay: 275ms; }
 
 /* ─── Admin card refinements ─── */
 .admin-card {
   background: white;
-  border: 1px solid rgb(229 231 235 / 0.8);
-  border-radius: 0.5rem;
-  box-shadow: var(--shadow-xs);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  border: 1px solid rgb(0 0 0 / 0.06);
+  border-radius: 0.625rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 .admin-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: rgb(0 0 0 / 0.1);
+}
+
+.admin-card--elevated {
   box-shadow: var(--shadow-sm);
-  border-color: rgb(209 213 219);
+}
+.admin-card--elevated:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.admin-card--interactive:hover {
+  transform: translateY(-1px);
 }
 
 .dark .admin-card {
-  background: oklch(0.205 0 0);
-  border-color: oklch(1 0 0 / 8%);
+  background: oklch(0.19 0 0);
+  border-color: oklch(1 0 0 / 6%);
 }
 .dark .admin-card:hover {
-  border-color: oklch(1 0 0 / 15%);
+  border-color: oklch(1 0 0 / 12%);
+}
+
+/* ─── Section headers ─── */
+.admin-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.admin-section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgb(107 114 128);
+}
+.dark .admin-section-title {
+  color: oklch(0.55 0 0);
+}
+.admin-section-link {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgb(59 130 246);
+  transition: color 0.15s;
+}
+.admin-section-link:hover {
+  color: rgb(37 99 235);
+}
+
+/* ─── KPI card variant ─── */
+.kpi-card {
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgb(229 231 235);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.kpi-card:hover::before {
+  opacity: 1;
+}
+.kpi-card--accent::before {
+  background: rgb(59 130 246);
+  opacity: 1;
+}
+
+.dark .kpi-card::before {
+  background: oklch(1 0 0 / 8%);
+}
+.dark .kpi-card--accent::before {
+  background: oklch(0.6 0.18 260);
+}
+
+/* ─── Progress bar base ─── */
+.progress-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(243 244 246);
+  overflow: hidden;
+}
+.dark .progress-bar {
+  background: oklch(1 0 0 / 6%);
+}
+
+/* ─── Table refinements ─── */
+.admin-table thead tr {
+  border-bottom: 1px solid rgb(0 0 0 / 0.05);
+}
+.admin-table th {
+  padding: 0.5rem 1rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgb(156 163 175);
+}
+.admin-table td {
+  padding: 0.5rem 1rem;
+}
+.admin-table tbody tr {
+  border-bottom: 1px solid rgb(0 0 0 / 0.03);
+  transition: background 0.15s;
+}
+.admin-table tbody tr:last-child {
+  border-bottom: none;
+}
+.admin-table tbody tr:hover {
+  background: rgb(249 250 251 / 0.8);
+}
+.dark .admin-table thead tr {
+  border-color: oklch(1 0 0 / 6%);
+}
+.dark .admin-table th {
+  color: oklch(0.5 0 0);
+}
+.dark .admin-table tbody tr {
+  border-color: oklch(1 0 0 / 4%);
+}
+.dark .admin-table tbody tr:hover {
+  background: oklch(0.22 0 0 / 50%);
 }
 
 /* ─── Skeleton shimmer ─── */
