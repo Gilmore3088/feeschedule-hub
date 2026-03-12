@@ -11,3 +11,4 @@ export * from "./fee-index";
 export * from "./market";
 export * from "./quality";
 export * from "./geographic";
+export * from "./fee-revenue";

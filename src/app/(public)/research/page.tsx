@@ -115,6 +115,39 @@ export default function ResearchHubPage() {
         </div>
       </section>
 
+      {/* Original Research */}
+      <section className="mt-10">
+        <h2 className="text-sm font-bold text-slate-800">
+          Original Research
+        </h2>
+        <div className="mt-3 space-y-3">
+          <Link
+            href="/research/fee-revenue-analysis"
+            className="group block rounded-lg border border-slate-200 px-5 py-4 transition-colors hover:border-blue-200 hover:bg-blue-50/30"
+          >
+            <span className="text-sm font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
+              Fee-to-Revenue Analysis
+            </span>
+            <span className="mt-0.5 block text-[13px] text-slate-500">
+              How published fee schedules correlate with service charge income
+              from call reports.
+            </span>
+          </Link>
+          <Link
+            href="/guides"
+            className="group block rounded-lg border border-slate-200 px-5 py-4 transition-colors hover:border-blue-200 hover:bg-blue-50/30"
+          >
+            <span className="text-sm font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
+              Consumer Guides
+            </span>
+            <span className="mt-0.5 block text-[13px] text-slate-500">
+              Plain-language guides to understanding overdraft, NSF, ATM, wire
+              transfer, and maintenance fees.
+            </span>
+          </Link>
+        </div>
+      </section>
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

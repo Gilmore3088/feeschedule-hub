@@ -3,7 +3,7 @@ import Link from "next/link";
 const NAV_ITEMS = [
   { label: "Fee Index", href: "/fees" },
   { label: "Research", href: "/research" },
-  { label: "Districts", href: "/districts" },
+  { label: "Guides", href: "/guides" },
 ];
 
 export default function PublicLayout({

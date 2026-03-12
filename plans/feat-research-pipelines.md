@@ -401,10 +401,10 @@ To build credibility as a research source:
 **Goal:** Ship fee-to-revenue analysis and consumer guides.
 
 **Tasks:**
-- [ ] Create `src/lib/research-db/fee-revenue.ts` with correlation queries
-- [ ] Build `/research/fee-revenue-analysis` page with scatter plots and analysis
-- [ ] Create guide content system (MDX or template-based)
-- [ ] Build 5 initial guides with live data integration
+- [x] Create `src/lib/crawler-db/fee-revenue.ts` with correlation queries (tier, charter, institution-level)
+- [x] Build `/research/fee-revenue-analysis` page with charter/tier breakdowns and top institutions
+- [x] Create template-based guide system (`src/lib/guides.ts`)
+- [x] Build 5 initial guides (overdraft, NSF, ATM, wire transfer, monthly maintenance) with live data
 - [ ] Add press/citation page with embeddable data widgets
 - [ ] Create RSS feed for new research publications
 

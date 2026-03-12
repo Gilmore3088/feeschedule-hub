@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_CODES } from "@/lib/us-states";
 import { getInstitutionIdsWithFees } from "@/lib/crawler-db";
+import { GUIDES } from "@/lib/guides";
 
 const BASE_URL = "https://bankfeeindex.com";
 
@@ -58,6 +59,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
+  const researchPages: MetadataRoute.Sitemap = [
+    {
+      url: `${BASE_URL}/research/fee-revenue-analysis`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/guides`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    },
+  ];
+
+  const guidePages: MetadataRoute.Sitemap = GUIDES.map((g) => ({
+    url: `${BASE_URL}/guides/${g.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
   return [
     ...staticPages,
     ...categoryPages,
@@ -65,5 +88,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...districtPages,
     ...nationalIndexPage,
     ...institutionPages,
+    ...researchPages,
+    ...guidePages,
   ];
 }
