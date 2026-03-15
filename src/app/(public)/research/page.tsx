@@ -9,6 +9,7 @@ import {
 } from "@/lib/crawler-db";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES, US_STATES_ONLY, US_TERRITORIES } from "@/lib/us-states";
+import { UsStateMap } from "@/components/public/us-state-map";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -315,25 +316,25 @@ export default function ResearchHubPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {/* Interactive map */}
+            <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
+              <UsStateMap statesData={statesData} />
+            </div>
+
+            {/* Compact state list below map */}
+            <div className="mt-4 grid grid-cols-3 gap-x-4 gap-y-1 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
               {statesData.map((s) => (
                 <Link
                   key={s.state_code}
                   href={`/research/state/${s.state_code}`}
-                  className="group rounded-lg border border-slate-200 px-3.5 py-3 transition-all hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-sm"
+                  className="flex items-baseline justify-between rounded px-2 py-1 text-[11px] transition-colors hover:bg-blue-50"
                 >
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-                      {STATE_NAMES[s.state_code] ?? s.state_code}
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-300">
-                      {s.state_code}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-3 text-[11px] text-slate-400">
-                    <span>{s.institution_count.toLocaleString()} inst.</span>
-                    <span>{s.fee_count.toLocaleString()} fees</span>
-                  </div>
+                  <span className="font-medium text-slate-700 hover:text-blue-600 truncate">
+                    {STATE_NAMES[s.state_code] ?? s.state_code}
+                  </span>
+                  <span className="ml-1 tabular-nums text-slate-400 shrink-0">
+                    {s.institution_count}
+                  </span>
                 </Link>
               ))}
             </div>
