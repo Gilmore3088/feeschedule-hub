@@ -172,6 +172,131 @@ export const searchInstitutionsByName = tool({
   },
 });
 
+export const rankInstitutions = tool({
+  description:
+    "Rank institutions by fee positioning against national benchmarks. Returns top N institutions with counts of fees above P75, below P25, total fee count, or outlier count. Use this for questions like 'which institutions have the most expensive fees' or 'top 10 by outliers'.",
+  inputSchema: z.object({
+    metric: z
+      .enum(["above_p75", "below_p25", "total_fees", "outlier_flags"])
+      .describe("Ranking metric: above_p75 (most fees above 75th pct), below_p25 (most below 25th), total_fees (most observations), outlier_flags (most validation flags)"),
+    charter: z
+      .enum(["bank", "credit_union"])
+      .optional()
+      .describe("Filter by charter type"),
+    limit: z.number().optional().default(10).describe("Number of results"),
+  }),
+  execute: async ({ metric, charter, limit }) => {
+    const db = getDb();
+    const charterWhere = charter ? `AND ct.charter_type = '${charter}'` : "";
+    const n = limit ?? 10;
+
+    if (metric === "above_p75" || metric === "below_p25") {
+      // Get national P25/P75 per category
+      const benchmarks = db.prepare(`
+        SELECT fee_category, amount
+        FROM extracted_fees
+        WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
+        ORDER BY fee_category, amount
+      `).all() as { fee_category: string; amount: number }[];
+
+      const pctMap: Record<string, { p25: number; p75: number }> = {};
+      const grouped: Record<string, number[]> = {};
+      for (const r of benchmarks) {
+        if (!grouped[r.fee_category]) grouped[r.fee_category] = [];
+        grouped[r.fee_category].push(r.amount);
+      }
+      for (const [cat, amounts] of Object.entries(grouped)) {
+        const sorted = amounts.sort((a, b) => a - b);
+        pctMap[cat] = {
+          p25: sorted[Math.floor(sorted.length * 0.25)],
+          p75: sorted[Math.floor(sorted.length * 0.75)],
+        };
+      }
+
+      const threshold = metric === "above_p75" ? "p75" : "p25";
+      const comparison = metric === "above_p75" ? ">" : "<";
+
+      // Count per institution
+      const instFees = db.prepare(`
+        SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+               ef.fee_category, ef.amount
+        FROM extracted_fees ef
+        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+        WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
+          ${charterWhere}
+      `).all() as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
+
+      const counts: Record<number, { name: string; state: string; charter: string; tier: string; count: number; total: number; categories: string[] }> = {};
+      for (const r of instFees) {
+        if (!counts[r.id]) counts[r.id] = { name: r.institution_name, state: r.state_code, charter: r.charter_type, tier: r.asset_size_tier, count: 0, total: 0, categories: [] };
+        counts[r.id].total++;
+        const pct = pctMap[r.fee_category];
+        if (pct) {
+          const pass = comparison === ">" ? r.amount > pct[threshold] : r.amount < pct[threshold];
+          if (pass) {
+            counts[r.id].count++;
+            if (!counts[r.id].categories.includes(r.fee_category)) {
+              counts[r.id].categories.push(r.fee_category);
+            }
+          }
+        }
+      }
+
+      const ranked = Object.entries(counts)
+        .map(([id, data]) => ({ id: Number(id), ...data, pct_above: Math.round(data.count / Math.max(data.total, 1) * 100) }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, n);
+
+      return {
+        metric,
+        results: ranked.map(r => ({
+          institution: r.name,
+          state: r.state,
+          charter_type: r.charter,
+          asset_tier: r.tier,
+          matching_fees: r.count,
+          total_fees: r.total,
+          pct: r.pct_above + "%",
+          categories: r.categories.slice(0, 5),
+        })),
+      };
+    }
+
+    if (metric === "total_fees") {
+      const rows = db.prepare(`
+        SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+               COUNT(*) as fee_count
+        FROM extracted_fees ef
+        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+        WHERE ef.review_status != 'rejected' ${charterWhere}
+        GROUP BY ct.id
+        ORDER BY fee_count DESC
+        LIMIT ?
+      `).all(n) as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_count: number }[];
+
+      return { metric, results: rows };
+    }
+
+    if (metric === "outlier_flags") {
+      const rows = db.prepare(`
+        SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+               COUNT(*) as flag_count
+        FROM extracted_fees ef
+        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+        WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
+          AND ef.review_status != 'rejected' ${charterWhere}
+        GROUP BY ct.id
+        ORDER BY flag_count DESC
+        LIMIT ?
+      `).all(n) as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; flag_count: number }[];
+
+      return { metric, results: rows };
+    }
+
+    return { error: "Unknown metric" };
+  },
+});
+
 /** All internal tools bundled for admin agent configs */
 export const internalTools = {
   queryDistrictData,
@@ -181,4 +306,5 @@ export const internalTools = {
   getCrawlStatus,
   getReviewQueueStats,
   searchInstitutionsByName,
+  rankInstitutions,
 };

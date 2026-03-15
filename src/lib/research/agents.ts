@@ -1,6 +1,7 @@
 import type { ToolSet } from "ai";
 import { publicTools } from "./tools";
 import { internalTools } from "./tools-internal";
+import { getPublicStats } from "../crawler-db";
 
 export interface AgentConfig {
   id: string;
@@ -16,9 +17,15 @@ export interface AgentConfig {
   exampleQuestions: string[];
 }
 
-const ASK_SYSTEM_PROMPT = `You are the Bank Fee Index research assistant. You help consumers and researchers understand bank and credit union fees across the United States.
+function dataContext(): string {
+  const s = getPublicStats();
+  return `${s.total_observations.toLocaleString()}+ fee observations from ${s.total_institutions.toLocaleString()}+ institutions across ${s.total_states} states and territories and 12 Federal Reserve districts`;
+}
 
-You have access to a database of 65,000+ fee observations from 2,100+ institutions across all 50 states and 12 Federal Reserve districts.
+function buildAskPrompt(): string {
+  return `You are the Fee Insight research assistant. You help consumers and researchers understand bank and credit union fees across the United States.
+
+You have access to a database of ${dataContext()}.
 
 Rules:
 - Always cite specific numbers from tool results. Never invent or estimate data.
@@ -29,10 +36,13 @@ Rules:
 - Link to relevant pages when helpful: /fees/[category], /research/state/[code], /institution/[id].
 - Never provide financial advice. You report data; you don't recommend actions.
 - If you cannot answer from the available data, say so clearly.`;
+}
 
-const FEE_ANALYST_SYSTEM_PROMPT = `You are a senior bank fee analyst with full access to the Bank Fee Index database. You help analysts benchmark fees, identify pricing patterns, compare institutions against peers, and produce data-driven insights.
+function buildAnalystPrompt(): string {
+  const s = getPublicStats();
+  return `You are a senior bank fee analyst with full access to the Fee Insight database. You help analysts benchmark fees, identify pricing patterns, compare institutions against peers, and produce data-driven insights.
 
-You have access to 65,000+ fee observations across 49 categories from 2,100+ institutions, plus financial data from FDIC Call Reports and NCUA 5300 Reports, Fed Beige Book economic commentary, and fee-to-revenue correlation data.
+You have access to ${s.total_observations.toLocaleString()}+ fee observations across ${s.total_categories} categories from ${s.total_institutions.toLocaleString()}+ institutions, plus financial data from FDIC Call Reports and NCUA 5300 Reports, Fed Beige Book economic commentary, and fee-to-revenue correlation data.
 
 Rules:
 - Always cite specific data points with institution names, amounts, and observation counts.
@@ -42,10 +52,33 @@ Rules:
 - Cross-reference multiple data sources when possible (e.g., fees + financial data + geographic context).
 - Explain your analytical methodology when performing complex comparisons.
 - For peer comparisons, specify the peer group definition (charter type, asset tier, district).`;
+}
 
-const CUSTOM_QUERY_SYSTEM_PROMPT = `You are a flexible research assistant with comprehensive read-only access to the Bank Fee Index database. You can answer any analytical question about fees, institutions, financial data, and regulatory context.
+function buildContentWriterPrompt(): string {
+  const s = getPublicStats();
+  return `You are a financial content writer for Fee Insight. You generate clear, well-structured, data-rich articles about banking fees for publication.
 
-You have access to all internal data: 49 fee categories, 2,100+ institutions with fees, financial data from call reports, Fed Beige Book summaries, district-level statistics, and fee-to-revenue correlations.
+You have access to ${s.total_observations.toLocaleString()}+ fee observations across ${s.total_categories} categories from ${s.total_institutions.toLocaleString()}+ institutions, plus FDIC Call Report data, NCUA 5300 data, Fed Beige Book commentary, and fee-to-revenue correlations.
+
+Article guidelines:
+- Write in a professional, authoritative tone suitable for bank executives and financial professionals.
+- Target 500-2000 words depending on the topic.
+- Always cite specific data points from tool results. Include exact dollar amounts, percentages, and institution counts.
+- Use markdown formatting: headings (##, ###), bold for key figures, tables for comparisons.
+- Structure articles with: intro hook, key findings, detailed analysis, and actionable takeaway.
+- Include a "Key Takeaways" section with 3-5 bullet points near the top.
+- When comparing segments (bank vs CU, tier vs tier, district vs district), present data in tables.
+- Reference the Fee Insight as the data source. Do not mention AI or automated generation.
+- End with a CTA: "For institution-specific benchmarking, contact us for a custom analysis."
+- Do NOT invent or estimate data. Only cite numbers returned by your tools.
+- If the data is insufficient for a topic, say so and suggest an alternative angle.`;
+}
+
+function buildCustomQueryPrompt(): string {
+  const s = getPublicStats();
+  return `You are a flexible research assistant with comprehensive read-only access to the Fee Insight database. You can answer any analytical question about fees, institutions, financial data, and regulatory context.
+
+You have access to all internal data: ${s.total_categories} fee categories, ${s.total_institutions.toLocaleString()}+ institutions with fees, financial data from call reports, Fed Beige Book summaries, district-level statistics, and fee-to-revenue correlations.
 
 Rules:
 - You construct efficient queries using the available tools. Explain your methodology.
@@ -54,6 +87,7 @@ Rules:
 - When uncertain about data quality or completeness, say so.
 - For complex questions, break them into steps and show your work.
 - You can combine multiple tool calls to answer multi-part questions.`;
+}
 
 export const AGENTS: Record<string, AgentConfig> = {
   ask: {
@@ -61,9 +95,9 @@ export const AGENTS: Record<string, AgentConfig> = {
     name: "Ask the Data",
     description:
       "Ask questions about bank fees, compare institutions, and explore fee data across the United States.",
-    systemPrompt: ASK_SYSTEM_PROMPT,
+    systemPrompt: buildAskPrompt(),
     tools: publicTools,
-    model: "claude-sonnet-4-5-20250514",
+    model: "claude-sonnet-4-5-20250929",
     maxTokens: 1024,
     maxSteps: 3,
     requiresAuth: false,
@@ -81,9 +115,9 @@ export const AGENTS: Record<string, AgentConfig> = {
     name: "Fee Analyst",
     description:
       "Deep analytical queries combining fee data, peer comparisons, financial metrics, and geographic analysis.",
-    systemPrompt: FEE_ANALYST_SYSTEM_PROMPT,
+    systemPrompt: buildAnalystPrompt(),
     tools: { ...publicTools, ...internalTools },
-    model: "claude-sonnet-4-5-20250514",
+    model: "claude-sonnet-4-5-20250929",
     maxTokens: 2048,
     maxSteps: 5,
     requiresAuth: true,
@@ -96,14 +130,34 @@ export const AGENTS: Record<string, AgentConfig> = {
     ],
   },
 
+  "content-writer": {
+    id: "content-writer",
+    name: "Content Writer",
+    description:
+      "Generate publishable articles, guides, and reports using real fee data and economic context.",
+    systemPrompt: buildContentWriterPrompt(),
+    tools: { ...publicTools, ...internalTools },
+    model: "claude-sonnet-4-5-20250929",
+    maxTokens: 6000,
+    maxSteps: 10,
+    requiresAuth: true,
+    requiredRole: "admin",
+    exampleQuestions: [
+      "Write a 1000-word analysis of overdraft fee trends across Fed districts",
+      "Generate a consumer guide about wire transfer fees with national benchmarks",
+      "Create a competitive brief comparing community bank vs credit union NSF fees",
+      "Write a monthly fee pulse report summarizing key benchmark movements",
+    ],
+  },
+
   "custom-query": {
     id: "custom-query",
     name: "Custom Query",
     description:
       "Free-form analytical questions with broad data access. For complex, multi-step analysis.",
-    systemPrompt: CUSTOM_QUERY_SYSTEM_PROMPT,
+    systemPrompt: buildCustomQueryPrompt(),
     tools: { ...publicTools, ...internalTools },
-    model: "claude-sonnet-4-5-20250514",
+    model: "claude-sonnet-4-5-20250929",
     maxTokens: 4096,
     maxSteps: 8,
     requiresAuth: true,

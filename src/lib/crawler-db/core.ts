@@ -1,4 +1,5 @@
 import { getDb } from "./connection";
+import { VALID_US_CODES } from "../us-states";
 import type {
   CrawlStats,
   InstitutionSummary,
@@ -8,6 +9,33 @@ import type {
   ReviewableFee,
   FeeReview,
 } from "./types";
+
+export interface PublicStats {
+  total_observations: number;
+  total_institutions: number;
+  total_categories: number;
+  total_states: number;
+}
+
+export function getPublicStats(): PublicStats {
+  const db = getDb();
+  const validCodes = [...VALID_US_CODES];
+  const placeholders = validCodes.map(() => "?").join(",");
+  const row = db
+    .prepare(
+      `SELECT
+         COUNT(ef.id) as total_observations,
+         COUNT(DISTINCT ct.id) as total_institutions,
+         COUNT(DISTINCT ef.fee_category) as total_categories,
+         COUNT(DISTINCT ct.state_code) as total_states
+       FROM crawl_targets ct
+       JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+       WHERE ct.state_code IN (${placeholders})
+         AND ef.review_status != 'rejected'`
+    )
+    .get(...validCodes) as PublicStats;
+  return row;
+}
 
 export function getStats(): CrawlStats {
   const db = getDb();
@@ -262,8 +290,8 @@ export function getFeesByStatus(
   const params: (string | number)[] = [status];
 
   if (search) {
-    conditions.push("ef.fee_name LIKE ?");
-    params.push(`%${search}%`);
+    conditions.push("(ef.fee_name LIKE ? OR ct.institution_name LIKE ?)");
+    params.push(`%${search}%`, `%${search}%`);
   }
 
   const whereClause = conditions.join(" AND ");

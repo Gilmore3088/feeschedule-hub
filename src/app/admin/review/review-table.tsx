@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { bulkApproveFees, bulkRejectFees } from "@/lib/fee-actions";
 import { ApproveButton, RejectButton } from "./review-actions";
 import { CategorySelect } from "./category-select";
@@ -64,6 +65,46 @@ function FlagsBadges({ flags }: { flags: ValidationFlag[] }) {
   );
 }
 
+function SortHeader({
+  column,
+  label,
+  currentSort,
+  currentDir,
+  className,
+}: {
+  column: string;
+  label: string;
+  currentSort?: string;
+  currentDir?: string;
+  className?: string;
+}) {
+  const searchParams = useSearchParams();
+  const isActive = currentSort === column;
+  const nextDir = isActive && currentDir === "asc" ? "desc" : "asc";
+
+  const params = new URLSearchParams(searchParams.toString());
+  params.set("sort", column);
+  params.set("dir", nextDir);
+  params.delete("page");
+
+  const arrow = isActive ? (currentDir === "asc" ? " \u2191" : " \u2193") : "";
+
+  return (
+    <th className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider ${className || ""}`}>
+      <Link
+        href={`/admin/review?${params.toString()}`}
+        className={`inline-flex items-center gap-0.5 transition-colors ${
+          isActive
+            ? "text-gray-900 dark:text-gray-100"
+            : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        }`}
+      >
+        {label}{arrow}
+      </Link>
+    </th>
+  );
+}
+
 interface ReviewTableProps {
   fees: ReviewableFee[];
   canApprove: boolean;
@@ -72,7 +113,7 @@ interface ReviewTableProps {
   sortDir?: string;
 }
 
-export function ReviewTable({ fees, canApprove, activeStatus }: ReviewTableProps) {
+export function ReviewTable({ fees, canApprove, activeStatus, sortColumn, sortDir }: ReviewTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkPending, startBulkTransition] = useTransition();
 
@@ -183,11 +224,11 @@ export function ReviewTable({ fees, canApprove, activeStatus }: ReviewTableProps
                 />
               </th>
             )}
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Institution</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Fee Name</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Frequency</th>
-            <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">Confidence</th>
+            <SortHeader column="institution" label="Institution" currentSort={sortColumn} currentDir={sortDir} />
+            <SortHeader column="fee_name" label="Fee Name" currentSort={sortColumn} currentDir={sortDir} />
+            <SortHeader column="amount" label="Amount" currentSort={sortColumn} currentDir={sortDir} className="text-right" />
+            <SortHeader column="frequency" label="Frequency" currentSort={sortColumn} currentDir={sortDir} />
+            <SortHeader column="confidence" label="Confidence" currentSort={sortColumn} currentDir={sortDir} className="text-center" />
             <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Category</th>
             <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Flags</th>
             {canApprove && (

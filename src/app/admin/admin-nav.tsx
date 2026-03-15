@@ -31,7 +31,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "Index",
+    label: "Benchmarks",
     items: [
       {
         href: "/admin/market",
@@ -75,31 +75,27 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
-    ],
-  },
-  {
-    label: "Ops",
-    items: [
       {
-        href: "/admin/ops",
-        label: "Operations",
-        exact: true,
+        href: "/admin/districts",
+        label: "Districts",
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5v3M8 11.5v3M14.5 8h-3M4.5 8h-3" />
-            <circle cx="8" cy="8" r="2.5" />
-            <path d="M12.5 3.5l-2 2M5.5 10.5l-2 2M12.5 12.5l-2-2M5.5 5.5l-2-2" />
+            <circle cx="8" cy="7" r="5.5" />
+            <path d="M8 1.5v11M2.5 7h11M3.5 3.5c1.5 1 3 1.5 4.5 1.5s3-.5 4.5-1.5M3.5 10.5c1.5-1 3-1.5 4.5-1.5s3 .5 4.5 1.5" />
           </svg>
         ),
       },
+    ],
+  },
+  {
+    label: "Data",
+    items: [
       {
-        href: "/admin/institutions",
-        label: "Institutions",
+        href: "/admin/pipeline",
+        label: "Pipeline",
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5l5.5 3v2H2.5v-2z" />
-            <path d="M4 6.5v5M8 6.5v5M12 6.5v5" />
-            <path d="M2 11.5h12v2H2z" />
+            <path d="M2 3h12M3 6h10M4 9h8M5 12h6" />
           </svg>
         ),
       },
@@ -114,43 +110,29 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/admin/institutions",
+        label: "Institutions",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5l5.5 3v2H2.5v-2z" />
+            <path d="M4 6.5v5M8 6.5v5M12 6.5v5" />
+            <path d="M2 11.5h12v2H2z" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    label: "Research",
+    items: [
+      {
         href: "/admin/research",
-        label: "Research",
+        label: "Research Hub",
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
             <circle cx="7" cy="7" r="4.5" />
             <path d="M10.5 10.5L14 14" />
             <path d="M5 7h4M7 5v4" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/districts",
-        label: "Districts",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="8" cy="7" r="5.5" />
-            <path d="M8 1.5v11M2.5 7h11M3.5 3.5c1.5 1 3 1.5 4.5 1.5s3-.5 4.5-1.5M3.5 10.5c1.5-1 3-1.5 4.5-1.5s3 .5 4.5 1.5" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/fees",
-        label: "Extracts",
-        exact: true,
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <rect x="2" y="1.5" width="12" height="13" rx="1.5" />
-            <path d="M5 5h6M5 8h4M5 11h5" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/quality",
-        label: "Quality",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5l1.8 3.6 4 .6-2.9 2.8.7 3.9L8 10.6l-3.6 1.8.7-3.9-2.9-2.8 4-.6z" />
           </svg>
         ),
       },

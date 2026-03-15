@@ -1,4 +1,5 @@
 import { getDb } from "./connection";
+import { VALID_US_CODES } from "../us-states";
 
 export interface GeoStats {
   institution_count: number;
@@ -92,6 +93,8 @@ export function getInstitutionIdsWithFees(): number[] {
 
 export function getStatesWithFeeData(): { state_code: string; institution_count: number; fee_count: number }[] {
   const db = getDb();
+  const codes = [...VALID_US_CODES];
+  const placeholders = codes.map(() => "?").join(",");
   return db
     .prepare(
       `SELECT ct.state_code,
@@ -99,9 +102,10 @@ export function getStatesWithFeeData(): { state_code: string; institution_count:
               COUNT(ef.id) as fee_count
        FROM crawl_targets ct
        JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
-       WHERE ct.state_code IS NOT NULL AND ef.review_status != 'rejected'
+       WHERE ct.state_code IN (${placeholders})
+         AND ef.review_status != 'rejected'
        GROUP BY ct.state_code
        ORDER BY COUNT(DISTINCT ct.id) DESC`
     )
-    .all() as { state_code: string; institution_count: number; fee_count: number }[];
+    .all(...codes) as { state_code: string; institution_count: number; fee_count: number }[];
 }

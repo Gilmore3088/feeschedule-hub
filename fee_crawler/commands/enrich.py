@@ -12,26 +12,22 @@ from fee_crawler.peer import (
 def run(db: Database) -> None:
     """Enrich all crawl_targets with asset_size_tier and fed_district."""
 
-    # Step 1: Fix NCUA asset_size (whole dollars -> thousands)
-    # Only fix values that look like whole dollars (> 1M in "thousands" = $1B+)
-    # A real $1B+ CU is rare, but a $1M CU stored as 1,000,000 is common
-    ncua_big = db.fetchone(
-        """SELECT COUNT(*) as cnt FROM crawl_targets
-           WHERE source = 'ncua' AND asset_size > 1000000"""
+    # Step 1: Sync CU asset_size from institution_financials (authoritative source)
+    # The seed command may store assets in wrong units; financials has the correct values
+    cu_fix = db.execute(
+        """UPDATE crawl_targets
+           SET asset_size = (
+             SELECT ifin.total_assets
+             FROM institution_financials ifin
+             WHERE ifin.crawl_target_id = crawl_targets.id
+             ORDER BY ifin.report_date DESC
+             LIMIT 1
+           )
+           WHERE charter_type = 'credit_union'
+             AND id IN (SELECT DISTINCT crawl_target_id FROM institution_financials)"""
     )
-    ncua_big_count = ncua_big["cnt"] if ncua_big else 0
-
-    if ncua_big_count > 100:
-        # If hundreds of NCUA records have asset_size > 1M, they're in whole dollars
-        db.execute(
-            """UPDATE crawl_targets
-               SET asset_size = asset_size / 1000
-               WHERE source = 'ncua' AND asset_size IS NOT NULL"""
-        )
-        db.commit()
-        print(f"Fixed NCUA asset units: divided all by 1000 ({ncua_big_count} large values found)")
-    else:
-        print(f"NCUA asset units look OK ({ncua_big_count} values > 1M, skipping fix)")
+    db.commit()
+    print(f"Synced CU asset_size from institution_financials")
 
     # Step 2: Compute fed_district for rows missing it
     missing_district = db.fetchall(

@@ -12,3 +12,6 @@ export * from "./market";
 export * from "./quality";
 export * from "./geographic";
 export * from "./fee-revenue";
+export * from "./hygiene";
+export * from "./pipeline";
+export * from "./articles";

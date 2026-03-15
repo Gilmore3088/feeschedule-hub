@@ -2,8 +2,16 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { saveArticleFromChat } from "./save-article-action";
+import {
+  markdownTablesToCsv,
+  hasMarkdownTable,
+  downloadFile,
+  buildReportHtml,
+} from "./export-utils";
+import { extractChartData, InlineChart } from "./chat-chart";
 
 interface ConversationSummary {
   id: number;
@@ -32,6 +40,8 @@ export function ResearchChat({
   const [showSidebar, setShowSidebar] = useState(false);
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState<{ slug: string } | null>(null);
+  const [savePending, startSaveTransition] = useTransition();
 
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: `/api/research/${agentId}` }),
@@ -85,6 +95,18 @@ export function ResearchChat({
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
+    });
+  }
+
+  function handleSaveAsDraft(messageText: string) {
+    startSaveTransition(async () => {
+      const result = await saveArticleFromChat(messageText);
+      if (result.success && result.slug) {
+        setSavedNotice({ slug: result.slug });
+        setTimeout(() => setSavedNotice(null), 8000);
+      } else {
+        setError(result.error || "Failed to save article");
+      }
     });
   }
 
@@ -237,16 +259,79 @@ export function ResearchChat({
                   </p>
                   {message.parts.map((part, i) => {
                     if (part.type === "text") {
+                      const textContent = (part as { type: "text"; text: string }).text;
+                      const isLastAssistantMsg = message === messages.filter(m => m.role === "assistant").at(-1);
                       return (
-                        <div
-                          key={i}
-                          className="prose prose-sm prose-gray max-w-none text-[13px] leading-relaxed dark:prose-invert [&_table]:text-[11px] [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_table]:border-gray-200 [&_th]:border [&_td]:border [&_th]:bg-gray-50 dark:[&_th]:bg-gray-800 dark:[&_table]:border-gray-700"
-                          dangerouslySetInnerHTML={{
-                            __html: simpleMarkdown(
-                              (part as { type: "text"; text: string }).text
-                            ),
-                          }}
-                        />
+                        <div key={i}>
+                          <div
+                            className="prose prose-sm prose-gray max-w-none text-[13px] leading-relaxed dark:prose-invert [&_table]:text-[11px] [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_table]:border-gray-200 [&_th]:border [&_td]:border [&_th]:bg-gray-50 dark:[&_th]:bg-gray-800 dark:[&_table]:border-gray-700"
+                            dangerouslySetInnerHTML={{
+                              __html: simpleMarkdown(textContent),
+                            }}
+                          />
+                          {(() => {
+                            const chartData = extractChartData(textContent);
+                            return chartData && chartData.length >= 2 ? (
+                              <InlineChart data={chartData} />
+                            ) : null;
+                          })()}
+                          {isLastAssistantMsg && !isLoading && textContent.length > 200 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {agentId === "content-writer" && (
+                                <button
+                                  onClick={() => handleSaveAsDraft(textContent)}
+                                  disabled={savePending}
+                                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                    <polyline points="17 21 17 13 7 13 7 21" />
+                                    <polyline points="7 3 7 8 15 8" />
+                                  </svg>
+                                  {savePending ? "Saving..." : "Save as Draft"}
+                                </button>
+                              )}
+                              {hasMarkdownTable(textContent) && (
+                                <button
+                                  onClick={() => {
+                                    const csv = markdownTablesToCsv(textContent);
+                                    if (csv) {
+                                      const ts = new Date().toISOString().split("T")[0];
+                                      downloadFile(csv, `bfi-data-${ts}.csv`, "text/csv");
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400 transition-colors"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                  </svg>
+                                  Export CSV
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  const html = buildReportHtml(textContent, agentName);
+                                  const win = window.open("", "_blank");
+                                  if (win) {
+                                    win.document.write(html);
+                                    win.document.close();
+                                    setTimeout(() => win.print(), 500);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 transition-colors"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                  <polyline points="6 9 6 2 18 2 18 9" />
+                                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                                  <rect x="6" y="14" width="12" height="8" />
+                                </svg>
+                                Export Report
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       );
                     }
                     if (part.type.startsWith("tool-")) {
@@ -326,6 +411,22 @@ export function ResearchChat({
             <div className="mb-4 flex items-center gap-2 text-[12px] text-gray-400">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-gray-400" />
               Analyzing...
+            </div>
+          )}
+
+          {savedNotice && (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[12px] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 flex items-center justify-between">
+              <span>
+                Draft saved.{" "}
+                <Link href="/admin/research/articles" className="font-semibold underline hover:no-underline">
+                  View articles
+                </Link>
+              </span>
+              <button onClick={() => setSavedNotice(null)} className="text-emerald-500 hover:text-emerald-700">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
           )}
 

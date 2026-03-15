@@ -161,6 +161,8 @@ export default async function ReviewPage({
             fees={fees}
             canApprove={canApprove}
             activeStatus={activeStatus}
+            sortColumn={sortColumn}
+            sortDir={sortDir}
           />
           <ReviewKeyboardNav rowCount={fees.length} />
           <div className="px-4 pb-3">

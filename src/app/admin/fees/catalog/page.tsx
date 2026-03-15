@@ -263,6 +263,9 @@ export default async function FeeCatalogPage({
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
                   P75
                 </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  Max
+                </th>
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider min-w-[120px]">
                   <Suspense fallback="Range">
                     <SortLink label="Range" sortKey="spread" currentSort={sortKey} currentDir={sortDir} />
@@ -345,6 +348,17 @@ export default async function FeeCatalogPage({
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-500 dark:text-gray-400">
                       {formatAmount(item.p75_amount)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">
+                      {item.max_amount !== null && item.p75_amount !== null && item.max_amount > item.p75_amount * 2 ? (
+                        <span className="text-red-600 dark:text-red-400 font-semibold">
+                          {formatAmount(item.max_amount)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {formatAmount(item.max_amount)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       {item.p25_amount !== null && item.p75_amount !== null ? (

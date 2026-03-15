@@ -7,6 +7,7 @@ import {
   checkAdminRateLimit,
 } from "@/lib/research/rate-limit";
 import { getDailyCostCents, logUsage } from "@/lib/research/history";
+import { detectSkill, buildSkillInjection } from "@/lib/research/skills";
 
 export const maxDuration = 30;
 
@@ -15,11 +16,11 @@ const DAILY_COST_LIMIT_CENTS = 5000; // $50/day
 
 // Cost per 1M tokens (in cents) for estimation
 const COST_PER_M_INPUT: Record<string, number> = {
-  "claude-sonnet-4-5-20250514": 300,
+  "claude-sonnet-4-5-20250929": 300,
   "claude-opus-4-5-20250514": 1500,
 };
 const COST_PER_M_OUTPUT: Record<string, number> = {
-  "claude-sonnet-4-5-20250514": 1500,
+  "claude-sonnet-4-5-20250929": 1500,
   "claude-opus-4-5-20250514": 7500,
 };
 
@@ -122,10 +123,23 @@ export async function POST(
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
+  // Auto-detect and inject domain skill based on the user's latest message
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+  const lastUserText = lastUserMessage?.parts
+    ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join(" ") || "";
+
+  let systemPrompt = agent.systemPrompt;
+  const matchedSkill = lastUserText ? detectSkill(lastUserText) : null;
+  if (matchedSkill) {
+    systemPrompt += buildSkillInjection(matchedSkill);
+  }
+
   try {
     const result = streamText({
       model: anthropic(agent.model),
-      system: agent.systemPrompt,
+      system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: agent.tools,
       maxOutputTokens: agent.maxTokens,

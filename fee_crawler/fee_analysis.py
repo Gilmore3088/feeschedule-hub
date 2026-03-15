@@ -577,6 +577,102 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "phone inquiry fee": "balance_inquiry",
     "telephone inquiry": "balance_inquiry",
     "automated balance inquiry": "balance_inquiry",
+    # --- Data hygiene: aliases from 2026-03 cleanup ---
+    # Minimum balance variants
+    "below minimum balance": "minimum_balance",
+    "below minimum": "minimum_balance",
+    "below minimum balance charge": "minimum_balance",
+    # Reconciliation / research
+    "reconciliation fee": "account_research",
+    "reconciliation": "account_research",
+    "account reconciliation fee": "account_research",
+    # Statement variants
+    "temporary statement": "paper_statement",
+    "statement retention fee": "paper_statement",
+    "reproduction of statement": "paper_statement",
+    "mailed receipts": "paper_statement",
+    # Closure variants
+    "reopen closed account": "early_closure",
+    "reopen closed account fee": "early_closure",
+    "account reopen fee": "early_closure",
+    # Card variants
+    "replacement atm card": "card_replacement",
+    "replacement atm/debit card": "card_replacement",
+    "replacement debit card fee": "card_replacement",
+    "pin reminder": "card_replacement",
+    "pin reminder fee": "card_replacement",
+    "visa reloadable card": "card_replacement",
+    "visa reloadable card fee": "card_replacement",
+    "travel money card": "card_replacement",
+    "travel money card fee": "card_replacement",
+    "visa over limit fee": "overdraft",
+    # Foreign currency
+    "foreign currency": "card_foreign_txn",
+    "foreign currency exchange": "card_foreign_txn",
+    "foreign currency fee": "card_foreign_txn",
+    # ATM international variants
+    "international atm withdrawal": "atm_international",
+    "international atm": "atm_international",
+    # Check variants
+    "overnight check": "cashiers_check",
+    "overnight check fee": "cashiers_check",
+    # Deposit correction / returned items
+    "deposit correction": "deposited_item_return",
+    "deposit correction fee": "deposited_item_return",
+    "uncollected funds fee": "nsf",
+    "uncollected funds": "nsf",
+    "rejected items": "nsf",
+    "rejected item fee": "nsf",
+    "reclear items": "deposited_item_return",
+    # Night deposit variants
+    "night deposit lock bag": "night_deposit",
+    "night deposit lock bag fee": "night_deposit",
+    # Electronic variants
+    "sweep fee": "ach_origination",
+    "sweep transaction charge": "ach_origination",
+    "telephone transfer": "ach_origination",
+    "telephone transfer fee": "ach_origination",
+    "telephone transfers": "ach_origination",
+    "online loan payment": "bill_pay",
+    "zelle": "zelle_fee",
+    # Currency / coin
+    "currency purchase": "coin_counting",
+    "currency purchase fee": "coin_counting",
+    # Account services
+    "signature card update": "account_verification",
+    "signature card update fee": "account_verification",
+    "medallion stamp": "account_verification",
+    "medallion stamp fee": "account_verification",
+    "positive pay": "account_verification",
+    "positive pay fee": "account_verification",
+    "undeliverable address fee": "account_research",
+    "return mail processing fee": "account_research",
+    "return mail fee": "account_research",
+    "missing business document fee": "account_research",
+    "lost passbook fee": "account_research",
+    "lost passbook": "account_research",
+    # Lending
+    "skip pay": "late_payment",
+    "skip pay fee": "late_payment",
+    "skip a pay fee": "late_payment",
+    "skip payment fee": "late_payment",
+    "late charge": "late_payment",
+    "late payment": "late_payment",
+    "letter of credit": "loan_origination",
+    "letter of credit fee": "loan_origination",
+    # OD interest
+    "od interest charge": "continuous_od",
+    "od interest": "continuous_od",
+    # Chargeback
+    "chargeback": "card_dispute",
+    "chargeback fee": "card_dispute",
+    "dispute fee": "card_dispute",
+    # Cash management
+    "cash management": "account_research",
+    "cash management fee": "account_research",
+    # Merchant
+    "merchant services": "account_research",
+    "merchant services fee": "account_research",
 }
 
 CANONICAL_DISPLAY_NAMES: dict[str, str] = {
