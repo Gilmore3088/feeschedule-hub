@@ -272,6 +272,18 @@ def cmd_ingest_nyfed(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_ingest_ofr(args: argparse.Namespace) -> None:
+    """Ingest OFR Financial Stress Index."""
+    from fee_crawler.commands.ingest_ofr import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, start_date=args.start_date)
+    finally:
+        db.close()
+
+
 def cmd_ingest_sod(args: argparse.Namespace) -> None:
     """Ingest FDIC Summary of Deposits data."""
     from fee_crawler.commands.ingest_sod import run
@@ -784,6 +796,16 @@ def main() -> None:
         help="End date (YYYY-MM-DD). Default: today",
     )
     nyfed_parser.set_defaults(func=cmd_ingest_nyfed)
+
+    # ingest-ofr command
+    ofr_parser = subparsers.add_parser(
+        "ingest-ofr", help="Ingest OFR Financial Stress Index"
+    )
+    ofr_parser.add_argument(
+        "--start-date", type=str, default=None,
+        help="Start date (YYYY-MM-DD). Default: all available (~2000-present)",
+    )
+    ofr_parser.set_defaults(func=cmd_ingest_ofr)
 
     # ingest-sod command
     sod_parser = subparsers.add_parser(

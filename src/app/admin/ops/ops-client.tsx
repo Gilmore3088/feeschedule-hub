@@ -160,6 +160,14 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     typical: "python -m fee_crawler ingest-nyfed",
   },
+  "ingest-ofr": {
+    description: "Ingest OFR Stress Index",
+    detail: "Pulls daily Financial Stress Index from OFR (composite + 4 sub-indices). Positive = elevated stress, negative = calm. Context for fee trend analysis.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler ingest-ofr",
+  },
   "ingest-sod": {
     description: "Ingest Summary of Deposits",
     detail: "Pulls branch-level deposit data from FDIC SOD API. Computes HHI market concentration per MSA. Powers fee pricing power analysis.",

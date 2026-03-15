@@ -22,6 +22,7 @@ const ALLOWED_COMMANDS = new Set([
   "ingest-fred",
   "ingest-bls",
   "ingest-nyfed",
+  "ingest-ofr",
   "ingest-sod",
   "ingest-census-acs",
   "ingest-census-tracts",
