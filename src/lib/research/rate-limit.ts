@@ -26,6 +26,7 @@ interface RateLimitConfig {
 const LIMITS: Record<string, RateLimitConfig> = {
   public: { maxRequests: 10, windowMs: 60 * 1000 }, // 10/min
   public_daily: { maxRequests: 50, windowMs: 24 * 60 * 60 * 1000 }, // 50/day
+  premium: { maxRequests: 20, windowMs: 24 * 60 * 60 * 1000 }, // 20/day
   analyst: { maxRequests: 50, windowMs: 24 * 60 * 60 * 1000 }, // 50/day
   admin: { maxRequests: 200, windowMs: 24 * 60 * 60 * 1000 }, // 200/day
 };
@@ -68,7 +69,7 @@ export function checkPublicRateLimit(ip: string): RateLimitResult {
 
 export function checkAdminRateLimit(
   userId: number,
-  role: "analyst" | "admin"
+  role: "premium" | "analyst" | "admin"
 ): RateLimitResult {
   const config = LIMITS[role] ?? LIMITS.analyst;
   return check(`admin:${userId}`, config);

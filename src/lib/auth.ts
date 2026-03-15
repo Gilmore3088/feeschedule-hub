@@ -7,11 +7,17 @@ import path from "path";
 const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
 const SESSION_COOKIE = "fsh_session";
 const SESSION_TTL_HOURS = 24;
-const COOKIE_SECRET = process.env.BFI_COOKIE_SECRET || "dev-secret-change-in-production";
+function getCookieSecret(): string {
+  const secret = process.env.BFI_COOKIE_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("BFI_COOKIE_SECRET must be set in production");
+  }
+  return secret || "dev-secret-change-in-production";
+}
 
 function signSessionId(sessionId: string): string {
   const sig = crypto
-    .createHmac("sha256", COOKIE_SECRET)
+    .createHmac("sha256", getCookieSecret())
     .update(sessionId)
     .digest("hex");
   return `${sessionId}.${sig}`;
@@ -25,7 +31,7 @@ function verifyAndExtractSessionId(signed: string): string | null {
   if (!sessionId || !sig || sig.length !== 64) return null;
   try {
     const expected = crypto
-      .createHmac("sha256", COOKIE_SECRET)
+      .createHmac("sha256", getCookieSecret())
       .update(sessionId)
       .digest("hex");
     if (!crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"))) {
@@ -41,7 +47,7 @@ export interface User {
   id: number;
   username: string;
   display_name: string;
-  role: "viewer" | "analyst" | "admin";
+  role: "viewer" | "analyst" | "admin" | "premium";
 }
 
 export type Permission =
@@ -52,12 +58,14 @@ export type Permission =
   | "bulk_approve"
   | "manage_users"
   | "trigger_jobs"
-  | "cancel_jobs";
+  | "cancel_jobs"
+  | "research";
 
 const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   viewer: ["view"],
-  analyst: ["view", "approve", "reject"],
-  admin: ["view", "approve", "reject", "edit", "bulk_approve", "manage_users", "trigger_jobs", "cancel_jobs"],
+  premium: ["view", "research"],
+  analyst: ["view", "approve", "reject", "research"],
+  admin: ["view", "approve", "reject", "edit", "bulk_approve", "manage_users", "trigger_jobs", "cancel_jobs", "research"],
 };
 
 function getWriteDb(): Database.Database {

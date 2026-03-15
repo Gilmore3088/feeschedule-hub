@@ -16,10 +16,12 @@ const DAILY_COST_LIMIT_CENTS = 5000; // $50/day
 
 // Cost per 1M tokens (in cents) for estimation
 const COST_PER_M_INPUT: Record<string, number> = {
+  "claude-haiku-4-5-20251001": 80,
   "claude-sonnet-4-5-20250929": 300,
   "claude-opus-4-5-20250514": 1500,
 };
 const COST_PER_M_OUTPUT: Record<string, number> = {
+  "claude-haiku-4-5-20251001": 400,
   "claude-sonnet-4-5-20250929": 1500,
   "claude-opus-4-5-20250514": 7500,
 };
@@ -78,17 +80,17 @@ export async function POST(
       return Response.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const roleOrder = { viewer: 0, analyst: 1, admin: 2 };
-    const requiredLevel = roleOrder[agent.requiredRole ?? "viewer"];
-    const userLevel = roleOrder[user.role];
+    const roleOrder: Record<string, number> = { viewer: 0, premium: 1, analyst: 2, admin: 3 };
+    const requiredLevel = roleOrder[agent.requiredRole ?? "viewer"] ?? 0;
+    const userLevel = roleOrder[user.role] ?? 0;
     if (userLevel < requiredLevel) {
       return Response.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 
-    // Admin rate limiting
+    // Rate limiting (premium gets lower limits than analyst/admin)
     const rateResult = checkAdminRateLimit(
       user.id,
-      user.role as "analyst" | "admin"
+      user.role as "premium" | "analyst" | "admin"
     );
     if (!rateResult.allowed) {
       return Response.json(

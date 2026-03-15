@@ -10,8 +10,8 @@ export default async function ResearchHubPage() {
   const agents = getAdminAgents();
   const usage = getUsageStats(user.id);
 
-  const roleOrder = { viewer: 0, analyst: 1, admin: 2 };
-  const userLevel = roleOrder[user.role];
+  const roleOrder: Record<string, number> = { viewer: 0, premium: 1, analyst: 2, admin: 3 };
+  const userLevel = roleOrder[user.role] ?? 0;
 
   return (
     <div className="admin-content space-y-6">
@@ -20,7 +20,7 @@ export default async function ResearchHubPage() {
           Research Hub
         </h1>
         <p className="mt-1 text-[13px] text-gray-500">
-          AI-powered research agents with access to the Bank Fee Index database.
+          AI-powered research agents with access to the Fee Insight database.
           Ask questions in natural language.
         </p>
       </div>

@@ -16,9 +16,9 @@ export default async function AgentChatPage({
   const user = await requireAuth("view");
 
   // Check role access
-  const roleOrder = { viewer: 0, analyst: 1, admin: 2 };
-  const requiredLevel = roleOrder[agent.requiredRole ?? "viewer"];
-  const userLevel = roleOrder[user.role];
+  const roleOrder: Record<string, number> = { viewer: 0, premium: 1, analyst: 2, admin: 3 };
+  const requiredLevel = roleOrder[agent.requiredRole ?? "viewer"] ?? 0;
+  const userLevel = roleOrder[user.role] ?? 0;
   if (userLevel < requiredLevel) notFound();
 
   ensureResearchTables();

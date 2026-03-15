@@ -13,7 +13,7 @@ export interface AgentConfig {
   maxTokens: number;
   maxSteps: number;
   requiresAuth: boolean;
-  requiredRole: "viewer" | "analyst" | "admin" | null;
+  requiredRole: "viewer" | "premium" | "analyst" | "admin" | null;
   exampleQuestions: string[];
 }
 
@@ -97,7 +97,7 @@ export const AGENTS: Record<string, AgentConfig> = {
       "Ask questions about bank fees, compare institutions, and explore fee data across the United States.",
     systemPrompt: buildAskPrompt(),
     tools: publicTools,
-    model: "claude-sonnet-4-5-20250929",
+    model: process.env.BFI_MODEL_ASK || "claude-haiku-4-5-20251001",
     maxTokens: 1024,
     maxSteps: 3,
     requiresAuth: false,
@@ -117,11 +117,11 @@ export const AGENTS: Record<string, AgentConfig> = {
       "Deep analytical queries combining fee data, peer comparisons, financial metrics, and geographic analysis.",
     systemPrompt: buildAnalystPrompt(),
     tools: { ...publicTools, ...internalTools },
-    model: "claude-sonnet-4-5-20250929",
+    model: process.env.BFI_MODEL_FEE_ANALYST || "claude-sonnet-4-5-20250929",
     maxTokens: 2048,
     maxSteps: 5,
     requiresAuth: true,
-    requiredRole: "analyst",
+    requiredRole: "premium",
     exampleQuestions: [
       "Compare overdraft pricing for community banks in District 7 vs the national median",
       "Which asset tier has the highest fee-to-revenue dependency?",
@@ -137,7 +137,7 @@ export const AGENTS: Record<string, AgentConfig> = {
       "Generate publishable articles, guides, and reports using real fee data and economic context.",
     systemPrompt: buildContentWriterPrompt(),
     tools: { ...publicTools, ...internalTools },
-    model: "claude-sonnet-4-5-20250929",
+    model: process.env.BFI_MODEL_CONTENT_WRITER || "claude-sonnet-4-5-20250929",
     maxTokens: 6000,
     maxSteps: 10,
     requiresAuth: true,
@@ -157,7 +157,7 @@ export const AGENTS: Record<string, AgentConfig> = {
       "Free-form analytical questions with broad data access. For complex, multi-step analysis.",
     systemPrompt: buildCustomQueryPrompt(),
     tools: { ...publicTools, ...internalTools },
-    model: "claude-sonnet-4-5-20250929",
+    model: process.env.BFI_MODEL_CUSTOM_QUERY || "claude-sonnet-4-5-20250929",
     maxTokens: 4096,
     maxSteps: 8,
     requiresAuth: true,
