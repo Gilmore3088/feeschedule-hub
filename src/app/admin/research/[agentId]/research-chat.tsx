@@ -269,7 +269,7 @@ export function ResearchChat({
                               __html: simpleMarkdown(textContent),
                             }}
                           />
-                          {(() => {
+                          {!isLoading && (() => {
                             const chartData = extractChartData(textContent);
                             return chartData && chartData.length >= 2 ? (
                               <InlineChart data={chartData} />
@@ -472,12 +472,15 @@ export function ResearchChat({
   );
 }
 
-/** Minimal markdown to HTML */
+/** Markdown to HTML with headings, tables, lists, and inline formatting */
 function simpleMarkdown(text: string): string {
   let html = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+
+  // Horizontal rules
+  html = html.replace(/^---+$/gm, '<hr class="my-4 border-gray-200 dark:border-gray-700" />');
 
   // Tables
   html = html.replace(
@@ -504,6 +507,12 @@ function simpleMarkdown(text: string): string {
     }
   );
 
+  // Headings (must come before bold to avoid ** conflicts)
+  html = html.replace(/^#### (.+)$/gm, '<h4 class="text-[13px] font-bold text-gray-800 dark:text-gray-200 mt-4 mb-1">$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3 class="text-[14px] font-bold text-gray-800 dark:text-gray-200 mt-5 mb-1.5">$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2 class="text-[15px] font-bold text-gray-900 dark:text-gray-100 mt-6 mb-2 pb-1 border-b border-gray-100 dark:border-gray-800">$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1 class="text-[16px] font-extrabold text-gray-900 dark:text-gray-100 mt-6 mb-2">$1</h1>');
+
   // Bold
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
@@ -519,13 +528,25 @@ function simpleMarkdown(text: string): string {
     '<a href="$2" class="text-blue-600 underline dark:text-blue-400">$1</a>'
   );
 
-  // Lists
-  html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
-  html = html.replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>");
+  // Numbered lists
+  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li class="list-decimal">$1</li>');
+  html = html.replace(
+    /(<li class="list-decimal">.*<\/li>\n?)+/g,
+    '<ol class="list-decimal ml-4 space-y-0.5">$&</ol>'
+  );
 
-  // Paragraphs
+  // Unordered lists
+  html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
+  html = html.replace(/(<li>(?!.*class=).*<\/li>\n?)+/g, '<ul class="list-disc ml-4 space-y-0.5">$&</ul>');
+
+  // Paragraphs (only between non-block elements)
   html = html.replace(/\n\n/g, "</p><p>");
   html = `<p>${html}</p>`;
+
+  // Clean up empty paragraphs around block elements
+  html = html.replace(/<p>\s*(<h[1-4]|<table|<ul|<ol|<hr)/g, "$1");
+  html = html.replace(/(<\/h[1-4]>|<\/table>|<\/ul>|<\/ol>|<hr[^>]*\/>)\s*<\/p>/g, "$1");
+  html = html.replace(/<p>\s*<\/p>/g, "");
 
   return html;
 }

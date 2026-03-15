@@ -51,22 +51,28 @@ export function extractChartData(markdown: string): ChartData[] | null {
       .map((c) => c.trim())
   );
 
-  // Try to find a column with dollar amounts or numbers
+  // Find the best label column (first non-numeric column)
+  // and best value column (first numeric column, preferring ones with $ or %)
+  let labelColIdx = -1;
   let valueColIdx = -1;
-  let labelColIdx = 0;
 
-  for (let col = 1; col < headers.length; col++) {
+  for (let col = 0; col < headers.length; col++) {
     const allNumeric = rows.every((row) => {
       const cell = row[col] || "";
       const cleaned = cell.replace(/[$,%]/g, "").trim();
       return !isNaN(parseFloat(cleaned)) && cleaned !== "";
     });
-    if (allNumeric) {
+
+    if (!allNumeric && labelColIdx === -1) {
+      labelColIdx = col;
+    }
+    if (allNumeric && valueColIdx === -1 && labelColIdx !== -1) {
       valueColIdx = col;
-      break;
     }
   }
 
+  // Fallback: if no non-numeric label found, use first column
+  if (labelColIdx === -1) labelColIdx = 0;
   if (valueColIdx === -1) return null;
   if (rows.length < 2 || rows.length > 30) return null;
 
