@@ -19,13 +19,13 @@ export default function Icon() {
       >
         <span
           style={{
-            fontSize: 18,
+            fontSize: 15,
             fontWeight: 800,
             color: "#f8fafc",
             letterSpacing: -1,
           }}
         >
-          B
+          Fi
         </span>
       </div>
     ),

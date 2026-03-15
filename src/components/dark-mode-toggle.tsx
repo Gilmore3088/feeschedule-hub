@@ -6,7 +6,7 @@ export function DarkModeToggle() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("bfi-theme");
+    const stored = localStorage.getItem("fi-theme");
     if (stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
       setDark(true);
       document.documentElement.classList.add("dark");
@@ -17,7 +17,7 @@ export function DarkModeToggle() {
     const next = !dark;
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("bfi-theme", next ? "dark" : "light");
+    localStorage.setItem("fi-theme", next ? "dark" : "light");
   }
 
   return (

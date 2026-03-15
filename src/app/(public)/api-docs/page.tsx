@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
+import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "API Documentation - Bank Fee Index",
+  title: "API Documentation - Fee Insight",
   description:
     "REST API for accessing bank and credit union fee data. JSON and CSV endpoints for fee categories, institutions, and the national fee index.",
 };
@@ -85,7 +86,7 @@ export default function ApiDocsPage() {
       </p>
 
       <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/50 px-4 py-2.5 text-[13px] text-amber-800">
-        Base URL: <code className="font-medium">https://bankfeeindex.com/api/v1</code>
+        Base URL: <code className="font-medium">{SITE_URL}/api/v1</code>
       </div>
 
       <div className="mt-8 space-y-6">
@@ -98,7 +99,7 @@ export default function ApiDocsPage() {
           params={[
             { name: "format", type: "string", description: '"csv" for CSV download' },
           ]}
-          example="curl https://bankfeeindex.com/api/v1/fees"
+          example={`curl ${SITE_URL}/api/v1/fees`}
         />
 
         <Endpoint
@@ -108,7 +109,7 @@ export default function ApiDocsPage() {
           params={[
             { name: "category", type: "string", description: "Fee category slug (e.g., overdraft, nsf, monthly_maintenance)" },
           ]}
-          example="curl https://bankfeeindex.com/api/v1/fees?category=overdraft"
+          example={`curl ${SITE_URL}/api/v1/fees?category=overdraft`}
         />
 
         <h2 className="mt-4 text-sm font-bold text-slate-800">Fee Index</h2>
@@ -124,13 +125,13 @@ export default function ApiDocsPage() {
             { name: "format", type: "string", description: '"csv" for CSV download' },
           ]}
           example={`# National index
-curl https://bankfeeindex.com/api/v1/index
+curl ${SITE_URL}/api/v1/index
 
 # California credit unions only
-curl "https://bankfeeindex.com/api/v1/index?state=CA&charter=credit_union"
+curl "${SITE_URL}/api/v1/index?state=CA&charter=credit_union"
 
 # CSV download for District 7
-curl "https://bankfeeindex.com/api/v1/index?district=7&format=csv"`}
+curl "${SITE_URL}/api/v1/index?district=7&format=csv"`}
         />
 
         <h2 className="mt-4 text-sm font-bold text-slate-800">Institutions</h2>
@@ -145,7 +146,7 @@ curl "https://bankfeeindex.com/api/v1/index?district=7&format=csv"`}
             { name: "page", type: "number", description: "Page number (default: 1)" },
             { name: "limit", type: "number", description: "Results per page (default: 50, max: 200)" },
           ]}
-          example="curl https://bankfeeindex.com/api/v1/institutions?state=NY&limit=10"
+          example={`curl ${SITE_URL}/api/v1/institutions?state=NY&limit=10`}
         />
 
         <Endpoint
@@ -155,7 +156,7 @@ curl "https://bankfeeindex.com/api/v1/index?district=7&format=csv"`}
           params={[
             { name: "id", type: "number", description: "Institution ID" },
           ]}
-          example="curl https://bankfeeindex.com/api/v1/institutions?id=123"
+          example={`curl ${SITE_URL}/api/v1/institutions?id=123`}
         />
       </div>
 

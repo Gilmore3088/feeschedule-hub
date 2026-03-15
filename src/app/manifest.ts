@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Bank Fee Index",
-    short_name: "BFI",
+    name: "Fee Insight",
+    short_name: "FI",
     description:
       "National fee benchmarking for banks and credit unions.",
     start_url: "/",

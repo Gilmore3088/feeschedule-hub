@@ -63,10 +63,12 @@ async function AdminLayoutInner({
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M3 17l4-8 4 5 4-10 6 13" />
+                <rect x="4" y="13" width="4" height="8" rx="1" />
+                <rect x="10" y="8" width="4" height="13" rx="1" />
+                <rect x="16" y="3" width="4" height="18" rx="1" />
               </svg>
               <span className="text-[13px] font-extrabold tracking-tight text-gray-900 dark:text-gray-100 hidden sm:inline">
-                BFI
+                FI
               </span>
             </Link>
             <AdminNavInline />

@@ -1,4 +1,4 @@
-const SITE_URL = "https://bankfeeindex.com";
+import { SITE_URL } from "@/lib/constants";
 
 interface BreadcrumbItem {
   name: string;

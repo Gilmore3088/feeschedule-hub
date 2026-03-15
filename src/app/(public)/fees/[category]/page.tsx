@@ -21,6 +21,7 @@ import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { DistributionChart } from "@/components/public/distribution-chart";
 import { STATE_NAMES } from "@/lib/us-states";
+import { SITE_URL } from "@/lib/constants";
 
 interface PageProps {
   params: Promise<{ category: string }>;
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${name} Fee - National Benchmarks & Analysis`,
     description: `National benchmarking data for ${name.toLowerCase()} fees. See median, P25/P75, distribution, and breakdowns by bank vs. credit union, asset tier, Fed district, and state.`,
     openGraph: {
-      title: `${name} Fee Benchmarks | Bank Fee Index`,
+      title: `${name} Fee Benchmarks | Fee Insight`,
       description: `How much do banks charge for ${name.toLowerCase()}? National median, distribution, and peer comparisons.`,
     },
     keywords: [
@@ -77,7 +78,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
     : [];
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-10">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -423,12 +424,12 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             "@type": "Article",
             headline: `${name} Fee - National Benchmarks`,
             description: `National ${name.toLowerCase()} fee: median ${formatAmount(stats.median)}, based on ${amounts.length} observations.`,
-            url: `https://bankfeeindex.com/fees/${category}`,
+            url: `${SITE_URL}/fees/${category}`,
             dateModified: freshness.last_crawl_at ?? undefined,
             publisher: {
               "@type": "Organization",
-              name: "Bank Fee Index",
-              url: "https://bankfeeindex.com",
+              name: "Fee Insight",
+              url: SITE_URL,
             },
           }).replace(/</g, "\\u003c"),
         }}

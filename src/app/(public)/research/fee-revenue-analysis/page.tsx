@@ -9,6 +9,7 @@ import { TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
+import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Fee-to-Revenue Analysis - How Bank Fees Drive Income",
@@ -37,7 +38,7 @@ export default function FeeRevenueAnalysisPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-10">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -315,7 +316,7 @@ export default function FeeRevenueAnalysisPage() {
             "@type": "ScholarlyArticle",
             headline: "Fee-to-Revenue Analysis: How Bank Fees Drive Income",
             description: "Original research correlating bank fee schedules with service charge income from call reports.",
-            url: "https://bankfeeindex.com/research/fee-revenue-analysis",
+            url: `${SITE_URL}/research/fee-revenue-analysis`,
           }).replace(/</g, "\\u003c"),
         }}
       />

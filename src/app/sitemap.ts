@@ -4,7 +4,9 @@ import { STATE_CODES } from "@/lib/us-states";
 import { getInstitutionIdsWithFees } from "@/lib/crawler-db";
 import { GUIDES } from "@/lib/guides";
 
-const BASE_URL = "https://bankfeeindex.com";
+import { SITE_URL } from "@/lib/constants";
+
+const BASE_URL = SITE_URL;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

@@ -1,8 +1,8 @@
 import { SubmitForm } from "./submit-form";
 
 export const metadata = {
-  title: "Submit Fees | Bank Fee Index",
-  description: "Help improve Bank Fee Index coverage by submitting fee data from your bank or credit union.",
+  title: "Submit Fees | Fee Insight",
+  description: "Help improve Fee Insight coverage by submitting fee data from your bank or credit union.",
 };
 
 export default function SubmitFeesPage() {

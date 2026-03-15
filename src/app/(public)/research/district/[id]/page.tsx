@@ -17,6 +17,7 @@ import { formatAmount } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
+import { SITE_URL } from "@/lib/constants";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -110,7 +111,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
   const belowNational = comparisons.filter((c) => c.delta !== null && c.delta < -2).length;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-10">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -348,7 +349,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
             "@type": "Article",
             headline: `${districtName} District Fee Analysis`,
             description: `Bank and credit union fee analysis for Federal Reserve District ${districtId}.`,
-            url: `https://bankfeeindex.com/research/district/${districtId}`,
+            url: `${SITE_URL}/research/district/${districtId}`,
           }).replace(/</g, "\\u003c"),
         }}
       />

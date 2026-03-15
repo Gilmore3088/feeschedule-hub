@@ -20,10 +20,12 @@ export default async function LoginPage() {
               stroke="currentColor"
               strokeWidth="1.5"
             >
-              <path d="M3 17l4-8 4 5 4-10 6 13" />
+              <rect x="4" y="13" width="4" height="8" rx="1" />
+                <rect x="10" y="8" width="4" height="13" rx="1" />
+                <rect x="16" y="3" width="4" height="18" rx="1" />
             </svg>
             <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-              Bank Fee Index
+              Fee Insight
             </h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">

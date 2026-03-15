@@ -34,7 +34,7 @@ export default function AppleIcon() {
               lineHeight: 1,
             }}
           >
-            BFI
+            FI
           </span>
           <div
             style={{

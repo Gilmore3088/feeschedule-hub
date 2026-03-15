@@ -61,7 +61,7 @@ export function GET(request: NextRequest) {
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": "attachment; filename=bank-fee-index.csv",
+        "Content-Disposition": "attachment; filename=fee-insight.csv",
       },
     });
   }

@@ -9,8 +9,8 @@ from fee_crawler.config import Config
 from fee_crawler.db import Database
 
 # FDIC API fields mapping to our schema.
-# NONII = total non-interest income (closest proxy for service charge income;
-# the API does not expose RIAD4080 "service charges on deposit accounts" separately).
+# SC = service charges on deposit accounts (RIAD4080).
+# NONII = total non-interest income.
 FDIC_FINANCIAL_FIELDS = ",".join([
     "CERT",
     "REPDTE",
@@ -18,7 +18,11 @@ FDIC_FINANCIAL_FIELDS = ",".join([
     "ASSET",       # total assets (in thousands)
     "DEP",         # total deposits
     "LNLSNET",    # net loans and leases
-    "NONII",      # non-interest income (proxy for service charge income)
+    "SC",          # service charges on deposit accounts (RIAD4080)
+    "NONII",      # total non-interest income
+    "INTINC",     # total interest income
+    "EINTEXP",    # total interest expense
+    "NETINC",     # net income
     "NIMY",        # net interest margin yield
     "EEFFR",       # efficiency ratio
     "ROA",         # return on assets
@@ -28,8 +32,11 @@ FDIC_FINANCIAL_FIELDS = ",".join([
     "OFFDOM",      # domestic offices (branches)
 ])
 
-# Quarterly report dates to fetch (most recent 4 quarters).
-REPORT_DATES = ["20240930", "20240630", "20240331", "20231231"]
+# Default quarterly report dates (most recent 8 quarters for 2-year history).
+REPORT_DATES = [
+    "20241231", "20240930", "20240630", "20240331",
+    "20231231", "20230930", "20230630", "20230331",
+]
 
 
 def _safe_int(val: object) -> int | None:
@@ -55,16 +62,22 @@ def ingest_fdic_financials(
     config: Config,
     *,
     report_date: str | None = None,
+    quarters: int | None = None,
     limit: int | None = None,
 ) -> int:
     """Pull financial data from FDIC API for all FDIC-sourced institutions.
 
-    Matches crawl_targets by cert_number. Uses INSERT OR REPLACE (UPSERT)
-    on the UNIQUE(crawl_target_id, report_date, source) constraint.
+    Matches crawl_targets by cert_number. Uses INSERT ... ON CONFLICT DO UPDATE
+    to safely upsert without destroying columns not in the INSERT list.
 
     Returns total rows upserted.
     """
-    dates = [report_date] if report_date else REPORT_DATES
+    if report_date:
+        dates = [report_date]
+    elif quarters:
+        dates = REPORT_DATES[:quarters]
+    else:
+        dates = REPORT_DATES
     base = f"{config.fdic_api.base_url}/financials"
     page_size = config.fdic_api.page_size
     total_upserted = 0
@@ -128,15 +141,35 @@ def ingest_fdic_financials(
                 else:
                     report_date_fmt = report_date_val
 
+                # SC (RIAD4080) is reported in whole dollars by the FDIC API,
+                # while all other fields (ASSET, INTINC, etc.) are in thousands.
+                # Convert SC to thousands to match.
+                sc_raw = _safe_int(d.get("SC"))
+                sc = sc_raw // 1000 if sc_raw is not None else None
+                nonii = _safe_int(d.get("NONII"))
+                intinc = _safe_int(d.get("INTINC"))
+                eintexp = _safe_int(d.get("EINTEXP"))
+
+                # Derived: total_revenue = net interest income + noninterest income
+                total_revenue = None
+                if intinc is not None and eintexp is not None and nonii is not None:
+                    total_revenue = intinc - eintexp + nonii
+
+                # Derived: fee_income_ratio = service charges / total revenue
+                fee_income_ratio = None
+                if sc is not None and total_revenue and total_revenue > 0:
+                    fee_income_ratio = round(sc / total_revenue, 4)
+
                 try:
                     db.execute(
-                        """INSERT OR REPLACE INTO institution_financials
+                        """INSERT INTO institution_financials
                            (crawl_target_id, report_date, source,
                             total_assets, total_deposits, total_loans,
                             service_charge_income, other_noninterest_income,
                             net_interest_margin, efficiency_ratio,
                             roa, roe, tier1_capital_ratio,
                             branch_count, employee_count,
+                            total_revenue, fee_income_ratio,
                             raw_json)
                            VALUES (?, ?, 'fdic',
                                    ?, ?, ?,
@@ -144,15 +177,32 @@ def ingest_fdic_financials(
                                    ?, ?,
                                    ?, ?, ?,
                                    ?, ?,
-                                   ?)""",
+                                   ?, ?,
+                                   ?)
+                           ON CONFLICT(crawl_target_id, report_date, source) DO UPDATE SET
+                            total_assets = excluded.total_assets,
+                            total_deposits = excluded.total_deposits,
+                            total_loans = excluded.total_loans,
+                            service_charge_income = excluded.service_charge_income,
+                            other_noninterest_income = excluded.other_noninterest_income,
+                            net_interest_margin = excluded.net_interest_margin,
+                            efficiency_ratio = excluded.efficiency_ratio,
+                            roa = excluded.roa,
+                            roe = excluded.roe,
+                            tier1_capital_ratio = excluded.tier1_capital_ratio,
+                            branch_count = excluded.branch_count,
+                            employee_count = excluded.employee_count,
+                            total_revenue = excluded.total_revenue,
+                            fee_income_ratio = excluded.fee_income_ratio,
+                            raw_json = excluded.raw_json""",
                         (
                             target_id,
                             report_date_fmt,
                             _safe_int(d.get("ASSET")),
                             _safe_int(d.get("DEP")),
                             _safe_int(d.get("LNLSNET")),
-                            None,  # service_charge_income not available via API
-                            _safe_int(d.get("NONII")),
+                            sc,
+                            nonii,
                             _safe_float(d.get("NIMY")),
                             _safe_float(d.get("EEFFR")),
                             _safe_float(d.get("ROA")),
@@ -160,6 +210,8 @@ def ingest_fdic_financials(
                             _safe_float(d.get("RBC1AAJ")),
                             _safe_int(d.get("OFFDOM")),
                             _safe_int(d.get("NUMEMP")),
+                            total_revenue,
+                            fee_income_ratio,
                             json.dumps(d),
                         ),
                     )
@@ -195,10 +247,13 @@ def run(
     db: Database,
     config: Config,
     report_date: str | None = None,
+    quarters: int | None = None,
     limit: int | None = None,
 ) -> None:
     """Entry point for the CLI command."""
-    ingest_fdic_financials(db, config, report_date=report_date, limit=limit)
+    ingest_fdic_financials(
+        db, config, report_date=report_date, quarters=quarters, limit=limit
+    )
 
     # Show summary
     count = db.fetchone("SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'fdic'")

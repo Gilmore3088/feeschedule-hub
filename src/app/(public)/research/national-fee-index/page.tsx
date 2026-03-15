@@ -13,13 +13,14 @@ import {
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
+import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "National Fee Index - US Bank & Credit Union Fee Benchmarks",
   description:
     "The definitive national benchmark of bank and credit union fees across 49 categories. Median fees, percentiles, and institution counts from thousands of published fee schedules.",
   keywords: [
-    "national bank fee index",
+    "national fee index",
     "bank fee benchmarks",
     "average bank fees",
     "overdraft fee average",
@@ -51,7 +52,7 @@ export default function NationalFeeIndexPage() {
   const strongMaturity = index.filter((e) => e.maturity_tier === "strong").length;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-10">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -239,10 +240,10 @@ export default function NationalFeeIndexPage() {
             "@type": "Dataset",
             name: "National Fee Index - US Bank & Credit Union Fee Benchmarks",
             description: `National benchmarking data across ${TAXONOMY_COUNT} bank and credit union fee categories.`,
-            url: "https://bankfeeindex.com/research/national-fee-index",
+            url: `${SITE_URL}/research/national-fee-index`,
             creator: {
               "@type": "Organization",
-              name: "Bank Fee Index",
+              name: "Fee Insight",
             },
           }).replace(/</g, "\\u003c"),
         }}

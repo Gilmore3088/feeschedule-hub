@@ -18,6 +18,7 @@ import { DISTRICT_NAMES, TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
+import { SITE_URL } from "@/lib/constants";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -102,7 +103,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const latestFinancial = financials[0] ?? null;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-10">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -364,7 +365,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             "@type": "FinancialProduct",
             name: inst.institution_name,
             description: `Fee schedule for ${inst.institution_name}`,
-            url: `https://bankfeeindex.com/institution/${instId}`,
+            url: `${SITE_URL}/institution/${instId}`,
             provider: {
               "@type": "FinancialService",
               name: inst.institution_name,

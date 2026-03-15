@@ -129,7 +129,7 @@ export default async function AdminDashboard({
       <section className="mb-8">
         <div className="admin-section-header">
           <h2 className="admin-section-title">
-            {hasFilters ? "Peer Fee Index" : "National Bank Fee Index"}
+            {hasFilters ? "Peer Fee Index" : "National Fee Index"}
           </h2>
           <Link
             href={`/admin/index${filterQs}`}

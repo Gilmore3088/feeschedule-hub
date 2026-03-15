@@ -15,6 +15,7 @@ import { formatAmount } from "@/lib/format";
 import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
+import { SITE_URL } from "@/lib/constants";
 
 interface PageProps {
   params: Promise<{ code: string }>;
@@ -94,7 +95,7 @@ export default async function StateReportPage({ params }: PageProps) {
   const extended = comparisons.filter((c) => !isFeaturedFee(c.fee_category));
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-10">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -337,7 +338,7 @@ export default async function StateReportPage({ params }: PageProps) {
             "@type": "Article",
             headline: `${stateName} Bank & Credit Union Fees`,
             description: `Fee benchmarks for financial institutions in ${stateName}.`,
-            url: `https://bankfeeindex.com/research/state/${stateCode}`,
+            url: `${SITE_URL}/research/state/${stateCode}`,
           }).replace(/</g, "\\u003c"),
         }}
       />

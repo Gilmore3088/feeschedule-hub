@@ -90,7 +90,7 @@ export function AskWidget() {
             Ask the Data
           </p>
           <p className="text-[11px] text-slate-400">
-            Powered by Bank Fee Index
+            Powered by Fee Insight
           </p>
         </div>
         <button

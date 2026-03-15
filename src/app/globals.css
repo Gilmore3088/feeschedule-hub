@@ -401,3 +401,146 @@
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
+
+/* ═══════════════════════════════════════════════
+   Consumer brand: remap slate → warm palette
+   Applied via .consumer-brand wrapper on (public) layout
+   ═══════════════════════════════════════════════ */
+
+/* ── Backgrounds ── */
+.consumer-brand .bg-white { background-color: #FDFBF8; }
+.consumer-brand .bg-slate-50 { background-color: #F5EFE6; }
+.consumer-brand .bg-slate-100 { background-color: #EDE5D8; }
+.consumer-brand .bg-slate-200 { background-color: #E0D7C9; }
+.consumer-brand .bg-white\/60 { background-color: rgb(253 251 248 / 0.6); }
+.consumer-brand .bg-slate-50\/60 { background-color: rgb(245 239 230 / 0.6); }
+.consumer-brand .bg-slate-50\/30 { background-color: rgb(245 239 230 / 0.3); }
+.consumer-brand .bg-slate-50\/20 { background-color: rgb(245 239 230 / 0.2); }
+.consumer-brand .bg-blue-50\/20 { background-color: rgb(253 240 237 / 0.2); }
+.consumer-brand .bg-blue-50\/30 { background-color: rgb(253 240 237 / 0.3); }
+.consumer-brand .divide-slate-100 > :not(:last-child) { border-color: #F0E8DC; }
+.consumer-brand .border-blue-100 { border-color: #E8B4A8; }
+
+/* ── Borders ── */
+.consumer-brand .border-slate-200 { border-color: #E8DFD1; }
+.consumer-brand .border-slate-100 { border-color: #F0E8DC; }
+.consumer-brand .border-slate-300 { border-color: #D4C9BA; }
+
+/* ── Text: primary hierarchy ── */
+.consumer-brand .text-slate-900 { color: #1A1815; }
+.consumer-brand .text-slate-800 { color: #2D2A26; }
+.consumer-brand .text-slate-700 { color: #3D3830; }
+.consumer-brand .text-slate-600 { color: #5A5347; }
+.consumer-brand .text-slate-500 { color: #7A7062; }
+.consumer-brand .text-slate-400 { color: #A09788; }
+.consumer-brand .text-slate-300 { color: #B0A89C; }
+
+/* ── Accent swap: amber/blue → terracotta ── */
+.consumer-brand .text-amber-400 { color: #C44B2E; }
+.consumer-brand .text-amber-600 { color: #A93D25; }
+.consumer-brand .bg-amber-400 { background-color: #C44B2E; }
+.consumer-brand .bg-amber-50 { background-color: #FDF0ED; }
+.consumer-brand .border-amber-400 { border-color: #C44B2E; }
+.consumer-brand .text-blue-600 { color: #C44B2E; }
+.consumer-brand .text-blue-500 { color: #C44B2E; }
+
+/* ── Blue → terracotta (full spectrum) ── */
+.consumer-brand .text-blue-300 { color: #E8947F; }
+.consumer-brand .text-blue-400 { color: #D16A52; }
+.consumer-brand .text-blue-700 { color: #C44B2E; }
+.consumer-brand .text-blue-800 { color: #9E3420; }
+.consumer-brand .text-blue-900 { color: #7A2818; }
+.consumer-brand .text-blue-700\/60 { color: rgb(196 75 46 / 0.6); }
+.consumer-brand .bg-blue-50 { background-color: #FDF0ED; }
+.consumer-brand .bg-blue-50\/60 { background-color: rgb(253 240 237 / 0.6); }
+.consumer-brand .bg-blue-100 { background-color: #F9D9D0; }
+.consumer-brand .bg-blue-200 { background-color: #F0B8A8; }
+.consumer-brand .bg-blue-300 { background-color: #E89580; }
+.consumer-brand .bg-blue-300\/70 { background-color: rgb(232 149 128 / 0.7); }
+.consumer-brand .bg-blue-50\/40 { background-color: rgb(253 240 237 / 0.4); }
+.consumer-brand .bg-blue-100\/50 { background-color: rgb(249 217 208 / 0.5); }
+.consumer-brand .border-blue-200 { border-color: #E8B4A8; }
+.consumer-brand .border-blue-300 { border-color: #D19080; }
+
+/* ── Slate fractional opacities ── */
+.consumer-brand .bg-slate-50\/80 { background-color: rgb(245 239 230 / 0.8); }
+.consumer-brand .bg-slate-50\/50 { background-color: rgb(245 239 230 / 0.5); }
+.consumer-brand .bg-slate-50\/40 { background-color: rgb(245 239 230 / 0.4); }
+
+/* ── Hover states ── */
+.consumer-brand .hover\:text-slate-900:hover { color: #1A1815; }
+.consumer-brand .hover\:text-slate-700:hover { color: #3D3830; }
+.consumer-brand .hover\:text-blue-600:hover { color: #A93D25; }
+.consumer-brand .hover\:text-blue-500:hover { color: #A93D25; }
+.consumer-brand .hover\:text-blue-700:hover { color: #9E3420; }
+.consumer-brand .hover\:bg-slate-50:hover { background-color: #F5EFE6; }
+.consumer-brand .hover\:bg-blue-50:hover { background-color: #FDF0ED; }
+.consumer-brand .hover\:bg-blue-50\/30:hover { background-color: rgb(253 240 237 / 0.3); }
+.consumer-brand .hover\:bg-blue-50\/20:hover { background-color: rgb(253 240 237 / 0.2); }
+.consumer-brand .hover\:border-blue-200:hover { border-color: #E8B4A8; }
+.consumer-brand .hover\:border-blue-300:hover { border-color: #D19080; }
+.consumer-brand .hover\:border-slate-300:hover { border-color: #D4C9BA; }
+.consumer-brand .hover\:text-blue-800:hover { color: #9E3420; }
+.consumer-brand .hover\:bg-blue-100\/50:hover { background-color: rgb(249 217 208 / 0.5); }
+.consumer-brand .hover\:bg-amber-300:hover { background-color: #A93D25; }
+.consumer-brand .hover\:bg-slate-800:hover { background-color: #2D2A26; }
+
+/* ── Group-hover states (Tailwind v4 uses .group:hover .group-hover\: pattern) ── */
+.consumer-brand .group:hover .group-hover\:text-blue-500 { color: #C44B2E; }
+.consumer-brand .group:hover .group-hover\:text-blue-600 { color: #A93D25; }
+.consumer-brand .group:hover .group-hover\:text-blue-700 { color: #9E3420; }
+.consumer-brand .group:hover .group-hover\:text-blue-400 { color: #D16A52; }
+.consumer-brand .group:hover .group-hover\:bg-blue-300\/70 { background-color: rgb(232 149 128 / 0.7); }
+.consumer-brand .group:hover .group-hover\:bg-blue-700 { background-color: #9E3420; }
+
+/* ── Focus states ── */
+.consumer-brand .focus\:border-amber-400:focus { border-color: #C44B2E; }
+.consumer-brand .focus\:ring-amber-400:focus { --tw-ring-color: #C44B2E; }
+
+/* ── Section alternate backgrounds ── */
+.consumer-brand .border-y { border-color: #E8DFD1; }
+.consumer-brand .border-t { border-color: #E8DFD1; }
+.consumer-brand .border-b { border-color: #E8DFD1; }
+
+/* ── Dark sections within consumer: warm dark instead of cold ── */
+.consumer-brand .bg-slate-900 { background-color: #1A1815; }
+.consumer-brand .bg-slate-800 { background-color: #2D2A26; }
+.consumer-brand .border-slate-800 { border-color: #3D3830; }
+.consumer-brand .border-slate-700 { border-color: #4A4238; }
+
+/* ── Headings get serif font ── */
+.consumer-brand h1,
+.consumer-brand h2 {
+  font-family: var(--font-newsreader), Georgia, serif;
+}
+
+/* ── Table headers: warm tint ── */
+.consumer-brand thead tr { border-color: #F0E8DC; }
+.consumer-brand thead th { color: #A09788; }
+
+/* ── Table cells: more padding ── */
+.consumer-brand td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.consumer-brand th { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+
+/* ── Table row hovers ── */
+.consumer-brand tbody tr:hover { background-color: #F5EFE6; }
+
+/* ── Card/shadow refinement ── */
+.consumer-brand .shadow-sm {
+  box-shadow: 0 1px 3px rgba(58, 46, 32, 0.06), 0 1px 2px rgba(58, 46, 32, 0.04);
+}
+
+/* ── Loading skeleton warm ── */
+.consumer-brand .skeleton {
+  background: linear-gradient(90deg, #F0E8DC 25%, #E8DFD1 50%, #F0E8DC 75%);
+  background-size: 200% 100%;
+}
+
+/* ── Range bar visualization ── */
+.consumer-brand .bg-slate-300\/70 { background-color: rgb(176 168 156 / 0.7); }
+.consumer-brand .bg-slate-700 { background-color: #4A4238; }
+
+/* ── Research page: index gradient card ── */
+.consumer-brand .from-blue-50\/60 { --tw-gradient-from: rgb(253 240 237 / 0.6); }
+.consumer-brand .to-blue-50\/30 { --tw-gradient-to: rgb(253 240 237 / 0.3); }
+.consumer-brand .via-white { --tw-gradient-via: #FDFBF8; }

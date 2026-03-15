@@ -89,9 +89,16 @@ def ingest_ncua_financials(
     print(f"Found {len(cu_map):,} NCUA credit unions in database")
 
     print(f"Downloading NCUA bulk data ({NCUA_ZIP_URL})...")
-    resp = requests.get(NCUA_ZIP_URL, timeout=120)
+    resp = requests.get(NCUA_ZIP_URL, timeout=120, stream=True)
     resp.raise_for_status()
-    zf = zipfile.ZipFile(io.BytesIO(resp.content))
+    content_length = int(resp.headers.get("content-length", 0))
+    max_size = 500 * 1024 * 1024  # 500MB guard
+    if content_length > max_size:
+        raise ValueError(f"NCUA ZIP too large: {content_length:,} bytes (max {max_size:,})")
+    data = resp.content
+    if len(data) > max_size:
+        raise ValueError(f"NCUA ZIP too large: {len(data):,} bytes (max {max_size:,})")
+    zf = zipfile.ZipFile(io.BytesIO(data))
 
     # Phase 1: Parse FS220.txt (balance sheet data)
     print("  Parsing FS220.txt (balance sheet)...")
@@ -190,15 +197,37 @@ def ingest_ncua_financials(
         if net_income is not None and total_assets and total_assets > 0:
             roa = round(net_income / 1000 / total_assets * 100, 2)
 
+        # Interest income (ACCT_115), convert whole dollars to thousands
+        interest_income = _safe_int(rec.get("interest_income"))
+        if interest_income is not None:
+            interest_income = interest_income // 1000
+
+        # Derived: total_revenue = interest_income - interest_expense + noninterest_income
+        # NCUA doesn't have a clean interest_expense field, approximate from raw if possible
+        noninterest_exp = _safe_int(rec.get("noninterest_expense"))
+        if noninterest_exp is not None:
+            noninterest_exp = noninterest_exp // 1000
+        total_revenue = None
+        if interest_income is not None and noninterest_income is not None:
+            # Approximate: total revenue = interest income + noninterest income
+            # (without subtracting interest expense, which isn't cleanly available)
+            total_revenue = interest_income + noninterest_income
+
+        # Derived: fee_income_ratio = fee_income / total_revenue
+        fee_income_ratio = None
+        if fee_income is not None and total_revenue and total_revenue > 0:
+            fee_income_ratio = round(fee_income / total_revenue, 4)
+
         try:
             db.execute(
-                """INSERT OR REPLACE INTO institution_financials
+                """INSERT INTO institution_financials
                    (crawl_target_id, report_date, source,
                     total_assets, total_deposits, total_loans,
                     service_charge_income, other_noninterest_income,
                     net_interest_margin, efficiency_ratio,
                     roa, roe, tier1_capital_ratio,
                     branch_count, employee_count, member_count,
+                    total_revenue, fee_income_ratio,
                     raw_json)
                    VALUES (?, ?, 'ncua',
                            ?, ?, ?,
@@ -206,7 +235,25 @@ def ingest_ncua_financials(
                            ?, ?,
                            ?, ?, ?,
                            ?, ?, ?,
-                           ?)""",
+                           ?, ?,
+                           ?)
+                   ON CONFLICT(crawl_target_id, report_date, source) DO UPDATE SET
+                    total_assets = excluded.total_assets,
+                    total_deposits = excluded.total_deposits,
+                    total_loans = excluded.total_loans,
+                    service_charge_income = excluded.service_charge_income,
+                    other_noninterest_income = excluded.other_noninterest_income,
+                    net_interest_margin = excluded.net_interest_margin,
+                    efficiency_ratio = excluded.efficiency_ratio,
+                    roa = excluded.roa,
+                    roe = excluded.roe,
+                    tier1_capital_ratio = excluded.tier1_capital_ratio,
+                    branch_count = excluded.branch_count,
+                    employee_count = excluded.employee_count,
+                    member_count = excluded.member_count,
+                    total_revenue = excluded.total_revenue,
+                    fee_income_ratio = excluded.fee_income_ratio,
+                    raw_json = excluded.raw_json""",
                 (
                     target_id,
                     rec["report_date"],
@@ -223,6 +270,8 @@ def ingest_ncua_financials(
                     branch_count,
                     None,               # employee_count (not in 5300)
                     member_count,
+                    total_revenue,
+                    fee_income_ratio,
                     json.dumps(rec.get("raw", {})),
                 ),
             )

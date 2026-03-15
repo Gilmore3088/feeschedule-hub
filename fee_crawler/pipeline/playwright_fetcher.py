@@ -115,7 +115,7 @@ def fetch_with_playwright(
             browser = p.chromium.launch(headless=True)
             try:
                 context = browser.new_context(
-                    user_agent="BankFeeIndex/1.0 (fee-benchmarking)",
+                    user_agent="FeeInsight/1.0 (fee-benchmarking)",
                     java_script_enabled=True,
                 )
 
