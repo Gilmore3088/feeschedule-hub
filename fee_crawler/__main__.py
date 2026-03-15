@@ -272,6 +272,18 @@ def cmd_ingest_nyfed(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_refresh_data(args: argparse.Namespace) -> None:
+    """Refresh all research data sources."""
+    from fee_crawler.commands.refresh_data import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, cadence=args.cadence, only=args.only)
+    finally:
+        db.close()
+
+
 def cmd_ingest_ofr(args: argparse.Namespace) -> None:
     """Ingest OFR Financial Stress Index."""
     from fee_crawler.commands.ingest_ofr import run
@@ -844,6 +856,26 @@ def main() -> None:
         help="Census year (default: 2022)",
     )
     census_tracts_parser.set_defaults(func=cmd_ingest_census_tracts)
+
+    # refresh-data command
+    refresh_parser = subparsers.add_parser(
+        "refresh-data",
+        help="Refresh all research data sources (orchestrates all ingest commands)",
+    )
+    refresh_parser.add_argument(
+        "--cadence",
+        type=str,
+        default=None,
+        choices=["daily", "weekly", "quarterly", "annual"],
+        help="Only run sources at this cadence tier",
+    )
+    refresh_parser.add_argument(
+        "--only",
+        type=str,
+        default=None,
+        help="Run a single source (e.g. fred, bls, ofr, sod)",
+    )
+    refresh_parser.set_defaults(func=cmd_refresh_data)
 
     # run-pipeline command
     pipeline_parser = subparsers.add_parser(

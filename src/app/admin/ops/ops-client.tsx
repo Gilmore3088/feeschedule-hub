@@ -160,6 +160,14 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     typical: "python -m fee_crawler ingest-nyfed",
   },
+  "refresh-data": {
+    description: "Refresh All Data",
+    detail: "Orchestrates all 12 data ingestion sources in dependency order. Use --cadence daily|weekly|quarterly|annual to run a subset.",
+    group: "ingest",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler refresh-data --cadence daily",
+  },
   "ingest-ofr": {
     description: "Ingest OFR Stress Index",
     detail: "Pulls daily Financial Stress Index from OFR (composite + 4 sub-indices). Positive = elevated stress, negative = calm. Context for fee trend analysis.",
