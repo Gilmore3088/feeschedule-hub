@@ -18,10 +18,19 @@ RELEVANT_PRODUCTS = [
     "Money transfer, virtual currency, or money service",
 ]
 
-# Report period for ingestion (most recent full year).
-REPORT_YEAR = "2024"
-DATE_MIN = f"{REPORT_YEAR}-01-01"
-DATE_MAX = f"{REPORT_YEAR}-12-31"
+# Default report years for ingestion (2020-present for trend analysis).
+DEFAULT_YEARS = ["2020", "2021", "2022", "2023", "2024", "2025"]
+
+# Fee-relevant issue categories for filtering.
+FEE_ISSUES = [
+    "Problem with a purchase or transfer",
+    "Problem caused by your funds being low",
+    "Managing an account",
+    "Fees or interest",
+    "Problem with a lender or other company charging your account",
+    "Opening an account",
+    "Closing an account",
+]
 
 
 def _normalize_name(name: str) -> str:
@@ -99,19 +108,40 @@ def _match_company(cfpb_name: str, name_index: dict[str, int]) -> int | None:
     return None
 
 
+def _fetch_with_retry(url: str, params: dict) -> dict | None:
+    """Fetch from CFPB API with retry logic."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = requests.get(url, params=params, timeout=30)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.RequestException as e:
+            if attempt < MAX_RETRIES - 1:
+                print(f"  Retry {attempt + 1}/{MAX_RETRIES}: {e}")
+                time.sleep(2 ** attempt)
+            else:
+                print(f"  Failed after {MAX_RETRIES} attempts: {e}")
+                return None
+    return None
+
+
 def ingest_cfpb_complaints(
     db: Database,
     config: Config,
     *,
+    years: list[str] | None = None,
     limit: int | None = None,
 ) -> int:
     """Query CFPB API for complaint aggregations by company and product.
 
-    For each relevant product, gets the top companies by complaint count,
-    matches them to our institutions, and upserts into institution_complaints.
+    For each relevant product and year, gets the top companies by complaint
+    count, matches them to our institutions, and upserts into
+    institution_complaints. Also fetches issue-level breakdowns for matched
+    institutions.
 
     Returns total rows upserted.
     """
+    report_years = years or DEFAULT_YEARS
     name_index = _build_name_index(db)
     print(f"Built name index with {len(name_index):,} normalized names")
 
@@ -120,68 +150,86 @@ def ingest_cfpb_complaints(
     matched_companies: set[str] = set()
     unmatched_companies: list[tuple[str, int]] = []
 
-    for product in RELEVANT_PRODUCTS:
-        print(f"\nFetching complaints: {product} ({REPORT_YEAR})...")
+    for year in report_years:
+        date_min = f"{year}-01-01"
+        date_max = f"{year}-12-31"
 
-        for attempt in range(MAX_RETRIES):
-            try:
-                resp = requests.get(
-                    CFPB_BASE,
-                    params={
-                        "product": product,
-                        "date_received_min": DATE_MIN,
-                        "date_received_max": DATE_MAX,
-                        "size": 0,
-                    },
-                    timeout=30,
-                )
-                resp.raise_for_status()
-                break
-            except requests.exceptions.RequestException as e:
-                if attempt < MAX_RETRIES - 1:
-                    print(f"  Retry {attempt + 1}/{MAX_RETRIES}: {e}")
-                    time.sleep(2 ** attempt)
-                else:
-                    print(f"  Failed after {MAX_RETRIES} attempts: {e}")
-                    continue
-        data = resp.json()
+        for product in RELEVANT_PRODUCTS:
+            print(f"\nFetching complaints: {product} ({year})...")
 
-        # Get company aggregation
-        company_agg = data.get("aggregations", {}).get("company", {})
-        buckets = company_agg.get("company", {}).get("buckets", [])
-
-        print(f"  {len(buckets)} companies with complaints")
-
-        for bucket in buckets:
-            if limit and total_upserted >= limit:
-                break
-
-            company_name = bucket["key"]
-            total_count = bucket["doc_count"]
-
-            target_id = _match_company(company_name, name_index)
-            if not target_id:
-                if company_name not in [u[0] for u in unmatched_companies]:
-                    unmatched_companies.append((company_name, total_count))
-                total_unmatched += 1
+            data = _fetch_with_retry(
+                CFPB_BASE,
+                {
+                    "product": product,
+                    "date_received_min": date_min,
+                    "date_received_max": date_max,
+                    "size": 0,
+                },
+            )
+            if data is None:
                 continue
 
-            matched_companies.add(company_name)
+            # Get company aggregation
+            company_agg = data.get("aggregations", {}).get("company", {})
+            buckets = company_agg.get("company", {}).get("buckets", [])
 
-            # Store total complaint count per product (no per-issue detail
-            # query — avoids rate-limiting from N extra API calls per company).
-            try:
-                db.execute(
-                    """INSERT OR REPLACE INTO institution_complaints
-                       (crawl_target_id, report_period, product, issue, complaint_count)
-                       VALUES (?, ?, ?, '_total', ?)""",
-                    (target_id, REPORT_YEAR, product, total_count),
+            print(f"  {len(buckets)} companies with complaints")
+
+            for bucket in buckets:
+                if limit and total_upserted >= limit:
+                    break
+
+                company_name = bucket["key"]
+                total_count = bucket["doc_count"]
+
+                target_id = _match_company(company_name, name_index)
+                if not target_id:
+                    if company_name not in [u[0] for u in unmatched_companies]:
+                        unmatched_companies.append((company_name, total_count))
+                    total_unmatched += 1
+                    continue
+
+                matched_companies.add(company_name)
+
+                # Store total complaint count per product
+                try:
+                    db.execute(
+                        """INSERT OR REPLACE INTO institution_complaints
+                           (crawl_target_id, report_period, product, issue, complaint_count)
+                           VALUES (?, ?, ?, '_total', ?)""",
+                        (target_id, year, product, total_count),
+                    )
+                    total_upserted += 1
+                except Exception as e:
+                    print(f"  Error inserting total for {company_name}: {e}")
+
+            # Fetch issue-level breakdown for "Checking or savings account"
+            # (most fee-relevant product) -- uses a single aggregation query
+            if product == "Checking or savings account":
+                issue_data = _fetch_with_retry(
+                    CFPB_BASE,
+                    {
+                        "product": product,
+                        "date_received_min": date_min,
+                        "date_received_max": date_max,
+                        "size": 0,
+                    },
                 )
-                total_upserted += 1
-            except Exception as e:
-                print(f"  Error inserting total for {company_name}: {e}")
+                if issue_data:
+                    issue_agg = issue_data.get("aggregations", {}).get("issue", {})
+                    issue_buckets = issue_agg.get("issue", {}).get("buckets", [])
+                    fee_issue_count = sum(
+                        b["doc_count"]
+                        for b in issue_buckets
+                        if b["key"] in FEE_ISSUES
+                    )
+                    all_count = sum(b["doc_count"] for b in issue_buckets)
+                    if all_count > 0:
+                        pct = fee_issue_count / all_count * 100
+                        print(f"  Fee-related issues: {fee_issue_count:,}/{all_count:,} ({pct:.0f}%)")
 
-        print(f"  Matched: {len(matched_companies)} | Unmatched: {total_unmatched}")
+            print(f"  Matched: {len(matched_companies)} | Unmatched: {total_unmatched}")
+            time.sleep(0.5)
 
     db.commit()
 
@@ -196,9 +244,15 @@ def ingest_cfpb_complaints(
     return total_upserted
 
 
-def run(db: Database, config: Config, limit: int | None = None) -> None:
+def run(
+    db: Database,
+    config: Config,
+    *,
+    years: list[str] | None = None,
+    limit: int | None = None,
+) -> None:
     """Entry point for the CLI command."""
-    ingest_cfpb_complaints(db, config, limit=limit)
+    ingest_cfpb_complaints(db, config, years=years, limit=limit)
 
     count = db.fetchone("SELECT COUNT(*) as cnt FROM institution_complaints")
     cnt = count["cnt"] if count else 0
@@ -206,5 +260,10 @@ def run(db: Database, config: Config, limit: int | None = None) -> None:
         "SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints"
     )
     inst_cnt = institutions["cnt"] if institutions else 0
+    periods = db.fetchone(
+        "SELECT COUNT(DISTINCT report_period) as cnt FROM institution_complaints"
+    )
+    p_cnt = periods["cnt"] if periods else 0
     print(f"\nTotal complaint records: {cnt:,}")
     print(f"Institutions with complaints: {inst_cnt:,}")
+    print(f"Report periods: {p_cnt}")

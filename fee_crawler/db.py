@@ -317,6 +317,80 @@ CREATE TABLE IF NOT EXISTS ops_jobs (
 """
 
 
+_CREATE_BRANCH_DEPOSITS = """
+CREATE TABLE IF NOT EXISTS branch_deposits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cert INTEGER NOT NULL,
+    crawl_target_id INTEGER REFERENCES crawl_targets(id),
+    year INTEGER NOT NULL,
+    branch_number INTEGER NOT NULL,
+    is_main_office INTEGER NOT NULL DEFAULT 0,
+    deposits INTEGER,
+    state TEXT,
+    city TEXT,
+    county_fips INTEGER,
+    msa_code INTEGER,
+    msa_name TEXT,
+    fed_district INTEGER,
+    latitude REAL,
+    longitude REAL,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(cert, year, branch_number)
+);
+"""
+
+_CREATE_MARKET_CONCENTRATION = """
+CREATE TABLE IF NOT EXISTS market_concentration (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    year INTEGER NOT NULL,
+    msa_code INTEGER NOT NULL,
+    msa_name TEXT,
+    total_deposits INTEGER,
+    institution_count INTEGER,
+    hhi INTEGER,
+    top3_share REAL,
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(year, msa_code)
+);
+"""
+
+_CREATE_DEMOGRAPHICS = """
+CREATE TABLE IF NOT EXISTS demographics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    geo_id TEXT NOT NULL,
+    geo_type TEXT NOT NULL,
+    geo_name TEXT,
+    state_fips TEXT,
+    county_fips TEXT,
+    median_household_income INTEGER,
+    poverty_count INTEGER,
+    total_population INTEGER,
+    year INTEGER NOT NULL,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(geo_id, geo_type, year)
+);
+"""
+
+_CREATE_CENSUS_TRACTS = """
+CREATE TABLE IF NOT EXISTS census_tracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tract_id TEXT NOT NULL,
+    state_fips TEXT NOT NULL,
+    county_fips TEXT NOT NULL,
+    msa_code TEXT,
+    income_level TEXT,
+    median_family_income INTEGER,
+    tract_median_income INTEGER,
+    income_ratio REAL,
+    population INTEGER,
+    minority_pct REAL,
+    year INTEGER NOT NULL,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tract_id, year)
+);
+"""
+
+
 class Database:
     """Thin wrapper around SQLite for local dev."""
 
@@ -356,6 +430,10 @@ class Database:
         self.conn.executescript(_CREATE_DISCOVERY_CACHE)
         self.conn.executescript(_CREATE_COMMUNITY_SUBMISSIONS)
         self.conn.executescript(_CREATE_OPS_JOBS)
+        self.conn.executescript(_CREATE_BRANCH_DEPOSITS)
+        self.conn.executescript(_CREATE_MARKET_CONCENTRATION)
+        self.conn.executescript(_CREATE_DEMOGRAPHICS)
+        self.conn.executescript(_CREATE_CENSUS_TRACTS)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -379,6 +457,11 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_discovery_cache_target ON discovery_cache(crawl_target_id)",
             "CREATE INDEX IF NOT EXISTS idx_ops_jobs_status ON ops_jobs(status)",
             "CREATE INDEX IF NOT EXISTS idx_ops_jobs_created ON ops_jobs(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_branch_deposits_cert ON branch_deposits(cert, year)",
+            "CREATE INDEX IF NOT EXISTS idx_branch_deposits_msa ON branch_deposits(msa_code, year)",
+            "CREATE INDEX IF NOT EXISTS idx_market_concentration_msa ON market_concentration(msa_code, year)",
+            "CREATE INDEX IF NOT EXISTS idx_demographics_geo ON demographics(geo_type, state_fips, year)",
+            "CREATE INDEX IF NOT EXISTS idx_census_tracts_state ON census_tracts(state_fips, year)",
         ]
         for sql in indexes:
             try:

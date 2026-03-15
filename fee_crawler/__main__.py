@@ -2,9 +2,16 @@
 
 import argparse
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from fee_crawler.config import load_config
 from fee_crawler.db import Database
+
+# Load .env.local (then .env) so API keys are available to all commands
+load_dotenv(Path(".env.local"))
+load_dotenv()  # fallback to .env if present
 
 
 def cmd_seed(args: argparse.Namespace) -> None:
@@ -183,10 +190,11 @@ def cmd_ingest_cfpb(args: argparse.Namespace) -> None:
     """Ingest consumer complaint data from CFPB API."""
     from fee_crawler.commands.ingest_cfpb import run
 
+    years = args.years.split(",") if args.years else None
     config = load_config()
     db = Database(config)
     try:
-        run(db, config, limit=args.limit)
+        run(db, config, years=years, limit=args.limit)
     finally:
         db.close()
 
@@ -223,6 +231,79 @@ def cmd_ingest_fred(args: argparse.Namespace) -> None:
     db = Database(config)
     try:
         run(db, config, series=args.series, from_date=args.from_date)
+    finally:
+        db.close()
+
+
+def cmd_ingest_bls(args: argparse.Namespace) -> None:
+    """Ingest CPI and economic data from BLS API."""
+    from fee_crawler.commands.ingest_bls import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(
+            db,
+            config,
+            series=args.series,
+            start_year=args.start_year,
+            end_year=args.end_year,
+            skip_regional=args.skip_regional,
+        )
+    finally:
+        db.close()
+
+
+def cmd_ingest_nyfed(args: argparse.Namespace) -> None:
+    """Ingest reference rates from NY Fed Markets Data API."""
+    from fee_crawler.commands.ingest_nyfed import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(
+            db,
+            config,
+            rate_type=args.rate_type,
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+    finally:
+        db.close()
+
+
+def cmd_ingest_sod(args: argparse.Namespace) -> None:
+    """Ingest FDIC Summary of Deposits data."""
+    from fee_crawler.commands.ingest_sod import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, year=args.year, limit=args.limit)
+    finally:
+        db.close()
+
+
+def cmd_ingest_census_acs(args: argparse.Namespace) -> None:
+    """Ingest Census ACS demographic data."""
+    from fee_crawler.commands.ingest_census_acs import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, year=args.year, level=args.level)
+    finally:
+        db.close()
+
+
+def cmd_ingest_census_tracts(args: argparse.Namespace) -> None:
+    """Ingest FFIEC census tract income classifications."""
+    from fee_crawler.commands.ingest_census_tracts import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, year=args.year)
     finally:
         db.close()
 
@@ -585,6 +666,12 @@ def main() -> None:
     # ingest-cfpb command
     cfpb_parser = subparsers.add_parser("ingest-cfpb", help="Ingest CFPB complaint data")
     cfpb_parser.add_argument(
+        "--years",
+        type=str,
+        default=None,
+        help="Comma-separated years (e.g. 2023,2024). Default: 2020-2025",
+    )
+    cfpb_parser.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -644,6 +731,97 @@ def main() -> None:
         help="Start date for observations (YYYY-MM-DD). Default: last 10 years",
     )
     fred_parser.set_defaults(func=cmd_ingest_fred)
+
+    # ingest-bls command
+    bls_parser = subparsers.add_parser(
+        "ingest-bls", help="Ingest CPI and economic data from BLS API"
+    )
+    bls_parser.add_argument(
+        "--series",
+        type=str,
+        default=None,
+        help="Specific BLS series ID (e.g. CUUR0000SEMC01). Default: all configured",
+    )
+    bls_parser.add_argument(
+        "--start-year",
+        type=int,
+        default=None,
+        help="Start year (YYYY). Default: 10 years ago",
+    )
+    bls_parser.add_argument(
+        "--end-year",
+        type=int,
+        default=None,
+        help="End year (YYYY). Default: current year",
+    )
+    bls_parser.add_argument(
+        "--skip-regional",
+        action="store_true",
+        help="Skip regional CPI series (national only)",
+    )
+    bls_parser.set_defaults(func=cmd_ingest_bls)
+
+    # ingest-nyfed command
+    nyfed_parser = subparsers.add_parser(
+        "ingest-nyfed", help="Ingest reference rates (SOFR, EFFR, OBFR) from NY Fed"
+    )
+    nyfed_parser.add_argument(
+        "--rate-type",
+        type=str,
+        default=None,
+        help="Specific rate type (SOFR, EFFR, OBFR). Default: all",
+    )
+    nyfed_parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        help="Start date (YYYY-MM-DD). Default: 5 years ago",
+    )
+    nyfed_parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        help="End date (YYYY-MM-DD). Default: today",
+    )
+    nyfed_parser.set_defaults(func=cmd_ingest_nyfed)
+
+    # ingest-sod command
+    sod_parser = subparsers.add_parser(
+        "ingest-sod", help="Ingest FDIC Summary of Deposits (branch-level)"
+    )
+    sod_parser.add_argument(
+        "--year", type=int, default=2024,
+        help="SOD year (default: 2024)",
+    )
+    sod_parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Max branches to process (for testing)",
+    )
+    sod_parser.set_defaults(func=cmd_ingest_sod)
+
+    # ingest-census-acs command
+    census_acs_parser = subparsers.add_parser(
+        "ingest-census-acs", help="Ingest Census ACS demographics (income, poverty, population)"
+    )
+    census_acs_parser.add_argument(
+        "--year", type=int, default=2022,
+        help="ACS 5-year estimate year (default: 2022, latest available)",
+    )
+    census_acs_parser.add_argument(
+        "--level", type=str, default="county", choices=["state", "county"],
+        help="Geographic level (default: county)",
+    )
+    census_acs_parser.set_defaults(func=cmd_ingest_census_acs)
+
+    # ingest-census-tracts command
+    census_tracts_parser = subparsers.add_parser(
+        "ingest-census-tracts", help="Ingest FFIEC census tract income classifications"
+    )
+    census_tracts_parser.add_argument(
+        "--year", type=int, default=2022,
+        help="Census year (default: 2022)",
+    )
+    census_tracts_parser.set_defaults(func=cmd_ingest_census_tracts)
 
     # run-pipeline command
     pipeline_parser = subparsers.add_parser(

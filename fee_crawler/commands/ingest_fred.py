@@ -15,12 +15,37 @@ MAX_RETRIES = 3
 # FRED rate limit: 120 requests/minute
 REQUEST_DELAY = 0.5
 
-# Default series descriptions for display
-SERIES_TITLES: dict[str, str] = {
-    "UNRATE": "Unemployment Rate",
-    "USNIM": "Net Interest Margin, All US Banks",
-    "EQTA": "Equity Capital to Assets, All US Banks",
-    "DPSACBM027NBOG": "Deposits, All Commercial Banks",
+# National-level series (fed_district = NULL)
+NATIONAL_SERIES: list[str] = [
+    "UNRATE",           # Unemployment Rate (monthly)
+    "FEDFUNDS",         # Effective Federal Funds Rate (monthly)
+    "CPIAUCSL",         # Consumer Price Index, Urban All Items (monthly)
+    "DPSACBM027NBOG",   # Deposits, All Commercial Banks (monthly)
+    "QBPQYNTIY",        # Net Interest Income, all banks (quarterly, QBP)
+    "QBPQYTNIY",        # Total Noninterest Income (quarterly, QBP)
+    "QBPQYTNIYSRVDP",   # Service Charges on Deposit Accounts (quarterly, QBP)
+    "QBPQYNTYBKNI",     # Net Income, all banks (quarterly, QBP)
+]
+
+# NOTE: BLS series CUUR0000SEMC01 (CPI: Checking Account & Other Bank Services)
+# is NOT available via FRED. Requires direct BLS API (ingest-bls command).
+
+# District-level series: maps FRED series_id -> fed_district number.
+# Uses the primary/largest state in each Fed district as the proxy.
+DISTRICT_SERIES: dict[str, int] = {
+    # Unemployment rate by state (one per district)
+    "MAUR": 1,    # Massachusetts (Boston)
+    "NYUR": 2,    # New York (New York)
+    "PAUR": 3,    # Pennsylvania (Philadelphia)
+    "OHUR": 4,    # Ohio (Cleveland)
+    "VAUR": 5,    # Virginia (Richmond)
+    "GAUR": 6,    # Georgia (Atlanta)
+    "ILUR": 7,    # Illinois (Chicago)
+    "MOUR": 8,    # Missouri (St. Louis)
+    "MNUR": 9,    # Minnesota (Minneapolis)
+    "COUR": 10,   # Colorado (Kansas City)
+    "TXUR": 11,   # Texas (Dallas)
+    "CAUR": 12,   # California (San Francisco)
 }
 
 
@@ -46,7 +71,7 @@ def _fetch_series(
         "api_key": api_key,
         "file_type": "json",
         "sort_order": "desc",
-        "limit": 120,  # ~10 years of monthly data
+        "limit": 10000,  # FRED default is 100k; 10k covers decades of monthly data
     }
     if from_date:
         params["observation_start"] = from_date
@@ -104,17 +129,18 @@ def ingest_series(
     api_key: str,
     series_id: str,
     *,
+    fed_district: int | None = None,
     from_date: str | None = None,
     base_url: str = FRED_BASE_DEFAULT,
 ) -> int:
     """Ingest a single FRED series into fed_economic_indicators."""
-    # Get series metadata
     info = _fetch_series_info(api_key, series_id, base_url=base_url)
-    title = info.get("title", SERIES_TITLES.get(series_id)) if info else SERIES_TITLES.get(series_id)
+    title = info.get("title", "") if info else ""
     units = info.get("units", "") if info else ""
     frequency = info.get("frequency", "") if info else ""
 
-    print(f"  {series_id}: {title}")
+    district_label = f" [district {fed_district}]" if fed_district else ""
+    print(f"  {series_id}: {title}{district_label}")
 
     observations = _fetch_series(api_key, series_id, from_date=from_date, base_url=base_url)
     if observations is None:
@@ -134,13 +160,12 @@ def ingest_series(
         except (ValueError, TypeError):
             continue
 
-        # National-level series: fed_district = NULL
         db.execute(
             """INSERT OR REPLACE INTO fed_economic_indicators
                (series_id, series_title, fed_district, observation_date,
                 value, units, frequency)
-               VALUES (?, ?, NULL, ?, ?, ?, ?)""",
-            (series_id, title, date, value, units, frequency),
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (series_id, title, fed_district, date, value, units, frequency),
         )
         upserted += 1
 
@@ -163,16 +188,36 @@ def run(
         print("Get a free key at: https://fred.stlouisfed.org/docs/api/api_key.html")
         return
 
-    if series:
-        series_list = [series]
-    else:
-        series_list = config.fred.series
-
-    print(f"Ingesting {len(series_list)} FRED series...")
+    base_url = config.fred.base_url
     total = 0
-    for s in series_list:
-        count = ingest_series(db, api_key, s, from_date=from_date, base_url=config.fred.base_url)
+
+    if series:
+        # Single series: check if it's a district series
+        district = DISTRICT_SERIES.get(series)
+        count = ingest_series(
+            db, api_key, series,
+            fed_district=district, from_date=from_date, base_url=base_url,
+        )
         total += count
+    else:
+        # Ingest national series from config
+        national = config.fred.series or list(NATIONAL_SERIES)
+        print(f"Ingesting {len(national)} national series...")
+        for s in national:
+            count = ingest_series(
+                db, api_key, s,
+                from_date=from_date, base_url=base_url,
+            )
+            total += count
+
+        # Ingest district-level series
+        print(f"\nIngesting {len(DISTRICT_SERIES)} district series...")
+        for s, district in DISTRICT_SERIES.items():
+            count = ingest_series(
+                db, api_key, s,
+                fed_district=district, from_date=from_date, base_url=base_url,
+            )
+            total += count
 
     db.commit()
 
@@ -183,5 +228,9 @@ def run(
         "SELECT COUNT(DISTINCT series_id) as cnt FROM fed_economic_indicators"
     )
     sr_cnt = series_row["cnt"] if series_row else 0
+    district_row = db.fetchone(
+        "SELECT COUNT(DISTINCT fed_district) as cnt FROM fed_economic_indicators WHERE fed_district IS NOT NULL"
+    )
+    d_cnt = district_row["cnt"] if district_row else 0
     print(f"\nFRED ingestion complete: {total} rows upserted")
-    print(f"Total records: {cnt:,} across {sr_cnt} series")
+    print(f"Total records: {cnt:,} across {sr_cnt} series ({d_cnt} districts)")

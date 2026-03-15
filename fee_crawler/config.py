@@ -54,10 +54,14 @@ class FREDConfig(BaseModel):
     api_key: str = ""  # Or FRED_API_KEY env var
     base_url: str = "https://api.stlouisfed.org/fred"
     series: list[str] = [
-        "UNRATE",
-        "USNIM",
-        "EQTA",
-        "DPSACBM027NBOG",
+        "UNRATE",           # Unemployment Rate (monthly)
+        "FEDFUNDS",         # Effective Federal Funds Rate (monthly)
+        "CPIAUCSL",         # Consumer Price Index, Urban All Items (monthly)
+        "DPSACBM027NBOG",   # Deposits, All Commercial Banks (monthly)
+        "QBPQYNTIY",        # Net Interest Income (quarterly, QBP)
+        "QBPQYTNIY",        # Total Noninterest Income (quarterly, QBP)
+        "QBPQYTNIYSRVDP",   # Service Charges on Deposit Accounts (quarterly, QBP)
+        "QBPQYNTYBKNI",     # Net Income (quarterly, QBP)
     ]
 
 

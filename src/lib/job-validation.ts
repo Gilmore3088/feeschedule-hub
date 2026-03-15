@@ -20,6 +20,11 @@ const ALLOWED_COMMANDS = new Set([
   "ingest-beige-book",
   "ingest-fed-content",
   "ingest-fred",
+  "ingest-bls",
+  "ingest-nyfed",
+  "ingest-sod",
+  "ingest-census-acs",
+  "ingest-census-tracts",
   "seed",
   "backfill-ncua-urls",
 ]);
