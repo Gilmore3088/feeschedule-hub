@@ -27,7 +27,7 @@ interface Bucket {
 
 function buildBuckets(fees: FeeInstance[], bucketCount: number): Bucket[] {
   const amounts = fees
-    .filter((f) => f.amount !== null && f.amount > 0)
+    .filter((f) => f.amount !== null && f.amount >= 0)
     .map((f) => ({ amount: f.amount!, isBank: f.charter_type === "bank" }));
 
   if (amounts.length === 0) return [];
