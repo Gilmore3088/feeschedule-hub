@@ -164,13 +164,16 @@ def detect_outliers(
     return outliers
 
 
-def run_outlier_detection(db: Database, *, auto_flag: bool = False) -> None:
-    """Run outlier detection and optionally flag outliers for review.
+def run_outlier_detection(db: Database, *, auto_flag: bool = True) -> None:
+    """Run outlier detection and flag/reject outliers.
+
+    Always takes action:
+    - decimal_error → auto-rejected
+    - statistical_outlier → flagged for review (even if previously approved)
 
     Args:
         db: Database connection.
-        auto_flag: If True, update review_status to 'flagged' and add
-                   validation flag for detected outliers.
+        auto_flag: Legacy param, always True now.
     """
     outliers = detect_outliers(db)
 
@@ -181,38 +184,49 @@ def run_outlier_detection(db: Database, *, auto_flag: bool = False) -> None:
     print(f"Detected {len(outliers)} statistical outliers:")
 
     by_type: dict[str, int] = {}
+    auto_rejected = 0
+    newly_flagged = 0
     for o in outliers:
         by_type[o.flag_type] = by_type.get(o.flag_type, 0) + 1
-        if auto_flag:
-            # Add outlier flag to validation_flags
-            import json
-            existing = db.fetchone(
-                "SELECT validation_flags FROM extracted_fees WHERE id = ?",
-                (o.fee_id,),
-            )
-            flags = []
-            if existing and existing["validation_flags"]:
-                try:
-                    flags = json.loads(existing["validation_flags"])
-                except json.JSONDecodeError:
-                    pass
-            flags.append({
-                "rule": o.flag_type,
-                "severity": "warning",
-                "message": o.detail,
-            })
-            db.execute(
-                """UPDATE extracted_fees
-                   SET review_status = 'flagged', validation_flags = ?
-                   WHERE id = ? AND review_status IN ('pending', 'staged')""",
-                (json.dumps(flags), o.fee_id),
-            )
+        # Always apply flags (not just when auto_flag is set)
+        import json
+        existing = db.fetchone(
+            "SELECT validation_flags, review_status FROM extracted_fees WHERE id = ?",
+            (o.fee_id,),
+        )
+        if not existing or existing["review_status"] == "rejected":
+            continue
 
-    if auto_flag:
-        db.commit()
+        flags = []
+        if existing["validation_flags"]:
+            try:
+                flags = json.loads(existing["validation_flags"])
+            except json.JSONDecodeError:
+                pass
+        flags.append({
+            "rule": o.flag_type,
+            "severity": "error" if o.flag_type == "decimal_error" else "warning",
+            "message": o.detail,
+        })
+
+        # Decimal errors → auto-reject (clearly wrong data)
+        # Statistical outliers → flag for review (including approved ones)
+        if o.flag_type == "decimal_error":
+            new_status = "rejected"
+            auto_rejected += 1
+        else:
+            new_status = "flagged"
+            newly_flagged += 1
+
+        db.execute(
+            "UPDATE extracted_fees SET review_status = ?, validation_flags = ? WHERE id = ?",
+            (new_status, json.dumps(flags), o.fee_id),
+        )
+
+    db.commit()
 
     for flag_type, count in sorted(by_type.items()):
         print(f"  {flag_type}: {count}")
     print(f"  Total: {len(outliers)}")
-    if auto_flag:
-        print("  (outliers have been flagged for review)")
+    print(f"  Auto-rejected (decimal errors): {auto_rejected}")
+    print(f"  Flagged for review: {newly_flagged}")
