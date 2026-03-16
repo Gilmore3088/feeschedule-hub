@@ -20,6 +20,7 @@ interface CommandInfo {
   group: "pipeline" | "data-quality" | "ingest" | "setup";
   usesLimit: boolean;
   usesCharter: boolean;
+  usesState?: boolean;
   typical: string;
 }
 
@@ -30,6 +31,7 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     group: "pipeline",
     usesLimit: true,
     usesCharter: true,
+    usesState: true,
     typical: "python -m fee_crawler run-pipeline --limit 50",
   },
   crawl: {
@@ -38,6 +40,7 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     group: "pipeline",
     usesLimit: true,
     usesCharter: true,
+    usesState: true,
     typical: "python -m fee_crawler crawl --limit 20",
   },
   discover: {
@@ -46,6 +49,7 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     group: "pipeline",
     usesLimit: true,
     usesCharter: true,
+    usesState: true,
     typical: "python -m fee_crawler discover --limit 50",
   },
   categorize: {
@@ -255,6 +259,7 @@ export function OpsClient({
   const [selectedCommand, setSelectedCommand] = useState(commands[0] || "");
   const [limit, setLimit] = useState("10");
   const [charterType, setCharterType] = useState<"" | "bank" | "credit_union">("");
+  const [stateCode, setStateCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [expandedJob, setExpandedJob] = useState<number | null>(null);
@@ -288,6 +293,7 @@ export function OpsClient({
     const parsedLimit = parseInt(limit, 10);
     if (parsedLimit > 0) params.limit = parsedLimit;
     if (charterType) params.charter_type = charterType;
+    if (stateCode) params.state = stateCode;
 
     const result = await triggerJob(selectedCommand, params);
 
@@ -423,6 +429,24 @@ export function OpsClient({
                     </select>
                   </div>
                 )}
+                {COMMAND_INFO[selectedCommand]?.usesState && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      State
+                    </label>
+                    <select
+                      value={stateCode}
+                      onChange={(e) => setStateCode(e.target.value)}
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
+                                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+                    >
+                      <option value="">All States</option>
+                      {["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"].map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -438,6 +462,9 @@ export function OpsClient({
                   : ""}
                 {COMMAND_INFO[selectedCommand]?.usesCharter && charterType
                   ? ` --charter-type ${charterType}`
+                  : ""}
+                {COMMAND_INFO[selectedCommand]?.usesState && stateCode
+                  ? ` --state ${stateCode}`
                   : ""}
               </code>
             </div>

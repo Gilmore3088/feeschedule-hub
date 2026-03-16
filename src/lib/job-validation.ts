@@ -41,6 +41,7 @@ export interface JobParams {
   limit?: number;
   concurrent?: number;
   charter_type?: "bank" | "credit_union";
+  state?: string;
   force?: boolean;
 }
 
@@ -96,6 +97,14 @@ export function validateJobRequest(
       return { valid: false, error: "charter_type must be 'bank' or 'credit_union'" };
     }
     args.push("--charter-type", params.charter_type);
+  }
+
+  if (params.state !== undefined && params.state !== "") {
+    // Validate state code (2 uppercase letters)
+    if (!/^[A-Z]{2}$/.test(params.state)) {
+      return { valid: false, error: "state must be a 2-letter state code" };
+    }
+    args.push("--state", params.state);
   }
 
   if (params.force) {
