@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFeeCategorySummaries, getFeeCategoryDetail } from "@/lib/crawler-db";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
+import { getCurrentUser } from "@/lib/auth";
+import { canExportData } from "@/lib/access";
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const category = searchParams.get("category");
   const format = searchParams.get("format");
@@ -52,6 +54,13 @@ export function GET(request: NextRequest) {
   }));
 
   if (format === "csv") {
+    const user = await getCurrentUser();
+    if (!canExportData(user)) {
+      return NextResponse.json(
+        { error: "CSV export requires a Seat License", upgrade_url: "/subscribe" },
+        { status: 403 }
+      );
+    }
     const headers = "category,display_name,family,tier,median,p25,p75,min,max,institution_count";
     const rows = data.map((d) =>
       [d.category, `"${d.display_name}"`, d.family, d.tier, d.median, d.p25, d.p75, d.min, d.max, d.institution_count].join(",")

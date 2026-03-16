@@ -16,6 +16,10 @@ import {
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessAllCategories } from "@/lib/access";
+import { UpgradeGate } from "@/components/upgrade-gate";
+import { getSpotlightCategories } from "@/lib/fee-taxonomy";
 
 export const metadata: Metadata = {
   title: "Fee Index - All 49 Bank Fee Categories",
@@ -30,8 +34,17 @@ const TIER_LABELS: Record<string, string> = {
   comprehensive: "Comprehensive",
 };
 
-export default function FeeCatalogPage() {
-  const summaries = getFeeCategorySummaries();
+export default async function FeeCatalogPage() {
+  const user = await getCurrentUser();
+  const showAll = canAccessAllCategories(user);
+  const spotlightCats = new Set(getSpotlightCategories());
+
+  const allSummaries = getFeeCategorySummaries();
+  const summaries = showAll
+    ? allSummaries
+    : allSummaries.filter((s) => spotlightCats.has(s.fee_category));
+  const gatedCount = allSummaries.length - summaries.length;
+
   const stats = getStats();
   const freshness = getDataFreshness();
 
@@ -445,6 +458,13 @@ export default function FeeCatalogPage() {
           </div>
         </aside>
       </div>
+
+      {/* Upgrade gate for free users */}
+      {!showAll && gatedCount > 0 && (
+        <div className="mt-8">
+          <UpgradeGate count={gatedCount} />
+        </div>
+      )}
 
       {/* JSON-LD */}
       <script

@@ -13,6 +13,9 @@ import {
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";
 import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessAllCategories } from "@/lib/access";
+import { UpgradeGate } from "@/components/upgrade-gate";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";
@@ -68,6 +71,9 @@ export default async function StateReportPage({ params }: PageProps) {
   const stateCode = code.toUpperCase();
   const stateName = STATE_NAMES[stateCode];
   if (!stateName) notFound();
+
+  const user = await getCurrentUser();
+  const showAllCategories = canAccessAllCategories(user);
 
   const stats = getStateStats(stateCode);
   const stateIndex = getPeerIndex({ state_code: stateCode });
@@ -268,7 +274,7 @@ export default async function StateReportPage({ params }: PageProps) {
                   </tr>
                 ))}
 
-                {extended.length > 0 && (
+                {extended.length > 0 && showAllCategories && (
                   <>
                     <tr>
                       <td
@@ -315,6 +321,13 @@ export default async function StateReportPage({ params }: PageProps) {
             </table>
           </div>
         </section>
+      )}
+
+      {/* Upgrade gate for free users */}
+      {!showAllCategories && extended.length > 0 && (
+        <div className="mt-6">
+          <UpgradeGate count={extended.length} message={`${extended.length} more fee categories for ${stateName}`} />
+        </div>
       )}
 
       {/* Methodology */}
