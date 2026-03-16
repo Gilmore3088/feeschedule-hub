@@ -14,7 +14,7 @@ const STUB_TABLES = `
   CREATE TABLE IF NOT EXISTS institution_financials (id INTEGER PRIMARY KEY, crawl_target_id INTEGER, report_date TEXT, source TEXT, total_assets INTEGER, total_deposits INTEGER, total_loans INTEGER, service_charge_income INTEGER, other_noninterest_income INTEGER, net_interest_margin REAL, efficiency_ratio REAL, roa REAL, roe REAL, tier1_capital_ratio REAL, branch_count INTEGER, employee_count INTEGER, member_count INTEGER, raw_json TEXT, fetched_at TEXT, total_revenue INTEGER, fee_income_ratio REAL);
   CREATE TABLE IF NOT EXISTS institution_complaints (id INTEGER PRIMARY KEY, crawl_target_id INTEGER, report_period TEXT, product TEXT, issue TEXT, complaint_count INTEGER, fetched_at TEXT);
   CREATE TABLE IF NOT EXISTS fee_reviews (id INTEGER PRIMARY KEY, fee_id INTEGER, action TEXT, user_id INTEGER, username TEXT, previous_status TEXT, new_status TEXT, previous_values TEXT, new_values TEXT, notes TEXT, created_at TEXT);
-  CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password_hash TEXT, display_name TEXT, role TEXT, is_active INTEGER, created_at TEXT, email TEXT, stripe_customer_id TEXT, subscription_status TEXT DEFAULT 'none');
+  CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password_hash TEXT, display_name TEXT, role TEXT, is_active INTEGER, created_at TEXT, email TEXT, stripe_customer_id TEXT, subscription_status TEXT DEFAULT 'none', institution_name TEXT, institution_type TEXT, asset_tier TEXT, state_code TEXT, job_role TEXT, interests TEXT);
   CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id INTEGER, expires_at TEXT, created_at TEXT);
   CREATE TABLE IF NOT EXISTS analysis_results (id INTEGER PRIMARY KEY, crawl_target_id INTEGER, analysis_type TEXT, result_json TEXT, computed_at TEXT);
   CREATE TABLE IF NOT EXISTS fed_beige_book (id INTEGER PRIMARY KEY, release_date TEXT, release_code TEXT, fed_district INTEGER, section_name TEXT, content_text TEXT, source_url TEXT, fetched_at TEXT);
@@ -28,6 +28,7 @@ const STUB_TABLES = `
   CREATE TABLE IF NOT EXISTS research_usage (id INTEGER PRIMARY KEY, user_id INTEGER, agent_id TEXT, input_tokens INTEGER, output_tokens INTEGER, estimated_cost_cents REAL, created_at TEXT);
   CREATE TABLE IF NOT EXISTS stripe_events (id TEXT PRIMARY KEY, event_type TEXT NOT NULL, stripe_customer_id TEXT, payload_json TEXT NOT NULL, processed_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, name TEXT, email TEXT, company TEXT, role TEXT, use_case TEXT, source TEXT DEFAULT 'coming_soon', status TEXT DEFAULT 'new', created_at TEXT);
+  CREATE TABLE IF NOT EXISTS api_keys (id INTEGER PRIMARY KEY, user_id INTEGER, key_hash TEXT, key_prefix TEXT, tier TEXT DEFAULT 'pro', monthly_limit INTEGER DEFAULT 5000, call_count INTEGER DEFAULT 0, last_used_at TEXT, is_active INTEGER DEFAULT 1, created_at TEXT);
 `;
 
 function isStubDb(db: InstanceType<typeof Database>): boolean {

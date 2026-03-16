@@ -1,0 +1,188 @@
+"use client";
+
+import { updateProfile } from "./actions";
+import { useState } from "react";
+
+interface ProfileFormProps {
+  user: {
+    institution_name: string | null;
+    institution_type: string | null;
+    asset_tier: string | null;
+    state_code: string | null;
+    job_role: string | null;
+  };
+}
+
+const INSTITUTION_TYPES = [
+  { value: "", label: "Select..." },
+  { value: "bank", label: "Bank" },
+  { value: "credit_union", label: "Credit Union" },
+  { value: "fintech", label: "Fintech / Vendor" },
+  { value: "consulting", label: "Consulting / Advisory" },
+  { value: "regulatory", label: "Regulatory / Government" },
+  { value: "other", label: "Other" },
+];
+
+const ASSET_TIERS = [
+  { value: "", label: "Select..." },
+  { value: "community_small", label: "Under $300M" },
+  { value: "community_mid", label: "$300M - $1B" },
+  { value: "community_large", label: "$1B - $10B" },
+  { value: "regional", label: "$10B - $50B" },
+  { value: "large_regional", label: "$50B+" },
+];
+
+const JOB_ROLES = [
+  { value: "", label: "Select..." },
+  { value: "executive", label: "Executive / C-Suite" },
+  { value: "treasury", label: "Treasury / Finance" },
+  { value: "compliance", label: "Compliance / Risk" },
+  { value: "marketing", label: "Marketing / Product" },
+  { value: "analyst", label: "Analyst / Research" },
+  { value: "developer", label: "Developer / Engineer" },
+  { value: "other", label: "Other" },
+];
+
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN",
+  "IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH",
+  "NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT",
+  "VT","VA","WA","WV","WI","WY",
+];
+
+export function ProfileForm({ user }: ProfileFormProps) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const isBankOrCU = user.institution_type === "bank" || user.institution_type === "credit_union";
+  const [showBankFields, setShowBankFields] = useState(isBankOrCU);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true);
+    const formData = new FormData(e.currentTarget);
+    const result = await updateProfile(formData);
+    setSaving(false);
+    if (result.success) {
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
+  }
+
+  const selectClass = "w-full rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent";
+  const inputClass = selectClass;
+
+  if (!editing) {
+    const typeLabel = INSTITUTION_TYPES.find((t) => t.value === user.institution_type)?.label;
+    const roleLabel = JOB_ROLES.find((r) => r.value === user.job_role)?.label;
+    const tierLabel = ASSET_TIERS.find((t) => t.value === user.asset_tier)?.label;
+
+    return (
+      <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider">
+            Organization Profile
+          </div>
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs font-medium text-[#C44B2E] hover:underline"
+          >
+            {user.institution_name ? "Edit" : "Complete profile"}
+          </button>
+        </div>
+        {user.institution_name ? (
+          <div className="space-y-2 text-sm">
+            <div className="font-medium text-[#1A1815]">{user.institution_name}</div>
+            <div className="text-[#7A7062]">
+              {[typeLabel, tierLabel, user.state_code, roleLabel]
+                .filter(Boolean)
+                .join(" / ")}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-[#A69D90]">
+            Add your organization details to get personalized fee intelligence.
+          </p>
+        )}
+        {saved && (
+          <div className="mt-2 text-xs text-emerald-600">Profile updated.</div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
+      <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider mb-3">
+        Organization Profile
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-[#1A1815] mb-1">Institution / Company</label>
+          <input name="institution_name" defaultValue={user.institution_name || ""} className={inputClass} placeholder="First National Bank" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-[#1A1815] mb-1">Type</label>
+            <select
+              name="institution_type"
+              defaultValue={user.institution_type || ""}
+              onChange={(e) => setShowBankFields(e.target.value === "bank" || e.target.value === "credit_union")}
+              className={selectClass}
+            >
+              {INSTITUTION_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#1A1815] mb-1">Your role</label>
+            <select name="job_role" defaultValue={user.job_role || ""} className={selectClass}>
+              {JOB_ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {showBankFields && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-[#1A1815] mb-1">Asset size</label>
+              <select name="asset_tier" defaultValue={user.asset_tier || ""} className={selectClass}>
+                {ASSET_TIERS.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[#1A1815] mb-1">State</label>
+              <select name="state_code" defaultValue={user.state_code || ""} className={selectClass}>
+                <option value="">Select...</option>
+                {US_STATES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2 mt-4">
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-md bg-[#C44B2E] px-4 py-2 text-xs font-medium text-white hover:bg-[#A83D25] disabled:opacity-50 transition-colors"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="rounded-md border border-[#D5CBBF] px-4 py-2 text-xs font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}

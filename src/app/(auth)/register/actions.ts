@@ -32,6 +32,11 @@ export async function register(formData: FormData): Promise<{
   const email = formData.get("email");
   const password = formData.get("password");
   const name = formData.get("name");
+  const institutionName = formData.get("institution_name") as string | null;
+  const institutionType = formData.get("institution_type") as string | null;
+  const assetTier = formData.get("asset_tier") as string | null;
+  const stateCode = formData.get("state_code") as string | null;
+  const jobRole = formData.get("job_role") as string | null;
 
   if (typeof email !== "string" || !email.trim()) {
     return { success: false, error: "Email is required" };
@@ -78,15 +83,22 @@ export async function register(formData: FormData): Promise<{
         const insert = db
           .prepare(
             `INSERT INTO users (username, email, password_hash, display_name, role,
-             stripe_customer_id, subscription_status, is_active, created_at)
-             VALUES (?, ?, ?, ?, 'viewer', ?, 'none', 1, datetime('now'))`
+             stripe_customer_id, subscription_status, is_active, created_at,
+             institution_name, institution_type, asset_tier, state_code, job_role)
+             VALUES (?, ?, ?, ?, 'viewer', ?, 'none', 1, datetime('now'),
+                     ?, ?, ?, ?, ?)`
           )
           .run(
             trimmedEmail,
             trimmedEmail,
             hashedPw,
             name.trim(),
-            stripeCustomer.id
+            stripeCustomer.id,
+            institutionName?.trim() || null,
+            institutionType || null,
+            assetTier || null,
+            stateCode || null,
+            jobRole || null
           );
 
         db.prepare(

@@ -1,10 +1,8 @@
-import Database from "better-sqlite3";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import path from "path";
+import { getDb, getWriteDb } from "@/lib/crawler-db/connection";
 
-const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
 const SESSION_COOKIE = "fsh_session";
 const SESSION_TTL_HOURS = 24;
 function getCookieSecret(): string {
@@ -48,6 +46,15 @@ export interface User {
   username: string;
   display_name: string;
   role: "viewer" | "analyst" | "admin" | "premium";
+  email: string | null;
+  stripe_customer_id: string | null;
+  subscription_status: "none" | "active" | "past_due" | "canceled";
+  institution_name: string | null;
+  institution_type: string | null;
+  asset_tier: string | null;
+  state_code: string | null;
+  job_role: string | null;
+  interests: string | null; // JSON array
 }
 
 export type Permission =
@@ -67,16 +74,6 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   analyst: ["view", "approve", "reject", "research"],
   admin: ["view", "approve", "reject", "edit", "bulk_approve", "manage_users", "trigger_jobs", "cancel_jobs", "research"],
 };
-
-function getWriteDb(): Database.Database {
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = normal");
-  db.pragma("cache_size = -32000");
-  db.pragma("mmap_size = 268435456");
-  db.pragma("temp_store = memory");
-  return db;
-}
 
 function hashPassword(password: string, salt: string): string {
   return crypto
@@ -99,9 +96,12 @@ export async function login(
   try {
     const row = db
       .prepare(
-        "SELECT id, username, display_name, role, password_hash FROM users WHERE username = ? AND is_active = 1"
+        `SELECT id, username, display_name, role, password_hash, email,
+                COALESCE(subscription_status, 'none') as subscription_status,
+                institution_name, institution_type, asset_tier, state_code, job_role, interests
+         FROM users WHERE (username = ? OR email = ?) AND is_active = 1`
       )
-      .get(username) as
+      .get(username, username) as
       | (User & { password_hash: string })
       | undefined;
 
@@ -123,18 +123,14 @@ export async function login(
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, signSessionId(sessionId), {
       httpOnly: true,
-      secure: false, // MVP: localhost only
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: SESSION_TTL_HOURS * 60 * 60,
       path: "/",
     });
 
-    return {
-      id: row.id,
-      username: row.username,
-      display_name: row.display_name,
-      role: row.role,
-    };
+    const { password_hash: _, ...user } = row;
+    return user;
   } finally {
     db.close();
   }
@@ -165,23 +161,21 @@ export async function getCurrentUser(): Promise<User | null> {
   const sessionId = verifyAndExtractSessionId(raw);
   if (!sessionId) return null;
 
-  const db = new Database(DB_PATH, { readonly: true });
-  db.pragma("journal_mode = WAL");
-  db.pragma("cache_size = -32000");
-  try {
-    const row = db
-      .prepare(
-        `SELECT u.id, u.username, u.display_name, u.role
-         FROM sessions s
-         JOIN users u ON s.user_id = u.id
-         WHERE s.id = ? AND s.expires_at > datetime('now') AND u.is_active = 1`
-      )
-      .get(sessionId) as User | undefined;
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT u.id, u.username, u.display_name, u.role,
+              u.email, u.stripe_customer_id,
+              COALESCE(u.subscription_status, 'none') as subscription_status,
+              u.institution_name, u.institution_type, u.asset_tier,
+              u.state_code, u.job_role, u.interests
+       FROM sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.id = ? AND s.expires_at > datetime('now') AND u.is_active = 1`
+    )
+    .get(sessionId) as User | undefined;
 
-    return row ?? null;
-  } finally {
-    db.close();
-  }
+  return row ?? null;
 }
 
 export function hasPermission(user: User, permission: Permission): boolean {
