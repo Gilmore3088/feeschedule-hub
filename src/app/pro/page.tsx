@@ -94,26 +94,26 @@ export default async function ProHomePage() {
   return (
     <div>
       {/* ── Live Ticker Strip ── */}
-      <div className="border-b border-white/[0.04] bg-[#060810]">
+      <div className="border-b border-[#E8DFD1] bg-[#FFFDF9]">
         <div className="mx-auto max-w-7xl px-6 py-2 flex items-center gap-6 overflow-x-auto scrollbar-none">
-          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.15em] text-blue-400/60">
+          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.15em] text-[#C44B2E]">
             National Medians
           </span>
-          <span className="shrink-0 h-3 w-px bg-white/[0.08]" />
+          <span className="shrink-0 h-3 w-px bg-[#D5CBBF]" />
           {tickerEntries.map((entry) => (
             <span
               key={entry!.fee_category}
               className="shrink-0 flex items-center gap-2 text-[11px]"
             >
-              <span className="text-slate-500">
+              <span className="text-[#7A7062]">
                 {getDisplayName(entry!.fee_category)}
               </span>
-              <span className="font-semibold text-slate-200 tabular-nums">
+              <span className="font-semibold text-[#1A1815] tabular-nums">
                 {formatAmount(entry!.median_amount)}
               </span>
             </span>
           ))}
-          <span className="shrink-0 ml-auto text-[10px] text-slate-700">
+          <span className="shrink-0 ml-auto text-[10px] text-[#D5CBBF]">
             {lastUpdated}
           </span>
         </div>
@@ -125,7 +125,7 @@ export default async function ProHomePage() {
           className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(59,130,246,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,.3) 1px, transparent 1px)",
+              "linear-gradient(rgba(196,75,46,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(196,75,46,.15) 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
@@ -133,18 +133,16 @@ export default async function ProHomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
             <div>
               <h1
-                className="text-[2rem] sm:text-[2.5rem] lg:text-[3rem] leading-[1.06] tracking-[-0.03em] text-white"
+                className="text-[2rem] sm:text-[2.5rem] lg:text-[3rem] leading-[1.06] tracking-[-0.03em] text-[#1A1815]"
                 style={{
-                  fontFamily: "var(--font-jetbrains), monospace",
+                  fontFamily: "var(--font-newsreader), Georgia, serif",
                 }}
               >
-                National Fee
+                The national benchmark
                 <br />
-                Intelligence
-                <br />
-                Platform.
+                for <span className="text-[#C44B2E]">banking fees</span>
               </h1>
-              <p className="mt-6 max-w-md text-[15px] leading-relaxed text-slate-400">
+              <p className="mt-6 max-w-md text-[15px] leading-relaxed text-[#5A5347]">
                 Institutional-grade fee indexing, peer benchmarks, and
                 district-level analysis for banking professionals, consultants,
                 and researchers.
@@ -171,12 +169,12 @@ export default async function ProHomePage() {
                 ].map((metric) => (
                   <div
                     key={metric.label}
-                    className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3"
+                    className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] px-4 py-3"
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-600">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A69D90]">
                       {metric.label}
                     </p>
-                    <p className="mt-1 text-[14px] font-semibold text-white tabular-nums">
+                    <p className="mt-1 text-[14px] font-semibold text-[#1A1815] tabular-nums">
                       {metric.value}
                     </p>
                   </div>
@@ -186,7 +184,7 @@ export default async function ProHomePage() {
               <div className="mt-10 flex flex-wrap gap-3">
                 <Link
                   href="/research/national-fee-index"
-                  className="inline-flex items-center gap-2 rounded border border-blue-500/40 bg-blue-500/10 px-5 py-2.5 text-[13px] font-semibold text-blue-300 hover:bg-blue-500/20 transition-colors no-underline"
+                  className="inline-flex items-center gap-2 rounded-md bg-[#C44B2E] px-5 py-2.5 text-[13px] font-semibold text-white hover:bg-[#A83D25] transition-colors no-underline"
                 >
                   View National Index
                   <svg
@@ -200,8 +198,8 @@ export default async function ProHomePage() {
                   </svg>
                 </Link>
                 <Link
-                  href="/waitlist"
-                  className="inline-flex items-center rounded border border-white/[0.08] px-5 py-2.5 text-[13px] font-medium text-slate-400 hover:border-white/[0.15] hover:text-slate-200 transition-colors no-underline"
+                  href="mailto:hello@bankfeeindex.com"
+                  className="inline-flex items-center rounded border border-[#D5CBBF] px-5 py-2.5 text-[13px] font-medium text-[#5A5347] hover:border-[#1A1815] hover:text-[#1A1815] transition-colors no-underline"
                 >
                   Request Data Access
                 </Link>
@@ -209,33 +207,33 @@ export default async function ProHomePage() {
             </div>
 
             {/* Index preview card */}
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-              <div className="px-5 py-3 border-b border-white/[0.04] flex items-center justify-between">
+            <div className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] overflow-hidden">
+              <div className="px-5 py-3 border-b border-[#E8DFD1] flex items-center justify-between">
                 <span
-                  className="text-[12px] font-bold uppercase tracking-[0.1em] text-slate-400"
+                  className="text-[12px] font-bold uppercase tracking-[0.1em] text-[#5A5347]"
                   style={{
-                    fontFamily: "var(--font-jetbrains), monospace",
+                    fontFamily: "var(--font-newsreader), Georgia, serif",
                   }}
                 >
                   National Fee Index
                 </span>
-                <span className="text-[10px] text-slate-600">
+                <span className="text-[10px] text-[#A69D90]">
                   {allEntries.length} categories
                 </span>
               </div>
               <table className="w-full text-[12px]">
                 <thead>
-                  <tr className="border-b border-white/[0.04]">
-                    <th className="px-5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <tr className="border-b border-[#E8DFD1]">
+                    <th className="px-5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Category
                     </th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Median
                     </th>
-                    <th className="hidden sm:table-cell px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="hidden sm:table-cell px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       P25-P75
                     </th>
-                    <th className="px-5 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="px-5 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       N
                     </th>
                   </tr>
@@ -246,36 +244,36 @@ export default async function ProHomePage() {
                       key={entry!.fee_category}
                       className={
                         i < tickerEntries.length - 1
-                          ? "border-b border-white/[0.03]"
+                          ? "border-b border-[#E8DFD1]"
                           : ""
                       }
                     >
-                      <td className="px-5 py-2.5 text-slate-300">
+                      <td className="px-5 py-2.5 text-[#1A1815]">
                         {getDisplayName(entry!.fee_category)}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-white tabular-nums">
+                      <td className="px-3 py-2.5 text-right font-semibold text-[#1A1815] tabular-nums">
                         {formatAmount(entry!.median_amount)}
                       </td>
-                      <td className="hidden sm:table-cell px-3 py-2.5 text-right text-slate-500 tabular-nums text-[11px]">
+                      <td className="hidden sm:table-cell px-3 py-2.5 text-right text-[#7A7062] tabular-nums text-[11px]">
                         {entry!.p25_amount !== null &&
                         entry!.p75_amount !== null
                           ? `${formatAmount(entry!.p25_amount)}-${formatAmount(entry!.p75_amount)}`
                           : "-"}
                       </td>
-                      <td className="px-5 py-2.5 text-right text-slate-600 tabular-nums">
+                      <td className="px-5 py-2.5 text-right text-[#A69D90] tabular-nums">
                         {entry!.institution_count.toLocaleString()}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="px-5 py-2.5 border-t border-white/[0.04] flex items-center justify-between">
-                <span className="text-[10px] text-slate-700">
+              <div className="px-5 py-2.5 border-t border-[#E8DFD1] flex items-center justify-between">
+                <span className="text-[10px] text-[#D5CBBF]">
                   Validated medians from published fee schedules
                 </span>
                 <Link
                   href="/research/national-fee-index"
-                  className="text-[11px] font-semibold text-blue-400/70 hover:text-blue-300 transition-colors no-underline"
+                  className="text-[11px] font-semibold text-[#C44B2E] hover:text-[#C44B2E] transition-colors no-underline"
                 >
                   Full index
                 </Link>
@@ -287,52 +285,52 @@ export default async function ProHomePage() {
 
       {/* ── Charter Type Comparison ── */}
       {charterComparison.length > 0 && (
-        <section className="border-t border-white/[0.04]">
+        <section className="border-t border-[#E8DFD1]">
           <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
             <div className="flex items-end justify-between mb-6">
               <div>
                 <h2
-                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600"
+                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90]"
                   style={{
-                    fontFamily: "var(--font-jetbrains), monospace",
+                    fontFamily: "var(--font-newsreader), Georgia, serif",
                   }}
                 >
                   Peer Segmentation: Charter Type
                 </h2>
-                <p className="mt-1 text-[13px] text-slate-500">
+                <p className="mt-1 text-[13px] text-[#7A7062]">
                   National vs. Bank vs. Credit Union medians
                 </p>
               </div>
               <Link
                 href="/research/fee-revenue-analysis"
-                className="text-[11px] font-semibold text-blue-400/60 hover:text-blue-300 transition-colors no-underline"
+                className="text-[11px] font-semibold text-[#C44B2E] hover:text-[#C44B2E] transition-colors no-underline"
               >
                 Fee-Revenue Analysis
               </Link>
             </div>
-            <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+            <div className="rounded-lg border border-[#E8DFD1] overflow-hidden">
               <table className="w-full text-[12px]">
                 <thead>
-                  <tr className="border-b border-white/[0.04] bg-white/[0.01]">
-                    <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
+                    <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Category
                     </th>
-                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       National
                     </th>
-                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Bank
                     </th>
-                    <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
                       N
                     </th>
-                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Credit Union
                     </th>
-                    <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
                       N
                     </th>
-                    <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Delta
                     </th>
                   </tr>
@@ -347,28 +345,28 @@ export default async function ProHomePage() {
                     return (
                       <tr
                         key={row!.category}
-                        className={`hover:bg-blue-500/[0.03] transition-colors ${
+                        className={`hover:bg-[#FFF0ED] transition-colors ${
                           i < charterComparison.length - 1
-                            ? "border-b border-white/[0.03]"
+                            ? "border-b border-[#E8DFD1]"
                             : ""
                         }`}
                       >
-                        <td className="px-5 py-2.5 text-slate-300">
+                        <td className="px-5 py-2.5 text-[#1A1815]">
                           {getDisplayName(row!.category)}
                         </td>
-                        <td className="px-3 py-2.5 text-right text-slate-400 tabular-nums">
+                        <td className="px-3 py-2.5 text-right text-[#5A5347] tabular-nums">
                           {formatAmount(row!.national)}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-semibold text-white tabular-nums">
+                        <td className="px-3 py-2.5 text-right font-semibold text-[#1A1815] tabular-nums">
                           {formatAmount(row!.bank)}
                         </td>
-                        <td className="hidden sm:table-cell px-3 py-2.5 text-right text-slate-700 tabular-nums text-[11px]">
+                        <td className="hidden sm:table-cell px-3 py-2.5 text-right text-[#D5CBBF] tabular-nums text-[11px]">
                           {row!.bankN.toLocaleString()}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-semibold text-white tabular-nums">
+                        <td className="px-3 py-2.5 text-right font-semibold text-[#1A1815] tabular-nums">
                           {formatAmount(row!.cu)}
                         </td>
-                        <td className="hidden sm:table-cell px-3 py-2.5 text-right text-slate-700 tabular-nums text-[11px]">
+                        <td className="hidden sm:table-cell px-3 py-2.5 text-right text-[#D5CBBF] tabular-nums text-[11px]">
                           {row!.cuN.toLocaleString()}
                         </td>
                         <td className="px-5 py-2.5 text-right tabular-nums">
@@ -378,7 +376,7 @@ export default async function ProHomePage() {
                                 ? "text-red-400"
                                 : delta < 0
                                   ? "text-emerald-400"
-                                  : "text-slate-500"
+                                  : "text-[#7A7062]"
                             }`}
                           >
                             {delta > 0 ? "+" : ""}
@@ -390,8 +388,8 @@ export default async function ProHomePage() {
                   })}
                 </tbody>
               </table>
-              <div className="px-5 py-2 border-t border-white/[0.04] bg-white/[0.01]">
-                <p className="text-[10px] text-slate-700">
+              <div className="px-5 py-2 border-t border-[#E8DFD1] bg-[#FAF7F2]">
+                <p className="text-[10px] text-[#D5CBBF]">
                   Delta = Bank median minus Credit Union median as % of CU
                   median. Positive = banks charge more.
                 </p>
@@ -403,25 +401,25 @@ export default async function ProHomePage() {
 
       {/* ── Revenue Correlation by Tier ── */}
       {tierRevenue.length > 0 && (
-        <section className="border-t border-white/[0.04]">
+        <section className="border-t border-[#E8DFD1]">
           <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
             <div className="flex items-end justify-between mb-6">
               <div>
                 <h2
-                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600"
+                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90]"
                   style={{
-                    fontFamily: "var(--font-jetbrains), monospace",
+                    fontFamily: "var(--font-newsreader), Georgia, serif",
                   }}
                 >
                   Fee-to-Revenue Correlation
                 </h2>
-                <p className="mt-1 text-[13px] text-slate-500">
+                <p className="mt-1 text-[13px] text-[#7A7062]">
                   Average fee levels vs. service charge income by asset tier
                 </p>
               </div>
               <Link
                 href="/research/fee-revenue-analysis"
-                className="text-[11px] font-semibold text-blue-400/60 hover:text-blue-300 transition-colors no-underline"
+                className="text-[11px] font-semibold text-[#C44B2E] hover:text-[#C44B2E] transition-colors no-underline"
               >
                 Full analysis
               </Link>
@@ -430,29 +428,29 @@ export default async function ProHomePage() {
               {tierRevenue.map((tier) => (
                 <div
                   key={tier.asset_tier}
-                  className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5"
+                  className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] p-5"
                 >
                   <p
-                    className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500"
+                    className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062]"
                     style={{
-                      fontFamily: "var(--font-jetbrains), monospace",
+                      fontFamily: "var(--font-newsreader), Georgia, serif",
                     }}
                   >
                     {tier.asset_tier}
                   </p>
-                  <p className="mt-3 text-[20px] font-bold text-white tabular-nums">
+                  <p className="mt-3 text-[20px] font-bold text-[#1A1815] tabular-nums">
                     {formatAmount(tier.avg_fee)}
                   </p>
-                  <p className="text-[10px] text-slate-600">avg fee level</p>
-                  <div className="mt-3 pt-3 border-t border-white/[0.04]">
-                    <p className="text-[13px] font-semibold text-slate-300 tabular-nums">
+                  <p className="text-[10px] text-[#A69D90]">avg fee level</p>
+                  <div className="mt-3 pt-3 border-t border-[#E8DFD1]">
+                    <p className="text-[13px] font-semibold text-[#1A1815] tabular-nums">
                       {formatAmount(tier.avg_service_charges)}
                     </p>
-                    <p className="text-[10px] text-slate-600">
+                    <p className="text-[10px] text-[#A69D90]">
                       avg service charges ($K)
                     </p>
                   </div>
-                  <p className="mt-2 text-[10px] text-slate-700 tabular-nums">
+                  <p className="mt-2 text-[10px] text-[#D5CBBF] tabular-nums">
                     {tier.institution_count} institutions
                   </p>
                 </div>
@@ -463,11 +461,11 @@ export default async function ProHomePage() {
       )}
 
       {/* ── Platform Capabilities ── */}
-      <section className="border-t border-white/[0.04]">
+      <section className="border-t border-[#E8DFD1]">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
           <h2
-            className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 mb-8"
-            style={{ fontFamily: "var(--font-jetbrains), monospace" }}
+            className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90] mb-8"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
             Platform Capabilities
           </h2>
@@ -477,41 +475,41 @@ export default async function ProHomePage() {
                 title: "Fee Indexing",
                 desc: "National and peer-level medians across 49 categories with P25/P75 ranges and maturity tiers.",
                 href: "/research/national-fee-index",
-                accent: "border-blue-500/30",
+                accent: "border-[#E0C9B8]",
               },
               {
                 title: "Peer Benchmarks",
                 desc: "Segment by charter type, asset tier, and Fed district for institutional peer comparison.",
                 href: "/fees",
-                accent: "border-cyan-500/30",
+                accent: "border-[#E0C9B8]",
               },
               {
                 title: "Research & Analysis",
                 desc: "State-level reports, Fed district analysis, fee-to-revenue correlations, and Beige Book context.",
                 href: "/research",
-                accent: "border-emerald-500/30",
+                accent: "border-[#E0C9B8]",
               },
               {
                 title: "Data & API",
                 desc: "RESTful API access, CSV exports, and institutional-grade data feeds for integration.",
                 href: "/api-docs",
-                accent: "border-violet-500/30",
+                accent: "border-[#E0C9B8]",
               },
             ].map((cap) => (
               <Link
                 key={cap.title}
                 href={cap.href}
-                className={`group rounded-lg border ${cap.accent} bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-all duration-300 no-underline`}
+                className={`group rounded-lg border ${cap.accent} bg-[#FFFDF9] p-5 hover:bg-[#FAF7F2] transition-all duration-300 no-underline`}
               >
                 <h3
-                  className="text-[13px] font-semibold text-white group-hover:text-blue-300 transition-colors"
+                  className="text-[13px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors"
                   style={{
-                    fontFamily: "var(--font-jetbrains), monospace",
+                    fontFamily: "var(--font-newsreader), Georgia, serif",
                   }}
                 >
                   {cap.title}
                 </h3>
-                <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
+                <p className="mt-2 text-[12px] leading-relaxed text-[#7A7062]">
                   {cap.desc}
                 </p>
               </Link>
@@ -521,52 +519,52 @@ export default async function ProHomePage() {
       </section>
 
       {/* ── Full Featured Index ── */}
-      <section className="border-t border-white/[0.04]">
+      <section className="border-t border-[#E8DFD1]">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
           <div className="flex items-end justify-between mb-6">
             <div>
               <h2
-                className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600"
+                className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90]"
                 style={{
-                  fontFamily: "var(--font-jetbrains), monospace",
+                  fontFamily: "var(--font-newsreader), Georgia, serif",
                 }}
               >
                 Featured Index
               </h2>
-              <p className="mt-1 text-[13px] text-slate-500">
+              <p className="mt-1 text-[13px] text-[#7A7062]">
                 {featuredEntries.length} core categories
               </p>
             </div>
             <Link
               href="/fees"
-              className="text-[11px] font-semibold text-blue-400/60 hover:text-blue-300 transition-colors no-underline"
+              className="text-[11px] font-semibold text-[#C44B2E] hover:text-[#C44B2E] transition-colors no-underline"
             >
               View all {allEntries.length} categories
             </Link>
           </div>
-          <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+          <div className="rounded-lg border border-[#E8DFD1] overflow-hidden">
             <table className="w-full text-[12px]">
               <thead>
-                <tr className="border-b border-white/[0.04] bg-white/[0.01]">
-                  <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
+                  <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     Category
                   </th>
-                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     Median
                   </th>
-                  <th className="hidden md:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <th className="hidden md:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     P25
                   </th>
-                  <th className="hidden md:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <th className="hidden md:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     P75
                   </th>
-                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     Min
                   </th>
-                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     Max
                   </th>
-                  <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                  <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     Inst.
                   </th>
                 </tr>
@@ -575,44 +573,44 @@ export default async function ProHomePage() {
                 {featuredEntries.map((entry, i) => (
                   <tr
                     key={entry!.fee_category}
-                    className={`hover:bg-blue-500/[0.03] transition-colors ${
+                    className={`hover:bg-[#FFF0ED] transition-colors ${
                       i < featuredEntries.length - 1
-                        ? "border-b border-white/[0.03]"
+                        ? "border-b border-[#E8DFD1]"
                         : ""
                     }`}
                   >
                     <td className="px-5 py-2.5">
                       <Link
                         href={`/fees/${entry!.fee_category}`}
-                        className="text-slate-300 hover:text-blue-300 transition-colors no-underline"
+                        className="text-[#1A1815] hover:text-[#C44B2E] transition-colors no-underline"
                       >
                         {getDisplayName(entry!.fee_category)}
                       </Link>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-white tabular-nums">
+                    <td className="px-3 py-2.5 text-right font-semibold text-[#1A1815] tabular-nums">
                       {formatAmount(entry!.median_amount)}
                     </td>
-                    <td className="hidden md:table-cell px-3 py-2.5 text-right text-slate-500 tabular-nums">
+                    <td className="hidden md:table-cell px-3 py-2.5 text-right text-[#7A7062] tabular-nums">
                       {entry!.p25_amount !== null
                         ? formatAmount(entry!.p25_amount)
                         : "-"}
                     </td>
-                    <td className="hidden md:table-cell px-3 py-2.5 text-right text-slate-500 tabular-nums">
+                    <td className="hidden md:table-cell px-3 py-2.5 text-right text-[#7A7062] tabular-nums">
                       {entry!.p75_amount !== null
                         ? formatAmount(entry!.p75_amount)
                         : "-"}
                     </td>
-                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-slate-600 tabular-nums">
+                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-[#A69D90] tabular-nums">
                       {entry!.min_amount !== null
                         ? formatAmount(entry!.min_amount)
                         : "-"}
                     </td>
-                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-slate-600 tabular-nums">
+                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-[#A69D90] tabular-nums">
                       {entry!.max_amount !== null
                         ? formatAmount(entry!.max_amount)
                         : "-"}
                     </td>
-                    <td className="px-5 py-2.5 text-right text-slate-600 tabular-nums">
+                    <td className="px-5 py-2.5 text-right text-[#A69D90] tabular-nums">
                       {entry!.institution_count.toLocaleString()}
                     </td>
                   </tr>
@@ -624,51 +622,51 @@ export default async function ProHomePage() {
       </section>
 
       {/* ── Access Tiers ── */}
-      <section className="border-t border-white/[0.04]">
+      <section className="border-t border-[#E8DFD1]">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
           <h2
-            className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 mb-8"
-            style={{ fontFamily: "var(--font-jetbrains), monospace" }}
+            className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90] mb-8"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
             Access
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-6">
+            <div className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] p-6">
               <p
-                className="text-[13px] font-semibold text-white"
+                className="text-[13px] font-semibold text-[#1A1815]"
                 style={{
-                  fontFamily: "var(--font-jetbrains), monospace",
+                  fontFamily: "var(--font-newsreader), Georgia, serif",
                 }}
               >
                 Data Subscription
               </p>
-              <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
+              <p className="mt-3 text-[13px] leading-relaxed text-[#7A7062]">
                 Full API access, bulk CSV exports, peer index queries, and
                 district-level data feeds. For institutions and data teams.
               </p>
               <Link
-                href="/waitlist"
-                className="mt-6 inline-flex items-center rounded border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-[12px] font-semibold text-blue-300 hover:bg-blue-500/20 transition-colors no-underline"
+                href="mailto:hello@bankfeeindex.com"
+                className="mt-6 inline-flex items-center rounded border border-[#E0C9B8] bg-[#FFF0ED] px-4 py-2 text-[12px] font-semibold text-[#C44B2E] hover:bg-[#FDDDD5] transition-colors no-underline"
               >
                 Request Access
               </Link>
             </div>
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-6">
+            <div className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] p-6">
               <p
-                className="text-[13px] font-semibold text-white"
+                className="text-[13px] font-semibold text-[#1A1815]"
                 style={{
-                  fontFamily: "var(--font-jetbrains), monospace",
+                  fontFamily: "var(--font-newsreader), Georgia, serif",
                 }}
               >
                 Consulting & Research
               </p>
-              <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
+              <p className="mt-3 text-[13px] leading-relaxed text-[#7A7062]">
                 Custom competitive analysis, pricing strategy support, and
                 original research engagements. For consultants and strategists.
               </p>
               <Link
-                href="/waitlist"
-                className="mt-6 inline-flex items-center rounded border border-white/[0.08] px-4 py-2 text-[12px] font-semibold text-slate-400 hover:border-white/[0.15] hover:text-slate-200 transition-colors no-underline"
+                href="mailto:hello@bankfeeindex.com"
+                className="mt-6 inline-flex items-center rounded border border-[#D5CBBF] px-4 py-2 text-[12px] font-semibold text-[#5A5347] hover:border-[#1A1815] hover:text-[#1A1815] transition-colors no-underline"
               >
                 Get in Touch
               </Link>
