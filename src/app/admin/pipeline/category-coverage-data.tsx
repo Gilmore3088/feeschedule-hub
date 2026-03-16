@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/crawler-db/connection";
-import { getDisplayName, getFeeFamily, getFeeTier, FEE_FAMILIES } from "@/lib/fee-taxonomy";
+import { getDisplayName, getFeeFamily, getFeeTier, FEE_FAMILIES, DISPLAY_NAMES } from "@/lib/fee-taxonomy";
 import { CategoryCoverageTable } from "./category-coverage";
 
 function getCategoryCoverage() {
@@ -7,19 +7,23 @@ function getCategoryCoverage() {
 
   const totalInstitutions = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets").get() as { c: number }).c;
 
+  // Only show the 49 official taxonomy categories, not long-tail fee names
+  const officialCategories = Object.keys(DISPLAY_NAMES);
+  const placeholders = officialCategories.map(() => "?").join(",");
+
   const rows = db.prepare(`
     SELECT fee_category,
            COUNT(*) as total,
            SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
            SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
            SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
-           SUM(CASE WHEN amount IS NOT NULL AND amount > 0 THEN 1 ELSE 0 END) as has_amount,
+           SUM(CASE WHEN amount IS NOT NULL AND amount >= 0 THEN 1 ELSE 0 END) as has_amount,
            COUNT(DISTINCT crawl_target_id) as institutions
     FROM extracted_fees
-    WHERE fee_category IS NOT NULL AND fee_category != '' AND review_status != 'rejected'
+    WHERE fee_category IN (${placeholders}) AND review_status != 'rejected'
     GROUP BY fee_category
     ORDER BY total DESC
-  `).all() as {
+  `).all(...officialCategories) as {
     fee_category: string;
     total: number;
     approved: number;
