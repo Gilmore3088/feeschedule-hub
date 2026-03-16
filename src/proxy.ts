@@ -142,7 +142,8 @@ export function proxy(request: NextRequest) {
     host.includes("thebankfeeindex.com")
   ) {
     const url = new URL(request.url);
-    url.host = "feeinsight.com";
+    url.hostname = "feeinsight.com";
+    url.port = "";
     url.protocol = "https:";
     const status =
       request.method === "GET" || request.method === "HEAD" ? 301 : 308;
