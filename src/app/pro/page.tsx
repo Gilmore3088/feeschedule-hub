@@ -645,10 +645,10 @@ export default async function ProHomePage() {
                 district-level data feeds. For institutions and data teams.
               </p>
               <Link
-                href="mailto:hello@bankfeeindex.com"
-                className="mt-6 inline-flex items-center rounded border border-[#E0C9B8] bg-[#FFF0ED] px-4 py-2 text-[12px] font-semibold text-[#C44B2E] hover:bg-[#FDDDD5] transition-colors no-underline"
+                href="/subscribe"
+                className="mt-6 inline-flex items-center rounded border border-[#C44B2E] bg-[#C44B2E] px-4 py-2 text-[12px] font-semibold text-white hover:bg-[#A83D25] transition-colors no-underline"
               >
-                Request Access
+                View Plans
               </Link>
             </div>
             <div className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] p-6">
