@@ -232,8 +232,8 @@ const COMING_SOON_HTML = `<!DOCTYPE html>
       and financial institutions.
     </p>
     <div class="cta-group">
-      <a class="cta-primary" href="mailto:james@bankfeeindex.com">Get Early Access</a>
-      <a class="cta-secondary" href="mailto:james@bankfeeindex.com">Request a Demo</a>
+      <a class="cta-primary" href="mailto:hello@bankfeeindex.com">Get Early Access</a>
+      <a class="cta-secondary" href="mailto:hello@bankfeeindex.com">Request a Demo</a>
     </div>
   </div>
 
@@ -285,7 +285,7 @@ const COMING_SOON_HTML = `<!DOCTYPE html>
   </div>
 
   <div class="footer">
-    <a href="mailto:james@bankfeeindex.com">james@bankfeeindex.com</a>
+    <a href="mailto:hello@bankfeeindex.com">hello@bankfeeindex.com</a>
     &nbsp;&middot;&nbsp; Fee Insight Research &nbsp;&middot;&nbsp; 2026
   </div>
 </body>
