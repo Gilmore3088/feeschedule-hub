@@ -14,6 +14,9 @@ import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessAllCategories } from "@/lib/access";
+import { UpgradeGate } from "@/components/upgrade-gate";
 
 export const metadata: Metadata = {
   title: "National Fee Index - US Bank & Credit Union Fee Benchmarks",
@@ -30,8 +33,12 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function NationalFeeIndexPage() {
-  const index = getNationalIndex();
+export default async function NationalFeeIndexPage() {
+  const user = await getCurrentUser();
+  const showAll = canAccessAllCategories(user);
+  const allIndex = getNationalIndex();
+  const index = showAll ? allIndex : allIndex.filter((e) => isFeaturedFee(e.fee_category));
+  const gatedCount = allIndex.length - index.length;
 
   // Group by family
   const byFamily = new Map<string, typeof index>();
@@ -248,6 +255,12 @@ export default function NationalFeeIndexPage() {
           }).replace(/</g, "\\u003c"),
         }}
       />
+
+      {!showAll && gatedCount > 0 && (
+        <div className="mt-8">
+          <UpgradeGate count={gatedCount} message="Unlock all fee categories" />
+        </div>
+      )}
     </div>
   );
 }

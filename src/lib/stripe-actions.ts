@@ -22,7 +22,7 @@ export async function createCheckoutSession(
     line_items: [{ price: priceId, quantity: 1 }],
     customer: user.stripe_customer_id || undefined,
     customer_email: user.stripe_customer_id ? undefined : (user.email || user.username),
-    success_url: `${origin}/account?success=true`,
+    success_url: `${origin}/account/welcome?success=true`,
     cancel_url: `${origin}/subscribe`,
     metadata: {
       user_id: String(user.id),
