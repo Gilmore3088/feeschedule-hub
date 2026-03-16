@@ -53,11 +53,11 @@ export default function GatewayClient() {
             <rect x="16" y="3" width="4" height="18" rx="1" />
           </svg>
           <span className="text-[15px] font-medium tracking-tight text-white/70">
-            Fee Insight
+            Bank Fee Index
           </span>
         </div>
         <Link
-          href="/admin/login"
+          href="/login"
           className="text-[12px] text-white/30 hover:text-white/60 transition-colors"
         >
           Sign In

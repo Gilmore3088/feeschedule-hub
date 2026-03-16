@@ -416,7 +416,7 @@ const COMING_SOON_HTML = `<!DOCTYPE html>
 
   <div class="footer">
     <a href="mailto:hello@bankfeeindex.com">hello@bankfeeindex.com</a>
-    &nbsp;&middot;&nbsp; Fee Insight Research &nbsp;&middot;&nbsp; 2026
+    &nbsp;&middot;&nbsp; Bank Fee Index Research &nbsp;&middot;&nbsp; 2026
   </div>
 </body>
 </html>`;

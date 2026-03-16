@@ -11,7 +11,7 @@ const FEE_INSIGHT_LOGO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
 
 export const BRANDS: Record<string, BrandConfig> = {
   "fee-insight": {
-    name: "Fee Insight",
+    name: "Bank Fee Index",
     tagline: "Banking Fee Intelligence",
     url: "feeinsight.com",
     primaryColor: "#0f172a",

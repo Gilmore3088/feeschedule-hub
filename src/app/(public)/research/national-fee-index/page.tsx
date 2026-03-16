@@ -250,7 +250,7 @@ export default async function NationalFeeIndexPage() {
             url: `${SITE_URL}/research/national-fee-index`,
             creator: {
               "@type": "Organization",
-              name: "Fee Insight",
+              name: "Bank Fee Index",
             },
           }).replace(/</g, "\\u003c"),
         }}

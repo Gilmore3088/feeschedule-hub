@@ -17,7 +17,7 @@ export async function generateMetadata({
     return { title: "Article Not Found" };
   }
   return {
-    title: `${article.title} - Fee Insight Research`,
+    title: `${article.title} - Bank Fee Index Research`,
     description: article.subtitle || article.content.substring(0, 160).replace(/[#*_]/g, ""),
   };
 }
@@ -168,9 +168,9 @@ export default async function ArticlePage({
             "@type": "Article",
             headline: article.title,
             description: article.subtitle || "",
-            author: { "@type": "Organization", name: "Fee Insight" },
+            author: { "@type": "Organization", name: "Bank Fee Index" },
             datePublished: article.published_at,
-            publisher: { "@type": "Organization", name: "Fee Insight" },
+            publisher: { "@type": "Organization", name: "Bank Fee Index" },
           }).replace(/</g, "\\u003c"),
         }}
       />

@@ -68,7 +68,7 @@ export function ensureResearchTables(): void {
         content TEXT NOT NULL DEFAULT '',
         category TEXT NOT NULL DEFAULT 'analysis',
         tags TEXT,
-        author TEXT DEFAULT 'Fee Insight',
+        author TEXT DEFAULT 'Bank Fee Index',
         status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
         generated_by TEXT,
         conversation_id INTEGER,

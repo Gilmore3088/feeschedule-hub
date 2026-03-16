@@ -3,7 +3,7 @@ import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "API Documentation - Fee Insight",
+  title: "API Documentation - Bank Fee Index",
   description:
     "REST API for accessing bank and credit union fee data. JSON and CSV endpoints for fee categories, institutions, and the national fee index.",
 };

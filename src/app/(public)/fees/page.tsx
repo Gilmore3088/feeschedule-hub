@@ -473,7 +473,7 @@ export default async function FeeCatalogPage() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Dataset",
-            name: "Fee Insight - Complete Fee Catalog",
+            name: "Bank Fee Index - Complete Fee Catalog",
             description:
               "National benchmarking data across 49 bank and credit union fee categories.",
             url: `${SITE_URL}/fees`,

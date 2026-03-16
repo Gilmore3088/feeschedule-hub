@@ -92,7 +92,7 @@ export function createArticle(data: {
       data.content,
       data.category,
       data.tags ? JSON.stringify(data.tags) : null,
-      data.author ?? "Fee Insight",
+      data.author ?? "Bank Fee Index",
       data.generated_by ?? null,
       data.conversation_id ?? null,
     );

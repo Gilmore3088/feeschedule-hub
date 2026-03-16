@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${name} Fee - National Benchmarks & Analysis`,
     description: `National benchmarking data for ${name.toLowerCase()} fees. See median, P25/P75, distribution, and breakdowns by bank vs. credit union, asset tier, Fed district, and state.`,
     openGraph: {
-      title: `${name} Fee Benchmarks | Fee Insight`,
+      title: `${name} Fee Benchmarks | Bank Fee Index`,
       description: `How much do banks charge for ${name.toLowerCase()}? National median, distribution, and peer comparisons.`,
     },
     keywords: [
@@ -442,7 +442,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             dateModified: freshness.last_crawl_at ?? undefined,
             publisher: {
               "@type": "Organization",
-              name: "Fee Insight",
+              name: "Bank Fee Index",
               url: SITE_URL,
             },
           }).replace(/</g, "\\u003c"),

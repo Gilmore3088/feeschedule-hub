@@ -6,6 +6,8 @@ import { PremiumBadge } from "@/components/upgrade-gate";
 import { LogoutButton } from "./logout-button";
 import { ProfileForm } from "./profile-form";
 import { STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
+import { CustomerNav } from "@/components/customer-nav";
+import { CustomerFooter } from "@/components/customer-footer";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -110,26 +112,7 @@ export default async function AccountPage({
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
-      <header className="border-b border-[#E8DFD1] bg-[#FAF7F2]/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-4xl px-4 flex items-center justify-between h-14">
-          <a href="/subscribe" className="flex items-center gap-2 text-[#1A1815] no-underline">
-            <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px] text-[#C44B2E]" stroke="currentColor" strokeWidth="1.5">
-              <rect x="4" y="13" width="4" height="8" rx="1" />
-              <rect x="10" y="8" width="4" height="13" rx="1" />
-              <rect x="16" y="3" width="4" height="18" rx="1" />
-            </svg>
-            <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-              Bank Fee Index
-            </span>
-          </a>
-          <div className="flex items-center gap-4">
-            <span className="text-[13px] text-[#7A7062]">
-              {user.email || user.username}
-            </span>
-            <LogoutButton />
-          </div>
-        </div>
-      </header>
+      <CustomerNav />
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         {params.success && (
@@ -138,12 +121,18 @@ export default async function AccountPage({
           </div>
         )}
 
-        <h1
-          className="text-2xl font-normal tracking-tight text-[#1A1815] mb-6"
-          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-        >
-          {user.institution_name ? `${user.institution_name}` : "Your Account"}
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1
+            className="text-2xl font-normal tracking-tight text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            {user.institution_name ? `${user.institution_name}` : "Your Account"}
+          </h1>
+          <div className="flex items-center gap-3 text-[13px] text-[#7A7062]">
+            {user.email || user.username}
+            <LogoutButton />
+          </div>
+        </div>
 
         {/* Subscription Banner -- prominent when no plan */}
         {!isPro && (
@@ -239,6 +228,7 @@ export default async function AccountPage({
           </div>
         </div>
       </div>
+      <CustomerFooter />
     </div>
   );
 }
