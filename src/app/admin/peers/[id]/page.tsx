@@ -9,6 +9,7 @@ import {
 } from "@/lib/crawler-db";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAssets, formatAmount, timeAgo } from "@/lib/format";
+import { FeeUrlActions } from "./fee-url-actions";
 
 const TIER_LABELS: Record<string, string> = {
   community_small: "Community (<$300M)",
@@ -137,6 +138,15 @@ export default async function PeerDetailPage({
             View fees
           </Link>
         </div>
+      </div>
+
+      {/* Fee Schedule URL + Crawl */}
+      <div className="mb-4">
+        <FeeUrlActions
+          institutionId={targetId}
+          currentUrl={institution.fee_schedule_url}
+          institutionName={institution.institution_name}
+        />
       </div>
 
       {/* Regional context */}

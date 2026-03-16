@@ -273,6 +273,7 @@ def run(
     db: Database,
     config: Config,
     *,
+    target_id: int | None = None,
     limit: int | None = None,
     state: str | None = None,
     tier: str | None = None,
@@ -303,9 +304,27 @@ def run(
     )
     db.commit()
 
+    # Single institution mode
+    if target_id:
+        row = db.fetchone(
+            "SELECT id, institution_name, fee_schedule_url, document_type, last_content_hash, state_code, asset_size, charter_type FROM crawl_targets WHERE id = ?",
+            (target_id,),
+        )
+        if not row:
+            print(f"Institution {target_id} not found.")
+            return
+        if not row["fee_schedule_url"]:
+            print(f"Institution {row['institution_name']} has no fee schedule URL.")
+            return
+        print(f"Crawling single institution: {row['institution_name']} ({row['state_code']})")
+
     # Build query for targets with fee schedule URLs
     where_clauses = ["ct.fee_schedule_url IS NOT NULL", "ct.status = 'active'"]
     params: list = []
+
+    if target_id:
+        where_clauses = ["ct.id = ?"]
+        params = [target_id]
 
     # Circuit breaker: skip institutions with too many consecutive failures
     if not include_failing:

@@ -54,7 +54,8 @@ def cmd_crawl(args: argparse.Namespace) -> None:
     config = load_config()
     db = Database(config)
     try:
-        run(db, config, limit=args.limit, state=args.state, tier=getattr(args, 'tier', None),
+        run(db, config, target_id=getattr(args, 'target_id', None),
+            limit=args.limit, state=args.state, tier=getattr(args, 'tier', None),
             dry_run=args.dry_run, workers=args.workers, include_failing=args.include_failing,
             skip_with_fees=getattr(args, 'skip_with_fees', False),
             new_only=getattr(args, 'new_only', False))
@@ -540,6 +541,12 @@ def main() -> None:
 
     # crawl command
     crawl_parser = subparsers.add_parser("crawl", help="Download and extract fees from discovered URLs")
+    crawl_parser.add_argument(
+        "--target-id",
+        type=int,
+        default=None,
+        help="Crawl a specific institution by ID",
+    )
     crawl_parser.add_argument(
         "--limit",
         type=int,
