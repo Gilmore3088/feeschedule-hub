@@ -83,7 +83,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const isPro = canAccessPremium(user);
 
   const inst = getInstitutionById(instId);
-  if (!inst || inst.fee_count === 0) notFound();
+  if (!inst) notFound();
 
   const fees = getFeesByInstitution(instId).filter(
     (f) => f.review_status !== "rejected"
