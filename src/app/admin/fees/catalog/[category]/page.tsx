@@ -122,7 +122,7 @@ export default async function FeeCategoryDetailPage({
 
   const amounts = detail.fees
     .map((f) => f.amount)
-    .filter((a): a is number => a !== null && a > 0)
+    .filter((a): a is number => a !== null && a >= 0)
     .sort((a, b) => a - b);
 
   const stats = {
