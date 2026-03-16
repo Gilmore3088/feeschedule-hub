@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 
 const NAV_ITEMS = [
+  { label: "Institutions", href: "/institutions" },
   { label: "Fee Benchmarks", href: "/fees" },
   { label: "Research", href: "/research" },
   { label: "Guides", href: "/guides" },
