@@ -219,7 +219,7 @@ export default function GatewayClient() {
             >
               National Fee
               <br />
-              Intelligence.
+              Insights.
             </h2>
             <p className="mt-4 max-w-md text-[14px] lg:text-[15px] leading-relaxed text-slate-400">
               Institutional-grade indexing, peer benchmarks, and original
