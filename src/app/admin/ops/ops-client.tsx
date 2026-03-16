@@ -290,13 +290,26 @@ export function OpsClient({
     setMessage(null);
 
     const params: Record<string, unknown> = {};
-    const parsedLimit = parseInt(limit, 10);
-    if (parsedLimit > 0) params.limit = parsedLimit;
+    const cmd = selectedCommand;
+
+    // Smart defaults — no manual limit config needed
+    const SMART_LIMITS: Record<string, number> = {
+      "run-pipeline": 100,
+      crawl: 500,
+      discover: 100,
+      categorize: 0,  // no limit
+      "auto-review": 0,
+      validate: 0,
+      enrich: 0,
+      "outlier-detect": 0,
+    };
+    const smartLimit = SMART_LIMITS[cmd];
+    if (smartLimit && smartLimit > 0) params.limit = smartLimit;
+
     if (charterType) params.charter_type = charterType;
     if (stateCode) params.state = stateCode;
 
     // Smart defaults for pipeline commands
-    const cmd = selectedCommand;
     if (cmd === "crawl" || cmd === "run-pipeline") {
       params.skip_with_fees = true;
     }
@@ -399,25 +412,9 @@ export function OpsClient({
               </div>
             )}
 
-            {/* Params - only show relevant ones */}
-            {(COMMAND_INFO[selectedCommand]?.usesLimit || COMMAND_INFO[selectedCommand]?.usesCharter) && (
-              <div className="grid grid-cols-2 gap-3">
-                {COMMAND_INFO[selectedCommand]?.usesLimit && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Limit
-                    </label>
-                    <input
-                      type="number"
-                      value={limit}
-                      onChange={(e) => setLimit(e.target.value)}
-                      min="1"
-                      max="500"
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
-                                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
-                    />
-                  </div>
-                )}
+            {/* Filters - only show relevant ones */}
+            {(COMMAND_INFO[selectedCommand]?.usesCharter || COMMAND_INFO[selectedCommand]?.usesState) && (
+              <div className="grid grid-cols-3 gap-3">
                 {COMMAND_INFO[selectedCommand]?.usesCharter && (
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -463,15 +460,8 @@ export function OpsClient({
               </div>
               <code className="text-[11px] text-emerald-400 font-mono">
                 python -m fee_crawler {selectedCommand}
-                {COMMAND_INFO[selectedCommand]?.usesLimit && parseInt(limit, 10) > 0
-                  ? ` --limit ${limit}`
-                  : ""}
-                {COMMAND_INFO[selectedCommand]?.usesCharter && charterType
-                  ? ` --charter-type ${charterType}`
-                  : ""}
-                {COMMAND_INFO[selectedCommand]?.usesState && stateCode
-                  ? ` --state ${stateCode}`
-                  : ""}
+                {charterType ? ` --charter-type ${charterType}` : ""}
+                {stateCode ? ` --state ${stateCode}` : ""}
               </code>
             </div>
 
