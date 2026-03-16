@@ -51,7 +51,21 @@ export default async function ProResearchPage() {
       </div>
 
       {/* Agent chat */}
-      <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] overflow-hidden">
+      <div className="rounded-xl border border-[#E8DFD1] overflow-hidden">
+        <div className="bg-[#FFFDF9] px-5 py-3 border-b border-[#E8DFD1] flex items-center justify-between">
+          <div>
+            <h2
+              className="text-sm font-medium text-[#1A1815]"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
+              {agent.name}
+            </h2>
+            <p className="text-xs text-[#A69D90] mt-0.5">{agent.description}</p>
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#A69D90] bg-[#FAF7F2] px-2 py-1 rounded">
+            AI Research
+          </span>
+        </div>
         <ResearchChat
           agentId="fee-analyst"
           agentName={agent.name}

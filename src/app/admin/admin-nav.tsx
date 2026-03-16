@@ -136,6 +136,16 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        href: "/admin/leads",
+        label: "Leads",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5v13M4.5 5L8 1.5 11.5 5" />
+            <rect x="2" y="9" width="12" height="5" rx="1" />
+          </svg>
+        ),
+      },
     ],
   },
 ];
