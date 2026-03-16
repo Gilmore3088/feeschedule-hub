@@ -1,12 +1,10 @@
 import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium, canAccessApiKey } from "@/lib/access";
-import { getDb } from "@/lib/crawler-db/connection";
+import { canAccessPremium } from "@/lib/access";
 import { redirect } from "next/navigation";
 import { ManageBillingButton } from "./manage-billing-button";
 import { PremiumBadge } from "@/components/upgrade-gate";
 import { LogoutButton } from "./logout-button";
 import { ProfileForm } from "./profile-form";
-import { ApiKeySection } from "./api-key-section";
 import { STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
 import type { Metadata } from "next";
 
@@ -14,19 +12,6 @@ export const metadata: Metadata = {
   title: "Account | Bank Fee Index",
 };
 
-function getApiKeyInfo(userId: number) {
-  const db = getDb();
-  try {
-    const row = db
-      .prepare(
-        "SELECT key_prefix, call_count, monthly_limit FROM api_keys WHERE user_id = ? AND is_active = 1 ORDER BY created_at DESC LIMIT 1"
-      )
-      .get(userId) as { key_prefix: string; call_count: number; monthly_limit: number } | undefined;
-    return row || null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function AccountPage({
   searchParams,
@@ -38,8 +23,6 @@ export default async function AccountPage({
 
   const params = await searchParams;
   const isPro = canAccessPremium(user);
-  const apiKey = getApiKeyInfo(user.id);
-
   // Personalization: derive district from state
   const district = user.state_code ? STATE_TO_DISTRICT[user.state_code] : null;
   const districtName = district ? DISTRICT_NAMES[district] : null;
@@ -212,30 +195,19 @@ export default async function AccountPage({
           </div>
         </div>
 
-        {/* API Key -- premium only */}
+        {/* API Access -- coming soon */}
         <div className="mb-6">
-          {canAccessApiKey(user) ? (
-            <ApiKeySection
-              existingKeyPrefix={apiKey?.key_prefix || null}
-              callCount={apiKey?.call_count || 0}
-              monthlyLimit={apiKey?.monthly_limit || 5000}
-            />
-          ) : (
-            <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
-              <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider mb-3">
+          <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5 opacity-60">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider">
                 API Access
               </div>
-              <p className="text-sm text-[#7A7062] mb-3">
-                Programmatic access to fee data is available with a Seat License.
-              </p>
-              <a
-                href="/subscribe"
-                className="inline-flex items-center rounded-md border border-[#D5CBBF] px-4 py-2 text-xs font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
-              >
-                View Plans
-              </a>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#E8DFD1] text-[#7A7062] uppercase">Soon</span>
             </div>
-          )}
+            <p className="text-sm text-[#7A7062]">
+              Programmatic access to fee data is coming soon.
+            </p>
+          </div>
         </div>
       </div>
     </div>
