@@ -13,6 +13,9 @@ import {
   isFeaturedFee,
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessFullDistrict } from "@/lib/access";
+import { UpgradeGate } from "@/components/upgrade-gate";
 import { formatAmount } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -72,6 +75,9 @@ export default async function DistrictReportPage({ params }: PageProps) {
 
   const districtName = DISTRICT_NAMES[districtId];
   if (!districtName) notFound();
+
+  const user = await getCurrentUser();
+  const showFullDistrict = canAccessFullDistrict(user);
 
   const stats = getDistrictStats(districtId);
   const districtIndex = getPeerIndex({ fed_districts: [districtId] });
@@ -181,8 +187,13 @@ export default async function DistrictReportPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Beige Book Context */}
-      {beigeHeadline && (
+      {/* Beige Book Context -- premium only */}
+      {!showFullDistrict && beigeHeadline && (
+        <div className="mt-8">
+          <UpgradeGate message={`Full ${districtName} district intelligence`} />
+        </div>
+      )}
+      {showFullDistrict && beigeHeadline && (
         <section className="mt-8">
           <h2 className="text-sm font-bold text-slate-800">
             Economic Context — Beige Book

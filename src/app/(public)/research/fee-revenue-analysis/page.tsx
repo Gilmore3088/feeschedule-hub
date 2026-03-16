@@ -10,6 +10,9 @@ import { formatAmount, formatAssets } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
+import { UpgradeGate } from "@/components/upgrade-gate";
 
 export const metadata: Metadata = {
   title: "Fee-to-Revenue Analysis - How Bank Fees Drive Income",
@@ -24,7 +27,15 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function FeeRevenueAnalysisPage() {
+export default async function FeeRevenueAnalysisPage() {
+  const user = await getCurrentUser();
+  if (!canAccessPremium(user)) {
+    return (
+      <div className="max-w-3xl mx-auto py-16 px-4">
+        <UpgradeGate message="Fee-to-Revenue Analysis" />
+      </div>
+    );
+  }
   const correlations = getFeeRevenueData();
   const tierSummary = getTierFeeRevenueSummary();
   const charterSummary = getCharterFeeRevenueSummary();
