@@ -121,14 +121,14 @@ Currently gating is applied inconsistently. Standardize:
 
 ## Acceptance Criteria
 
-- [ ] `/institutions` page exists with search bar and state filter
-- [ ] Search returns results as user types (autocomplete)
-- [ ] Results link to `/institution/[id]`
-- [ ] "Institutions" appears in CustomerNav
-- [ ] Consumer landing page has "Find Your Bank" CTA
-- [ ] Institution detail page shows fees to all users (no gate on basic fees)
-- [ ] Institution financial data (Call Reports) gated for premium only
-- [ ] Access matrix above is enforced consistently
+- [x] `/institutions` page exists with search bar and state filter
+- [x] Search returns results as user types (autocomplete)
+- [x] Results link to `/institution/[id]`
+- [x] "Institutions" appears in CustomerNav
+- [x] Consumer landing page has "Find Your Bank" CTA
+- [x] Institution detail page shows fees to all users (no gate on basic fees)
+- [x] Institution financial data (Call Reports) gated for premium only
+- [x] Access matrix above is enforced consistently
 
 ## What NOT to Build
 
