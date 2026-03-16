@@ -31,7 +31,9 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
   const [familyFilter, setFamilyFilter] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [groupByFamily, setGroupByFamily] = useState(true);
 
   const filtered = useMemo(() => {
     let result = categories;
@@ -50,6 +52,29 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
       return (b[sortBy] as number) - (a[sortBy] as number);
     });
   }, [filtered, sortBy, totalInstitutions]);
+
+  // Group by family for collapsed view
+  const familyGroups = useMemo(() => {
+    const groups = new Map<string, { family: string; categories: typeof sorted; total: number; approved: number; institutions: number }>();
+    for (const cat of sorted) {
+      const existing = groups.get(cat.family);
+      if (existing) {
+        existing.categories.push(cat);
+        existing.total += cat.total;
+        existing.approved += cat.approved;
+        existing.institutions += cat.institutions;
+      } else {
+        groups.set(cat.family, {
+          family: cat.family,
+          categories: [cat],
+          total: cat.total,
+          approved: cat.approved,
+          institutions: cat.institutions,
+        });
+      }
+    }
+    return Array.from(groups.values()).sort((a, b) => b.total - a.total);
+  }, [sorted]);
 
   function coveragePct(institutions: number): number {
     return totalInstitutions > 0 ? (institutions / totalInstitutions) * 100 : 0;
@@ -75,7 +100,18 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
           <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
             Category Coverage ({filtered.length} of {categories.length})
           </h3>
-          <div className="flex gap-1">
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setGroupByFamily(!groupByFamily)}
+              className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                groupByFamily
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {groupByFamily ? "Grouped" : "Flat"}
+            </button>
+            <span className="text-gray-300 dark:text-white/[0.1]">|</span>
             {(["institutions", "total", "approval_rate", "coverage"] as const).map((key) => (
               <button
                 key={key}
@@ -134,7 +170,68 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
             </tr>
           </thead>
           <tbody>
-            {sorted.map((cat) => {
+            {/* Grouped by family view */}
+            {groupByFamily && familyGroups.map((group) => {
+              const groupApprovalRate = group.total > 0 ? (group.approved / group.total) * 100 : 0;
+              const isOpen = expandedFamily === group.family;
+              return (
+                <Fragment key={group.family}>
+                  <tr
+                    className="border-b border-gray-100 dark:border-white/[0.04] cursor-pointer hover:bg-gray-50/50 dark:hover:bg-white/[0.02] bg-gray-50/30 dark:bg-white/[0.01]"
+                    onClick={() => setExpandedFamily(isOpen ? null : group.family)}
+                  >
+                    <td className="px-4 py-2.5">
+                      <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">{group.family}</span>
+                      <span className="ml-2 text-[10px] text-gray-400">{group.categories.length} categories</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-400 font-medium">{group.total.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-gray-800 dark:text-gray-200">{group.institutions.toLocaleString()}</td>
+                    <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${approvalColor(groupApprovalRate)}`}>{groupApprovalRate.toFixed(0)}%</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${barColor(coveragePct(group.institutions))}`} style={{ width: `${Math.max(coveragePct(group.institutions), 1)}%` }} />
+                        </div>
+                        <span className="text-[10px] tabular-nums text-gray-400 w-8 text-right">{coveragePct(group.institutions).toFixed(0)}%</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2.5 text-gray-300">
+                      <svg className={`w-3 h-3 transition-transform ${isOpen ? "rotate-90" : ""}`} viewBox="0 0 12 12" fill="currentColor">
+                        <path d="M4 2l4 4-4 4" />
+                      </svg>
+                    </td>
+                  </tr>
+                  {isOpen && group.categories.map((cat) => {
+                    const cov = coveragePct(cat.institutions);
+                    return (
+                      <tr key={cat.fee_category} className="border-b border-gray-50 dark:border-white/[0.02] hover:bg-gray-50/30 dark:hover:bg-white/[0.01]">
+                        <td className="pl-8 pr-4 py-1.5 text-[11px] text-gray-600 dark:text-gray-400">
+                          <Link href={`/admin/fees/catalog/${cat.fee_category}`} className="hover:text-blue-600 transition-colors">
+                            {cat.display_name}
+                          </Link>
+                          <span className="ml-1 text-[9px] text-gray-300 uppercase">{cat.tier}</span>
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums text-[11px] text-gray-500">{cat.total.toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums text-[11px] text-gray-700 dark:text-gray-300">{cat.institutions.toLocaleString()}</td>
+                        <td className={`px-3 py-1.5 text-right tabular-nums text-[11px] ${approvalColor(cat.approval_rate)}`}>{cat.approval_rate.toFixed(0)}%</td>
+                        <td className="px-4 py-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${barColor(cov)}`} style={{ width: `${Math.max(cov, 1)}%` }} />
+                            </div>
+                            <span className="text-[9px] tabular-nums text-gray-400 w-7 text-right">{cov.toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td></td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
+
+            {/* Flat view */}
+            {!groupByFamily && sorted.map((cat) => {
               const cov = coveragePct(cat.institutions);
               const isExpanded = expandedRow === cat.fee_category;
 
