@@ -1,8 +1,9 @@
 import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium } from "@/lib/access";
+import { canAccessPremium, canAccessApiKey } from "@/lib/access";
 import { getDb } from "@/lib/crawler-db/connection";
 import { redirect } from "next/navigation";
 import { ManageBillingButton } from "./manage-billing-button";
+import { PremiumBadge } from "@/components/upgrade-gate";
 import { LogoutButton } from "./logout-button";
 import { ProfileForm } from "./profile-form";
 import { ApiKeySection } from "./api-key-section";
@@ -53,39 +54,45 @@ export default async function AccountPage({
   const quickActions = [
     {
       label: "Research Agent",
-      description: "Ask questions about fee data with AI",
+      description: isPro ? "Ask questions about fee data with AI" : "3 free queries/day",
       href: "/pro/research",
       icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
+      premium: false, // available to free (limited)
     },
     {
       label: "Fee Benchmarks",
       description: user.state_code ? `Fees in ${user.state_code}` : "National fee data",
       href: user.state_code ? `/research/state/${user.state_code}` : "/fees",
       icon: "M3 13h4v8H3zM10 8h4v13h-4zM17 3h4v18h-4z",
+      premium: false, // shows limited data for free
     },
     {
       label: "Peer Analysis",
       description: "Compare against your peer group",
-      href: `/research/national-fee-index${peerParams.toString() ? "?" + peerParams.toString() : ""}`,
+      href: isPro ? `/research/national-fee-index${peerParams.toString() ? "?" + peerParams.toString() : ""}` : "/subscribe",
       icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m14 0v-6a2 2 0 00-2-2h-2a2 2 0 00-2 2v6m14-10V9a2 2 0 00-2-2h-2a2 2 0 00-2 2v4",
+      premium: true,
     },
     {
       label: "District Report",
       description: districtName ? `${districtName} district` : "Fed district data",
-      href: district ? `/research/district/${district}` : "/research",
+      href: isPro ? (district ? `/research/district/${district}` : "/research") : "/subscribe",
       icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064",
+      premium: true,
     },
     {
       label: "Export Data",
       description: "Download CSV reports",
-      href: "/api/v1/fees?format=csv",
+      href: isPro ? "/api/v1/fees?format=csv" : "/subscribe",
       icon: "M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+      premium: true,
     },
     {
       label: "API Docs",
       description: "Integrate with your systems",
       href: "/api-docs",
       icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
+      premium: false,
     },
   ];
 
@@ -186,13 +193,18 @@ export default async function AccountPage({
               <a
                 key={action.label}
                 href={action.href}
-                className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-4 hover:border-[#C44B2E] transition-colors group no-underline"
+                className={`bg-[#FFFDF9] rounded-xl border p-4 transition-colors group no-underline ${
+                  action.premium && !isPro
+                    ? "border-[#E8DFD1] opacity-75"
+                    : "border-[#E8DFD1] hover:border-[#C44B2E]"
+                }`}
               >
-                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-[#C44B2E] mb-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" className={`h-5 w-5 mb-2 ${action.premium && !isPro ? "text-[#A69D90]" : "text-[#C44B2E]"}`} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d={action.icon} />
                 </svg>
                 <div className="text-sm font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
                   {action.label}
+                  {action.premium && !isPro && <PremiumBadge />}
                 </div>
                 <div className="text-xs text-[#A69D90] mt-0.5">{action.description}</div>
               </a>
@@ -200,13 +212,30 @@ export default async function AccountPage({
           </div>
         </div>
 
-        {/* API Key */}
+        {/* API Key -- premium only */}
         <div className="mb-6">
-          <ApiKeySection
-            existingKeyPrefix={apiKey?.key_prefix || null}
-            callCount={apiKey?.call_count || 0}
-            monthlyLimit={apiKey?.monthly_limit || 5000}
-          />
+          {canAccessApiKey(user) ? (
+            <ApiKeySection
+              existingKeyPrefix={apiKey?.key_prefix || null}
+              callCount={apiKey?.call_count || 0}
+              monthlyLimit={apiKey?.monthly_limit || 5000}
+            />
+          ) : (
+            <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
+              <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider mb-3">
+                API Access
+              </div>
+              <p className="text-sm text-[#7A7062] mb-3">
+                Programmatic access to fee data is available with a Seat License.
+              </p>
+              <a
+                href="/subscribe"
+                className="inline-flex items-center rounded-md border border-[#D5CBBF] px-4 py-2 text-xs font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
+              >
+                View Plans
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>
