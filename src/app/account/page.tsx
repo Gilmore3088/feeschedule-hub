@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { redirect } from "next/navigation";
 import { ManageBillingButton } from "./manage-billing-button";
+import { LogoutButton } from "./logout-button";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -33,9 +34,12 @@ export default async function AccountPage({
               Bank Fee Index
             </span>
           </a>
-          <span className="text-[13px] text-[#7A7062]">
-            {user.email || user.username}
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="text-[13px] text-[#7A7062]">
+              {user.email || user.username}
+            </span>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
