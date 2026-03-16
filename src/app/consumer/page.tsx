@@ -1,4 +1,3 @@
-import { cacheLife } from "next/cache";
 import Link from "next/link";
 import {
   getNationalIndex,
@@ -47,8 +46,6 @@ const GUIDE_PREVIEWS = [
 ];
 
 export default async function ConsumerHomePage() {
-  "use cache";
-  cacheLife("hours");
 
   const allEntries = getNationalIndex();
   const stats = getPublicStats();

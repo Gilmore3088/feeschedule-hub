@@ -1,4 +1,3 @@
-import { cacheLife } from "next/cache";
 import Link from "next/link";
 import {
   getNationalIndex,
@@ -28,8 +27,6 @@ const TICKER_CATEGORIES = [
 ];
 
 export default async function ProHomePage() {
-  "use cache";
-  cacheLife("hours");
 
   const allEntries = getNationalIndex();
   const stats = getPublicStats();

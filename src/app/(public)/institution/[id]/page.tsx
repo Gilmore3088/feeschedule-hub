@@ -25,10 +25,12 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const ids = getInstitutionIdsWithFees();
-  // cacheComponents requires at least one result; return placeholder for CI stub DB
-  if (ids.length === 0) return [{ id: "0" }];
-  return ids.map((id) => ({ id: String(id) }));
+  try {
+    const ids = getInstitutionIdsWithFees();
+    return ids.map((id) => ({ id: String(id) }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
