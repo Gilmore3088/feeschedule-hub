@@ -100,6 +100,26 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/admin/quality",
+        label: "Quality",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M2 12l3-4 3 2 4-6 2 3" />
+            <path d="M2 14h12" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/ops",
+        label: "Ops Center",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <circle cx="8" cy="8" r="3" />
+            <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/review",
         label: "Review",
         icon: (

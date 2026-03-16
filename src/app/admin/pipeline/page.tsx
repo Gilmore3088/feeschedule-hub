@@ -6,6 +6,9 @@ import { formatAssets, timeAgo } from "@/lib/format";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Pagination } from "@/components/pagination";
 import { CoverageTable, BulkImportForm, StateFilter } from "./coverage-table";
+import { PipelineFlow } from "./pipeline-flow";
+import { DataSourcesStatus } from "./data-sources-status";
+import { RecentJobs } from "./recent-jobs";
 
 const PAGE_SIZE = 50;
 
@@ -105,6 +108,17 @@ export default async function PipelinePage({
           </div>
           <BulkImportForm />
         </div>
+      </div>
+
+      {/* Pipeline Stages Visual */}
+      <div className="mb-4">
+        <PipelineFlow />
+      </div>
+
+      {/* Data Sources + Recent Jobs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <DataSourcesStatus />
+        <RecentJobs />
       </div>
 
       {/* Coverage Funnel */}
