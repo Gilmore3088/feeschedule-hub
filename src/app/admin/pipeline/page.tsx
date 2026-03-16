@@ -9,6 +9,7 @@ import { CoverageTable, BulkImportForm, StateFilter } from "./coverage-table";
 import { PipelineDashboard } from "./pipeline-data";
 import { DataSourcesStatus } from "./data-sources-status";
 import { RecentJobs } from "./recent-jobs";
+import { CategoryCoverageDashboard } from "./category-coverage-data";
 
 const PAGE_SIZE = 50;
 
@@ -113,6 +114,11 @@ export default async function PipelinePage({
       {/* Unified Pipeline Dashboard */}
       <div className="mb-4">
         <PipelineDashboard />
+      </div>
+
+      {/* Category Coverage */}
+      <div className="mb-4">
+        <CategoryCoverageDashboard />
       </div>
 
       {/* Data Sources + Recent Jobs */}
