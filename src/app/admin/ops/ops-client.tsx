@@ -295,6 +295,12 @@ export function OpsClient({
     if (charterType) params.charter_type = charterType;
     if (stateCode) params.state = stateCode;
 
+    // Smart defaults for pipeline commands
+    const cmd = selectedCommand;
+    if (cmd === "crawl" || cmd === "run-pipeline") {
+      params.skip_with_fees = true;
+    }
+
     const result = await triggerJob(selectedCommand, params);
 
     if (result.success) {
