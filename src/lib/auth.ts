@@ -105,9 +105,12 @@ export async function login(
       | (User & { password_hash: string })
       | undefined;
 
-    if (!row || !verifyPassword(password, row.password_hash)) {
-      return null;
-    }
+    if (!row) return null;
+
+    // Use passwords.ts verifyPassword which handles both bcrypt and legacy SHA-256
+    const { verifyPassword: verifyPw } = await import("@/lib/passwords");
+    const { valid } = await verifyPw(password, row.password_hash);
+    if (!valid) return null;
 
     // Create session
     const sessionId = crypto.randomBytes(32).toString("hex");
