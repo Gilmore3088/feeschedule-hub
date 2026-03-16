@@ -7,8 +7,13 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Copy DB for build-time page generation (overridden at runtime by volume mount)
-COPY data/crawler.db data/crawler.db
+# Create empty DB if not present (CI builds); local builds include real DB for prerendering
+RUN mkdir -p data && \
+    if [ ! -f data/crawler.db ]; then \
+      apt-get update -qq && apt-get install -y --no-install-recommends sqlite3 && \
+      sqlite3 data/crawler.db "CREATE TABLE _stub(id INTEGER);" && \
+      apt-get purge -y sqlite3 && rm -rf /var/lib/apt/lists/*; \
+    fi
 RUN npm run build
 
 # ── Stage 3: Production runner ──
