@@ -126,43 +126,54 @@ export default async function AccountPage({
           {user.institution_name ? `${user.institution_name}` : "Your Account"}
         </h1>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          {/* Profile */}
-          <div className="md:col-span-2">
-            <ProfileForm user={user} />
-          </div>
-
-          {/* Plan & Billing */}
-          <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
-            <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider mb-3">
-              Subscription
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm font-medium text-[#1A1815]">
-                {isPro ? "Seat License" : "No active plan"}
-              </span>
-              {isPro && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-600 uppercase">
-                  Active
-                </span>
-              )}
-              {user.subscription_status === "past_due" && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-600 uppercase">
-                  Past Due
-                </span>
-              )}
-            </div>
-            {user.stripe_customer_id ? (
-              <ManageBillingButton />
-            ) : !isPro ? (
+        {/* Subscription Banner -- prominent when no plan */}
+        {!isPro && (
+          <div className="bg-[#FFFDF9] rounded-xl border-2 border-[#C44B2E] p-6 mb-6">
+            <div className="md:flex md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-medium text-[#1A1815]" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
+                  Get full access to Bank Fee Index
+                </h2>
+                <p className="text-sm text-[#7A7062] mt-1">
+                  Unlock fee benchmarks, peer analysis, AI research, data exports, and API access.
+                </p>
+              </div>
               <a
                 href="/subscribe"
-                className="inline-flex items-center rounded-md bg-[#C44B2E] px-4 py-2 text-xs font-medium text-white hover:bg-[#A83D25] transition-colors"
+                className="mt-4 md:mt-0 inline-flex items-center rounded-md bg-[#C44B2E] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors flex-shrink-0"
               >
                 View Plans
               </a>
-            ) : null}
+            </div>
           </div>
+        )}
+
+        {/* Active subscription -- compact */}
+        {isPro && (
+          <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider">
+                  Plan
+                </div>
+                <span className="text-sm font-medium text-[#1A1815]">Seat License</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-600 uppercase">
+                  Active
+                </span>
+                {user.subscription_status === "past_due" && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-600 uppercase">
+                    Past Due
+                  </span>
+                )}
+              </div>
+              {user.stripe_customer_id && <ManageBillingButton />}
+            </div>
+          </div>
+        )}
+
+        {/* Profile */}
+        <div className="mb-6">
+          <ProfileForm user={user} />
         </div>
 
         {/* Quick Actions */}
