@@ -27,14 +27,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "./" },
   title: {
-    default: "Fee Insight - Bank Fee Intelligence & Benchmarking",
-    template: "%s | Fee Insight",
+    default: "Bank Fee Index - Fee Intelligence & Benchmarking",
+    template: "%s | Bank Fee Index",
   },
   description:
-    "Compare bank fees nationwide. Free benchmarking data on overdraft, NSF, ATM, wire, and maintenance fees for 10,000+ institutions.",
+    "The national benchmark for banking fees. Compare fees across 9,000+ banks and credit unions with research-grade data.",
   openGraph: {
     type: "website",
-    siteName: "Fee Insight",
+    siteName: "Bank Fee Index",
   },
   twitter: {
     card: "summary_large_image",

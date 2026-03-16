@@ -20,7 +20,7 @@ export default async function ResearchHubPage() {
           Research Hub
         </h1>
         <p className="mt-1 text-[13px] text-gray-500">
-          AI-powered research agents with access to the Fee Insight database.
+          AI-powered research agents with access to the Bank Fee Index database.
           Ask questions in natural language.
         </p>
       </div>
