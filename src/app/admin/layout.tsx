@@ -57,7 +57,7 @@ async function AdminLayoutInner({
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
-                className="h-[18px] w-[18px] text-blue-600"
+                className="h-[18px] w-[18px] text-[#C44B2E]"
                 stroke="currentColor"
                 strokeWidth="1.8"
                 strokeLinecap="round"
@@ -68,7 +68,7 @@ async function AdminLayoutInner({
                 <rect x="16" y="3" width="4" height="18" rx="1" />
               </svg>
               <span className="text-[13px] font-extrabold tracking-tight text-gray-900 dark:text-gray-100 hidden sm:inline">
-                FI
+                Bank Fee Index
               </span>
             </Link>
             <AdminNavInline />

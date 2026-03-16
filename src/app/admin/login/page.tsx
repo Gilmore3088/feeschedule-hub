@@ -16,7 +16,7 @@ export default async function LoginPage() {
             <svg
               viewBox="0 0 24 24"
               fill="none"
-              className="h-5 w-5 text-blue-600"
+              className="h-5 w-5 text-[#C44B2E]"
               stroke="currentColor"
               strokeWidth="1.5"
             >
@@ -25,7 +25,7 @@ export default async function LoginPage() {
                 <rect x="16" y="3" width="4" height="18" rx="1" />
             </svg>
             <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-              Fee Insight
+              Bank Fee Index
             </h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">

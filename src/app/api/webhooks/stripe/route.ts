@@ -18,9 +18,12 @@ export async function POST(req: Request) {
       signature,
       getWebhookSecret()
     );
-  } catch {
+  } catch (err) {
+    console.error("[stripe-webhook] Signature verification failed:", err instanceof Error ? err.message : err);
     return new Response("Invalid signature", { status: 400 });
   }
+
+  console.log(`[stripe-webhook] Received ${event.type} (${event.id})`);
 
   // Process synchronously -- SQLite writes take ~1ms
   const db = getWriteDb();
@@ -50,11 +53,14 @@ export async function POST(req: Request) {
               : session.customer?.id;
           const email = session.customer_email || session.metadata?.email;
 
+          console.log(`[stripe-webhook] checkout.session.completed: customer=${customerId}, email=${email}, metadata=${JSON.stringify(session.metadata)}`);
+
           if (customerId && email) {
-            db.prepare(
-              `UPDATE users SET subscription_status = 'active', stripe_customer_id = ?
-               WHERE (email = ? OR username = ?) AND subscription_status != 'active'`
+            const result2 = db.prepare(
+              `UPDATE users SET subscription_status = 'active', role = 'premium', stripe_customer_id = ?
+               WHERE (email = ? OR username = ?) AND role NOT IN ('admin', 'analyst')`
             ).run(customerId, email, email);
+            console.log(`[stripe-webhook] Updated ${result2.changes} user(s) for ${email}`);
           }
           break;
         }
