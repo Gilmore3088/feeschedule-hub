@@ -26,6 +26,23 @@ _USER_PROMPT = """\
 Extract ALL fees from this {charter_type} fee schedule document ({document_type}).
 Institution: {institution_name}
 
+EXTRACT ONLY actual fees that have a dollar amount or are explicitly listed as a fee/charge.
+
+DO NOT extract:
+- Account names or product types (e.g., "Basic Checking", "Premium Savings", "Money Market")
+- Interest rates or APY values
+- Minimum balance requirements (unless there's a fee for going below it)
+- Service descriptions without a fee amount
+- Share/membership par values
+
+LOOK FOR:
+- Monthly maintenance fees, service charges
+- Overdraft/NSF fees, returned item fees
+- ATM fees, foreign transaction fees
+- Wire transfer fees, stop payment fees
+- Account closing fees, paper statement fees
+- Any line item with a specific dollar amount charged as a fee
+
 <document_content>
 {text}
 </document_content>
