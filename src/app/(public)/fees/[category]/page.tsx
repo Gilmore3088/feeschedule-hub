@@ -22,6 +22,9 @@ import { DataFreshness } from "@/components/data-freshness";
 import { DistributionChart } from "@/components/public/distribution-chart";
 import { STATE_NAMES } from "@/lib/us-states";
 import { SITE_URL } from "@/lib/constants";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
+import { UpgradeGate } from "@/components/upgrade-gate";
 
 interface PageProps {
   params: Promise<{ category: string }>;
@@ -60,6 +63,9 @@ export default async function FeeCategoryPage({ params }: PageProps) {
   if (!DISPLAY_NAMES[category]) {
     notFound();
   }
+
+  const user = await getCurrentUser();
+  const isPro = canAccessPremium(user);
 
   const name = getDisplayName(category);
   const family = getFeeFamily(category);
@@ -164,8 +170,14 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Bank vs CU */}
-      {detail.by_charter_type.length > 0 && (
+      {/* Peer breakdowns -- premium only */}
+      {!isPro && (
+        <div className="mt-8">
+          <UpgradeGate message={`Detailed ${name} breakdown by charter, tier, and state`} />
+        </div>
+      )}
+
+      {isPro && detail.by_charter_type.length > 0 && (
         <section className="mt-8">
           <h2 className="text-sm font-bold text-slate-800">
             Bank vs. Credit Union
@@ -216,7 +228,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       )}
 
       {/* Asset tier breakdown */}
-      {detail.by_asset_tier.length > 0 && (
+      {isPro && detail.by_asset_tier.length > 0 && (
         <section className="mt-8">
           <h2 className="text-sm font-bold text-slate-800">
             By Asset Tier
@@ -328,7 +340,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       )}
 
       {/* State breakdown (top 15) */}
-      {detail.by_state.length > 0 && (
+      {isPro && detail.by_state.length > 0 && (
         <section className="mt-8">
           <h2 className="text-sm font-bold text-slate-800">
             By State
