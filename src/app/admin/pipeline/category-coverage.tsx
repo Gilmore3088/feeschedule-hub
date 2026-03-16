@@ -1,36 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, Fragment } from "react";
 import Link from "next/link";
 
 interface CategoryCoverage {
   fee_category: string;
   display_name: string;
   family: string;
+  tier: string;
   total: number;
   approved: number;
+  staged: number;
+  flagged: number;
   has_amount: number;
   institutions: number;
   approval_rate: number;
+  top_states: { state: string; count: number }[];
 }
 
 interface CategoryCoverageTableProps {
   categories: CategoryCoverage[];
   totalInstitutions: number;
+  families: string[];
 }
 
-export function CategoryCoverageTable({ categories, totalInstitutions }: CategoryCoverageTableProps) {
-  const [sortBy, setSortBy] = useState<"total" | "institutions" | "approval_rate" | "coverage">("institutions");
-  const [showAll, setShowAll] = useState(false);
+type SortKey = "total" | "institutions" | "approval_rate" | "coverage";
 
-  const sorted = [...categories].sort((a, b) => {
-    if (sortBy === "coverage") {
-      return (b.institutions / totalInstitutions) - (a.institutions / totalInstitutions);
+export function CategoryCoverageTable({ categories, totalInstitutions, families }: CategoryCoverageTableProps) {
+  const [sortBy, setSortBy] = useState<SortKey>("institutions");
+  const [familyFilter, setFamilyFilter] = useState("");
+  const [tierFilter, setTierFilter] = useState("");
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    let result = categories;
+    if (familyFilter) result = result.filter((c) => c.family === familyFilter);
+    if (tierFilter) result = result.filter((c) => c.tier === tierFilter);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((c) => c.display_name.toLowerCase().includes(q) || c.fee_category.includes(q));
     }
-    return (b[sortBy] as number) - (a[sortBy] as number);
-  });
+    return result;
+  }, [categories, familyFilter, tierFilter, searchQuery]);
 
-  const visible = showAll ? sorted : sorted.slice(0, 15);
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "coverage") return (b.institutions / totalInstitutions) - (a.institutions / totalInstitutions);
+      return (b[sortBy] as number) - (a[sortBy] as number);
+    });
+  }, [filtered, sortBy, totalInstitutions]);
 
   function coveragePct(institutions: number): number {
     return totalInstitutions > 0 ? (institutions / totalInstitutions) * 100 : 0;
@@ -50,89 +69,164 @@ export function CategoryCoverageTable({ categories, totalInstitutions }: Categor
 
   return (
     <div className="admin-card overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-white/[0.06] flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-          Category Coverage ({categories.length} categories)
-        </h3>
-        <div className="flex gap-1">
-          {(["institutions", "total", "approval_rate", "coverage"] as const).map((key) => (
-            <button
-              key={key}
-              onClick={() => setSortBy(key)}
-              className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
-                sortBy === key
-                  ? "bg-gray-200 text-gray-700 dark:bg-white/[0.1] dark:text-gray-200"
-                  : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              }`}
-            >
-              {key === "institutions" ? "Inst." : key === "total" ? "Obs." : key === "approval_rate" ? "Approval" : "Coverage"}
-            </button>
-          ))}
+      {/* Header with filters */}
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-white/[0.06]">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            Category Coverage ({filtered.length} of {categories.length})
+          </h3>
+          <div className="flex gap-1">
+            {(["institutions", "total", "approval_rate", "coverage"] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setSortBy(key)}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  sortBy === key
+                    ? "bg-gray-200 text-gray-700 dark:bg-white/[0.1] dark:text-gray-200"
+                    : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                }`}
+              >
+                {key === "institutions" ? "Inst." : key === "total" ? "Obs." : key === "approval_rate" ? "Approval" : "Coverage"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search categories..."
+            className="flex-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <select
+            value={familyFilter}
+            onChange={(e) => setFamilyFilter(e.target.value)}
+            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+          >
+            <option value="">All Families</option>
+            {families.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+          <select
+            value={tierFilter}
+            onChange={(e) => setTierFilter(e.target.value)}
+            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+          >
+            <option value="">All Tiers</option>
+            <option value="spotlight">Spotlight</option>
+            <option value="core">Core</option>
+            <option value="extended">Extended</option>
+            <option value="comprehensive">Comprehensive</option>
+          </select>
         </div>
       </div>
 
-      <table className="w-full text-[12px]">
-        <thead>
-          <tr className="border-b border-gray-100 dark:border-white/[0.04] bg-gray-50/80 dark:bg-white/[0.02]">
-            <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Category</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Obs.</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Inst.</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Appr.</th>
-            <th className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" style={{ width: "140px" }}>Coverage</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((cat) => {
-            const cov = coveragePct(cat.institutions);
-            return (
-              <tr key={cat.fee_category} className="border-b border-gray-50 dark:border-white/[0.03] last:border-0 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                <td className="px-4 py-2">
-                  <Link
-                    href={`/admin/fees/catalog/${cat.fee_category}`}
-                    className="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
-                  >
-                    {cat.display_name}
-                  </Link>
-                  <div className="text-[10px] text-gray-400">{cat.family}</div>
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                  {cat.total.toLocaleString()}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium text-gray-800 dark:text-gray-200">
-                  {cat.institutions.toLocaleString()}
-                </td>
-                <td className={`px-3 py-2 text-right tabular-nums font-medium ${approvalColor(cat.approval_rate)}`}>
-                  {cat.approval_rate.toFixed(0)}%
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${barColor(cov)}`}
-                        style={{ width: `${Math.max(cov, 1)}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] tabular-nums text-gray-400 w-8 text-right">
-                      {cov.toFixed(0)}%
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="max-h-[500px] overflow-y-auto">
+        <table className="w-full text-[12px]">
+          <thead className="sticky top-0 bg-gray-50/95 dark:bg-[oklch(0.16_0_0)]/95 backdrop-blur-sm z-10">
+            <tr className="border-b border-gray-100 dark:border-white/[0.04]">
+              <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Category</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Obs.</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Inst.</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Appr.</th>
+              <th className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" style={{ width: "140px" }}>Coverage</th>
+              <th className="px-2 py-2 w-6"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((cat) => {
+              const cov = coveragePct(cat.institutions);
+              const isExpanded = expandedRow === cat.fee_category;
 
-      {categories.length > 15 && (
-        <div className="px-4 py-2 border-t border-gray-100 dark:border-white/[0.04]">
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            {showAll ? "Show top 15" : `Show all ${categories.length} categories`}
-          </button>
-        </div>
-      )}
+              return (
+                <Fragment key={cat.fee_category}>
+                  <tr
+                    className={`border-b border-gray-50 dark:border-white/[0.03] hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer ${
+                      isExpanded ? "bg-gray-50/80 dark:bg-white/[0.04]" : ""
+                    }`}
+                    onClick={() => setExpandedRow(isExpanded ? null : cat.fee_category)}
+                  >
+                    <td className="px-4 py-2">
+                      <span className="text-gray-800 dark:text-gray-200 font-medium">{cat.display_name}</span>
+                      <div className="flex gap-2 mt-0.5">
+                        <span className="text-[10px] text-gray-400">{cat.family}</span>
+                        <span className="text-[9px] text-gray-300 uppercase">{cat.tier}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">{cat.total.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-gray-800 dark:text-gray-200">{cat.institutions.toLocaleString()}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums font-medium ${approvalColor(cat.approval_rate)}`}>{cat.approval_rate.toFixed(0)}%</td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${barColor(cov)}`} style={{ width: `${Math.max(cov, 1)}%` }} />
+                        </div>
+                        <span className="text-[10px] tabular-nums text-gray-400 w-8 text-right">{cov.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2 text-gray-300">
+                      <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-90" : ""}`} viewBox="0 0 12 12" fill="currentColor">
+                        <path d="M4 2l4 4-4 4" />
+                      </svg>
+                    </td>
+                  </tr>
+
+                  {isExpanded && (
+                    <tr className="border-b border-gray-100 dark:border-white/[0.06]">
+                      <td colSpan={6} className="px-4 py-3 bg-gray-50/50 dark:bg-white/[0.02]">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                          <div>
+                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Approved</div>
+                            <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{cat.approved.toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Staged</div>
+                            <div className="text-sm font-bold text-blue-600 dark:text-blue-400 tabular-nums">{cat.staged.toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Flagged</div>
+                            <div className="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">{cat.flagged.toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">With Amount</div>
+                            <div className="text-sm font-bold text-gray-700 dark:text-gray-300 tabular-nums">{cat.has_amount.toLocaleString()}</div>
+                          </div>
+                        </div>
+
+                        {cat.top_states.length > 0 && (
+                          <div className="mb-3">
+                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Top States</div>
+                            <div className="flex flex-wrap gap-1">
+                              {cat.top_states.map((s) => (
+                                <span key={s.state} className="inline-flex items-center rounded bg-gray-100 dark:bg-white/[0.06] px-1.5 py-0.5 text-[10px] tabular-nums text-gray-600 dark:text-gray-400">
+                                  {s.state}: {s.count}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <Link
+                          href={`/admin/fees/catalog/${cat.fee_category}`}
+                          className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          View in catalog
+                        </Link>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="px-4 py-2 border-t border-gray-200 dark:border-white/[0.06] text-[10px] text-gray-400 flex gap-4">
+        <span>{filtered.length} categories</span>
+        <span>{filtered.reduce((s, c) => s + c.total, 0).toLocaleString()} observations</span>
+        <span>{new Set(filtered.map((c) => c.family)).size} families</span>
+      </div>
     </div>
   );
 }

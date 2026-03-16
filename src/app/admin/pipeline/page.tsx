@@ -121,10 +121,9 @@ export default async function PipelinePage({
         <CategoryCoverageDashboard />
       </div>
 
-      {/* Data Sources + Recent Jobs */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      {/* Data Sources */}
+      <div className="mb-4">
         <DataSourcesStatus />
-        <RecentJobs />
       </div>
 
       {/* Quality + Pipeline Health Cards */}
@@ -284,58 +283,6 @@ export default async function PipelinePage({
         />
       </div>
 
-      {/* Recent Crawls */}
-      {recentCrawls.length > 0 && (
-        <div className="mt-6">
-          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">
-            Recent Crawl Activity
-          </h2>
-          <div className="admin-card overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Institution</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Fees</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">When</th>
-                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentCrawls.map((c) => (
-                  <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-2 text-xs font-medium text-gray-900 dark:text-gray-100">
-                      <Link href={`/admin/peers/${c.crawl_target_id}`} className="hover:text-blue-600 transition-colors">
-                        {c.institution_name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        c.status === "success"
-                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : c.status === "failed"
-                            ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400"
-                      }`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-xs text-gray-600 dark:text-gray-400">
-                      {c.fees_extracted || "-"}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-gray-500">
-                      {timeAgo(c.crawled_at)}
-                    </td>
-                    <td className="px-4 py-2 text-[11px] text-red-500 dark:text-red-400 max-w-xs truncate">
-                      {c.error_message || "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </>
   );
 }
