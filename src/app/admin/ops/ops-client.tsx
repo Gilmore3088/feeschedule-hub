@@ -504,31 +504,54 @@ export function OpsClient({
           {activeJobs.length === 0 ? (
             <p className="text-sm text-gray-400">No active jobs</p>
           ) : (
-            <div className="space-y-2">
-              {activeJobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-2
-                             dark:border-white/[0.08]"
-                >
-                  <StatusBadge status={job.status} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {job.command}
-                    </div>
-                    <div className="text-[11px] text-gray-400">
-                      #{job.id} by {job.triggered_by}
-                      {job.started_at && ` - ${timeAgo(job.started_at)}`}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleCancel(job.id)}
-                    className="text-xs text-red-500 hover:text-red-700 font-medium"
+            <div className="space-y-3">
+              {activeJobs.map((job) => {
+                const elapsed = (job as unknown as { elapsed_seconds?: number }).elapsed_seconds || 0;
+                const liveLog = (job as unknown as { live_log?: string }).live_log || "";
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                const elapsedStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+                return (
+                  <div
+                    key={job.id}
+                    className="rounded-md border border-gray-200 dark:border-white/[0.08] overflow-hidden"
                   >
-                    Cancel
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-3 px-3 py-2">
+                      <StatusBadge status={job.status} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {job.command}
+                        </div>
+                        <div className="text-[11px] text-gray-400">
+                          #{job.id} by {job.triggered_by}
+                          {" "}&middot;{" "}
+                          <span className="font-medium text-blue-500 tabular-nums">{elapsedStr}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleCancel(job.id)}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {/* Live log output */}
+                    {liveLog && (
+                      <div className="border-t border-gray-100 dark:border-white/[0.06] bg-gray-950 px-3 py-2 max-h-[200px] overflow-y-auto">
+                        <pre className="text-[10px] text-gray-400 font-mono whitespace-pre-wrap leading-relaxed">
+                          {liveLog}
+                        </pre>
+                      </div>
+                    )}
+                    {!liveLog && elapsed > 2 && (
+                      <div className="border-t border-gray-100 dark:border-white/[0.06] bg-gray-950 px-3 py-2">
+                        <p className="text-[10px] text-gray-600 font-mono">Waiting for output...</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
