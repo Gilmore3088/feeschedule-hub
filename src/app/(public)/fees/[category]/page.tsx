@@ -49,6 +49,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export async function generateStaticParams() {
+  const { hasData } = await import("@/lib/crawler-db/connection");
+  if (!hasData()) return [];
   return Object.keys(DISPLAY_NAMES).map((category) => ({ category }));
 }
 

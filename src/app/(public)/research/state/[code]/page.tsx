@@ -22,6 +22,8 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
+  const { hasData } = await import("@/lib/crawler-db/connection");
+  if (!hasData()) return [];
   return STATE_CODES.map((code) => ({ code }));
 }
 

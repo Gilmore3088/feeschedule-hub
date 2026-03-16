@@ -55,6 +55,17 @@ export function getDb() {
   return _singleton;
 }
 
+/** Returns true if the DB has real data (not a CI stub). */
+export function hasData(): boolean {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets").get() as { cnt: number };
+    return row.cnt > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function getWriteDb() {
   const db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");

@@ -23,7 +23,9 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const { hasData } = await import("@/lib/crawler-db/connection");
+  if (!hasData()) return [];
   return Array.from({ length: 12 }, (_, i) => ({ id: String(i + 1) }));
 }
 
