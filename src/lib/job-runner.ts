@@ -45,7 +45,7 @@ export function spawnJob(
 
   const logStream = fs.openSync(logPath, "w");
 
-  const child = spawn(PYTHON_CMD, ["-m", "fee_crawler", command, ...args], {
+  const child = spawn(PYTHON_CMD, ["-u", "-m", "fee_crawler", command, ...args], {
     cwd: process.cwd(),
     detached: true,
     stdio: ["ignore", logStream, logStream],
