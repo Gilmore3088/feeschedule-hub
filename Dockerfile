@@ -24,8 +24,20 @@ ENV HOSTNAME=0.0.0.0
 ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz /tmp/litestream.tar.gz
 RUN tar -C /usr/local/bin -xzf /tmp/litestream.tar.gz && rm /tmp/litestream.tar.gz
 
+# Install Python for crawler commands (refresh-data, run-pipeline via SSH)
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends python3 python3-pip python3-venv && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
+
+# Install Python crawler dependencies
+COPY requirements.txt /app/requirements.txt
+RUN pip3 install --break-system-packages -r /app/requirements.txt
+
+# Copy crawler code
+COPY fee_crawler /app/fee_crawler
 
 # Copy standalone output
 COPY --from=builder /app/public ./public
