@@ -42,7 +42,7 @@ export default async function SubscribePage({
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] px-4 py-12">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-4xl">
         {params.success && (
           <div className="mb-6 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3 text-center">
             Subscription activated! You now have full access.
@@ -61,7 +61,8 @@ export default async function SubscribePage({
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        {/* Two main plans side by side */}
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
           {/* Monthly Seat License */}
           <div className="bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-6">
             <div className="mb-4">
@@ -76,7 +77,7 @@ export default async function SubscribePage({
               </div>
             </div>
             <ul className="space-y-2 mb-6 text-sm text-[#5A5347]">
-              {FEATURES.slice(0, 5).map((f) => (
+              {FEATURES.slice(0, 6).map((f) => (
                 <li key={f} className="flex items-start gap-2">
                   <span className="text-[#C44B2E] mt-0.5 flex-shrink-0">
                     &#10003;
@@ -149,64 +150,60 @@ export default async function SubscribePage({
               </a>
             )}
           </div>
+        </div>
 
-          {/* Research Report */}
-          <div className="bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-6">
-            <div className="mb-4">
+        {/* On-Demand Report -- full width below */}
+        <div className="bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-6 mb-6">
+          <div className="md:flex md:items-center md:justify-between md:gap-8">
+            <div className="mb-4 md:mb-0">
               <div className="text-xs font-semibold uppercase tracking-wider text-[#7A7062] mb-1">
                 On Demand
               </div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1 mb-2">
                 <span className="text-3xl font-bold text-[#1A1815]">$250</span>
                 <span className="text-[#7A7062] text-sm">/report</span>
               </div>
+              <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-[#5A5347]">
+                <li className="flex items-center gap-1.5">
+                  <span className="text-[#C44B2E]">&#10003;</span>
+                  Custom peer analysis for your institution
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="text-[#C44B2E]">&#10003;</span>
+                  Competitive fee positioning report
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="text-[#C44B2E]">&#10003;</span>
+                  District or state deep-dive
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="text-[#C44B2E]">&#10003;</span>
+                  Delivered within 48 hours
+                </li>
+              </ul>
             </div>
-            <ul className="space-y-2 mb-6 text-sm text-[#5A5347]">
-              <li className="flex items-start gap-2">
-                <span className="text-[#C44B2E] mt-0.5 flex-shrink-0">
-                  &#10003;
-                </span>
-                Custom peer analysis for your institution
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#C44B2E] mt-0.5 flex-shrink-0">
-                  &#10003;
-                </span>
-                Competitive fee positioning report
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#C44B2E] mt-0.5 flex-shrink-0">
-                  &#10003;
-                </span>
-                District or state deep-dive
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#C44B2E] mt-0.5 flex-shrink-0">
-                  &#10003;
-                </span>
-                Delivered within 48 hours
-              </li>
-            </ul>
-            {isLoggedIn ? (
-              <SubscribeButton
-                priceId={REPORT_PRICE_ID}
-                mode="payment"
-                label="Order Report -- $250"
-                className="w-full rounded-md border border-[#D5CBBF] bg-transparent px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              />
-            ) : (
-              <a
-                href="/register"
-                className="block w-full text-center rounded-md border border-[#D5CBBF] px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
-              >
-                Create account
-              </a>
-            )}
+            <div className="flex-shrink-0 md:w-56">
+              {isLoggedIn ? (
+                <SubscribeButton
+                  priceId={REPORT_PRICE_ID}
+                  mode="payment"
+                  label="Order Report -- $250"
+                  className="w-full rounded-md border border-[#D5CBBF] bg-transparent px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                />
+              ) : (
+                <a
+                  href="/register"
+                  className="block w-full text-center rounded-md border border-[#D5CBBF] px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
+                >
+                  Create account
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Enterprise CTA */}
-        <div className="text-center bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-8 max-w-2xl mx-auto">
+        <div className="text-center bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-8">
           <h2
             className="text-xl font-normal text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
