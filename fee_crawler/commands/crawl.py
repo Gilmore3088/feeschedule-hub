@@ -279,7 +279,7 @@ def run(
     dry_run: bool = False,
     workers: int = 1,
     include_failing: bool = False,
-    skip_with_fees: bool = False,
+    skip_with_fees: bool = True,
     new_only: bool = False,
 ) -> None:
     """Run the crawl pipeline on institutions with discovered fee schedule URLs.
