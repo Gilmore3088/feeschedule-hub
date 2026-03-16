@@ -94,6 +94,7 @@ def run(
                 limit=crawl_limit,
                 state=state,
                 workers=workers,
+                skip_with_fees=True,  # Smart: only crawl institutions without existing fees
             )
             results["stages"]["crawl"] = {
                 "status": "success",

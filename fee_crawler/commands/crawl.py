@@ -275,9 +275,12 @@ def run(
     *,
     limit: int | None = None,
     state: str | None = None,
+    tier: str | None = None,
     dry_run: bool = False,
     workers: int = 1,
     include_failing: bool = False,
+    skip_with_fees: bool = False,
+    new_only: bool = False,
 ) -> None:
     """Run the crawl pipeline on institutions with discovered fee schedule URLs.
 
@@ -286,9 +289,12 @@ def run(
         config: Application config.
         limit: Max institutions to process.
         state: Filter by state code.
+        tier: Filter by asset_size_tier (comma-separated for multiple).
         dry_run: Download and extract text but skip LLM extraction (no API cost).
         workers: Number of concurrent worker threads.
         include_failing: Include institutions with 5+ consecutive failures (skipped by default).
+        skip_with_fees: Skip institutions that already have extracted fees.
+        new_only: Only crawl institutions whose fee_schedule_url was set in the last 24 hours.
     """
     # Create a crawl run record
     run_id = db.insert_returning_id(
@@ -298,24 +304,41 @@ def run(
     db.commit()
 
     # Build query for targets with fee schedule URLs
-    where_clauses = ["fee_schedule_url IS NOT NULL", "status = 'active'"]
+    where_clauses = ["ct.fee_schedule_url IS NOT NULL", "ct.status = 'active'"]
     params: list = []
 
     # Circuit breaker: skip institutions with too many consecutive failures
     if not include_failing:
-        where_clauses.append("consecutive_failures < 5")
+        where_clauses.append("ct.consecutive_failures < 5")
 
     if state:
-        where_clauses.append("state_code = ?")
+        where_clauses.append("ct.state_code = ?")
         params.append(state.upper())
+
+    if tier:
+        tiers = [t.strip() for t in tier.split(",")]
+        placeholders = ",".join("?" for _ in tiers)
+        where_clauses.append(f"ct.asset_size_tier IN ({placeholders})")
+        params.extend(tiers)
+
+    if skip_with_fees:
+        where_clauses.append(
+            "NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')"
+        )
+
+    if new_only:
+        where_clauses.append("ct.fee_schedule_url IS NOT NULL AND ct.last_crawl_at IS NULL")
 
     where_sql = " AND ".join(where_clauses)
 
-    query = f"""SELECT id, institution_name, fee_schedule_url, document_type,
-                   last_content_hash, state_code, asset_size, charter_type
-            FROM crawl_targets
+    # Order: institutions without fees first (gaps), then by asset size
+    query = f"""SELECT ct.id, ct.institution_name, ct.fee_schedule_url, ct.document_type,
+                   ct.last_content_hash, ct.state_code, ct.asset_size, ct.charter_type
+            FROM crawl_targets ct
             WHERE {where_sql}
-            ORDER BY asset_size DESC NULLS LAST"""
+            ORDER BY
+              CASE WHEN NOT EXISTS (SELECT 1 FROM extracted_fees ef2 WHERE ef2.crawl_target_id = ct.id) THEN 0 ELSE 1 END,
+              ct.asset_size DESC NULLS LAST"""
     if limit and limit > 0:
         query += " LIMIT ?"
         params.append(limit)

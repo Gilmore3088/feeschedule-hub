@@ -54,8 +54,10 @@ def cmd_crawl(args: argparse.Namespace) -> None:
     config = load_config()
     db = Database(config)
     try:
-        run(db, config, limit=args.limit, state=args.state, dry_run=args.dry_run,
-            workers=args.workers, include_failing=args.include_failing)
+        run(db, config, limit=args.limit, state=args.state, tier=getattr(args, 'tier', None),
+            dry_run=args.dry_run, workers=args.workers, include_failing=args.include_failing,
+            skip_with_fees=getattr(args, 'skip_with_fees', False),
+            new_only=getattr(args, 'new_only', False))
     finally:
         db.close()
 
@@ -553,6 +555,22 @@ def main() -> None:
         "--include-failing",
         action="store_true",
         help="Include institutions with 5+ consecutive failures (skipped by default)",
+    )
+    crawl_parser.add_argument(
+        "--tier",
+        type=str,
+        default=None,
+        help="Filter by asset tier (comma-separated: community_small,community_mid,community_large,regional,large_regional,super_regional)",
+    )
+    crawl_parser.add_argument(
+        "--skip-with-fees",
+        action="store_true",
+        help="Skip institutions that already have extracted fees",
+    )
+    crawl_parser.add_argument(
+        "--new-only",
+        action="store_true",
+        help="Only crawl institutions with recently discovered URLs (never crawled before)",
     )
     crawl_parser.set_defaults(func=cmd_crawl)
 

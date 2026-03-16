@@ -42,6 +42,9 @@ export interface JobParams {
   concurrent?: number;
   charter_type?: "bank" | "credit_union";
   state?: string;
+  tier?: string;
+  skip_with_fees?: boolean;
+  new_only?: boolean;
   force?: boolean;
 }
 
@@ -105,6 +108,21 @@ export function validateJobRequest(
       return { valid: false, error: "state must be a 2-letter state code" };
     }
     args.push("--state", params.state);
+  }
+
+  if (params.tier !== undefined && params.tier !== "") {
+    if (!/^[a-z_,]+$/.test(params.tier)) {
+      return { valid: false, error: "tier must be lowercase with underscores, comma-separated" };
+    }
+    args.push("--tier", params.tier);
+  }
+
+  if (params.skip_with_fees) {
+    args.push("--skip-with-fees");
+  }
+
+  if (params.new_only) {
+    args.push("--new-only");
   }
 
   if (params.force) {
