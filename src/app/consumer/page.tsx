@@ -130,10 +130,10 @@ export default async function ConsumerHomePage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="/fees"
+                href="/institutions"
                 className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-7 py-3.5 text-[14px] lg:text-[15px] font-semibold text-white hover:bg-[#A93D25] transition-colors no-underline"
               >
-                Compare Fees
+                Find Your Bank
                 <svg
                   className="h-4 w-4"
                   fill="none"
