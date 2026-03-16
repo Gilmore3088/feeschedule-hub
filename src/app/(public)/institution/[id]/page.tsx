@@ -145,6 +145,40 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         )}
       </p>
 
+      {/* Source links */}
+      {(inst.website_url || inst.fee_schedule_url) && (
+        <div className="mt-3 flex flex-wrap gap-3 text-[12px]">
+          {inst.website_url && (
+            <a
+              href={inst.website_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-slate-500 hover:text-blue-600 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20M12 2a15 15 0 014 10 15 15 0 01-4 10 15 15 0 01-4-10 15 15 0 014-10z" />
+              </svg>
+              Website
+            </a>
+          )}
+          {inst.fee_schedule_url && (
+            <a
+              href={inst.fee_schedule_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-slate-500 hover:text-blue-600 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              Fee Schedule Source
+            </a>
+          )}
+        </div>
+      )}
+
       {/* Info cards */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-slate-200 px-4 py-3">

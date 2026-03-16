@@ -207,6 +207,7 @@ export function getInstitutionById(id: number): InstitutionDetail | null {
   const row = db.prepare(`
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+           ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM crawl_targets ct
     LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id

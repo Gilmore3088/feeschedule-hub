@@ -6,7 +6,7 @@ import { formatAssets, timeAgo } from "@/lib/format";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Pagination } from "@/components/pagination";
 import { CoverageTable, BulkImportForm, StateFilter } from "./coverage-table";
-import { PipelineFlow } from "./pipeline-flow";
+import { PipelineDashboard } from "./pipeline-data";
 import { DataSourcesStatus } from "./data-sources-status";
 import { RecentJobs } from "./recent-jobs";
 
@@ -110,49 +110,15 @@ export default async function PipelinePage({
         </div>
       </div>
 
-      {/* Pipeline Stages Visual */}
+      {/* Unified Pipeline Dashboard */}
       <div className="mb-4">
-        <PipelineFlow />
+        <PipelineDashboard />
       </div>
 
       {/* Data Sources + Recent Jobs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <DataSourcesStatus />
         <RecentJobs />
-      </div>
-
-      {/* Coverage Funnel */}
-      <div className="admin-card p-5 mb-4">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Coverage Funnel
-        </p>
-        <div className="space-y-2">
-          {funnel.map((step, i) => (
-            <div key={step.label} className="flex items-center gap-3">
-              <span className="w-16 text-[11px] font-medium text-gray-500 dark:text-gray-400 text-right">
-                {step.label}
-              </span>
-              <div className="flex-1 h-5 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    i === 0
-                      ? "bg-gray-300 dark:bg-gray-600"
-                      : i === funnel.length - 1
-                        ? "bg-emerald-400 dark:bg-emerald-600"
-                        : "bg-blue-400 dark:bg-blue-600"
-                  }`}
-                  style={{ width: `${step.pct}%` }}
-                />
-              </div>
-              <span className="w-20 text-[11px] tabular-nums font-semibold text-gray-700 dark:text-gray-300">
-                {step.count.toLocaleString()}
-              </span>
-              <span className="w-10 text-[10px] tabular-nums text-gray-400 text-right">
-                {step.pct}%
-              </span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Quality + Pipeline Health Cards */}
