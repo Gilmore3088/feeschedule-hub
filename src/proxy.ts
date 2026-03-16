@@ -441,7 +441,7 @@ export function proxy(request: NextRequest) {
 
   // Coming soon gate (bypass: admin, API, preview token)
   if (COMING_SOON) {
-    const isAdminOrApi =
+    const isWhitelisted =
       pathname.startsWith("/admin") ||
       pathname.startsWith("/api") ||
       pathname.startsWith("/_next") ||
@@ -450,7 +450,10 @@ export function proxy(request: NextRequest) {
       pathname.startsWith("/subscribe") ||
       pathname.startsWith("/account");
 
-    if (!isAdminOrApi) {
+    // Logged-in users bypass the coming soon gate entirely
+    const hasSession = !!request.cookies.get("fsh_session")?.value;
+
+    if (!isWhitelisted && !hasSession) {
       // Secret preview bypass via query param (sets cookie for 7 days)
       const previewToken = process.env.BFI_PREVIEW_TOKEN;
       if (previewToken) {
