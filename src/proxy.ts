@@ -123,6 +123,72 @@ const COMING_SOON_HTML = `<!DOCTYPE html>
       transition: border-color 0.15s;
     }
     .cta-secondary:hover { border-color: #1A1815; }
+    .lead-form {
+      max-width: 480px;
+      margin: 0 auto 3rem;
+      text-align: left;
+    }
+    .lead-form .form-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .lead-form .form-row.full { display: block; }
+    .lead-form label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #7A7062;
+      margin-bottom: 0.3rem;
+    }
+    .lead-form input, .lead-form select, .lead-form textarea {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #D5CBBF;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      background: #FFFDF9;
+      color: #1A1815;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .lead-form input:focus, .lead-form select:focus, .lead-form textarea:focus {
+      border-color: #C44B2E;
+    }
+    .lead-form textarea { resize: vertical; min-height: 60px; }
+    .lead-form .field { flex: 1; }
+    .form-submit {
+      width: 100%;
+      padding: 0.75rem;
+      background: #C44B2E;
+      color: #fff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 0.25rem;
+    }
+    .form-submit:hover { background: #A83D25; }
+    .form-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .form-success {
+      text-align: center;
+      padding: 2rem;
+      border: 1px solid #D5CBBF;
+      border-radius: 10px;
+      background: #FFFDF9;
+    }
+    .form-success h3 {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+      color: #1A1815;
+    }
+    .form-success p { font-size: 0.88rem; color: #7A7062; }
     .features {
       max-width: 900px;
       margin: 0 auto;
@@ -231,10 +297,74 @@ const COMING_SOON_HTML = `<!DOCTYPE html>
       Research-grade data for consumers, consultants, fintechs,
       and financial institutions.
     </p>
-    <div class="cta-group">
-      <a class="cta-primary" href="mailto:hello@bankfeeindex.com">Get Early Access</a>
-      <a class="cta-secondary" href="mailto:hello@bankfeeindex.com">Request a Demo</a>
+    <div id="lead-form-container" class="lead-form">
+      <form id="lead-form" onsubmit="submitLead(event)">
+        <div class="form-row">
+          <div class="field">
+            <label for="name">Your Name</label>
+            <input type="text" id="name" name="name" required placeholder="Jane Smith" />
+          </div>
+          <div class="field">
+            <label for="company">Company</label>
+            <input type="text" id="company" name="company" required placeholder="First National Bank" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="email">Work Email</label>
+            <input type="email" id="email" name="email" required placeholder="jane@firstnational.com" />
+          </div>
+          <div class="field">
+            <label for="role">Role</label>
+            <select id="role" name="role" required>
+              <option value="">Select...</option>
+              <option value="bank_cu">Bank / Credit Union</option>
+              <option value="consultant">Consultant / Advisory</option>
+              <option value="fintech">Fintech / Vendor</option>
+              <option value="compliance">Compliance / Risk</option>
+              <option value="researcher">Researcher / Analyst</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row full">
+          <div class="field">
+            <label for="use_case">How would you use fee benchmarking data?</label>
+            <textarea id="use_case" name="use_case" placeholder="e.g., Peer comparison for board reporting, competitive pricing analysis..." rows="2"></textarea>
+          </div>
+        </div>
+        <button type="submit" class="form-submit" id="submit-btn">Get Early Access</button>
+      </form>
     </div>
+    <script>
+    async function submitLead(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+      try {
+        const form = document.getElementById('lead-form');
+        const data = Object.fromEntries(new FormData(form));
+        const resp = await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+          document.getElementById('lead-form-container').innerHTML =
+            '<div class="form-success"><h3>Thank you!</h3><p>We will be in touch shortly with early access details.</p></div>';
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Get Early Access';
+          alert('Something went wrong. Please email hello@bankfeeindex.com directly.');
+        }
+      } catch {
+        btn.disabled = false;
+        btn.textContent = 'Get Early Access';
+        alert('Connection error. Please try again.');
+      }
+    }
+    </script>
   </div>
 
   <div class="features">
@@ -314,7 +444,10 @@ export function proxy(request: NextRequest) {
     const isAdminOrApi =
       pathname.startsWith("/admin") ||
       pathname.startsWith("/api") ||
-      pathname.startsWith("/_next");
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/register") ||
+      pathname.startsWith("/subscribe") ||
+      pathname.startsWith("/account");
 
     if (!isAdminOrApi) {
       // Secret preview bypass via query param (sets cookie for 7 days)

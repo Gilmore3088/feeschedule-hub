@@ -390,6 +390,20 @@ CREATE TABLE IF NOT EXISTS census_tracts (
 );
 """
 
+_CREATE_LEADS = """
+CREATE TABLE IF NOT EXISTS leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    company TEXT,
+    role TEXT,
+    use_case TEXT,
+    source TEXT NOT NULL DEFAULT 'coming_soon',
+    status TEXT NOT NULL DEFAULT 'new',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
 
 class Database:
     """Thin wrapper around SQLite for local dev."""
@@ -434,6 +448,7 @@ class Database:
         self.conn.executescript(_CREATE_MARKET_CONCENTRATION)
         self.conn.executescript(_CREATE_DEMOGRAPHICS)
         self.conn.executescript(_CREATE_CENSUS_TRACTS)
+        self.conn.executescript(_CREATE_LEADS)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
