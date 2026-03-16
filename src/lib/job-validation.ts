@@ -8,6 +8,7 @@ const ALLOWED_COMMANDS = new Set([
   "discover",
   "validate",
   "categorize",
+  "auto-review",
   "analyze",
   "enrich",
   "outlier-detect",

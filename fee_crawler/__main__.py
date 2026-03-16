@@ -74,6 +74,18 @@ def cmd_enrich(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_auto_review(args: argparse.Namespace) -> None:
+    """Intelligent auto-review of staged and flagged fees."""
+    from fee_crawler.commands.auto_review import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, dry_run=args.dry_run)
+    finally:
+        db.close()
+
+
 def cmd_seed_users(args: argparse.Namespace) -> None:
     """Seed users from config."""
     from fee_crawler.commands.seed_users import run
@@ -630,6 +642,16 @@ def main() -> None:
         help="Max rows to process (for testing)",
     )
     cat_parser.set_defaults(func=cmd_categorize)
+
+    # auto-review command
+    review_parser = subparsers.add_parser(
+        "auto-review", help="Intelligent auto-review of staged and flagged fees"
+    )
+    review_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Show what would be approved/rejected without making changes",
+    )
+    review_parser.set_defaults(func=cmd_auto_review)
 
     # backfill-ncua-urls command
     ncua_url_parser = subparsers.add_parser(

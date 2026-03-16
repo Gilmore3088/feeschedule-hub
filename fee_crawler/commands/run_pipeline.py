@@ -129,6 +129,25 @@ def run(
                 "elapsed_s": round(time.monotonic() - stage_start, 1),
             }
 
+    # Stage 4: Auto-review staged/flagged fees
+    stage_start = time.monotonic()
+    print("\n=== Stage 4: Auto-Review ===")
+    try:
+        from fee_crawler.commands.auto_review import run as review_run
+
+        review_run(db, config)
+        results["stages"]["auto_review"] = {
+            "status": "success",
+            "elapsed_s": round(time.monotonic() - stage_start, 1),
+        }
+    except Exception as e:
+        logger.error("Auto-review failed: %s", e)
+        results["stages"]["auto_review"] = {
+            "status": "failed",
+            "error": str(e),
+            "elapsed_s": round(time.monotonic() - stage_start, 1),
+        }
+
     total_elapsed = round(time.monotonic() - run_start, 1)
     results["total_elapsed_s"] = total_elapsed
     results["completed_at"] = datetime.now().isoformat()
