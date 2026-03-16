@@ -75,9 +75,10 @@ const TOOLS = [
   },
   {
     name: "API Access",
-    description: "Integrate fee benchmarking data directly into your systems with a REST API.",
+    description: "Integrate fee benchmarking data directly into your systems. Coming soon.",
     icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
     href: "/api-docs",
+    comingSoon: true,
   },
 ];
 
@@ -245,37 +246,20 @@ export function WelcomeSteps({ userName, user, feePreview, districtName, distric
 
           <div className="grid grid-cols-2 gap-3 mb-6">
             {TOOLS.map((tool) => (
-              <div key={tool.name} className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-4">
+              <div key={tool.name} className={`bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-4 ${(tool as { comingSoon?: boolean }).comingSoon ? "opacity-60" : ""}`}>
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-[#C44B2E] mb-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d={tool.icon} />
                 </svg>
-                <h3 className="text-sm font-medium text-[#1A1815] mb-1">{tool.name}</h3>
+                <h3 className="text-sm font-medium text-[#1A1815] mb-1">
+                  {tool.name}
+                  {(tool as { comingSoon?: boolean }).comingSoon && (
+                    <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#E8DFD1] text-[#7A7062] uppercase">Soon</span>
+                  )}
+                </h3>
                 <p className="text-xs text-[#7A7062] leading-relaxed">{tool.description}</p>
               </div>
             ))}
           </div>
-
-          {!apiKey && (
-            <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5 mb-6">
-              <p className="text-sm text-[#1A1815] font-medium mb-1">Want API access?</p>
-              <p className="text-xs text-[#7A7062] mb-3">Generate an API key to integrate fee data into your systems.</p>
-              <button
-                onClick={handleGenerateKey}
-                className="rounded-md bg-[#1A1815] px-4 py-2 text-xs font-medium text-white hover:bg-[#2A2825] transition-colors"
-              >
-                Generate API Key
-              </button>
-            </div>
-          )}
-
-          {apiKey && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
-              <p className="text-xs font-semibold text-amber-800 mb-1">Your API key (copy now -- shown only once)</p>
-              <code className="block text-xs bg-white border border-amber-200 rounded px-3 py-2 font-mono break-all text-[#1A1815]">
-                {apiKey}
-              </code>
-            </div>
-          )}
 
           <button
             onClick={() => setStep(4)}
