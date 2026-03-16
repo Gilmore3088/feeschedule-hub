@@ -37,8 +37,8 @@ async function AdminLayoutInner({
     return <>{children}</>;
   }
 
-  // Only admin and analyst roles can access the admin panel
-  if (user.role !== "admin" && user.role !== "analyst") {
+  // Only admin can access the admin panel
+  if (user.role !== "admin") {
     const { redirect } = await import("next/navigation");
     redirect("/account");
   }
