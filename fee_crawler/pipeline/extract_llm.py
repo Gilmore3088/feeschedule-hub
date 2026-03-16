@@ -104,9 +104,9 @@ _EXTRACT_FEES_TOOL = {
     },
 }
 
-MAX_TEXT_LENGTH = 100_000  # ~25K tokens, well within Sonnet's 200K context
-_CHUNK_SIZE = 80_000  # chars per chunk for long documents
-_CHUNK_OVERLAP = 5_000  # overlap to avoid splitting fee entries
+MAX_TEXT_LENGTH = 40_000  # ~10K tokens — smaller chunks extract better
+_CHUNK_SIZE = 30_000  # chars per chunk for long documents
+_CHUNK_OVERLAP = 3_000  # overlap to avoid splitting fee entries
 _MAX_FEES_PER_INSTITUTION = 100  # Anomaly threshold
 
 
@@ -301,21 +301,42 @@ def _extract_single(
     # Retry with more specific prompt if still empty
     if not fees_raw:
         logger.info("Empty extraction for %s, retrying with specific prompt", institution_name)
-        retry_message = client.messages.create(
-            model=config.claude.model,
-            max_tokens=config.claude.max_tokens,
-            system=_SYSTEM_PROMPT,
-            tools=[_EXTRACT_FEES_TOOL],
-            tool_choice={"type": "tool", "name": "extract_fees"},
-            messages=[
-                {"role": "user", "content": user_content},
-                {"role": "assistant", "content": message.content},
-                {"role": "user", "content": _RETRY_PROMPT},
-            ],
-        )
-        fees_raw = _parse_tool_response(retry_message)
-        if not fees_raw:
-            fees_raw = _parse_text_response(retry_message)
+
+        # Build proper message chain: include tool_result for any tool_use blocks
+        retry_messages: list[dict] = [{"role": "user", "content": user_content}]
+
+        # Add assistant response
+        retry_messages.append({"role": "assistant", "content": message.content})
+
+        # Add tool_result for each tool_use (required by API)
+        tool_use_blocks = [b for b in message.content if getattr(b, "type", None) == "tool_use"]
+        if tool_use_blocks:
+            tool_results = [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": "No fees found. Please look more carefully.",
+                }
+                for block in tool_use_blocks
+            ]
+            retry_messages.append({"role": "user", "content": tool_results})
+        else:
+            retry_messages.append({"role": "user", "content": _RETRY_PROMPT})
+
+        try:
+            retry_message = client.messages.create(
+                model=config.claude.model,
+                max_tokens=config.claude.max_tokens,
+                system=_SYSTEM_PROMPT,
+                tools=[_EXTRACT_FEES_TOOL],
+                tool_choice={"type": "tool", "name": "extract_fees"},
+                messages=retry_messages,
+            )
+            fees_raw = _parse_tool_response(retry_message)
+            if not fees_raw:
+                fees_raw = _parse_text_response(retry_message)
+        except Exception as e:
+            logger.warning("Retry failed for %s: %s", institution_name, e)
 
     return fees_raw
 

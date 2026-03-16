@@ -146,6 +146,7 @@ def _crawl_one(
             return result
 
         charter = target.get("charter_type", "bank")
+        print(f"    LLM extraction: {len(text):,} chars, charter={charter}, doc_type={doc_type}")
         try:
             fees = extract_fees_with_llm(
                 text, config,
@@ -153,6 +154,7 @@ def _crawl_one(
                 charter_type=charter,
                 document_type=doc_type,
             )
+            print(f"    LLM returned: {len(fees)} fees")
         except Exception as e:
             result["status"] = "failed"
             result["message"] = f"LLM FAILED: {e}"
@@ -304,7 +306,7 @@ def run(
     )
     db.commit()
 
-    # Single institution mode
+    # Single institution mode -- force re-extraction by clearing content hash
     if target_id:
         row = db.fetchone(
             "SELECT id, institution_name, fee_schedule_url, document_type, last_content_hash, state_code, asset_size, charter_type FROM crawl_targets WHERE id = ?",
@@ -316,6 +318,9 @@ def run(
         if not row["fee_schedule_url"]:
             print(f"Institution {row['institution_name']} has no fee schedule URL.")
             return
+        # Clear hash to force re-extraction (avoids UNCHANGED skip)
+        db.execute("UPDATE crawl_targets SET last_content_hash = NULL WHERE id = ?", (target_id,))
+        db.commit()
         print(f"Crawling single institution: {row['institution_name']} ({row['state_code']})")
 
     # Build query for targets with fee schedule URLs
