@@ -65,15 +65,11 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
       </div>
 
       {/* Filters */}
-      <form className="flex flex-wrap gap-3 justify-center mb-8">
+      <form className="flex flex-wrap gap-3 justify-center mb-8" action="/institutions" method="get">
         <input type="hidden" name="q" value={query} />
         <select
           name="state"
           defaultValue={stateCode}
-          onChange={(e) => {
-            const form = e.target.form;
-            if (form) form.submit();
-          }}
           className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] px-3 py-2 text-sm text-[#1A1815]"
         >
           <option value="">All States</option>
@@ -86,21 +82,15 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
         <select
           name="charter"
           defaultValue={charterType}
-          onChange={(e) => {
-            const form = e.target.form;
-            if (form) form.submit();
-          }}
           className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] px-3 py-2 text-sm text-[#1A1815]"
         >
           <option value="">Banks & Credit Unions</option>
           <option value="bank">Banks Only</option>
           <option value="credit_union">Credit Unions Only</option>
         </select>
-        <noscript>
-          <button type="submit" className="rounded-lg bg-[#C44B2E] px-4 py-2 text-sm text-white">
-            Search
-          </button>
-        </noscript>
+        <button type="submit" className="rounded-lg bg-[#C44B2E] px-4 py-2 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors">
+          Filter
+        </button>
       </form>
 
       {/* Results */}
