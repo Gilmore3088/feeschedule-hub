@@ -139,16 +139,12 @@ export async function searchInstitutions(query: string): Promise<{ id: number; n
 
   const { getDb } = await import("@/lib/crawler-db/connection");
   const db = getDb();
-  try {
-    const rows = db.prepare(`
-      SELECT id, institution_name as name, state_code as state
-      FROM crawl_targets
-      WHERE institution_name LIKE ?
-      ORDER BY asset_size DESC NULLS LAST
-      LIMIT 10
-    `).all(`%${query}%`) as { id: number; name: string; state: string | null }[];
-    return rows;
-  } finally {
-    db.close();
-  }
+  const rows = db.prepare(`
+    SELECT id, institution_name as name, state_code as state
+    FROM crawl_targets
+    WHERE institution_name LIKE ?
+    ORDER BY asset_size DESC NULLS LAST
+    LIMIT 10
+  `).all(`%${query}%`) as { id: number; name: string; state: string | null }[];
+  return rows;
 }

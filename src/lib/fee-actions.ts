@@ -1,21 +1,8 @@
 "use server";
 
-import Database from "better-sqlite3";
 import { revalidatePath } from "next/cache";
-import path from "path";
 import { getCurrentUser, hasPermission, type Permission } from "./auth";
-
-const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
-
-function getWriteDb(): Database.Database {
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = normal");
-  db.pragma("cache_size = -32000");
-  db.pragma("mmap_size = 268435456");
-  db.pragma("temp_store = memory");
-  return db;
-}
+import { getWriteDb } from "@/lib/crawler-db/connection";
 
 async function requirePermission(permission: Permission) {
   const user = await getCurrentUser();
