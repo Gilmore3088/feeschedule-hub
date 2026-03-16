@@ -22,6 +22,35 @@ export default async function AccountPage({
   if (!user) redirect("/login?from=/account");
 
   const params = await searchParams;
+  // Fallback: if webhook missed, verify payment directly with Stripe
+  if (user.subscription_status !== "active" && user.stripe_customer_id) {
+    try {
+      const { getStripe } = await import("@/lib/stripe");
+      const stripe = getStripe();
+      const subs = await stripe.subscriptions.list({
+        customer: user.stripe_customer_id,
+        status: "active",
+        limit: 1,
+      });
+      if (subs.data.length > 0) {
+        const { getWriteDb } = await import("@/lib/crawler-db/connection");
+        const db = getWriteDb();
+        try {
+          db.prepare(
+            "UPDATE users SET subscription_status = 'active', role = 'premium' WHERE id = ? AND role NOT IN ('admin')"
+          ).run(user.id);
+          // Refresh user data
+          user.subscription_status = "active";
+          user.role = "premium";
+        } finally {
+          db.close();
+        }
+      }
+    } catch {
+      // Stripe not configured or error -- continue with current status
+    }
+  }
+
   const isPro = canAccessPremium(user);
   // Personalization: derive district from state
   const district = user.state_code ? STATE_TO_DISTRICT[user.state_code] : null;

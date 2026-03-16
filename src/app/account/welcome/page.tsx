@@ -36,9 +36,43 @@ function getSpotlightMedians(): { category: string; displayName: string; median:
   }
 }
 
+async function activateIfPaid(user: { id: number; email: string | null; subscription_status: string; stripe_customer_id: string | null }) {
+  // If user already active, nothing to do
+  if (user.subscription_status === "active") return;
+
+  // If user has a stripe_customer_id, check Stripe for active subscriptions
+  if (user.stripe_customer_id) {
+    try {
+      const { getStripe } = await import("@/lib/stripe");
+      const stripe = getStripe();
+      const subs = await stripe.subscriptions.list({
+        customer: user.stripe_customer_id,
+        status: "active",
+        limit: 1,
+      });
+      if (subs.data.length > 0) {
+        const { getWriteDb } = await import("@/lib/crawler-db/connection");
+        const db = getWriteDb();
+        try {
+          db.prepare(
+            "UPDATE users SET subscription_status = 'active', role = 'premium' WHERE id = ? AND role NOT IN ('admin')"
+          ).run(user.id);
+        } finally {
+          db.close();
+        }
+      }
+    } catch (e) {
+      console.error("[welcome] Failed to verify subscription:", e);
+    }
+  }
+}
+
 export default async function WelcomePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?from=/account/welcome");
+
+  // Fallback: if webhook missed, verify payment directly with Stripe
+  await activateIfPaid(user);
 
   const feePreview = getSpotlightMedians();
   const district = user.state_code ? STATE_TO_DISTRICT[user.state_code] : null;
