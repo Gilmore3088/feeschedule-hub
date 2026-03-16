@@ -1,7 +1,7 @@
 node_modules
 .next
 .git
-data/
+# data/ - not ignored; needed for build-time page generation
 fee_crawler/
 plans/
 docs/

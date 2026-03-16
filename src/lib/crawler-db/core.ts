@@ -18,23 +18,27 @@ export interface PublicStats {
 }
 
 export function getPublicStats(): PublicStats {
-  const db = getDb();
-  const validCodes = [...VALID_US_CODES];
-  const placeholders = validCodes.map(() => "?").join(",");
-  const row = db
-    .prepare(
-      `SELECT
-         COUNT(ef.id) as total_observations,
-         COUNT(DISTINCT ct.id) as total_institutions,
-         COUNT(DISTINCT ef.fee_category) as total_categories,
-         COUNT(DISTINCT ct.state_code) as total_states
-       FROM crawl_targets ct
-       JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
-       WHERE ct.state_code IN (${placeholders})
-         AND ef.review_status != 'rejected'`
-    )
-    .get(...validCodes) as PublicStats;
-  return row;
+  try {
+    const db = getDb();
+    const validCodes = [...VALID_US_CODES];
+    const placeholders = validCodes.map(() => "?").join(",");
+    const row = db
+      .prepare(
+        `SELECT
+           COUNT(ef.id) as total_observations,
+           COUNT(DISTINCT ct.id) as total_institutions,
+           COUNT(DISTINCT ef.fee_category) as total_categories,
+           COUNT(DISTINCT ct.state_code) as total_states
+         FROM crawl_targets ct
+         JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+         WHERE ct.state_code IN (${placeholders})
+           AND ef.review_status != 'rejected'`
+      )
+      .get(...validCodes) as PublicStats;
+    return row;
+  } catch {
+    return { total_observations: 0, total_institutions: 0, total_categories: 0, total_states: 0 };
+  }
 }
 
 export function getStats(): CrawlStats {
