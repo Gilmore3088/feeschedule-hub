@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { runCrawlGaps, runCategorize, runAutoReview, runSmartPipeline } from "./actions";
 
 interface PipelineStage {
   id: string;
@@ -19,10 +20,44 @@ interface UnifiedPipelineProps {
   stages: PipelineStage[];
 }
 
+const ACTION_MAP: Record<string, () => Promise<{ success: boolean; jobId?: number; error?: string }>> = {
+  crawl: runCrawlGaps,
+  categorize: runCategorize,
+  review: runAutoReview,
+};
+
 export function UnifiedPipeline({ stages }: UnifiedPipelineProps) {
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [running, setRunning] = useState(false);
 
   const selected = stages.find((s) => s.id === selectedStage);
+
+  async function handleAction(stageId: string) {
+    const fn = ACTION_MAP[stageId];
+    if (!fn) return;
+    setRunning(true);
+    setActionMessage(null);
+    const result = await fn();
+    setRunning(false);
+    if (result.success) {
+      setActionMessage({ type: "success", text: `Job #${result.jobId} started` });
+    } else {
+      setActionMessage({ type: "error", text: result.error || "Failed" });
+    }
+  }
+
+  async function handleSmartPipeline() {
+    setRunning(true);
+    setActionMessage(null);
+    const result = await runSmartPipeline();
+    setRunning(false);
+    if (result.success) {
+      setActionMessage({ type: "success", text: `Smart Pipeline job #${result.jobId} started` });
+    } else {
+      setActionMessage({ type: "error", text: result.error || "Failed" });
+    }
+  }
 
   function pctColor(pct: number): string {
     if (pct >= 80) return "bg-emerald-500";
@@ -45,14 +80,20 @@ export function UnifiedPipeline({ stages }: UnifiedPipelineProps) {
         <h2 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
           Pipeline Status
         </h2>
-        {selected && (
+        <div className="flex items-center gap-2">
+          {actionMessage && (
+            <span className={`text-[11px] ${actionMessage.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+              {actionMessage.text}
+            </span>
+          )}
           <button
-            onClick={() => setSelectedStage(null)}
-            className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={handleSmartPipeline}
+            disabled={running}
+            className="rounded-md bg-gray-900 dark:bg-white/[0.1] px-3 py-1 text-[10px] font-semibold text-white hover:bg-gray-800 dark:hover:bg-white/[0.15] disabled:opacity-40 transition-colors"
           >
-            Close detail
+            {running ? "Running..." : "Run Smart Pipeline"}
           </button>
-        )}
+        </div>
       </div>
 
       {/* Stage bars */}
@@ -128,14 +169,22 @@ export function UnifiedPipeline({ stages }: UnifiedPipelineProps) {
                 {selected.description}
               </p>
             </div>
-            {selected.actionHref && (
+            {ACTION_MAP[selected.id] ? (
+              <button
+                onClick={() => handleAction(selected.id)}
+                disabled={running}
+                className="shrink-0 rounded-md bg-gray-900 dark:bg-white/[0.1] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-gray-800 dark:hover:bg-white/[0.15] disabled:opacity-40 transition-colors"
+              >
+                {running ? "Running..." : selected.actionLabel}
+              </button>
+            ) : selected.actionHref ? (
               <Link
                 href={selected.actionHref}
                 className="shrink-0 rounded-md bg-gray-900 dark:bg-white/[0.1] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-gray-800 dark:hover:bg-white/[0.15] transition-colors no-underline"
               >
                 {selected.actionLabel}
               </Link>
-            )}
+            ) : null}
           </div>
 
           {/* Breakdowns */}

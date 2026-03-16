@@ -2,6 +2,52 @@
 
 import { revalidatePath } from "next/cache";
 import { getWriteDb } from "@/lib/crawler-db/connection";
+import { requireAuth } from "@/lib/auth";
+import { spawnJob } from "@/lib/job-runner";
+
+export async function runCrawlGaps(): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("crawl", ["--skip-with-fees", "--limit", "500"], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function runCategorize(): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("categorize", [], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function runAutoReview(): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("auto-review", [], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function runSmartPipeline(): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("run-pipeline", ["--limit", "100"], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
 
 export async function setFeeScheduleUrl(
   institutionId: number,
