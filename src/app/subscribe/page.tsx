@@ -202,21 +202,12 @@ export default async function SubscribePage({
               </ul>
             </div>
             <div className="flex-shrink-0 md:w-56">
-              {isLoggedIn ? (
-                <SubscribeButton
-                  priceId={REPORT_PRICE_ID}
-                  mode="payment"
-                  label="Order Report -- $250"
-                  className="w-full rounded-md border border-[#D5CBBF] bg-transparent px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                />
-              ) : (
-                <a
-                  href="/register"
-                  className="block w-full text-center rounded-md border border-[#D5CBBF] px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
-                >
-                  Create account
-                </a>
-              )}
+              <a
+                href="mailto:hello@bankfeeindex.com?subject=Custom%20Report%20Request"
+                className="block w-full text-center rounded-md border border-[#D5CBBF] bg-transparent px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
+              >
+                Request a Report
+              </a>
             </div>
           </div>
         </div>
