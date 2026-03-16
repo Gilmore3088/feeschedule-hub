@@ -20,6 +20,6 @@ jobs:
 
       - name: Run crawl pipeline on Fly.io via SSH
         run: |
-          flyctl ssh console --app bank-fee-index -C "cd /app && DB_PATH=/data/crawler.db python3 -m fee_crawler run-pipeline --limit ${{ inputs.limit || '100' }} --max-llm-calls 200 --workers 2"
+          flyctl ssh console --app bank-fee-index -C "sh -c 'cd /app && DB_PATH=/data/crawler.db python3 -m fee_crawler run-pipeline --limit ${{ inputs.limit || '100' }} --max-llm-calls 200 --workers 2'"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

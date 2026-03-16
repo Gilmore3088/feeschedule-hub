@@ -18,7 +18,7 @@ export function InstitutionSearchBar({ autoFocus = false }: { autoFocus?: boolea
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

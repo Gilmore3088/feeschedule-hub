@@ -37,6 +37,6 @@ jobs:
 
       - name: Run refresh on Fly.io via SSH
         run: |
-          flyctl ssh console --app bank-fee-index -C "cd /app && DB_PATH=/data/crawler.db python3 -m fee_crawler refresh-data --cadence ${{ steps.cadence.outputs.tier }}"
+          flyctl ssh console --app bank-fee-index -C "sh -c 'cd /app && DB_PATH=/data/crawler.db python3 -m fee_crawler refresh-data --cadence ${{ steps.cadence.outputs.tier }}'"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
