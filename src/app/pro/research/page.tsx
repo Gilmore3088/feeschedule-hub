@@ -6,11 +6,11 @@ import { ResearchChat } from "@/app/admin/research/[agentId]/research-chat";
 
 export default async function ProResearchPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/admin/login?redirect=/pro/research");
+  if (!user) redirect("/login?redirect=/pro/research");
 
   const roleOrder: Record<string, number> = { viewer: 0, premium: 1, analyst: 2, admin: 3 };
   if ((roleOrder[user.role] ?? 0) < 1) {
-    redirect("/admin/login?redirect=/pro/research");
+    redirect("/login?redirect=/pro/research");
   }
 
   ensureResearchTables();

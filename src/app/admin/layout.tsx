@@ -37,6 +37,12 @@ async function AdminLayoutInner({
     return <>{children}</>;
   }
 
+  // Only admin and analyst roles can access the admin panel
+  if (user.role !== "admin" && user.role !== "analyst") {
+    const { redirect } = await import("next/navigation");
+    redirect("/account");
+  }
+
   const roleBadgeColor =
     user.role === "admin"
       ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
