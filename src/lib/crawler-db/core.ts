@@ -365,6 +365,8 @@ export function getOutlierFlaggedFees(
   limit = 100,
   offset = 0,
   category?: string,
+  sort?: string,
+  dir?: string,
 ): { fees: ReviewableFee[]; total: number } {
   const db = getDb();
   const conditions = [
@@ -401,12 +403,27 @@ export function getOutlierFlaggedFees(
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
        ${where}
-       ORDER BY ef.extraction_confidence ASC, ef.amount DESC
+       ORDER BY ${getSortClause(sort, dir, "ef.extraction_confidence ASC, ef.amount DESC")}
        LIMIT ? OFFSET ?`,
     )
     .all(...params, limit, offset) as ReviewableFee[];
 
   return { fees, total: cnt };
+}
+
+function getSortClause(sort?: string, dir?: string, fallback = "ef.id DESC"): string {
+  const SORT_MAP: Record<string, string> = {
+    amount: "ef.amount",
+    confidence: "ef.extraction_confidence",
+    name: "ef.fee_name",
+    institution: "ct.institution_name",
+    category: "ef.fee_category",
+    state: "ct.state_code",
+  };
+  const col = sort && SORT_MAP[sort];
+  if (!col) return fallback;
+  const direction = dir === "asc" ? "ASC" : "DESC";
+  return `${col} ${direction} NULLS LAST`;
 }
 
 export function getOutlierCount(): number {

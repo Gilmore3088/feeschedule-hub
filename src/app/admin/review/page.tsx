@@ -39,7 +39,7 @@ export default async function ReviewPage({
   const isOutlierView = activeStatus === "outliers";
 
   const { fees, total } = isOutlierView
-    ? getOutlierFlaggedFees(PAGE_SIZE, (currentPage - 1) * PAGE_SIZE)
+    ? getOutlierFlaggedFees(PAGE_SIZE, (currentPage - 1) * PAGE_SIZE, undefined, sortColumn, sortDir)
     : getFeesByStatus(
         activeStatus,
         searchQuery || undefined,
