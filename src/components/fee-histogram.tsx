@@ -32,9 +32,14 @@ function buildBuckets(fees: FeeInstance[], bucketCount: number): Bucket[] {
 
   if (amounts.length === 0) return [];
 
-  const values = amounts.map((a) => a.amount);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const values = amounts.map((a) => a.amount).sort((a, b) => a - b);
+  // Use P5-P95 range to exclude outliers from distorting the chart
+  const p5Idx = Math.floor(values.length * 0.05);
+  const p95Idx = Math.min(Math.floor(values.length * 0.95), values.length - 1);
+  const min = values[p5Idx];
+  const max = values[p95Idx];
+  // Count outliers excluded
+  const outlierCount = amounts.filter((a) => a.amount < min || a.amount > max).length;
 
   if (min === max) {
     return [
@@ -49,12 +54,16 @@ function buildBuckets(fees: FeeInstance[], bucketCount: number): Bucket[] {
     ];
   }
 
-  const step = (max - min) / bucketCount;
+  // Round step to clean numbers for readable labels
+  const rawStep = (max - min) / bucketCount;
+  const step = rawStep <= 1 ? 1 : rawStep <= 5 ? 5 : rawStep <= 10 ? 10 : Math.ceil(rawStep / 5) * 5;
+  const roundedMin = Math.floor(min / step) * step;
+
   const buckets: Bucket[] = [];
 
   for (let i = 0; i < bucketCount; i++) {
-    const rangeStart = min + i * step;
-    const rangeEnd = i === bucketCount - 1 ? max + 0.01 : min + (i + 1) * step;
+    const rangeStart = roundedMin + i * step;
+    const rangeEnd = roundedMin + (i + 1) * step;
     buckets.push({
       label: `$${rangeStart.toFixed(0)}`,
       rangeStart,
@@ -65,11 +74,10 @@ function buildBuckets(fees: FeeInstance[], bucketCount: number): Bucket[] {
     });
   }
 
+  // Place all amounts into buckets (including outliers into first/last)
   for (const a of amounts) {
-    const idx = Math.min(
-      Math.floor((a.amount - min) / step),
-      bucketCount - 1
-    );
+    let idx = Math.floor((a.amount - roundedMin) / step);
+    idx = Math.max(0, Math.min(idx, bucketCount - 1));
     if (a.isBank) {
       buckets[idx].banks++;
     } else {

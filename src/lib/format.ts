@@ -1,7 +1,7 @@
 export function formatAmount(amount: number | null): string {
   if (amount === null) return "-";
   if (amount === 0) return "$0.00";
-  if (amount < 1 && amount > 0) return `${(amount * 100).toFixed(1)}%`;
+  // Removed: was treating $0.35 as "35.0%" -- fees under $1 are just cents
   return `$${amount.toFixed(2)}`;
 }
 
