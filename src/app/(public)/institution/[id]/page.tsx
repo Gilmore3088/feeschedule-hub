@@ -19,6 +19,9 @@ import { formatAmount, formatAssets } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
+import { UpgradeGate } from "@/components/upgrade-gate";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -75,6 +78,9 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const { id } = await params;
   const instId = parseInt(id, 10);
   if (isNaN(instId)) notFound();
+
+  const user = await getCurrentUser();
+  const isPro = canAccessPremium(user);
 
   const inst = getInstitutionById(instId);
   if (!inst || inst.fee_count === 0) notFound();
@@ -173,8 +179,13 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Call report summary */}
-      {latestFinancial && (
+      {/* Call report summary -- premium only */}
+      {!isPro && latestFinancial && (
+        <div className="mt-8">
+          <UpgradeGate message="Financial snapshot from Call Reports" />
+        </div>
+      )}
+      {isPro && latestFinancial && (
         <section className="mt-8">
           <h2 className="text-sm font-bold text-slate-800">
             Financial Snapshot
