@@ -120,12 +120,7 @@ export default async function PipelinePage({
         </div>
       </div>
 
-      {/* Unified Pipeline Dashboard */}
-      <div className="mb-4">
-        <PipelineDashboard />
-      </div>
-
-      {/* Pipeline Runs - phase progression with resume support */}
+      {/* Pipeline Runs - the hero section showing stage progression */}
       <div className="mb-4">
         <PipelineRunsPanel />
       </div>
@@ -133,6 +128,11 @@ export default async function PipelinePage({
       {/* Fee Index Cache - precomputed spotlight stats */}
       <div className="mb-4">
         <IndexCacheCard />
+      </div>
+
+      {/* Unified Pipeline Dashboard */}
+      <div className="mb-4">
+        <PipelineDashboard />
       </div>
 
       {/* Quick Actions - all pipeline commands in one place */}
