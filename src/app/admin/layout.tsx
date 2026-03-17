@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser, type User } from "@/lib/auth";
 import { LogoutButton } from "./logout-button";
 import { AdminNav, AdminNavInline } from "./admin-nav";
+import { JobStatusBadge } from "./job-status-badge";
 import {
   CommandPalette,
   CommandPaletteTrigger,
@@ -106,6 +107,9 @@ async function AdminLayoutInner({
         <aside className="hidden md:flex flex-col w-[180px] shrink-0 sticky top-11 h-[calc(100vh-2.75rem)] border-r border-black/[0.04] dark:border-white/[0.04] bg-white/60 dark:bg-[oklch(0.15_0_0)]/60 backdrop-blur-sm overflow-y-auto">
           <div className="flex-1 py-2.5">
             <AdminNav />
+            <Suspense fallback={null}>
+              <JobStatusBadge />
+            </Suspense>
           </div>
           <div className="border-t border-black/[0.04] dark:border-white/[0.04] px-3 py-2.5">
             <Link

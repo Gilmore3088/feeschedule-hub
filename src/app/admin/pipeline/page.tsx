@@ -11,6 +11,7 @@ import { DataSourcesStatus } from "./data-sources-status";
 import { RecentJobs } from "./recent-jobs";
 import { CategoryCoverageDashboard } from "./category-coverage-data";
 import { QuickActions } from "./quick-actions";
+import { RecentPriceChanges } from "./price-changes";
 
 const PAGE_SIZE = 50;
 
@@ -125,6 +126,11 @@ export default async function PipelinePage({
       {/* Recent Jobs */}
       <div className="mb-4">
         <RecentJobs />
+      </div>
+
+      {/* Price Changes (only shows if there are change events) */}
+      <div className="mb-4">
+        <RecentPriceChanges />
       </div>
 
       {/* Category Coverage */}

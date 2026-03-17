@@ -16,6 +16,8 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   pending: ["staged", "flagged", "approved", "rejected"],
   staged: ["approved", "rejected"],
   flagged: ["approved", "rejected"],
+  approved: ["staged"],  // unstage: admin-only, requires notes
+  rejected: ["staged"],  // unstage: admin-only, requires notes
 };
 
 function assertTransition(current: string, target: string) {
@@ -533,5 +535,127 @@ export async function bulkApproveFees(
     }
   } catch (e) {
     return { success: false, count: 0, error: (e as Error).message };
+  }
+}
+
+export async function bulkApproveByConfidence(
+  minConfidence: number,
+  notes?: string,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const user = await requirePermission("bulk_approve");
+    if (minConfidence < 0.5 || minConfidence > 1) {
+      return { success: false, count: 0, error: "Confidence must be between 0.5 and 1.0" };
+    }
+
+    const db = getWriteDb();
+    try {
+      const staged = db
+        .prepare(
+          "SELECT id FROM extracted_fees WHERE review_status = 'staged' AND extraction_confidence >= ?"
+        )
+        .all(minConfidence) as { id: number }[];
+
+      if (staged.length === 0) return { success: true, count: 0 };
+
+      const updateStmt = db.prepare("UPDATE extracted_fees SET review_status = 'approved' WHERE id = ?");
+      const auditStmt = db.prepare(
+        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+         VALUES (?, 'confidence_approve', ?, ?, 'staged', 'approved', ?)`
+      );
+      const bulkNote = notes || `Confidence batch: approved ${staged.length} fees >= ${(minConfidence * 100).toFixed(0)}%`;
+
+      db.transaction(() => {
+        for (const fee of staged) {
+          updateStmt.run(fee.id);
+          auditStmt.run(fee.id, user.id, user.username, bulkNote);
+        }
+      })();
+
+      revalidatePath("/admin/review");
+      return { success: true, count: staged.length };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { success: false, count: 0, error: (e as Error).message };
+  }
+}
+
+export async function bulkRejectByInstitution(
+  institutionId: number,
+  notes?: string,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const user = await requirePermission("reject");
+    const db = getWriteDb();
+    try {
+      const fees = db
+        .prepare(
+          "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ? AND review_status IN ('staged', 'flagged', 'pending')"
+        )
+        .all(institutionId) as { id: number; review_status: string }[];
+
+      if (fees.length === 0) return { success: true, count: 0 };
+
+      const updateStmt = db.prepare("UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ?");
+      const auditStmt = db.prepare(
+        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+         VALUES (?, 'institution_reject', ?, ?, ?, 'rejected', ?)`
+      );
+      const bulkNote = notes || `Rejected all ${fees.length} non-reviewed fees for institution #${institutionId}`;
+
+      db.transaction(() => {
+        for (const fee of fees) {
+          updateStmt.run(fee.id);
+          auditStmt.run(fee.id, user.id, user.username, fee.review_status, bulkNote);
+        }
+      })();
+
+      revalidatePath("/admin/review");
+      return { success: true, count: fees.length };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { success: false, count: 0, error: (e as Error).message };
+  }
+}
+
+export async function unstageFee(
+  feeId: number,
+  notes: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!notes || notes.trim().length < 3) {
+    return { success: false, error: "Notes are required when unstaging a fee" };
+  }
+  try {
+    const user = await requirePermission("edit");
+    const db = getWriteDb();
+    try {
+      db.transaction(() => {
+        const fee = db
+          .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
+          .get(feeId) as { id: number; review_status: string } | undefined;
+
+        if (!fee) throw new Error("Fee not found");
+        if (fee.review_status !== "approved" && fee.review_status !== "rejected") {
+          throw new Error("Can only unstage approved or rejected fees");
+        }
+
+        db.prepare("UPDATE extracted_fees SET review_status = 'staged' WHERE id = ?").run(feeId);
+        db.prepare(
+          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+           VALUES (?, 'unstage', ?, ?, ?, 'staged', ?)`
+        ).run(feeId, user.id, user.username, fee.review_status, notes);
+      })();
+
+      revalidatePath("/admin/review");
+      return { success: true };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
   }
 }

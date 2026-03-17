@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { bulkApproveFees, bulkRejectFees } from "@/lib/fee-actions";
-import { ApproveButton, RejectButton } from "./review-actions";
+import { ApproveButton, RejectButton, UnstageButton } from "./review-actions";
 import { CategorySelect } from "./category-select";
 import { formatAmount } from "@/lib/format";
 import type { ReviewableFee } from "@/lib/crawler-db/types";
@@ -321,6 +321,11 @@ export function ReviewTable({ fees, canApprove, activeStatus, sortColumn, sortDi
                       <div className="flex gap-1 justify-end">
                         <ApproveButton feeId={fee.id} />
                         <RejectButton feeId={fee.id} />
+                      </div>
+                    ) : (fee.review_status === "approved" || fee.review_status === "rejected") ? (
+                      <div className="flex gap-1 justify-end items-center">
+                        <span className="text-xs text-gray-400">{fee.review_status}</span>
+                        <UnstageButton feeId={fee.id} />
                       </div>
                     ) : (
                       <span className="text-xs text-gray-400">{fee.review_status}</span>
