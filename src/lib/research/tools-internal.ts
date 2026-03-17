@@ -10,6 +10,7 @@ import {
 import { getOutlierFlaggedFees, getReviewStats, getStats } from "@/lib/crawler-db/core";
 import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
 import { getDb } from "@/lib/crawler-db/connection";
+import { spawnJob } from "@/lib/job-runner";
 
 /**
  * Admin-only tools for Fee Analyst and Custom Query agents.
@@ -374,6 +375,32 @@ export const queryDataQuality = tool({
   },
 });
 
+const SAFE_PIPELINE_COMMANDS = new Set([
+  "categorize", "auto-review", "validate", "outlier-detect",
+  "enrich", "publish-index", "snapshot", "merge-fees",
+]);
+
+export const triggerPipelineJob = tool({
+  description:
+    "Trigger a pipeline job (admin only). Safe commands: categorize, auto-review, validate, outlier-detect, enrich, publish-index, snapshot, merge-fees. Does NOT allow crawl or discover (those use API credits).",
+  inputSchema: z.object({
+    command: z.string().describe("Pipeline command name"),
+    dryRun: z.boolean().optional().default(false).describe("If true, pass --dry-run flag"),
+  }),
+  execute: async ({ command, dryRun }) => {
+    if (!SAFE_PIPELINE_COMMANDS.has(command)) {
+      return { error: `Command '${command}' not allowed. Safe commands: ${[...SAFE_PIPELINE_COMMANDS].join(", ")}` };
+    }
+    try {
+      const args = dryRun ? ["--dry-run"] : [];
+      const result = spawnJob(command, args, "agent");
+      return { success: true, jobId: result.jobId, pid: result.pid, logPath: result.logPath };
+    } catch (e) {
+      return { error: String(e) };
+    }
+  },
+});
+
 /** All internal tools bundled for admin agent configs */
 export const internalTools = {
   queryDistrictData,
@@ -386,4 +413,5 @@ export const internalTools = {
   rankInstitutions,
   queryJobStatus,
   queryDataQuality,
+  triggerPipelineJob,
 };

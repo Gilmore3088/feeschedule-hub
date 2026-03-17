@@ -2,6 +2,7 @@ import type { ToolSet } from "ai";
 import { publicTools } from "./tools";
 import { internalTools } from "./tools-internal";
 import { getPublicStats } from "../crawler-db";
+import { getDb } from "../crawler-db/connection";
 
 export interface AgentConfig {
   id: string;
@@ -38,6 +39,28 @@ Rules:
 - If you cannot answer from the available data, say so clearly.`;
 }
 
+function opsContext(): string {
+  try {
+    const db = getDb();
+    const lastCrawl = db.prepare(
+      "SELECT completed_at FROM crawl_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1"
+    ).get() as { completed_at: string } | undefined;
+    const pendingReview = db.prepare(
+      "SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status IN ('pending', 'staged', 'flagged')"
+    ).get() as { cnt: number };
+    const activeJobs = db.prepare(
+      "SELECT COUNT(*) as cnt FROM ops_jobs WHERE status IN ('running', 'queued')"
+    ).get() as { cnt: number };
+    const parts: string[] = [];
+    if (lastCrawl?.completed_at) parts.push(`Last crawl: ${lastCrawl.completed_at}`);
+    if (pendingReview.cnt > 0) parts.push(`${pendingReview.cnt} fees pending review`);
+    if (activeJobs.cnt > 0) parts.push(`${activeJobs.cnt} jobs running`);
+    return parts.length > 0 ? `\n\nOperational status: ${parts.join(". ")}.` : "";
+  } catch {
+    return "";
+  }
+}
+
 function buildAnalystPrompt(): string {
   const s = getPublicStats();
   return `You are a senior bank fee analyst with full access to the Bank Fee Index database. You help analysts benchmark fees, identify pricing patterns, compare institutions against peers, and produce data-driven insights.
@@ -51,7 +74,7 @@ Rules:
 - When asked about trends, note whether historical data is available or if analysis is point-in-time.
 - Cross-reference multiple data sources when possible (e.g., fees + financial data + geographic context).
 - Explain your analytical methodology when performing complex comparisons.
-- For peer comparisons, specify the peer group definition (charter type, asset tier, district).`;
+- For peer comparisons, specify the peer group definition (charter type, asset tier, district).${opsContext()}`;
 }
 
 function buildContentWriterPrompt(): string {
@@ -86,7 +109,7 @@ Rules:
 - You CANNOT modify data — all access is read-only.
 - When uncertain about data quality or completeness, say so.
 - For complex questions, break them into steps and show your work.
-- You can combine multiple tool calls to answer multi-part questions.`;
+- You can combine multiple tool calls to answer multi-part questions.${opsContext()}`;
 }
 
 export const AGENTS: Record<string, AgentConfig> = {
@@ -98,7 +121,7 @@ export const AGENTS: Record<string, AgentConfig> = {
     systemPrompt: buildAskPrompt(),
     tools: publicTools,
     model: process.env.BFI_MODEL_ASK || "claude-haiku-4-5-20251001",
-    maxTokens: 1024,
+    maxTokens: 2048,
     maxSteps: 3,
     requiresAuth: false,
     requiredRole: null,
