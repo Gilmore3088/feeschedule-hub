@@ -292,19 +292,12 @@ export function OpsClient({
     const params: Record<string, unknown> = {};
     const cmd = selectedCommand;
 
-    // Smart defaults — no manual limit config needed
-    const SMART_LIMITS: Record<string, number> = {
-      "run-pipeline": 100,
-      crawl: 500,
-      discover: 100,
-      categorize: 0,  // no limit
-      "auto-review": 0,
-      validate: 0,
-      enrich: 0,
-      "outlier-detect": 0,
-    };
-    const smartLimit = SMART_LIMITS[cmd];
-    if (smartLimit && smartLimit > 0) params.limit = smartLimit;
+    // User-controlled limit (blank = no limit = process all)
+    const cmdInfo = COMMAND_DETAILS[cmd];
+    const parsedLimit = parseInt(limit, 10);
+    if (cmdInfo?.usesLimit && parsedLimit > 0) {
+      params.limit = parsedLimit;
+    }
 
     if (charterType) params.charter_type = charterType;
     if (stateCode) params.state = stateCode;
@@ -413,8 +406,26 @@ export function OpsClient({
             )}
 
             {/* Filters - only show relevant ones */}
-            {(COMMAND_INFO[selectedCommand]?.usesCharter || COMMAND_INFO[selectedCommand]?.usesState) && (
+            {(COMMAND_INFO[selectedCommand]?.usesLimit || COMMAND_INFO[selectedCommand]?.usesCharter || COMMAND_INFO[selectedCommand]?.usesState) && (
               <div className="grid grid-cols-3 gap-3">
+                {COMMAND_INFO[selectedCommand]?.usesLimit && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Limit
+                    </label>
+                    <input
+                      type="number"
+                      value={limit}
+                      onChange={(e) => setLimit(e.target.value)}
+                      placeholder="No limit"
+                      min={0}
+                      max={500}
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
+                                 dark:bg-[oklch(0.18_0_0)] dark:border-white/[0.12] dark:text-gray-100"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-0.5">0 or blank = no limit</p>
+                  </div>
+                )}
                 {COMMAND_INFO[selectedCommand]?.usesCharter && (
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -460,7 +471,8 @@ export function OpsClient({
               </div>
               <code className="text-[11px] text-emerald-400 font-mono">
                 python -m fee_crawler {selectedCommand}
-                {charterType ? ` --charter-type ${charterType}` : ""}
+                {COMMAND_INFO[selectedCommand]?.usesLimit && parseInt(limit, 10) > 0 ? ` --limit ${limit}` : ""}
+                {charterType && selectedCommand === "discover" ? ` --source ${charterType === "bank" ? "fdic" : "ncua"}` : ""}
                 {stateCode ? ` --state ${stateCode}` : ""}
               </code>
             </div>
