@@ -685,6 +685,36 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     }
     print(f"##RESULT_JSON##{json.dumps(result)}")
 
+    # Capture coverage snapshot (one per day, upsert)
+    try:
+        snapshot = db.fetchone("""
+            SELECT
+              (SELECT COUNT(*) FROM crawl_targets) as total,
+              (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND fee_schedule_url != '') as with_url,
+              (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
+              (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
+              (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
+              (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+        """)
+        if snapshot:
+            db.execute(
+                """INSERT INTO coverage_snapshots
+                   (snapshot_date, total_institutions, with_fee_url, with_fees, with_approved, total_fees, approved_fees)
+                   VALUES (date('now'), ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(snapshot_date) DO UPDATE SET
+                     total_institutions = excluded.total_institutions,
+                     with_fee_url = excluded.with_fee_url,
+                     with_fees = excluded.with_fees,
+                     with_approved = excluded.with_approved,
+                     total_fees = excluded.total_fees,
+                     approved_fees = excluded.approved_fees""",
+                (snapshot["total"], snapshot["with_url"], snapshot["with_fees"],
+                 snapshot["with_approved"], snapshot["total_fees"], snapshot["approved_fees"]),
+            )
+            db.commit()
+    except Exception:
+        pass  # Don't fail the crawl if snapshot fails
+
 
 def _classify_extraction_failure(text: str, doc_type: str) -> str:
     """Classify why a document failed pre-LLM screening.

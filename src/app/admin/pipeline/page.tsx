@@ -12,6 +12,8 @@ import { RecentJobs } from "./recent-jobs";
 import { CategoryCoverageDashboard } from "./category-coverage-data";
 import { QuickActions } from "./quick-actions";
 import { RecentPriceChanges } from "./price-changes";
+import { CoverageTrend } from "./coverage-trend";
+import { AddInstitutionForm } from "./add-institution";
 
 const PAGE_SIZE = 50;
 
@@ -109,7 +111,10 @@ export default async function PipelinePage({
               Coverage gaps, pipeline health, and data quality
             </p>
           </div>
-          <BulkImportForm />
+          <div className="flex items-center gap-2">
+            <AddInstitutionForm />
+            <BulkImportForm />
+          </div>
         </div>
       </div>
 
@@ -126,6 +131,11 @@ export default async function PipelinePage({
       {/* Recent Jobs */}
       <div className="mb-4">
         <RecentJobs />
+      </div>
+
+      {/* Coverage Trend (only shows if 2+ snapshots exist) */}
+      <div className="mb-4">
+        <CoverageTrend />
       </div>
 
       {/* Price Changes (only shows if there are change events) */}

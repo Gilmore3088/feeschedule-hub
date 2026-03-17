@@ -216,6 +216,21 @@ CREATE TABLE IF NOT EXISTS fee_change_events (
 );
 """
 
+_CREATE_COVERAGE_SNAPSHOTS = """
+CREATE TABLE IF NOT EXISTS coverage_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_date TEXT NOT NULL,
+    total_institutions INTEGER NOT NULL,
+    with_fee_url INTEGER NOT NULL,
+    with_fees INTEGER NOT NULL,
+    with_approved INTEGER NOT NULL,
+    total_fees INTEGER NOT NULL,
+    approved_fees INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(snapshot_date)
+);
+"""
+
 _CREATE_FED_BEIGE_BOOK = """
 CREATE TABLE IF NOT EXISTS fed_beige_book (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -439,6 +454,7 @@ class Database:
         self.conn.executescript(_CREATE_INSTITUTION_COMPLAINTS)
         self.conn.executescript(_CREATE_FEE_SNAPSHOTS)
         self.conn.executescript(_CREATE_FEE_CHANGE_EVENTS)
+        self.conn.executescript(_CREATE_COVERAGE_SNAPSHOTS)
         self.conn.executescript(_CREATE_FED_BEIGE_BOOK)
         self.conn.executescript(_CREATE_FED_CONTENT)
         self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)

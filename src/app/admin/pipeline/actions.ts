@@ -106,6 +106,32 @@ export async function runRefreshData(cadence: string = "daily"): Promise<{ succe
   }
 }
 
+export async function addInstitution(
+  name: string,
+  stateCode: string,
+  charterType: "bank" | "credit_union",
+  websiteUrl?: string,
+  feeScheduleUrl?: string,
+): Promise<{ success: boolean; id?: number; error?: string }> {
+  await requireAuth("edit");
+  if (!name || name.trim().length < 2) return { success: false, error: "Name is required" };
+  if (!/^[A-Z]{2}$/.test(stateCode)) return { success: false, error: "Invalid state code" };
+
+  const db = getWriteDb();
+  try {
+    const result = db.prepare(
+      `INSERT INTO crawl_targets (institution_name, state_code, charter_type, website_url, fee_schedule_url, source, status)
+       VALUES (?, ?, ?, ?, ?, 'manual', 'active')`
+    ).run(name.trim(), stateCode, charterType, websiteUrl || null, feeScheduleUrl || null);
+    revalidatePath("/admin/pipeline");
+    return { success: true, id: Number(result.lastInsertRowid) };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  } finally {
+    db.close();
+  }
+}
+
 export async function setFeeScheduleUrl(
   institutionId: number,
   url: string

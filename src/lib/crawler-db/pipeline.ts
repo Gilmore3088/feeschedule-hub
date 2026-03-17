@@ -50,15 +50,138 @@ const SORT_COLUMNS: Record<string, string> = {
 
 export function getPipelineStats(): PipelineStats {
   const db = getDb();
-  const total = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets").get() as { c: number }).c;
-  const withWebsite = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE website_url IS NOT NULL AND website_url != ''").get() as { c: number }).c;
-  const withFeeUrl = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND fee_schedule_url != ''").get() as { c: number }).c;
-  const withFees = (db.prepare("SELECT COUNT(DISTINCT crawl_target_id) as c FROM extracted_fees WHERE review_status != 'rejected'").get() as { c: number }).c;
-  const withApproved = (db.prepare("SELECT COUNT(DISTINCT crawl_target_id) as c FROM extracted_fees WHERE review_status = 'approved'").get() as { c: number }).c;
-  const stale = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND (last_crawl_at < datetime('now', '-90 days') OR last_crawl_at IS NULL)").get() as { c: number }).c;
-  const failing = (db.prepare(`SELECT COUNT(*) as c FROM crawl_targets WHERE consecutive_failures > ${FAILURE_THRESHOLD}`).get() as { c: number }).c;
 
-  return { total_institutions: total, with_website: withWebsite, with_fee_url: withFeeUrl, with_fees: withFees, with_approved: withApproved, stale_count: stale, failing_count: failing };
+  // Consolidate crawl_targets counts into 1 query
+  const ct = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN website_url IS NOT NULL AND website_url != '' THEN 1 ELSE 0 END) as with_website,
+      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND fee_schedule_url != '' THEN 1 ELSE 0 END) as with_fee_url,
+      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND (last_crawl_at < datetime('now', '-${STALE_DAYS} days') OR last_crawl_at IS NULL) THEN 1 ELSE 0 END) as stale,
+      SUM(CASE WHEN consecutive_failures > ${FAILURE_THRESHOLD} THEN 1 ELSE 0 END) as failing
+    FROM crawl_targets
+  `).get() as { total: number; with_website: number; with_fee_url: number; stale: number; failing: number };
+
+  // Consolidate extracted_fees counts into 1 query
+  const ef = db.prepare(`
+    SELECT
+      COUNT(DISTINCT CASE WHEN review_status != 'rejected' THEN crawl_target_id END) as with_fees,
+      COUNT(DISTINCT CASE WHEN review_status = 'approved' THEN crawl_target_id END) as with_approved
+    FROM extracted_fees
+  `).get() as { with_fees: number; with_approved: number };
+
+  return {
+    total_institutions: ct.total,
+    with_website: ct.with_website,
+    with_fee_url: ct.with_fee_url,
+    with_fees: ef.with_fees,
+    with_approved: ef.with_approved,
+    stale_count: ct.stale,
+    failing_count: ct.failing,
+  };
+}
+
+/** Consolidated pipeline stage data — replaces 12+ individual COUNT queries */
+export interface PipelineStageCounts {
+  total: number;
+  hasWebsite: number;
+  hasUrl: number;
+  withFees: number;
+  needCrawl: number;
+  failedCrawl: number;
+  totalFees: number;
+  categorized: number;
+  approved: number;
+  staged: number;
+  flagged: number;
+  rejected: number;
+  stateGaps: { state_code: string; count: number }[];
+}
+
+export function getPipelineStageCounts(): PipelineStageCounts {
+  const db = getDb();
+
+  // 1 query for all crawl_targets counts
+  const ct = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN website_url IS NOT NULL AND website_url != '' THEN 1 ELSE 0 END) as has_website,
+      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND fee_schedule_url != '' THEN 1 ELSE 0 END) as has_url,
+      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND consecutive_failures >= 5 THEN 1 ELSE 0 END) as failed_crawl
+    FROM crawl_targets
+  `).get() as { total: number; has_website: number; has_url: number; failed_crawl: number };
+
+  // 1 query for all extracted_fees counts
+  const ef = db.prepare(`
+    SELECT
+      COUNT(DISTINCT CASE WHEN review_status != 'rejected' THEN crawl_target_id END) as with_fees,
+      SUM(CASE WHEN review_status != 'rejected' THEN 1 ELSE 0 END) as total_fees,
+      SUM(CASE WHEN fee_category IS NOT NULL AND fee_category != '' AND review_status != 'rejected' THEN 1 ELSE 0 END) as categorized,
+      SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
+      SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
+      SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+      SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected
+    FROM extracted_fees
+  `).get() as { with_fees: number; total_fees: number; categorized: number; approved: number; staged: number; flagged: number; rejected: number };
+
+  // Need crawl count
+  const nc = db.prepare(`
+    SELECT COUNT(*) as c FROM crawl_targets ct
+    WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url != ''
+    AND NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
+    AND ct.consecutive_failures < 5
+  `).get() as { c: number };
+
+  // Top state gaps
+  const stateGaps = db.prepare(`
+    SELECT ct.state_code, COUNT(*) as count FROM crawl_targets ct
+    WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url != ''
+    AND NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
+    AND ct.consecutive_failures < 5
+    GROUP BY ct.state_code ORDER BY count DESC LIMIT 6
+  `).all() as { state_code: string; count: number }[];
+
+  return {
+    total: ct.total,
+    hasWebsite: ct.has_website,
+    hasUrl: ct.has_url,
+    withFees: ef.with_fees,
+    needCrawl: nc.c,
+    failedCrawl: ct.failed_crawl,
+    totalFees: ef.total_fees,
+    categorized: ef.categorized,
+    approved: ef.approved,
+    staged: ef.staged,
+    flagged: ef.flagged,
+    rejected: ef.rejected,
+    stateGaps,
+  };
+}
+
+export interface CoverageSnapshot {
+  snapshot_date: string;
+  total_institutions: number;
+  with_fee_url: number;
+  with_fees: number;
+  with_approved: number;
+  total_fees: number;
+  approved_fees: number;
+}
+
+export function getCoverageSnapshots(limit: number = 30): CoverageSnapshot[] {
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT snapshot_date, total_institutions, with_fee_url, with_fees, with_approved, total_fees, approved_fees
+         FROM coverage_snapshots
+         ORDER BY snapshot_date DESC
+         LIMIT ?`
+      )
+      .all(limit) as CoverageSnapshot[];
+  } catch {
+    return [];
+  }
 }
 
 export function getCoverageGaps(opts: {
