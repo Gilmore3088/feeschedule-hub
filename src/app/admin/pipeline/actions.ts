@@ -86,13 +86,7 @@ export async function runDiscover(state?: string): Promise<{ success: boolean; j
   const user = await requireAuth("trigger_jobs");
   try {
     const args: string[] = [];
-    if (state) {
-      // No limit for state-filtered runs — process all institutions in that state
-      args.push("--state", state);
-    } else {
-      // Global discover: limit to 200 per run to avoid overwhelming
-      args.push("--limit", "200");
-    }
+    if (state) args.push("--state", state);
     const result = await spawnJob("discover", args, user.username);
     revalidatePath("/admin/pipeline");
     return { success: true, jobId: result.jobId };

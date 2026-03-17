@@ -443,14 +443,32 @@ def _print_summary(
     if search_cost > 0:
         print(f"  Search API cost: ${search_cost:.2f}")
 
-    # Show total database stats
+    # Show total database stats + remaining untouched
     db = Database(config)
     try:
         total_with_fee = db.fetchone(
-            "SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL"
+            "SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND fee_schedule_url != ''"
         )
         fee_count = total_with_fee["cnt"] if total_with_fee else 0
         total_all = db.count("crawl_targets")
-        print(f"\n  Total in DB with fee URL: {fee_count}/{total_all} ({fee_count * 100 // max(total_all, 1)}%)")
+
+        never_tried = db.fetchone(
+            """SELECT COUNT(*) as cnt FROM crawl_targets
+               WHERE (fee_schedule_url IS NULL OR fee_schedule_url = '')
+               AND website_url IS NOT NULL AND website_url != ''
+               AND id NOT IN (SELECT DISTINCT crawl_target_id FROM discovery_cache)"""
+        )
+        remaining = never_tried["cnt"] if never_tried else 0
+
+        attempted_no_url = db.fetchone(
+            """SELECT COUNT(*) as cnt FROM crawl_targets
+               WHERE (fee_schedule_url IS NULL OR fee_schedule_url = '')
+               AND id IN (SELECT DISTINCT crawl_target_id FROM discovery_cache)"""
+        )
+        tried_failed = attempted_no_url["cnt"] if attempted_no_url else 0
+
+        print(f"\n  Total with fee URL: {fee_count}/{total_all} ({fee_count * 100 // max(total_all, 1)}%)")
+        print(f"  Never attempted:   {remaining}")
+        print(f"  Attempted, failed: {tried_failed}")
     finally:
         db.close()
