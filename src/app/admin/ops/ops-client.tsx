@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { triggerJob, cancelOpsJob } from "./actions";
 import type { OpsJob, OpsJobSummary } from "@/lib/crawler-db/ops";
 import type { CrawlStats } from "@/lib/crawler-db/types";
@@ -293,7 +293,7 @@ export function OpsClient({
     const cmd = selectedCommand;
 
     // User-controlled limit (blank = no limit = process all)
-    const cmdInfo = COMMAND_DETAILS[cmd];
+    const cmdInfo = COMMAND_INFO[cmd];
     const parsedLimit = parseInt(limit, 10);
     if (cmdInfo?.usesLimit && parsedLimit > 0) {
       params.limit = parsedLimit;
@@ -627,9 +627,8 @@ export function OpsClient({
                 </tr>
               ) : (
                 recentJobs.map((job) => (
-                  <>
+                  <Fragment key={job.id}>
                     <tr
-                      key={job.id}
                       className="border-b hover:bg-gray-50/50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
                       onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
                     >
@@ -685,7 +684,7 @@ export function OpsClient({
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))
               )}
             </tbody>
