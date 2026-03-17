@@ -275,18 +275,7 @@ export default async function PeerDetailPage({
         </div>
       )}
 
-      {!analysis ? (
-        <div className="admin-card p-8 text-center text-gray-500">
-          <p className="text-lg font-medium">No analysis available</p>
-          <p className="mt-2 text-sm">
-            Run{" "}
-            <code className="bg-gray-100 px-2 py-0.5 rounded text-xs">
-              python -m fee_crawler analyze --target-id {targetId}
-            </code>{" "}
-            to generate peer comparison data.
-          </p>
-        </div>
-      ) : (
+      {!analysis ? null : (
         <>
           {/* Highlights */}
           {analysis.highlights && analysis.highlights.length > 0 && (
