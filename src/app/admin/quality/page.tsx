@@ -105,26 +105,21 @@ export default async function QualityPage() {
               {tierCoverage.map((t) => {
                 const gaps = t.total - t.with_fees;
                 return (
-                  <tr key={t.asset_size_tier} className="border-b last:border-0 group">
-                    <td className="px-3 py-2" colSpan={6}>
-                      <Link
-                        href={`/admin/peers/explore?tier=${t.asset_size_tier}`}
-                        className="flex items-center -mx-3 -my-2 px-3 py-2 rounded hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
-                      >
-                        <span className="flex-1 text-gray-700 dark:text-gray-300 font-medium">
-                          {TIER_LABELS[t.asset_size_tier] ?? t.asset_size_tier}
-                        </span>
-                        <span className="w-16 text-right tabular-nums text-gray-600 dark:text-gray-400">{t.total.toLocaleString()}</span>
-                        <span className="w-16 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{t.with_fees.toLocaleString()}</span>
-                        <span className="w-16 text-right tabular-nums text-red-500 dark:text-red-400 font-medium">{gaps > 0 ? gaps.toLocaleString() : "-"}</span>
-                        <span className="w-20 text-right">
-                          <CoverageBadge pct={t.coverage_pct} />
-                        </span>
-                        <span className="w-5 text-right">
-                          <svg className="w-3 h-3 text-gray-300 group-hover:text-blue-500 transition-colors inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </span>
+                  <tr key={t.asset_size_tier} className="border-b last:border-0 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors group">
+                    <td className="px-3 py-2">
+                      <Link href={`/admin/peers/explore?tier=${t.asset_size_tier}`} className="text-gray-700 dark:text-gray-300 font-medium hover:text-blue-600 transition-colors">
+                        {TIER_LABELS[t.asset_size_tier] ?? t.asset_size_tier}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">{t.total.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{t.with_fees.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-red-500 dark:text-red-400 font-medium">{gaps > 0 ? gaps.toLocaleString() : "-"}</td>
+                    <td className="px-3 py-2 text-right"><CoverageBadge pct={t.coverage_pct} /></td>
+                    <td className="px-3 py-2 w-5 text-right">
+                      <Link href={`/admin/peers/explore?tier=${t.asset_size_tier}`}>
+                        <svg className="w-3 h-3 text-gray-300 group-hover:text-blue-500 transition-colors inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
                       </Link>
                     </td>
                   </tr>
@@ -155,26 +150,21 @@ export default async function QualityPage() {
               {districtCoverage.map((d) => {
                 const gaps = d.total - d.with_fees;
                 return (
-                  <tr key={d.fed_district} className="border-b last:border-0 group">
-                    <td className="px-3 py-2" colSpan={6}>
-                      <Link
-                        href={`/admin/peers/explore?district=${d.fed_district}`}
-                        className="flex items-center -mx-3 -my-2 px-3 py-2 rounded hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
-                      >
-                        <span className="flex-1 text-gray-700 dark:text-gray-300 font-medium">
-                          {d.fed_district} - {DISTRICT_NAMES[d.fed_district] ?? "Unknown"}
-                        </span>
-                        <span className="w-16 text-right tabular-nums text-gray-600 dark:text-gray-400">{d.total.toLocaleString()}</span>
-                        <span className="w-16 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{d.with_fees.toLocaleString()}</span>
-                        <span className="w-16 text-right tabular-nums text-red-500 dark:text-red-400 font-medium">{gaps > 0 ? gaps.toLocaleString() : "-"}</span>
-                        <span className="w-20 text-right">
-                          <CoverageBadge pct={d.coverage_pct} />
-                        </span>
-                        <span className="w-5 text-right">
-                          <svg className="w-3 h-3 text-gray-300 group-hover:text-blue-500 transition-colors inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </span>
+                  <tr key={d.fed_district} className="border-b last:border-0 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors group">
+                    <td className="px-3 py-2">
+                      <Link href={`/admin/peers/explore?district=${d.fed_district}`} className="text-gray-700 dark:text-gray-300 font-medium hover:text-blue-600 transition-colors">
+                        {d.fed_district} - {DISTRICT_NAMES[d.fed_district] ?? "Unknown"}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">{d.total.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{d.with_fees.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-red-500 dark:text-red-400 font-medium">{gaps > 0 ? gaps.toLocaleString() : "-"}</td>
+                    <td className="px-3 py-2 text-right"><CoverageBadge pct={d.coverage_pct} /></td>
+                    <td className="px-3 py-2 w-5 text-right">
+                      <Link href={`/admin/peers/explore?district=${d.fed_district}`}>
+                        <svg className="w-3 h-3 text-gray-300 group-hover:text-blue-500 transition-colors inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
                       </Link>
                     </td>
                   </tr>
