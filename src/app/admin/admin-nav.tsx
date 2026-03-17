@@ -130,6 +130,16 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/admin/query",
+        label: "Query",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M2 4l5 3-5 3z" />
+            <path d="M9 10h5" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/institutions",
         label: "Institutions",
         icon: (
