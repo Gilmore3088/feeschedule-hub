@@ -517,12 +517,69 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     )
     db.commit()
 
-    print(f"\nCrawl run #{run_id} complete:")
+    duration_s = stats.get("duration_s", 0)
+    mins = int(duration_s // 60)
+    secs = int(duration_s % 60)
+
+    print(f"\n{'='*60}")
+    print(f"  CRAWL RUN #{run_id} REPORT")
+    print(f"{'='*60}")
+    print(f"  Duration:   {mins}m {secs}s")
     print(f"  Crawled:    {stats['crawled']}/{total}")
-    print(f"  Succeeded:  {stats['succeeded']}")
+    print(f"  Succeeded:  {stats['succeeded']} ({stats['succeeded']*100//max(1,stats['crawled'])}%)")
     print(f"  Failed:     {stats['failed']}")
     print(f"  Unchanged:  {stats['unchanged']}")
     print(f"  Fees found: {stats['total_fees']}")
+
+    # Fee status breakdown
+    status_rows = db.fetchall(
+        "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC"
+    )
+    if status_rows:
+        print(f"\n  Fee Inventory:")
+        for row in status_rows:
+            print(f"    {row['review_status']:<12s} {row['cnt']:>8,}")
+
+    # Confidence distribution
+    conf = db.fetchall("""
+        SELECT
+          CASE
+            WHEN extraction_confidence >= 0.95 THEN '0.95+'
+            WHEN extraction_confidence >= 0.90 THEN '0.90-0.94'
+            WHEN extraction_confidence >= 0.85 THEN '0.85-0.89'
+            WHEN extraction_confidence >= 0.70 THEN '0.70-0.84'
+            ELSE '<0.70'
+          END as range,
+          COUNT(*) as cnt
+        FROM extracted_fees WHERE review_status != 'rejected'
+        GROUP BY range ORDER BY range DESC
+    """)
+    if conf:
+        print(f"\n  Confidence Distribution:")
+        for row in conf:
+            print(f"    {row['range']:<12s} {row['cnt']:>6,}")
+
+    # Top categories
+    cats = db.fetchall("""
+        SELECT fee_category, COUNT(DISTINCT crawl_target_id) as inst_cnt, COUNT(*) as cnt
+        FROM extracted_fees
+        WHERE fee_category IS NOT NULL AND review_status != 'rejected'
+        GROUP BY fee_category ORDER BY inst_cnt DESC LIMIT 10
+    """)
+    if cats:
+        print(f"\n  Top Categories:")
+        print(f"    {'Category':<28s} {'Inst':>6s} {'Fees':>6s}")
+        for row in cats:
+            print(f"    {row['fee_category']:<28s} {row['inst_cnt']:>6,} {row['cnt']:>6,}")
+
+    # Uncategorized remaining
+    uncat = db.fetchone(
+        "SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'"
+    )
+    if uncat and uncat["cnt"] > 0:
+        print(f"\n  Uncategorized remaining: {uncat['cnt']:,}")
+
+    print(f"{'='*60}")
 
     # Structured result for job runner
     result = {

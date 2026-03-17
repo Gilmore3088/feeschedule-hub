@@ -117,6 +117,113 @@ def _update_run(
     db.commit()
 
 
+def _print_run_report(db: Database, run_id: int, start_time: float) -> None:
+    """Print a comprehensive post-run report."""
+    elapsed = time.time() - start_time
+    minutes = int(elapsed // 60)
+    seconds = int(elapsed % 60)
+
+    print("\n" + "=" * 70)
+    print("  PIPELINE RUN REPORT")
+    print("=" * 70)
+
+    # Duration
+    print(f"\n  Run ID:     #{run_id}")
+    print(f"  Duration:   {minutes}m {seconds}s")
+
+    # Run status
+    run = db.fetchone("SELECT * FROM pipeline_runs WHERE id = ?", (run_id,))
+    if run:
+        print(f"  Status:     {run['status']}")
+        if run["last_completed_job"]:
+            print(f"  Last stage: {run['last_completed_job']} (phase {run['last_completed_phase']})")
+        if run["error_msg"]:
+            print(f"  Error:      {run['error_msg']}")
+
+    # Fee totals
+    print(f"\n  {'--- FEE INVENTORY ---':^50}")
+    status_counts = db.fetchall(
+        "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC"
+    )
+    total_fees = 0
+    for row in status_counts:
+        total_fees += row["cnt"]
+        label = row["review_status"]
+        print(f"    {label:<12s} {row['cnt']:>8,}")
+    print(f"    {'TOTAL':<12s} {total_fees:>8,}")
+
+    # Confidence distribution
+    print(f"\n  {'--- CONFIDENCE DISTRIBUTION ---':^50}")
+    conf_ranges = db.fetchall("""
+        SELECT
+          CASE
+            WHEN extraction_confidence >= 0.95 THEN '0.95+'
+            WHEN extraction_confidence >= 0.90 THEN '0.90-0.94'
+            WHEN extraction_confidence >= 0.85 THEN '0.85-0.89'
+            WHEN extraction_confidence >= 0.70 THEN '0.70-0.84'
+            ELSE '<0.70'
+          END as range,
+          COUNT(*) as cnt
+        FROM extracted_fees
+        WHERE review_status != 'rejected'
+        GROUP BY range
+        ORDER BY range DESC
+    """)
+    for row in conf_ranges:
+        bar_len = min(40, row["cnt"] // max(1, total_fees // 40))
+        bar = "#" * bar_len
+        print(f"    {row['range']:<12s} {row['cnt']:>6,}  {bar}")
+
+    # Category coverage
+    print(f"\n  {'--- CATEGORY COVERAGE (top 15) ---':^50}")
+    categories = db.fetchall("""
+        SELECT fee_category, COUNT(*) as cnt,
+               COUNT(DISTINCT crawl_target_id) as inst_cnt,
+               ROUND(AVG(CASE WHEN amount IS NOT NULL THEN amount END), 2) as avg_amt
+        FROM extracted_fees
+        WHERE fee_category IS NOT NULL AND review_status != 'rejected'
+        GROUP BY fee_category
+        ORDER BY inst_cnt DESC
+        LIMIT 15
+    """)
+    print(f"    {'Category':<30s} {'Inst':>6s} {'Fees':>6s} {'Avg $':>8s}")
+    print(f"    {'-'*30} {'-'*6} {'-'*6} {'-'*8}")
+    for row in categories:
+        avg = f"${row['avg_amt']:.2f}" if row["avg_amt"] else "-"
+        print(f"    {row['fee_category']:<30s} {row['inst_cnt']:>6,} {row['cnt']:>6,} {avg:>8s}")
+
+    # Remaining uncategorized
+    uncat = db.fetchone(
+        "SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'"
+    )
+    print(f"\n    Uncategorized remaining: {uncat['cnt']:,}" if uncat else "")
+
+    # Coverage funnel
+    print(f"\n  {'--- COVERAGE FUNNEL ---':^50}")
+    funnel = db.fetchone("""
+        SELECT
+          (SELECT COUNT(*) FROM crawl_targets) as total,
+          (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved
+    """)
+    if funnel:
+        t = funnel["total"]
+        print(f"    Total institutions:  {t:>8,}")
+        print(f"    With fee URL:        {funnel['with_url']:>8,}  ({funnel['with_url']*100//t}%)")
+        print(f"    With extracted fees: {funnel['with_fees']:>8,}  ({funnel['with_fees']*100//t}%)")
+        print(f"    With approved fees:  {funnel['with_approved']:>8,}  ({funnel['with_approved']*100//t}%)")
+
+    # Recent change events
+    changes = db.fetchone(
+        "SELECT COUNT(*) as cnt FROM fee_change_events WHERE detected_at >= date('now', '-1 day')"
+    )
+    if changes and changes["cnt"] > 0:
+        print(f"\n    Price changes (last 24h): {changes['cnt']}")
+
+    print("\n" + "=" * 70)
+
+
 def _execute_stage(stage: Stage, db: Database, config: Config, **kwargs) -> None:
     """Execute a single pipeline stage by importing and calling its run() function."""
     cmd = stage.command
@@ -166,6 +273,8 @@ def run_pipeline(
         raise RuntimeError("Another pipeline is already running (PID lock).")
 
     try:
+        pipeline_start = time.time()
+
         # Housekeeping: clean old logs
         deleted = cleanup_old_logs(30)
         if deleted:
@@ -234,6 +343,9 @@ def run_pipeline(
             print(f"\nPipeline completed: {completed_count} stages")
         elif completed_count > 0:
             _update_run(db, run_id, status="partial")
+
+        # Post-run report
+        _print_run_report(db, run_id, pipeline_start)
 
         return run_id
 
