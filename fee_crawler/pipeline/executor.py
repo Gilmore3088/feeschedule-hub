@@ -122,7 +122,7 @@ def _execute_stage(stage: Stage, db: Database, config: Config, **kwargs) -> None
     cmd = stage.command
     if cmd == "enrich":
         from fee_crawler.commands.enrich import run
-        run(db, config)
+        run(db)
     elif cmd == "discover":
         from fee_crawler.commands.discover_urls import run
         run(db, config, limit=kwargs.get("limit"))
