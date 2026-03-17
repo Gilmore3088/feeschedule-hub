@@ -114,6 +114,12 @@ FEE_LINK_KEYWORDS = [
     "fee information",
     "service charges",
     "pricing schedule",
+    "fees and disclosures",
+    "fee and rate schedule",
+    "rate and fee schedule",
+    "account agreement",
+    "deposit account disclosure",
+    "deposit disclosures",
 ]
 
 # Broader keywords for secondary scoring
@@ -162,12 +168,17 @@ FEE_PDF_URL_KEYWORDS = [
     "fee-schedule", "fee_schedule", "feeschedule",
     "fee-disclosure", "fee_disclosure",
     "schedule-of-fees", "schedule_of_fees", "scheduleoffees",
-    "truth-in-savings", "truth_in_savings",
+    "truth-in-savings", "truth_in_savings", "truthinsavings",
     "reg-dd", "reg_dd",
     "account-fee", "account_fee",
     "service-fee", "service_fee",
     "pricing-schedule", "pricing_schedule",
     "deposit-fee", "deposit_fee",
+    "feerateschedule", "fee-rate-schedule", "fee_rate_schedule",
+    "rateandfeeschedule", "rate-and-fee-schedule",
+    "rateandfee", "rate-fee",
+    "accountagreement", "account-agreement",
+    "depositaccountfee", "deposit-account-fee",
 ]
 
 # Single-word strong signals (if "fee" or "fees" is in URL path, likely relevant)
@@ -312,10 +323,10 @@ class UrlDiscoverer:
         return path.endswith(".pdf")
 
     def _is_fee_content(self, text: str) -> bool:
-        """Check if page content contains fee-related keywords (3+ required)."""
+        """Check if page content contains fee-related keywords (2+ required)."""
         lower = text.lower()
         matches = sum(1 for kw in FEE_CONTENT_KEYWORDS if kw in lower)
-        return matches >= 3
+        return matches >= 2
 
     def _is_fee_pdf_url(self, url: str) -> bool:
         """Check if a PDF URL likely points to a fee schedule (not CRA file, etc.)."""
@@ -791,14 +802,27 @@ class UrlDiscoverer:
 
         # 3a: Probe known hub pages that often contain fee schedule links
         hub_paths = [
+            # Disclosure pages
             "/disclosures", "/personal/disclosures", "/personal-banking/disclosures",
-            "/resources", "/resources/disclosures", "/documents",
-            "/help", "/support", "/customer-resources",
-            "/rates", "/rates-and-fees", "/rates-fees",
+            "/resources/disclosures", "/resources/fees-and-disclosures",
             "/about/disclosures", "/legal/disclosures",
-            "/personal-banking/resources", "/personal/resources",
+            "/learn/disclosures", "/member-services/disclosures",
+            "/fees-and-disclosures", "/fees-disclosures",
+            # Resource/document hubs
+            "/resources", "/documents", "/forms-and-documents",
+            "/help", "/support", "/customer-resources",
+            "/member-resources", "/member-services",
+            # Rate and fee pages
+            "/rates", "/rates-and-fees", "/rates-fees",
+            "/fees-and-rates", "/more/rates",
+            # Product pages that often embed fees
             "/checking", "/personal-banking/checking",
             "/personal/checking", "/accounts/checking",
+            "/personal-banking/resources", "/personal/resources",
+            "/personal-banking", "/personal",
+            # CU-specific paths
+            "/knowledge/references", "/knowledge/references/fee-schedule",
+            "/documents/disclosures",
         ]
         for hub_path in hub_paths:
             hub_url = base_url + hub_path
