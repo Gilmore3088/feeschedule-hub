@@ -207,7 +207,7 @@ def run(
         max_search_cost: Maximum budget for search API queries (default $25).
     """
     # Build query for institutions to process
-    where_clauses = ["website_url IS NOT NULL", "status = 'active'"]
+    where_clauses = ["website_url IS NOT NULL AND website_url != ''", "status = 'active'"]
     params: list = []
 
     if not force:
@@ -220,6 +220,12 @@ def run(
     if source:
         where_clauses.append("source = ?")
         params.append(source.lower())
+
+    # Exclude institutions already attempted (in discovery_cache) unless --force
+    if not force:
+        where_clauses.append(
+            "id NOT IN (SELECT DISTINCT crawl_target_id FROM discovery_cache)"
+        )
 
     where_sql = " AND ".join(where_clauses)
     order_sql = "ORDER BY asset_size DESC NULLS LAST"
