@@ -673,6 +673,68 @@ FEE_NAME_ALIASES: dict[str, str] = {
     # Merchant
     "merchant services": "account_research",
     "merchant services fee": "account_research",
+    # IRA transfer
+    "ira transfer fee": "account_research",
+    "ira transfer": "account_research",
+    "ira closing fee": "early_closure",
+    "ira termination fee": "early_closure",
+    "ira maintenance fee": "monthly_maintenance",
+    # Teller transactions
+    "teller transaction fee": "account_research",
+    "teller fee": "account_research",
+    "excessive teller transaction": "account_research",
+    "teller withdrawal fee": "account_research",
+    # Excess withdrawal
+    "money market withdrawal": "account_research",
+    "excess withdrawal fee": "account_research",
+    "excess transaction fee": "account_research",
+    "reg d violation": "account_research",
+    "regulation d fee": "account_research",
+    # Business fee
+    "business checking fee": "monthly_maintenance",
+    "business account fee": "monthly_maintenance",
+    # Account closure
+    "account closure fee": "early_closure",
+    # --- Aliases from pipeline refactor 2026-03 uncategorized analysis ---
+    # Per-check / per-item fees
+    "per check fee": "check_printing",
+    "per check": "check_printing",
+    "per item fee": "deposited_item_return",
+    # Collection / return fees
+    "collection fee": "deposited_item_return",
+    "collection": "deposited_item_return",
+    # Document / research fees
+    "document fee": "account_research",
+    "documentation fee": "account_research",
+    "address locator fee": "account_research",
+    "account balancing assistance": "account_research",
+    "account conversion fee": "account_research",
+    # Express / courier
+    "express mailing": "wire_domestic_outgoing",
+    "fedex fee": "wire_domestic_outgoing",
+    # Over limit
+    "over the credit limit fee": "overdraft",
+    "over credit limit fee": "overdraft",
+    "over limit fee": "overdraft",
+    # Deposit adjustments
+    "deposit adjustment": "deposited_item_return",
+    "atm deposit adjustment fee": "deposited_item_return",
+    "empty envelope deposit": "deposited_item_return",
+    # Key / safe deposit
+    "key deposit": "safe_deposit",
+    "key replacement": "safe_deposit",
+    # Bond
+    "indemnity bond": "account_research",
+    "bond of indemnity": "account_research",
+    # Minimum charge
+    "minimum interest charge": "account_research",
+    "minimum finance charge": "account_research",
+    # Mailed receipt
+    "mailed receipt": "statement_copy",
+    "mail return fee": "deposited_item_return",
+    # Loan coupons
+    "loan coupons": "account_research",
+    "loan coupon book": "account_research",
 }
 
 CANONICAL_DISPLAY_NAMES: dict[str, str] = {
