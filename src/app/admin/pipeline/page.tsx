@@ -14,6 +14,8 @@ import { QuickActions } from "./quick-actions";
 import { RecentPriceChanges } from "./price-changes";
 import { CoverageTrend } from "./coverage-trend";
 import { AddInstitutionForm } from "./add-institution";
+import { PipelineRunsPanel } from "./pipeline-runs";
+import { IndexCacheCard } from "./index-cache-card";
 
 const PAGE_SIZE = 50;
 
@@ -121,6 +123,16 @@ export default async function PipelinePage({
       {/* Unified Pipeline Dashboard */}
       <div className="mb-4">
         <PipelineDashboard />
+      </div>
+
+      {/* Pipeline Runs - phase progression with resume support */}
+      <div className="mb-4">
+        <PipelineRunsPanel />
+      </div>
+
+      {/* Fee Index Cache - precomputed spotlight stats */}
+      <div className="mb-4">
+        <IndexCacheCard />
       </div>
 
       {/* Quick Actions - all pipeline commands in one place */}

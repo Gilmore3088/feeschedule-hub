@@ -204,6 +204,14 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     typical: "python -m fee_crawler ingest-census-tracts",
   },
+  snapshot: {
+    description: "Snapshot Fees",
+    detail: "Copies current approved+staged fees to fee_snapshots table and detects price changes since the last snapshot. Creates fee_change_events for any increases or decreases. Run periodically to build trend data.",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler snapshot",
+  },
   seed: {
     description: "Seed Institutions",
     detail: "Loads institution directory from FDIC and NCUA bulk data files. Only needed when setting up or expanding the institution list.",
@@ -227,6 +235,30 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesLimit: false,
     usesCharter: false,
     typical: "python -m fee_crawler stats",
+  },
+  "merge-fees": {
+    description: "Merge Fees",
+    detail: "Re-merges extracted fees with existing data. Compares by category, snapshots old values, records change events. Useful after updating categorization rules.",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler merge-fees",
+  },
+  "publish-index": {
+    description: "Publish Index",
+    detail: "Materializes the fee index cache (49 categories), updates coverage snapshot, revalidates Next.js cache, runs DB maintenance (PRAGMA optimize + WAL checkpoint).",
+    group: "data-quality",
+    usesLimit: false,
+    usesCharter: false,
+    typical: "python -m fee_crawler publish-index",
+  },
+  pipeline: {
+    description: "Atomic Pipeline (v2)",
+    detail: "Runs the full 9-stage atomic pipeline with resume support: seed-enrich, discover, crawl, merge-fees, categorize, validate, auto-review, snapshot, publish-index.",
+    group: "pipeline",
+    usesLimit: true,
+    usesCharter: false,
+    typical: "python -m fee_crawler pipeline --dry-run",
   },
 };
 
