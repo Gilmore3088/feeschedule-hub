@@ -35,21 +35,24 @@ export async function approveFee(
     const user = await requirePermission("approve");
     const db = getWriteDb();
     try {
-      const fee = db
-        .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
-        .get(feeId) as { id: number; review_status: string } | undefined;
+      const txn = db.transaction(() => {
+        const fee = db
+          .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
+          .get(feeId) as { id: number; review_status: string } | undefined;
 
-      if (!fee) return { success: false, error: "Fee not found" };
-      assertTransition(fee.review_status, "approved");
+        if (!fee) throw new Error("Fee not found");
+        assertTransition(fee.review_status, "approved");
 
-      db.prepare("UPDATE extracted_fees SET review_status = ? WHERE id = ?").run(
-        "approved",
-        feeId
-      );
-      db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-         VALUES (?, 'approve', ?, ?, ?, 'approved', ?)`
-      ).run(feeId, user.id, user.username, fee.review_status, notes || null);
+        db.prepare("UPDATE extracted_fees SET review_status = ? WHERE id = ?").run(
+          "approved",
+          feeId
+        );
+        db.prepare(
+          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+           VALUES (?, 'approve', ?, ?, ?, 'approved', ?)`
+        ).run(feeId, user.id, user.username, fee.review_status, notes || null);
+      });
+      txn();
 
       revalidatePath("/admin/review");
       return { success: true };
@@ -69,21 +72,24 @@ export async function rejectFee(
     const user = await requirePermission("reject");
     const db = getWriteDb();
     try {
-      const fee = db
-        .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
-        .get(feeId) as { id: number; review_status: string } | undefined;
+      const txn = db.transaction(() => {
+        const fee = db
+          .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
+          .get(feeId) as { id: number; review_status: string } | undefined;
 
-      if (!fee) return { success: false, error: "Fee not found" };
-      assertTransition(fee.review_status, "rejected");
+        if (!fee) throw new Error("Fee not found");
+        assertTransition(fee.review_status, "rejected");
 
-      db.prepare("UPDATE extracted_fees SET review_status = ? WHERE id = ?").run(
-        "rejected",
-        feeId
-      );
-      db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-         VALUES (?, 'reject', ?, ?, ?, 'rejected', ?)`
-      ).run(feeId, user.id, user.username, fee.review_status, notes || null);
+        db.prepare("UPDATE extracted_fees SET review_status = ? WHERE id = ?").run(
+          "rejected",
+          feeId
+        );
+        db.prepare(
+          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+           VALUES (?, 'reject', ?, ?, ?, 'rejected', ?)`
+        ).run(feeId, user.id, user.username, fee.review_status, notes || null);
+      });
+      txn();
 
       revalidatePath("/admin/review");
       return { success: true };
@@ -109,81 +115,84 @@ export async function editFee(
     const user = await requirePermission("edit");
     const db = getWriteDb();
     try {
-      const fee = db
-        .prepare(
-          "SELECT id, fee_name, amount, frequency, conditions, review_status FROM extracted_fees WHERE id = ?"
-        )
-        .get(feeId) as {
-        id: number;
-        fee_name: string;
-        amount: number | null;
-        frequency: string | null;
-        conditions: string | null;
-        review_status: string;
-      } | undefined;
+      const txn = db.transaction(() => {
+        const fee = db
+          .prepare(
+            "SELECT id, fee_name, amount, frequency, conditions, review_status FROM extracted_fees WHERE id = ?"
+          )
+          .get(feeId) as {
+          id: number;
+          fee_name: string;
+          amount: number | null;
+          frequency: string | null;
+          conditions: string | null;
+          review_status: string;
+        } | undefined;
 
-      if (!fee) return { success: false, error: "Fee not found" };
-      if (fee.review_status === "approved" || fee.review_status === "rejected") {
-        return { success: false, error: "Cannot edit a reviewed fee" };
-      }
+        if (!fee) throw new Error("Fee not found");
+        if (fee.review_status === "approved" || fee.review_status === "rejected") {
+          throw new Error("Cannot edit a reviewed fee");
+        }
 
-      const previousValues = JSON.stringify({
-        fee_name: fee.fee_name,
-        amount: fee.amount,
-        frequency: fee.frequency,
-        conditions: fee.conditions,
+        const previousValues = JSON.stringify({
+          fee_name: fee.fee_name,
+          amount: fee.amount,
+          frequency: fee.frequency,
+          conditions: fee.conditions,
+        });
+
+        const setClauses: string[] = [];
+        const params: unknown[] = [];
+
+        if (updates.fee_name !== undefined) {
+          setClauses.push("fee_name = ?");
+          params.push(updates.fee_name);
+        }
+        if (updates.amount !== undefined) {
+          setClauses.push("amount = ?");
+          params.push(updates.amount);
+        }
+        if (updates.frequency !== undefined) {
+          setClauses.push("frequency = ?");
+          params.push(updates.frequency);
+        }
+        if (updates.conditions !== undefined) {
+          setClauses.push("conditions = ?");
+          params.push(updates.conditions);
+        }
+
+        if (setClauses.length === 0) {
+          throw new Error("No updates provided");
+        }
+
+        params.push(feeId);
+        db.prepare(
+          `UPDATE extracted_fees SET ${setClauses.join(", ")} WHERE id = ?`
+        ).run(...params);
+
+        const newValues = JSON.stringify({
+          fee_name: updates.fee_name ?? fee.fee_name,
+          amount: updates.amount ?? fee.amount,
+          frequency: updates.frequency ?? fee.frequency,
+          conditions: updates.conditions ?? fee.conditions,
+        });
+
+        db.prepare(
+          `INSERT INTO fee_reviews
+           (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+           VALUES (?, 'edit', ?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          feeId,
+          user.id,
+          user.username,
+          fee.review_status,
+          fee.review_status,
+          previousValues,
+          newValues,
+          notes || null
+        );
       });
-
-      const setClauses: string[] = [];
-      const params: unknown[] = [];
-
-      if (updates.fee_name !== undefined) {
-        setClauses.push("fee_name = ?");
-        params.push(updates.fee_name);
-      }
-      if (updates.amount !== undefined) {
-        setClauses.push("amount = ?");
-        params.push(updates.amount);
-      }
-      if (updates.frequency !== undefined) {
-        setClauses.push("frequency = ?");
-        params.push(updates.frequency);
-      }
-      if (updates.conditions !== undefined) {
-        setClauses.push("conditions = ?");
-        params.push(updates.conditions);
-      }
-
-      if (setClauses.length === 0) {
-        return { success: false, error: "No updates provided" };
-      }
-
-      params.push(feeId);
-      db.prepare(
-        `UPDATE extracted_fees SET ${setClauses.join(", ")} WHERE id = ?`
-      ).run(...params);
-
-      const newValues = JSON.stringify({
-        fee_name: updates.fee_name ?? fee.fee_name,
-        amount: updates.amount ?? fee.amount,
-        frequency: updates.frequency ?? fee.frequency,
-        conditions: updates.conditions ?? fee.conditions,
-      });
-
-      db.prepare(
-        `INSERT INTO fee_reviews
-         (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
-         VALUES (?, 'edit', ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        feeId,
-        user.id,
-        user.username,
-        fee.review_status,
-        fee.review_status,
-        previousValues,
-        newValues,
-        notes || null
-      );
+      txn();
 
       revalidatePath("/admin/review");
       return { success: true };
@@ -203,31 +212,34 @@ export async function updateFeeCategory(
     const user = await requirePermission("edit");
     const db = getWriteDb();
     try {
-      const fee = db
-        .prepare("SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ?")
-        .get(feeId) as { id: number; fee_category: string | null; review_status: string } | undefined;
+      const txn = db.transaction(() => {
+        const fee = db
+          .prepare("SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ?")
+          .get(feeId) as { id: number; fee_category: string | null; review_status: string } | undefined;
 
-      if (!fee) return { success: false, error: "Fee not found" };
+        if (!fee) throw new Error("Fee not found");
 
-      const previousCategory = fee.fee_category;
-      db.prepare("UPDATE extracted_fees SET fee_category = ? WHERE id = ?").run(
-        category,
-        feeId,
-      );
+        const previousCategory = fee.fee_category;
+        db.prepare("UPDATE extracted_fees SET fee_category = ? WHERE id = ?").run(
+          category,
+          feeId,
+        );
 
-      db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
-         VALUES (?, 'recategorize', ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        feeId,
-        user.id,
-        user.username,
-        fee.review_status,
-        fee.review_status,
-        JSON.stringify({ fee_category: previousCategory }),
-        JSON.stringify({ fee_category: category }),
-        `Category changed from ${previousCategory || "none"} to ${category || "none"}`,
-      );
+        db.prepare(
+          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+           VALUES (?, 'recategorize', ?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          feeId,
+          user.id,
+          user.username,
+          fee.review_status,
+          fee.review_status,
+          JSON.stringify({ fee_category: previousCategory }),
+          JSON.stringify({ fee_category: category }),
+          `Category changed from ${previousCategory || "none"} to ${category || "none"}`,
+        );
+      });
+      txn();
 
       revalidatePath("/admin/review");
       return { success: true };

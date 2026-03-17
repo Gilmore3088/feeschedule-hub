@@ -560,10 +560,10 @@ function simpleMarkdown(text: string): string {
     '<code class="rounded bg-gray-100 px-1 text-[11px] dark:bg-gray-800">$1</code>'
   );
 
-  // Links
+  // Links (only allow http/https protocols to prevent XSS via javascript: URIs)
   html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" class="text-blue-600 underline dark:text-blue-400">$1</a>'
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline dark:text-blue-400">$1</a>'
   );
 
   // Numbered lists

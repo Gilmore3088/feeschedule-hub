@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { getOpsJobSummary, getActiveJobs, getRecentJobs } from "@/lib/crawler-db/ops";
 import fs from "fs";
+import path from "path";
+
+const ALLOWED_LOGS_DIR = path.resolve(process.cwd(), "data", "logs");
 
 function tailFile(filePath: string, lines = 40): string {
   try {
-    if (!filePath || !fs.existsSync(filePath)) return "";
-    const content = fs.readFileSync(filePath, "utf-8");
+    if (!filePath) return "";
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(ALLOWED_LOGS_DIR)) return "";
+    if (!fs.existsSync(resolved)) return "";
+    const content = fs.readFileSync(resolved, "utf-8");
     const allLines = content.split("\n");
     return allLines.slice(-lines).join("\n");
   } catch {
@@ -16,8 +22,11 @@ function tailFile(filePath: string, lines = 40): string {
 
 function getFileSize(filePath: string): number {
   try {
-    if (!filePath || !fs.existsSync(filePath)) return 0;
-    return fs.statSync(filePath).size;
+    if (!filePath) return 0;
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(ALLOWED_LOGS_DIR)) return 0;
+    if (!fs.existsSync(resolved)) return 0;
+    return fs.statSync(resolved).size;
   } catch {
     return 0;
   }

@@ -10,6 +10,7 @@ For each institution with a fee_schedule_url:
 Supports concurrent crawling via --workers flag.
 """
 
+import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -419,7 +420,8 @@ def _run_serial(
     rate_limiter: DomainRateLimiter | None = None,
 ) -> None:
     """Original serial crawl loop."""
-    stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0}
+    stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0, "duration_s": 0}
+    _start = time.time()
 
     try:
         for i, target in enumerate(targets, 1):
@@ -453,6 +455,7 @@ def _run_serial(
     except KeyboardInterrupt:
         print(f"\n\nInterrupted by user after {stats['crawled']} institutions.")
 
+    stats["duration_s"] = time.time() - _start
     _finalize_run(db, run_id, stats, total)
 
 
@@ -467,7 +470,7 @@ def _run_concurrent(
     rate_limiter: DomainRateLimiter | None = None,
 ) -> None:
     """Concurrent crawl using ThreadPoolExecutor."""
-    stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0}
+    stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0, "duration_s": 0}
     completed = 0
     start_time = time.time()
 
@@ -524,9 +527,10 @@ def _run_concurrent(
     except KeyboardInterrupt:
         print(f"\n\nInterrupted by user after {completed} institutions.")
 
+    stats["duration_s"] = time.time() - start_time
     _finalize_run(db, run_id, stats, total)
 
-    elapsed = time.time() - start_time
+    elapsed = stats["duration_s"]
     if elapsed > 0 and completed > 0:
         rate = completed / elapsed * 3600
         print(f"\n  Elapsed: {elapsed / 60:.1f} min | Rate: {rate:.0f} institutions/hr")
@@ -552,6 +556,21 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     print(f"  Failed:     {stats['failed']}")
     print(f"  Unchanged:  {stats['unchanged']}")
     print(f"  Fees found: {stats['total_fees']}")
+
+    # Structured result for job runner
+    result = {
+        "version": 1,
+        "command": "crawl",
+        "status": "completed" if stats["failed"] == 0 else "partial",
+        "duration_s": round(stats.get("duration_s", 0), 1),
+        "processed": stats["crawled"],
+        "succeeded": stats["succeeded"],
+        "failed": stats["failed"],
+        "skipped": stats["unchanged"],
+        "fees_extracted": stats["total_fees"],
+        "institutions_failed": stats["failed"],
+    }
+    print(f"##RESULT_JSON##{json.dumps(result)}")
 
 
 def _classify_extraction_failure(text: str, doc_type: str) -> str:

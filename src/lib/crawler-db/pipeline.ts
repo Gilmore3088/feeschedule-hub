@@ -1,5 +1,10 @@
 import { getDb } from "./connection";
 
+/** Institutions with more than this many consecutive failures are considered "failing" */
+export const FAILURE_THRESHOLD = 3;
+/** Days since last crawl before an institution is considered "stale" */
+export const STALE_DAYS = 90;
+
 export interface CoverageGap {
   id: number;
   institution_name: string;
@@ -12,6 +17,7 @@ export interface CoverageGap {
   consecutive_failures: number;
   fee_count: number;
   status: "no_url" | "no_fees" | "failing" | "stale";
+  last_error: string | null;
 }
 
 export interface PipelineStats {
@@ -45,12 +51,12 @@ const SORT_COLUMNS: Record<string, string> = {
 export function getPipelineStats(): PipelineStats {
   const db = getDb();
   const total = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets").get() as { c: number }).c;
-  const withWebsite = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE website_url IS NOT NULL").get() as { c: number }).c;
-  const withFeeUrl = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE fee_schedule_url IS NOT NULL").get() as { c: number }).c;
+  const withWebsite = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE website_url IS NOT NULL AND website_url != ''").get() as { c: number }).c;
+  const withFeeUrl = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND fee_schedule_url != ''").get() as { c: number }).c;
   const withFees = (db.prepare("SELECT COUNT(DISTINCT crawl_target_id) as c FROM extracted_fees WHERE review_status != 'rejected'").get() as { c: number }).c;
   const withApproved = (db.prepare("SELECT COUNT(DISTINCT crawl_target_id) as c FROM extracted_fees WHERE review_status = 'approved'").get() as { c: number }).c;
   const stale = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND (last_crawl_at < datetime('now', '-90 days') OR last_crawl_at IS NULL)").get() as { c: number }).c;
-  const failing = (db.prepare("SELECT COUNT(*) as c FROM crawl_targets WHERE consecutive_failures > 3").get() as { c: number }).c;
+  const failing = (db.prepare(`SELECT COUNT(*) as c FROM crawl_targets WHERE consecutive_failures > ${FAILURE_THRESHOLD}`).get() as { c: number }).c;
 
   return { total_institutions: total, with_website: withWebsite, with_fee_url: withFeeUrl, with_fees: withFees, with_approved: withApproved, stale_count: stale, failing_count: failing };
 }
@@ -73,7 +79,7 @@ export function getCoverageGaps(opts: {
   if (opts.status === "no_url") {
     conditions.push("ct.fee_schedule_url IS NULL");
   } else if (opts.status === "failing") {
-    conditions.push("ct.consecutive_failures > 3");
+    conditions.push(`ct.consecutive_failures > ${FAILURE_THRESHOLD}`);
   } else if (opts.status === "stale") {
     conditions.push("ct.fee_schedule_url IS NOT NULL");
     conditions.push("(ct.last_crawl_at < datetime('now', '-90 days') OR ct.last_crawl_at IS NULL)");
@@ -112,13 +118,19 @@ export function getCoverageGaps(opts: {
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.website_url, ct.fee_schedule_url,
            ct.last_crawl_at, ct.consecutive_failures,
-           COALESCE(fc.fee_count, 0) as fee_count
+           COALESCE(fc.fee_count, 0) as fee_count,
+           lr.error_message as last_error
     FROM crawl_targets ct
     LEFT JOIN (
       SELECT crawl_target_id, COUNT(*) as fee_count
       FROM extracted_fees WHERE review_status != 'rejected'
       GROUP BY crawl_target_id
     ) fc ON ct.id = fc.crawl_target_id
+    LEFT JOIN (
+      SELECT crawl_target_id, error_message,
+             ROW_NUMBER() OVER (PARTITION BY crawl_target_id ORDER BY crawled_at DESC) as rn
+      FROM crawl_results WHERE status = 'failed'
+    ) lr ON ct.id = lr.crawl_target_id AND lr.rn = 1
     ${where}
     ORDER BY ${sortCol} ${sortDir} NULLS LAST
     LIMIT ? OFFSET ?
@@ -134,7 +146,7 @@ export function getCoverageGaps(opts: {
 
 function computeStatus(r: { fee_schedule_url: string | null; fee_count: number; consecutive_failures: number; last_crawl_at: string | null }): CoverageGap["status"] {
   if (!r.fee_schedule_url) return "no_url";
-  if (r.consecutive_failures > 3) return "failing";
+  if (r.consecutive_failures > FAILURE_THRESHOLD) return "failing";
   if (r.fee_count === 0) return "no_fees";
   return "stale";
 }

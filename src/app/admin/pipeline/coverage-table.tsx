@@ -228,11 +228,8 @@ export function BulkImportForm() {
 interface CoverageTableProps {
   institutions: CoverageGap[];
   total: number;
-  currentPage: number;
-  totalPages: number;
   sortColumn: string;
   sortDir: string;
-  states: string[];
 }
 
 export function CoverageTable({
@@ -255,6 +252,7 @@ export function CoverageTable({
               <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Website</th>
               <SortHeader column="last_crawl" label="Last Crawl" currentSort={sortColumn} currentDir={sortDir} />
               <SortHeader column="failures" label="Failures" currentSort={sortColumn} currentDir={sortDir} className="text-right" />
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Last Error</th>
               <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Action</th>
             </tr>
           </thead>
@@ -309,6 +307,15 @@ export function CoverageTable({
                       <span className="text-red-600 dark:text-red-400 font-medium">{inst.consecutive_failures}</span>
                     ) : (
                       <span className="text-gray-300">0</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 max-w-[200px]">
+                    {inst.last_error ? (
+                      <span className="text-[10px] text-red-500 dark:text-red-400 truncate block" title={inst.last_error}>
+                        {inst.last_error.length > 60 ? inst.last_error.slice(0, 60) + "..." : inst.last_error}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-300">-</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5">

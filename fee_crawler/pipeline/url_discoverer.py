@@ -123,6 +123,13 @@ FEE_LINK_KEYWORDS_BROAD = [
     "pricing",
     "charges",
     "fee chart",
+    "rate sheet",
+    "rate schedule",
+    "account agreement",
+    "deposit account",
+    "checking account",
+    "account disclosures",
+    "personal banking",
 ]
 
 # Content keywords that confirm a page is about fees (need 3+ matches)
@@ -727,14 +734,20 @@ class UrlDiscoverer:
                         result.confidence = 0.80
                         return result
 
-        # Playwright fallback: if BS4 yields very little text, try JS rendering
+        # Playwright fallback: if BS4 yields thin content or zero fee-related links,
+        # the site is likely JS-rendered. Try Playwright to get the real HTML.
         from bs4 import BeautifulSoup as BS4
         plain_text = BS4(homepage_html, "lxml").get_text(strip=True)
-        if len(plain_text) < 100:
-            from fee_crawler.pipeline.playwright_fetcher import fetch_with_playwright
-            rendered = fetch_with_playwright(website_url)
-            if rendered and len(rendered) > len(homepage_html):
-                homepage_html = rendered
+        initial_candidates = self._scan_links(homepage_html, homepage_resp.url)
+        needs_playwright = len(plain_text) < 2000 or len(initial_candidates) == 0
+        if needs_playwright:
+            try:
+                from fee_crawler.pipeline.playwright_fetcher import fetch_with_playwright
+                rendered = fetch_with_playwright(website_url)
+                if rendered and len(rendered) > len(homepage_html):
+                    homepage_html = rendered
+            except Exception:
+                pass  # Playwright may not be available
 
         candidates = self._scan_links(homepage_html, homepage_resp.url)
 
@@ -769,11 +782,87 @@ class UrlDiscoverer:
                 result.confidence = 0.75
                 return result
 
-        # Step 3: Deep scan - follow top links and look for PDFs/fee content
+        # Step 3: Deep scan - follow links and look for PDFs/fee content
+        # First priority: specifically target disclosure/resource hub pages
+        # These are where banks typically organize their fee schedules
         if "deep_scan" in skip:
             return result
         result.methods_tried.append("deep_scan")
-        deep_candidates = candidates[:5]
+
+        # 3a: Probe known hub pages that often contain fee schedule links
+        hub_paths = [
+            "/disclosures", "/personal/disclosures", "/personal-banking/disclosures",
+            "/resources", "/resources/disclosures", "/documents",
+            "/help", "/support", "/customer-resources",
+            "/rates", "/rates-and-fees", "/rates-fees",
+            "/about/disclosures", "/legal/disclosures",
+            "/personal-banking/resources", "/personal/resources",
+            "/checking", "/personal-banking/checking",
+            "/personal/checking", "/accounts/checking",
+        ]
+        for hub_path in hub_paths:
+            hub_url = base_url + hub_path
+            if not self._is_allowed(hub_url, robots):
+                continue
+
+            resp = self._fetch(hub_url)
+            if resp is None or resp.status_code != 200:
+                continue
+
+            result.pages_checked += 1
+            content_type = resp.headers.get("Content-Type", "").lower()
+            if "text/html" not in content_type:
+                continue
+
+            # Check if this page itself IS the fee schedule
+            if self._is_fee_content(resp.text):
+                # Look for PDF links on this page first
+                page_links = self._scan_links(resp.text, resp.url)
+                pdf_hits = [c for c in page_links if c.is_pdf and c.score >= 5]
+                if pdf_hits:
+                    result.found = True
+                    result.fee_schedule_url = pdf_hits[0].url
+                    result.document_type = "pdf"
+                    result.method = "deep_scan"
+                    result.confidence = 0.80
+                    return result
+
+                result.found = True
+                result.fee_schedule_url = resp.url
+                result.document_type = "html"
+                result.method = "deep_scan"
+                result.confidence = 0.75
+                return result
+
+            # Even if not a fee page, scan ALL links (not just top 5) for fee content
+            hub_links = self._scan_links(resp.text, resp.url)
+            for sub in hub_links[:15]:  # Check more links on hub pages
+                if not self._is_allowed(sub.url, robots):
+                    continue
+
+                if sub.is_pdf and sub.score >= 3:
+                    # Lower threshold for PDFs found on disclosure pages
+                    if self._is_fee_pdf_url(sub.url) or sub.score >= 8:
+                        result.found = True
+                        result.fee_schedule_url = sub.url
+                        result.document_type = "pdf"
+                        result.method = "deep_scan"
+                        result.confidence = 0.70
+                        return result
+
+                if sub.score >= 10:
+                    result.pages_checked += 1
+                    is_fee, doc_type = self._verify_fee_page(sub.url)
+                    if is_fee:
+                        result.found = True
+                        result.fee_schedule_url = sub.url
+                        result.document_type = doc_type
+                        result.method = "deep_scan"
+                        result.confidence = 0.70
+                        return result
+
+        # 3b: Follow top candidates from homepage (original deep scan)
+        deep_candidates = candidates[:8]
         for candidate in deep_candidates:
             if candidate.is_pdf:
                 continue  # Already tried above
@@ -790,8 +879,28 @@ class UrlDiscoverer:
             if "text/html" not in content_type:
                 continue
 
+            # Check if this intermediate page has fee content
+            if self._is_fee_content(resp.text):
+                page_links = self._scan_links(resp.text, resp.url)
+                pdf_hits = [c for c in page_links if c.is_pdf and c.score >= 5]
+                if pdf_hits:
+                    result.found = True
+                    result.fee_schedule_url = pdf_hits[0].url
+                    result.document_type = "pdf"
+                    result.method = "deep_scan"
+                    result.confidence = 0.70
+                    return result
+
+                result.found = True
+                result.fee_schedule_url = resp.url
+                result.document_type = "html"
+                result.method = "deep_scan"
+                result.confidence = 0.65
+                return result
+
+            # Scan links on this page too (2 levels deep)
             sub_candidates = self._scan_links(resp.text, resp.url)
-            for sub in sub_candidates[:5]:
+            for sub in sub_candidates[:10]:
                 if not self._is_allowed(sub.url, robots):
                     continue
 
@@ -800,18 +909,19 @@ class UrlDiscoverer:
                     result.fee_schedule_url = sub.url
                     result.document_type = "pdf"
                     result.method = "deep_scan"
-                    result.confidence = 0.7
-                    return result
-
-                result.pages_checked += 1
-                is_fee, doc_type = self._verify_fee_page(sub.url)
-                if is_fee:
-                    result.found = True
-                    result.fee_schedule_url = sub.url
-                    result.document_type = doc_type
-                    result.method = "deep_scan"
                     result.confidence = 0.65
                     return result
+
+                if sub.score >= 10:
+                    result.pages_checked += 1
+                    is_fee, doc_type = self._verify_fee_page(sub.url)
+                    if is_fee:
+                        result.found = True
+                        result.fee_schedule_url = sub.url
+                        result.document_type = doc_type
+                        result.method = "deep_scan"
+                        result.confidence = 0.60
+                        return result
 
         return result
 

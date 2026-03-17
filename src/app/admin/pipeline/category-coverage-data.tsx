@@ -33,36 +33,41 @@ function getCategoryCoverage() {
     institutions: number;
   }[];
 
-  const categories = rows.map((r) => {
-    let topStates: { state: string; count: number }[] = [];
-    try {
-      topStates = db.prepare(`
-        SELECT ct.state_code as state, COUNT(*) as count
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.fee_category = ? AND ef.review_status != 'rejected'
-        GROUP BY ct.state_code
-        ORDER BY count DESC LIMIT 6
-      `).all(r.fee_category) as { state: string; count: number }[];
-    } catch {
-      // skip
-    }
+  // Fetch all category-state pairs in ONE query instead of 49 separate queries
+  const statesByCategory = new Map<string, { state: string; count: number }[]>();
+  try {
+    const allStates = db.prepare(`
+      SELECT ef.fee_category, ct.state_code as state, COUNT(*) as count
+      FROM extracted_fees ef
+      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+      WHERE ef.fee_category IN (${placeholders}) AND ef.review_status != 'rejected'
+      GROUP BY ef.fee_category, ct.state_code
+      ORDER BY ef.fee_category, count DESC
+    `).all(...officialCategories) as { fee_category: string; state: string; count: number }[];
 
-    return {
-      fee_category: r.fee_category,
-      display_name: getDisplayName(r.fee_category),
-      family: getFeeFamily(r.fee_category) || "Other",
-      tier: getFeeTier(r.fee_category) || "other",
-      total: r.total,
-      approved: r.approved,
-      staged: r.staged,
-      flagged: r.flagged,
-      has_amount: r.has_amount,
-      institutions: r.institutions,
-      approval_rate: r.total > 0 ? (r.approved / r.total) * 100 : 0,
-      top_states: topStates,
-    };
-  });
+    for (const row of allStates) {
+      const arr = statesByCategory.get(row.fee_category) || [];
+      if (arr.length < 6) arr.push({ state: row.state, count: row.count });
+      statesByCategory.set(row.fee_category, arr);
+    }
+  } catch {
+    // skip if query fails
+  }
+
+  const categories = rows.map((r) => ({
+    fee_category: r.fee_category,
+    display_name: getDisplayName(r.fee_category),
+    family: getFeeFamily(r.fee_category) || "Other",
+    tier: getFeeTier(r.fee_category) || "other",
+    total: r.total,
+    approved: r.approved,
+    staged: r.staged,
+    flagged: r.flagged,
+    has_amount: r.has_amount,
+    institutions: r.institutions,
+    approval_rate: r.total > 0 ? (r.approved / r.total) * 100 : 0,
+    top_states: statesByCategory.get(r.fee_category) || [],
+  }));
 
   const families = Object.keys(FEE_FAMILIES);
 

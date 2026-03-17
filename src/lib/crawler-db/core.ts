@@ -321,7 +321,7 @@ export function getFeesByStatus(
       `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
               ef.extraction_confidence, ef.review_status, ef.validation_flags,
               ef.fee_category, ct.institution_name, ef.crawl_target_id,
-              ct.state_code, ct.charter_type, cr.document_url
+              ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
        FROM extracted_fees ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
@@ -351,7 +351,7 @@ export function getFeeById(feeId: number): ReviewableFee | null {
       `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
               ef.extraction_confidence, ef.review_status, ef.validation_flags,
               ef.fee_category, ct.institution_name, ef.crawl_target_id,
-              ct.state_code, ct.charter_type, cr.document_url
+              ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
        FROM extracted_fees ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
@@ -398,7 +398,7 @@ export function getOutlierFlaggedFees(
       `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
               ef.extraction_confidence, ef.review_status, ef.validation_flags,
               ef.fee_category, ct.institution_name, ef.crawl_target_id,
-              ct.state_code, ct.charter_type, cr.document_url
+              ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
        FROM extracted_fees ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id

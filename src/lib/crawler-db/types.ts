@@ -28,6 +28,7 @@ export interface ReviewableFee extends ExtractedFee {
   charter_type: string;
   fee_category: string | null;
   document_url: string | null;
+  fee_schedule_url: string | null;
 }
 
 export interface FeeReview {

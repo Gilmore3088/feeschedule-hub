@@ -417,7 +417,8 @@ class Database:
         self._init_tables()
 
     def _set_pragmas(self) -> None:
-        """Enable WAL mode and performance PRAGMAs."""
+        """Enable WAL mode, foreign keys, and performance PRAGMAs."""
+        self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA busy_timeout=30000")
         self.conn.execute("PRAGMA synchronous=NORMAL")
@@ -458,6 +459,7 @@ class Database:
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_fees_review_status ON extracted_fees(review_status)",
             "CREATE INDEX IF NOT EXISTS idx_fees_target_id ON extracted_fees(crawl_target_id)",
+            "CREATE INDEX IF NOT EXISTS idx_fees_target_status ON extracted_fees(crawl_target_id, review_status)",
             "CREATE INDEX IF NOT EXISTS idx_fees_category ON extracted_fees(fee_category)",
             "CREATE INDEX IF NOT EXISTS idx_targets_charter_tier ON crawl_targets(charter_type, asset_size_tier)",
             "CREATE INDEX IF NOT EXISTS idx_targets_fee_url ON crawl_targets(fee_schedule_url) WHERE fee_schedule_url IS NOT NULL",

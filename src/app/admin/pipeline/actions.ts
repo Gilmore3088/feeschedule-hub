@@ -49,10 +49,68 @@ export async function runSmartPipeline(): Promise<{ success: boolean; jobId?: nu
   }
 }
 
+export async function runOutlierDetect(): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("outlier-detect", [], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function runValidate(): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("validate", [], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function runEnrich(): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("enrich", [], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function runDiscover(state?: string): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const args = ["--limit", "100"];
+    if (state) args.push("--state", state);
+    const result = await spawnJob("discover", args, user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function runRefreshData(cadence: string = "daily"): Promise<{ success: boolean; jobId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const result = await spawnJob("refresh-data", ["--cadence", cadence], user.username);
+    revalidatePath("/admin/pipeline");
+    return { success: true, jobId: result.jobId };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
 export async function setFeeScheduleUrl(
   institutionId: number,
   url: string
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAuth("edit");
   if (!url || !url.startsWith("http")) {
     return { success: false, error: "Invalid URL" };
   }
@@ -75,6 +133,7 @@ export async function setFeeScheduleUrl(
 export async function bulkImportUrls(
   csvText: string
 ): Promise<{ success: boolean; updated: number; errors: string[] }> {
+  await requireAuth("edit");
   const lines = csvText
     .split("\n")
     .map((l) => l.trim())

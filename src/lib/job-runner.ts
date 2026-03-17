@@ -6,10 +6,11 @@
 import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
-import { getWriteDb } from "./crawler-db/connection";
+import { getDb, getWriteDb } from "./crawler-db/connection";
 
 const LOGS_DIR = path.join(process.cwd(), "data", "logs");
 const PYTHON_CMD = process.env.PYTHON_CMD || "python";
+const MAX_ACTIVE_JOBS = 3;
 
 export interface SpawnResult {
   jobId: number;
@@ -23,6 +24,20 @@ export function spawnJob(
   triggeredBy: string,
   targetId?: number,
 ): SpawnResult {
+  // Concurrency guard: prevent runaway job spawning
+  const db0 = getDb();
+  try {
+    const row = db0
+      .prepare("SELECT COUNT(*) as cnt FROM ops_jobs WHERE status IN ('running', 'queued')")
+      .get() as { cnt: number } | undefined;
+    if (row && row.cnt >= MAX_ACTIVE_JOBS) {
+      throw new Error(`Cannot start job: ${row.cnt} jobs already active (max ${MAX_ACTIVE_JOBS}). Wait for running jobs to complete.`);
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("Cannot start job")) throw e;
+    // If ops_jobs table doesn't exist yet, allow the spawn
+  }
+
   fs.mkdirSync(LOGS_DIR, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -70,19 +85,21 @@ export function spawnJob(
     const tail = readLogTail(logPath, 50);
     const errorSummary =
       code !== 0 ? extractErrorSummary(tail) : null;
+    const resultSummary = extractResultJson(tail);
 
     const db3 = getWriteDb();
     try {
       db3.prepare(
         `UPDATE ops_jobs
          SET status = ?, exit_code = ?, completed_at = datetime('now'),
-             stdout_tail = ?, error_summary = ?
+             stdout_tail = ?, error_summary = ?, result_summary = ?
          WHERE id = ?`,
       ).run(
-        code === 0 ? "completed" : "failed",
+        code === 0 || code === 2 ? "completed" : "failed",
         code,
         tail,
         errorSummary,
+        resultSummary,
         jobId,
       );
     } finally {
@@ -132,6 +149,25 @@ function readLogTail(logPath: string, lines: number): string {
   } catch {
     return "";
   }
+}
+
+const RESULT_SENTINEL = "##RESULT_JSON##";
+
+function extractResultJson(logTail: string): string | null {
+  const lines = logTail.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const idx = lines[i].indexOf(RESULT_SENTINEL);
+    if (idx !== -1) {
+      const jsonStr = lines[i].slice(idx + RESULT_SENTINEL.length).trim();
+      try {
+        JSON.parse(jsonStr); // validate
+        return jsonStr;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
 }
 
 function extractErrorSummary(logTail: string): string {

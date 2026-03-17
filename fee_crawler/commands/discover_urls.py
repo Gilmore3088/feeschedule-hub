@@ -261,8 +261,6 @@ def run(
     search_available = bool(os.environ.get("SERPAPI_API_KEY"))
     if search_available:
         print(f"  Search API: enabled (budget ${max_search_cost:.0f}/run)")
-    else:
-        print("  Search API: disabled (set SERPAPI_API_KEY to enable)")
 
     # Create shared rate limiter for polite crawling
     limiter = DomainRateLimiter(

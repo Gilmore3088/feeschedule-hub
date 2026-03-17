@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import time
+
 from fee_crawler.db import Database
 from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family, FEE_FAMILIES
 
@@ -21,6 +24,7 @@ def run(
     force: bool = False,
     limit: int | None = None,
 ) -> None:
+    t0 = time.time()
     canonical_set = _all_canonical()
 
     # Fetch rows to categorize
@@ -101,3 +105,19 @@ def run(
         for cat, cnt in top_cats:
             family = get_fee_family(cat) or "Other"
             print(f"  {cnt:5d}  {cat} ({family})")
+
+    # Structured result for job runner
+    result = {
+        "version": 1,
+        "command": "categorize",
+        "status": "completed",
+        "duration_s": round(time.time() - t0, 1),
+        "processed": total,
+        "succeeded": matched,
+        "failed": 0,
+        "skipped": unmatched,
+        "matched": matched,
+        "unmatched": unmatched,
+        "stale_cleared": len(clears),
+    }
+    print(f"##RESULT_JSON##{json.dumps(result)}")

@@ -270,17 +270,17 @@ export function ReviewTable({ fees, canApprove, activeStatus, sortColumn, sortDi
                   </Link>
                   <div className="text-[11px] text-gray-400">
                     {fee.state_code} | {fee.charter_type === "bank" ? "Bank" : "CU"}
-                    {fee.document_url && (
+                    {(fee.document_url || fee.fee_schedule_url) && (
                       <>
                         {" | "}
                         <a
-                          href={fee.document_url}
+                          href={fee.document_url || fee.fee_schedule_url || ""}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:text-blue-600 transition-colors"
-                          title={fee.document_url}
+                          title={fee.document_url || fee.fee_schedule_url || ""}
                         >
-                          Source
+                          View Source
                         </a>
                       </>
                     )}

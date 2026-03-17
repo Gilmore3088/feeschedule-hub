@@ -26,6 +26,13 @@ interface CategoryCoverageTableProps {
 
 type SortKey = "total" | "institutions" | "approval_rate" | "coverage";
 
+const TIER_LABELS: Record<string, { label: string; cls: string }> = {
+  spotlight: { label: "Spotlight", cls: "text-blue-600 dark:text-blue-400" },
+  core: { label: "Core", cls: "text-gray-500 dark:text-gray-400" },
+  extended: { label: "Extended", cls: "text-gray-400 dark:text-gray-500" },
+  comprehensive: { label: "Comp.", cls: "text-gray-300 dark:text-gray-600" },
+};
+
 export function CategoryCoverageTable({ categories, totalInstitutions, families }: CategoryCoverageTableProps) {
   const [sortBy, setSortBy] = useState<SortKey>("institutions");
   const [familyFilter, setFamilyFilter] = useState("");
@@ -55,13 +62,15 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
 
   // Group by family for collapsed view
   const familyGroups = useMemo(() => {
-    const groups = new Map<string, { family: string; categories: typeof sorted; total: number; approved: number; institutions: number }>();
+    const groups = new Map<string, { family: string; categories: typeof sorted; total: number; approved: number; staged: number; flagged: number; institutions: number }>();
     for (const cat of sorted) {
       const existing = groups.get(cat.family);
       if (existing) {
         existing.categories.push(cat);
         existing.total += cat.total;
         existing.approved += cat.approved;
+        existing.staged += cat.staged;
+        existing.flagged += cat.flagged;
         existing.institutions += cat.institutions;
       } else {
         groups.set(cat.family, {
@@ -69,12 +78,22 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
           categories: [cat],
           total: cat.total,
           approved: cat.approved,
+          staged: cat.staged,
+          flagged: cat.flagged,
           institutions: cat.institutions,
         });
       }
     }
     return Array.from(groups.values()).sort((a, b) => b.total - a.total);
   }, [sorted]);
+
+  // Totals for summary
+  const totals = useMemo(() => ({
+    obs: filtered.reduce((s, c) => s + c.total, 0),
+    approved: filtered.reduce((s, c) => s + c.approved, 0),
+    staged: filtered.reduce((s, c) => s + c.staged, 0),
+    flagged: filtered.reduce((s, c) => s + c.flagged, 0),
+  }), [filtered]);
 
   function coveragePct(institutions: number): number {
     return totalInstitutions > 0 ? (institutions / totalInstitutions) * 100 : 0;
@@ -92,26 +111,35 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
     return "text-red-500 dark:text-red-400";
   }
 
+  function needsAttention(cat: CategoryCoverage): boolean {
+    return cat.staged > 0 || cat.flagged > 0 || cat.approval_rate < 80;
+  }
+
   return (
     <div className="admin-card overflow-hidden">
-      {/* Header with filters */}
+      {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-white/[0.06]">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Category Coverage ({filtered.length} of {categories.length})
-          </h3>
-          <div className="flex gap-2 items-center">
+          <div>
+            <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Category Coverage
+            </h3>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              {totals.obs.toLocaleString()} total observations across {filtered.length} categories from {totalInstitutions.toLocaleString()} institutions
+            </p>
+          </div>
+          <div className="flex gap-1.5 items-center">
             <button
               onClick={() => setGroupByFamily(!groupByFamily)}
               className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                 groupByFamily
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  ? "bg-gray-200 text-gray-700 dark:bg-white/[0.1] dark:text-gray-200"
                   : "text-gray-400 hover:text-gray-600"
               }`}
             >
               {groupByFamily ? "Grouped" : "Flat"}
             </button>
-            <span className="text-gray-300 dark:text-white/[0.1]">|</span>
+            <span className="text-gray-200 dark:text-white/[0.08]">|</span>
             {(["institutions", "total", "approval_rate", "coverage"] as const).map((key) => (
               <button
                 key={key}
@@ -122,7 +150,7 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                     : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 }`}
               >
-                {key === "institutions" ? "Inst." : key === "total" ? "Obs." : key === "approval_rate" ? "Approval" : "Coverage"}
+                {key === "institutions" ? "Institutions" : key === "total" ? "Observations" : key === "approval_rate" ? "Approval" : "Coverage"}
               </button>
             ))}
           </div>
@@ -157,15 +185,32 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
         </div>
       </div>
 
+      {/* Summary strip */}
+      <div className="px-4 py-2 border-b border-gray-100 dark:border-white/[0.04] flex gap-6 text-[10px]">
+        <span className="text-gray-400">
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{totals.approved.toLocaleString()}</span> approved
+        </span>
+        {totals.staged > 0 && (
+          <Link href="/admin/review?status=staged" className="text-gray-400 hover:text-blue-500 transition-colors">
+            <span className="font-semibold text-blue-600 dark:text-blue-400 tabular-nums">{totals.staged.toLocaleString()}</span> need review
+          </Link>
+        )}
+        {totals.flagged > 0 && (
+          <Link href="/admin/review?status=flagged" className="text-gray-400 hover:text-amber-500 transition-colors">
+            <span className="font-semibold text-amber-600 dark:text-amber-400 tabular-nums">{totals.flagged.toLocaleString()}</span> flagged
+          </Link>
+        )}
+      </div>
+
       <div className="max-h-[500px] overflow-y-auto">
         <table className="w-full text-[12px]">
           <thead className="sticky top-0 bg-gray-50/95 dark:bg-[oklch(0.16_0_0)]/95 backdrop-blur-sm z-10">
             <tr className="border-b border-gray-100 dark:border-white/[0.04]">
               <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Category</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Obs.</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Inst.</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Appr.</th>
-              <th className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" style={{ width: "140px" }}>Coverage</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider" title="Total fee observations extracted">Observations</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider" title="Distinct institutions with this fee type">Institutions</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider" title="% of observations approved vs total">Approval</th>
+              <th className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" style={{ width: "160px" }} title="Institutions with this fee / total institutions">Coverage</th>
               <th className="px-2 py-2 w-6"></th>
             </tr>
           </thead>
@@ -174,6 +219,8 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
             {groupByFamily && familyGroups.map((group) => {
               const groupApprovalRate = group.total > 0 ? (group.approved / group.total) * 100 : 0;
               const isOpen = expandedFamily === group.family;
+              const groupCov = coveragePct(group.institutions);
+              const groupNeedsReview = group.staged > 0 || group.flagged > 0;
               return (
                 <Fragment key={group.family}>
                   <tr
@@ -181,8 +228,15 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                     onClick={() => setExpandedFamily(isOpen ? null : group.family)}
                   >
                     <td className="px-4 py-2.5">
-                      <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">{group.family}</span>
-                      <span className="ml-2 text-[10px] text-gray-400">{group.categories.length} categories</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-200">{group.family}</span>
+                        <span className="text-[10px] text-gray-400">{group.categories.length} categories</span>
+                        {groupNeedsReview && (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                            {group.staged + group.flagged} to review
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-400 font-medium">{group.total.toLocaleString()}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-bold text-gray-800 dark:text-gray-200">{group.institutions.toLocaleString()}</td>
@@ -190,9 +244,11 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${barColor(coveragePct(group.institutions))}`} style={{ width: `${Math.max(coveragePct(group.institutions), 1)}%` }} />
+                          <div className={`h-full rounded-full ${barColor(groupCov)}`} style={{ width: `${Math.max(groupCov, 1)}%` }} />
                         </div>
-                        <span className="text-[10px] tabular-nums text-gray-400 w-8 text-right">{coveragePct(group.institutions).toFixed(0)}%</span>
+                        <span className="text-[10px] tabular-nums text-gray-500 dark:text-gray-400 w-16 text-right">
+                          {group.institutions.toLocaleString()}<span className="text-gray-300 dark:text-gray-600">/{(totalInstitutions / 1000).toFixed(1)}k</span>
+                        </span>
                       </div>
                     </td>
                     <td className="px-2 py-2.5 text-gray-300">
@@ -203,18 +259,33 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                   </tr>
                   {isOpen && group.categories.map((cat) => {
                     const cov = coveragePct(cat.institutions);
+                    const attention = needsAttention(cat);
                     return (
                       <tr key={cat.fee_category} className="border-b border-gray-50 dark:border-white/[0.02] hover:bg-gray-50/30 dark:hover:bg-white/[0.01]">
-                        <td className="pl-8 pr-4 py-1.5 text-[11px] text-gray-600 dark:text-gray-400">
-                          <Link href={`/admin/fees/catalog/${cat.fee_category}`} className="hover:text-blue-600 transition-colors">
-                            {cat.display_name}
-                          </Link>
-                          <span className="ml-1 text-[9px] text-gray-300 uppercase">{cat.tier}</span>
+                        <td className="pl-8 pr-4 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <Link href={`/admin/fees/catalog/${cat.fee_category}`} className="text-[11px] text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">
+                              {cat.display_name}
+                            </Link>
+                            {TIER_LABELS[cat.tier] && (
+                              <span className={`text-[8px] font-bold uppercase tracking-wider ${TIER_LABELS[cat.tier].cls}`}>
+                                {TIER_LABELS[cat.tier].label}
+                              </span>
+                            )}
+                            {attention && (cat.staged + cat.flagged) > 0 && (
+                              <Link
+                                href={`/admin/review?status=staged&q=${encodeURIComponent(cat.display_name)}`}
+                                className="inline-flex items-center rounded bg-amber-50 dark:bg-amber-900/20 px-1 py-0.5 text-[8px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                              >
+                                {cat.staged + cat.flagged} to review
+                              </Link>
+                            )}
+                          </div>
                         </td>
-                        <td className="px-3 py-1.5 text-right tabular-nums text-[11px] text-gray-500">{cat.total.toLocaleString()}</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums text-[11px] text-gray-700 dark:text-gray-300">{cat.institutions.toLocaleString()}</td>
-                        <td className={`px-3 py-1.5 text-right tabular-nums text-[11px] ${approvalColor(cat.approval_rate)}`}>{cat.approval_rate.toFixed(0)}%</td>
-                        <td className="px-4 py-1.5">
+                        <td className="px-3 py-2 text-right tabular-nums text-[11px] text-gray-500">{cat.total.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-[11px] text-gray-700 dark:text-gray-300 font-medium">{cat.institutions.toLocaleString()}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums text-[11px] font-medium ${approvalColor(cat.approval_rate)}`}>{cat.approval_rate.toFixed(0)}%</td>
+                        <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
                               <div className={`h-full rounded-full ${barColor(cov)}`} style={{ width: `${Math.max(cov, 1)}%` }} />
@@ -244,11 +315,20 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                     onClick={() => setExpandedRow(isExpanded ? null : cat.fee_category)}
                   >
                     <td className="px-4 py-2">
-                      <span className="text-gray-800 dark:text-gray-200 font-medium">{cat.display_name}</span>
-                      <div className="flex gap-2 mt-0.5">
-                        <span className="text-[10px] text-gray-400">{cat.family}</span>
-                        <span className="text-[9px] text-gray-300 uppercase">{cat.tier}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">{cat.display_name}</span>
+                        {TIER_LABELS[cat.tier] && (
+                          <span className={`text-[8px] font-bold uppercase tracking-wider ${TIER_LABELS[cat.tier].cls}`}>
+                            {TIER_LABELS[cat.tier].label}
+                          </span>
+                        )}
+                        {(cat.staged + cat.flagged) > 0 && (
+                          <span className="inline-flex items-center rounded bg-amber-50 dark:bg-amber-900/20 px-1 py-0.5 text-[8px] font-medium text-amber-600 dark:text-amber-400">
+                            {cat.staged + cat.flagged} to review
+                          </span>
+                        )}
                       </div>
+                      <span className="text-[10px] text-gray-400">{cat.family}</span>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">{cat.total.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium text-gray-800 dark:text-gray-200">{cat.institutions.toLocaleString()}</td>
@@ -258,7 +338,9 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                         <div className="flex-1 h-1.5 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
                           <div className={`h-full rounded-full transition-all ${barColor(cov)}`} style={{ width: `${Math.max(cov, 1)}%` }} />
                         </div>
-                        <span className="text-[10px] tabular-nums text-gray-400 w-8 text-right">{cov.toFixed(0)}%</span>
+                        <span className="text-[10px] tabular-nums text-gray-500 w-16 text-right">
+                          {cat.institutions.toLocaleString()}<span className="text-gray-300 dark:text-gray-600">/{(totalInstitutions / 1000).toFixed(1)}k</span>
+                        </span>
                       </div>
                     </td>
                     <td className="px-2 py-2 text-gray-300">
@@ -277,12 +359,24 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                             <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{cat.approved.toLocaleString()}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Staged</div>
-                            <div className="text-sm font-bold text-blue-600 dark:text-blue-400 tabular-nums">{cat.staged.toLocaleString()}</div>
+                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Need Review</div>
+                            <div className="text-sm font-bold text-blue-600 dark:text-blue-400 tabular-nums">
+                              {cat.staged > 0 ? (
+                                <Link href={`/admin/review?status=staged&q=${encodeURIComponent(cat.display_name)}`} className="hover:underline">
+                                  {cat.staged.toLocaleString()}
+                                </Link>
+                              ) : "0"}
+                            </div>
                           </div>
                           <div>
                             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Flagged</div>
-                            <div className="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">{cat.flagged.toLocaleString()}</div>
+                            <div className="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                              {cat.flagged > 0 ? (
+                                <Link href={`/admin/review?status=flagged&q=${encodeURIComponent(cat.display_name)}`} className="hover:underline">
+                                  {cat.flagged.toLocaleString()}
+                                </Link>
+                              ) : "0"}
+                            </div>
                           </div>
                           <div>
                             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">With Amount</div>
@@ -317,12 +411,6 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
             })}
           </tbody>
         </table>
-      </div>
-
-      <div className="px-4 py-2 border-t border-gray-200 dark:border-white/[0.06] text-[10px] text-gray-400 flex gap-4">
-        <span>{filtered.length} categories</span>
-        <span>{filtered.reduce((s, c) => s + c.total, 0).toLocaleString()} observations</span>
-        <span>{new Set(filtered.map((c) => c.family)).size} families</span>
       </div>
     </div>
   );

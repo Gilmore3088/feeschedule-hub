@@ -4,7 +4,9 @@ Cross-institutional validation to catch extraction errors at scale.
 Flags amounts that are statistically improbable based on national data.
 """
 
+import json as _json_module
 import logging
+import time
 from dataclasses import dataclass
 
 from fee_crawler.db import Database
@@ -169,27 +171,49 @@ def run_outlier_detection(db: Database, *, auto_flag: bool = True) -> None:
 
     Always takes action:
     - decimal_error → auto-rejected
-    - statistical_outlier → flagged for review (even if previously approved)
+    - statistical_outlier → flagged for review (but NOT manually-approved fees)
+
+    Writes audit trail to fee_reviews for every status change.
+    Protects manually-approved fees from being overridden.
 
     Args:
         db: Database connection.
         auto_flag: Legacy param, always True now.
     """
+    t0 = time.time()
     outliers = detect_outliers(db)
 
     if not outliers:
         print("No statistical outliers detected.")
+        result = {"version": 1, "command": "outlier-detect", "status": "completed",
+                  "duration_s": round(time.time() - t0, 1), "processed": 0, "succeeded": 0,
+                  "failed": 0, "skipped": 0, "decimal_errors_rejected": 0,
+                  "statistical_outliers_flagged": 0, "skipped_manual": 0}
+        print(f"##RESULT_JSON##{ _json_module.dumps(result)}")
         return
 
     print(f"Detected {len(outliers)} statistical outliers:")
 
+    # Pre-fetch manually-approved fee IDs to protect them
+    manual_approvals: set[int] = set()
+    try:
+        rows = db.fetchall(
+            """SELECT DISTINCT fee_id FROM fee_reviews
+               WHERE action = 'approve' AND username != 'system'"""
+        )
+        manual_approvals = {r["fee_id"] for r in rows}
+    except Exception:
+        pass  # fee_reviews may not exist in older DBs
+
     by_type: dict[str, int] = {}
     auto_rejected = 0
     newly_flagged = 0
+    skipped_manual = 0
+    batch: list[tuple] = []  # (fee_id, new_status, flags_json, prev_status, reason)
+
     for o in outliers:
         by_type[o.flag_type] = by_type.get(o.flag_type, 0) + 1
-        # Always apply flags (not just when auto_flag is set)
-        import json
+
         existing = db.fetchone(
             "SELECT validation_flags, review_status FROM extracted_fees WHERE id = ?",
             (o.fee_id,),
@@ -197,11 +221,16 @@ def run_outlier_detection(db: Database, *, auto_flag: bool = True) -> None:
         if not existing or existing["review_status"] == "rejected":
             continue
 
+        # Protect manually-approved fees from being overridden
+        if o.fee_id in manual_approvals and o.flag_type != "decimal_error":
+            skipped_manual += 1
+            continue
+
         flags = []
         if existing["validation_flags"]:
             try:
-                flags = json.loads(existing["validation_flags"])
-            except json.JSONDecodeError:
+                flags = _json_module.loads(existing["validation_flags"])
+            except _json_module.JSONDecodeError:
                 pass
         flags.append({
             "rule": o.flag_type,
@@ -209,24 +238,60 @@ def run_outlier_detection(db: Database, *, auto_flag: bool = True) -> None:
             "message": o.detail,
         })
 
-        # Decimal errors → auto-reject (clearly wrong data)
-        # Statistical outliers → flag for review (including approved ones)
+        # Decimal errors → auto-reject (clearly wrong data, even manual approvals)
+        # Statistical outliers → flag for review (skip manually-approved)
         if o.flag_type == "decimal_error":
             new_status = "rejected"
+            reason = f"outlier-detect: decimal error — {o.detail}"
             auto_rejected += 1
         else:
             new_status = "flagged"
+            reason = f"outlier-detect: statistical outlier — {o.detail}"
             newly_flagged += 1
 
-        db.execute(
-            "UPDATE extracted_fees SET review_status = ?, validation_flags = ? WHERE id = ?",
-            (new_status, json.dumps(flags), o.fee_id),
-        )
+        batch.append((o.fee_id, new_status, _json_module.dumps(flags), existing["review_status"], reason))
 
-    db.commit()
+    # Write all changes in a single transaction
+    if batch:
+        db.execute("BEGIN IMMEDIATE")
+        try:
+            for fee_id, new_status, flags_json, prev_status, reason in batch:
+                db.execute(
+                    "UPDATE extracted_fees SET review_status = ?, validation_flags = ? WHERE id = ?",
+                    (new_status, flags_json, fee_id),
+                )
+                action = "auto_reject" if new_status == "rejected" else "auto_flag"
+                db.execute(
+                    """INSERT INTO fee_reviews
+                       (fee_id, action, user_id, username, previous_status, new_status, notes)
+                       VALUES (?, ?, 0, 'system', ?, ?, ?)""",
+                    (fee_id, action, prev_status, new_status, reason),
+                )
+            db.commit()
+        except Exception:
+            db.execute("ROLLBACK")
+            raise
 
     for flag_type, count in sorted(by_type.items()):
         print(f"  {flag_type}: {count}")
     print(f"  Total: {len(outliers)}")
     print(f"  Auto-rejected (decimal errors): {auto_rejected}")
     print(f"  Flagged for review: {newly_flagged}")
+    if skipped_manual:
+        print(f"  Skipped (manually approved): {skipped_manual}")
+
+    # Structured result for job runner
+    result = {
+        "version": 1,
+        "command": "outlier-detect",
+        "status": "completed",
+        "duration_s": round(time.time() - t0, 1),
+        "processed": len(outliers),
+        "succeeded": auto_rejected + newly_flagged,
+        "failed": 0,
+        "skipped": skipped_manual,
+        "decimal_errors_rejected": auto_rejected,
+        "statistical_outliers_flagged": newly_flagged,
+        "skipped_manual": skipped_manual,
+    }
+    print(f"##RESULT_JSON##{ _json_module.dumps(result)}")

@@ -10,6 +10,7 @@ import { PipelineDashboard } from "./pipeline-data";
 import { DataSourcesStatus } from "./data-sources-status";
 import { RecentJobs } from "./recent-jobs";
 import { CategoryCoverageDashboard } from "./category-coverage-data";
+import { QuickActions } from "./quick-actions";
 
 const PAGE_SIZE = 50;
 
@@ -114,6 +115,16 @@ export default async function PipelinePage({
       {/* Unified Pipeline Dashboard */}
       <div className="mb-4">
         <PipelineDashboard />
+      </div>
+
+      {/* Quick Actions - all pipeline commands in one place */}
+      <div className="mb-4">
+        <QuickActions />
+      </div>
+
+      {/* Recent Jobs */}
+      <div className="mb-4">
+        <RecentJobs />
       </div>
 
       {/* Category Coverage */}
@@ -258,11 +269,8 @@ export default async function PipelinePage({
       <CoverageTable
         institutions={institutions}
         total={total}
-        currentPage={currentPage}
-        totalPages={totalPages}
         sortColumn={sortColumn}
         sortDir={sortDir}
-        states={states}
       />
 
       <div className="px-4 pb-3">
