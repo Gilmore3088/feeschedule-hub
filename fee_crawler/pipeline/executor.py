@@ -232,10 +232,11 @@ def _execute_stage(stage: Stage, db: Database, config: Config, **kwargs) -> None
         run(db)
     elif cmd == "discover":
         from fee_crawler.commands.discover_urls import run
-        run(db, config, limit=kwargs.get("limit"))
+        run(db, config, limit=kwargs.get("limit"), state=kwargs.get("state"))
     elif cmd == "crawl":
         from fee_crawler.commands.crawl import run
-        run(db, config, limit=kwargs.get("limit"), workers=kwargs.get("workers", 1))
+        run(db, config, limit=kwargs.get("limit"), workers=kwargs.get("workers", 1),
+            state=kwargs.get("state"))
     elif cmd == "merge-fees":
         from fee_crawler.commands.merge_fees import run
         run(db, config)

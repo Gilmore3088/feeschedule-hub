@@ -426,6 +426,7 @@ def cmd_pipeline_v2(args: argparse.Namespace) -> None:
             dry_run=args.dry_run,
             limit=args.limit,
             workers=args.workers,
+            state=args.state,
         )
         print(f"\nPipeline run ID: {run_id}")
     finally:
@@ -1044,6 +1045,7 @@ def main() -> None:
     v2_parser.add_argument("--dry-run", action="store_true", help="Show what would run")
     v2_parser.add_argument("--limit", type=int, default=None, help="Max institutions per stage")
     v2_parser.add_argument("--workers", type=int, default=1, help="Concurrent workers")
+    v2_parser.add_argument("--state", type=str, default=None, help="Filter by state code (e.g., CA, TX, NY)")
     v2_parser.set_defaults(func=cmd_pipeline_v2)
 
     # stats command

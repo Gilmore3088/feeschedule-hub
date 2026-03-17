@@ -254,11 +254,12 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
   },
   pipeline: {
     description: "Atomic Pipeline (v2)",
-    detail: "Runs the full 9-stage atomic pipeline with resume support: seed-enrich, discover, crawl, merge-fees, categorize, validate, auto-review, snapshot, publish-index.",
+    detail: "Runs the full 9-stage atomic pipeline with resume support: seed-enrich, discover, crawl, merge-fees, categorize, validate, auto-review, snapshot, publish-index. Use --state to target a specific state.",
     group: "pipeline",
     usesLimit: true,
     usesCharter: false,
-    typical: "python -m fee_crawler pipeline --dry-run",
+    usesState: true,
+    typical: "python -m fee_crawler pipeline --limit 100 --state CA",
   },
 };
 
