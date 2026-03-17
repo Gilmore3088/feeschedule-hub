@@ -268,3 +268,54 @@ function buildIndexEntries(
   results.sort((a, b) => b.institution_count - a.institution_count);
   return results;
 }
+
+/**
+ * Read precomputed index from fee_index_cache (materialized by publish-index).
+ * Falls back to live computation if cache is empty.
+ */
+export function getNationalIndexCached(): IndexEntry[] {
+  const db = getDb();
+  try {
+    const rows = db
+      .prepare("SELECT * FROM fee_index_cache ORDER BY institution_count DESC")
+      .all() as {
+      fee_category: string;
+      fee_family: string | null;
+      median_amount: number | null;
+      p25_amount: number | null;
+      p75_amount: number | null;
+      min_amount: number | null;
+      max_amount: number | null;
+      institution_count: number;
+      observation_count: number;
+      approved_count: number;
+      bank_count: number;
+      cu_count: number;
+      maturity_tier: string;
+      computed_at: string;
+    }[];
+
+    if (rows.length === 0) {
+      return getNationalIndex();
+    }
+
+    return rows.map((row) => ({
+      fee_category: row.fee_category,
+      fee_family: row.fee_family,
+      median_amount: row.median_amount,
+      p25_amount: row.p25_amount,
+      p75_amount: row.p75_amount,
+      min_amount: row.min_amount,
+      max_amount: row.max_amount,
+      institution_count: row.institution_count,
+      observation_count: row.observation_count,
+      approved_count: row.approved_count,
+      bank_count: row.bank_count,
+      cu_count: row.cu_count,
+      maturity_tier: row.maturity_tier as IndexEntry["maturity_tier"],
+      last_updated: row.computed_at,
+    }));
+  } catch {
+    return getNationalIndex();
+  }
+}

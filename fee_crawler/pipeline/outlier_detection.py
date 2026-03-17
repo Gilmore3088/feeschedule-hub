@@ -189,7 +189,7 @@ def run_outlier_detection(db: Database, *, auto_flag: bool = True) -> None:
                   "duration_s": round(time.time() - t0, 1), "processed": 0, "succeeded": 0,
                   "failed": 0, "skipped": 0, "decimal_errors_rejected": 0,
                   "statistical_outliers_flagged": 0, "skipped_manual": 0}
-        print(f"##RESULT_JSON##{ _json_module.dumps(result)}")
+        from fee_crawler.job_result import emit_result; emit_result(result)
         return
 
     print(f"Detected {len(outliers)} statistical outliers:")
@@ -294,4 +294,4 @@ def run_outlier_detection(db: Database, *, auto_flag: bool = True) -> None:
         "statistical_outliers_flagged": newly_flagged,
         "skipped_manual": skipped_manual,
     }
-    print(f"##RESULT_JSON##{ _json_module.dumps(result)}")
+    from fee_crawler.job_result import emit_result; emit_result(result)

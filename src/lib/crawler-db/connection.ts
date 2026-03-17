@@ -30,6 +30,8 @@ const STUB_TABLES = `
   CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, name TEXT, email TEXT, company TEXT, role TEXT, use_case TEXT, source TEXT DEFAULT 'coming_soon', status TEXT DEFAULT 'new', created_at TEXT);
   CREATE TABLE IF NOT EXISTS api_keys (id INTEGER PRIMARY KEY, user_id INTEGER, key_hash TEXT, key_prefix TEXT, tier TEXT DEFAULT 'pro', monthly_limit INTEGER DEFAULT 5000, call_count INTEGER DEFAULT 0, last_used_at TEXT, is_active INTEGER DEFAULT 1, created_at TEXT);
   CREATE TABLE IF NOT EXISTS pipeline_runs (id INTEGER PRIMARY KEY, status TEXT DEFAULT 'running', last_completed_phase INTEGER DEFAULT 0, last_completed_job TEXT, config_json TEXT, started_at TEXT, completed_at TEXT, error_msg TEXT, inst_count INTEGER, summary_json TEXT);
+  CREATE TABLE IF NOT EXISTS fee_index_cache (fee_category TEXT PRIMARY KEY, fee_family TEXT, median_amount REAL, p25_amount REAL, p75_amount REAL, min_amount REAL, max_amount REAL, institution_count INTEGER DEFAULT 0, observation_count INTEGER DEFAULT 0, approved_count INTEGER DEFAULT 0, bank_count INTEGER DEFAULT 0, cu_count INTEGER DEFAULT 0, maturity_tier TEXT DEFAULT 'insufficient', computed_at TEXT);
+  CREATE TABLE IF NOT EXISTS reg_articles (guid TEXT PRIMARY KEY, source TEXT NOT NULL, title TEXT NOT NULL, link TEXT NOT NULL, topic TEXT NOT NULL DEFAULT 'general', published_at TEXT, created_at TEXT DEFAULT (datetime('now')));
 `;
 
 function isStubDb(db: InstanceType<typeof Database>): boolean {
@@ -55,11 +57,14 @@ export function getDb() {
     }
 
     _singleton = new Database(DB_PATH, { readonly: true, fileMustExist: true });
-    _singleton.pragma("cache_size = -32000");
-    _singleton.pragma("mmap_size = 268435456");
-    _singleton.pragma("temp_store = memory");
-    _singleton.pragma("busy_timeout = 5000");
-    _singleton.pragma("optimize");
+    try {
+      _singleton.pragma("cache_size = -32000");
+      _singleton.pragma("mmap_size = 268435456");
+      _singleton.pragma("temp_store = memory");
+      _singleton.pragma("busy_timeout = 5000");
+    } catch {
+      // Some pragmas may fail on readonly connections — safe to ignore
+    }
   }
   return _singleton;
 }

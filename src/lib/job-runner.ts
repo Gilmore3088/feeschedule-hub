@@ -64,7 +64,7 @@ export function spawnJob(
     cwd: process.cwd(),
     detached: true,
     stdio: ["ignore", logStream, logStream],
-    env: { ...process.env },
+    env: { ...process.env, BFI_JOB_ID: String(jobId) },
   });
 
   const pid = child.pid ?? 0;

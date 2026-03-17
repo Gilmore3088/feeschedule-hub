@@ -60,6 +60,21 @@ def release_lock() -> None:
     LOCK_FILE.unlink(missing_ok=True)
 
 
+def cleanup_old_logs(max_age_days: int = 30) -> int:
+    """Delete log and result files older than max_age_days. Returns count deleted."""
+    logs_dir = Path("data/logs")
+    if not logs_dir.exists():
+        return 0
+    import time as _time
+    cutoff = _time.time() - (max_age_days * 86400)
+    deleted = 0
+    for f in logs_dir.iterdir():
+        if f.suffix in (".log", ".json") and f.stat().st_mtime < cutoff:
+            f.unlink()
+            deleted += 1
+    return deleted
+
+
 def _create_run(db: Database, config: Config) -> int:
     """Create a pipeline_runs record and return its ID."""
     run_id = db.insert_returning_id(
@@ -151,6 +166,11 @@ def run_pipeline(
         raise RuntimeError("Another pipeline is already running (PID lock).")
 
     try:
+        # Housekeeping: clean old logs
+        deleted = cleanup_old_logs(30)
+        if deleted:
+            print(f"Cleaned up {deleted} old log files (>30 days).")
+
         # Determine start index
         if resume_run_id:
             row = db.fetchone(

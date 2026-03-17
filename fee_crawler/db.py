@@ -423,6 +423,25 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 """
 
+_CREATE_FEE_INDEX_CACHE = """
+CREATE TABLE IF NOT EXISTS fee_index_cache (
+    fee_category TEXT PRIMARY KEY,
+    fee_family TEXT,
+    median_amount REAL,
+    p25_amount REAL,
+    p75_amount REAL,
+    min_amount REAL,
+    max_amount REAL,
+    institution_count INTEGER NOT NULL DEFAULT 0,
+    observation_count INTEGER NOT NULL DEFAULT 0,
+    approved_count INTEGER NOT NULL DEFAULT 0,
+    bank_count INTEGER NOT NULL DEFAULT 0,
+    cu_count INTEGER NOT NULL DEFAULT 0,
+    maturity_tier TEXT NOT NULL DEFAULT 'insufficient',
+    computed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
 _CREATE_PIPELINE_RUNS = """
 CREATE TABLE IF NOT EXISTS pipeline_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -504,6 +523,7 @@ class Database:
         self.conn.executescript(_CREATE_CENSUS_TRACTS)
         self.conn.executescript(_CREATE_LEADS)
         self.conn.executescript(_CREATE_PIPELINE_RUNS)
+        self.conn.executescript(_CREATE_FEE_INDEX_CACHE)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -604,7 +624,7 @@ class Database:
         "fed_beige_book", "fed_content", "fed_economic_indicators",
         "discovery_cache", "community_submissions", "ops_jobs",
         "branch_deposits", "market_concentration", "demographics",
-        "census_tracts", "leads", "pipeline_runs",
+        "census_tracts", "leads", "pipeline_runs", "fee_index_cache",
     })
 
     def count(self, table: str) -> int:

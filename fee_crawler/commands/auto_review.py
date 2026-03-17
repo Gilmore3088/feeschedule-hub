@@ -119,7 +119,8 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
         "kept_staged": kept_staged,
         "kept_flagged": kept_flagged,
     }
-    print(f"##RESULT_JSON##{json.dumps(result)}")
+    from fee_crawler.job_result import emit_result
+    emit_result(result)
 
 
 def _flush_batch(db: Database, batch: list[tuple[str, int, str]]) -> None:

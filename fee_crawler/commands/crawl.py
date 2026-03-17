@@ -537,7 +537,8 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
         "fees_extracted": stats["total_fees"],
         "institutions_failed": stats["failed"],
     }
-    print(f"##RESULT_JSON##{json.dumps(result)}")
+    from fee_crawler.job_result import emit_result
+    emit_result(result)
 
     # Capture coverage snapshot (one per day, upsert)
     try:
