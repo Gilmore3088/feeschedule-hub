@@ -230,6 +230,13 @@ def run(
     where_sql = " AND ".join(where_clauses)
     order_sql = "ORDER BY asset_size DESC NULLS LAST"
 
+    # Count total available before applying limit
+    count_row = db.fetchone(
+        f"SELECT COUNT(*) as cnt FROM crawl_targets WHERE {where_sql}",
+        tuple(params),
+    )
+    available = count_row["cnt"] if count_row else 0
+
     query = f"""
         SELECT id, institution_name, website_url, state_code, asset_size
         FROM crawl_targets
@@ -243,21 +250,24 @@ def run(
     targets = db.fetchall(query, tuple(params))
     total = len(targets)
 
-    if total == 0:
+    if available == 0:
         print("No institutions to process (all have fee_schedule_url or no website_url).")
         return
 
     # Convert sqlite3.Row objects to plain dicts (needed for pickling across threads)
     targets = [dict(t) for t in targets]
 
-    print(f"Discovering fee schedule URLs for {total} institutions...")
+    scope = state.upper() if state else "All states"
+    if limit and limit > 0 and available > total:
+        print(f"{scope}: {available} available, processing {total} (--limit {limit}), {available - total} remaining")
+    else:
+        print(f"{scope}: {available} available, processing all {total}")
+    print()
     print(f"  Workers: {workers}")
     if workers == 1:
         print(f"  Delay: {config.crawl.delay_seconds}s between requests")
     else:
         print(f"  Delay: 0.3s per worker (concurrent mode, different domains)")
-    if state:
-        print(f"  State filter: {state.upper()}")
     if source:
         print(f"  Source filter: {source}")
     print()
