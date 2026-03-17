@@ -263,8 +263,8 @@ export default async function PeerDetailPage({
             </h2>
           </div>
           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-            {complaints.map((c) => (
-              <div key={c.product} className="rounded-lg border p-3 dark:border-white/[0.08]">
+            {complaints.map((c, i) => (
+              <div key={`${c.product}-${i}`} className="rounded-lg border p-3 dark:border-white/[0.08]">
                 <div className="text-xs text-gray-500">{c.product}</div>
                 <div className="text-2xl font-bold tabular-nums text-gray-900 mt-1">
                   {c.complaint_count.toLocaleString()}

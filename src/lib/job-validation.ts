@@ -109,8 +109,8 @@ export function validateJobRequest(
     // crawl, run-pipeline etc. don't have a charter filter — filter is done at query level
   }
 
-  if (params.state !== undefined && params.state !== "") {
-    // Validate state code (2 uppercase letters)
+  const COMMANDS_WITH_STATE = new Set(["crawl", "discover", "run-pipeline"]);
+  if (params.state !== undefined && params.state !== "" && COMMANDS_WITH_STATE.has(command)) {
     if (!/^[A-Z]{2}$/.test(params.state)) {
       return { valid: false, error: "state must be a 2-letter state code" };
     }
