@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_CODES } from "@/lib/us-states";
-import { getInstitutionIdsWithFees } from "@/lib/crawler-db";
+import { getInstitutionIdsWithFees, getCitiesInState } from "@/lib/crawler-db";
 import { GUIDES } from "@/lib/guides";
 
 import { SITE_URL } from "@/lib/constants";
@@ -83,6 +83,31 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
+  // City fee pages (state directories + top city pages)
+  const stateCityDirPages: MetadataRoute.Sitemap = STATE_CODES.map((code) => ({
+    url: `${BASE_URL}/fees/city/${code.toLowerCase()}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }));
+
+  const cityPages: MetadataRoute.Sitemap = [];
+  for (const code of STATE_CODES) {
+    try {
+      const cities = getCitiesInState(code);
+      for (const c of cities.slice(0, 20)) { // Top 20 cities per state
+        cityPages.push({
+          url: `${BASE_URL}/fees/city/${code.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`,
+          lastModified: now,
+          changeFrequency: "weekly" as const,
+          priority: 0.6,
+        });
+      }
+    } catch {
+      // Skip states with no data
+    }
+  }
+
   return [
     ...staticPages,
     ...categoryPages,
@@ -92,5 +117,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...institutionPages,
     ...researchPages,
     ...guidePages,
+    ...stateCityDirPages,
+    ...cityPages,
   ];
 }
