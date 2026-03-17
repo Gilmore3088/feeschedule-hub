@@ -85,7 +85,22 @@ export function spawnJob(
     const tail = readLogTail(logPath, 50);
     const errorSummary =
       code !== 0 ? extractErrorSummary(tail) : null;
-    const resultSummary = extractResultJson(tail);
+
+    // Try file-based result first, fall back to stdout sentinel
+    let resultSummary: string | null = null;
+    const resultPath = path.join(LOGS_DIR, `${jobId}_result.json`);
+    try {
+      if (fs.existsSync(resultPath)) {
+        const raw = fs.readFileSync(resultPath, "utf-8");
+        JSON.parse(raw); // validate JSON
+        resultSummary = raw;
+      }
+    } catch {
+      // File missing or invalid, fall back
+    }
+    if (!resultSummary) {
+      resultSummary = extractResultJson(tail);
+    }
 
     const db3 = getWriteDb();
     try {

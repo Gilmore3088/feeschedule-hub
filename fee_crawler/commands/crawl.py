@@ -257,7 +257,7 @@ def _crawl_one(
                         # Record the change event
                         change_type = "increased" if (new_amount or 0) > (old_amount or 0) else "decreased"
                         db.execute(
-                            """INSERT INTO fee_change_events
+                            """INSERT OR IGNORE INTO fee_change_events
                                (crawl_target_id, fee_category, previous_amount, new_amount, change_type)
                                VALUES (?, ?, ?, ?, ?)""",
                             (target_id, fee_category, old_amount, new_amount, change_type),
@@ -320,7 +320,7 @@ def _crawl_one(
                              old["frequency"], old["conditions"], old["extraction_confidence"]),
                         )
                         db.execute(
-                            """INSERT INTO fee_change_events
+                            """INSERT OR IGNORE INTO fee_change_events
                                (crawl_target_id, fee_category, previous_amount, new_amount, change_type)
                                VALUES (?, ?, ?, NULL, 'removed')""",
                             (target_id, cat, old["amount"]),

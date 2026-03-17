@@ -10,7 +10,7 @@ const STUB_TABLES = `
   CREATE TABLE IF NOT EXISTS crawl_targets (id INTEGER PRIMARY KEY, institution_name TEXT, website_url TEXT, fee_schedule_url TEXT, charter_type TEXT, state TEXT, state_code TEXT, city TEXT, asset_size INTEGER, cert_number TEXT, source TEXT, status TEXT, fed_district INTEGER, asset_size_tier TEXT, created_at TEXT, last_crawl_at TEXT, last_success_at TEXT, consecutive_failures INTEGER DEFAULT 0, document_type TEXT, last_content_hash TEXT, failure_reason TEXT, cms_platform TEXT);
   CREATE TABLE IF NOT EXISTS extracted_fees (id INTEGER PRIMARY KEY, crawl_result_id INTEGER, crawl_target_id INTEGER, fee_name TEXT, amount REAL, frequency TEXT, conditions TEXT, extraction_confidence REAL, review_status TEXT DEFAULT 'pending', validation_flags TEXT, fee_family TEXT, fee_category TEXT, account_product_type TEXT, created_at TEXT);
   CREATE TABLE IF NOT EXISTS crawl_results (id INTEGER PRIMARY KEY, crawl_run_id INTEGER, crawl_target_id INTEGER, status TEXT, document_url TEXT, document_path TEXT, content_hash TEXT, fees_extracted INTEGER, error_message TEXT, crawled_at TEXT);
-  CREATE TABLE IF NOT EXISTS crawl_runs (id INTEGER PRIMARY KEY, trigger_type TEXT, status TEXT, targets_total INTEGER, targets_crawled INTEGER, targets_succeeded INTEGER, targets_failed INTEGER, targets_unchanged INTEGER, fees_extracted INTEGER, started_at TEXT, completed_at TEXT);
+  CREATE TABLE IF NOT EXISTS crawl_runs (id INTEGER PRIMARY KEY, trigger TEXT, status TEXT, targets_total INTEGER, targets_crawled INTEGER, targets_succeeded INTEGER, targets_failed INTEGER, targets_unchanged INTEGER, fees_extracted INTEGER, started_at TEXT, completed_at TEXT);
   CREATE TABLE IF NOT EXISTS institution_financials (id INTEGER PRIMARY KEY, crawl_target_id INTEGER, report_date TEXT, source TEXT, total_assets INTEGER, total_deposits INTEGER, total_loans INTEGER, service_charge_income INTEGER, other_noninterest_income INTEGER, net_interest_margin REAL, efficiency_ratio REAL, roa REAL, roe REAL, tier1_capital_ratio REAL, branch_count INTEGER, employee_count INTEGER, member_count INTEGER, raw_json TEXT, fetched_at TEXT, total_revenue INTEGER, fee_income_ratio REAL);
   CREATE TABLE IF NOT EXISTS institution_complaints (id INTEGER PRIMARY KEY, crawl_target_id INTEGER, report_period TEXT, product TEXT, issue TEXT, complaint_count INTEGER, fetched_at TEXT);
   CREATE TABLE IF NOT EXISTS fee_reviews (id INTEGER PRIMARY KEY, fee_id INTEGER, action TEXT, user_id INTEGER, username TEXT, previous_status TEXT, new_status TEXT, previous_values TEXT, new_values TEXT, notes TEXT, created_at TEXT);
@@ -29,6 +29,7 @@ const STUB_TABLES = `
   CREATE TABLE IF NOT EXISTS stripe_events (id TEXT PRIMARY KEY, event_type TEXT NOT NULL, stripe_customer_id TEXT, payload_json TEXT NOT NULL, processed_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY, name TEXT, email TEXT, company TEXT, role TEXT, use_case TEXT, source TEXT DEFAULT 'coming_soon', status TEXT DEFAULT 'new', created_at TEXT);
   CREATE TABLE IF NOT EXISTS api_keys (id INTEGER PRIMARY KEY, user_id INTEGER, key_hash TEXT, key_prefix TEXT, tier TEXT DEFAULT 'pro', monthly_limit INTEGER DEFAULT 5000, call_count INTEGER DEFAULT 0, last_used_at TEXT, is_active INTEGER DEFAULT 1, created_at TEXT);
+  CREATE TABLE IF NOT EXISTS pipeline_runs (id INTEGER PRIMARY KEY, status TEXT DEFAULT 'running', last_completed_phase INTEGER DEFAULT 0, last_completed_job TEXT, config_json TEXT, started_at TEXT, completed_at TEXT, error_msg TEXT, inst_count INTEGER, summary_json TEXT);
 `;
 
 function isStubDb(db: InstanceType<typeof Database>): boolean {
@@ -42,19 +43,23 @@ function isStubDb(db: InstanceType<typeof Database>): boolean {
 
 export function getDb() {
   if (!_singleton) {
-    _singleton = new Database(DB_PATH, { readonly: false });
-    _singleton.pragma("journal_mode = WAL");
-    _singleton.pragma("synchronous = normal");
+    const fs = require("fs");
+    const dbExists = fs.existsSync(DB_PATH);
+
+    if (!dbExists) {
+      // CI/build: create writable connection for stubs, then reopen readonly
+      const setupDb = new Database(DB_PATH);
+      setupDb.pragma("journal_mode = WAL");
+      setupDb.exec(STUB_TABLES);
+      setupDb.close();
+    }
+
+    _singleton = new Database(DB_PATH, { readonly: true, fileMustExist: true });
     _singleton.pragma("cache_size = -32000");
     _singleton.pragma("mmap_size = 268435456");
     _singleton.pragma("temp_store = memory");
     _singleton.pragma("busy_timeout = 5000");
-    _singleton.pragma("foreign_keys = ON");
-
-    // During CI builds, the DB is a stub -- create empty tables so queries don't crash
-    if (isStubDb(_singleton)) {
-      _singleton.exec(STUB_TABLES);
-    }
+    _singleton.pragma("optimize");
   }
   return _singleton;
 }

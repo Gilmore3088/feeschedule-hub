@@ -22,6 +22,7 @@ BATCH_SIZE = 500
 def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
     """Auto-review staged and flagged fees."""
     t0 = time.time()
+    approve_threshold = config.extraction.confidence_approve_threshold
     auto_approved = 0
     auto_rejected = 0
     kept_staged = 0
@@ -44,7 +45,7 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
         conf = row["extraction_confidence"]
         cat = row["fee_category"]
 
-        action = _decide(name, amount, conf, cat)
+        action = _decide(name, amount, conf, cat, approve_threshold)
 
         if action == "approve":
             batch.append(("approved", fid, "auto-review: confidence + bounds check passed"))
@@ -149,7 +150,13 @@ def _flush_batch(db: Database, batch: list[tuple[str, int, str]]) -> None:
         raise
 
 
-def _decide(name: str, amount: float | None, conf: float | None, cat: str | None) -> str:
+def _decide(
+    name: str,
+    amount: float | None,
+    conf: float | None,
+    cat: str | None,
+    approve_threshold: float = 0.90,
+) -> str:
     """Decide action for a staged fee: 'approve', 'reject', or 'keep'."""
 
     # Reject: non-fee content (minimum balance requirements, APY, etc.)
@@ -169,7 +176,7 @@ def _decide(name: str, amount: float | None, conf: float | None, cat: str | None
             return "reject"
 
         # Approve: high confidence + within normal range
-        if conf and conf >= 0.85:
+        if conf and conf >= approve_threshold:
             if amount is None and allows_zero:
                 return "approve"
             if amount is not None and amount == 0 and allows_zero:

@@ -1,9 +1,13 @@
 """Database layer. SQLite for dev, PostgreSQL/Supabase for production."""
 
 import sqlite3
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 from fee_crawler.config import Config
+
+_thread_local = threading.local()
 
 _CREATE_CRAWL_TARGETS = """
 CREATE TABLE IF NOT EXISTS crawl_targets (
@@ -423,13 +427,31 @@ CREATE TABLE IF NOT EXISTS leads (
 class Database:
     """Thin wrapper around SQLite for local dev."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, *, init_tables: bool = True) -> None:
         db_path = Path(config.database.path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(db_path), timeout=30)
         self.conn.row_factory = sqlite3.Row
         self._set_pragmas()
-        self._init_tables()
+        if init_tables:
+            self._init_tables()
+
+    def __enter__(self) -> "Database":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    @contextmanager
+    def transaction(self):
+        """Context manager for BEGIN IMMEDIATE / COMMIT / ROLLBACK."""
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            yield self
+            self.conn.execute("COMMIT")
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
 
     def _set_pragmas(self) -> None:
         """Enable WAL mode, foreign keys, and performance PRAGMAs."""
@@ -472,13 +494,27 @@ class Database:
 
     def _create_indexes(self) -> None:
         """Create indexes for analytical queries (idempotent)."""
+        # Dedup fee_change_events before creating unique index (idempotent)
+        try:
+            self.conn.execute("""
+                DELETE FROM fee_change_events WHERE id NOT IN (
+                    SELECT MIN(id) FROM fee_change_events
+                    GROUP BY crawl_target_id, fee_category, change_type,
+                             previous_amount, new_amount, DATE(detected_at)
+                )
+            """)
+        except sqlite3.OperationalError:
+            pass  # table may not exist yet
+
         indexes = [
-            "CREATE INDEX IF NOT EXISTS idx_fees_review_status ON extracted_fees(review_status)",
-            "CREATE INDEX IF NOT EXISTS idx_fees_target_id ON extracted_fees(crawl_target_id)",
-            "CREATE INDEX IF NOT EXISTS idx_fees_target_status ON extracted_fees(crawl_target_id, review_status)",
+            # -- Covering indexes (replace narrower versions) --
+            "CREATE INDEX IF NOT EXISTS idx_fees_category_amount_active ON extracted_fees(fee_category, amount, crawl_target_id) WHERE review_status != 'rejected' AND fee_category IS NOT NULL AND amount IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS idx_fees_target_status_cat_amt ON extracted_fees(crawl_target_id, review_status, fee_category, amount)",
+            "CREATE INDEX IF NOT EXISTS idx_fees_review_queue ON extracted_fees(review_status, created_at) WHERE review_status IN ('pending', 'staged', 'flagged')",
             "CREATE INDEX IF NOT EXISTS idx_fees_category ON extracted_fees(fee_category)",
             "CREATE INDEX IF NOT EXISTS idx_targets_charter_tier ON crawl_targets(charter_type, asset_size_tier)",
             "CREATE INDEX IF NOT EXISTS idx_targets_fee_url ON crawl_targets(fee_schedule_url) WHERE fee_schedule_url IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS idx_targets_with_fees ON crawl_targets(charter_type, asset_size_tier, fed_district, state_code) WHERE fee_schedule_url IS NOT NULL",
             "CREATE INDEX IF NOT EXISTS idx_analysis_target_type ON analysis_results(crawl_target_id, analysis_type)",
             "CREATE INDEX IF NOT EXISTS idx_financials_target_date ON institution_financials(crawl_target_id, report_date)",
             "CREATE INDEX IF NOT EXISTS idx_complaints_target ON institution_complaints(crawl_target_id)",
@@ -495,6 +531,13 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_market_concentration_msa ON market_concentration(msa_code, year)",
             "CREATE INDEX IF NOT EXISTS idx_demographics_geo ON demographics(geo_type, state_fips, year)",
             "CREATE INDEX IF NOT EXISTS idx_census_tracts_state ON census_tracts(state_fips, year)",
+            # -- fee_change_events unique index for idempotency --
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_fce_unique ON fee_change_events(crawl_target_id, fee_category, change_type, previous_amount, new_amount, DATE(detected_at))",
+            # -- Dashboard query indexes --
+            "CREATE INDEX IF NOT EXISTS idx_fce_date_category ON fee_change_events(detected_at DESC, fee_category)",
+            "CREATE INDEX IF NOT EXISTS idx_crawl_results_date ON crawl_results(crawled_at DESC, crawl_target_id)",
+            "CREATE INDEX IF NOT EXISTS idx_reviews_date ON fee_reviews(created_at DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_fees_crawl_result ON extracted_fees(crawl_result_id)",
         ]
         for sql in indexes:
             try:
@@ -541,9 +584,11 @@ class Database:
         "crawl_targets", "crawl_runs", "crawl_results", "extracted_fees",
         "analysis_results", "users", "fee_reviews", "sessions",
         "institution_financials", "institution_complaints",
-        "fee_snapshots", "fee_change_events",
+        "fee_snapshots", "fee_change_events", "coverage_snapshots",
         "fed_beige_book", "fed_content", "fed_economic_indicators",
         "discovery_cache", "community_submissions", "ops_jobs",
+        "branch_deposits", "market_concentration", "demographics",
+        "census_tracts", "leads",
     })
 
     def count(self, table: str) -> int:
@@ -554,3 +599,10 @@ class Database:
 
     def close(self) -> None:
         self.conn.close()
+
+
+def get_worker_db(config: Config) -> Database:
+    """Thread-local DB connection for worker threads. No migration overhead."""
+    if not hasattr(_thread_local, "db") or _thread_local.db is None:
+        _thread_local.db = Database(config, init_tables=False)
+    return _thread_local.db

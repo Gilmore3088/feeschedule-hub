@@ -84,6 +84,9 @@ export async function runEnrich(): Promise<{ success: boolean; jobId?: number; e
 
 export async function runDiscover(state?: string): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
+  if (state && !/^[A-Z]{2}$/.test(state)) {
+    return { success: false, error: "Invalid state code" };
+  }
   try {
     const args: string[] = [];
     if (state) args.push("--state", state);
