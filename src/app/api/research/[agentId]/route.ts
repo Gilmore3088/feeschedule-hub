@@ -80,11 +80,16 @@ export async function POST(
       return Response.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const roleOrder: Record<string, number> = { viewer: 0, premium: 1, analyst: 2, admin: 3 };
-    const requiredLevel = roleOrder[agent.requiredRole ?? "viewer"] ?? 0;
-    const userLevel = roleOrder[user.role] ?? 0;
-    if (userLevel < requiredLevel) {
-      return Response.json({ error: "Insufficient permissions" }, { status: 403 });
+    // Check billing-aware access for premium-gated agents
+    const requiredRole = agent.requiredRole ?? "viewer";
+    if (requiredRole === "premium" || requiredRole === "analyst") {
+      const { canAccessPremium } = await import("@/lib/access");
+      if (!canAccessPremium(user)) {
+        return Response.json({ error: "Active subscription required" }, { status: 403 });
+      }
+    }
+    if (requiredRole === "admin" && user.role !== "admin") {
+      return Response.json({ error: "Admin access required" }, { status: 403 });
     }
 
     // Rate limiting (premium gets lower limits than analyst/admin)

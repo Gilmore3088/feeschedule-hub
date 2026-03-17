@@ -114,9 +114,9 @@ export async function login(
 
     // Create session
     const sessionId = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(
-      Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000
-    ).toISOString();
+    // Store expiry in SQLite-compatible format (YYYY-MM-DD HH:MM:SS) for reliable comparison
+    const expiresDate = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
+    const expiresAt = expiresDate.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 
     db.prepare(
       "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)"

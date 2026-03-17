@@ -73,9 +73,8 @@ export async function register(formData: FormData): Promise<{
   const db = getWriteDb();
   try {
     const sessionId = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(
-      Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000
-    ).toISOString();
+    const expiresDate = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
+    const expiresAt = expiresDate.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 
     let userId: number;
     try {

@@ -179,8 +179,14 @@ export default async function ArticlePage({
 }
 
 function MarkdownContent({ content }: { content: string }) {
-  // Simple markdown to HTML conversion for common patterns
-  const html = content
+  // Escape raw HTML first to prevent XSS
+  let safe = content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Then apply markdown transformations on escaped content
+  const html = safe
     // Headers
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
@@ -189,6 +195,8 @@ function MarkdownContent({ content }: { content: string }) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Links (only http/https)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     // Unordered lists
     .replace(/^- (.+)$/gm, '<li>$1</li>')
     // Tables (simple)

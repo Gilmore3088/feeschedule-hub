@@ -91,7 +91,7 @@ export function getFeeCategorySummaries(): FeeCategorySummary[] {
       `SELECT ef.fee_category, ef.amount, ef.crawl_target_id, ct.charter_type
        FROM extracted_fees ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ef.fee_category IS NOT NULL`
+       WHERE ef.fee_category IS NOT NULL AND ef.review_status != 'rejected'`
     )
     .all() as {
     fee_category: string;
@@ -155,7 +155,7 @@ export function getFeeCategoryDetail(category: string): {
               ct.asset_size, ef.review_status, ef.extraction_confidence
        FROM extracted_fees ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ef.fee_category = ?
+       WHERE ef.fee_category = ? AND ef.review_status != 'rejected'
        ORDER BY ef.amount DESC NULLS LAST`
     )
     .all(category) as FeeInstance[];

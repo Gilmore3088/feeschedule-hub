@@ -34,7 +34,7 @@ function getFileSize(filePath: string): number {
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || !hasPermission(user, "view")) {
+  if (!user || !hasPermission(user, "trigger_jobs")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

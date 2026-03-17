@@ -52,49 +52,59 @@ export default async function StateCityDirectory({ params }: PageProps) {
         ]}
       />
 
-      <div className="max-w-4xl mx-auto">
-        <nav className="text-sm text-gray-500 mb-4 flex items-center gap-1.5">
-          <Link href="/fees" className="hover:text-gray-700 transition-colors">Fees</Link>
-          <span>/</span>
-          <span className="text-gray-900">{stateName}</span>
+      <div className="max-w-4xl mx-auto px-6 py-14">
+        <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-6">
+          <Link href="/fees" className="hover:text-[#1A1815] transition-colors">Fees</Link>
+          <span className="text-[#D4C9BA]">/</span>
+          <span className="text-[#5A5347]">{stateName}</span>
         </nav>
 
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 mb-1">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-px w-8 bg-[#C44B2E]/40" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+            City Directory
+          </span>
+        </div>
+
+        <h1
+          className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815] mb-2"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
           Bank Fees by City in {stateName}
         </h1>
-        <p className="text-gray-500 mb-6">
+        <p className="text-[14px] text-[#7A7062] mb-8">
           {cities.length} cities with fee data from {cities.reduce((s, c) => s + c.with_fees, 0)} institutions
         </p>
 
         {cities.length === 0 ? (
-          <p className="text-gray-500 py-12 text-center">
+          <p className="text-[#7A7062] py-12 text-center">
             No fee data available for {stateName} yet. Check back soon.
           </p>
         ) : (
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50">
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">City</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Institutions</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">With Fee Data</th>
+                <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">City</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Total Institutions</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">With Fee Data</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-[#E8DFD1]/40">
                 {cities.map((c) => (
-                  <tr key={`${c.city}-${c.state_code}`} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <tr key={`${c.city}-${c.state_code}`} className="hover:bg-[#FAF7F2]/60 transition-colors">
                     <td className="px-4 py-2.5">
                       <Link
                         href={`/fees/city/${stateCode.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`}
-                        className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                        className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
                       >
                         {c.city}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                       {c.institution_count}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-900 font-medium">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                       {c.with_fees}
                     </td>
                   </tr>
@@ -104,11 +114,17 @@ export default async function StateCityDirectory({ params }: PageProps) {
           </div>
         )}
 
-        <div className="mt-6 flex gap-4 text-sm">
-          <Link href={`/research/state/${stateCode.toLowerCase()}`} className="text-blue-600 hover:underline">
+        <div className="mt-6 flex gap-3">
+          <Link
+            href={`/research/state/${stateCode.toLowerCase()}`}
+            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+          >
             {stateName} Fee Report
           </Link>
-          <Link href="/fees" className="text-blue-600 hover:underline">
+          <Link
+            href="/fees"
+            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+          >
             National Fee Index
           </Link>
         </div>
