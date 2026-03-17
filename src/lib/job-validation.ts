@@ -100,7 +100,12 @@ export function validateJobRequest(
     if (params.charter_type !== "bank" && params.charter_type !== "credit_union") {
       return { valid: false, error: "charter_type must be 'bank' or 'credit_union'" };
     }
-    args.push("--charter-type", params.charter_type);
+    // discover uses --source fdic/ncua; other commands don't support charter filter
+    if (command === "discover") {
+      const source = params.charter_type === "bank" ? "fdic" : "ncua";
+      args.push("--source", source);
+    }
+    // crawl, run-pipeline etc. don't have a charter filter — filter is done at query level
   }
 
   if (params.state !== undefined && params.state !== "") {
