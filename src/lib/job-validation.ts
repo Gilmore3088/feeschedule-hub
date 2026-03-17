@@ -32,7 +32,8 @@ const ALLOWED_COMMANDS = new Set([
   "backfill-ncua-urls",
 ]);
 
-const COMMANDS_REQUIRING_TARGET = new Set(["crawl", "discover"]);
+// These commands are safe to run without a limit — they have their own guardrails
+const COMMANDS_REQUIRING_TARGET = new Set<string>([]);
 
 const MAX_LIMIT = 500;
 const MAX_CONCURRENT = 10;
