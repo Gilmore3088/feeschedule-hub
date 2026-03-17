@@ -85,8 +85,14 @@ export async function runEnrich(): Promise<{ success: boolean; jobId?: number; e
 export async function runDiscover(state?: string): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
   try {
-    const args = ["--limit", "100"];
-    if (state) args.push("--state", state);
+    const args: string[] = [];
+    if (state) {
+      // No limit for state-filtered runs — process all institutions in that state
+      args.push("--state", state);
+    } else {
+      // Global discover: limit to 200 per run to avoid overwhelming
+      args.push("--limit", "200");
+    }
     const result = await spawnJob("discover", args, user.username);
     revalidatePath("/admin/pipeline");
     return { success: true, jobId: result.jobId };

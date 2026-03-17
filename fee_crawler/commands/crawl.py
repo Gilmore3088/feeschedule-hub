@@ -167,29 +167,27 @@ def _crawl_one(
         categories = [normalize_fee_name(f.fee_name) for f in fees]
         validated = validate_and_classify_fees(fees, config, fee_categories=categories)
 
-        # Steps 5-6: Replace old fees and store new ones in a single transaction
-        # This ensures we never lose data if the process crashes mid-replacement
+        # Steps 5-6: Smart re-crawl — compare new fees against existing, preserve history
+        # For first crawl: simple insert. For re-crawl: compare by category, track changes.
         db.execute("BEGIN IMMEDIATE")
         try:
-            # Delete old fees for this institution (re-crawl overwrite)
-            old_fees = db.fetchall(
-                "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ?",
+            # Get existing approved/staged fees for this institution (keyed by category)
+            existing_fees = db.fetchall(
+                """SELECT id, fee_name, amount, frequency, conditions, fee_category,
+                          review_status, extraction_confidence, crawl_result_id
+                   FROM extracted_fees
+                   WHERE crawl_target_id = ? AND review_status != 'rejected'""",
                 (target_id,),
             )
-            if old_fees:
-                for old in old_fees:
-                    db.execute(
-                        """INSERT INTO fee_reviews
-                           (fee_id, action, username, previous_status, new_status, notes)
-                           VALUES (?, 'reset', 'system', ?, 'deleted', 'Re-crawl replaced all fees')""",
-                        (old["id"], old["review_status"]),
-                    )
-                db.execute(
-                    "DELETE FROM extracted_fees WHERE crawl_target_id = ?",
-                    (target_id,),
-                )
+            existing_by_cat: dict[str, dict] = {}
+            for ef in existing_fees:
+                cat = ef["fee_category"]
+                if cat:
+                    existing_by_cat[cat] = dict(ef)
 
-            # Store validated results
+            is_recrawl = len(existing_fees) > 0
+
+            # Save crawl result record
             result_id = _save_result(
                 db, run_id, target_id, "success", url,
                 content_hash=dl["content_hash"],
@@ -200,30 +198,142 @@ def _crawl_one(
             staged_count = 0
             flagged_count = 0
             approved_count = 0
+            unchanged_count = 0
+            changed_count = 0
+            new_count = 0
             cap_categories = {"od_daily_cap", "nsf_daily_cap"}
+            today = db.fetchone("SELECT date('now') as d")["d"]
+            seen_categories: set[str] = set()
+
             for i, (fee, flags, review_status) in enumerate(validated):
                 fee_category = categories[i]
                 fee_family = get_fee_family(fee_category) if fee_category else None
-                # Auto-normalize: daily caps always get frequency "daily"
                 frequency = "daily" if fee_category in cap_categories else fee.frequency
+
+                if fee_category:
+                    seen_categories.add(fee_category)
+
+                old = existing_by_cat.get(fee_category) if fee_category else None
+
+                if is_recrawl and old:
+                    # Compare: same category exists — check if amount changed
+                    old_amount = old["amount"]
+                    new_amount = fee.amount
+
+                    amounts_match = (
+                        (old_amount is None and new_amount is None) or
+                        (old_amount is not None and new_amount is not None and abs(old_amount - new_amount) < 0.01)
+                    )
+
+                    if amounts_match:
+                        # Unchanged — keep existing fee, update crawl_result_id only
+                        db.execute(
+                            "UPDATE extracted_fees SET crawl_result_id = ? WHERE id = ?",
+                            (result_id, old["id"]),
+                        )
+                        unchanged_count += 1
+                        if old["review_status"] == "approved":
+                            approved_count += 1
+                        elif old["review_status"] == "staged":
+                            staged_count += 1
+                        elif old["review_status"] == "flagged":
+                            flagged_count += 1
+                    else:
+                        # Amount changed — snapshot old, create new as staged, record event
+                        changed_count += 1
+
+                        # Snapshot the old fee
+                        db.execute(
+                            """INSERT OR IGNORE INTO fee_snapshots
+                               (crawl_target_id, crawl_result_id, snapshot_date,
+                                fee_name, fee_category, amount, frequency,
+                                conditions, extraction_confidence)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (target_id, old["crawl_result_id"], today,
+                             old["fee_name"], old["fee_category"], old_amount,
+                             old["frequency"], old["conditions"], old["extraction_confidence"]),
+                        )
+
+                        # Record the change event
+                        change_type = "increased" if (new_amount or 0) > (old_amount or 0) else "decreased"
+                        db.execute(
+                            """INSERT INTO fee_change_events
+                               (crawl_target_id, fee_category, previous_amount, new_amount, change_type)
+                               VALUES (?, ?, ?, ?, ?)""",
+                            (target_id, fee_category, old_amount, new_amount, change_type),
+                        )
+
+                        # Update existing fee with new data, set to staged for review
+                        db.execute(
+                            """UPDATE extracted_fees
+                               SET fee_name = ?, amount = ?, frequency = ?, conditions = ?,
+                                   extraction_confidence = ?, review_status = 'staged',
+                                   validation_flags = ?, crawl_result_id = ?
+                               WHERE id = ?""",
+                            (fee.fee_name, new_amount, frequency, fee.conditions,
+                             fee.confidence, flags_to_json(flags), result_id, old["id"]),
+                        )
+                        db.execute(
+                            """INSERT INTO fee_reviews
+                               (fee_id, action, username, previous_status, new_status, notes)
+                               VALUES (?, 'price_change', 'system', ?, 'staged', ?)""",
+                            (old["id"], old["review_status"],
+                             f"Amount changed: ${old_amount or 0:.2f} -> ${new_amount or 0:.2f}"),
+                        )
+                        staged_count += 1
+                else:
+                    # New fee (first crawl or new category) — insert normally
+                    new_count += 1
+                    db.execute(
+                        """INSERT INTO extracted_fees
+                           (crawl_result_id, crawl_target_id, fee_name, amount,
+                            frequency, conditions, extraction_confidence,
+                            review_status, validation_flags,
+                            fee_category, fee_family)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (result_id, target_id, fee.fee_name, fee.amount,
+                         frequency, fee.conditions, fee.confidence,
+                         review_status, flags_to_json(flags),
+                         fee_category, fee_family),
+                    )
+                    if review_status == "approved":
+                        approved_count += 1
+                    elif review_status == "staged":
+                        staged_count += 1
+                    elif review_status == "flagged":
+                        flagged_count += 1
+
+            # Handle categories that existed before but weren't found in new crawl
+            # Don't delete — just flag as "not found in latest crawl"
+            if is_recrawl:
+                for cat, old in existing_by_cat.items():
+                    if cat not in seen_categories and old["review_status"] == "approved":
+                        # Snapshot it but leave it in place
+                        db.execute(
+                            """INSERT OR IGNORE INTO fee_snapshots
+                               (crawl_target_id, crawl_result_id, snapshot_date,
+                                fee_name, fee_category, amount, frequency,
+                                conditions, extraction_confidence)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (target_id, old["crawl_result_id"], today,
+                             old["fee_name"], cat, old["amount"],
+                             old["frequency"], old["conditions"], old["extraction_confidence"]),
+                        )
+                        db.execute(
+                            """INSERT INTO fee_change_events
+                               (crawl_target_id, fee_category, previous_amount, new_amount, change_type)
+                               VALUES (?, ?, ?, NULL, 'removed')""",
+                            (target_id, cat, old["amount"]),
+                        )
+
+            # Delete non-approved, non-categorized old fees that are being fully replaced
+            if is_recrawl:
                 db.execute(
-                    """INSERT INTO extracted_fees
-                       (crawl_result_id, crawl_target_id, fee_name, amount,
-                        frequency, conditions, extraction_confidence,
-                        review_status, validation_flags,
-                        fee_category, fee_family)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (result_id, target_id, fee.fee_name, fee.amount,
-                     frequency, fee.conditions, fee.confidence,
-                     review_status, flags_to_json(flags),
-                     fee_category, fee_family),
+                    """DELETE FROM extracted_fees
+                       WHERE crawl_target_id = ? AND review_status IN ('pending', 'rejected')
+                       AND id NOT IN (SELECT id FROM extracted_fees WHERE crawl_target_id = ? AND review_status != 'rejected' AND fee_category IS NOT NULL)""",
+                    (target_id, target_id),
                 )
-                if review_status == "approved":
-                    approved_count += 1
-                elif review_status == "staged":
-                    staged_count += 1
-                elif review_status == "flagged":
-                    flagged_count += 1
 
             db.execute(
                 """UPDATE crawl_targets
@@ -242,6 +352,9 @@ def _crawl_one(
         result["approved"] = approved_count
         result["staged"] = staged_count
         result["flagged"] = flagged_count
+        result["unchanged"] = unchanged_count
+        result["changed"] = changed_count
+        result["new_fees"] = new_count
         status_summary = f"{len(validated)} fees"
         parts = []
         if approved_count:

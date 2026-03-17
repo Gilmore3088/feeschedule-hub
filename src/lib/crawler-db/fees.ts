@@ -265,3 +265,102 @@ export function getAuditTrail(feeId: number): FeeReview[] {
     )
     .all(feeId) as FeeReview[];
 }
+
+// --- Fee Change Tracking Queries ---
+
+export interface FeeSnapshot {
+  id: number;
+  crawl_target_id: number;
+  snapshot_date: string;
+  fee_name: string;
+  fee_category: string | null;
+  amount: number | null;
+  frequency: string | null;
+  created_at: string;
+}
+
+export interface PriceChange {
+  id: number;
+  crawl_target_id: number;
+  institution_name: string;
+  fee_category: string;
+  previous_amount: number | null;
+  new_amount: number | null;
+  change_type: string;
+  detected_at: string;
+}
+
+export interface PriceMovement {
+  fee_category: string;
+  increased: number;
+  decreased: number;
+  removed: number;
+  total_changes: number;
+}
+
+/** Get fee history for a specific institution + category over time */
+export function getFeeHistory(institutionId: number, category: string): FeeSnapshot[] {
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT id, crawl_target_id, snapshot_date, fee_name, fee_category,
+                amount, frequency, created_at
+         FROM fee_snapshots
+         WHERE crawl_target_id = ? AND fee_category = ?
+         ORDER BY snapshot_date DESC`
+      )
+      .all(institutionId, category) as FeeSnapshot[];
+  } catch {
+    return [];
+  }
+}
+
+/** Get recent price changes across all institutions, optionally filtered by category */
+export function getRecentPriceChanges(days: number = 90, category?: string): PriceChange[] {
+  const db = getDb();
+  try {
+    const conditions = [`fce.detected_at > datetime('now', '-${days} days')`];
+    const params: string[] = [];
+    if (category) {
+      conditions.push("fce.fee_category = ?");
+      params.push(category);
+    }
+    return db
+      .prepare(
+        `SELECT fce.id, fce.crawl_target_id, ct.institution_name,
+                fce.fee_category, fce.previous_amount, fce.new_amount,
+                fce.change_type, fce.detected_at
+         FROM fee_change_events fce
+         JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY fce.detected_at DESC
+         LIMIT 200`
+      )
+      .all(...params) as PriceChange[];
+  } catch {
+    return [];
+  }
+}
+
+/** Summarize price movements by category for a given time period */
+export function getPriceMovementSummary(days: number = 90): PriceMovement[] {
+  const db = getDb();
+  try {
+    return db
+      .prepare(
+        `SELECT fee_category,
+                SUM(CASE WHEN change_type = 'increased' THEN 1 ELSE 0 END) as increased,
+                SUM(CASE WHEN change_type = 'decreased' THEN 1 ELSE 0 END) as decreased,
+                SUM(CASE WHEN change_type = 'removed' THEN 1 ELSE 0 END) as removed,
+                COUNT(*) as total_changes
+         FROM fee_change_events
+         WHERE detected_at > datetime('now', '-${days} days')
+         GROUP BY fee_category
+         ORDER BY total_changes DESC`
+      )
+      .all() as PriceMovement[];
+  } catch {
+    return [];
+  }
+}
