@@ -53,6 +53,47 @@ export function getActivePipelineRun(): PipelineRun | null {
   }
 }
 
+export interface DiscoveryMethodStats {
+  discovery_method: string;
+  discovered: number;
+  crawl_success: number;
+  prescreen_fail: number;
+  http_error: number;
+  success_rate: number;
+}
+
+export function getDiscoveryMethodStats(): DiscoveryMethodStats[] {
+  const db = getDb();
+  try {
+    const rows = db
+      .prepare(`
+        SELECT
+          dc.discovery_method,
+          COUNT(DISTINCT dc.crawl_target_id) as discovered,
+          COUNT(DISTINCT CASE WHEN cr.status = 'success' THEN cr.crawl_target_id END) as crawl_success,
+          COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%Pre-LLM%' THEN cr.crawl_target_id END) as prescreen_fail,
+          COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%403%' OR cr.error_message LIKE '%404%' THEN cr.crawl_target_id END) as http_error
+        FROM discovery_cache dc
+        JOIN crawl_targets ct ON dc.crawl_target_id = ct.id
+        LEFT JOIN crawl_results cr ON cr.crawl_target_id = ct.id
+        WHERE dc.result = 'found'
+        GROUP BY dc.discovery_method
+        ORDER BY discovered DESC
+      `)
+      .all() as { discovery_method: string; discovered: number; crawl_success: number; prescreen_fail: number; http_error: number }[];
+
+    return rows.map((r) => {
+      const total = r.crawl_success + r.prescreen_fail + r.http_error;
+      return {
+        ...r,
+        success_rate: total > 0 ? Math.round((r.crawl_success / total) * 100) : 0,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function getIndexCacheStats(): {
   categories: number;
   computed_at: string | null;

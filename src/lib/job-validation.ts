@@ -34,6 +34,7 @@ const ALLOWED_COMMANDS = new Set([
   "merge-fees",
   "publish-index",
   "pipeline",
+  "rediscover-failed",
 ]);
 
 // These commands are safe to run without a limit — they have their own guardrails
@@ -113,7 +114,7 @@ export function validateJobRequest(
     // crawl, run-pipeline etc. don't have a charter filter — filter is done at query level
   }
 
-  const COMMANDS_WITH_STATE = new Set(["crawl", "discover", "run-pipeline", "pipeline"]);
+  const COMMANDS_WITH_STATE = new Set(["crawl", "discover", "run-pipeline", "pipeline", "rediscover-failed"]);
   if (params.state !== undefined && params.state !== "" && COMMANDS_WITH_STATE.has(command)) {
     if (!/^[A-Z]{2}$/.test(params.state)) {
       return { valid: false, error: "state must be a 2-letter state code" };

@@ -62,13 +62,25 @@ def _crawl_one(
         dl = download_document(url, target_id, config, last_hash=last_hash, rate_limiter=rate_limiter)
 
         if not dl["success"]:
+            error_msg = dl["error"] or ""
             result["status"] = "failed"
-            result["message"] = f"DOWNLOAD FAILED: {dl['error']}"
-            _save_result(db, run_id, target_id, "failed", url, error=dl["error"])
-            db.execute(
-                "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
-                (target_id,),
-            )
+            result["message"] = f"DOWNLOAD FAILED: {error_msg}"
+            _save_result(db, run_id, target_id, "failed", url, error=error_msg)
+
+            # Auto-clear dead URLs so discover can retry
+            if "404" in error_msg or "403" in error_msg:
+                db.execute(
+                    """UPDATE crawl_targets
+                       SET fee_schedule_url = NULL, failure_reason = 'dead_url',
+                           consecutive_failures = consecutive_failures + 1
+                       WHERE id = ?""",
+                    (target_id,),
+                )
+            else:
+                db.execute(
+                    "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
+                    (target_id,),
+                )
             db.commit()
             return result
 

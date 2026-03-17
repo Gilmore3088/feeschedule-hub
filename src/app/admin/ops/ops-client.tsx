@@ -252,6 +252,15 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     typical: "python -m fee_crawler publish-index",
   },
+  "rediscover-failed": {
+    description: "Fix Bad URLs",
+    detail: "Clears fee_schedule_url for institutions whose last crawl failed pre-screening (wrong page) or got HTTP 404/403 (dead link). After clearing, run Discover to find better URLs, then Crawl to extract fees.",
+    group: "data-quality",
+    usesLimit: true,
+    usesCharter: false,
+    usesState: true,
+    typical: "python -m fee_crawler rediscover-failed --state CA",
+  },
   pipeline: {
     description: "Atomic Pipeline (v2)",
     detail: "Runs the full 9-stage atomic pipeline with resume support: seed-enrich, discover, crawl, merge-fees, categorize, validate, auto-review, snapshot, publish-index. Use --state to target a specific state.",

@@ -398,6 +398,18 @@ def cmd_merge_fees(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_rediscover_failed(args: argparse.Namespace) -> None:
+    """Clear bad URLs and prepare for rediscovery."""
+    from fee_crawler.commands.rediscover_failed import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, state=args.state, limit=args.limit, dry_run=args.dry_run)
+    finally:
+        db.close()
+
+
 def cmd_publish_index(args: argparse.Namespace) -> None:
     """Publish fee index: coverage snapshot, cache, DB maintenance."""
     from fee_crawler.commands.publish_index import run
@@ -1025,6 +1037,16 @@ def main() -> None:
     )
     merge_parser.add_argument("--dry-run", action="store_true", help="Show what would be merged")
     merge_parser.set_defaults(func=cmd_merge_fees)
+
+    # rediscover-failed command
+    rediscover_parser = subparsers.add_parser(
+        "rediscover-failed",
+        help="Clear bad URLs (pre-screen fails, 404s) and prepare for rediscovery",
+    )
+    rediscover_parser.add_argument("--state", type=str, default=None, help="Filter by state code")
+    rediscover_parser.add_argument("--limit", type=int, default=None, help="Max institutions to process")
+    rediscover_parser.add_argument("--dry-run", action="store_true", help="Show what would be cleared")
+    rediscover_parser.set_defaults(func=cmd_rediscover_failed)
 
     # publish-index command
     publish_parser = subparsers.add_parser(

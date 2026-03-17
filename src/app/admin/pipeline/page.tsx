@@ -16,6 +16,7 @@ import { CoverageTrend } from "./coverage-trend";
 import { AddInstitutionForm } from "./add-institution";
 import { PipelineRunsPanel } from "./pipeline-runs";
 import { IndexCacheCard } from "./index-cache-card";
+import { DiscoveryStats } from "./discovery-stats";
 
 const PAGE_SIZE = 50;
 
@@ -158,6 +159,11 @@ export default async function PipelinePage({
       {/* Category Coverage */}
       <div className="mb-4">
         <CategoryCoverageDashboard />
+      </div>
+
+      {/* Discovery Method Quality */}
+      <div className="mb-4">
+        <DiscoveryStats />
       </div>
 
       {/* Data Sources */}
