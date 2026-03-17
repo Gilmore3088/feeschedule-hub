@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  getNationalIndex,
+  getNationalIndexCached,
   getPublicStats,
   getDataFreshness,
   getStatesWithFeeData,
@@ -47,7 +47,7 @@ const GUIDE_PREVIEWS = [
 
 export default async function ConsumerHomePage() {
 
-  const allEntries = getNationalIndex();
+  const allEntries = getNationalIndexCached();
   const stats = getPublicStats();
   const freshness = getDataFreshness();
   const lastUpdated = freshness.last_crawl_at

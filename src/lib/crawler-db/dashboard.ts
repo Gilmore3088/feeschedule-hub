@@ -598,11 +598,14 @@ export function getRecentCrawlActivity(
       `SELECT cr.crawl_target_id, ct.institution_name, ct.charter_type,
               ct.state_code, ct.asset_size_tier, ct.fed_district,
               cr.status, cr.fees_extracted, cr.crawled_at,
-              (SELECT AVG(ef.extraction_confidence)
-               FROM extracted_fees ef
-               WHERE ef.crawl_result_id = cr.id) as extraction_confidence
+              conf.extraction_confidence
        FROM crawl_results cr
        JOIN crawl_targets ct ON cr.crawl_target_id = ct.id
+       LEFT JOIN (
+         SELECT crawl_result_id, AVG(extraction_confidence) as extraction_confidence
+         FROM extracted_fees
+         GROUP BY crawl_result_id
+       ) conf ON conf.crawl_result_id = cr.id
        ${where}
        ORDER BY cr.crawled_at DESC
        LIMIT ?`

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  getNationalIndex,
+  getNationalIndexCached,
   getPublicStats,
   getDataFreshness,
   getStatesWithFeeData,
@@ -14,6 +14,9 @@ import {
   FEE_FAMILIES,
 } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
+import { ProDashboard } from "./dashboard";
 
 const TICKER_CATEGORIES = [
   "monthly_maintenance",
@@ -27,8 +30,20 @@ const TICKER_CATEGORIES = [
 ];
 
 export default async function ProHomePage() {
+  // Pro users get personalized dashboard
+  let user = null;
+  try {
+    user = await getCurrentUser();
+  } catch {
+    // not logged in
+  }
 
-  const allEntries = getNationalIndex();
+  if (user && canAccessPremium(user)) {
+    return <ProDashboard user={user} />;
+  }
+
+  // Non-pro users get marketing page
+  const allEntries = getNationalIndexCached();
   const stats = getPublicStats();
   const freshness = getDataFreshness();
   const lastUpdated = freshness.last_crawl_at
