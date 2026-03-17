@@ -297,6 +297,83 @@ export const rankInstitutions = tool({
   },
 });
 
+export const queryJobStatus = tool({
+  description:
+    "Get pipeline job status: recent jobs, active jobs, or details of a specific job. Answers 'did the last crawl succeed?' and 'what jobs are running?'.",
+  inputSchema: z.object({
+    view: z
+      .enum(["recent", "active", "detail"])
+      .describe("'recent' for last 10 jobs, 'active' for running/queued, 'detail' for a specific job"),
+    jobId: z.number().optional().describe("Job ID for detail view"),
+  }),
+  execute: async ({ view, jobId }) => {
+    const db = getDb();
+    if (view === "detail" && jobId) {
+      const job = db
+        .prepare("SELECT * FROM ops_jobs WHERE id = ?")
+        .get(jobId);
+      return job || { error: "Job not found" };
+    }
+    if (view === "active") {
+      return db
+        .prepare("SELECT id, command, status, triggered_by, started_at FROM ops_jobs WHERE status IN ('running', 'queued') ORDER BY created_at DESC")
+        .all();
+    }
+    return db
+      .prepare("SELECT id, command, status, exit_code, triggered_by, started_at, completed_at, result_summary FROM ops_jobs ORDER BY created_at DESC LIMIT 10")
+      .all();
+  },
+});
+
+export const queryDataQuality = tool({
+  description:
+    "Get data quality metrics: coverage funnel, uncategorized fees, stale institutions, review pipeline health.",
+  inputSchema: z.object({
+    view: z
+      .enum(["funnel", "uncategorized", "stale", "review_status"])
+      .describe("Which quality metric to query"),
+  }),
+  execute: async ({ view }) => {
+    const db = getDb();
+    if (view === "funnel") {
+      return db
+        .prepare(`
+          SELECT
+            (SELECT COUNT(*) FROM crawl_targets) as total_institutions,
+            (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
+            (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
+            (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
+            (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
+            (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+        `)
+        .get();
+    }
+    if (view === "uncategorized") {
+      const count = db
+        .prepare("SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'")
+        .get() as { cnt: number };
+      const top = db
+        .prepare("SELECT fee_name, COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected' GROUP BY fee_name ORDER BY cnt DESC LIMIT 15")
+        .all();
+      return { total_uncategorized: count.cnt, top_names: top };
+    }
+    if (view === "stale") {
+      const stale = db
+        .prepare(`
+          SELECT COUNT(*) as cnt FROM crawl_targets
+          WHERE fee_schedule_url IS NOT NULL
+            AND (last_crawl_at IS NULL OR last_crawl_at < datetime('now', '-90 days'))
+        `)
+        .get() as { cnt: number };
+      return { stale_institutions: stale.cnt, threshold_days: 90 };
+    }
+    // review_status
+    return db
+      .prepare("SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC")
+      .all();
+  },
+});
+
 /** All internal tools bundled for admin agent configs */
 export const internalTools = {
   queryDistrictData,
@@ -307,4 +384,6 @@ export const internalTools = {
   getReviewQueueStats,
   searchInstitutionsByName,
   rankInstitutions,
+  queryJobStatus,
+  queryDataQuality,
 };

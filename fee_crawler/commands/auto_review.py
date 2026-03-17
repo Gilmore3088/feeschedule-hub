@@ -15,6 +15,7 @@ import time
 from fee_crawler.config import Config
 from fee_crawler.db import Database
 from fee_crawler.fee_amount_rules import FEE_AMOUNT_RULES, FALLBACK_RULES, NON_FEE_SUBSTRINGS
+from fee_crawler.review_status import transition_fee_status, TransitionContext
 
 BATCH_SIZE = 500
 
@@ -122,32 +123,19 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
 
 
 def _flush_batch(db: Database, batch: list[tuple[str, int, str]]) -> None:
-    """Write a batch of status changes + audit records in a single transaction."""
-    db.execute("BEGIN IMMEDIATE")
-    try:
+    """Write a batch of status changes via the state machine."""
+    with db.transaction():
         for new_status, fee_id, reason in batch:
-            # Get current status for audit trail
             row = db.fetchone(
                 "SELECT review_status FROM extracted_fees WHERE id = ?", (fee_id,)
             )
             if not row:
                 continue
-            prev_status = row["review_status"]
-
-            db.execute(
-                "UPDATE extracted_fees SET review_status = ? WHERE id = ?",
-                (new_status, fee_id),
+            transition_fee_status(
+                db, fee_id, row["review_status"], new_status,
+                actor="system", context=TransitionContext.REVIEW,
+                notes=reason,
             )
-            db.execute(
-                """INSERT INTO fee_reviews
-                   (fee_id, action, user_id, username, previous_status, new_status, notes)
-                   VALUES (?, ?, 0, 'system', ?, ?, ?)""",
-                (fee_id, f"auto_{new_status.rstrip('d')}", prev_status, new_status, reason),
-            )
-        db.commit()
-    except Exception:
-        db.execute("ROLLBACK")
-        raise
 
 
 def _decide(

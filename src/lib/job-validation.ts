@@ -28,8 +28,12 @@ const ALLOWED_COMMANDS = new Set([
   "ingest-sod",
   "ingest-census-acs",
   "ingest-census-tracts",
+  "snapshot",
   "seed",
   "backfill-ncua-urls",
+  "merge-fees",
+  "publish-index",
+  "pipeline",
 ]);
 
 // These commands are safe to run without a limit — they have their own guardrails

@@ -423,6 +423,21 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 """
 
+_CREATE_PIPELINE_RUNS = """
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL DEFAULT 'running',
+    last_completed_phase INTEGER DEFAULT 0,
+    last_completed_job TEXT,
+    config_json TEXT,
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT,
+    error_msg TEXT,
+    inst_count INTEGER,
+    summary_json TEXT
+);
+"""
+
 
 class Database:
     """Thin wrapper around SQLite for local dev."""
@@ -488,6 +503,7 @@ class Database:
         self.conn.executescript(_CREATE_DEMOGRAPHICS)
         self.conn.executescript(_CREATE_CENSUS_TRACTS)
         self.conn.executescript(_CREATE_LEADS)
+        self.conn.executescript(_CREATE_PIPELINE_RUNS)
         self._run_migrations()
         self._create_indexes()
         self.conn.commit()
@@ -588,7 +604,7 @@ class Database:
         "fed_beige_book", "fed_content", "fed_economic_indicators",
         "discovery_cache", "community_submissions", "ops_jobs",
         "branch_deposits", "market_concentration", "demographics",
-        "census_tracts", "leads",
+        "census_tracts", "leads", "pipeline_runs",
     })
 
     def count(self, table: str) -> int:
