@@ -211,13 +211,15 @@ def _crawl_one(
                 validated, categories, fee_families,
             )
 
-            db.execute(
-                """UPDATE crawl_targets
+            r2_key = dl.get("r2_key")
+            update_sql = """UPDATE crawl_targets
                    SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                       last_success_at = datetime('now'), consecutive_failures = 0
-                   WHERE id = ?""",
-                (dl["content_hash"], target_id),
-            )
+                       last_success_at = datetime('now'), consecutive_failures = 0"""
+            if r2_key:
+                update_sql += ", document_r2_key = ?"
+                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], r2_key, target_id))
+            else:
+                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], target_id))
             db.commit()
         except Exception:
             db.execute("ROLLBACK")

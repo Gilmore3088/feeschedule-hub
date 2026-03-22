@@ -43,6 +43,10 @@ class ExtractionConfig(BaseModel):
     confidence_approve_threshold: float = 0.90
     outlier_std_dev_threshold: float = 3.0
     document_storage_dir: str = "data/documents"
+    model: str = "claude-haiku-4-5-20251001"
+    max_tokens: int = 2048
+    use_batch_api: bool = True
+    daily_budget_usd: float = 20.0
 
 
 class FedContentConfig(BaseModel):

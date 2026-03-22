@@ -202,9 +202,24 @@ def download_document(
     file_path = storage_dir / f"fee_schedule{ext}"
     file_path.write_bytes(content)
 
+    # Store in R2 (content-addressed, idempotent)
+    r2_key = None
+    try:
+        import os
+        if os.environ.get("R2_ENDPOINT"):
+            from fee_crawler.pipeline.r2_store import upload_document
+            r2_key = upload_document(
+                content,
+                content_type=content_type or "application/octet-stream",
+                metadata={"target_id": str(target_id), "source_url": url},
+            )
+    except Exception:
+        pass  # R2 upload is best-effort, don't fail the crawl
+
     result["success"] = True
     result["path"] = str(file_path)
     result["content_hash"] = content_hash
     result["content_type"] = content_type
     result["content"] = content
+    result["r2_key"] = r2_key
     return result
