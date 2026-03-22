@@ -1,10 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { getFeeCategorySummaries, getFeeCategoryDetail } from "@/lib/crawler-db";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 import { getCurrentUser } from "@/lib/auth";
 import { canExportData } from "@/lib/access";
+import { validateApiKey } from "@/lib/api-auth";
+import { checkRateLimitWithTier } from "@/lib/api-rate-limit";
+import { logApiUsage } from "@/lib/api-usage";
+
+function getAnonymousId(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
+  return createHash("sha256").update(ip).digest("hex").slice(0, 16);
+}
+
+function addRateLimitHeaders(
+  response: NextResponse,
+  rateLimit: { limit: number; remaining: number; reset: Date }
+): NextResponse {
+  response.headers.set("X-RateLimit-Limit", String(rateLimit.limit));
+  response.headers.set("X-RateLimit-Remaining", String(rateLimit.remaining));
+  response.headers.set("X-RateLimit-Reset", rateLimit.reset.toISOString());
+  return response;
+}
 
 export async function GET(request: NextRequest) {
+  // --- API key validation (optional — free tier works without) ---
+  const auth = await validateApiKey(request);
+
+  if (auth.error) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: 401 }
+    );
+  }
+
+  const organizationId = auth.organizationId;
+  const anonymousId = organizationId ? null : getAnonymousId(request);
+  const tier = auth.valid ? auth.tier : "free";
+
+  // --- Rate limit check ---
+  const rateLimit = await checkRateLimitWithTier(organizationId, anonymousId, tier);
+
+  if (!rateLimit.allowed) {
+    const res = NextResponse.json(
+      {
+        error: "Rate limit exceeded",
+        limit: rateLimit.limit,
+        reset: rateLimit.reset.toISOString(),
+      },
+      { status: 429 }
+    );
+    return addRateLimitHeaders(res, rateLimit);
+  }
+
+  // --- Route logic ---
   const { searchParams } = request.nextUrl;
   const category = searchParams.get("category");
   const format = searchParams.get("format");
@@ -13,10 +63,16 @@ export async function GET(request: NextRequest) {
   if (category) {
     const detail = await getFeeCategoryDetail(category);
     if (!detail || detail.fees.length === 0) {
-      return NextResponse.json(
+      // Still log the attempt and count it
+      logApiUsage(organizationId, anonymousId, "api.fees.category", {
+        category,
+        status: 404,
+      });
+      const res = NextResponse.json(
         { error: "Category not found", category },
         { status: 404 }
       );
+      return addRateLimitHeaders(res, rateLimit);
     }
 
     const response = {
@@ -34,7 +90,13 @@ export async function GET(request: NextRequest) {
       by_state: detail.by_state,
     };
 
-    return NextResponse.json(response);
+    logApiUsage(organizationId, anonymousId, "api.fees.category", {
+      category,
+      status: 200,
+    });
+
+    const res = NextResponse.json(response);
+    return addRateLimitHeaders(res, rateLimit);
   }
 
   // All categories summary
@@ -56,10 +118,15 @@ export async function GET(request: NextRequest) {
   if (format === "csv") {
     const user = await getCurrentUser();
     if (!canExportData(user)) {
-      return NextResponse.json(
+      logApiUsage(organizationId, anonymousId, "api.fees.list", {
+        format: "csv",
+        status: 403,
+      });
+      const res = NextResponse.json(
         { error: "CSV export requires a Seat License", upgrade_url: "/subscribe" },
         { status: 403 }
       );
+      return addRateLimitHeaders(res, rateLimit);
     }
     const headers = "category,display_name,family,tier,median,p25,p75,min,max,institution_count";
     const rows = data.map((d) =>
@@ -67,16 +134,30 @@ export async function GET(request: NextRequest) {
     );
     const csv = [headers, ...rows].join("\n");
 
-    return new NextResponse(csv, {
+    logApiUsage(organizationId, anonymousId, "api.fees.list", {
+      format: "csv",
+      count: data.length,
+      status: 200,
+    });
+
+    const res = new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv",
         "Content-Disposition": "attachment; filename=fee-insight.csv",
       },
     });
+    return addRateLimitHeaders(res as unknown as NextResponse, rateLimit);
   }
 
-  return NextResponse.json({
+  logApiUsage(organizationId, anonymousId, "api.fees.list", {
+    format: "json",
+    count: data.length,
+    status: 200,
+  });
+
+  const res = NextResponse.json({
     total: data.length,
     data,
   });
+  return addRateLimitHeaders(res, rateLimit);
 }

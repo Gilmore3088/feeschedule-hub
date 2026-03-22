@@ -10,7 +10,6 @@ Test:   modal run fee_crawler/modal_app.py::test_connection
 
 import modal
 
-# Build the worker image with all Python dependencies
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("tesseract-ocr", "poppler-utils")
@@ -20,15 +19,12 @@ image = (
 app = modal.App("bank-fee-index-workers", image=image)
 secrets = [modal.Secret.from_name("bfi-secrets")]
 
-DAILY_LLM_BUDGET_USD = 20.0
-
 
 @app.function(secrets=secrets, timeout=300)
 async def test_connection():
     """Verify Modal can connect to Supabase."""
     import os
     import psycopg2
-
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM crawl_targets")
@@ -38,137 +34,84 @@ async def test_connection():
 
 
 @app.function(
-    schedule=modal.Cron("0 2 * * *"),  # 2am UTC nightly
-    timeout=21600,  # 6 hour max
+    schedule=modal.Cron("0 2 * * *"),
+    timeout=21600,
     secrets=secrets,
+    memory=2048,
 )
 async def run_discovery():
-    """Nightly URL discovery sweep.
-
-    Pulls institutions without fee_schedule_url from the jobs queue,
-    probes their websites for fee schedule documents using platform-aware
-    path patterns and search discovery.
-
-    No LLM cost — pure HTTP probing.
-    """
-    import os
-    import psycopg2
-
-    db_url = os.environ["DATABASE_URL"]
-    conn = psycopg2.connect(db_url)
-    cur = conn.cursor()
-
-    # Count pending discovery jobs
-    cur.execute("SELECT COUNT(*) FROM jobs WHERE queue = 'discovery' AND status = 'pending'")
-    pending = cur.fetchone()[0]
-
-    if pending == 0:
-        conn.close()
-        return "No pending discovery jobs."
-
-    # TODO: Implement async discovery worker with httpx
-    # For now, log the count and exit
-    conn.close()
-    return f"{pending:,} discovery jobs pending. Worker not yet implemented."
+    """Nightly URL discovery: sweep institutions with website but no fee URL."""
+    from fee_crawler.workers.discovery_worker import run
+    return await run(concurrency=20)
 
 
 @app.function(
-    schedule=modal.Cron("0 3 * * *"),  # 3am UTC nightly, after discovery
-    timeout=14400,  # 4 hour max
+    schedule=modal.Cron("0 1 * * *"),
+    timeout=7200,
     secrets=secrets,
+    memory=1024,
 )
-async def run_extraction():
-    """Nightly fee extraction for institutions with fee URLs.
-
-    Downloads documents, classifies them, and extracts text.
-    Queues successful extractions for LLM batch processing.
-    """
-    import os
-    import psycopg2
-
-    db_url = os.environ["DATABASE_URL"]
-    conn = psycopg2.connect(db_url)
-    cur = conn.cursor()
-
-    cur.execute("SELECT COUNT(*) FROM jobs WHERE queue = 'extract' AND status = 'pending'")
-    pending = cur.fetchone()[0]
-
-    if pending == 0:
-        conn.close()
-        return "No pending extraction jobs."
-
-    # TODO: Implement extraction worker
-    conn.close()
-    return f"{pending:,} extraction jobs pending. Worker not yet implemented."
+def run_llm_batch():
+    """Nightly LLM batch extraction via Anthropic Batch API."""
+    from fee_crawler.workers.llm_batch_worker import run
+    return run(daily_budget_usd=20.0)
 
 
 @app.function(
-    schedule=modal.Cron("0 1 * * *"),  # 1am UTC nightly
-    timeout=7200,  # 2 hour max
+    schedule=modal.Cron("0 6 * * *"),
+    timeout=3600,
     secrets=secrets,
+    memory=1024,
 )
-async def run_llm_batch():
-    """Nightly LLM batch extraction using Claude Haiku + Batch API.
-
-    Collects all pending llm_batch jobs, groups by state for locality-aware
-    batching, submits to Anthropic Batch API. Polls for completion and
-    writes results to extracted_fees.
-
-    Daily budget cap: $20 = ~10,000 institutions.
-    """
+def run_post_processing():
+    """Post-extraction: validate, categorize, auto-review, snapshot."""
     import os
-    import psycopg2
-
-    db_url = os.environ["DATABASE_URL"]
-    conn = psycopg2.connect(db_url)
-    cur = conn.cursor()
-
-    cur.execute("SELECT COUNT(*) FROM jobs WHERE queue = 'llm_batch' AND status = 'pending'")
-    pending = cur.fetchone()[0]
-
-    if pending == 0:
-        conn.close()
-        return "No pending LLM batch jobs."
-
-    # TODO: Implement Haiku batch worker with budget cap
-    conn.close()
-    return f"{pending:,} LLM batch jobs pending. Worker not yet implemented."
+    import subprocess
+    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    commands = [
+        ["python3", "-m", "fee_crawler", "categorize-fees"],
+        ["python3", "-m", "fee_crawler", "auto-review"],
+        ["python3", "-m", "fee_crawler", "snapshot-fees"],
+    ]
+    results = []
+    for cmd in commands:
+        r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        results.append(f"{cmd[-1]}: {'OK' if r.returncode == 0 else 'FAIL'}")
+    return "; ".join(results)
 
 
 @app.function(
-    schedule=modal.Cron("0 6 * * *"),  # 6am UTC nightly
-    timeout=3600,  # 1 hour max
+    schedule=modal.Cron("0 10 * * *"),
+    timeout=3600,
     secrets=secrets,
 )
-async def run_post_processing():
-    """Post-extraction validation, categorization, and auto-review.
-
-    Runs after extraction completes:
-    1. Validate extracted fees against amount bounds
-    2. Categorize using FEE_NAME_ALIASES
-    3. Auto-stage fees above confidence threshold
-    4. Compute completeness scores
-    5. Write coverage snapshot
-    """
+def ingest_daily():
+    """Daily data refreshes: FRED, NYFED, BLS, OFR."""
     import os
-    import psycopg2
+    import subprocess
+    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    results = []
+    for cmd in ["ingest-fred", "ingest-nyfed", "ingest-bls", "ingest-ofr"]:
+        r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
+                           capture_output=True, text=True, env=env)
+        results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
+    return "; ".join(results)
 
-    db_url = os.environ["DATABASE_URL"]
-    conn = psycopg2.connect(db_url)
-    cur = conn.cursor()
 
-    # Count new unprocessed fees
-    cur.execute("""
-        SELECT COUNT(*) FROM extracted_fees
-        WHERE review_status = 'pending'
-        AND fee_category IS NULL
-    """)
-    unprocessed = cur.fetchone()[0]
-
-    if unprocessed == 0:
-        conn.close()
-        return "No unprocessed fees."
-
-    # TODO: Implement post-processing pipeline
-    conn.close()
-    return f"{unprocessed:,} unprocessed fees. Worker not yet implemented."
+@app.function(
+    schedule=modal.Cron("0 10 * * 1"),
+    timeout=7200,
+    secrets=secrets,
+)
+def ingest_weekly():
+    """Weekly data refreshes: FDIC, NCUA, CFPB, SOD, Beige Book, Call Reports."""
+    import os
+    import subprocess
+    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    results = []
+    for cmd in ["ingest-fdic", "ingest-ncua", "ingest-cfpb", "ingest-sod",
+                 "ingest-beige-book", "ingest-call-reports", "ingest-census-acs"]:
+        r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
+                           capture_output=True, text=True, env=env)
+        results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
+    return "; ".join(results)
