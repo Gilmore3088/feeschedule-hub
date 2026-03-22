@@ -36,12 +36,12 @@ const DISTRICT_ACCENTS: Record<number, string> = {
   12: "border-l-cyan-400",
 };
 
-export default function ResearchHubPage() {
-  const statesData = getStatesWithFeeData();
-  const districtMetrics = getDistrictMetrics();
-  const stats = getStats();
-  const freshness = getDataFreshness();
-  const summaries = getFeeCategorySummaries();
+export default async function ResearchHubPage() {
+  const statesData = await getStatesWithFeeData();
+  const districtMetrics = await getDistrictMetrics();
+  const stats = await getStats();
+  const freshness = await getDataFreshness();
+  const summaries = await getFeeCategorySummaries();
 
   const totalObservations = summaries.reduce((a, s) => a + s.total_observations, 0);
   const updateDate = freshness.last_crawl_at
@@ -131,34 +131,49 @@ export default function ResearchHubPage() {
           <span>12 Fed districts</span>
         </div>
 
-        {/* Action buttons */}
-        <div className="mt-5 flex flex-wrap gap-2">
+        {/* Start here paths */}
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Link
-            href="/fees"
-            className="inline-flex items-center gap-1.5 rounded-md bg-[#1A1815] px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#1A1815]/90"
+            href="/guides"
+            className="group rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5 transition-all hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            Search Fees
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+              I&apos;m a Consumer
+            </p>
+            <p className="mt-1 text-[13px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+              Understand &amp; reduce my fees
+            </p>
+            <p className="mt-0.5 text-[11px] text-[#7A7062]">
+              Plain-language guides with real data
+            </p>
           </Link>
           <Link
             href="/research/national-fee-index"
-            className="inline-flex items-center gap-1.5 rounded-md border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-3.5 py-2 text-[12px] font-semibold text-[#5A5347] transition-colors hover:bg-[#FAF7F2] hover:border-[#E8DFD1]"
+            className="group rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5 transition-all hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-            View Index
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+              I&apos;m a Researcher
+            </p>
+            <p className="mt-1 text-[13px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+              National benchmarks &amp; data
+            </p>
+            <p className="mt-0.5 text-[11px] text-[#7A7062]">
+              Medians, percentiles, geographic analysis
+            </p>
           </Link>
           <Link
-            href="/guides"
-            className="inline-flex items-center gap-1.5 rounded-md border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-3.5 py-2 text-[12px] font-semibold text-[#5A5347] transition-colors hover:bg-[#FAF7F2] hover:border-[#E8DFD1]"
+            href="/subscribe"
+            className="group rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5 transition-all hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-            </svg>
-            Consumer Guides
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+              I&apos;m a Professional
+            </p>
+            <p className="mt-1 text-[13px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+              Peer benchmarking &amp; API
+            </p>
+            <p className="mt-0.5 text-[11px] text-[#7A7062]">
+              Custom analysis, exports, AI research
+            </p>
           </Link>
         </div>
       </div>
@@ -336,6 +351,9 @@ export default function ResearchHubPage() {
             {/* Interactive map */}
             <div className="mt-4 rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-4">
               <UsStateMap statesData={statesData} />
+              <p className="mt-2 text-center text-[11px] text-[#A09788]">
+                Click a state to view its fee report
+              </p>
             </div>
 
             {/* Compact state list below map */}
@@ -456,6 +474,39 @@ export default function ResearchHubPage() {
                     <span className="mt-1 block text-[13px] leading-relaxed text-[#7A7062]">
                       How published fee schedules correlate with service charge
                       income reported in FDIC call reports.
+                    </span>
+                  </div>
+                </div>
+                <span className="mt-3 self-end text-[11px] font-medium text-[#C44B2E] opacity-0 group-hover:opacity-100 transition-opacity">
+                  View study &rarr;
+                </span>
+              </Link>
+
+              <Link
+                href="/research/market-concentration"
+                className="group flex flex-col rounded-xl border border-[#E8DFD1]/80 px-5 py-4 transition-all hover:border-[#C44B2E]/20 hover:bg-[#FAF7F2] hover:shadow-md hover:shadow-[#C44B2E]/5"
+              >
+                <div className="flex items-start gap-3">
+                  <svg
+                    className="mt-0.5 h-5 w-5 shrink-0 text-[#A09788] group-hover:text-[#C44B2E] transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5"
+                    />
+                  </svg>
+                  <div>
+                    <span className="text-sm font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                      Market Concentration & Fees
+                    </span>
+                    <span className="mt-1 block text-[13px] leading-relaxed text-[#7A7062]">
+                      HHI analysis of deposit market competition across U.S. metro
+                      areas using FDIC Summary of Deposits data.
                     </span>
                   </div>
                 </div>
@@ -659,18 +710,35 @@ export default function ResearchHubPage() {
             {/* Professional CTA */}
             <div className="rounded-xl border border-[#1A1815] bg-[#1A1815] px-4 py-4 text-white">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
-                For Professionals
+                Pro
               </p>
               <p className="mt-1.5 text-[13px] font-semibold text-white">
-                Need custom analysis?
+                Professional research tools
               </p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#A09788]">
-                Custom peer groups, historical trends, and competitive
-                benchmarking for financial institutions.
-              </p>
-              <div className="mt-3 rounded-md bg-white/10 px-3 py-2 text-center text-[12px] font-semibold text-white">
-                Coming Soon
-              </div>
+              <ul className="mt-2.5 space-y-1.5 text-[12px] text-[#A09788]">
+                <li className="flex items-start gap-1.5">
+                  <span className="mt-0.5 text-emerald-400">&#10003;</span>
+                  Custom peer group analysis
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="mt-0.5 text-emerald-400">&#10003;</span>
+                  FDIC/NCUA financial data
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="mt-0.5 text-emerald-400">&#10003;</span>
+                  AI-powered fee analyst
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="mt-0.5 text-emerald-400">&#10003;</span>
+                  CSV exports &amp; API access
+                </li>
+              </ul>
+              <Link
+                href="/subscribe"
+                className="mt-3 block rounded-md bg-[#C44B2E] px-3 py-2 text-center text-[12px] font-semibold text-white no-underline hover:bg-[#A83D25] transition-colors"
+              >
+                View Plans
+              </Link>
             </div>
           </div>
         </aside>

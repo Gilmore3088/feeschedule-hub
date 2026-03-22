@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 
 interface Lead {
@@ -13,12 +13,10 @@ interface Lead {
   created_at: string;
 }
 
-function getLeads(): Lead[] {
-  const db = getDb();
+async function getLeads(): Promise<Lead[]> {
   try {
-    return db
-      .prepare("SELECT * FROM leads ORDER BY created_at DESC LIMIT 100")
-      .all() as Lead[];
+    const rows = await sql`SELECT * FROM leads ORDER BY created_at DESC LIMIT 100`;
+    return rows as unknown as unknown as Lead[];
   } catch {
     return [];
   }
@@ -35,7 +33,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default async function LeadsPage() {
   await requireAuth("view");
-  const leads = getLeads();
+  const leads = await getLeads();
 
   return (
     <div>
@@ -69,9 +67,9 @@ export default async function LeadsPage() {
                 <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
                   <a href={`mailto:${lead.email}`} className="hover:text-blue-600 transition-colors">{lead.email}</a>
                 </td>
-                <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{lead.company || "—"}</td>
-                <td className="px-4 py-2.5 text-gray-500 dark:text-gray-500">{ROLE_LABELS[lead.role || ""] || lead.role || "—"}</td>
-                <td className="px-4 py-2.5 text-gray-500 dark:text-gray-500 max-w-[200px] truncate">{lead.use_case || "—"}</td>
+                <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{lead.company || "\u2014"}</td>
+                <td className="px-4 py-2.5 text-gray-500 dark:text-gray-500">{ROLE_LABELS[lead.role || ""] || lead.role || "\u2014"}</td>
+                <td className="px-4 py-2.5 text-gray-500 dark:text-gray-500 max-w-[200px] truncate">{lead.use_case || "\u2014"}</td>
                 <td className="px-4 py-2.5 text-gray-400 text-xs tabular-nums">
                   {new Date(lead.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </td>

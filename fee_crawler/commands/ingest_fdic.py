@@ -34,8 +34,8 @@ FDIC_FINANCIAL_FIELDS = ",".join([
 
 # Default quarterly report dates (most recent 8 quarters for 2-year history).
 REPORT_DATES = [
+    "20251231", "20250930", "20250630", "20250331",
     "20241231", "20240930", "20240630", "20240331",
-    "20231231", "20230930", "20230630", "20230331",
 ]
 
 

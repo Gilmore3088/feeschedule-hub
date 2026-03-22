@@ -43,9 +43,9 @@ export default async function ProHomePage() {
   }
 
   // Non-pro users get marketing page
-  const allEntries = getNationalIndexCached();
-  const stats = getPublicStats();
-  const freshness = getDataFreshness();
+  const allEntries = await getNationalIndexCached();
+  const stats = await getPublicStats();
+  const freshness = await getDataFreshness();
   const lastUpdated = freshness.last_crawl_at
     ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
         month: "short",
@@ -65,8 +65,8 @@ export default async function ProHomePage() {
     .slice(0, 15);
 
   // Charter comparison
-  const bankIndex = getPeerIndex({ charter_type: "bank" });
-  const cuIndex = getPeerIndex({ charter_type: "credit_union" });
+  const bankIndex = await getPeerIndex({ charter_type: "bank" });
+  const cuIndex = await getPeerIndex({ charter_type: "credit_union" });
   const charterComparison = TICKER_CATEGORIES.map((cat) => {
     const bank = bankIndex.find((e) => e.fee_category === cat);
     const cu = cuIndex.find((e) => e.fee_category === cat);
@@ -91,7 +91,7 @@ export default async function ProHomePage() {
     institution_count: number;
   }[] = [];
   try {
-    tierRevenue = getTierFeeRevenueSummary().map((r) => ({
+    tierRevenue = (await getTierFeeRevenueSummary()).map((r) => ({
       asset_tier: r.asset_size_tier,
       avg_fee: r.avg_fee_amount,
       avg_service_charges: r.avg_service_charge_income,
@@ -102,7 +102,7 @@ export default async function ProHomePage() {
   }
 
   // Coverage stats
-  const statesData = getStatesWithFeeData();
+  const statesData = await getStatesWithFeeData();
   const totalStates = statesData.length;
   const familyCount = FEE_FAMILIES.length;
 

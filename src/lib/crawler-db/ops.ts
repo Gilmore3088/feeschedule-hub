@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 
 export interface OpsJob {
   id: number;
@@ -28,50 +28,43 @@ export interface OpsJobSummary {
   cancelled: number;
 }
 
-export function getOpsJobs(
+export async function getOpsJobs(
   limit = 50,
   offset = 0,
   status?: string,
-): { jobs: OpsJob[]; total: number } {
-  const db = getDb();
+): Promise<{ jobs: OpsJob[]; total: number }> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
   if (status) {
-    conditions.push("status = ?");
+    conditions.push("status = $1");
     params.push(status);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const { cnt } = db
-    .prepare(`SELECT COUNT(*) as cnt FROM ops_jobs ${where}`)
-    .get(...params) as { cnt: number };
+  const [countRow] = await sql.unsafe(
+    `SELECT COUNT(*) as cnt FROM ops_jobs ${where}`,
+    params,
+  );
 
-  const jobs = db
-    .prepare(
-      `SELECT * FROM ops_jobs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    )
-    .all(...params, limit, offset) as OpsJob[];
+  const jobs = await sql.unsafe(
+    `SELECT * FROM ops_jobs ${where} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, offset],
+  ) as OpsJob[];
 
-  return { jobs, total: cnt };
+  return { jobs, total: countRow.cnt };
 }
 
-export function getOpsJob(id: number): OpsJob | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM ops_jobs WHERE id = ?")
-    .get(id) as OpsJob | undefined;
-  return row ?? null;
+export async function getOpsJob(id: number): Promise<OpsJob | null> {
+  const [row] = await sql`SELECT * FROM ops_jobs WHERE id = ${id}`;
+  return (row as OpsJob) ?? null;
 }
 
-export function getOpsJobSummary(): OpsJobSummary {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT status, COUNT(*) as cnt FROM ops_jobs GROUP BY status`,
-    )
-    .all() as { status: string; cnt: number }[];
+export async function getOpsJobSummary(): Promise<OpsJobSummary> {
+  const rows = await sql`
+    SELECT status, COUNT(*) as cnt FROM ops_jobs GROUP BY status
+  ` as { status: string; cnt: number }[];
 
   const summary: OpsJobSummary = {
     total: 0,
@@ -92,20 +85,14 @@ export function getOpsJobSummary(): OpsJobSummary {
   return summary;
 }
 
-export function getActiveJobs(): OpsJob[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT * FROM ops_jobs WHERE status IN ('running', 'queued') ORDER BY created_at DESC`,
-    )
-    .all() as OpsJob[];
+export async function getActiveJobs(): Promise<OpsJob[]> {
+  return await sql`
+    SELECT * FROM ops_jobs WHERE status IN ('running', 'queued') ORDER BY created_at DESC
+  ` as OpsJob[];
 }
 
-export function getRecentJobs(limit = 10): OpsJob[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT * FROM ops_jobs ORDER BY created_at DESC LIMIT ?`,
-    )
-    .all(limit) as OpsJob[];
+export async function getRecentJobs(limit = 10): Promise<OpsJob[]> {
+  return await sql`
+    SELECT * FROM ops_jobs ORDER BY created_at DESC LIMIT ${limit}
+  ` as OpsJob[];
 }

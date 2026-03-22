@@ -124,16 +124,30 @@ def _crawl_one(
             db.commit()
             return result
 
-        # Step 2b: Pre-LLM screening — skip non-fee documents to save API costs
-        if not _is_likely_fee_schedule(text):
-            failure_reason = _classify_extraction_failure(text, doc_type)
+        # Step 2b: Document classification — skip non-fee documents to save API costs
+        from fee_crawler.pipeline.classify_document import classify_document
+        doc_class = classify_document(text)
+
+        # Store classification results
+        db.execute(
+            """UPDATE crawl_targets
+               SET document_type_detected = ?, doc_classification_confidence = ?
+               WHERE id = ?""",
+            (doc_class["doc_type_guess"], doc_class["confidence"], target_id),
+        )
+
+        if not doc_class["is_fee_schedule"]:
+            failure_reason = f"wrong_document:{doc_class['doc_type_guess']}"
             result["status"] = "failed"
-            result["message"] = f"PRE-SCREEN SKIP ({failure_reason})"
+            result["message"] = f"DOC CLASSIFY: {doc_class['doc_type_guess']} (conf={doc_class['confidence']:.2f})"
             _save_result(db, run_id, target_id, "failed", url,
                          content_hash=dl["content_hash"],
-                         error=f"Pre-LLM screening: not a fee schedule ({failure_reason})")
+                         error=f"Document classifier: {doc_class['doc_type_guess']} ({doc_class['confidence']:.2f})")
             db.execute(
-                "UPDATE crawl_targets SET failure_reason = ?, last_crawl_at = datetime('now') WHERE id = ?",
+                """UPDATE crawl_targets
+                   SET fee_schedule_url = NULL, failure_reason = ?,
+                       last_crawl_at = datetime('now')
+                   WHERE id = ?""",
                 (failure_reason, target_id),
             )
             db.commit()
@@ -335,13 +349,21 @@ def run(
 
     where_sql = " AND ".join(where_clauses)
 
-    # Order: institutions without fees first (gaps), then by asset size
+    # Priority order:
+    # 1. Has fee URL but never crawled (last_success_at IS NULL)
+    # 2. Stale data (last_success_at > 90 days ago)
+    # 3. No extracted fees yet
+    # 4. Everything else, by asset size
     query = f"""SELECT ct.id, ct.institution_name, ct.fee_schedule_url, ct.document_type,
                    ct.last_content_hash, ct.state_code, ct.asset_size, ct.charter_type
             FROM crawl_targets ct
             WHERE {where_sql}
             ORDER BY
-              CASE WHEN NOT EXISTS (SELECT 1 FROM extracted_fees ef2 WHERE ef2.crawl_target_id = ct.id) THEN 0 ELSE 1 END,
+              CASE WHEN ct.last_success_at IS NULL THEN 0
+                   WHEN ct.last_success_at < datetime('now', '-90 days') THEN 1
+                   WHEN NOT EXISTS (SELECT 1 FROM extracted_fees ef2 WHERE ef2.crawl_target_id = ct.id) THEN 2
+                   ELSE 3 END,
+              ct.last_success_at ASC NULLS FIRST,
               ct.asset_size DESC NULLS LAST"""
     if limit and limit > 0:
         query += " LIMIT ?"
@@ -676,27 +698,33 @@ def _classify_extraction_failure(text: str, doc_type: str) -> str:
 def _is_likely_fee_schedule(text: str) -> bool:
     """Pre-LLM screening: check if text is likely a fee schedule.
 
-    Requires at least 3 fee-related keywords AND 2 dollar amounts.
-    This avoids wasting API calls on non-fee documents.
+    Loosened from original (3 keywords AND 2 dollars) to (2 keywords OR 1 dollar).
+    The document classifier now handles the real filtering — this just excludes
+    completely non-financial pages.
     """
     import re
+    from fee_crawler.pipeline.classify_document import DEFINITIVE_TITLES
 
     lower = text.lower()
+
+    # Definitive titles always pass — never pre-screen out explicit fee schedules
+    if any(t in lower for t in DEFINITIVE_TITLES):
+        return True
 
     fee_keywords = [
         "fee", "charge", "service charge", "overdraft", "nsf",
         "non-sufficient funds", "insufficient funds", "maintenance",
         "monthly service", "wire transfer", "atm", "stop payment",
         "dormant", "inactive account", "cashier", "statement fee",
-        "schedule of fees", "fee schedule", "per item",
+        "per item", "per occurrence",
     ]
     keyword_matches = sum(1 for kw in fee_keywords if kw in lower)
 
-    # Count dollar amounts like $12.00, $35, $1,500.00
     dollar_pattern = r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?"
     dollar_matches = len(re.findall(dollar_pattern, text))
 
-    return keyword_matches >= 3 and dollar_matches >= 2
+    # Loosened: 2 keywords OR 1 dollar amount (was: 3 AND 2)
+    return keyword_matches >= 2 or dollar_matches >= 1
 
 
 def _save_result(

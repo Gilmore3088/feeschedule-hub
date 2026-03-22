@@ -1,59 +1,27 @@
-# syntax=docker/dockerfile:1
-
-# ── Stage 1: Build the application ──
+# Node-only production image for Vercel/Docker deployment
+# No Python, no SQLite, no Litestream — ~200MB vs ~800MB
 FROM node:20-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Create empty DB if not present (CI builds); local builds include real DB for prerendering
-RUN mkdir -p data && \
-    if [ ! -f data/crawler.db ]; then \
-      apt-get update -qq && apt-get install -y --no-install-recommends sqlite3 && \
-      sqlite3 data/crawler.db "CREATE TABLE _stub(id INTEGER);" && \
-      apt-get purge -y sqlite3 && rm -rf /var/lib/apt/lists/*; \
-    fi
 RUN npm run build
 
-# ── Stage 3: Production runner ──
 FROM node:20-slim AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Install Litestream for continuous SQLite backup
-ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz /tmp/litestream.tar.gz
-RUN tar -C /usr/local/bin -xzf /tmp/litestream.tar.gz && rm /tmp/litestream.tar.gz
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser  --system --uid 1001 nextjs
 
-# Install Python for crawler commands (refresh-data, run-pipeline via SSH)
-RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends python3 python3-pip python3-venv && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Install Python crawler dependencies
-COPY requirements.txt /app/requirements.txt
-RUN pip3 install --break-system-packages -r /app/requirements.txt
-
-# Copy crawler code
-COPY fee_crawler /app/fee_crawler
-
-# Copy standalone output
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Litestream config and entrypoint
-COPY litestream.yml /etc/litestream.yml
-COPY run.sh /app/run.sh
-RUN chmod +x /app/run.sh
-
+USER nextjs
 EXPOSE 3000
-
-CMD ["/app/run.sh"]
+CMD ["node", "server.js"]

@@ -1,6 +1,6 @@
 "use server";
 
-import { getWriteDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { headers } from "next/headers";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
@@ -24,12 +24,6 @@ interface SubmitResult {
   count?: number;
 }
 
-function getClientIp(): string {
-  // headers() is async in Next.js 16
-  // We'll get IP from x-forwarded-for or fall back
-  return "unknown";
-}
-
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const timestamps = recentSubmissions.get(ip) || [];
@@ -43,7 +37,6 @@ function checkRateLimit(ip: string): boolean {
 }
 
 export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
-  // Validate
   if (!input.institution_name?.trim()) {
     return { success: false, message: "Institution name is required" };
   }
@@ -57,27 +50,22 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
     return { success: false, message: "Maximum 20 fees per submission" };
   }
 
-  // Basic URL validation
   try {
     new URL(input.source_url);
   } catch {
     return { success: false, message: "Invalid source URL" };
   }
 
-  // Rate limit
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(ip)) {
     return { success: false, message: "Too many submissions. Please wait a minute." };
   }
 
-  // Find matching institution (optional)
-  const db = getWriteDb();
   try {
-    // Ensure table exists (idempotent)
-    db.exec(`
+    await sql`
       CREATE TABLE IF NOT EXISTS community_submissions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         crawl_target_id INTEGER REFERENCES crawl_targets(id),
         institution_name TEXT NOT NULL,
         fee_name TEXT NOT NULL,
@@ -87,39 +75,29 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
         source_url TEXT NOT NULL,
         submitter_ip TEXT,
         review_status TEXT NOT NULL DEFAULT 'pending',
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
-    `);
+    `;
 
-    const target = db.prepare(
-      "SELECT id FROM crawl_targets WHERE institution_name = ? COLLATE NOCASE LIMIT 1"
-    ).get(input.institution_name.trim()) as { id: number } | undefined;
-
+    const [target] = await sql`
+      SELECT id FROM crawl_targets
+      WHERE LOWER(institution_name) = LOWER(${input.institution_name.trim()})
+      LIMIT 1
+    `;
     const targetId = target?.id ?? null;
 
-    const stmt = db.prepare(`
-      INSERT INTO community_submissions
-        (crawl_target_id, institution_name, fee_name, fee_category, amount, frequency, source_url, submitter_ip)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const insertMany = db.transaction((fees: typeof input.fees) => {
-      for (const fee of fees) {
+    await sql.begin(async (tx: any) => {
+      for (const fee of input.fees) {
         if (!fee.fee_name?.trim()) continue;
-        stmt.run(
-          targetId,
-          input.institution_name.trim(),
-          fee.fee_name.trim(),
-          fee.fee_category || null,
-          fee.amount,
-          fee.frequency || "per_occurrence",
-          input.source_url.trim(),
-          ip,
-        );
+        await tx`
+          INSERT INTO community_submissions
+            (crawl_target_id, institution_name, fee_name, fee_category, amount, frequency, source_url, submitter_ip)
+          VALUES (${targetId}, ${input.institution_name.trim()}, ${fee.fee_name.trim()},
+                  ${fee.fee_category || null}, ${fee.amount}, ${fee.frequency || "per_occurrence"},
+                  ${input.source_url.trim()}, ${ip})
+        `;
       }
     });
-
-    insertMany(input.fees);
 
     return {
       success: true,
@@ -129,23 +107,19 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
   } catch (e) {
     console.error("Fee submission error:", e);
     return { success: false, message: "An error occurred. Please try again." };
-  } finally {
-    db.close();
   }
 }
 
 export async function searchInstitutions(query: string): Promise<{ id: number; name: string; state: string | null }[]> {
   if (!query || query.length < 2) return [];
 
-  const { getDb } = await import("@/lib/crawler-db/connection");
-  const db = getDb();
   const escaped = query.replace(/[%_]/g, "\\$&");
-  const rows = db.prepare(`
+  const rows = await sql`
     SELECT id, institution_name as name, state_code as state
     FROM crawl_targets
-    WHERE institution_name LIKE ? ESCAPE '\\'
+    WHERE institution_name LIKE ${"%" + escaped + "%"}
     ORDER BY asset_size DESC NULLS LAST
     LIMIT 10
-  `).all(`%${escaped}%`) as { id: number; name: string; state: string | null }[];
+  ` as { id: number; name: string; state: string | null }[];
   return rows;
 }

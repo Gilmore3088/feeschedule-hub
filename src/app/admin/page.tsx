@@ -61,30 +61,30 @@ export default async function AdminDashboard({
     fed_districts: peerFilters.districts,
   };
 
-  const reviewStats = getReviewStats();
-  const stuckItems = getStuckReviewItems();
-  const crawlHealth = getCrawlHealth();
-  const recentReviews = getRecentReviews(15);
+  const reviewStats = await getReviewStats();
+  const stuckItems = await getStuckReviewItems();
+  const crawlHealth = await getCrawlHealth();
+  const recentReviews = await getRecentReviews(15);
 
-  const peerStats = getPeerFilteredStats(dbFilters);
-  const districtMetrics = getDistrictMetrics({
+  const peerStats = await getPeerFilteredStats(dbFilters);
+  const districtMetrics = await getDistrictMetrics({
     charter_type: peerFilters.charter,
     asset_tiers: peerFilters.tiers,
   });
-  const volatileCategories = getVolatileCategories(dbFilters, 10);
-  const riskOutliers = getRiskOutliers(dbFilters);
-  const recentCrawls = getRecentCrawlActivity(dbFilters, 20);
-  const dailyTrends = getDailyTrends(14);
+  const volatileCategories = await getVolatileCategories(dbFilters, 10);
+  const riskOutliers = await getRiskOutliers(dbFilters);
+  const recentCrawls = await getRecentCrawlActivity(dbFilters, 20);
+  const dailyTrends = await getDailyTrends(14);
 
   const hasFilters =
     peerFilters.charter || peerFilters.tiers || peerFilters.districts;
 
-  const indexSnapshot = getIndexSnapshot(
+  const indexSnapshot = await getIndexSnapshot(
     hasFilters ? dbFilters : undefined,
     10
   );
 
-  const nationalStats = hasFilters ? getPeerFilteredStats({}) : null;
+  const nationalStats = hasFilters ? await getPeerFilteredStats({}) : null;
 
   const heroEntries = HERO_CATEGORIES.map((cat) =>
     indexSnapshot.find((e) => e.fee_category === cat)

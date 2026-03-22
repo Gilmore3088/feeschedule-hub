@@ -75,19 +75,19 @@ export default async function PeerDetailPage({
 
   const { id } = await params;
   const targetId = parseInt(id, 10);
-  const institution = getInstitutionById(targetId);
+  const institution = await getInstitutionById(targetId);
 
   if (!institution) {
     return <p className="text-gray-500">Institution not found</p>;
   }
 
-  const financials = getFinancialsByInstitution(targetId);
-  const complaints = getComplaintsByInstitution(targetId);
+  const financials = await getFinancialsByInstitution(targetId);
+  const complaints = await getComplaintsByInstitution(targetId);
   const beigeBookHeadline = institution.fed_district
-    ? getBeigeBookHeadline(institution.fed_district)
+    ? await getBeigeBookHeadline(institution.fed_district)
     : null;
 
-  const analysis = getPeerAnalysis(targetId) as {
+  const analysis = await getPeerAnalysis(targetId) as {
     peer_count: number;
     peers: PeerRow[];
     fee_comparisons: FeeComparisonRow[];

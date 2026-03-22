@@ -34,13 +34,13 @@ export default async function ReviewPage({
   const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
   const sortColumn = params.sort || undefined;
   const sortDir = params.dir || undefined;
-  const stats = getReviewStats();
-  const outlierCount = getOutlierCount();
+  const stats = await getReviewStats();
+  const outlierCount = await getOutlierCount();
   const isOutlierView = activeStatus === "outliers";
 
   const { fees, total } = isOutlierView
-    ? getOutlierFlaggedFees(PAGE_SIZE, (currentPage - 1) * PAGE_SIZE, undefined, sortColumn, sortDir)
-    : getFeesByStatus(
+    ? await getOutlierFlaggedFees(PAGE_SIZE, (currentPage - 1) * PAGE_SIZE, undefined, sortColumn, sortDir)
+    : await getFeesByStatus(
         activeStatus,
         searchQuery || undefined,
         PAGE_SIZE,
@@ -50,7 +50,7 @@ export default async function ReviewPage({
       );
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const medians = isOutlierView ? getCategoryMedians() : {};
+  const medians = isOutlierView ? await getCategoryMedians() : {};
   const outlierCategories = isOutlierView
     ? Array.from(new Set(fees.map((f) => f.fee_category).filter(Boolean) as string[])).sort()
     : [];

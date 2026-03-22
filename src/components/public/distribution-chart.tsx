@@ -54,7 +54,7 @@ export function DistributionChart({
 }: DistributionChartProps) {
   if (amounts.length < 3) {
     return (
-      <p className="text-sm text-slate-400 py-8 text-center">
+      <p className="text-sm text-[#A09788] py-8 text-center">
         Not enough data to show distribution
       </p>
     );
@@ -65,29 +65,29 @@ export function DistributionChart({
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8DFD1" />
         <XAxis
           dataKey="range"
-          tick={{ fontSize: 10, fill: "#94a3b8" }}
+          tick={{ fontSize: 10, fill: "#A09788" }}
           interval="preserveStartEnd"
           tickLine={false}
-          axisLine={{ stroke: "#e2e8f0" }}
+          axisLine={{ stroke: "#E8DFD1" }}
         />
         <YAxis
-          tick={{ fontSize: 10, fill: "#94a3b8" }}
+          tick={{ fontSize: 10, fill: "#A09788" }}
           tickLine={false}
           axisLine={false}
         />
         <Tooltip
           contentStyle={{
             fontSize: 12,
-            border: "1px solid #e2e8f0",
-            borderRadius: 6,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            border: "1px solid #E8DFD1",
+            borderRadius: 8,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
           }}
           formatter={(value) => [String(value), "Institutions"]}
         />
-        <Bar dataKey="count" fill="#475569" radius={[2, 2, 0, 0]} />
+        <Bar dataKey="count" fill="#C44B2E" radius={[2, 2, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

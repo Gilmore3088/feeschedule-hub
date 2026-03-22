@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 
 export interface InstitutionFinancial {
   crawl_target_id: number;
@@ -17,6 +17,8 @@ export interface InstitutionFinancial {
   branch_count: number | null;
   employee_count: number | null;
   member_count: number | null;
+  total_revenue: number | null;
+  fee_income_ratio: number | null;
 }
 
 export interface FinancialStats {
@@ -32,62 +34,346 @@ export interface ComplaintSummary {
   complaint_count: number;
 }
 
-export function getFinancialStats(): FinancialStats {
-  const db = getDb();
-  const fdic = db
-    .prepare("SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'fdic'")
-    .get() as { cnt: number };
-  const ncua = db
-    .prepare("SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'ncua'")
-    .get() as { cnt: number };
-  const instFin = db
-    .prepare("SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_financials")
-    .get() as { cnt: number };
-  const complaints = db
-    .prepare("SELECT COUNT(*) as cnt FROM institution_complaints")
-    .get() as { cnt: number };
-  const instComp = db
-    .prepare("SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints")
-    .get() as { cnt: number };
+export async function getFinancialStats(): Promise<FinancialStats> {
+  const [fdic] = await sql`SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'fdic'`;
+  const [ncua] = await sql`SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'ncua'`;
+  const [instFin] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_financials`;
+  const [complaints] = await sql`SELECT COUNT(*) as cnt FROM institution_complaints`;
+  const [instComp] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints`;
 
   return {
-    fdic_records: fdic.cnt,
-    ncua_records: ncua.cnt,
-    institutions_with_financials: instFin.cnt,
-    complaint_records: complaints.cnt,
-    institutions_with_complaints: instComp.cnt,
+    fdic_records: (fdic as unknown as { cnt: number }).cnt,
+    ncua_records: (ncua as unknown as { cnt: number }).cnt,
+    institutions_with_financials: (instFin as unknown as { cnt: number }).cnt,
+    complaint_records: (complaints as unknown as { cnt: number }).cnt,
+    institutions_with_complaints: (instComp as unknown as { cnt: number }).cnt,
   };
 }
 
-export function getFinancialsByInstitution(
+export async function getFinancialsByInstitution(
   targetId: number
-): InstitutionFinancial[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT crawl_target_id, report_date, source,
-              total_assets, total_deposits, total_loans,
-              service_charge_income, other_noninterest_income,
-              net_interest_margin, efficiency_ratio,
-              roa, roe, tier1_capital_ratio,
-              branch_count, employee_count, member_count
-       FROM institution_financials
-       WHERE crawl_target_id = ?
-       ORDER BY report_date DESC`
-    )
-    .all(targetId) as InstitutionFinancial[];
+): Promise<InstitutionFinancial[]> {
+  const rows = await sql`
+    SELECT crawl_target_id, report_date, source,
+           total_assets, total_deposits, total_loans,
+           service_charge_income, other_noninterest_income,
+           net_interest_margin, efficiency_ratio,
+           roa, roe, tier1_capital_ratio,
+           branch_count, employee_count, member_count,
+           total_revenue, fee_income_ratio
+    FROM institution_financials
+    WHERE crawl_target_id = ${targetId}
+    ORDER BY report_date DESC`;
+  return [...rows] as InstitutionFinancial[];
 }
 
-export function getComplaintsByInstitution(
+export async function getComplaintsByInstitution(
   targetId: number
-): ComplaintSummary[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT product, complaint_count
-       FROM institution_complaints
-       WHERE crawl_target_id = ? AND issue = '_total'
-       ORDER BY complaint_count DESC`
-    )
-    .all(targetId) as ComplaintSummary[];
+): Promise<ComplaintSummary[]> {
+  const rows = await sql`
+    SELECT product, complaint_count
+    FROM institution_complaints
+    WHERE crawl_target_id = ${targetId} AND issue = '_total'
+    ORDER BY complaint_count DESC`;
+  return [...rows] as ComplaintSummary[];
+}
+
+// --- Market Concentration (SOD / HHI) ---
+
+export interface MarketConcentration {
+  msa_code: number;
+  msa_name: string;
+  total_deposits: number;
+  institution_count: number;
+  hhi: number;
+  top3_share: number;
+  year: number;
+}
+
+export async function getMarketConcentration(opts?: {
+  year?: number;
+  minInstitutions?: number;
+  limit?: number;
+  sort?: "hhi_desc" | "hhi_asc" | "deposits_desc";
+}): Promise<MarketConcentration[]> {
+  const year = opts?.year ?? 2024;
+  const minInst = opts?.minInstitutions ?? 3;
+  const limit = opts?.limit ?? 100;
+  const orderBy =
+    opts?.sort === "hhi_asc"
+      ? "hhi ASC"
+      : opts?.sort === "deposits_desc"
+        ? "total_deposits DESC"
+        : "hhi DESC";
+
+  const rows = await sql.unsafe(
+    `SELECT msa_code, msa_name, total_deposits, institution_count, hhi, top3_share, year
+     FROM market_concentration
+     WHERE year = $1 AND institution_count >= $2
+     ORDER BY ${orderBy}
+     LIMIT $3`,
+    [year, minInst, limit]
+  );
+  return [...rows] as unknown as MarketConcentration[];
+}
+
+export async function getMarketConcentrationForInstitution(
+  targetId: number,
+  year?: number
+): Promise<MarketConcentration | null> {
+  const y = year ?? 2024;
+  const [row] = await sql`
+    SELECT mc.msa_code, mc.msa_name, mc.total_deposits,
+           mc.institution_count, mc.hhi, mc.top3_share, mc.year
+    FROM market_concentration mc
+    JOIN branch_deposits bd ON bd.msa_code = mc.msa_code AND bd.year = mc.year
+    WHERE bd.crawl_target_id = ${targetId} AND mc.year = ${y} AND bd.is_main_office = 1
+    LIMIT 1`;
+  return (row as MarketConcentration | undefined) ?? null;
+}
+
+// --- Demographics (Census ACS) ---
+
+export interface DemographicData {
+  geo_id: string;
+  geo_type: string;
+  geo_name: string;
+  state_fips: string | null;
+  median_household_income: number | null;
+  poverty_count: number | null;
+  total_population: number | null;
+  year: number;
+}
+
+export async function getStateDemographics(
+  stateFips: string
+): Promise<DemographicData | null> {
+  const [row] = await sql`
+    SELECT geo_id, geo_type, geo_name, state_fips,
+           median_household_income, poverty_count, total_population, year
+    FROM demographics
+    WHERE geo_type = 'state' AND state_fips = ${stateFips}
+    ORDER BY year DESC LIMIT 1`;
+  return (row as DemographicData | undefined) ?? null;
+}
+
+export async function getCountyDemographics(
+  stateFips: string
+): Promise<DemographicData[]> {
+  const rows = await sql`
+    SELECT geo_id, geo_type, geo_name, state_fips,
+           median_household_income, poverty_count, total_population, year
+    FROM demographics
+    WHERE geo_type = 'county' AND state_fips = ${stateFips}
+    ORDER BY total_population DESC`;
+  return [...rows] as DemographicData[];
+}
+
+// --- Economic Indicators (FRED / BLS / NY Fed / OFR) ---
+
+export interface IndicatorObservation {
+  series_id: string;
+  series_title: string;
+  fed_district: number | null;
+  observation_date: string;
+  value: number;
+  units: string;
+  frequency: string;
+}
+
+export async function getLatestIndicators(
+  seriesIds: string[]
+): Promise<IndicatorObservation[]> {
+  if (seriesIds.length === 0) return [];
+  const rows = await sql`
+    SELECT e.series_id, e.series_title, e.fed_district,
+           e.observation_date, e.value, e.units, e.frequency
+    FROM fed_economic_indicators e
+    INNER JOIN (
+      SELECT series_id, MAX(observation_date) as max_date
+      FROM fed_economic_indicators
+      WHERE series_id IN ${sql(seriesIds)}
+      GROUP BY series_id
+    ) latest ON e.series_id = latest.series_id
+             AND e.observation_date = latest.max_date`;
+  return [...rows] as IndicatorObservation[];
+}
+
+export async function getIndicatorTimeSeries(
+  seriesId: string,
+  opts?: { fromDate?: string; limit?: number }
+): Promise<IndicatorObservation[]> {
+  const from = opts?.fromDate ?? "2020-01-01";
+  const limit = opts?.limit ?? 500;
+  const rows = await sql`
+    SELECT series_id, series_title, fed_district,
+           observation_date, value, units, frequency
+    FROM fed_economic_indicators
+    WHERE series_id = ${seriesId} AND observation_date >= ${from}
+    ORDER BY observation_date DESC
+    LIMIT ${limit}`;
+  return [...rows] as IndicatorObservation[];
+}
+
+// --- CPI Context (BLS bank services vs overall CPI) ---
+
+export interface CpiContext {
+  bankFees: { date: string; value: number; yoyPct: number } | null;
+  allItems: { date: string; value: number; yoyPct: number } | null;
+}
+
+export async function getCpiContext(): Promise<CpiContext> {
+  const BANK_FEES = "CUUR0000SEMC01";
+  const ALL_ITEMS = "CUUR0000SA0";
+
+  async function getYoY(seriesId: string) {
+    const rows = await sql`
+      SELECT observation_date, value
+      FROM fed_economic_indicators
+      WHERE series_id = ${seriesId}
+      ORDER BY observation_date DESC
+      LIMIT 13` as { observation_date: string; value: number }[];
+
+    if (rows.length < 13) return null;
+
+    const latest = rows[0];
+    const yearAgo = rows[12];
+    const yoyPct = ((latest.value - yearAgo.value) / yearAgo.value) * 100;
+
+    return {
+      date: latest.observation_date,
+      value: latest.value,
+      yoyPct: Math.round(yoyPct * 10) / 10,
+    };
+  }
+
+  return {
+    bankFees: await getYoY(BANK_FEES),
+    allItems: await getYoY(ALL_ITEMS),
+  };
+}
+
+// --- Revenue Benchmarks (aggregated fee income ratios) ---
+
+export interface RevenueIndex {
+  report_date: string;
+  institution_count: number;
+  median_ratio: number | null;
+  p25_ratio: number | null;
+  p75_ratio: number | null;
+  avg_service_charge: number | null;
+}
+
+export async function getRevenueIndexByDate(reportDate?: string): Promise<RevenueIndex | null> {
+  let rows: { fee_income_ratio: number; service_charge_income: number | null }[];
+
+  if (reportDate) {
+    rows = await sql`
+      SELECT fee_income_ratio, service_charge_income
+      FROM institution_financials
+      WHERE fee_income_ratio IS NOT NULL AND report_date = ${reportDate}
+      ORDER BY fee_income_ratio` as typeof rows;
+  } else {
+    rows = await sql`
+      SELECT fee_income_ratio, service_charge_income
+      FROM institution_financials
+      WHERE fee_income_ratio IS NOT NULL
+        AND report_date = (SELECT MAX(report_date) FROM institution_financials)
+      ORDER BY fee_income_ratio` as typeof rows;
+  }
+
+  if (rows.length === 0) return null;
+
+  const ratios = rows.map((r) => r.fee_income_ratio);
+  const n = ratios.length;
+  const p25Idx = Math.floor(n * 0.25);
+  const medIdx = Math.floor(n * 0.5);
+  const p75Idx = Math.floor(n * 0.75);
+
+  const svcCharges = rows
+    .map((r) => r.service_charge_income)
+    .filter((v): v is number => v !== null);
+  const avgSvc = svcCharges.length > 0
+    ? Math.round(svcCharges.reduce((a, b) => a + b, 0) / svcCharges.length)
+    : null;
+
+  let rd: string;
+  if (reportDate) {
+    rd = reportDate;
+  } else {
+    const [maxRow] = await sql`SELECT MAX(report_date) as d FROM institution_financials`;
+    rd = (maxRow as { d: string }).d;
+  }
+
+  return {
+    report_date: rd,
+    institution_count: n,
+    median_ratio: ratios[medIdx],
+    p25_ratio: ratios[p25Idx],
+    p75_ratio: ratios[p75Idx],
+    avg_service_charge: avgSvc,
+  };
+}
+
+// --- Data Coverage Summary ---
+
+export interface DataCoverageSummary {
+  fdic_financials: number;
+  ncua_financials: number;
+  cfpb_complaints: number;
+  fred_indicators: number;
+  bls_observations: number;
+  nyfed_rates: number;
+  ofr_stress: number;
+  sod_branches: number;
+  market_concentrations: number;
+  demographics: number;
+  census_tracts: number;
+}
+
+export async function getDataCoverageSummary(): Promise<DataCoverageSummary> {
+  const count = async (query: string) => {
+    const [row] = await sql.unsafe(query);
+    return (row as unknown as { cnt: number }).cnt;
+  };
+
+  const [
+    fdic_financials,
+    ncua_financials,
+    cfpb_complaints,
+    fred_indicators,
+    bls_observations,
+    nyfed_rates,
+    ofr_stress,
+    sod_branches,
+    market_concentrations,
+    demographics,
+    census_tracts,
+  ] = await Promise.all([
+    count("SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'fdic'"),
+    count("SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'ncua'"),
+    count("SELECT COUNT(*) as cnt FROM institution_complaints"),
+    count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id NOT LIKE 'NYFED_%' AND series_id NOT LIKE 'OFR_%' AND series_id NOT LIKE 'CU%'"),
+    count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id LIKE 'CU%'"),
+    count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id LIKE 'NYFED_%'"),
+    count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id LIKE 'OFR_%'"),
+    count("SELECT COUNT(*) as cnt FROM branch_deposits"),
+    count("SELECT COUNT(*) as cnt FROM market_concentration"),
+    count("SELECT COUNT(*) as cnt FROM demographics"),
+    count("SELECT COUNT(*) as cnt FROM census_tracts"),
+  ]);
+
+  return {
+    fdic_financials,
+    ncua_financials,
+    cfpb_complaints,
+    fred_indicators,
+    bls_observations,
+    nyfed_rates,
+    ofr_stress,
+    sod_branches,
+    market_concentrations,
+    demographics,
+    census_tracts,
+  };
 }

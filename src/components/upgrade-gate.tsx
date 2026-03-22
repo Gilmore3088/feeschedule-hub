@@ -17,16 +17,16 @@ export function UpgradeGate({
 }: UpgradeGateProps) {
   if (compact) {
     return (
-      <div className="text-center py-6 px-4 border-t border-[#E8DFD1]">
+      <div className="text-center py-6 px-4 border-t border-[#E8DFD1] bg-gradient-to-r from-[#FAF7F2] to-white">
         <div className="text-sm text-[#7A7062]">
           {count ? `${count} more available` : message || "Premium feature"}
           {" "}with a Seat License
         </div>
         <Link
           href="/subscribe"
-          className="inline-block mt-2 text-sm font-medium text-[#C44B2E] hover:underline"
+          className="inline-block mt-2 text-sm font-bold text-[#C44B2E] hover:underline"
         >
-          View Plans
+          View Plans &rarr;
         </Link>
       </div>
     );
@@ -48,14 +48,20 @@ export function UpgradeGate({
       </h3>
       <p className="text-sm text-[#7A7062] mb-4">
         {count
-          ? `${count} more categories, peer filters, exports, and AI research available with a Seat License.`
-          : "Get access to all 49 fee categories, peer benchmarks, exports, AI research, and API access."}
+          ? `${count} more categories with peer filters, CSV exports, AI research, and full API access.`
+          : "Unlock all 49 fee categories, peer benchmarks by charter/tier/district, data exports, and AI-powered research."}
       </p>
+      <div className="text-[11px] text-[#A09788] mt-2 mb-4">
+        Based on 18,000+ fee observations from 10,000+ institutions
+      </div>
       <Link
         href="/subscribe"
-        className="inline-flex items-center rounded-md bg-[#C44B2E] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-md bg-[#C44B2E] px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-[#C44B2E]/15 hover:bg-[#A83D25] hover:shadow-md hover:shadow-[#C44B2E]/25 transition-all"
       >
         View Plans
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+          <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+        </svg>
       </Link>
     </div>
   );

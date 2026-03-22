@@ -1,5 +1,6 @@
 import { CustomerNav } from "@/components/customer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
+import { SearchModal } from "@/components/public/search-modal";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -17,8 +18,9 @@ export default function ProLayout({
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
       <CustomerNav />
-      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <main>{children}</main>
       <CustomerFooter />
+      <SearchModal />
     </div>
   );
 }

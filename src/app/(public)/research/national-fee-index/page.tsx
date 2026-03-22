@@ -35,8 +35,8 @@ export const metadata: Metadata = {
 export default async function NationalFeeIndexPage() {
   const user = await getCurrentUser();
   const isPro = canAccessPremium(user);
-  const allIndex = getNationalIndexCached();
-  const cpi = getCpiContext();
+  const allIndex = await getNationalIndexCached();
+  const cpi = await getCpiContext();
 
   // Pro: full index. Free: spotlight preview only (6 categories)
   const spotlightCats = new Set(getSpotlightCategories());

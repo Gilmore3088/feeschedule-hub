@@ -1,7 +1,7 @@
 import { getDiscoveryMethodStats } from "@/lib/crawler-db/pipeline-runs";
 
-export function DiscoveryStats() {
-  const stats = getDiscoveryMethodStats();
+export async function DiscoveryStats() {
+  const stats = await getDiscoveryMethodStats();
 
   if (stats.length === 0) return null;
 

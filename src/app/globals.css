@@ -540,6 +540,16 @@
 .consumer-brand .bg-slate-300\/70 { background-color: rgb(176 168 156 / 0.7); }
 .consumer-brand .bg-slate-700 { background-color: #4A4238; }
 
+/* ── Analyst Hub prose styles ── */
+.prose-hub table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0; }
+.prose-hub th { text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #A09788; border-bottom: 1px solid #E8DFD1; }
+.prose-hub td { padding: 5px 10px; color: #1A1815; border-bottom: 1px solid rgba(232, 223, 209, 0.4); }
+.prose-hub tr:hover td { background: rgba(250, 247, 242, 0.6); }
+.prose-hub strong { font-weight: 600; color: #1A1815; }
+.prose-hub h1, .prose-hub h2, .prose-hub h3, .prose-hub h4 { font-family: var(--font-newsreader), Georgia, serif; }
+.prose-hub ul, .prose-hub ol { padding-left: 16px; }
+.prose-hub li { margin-bottom: 2px; }
+
 /* ── Research page: index gradient card ── */
 .consumer-brand .from-blue-50\/60 { --tw-gradient-from: rgb(253 240 237 / 0.6); }
 .consumer-brand .to-blue-50\/30 { --tw-gradient-to: rgb(253 240 237 / 0.3); }

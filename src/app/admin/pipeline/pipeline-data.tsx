@@ -1,8 +1,8 @@
 import { getPipelineStageCounts } from "@/lib/crawler-db/pipeline";
 import { UnifiedPipeline } from "./unified-pipeline";
 
-export function PipelineDashboard() {
-  const d = getPipelineStageCounts();
+export async function PipelineDashboard() {
+  const d = await getPipelineStageCounts();
 
   const noWebsite = d.total - d.hasWebsite;
   const needDiscover = d.hasWebsite - d.hasUrl;

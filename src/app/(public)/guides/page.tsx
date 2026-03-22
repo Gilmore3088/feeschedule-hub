@@ -25,10 +25,159 @@ const PRIMARY_SLUGS = new Set([
   "monthly-maintenance-fees",
 ]);
 
-export default function GuidesIndexPage() {
-  const allSummaries = getFeeCategorySummaries();
-  const stats = getStats();
-  const freshness = getDataFreshness();
+const FAMILY_LABELS: Record<string, string> = {
+  "overdraft-fees": "Overdraft & NSF",
+  "nsf-fees": "Overdraft & NSF",
+  "atm-fees": "ATM & Card",
+  "wire-transfer-fees": "Wire Transfers",
+  "monthly-maintenance-fees": "Account Fees",
+  "foreign-transaction-fees": "International",
+  "check-fees": "Check Services",
+  "digital-banking-fees": "Digital Banking",
+  "account-closure-fees": "Account Lifecycle",
+  "safe-deposit-fees": "Branch Services",
+};
+
+const FAMILY_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  "Overdraft & NSF": { bg: "bg-[#C44B2E]/8", text: "text-[#C44B2E]", dot: "bg-[#C44B2E]" },
+  "ATM & Card": { bg: "bg-amber-500/8", text: "text-amber-700", dot: "bg-amber-500" },
+  "Wire Transfers": { bg: "bg-violet-500/8", text: "text-violet-700", dot: "bg-violet-500" },
+  "Account Fees": { bg: "bg-emerald-500/8", text: "text-emerald-700", dot: "bg-emerald-500" },
+  "International": { bg: "bg-sky-500/8", text: "text-sky-700", dot: "bg-sky-500" },
+  "Check Services": { bg: "bg-rose-400/8", text: "text-rose-600", dot: "bg-rose-400" },
+  "Digital Banking": { bg: "bg-indigo-500/8", text: "text-indigo-700", dot: "bg-indigo-500" },
+  "Account Lifecycle": { bg: "bg-orange-500/8", text: "text-orange-700", dot: "bg-orange-500" },
+  "Branch Services": { bg: "bg-teal-500/8", text: "text-teal-700", dot: "bg-teal-500" },
+};
+
+function GuideCard({
+  guide,
+  allSummaries,
+  featured,
+}: {
+  guide: (typeof GUIDES)[number];
+  allSummaries: Awaited<ReturnType<typeof getFeeCategorySummaries>>;
+  featured: boolean;
+}) {
+  const relevantFees = allSummaries.filter((s) =>
+    guide.feeCategories.includes(s.fee_category)
+  );
+  const topFee = relevantFees[0];
+  const family = FAMILY_LABELS[guide.slug] ?? "General";
+  const colors = FAMILY_COLORS[family] ?? FAMILY_COLORS["Account Fees"];
+
+  return (
+    <Link
+      href={`/guides/${guide.slug}`}
+      className="group relative flex flex-col rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:border-[#C44B2E]/20 hover:shadow-lg hover:shadow-[#C44B2E]/5 hover:-translate-y-0.5 no-underline"
+    >
+      {/* Top accent line */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C44B2E]/0 to-transparent group-hover:via-[#C44B2E]/40 transition-all duration-700" />
+
+      <div className={`${featured ? "p-6" : "px-5 py-4"}`}>
+        {/* Header: badge + data point */}
+        <div className="flex items-start justify-between gap-3">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${colors.bg} ${colors.text}`}>
+            <span className={`h-1 w-1 rounded-full ${colors.dot}`} />
+            {family}
+          </span>
+          {topFee && featured && (
+            <span className="text-[11px] font-medium text-[#A09788] tabular-nums">
+              median
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <h2
+          className={`mt-3 tracking-[-0.01em] text-[#1A1815] group-hover:text-[#C44B2E] transition-colors duration-300 ${
+            featured
+              ? "text-[18px] leading-snug font-semibold"
+              : "text-[14px] leading-snug font-semibold"
+          }`}
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          {guide.title.split(":")[0]}
+        </h2>
+
+        {featured && (
+          <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062] line-clamp-2">
+            {guide.description}
+          </p>
+        )}
+
+        {/* Fee data */}
+        {topFee && featured && (
+          <div className="mt-4 rounded-lg bg-[#FAF7F2] border border-[#E8DFD1]/50 p-3.5">
+            <div className="flex items-baseline gap-2">
+              <span
+                className="text-[28px] font-light tracking-tight text-[#1A1815] tabular-nums"
+                style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+              >
+                {formatAmount(topFee.median_amount)}
+              </span>
+              <span className="text-[11px] text-[#A09788]">
+                {getDisplayName(topFee.fee_category)}
+              </span>
+            </div>
+
+            {relevantFees.length > 1 && (
+              <div className="mt-2.5 space-y-1.5">
+                {relevantFees.slice(1, 4).map((fee) => (
+                  <div
+                    key={fee.fee_category}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-[11px] text-[#A09788]">
+                      {getDisplayName(fee.fee_category)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="h-px flex-1 min-w-[20px] bg-[#E8DFD1]/60" />
+                      <span className="text-[12px] tabular-nums font-medium text-[#5A5347]">
+                        {formatAmount(fee.median_amount)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {topFee && !featured && (
+          <div className="mt-2 flex items-baseline gap-2">
+            <span
+              className="text-[20px] font-light tracking-tight text-[#1A1815] tabular-nums"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
+              {formatAmount(topFee.median_amount)}
+            </span>
+            <span className="text-[10px] text-[#A09788]">median</span>
+          </div>
+        )}
+
+        {/* Read prompt */}
+        <div className={`flex items-center gap-1.5 text-[12px] font-medium text-[#C44B2E]/60 group-hover:text-[#C44B2E] transition-colors duration-300 ${featured ? "mt-4" : "mt-3"}`}>
+          <span>Read guide</span>
+          <svg
+            className="h-3 w-3 transition-transform duration-500 group-hover:translate-x-1"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2.5"
+          >
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+export default async function GuidesIndexPage() {
+  const allSummaries = await getFeeCategorySummaries();
+  const stats = await getStats();
+  const freshness = await getDataFreshness();
 
   const totalObservations = allSummaries.reduce(
     (a, s) => a + s.total_observations,
@@ -45,7 +194,7 @@ export default function GuidesIndexPage() {
   const secondaryGuides = GUIDES.filter((g) => !PRIMARY_SLUGS.has(g.slug));
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12">
+    <div className="mx-auto max-w-7xl px-6 py-16">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -54,125 +203,93 @@ export default function GuidesIndexPage() {
       />
 
       {/* ── Hero ── */}
-      <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-        Consumer Fee Guides
-      </h1>
-      <p className="mt-2 max-w-2xl text-[15px] text-slate-500">
-        Plain-language guides to understanding bank and credit union fees, backed by live benchmark data from {stats.total_institutions.toLocaleString()} institutions.
-      </p>
-      <p className="mt-2 text-[12px] tabular-nums text-slate-400">
-        {totalObservations.toLocaleString()} fee observations
-        {updateDate && (
-          <>
-            <span className="mx-2">&middot;</span>
-            Updated {updateDate}
-          </>
-        )}
-      </p>
+      <div className="max-w-2xl">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-px w-8 bg-[#C44B2E]/40" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+            Consumer Guides
+          </span>
+        </div>
 
-      {/* ── Primary guides: card grid ── */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {primaryGuides.map((guide) => {
-          const relevantFees = allSummaries.filter((s) =>
-            guide.feeCategories.includes(s.fee_category)
-          );
-          const topFee = relevantFees[0];
+        <h1
+          className="text-[2rem] sm:text-[2.5rem] leading-[1.1] tracking-[-0.025em] text-[#1A1815]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Understand what your bank{" "}
+          <em style={{ fontWeight: 300 }}>charges</em>
+        </h1>
 
-          return (
-            <Link
-              key={guide.slug}
-              href={`/guides/${guide.slug}`}
-              className="group rounded-lg border border-slate-200 bg-white px-5 py-5 transition-all hover:border-blue-200 hover:shadow-md"
-            >
-              <h2 className="text-[15px] font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                {guide.title.split(":")[0]}
-              </h2>
-              <p className="mt-1.5 text-[13px] text-slate-500 line-clamp-2">
-                {guide.description}
-              </p>
+        <p className="mt-4 text-[15px] leading-relaxed text-[#7A7062]">
+          Plain-language guides backed by live benchmark data from{" "}
+          <span className="font-medium text-[#5A5347] tabular-nums">
+            {stats.total_institutions.toLocaleString()}
+          </span>{" "}
+          institutions.
+        </p>
 
-              {topFee && (
-                <div className="mt-4 flex items-baseline gap-2 border-t border-slate-100 pt-3">
-                  <span className="text-xl font-extrabold tabular-nums text-slate-900">
-                    {formatAmount(topFee.median_amount)}
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    national median
-                  </span>
-                </div>
-              )}
-
-              {relevantFees.length > 1 && (
-                <div className="mt-2 space-y-1">
-                  {relevantFees.slice(1, 4).map((fee) => (
-                    <div
-                      key={fee.fee_category}
-                      className="flex items-center justify-between text-[12px]"
-                    >
-                      <span className="text-slate-500">
-                        {getDisplayName(fee.fee_category)}
-                      </span>
-                      <span className="tabular-nums font-medium text-slate-700">
-                        {formatAmount(fee.median_amount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-4 text-[12px] font-medium text-blue-600 group-hover:text-blue-700 transition-colors">
-                Read guide &rarr;
-              </div>
-            </Link>
-          );
-        })}
+        <div className="mt-4 flex items-center gap-4 text-[12px] text-[#A09788]">
+          <span className="tabular-nums">
+            {totalObservations.toLocaleString()} fee observations
+          </span>
+          {updateDate && (
+            <>
+              <span className="h-3 w-px bg-[#D4C9BA]" />
+              <span>Updated {updateDate}</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* ── Secondary guides ── */}
-      {secondaryGuides.length > 0 && (
-        <div className="mt-10">
-          <h2 className="text-sm font-bold text-slate-800">
-            More Fee Guides
-          </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {secondaryGuides.map((guide) => {
-              const relevantFees = allSummaries.filter((s) =>
-                guide.feeCategories.includes(s.fee_category)
-              );
-              const topFee = relevantFees[0];
+      {/* ── Primary guides: editorial card grid ── */}
+      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {primaryGuides.map((guide) => (
+          <GuideCard
+            key={guide.slug}
+            guide={guide}
+            allSummaries={allSummaries}
+            featured
+          />
+        ))}
+      </div>
 
-              return (
-                <Link
-                  key={guide.slug}
-                  href={`/guides/${guide.slug}`}
-                  className="group flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3.5 transition-all hover:border-blue-200 hover:shadow-sm"
-                >
-                  <div>
-                    <span className="text-[13px] font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-                      {guide.title.split(":")[0]}
-                    </span>
-                    <p className="mt-0.5 text-[11px] text-slate-400 line-clamp-1">
-                      {guide.description}
-                    </p>
-                  </div>
-                  {topFee && (
-                    <span className="ml-3 shrink-0 text-sm font-bold tabular-nums text-slate-700">
-                      {formatAmount(topFee.median_amount)}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+      {/* ── More guides ── */}
+      {secondaryGuides.length > 0 && (
+        <div className="mt-14">
+          <div className="flex items-center gap-3 mb-6">
+            <h2
+              className="text-[15px] font-medium text-[#1A1815]"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
+              More Fee Guides
+            </h2>
+            <span className="h-px flex-1 bg-[#E8DFD1]" />
+            <span className="text-[11px] text-[#A09788] tabular-nums">
+              {secondaryGuides.length} guides
+            </span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {secondaryGuides.map((guide) => (
+              <GuideCard
+                key={guide.slug}
+                guide={guide}
+                allSummaries={allSummaries}
+                featured={false}
+              />
+            ))}
           </div>
         </div>
       )}
 
       {/* ── Explore ── */}
-      <div className="mt-12 rounded-lg border border-slate-200 bg-slate-50/50 px-6 py-5">
-        <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Explore More
-        </h2>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+      <div className="mt-16 rounded-xl border border-[#E8DFD1] bg-white/50 backdrop-blur-sm px-7 py-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-px w-6 bg-[#C44B2E]/30" />
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+            Explore More
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
             { label: "Fee Index", href: "/fees", desc: "All 49 categories" },
             { label: "National Benchmarks", href: "/research/national-fee-index", desc: "Medians & percentiles" },
@@ -183,15 +300,35 @@ export default function GuidesIndexPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="group"
+              className="group rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/50 px-4 py-3 transition-all duration-300 hover:border-[#C44B2E]/20 hover:bg-white no-underline"
             >
-              <span className="text-[13px] font-medium text-slate-700 group-hover:text-blue-600 transition-colors">
+              <span className="text-[13px] font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
                 {item.label}
               </span>
-              <span className="ml-1 text-[11px] text-slate-400">{item.desc}</span>
+              <span className="block mt-0.5 text-[11px] text-[#A09788]">
+                {item.desc}
+              </span>
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Pro teaser */}
+      <div className="mt-8 rounded-xl border border-[#E8DFD1] bg-gradient-to-r from-[#FFFDF9] to-[#FAF7F2] px-7 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-[13px] font-medium text-[#1A1815]">
+            Want to benchmark your institution?
+          </p>
+          <p className="mt-0.5 text-[12px] text-[#7A7062]">
+            Pro members get peer comparisons, FDIC financial data, and AI-powered analysis.
+          </p>
+        </div>
+        <Link
+          href="/subscribe"
+          className="shrink-0 rounded-full bg-[#C44B2E] px-5 py-2 text-[12px] font-semibold text-white no-underline hover:bg-[#A83D25] transition-colors"
+        >
+          View Plans
+        </Link>
       </div>
 
       <script

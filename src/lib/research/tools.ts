@@ -30,7 +30,7 @@ export const searchFees = tool({
   }),
   execute: async ({ category }) => {
     if (category) {
-      const detail = getFeeCategoryDetail(category);
+      const detail = await getFeeCategoryDetail(category);
       if (!detail || detail.fees.length === 0) {
         return { error: "Category not found", category };
       }
@@ -52,7 +52,7 @@ export const searchFees = tool({
       };
     }
 
-    const summaries = getFeeCategorySummaries();
+    const summaries = await getFeeCategorySummaries();
     return {
       total: summaries.length,
       data: summaries.map((s) => ({
@@ -92,7 +92,7 @@ export const searchIndex = tool({
     const hasFilters = state || charter || district;
 
     const entries = hasFilters
-      ? getPeerIndex({
+      ? await getPeerIndex({
           state_code: state?.toUpperCase(),
           charter_type: charter,
           fed_districts: district
@@ -102,7 +102,7 @@ export const searchIndex = tool({
                 .filter((d) => d >= 1 && d <= 12)
             : undefined,
         })
-      : getNationalIndex();
+      : await getNationalIndex();
 
     return {
       scope: hasFilters ? "filtered" : "national",
@@ -156,7 +156,7 @@ export const searchInstitutions = tool({
     if (charter) filters.charter_type = charter;
     if (state) filters.state_code = state.toUpperCase();
 
-    const { rows, total } = getInstitutionsByFilter(filters);
+    const { rows, total } = await getInstitutionsByFilter(filters);
 
     return {
       total,
@@ -184,10 +184,10 @@ export const getInstitution = tool({
     id: z.number().describe("Institution ID"),
   }),
   execute: async ({ id }) => {
-    const inst = getInstitutionById(id);
+    const inst = await getInstitutionById(id);
     if (!inst) return { error: "Institution not found", id };
 
-    const fees = getFeesByInstitution(id)
+    const fees = (await getFeesByInstitution(id))
       .filter((f) => f.review_status !== "rejected")
       .map((f) => ({
         fee_name: f.fee_name,

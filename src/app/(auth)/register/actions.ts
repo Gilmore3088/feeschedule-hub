@@ -2,7 +2,7 @@
 
 import { getStripe } from "@/lib/stripe";
 import { hashPassword } from "@/lib/passwords";
-import { getWriteDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 
@@ -53,10 +53,8 @@ export async function register(formData: FormData): Promise<{
     return { success: false, error: "Invalid email format" };
   }
 
-  // Hash password BEFORE any DB or Stripe calls (async, can't be in transaction)
   const hashedPw = await hashPassword(password);
 
-  // Create Stripe customer first (external system, harder to roll back)
   let stripeCustomer;
   try {
     const stripe = getStripe();
@@ -69,58 +67,45 @@ export async function register(formData: FormData): Promise<{
     return { success: false, error: "Registration failed. Please try again." };
   }
 
-  // All local writes atomically
-  const db = getWriteDb();
-  try {
-    const sessionId = crypto.randomBytes(32).toString("hex");
-    const expiresDate = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
-    const expiresAt = expiresDate.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+  const sessionId = crypto.randomBytes(32).toString("hex");
+  const expiresDate = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
+  const expiresAt = expiresDate.toISOString();
 
+  try {
     let userId: number;
     try {
-      const result = db.transaction(() => {
-        const insert = db
-          .prepare(
-            `INSERT INTO users (username, email, password_hash, display_name, role,
-             stripe_customer_id, subscription_status, is_active, created_at,
-             institution_name, institution_type, asset_tier, state_code, job_role)
-             VALUES (?, ?, ?, ?, 'viewer', ?, 'none', 1, datetime('now'),
-                     ?, ?, ?, ?, ?)`
-          )
-          .run(
-            trimmedEmail,
-            trimmedEmail,
-            hashedPw,
-            name.trim(),
-            stripeCustomer.id,
-            institutionName?.trim() || null,
-            institutionType || null,
-            assetTier || null,
-            stateCode || null,
-            jobRole || null
-          );
+      const result = await sql.begin(async (tx: any) => {
+        const [insertRow] = await tx`
+          INSERT INTO users (username, email, password_hash, display_name, role,
+           stripe_customer_id, subscription_status, is_active, created_at,
+           institution_name, institution_type, asset_tier, state_code, job_role)
+          VALUES (${trimmedEmail}, ${trimmedEmail}, ${hashedPw}, ${name.trim()}, 'viewer',
+                  ${stripeCustomer.id}, 'none', ${true}, NOW(),
+                  ${institutionName?.trim() || null}, ${institutionType || null},
+                  ${assetTier || null}, ${stateCode || null}, ${jobRole || null})
+          RETURNING id
+        `;
 
-        db.prepare(
-          "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)"
-        ).run(sessionId, insert.lastInsertRowid, expiresAt);
+        await tx`
+          INSERT INTO sessions (id, user_id, expires_at)
+          VALUES (${sessionId}, ${insertRow.id}, ${expiresAt})
+        `;
 
-        return Number(insert.lastInsertRowid);
-      })();
+        return Number(insertRow.id);
+      });
       userId = result;
     } catch (e: unknown) {
-      // Clean up Stripe customer on local failure
       try {
         const stripe = getStripe();
         await stripe.customers.del(stripeCustomer.id);
       } catch { /* best effort cleanup */ }
 
-      if (e instanceof Error && e.message.includes("UNIQUE constraint")) {
+      if (e instanceof Error && (e.message.includes("unique") || e.message.includes("duplicate"))) {
         return { success: false, error: "An account with this email already exists" };
       }
       throw e;
     }
 
-    // Set session cookie
     const cookieStore = await cookies();
     cookieStore.set("fsh_session", signSessionId(sessionId), {
       httpOnly: true,
@@ -131,7 +116,8 @@ export async function register(formData: FormData): Promise<{
     });
 
     return { success: true, redirect: "/account" };
-  } finally {
-    db.close();
+  } catch (e) {
+    console.error("[register] Error:", e);
+    return { success: false, error: "Registration failed. Please try again." };
   }
 }

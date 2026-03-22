@@ -22,28 +22,28 @@ function Endpoint({
   example: string;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 px-5 py-4">
+    <div className="rounded-xl border border-[#E8DFD1]/80 px-5 py-4">
       <div className="flex items-center gap-2">
         <span className="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
           {method}
         </span>
-        <code className="text-sm font-medium text-slate-900">{path}</code>
+        <code className="text-sm font-medium text-[#1A1815]">{path}</code>
       </div>
-      <p className="mt-2 text-[13px] text-slate-600">{description}</p>
+      <p className="mt-2 text-[13px] text-[#7A7062]">{description}</p>
 
       {params.length > 0 && (
         <div className="mt-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
             Parameters
           </p>
           <div className="mt-1.5 space-y-1">
             {params.map((p) => (
               <div key={p.name} className="flex items-baseline gap-2 text-[13px]">
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[12px] text-slate-700">
+                <code className="rounded bg-[#E8DFD1]/40 px-1.5 py-0.5 text-[12px] text-[#5A5347]">
                   {p.name}
                 </code>
-                <span className="text-[11px] text-slate-400">{p.type}</span>
-                <span className="text-slate-500">{p.description}</span>
+                <span className="text-[11px] text-[#A09788]">{p.type}</span>
+                <span className="text-[#7A7062]">{p.description}</span>
               </div>
             ))}
           </div>
@@ -51,10 +51,10 @@ function Endpoint({
       )}
 
       <div className="mt-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
           Example
         </p>
-        <pre className="mt-1.5 overflow-x-auto rounded-md bg-slate-900 px-4 py-3 text-[12px] text-slate-300">
+        <pre className="mt-1.5 overflow-x-auto rounded-md bg-[#1A1815] px-4 py-3 text-[12px] text-[#D4C9BA]">
           {example}
         </pre>
       </div>
@@ -64,7 +64,7 @@ function Endpoint({
 
 export default function ApiDocsPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+    <div className="mx-auto max-w-4xl px-6 py-14">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -72,16 +72,19 @@ export default function ApiDocsPage() {
         ]}
       />
 
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C4704B]">
         Developer
       </p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+      <h1
+        className="mt-1 text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] font-bold text-[#1A1815]"
+        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+      >
         API Documentation
       </h1>
-      <p className="mt-2 max-w-2xl text-[14px] text-slate-600">
+      <p className="mt-2 max-w-2xl text-[14px] text-[#7A7062]">
         Free REST API for accessing bank and credit union fee data. All
         endpoints return JSON by default. Add{" "}
-        <code className="rounded bg-slate-100 px-1 text-[12px]">format=csv</code>{" "}
+        <code className="rounded bg-[#E8DFD1]/40 px-1 text-[12px]">format=csv</code>{" "}
         for CSV downloads where supported.
       </p>
 
@@ -90,7 +93,12 @@ export default function ApiDocsPage() {
       </div>
 
       <div className="mt-8 space-y-6">
-        <h2 className="text-sm font-bold text-slate-800">Fee Categories</h2>
+        <h2
+          className="text-sm font-bold text-[#1A1815]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Fee Categories
+        </h2>
 
         <Endpoint
           method="GET"
@@ -112,7 +120,12 @@ export default function ApiDocsPage() {
           example={`curl ${SITE_URL}/api/v1/fees?category=overdraft`}
         />
 
-        <h2 className="mt-4 text-sm font-bold text-slate-800">Fee Index</h2>
+        <h2
+          className="mt-4 text-sm font-bold text-[#1A1815]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Fee Index
+        </h2>
 
         <Endpoint
           method="GET"
@@ -134,7 +147,12 @@ curl "${SITE_URL}/api/v1/index?state=CA&charter=credit_union"
 curl "${SITE_URL}/api/v1/index?district=7&format=csv"`}
         />
 
-        <h2 className="mt-4 text-sm font-bold text-slate-800">Institutions</h2>
+        <h2
+          className="mt-4 text-sm font-bold text-[#1A1815]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Institutions
+        </h2>
 
         <Endpoint
           method="GET"
@@ -161,11 +179,11 @@ curl "${SITE_URL}/api/v1/index?district=7&format=csv"`}
       </div>
 
       {/* Data info */}
-      <section className="mt-10 rounded-lg border border-slate-200 bg-slate-50/50 px-5 py-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#A09788]">
           Data Notes
         </h2>
-        <ul className="mt-2 space-y-1 text-[13px] text-slate-600">
+        <ul className="mt-2 space-y-1 text-[13px] text-[#7A7062]">
           <li>All monetary amounts are in USD.</li>
           <li>Medians exclude rejected fee reviews.</li>
           <li>Institution data sourced from FDIC and NCUA registries.</li>

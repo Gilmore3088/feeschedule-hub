@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 import { VALID_US_CODES } from "../us-states";
 import type {
   CrawlStats,
@@ -17,39 +17,33 @@ export interface PublicStats {
   total_states: number;
 }
 
-export function getPublicStats(): PublicStats {
+export async function getPublicStats(): Promise<PublicStats> {
   try {
-    const db = getDb();
     const validCodes = [...VALID_US_CODES];
-    const placeholders = validCodes.map(() => "?").join(",");
-    const row = db
-      .prepare(
-        `SELECT
-           COUNT(ef.id) as total_observations,
-           COUNT(DISTINCT ct.id) as total_institutions,
-           COUNT(DISTINCT ef.fee_category) as total_categories,
-           COUNT(DISTINCT ct.state_code) as total_states
-         FROM crawl_targets ct
-         JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
-         WHERE ct.state_code IN (${placeholders})
-           AND ef.review_status != 'rejected'`
-      )
-      .get(...validCodes) as PublicStats;
+    const [row] = await sql<PublicStats[]>`
+      SELECT
+        COUNT(ef.id) as total_observations,
+        COUNT(DISTINCT ct.id) as total_institutions,
+        COUNT(DISTINCT ef.fee_category) as total_categories,
+        COUNT(DISTINCT ct.state_code) as total_states
+      FROM crawl_targets ct
+      JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+      WHERE ct.state_code IN ${sql(validCodes)}
+        AND ef.review_status != 'rejected'`;
     return row;
   } catch {
     return { total_observations: 0, total_institutions: 0, total_categories: 0, total_states: 0 };
   }
 }
 
-export function getStats(): CrawlStats {
-  const db = getDb();
-  const total = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets").get() as { cnt: number };
-  const banks = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='bank'").get() as { cnt: number };
-  const cus = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='credit_union'").get() as { cnt: number };
-  const withUrl = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL").get() as { cnt: number };
-  const withFee = db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL").get() as { cnt: number };
-  const fees = db.prepare("SELECT COUNT(*) as cnt FROM extracted_fees").get() as { cnt: number };
-  const runs = db.prepare("SELECT COUNT(*) as cnt FROM crawl_runs").get() as { cnt: number };
+export async function getStats(): Promise<CrawlStats> {
+  const [total] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets`;
+  const [banks] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='bank'`;
+  const [cus] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='credit_union'`;
+  const [withUrl] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
+  const [withFee] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
+  const [fees] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM extracted_fees`;
+  const [runs] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_runs`;
 
   return {
     total_institutions: total.cnt,
@@ -62,45 +56,44 @@ export function getStats(): CrawlStats {
   };
 }
 
-export function getInstitutionsWithFees(): InstitutionSummary[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
+  return await sql<InstitutionSummary[]>`
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type,
            COUNT(ef.id) as fee_count
     FROM crawl_targets ct
     LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
     WHERE ct.fee_schedule_url IS NOT NULL
-    GROUP BY ct.id
+    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+             ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type
     ORDER BY ct.asset_size DESC NULLS LAST
-  `).all() as InstitutionSummary[];
+  `;
 }
 
-export function getFeesByInstitution(targetId: number): ExtractedFee[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getFeesByInstitution(targetId: number): Promise<ExtractedFee[]> {
+  return await sql<ExtractedFee[]>`
     SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
     FROM extracted_fees ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-    WHERE ef.crawl_target_id = ?
+    WHERE ef.crawl_target_id = ${targetId}
     ORDER BY ef.fee_name
-  `).all(targetId) as ExtractedFee[];
+  `;
 }
 
-export function getAllFees(
+export async function getAllFees(
   limit = 100,
   offset = 0,
   search?: string,
-): { fees: ExtractedFee[]; total: number } {
-  const db = getDb();
+): Promise<{ fees: ExtractedFee[]; total: number }> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
   if (search) {
     conditions.push(
-      "(ef.fee_name LIKE ? OR ct.institution_name LIKE ?)"
+      "(ef.fee_name LIKE $" + (params.length + 1) +
+      " OR ct.institution_name LIKE $" + (params.length + 2) + ")"
     );
     params.push(`%${search}%`, `%${search}%`);
   }
@@ -108,32 +101,32 @@ export function getAllFees(
   const where =
     conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
-  const { cnt } = db
-    .prepare(
-      `SELECT COUNT(*) as cnt
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       ${where}`
-    )
-    .get(...params) as { cnt: number };
+  const countResult = await sql.unsafe<{ cnt: number }[]>(
+    `SELECT COUNT(*) as cnt
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     ${where}`,
+    params,
+  );
+  const cnt = countResult[0].cnt;
 
-  const fees = db
-    .prepare(
-      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-             ef.extraction_confidence, ef.review_status,
-             ct.institution_name, ef.crawl_target_id
-      FROM extracted_fees ef
-      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-      ${where}
-      ORDER BY ct.institution_name, ef.fee_name
-      LIMIT ? OFFSET ?`
-    )
-    .all(...params, limit, offset) as ExtractedFee[];
+  const feesParams = [...params, limit, offset];
+  const fees = await sql.unsafe<ExtractedFee[]>(
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+           ef.extraction_confidence, ef.review_status,
+           ct.institution_name, ef.crawl_target_id
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    ${where}
+    ORDER BY ct.institution_name, ef.fee_name
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    feesParams,
+  );
 
   return { fees, total: cnt };
 }
 
-export function getInstitutionsByFilter(filters: {
+export async function getInstitutionsByFilter(filters: {
   charter_type?: string;
   asset_tiers?: string[];
   fed_districts?: number[];
@@ -141,50 +134,52 @@ export function getInstitutionsByFilter(filters: {
   gap?: boolean;
   page?: number;
   pageSize?: number;
-}): { rows: InstitutionDetail[]; total: number } {
-  const db = getDb();
+}): Promise<{ rows: InstitutionDetail[]; total: number }> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
+  let paramIdx = 1;
 
   if (filters.charter_type) {
-    conditions.push("ct.charter_type = ?");
+    conditions.push(`ct.charter_type = $${paramIdx++}`);
     params.push(filters.charter_type);
   }
   if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-    const placeholders = filters.asset_tiers.map(() => "?").join(",");
+    const placeholders = filters.asset_tiers.map(() => `$${paramIdx++}`).join(",");
     conditions.push(`ct.asset_size_tier IN (${placeholders})`);
     params.push(...filters.asset_tiers);
   }
   if (filters.fed_districts && filters.fed_districts.length > 0) {
-    const placeholders = filters.fed_districts.map(() => "?").join(",");
+    const placeholders = filters.fed_districts.map(() => `$${paramIdx++}`).join(",");
     conditions.push(`ct.fed_district IN (${placeholders})`);
     params.push(...filters.fed_districts);
   }
   if (filters.state_code) {
-    conditions.push("ct.state_code = ?");
+    conditions.push(`ct.state_code = $${paramIdx++}`);
     params.push(filters.state_code);
   }
 
   const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
-  const having = filters.gap ? "HAVING fee_count = 0" : "";
+  const having = filters.gap ? "HAVING COUNT(ef.id) = 0" : "";
 
   const page = filters.page ?? 1;
   const pageSize = filters.pageSize ?? 50;
   const offset = (page - 1) * pageSize;
 
-  const countRow = db.prepare(`
+  const countResult = await sql.unsafe<{ cnt: number }[]>(`
     SELECT COUNT(*) as cnt FROM (
-      SELECT ct.id, COUNT(ef.id) as fee_count
+      SELECT ct.id
       FROM crawl_targets ct
       LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
         AND ef.review_status != 'rejected'
       ${where}
       GROUP BY ct.id
       ${having}
-    )
-  `).get(...params) as { cnt: number };
+    ) sub
+  `, params);
 
-  const rows = db.prepare(`
+  const limitParam = `$${paramIdx++}`;
+  const offsetParam = `$${paramIdx++}`;
+  const rows = await sql.unsafe<InstitutionDetail[]>(`
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.website_url, ct.fee_schedule_url,
@@ -193,71 +188,68 @@ export function getInstitutionsByFilter(filters: {
     LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
       AND ef.review_status != 'rejected'
     ${where}
-    GROUP BY ct.id
+    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+             ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+             ct.website_url, ct.fee_schedule_url
     ${having}
     ORDER BY ct.asset_size DESC NULLS LAST
-    LIMIT ? OFFSET ?
-  `).all(...params, pageSize, offset) as InstitutionDetail[];
+    LIMIT ${limitParam} OFFSET ${offsetParam}
+  `, [...params, pageSize, offset]);
 
-  return { rows, total: countRow.cnt };
+  return { rows, total: countResult[0].cnt };
 }
 
-export function getInstitutionById(id: number): InstitutionDetail | null {
-  const db = getDb();
-  const row = db.prepare(`
+export async function getInstitutionById(id: number): Promise<InstitutionDetail | null> {
+  const [row] = await sql<InstitutionDetail[]>`
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM crawl_targets ct
     LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
-    WHERE ct.id = ?
-    GROUP BY ct.id
-  `).get(id) as InstitutionDetail | undefined;
+    WHERE ct.id = ${id}
+    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+             ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+             ct.website_url, ct.fee_schedule_url
+  `;
   return row ?? null;
 }
 
-export function getPeerAnalysis(targetId: number): Record<string, unknown> | null {
-  const db = getDb();
-  const row = db.prepare(`
+export async function getPeerAnalysis(targetId: number): Promise<Record<string, unknown> | null> {
+  const [row] = await sql<{ result_json: string }[]>`
     SELECT result_json FROM analysis_results
-    WHERE crawl_target_id = ? AND analysis_type = 'peer_comparison'
-  `).get(targetId) as { result_json: string } | undefined;
+    WHERE crawl_target_id = ${targetId} AND analysis_type = 'peer_comparison'
+  `;
   if (!row) return null;
   return JSON.parse(row.result_json);
 }
 
-export function getTierCounts(): { tier: string; count: number }[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getTierCounts(): Promise<{ tier: string; count: number }[]> {
+  return await sql<{ tier: string; count: number }[]>`
     SELECT asset_size_tier as tier, COUNT(*) as count
     FROM crawl_targets
     WHERE asset_size_tier IS NOT NULL
     GROUP BY asset_size_tier
     ORDER BY MIN(asset_size)
-  `).all() as { tier: string; count: number }[];
+  `;
 }
 
-export function getDistrictCounts(): { district: number; count: number }[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getDistrictCounts(): Promise<{ district: number; count: number }[]> {
+  return await sql<{ district: number; count: number }[]>`
     SELECT fed_district as district, COUNT(*) as count
     FROM crawl_targets
     WHERE fed_district IS NOT NULL
     GROUP BY fed_district
     ORDER BY fed_district
-  `).all() as { district: number; count: number }[];
+  `;
 }
 
-export function getReviewStats(): ReviewStats {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT review_status, COUNT(*) as cnt
-       FROM extracted_fees
-       GROUP BY review_status`
-    )
-    .all() as { review_status: string; cnt: number }[];
+export async function getReviewStats(): Promise<ReviewStats> {
+  const rows = await sql<{ review_status: string; cnt: number }[]>`
+    SELECT review_status, COUNT(*) as cnt
+    FROM extracted_fees
+    GROUP BY review_status
+  `;
 
   const stats: ReviewStats = {
     pending: 0,
@@ -282,33 +274,33 @@ const REVIEW_SORT_COLUMNS: Record<string, string> = {
   confidence: "ef.extraction_confidence",
 };
 
-export function getFeesByStatus(
+export async function getFeesByStatus(
   status: string,
   search?: string,
   limit = 100,
   offset = 0,
   sort?: string,
   dir?: string,
-): { fees: ReviewableFee[]; total: number } {
-  const db = getDb();
-  const conditions = ["ef.review_status = ?"];
+): Promise<{ fees: ReviewableFee[]; total: number }> {
+  const conditions = ["ef.review_status = $1"];
   const params: (string | number)[] = [status];
+  let paramIdx = 2;
 
   if (search) {
-    conditions.push("(ef.fee_name LIKE ? OR ct.institution_name LIKE ?)");
+    conditions.push(`(ef.fee_name LIKE $${paramIdx++} OR ct.institution_name LIKE $${paramIdx++})`);
     params.push(`%${search}%`, `%${search}%`);
   }
 
   const whereClause = conditions.join(" AND ");
 
-  const { cnt } = db
-    .prepare(
-      `SELECT COUNT(*) as cnt
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ${whereClause}`
-    )
-    .get(...params) as { cnt: number };
+  const countResult = await sql.unsafe<{ cnt: number }[]>(
+    `SELECT COUNT(*) as cnt
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     WHERE ${whereClause}`,
+    params,
+  );
+  const cnt = countResult[0].cnt;
 
   const sortCol = (sort && REVIEW_SORT_COLUMNS[sort]) || "ct.institution_name";
   const sortDir = dir === "desc" ? "DESC" : "ASC";
@@ -316,59 +308,51 @@ export function getFeesByStatus(
     ? ", ct.institution_name ASC"
     : ", ef.fee_name ASC";
 
-  const fees = db
-    .prepare(
-      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-              ef.extraction_confidence, ef.review_status, ef.validation_flags,
-              ef.fee_category, ct.institution_name, ef.crawl_target_id,
-              ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
-       WHERE ${whereClause}
-       ORDER BY ${sortCol} ${sortDir}${secondary}
-       LIMIT ? OFFSET ?`
-    )
-    .all(...params, limit, offset) as ReviewableFee[];
+  const fees = await sql.unsafe<ReviewableFee[]>(
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+            ef.extraction_confidence, ef.review_status, ef.validation_flags,
+            ef.fee_category, ct.institution_name, ef.crawl_target_id,
+            ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
+     WHERE ${whereClause}
+     ORDER BY ${sortCol} ${sortDir}${secondary}
+     LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+    [...params, limit, offset],
+  );
 
   return { fees, total: cnt };
 }
 
-export function getDistinctFeeTypes(): string[] {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT DISTINCT fee_name FROM extracted_fees ORDER BY fee_name`
-    )
-    .all() as { fee_name: string }[];
+export async function getDistinctFeeTypes(): Promise<string[]> {
+  const rows = await sql<{ fee_name: string }[]>`
+    SELECT DISTINCT fee_name FROM extracted_fees ORDER BY fee_name
+  `;
   return rows.map((r) => r.fee_name);
 }
 
-export function getFeeById(feeId: number): ReviewableFee | null {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-              ef.extraction_confidence, ef.review_status, ef.validation_flags,
-              ef.fee_category, ct.institution_name, ef.crawl_target_id,
-              ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
-       WHERE ef.id = ?`
-    )
-    .get(feeId) as ReviewableFee | undefined;
+export async function getFeeById(feeId: number): Promise<ReviewableFee | null> {
+  const [row] = await sql<ReviewableFee[]>`
+    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+            ef.extraction_confidence, ef.review_status, ef.validation_flags,
+            ef.fee_category, ct.institution_name, ef.crawl_target_id,
+            ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
+     WHERE ef.id = ${feeId}
+  `;
   return row ?? null;
 }
 
-export function getOutlierFlaggedFees(
+export async function getOutlierFlaggedFees(
   limit = 100,
   offset = 0,
   category?: string,
   sort?: string,
   dir?: string,
-): { fees: ReviewableFee[]; total: number } {
-  const db = getDb();
+): Promise<{ fees: ReviewableFee[]; total: number }> {
   const conditions = [
     "ef.review_status IN ('flagged', 'pending', 'staged')",
     `(ef.validation_flags LIKE '%statistical_outlier%'
@@ -376,37 +360,37 @@ export function getOutlierFlaggedFees(
       OR ef.validation_flags LIKE '%percentage_confusion%')`,
   ];
   const params: (string | number)[] = [];
+  let paramIdx = 1;
 
   if (category) {
-    conditions.push("ef.fee_category = ?");
+    conditions.push(`ef.fee_category = $${paramIdx++}`);
     params.push(category);
   }
 
   const where = `WHERE ${conditions.join(" AND ")}`;
 
-  const { cnt } = db
-    .prepare(
-      `SELECT COUNT(*) as cnt
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       ${where}`,
-    )
-    .get(...params) as { cnt: number };
+  const countResult = await sql.unsafe<{ cnt: number }[]>(
+    `SELECT COUNT(*) as cnt
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     ${where}`,
+    params,
+  );
+  const cnt = countResult[0].cnt;
 
-  const fees = db
-    .prepare(
-      `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-              ef.extraction_confidence, ef.review_status, ef.validation_flags,
-              ef.fee_category, ct.institution_name, ef.crawl_target_id,
-              ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
-       ${where}
-       ORDER BY ${getSortClause(sort, dir, "ef.extraction_confidence ASC, ef.amount DESC")}
-       LIMIT ? OFFSET ?`,
-    )
-    .all(...params, limit, offset) as ReviewableFee[];
+  const fees = await sql.unsafe<ReviewableFee[]>(
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+            ef.extraction_confidence, ef.review_status, ef.validation_flags,
+            ef.fee_category, ct.institution_name, ef.crawl_target_id,
+            ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
+     ${where}
+     ORDER BY ${getSortClause(sort, dir, "ef.extraction_confidence ASC, ef.amount DESC")}
+     LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+    [...params, limit, offset],
+  );
 
   return { fees, total: cnt };
 }
@@ -426,19 +410,16 @@ function getSortClause(sort?: string, dir?: string, fallback = "ef.id DESC"): st
   return `${col} ${direction} NULLS LAST`;
 }
 
-export function getOutlierCount(): number {
-  const db = getDb();
-  const { cnt } = db
-    .prepare(
-      `SELECT COUNT(*) as cnt
-       FROM extracted_fees
-       WHERE review_status IN ('flagged', 'pending', 'staged')
-         AND (validation_flags LIKE '%statistical_outlier%'
-              OR validation_flags LIKE '%decimal_error%'
-              OR validation_flags LIKE '%percentage_confusion%')`,
-    )
-    .get() as { cnt: number };
-  return cnt;
+export async function getOutlierCount(): Promise<number> {
+  const [row] = await sql<{ cnt: number }[]>`
+    SELECT COUNT(*) as cnt
+    FROM extracted_fees
+    WHERE review_status IN ('flagged', 'pending', 'staged')
+      AND (validation_flags LIKE '%statistical_outlier%'
+           OR validation_flags LIKE '%decimal_error%'
+           OR validation_flags LIKE '%percentage_confusion%')
+  `;
+  return row.cnt;
 }
 
 export interface CategoryMedian {
@@ -448,19 +429,16 @@ export interface CategoryMedian {
   count: number;
 }
 
-export function getCategoryMedians(): Record<string, CategoryMedian> {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT fee_category, amount
-       FROM extracted_fees
-       WHERE fee_category IS NOT NULL
-         AND amount IS NOT NULL
-         AND amount > 0
-         AND review_status != 'rejected'
-       ORDER BY fee_category, amount`,
-    )
-    .all() as { fee_category: string; amount: number }[];
+export async function getCategoryMedians(): Promise<Record<string, CategoryMedian>> {
+  const rows = await sql<{ fee_category: string; amount: number }[]>`
+    SELECT fee_category, amount
+    FROM extracted_fees
+    WHERE fee_category IS NOT NULL
+      AND amount IS NOT NULL
+      AND amount > 0
+      AND review_status != 'rejected'
+    ORDER BY fee_category, amount
+  `;
 
   const grouped = new Map<string, number[]>();
   for (const row of rows) {
@@ -498,24 +476,18 @@ export interface DataFreshness {
   total_observations: number;
 }
 
-export function getDataFreshness(): DataFreshness {
-  const db = getDb();
+export async function getDataFreshness(): Promise<DataFreshness> {
+  const [crawl] = await sql<{ last_at: string | null }[]>`
+    SELECT MAX(crawled_at) as last_at FROM crawl_results WHERE status = 'success'
+  `;
 
-  const crawl = db
-    .prepare(
-      `SELECT MAX(crawled_at) as last_at FROM crawl_results WHERE status = 'success'`
-    )
-    .get() as { last_at: string | null } | undefined;
+  const [fee] = await sql<{ last_at: string | null }[]>`
+    SELECT MAX(created_at) as last_at FROM extracted_fees
+  `;
 
-  const fee = db
-    .prepare(`SELECT MAX(created_at) as last_at FROM extracted_fees`)
-    .get() as { last_at: string | null } | undefined;
-
-  const count = db
-    .prepare(
-      `SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status != 'rejected'`
-    )
-    .get() as { cnt: number };
+  const [count] = await sql<{ cnt: number }[]>`
+    SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status != 'rejected'
+  `;
 
   return {
     last_crawl_at: crawl?.last_at ?? null,

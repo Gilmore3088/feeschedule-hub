@@ -5,10 +5,10 @@ import { ensureResearchTables, getUsageStats } from "@/lib/research/history";
 
 export default async function ResearchHubPage() {
   const user = await requireAuth("view");
-  ensureResearchTables();
+  await ensureResearchTables();
 
-  const agents = getAdminAgents();
-  const usage = getUsageStats(user.id);
+  const agents = await getAdminAgents();
+  const usage = await getUsageStats(user.id);
 
   const roleOrder: Record<string, number> = { viewer: 0, premium: 1, analyst: 2, admin: 3 };
   const userLevel = roleOrder[user.role] ?? 0;

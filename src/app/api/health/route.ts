@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 
 export async function GET() {
   try {
-    const db = getDb();
-    const row = db.prepare("SELECT COUNT(*) as cnt FROM extracted_fees").get() as { cnt: number };
+    const [row] = await sql`SELECT COUNT(*) as cnt FROM extracted_fees`;
 
     return NextResponse.json({
       status: "ok",
-      fee_count: row.cnt,
+      fee_count: (row as { cnt: number }).cnt,
       timestamp: new Date().toISOString(),
     });
   } catch (e) {

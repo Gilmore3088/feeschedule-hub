@@ -6,6 +6,7 @@ import { getOpsJobSummary, getRecentJobs, getActiveJobs } from "@/lib/crawler-db
 import { getStats } from "@/lib/crawler-db/core";
 import { getAllowedCommands } from "@/lib/job-validation";
 import { getTierCoverage, getDistrictCoverage } from "@/lib/crawler-db/quality";
+import { sql } from "@/lib/crawler-db/connection";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { AddInstitutionForm } from "./add-institution";
 import { BulkImportForm } from "./coverage-table";
@@ -44,37 +45,31 @@ export default async function PipelinePage({
   const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
 
   // Data for all tabs (lightweight queries)
-  const stats = getPipelineStats();
-  const quality = getDataQualityReport();
+  const stats = await getPipelineStats();
+  const quality = await getDataQualityReport();
 
   // Health tab data
-  const activeJobs = getActiveJobs();
-  const pendingReview = (() => {
-    try {
-      const { getDb } = require("@/lib/crawler-db/connection");
-      const db = getDb();
-      const row = db.prepare("SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status IN ('pending', 'staged', 'flagged')").get() as { cnt: number };
-      return row.cnt;
-    } catch { return 0; }
-  })();
-  const lastCrawl = (() => {
-    try {
-      const { getDb } = require("@/lib/crawler-db/connection");
-      const db = getDb();
-      const row = db.prepare("SELECT completed_at FROM crawl_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1").get() as { completed_at: string } | undefined;
-      return row?.completed_at || null;
-    } catch { return null; }
-  })();
+  const activeJobs = await getActiveJobs();
+  let pendingReview = 0;
+  try {
+    const [row] = await sql`SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status IN ('pending', 'staged', 'flagged')`;
+    pendingReview = Number(row.cnt);
+  } catch { /* ignore */ }
+  let lastCrawl: string | null = null;
+  try {
+    const rows = await sql`SELECT completed_at FROM crawl_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1`;
+    lastCrawl = rows[0]?.completed_at || null;
+  } catch { /* ignore */ }
 
   // Operations tab data (only fetch if needed or canTrigger)
-  const opsSummary = canTrigger ? getOpsJobSummary() : { total: 0, running: 0, queued: 0, completed: 0, failed: 0, cancelled: 0 };
-  const recentJobs = canTrigger ? getRecentJobs(20) : [];
-  const crawlStats = canTrigger ? getStats() : { institutions: 0, fee_urls: 0, fees: 0, crawl_runs: 0 };
+  const opsSummary = canTrigger ? await getOpsJobSummary() : { total: 0, running: 0, queued: 0, completed: 0, failed: 0, cancelled: 0 };
+  const recentJobs = canTrigger ? await getRecentJobs(20) : [];
+  const crawlStats = canTrigger ? await getStats() : { total_institutions: 0, banks: 0, credit_unions: 0, with_website: 0, with_fee_url: 0, total_fees: 0, crawl_runs: 0 } as Awaited<ReturnType<typeof getStats>>;
   const commands = canTrigger ? getAllowedCommands() : [];
 
   // Coverage tab data
-  const states = getDistinctStates();
-  const { institutions, total } = getCoverageGaps({
+  const states = await getDistinctStates();
+  const { institutions, total } = await getCoverageGaps({
     status: activeStatus || undefined,
     charter: activeCharter || undefined,
     state: activeState || undefined,
@@ -89,12 +84,17 @@ export default async function PipelinePage({
   // Tier/district coverage (for coverage tab)
   let tierCoverage: { tier: string; total: number; with_fees: number; pct: number }[] = [];
   let districtCoverage: { district: number; total: number; with_fees: number; pct: number }[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   try {
-    tierCoverage = getTierCoverage().map((r: { tier: string; total: number; with_fees: number }) => ({
-      ...r, pct: r.total > 0 ? Math.round((r.with_fees / r.total) * 100) : 0,
+    const tierRows = await getTierCoverage();
+    tierCoverage = (tierRows as any[]).map((r) => ({
+      tier: r.asset_size_tier ?? r.tier, total: r.total, with_fees: r.with_fees,
+      pct: r.total > 0 ? Math.round((r.with_fees / r.total) * 100) : 0,
     }));
-    districtCoverage = getDistrictCoverage().map((r: { district: number; total: number; with_fees: number }) => ({
-      ...r, pct: r.total > 0 ? Math.round((r.with_fees / r.total) * 100) : 0,
+    const districtRows = await getDistrictCoverage();
+    districtCoverage = (districtRows as any[]).map((r) => ({
+      district: r.fed_district ?? r.district, total: r.total, with_fees: r.with_fees,
+      pct: r.total > 0 ? Math.round((r.with_fees / r.total) * 100) : 0,
     }));
   } catch { /* quality functions may not exist */ }
 

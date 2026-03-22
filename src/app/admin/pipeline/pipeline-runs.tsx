@@ -137,9 +137,9 @@ const RUN_STATUS_STYLES: Record<string, { bg: string; dot: string }> = {
   failed:    { bg: "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800", dot: "bg-red-500" },
 };
 
-export function PipelineRunsPanel() {
-  const runs = getPipelineRuns(5);
-  const activeRun = getActivePipelineRun();
+export async function PipelineRunsPanel() {
+  const runs = await getPipelineRuns(5);
+  const activeRun = await getActivePipelineRun();
 
   if (runs.length === 0 && !activeRun) {
     return (

@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { getSpotlightCategories, getDisplayName } from "@/lib/fee-taxonomy";
 import { WelcomeSteps } from "./welcome-steps";
@@ -10,26 +10,23 @@ export const metadata: Metadata = {
   title: "Welcome | Bank Fee Index",
 };
 
-function getSpotlightMedians(): { category: string; displayName: string; median: number }[] {
-  const db = getDb();
+async function getSpotlightMedians(): Promise<{ category: string; displayName: string; median: number }[]> {
   const spotlight = getSpotlightCategories();
   try {
-    const rows = db
-      .prepare(
-        `SELECT fee_category, ROUND(AVG(amount), 2) as median
-         FROM extracted_fees
-         WHERE fee_category IN (${spotlight.map(() => "?").join(",")})
-           AND review_status != 'rejected'
-           AND amount > 0
-         GROUP BY fee_category
-         ORDER BY median DESC`
-      )
-      .all(...spotlight) as { fee_category: string; median: number }[];
+    const rows = await sql`
+      SELECT fee_category, ROUND(AVG(amount)::numeric, 2) as median
+      FROM extracted_fees
+      WHERE fee_category IN ${sql(spotlight)}
+        AND review_status != 'rejected'
+        AND amount > 0
+      GROUP BY fee_category
+      ORDER BY median DESC
+    ` as { fee_category: string; median: number }[];
 
     return rows.map((r) => ({
       category: r.fee_category,
       displayName: getDisplayName(r.fee_category),
-      median: r.median,
+      median: Number(r.median),
     }));
   } catch {
     return [];
@@ -37,10 +34,8 @@ function getSpotlightMedians(): { category: string; displayName: string; median:
 }
 
 async function activateIfPaid(user: { id: number; email: string | null; subscription_status: string; stripe_customer_id: string | null }) {
-  // If user already active, nothing to do
   if (user.subscription_status === "active") return;
 
-  // If user has a stripe_customer_id, check Stripe for active subscriptions
   if (user.stripe_customer_id) {
     try {
       const { getStripe } = await import("@/lib/stripe");
@@ -51,15 +46,9 @@ async function activateIfPaid(user: { id: number; email: string | null; subscrip
         limit: 1,
       });
       if (subs.data.length > 0) {
-        const { getWriteDb } = await import("@/lib/crawler-db/connection");
-        const db = getWriteDb();
-        try {
-          db.prepare(
-            "UPDATE users SET subscription_status = 'active', role = 'premium' WHERE id = ? AND role NOT IN ('admin')"
-          ).run(user.id);
-        } finally {
-          db.close();
-        }
+        await sql`
+          UPDATE users SET subscription_status = 'active', role = 'premium'
+          WHERE id = ${user.id} AND role NOT IN ('admin')`;
       }
     } catch (e) {
       console.error("[welcome] Failed to verify subscription:", e);
@@ -71,10 +60,9 @@ export default async function WelcomePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?from=/account/welcome");
 
-  // Fallback: if webhook missed, verify payment directly with Stripe
   await activateIfPaid(user);
 
-  const feePreview = getSpotlightMedians();
+  const feePreview = await getSpotlightMedians();
   const district = user.state_code ? STATE_TO_DISTRICT[user.state_code] : null;
   const districtName = district ? DISTRICT_NAMES[district] : null;
 

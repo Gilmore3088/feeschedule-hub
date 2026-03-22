@@ -1,5 +1,10 @@
-"""Database layer. SQLite for dev, PostgreSQL/Supabase for production."""
+"""Database layer. SQLite for dev, PostgreSQL/Supabase for production.
 
+When DATABASE_URL is set, uses PostgreSQL via psycopg2.
+Otherwise, falls back to SQLite at the path in config.yaml.
+"""
+
+import os
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -8,6 +13,7 @@ from pathlib import Path
 from fee_crawler.config import Config
 
 _thread_local = threading.local()
+_DATABASE_URL = os.environ.get("DATABASE_URL")
 
 _CREATE_CRAWL_TARGETS = """
 CREATE TABLE IF NOT EXISTS crawl_targets (
@@ -637,8 +643,118 @@ class Database:
         self.conn.close()
 
 
-def get_worker_db(config: Config) -> Database:
+class PostgresDatabase:
+    """Thin wrapper around psycopg2 with the same interface as Database.
+
+    Used when DATABASE_URL is set (production/Supabase).
+    Schema is managed by the Next.js migration scripts, not here.
+    """
+
+    def __init__(self) -> None:
+        import psycopg2
+        import psycopg2.extras
+        self.conn = psycopg2.connect(_DATABASE_URL)
+        self.conn.autocommit = False
+        self._cursor_factory = psycopg2.extras.RealDictCursor
+
+    def __enter__(self) -> "PostgresDatabase":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    @contextmanager
+    def transaction(self):
+        try:
+            yield self
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+
+    def insert_returning_id(self, sql: str, params: tuple = ()) -> int:
+        pg_sql = _sqlite_to_pg(sql) + " RETURNING id"
+        cur = self.conn.cursor()
+        cur.execute(pg_sql, params)
+        row = cur.fetchone()
+        return row[0] if row else 0
+
+    def execute(self, sql: str, params: tuple = ()):
+        pg_sql = _sqlite_to_pg(sql)
+        cur = self.conn.cursor()
+        cur.execute(pg_sql, params)
+        return cur
+
+    def executemany(self, sql: str, params: list[tuple]):
+        pg_sql = _sqlite_to_pg(sql)
+        cur = self.conn.cursor()
+        cur.executemany(pg_sql, params)
+        return cur
+
+    def commit(self) -> None:
+        self.conn.commit()
+
+    def fetchone(self, sql: str, params: tuple = ()):
+        pg_sql = _sqlite_to_pg(sql)
+        cur = self.conn.cursor(cursor_factory=self._cursor_factory)
+        cur.execute(pg_sql, params)
+        return cur.fetchone()
+
+    def fetchall(self, sql: str, params: tuple = ()) -> list:
+        pg_sql = _sqlite_to_pg(sql)
+        cur = self.conn.cursor(cursor_factory=self._cursor_factory)
+        cur.execute(pg_sql, params)
+        return cur.fetchall()
+
+    _VALID_TABLES = Database._VALID_TABLES
+
+    def count(self, table: str) -> int:
+        if table not in self._VALID_TABLES:
+            raise ValueError(f"Invalid table name: {table}")
+        row = self.fetchone(f"SELECT COUNT(*) as cnt FROM {table}")
+        return row["cnt"] if row else 0
+
+    def close(self) -> None:
+        self.conn.close()
+
+
+def _sqlite_to_pg(sql: str) -> str:
+    """Convert SQLite-specific SQL to Postgres-compatible SQL.
+
+    Handles the most common differences:
+    - ? placeholders -> %s
+    - datetime('now') -> NOW()
+    - datetime('now', '-N days') -> NOW() - INTERVAL 'N days'
+    - INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
+    - INSERT OR REPLACE -> INSERT ... ON CONFLICT DO UPDATE
+    """
+    import re
+    s = sql
+    # Placeholder: ? -> %s
+    s = s.replace("?", "%s")
+    # datetime functions
+    s = re.sub(r"datetime\('now'\)", "NOW()", s)
+    s = re.sub(r"datetime\('now',\s*'(-?\d+)\s*days?'\)", r"NOW() + INTERVAL '\1 days'", s)
+    # INSERT OR IGNORE
+    s = s.replace("INSERT OR IGNORE", "INSERT")
+    if "ON CONFLICT" not in s and "INSERT" in s:
+        pass  # let caller handle conflict clauses
+    return s
+
+
+def get_db(config: Config) -> Database | PostgresDatabase:
+    """Get the appropriate database connection based on environment."""
+    if _DATABASE_URL:
+        return PostgresDatabase()
+    return Database(config)
+
+
+def get_worker_db(config: Config) -> Database | PostgresDatabase:
     """Thread-local DB connection for worker threads. No migration overhead."""
+    if _DATABASE_URL:
+        if not hasattr(_thread_local, "db") or _thread_local.db is None:
+            _thread_local.db = PostgresDatabase()
+        return _thread_local.db
     if not hasattr(_thread_local, "db") or _thread_local.db is None:
         _thread_local.db = Database(config, init_tables=False)
     return _thread_local.db

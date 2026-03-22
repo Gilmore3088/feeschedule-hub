@@ -1,5 +1,5 @@
 import { getStripe, getWebhookSecret } from "@/lib/stripe";
-import { getWriteDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { headers } from "next/headers";
 import type Stripe from "stripe";
 
@@ -25,24 +25,16 @@ export async function POST(req: Request) {
 
   console.log(`[stripe-webhook] Received ${event.type} (${event.id})`);
 
-  // Process synchronously -- SQLite writes take ~1ms
-  const db = getWriteDb();
   try {
-    db.transaction(() => {
-      // Atomic idempotency: INSERT OR IGNORE + check changes
-      const result = db
-        .prepare(
-          `INSERT OR IGNORE INTO stripe_events (id, event_type, stripe_customer_id, payload_json)
-           VALUES (?, ?, ?, ?)`
-        )
-        .run(
-          event.id,
-          event.type,
-          extractCustomerId(event),
-          JSON.stringify(event)
-        );
+    await sql.begin(async (tx: any) => {
+      // Atomic idempotency: INSERT ON CONFLICT DO NOTHING
+      const result = await tx`
+        INSERT INTO stripe_events (id, event_type, stripe_customer_id, payload_json)
+        VALUES (${event.id}, ${event.type}, ${extractCustomerId(event)}, ${JSON.stringify(event)})
+        ON CONFLICT (id) DO NOTHING
+      `;
 
-      if (result.changes === 0) return; // Already processed
+      if (result.count === 0) return; // Already processed
 
       switch (event.type) {
         case "checkout.session.completed": {
@@ -56,11 +48,11 @@ export async function POST(req: Request) {
           console.log(`[stripe-webhook] checkout.session.completed: customer=${customerId}, email=${email}, metadata=${JSON.stringify(session.metadata)}`);
 
           if (customerId && email) {
-            const result2 = db.prepare(
-              `UPDATE users SET subscription_status = 'active', role = 'premium', stripe_customer_id = ?
-               WHERE (email = ? OR username = ?) AND role NOT IN ('admin', 'analyst')`
-            ).run(customerId, email, email);
-            console.log(`[stripe-webhook] Updated ${result2.changes} user(s) for ${email}`);
+            const result2 = await tx`
+              UPDATE users SET subscription_status = 'active', role = 'premium', stripe_customer_id = ${customerId}
+              WHERE (email = ${email} OR username = ${email}) AND role NOT IN ('admin', 'analyst')
+            `;
+            console.log(`[stripe-webhook] Updated ${result2.count} user(s) for ${email}`);
           }
           break;
         }
@@ -70,10 +62,10 @@ export async function POST(req: Request) {
           const customerId =
             typeof sub.customer === "string" ? sub.customer : sub.customer.id;
           const status = mapStripeStatus(sub.status);
-          db.prepare(
-            `UPDATE users SET subscription_status = ?
-             WHERE stripe_customer_id = ?`
-          ).run(status, customerId);
+          await tx`
+            UPDATE users SET subscription_status = ${status}
+            WHERE stripe_customer_id = ${customerId}
+          `;
           break;
         }
 
@@ -81,11 +73,10 @@ export async function POST(req: Request) {
           const sub = event.data.object as Stripe.Subscription;
           const customerId =
             typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-          // Only downgrade viewer/premium -- never touch analyst/admin
-          db.prepare(
-            `UPDATE users SET subscription_status = 'canceled'
-             WHERE stripe_customer_id = ? AND role IN ('viewer', 'premium')`
-          ).run(customerId);
+          await tx`
+            UPDATE users SET subscription_status = 'canceled'
+            WHERE stripe_customer_id = ${customerId} AND role IN ('viewer', 'premium')
+          `;
           break;
         }
 
@@ -96,20 +87,18 @@ export async function POST(req: Request) {
               ? invoice.customer
               : invoice.customer?.id;
           if (customerId) {
-            db.prepare(
-              `UPDATE users SET subscription_status = 'past_due'
-               WHERE stripe_customer_id = ?`
-            ).run(customerId);
+            await tx`
+              UPDATE users SET subscription_status = 'past_due'
+              WHERE stripe_customer_id = ${customerId}
+            `;
           }
           break;
         }
       }
-    })();
+    });
   } catch (err) {
     console.error(`[stripe-webhook] Failed to process ${event.id} (${event.type}):`, err);
     return new Response("Processing failed", { status: 500 });
-  } finally {
-    db.close();
   }
 
   return new Response(JSON.stringify({ received: true }), { status: 200 });

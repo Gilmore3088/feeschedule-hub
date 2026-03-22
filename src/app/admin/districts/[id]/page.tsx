@@ -34,11 +34,11 @@ export default async function DistrictDetailPage({
 
 async function DistrictDetailContent({ districtId }: { districtId: number }) {
   const districtName = DISTRICT_NAMES[districtId] ?? `District ${districtId}`;
-  const beigeBook = getLatestBeigeBook(districtId);
-  const editions = getBeigeBookEditions(8);
-  const content = getDistrictContent(districtId, 15);
-  const indicators = getDistrictIndicators(districtId);
-  const metrics = getDistrictMetrics();
+  const beigeBook = await getLatestBeigeBook(districtId);
+  const editions = await getBeigeBookEditions(8);
+  const content = await getDistrictContent(districtId, 15);
+  const indicators = await getDistrictIndicators(districtId);
+  const metrics = await getDistrictMetrics();
   const districtMetric = metrics.find((m) => m.district === districtId);
 
   const summary = beigeBook.find(

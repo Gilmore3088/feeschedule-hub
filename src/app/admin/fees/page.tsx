@@ -54,7 +54,7 @@ export default async function FeesPage({
 
   // Single institution view: no pagination needed (typically <50 fees)
   if (targetId) {
-    const fees = getFeesByInstitution(targetId);
+    const fees = await getFeesByInstitution(targetId);
     const institutionName =
       fees.length > 0 ? fees[0].institution_name : "Institution";
 
@@ -81,7 +81,7 @@ export default async function FeesPage({
   }
 
   // All fees: paginated
-  const { fees, total } = getAllFees(
+  const { fees, total } = await getAllFees(
     PAGE_SIZE,
     (currentPage - 1) * PAGE_SIZE,
     searchQuery || undefined,

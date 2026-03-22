@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, hasPermission, type Permission } from "./auth";
-import { getWriteDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 
 async function requirePermission(permission: Permission) {
   const user = await getCurrentUser();
@@ -11,21 +11,18 @@ async function requirePermission(permission: Permission) {
   return user;
 }
 
-// Status machine: which transitions are allowed
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   pending: ["staged", "flagged", "approved", "rejected"],
   staged: ["approved", "rejected"],
   flagged: ["approved", "rejected"],
-  approved: ["staged"],  // unstage: admin-only, requires notes
-  rejected: ["staged"],  // unstage: admin-only, requires notes
+  approved: ["staged"],
+  rejected: ["staged"],
 };
 
 function assertTransition(current: string, target: string) {
   const allowed = ALLOWED_TRANSITIONS[current];
   if (!allowed || !allowed.includes(target)) {
-    throw new Error(
-      `Cannot transition from '${current}' to '${target}'`
-    );
+    throw new Error(`Cannot transition from '${current}' to '${target}'`);
   }
 }
 
@@ -35,32 +32,22 @@ export async function approveFee(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("approve");
-    const db = getWriteDb();
-    try {
-      const txn = db.transaction(() => {
-        const fee = db
-          .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
-          .get(feeId) as { id: number; review_status: string } | undefined;
+    await sql.begin(async (tx: any) => {
+      const [fee] = await tx`
+        SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
+      `;
+      if (!fee) throw new Error("Fee not found");
+      assertTransition(fee.review_status, "approved");
 
-        if (!fee) throw new Error("Fee not found");
-        assertTransition(fee.review_status, "approved");
+      await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${feeId}`;
+      await tx`
+        INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+        VALUES (${feeId}, 'approve', ${user.id}, ${user.username}, ${fee.review_status}, 'approved', ${notes || null})
+      `;
+    });
 
-        db.prepare("UPDATE extracted_fees SET review_status = ? WHERE id = ?").run(
-          "approved",
-          feeId
-        );
-        db.prepare(
-          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-           VALUES (?, 'approve', ?, ?, ?, 'approved', ?)`
-        ).run(feeId, user.id, user.username, fee.review_status, notes || null);
-      });
-      txn();
-
-      revalidatePath("/admin/review");
-      return { success: true };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }
@@ -72,32 +59,22 @@ export async function rejectFee(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("reject");
-    const db = getWriteDb();
-    try {
-      const txn = db.transaction(() => {
-        const fee = db
-          .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
-          .get(feeId) as { id: number; review_status: string } | undefined;
+    await sql.begin(async (tx: any) => {
+      const [fee] = await tx`
+        SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
+      `;
+      if (!fee) throw new Error("Fee not found");
+      assertTransition(fee.review_status, "rejected");
 
-        if (!fee) throw new Error("Fee not found");
-        assertTransition(fee.review_status, "rejected");
+      await tx`UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ${feeId}`;
+      await tx`
+        INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+        VALUES (${feeId}, 'reject', ${user.id}, ${user.username}, ${fee.review_status}, 'rejected', ${notes || null})
+      `;
+    });
 
-        db.prepare("UPDATE extracted_fees SET review_status = ? WHERE id = ?").run(
-          "rejected",
-          feeId
-        );
-        db.prepare(
-          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-           VALUES (?, 'reject', ?, ?, ?, 'rejected', ?)`
-        ).run(feeId, user.id, user.username, fee.review_status, notes || null);
-      });
-      txn();
-
-      revalidatePath("/admin/review");
-      return { success: true };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }
@@ -115,92 +92,67 @@ export async function editFee(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("edit");
-    const db = getWriteDb();
-    try {
-      const txn = db.transaction(() => {
-        const fee = db
-          .prepare(
-            "SELECT id, fee_name, amount, frequency, conditions, review_status FROM extracted_fees WHERE id = ?"
-          )
-          .get(feeId) as {
-          id: number;
-          fee_name: string;
-          amount: number | null;
-          frequency: string | null;
-          conditions: string | null;
-          review_status: string;
-        } | undefined;
+    await sql.begin(async (tx: any) => {
+      const [fee] = await tx`
+        SELECT id, fee_name, amount, frequency, conditions, review_status
+        FROM extracted_fees WHERE id = ${feeId}
+      `;
+      if (!fee) throw new Error("Fee not found");
+      if (fee.review_status === "approved" || fee.review_status === "rejected") {
+        throw new Error("Cannot edit a reviewed fee");
+      }
 
-        if (!fee) throw new Error("Fee not found");
-        if (fee.review_status === "approved" || fee.review_status === "rejected") {
-          throw new Error("Cannot edit a reviewed fee");
-        }
-
-        const previousValues = JSON.stringify({
-          fee_name: fee.fee_name,
-          amount: fee.amount,
-          frequency: fee.frequency,
-          conditions: fee.conditions,
-        });
-
-        const setClauses: string[] = [];
-        const params: unknown[] = [];
-
-        if (updates.fee_name !== undefined) {
-          setClauses.push("fee_name = ?");
-          params.push(updates.fee_name);
-        }
-        if (updates.amount !== undefined) {
-          setClauses.push("amount = ?");
-          params.push(updates.amount);
-        }
-        if (updates.frequency !== undefined) {
-          setClauses.push("frequency = ?");
-          params.push(updates.frequency);
-        }
-        if (updates.conditions !== undefined) {
-          setClauses.push("conditions = ?");
-          params.push(updates.conditions);
-        }
-
-        if (setClauses.length === 0) {
-          throw new Error("No updates provided");
-        }
-
-        params.push(feeId);
-        db.prepare(
-          `UPDATE extracted_fees SET ${setClauses.join(", ")} WHERE id = ?`
-        ).run(...params);
-
-        const newValues = JSON.stringify({
-          fee_name: updates.fee_name ?? fee.fee_name,
-          amount: updates.amount ?? fee.amount,
-          frequency: updates.frequency ?? fee.frequency,
-          conditions: updates.conditions ?? fee.conditions,
-        });
-
-        db.prepare(
-          `INSERT INTO fee_reviews
-           (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
-           VALUES (?, 'edit', ?, ?, ?, ?, ?, ?, ?)`
-        ).run(
-          feeId,
-          user.id,
-          user.username,
-          fee.review_status,
-          fee.review_status,
-          previousValues,
-          newValues,
-          notes || null
-        );
+      const previousValues = JSON.stringify({
+        fee_name: fee.fee_name,
+        amount: fee.amount,
+        frequency: fee.frequency,
+        conditions: fee.conditions,
       });
-      txn();
 
-      revalidatePath("/admin/review");
-      return { success: true };
-    } finally {
-      db.close();
-    }
+      const setClauses: string[] = [];
+      const params: (string | number | null)[] = [];
+
+      if (updates.fee_name !== undefined) {
+        setClauses.push(`fee_name = $${params.length + 1}`);
+        params.push(updates.fee_name);
+      }
+      if (updates.amount !== undefined) {
+        setClauses.push(`amount = $${params.length + 1}`);
+        params.push(updates.amount);
+      }
+      if (updates.frequency !== undefined) {
+        setClauses.push(`frequency = $${params.length + 1}`);
+        params.push(updates.frequency);
+      }
+      if (updates.conditions !== undefined) {
+        setClauses.push(`conditions = $${params.length + 1}`);
+        params.push(updates.conditions);
+      }
+
+      if (setClauses.length === 0) throw new Error("No updates provided");
+
+      params.push(feeId);
+      await tx.unsafe(
+        `UPDATE extracted_fees SET ${setClauses.join(", ")} WHERE id = $${params.length}`,
+        params
+      );
+
+      const newValues = JSON.stringify({
+        fee_name: updates.fee_name ?? fee.fee_name,
+        amount: updates.amount ?? fee.amount,
+        frequency: updates.frequency ?? fee.frequency,
+        conditions: updates.conditions ?? fee.conditions,
+      });
+
+      await tx`
+        INSERT INTO fee_reviews
+        (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+        VALUES (${feeId}, 'edit', ${user.id}, ${user.username}, ${fee.review_status}, ${fee.review_status}, ${previousValues}, ${newValues}, ${notes || null})
+      `;
+    });
+
+    revalidatePath("/admin/review");
+    return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }
@@ -212,42 +164,25 @@ export async function updateFeeCategory(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("edit");
-    const db = getWriteDb();
-    try {
-      const txn = db.transaction(() => {
-        const fee = db
-          .prepare("SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ?")
-          .get(feeId) as { id: number; fee_category: string | null; review_status: string } | undefined;
+    await sql.begin(async (tx: any) => {
+      const [fee] = await tx`
+        SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ${feeId}
+      `;
+      if (!fee) throw new Error("Fee not found");
 
-        if (!fee) throw new Error("Fee not found");
+      const previousCategory = fee.fee_category;
+      await tx`UPDATE extracted_fees SET fee_category = ${category} WHERE id = ${feeId}`;
+      await tx`
+        INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+        VALUES (${feeId}, 'recategorize', ${user.id}, ${user.username}, ${fee.review_status}, ${fee.review_status},
+                ${JSON.stringify({ fee_category: previousCategory })},
+                ${JSON.stringify({ fee_category: category })},
+                ${`Category changed from ${previousCategory || "none"} to ${category || "none"}`})
+      `;
+    });
 
-        const previousCategory = fee.fee_category;
-        db.prepare("UPDATE extracted_fees SET fee_category = ? WHERE id = ?").run(
-          category,
-          feeId,
-        );
-
-        db.prepare(
-          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
-           VALUES (?, 'recategorize', ?, ?, ?, ?, ?, ?, ?)`
-        ).run(
-          feeId,
-          user.id,
-          user.username,
-          fee.review_status,
-          fee.review_status,
-          JSON.stringify({ fee_category: previousCategory }),
-          JSON.stringify({ fee_category: category }),
-          `Category changed from ${previousCategory || "none"} to ${category || "none"}`,
-        );
-      });
-      txn();
-
-      revalidatePath("/admin/review");
-      return { success: true };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }
@@ -263,82 +198,59 @@ export async function editAndApproveFee(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("edit");
-    const db = getWriteDb();
-    try {
-      const fee = db
-        .prepare(
-          "SELECT id, fee_name, amount, frequency, conditions, review_status FROM extracted_fees WHERE id = ?",
-        )
-        .get(feeId) as {
-        id: number;
-        fee_name: string;
-        amount: number | null;
-        frequency: string | null;
-        conditions: string | null;
-        review_status: string;
-      } | undefined;
+    const [fee] = await sql`
+      SELECT id, fee_name, amount, frequency, conditions, review_status
+      FROM extracted_fees WHERE id = ${feeId}
+    `;
+    if (!fee) return { success: false, error: "Fee not found" };
+    if (fee.review_status === "approved" || fee.review_status === "rejected") {
+      return { success: false, error: "Cannot edit a reviewed fee" };
+    }
 
-      if (!fee) return { success: false, error: "Fee not found" };
-      if (fee.review_status === "approved" || fee.review_status === "rejected") {
-        return { success: false, error: "Cannot edit a reviewed fee" };
+    const previousValues = JSON.stringify({
+      fee_name: fee.fee_name,
+      amount: fee.amount,
+    });
+
+    await sql.begin(async (tx: any) => {
+      const setClauses: string[] = [];
+      const params: (string | number | null)[] = [];
+
+      if (updates.amount !== undefined) {
+        setClauses.push(`amount = $${params.length + 1}`);
+        params.push(updates.amount);
+      }
+      if (updates.fee_name !== undefined) {
+        setClauses.push(`fee_name = $${params.length + 1}`);
+        params.push(updates.fee_name);
       }
 
-      const previousValues = JSON.stringify({
-        fee_name: fee.fee_name,
-        amount: fee.amount,
-      });
-
-      const batchOp = db.transaction(() => {
-        const setClauses: string[] = [];
-        const params: unknown[] = [];
-
-        if (updates.amount !== undefined) {
-          setClauses.push("amount = ?");
-          params.push(updates.amount);
-        }
-        if (updates.fee_name !== undefined) {
-          setClauses.push("fee_name = ?");
-          params.push(updates.fee_name);
-        }
-
-        if (setClauses.length > 0) {
-          setClauses.push("review_status = 'approved'");
-          params.push(feeId);
-          db.prepare(
-            `UPDATE extracted_fees SET ${setClauses.join(", ")} WHERE id = ?`,
-          ).run(...params);
-        } else {
-          db.prepare(
-            "UPDATE extracted_fees SET review_status = 'approved' WHERE id = ?",
-          ).run(feeId);
-        }
-
-        const newValues = JSON.stringify({
-          fee_name: updates.fee_name ?? fee.fee_name,
-          amount: updates.amount ?? fee.amount,
-        });
-
-        db.prepare(
-          `INSERT INTO fee_reviews
-           (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
-           VALUES (?, 'edit_approve', ?, ?, ?, 'approved', ?, ?, ?)`,
-        ).run(
-          feeId,
-          user.id,
-          user.username,
-          fee.review_status,
-          previousValues,
-          newValues,
-          notes || `Fixed and approved`,
+      if (setClauses.length > 0) {
+        setClauses.push("review_status = 'approved'");
+        params.push(feeId);
+        await tx.unsafe(
+          `UPDATE extracted_fees SET ${setClauses.join(", ")} WHERE id = $${params.length}`,
+          params
         );
-      });
-      batchOp();
+      } else {
+        await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${feeId}`;
+      }
 
-      revalidatePath("/admin/review");
-      return { success: true };
-    } finally {
-      db.close();
-    }
+      const newValues = JSON.stringify({
+        fee_name: updates.fee_name ?? fee.fee_name,
+        amount: updates.amount ?? fee.amount,
+      });
+
+      await tx`
+        INSERT INTO fee_reviews
+        (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+        VALUES (${feeId}, 'edit_approve', ${user.id}, ${user.username}, ${fee.review_status}, 'approved',
+                ${previousValues}, ${newValues}, ${notes || "Fixed and approved"})
+      `;
+    });
+
+    revalidatePath("/admin/review");
+    return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }
@@ -349,41 +261,26 @@ export async function bulkApproveStagedFees(
 ): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     const user = await requirePermission("bulk_approve");
-    const db = getWriteDb();
-    try {
-      const staged = db
-        .prepare(
-          "SELECT id, review_status FROM extracted_fees WHERE review_status = 'staged'"
-        )
-        .all() as { id: number; review_status: string }[];
+    const staged = await sql`
+      SELECT id, review_status FROM extracted_fees WHERE review_status = 'staged'
+    `;
 
-      if (staged.length === 0) {
-        return { success: true, count: 0 };
+    if (staged.length === 0) return { success: true, count: 0 };
+
+    const bulkNote = notes || `Bulk approved ${staged.length} staged fees`;
+
+    await sql.begin(async (tx: any) => {
+      for (const fee of staged) {
+        await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${fee.id}`;
+        await tx`
+          INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+          VALUES (${fee.id}, 'bulk_approve', ${user.id}, ${user.username}, 'staged', 'approved', ${bulkNote})
+        `;
       }
+    });
 
-      const updateStmt = db.prepare(
-        "UPDATE extracted_fees SET review_status = 'approved' WHERE id = ?"
-      );
-      const auditStmt = db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-         VALUES (?, 'bulk_approve', ?, ?, 'staged', 'approved', ?)`
-      );
-
-      const bulkNote = notes || `Bulk approved ${staged.length} staged fees`;
-
-      const batchOp = db.transaction(() => {
-        for (const fee of staged) {
-          updateStmt.run(fee.id);
-          auditStmt.run(fee.id, user.id, user.username, bulkNote);
-        }
-      });
-      batchOp();
-
-      revalidatePath("/admin/review");
-      return { success: true, count: staged.length };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true, count: staged.length };
   } catch (e) {
     return { success: false, count: 0, error: (e as Error).message };
   }
@@ -398,39 +295,27 @@ export async function bulkRejectFees(
     if (feeIds.length === 0) return { success: true, count: 0 };
     if (feeIds.length > 200) return { success: false, count: 0, error: "Too many fees (max 200)" };
 
-    const db = getWriteDb();
-    try {
-      const selectStmt = db.prepare(
-        "SELECT id, review_status FROM extracted_fees WHERE id = ?",
-      );
-      const updateStmt = db.prepare(
-        "UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ?",
-      );
-      const auditStmt = db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-         VALUES (?, 'bulk_reject', ?, ?, ?, 'rejected', ?)`,
-      );
+    const bulkNote = notes || `Bulk rejected ${feeIds.length} outlier fees`;
+    let count = 0;
 
-      const bulkNote = notes || `Bulk rejected ${feeIds.length} outlier fees`;
-      let count = 0;
+    await sql.begin(async (tx: any) => {
+      for (const feeId of feeIds) {
+        const [fee] = await tx`
+          SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
+        `;
+        if (!fee) continue;
+        if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
+        await tx`UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ${feeId}`;
+        await tx`
+          INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+          VALUES (${feeId}, 'bulk_reject', ${user.id}, ${user.username}, ${fee.review_status}, 'rejected', ${bulkNote})
+        `;
+        count++;
+      }
+    });
 
-      const batchOp = db.transaction(() => {
-        for (const feeId of feeIds) {
-          const fee = selectStmt.get(feeId) as { id: number; review_status: string } | undefined;
-          if (!fee) continue;
-          if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
-          updateStmt.run(feeId);
-          auditStmt.run(feeId, user.id, user.username, fee.review_status, bulkNote);
-          count++;
-        }
-      });
-      batchOp();
-
-      revalidatePath("/admin/review");
-      return { success: true, count };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true, count };
   } catch (e) {
     return { success: false, count: 0, error: (e as Error).message };
   }
@@ -445,47 +330,29 @@ export async function bulkEditAndApproveFees(
     if (updates.length === 0) return { success: true, count: 0 };
     if (updates.length > 200) return { success: false, count: 0, error: "Too many fees (max 200)" };
 
-    const db = getWriteDb();
-    try {
-      const selectStmt = db.prepare(
-        "SELECT id, fee_name, amount, review_status FROM extracted_fees WHERE id = ?",
-      );
-      const updateStmt = db.prepare(
-        "UPDATE extracted_fees SET amount = ?, review_status = 'approved' WHERE id = ?",
-      );
-      const auditStmt = db.prepare(
-        `INSERT INTO fee_reviews
-         (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
-         VALUES (?, 'edit_approve', ?, ?, ?, 'approved', ?, ?, ?)`,
-      );
+    const bulkNote = notes || `Bulk fixed and approved ${updates.length} outlier fees`;
+    let count = 0;
 
-      const bulkNote = notes || `Bulk fixed and approved ${updates.length} outlier fees`;
-      let count = 0;
+    await sql.begin(async (tx: any) => {
+      for (const { feeId, amount } of updates) {
+        const [fee] = await tx`
+          SELECT id, fee_name, amount, review_status FROM extracted_fees WHERE id = ${feeId}
+        `;
+        if (!fee) continue;
+        if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
+        await tx`UPDATE extracted_fees SET amount = ${amount}, review_status = 'approved' WHERE id = ${feeId}`;
+        await tx`
+          INSERT INTO fee_reviews
+          (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+          VALUES (${feeId}, 'edit_approve', ${user.id}, ${user.username}, ${fee.review_status}, 'approved',
+                  ${JSON.stringify({ amount: fee.amount })}, ${JSON.stringify({ amount })}, ${bulkNote})
+        `;
+        count++;
+      }
+    });
 
-      const batchOp = db.transaction(() => {
-        for (const { feeId, amount } of updates) {
-          const fee = selectStmt.get(feeId) as {
-            id: number; fee_name: string; amount: number | null; review_status: string;
-          } | undefined;
-          if (!fee) continue;
-          if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
-          updateStmt.run(amount, feeId);
-          auditStmt.run(
-            feeId, user.id, user.username, fee.review_status,
-            JSON.stringify({ amount: fee.amount }),
-            JSON.stringify({ amount }),
-            bulkNote,
-          );
-          count++;
-        }
-      });
-      batchOp();
-
-      revalidatePath("/admin/review");
-      return { success: true, count };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true, count };
   } catch (e) {
     return { success: false, count: 0, error: (e as Error).message };
   }
@@ -500,39 +367,27 @@ export async function bulkApproveFees(
     if (feeIds.length === 0) return { success: true, count: 0 };
     if (feeIds.length > 200) return { success: false, count: 0, error: "Too many fees (max 200)" };
 
-    const db = getWriteDb();
-    try {
-      const selectStmt = db.prepare(
-        "SELECT id, review_status FROM extracted_fees WHERE id = ?",
-      );
-      const updateStmt = db.prepare(
-        "UPDATE extracted_fees SET review_status = 'approved' WHERE id = ?",
-      );
-      const auditStmt = db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-         VALUES (?, 'bulk_approve', ?, ?, ?, 'approved', ?)`,
-      );
+    const bulkNote = notes || `Bulk approved ${feeIds.length} fees`;
+    let count = 0;
 
-      const bulkNote = notes || `Bulk approved ${feeIds.length} fees`;
-      let count = 0;
+    await sql.begin(async (tx: any) => {
+      for (const feeId of feeIds) {
+        const [fee] = await tx`
+          SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
+        `;
+        if (!fee) continue;
+        if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
+        await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${feeId}`;
+        await tx`
+          INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+          VALUES (${feeId}, 'bulk_approve', ${user.id}, ${user.username}, ${fee.review_status}, 'approved', ${bulkNote})
+        `;
+        count++;
+      }
+    });
 
-      const batchOp = db.transaction(() => {
-        for (const feeId of feeIds) {
-          const fee = selectStmt.get(feeId) as { id: number; review_status: string } | undefined;
-          if (!fee) continue;
-          if (fee.review_status === "approved" || fee.review_status === "rejected") continue;
-          updateStmt.run(feeId);
-          auditStmt.run(feeId, user.id, user.username, fee.review_status, bulkNote);
-          count++;
-        }
-      });
-      batchOp();
-
-      revalidatePath("/admin/review");
-      return { success: true, count };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true, count };
   } catch (e) {
     return { success: false, count: 0, error: (e as Error).message };
   }
@@ -548,35 +403,26 @@ export async function bulkApproveByConfidence(
       return { success: false, count: 0, error: "Confidence must be between 0.5 and 1.0" };
     }
 
-    const db = getWriteDb();
-    try {
-      const staged = db
-        .prepare(
-          "SELECT id FROM extracted_fees WHERE review_status = 'staged' AND extraction_confidence >= ?"
-        )
-        .all(minConfidence) as { id: number }[];
+    const staged = await sql`
+      SELECT id FROM extracted_fees WHERE review_status = 'staged' AND extraction_confidence >= ${minConfidence}
+    `;
 
-      if (staged.length === 0) return { success: true, count: 0 };
+    if (staged.length === 0) return { success: true, count: 0 };
 
-      const updateStmt = db.prepare("UPDATE extracted_fees SET review_status = 'approved' WHERE id = ?");
-      const auditStmt = db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-         VALUES (?, 'confidence_approve', ?, ?, 'staged', 'approved', ?)`
-      );
-      const bulkNote = notes || `Confidence batch: approved ${staged.length} fees >= ${(minConfidence * 100).toFixed(0)}%`;
+    const bulkNote = notes || `Confidence batch: approved ${staged.length} fees >= ${(minConfidence * 100).toFixed(0)}%`;
 
-      db.transaction(() => {
-        for (const fee of staged) {
-          updateStmt.run(fee.id);
-          auditStmt.run(fee.id, user.id, user.username, bulkNote);
-        }
-      })();
+    await sql.begin(async (tx: any) => {
+      for (const fee of staged) {
+        await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${fee.id}`;
+        await tx`
+          INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+          VALUES (${fee.id}, 'confidence_approve', ${user.id}, ${user.username}, 'staged', 'approved', ${bulkNote})
+        `;
+      }
+    });
 
-      revalidatePath("/admin/review");
-      return { success: true, count: staged.length };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true, count: staged.length };
   } catch (e) {
     return { success: false, count: 0, error: (e as Error).message };
   }
@@ -588,35 +434,27 @@ export async function bulkRejectByInstitution(
 ): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     const user = await requirePermission("reject");
-    const db = getWriteDb();
-    try {
-      const fees = db
-        .prepare(
-          "SELECT id, review_status FROM extracted_fees WHERE crawl_target_id = ? AND review_status IN ('staged', 'flagged', 'pending')"
-        )
-        .all(institutionId) as { id: number; review_status: string }[];
+    const fees = await sql`
+      SELECT id, review_status FROM extracted_fees
+      WHERE crawl_target_id = ${institutionId} AND review_status IN ('staged', 'flagged', 'pending')
+    `;
 
-      if (fees.length === 0) return { success: true, count: 0 };
+    if (fees.length === 0) return { success: true, count: 0 };
 
-      const updateStmt = db.prepare("UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ?");
-      const auditStmt = db.prepare(
-        `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-         VALUES (?, 'institution_reject', ?, ?, ?, 'rejected', ?)`
-      );
-      const bulkNote = notes || `Rejected all ${fees.length} non-reviewed fees for institution #${institutionId}`;
+    const bulkNote = notes || `Rejected all ${fees.length} non-reviewed fees for institution #${institutionId}`;
 
-      db.transaction(() => {
-        for (const fee of fees) {
-          updateStmt.run(fee.id);
-          auditStmt.run(fee.id, user.id, user.username, fee.review_status, bulkNote);
-        }
-      })();
+    await sql.begin(async (tx: any) => {
+      for (const fee of fees) {
+        await tx`UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ${fee.id}`;
+        await tx`
+          INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+          VALUES (${fee.id}, 'institution_reject', ${user.id}, ${user.username}, ${fee.review_status}, 'rejected', ${bulkNote})
+        `;
+      }
+    });
 
-      revalidatePath("/admin/review");
-      return { success: true, count: fees.length };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true, count: fees.length };
   } catch (e) {
     return { success: false, count: 0, error: (e as Error).message };
   }
@@ -631,31 +469,66 @@ export async function unstageFee(
   }
   try {
     const user = await requirePermission("edit");
-    const db = getWriteDb();
-    try {
-      db.transaction(() => {
-        const fee = db
-          .prepare("SELECT id, review_status FROM extracted_fees WHERE id = ?")
-          .get(feeId) as { id: number; review_status: string } | undefined;
+    await sql.begin(async (tx: any) => {
+      const [fee] = await tx`
+        SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
+      `;
+      if (!fee) throw new Error("Fee not found");
+      if (fee.review_status !== "approved" && fee.review_status !== "rejected") {
+        throw new Error("Can only unstage approved or rejected fees");
+      }
 
-        if (!fee) throw new Error("Fee not found");
-        if (fee.review_status !== "approved" && fee.review_status !== "rejected") {
-          throw new Error("Can only unstage approved or rejected fees");
-        }
+      await tx`UPDATE extracted_fees SET review_status = 'staged' WHERE id = ${feeId}`;
+      await tx`
+        INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
+        VALUES (${feeId}, 'unstage', ${user.id}, ${user.username}, ${fee.review_status}, 'staged', ${notes})
+      `;
+    });
 
-        db.prepare("UPDATE extracted_fees SET review_status = 'staged' WHERE id = ?").run(feeId);
-        db.prepare(
-          `INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, notes)
-           VALUES (?, 'unstage', ?, ?, ?, 'staged', ?)`
-        ).run(feeId, user.id, user.username, fee.review_status, notes);
-      })();
-
-      revalidatePath("/admin/review");
-      return { success: true };
-    } finally {
-      db.close();
-    }
+    revalidatePath("/admin/review");
+    return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
+  }
+}
+
+export async function bulkUpdateFeeCategory(
+  feeIds: number[],
+  newCategory: string,
+  notes?: string,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const user = await requirePermission("edit");
+    if (feeIds.length === 0) return { success: true, count: 0 };
+    if (feeIds.length > 200) return { success: false, count: 0, error: "Too many fees (max 200)" };
+
+    const bulkNote = notes || `Bulk recategorized ${feeIds.length} fees to ${newCategory}`;
+    let count = 0;
+
+    await sql.begin(async (tx: any) => {
+      for (const feeId of feeIds) {
+        const [fee] = await tx`
+          SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ${feeId}
+        `;
+        if (!fee) continue;
+        if (fee.fee_category === newCategory) continue;
+
+        await tx`UPDATE extracted_fees SET fee_category = ${newCategory} WHERE id = ${feeId}`;
+        await tx`
+          INSERT INTO fee_reviews (fee_id, action, user_id, username, previous_status, new_status, previous_values, new_values, notes)
+          VALUES (${feeId}, 'bulk_recategorize', ${user.id}, ${user.username}, ${fee.review_status}, ${fee.review_status},
+                  ${JSON.stringify({ fee_category: fee.fee_category })},
+                  ${JSON.stringify({ fee_category: newCategory })},
+                  ${bulkNote})
+        `;
+        count++;
+      }
+    });
+
+    revalidatePath("/admin/review");
+    revalidatePath("/admin/review/categories");
+    return { success: true, count };
+  } catch (e) {
+    return { success: false, count: 0, error: (e as Error).message };
   }
 }

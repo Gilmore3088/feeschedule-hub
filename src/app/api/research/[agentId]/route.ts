@@ -7,7 +7,13 @@ import {
   checkAdminRateLimit,
 } from "@/lib/research/rate-limit";
 import { getDailyCostCents, logUsage } from "@/lib/research/history";
-import { detectSkill, buildSkillInjection } from "@/lib/research/skills";
+import {
+  detectSkill,
+  buildSkillInjection,
+  buildSkillExecution,
+  isSkillOptIn,
+  findOfferedSkill,
+} from "@/lib/research/skills";
 
 export const maxDuration = 30;
 
@@ -43,7 +49,7 @@ export async function POST(
   { params }: { params: Promise<{ agentId: string }> }
 ) {
   const { agentId } = await params;
-  const agent = getAgent(agentId);
+  const agent = await getAgent(agentId);
 
   if (!agent) {
     return Response.json({ error: "Unknown agent" }, { status: 404 });
@@ -59,7 +65,7 @@ export async function POST(
 
   // Daily cost circuit breaker
   try {
-    const dailyCost = getDailyCostCents();
+    const dailyCost = await getDailyCostCents();
     if (dailyCost >= DAILY_COST_LIMIT_CENTS) {
       return Response.json(
         { error: "Daily cost limit reached. AI research is temporarily disabled." },
@@ -138,9 +144,26 @@ export async function POST(
     .join(" ") || "";
 
   let systemPrompt = agent.systemPrompt;
-  const matchedSkill = lastUserText ? detectSkill(lastUserText) : null;
-  if (matchedSkill) {
-    systemPrompt += buildSkillInjection(matchedSkill);
+
+  // Check if user is opting in to a previously offered skill deliverable
+  if (lastUserText && isSkillOptIn(lastUserText)) {
+    const assistantTexts = messages
+      .filter((m) => m.role === "assistant")
+      .flatMap((m) =>
+        (m.parts ?? [])
+          .filter((p): p is { type: "text"; text: string } => p.type === "text")
+          .map((p) => ({ text: p.text }))
+      );
+    const offeredSkill = findOfferedSkill(assistantTexts);
+    if (offeredSkill) {
+      systemPrompt += buildSkillExecution(offeredSkill);
+    }
+  } else {
+    // Detect skill match and offer it (without injecting the full template)
+    const matchedSkill = lastUserText ? detectSkill(lastUserText) : null;
+    if (matchedSkill) {
+      systemPrompt += buildSkillInjection(matchedSkill);
+    }
   }
 
   try {
@@ -161,7 +184,7 @@ export async function POST(
             inputTokens,
             outputTokens
           );
-          logUsage(
+          await logUsage(
             user?.id ?? null,
             user ? null : ip,
             agentId,

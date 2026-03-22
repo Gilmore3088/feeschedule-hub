@@ -30,9 +30,9 @@ export default async function ProMarketPage() {
   if (!user) redirect("/login?from=/pro/market");
   if (!canAccessPremium(user)) redirect("/subscribe");
 
-  const allEntries = getNationalIndexCached();
-  const stats = getPublicStats();
-  const freshness = getDataFreshness();
+  const allEntries = await getNationalIndexCached();
+  const stats = await getPublicStats();
+  const freshness = await getDataFreshness();
 
   const lastUpdated = freshness.last_crawl_at
     ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
@@ -53,19 +53,19 @@ export default async function ProMarketPage() {
   let articles: { slug: string; title: string; subtitle: string | null; category: string; published_at: string | null; author: string }[] = [];
 
   try {
-    beigeBookHeadlines = getBeigeBookHeadlines();
+    beigeBookHeadlines = await getBeigeBookHeadlines();
   } catch { /* tables may not exist */ }
 
   try {
-    beigeEditions = getBeigeBookEditions(4);
+    beigeEditions = await getBeigeBookEditions(4);
   } catch { /* tables may not exist */ }
 
   try {
-    speeches = getRecentSpeeches(8);
+    speeches = await getRecentSpeeches(8);
   } catch { /* tables may not exist */ }
 
   try {
-    articles = getPublishedArticles(6);
+    articles = await getPublishedArticles(6);
   } catch { /* tables may not exist */ }
 
   const latestBeigeDate = beigeEditions[0]?.release_date

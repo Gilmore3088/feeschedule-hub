@@ -61,23 +61,23 @@ export default async function MarketPage({
     peerFilters.districts
   );
 
-  // Data fetching (all synchronous better-sqlite3)
-  const nationalIndex = getNationalIndex(approvedOnly);
+  // Data fetching (all async postgres)
+  const nationalIndex = await getNationalIndex(approvedOnly);
   const segmentIndex = hasFilters
-    ? getPeerIndex(dbFilters, approvedOnly)
+    ? await getPeerIndex(dbFilters, approvedOnly)
     : null;
   const entries = buildMarketIndex(nationalIndex, segmentIndex);
 
-  const segmentStats = getPeerPreviewStats(dbFilters);
-  const nationalStats = hasFilters ? getPeerPreviewStats({}) : null;
+  const segmentStats = await getPeerPreviewStats(dbFilters);
+  const nationalStats = hasFilters ? await getPeerPreviewStats({}) : null;
 
-  const tierCounts = getTierCounts();
+  const tierCounts = await getTierCounts();
   const filteredTierCounts = hasFilters
-    ? getFilteredTierCounts(dbFilters)
+    ? await getFilteredTierCounts(dbFilters)
     : null;
 
-  const districtMetrics = getDistrictMetrics(dbFilters);
-  const beigeBookMap = getBeigeBookHeadlines();
+  const districtMetrics = await getDistrictMetrics(dbFilters);
+  const beigeBookMap = await getBeigeBookHeadlines();
   const beigeBookHeadlines: Record<
     string,
     { text: string; release_date: string }
@@ -86,15 +86,15 @@ export default async function MarketPage({
     beigeBookHeadlines[String(k)] = v;
   }
 
-  const outliers = getSegmentOutliers(dbFilters, 3);
-  const savedSets = getSavedPeerSets(user.username);
+  const outliers = await getSegmentOutliers(dbFilters, 3);
+  const savedSets = await getSavedPeerSets(user.username);
 
   // Distribution data (only when a category is selected)
   const segmentFees = selectedCategory
-    ? getFeesForCategory(selectedCategory, dbFilters, approvedOnly)
+    ? await getFeesForCategory(selectedCategory, dbFilters, approvedOnly)
     : [];
   const nationalFees = selectedCategory
-    ? getFeesForCategory(selectedCategory, {}, approvedOnly)
+    ? await getFeesForCategory(selectedCategory, {}, approvedOnly)
     : [];
 
   const selectedEntry = selectedCategory

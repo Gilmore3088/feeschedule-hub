@@ -2,8 +2,8 @@ import { getIndexCacheStats } from "@/lib/crawler-db/pipeline-runs";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { timeAgo } from "@/lib/format";
 
-export function IndexCacheCard() {
-  const cache = getIndexCacheStats();
+export async function IndexCacheCard() {
+  const cache = await getIndexCacheStats();
 
   return (
     <div className="admin-card overflow-hidden">

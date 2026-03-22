@@ -43,23 +43,23 @@ export default async function PeersPage({
     fed_districts: peerFilters.districts,
   };
 
-  const tierCounts = getTierCounts();
-  const districtStats = getDistrictMetrics({
+  const tierCounts = await getTierCounts();
+  const districtStats = await getDistrictMetrics({
     charter_type: peerFilters.charter,
     asset_tiers: peerFilters.tiers,
   });
-  const savedSets = getSavedPeerSets(user.username);
+  const savedSets = await getSavedPeerSets(user.username);
 
-  const previewStats = getPeerPreviewStats(dbFilters);
+  const previewStats = await getPeerPreviewStats(dbFilters);
   const topCategories = hasFilters
-    ? getTopCategoriesForPeerSet(dbFilters, 5)
+    ? await getTopCategoriesForPeerSet(dbFilters, 5)
     : [];
 
-  const beigeBookHeadlines = getBeigeBookHeadlines();
+  const beigeBookHeadlines = await getBeigeBookHeadlines();
   const singleDistrict =
     peerFilters.districts?.length === 1 ? peerFilters.districts[0] : null;
   const beigeBookSections = singleDistrict
-    ? getLatestBeigeBook(singleDistrict)
+    ? await getLatestBeigeBook(singleDistrict)
     : [];
 
   const filterDescription = buildFilterDescription(peerFilters);

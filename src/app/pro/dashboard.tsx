@@ -30,9 +30,9 @@ interface DashboardProps {
 }
 
 export async function ProDashboard({ user }: DashboardProps) {
-  const allEntries = getNationalIndexCached();
-  const stats = getPublicStats();
-  const freshness = getDataFreshness();
+  const allEntries = await getNationalIndexCached();
+  const stats = await getPublicStats();
+  const freshness = await getDataFreshness();
   const district = user.state_code ? STATE_TO_DISTRICT[user.state_code] : null;
   const districtName = district ? DISTRICT_NAMES[district] : null;
   const stateName = user.state_code ? STATE_NAMES[user.state_code] : null;
@@ -48,7 +48,7 @@ export async function ProDashboard({ user }: DashboardProps) {
   // State comparison
   let stateComparison: { category: string; stateMedian: number; nationalMedian: number; delta: number }[] = [];
   if (user.state_code) {
-    const stateIndex = getPeerIndex({ state_code: user.state_code });
+    const stateIndex = await getPeerIndex({ state_code: user.state_code });
     stateComparison = SPOTLIGHT_CATS.slice(0, 4).map((cat) => {
       const national = allEntries.find((e) => e.fee_category === cat);
       const state = stateIndex.find((e) => e.fee_category === cat);
@@ -66,9 +66,9 @@ export async function ProDashboard({ user }: DashboardProps) {
   let usage = { today: 0, month: 0, total_cost_cents: 0 };
   let recentConversations: { id: number; title: string | null; updated_at: string }[] = [];
   try {
-    ensureResearchTables();
-    usage = getUsageStats(user.id);
-    recentConversations = listConversations(user.id, undefined, 5);
+    await ensureResearchTables();
+    usage = await getUsageStats(user.id);
+    recentConversations = await listConversations(user.id, undefined, 5);
   } catch {
     // research tables may not exist
   }

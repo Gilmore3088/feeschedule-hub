@@ -24,3 +24,7 @@ crawl:
 extraction:
   confidence_auto_stage_threshold: 0.85
   outlier_std_dev_threshold: 3.0
+  model: claude-haiku-4-5-20251001
+  max_tokens: 2048
+  use_batch_api: true
+  daily_budget_usd: 20.0

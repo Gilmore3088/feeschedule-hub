@@ -53,13 +53,13 @@ export default async function FeeDetailPage({
 
   const { id } = await params;
   const feeId = parseInt(id, 10);
-  const fee = getFeeById(feeId);
+  const fee = await getFeeById(feeId);
 
   if (!fee) {
     return <p className="text-gray-500">Fee not found</p>;
   }
 
-  const auditTrail = getAuditTrail(feeId);
+  const auditTrail = await getAuditTrail(feeId);
   const flags = parseFlags(fee.validation_flags);
   const canApprove = user.role === "analyst" || user.role === "admin";
   const isActionable =

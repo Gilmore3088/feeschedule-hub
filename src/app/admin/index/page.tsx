@@ -51,7 +51,7 @@ export default async function FeeIndexPage({
 
   let entries: IndexEntry[];
   if (hasPeerFilters) {
-    entries = getPeerIndex(
+    entries = await getPeerIndex(
       {
         charter_type: peerFilters.charter,
         asset_tiers: peerFilters.tiers,
@@ -60,7 +60,7 @@ export default async function FeeIndexPage({
       approvedOnly
     );
   } else {
-    entries = getNationalIndex(approvedOnly);
+    entries = await getNationalIndex(approvedOnly);
   }
 
   const filterDescription = hasPeerFilters

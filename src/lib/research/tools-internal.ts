@@ -9,7 +9,7 @@ import {
 } from "@/lib/crawler-db/fee-revenue";
 import { getOutlierFlaggedFees, getReviewStats, getStats } from "@/lib/crawler-db/core";
 import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { spawnJob } from "@/lib/job-runner";
 
 /**
@@ -24,8 +24,8 @@ export const queryDistrictData = tool({
     districtId: z.number().min(1).max(12).describe("Fed district number (1-12)"),
   }),
   execute: async ({ districtId }) => {
-    const stats = getDistrictStats(districtId);
-    const beigeBook = getLatestBeigeBook(districtId);
+    const stats = await getDistrictStats(districtId);
+    const beigeBook = await getLatestBeigeBook(districtId);
 
     return {
       district: districtId,
@@ -45,7 +45,7 @@ export const queryStateData = tool({
     stateCode: z.string().length(2).describe("Two-letter state code (e.g., CA, TX)"),
   }),
   execute: async ({ stateCode }) => {
-    return getStateStats(stateCode.toUpperCase());
+    return await getStateStats(stateCode.toUpperCase());
   },
 });
 
@@ -66,7 +66,7 @@ export const queryFeeRevenueCorrelation = tool({
   }),
   execute: async ({ view, limit }) => {
     if (view === "institutions") {
-      const data = getFeeRevenueData();
+      const data = await getFeeRevenueData();
       return {
         view: "institutions",
         total: data.length,
@@ -74,9 +74,9 @@ export const queryFeeRevenueCorrelation = tool({
       };
     }
     if (view === "by_charter") {
-      return { view: "by_charter", data: getCharterFeeRevenueSummary() };
+      return { view: "by_charter", data: await getCharterFeeRevenueSummary() };
     }
-    return { view: "by_tier", data: getTierFeeRevenueSummary() };
+    return { view: "by_tier", data: await getTierFeeRevenueSummary() };
   },
 });
 
@@ -92,7 +92,7 @@ export const queryOutliers = tool({
       .describe("Max results to return"),
   }),
   execute: async ({ category, limit }) => {
-    const result = getOutlierFlaggedFees(limit ?? 20, 0, category);
+    const result = await getOutlierFlaggedFees(limit ?? 20, 0, category);
     return {
       total: result.total,
       data: result.fees.map((f) => ({
@@ -113,8 +113,8 @@ export const getCrawlStatus = tool({
     "Get current crawl health and pipeline status: total institutions, success rates, recent crawl activity.",
   inputSchema: z.object({}),
   execute: async () => {
-    const health = getCrawlHealth();
-    const stats = getStats();
+    const health = await getCrawlHealth();
+    const stats = await getStats();
     return {
       total_institutions: stats.total_institutions,
       institutions_with_fees: stats.with_fee_url,
@@ -129,7 +129,7 @@ export const getReviewQueueStats = tool({
     "Get review queue statistics: pending, approved, rejected, staged counts.",
   inputSchema: z.object({}),
   execute: async () => {
-    return getReviewStats();
+    return await getReviewStats();
   },
 });
 
@@ -141,16 +141,13 @@ export const searchInstitutionsByName = tool({
     limit: z.number().optional().default(10).describe("Max results"),
   }),
   execute: async ({ query, limit }) => {
-    const db = getDb();
-    const rows = db
-      .prepare(
-        `SELECT id, institution_name, state_code, city, charter_type, asset_size_tier
-         FROM crawl_targets
-         WHERE institution_name LIKE ?
-         ORDER BY institution_name
-         LIMIT ?`
-      )
-      .all(`%${query}%`, limit ?? 10) as Array<{
+    const rows = await sql`
+      SELECT id, institution_name, state_code, city, charter_type, asset_size_tier
+      FROM crawl_targets
+      WHERE institution_name LIKE ${"%" + query + "%"}
+      ORDER BY institution_name
+      LIMIT ${limit ?? 10}
+    ` as Array<{
       id: number;
       institution_name: string;
       state_code: string;
@@ -187,18 +184,16 @@ export const rankInstitutions = tool({
     limit: z.number().optional().default(10).describe("Number of results"),
   }),
   execute: async ({ metric, charter, limit }) => {
-    const db = getDb();
-    const charterWhere = charter ? `AND ct.charter_type = '${charter}'` : "";
+    const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
     const n = limit ?? 10;
 
     if (metric === "above_p75" || metric === "below_p25") {
-      // Get national P25/P75 per category
-      const benchmarks = db.prepare(`
+      const benchmarks = await sql`
         SELECT fee_category, amount
         FROM extracted_fees
         WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
         ORDER BY fee_category, amount
-      `).all() as { fee_category: string; amount: number }[];
+      ` as { fee_category: string; amount: number }[];
 
       const pctMap: Record<string, { p25: number; p75: number }> = {};
       const grouped: Record<string, number[]> = {};
@@ -217,15 +212,14 @@ export const rankInstitutions = tool({
       const threshold = metric === "above_p75" ? "p75" : "p25";
       const comparison = metric === "above_p75" ? ">" : "<";
 
-      // Count per institution
-      const instFees = db.prepare(`
+      const instFees = await sql`
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                ef.fee_category, ef.amount
         FROM extracted_fees ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
         WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
-          ${charterWhere}
-      `).all() as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
+          ${charterClause}
+      ` as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
 
       const counts: Record<number, { name: string; state: string; charter: string; tier: string; count: number; total: number; categories: string[] }> = {};
       for (const r of instFees) {
@@ -264,32 +258,32 @@ export const rankInstitutions = tool({
     }
 
     if (metric === "total_fees") {
-      const rows = db.prepare(`
+      const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as fee_count
         FROM extracted_fees ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.review_status != 'rejected' ${charterWhere}
-        GROUP BY ct.id
+        WHERE ef.review_status != 'rejected' ${charterClause}
+        GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
         ORDER BY fee_count DESC
-        LIMIT ?
-      `).all(n) as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_count: number }[];
+        LIMIT ${n}
+      ` as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_count: number }[];
 
       return { metric, results: rows };
     }
 
     if (metric === "outlier_flags") {
-      const rows = db.prepare(`
+      const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as flag_count
         FROM extracted_fees ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
         WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
-          AND ef.review_status != 'rejected' ${charterWhere}
-        GROUP BY ct.id
+          AND ef.review_status != 'rejected' ${charterClause}
+        GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
         ORDER BY flag_count DESC
-        LIMIT ?
-      `).all(n) as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; flag_count: number }[];
+        LIMIT ${n}
+      ` as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; flag_count: number }[];
 
       return { metric, results: rows };
     }
@@ -308,21 +302,21 @@ export const queryJobStatus = tool({
     jobId: z.number().optional().describe("Job ID for detail view"),
   }),
   execute: async ({ view, jobId }) => {
-    const db = getDb();
     if (view === "detail" && jobId) {
-      const job = db
-        .prepare("SELECT * FROM ops_jobs WHERE id = ?")
-        .get(jobId);
+      const [job] = await sql`SELECT * FROM ops_jobs WHERE id = ${jobId}`;
       return job || { error: "Job not found" };
     }
     if (view === "active") {
-      return db
-        .prepare("SELECT id, command, status, triggered_by, started_at FROM ops_jobs WHERE status IN ('running', 'queued') ORDER BY created_at DESC")
-        .all();
+      return await sql`
+        SELECT id, command, status, triggered_by, started_at
+        FROM ops_jobs WHERE status IN ('running', 'queued')
+        ORDER BY created_at DESC
+      `;
     }
-    return db
-      .prepare("SELECT id, command, status, exit_code, triggered_by, started_at, completed_at, result_summary FROM ops_jobs ORDER BY created_at DESC LIMIT 10")
-      .all();
+    return await sql`
+      SELECT id, command, status, exit_code, triggered_by, started_at, completed_at, result_summary
+      FROM ops_jobs ORDER BY created_at DESC LIMIT 10
+    `;
   },
 });
 
@@ -335,43 +329,41 @@ export const queryDataQuality = tool({
       .describe("Which quality metric to query"),
   }),
   execute: async ({ view }) => {
-    const db = getDb();
     if (view === "funnel") {
-      return db
-        .prepare(`
-          SELECT
-            (SELECT COUNT(*) FROM crawl_targets) as total_institutions,
-            (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
-            (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
-            (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
-            (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
-            (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
-        `)
-        .get();
+      const [row] = await sql`
+        SELECT
+          (SELECT COUNT(*) FROM crawl_targets) as total_institutions,
+          (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
+          (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
+          (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+      `;
+      return row;
     }
     if (view === "uncategorized") {
-      const count = db
-        .prepare("SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'")
-        .get() as { cnt: number };
-      const top = db
-        .prepare("SELECT fee_name, COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected' GROUP BY fee_name ORDER BY cnt DESC LIMIT 15")
-        .all();
+      const [count] = await sql`
+        SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'
+      ` as { cnt: number }[];
+      const top = await sql`
+        SELECT fee_name, COUNT(*) as cnt FROM extracted_fees
+        WHERE fee_category IS NULL AND review_status != 'rejected'
+        GROUP BY fee_name ORDER BY cnt DESC LIMIT 15
+      `;
       return { total_uncategorized: count.cnt, top_names: top };
     }
     if (view === "stale") {
-      const stale = db
-        .prepare(`
-          SELECT COUNT(*) as cnt FROM crawl_targets
-          WHERE fee_schedule_url IS NOT NULL
-            AND (last_crawl_at IS NULL OR last_crawl_at < datetime('now', '-90 days'))
-        `)
-        .get() as { cnt: number };
+      const [stale] = await sql`
+        SELECT COUNT(*) as cnt FROM crawl_targets
+        WHERE fee_schedule_url IS NOT NULL
+          AND (last_crawl_at IS NULL OR last_crawl_at < NOW() - INTERVAL '90 days')
+      ` as { cnt: number }[];
       return { stale_institutions: stale.cnt, threshold_days: 90 };
     }
     // review_status
-    return db
-      .prepare("SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC")
-      .all();
+    return await sql`
+      SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC
+    `;
   },
 });
 
@@ -393,7 +385,7 @@ export const triggerPipelineJob = tool({
     }
     try {
       const args = dryRun ? ["--dry-run"] : [];
-      const result = spawnJob(command, args, "agent");
+      const result = await spawnJob(command, args, "agent");
       return { success: true, jobId: result.jobId, pid: result.pid, logPath: result.logPath };
     } catch (e) {
       return { error: String(e) };

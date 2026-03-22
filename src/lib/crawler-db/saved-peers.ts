@@ -1,6 +1,4 @@
-import Database from "better-sqlite3";
-import path from "path";
-import { getDb } from "./connection";
+import { sql } from "./connection";
 
 export interface SavedPeerSet {
   id: number;
@@ -12,76 +10,54 @@ export interface SavedPeerSet {
   created_at: string;
 }
 
-export function ensureSavedPeerSetsTable(): void {
-  const dbPath = path.join(process.cwd(), "data", "crawler.db");
-  const db = new Database(dbPath);
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS saved_peer_sets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        tiers TEXT,
-        districts TEXT,
-        charter_type TEXT,
-        created_by TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-  } finally {
-    db.close();
-  }
-}
-
-export function getSavedPeerSets(userId: string): SavedPeerSet[] {
-  ensureSavedPeerSetsTable();
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT id, name, tiers, districts, charter_type, created_by, created_at
-       FROM saved_peer_sets
-       WHERE created_by = ?
-       ORDER BY created_at DESC`
+export async function ensureSavedPeerSetsTable(): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS saved_peer_sets (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      tiers TEXT,
+      districts TEXT,
+      charter_type TEXT,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
     )
-    .all(userId) as SavedPeerSet[];
+  `;
 }
 
-export function savePeerSet(
+export async function getSavedPeerSets(userId: string): Promise<SavedPeerSet[]> {
+  await ensureSavedPeerSetsTable();
+  return await sql`
+    SELECT id, name, tiers, districts, charter_type, created_by, created_at
+    FROM saved_peer_sets
+    WHERE created_by = ${userId}
+    ORDER BY created_at DESC
+  ` as SavedPeerSet[];
+}
+
+export async function savePeerSet(
   name: string,
   filters: { charter_type?: string; asset_tiers?: string[]; fed_districts?: number[] },
   userId: string
-): number {
-  ensureSavedPeerSetsTable();
-  const dbPath = path.join(process.cwd(), "data", "crawler.db");
-  const db = new Database(dbPath);
-  try {
-    const result = db
-      .prepare(
-        `INSERT INTO saved_peer_sets (name, tiers, districts, charter_type, created_by)
-         VALUES (?, ?, ?, ?, ?)`
-      )
-      .run(
-        name,
-        filters.asset_tiers?.join(",") ?? null,
-        filters.fed_districts?.join(",") ?? null,
-        filters.charter_type ?? null,
-        userId
-      );
-    return Number(result.lastInsertRowid);
-  } finally {
-    db.close();
-  }
+): Promise<number> {
+  await ensureSavedPeerSetsTable();
+  const [row] = await sql`
+    INSERT INTO saved_peer_sets (name, tiers, districts, charter_type, created_by)
+    VALUES (
+      ${name},
+      ${filters.asset_tiers?.join(",") ?? null},
+      ${filters.fed_districts?.join(",") ?? null},
+      ${filters.charter_type ?? null},
+      ${userId}
+    )
+    RETURNING id
+  `;
+  return row.id;
 }
 
-export function deletePeerSet(id: number, userId: string): boolean {
-  ensureSavedPeerSetsTable();
-  const dbPath = path.join(process.cwd(), "data", "crawler.db");
-  const db = new Database(dbPath);
-  try {
-    const result = db
-      .prepare("DELETE FROM saved_peer_sets WHERE id = ? AND created_by = ?")
-      .run(id, userId);
-    return result.changes > 0;
-  } finally {
-    db.close();
-  }
+export async function deletePeerSet(id: number, userId: string): Promise<boolean> {
+  await ensureSavedPeerSetsTable();
+  const result = await sql`
+    DELETE FROM saved_peer_sets WHERE id = ${id} AND created_by = ${userId}
+  `;
+  return result.count > 0;
 }

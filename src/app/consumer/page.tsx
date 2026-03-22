@@ -47,9 +47,9 @@ const GUIDE_PREVIEWS = [
 
 export default async function ConsumerHomePage() {
 
-  const allEntries = getNationalIndexCached();
-  const stats = getPublicStats();
-  const freshness = getDataFreshness();
+  const allEntries = await getNationalIndexCached();
+  const stats = await getPublicStats();
+  const freshness = await getDataFreshness();
   const lastUpdated = freshness.last_crawl_at
     ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
         month: "long",
@@ -66,8 +66,8 @@ export default async function ConsumerHomePage() {
     .filter(Boolean);
 
   // Bank vs Credit Union comparison
-  const bankIndex = getPeerIndex({ charter_type: "bank" });
-  const cuIndex = getPeerIndex({ charter_type: "credit_union" });
+  const bankIndex = await getPeerIndex({ charter_type: "bank" });
+  const cuIndex = await getPeerIndex({ charter_type: "credit_union" });
   const comparisonCategories = [
     "overdraft",
     "nsf",
@@ -92,7 +92,7 @@ export default async function ConsumerHomePage() {
     .filter(Boolean);
 
   // Top states by coverage
-  const statesData = getStatesWithFeeData().slice(0, 10);
+  const statesData = (await getStatesWithFeeData()).slice(0, 10);
 
   // Fee revenue insights
   // Compute some insights

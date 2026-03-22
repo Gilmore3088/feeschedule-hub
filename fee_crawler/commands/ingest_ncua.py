@@ -12,7 +12,11 @@ from fee_crawler.db import Database
 
 # NCUA bulk data URL — quarterly ZIP of CSV files.
 # Update this each quarter (format: call-report-data-YYYY-QQ.zip).
-NCUA_ZIP_URL = "https://ncua.gov/files/publications/analysis/call-report-data-2025-09.zip"
+NCUA_ZIP_BASE = "https://ncua.gov/files/publications/analysis/call-report-data-{year}-{month:02d}.zip"
+
+# Default to most recent available quarter.
+NCUA_DEFAULT_YEAR = 2025
+NCUA_DEFAULT_MONTH = 12
 
 # FS220.txt field mapping (balance sheet + summary)
 FS220_FIELDS = {
@@ -67,6 +71,7 @@ def ingest_ncua_financials(
     db: Database,
     config: Config,
     *,
+    quarter: str | None = None,
     limit: int | None = None,
 ) -> int:
     """Download NCUA 5300 Call Report ZIP and ingest financial data.
@@ -88,8 +93,16 @@ def ingest_ncua_financials(
 
     print(f"Found {len(cu_map):,} NCUA credit unions in database")
 
-    print(f"Downloading NCUA bulk data ({NCUA_ZIP_URL})...")
-    resp = requests.get(NCUA_ZIP_URL, timeout=120, stream=True)
+    # Build URL from quarter param (YYYY-MM-DD) or defaults
+    if quarter:
+        parts = quarter.split("-")
+        q_year, q_month = int(parts[0]), int(parts[1])
+    else:
+        q_year, q_month = NCUA_DEFAULT_YEAR, NCUA_DEFAULT_MONTH
+    zip_url = NCUA_ZIP_BASE.format(year=q_year, month=q_month)
+
+    print(f"Downloading NCUA bulk data ({zip_url})...")
+    resp = requests.get(zip_url, timeout=120, stream=True)
     resp.raise_for_status()
     content_length = int(resp.headers.get("content-length", 0))
     max_size = 500 * 1024 * 1024  # 500MB guard
@@ -286,9 +299,15 @@ def ingest_ncua_financials(
     return total_upserted
 
 
-def run(db: Database, config: Config, limit: int | None = None) -> None:
+def run(
+    db: Database,
+    config: Config,
+    *,
+    quarter: str | None = None,
+    limit: int | None = None,
+) -> None:
     """Entry point for the CLI command."""
-    ingest_ncua_financials(db, config, limit=limit)
+    ingest_ncua_financials(db, config, quarter=quarter, limit=limit)
 
     count = db.fetchone(
         "SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'ncua'"

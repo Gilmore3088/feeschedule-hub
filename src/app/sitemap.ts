@@ -8,7 +8,7 @@ import { SITE_URL } from "@/lib/constants";
 
 const BASE_URL = SITE_URL;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -53,7 +53,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
-  const institutionIds = getInstitutionIdsWithFees();
+  const institutionIds = await getInstitutionIdsWithFees();
   const institutionPages: MetadataRoute.Sitemap = institutionIds.map((id) => ({
     url: `${BASE_URL}/institution/${id}`,
     lastModified: now,
@@ -94,7 +94,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const cityPages: MetadataRoute.Sitemap = [];
   for (const code of STATE_CODES) {
     try {
-      const cities = getCitiesInState(code);
+      const cities = await getCitiesInState(code);
       for (const c of cities.slice(0, 20)) { // Top 20 cities per state
         cityPages.push({
           url: `${BASE_URL}/fees/city/${code.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`,

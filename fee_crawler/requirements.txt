@@ -6,3 +6,6 @@ lxml>=5.0
 pdfplumber>=0.10
 anthropic>=0.40
 feedparser>=6.0
+psycopg2-binary>=2.9
+httpx>=0.27
+boto3>=1.34

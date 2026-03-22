@@ -735,6 +735,74 @@ FEE_NAME_ALIASES: dict[str, str] = {
     # Loan coupons
     "loan coupons": "account_research",
     "loan coupon book": "account_research",
+    # --- Aliases from uncategorized fee audit (2026-03-22) ---
+    # returned_mail / bad_address -> account_research
+    "returned mail fee": "account_research",
+    "returned mail": "account_research",
+    "return mail fee": "account_research",
+    "undeliverable mail fee": "account_research",
+    "bad address fee": "account_research",
+    "bad address": "account_research",
+    # debit_fee / debit_card_fee -> card_replacement (or atm_non_network contextual)
+    "debit card fee": "card_replacement",
+    "debit card replacement fee": "card_replacement",
+    "debit card replacement": "card_replacement",
+    # outgoing_fee -> wire_domestic_outgoing
+    "outgoing wire fee": "wire_domestic_outgoing",
+    "outgoing wire": "wire_domestic_outgoing",
+    "domestic wire fee": "wire_domestic_outgoing",
+    "wire fee": "wire_domestic_outgoing",
+    # transfer_fee -> od_protection_transfer
+    "transfer fee": "od_protection_transfer",
+    # inactive_fee -> dormant_account
+    "inactive fee": "dormant_account",
+    "inactive account": "dormant_account",
+    # escheatment -> dormant_account
+    "escheatment": "dormant_account",
+    "escheat processing fee": "dormant_account",
+    "escheat processing": "dormant_account",
+    # fax_fee -> account_research
+    "fax fee": "account_research",
+    "fax service fee": "account_research",
+    "fax confirmation": "account_research",
+    # check_fee -> check_cashing or check_printing contextual
+    "check fee": "check_printing",
+    # replacement_fee -> card_replacement
+    "replacement fee": "card_replacement",
+    "replacement card fee": "card_replacement",
+    # copy_of_paid_check -> check_image
+    "copy of paid check": "check_image",
+    "paid check copy": "check_image",
+    "check copy fee": "check_image",
+    "check copy": "check_image",
+    # account_closed_within_90_days -> early_closure
+    "account closed within 90 days": "early_closure",
+    "account closed within 90 days of opening": "early_closure",
+    # lost_key_fee -> safe_deposit_box
+    "lost key fee": "safe_deposit_box",
+    "lost safe deposit key": "safe_deposit_box",
+    "replacement key": "safe_deposit_box",
+    # account_balancing_assistance -> account_research
+    "account balancing assistance": "account_research",
+    "account balancing": "account_research",
+    # Telephone/teller -> balance_inquiry
+    "telephone banking fee": "balance_inquiry",
+    "teller fee": "balance_inquiry",
+    "assisted transaction fee": "balance_inquiry",
+    "live teller fee": "balance_inquiry",
+    # Remote deposit -> mobile_deposit
+    "remote deposit fee": "mobile_deposit",
+    "remote deposit capture fee": "mobile_deposit",
+    "rdc fee": "mobile_deposit",
+    # Signature guarantee -> account_verification
+    "signature guarantee": "account_verification",
+    "medallion signature": "account_verification",
+    "bank reference letter": "account_verification",
+    "verification of deposit": "account_verification",
+    # Skip-a-pay -> late_payment
+    "skip a payment": "late_payment",
+    "skip a payment fee": "late_payment",
+    "skip payment fee": "late_payment",
 }
 
 CANONICAL_DISPLAY_NAMES: dict[str, str] = {

@@ -2,6 +2,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { redirect } from "next/navigation";
 import { SubscribeButton } from "./subscribe-button";
+import { CustomerNav } from "@/components/customer-nav";
+import { CustomerFooter } from "@/components/customer-footer";
+import { SearchModal } from "@/components/public/search-modal";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -42,26 +45,9 @@ export default async function SubscribePage({
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
-      {/* Minimal nav */}
-      <header className="border-b border-[#E8DFD1] bg-[#FAF7F2]/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-4xl px-4 flex items-center justify-between h-14">
-          <a href="/" className="flex items-center gap-2 text-[#1A1815] no-underline">
-            <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px] text-[#C44B2E]" stroke="currentColor" strokeWidth="1.5">
-              <rect x="4" y="13" width="4" height="8" rx="1" />
-              <rect x="10" y="8" width="4" height="13" rx="1" />
-              <rect x="16" y="3" width="4" height="18" rx="1" />
-            </svg>
-            <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-              Bank Fee Index
-            </span>
-          </a>
-          <a href="/register" className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors">
-            Sign in
-          </a>
-        </div>
-      </header>
+      <CustomerNav />
 
-      <div className="mx-auto max-w-4xl px-4 py-12">
+      <div className="mx-auto max-w-4xl px-4 py-14">
         {params.success && (
           <div className="mb-6 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3 text-center">
             Subscription activated! You now have full access.
@@ -89,7 +75,7 @@ export default async function SubscribePage({
                 Monthly
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-[#1A1815]">
+                <span className="text-3xl font-bold text-[#1A1815]" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
                   $499.99
                 </span>
                 <span className="text-[#7A7062] text-sm">/mo per seat</span>
@@ -134,7 +120,7 @@ export default async function SubscribePage({
                 Annual
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-[#1A1815]">
+                <span className="text-3xl font-bold text-[#1A1815]" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
                   $5,000
                 </span>
                 <span className="text-[#7A7062] text-sm">/year per seat</span>
@@ -179,7 +165,7 @@ export default async function SubscribePage({
                 On Demand
               </div>
               <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-3xl font-bold text-[#1A1815]">$250</span>
+                <span className="text-3xl font-bold text-[#1A1815]" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>$250</span>
                 <span className="text-[#7A7062] text-sm">/report</span>
               </div>
               <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-[#5A5347]">
@@ -203,7 +189,7 @@ export default async function SubscribePage({
             </div>
             <div className="flex-shrink-0 md:w-56">
               <a
-                href="mailto:hello@bankfeeindex.com?subject=Custom%20Report%20Request"
+                href="/contact?source=report"
                 className="block w-full text-center rounded-md border border-[#D5CBBF] bg-transparent px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
               >
                 Request a Report
@@ -225,7 +211,7 @@ export default async function SubscribePage({
             large institutions and vendors.
           </p>
           <a
-            href="mailto:hello@bankfeeindex.com"
+            href="/contact?source=enterprise"
             className="inline-block rounded-md border border-[#D5CBBF] px-6 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
           >
             Contact Sales
@@ -235,12 +221,14 @@ export default async function SubscribePage({
         {!isLoggedIn && (
           <p className="text-center text-xs text-[#A69D90] mt-8">
             Already have an account?{" "}
-            <a href="/register" className="text-[#7A7062] hover:underline">
+            <a href="/login" className="text-[#7A7062] hover:underline">
               Sign in
             </a>
           </p>
         )}
       </div>
+      <CustomerFooter />
+      <SearchModal />
     </div>
   );
 }

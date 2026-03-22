@@ -7,45 +7,44 @@ export default function RootError({
   reset: () => void;
 }) {
   return (
-    <html lang="en">
-      <body>
-        <div style={{ maxWidth: 480, margin: "80px auto", padding: "0 16px", textAlign: "center", fontFamily: "system-ui, sans-serif" }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Something went wrong</h1>
-          <p style={{ color: "#6b7280", marginBottom: 24 }}>
-            An unexpected error occurred. Please try again.
-          </p>
-          <button
-            onClick={reset}
-            style={{
-              padding: "8px 20px",
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#fff",
-              background: "#0f172a",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              marginRight: 12,
-            }}
-          >
-            Try again
-          </button>
-          <a
-            href="/"
-            style={{
-              padding: "8px 20px",
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#374151",
-              background: "#f3f4f6",
-              borderRadius: 6,
-              textDecoration: "none",
-            }}
-          >
-            Go home
-          </a>
-        </div>
-      </body>
-    </html>
+    <div style={{ maxWidth: 480, margin: "80px auto", padding: "0 24px", textAlign: "center", fontFamily: "Georgia, serif" }}>
+      <h1 style={{ fontSize: 28, fontWeight: 400, color: "#1A1815", marginBottom: 12, letterSpacing: "-0.02em" }}>
+        Something went wrong
+      </h1>
+      <p style={{ color: "#7A7062", marginBottom: 24, fontSize: 14 }}>
+        An unexpected error occurred. Please try again.
+      </p>
+      <button
+        onClick={reset}
+        style={{
+          padding: "10px 24px",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "#fff",
+          background: "#C44B2E",
+          border: "none",
+          borderRadius: 999,
+          cursor: "pointer",
+          marginRight: 12,
+        }}
+      >
+        Try again
+      </button>
+      <a
+        href="/"
+        style={{
+          padding: "10px 24px",
+          fontSize: 13,
+          fontWeight: 500,
+          color: "#5A5347",
+          background: "transparent",
+          border: "1px solid #E8DFD1",
+          borderRadius: 999,
+          textDecoration: "none",
+        }}
+      >
+        Go home
+      </a>
+    </div>
   );
 }

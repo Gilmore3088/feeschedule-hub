@@ -25,10 +25,10 @@ export default async function ArticlesPage({
   searchParams: Promise<{ status?: string; category?: string }>;
 }) {
   await requireAuth("view");
-  ensureResearchTables();
+  await ensureResearchTables();
 
   const params = await searchParams;
-  const { articles, total } = getArticles({
+  const { articles, total } = await getArticles({
     status: params.status || undefined,
     category: params.category || undefined,
   });

@@ -10,7 +10,7 @@ export default async function AgentChatPage({
   params: Promise<{ agentId: string }>;
 }) {
   const { agentId } = await params;
-  const agent = getAgent(agentId);
+  const agent = await getAgent(agentId);
   if (!agent || !agent.requiresAuth) notFound();
 
   const user = await requireAuth("view");
@@ -21,8 +21,8 @@ export default async function AgentChatPage({
   const userLevel = roleOrder[user.role] ?? 0;
   if (userLevel < requiredLevel) notFound();
 
-  ensureResearchTables();
-  const conversations = listConversations(user.id, agentId, 20);
+  await ensureResearchTables();
+  const conversations = await listConversations(user.id, agentId, 20);
 
   return (
     <div className="admin-content">

@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 import { computePercentile } from "./fees";
 import type { PeerFilteredStats } from "./dashboard";
 
@@ -9,39 +9,45 @@ export interface PeerTopCategory {
   fee_family: string | null;
 }
 
-export function getTopCategoriesForPeerSet(
+export async function getTopCategoriesForPeerSet(
   filters: { charter_type?: string; asset_tiers?: string[]; fed_districts?: number[] },
   limit = 5
-): PeerTopCategory[] {
-  const db = getDb();
+): Promise<PeerTopCategory[]> {
   const conditions = ["ef.fee_category IS NOT NULL"];
   const params: (string | number)[] = [];
+  let paramIdx = 0;
 
   if (filters.charter_type) {
-    conditions.push("ct.charter_type = ?");
+    paramIdx++;
+    conditions.push(`ct.charter_type = $${paramIdx}`);
     params.push(filters.charter_type);
   }
   if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-    const placeholders = filters.asset_tiers.map(() => "?").join(",");
+    const placeholders = filters.asset_tiers.map(() => {
+      paramIdx++;
+      return `$${paramIdx}`;
+    }).join(",");
     conditions.push(`ct.asset_size_tier IN (${placeholders})`);
     params.push(...filters.asset_tiers);
   }
   if (filters.fed_districts && filters.fed_districts.length > 0) {
-    const placeholders = filters.fed_districts.map(() => "?").join(",");
+    const placeholders = filters.fed_districts.map(() => {
+      paramIdx++;
+      return `$${paramIdx}`;
+    }).join(",");
     conditions.push(`ct.fed_district IN (${placeholders})`);
     params.push(...filters.fed_districts);
   }
 
   const where = conditions.join(" AND ");
 
-  const rows = db
-    .prepare(
-      `SELECT ef.fee_category, ef.amount, ef.crawl_target_id
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ${where}`
-    )
-    .all(...params) as {
+  const rows = await sql.unsafe(
+    `SELECT ef.fee_category, ef.amount, ef.crawl_target_id
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     WHERE ${where}`,
+    params
+  ) as {
     fee_category: string;
     amount: number | null;
     crawl_target_id: number;
@@ -84,60 +90,59 @@ export interface PeerPreviewStats extends PeerFilteredStats {
   avg_confidence: number;
 }
 
-export function getPeerPreviewStats(filters: {
+export async function getPeerPreviewStats(filters: {
   charter_type?: string;
   asset_tiers?: string[];
   fed_districts?: number[];
-}): PeerPreviewStats {
-  const db = getDb();
+}): Promise<PeerPreviewStats> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
+  let paramIdx = 0;
 
   if (filters.charter_type) {
-    conditions.push("ct.charter_type = ?");
+    paramIdx++;
+    conditions.push(`ct.charter_type = $${paramIdx}`);
     params.push(filters.charter_type);
   }
   if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-    const placeholders = filters.asset_tiers.map(() => "?").join(",");
+    const placeholders = filters.asset_tiers.map(() => {
+      paramIdx++;
+      return `$${paramIdx}`;
+    }).join(",");
     conditions.push(`ct.asset_size_tier IN (${placeholders})`);
     params.push(...filters.asset_tiers);
   }
   if (filters.fed_districts && filters.fed_districts.length > 0) {
-    const placeholders = filters.fed_districts.map(() => "?").join(",");
+    const placeholders = filters.fed_districts.map(() => {
+      paramIdx++;
+      return `$${paramIdx}`;
+    }).join(",");
     conditions.push(`ct.fed_district IN (${placeholders})`);
     params.push(...filters.fed_districts);
   }
 
   const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) as total,
-              SUM(CASE WHEN ct.website_url IS NOT NULL THEN 1 ELSE 0 END) as with_website,
-              SUM(CASE WHEN ct.fee_schedule_url IS NOT NULL THEN 1 ELSE 0 END) as with_fee_url,
-              SUM(CASE WHEN ct.charter_type = 'bank' THEN 1 ELSE 0 END) as banks,
-              SUM(CASE WHEN ct.charter_type = 'credit_union' THEN 1 ELSE 0 END) as credit_unions
-       FROM crawl_targets ct
-       ${where}`
-    )
-    .get(...params) as {
-    total: number;
-    with_website: number;
-    with_fee_url: number;
-    banks: number;
-    credit_unions: number;
-  };
+  const [row] = await sql.unsafe(
+    `SELECT COUNT(*) as total,
+            SUM(CASE WHEN ct.website_url IS NOT NULL THEN 1 ELSE 0 END) as with_website,
+            SUM(CASE WHEN ct.fee_schedule_url IS NOT NULL THEN 1 ELSE 0 END) as with_fee_url,
+            SUM(CASE WHEN ct.charter_type = 'bank' THEN 1 ELSE 0 END) as banks,
+            SUM(CASE WHEN ct.charter_type = 'credit_union' THEN 1 ELSE 0 END) as credit_unions
+     FROM crawl_targets ct
+     ${where}`,
+    params
+  ) as { total: number; with_website: number; with_fee_url: number; banks: number; credit_unions: number }[];
 
-  const feeRow = db
-    .prepare(
-      `SELECT COUNT(*) as cnt,
-              SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
-              AVG(ef.extraction_confidence) as avg_conf
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       ${where}`
-    )
-    .get(...params) as { cnt: number; flagged: number; avg_conf: number | null };
+  const [feeRow] = await sql.unsafe(
+    `SELECT COUNT(*) as cnt,
+            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+            AVG(ef.extraction_confidence) as avg_conf
+     FROM extracted_fees ef
+     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     ${where}`,
+    params
+  ) as { cnt: number; flagged: number; avg_conf: number | null }[];
 
   const total = row.total || 0;
   const totalFees = feeRow.cnt || 0;

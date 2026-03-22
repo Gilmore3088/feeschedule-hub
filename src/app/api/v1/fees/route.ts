@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   // Single category detail
   if (category) {
-    const detail = getFeeCategoryDetail(category);
+    const detail = await getFeeCategoryDetail(category);
     if (!detail || detail.fees.length === 0) {
       return NextResponse.json(
         { error: "Category not found", category },
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   }
 
   // All categories summary
-  const summaries = getFeeCategorySummaries();
+  const summaries = await getFeeCategorySummaries();
 
   const data = summaries.map((s) => ({
     category: s.fee_category,
