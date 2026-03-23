@@ -130,6 +130,16 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        href: "/admin/data-quality",
+        label: "Data Quality",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1v14M1 8h14" />
+            <circle cx="8" cy="8" r="6" />
+          </svg>
+        ),
+      },
     ],
   },
   {
