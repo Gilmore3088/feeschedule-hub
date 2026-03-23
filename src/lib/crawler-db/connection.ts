@@ -19,15 +19,12 @@ export function getSql() {
   return _sql;
 }
 
-// Lazy proxy: doesn't connect until first use (safe for test imports)
-export const sql: ReturnType<typeof postgres> = new Proxy({} as ReturnType<typeof postgres>, {
-  get(_target, prop) {
-    return Reflect.get(getSql(), prop);
-  },
-  apply(_target, thisArg, args) {
-    return Reflect.apply(getSql() as any, thisArg, args);
-  },
-}) as ReturnType<typeof postgres>;
+// Eager init — DATABASE_URL must be set at import time.
+// For tests that import modules without DB access, set DATABASE_URL to any value
+// or mock this module.
+export const sql = DATABASE_URL
+  ? getSql()
+  : ((() => { throw new Error("DATABASE_URL not set"); }) as unknown as ReturnType<typeof postgres>);
 
 export async function hasData(): Promise<boolean> {
   try {
