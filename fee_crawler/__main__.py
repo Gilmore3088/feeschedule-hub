@@ -7,7 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from fee_crawler.config import load_config
-from fee_crawler.db import Database
+from fee_crawler.db import get_db
 
 # Load .env.local (then .env) so API keys are available to all commands
 load_dotenv(Path(".env.local"))
@@ -19,7 +19,7 @@ def cmd_seed(args: argparse.Namespace) -> None:
     from fee_crawler.commands.seed_institutions import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, source=args.source, limit=args.limit)
     finally:
@@ -31,7 +31,7 @@ def cmd_discover(args: argparse.Namespace) -> None:
     from fee_crawler.commands.discover_urls import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(
             db,
@@ -52,7 +52,7 @@ def cmd_crawl(args: argparse.Namespace) -> None:
     from fee_crawler.commands.crawl import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, target_id=getattr(args, 'target_id', None),
             limit=args.limit, state=args.state, tier=getattr(args, 'tier', None),
@@ -68,7 +68,7 @@ def cmd_enrich(args: argparse.Namespace) -> None:
     from fee_crawler.commands.enrich import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db)
     finally:
@@ -80,7 +80,7 @@ def cmd_auto_review(args: argparse.Namespace) -> None:
     from fee_crawler.commands.auto_review import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, dry_run=args.dry_run)
     finally:
@@ -92,7 +92,7 @@ def cmd_seed_users(args: argparse.Namespace) -> None:
     from fee_crawler.commands.seed_users import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config)
     finally:
@@ -104,7 +104,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     from fee_crawler.commands.analyze import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, target_id=args.target_id, analyze_all=args.analyze_all)
     finally:
@@ -116,7 +116,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     from fee_crawler.commands.backfill_validation import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db)
     finally:
@@ -128,7 +128,7 @@ def cmd_outlier_detect(args: argparse.Namespace) -> None:
     from fee_crawler.pipeline.outlier_detection import run_outlier_detection
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run_outlier_detection(db, auto_flag=args.auto_flag)
     finally:
@@ -140,7 +140,7 @@ def cmd_categorize(args: argparse.Namespace) -> None:
     from fee_crawler.commands.categorize_fees import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, dry_run=args.dry_run, force=args.force, limit=args.limit)
     finally:
@@ -152,7 +152,7 @@ def cmd_backfill_ncua_urls(args: argparse.Namespace) -> None:
     from fee_crawler.commands.backfill_ncua_urls import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, workers=args.workers, limit=args.limit)
     finally:
@@ -164,7 +164,7 @@ def cmd_ingest_call_reports(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_call_reports import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(
             db, config,
@@ -182,7 +182,7 @@ def cmd_ingest_fdic(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_fdic import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, report_date=args.report_date, limit=args.limit)
     finally:
@@ -194,7 +194,7 @@ def cmd_ingest_ncua(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_ncua import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, quarter=args.quarter, limit=args.limit)
     finally:
@@ -207,7 +207,7 @@ def cmd_ingest_cfpb(args: argparse.Namespace) -> None:
 
     years = args.years.split(",") if args.years else None
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, years=years, limit=args.limit)
     finally:
@@ -219,7 +219,7 @@ def cmd_ingest_beige_book(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_beige_book import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, edition=args.edition, all_editions=args.all)
     finally:
@@ -231,7 +231,7 @@ def cmd_ingest_fed_content(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_fed_content import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, content_type=args.type, limit=args.limit)
     finally:
@@ -243,7 +243,7 @@ def cmd_ingest_fred(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_fred import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, series=args.series, from_date=args.from_date)
     finally:
@@ -255,7 +255,7 @@ def cmd_ingest_bls(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_bls import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(
             db,
@@ -274,7 +274,7 @@ def cmd_ingest_nyfed(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_nyfed import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(
             db,
@@ -292,7 +292,7 @@ def cmd_refresh_data(args: argparse.Namespace) -> None:
     from fee_crawler.commands.refresh_data import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, cadence=args.cadence, only=args.only)
     finally:
@@ -304,7 +304,7 @@ def cmd_snapshot(args: argparse.Namespace) -> None:
     from fee_crawler.commands.snapshot_fees import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, date=args.date)
     finally:
@@ -316,7 +316,7 @@ def cmd_ingest_ofr(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_ofr import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, start_date=args.start_date)
     finally:
@@ -328,7 +328,7 @@ def cmd_ingest_sod(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_sod import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, year=args.year, limit=args.limit)
     finally:
@@ -340,7 +340,7 @@ def cmd_ingest_census_acs(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_census_acs import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, year=args.year, level=args.level)
     finally:
@@ -352,7 +352,7 @@ def cmd_ingest_census_tracts(args: argparse.Namespace) -> None:
     from fee_crawler.commands.ingest_census_tracts import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, year=args.year)
     finally:
@@ -369,7 +369,7 @@ def cmd_run_pipeline(args: argparse.Namespace) -> None:
         logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(
             db, config,
@@ -391,7 +391,7 @@ def cmd_merge_fees(args: argparse.Namespace) -> None:
     from fee_crawler.commands.merge_fees import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, dry_run=args.dry_run)
     finally:
@@ -403,7 +403,7 @@ def cmd_rediscover_failed(args: argparse.Namespace) -> None:
     from fee_crawler.commands.rediscover_failed import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, state=args.state, limit=args.limit, dry_run=args.dry_run)
     finally:
@@ -415,7 +415,7 @@ def cmd_publish_index(args: argparse.Namespace) -> None:
     from fee_crawler.commands.publish_index import run
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         run(db, config, dry_run=args.dry_run)
     finally:
@@ -427,7 +427,7 @@ def cmd_pipeline_v2(args: argparse.Namespace) -> None:
     from fee_crawler.pipeline.executor import run_pipeline
 
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     skip = frozenset(args.skip.split(",")) if args.skip else frozenset()
     try:
         run_id = run_pipeline(
@@ -448,7 +448,7 @@ def cmd_pipeline_v2(args: argparse.Namespace) -> None:
 def cmd_stats(args: argparse.Namespace) -> None:
     """Show database statistics."""
     config = load_config()
-    db = Database(config)
+    db = get_db(config)
     try:
         total = db.count("crawl_targets")
         banks = db.fetchone(

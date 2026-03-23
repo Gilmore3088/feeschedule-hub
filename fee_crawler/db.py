@@ -735,10 +735,27 @@ def _sqlite_to_pg(sql: str) -> str:
     # datetime functions
     s = re.sub(r"datetime\('now'\)", "NOW()", s)
     s = re.sub(r"datetime\('now',\s*'(-?\d+)\s*days?'\)", r"NOW() + INTERVAL '\1 days'", s)
-    # INSERT OR IGNORE
-    s = s.replace("INSERT OR IGNORE", "INSERT")
-    if "ON CONFLICT" not in s and "INSERT" in s:
-        pass  # let caller handle conflict clauses
+    # INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
+    if "INSERT OR IGNORE" in s:
+        s = s.replace("INSERT OR IGNORE", "INSERT")
+        if "ON CONFLICT" not in s:
+            # Add ON CONFLICT DO NOTHING before any RETURNING clause
+            if "RETURNING" in s:
+                s = s.replace("RETURNING", "ON CONFLICT DO NOTHING RETURNING")
+            else:
+                s = s.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+    # INSERT OR REPLACE -> INSERT ... ON CONFLICT (...) DO UPDATE
+    # This is harder — we convert to a simple upsert by replacing with INSERT + ON CONFLICT DO NOTHING
+    # Full upsert would require knowing the unique constraint columns
+    if "INSERT OR REPLACE" in s:
+        s = s.replace("INSERT OR REPLACE", "INSERT")
+        if "ON CONFLICT" not in s:
+            s = s.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+    # strftime('%Y-%m-%d', col) -> DATE(col)
+    s = re.sub(r"strftime\('%Y-%m-%d',\s*(\w+)\)", r"DATE(\1)", s)
+    # PRAGMA statements -> no-op
+    if s.strip().upper().startswith("PRAGMA"):
+        return "SELECT 1"
     return s
 
 

@@ -76,9 +76,10 @@ def run_post_processing():
     import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     commands = [
-        ["python3", "-m", "fee_crawler", "categorize-fees"],
+        ["python3", "-m", "fee_crawler", "categorize"],
         ["python3", "-m", "fee_crawler", "auto-review"],
-        ["python3", "-m", "fee_crawler", "snapshot-fees"],
+        ["python3", "-m", "fee_crawler", "snapshot"],
+        ["python3", "-m", "fee_crawler", "publish-index"],
     ]
     results = []
     for cmd in commands:
