@@ -86,12 +86,17 @@ def run_post_processing():
         r = subprocess.run(cmd, capture_output=True, text=True, env=env)
         results.append(f"{cmd[-1]}: {'OK' if r.returncode == 0 else 'FAIL'}")
 
+    # Run data integrity checks
+    from fee_crawler.workers.data_integrity import run_checks, print_report
+    integrity = run_checks()
+    print(print_report(integrity))
+
     # Generate daily report
     from fee_crawler.workers.daily_report import generate_report
     report = generate_report()
     print(report)
 
-    return "; ".join(results)
+    return f"Pipeline: {'; '.join(results)} | Integrity: {integrity['score']}% ({integrity['passed']}/{integrity['total']} passed)"
 
 
 @app.function(
@@ -132,9 +137,10 @@ def ingest_weekly():
 
 
 @app.function(timeout=300, secrets=secrets)
-def daily_report():
-    """On-demand performance report. Also runs as part of post_processing."""
-    from fee_crawler.workers.daily_report import generate_report
-    report = generate_report()
+def check_integrity():
+    """On-demand data integrity check."""
+    from fee_crawler.workers.data_integrity import run_checks, print_report
+    results = run_checks()
+    report = print_report(results)
     print(report)
-    return report
+    return f"Score: {results['score']}% ({results['passed']}/{results['total']} passed)"
