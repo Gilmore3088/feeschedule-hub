@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { RegisterForm } from "./register-form";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";

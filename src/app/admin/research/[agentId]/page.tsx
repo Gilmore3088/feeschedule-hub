@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { requireAuth } from "@/lib/auth";
 import { getAgent } from "@/lib/research/agents";
 import { notFound } from "next/navigation";

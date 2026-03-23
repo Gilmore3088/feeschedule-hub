@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { getOpsJobSummary, getRecentJobs, getActiveJobs } from "@/lib/crawler-db/ops";

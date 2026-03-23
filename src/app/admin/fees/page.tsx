@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { getFeesByInstitution, getAllFees } from "@/lib/crawler-db";

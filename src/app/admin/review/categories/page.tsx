@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getCategoryReviewStats } from "@/lib/crawler-db/fees";
 import { getFeeCategorySummaries } from "@/lib/crawler-db";

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { sql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 

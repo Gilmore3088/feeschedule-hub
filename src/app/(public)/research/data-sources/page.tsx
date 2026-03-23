@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { getDataCoverageSummary } from "@/lib/crawler-db/financial";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";

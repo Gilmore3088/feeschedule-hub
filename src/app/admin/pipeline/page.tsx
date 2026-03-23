@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { requireAuth, getCurrentUser, hasPermission } from "@/lib/auth";
 import { getPipelineStats, getCoverageGaps, getDistinctStates } from "@/lib/crawler-db";
