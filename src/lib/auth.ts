@@ -167,7 +167,7 @@ export function hasPermission(user: User, permission: Permission): boolean {
 export async function requireAuth(permission?: Permission): Promise<User> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/admin/login");
+    redirect("/login");
   }
   if (permission && !hasPermission(user, permission)) {
     redirect("/admin?error=forbidden");

@@ -14,7 +14,12 @@ export default async function LoginPage({
   searchParams: Promise<{ from?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (user) redirect("/account");
+  if (user) {
+    if (user.role === "admin" || user.role === "analyst") {
+      redirect("/admin");
+    }
+    redirect("/account");
+  }
 
   const params = await searchParams;
 

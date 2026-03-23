@@ -1,6 +1,6 @@
 "use server";
 
-import { login } from "@/lib/auth";
+import { login, getCurrentUser } from "@/lib/auth";
 
 export async function loginAction(
   formData: FormData,
@@ -18,5 +18,10 @@ export async function loginAction(
     return { success: false, error: "Invalid email or password" };
   }
 
-  return { success: true, redirect: redirectTo };
+  // Route admins/analysts to admin hub, everyone else to their destination
+  if (user.role === "admin" || user.role === "analyst") {
+    return { success: true, redirect: "/admin" };
+  }
+
+  return { success: true, redirect: redirectTo || "/account" };
 }
