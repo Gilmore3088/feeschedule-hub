@@ -14,6 +14,7 @@ image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("tesseract-ocr", "poppler-utils")
     .pip_install_from_requirements("fee_crawler/requirements.txt")
+    .add_local_dir("fee_crawler", remote_path="/root/fee_crawler")
 )
 
 app = modal.App("bank-fee-index-workers", image=image)
