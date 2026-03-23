@@ -583,8 +583,23 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Links */}
+      {/* Report Card + Links */}
       <div className="mt-8 flex flex-wrap gap-2">
+        <a
+          href={`/api/reports/institution/${instId}?format=html`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-1.5 text-[12px] font-semibold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors no-underline"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          Fee Report Card
+        </a>
         {inst.state_code && (
           <Link
             href={`/research/state/${inst.state_code}`}
