@@ -85,6 +85,12 @@ def run_post_processing():
     for cmd in commands:
         r = subprocess.run(cmd, capture_output=True, text=True, env=env)
         results.append(f"{cmd[-1]}: {'OK' if r.returncode == 0 else 'FAIL'}")
+
+    # Generate daily report
+    from fee_crawler.workers.daily_report import generate_report
+    report = generate_report()
+    print(report)
+
     return "; ".join(results)
 
 
@@ -123,3 +129,12 @@ def ingest_weekly():
                            capture_output=True, text=True, env=env)
         results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
     return "; ".join(results)
+
+
+@app.function(timeout=300, secrets=secrets)
+def daily_report():
+    """On-demand performance report. Also runs as part of post_processing."""
+    from fee_crawler.workers.daily_report import generate_report
+    report = generate_report()
+    print(report)
+    return report
