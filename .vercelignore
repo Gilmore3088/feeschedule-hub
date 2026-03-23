@@ -1,7 +1,1 @@
-data/
-fee_crawler/
-scripts/
-docs/
-plans/
-*.db
-*.sqlite
+data/*.db
