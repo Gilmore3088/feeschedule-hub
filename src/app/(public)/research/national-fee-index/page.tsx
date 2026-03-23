@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getNationalIndex } from "@/lib/crawler-db";
+import { getNationalIndexCached, getCpiContext } from "@/lib/crawler-db";
 import {
   getDisplayName,
-  getFeeFamily,
   FEE_FAMILIES,
   FAMILY_COLORS,
-  isFeaturedFee,
   TAXONOMY_COUNT,
   FEATURED_COUNT,
+  getSpotlightCategories,
 } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
-import { canAccessAllCategories } from "@/lib/access";
+import { canAccessPremium } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
 
 export const metadata: Metadata = {
@@ -35,9 +34,15 @@ export const metadata: Metadata = {
 
 export default async function NationalFeeIndexPage() {
   const user = await getCurrentUser();
-  const showAll = canAccessAllCategories(user);
-  const allIndex = getNationalIndex();
-  const index = showAll ? allIndex : allIndex.filter((e) => isFeaturedFee(e.fee_category));
+  const isPro = canAccessPremium(user);
+  const allIndex = await getNationalIndexCached();
+  const cpi = await getCpiContext();
+
+  // Pro: full index. Free: spotlight preview only (6 categories)
+  const spotlightCats = new Set(getSpotlightCategories());
+  const index = isPro
+    ? allIndex
+    : allIndex.filter((e) => spotlightCats.has(e.fee_category));
   const gatedCount = allIndex.length - index.length;
 
   // Group by family
@@ -50,13 +55,11 @@ export default async function NationalFeeIndexPage() {
 
   const familyOrder = Object.keys(FEE_FAMILIES);
 
-  // Summary stats
-  const totalInstitutions = new Set(
-    index.flatMap((e) => Array.from({ length: e.institution_count }))
-  ).size;
-  const totalObservations = index.reduce((sum, e) => sum + e.observation_count, 0);
-  const featuredEntries = index.filter((e) => isFeaturedFee(e.fee_category));
-  // strongMaturity removed — internal metric not shown to consumers
+  // Summary stats (from full index for context)
+  const totalObservations = allIndex.reduce(
+    (sum, e) => sum + e.observation_count,
+    0
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-14">
@@ -70,7 +73,14 @@ export default async function NationalFeeIndexPage() {
 
       <div className="flex items-center gap-2 mb-4">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">National Fee Index</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+          National Fee Index
+        </span>
+        {!isPro && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#E8DFD1]/50 text-[#7A7062] uppercase tracking-wider ml-1">
+            Preview
+          </span>
+        )}
       </div>
       <h1
         className="mt-1 text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] font-bold text-[#1A1815]"
@@ -79,48 +89,106 @@ export default async function NationalFeeIndexPage() {
         US Bank & Credit Union Fee Benchmarks
       </h1>
       <p className="mt-2 max-w-2xl text-[14px] text-[#7A7062]">
-        National benchmarking data across {TAXONOMY_COUNT} fee categories,
-        computed from published fee schedules of FDIC-insured banks and
-        NCUA-insured credit unions. The most comprehensive public dataset of
-        US financial institution fees.
+        {isPro ? (
+          <>
+            National benchmarking data across {TAXONOMY_COUNT} fee categories,
+            computed from published fee schedules of FDIC-insured banks and
+            NCUA-insured credit unions.
+          </>
+        ) : (
+          <>
+            Preview of {index.length} spotlight fee categories from our full
+            index of {TAXONOMY_COUNT} categories.{" "}
+            <Link
+              href="/subscribe"
+              className="text-[#C44B2E] hover:underline font-medium"
+            >
+              Subscribe
+            </Link>{" "}
+            for the complete dataset with percentiles, peer segmentation, and
+            exports.
+          </>
+        )}
       </p>
       <div className="mt-1">
         <DataFreshness />
       </div>
 
+      {/* CPI context strip */}
+      {cpi.bankFees && cpi.allItems && (
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-5 py-3 text-[13px]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+            CPI Context
+          </span>
+          <span className="text-[#5A5347]">
+            Bank service fees{" "}
+            <span
+              className={`font-semibold tabular-nums ${cpi.bankFees.yoyPct > 0 ? "text-red-600" : "text-emerald-600"}`}
+            >
+              {cpi.bankFees.yoyPct > 0 ? "+" : ""}
+              {cpi.bankFees.yoyPct}%
+            </span>{" "}
+            YoY
+          </span>
+          <span className="text-[#A09788]">vs.</span>
+          <span className="text-[#5A5347]">
+            Overall CPI{" "}
+            <span className="font-semibold tabular-nums text-[#5A5347]">
+              {cpi.allItems.yoyPct > 0 ? "+" : ""}
+              {cpi.allItems.yoyPct}%
+            </span>{" "}
+            YoY
+          </span>
+          <span className="text-[11px] text-[#A09788]">
+            BLS as of {new Date(cpi.bankFees.date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+          </span>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
-            Fee Categories
+            {isPro ? "Fee Categories" : "Preview"}
           </p>
           <p
             className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif", fontWeight: 300 }}
+            style={{
+              fontFamily: "var(--font-newsreader), Georgia, serif",
+              fontWeight: 300,
+            }}
           >
-            {index.length}
+            {isPro
+              ? allIndex.length
+              : `${index.length} / ${allIndex.length}`}
           </p>
         </div>
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
-            Total Observations
+            Observations
           </p>
           <p
             className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif", fontWeight: 300 }}
+            style={{
+              fontFamily: "var(--font-newsreader), Georgia, serif",
+              fontWeight: 300,
+            }}
           >
             {totalObservations.toLocaleString()}
           </p>
         </div>
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
-            Fee Categories
+            Full Index
           </p>
           <p
             className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif", fontWeight: 300 }}
+            style={{
+              fontFamily: "var(--font-newsreader), Georgia, serif",
+              fontWeight: 300,
+            }}
           >
-            {index.length}
+            {TAXONOMY_COUNT} categories
           </p>
         </div>
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3">
@@ -129,14 +197,57 @@ export default async function NationalFeeIndexPage() {
           </p>
           <p
             className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif", fontWeight: 300 }}
+            style={{
+              fontFamily: "var(--font-newsreader), Georgia, serif",
+              fontWeight: 300,
+            }}
           >
             {FEATURED_COUNT}
           </p>
         </div>
       </div>
 
-      {/* Index by family */}
+      {/* Upgrade banner for free users */}
+      {!isPro && (
+        <div className="mt-8 rounded-xl border-2 border-[#C44B2E]/30 bg-white/70 backdrop-blur-sm p-6 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C44B2E]/40 to-transparent" />
+          <div className="md:flex md:items-center md:justify-between">
+            <div>
+              <h2
+                className="text-[16px] font-medium text-[#1A1815]"
+                style={{
+                  fontFamily: "var(--font-newsreader), Georgia, serif",
+                }}
+              >
+                You&apos;re viewing a preview
+              </h2>
+              <p className="text-[13px] text-[#7A7062] mt-1">
+                Showing {index.length} spotlight categories with median only.
+                The full index includes {gatedCount} more categories with
+                P25/P75 percentiles, bank vs. credit union breakdowns, and range
+                data.
+              </p>
+            </div>
+            <Link
+              href="/subscribe"
+              className="mt-4 md:mt-0 inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-6 py-2.5 text-[13px] font-semibold text-white shadow-sm shadow-[#C44B2E]/15 hover:shadow-md hover:shadow-[#C44B2E]/25 transition-all flex-shrink-0 no-underline"
+            >
+              Unlock Full Index
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Index tables */}
       <div className="mt-8 space-y-8">
         {familyOrder.map((familyName) => {
           const entries = byFamily.get(familyName);
@@ -163,24 +274,33 @@ export default async function NationalFeeIndexPage() {
                       <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                         Median
                       </th>
-                      <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                        P25
-                      </th>
-                      <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                        P75
-                      </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                        Range
-                      </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                        Banks
-                      </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                        CUs
-                      </th>
-                      <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
-                        Institutions
-                      </th>
+                      {isPro && (
+                        <>
+                          <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                            P25
+                          </th>
+                          <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                            P75
+                          </th>
+                          <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            Range
+                          </th>
+                          <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            Banks
+                          </th>
+                          <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            CUs
+                          </th>
+                          <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
+                            Institutions
+                          </th>
+                        </>
+                      )}
+                      {!isPro && (
+                        <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                          Institutions
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E8DFD1]/60">
@@ -200,25 +320,34 @@ export default async function NationalFeeIndexPage() {
                         <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                           {formatAmount(entry.median_amount)}
                         </td>
-                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
-                          {formatAmount(entry.p25_amount)}
-                        </td>
-                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
-                          {formatAmount(entry.p75_amount)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                          {formatAmount(entry.min_amount)} &ndash;{" "}
-                          {formatAmount(entry.max_amount)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                          {entry.bank_count.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                          {entry.cu_count.toLocaleString()}
-                        </td>
-                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
-                          {entry.institution_count.toLocaleString()}
-                        </td>
+                        {isPro && (
+                          <>
+                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
+                              {formatAmount(entry.p25_amount)}
+                            </td>
+                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
+                              {formatAmount(entry.p75_amount)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                              {formatAmount(entry.min_amount)} &ndash;{" "}
+                              {formatAmount(entry.max_amount)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                              {entry.bank_count.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                              {entry.cu_count.toLocaleString()}
+                            </td>
+                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
+                              {entry.institution_count.toLocaleString()}
+                            </td>
+                          </>
+                        )}
+                        {!isPro && (
+                          <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                            {entry.institution_count.toLocaleString()}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -229,6 +358,16 @@ export default async function NationalFeeIndexPage() {
         })}
       </div>
 
+      {/* Bottom upgrade gate */}
+      {!isPro && gatedCount > 0 && (
+        <div className="mt-10">
+          <UpgradeGate
+            count={gatedCount}
+            message="Unlock the complete National Fee Index"
+          />
+        </div>
+      )}
+
       {/* Methodology */}
       <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-[#A09788]">
@@ -236,11 +375,11 @@ export default async function NationalFeeIndexPage() {
         </h2>
         <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">
           The National Fee Index is computed from published fee schedules of
-          FDIC-insured banks and NCUA-insured credit unions. Fees are
-          categorized into {TAXONOMY_COUNT} standard categories across 9
-          families. All statistics are based on verified, published fee
-          schedules. National medians are computed across all reporting
-          institutions for each fee category.
+          FDIC-insured banks and NCUA-insured credit unions. Fees are categorized
+          into {TAXONOMY_COUNT} standard categories across 9 families. All
+          statistics are based on verified, published fee schedules. National
+          medians are computed across all reporting institutions for each fee
+          category.
         </p>
       </section>
 
@@ -260,12 +399,6 @@ export default async function NationalFeeIndexPage() {
           }).replace(/</g, "\\u003c"),
         }}
       />
-
-      {!showAll && gatedCount > 0 && (
-        <div className="mt-8">
-          <UpgradeGate count={gatedCount} message="Unlock all fee categories" />
-        </div>
-      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { getCoverageSnapshots } from "@/lib/crawler-db/pipeline";
 import { Sparkline } from "@/components/sparkline";
 
-export function CoverageTrend() {
-  const snapshots = getCoverageSnapshots(14);
+export async function CoverageTrend() {
+  const snapshots = await getCoverageSnapshots(14);
 
   if (snapshots.length < 2) return null;
 

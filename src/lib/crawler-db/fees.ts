@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 import type { FeeReview } from "./types";
 
 export interface FeeCategorySummary {
@@ -79,21 +79,18 @@ export function computeStats(amounts: number[]): {
   };
 }
 
-export function getFeeCategorySummaries(): FeeCategorySummary[] {
-  const db = getDb();
+export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
   const grouped = new Map<
     string,
     { amounts: number[]; banks: Set<number>; cus: Set<number>; total: number }
   >();
 
-  const rows = db
-    .prepare(
-      `SELECT ef.fee_category, ef.amount, ef.crawl_target_id, ct.charter_type
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ef.fee_category IS NOT NULL AND ef.review_status != 'rejected'`
-    )
-    .all() as {
+  const rows = await sql`
+    SELECT ef.fee_category, ef.amount, ef.crawl_target_id, ct.charter_type
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.fee_category IS NOT NULL AND ef.review_status != 'rejected'
+  ` as {
     fee_category: string;
     amount: number | null;
     crawl_target_id: number;
@@ -138,27 +135,24 @@ export function getFeeCategorySummaries(): FeeCategorySummary[] {
   return results;
 }
 
-export function getFeeCategoryDetail(category: string): {
+export async function getFeeCategoryDetail(category: string): Promise<{
   fees: FeeInstance[];
   by_charter_type: DimensionBreakdown[];
   by_asset_tier: DimensionBreakdown[];
   by_fed_district: DimensionBreakdown[];
   by_state: DimensionBreakdown[];
   change_events: FeeChangeEvent[];
-} {
-  const db = getDb();
-  const fees = db
-    .prepare(
-      `SELECT ef.id, ct.institution_name, ef.crawl_target_id,
-              ef.amount, ef.frequency, ef.conditions,
-              ct.charter_type, ct.state_code, ct.asset_size_tier,
-              ct.asset_size, ef.review_status, ef.extraction_confidence
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ef.fee_category = ? AND ef.review_status != 'rejected'
-       ORDER BY ef.amount DESC NULLS LAST`
-    )
-    .all(category) as FeeInstance[];
+}> {
+  const fees = await sql`
+    SELECT ef.id, ct.institution_name, ef.crawl_target_id,
+           ef.amount, ef.frequency, ef.conditions,
+           ct.charter_type, ct.state_code, ct.asset_size_tier,
+           ct.asset_size, ef.review_status, ef.extraction_confidence
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.fee_category = ${category} AND ef.review_status != 'rejected'
+    ORDER BY ef.amount DESC NULLS LAST
+  ` as FeeInstance[];
 
   // Compute dimensional breakdowns
   function buildBreakdown(
@@ -194,14 +188,12 @@ export function getFeeCategoryDetail(category: string): {
   );
 
   // For fed district, re-query with actual district numbers
-  const districtRows = db
-    .prepare(
-      `SELECT ct.fed_district, ef.amount
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ef.fee_category = ? AND ct.fed_district IS NOT NULL`
-    )
-    .all(category) as { fed_district: number; amount: number | null }[];
+  const districtRows = await sql`
+    SELECT ct.fed_district, ef.amount
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.fee_category = ${category} AND ct.fed_district IS NOT NULL
+  ` as { fed_district: number; amount: number | null }[];
 
   const districtGroups = new Map<number, number[]>();
   for (const row of districtRows) {
@@ -231,17 +223,15 @@ export function getFeeCategoryDetail(category: string): {
   const by_state = buildBreakdown((f) => f.state_code);
 
   // Fee change events
-  const change_events = db
-    .prepare(
-      `SELECT ct.institution_name, fce.previous_amount, fce.new_amount,
-              fce.change_type, fce.detected_at
-       FROM fee_change_events fce
-       JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
-       WHERE fce.fee_category = ?
-       ORDER BY fce.detected_at DESC
-       LIMIT 50`
-    )
-    .all(category) as FeeChangeEvent[];
+  const change_events = await sql`
+    SELECT ct.institution_name, fce.previous_amount, fce.new_amount,
+           fce.change_type, fce.detected_at
+    FROM fee_change_events fce
+    JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
+    WHERE fce.fee_category = ${category}
+    ORDER BY fce.detected_at DESC
+    LIMIT 50
+  ` as FeeChangeEvent[];
 
   return {
     fees,
@@ -253,17 +243,14 @@ export function getFeeCategoryDetail(category: string): {
   };
 }
 
-export function getAuditTrail(feeId: number): FeeReview[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT id, fee_id, action, username, previous_status, new_status,
-              previous_values, new_values, notes, created_at
-       FROM fee_reviews
-       WHERE fee_id = ?
-       ORDER BY created_at DESC`
-    )
-    .all(feeId) as FeeReview[];
+export async function getAuditTrail(feeId: number): Promise<FeeReview[]> {
+  return await sql`
+    SELECT id, fee_id, action, username, previous_status, new_status,
+           previous_values, new_values, notes, created_at
+    FROM fee_reviews
+    WHERE fee_id = ${feeId}
+    ORDER BY created_at DESC
+  ` as FeeReview[];
 }
 
 // --- Fee Change Tracking Queries ---
@@ -299,67 +286,137 @@ export interface PriceMovement {
 }
 
 /** Get fee history for a specific institution + category over time */
-export function getFeeHistory(institutionId: number, category: string): FeeSnapshot[] {
-  const db = getDb();
+export async function getFeeHistory(institutionId: number, category: string): Promise<FeeSnapshot[]> {
   try {
-    return db
-      .prepare(
-        `SELECT id, crawl_target_id, snapshot_date, fee_name, fee_category,
-                amount, frequency, created_at
-         FROM fee_snapshots
-         WHERE crawl_target_id = ? AND fee_category = ?
-         ORDER BY snapshot_date DESC`
-      )
-      .all(institutionId, category) as FeeSnapshot[];
+    return await sql`
+      SELECT id, crawl_target_id, snapshot_date, fee_name, fee_category,
+             amount, frequency, created_at
+      FROM fee_snapshots
+      WHERE crawl_target_id = ${institutionId} AND fee_category = ${category}
+      ORDER BY snapshot_date DESC
+    ` as FeeSnapshot[];
   } catch {
     return [];
   }
 }
 
 /** Get recent price changes across all institutions, optionally filtered by category */
-export function getRecentPriceChanges(days: number = 90, category?: string): PriceChange[] {
-  const db = getDb();
+export async function getRecentPriceChanges(days: number = 90, category?: string): Promise<PriceChange[]> {
   try {
-    const conditions = [`fce.detected_at > datetime('now', '-${days} days')`];
+    const conditions = [`fce.detected_at > NOW() - interval '${days} days'`];
     const params: string[] = [];
     if (category) {
-      conditions.push("fce.fee_category = ?");
+      conditions.push("fce.fee_category = $1");
       params.push(category);
     }
-    return db
-      .prepare(
-        `SELECT fce.id, fce.crawl_target_id, ct.institution_name,
-                fce.fee_category, fce.previous_amount, fce.new_amount,
-                fce.change_type, fce.detected_at
-         FROM fee_change_events fce
-         JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
-         WHERE ${conditions.join(" AND ")}
-         ORDER BY fce.detected_at DESC
-         LIMIT 200`
-      )
-      .all(...params) as PriceChange[];
+    const query = `
+      SELECT fce.id, fce.crawl_target_id, ct.institution_name,
+             fce.fee_category, fce.previous_amount, fce.new_amount,
+             fce.change_type, fce.detected_at
+      FROM fee_change_events fce
+      JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY fce.detected_at DESC
+      LIMIT 200
+    `;
+    return await sql.unsafe(query, params) as PriceChange[];
   } catch {
     return [];
   }
 }
 
+/** Per-category review status counts for the category review page */
+export interface CategoryReviewStats {
+  fee_category: string;
+  staged: number;
+  flagged: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  total: number;
+  avg_confidence: number;
+  ready_count: number; // high confidence, no flags
+}
+
+export async function getCategoryReviewStats(): Promise<CategoryReviewStats[]> {
+  return await sql`
+    SELECT
+      fee_category,
+      SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
+      SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+      SUM(CASE WHEN review_status = 'pending' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
+      SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+      COUNT(*) as total,
+      ROUND(AVG(extraction_confidence)::numeric, 2) as avg_confidence,
+      SUM(CASE
+        WHEN review_status IN ('staged', 'pending')
+          AND extraction_confidence >= 0.9
+          AND (validation_flags IS NULL OR validation_flags = '[]')
+        THEN 1 ELSE 0
+      END) as ready_count
+    FROM extracted_fees
+    WHERE fee_category IS NOT NULL
+    GROUP BY fee_category
+    ORDER BY total DESC
+  ` as CategoryReviewStats[];
+}
+
+/** Get fees for a specific category with full detail for review */
+export interface CategoryFeeRow {
+  id: number;
+  crawl_target_id: number;
+  institution_name: string;
+  fee_name: string;
+  amount: number | null;
+  frequency: string | null;
+  conditions: string | null;
+  extraction_confidence: number | null;
+  review_status: string;
+  validation_flags: string | null;
+  fee_category: string | null;
+  created_at: string;
+}
+
+export async function getFeesByCategory(
+  category: string,
+  status?: string,
+): Promise<CategoryFeeRow[]> {
+  const conditions = ["ef.fee_category = $1"];
+  const params: (string | number)[] = [category];
+
+  if (status) {
+    conditions.push("ef.review_status = $2");
+    params.push(status);
+  }
+
+  const query = `
+    SELECT ef.id, ef.crawl_target_id, ct.institution_name,
+           ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+           ef.extraction_confidence, ef.review_status,
+           ef.validation_flags, ef.fee_category, ef.created_at
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY ef.amount DESC NULLS LAST
+  `;
+  return await sql.unsafe(query, params) as CategoryFeeRow[];
+}
+
 /** Summarize price movements by category for a given time period */
-export function getPriceMovementSummary(days: number = 90): PriceMovement[] {
-  const db = getDb();
+export async function getPriceMovementSummary(days: number = 90): Promise<PriceMovement[]> {
   try {
-    return db
-      .prepare(
-        `SELECT fee_category,
-                SUM(CASE WHEN change_type = 'increased' THEN 1 ELSE 0 END) as increased,
-                SUM(CASE WHEN change_type = 'decreased' THEN 1 ELSE 0 END) as decreased,
-                SUM(CASE WHEN change_type = 'removed' THEN 1 ELSE 0 END) as removed,
-                COUNT(*) as total_changes
-         FROM fee_change_events
-         WHERE detected_at > datetime('now', '-${days} days')
-         GROUP BY fee_category
-         ORDER BY total_changes DESC`
-      )
-      .all() as PriceMovement[];
+    return await sql.unsafe(
+      `SELECT fee_category,
+              SUM(CASE WHEN change_type = 'increased' THEN 1 ELSE 0 END) as increased,
+              SUM(CASE WHEN change_type = 'decreased' THEN 1 ELSE 0 END) as decreased,
+              SUM(CASE WHEN change_type = 'removed' THEN 1 ELSE 0 END) as removed,
+              COUNT(*) as total_changes
+       FROM fee_change_events
+       WHERE detected_at > NOW() - interval '${days} days'
+       GROUP BY fee_category
+       ORDER BY total_changes DESC`
+    ) as PriceMovement[];
   } catch {
     return [];
   }

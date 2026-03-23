@@ -1,23 +1,18 @@
 import Link from "next/link";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 
-function getJobCounts(): { running: number; failed: number } {
-  const db = getDb();
+async function getJobCounts(): Promise<{ running: number; failed: number }> {
   try {
-    const running = (db.prepare(
-      "SELECT COUNT(*) as c FROM ops_jobs WHERE status IN ('running', 'queued')"
-    ).get() as { c: number }).c;
-    const failed = (db.prepare(
-      "SELECT COUNT(*) as c FROM ops_jobs WHERE status = 'failed' AND completed_at > datetime('now', '-24 hours')"
-    ).get() as { c: number }).c;
-    return { running, failed };
+    const [runningRow] = await sql`SELECT COUNT(*) as c FROM ops_jobs WHERE status IN ('running', 'queued')`;
+    const [failedRow] = await sql`SELECT COUNT(*) as c FROM ops_jobs WHERE status = 'failed' AND completed_at > NOW() - INTERVAL '24 hours'`;
+    return { running: Number(runningRow.c), failed: Number(failedRow.c) };
   } catch {
     return { running: 0, failed: 0 };
   }
 }
 
-export function JobStatusBadge() {
-  const { running, failed } = getJobCounts();
+export async function JobStatusBadge() {
+  const { running, failed } = await getJobCounts();
 
   if (running === 0 && failed === 0) return null;
 

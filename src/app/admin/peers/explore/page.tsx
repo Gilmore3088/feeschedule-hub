@@ -35,7 +35,7 @@ export default async function ExplorePeersPage({
   const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
   const pageSize = 50;
 
-  const { rows: institutions, total } = getInstitutionsByFilter({
+  const { rows: institutions, total } = await getInstitutionsByFilter({
     charter_type: peerFilters.charter,
     asset_tiers: peerFilters.tiers,
     fed_districts: peerFilters.districts,
@@ -59,7 +59,7 @@ export default async function ExplorePeersPage({
   if (showSummaryBar) {
     if (showGap) {
       // We have gap count from current query; need total
-      const { total: allTotal } = getInstitutionsByFilter({
+      const { total: allTotal } = await getInstitutionsByFilter({
         charter_type: peerFilters.charter,
         asset_tiers: peerFilters.tiers,
         fed_districts: peerFilters.districts,
@@ -71,7 +71,7 @@ export default async function ExplorePeersPage({
       totalGaps = total;
     } else {
       // We have total; need gap count
-      const { total: gapTotal } = getInstitutionsByFilter({
+      const { total: gapTotal } = await getInstitutionsByFilter({
         charter_type: peerFilters.charter,
         asset_tiers: peerFilters.tiers,
         fed_districts: peerFilters.districts,

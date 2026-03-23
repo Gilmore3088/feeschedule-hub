@@ -29,10 +29,10 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   const page = parseInt(params.page || "1", 10);
 
   const hasSearch = query.length >= 2 || stateCode || charterType;
-  const stats = getPublicStats();
+  const stats = await getPublicStats();
 
   const results = hasSearch
-    ? searchInstitutions({
+    ? await searchInstitutions({
         query: query || undefined,
         state_code: stateCode || undefined,
         charter_type: charterType || undefined,

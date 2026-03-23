@@ -1,9 +1,6 @@
 "use server";
 
-import Database from "better-sqlite3";
-import path from "path";
-
-const DB_PATH = path.join(process.cwd(), "data", "crawler.db");
+import { sql } from "@/lib/crawler-db/connection";
 
 export interface SearchResult {
   institutions: {
@@ -33,63 +30,53 @@ export async function searchDashboard(query: string): Promise<SearchResult> {
     return { institutions: [], categories: [], feeNames: [], conversations: [] };
   }
 
-  const db = new Database(DB_PATH, { readonly: true });
-  db.pragma("journal_mode = WAL");
+  const pattern = `%${query}%`;
 
+  const institutions = await sql`
+    SELECT id, institution_name as name, state_code as state, charter_type as charter
+    FROM crawl_targets
+    WHERE institution_name ILIKE ${pattern}
+    ORDER BY asset_size DESC NULLS LAST
+    LIMIT 8
+  `;
+
+  const categories = await sql`
+    SELECT fee_category, COUNT(DISTINCT crawl_target_id) as count
+    FROM extracted_fees
+    WHERE fee_category ILIKE ${pattern}
+    AND fee_category IS NOT NULL
+    GROUP BY fee_category
+    ORDER BY count DESC
+    LIMIT 8
+  `;
+
+  const feeNames = await sql`
+    SELECT fee_name, COUNT(*) as count
+    FROM extracted_fees
+    WHERE fee_name ILIKE ${pattern}
+    GROUP BY fee_name
+    ORDER BY count DESC
+    LIMIT 8
+  `;
+
+  let conversations: SearchResult["conversations"] = [];
   try {
-    const pattern = `%${query}%`;
-
-    const institutions = db
-      .prepare(
-        `SELECT id, institution_name as name, state_code as state, charter_type as charter
-         FROM crawl_targets
-         WHERE institution_name LIKE ?
-         ORDER BY asset_size DESC NULLS LAST
-         LIMIT 8`
-      )
-      .all(pattern) as SearchResult["institutions"];
-
-    const categories = db
-      .prepare(
-        `SELECT fee_category, COUNT(DISTINCT crawl_target_id) as count
-         FROM extracted_fees
-         WHERE fee_category LIKE ?
-         AND fee_category IS NOT NULL
-         GROUP BY fee_category
-         ORDER BY count DESC
-         LIMIT 8`
-      )
-      .all(pattern) as SearchResult["categories"];
-
-    const feeNames = db
-      .prepare(
-        `SELECT fee_name, COUNT(*) as count
-         FROM extracted_fees
-         WHERE fee_name LIKE ?
-         GROUP BY fee_name
-         ORDER BY count DESC
-         LIMIT 8`
-      )
-      .all(pattern) as SearchResult["feeNames"];
-
-    // Research conversations
-    let conversations: SearchResult["conversations"] = [];
-    try {
-      conversations = db
-        .prepare(
-          `SELECT id, agent_id, title, updated_at
-           FROM research_conversations
-           WHERE title LIKE ?
-           ORDER BY updated_at DESC
-           LIMIT 5`
-        )
-        .all(pattern) as SearchResult["conversations"];
-    } catch {
-      // Table may not exist yet
-    }
-
-    return { institutions, categories, feeNames, conversations };
-  } finally {
-    db.close();
+    const rows = await sql`
+      SELECT id, agent_id, title, updated_at
+      FROM research_conversations
+      WHERE title ILIKE ${pattern}
+      ORDER BY updated_at DESC
+      LIMIT 5
+    `;
+    conversations = [...rows] as unknown as SearchResult["conversations"];
+  } catch {
+    // Table may not exist yet
   }
+
+  return {
+    institutions: [...institutions] as unknown as SearchResult["institutions"],
+    categories: [...categories] as unknown as SearchResult["categories"],
+    feeNames: [...feeNames] as unknown as SearchResult["feeNames"],
+    conversations,
+  };
 }

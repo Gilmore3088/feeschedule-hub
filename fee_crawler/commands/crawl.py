@@ -15,7 +15,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fee_crawler.config import Config
-from fee_crawler.db import Database
+from fee_crawler.db import Database, get_worker_db
 from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
 from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
@@ -44,7 +44,7 @@ def _crawl_one(
     last_hash = target["last_content_hash"]
     state_code = target["state_code"] or "??"
 
-    db = Database(config)
+    db = get_worker_db(config)
     result = {
         "target_id": target_id,
         "name": name,
@@ -62,13 +62,25 @@ def _crawl_one(
         dl = download_document(url, target_id, config, last_hash=last_hash, rate_limiter=rate_limiter)
 
         if not dl["success"]:
+            error_msg = dl["error"] or ""
             result["status"] = "failed"
-            result["message"] = f"DOWNLOAD FAILED: {dl['error']}"
-            _save_result(db, run_id, target_id, "failed", url, error=dl["error"])
-            db.execute(
-                "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
-                (target_id,),
-            )
+            result["message"] = f"DOWNLOAD FAILED: {error_msg}"
+            _save_result(db, run_id, target_id, "failed", url, error=error_msg)
+
+            # Auto-clear dead URLs so discover can retry
+            if "404" in error_msg or "403" in error_msg:
+                db.execute(
+                    """UPDATE crawl_targets
+                       SET fee_schedule_url = NULL, failure_reason = 'dead_url',
+                           consecutive_failures = consecutive_failures + 1
+                       WHERE id = ?""",
+                    (target_id,),
+                )
+            else:
+                db.execute(
+                    "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
+                    (target_id,),
+                )
             db.commit()
             return result
 
@@ -112,16 +124,30 @@ def _crawl_one(
             db.commit()
             return result
 
-        # Step 2b: Pre-LLM screening — skip non-fee documents to save API costs
-        if not _is_likely_fee_schedule(text):
-            failure_reason = _classify_extraction_failure(text, doc_type)
+        # Step 2b: Document classification — skip non-fee documents to save API costs
+        from fee_crawler.pipeline.classify_document import classify_document
+        doc_class = classify_document(text)
+
+        # Store classification results
+        db.execute(
+            """UPDATE crawl_targets
+               SET document_type_detected = ?, doc_classification_confidence = ?
+               WHERE id = ?""",
+            (doc_class["doc_type_guess"], doc_class["confidence"], target_id),
+        )
+
+        if not doc_class["is_fee_schedule"]:
+            failure_reason = f"wrong_document:{doc_class['doc_type_guess']}"
             result["status"] = "failed"
-            result["message"] = f"PRE-SCREEN SKIP ({failure_reason})"
+            result["message"] = f"DOC CLASSIFY: {doc_class['doc_type_guess']} (conf={doc_class['confidence']:.2f})"
             _save_result(db, run_id, target_id, "failed", url,
                          content_hash=dl["content_hash"],
-                         error=f"Pre-LLM screening: not a fee schedule ({failure_reason})")
+                         error=f"Document classifier: {doc_class['doc_type_guess']} ({doc_class['confidence']:.2f})")
             db.execute(
-                "UPDATE crawl_targets SET failure_reason = ?, last_crawl_at = datetime('now') WHERE id = ?",
+                """UPDATE crawl_targets
+                   SET fee_schedule_url = NULL, failure_reason = ?,
+                       last_crawl_at = datetime('now')
+                   WHERE id = ?""",
                 (failure_reason, target_id),
             )
             db.commit()
@@ -165,29 +191,14 @@ def _crawl_one(
 
         # Step 4: Categorize + validate fees (category enables auto-approve)
         categories = [normalize_fee_name(f.fee_name) for f in fees]
+        fee_families = [get_fee_family(c) if c else None for c in categories]
         validated = validate_and_classify_fees(fees, config, fee_categories=categories)
 
-        # Steps 5-6: Smart re-crawl — compare new fees against existing, preserve history
-        # For first crawl: simple insert. For re-crawl: compare by category, track changes.
+        # Step 5: Merge new fees with existing (compare, snapshot, change events)
+        from fee_crawler.commands.merge_fees import merge_institution_fees
+
         db.execute("BEGIN IMMEDIATE")
         try:
-            # Get existing approved/staged fees for this institution (keyed by category)
-            existing_fees = db.fetchall(
-                """SELECT id, fee_name, amount, frequency, conditions, fee_category,
-                          review_status, extraction_confidence, crawl_result_id
-                   FROM extracted_fees
-                   WHERE crawl_target_id = ? AND review_status != 'rejected'""",
-                (target_id,),
-            )
-            existing_by_cat: dict[str, dict] = {}
-            for ef in existing_fees:
-                cat = ef["fee_category"]
-                if cat:
-                    existing_by_cat[cat] = dict(ef)
-
-            is_recrawl = len(existing_fees) > 0
-
-            # Save crawl result record
             result_id = _save_result(
                 db, run_id, target_id, "success", url,
                 content_hash=dl["content_hash"],
@@ -195,166 +206,37 @@ def _crawl_one(
                 fees_extracted=len(validated),
             )
 
-            staged_count = 0
-            flagged_count = 0
-            approved_count = 0
-            unchanged_count = 0
-            changed_count = 0
-            new_count = 0
-            cap_categories = {"od_daily_cap", "nsf_daily_cap"}
-            today = db.fetchone("SELECT date('now') as d")["d"]
-            seen_categories: set[str] = set()
-
-            for i, (fee, flags, review_status) in enumerate(validated):
-                fee_category = categories[i]
-                fee_family = get_fee_family(fee_category) if fee_category else None
-                frequency = "daily" if fee_category in cap_categories else fee.frequency
-
-                if fee_category:
-                    seen_categories.add(fee_category)
-
-                old = existing_by_cat.get(fee_category) if fee_category else None
-
-                if is_recrawl and old:
-                    # Compare: same category exists — check if amount changed
-                    old_amount = old["amount"]
-                    new_amount = fee.amount
-
-                    amounts_match = (
-                        (old_amount is None and new_amount is None) or
-                        (old_amount is not None and new_amount is not None and abs(old_amount - new_amount) < 0.01)
-                    )
-
-                    if amounts_match:
-                        # Unchanged — keep existing fee, update crawl_result_id only
-                        db.execute(
-                            "UPDATE extracted_fees SET crawl_result_id = ? WHERE id = ?",
-                            (result_id, old["id"]),
-                        )
-                        unchanged_count += 1
-                        if old["review_status"] == "approved":
-                            approved_count += 1
-                        elif old["review_status"] == "staged":
-                            staged_count += 1
-                        elif old["review_status"] == "flagged":
-                            flagged_count += 1
-                    else:
-                        # Amount changed — snapshot old, create new as staged, record event
-                        changed_count += 1
-
-                        # Snapshot the old fee
-                        db.execute(
-                            """INSERT OR IGNORE INTO fee_snapshots
-                               (crawl_target_id, crawl_result_id, snapshot_date,
-                                fee_name, fee_category, amount, frequency,
-                                conditions, extraction_confidence)
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                            (target_id, old["crawl_result_id"], today,
-                             old["fee_name"], old["fee_category"], old_amount,
-                             old["frequency"], old["conditions"], old["extraction_confidence"]),
-                        )
-
-                        # Record the change event
-                        change_type = "increased" if (new_amount or 0) > (old_amount or 0) else "decreased"
-                        db.execute(
-                            """INSERT INTO fee_change_events
-                               (crawl_target_id, fee_category, previous_amount, new_amount, change_type)
-                               VALUES (?, ?, ?, ?, ?)""",
-                            (target_id, fee_category, old_amount, new_amount, change_type),
-                        )
-
-                        # Update existing fee with new data, set to staged for review
-                        db.execute(
-                            """UPDATE extracted_fees
-                               SET fee_name = ?, amount = ?, frequency = ?, conditions = ?,
-                                   extraction_confidence = ?, review_status = 'staged',
-                                   validation_flags = ?, crawl_result_id = ?
-                               WHERE id = ?""",
-                            (fee.fee_name, new_amount, frequency, fee.conditions,
-                             fee.confidence, flags_to_json(flags), result_id, old["id"]),
-                        )
-                        db.execute(
-                            """INSERT INTO fee_reviews
-                               (fee_id, action, username, previous_status, new_status, notes)
-                               VALUES (?, 'price_change', 'system', ?, 'staged', ?)""",
-                            (old["id"], old["review_status"],
-                             f"Amount changed: ${old_amount or 0:.2f} -> ${new_amount or 0:.2f}"),
-                        )
-                        staged_count += 1
-                else:
-                    # New fee (first crawl or new category) — insert normally
-                    new_count += 1
-                    db.execute(
-                        """INSERT INTO extracted_fees
-                           (crawl_result_id, crawl_target_id, fee_name, amount,
-                            frequency, conditions, extraction_confidence,
-                            review_status, validation_flags,
-                            fee_category, fee_family)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (result_id, target_id, fee.fee_name, fee.amount,
-                         frequency, fee.conditions, fee.confidence,
-                         review_status, flags_to_json(flags),
-                         fee_category, fee_family),
-                    )
-                    if review_status == "approved":
-                        approved_count += 1
-                    elif review_status == "staged":
-                        staged_count += 1
-                    elif review_status == "flagged":
-                        flagged_count += 1
-
-            # Handle categories that existed before but weren't found in new crawl
-            # Don't delete — just flag as "not found in latest crawl"
-            if is_recrawl:
-                for cat, old in existing_by_cat.items():
-                    if cat not in seen_categories and old["review_status"] == "approved":
-                        # Snapshot it but leave it in place
-                        db.execute(
-                            """INSERT OR IGNORE INTO fee_snapshots
-                               (crawl_target_id, crawl_result_id, snapshot_date,
-                                fee_name, fee_category, amount, frequency,
-                                conditions, extraction_confidence)
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                            (target_id, old["crawl_result_id"], today,
-                             old["fee_name"], cat, old["amount"],
-                             old["frequency"], old["conditions"], old["extraction_confidence"]),
-                        )
-                        db.execute(
-                            """INSERT INTO fee_change_events
-                               (crawl_target_id, fee_category, previous_amount, new_amount, change_type)
-                               VALUES (?, ?, ?, NULL, 'removed')""",
-                            (target_id, cat, old["amount"]),
-                        )
-
-            # Delete non-approved, non-categorized old fees that are being fully replaced
-            if is_recrawl:
-                db.execute(
-                    """DELETE FROM extracted_fees
-                       WHERE crawl_target_id = ? AND review_status IN ('pending', 'rejected')
-                       AND id NOT IN (SELECT id FROM extracted_fees WHERE crawl_target_id = ? AND review_status != 'rejected' AND fee_category IS NOT NULL)""",
-                    (target_id, target_id),
-                )
-
-            db.execute(
-                """UPDATE crawl_targets
-                   SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                       last_success_at = datetime('now'), consecutive_failures = 0
-                   WHERE id = ?""",
-                (dl["content_hash"], target_id),
+            merge_stats = merge_institution_fees(
+                db, target_id, result_id,
+                validated, categories, fee_families,
             )
+
+            r2_key = dl.get("r2_key")
+            update_sql = """UPDATE crawl_targets
+                   SET last_content_hash = ?, last_crawl_at = datetime('now'),
+                       last_success_at = datetime('now'), consecutive_failures = 0"""
+            if r2_key:
+                update_sql += ", document_r2_key = ?"
+                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], r2_key, target_id))
+            else:
+                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], target_id))
             db.commit()
         except Exception:
             db.execute("ROLLBACK")
             raise
+
+        approved_count = merge_stats["approved"]
+        staged_count = merge_stats["staged"]
+        flagged_count = merge_stats["flagged"]
 
         result["status"] = "success"
         result["fees"] = len(validated)
         result["approved"] = approved_count
         result["staged"] = staged_count
         result["flagged"] = flagged_count
-        result["unchanged"] = unchanged_count
-        result["changed"] = changed_count
-        result["new_fees"] = new_count
+        result["unchanged"] = merge_stats["unchanged"]
+        result["changed"] = merge_stats["changed"]
+        result["new_fees"] = merge_stats["new"]
         status_summary = f"{len(validated)} fees"
         parts = []
         if approved_count:
@@ -382,7 +264,7 @@ def _crawl_one(
             print(f"  WARNING: Failed to record error for {name}: {db_err}")
         return result
     finally:
-        db.close()
+        pass  # Worker DB is thread-local; closed when thread exits
 
 
 def run(
@@ -469,13 +351,21 @@ def run(
 
     where_sql = " AND ".join(where_clauses)
 
-    # Order: institutions without fees first (gaps), then by asset size
+    # Priority order:
+    # 1. Has fee URL but never crawled (last_success_at IS NULL)
+    # 2. Stale data (last_success_at > 90 days ago)
+    # 3. No extracted fees yet
+    # 4. Everything else, by asset size
     query = f"""SELECT ct.id, ct.institution_name, ct.fee_schedule_url, ct.document_type,
                    ct.last_content_hash, ct.state_code, ct.asset_size, ct.charter_type
             FROM crawl_targets ct
             WHERE {where_sql}
             ORDER BY
-              CASE WHEN NOT EXISTS (SELECT 1 FROM extracted_fees ef2 WHERE ef2.crawl_target_id = ct.id) THEN 0 ELSE 1 END,
+              CASE WHEN ct.last_success_at IS NULL THEN 0
+                   WHEN ct.last_success_at < datetime('now', '-90 days') THEN 1
+                   WHEN NOT EXISTS (SELECT 1 FROM extracted_fees ef2 WHERE ef2.crawl_target_id = ct.id) THEN 2
+                   ELSE 3 END,
+              ct.last_success_at ASC NULLS FIRST,
               ct.asset_size DESC NULLS LAST"""
     if limit and limit > 0:
         query += " LIMIT ?"
@@ -663,12 +553,69 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     )
     db.commit()
 
-    print(f"\nCrawl run #{run_id} complete:")
+    duration_s = stats.get("duration_s", 0)
+    mins = int(duration_s // 60)
+    secs = int(duration_s % 60)
+
+    print(f"\n{'='*60}")
+    print(f"  CRAWL RUN #{run_id} REPORT")
+    print(f"{'='*60}")
+    print(f"  Duration:   {mins}m {secs}s")
     print(f"  Crawled:    {stats['crawled']}/{total}")
-    print(f"  Succeeded:  {stats['succeeded']}")
+    print(f"  Succeeded:  {stats['succeeded']} ({stats['succeeded']*100//max(1,stats['crawled'])}%)")
     print(f"  Failed:     {stats['failed']}")
     print(f"  Unchanged:  {stats['unchanged']}")
     print(f"  Fees found: {stats['total_fees']}")
+
+    # Fee status breakdown
+    status_rows = db.fetchall(
+        "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC"
+    )
+    if status_rows:
+        print(f"\n  Fee Inventory:")
+        for row in status_rows:
+            print(f"    {row['review_status']:<12s} {row['cnt']:>8,}")
+
+    # Confidence distribution
+    conf = db.fetchall("""
+        SELECT
+          CASE
+            WHEN extraction_confidence >= 0.95 THEN '0.95+'
+            WHEN extraction_confidence >= 0.90 THEN '0.90-0.94'
+            WHEN extraction_confidence >= 0.85 THEN '0.85-0.89'
+            WHEN extraction_confidence >= 0.70 THEN '0.70-0.84'
+            ELSE '<0.70'
+          END as range,
+          COUNT(*) as cnt
+        FROM extracted_fees WHERE review_status != 'rejected'
+        GROUP BY range ORDER BY range DESC
+    """)
+    if conf:
+        print(f"\n  Confidence Distribution:")
+        for row in conf:
+            print(f"    {row['range']:<12s} {row['cnt']:>6,}")
+
+    # Top categories
+    cats = db.fetchall("""
+        SELECT fee_category, COUNT(DISTINCT crawl_target_id) as inst_cnt, COUNT(*) as cnt
+        FROM extracted_fees
+        WHERE fee_category IS NOT NULL AND review_status != 'rejected'
+        GROUP BY fee_category ORDER BY inst_cnt DESC LIMIT 10
+    """)
+    if cats:
+        print(f"\n  Top Categories:")
+        print(f"    {'Category':<28s} {'Inst':>6s} {'Fees':>6s}")
+        for row in cats:
+            print(f"    {row['fee_category']:<28s} {row['inst_cnt']:>6,} {row['cnt']:>6,}")
+
+    # Uncategorized remaining
+    uncat = db.fetchone(
+        "SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'"
+    )
+    if uncat and uncat["cnt"] > 0:
+        print(f"\n  Uncategorized remaining: {uncat['cnt']:,}")
+
+    print(f"{'='*60}")
 
     # Structured result for job runner
     result = {
@@ -683,7 +630,8 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
         "fees_extracted": stats["total_fees"],
         "institutions_failed": stats["failed"],
     }
-    print(f"##RESULT_JSON##{json.dumps(result)}")
+    from fee_crawler.job_result import emit_result
+    emit_result(result)
 
     # Capture coverage snapshot (one per day, upsert)
     try:
@@ -752,27 +700,33 @@ def _classify_extraction_failure(text: str, doc_type: str) -> str:
 def _is_likely_fee_schedule(text: str) -> bool:
     """Pre-LLM screening: check if text is likely a fee schedule.
 
-    Requires at least 3 fee-related keywords AND 2 dollar amounts.
-    This avoids wasting API calls on non-fee documents.
+    Loosened from original (3 keywords AND 2 dollars) to (2 keywords OR 1 dollar).
+    The document classifier now handles the real filtering — this just excludes
+    completely non-financial pages.
     """
     import re
+    from fee_crawler.pipeline.classify_document import DEFINITIVE_TITLES
 
     lower = text.lower()
+
+    # Definitive titles always pass — never pre-screen out explicit fee schedules
+    if any(t in lower for t in DEFINITIVE_TITLES):
+        return True
 
     fee_keywords = [
         "fee", "charge", "service charge", "overdraft", "nsf",
         "non-sufficient funds", "insufficient funds", "maintenance",
         "monthly service", "wire transfer", "atm", "stop payment",
         "dormant", "inactive account", "cashier", "statement fee",
-        "schedule of fees", "fee schedule", "per item",
+        "per item", "per occurrence",
     ]
     keyword_matches = sum(1 for kw in fee_keywords if kw in lower)
 
-    # Count dollar amounts like $12.00, $35, $1,500.00
     dollar_pattern = r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?"
     dollar_matches = len(re.findall(dollar_pattern, text))
 
-    return keyword_matches >= 3 and dollar_matches >= 2
+    # Loosened: 2 keywords OR 1 dollar amount (was: 3 AND 2)
+    return keyword_matches >= 2 or dollar_matches >= 1
 
 
 def _save_result(

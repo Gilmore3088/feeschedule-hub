@@ -100,26 +100,6 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
-        href: "/admin/quality",
-        label: "Quality",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M2 12l3-4 3 2 4-6 2 3" />
-            <path d="M2 14h12" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/ops",
-        label: "Ops Center",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="8" cy="8" r="3" />
-            <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4" />
-          </svg>
-        ),
-      },
-      {
         href: "/admin/review",
         label: "Review",
         icon: (
@@ -130,23 +110,23 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
-        href: "/admin/query",
-        label: "Query",
+        href: "/admin/review/categories",
+        label: "By Category",
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M2 4l5 3-5 3z" />
-            <path d="M9 10h5" />
+            <rect x="1.5" y="2" width="13" height="3" rx="1" />
+            <rect x="1.5" y="7" width="9" height="3" rx="1" />
+            <rect x="1.5" y="12" width="6" height="3" rx="1" />
           </svg>
         ),
       },
       {
-        href: "/admin/institutions",
-        label: "Institutions",
+        href: "/admin/query",
+        label: "Explorer",
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5l5.5 3v2H2.5v-2z" />
-            <path d="M4 6.5v5M8 6.5v5M12 6.5v5" />
-            <path d="M2 11.5h12v2H2z" />
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
           </svg>
         ),
       },

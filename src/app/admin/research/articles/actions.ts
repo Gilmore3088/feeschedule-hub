@@ -22,7 +22,7 @@ export async function saveArticle(data: {
     .replace(/^-|-$/g, "");
 
   try {
-    const id = createArticle({
+    const id = await createArticle({
       ...data,
       slug,
       generated_by: "content-writer",
@@ -47,7 +47,7 @@ export async function updateArticleAction(
   }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const updated = updateArticle(id, data);
+    const updated = await updateArticle(id, data);
     if (!updated) return { success: false, error: "Article not found" };
     revalidatePath("/admin/research/articles");
     revalidatePath("/research/articles");
@@ -62,7 +62,7 @@ export async function deleteArticleAction(
   id: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const deleted = deleteArticle(id);
+    const deleted = await deleteArticle(id);
     if (!deleted) return { success: false, error: "Article not found" };
     revalidatePath("/admin/research/articles");
     return { success: true };

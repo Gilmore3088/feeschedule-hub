@@ -25,7 +25,7 @@ export async function triggerJob(
     }
 
     const { sanitized } = validation;
-    const result = spawnJob(
+    const result = await spawnJob(
       sanitized.command,
       sanitized.args,
       user.username,
@@ -45,7 +45,7 @@ export async function cancelOpsJob(
   try {
     await requireOpsPermission("cancel_jobs");
 
-    const cancelled = cancelJob(jobId);
+    const cancelled = await cancelJob(jobId);
     if (!cancelled) {
       return { success: false, error: "Job not found or not cancellable" };
     }

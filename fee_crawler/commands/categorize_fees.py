@@ -120,4 +120,5 @@ def run(
         "unmatched": unmatched,
         "stale_cleared": len(clears),
     }
-    print(f"##RESULT_JSON##{json.dumps(result)}")
+    from fee_crawler.job_result import emit_result
+    emit_result(result)

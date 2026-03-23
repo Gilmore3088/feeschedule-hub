@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const state = searchParams.get("state");
   const charter = searchParams.get("charter");
@@ -12,7 +12,7 @@ export function GET(request: NextRequest) {
   const hasFilters = state || charter || district;
 
   const entries = hasFilters
-    ? getPeerIndex({
+    ? await getPeerIndex({
         state_code: state?.toUpperCase() ?? undefined,
         charter_type:
           charter === "bank" || charter === "credit_union"
@@ -25,7 +25,7 @@ export function GET(request: NextRequest) {
               .filter((d) => d >= 1 && d <= 12)
           : undefined,
       })
-    : getNationalIndex();
+    : await getNationalIndex();
 
   const data = entries.map((e) => ({
     category: e.fee_category,

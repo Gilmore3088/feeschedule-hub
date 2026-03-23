@@ -98,7 +98,7 @@ export default async function FeeCategoryDetailPage({
     notFound();
   }
 
-  const detail = getFeeCategoryDetail(category);
+  const detail = await getFeeCategoryDetail(category);
 
   if (detail.fees.length === 0) {
     return (

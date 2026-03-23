@@ -28,12 +28,17 @@ Institution: {institution_name}
 
 EXTRACT ONLY actual fees that have a dollar amount or are explicitly listed as a fee/charge.
 
-DO NOT extract:
+DO NOT extract — these look like fees but are NOT:
 - Account names or product types (e.g., "Basic Checking", "Premium Savings", "Money Market")
-- Interest rates or APY values
-- Minimum balance requirements (unless there's a fee for going below it)
+- Interest rates or APY values (e.g., "0.05% APY")
+- Minimum balance requirements (e.g., "Minimum balance to open: $500")
+- Daily transaction limits (e.g., "ATM limit: $500/day", "Daily withdrawal limit: $1,000")
+- Transfer or wire limits (e.g., "Wire limit: $10,000")
+- Account maximums or borrowing caps (e.g., "Maximum loan amount: $50,000")
+- Share/membership par values at credit unions (e.g., "Par value of one share: $5.00")
+- Loan amounts or credit limits
+- Required opening deposits (e.g., "Required opening deposit: $100")
 - Service descriptions without a fee amount
-- Share/membership par values
 
 LOOK FOR:
 - Monthly maintenance fees, service charges

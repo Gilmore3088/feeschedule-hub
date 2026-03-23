@@ -50,11 +50,11 @@ export default async function CityFeePage({ params }: PageProps) {
 
   if (!stateName) notFound();
 
-  const institutions = getCityInstitutions(cityName, stateCode);
+  const institutions = await getCityInstitutions(cityName, stateCode);
   if (institutions.length === 0) notFound();
 
-  const cityAverages = getCityFeeAverages(cityName, stateCode);
-  const nationalIndex = getNationalIndex();
+  const cityAverages = await getCityFeeAverages(cityName, stateCode);
+  const nationalIndex = await getNationalIndex();
 
   const nationalMedians: Record<string, number> = {};
   for (const entry of nationalIndex) {

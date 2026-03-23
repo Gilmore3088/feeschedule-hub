@@ -18,13 +18,13 @@ export async function exportMarketCsv(
 ): Promise<string> {
   await requireAuth("view");
 
-  const national = getNationalIndex(approvedOnly);
+  const national = await getNationalIndex(approvedOnly);
   const hasFilters = !!(
     filters.charter_type ||
     (filters.asset_tiers && filters.asset_tiers.length > 0) ||
     (filters.fed_districts && filters.fed_districts.length > 0)
   );
-  const segment = hasFilters ? getPeerIndex(filters, approvedOnly) : null;
+  const segment = hasFilters ? await getPeerIndex(filters, approvedOnly) : null;
   const entries = buildMarketIndex(national, segment);
 
   const headers = [

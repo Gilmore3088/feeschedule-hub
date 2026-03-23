@@ -15,6 +15,7 @@ import time
 from fee_crawler.config import Config
 from fee_crawler.db import Database
 from fee_crawler.fee_amount_rules import FEE_AMOUNT_RULES, FALLBACK_RULES, NON_FEE_SUBSTRINGS
+from fee_crawler.review_status import transition_fee_status, TransitionContext
 
 BATCH_SIZE = 500
 
@@ -22,6 +23,7 @@ BATCH_SIZE = 500
 def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
     """Auto-review staged and flagged fees."""
     t0 = time.time()
+    approve_threshold = config.extraction.confidence_approve_threshold
     auto_approved = 0
     auto_rejected = 0
     kept_staged = 0
@@ -44,7 +46,7 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
         conf = row["extraction_confidence"]
         cat = row["fee_category"]
 
-        action = _decide(name, amount, conf, cat)
+        action = _decide(name, amount, conf, cat, approve_threshold)
 
         if action == "approve":
             batch.append(("approved", fid, "auto-review: confidence + bounds check passed"))
@@ -117,39 +119,33 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
         "kept_staged": kept_staged,
         "kept_flagged": kept_flagged,
     }
-    print(f"##RESULT_JSON##{json.dumps(result)}")
+    from fee_crawler.job_result import emit_result
+    emit_result(result)
 
 
 def _flush_batch(db: Database, batch: list[tuple[str, int, str]]) -> None:
-    """Write a batch of status changes + audit records in a single transaction."""
-    db.execute("BEGIN IMMEDIATE")
-    try:
+    """Write a batch of status changes via the state machine."""
+    with db.transaction():
         for new_status, fee_id, reason in batch:
-            # Get current status for audit trail
             row = db.fetchone(
                 "SELECT review_status FROM extracted_fees WHERE id = ?", (fee_id,)
             )
             if not row:
                 continue
-            prev_status = row["review_status"]
-
-            db.execute(
-                "UPDATE extracted_fees SET review_status = ? WHERE id = ?",
-                (new_status, fee_id),
+            transition_fee_status(
+                db, fee_id, row["review_status"], new_status,
+                actor="system", context=TransitionContext.REVIEW,
+                notes=reason,
             )
-            db.execute(
-                """INSERT INTO fee_reviews
-                   (fee_id, action, user_id, username, previous_status, new_status, notes)
-                   VALUES (?, ?, 0, 'system', ?, ?, ?)""",
-                (fee_id, f"auto_{new_status.rstrip('d')}", prev_status, new_status, reason),
-            )
-        db.commit()
-    except Exception:
-        db.execute("ROLLBACK")
-        raise
 
 
-def _decide(name: str, amount: float | None, conf: float | None, cat: str | None) -> str:
+def _decide(
+    name: str,
+    amount: float | None,
+    conf: float | None,
+    cat: str | None,
+    approve_threshold: float = 0.90,
+) -> str:
     """Decide action for a staged fee: 'approve', 'reject', or 'keep'."""
 
     # Reject: non-fee content (minimum balance requirements, APY, etc.)
@@ -169,7 +165,7 @@ def _decide(name: str, amount: float | None, conf: float | None, cat: str | None
             return "reject"
 
         # Approve: high confidence + within normal range
-        if conf and conf >= 0.85:
+        if conf and conf >= approve_threshold:
             if amount is None and allows_zero:
                 return "approve"
             if amount is not None and amount == 0 and allows_zero:

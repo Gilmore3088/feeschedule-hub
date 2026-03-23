@@ -9,6 +9,6 @@ export async function GET(request: Request) {
     return NextResponse.json([]);
   }
 
-  const results = getCityAutocomplete(q, 8);
+  const results = await getCityAutocomplete(q, 8);
   return NextResponse.json(results);
 }

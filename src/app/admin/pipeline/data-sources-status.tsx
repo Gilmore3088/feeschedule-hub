@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { timeAgo } from "@/lib/format";
 
 interface DataSource {
@@ -25,26 +25,28 @@ const DATA_SOURCES: DataSource[] = [
   { name: "Census Tracts", table: "census_tracts", dateColumn: "fetched_at", cadence: "Annual", cadenceDays: 365 },
 ];
 
-function getRefreshTimestamps(): { name: string; lastRefresh: string | null; cadence: string; overdue: boolean; rowCount: number; refreshCommand?: string }[] {
-  const db = getDb();
-  return DATA_SOURCES.map((src) => {
+async function getRefreshTimestamps(): Promise<{ name: string; lastRefresh: string | null; cadence: string; overdue: boolean; rowCount: number; refreshCommand?: string }[]> {
+  const results: { name: string; lastRefresh: string | null; cadence: string; overdue: boolean; rowCount: number; refreshCommand?: string }[] = [];
+  for (const src of DATA_SOURCES) {
     try {
-      const row = db.prepare(`SELECT MAX(${src.dateColumn}) as last_refresh, COUNT(*) as cnt FROM ${src.table}`).get() as { last_refresh: string | null; cnt: number };
-      const lastRefresh = row.last_refresh;
+      const rows = await sql.unsafe(`SELECT MAX(${src.dateColumn}) as last_refresh, COUNT(*) as cnt FROM ${src.table}`);
+      const row = rows[0];
+      const lastRefresh = row.last_refresh as string | null;
       let overdue = false;
       if (lastRefresh) {
         const daysSince = (Date.now() - new Date(lastRefresh).getTime()) / (1000 * 60 * 60 * 24);
         overdue = daysSince > src.cadenceDays * 1.5;
       }
-      return { name: src.name, lastRefresh, cadence: src.cadence, overdue, rowCount: row.cnt, refreshCommand: src.refreshCommand };
+      results.push({ name: src.name, lastRefresh, cadence: src.cadence, overdue, rowCount: Number(row.cnt), refreshCommand: src.refreshCommand });
     } catch {
-      return { name: src.name, lastRefresh: null, cadence: src.cadence, overdue: true, rowCount: 0, refreshCommand: src.refreshCommand };
+      results.push({ name: src.name, lastRefresh: null, cadence: src.cadence, overdue: true, rowCount: 0, refreshCommand: src.refreshCommand });
     }
-  });
+  }
+  return results;
 }
 
-export function DataSourcesStatus() {
-  const sources = getRefreshTimestamps();
+export async function DataSourcesStatus() {
+  const sources = await getRefreshTimestamps();
 
   return (
     <div className="admin-card overflow-hidden">

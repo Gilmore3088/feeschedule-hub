@@ -23,13 +23,13 @@ export async function getPeerPreview(filters: {
 }): Promise<PeerPreviewResult> {
   const hasFilters = filters.charter || filters.tier || filters.district;
 
-  const nationalEntries = getNationalIndex();
+  const nationalEntries = await getNationalIndex();
 
   let peerEntries: IndexEntry[] = nationalEntries;
   let label = "All Institutions";
 
   if (hasFilters) {
-    peerEntries = getPeerIndex({
+    peerEntries = await getPeerIndex({
       charter_type: filters.charter || undefined,
       asset_tiers: filters.tier ? [filters.tier] : undefined,
       fed_districts: filters.district ? [filters.district] : undefined,

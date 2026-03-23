@@ -40,7 +40,7 @@ export default async function FeeCatalogPage({
   const sortDir = params.dir ?? "desc";
   const showAll = params.show === "all";
 
-  let summaries = getFeeCategorySummaries();
+  let summaries = await getFeeCategorySummaries();
 
   // Search always searches all categories
   if (searchTerm) {

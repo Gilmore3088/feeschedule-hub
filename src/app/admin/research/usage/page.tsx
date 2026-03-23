@@ -8,9 +8,16 @@ import { getAgent } from "@/lib/research/agents";
 
 export default async function ResearchUsagePage() {
   await requireAuth("view");
-  ensureResearchTables();
+  await ensureResearchTables();
 
-  const dashboard = getUsageDashboard();
+  const dashboard = await getUsageDashboard();
+
+  // Pre-resolve agent configs for display
+  const agentNames: Record<string, string> = {};
+  for (const row of dashboard.by_agent) {
+    const config = await getAgent(row.agent_id);
+    agentNames[row.agent_id] = config?.name ?? row.agent_id;
+  }
 
   return (
     <div className="admin-content space-y-6">
@@ -115,11 +122,10 @@ export default async function ResearchUsagePage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                   {dashboard.by_agent.map((row) => {
-                    const agentConfig = getAgent(row.agent_id);
                     return (
                       <tr key={row.agent_id}>
                         <td className="py-2 font-medium text-gray-700 dark:text-gray-300">
-                          {agentConfig?.name ?? row.agent_id}
+                          {agentNames[row.agent_id] ?? row.agent_id}
                         </td>
                         <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
                           {row.queries}

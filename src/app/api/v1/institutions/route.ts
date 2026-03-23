@@ -5,7 +5,7 @@ import {
   getInstitutionsByFilter,
 } from "@/lib/crawler-db";
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const id = searchParams.get("id");
   const state = searchParams.get("state");
@@ -20,12 +20,12 @@ export function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     }
 
-    const inst = getInstitutionById(instId);
+    const inst = await getInstitutionById(instId);
     if (!inst) {
       return NextResponse.json({ error: "Institution not found" }, { status: 404 });
     }
 
-    const fees = getFeesByInstitution(instId)
+    const fees = (await getFeesByInstitution(instId))
       .filter((f) => f.review_status !== "rejected")
       .map((f) => ({
         fee_name: f.fee_name,
@@ -64,7 +64,7 @@ export function GET(request: NextRequest) {
     filters.state_code = state.toUpperCase();
   }
 
-  const { rows, total } = getInstitutionsByFilter(filters);
+  const { rows, total } = await getInstitutionsByFilter(filters);
 
   return NextResponse.json({
     total,

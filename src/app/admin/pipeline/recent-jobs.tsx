@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { timeAgo } from "@/lib/format";
 
 interface RecentJob {
@@ -14,16 +14,14 @@ interface RecentJob {
   stdout_tail: string | null;
 }
 
-function getRecentPipelineJobs(): RecentJob[] {
-  const db = getDb();
+async function getRecentPipelineJobs(): Promise<RecentJob[]> {
   try {
-    return db
-      .prepare(
-        `SELECT id, command, status, started_at, completed_at, exit_code, error_summary, result_summary, stdout_tail
-         FROM ops_jobs
-         ORDER BY created_at DESC LIMIT 10`
-      )
-      .all() as RecentJob[];
+    const rows = await sql`
+      SELECT id, command, status, started_at, completed_at, exit_code, error_summary, result_summary, stdout_tail
+      FROM ops_jobs
+      ORDER BY created_at DESC LIMIT 10
+    `;
+    return rows as unknown as unknown as RecentJob[];
   } catch {
     return [];
   }
@@ -91,8 +89,8 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-400 dark:bg-white/[0.06] dark:text-gray-500",
 };
 
-export function RecentJobs() {
-  const jobs = getRecentPipelineJobs();
+export async function RecentJobs() {
+  const jobs = await getRecentPipelineJobs();
 
   if (jobs.length === 0) {
     return (

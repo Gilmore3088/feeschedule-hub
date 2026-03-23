@@ -1,12 +1,12 @@
 /**
  * Spawns Python crawler processes in detached mode and tracks them in ops_jobs.
- * Uses child_process.spawn() — no job queue dependencies needed.
+ * Uses child_process.spawn() -- no job queue dependencies needed.
  */
 
 import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
-import { getDb, getWriteDb } from "./crawler-db/connection";
+import { sql } from "./crawler-db/connection";
 
 const LOGS_DIR = path.join(process.cwd(), "data", "logs");
 const PYTHON_CMD = process.env.PYTHON_CMD || "python";
@@ -18,20 +18,19 @@ export interface SpawnResult {
   logPath: string;
 }
 
-export function spawnJob(
+export async function spawnJob(
   command: string,
   args: string[],
   triggeredBy: string,
   targetId?: number,
-): SpawnResult {
+): Promise<SpawnResult> {
   // Concurrency guard: prevent runaway job spawning
-  const db0 = getDb();
   try {
-    const row = db0
-      .prepare("SELECT COUNT(*) as cnt FROM ops_jobs WHERE status IN ('running', 'queued')")
-      .get() as { cnt: number } | undefined;
-    if (row && row.cnt >= MAX_ACTIVE_JOBS) {
-      throw new Error(`Cannot start job: ${row.cnt} jobs already active (max ${MAX_ACTIVE_JOBS}). Wait for running jobs to complete.`);
+    const [row] = await sql`
+      SELECT COUNT(*) as cnt FROM ops_jobs WHERE status IN ('running', 'queued')
+    `;
+    if (row && (row as { cnt: number }).cnt >= MAX_ACTIVE_JOBS) {
+      throw new Error(`Cannot start job: ${(row as { cnt: number }).cnt} jobs already active (max ${MAX_ACTIVE_JOBS}). Wait for running jobs to complete.`);
     }
   } catch (e) {
     if (e instanceof Error && e.message.startsWith("Cannot start job")) throw e;
@@ -44,19 +43,12 @@ export function spawnJob(
   const logFile = `${command}-${timestamp}.log`;
   const logPath = path.join(LOGS_DIR, logFile);
 
-  const db = getWriteDb();
-  let jobId: number;
-  try {
-    const result = db
-      .prepare(
-        `INSERT INTO ops_jobs (command, params_json, status, triggered_by, target_id)
-         VALUES (?, ?, 'queued', ?, ?)`,
-      )
-      .run(command, JSON.stringify({ args }), triggeredBy, targetId ?? null);
-    jobId = Number(result.lastInsertRowid);
-  } finally {
-    db.close();
-  }
+  const [insertRow] = await sql`
+    INSERT INTO ops_jobs (command, params_json, status, triggered_by, target_id)
+    VALUES (${command}, ${JSON.stringify({ args })}, 'queued', ${triggeredBy}, ${targetId ?? null})
+    RETURNING id
+  `;
+  const jobId = Number(insertRow.id);
 
   const logStream = fs.openSync(logPath, "w");
 
@@ -64,20 +56,15 @@ export function spawnJob(
     cwd: process.cwd(),
     detached: true,
     stdio: ["ignore", logStream, logStream],
-    env: { ...process.env },
+    env: { ...process.env, BFI_JOB_ID: String(jobId) },
   });
 
   const pid = child.pid ?? 0;
 
-  const db2 = getWriteDb();
-  try {
-    db2.prepare(
-      `UPDATE ops_jobs SET status = 'running', pid = ?, log_path = ?, started_at = datetime('now')
-       WHERE id = ?`,
-    ).run(pid, logPath, jobId);
-  } finally {
-    db2.close();
-  }
+  await sql`
+    UPDATE ops_jobs SET status = 'running', pid = ${pid}, log_path = ${logPath}, started_at = NOW()
+    WHERE id = ${jobId}
+  `;
 
   child.on("exit", (code) => {
     fs.closeSync(logStream);
@@ -85,26 +72,32 @@ export function spawnJob(
     const tail = readLogTail(logPath, 50);
     const errorSummary =
       code !== 0 ? extractErrorSummary(tail) : null;
-    const resultSummary = extractResultJson(tail);
 
-    const db3 = getWriteDb();
+    let resultSummary: string | null = null;
+    const resultPath = path.join(LOGS_DIR, `${jobId}_result.json`);
     try {
-      db3.prepare(
-        `UPDATE ops_jobs
-         SET status = ?, exit_code = ?, completed_at = datetime('now'),
-             stdout_tail = ?, error_summary = ?, result_summary = ?
-         WHERE id = ?`,
-      ).run(
-        code === 0 || code === 2 ? "completed" : "failed",
-        code,
-        tail,
-        errorSummary,
-        resultSummary,
-        jobId,
-      );
-    } finally {
-      db3.close();
+      if (fs.existsSync(resultPath)) {
+        const raw = fs.readFileSync(resultPath, "utf-8");
+        JSON.parse(raw);
+        resultSummary = raw;
+      }
+    } catch {
+      // File missing or invalid, fall back
     }
+    if (!resultSummary) {
+      resultSummary = extractResultJson(tail);
+    }
+
+    const finalStatus = code === 0 || code === 2 ? "completed" : "failed";
+
+    sql`
+      UPDATE ops_jobs
+      SET status = ${finalStatus}, exit_code = ${code}, completed_at = NOW(),
+          stdout_tail = ${tail}, error_summary = ${errorSummary}, result_summary = ${resultSummary}
+      WHERE id = ${jobId}
+    `.catch((err) => {
+      console.error(`[job-runner] Failed to update job ${jobId}:`, err);
+    });
   });
 
   child.unref();
@@ -112,33 +105,28 @@ export function spawnJob(
   return { jobId, pid, logPath };
 }
 
-export function cancelJob(jobId: number): boolean {
-  const db = getWriteDb();
-  try {
-    const job = db
-      .prepare("SELECT id, pid, status FROM ops_jobs WHERE id = ?")
-      .get(jobId) as { id: number; pid: number | null; status: string } | undefined;
+export async function cancelJob(jobId: number): Promise<boolean> {
+  const [job] = await sql`
+    SELECT id, pid, status FROM ops_jobs WHERE id = ${jobId}
+  ` as { id: number; pid: number | null; status: string }[];
 
-    if (!job) return false;
-    if (job.status !== "running" && job.status !== "queued") return false;
+  if (!job) return false;
+  if (job.status !== "running" && job.status !== "queued") return false;
 
-    if (job.pid) {
-      try {
-        process.kill(job.pid, "SIGTERM");
-      } catch {
-        // Process may already be dead
-      }
+  if (job.pid) {
+    try {
+      process.kill(job.pid, "SIGTERM");
+    } catch {
+      // Process may already be dead
     }
-
-    db.prepare(
-      `UPDATE ops_jobs SET status = 'cancelled', completed_at = datetime('now')
-       WHERE id = ?`,
-    ).run(jobId);
-
-    return true;
-  } finally {
-    db.close();
   }
+
+  await sql`
+    UPDATE ops_jobs SET status = 'cancelled', completed_at = NOW()
+    WHERE id = ${jobId}
+  `;
+
+  return true;
 }
 
 function readLogTail(logPath: string, lines: number): string {
@@ -160,7 +148,7 @@ function extractResultJson(logTail: string): string | null {
     if (idx !== -1) {
       const jsonStr = lines[i].slice(idx + RESULT_SENTINEL.length).trim();
       try {
-        JSON.parse(jsonStr); // validate
+        JSON.parse(jsonStr);
         return jsonStr;
       } catch {
         return null;

@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
 from fee_crawler.config import Config
-from fee_crawler.db import Database
+from fee_crawler.db import Database, get_worker_db
 from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 from fee_crawler.pipeline.search_discovery import SearchDiscoverer
 from fee_crawler.pipeline.url_discoverer import DISCOVERY_METHODS, UrlDiscoverer
@@ -91,7 +91,7 @@ def _discover_one(
     url = target["website_url"]
     search_cost = 0.0
 
-    db = Database(config)
+    db = get_worker_db(config)
     disc_config = config.model_copy()
     if concurrent and not rate_limiter:
         # Only reduce delay if no rate limiter is managing timing
@@ -180,7 +180,7 @@ def _discover_one(
         return target, DiscoveryResult(error=str(e)), 0.0
     finally:
         discoverer.close()
-        db.close()
+        # Worker DB is thread-local; no close needed
 
 
 def run(

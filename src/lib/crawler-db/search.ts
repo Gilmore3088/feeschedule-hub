@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 
 export interface InstitutionSearchResult {
   id: number;
@@ -10,27 +10,30 @@ export interface InstitutionSearchResult {
   fee_count: number;
 }
 
-export function searchInstitutions(params: {
+export async function searchInstitutions(params: {
   query?: string;
   state_code?: string;
   charter_type?: string;
   page?: number;
   pageSize?: number;
-}): { rows: InstitutionSearchResult[]; total: number } {
-  const db = getDb();
+}): Promise<{ rows: InstitutionSearchResult[]; total: number }> {
   const conditions: string[] = [];
   const queryParams: (string | number)[] = [];
+  let paramIdx = 0;
 
   if (params.query && params.query.trim().length >= 2) {
-    conditions.push("ct.institution_name LIKE ?");
+    paramIdx++;
+    conditions.push(`ct.institution_name LIKE $${paramIdx}`);
     queryParams.push(`%${params.query.trim()}%`);
   }
   if (params.state_code) {
-    conditions.push("ct.state_code = ?");
+    paramIdx++;
+    conditions.push(`ct.state_code = $${paramIdx}`);
     queryParams.push(params.state_code);
   }
   if (params.charter_type) {
-    conditions.push("ct.charter_type = ?");
+    paramIdx++;
+    conditions.push(`ct.charter_type = $${paramIdx}`);
     queryParams.push(params.charter_type);
   }
 
@@ -39,39 +42,40 @@ export function searchInstitutions(params: {
   const pageSize = params.pageSize ?? 25;
   const offset = (page - 1) * pageSize;
 
-  const countRow = db
-    .prepare(
-      `SELECT COUNT(*) as cnt FROM crawl_targets ct ${where}`
-    )
-    .get(...queryParams) as { cnt: number };
+  const [countRow] = await sql.unsafe(
+    `SELECT COUNT(*) as cnt FROM crawl_targets ct ${where}`,
+    queryParams
+  ) as { cnt: number }[];
 
-  const rows = db
-    .prepare(
-      `SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
-              ct.charter_type, ct.asset_size_tier,
-              (SELECT COUNT(*) FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
-       FROM crawl_targets ct
-       ${where}
-       ORDER BY ct.institution_name ASC
-       LIMIT ? OFFSET ?`
-    )
-    .all(...queryParams, pageSize, offset) as InstitutionSearchResult[];
+  paramIdx++;
+  const limitParam = paramIdx;
+  paramIdx++;
+  const offsetParam = paramIdx;
+
+  const rows = await sql.unsafe(
+    `SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
+            ct.charter_type, ct.asset_size_tier,
+            (SELECT COUNT(*) FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
+     FROM crawl_targets ct
+     ${where}
+     ORDER BY ct.institution_name ASC
+     LIMIT $${limitParam} OFFSET $${offsetParam}`,
+    [...queryParams, pageSize, offset]
+  ) as InstitutionSearchResult[];
 
   return { rows, total: countRow.cnt };
 }
 
-export function autocompleteInstitutions(query: string, limit = 8): InstitutionSearchResult[] {
+export async function autocompleteInstitutions(query: string, limit = 8): Promise<InstitutionSearchResult[]> {
   if (!query || query.trim().length < 2) return [];
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
-              ct.charter_type, ct.asset_size_tier,
-              (SELECT COUNT(*) FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
-       FROM crawl_targets ct
-       WHERE ct.institution_name LIKE ?
-       ORDER BY fee_count DESC, ct.institution_name ASC
-       LIMIT ?`
-    )
-    .all(`%${query.trim()}%`, limit) as InstitutionSearchResult[];
+  const pattern = `%${query.trim()}%`;
+  return await sql`
+    SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
+           ct.charter_type, ct.asset_size_tier,
+           (SELECT COUNT(*) FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
+    FROM crawl_targets ct
+    WHERE ct.institution_name LIKE ${pattern}
+    ORDER BY fee_count DESC, ct.institution_name ASC
+    LIMIT ${limit}
+  ` as InstitutionSearchResult[];
 }

@@ -1,5 +1,4 @@
-import { getWriteDb } from "@/lib/crawler-db/connection";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 
 export interface Conversation {
   id: number;
@@ -21,209 +20,170 @@ export interface Message {
 }
 
 /** Ensure research tables exist */
-export function ensureResearchTables(): void {
-  const db = getWriteDb();
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS research_conversations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        agent_id TEXT NOT NULL,
-        title TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
+export async function ensureResearchTables(): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS research_conversations (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      agent_id TEXT NOT NULL,
+      title TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
 
-      CREATE TABLE IF NOT EXISTS research_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        conversation_id INTEGER NOT NULL REFERENCES research_conversations(id) ON DELETE CASCADE,
-        role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'tool')),
-        content TEXT NOT NULL,
-        tool_calls TEXT,
-        token_count INTEGER,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
+  await sql`
+    CREATE TABLE IF NOT EXISTS research_messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER NOT NULL REFERENCES research_conversations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'tool')),
+      content TEXT NOT NULL,
+      tool_calls TEXT,
+      token_count INTEGER,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
 
-      CREATE TABLE IF NOT EXISTS research_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        ip_address TEXT,
-        agent_id TEXT NOT NULL,
-        input_tokens INTEGER NOT NULL DEFAULT 0,
-        output_tokens INTEGER NOT NULL DEFAULT 0,
-        estimated_cost_cents INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
+  await sql`
+    CREATE TABLE IF NOT EXISTS research_usage (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      ip_address TEXT,
+      agent_id TEXT NOT NULL,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      estimated_cost_cents INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
 
-      CREATE INDEX IF NOT EXISTS idx_research_conv_user ON research_conversations(user_id);
-      CREATE INDEX IF NOT EXISTS idx_research_msg_conv ON research_messages(conversation_id);
-      CREATE INDEX IF NOT EXISTS idx_research_usage_user_date ON research_usage(user_id, created_at);
-      CREATE INDEX IF NOT EXISTS idx_research_usage_ip_date ON research_usage(ip_address, created_at);
+  await sql`CREATE INDEX IF NOT EXISTS idx_research_conv_user ON research_conversations(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_research_msg_conv ON research_messages(conversation_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_research_usage_user_date ON research_usage(user_id, created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_research_usage_ip_date ON research_usage(ip_address, created_at)`;
 
-      CREATE TABLE IF NOT EXISTS research_articles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug TEXT UNIQUE NOT NULL,
-        title TEXT NOT NULL,
-        subtitle TEXT,
-        content TEXT NOT NULL DEFAULT '',
-        category TEXT NOT NULL DEFAULT 'analysis',
-        tags TEXT,
-        author TEXT DEFAULT 'Bank Fee Index',
-        status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
-        generated_by TEXT,
-        conversation_id INTEGER,
-        published_at TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        view_count INTEGER NOT NULL DEFAULT 0
-      );
+  await sql`
+    CREATE TABLE IF NOT EXISTS research_articles (
+      id SERIAL PRIMARY KEY,
+      slug TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      content TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'analysis',
+      tags TEXT,
+      author TEXT DEFAULT 'Bank Fee Index',
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+      generated_by TEXT,
+      conversation_id INTEGER,
+      published_at TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      view_count INTEGER NOT NULL DEFAULT 0
+    )
+  `;
 
-      CREATE INDEX IF NOT EXISTS idx_research_articles_status ON research_articles(status);
-      CREATE INDEX IF NOT EXISTS idx_research_articles_slug ON research_articles(slug);
-    `);
-  } finally {
-    db.close();
-  }
+  await sql`CREATE INDEX IF NOT EXISTS idx_research_articles_status ON research_articles(status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_research_articles_slug ON research_articles(slug)`;
 }
 
-export function saveConversation(
+export async function saveConversation(
   userId: number,
   agentId: string,
   title: string | null
-): number {
-  const db = getWriteDb();
-  try {
-    const result = db
-      .prepare(
-        "INSERT INTO research_conversations (user_id, agent_id, title) VALUES (?, ?, ?)"
-      )
-      .run(userId, agentId, title);
-    return result.lastInsertRowid as number;
-  } finally {
-    db.close();
-  }
+): Promise<number> {
+  const [row] = await sql`
+    INSERT INTO research_conversations (user_id, agent_id, title)
+    VALUES (${userId}, ${agentId}, ${title})
+    RETURNING id
+  `;
+  return row.id as number;
 }
 
-export function saveMessage(
+export async function saveMessage(
   conversationId: number,
   role: "user" | "assistant" | "tool",
   content: string,
   toolCalls?: string,
   tokenCount?: number
-): void {
-  const db = getWriteDb();
-  try {
-    db.prepare(
-      "INSERT INTO research_messages (conversation_id, role, content, tool_calls, token_count) VALUES (?, ?, ?, ?, ?)"
-    ).run(conversationId, role, content, toolCalls ?? null, tokenCount ?? null);
+): Promise<void> {
+  await sql`
+    INSERT INTO research_messages (conversation_id, role, content, tool_calls, token_count)
+    VALUES (${conversationId}, ${role}, ${content}, ${toolCalls ?? null}, ${tokenCount ?? null})
+  `;
 
-    db.prepare(
-      "UPDATE research_conversations SET updated_at = datetime('now') WHERE id = ?"
-    ).run(conversationId);
-  } finally {
-    db.close();
-  }
+  await sql`
+    UPDATE research_conversations SET updated_at = NOW() WHERE id = ${conversationId}
+  `;
 }
 
-export function getConversation(conversationId: number): Conversation | null {
-  const db = getDb();
-  return (
-    (db
-      .prepare("SELECT * FROM research_conversations WHERE id = ?")
-      .get(conversationId) as Conversation | undefined) ?? null
-  );
+export async function getConversation(conversationId: number): Promise<Conversation | null> {
+  const [row] = await sql`
+    SELECT * FROM research_conversations WHERE id = ${conversationId}
+  `;
+  return (row as Conversation | undefined) ?? null;
 }
 
-export function getMessages(conversationId: number): Message[] {
-  const db = getDb();
-  return db
-    .prepare(
-      "SELECT * FROM research_messages WHERE conversation_id = ? ORDER BY created_at ASC"
-    )
-    .all(conversationId) as Message[];
+export async function getMessages(conversationId: number): Promise<Message[]> {
+  return await sql`
+    SELECT * FROM research_messages WHERE conversation_id = ${conversationId} ORDER BY created_at ASC
+  ` as Message[];
 }
 
-export function listConversations(
+export async function listConversations(
   userId: number,
   agentId?: string,
   limit = 20
-): Conversation[] {
-  const db = getDb();
+): Promise<Conversation[]> {
   if (agentId) {
-    return db
-      .prepare(
-        "SELECT * FROM research_conversations WHERE user_id = ? AND agent_id = ? ORDER BY updated_at DESC LIMIT ?"
-      )
-      .all(userId, agentId, limit) as Conversation[];
+    return await sql`
+      SELECT * FROM research_conversations
+      WHERE user_id = ${userId} AND agent_id = ${agentId}
+      ORDER BY updated_at DESC LIMIT ${limit}
+    ` as Conversation[];
   }
-  return db
-    .prepare(
-      "SELECT * FROM research_conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?"
-    )
-    .all(userId, limit) as Conversation[];
+  return await sql`
+    SELECT * FROM research_conversations
+    WHERE user_id = ${userId}
+    ORDER BY updated_at DESC LIMIT ${limit}
+  ` as Conversation[];
 }
 
-export function deleteConversation(
+export async function deleteConversation(
   conversationId: number,
   userId: number
-): boolean {
-  const db = getWriteDb();
-  try {
-    const result = db
-      .prepare(
-        "DELETE FROM research_conversations WHERE id = ? AND user_id = ?"
-      )
-      .run(conversationId, userId);
-    return result.changes > 0;
-  } finally {
-    db.close();
-  }
+): Promise<boolean> {
+  const result = await sql`
+    DELETE FROM research_conversations WHERE id = ${conversationId} AND user_id = ${userId}
+  `;
+  return result.count > 0;
 }
 
-export function logUsage(
+export async function logUsage(
   userId: number | null,
   ipAddress: string | null,
   agentId: string,
   inputTokens: number,
   outputTokens: number,
   estimatedCostCents: number
-): void {
-  const db = getWriteDb();
-  try {
-    db.prepare(
-      "INSERT INTO research_usage (user_id, ip_address, agent_id, input_tokens, output_tokens, estimated_cost_cents) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(
-      userId,
-      ipAddress,
-      agentId,
-      inputTokens,
-      outputTokens,
-      estimatedCostCents
-    );
-  } finally {
-    db.close();
-  }
+): Promise<void> {
+  await sql`
+    INSERT INTO research_usage (user_id, ip_address, agent_id, input_tokens, output_tokens, estimated_cost_cents)
+    VALUES (${userId}, ${ipAddress}, ${agentId}, ${inputTokens}, ${outputTokens}, ${estimatedCostCents})
+  `;
 }
 
-export function getUsageStats(userId: number): {
+export async function getUsageStats(userId: number): Promise<{
   today: number;
   month: number;
   total_cost_cents: number;
-} {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT
-         (SELECT COUNT(*) FROM research_usage WHERE user_id = ? AND created_at >= date('now')) as today,
-         (SELECT COUNT(*) FROM research_usage WHERE user_id = ? AND created_at >= date('now', 'start of month')) as month,
-         (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE user_id = ?) as total_cost_cents`
-    )
-    .get(userId, userId, userId) as {
-    today: number;
-    month: number;
-    total_cost_cents: number;
-  };
-  return row;
+}> {
+  const [row] = await sql`
+    SELECT
+      (SELECT COUNT(*) FROM research_usage WHERE user_id = ${userId} AND created_at >= CURRENT_DATE) as today,
+      (SELECT COUNT(*) FROM research_usage WHERE user_id = ${userId} AND created_at >= date_trunc('month', CURRENT_DATE)) as month,
+      (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE user_id = ${userId}) as total_cost_cents
+  `;
+  return row as { today: number; month: number; total_cost_cents: number };
 }
 
 /** Full usage dashboard stats for admin view */
@@ -239,94 +199,73 @@ export interface UsageDashboard {
   top_users: { user_id: number; username: string; queries: number; cost_cents: number }[];
 }
 
-export function getUsageDashboard(): UsageDashboard {
-  const db = getDb();
-
-  const totals = db
-    .prepare(
-      `SELECT
-         (SELECT COUNT(*) FROM research_usage WHERE created_at >= date('now')) as today_queries,
-         (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE created_at >= date('now')) as today_cost_cents,
-         (SELECT COUNT(*) FROM research_usage WHERE created_at >= date('now', 'start of month')) as month_queries,
-         (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE created_at >= date('now', 'start of month')) as month_cost_cents,
-         (SELECT COUNT(*) FROM research_usage) as total_queries,
-         (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage) as total_cost_cents`
-    )
-    .get() as {
+export async function getUsageDashboard(): Promise<UsageDashboard> {
+  const [totals] = await sql`
+    SELECT
+      (SELECT COUNT(*) FROM research_usage WHERE created_at >= CURRENT_DATE) as today_queries,
+      (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE created_at >= CURRENT_DATE) as today_cost_cents,
+      (SELECT COUNT(*) FROM research_usage WHERE created_at >= date_trunc('month', CURRENT_DATE)) as month_queries,
+      (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage WHERE created_at >= date_trunc('month', CURRENT_DATE)) as month_cost_cents,
+      (SELECT COUNT(*) FROM research_usage) as total_queries,
+      (SELECT COALESCE(SUM(estimated_cost_cents), 0) FROM research_usage) as total_cost_cents
+  ` as {
     today_queries: number;
     today_cost_cents: number;
     month_queries: number;
     month_cost_cents: number;
     total_queries: number;
     total_cost_cents: number;
-  };
+  }[];
 
-  const by_agent = db
-    .prepare(
-      `SELECT agent_id, COUNT(*) as queries, COALESCE(SUM(estimated_cost_cents), 0) as cost_cents
-       FROM research_usage
-       GROUP BY agent_id
-       ORDER BY queries DESC`
-    )
-    .all() as { agent_id: string; queries: number; cost_cents: number }[];
+  const by_agent = await sql`
+    SELECT agent_id, COUNT(*) as queries, COALESCE(SUM(estimated_cost_cents), 0) as cost_cents
+    FROM research_usage
+    GROUP BY agent_id
+    ORDER BY queries DESC
+  ` as { agent_id: string; queries: number; cost_cents: number }[];
 
-  const by_day = db
-    .prepare(
-      `SELECT date(created_at) as date, COUNT(*) as queries, COALESCE(SUM(estimated_cost_cents), 0) as cost_cents
-       FROM research_usage
-       WHERE created_at >= date('now', '-30 days')
-       GROUP BY date(created_at)
-       ORDER BY date DESC`
-    )
-    .all() as { date: string; queries: number; cost_cents: number }[];
+  const by_day = await sql`
+    SELECT created_at::date as date, COUNT(*) as queries, COALESCE(SUM(estimated_cost_cents), 0) as cost_cents
+    FROM research_usage
+    WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+    GROUP BY created_at::date
+    ORDER BY date DESC
+  ` as { date: string; queries: number; cost_cents: number }[];
 
-  const top_users = db
-    .prepare(
-      `SELECT ru.user_id, COALESCE(u.username, 'public') as username,
-              COUNT(*) as queries, COALESCE(SUM(ru.estimated_cost_cents), 0) as cost_cents
-       FROM research_usage ru
-       LEFT JOIN users u ON ru.user_id = u.id
-       WHERE ru.created_at >= date('now', 'start of month')
-       GROUP BY ru.user_id
-       ORDER BY queries DESC
-       LIMIT 10`
-    )
-    .all() as { user_id: number; username: string; queries: number; cost_cents: number }[];
+  const top_users = await sql`
+    SELECT ru.user_id, COALESCE(u.username, 'public') as username,
+           COUNT(*) as queries, COALESCE(SUM(ru.estimated_cost_cents), 0) as cost_cents
+    FROM research_usage ru
+    LEFT JOIN users u ON ru.user_id = u.id
+    WHERE ru.created_at >= date_trunc('month', CURRENT_DATE)
+    GROUP BY ru.user_id, u.username
+    ORDER BY queries DESC
+    LIMIT 10
+  ` as { user_id: number; username: string; queries: number; cost_cents: number }[];
 
   return { ...totals, by_agent, by_day, top_users };
 }
 
 /** Check if daily cost threshold is exceeded (circuit breaker) */
-export function getDailyCostCents(): number {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT COALESCE(SUM(estimated_cost_cents), 0) as cost
-       FROM research_usage
-       WHERE created_at >= date('now')`
-    )
-    .get() as { cost: number };
-  return row.cost;
+export async function getDailyCostCents(): Promise<number> {
+  const [row] = await sql`
+    SELECT COALESCE(SUM(estimated_cost_cents), 0) as cost
+    FROM research_usage
+    WHERE created_at >= CURRENT_DATE
+  `;
+  return (row as { cost: number }).cost;
 }
 
 /** Search conversations for Cmd+K */
-export function searchConversations(
+export async function searchConversations(
   query: string,
   limit = 5
-): { id: number; agent_id: string; title: string; updated_at: string }[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT id, agent_id, title, updated_at
-       FROM research_conversations
-       WHERE title LIKE ?
-       ORDER BY updated_at DESC
-       LIMIT ?`
-    )
-    .all(`%${query}%`, limit) as {
-    id: number;
-    agent_id: string;
-    title: string;
-    updated_at: string;
-  }[];
+): Promise<{ id: number; agent_id: string; title: string; updated_at: string }[]> {
+  return await sql`
+    SELECT id, agent_id, title, updated_at
+    FROM research_conversations
+    WHERE title LIKE ${"%" + query + "%"}
+    ORDER BY updated_at DESC
+    LIMIT ${limit}
+  ` as { id: number; agent_id: string; title: string; updated_at: string }[];
 }

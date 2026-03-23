@@ -8,10 +8,10 @@ import { OpsClient } from "./ops-client";
 export default async function OpsPage() {
   const user = await requireAuth("trigger_jobs");
 
-  const summary = getOpsJobSummary();
-  const activeJobs = getActiveJobs();
-  const recentJobs = getRecentJobs(20);
-  const stats = getStats();
+  const summary = await getOpsJobSummary();
+  const activeJobs = await getActiveJobs();
+  const recentJobs = await getRecentJobs(20);
+  const stats = await getStats();
   const commands = getAllowedCommands();
 
   return (

@@ -2,7 +2,7 @@
 
 import { requireAuth } from "@/lib/auth";
 import { savePeerSet, deletePeerSet } from "@/lib/crawler-db";
-import { getWriteDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { spawnJob } from "@/lib/job-runner";
 import type { PeerFilters } from "@/lib/fed-districts";
 import { revalidatePath } from "next/cache";
@@ -17,7 +17,7 @@ export async function createPeerSet(
     throw new Error("Name is required");
   }
 
-  const id = savePeerSet(
+  const id = await savePeerSet(
     name.trim(),
     {
       charter_type: filters.charter,
@@ -34,7 +34,7 @@ export async function createPeerSet(
 export async function removePeerSet(id: number): Promise<void> {
   const user = await requireAuth("approve");
 
-  deletePeerSet(id, user.username);
+  await deletePeerSet(id, user.username);
   revalidatePath("/admin/peers");
 }
 
@@ -54,15 +54,12 @@ export async function updateFeeScheduleUrl(
     return { success: false, error: "Invalid URL format" };
   }
 
-  const db = getWriteDb();
   try {
-    db.prepare("UPDATE crawl_targets SET fee_schedule_url = ? WHERE id = ?").run(url.trim(), institutionId);
+    await sql`UPDATE crawl_targets SET fee_schedule_url = ${url.trim()} WHERE id = ${institutionId}`;
     revalidatePath(`/admin/peers/${institutionId}`);
     return { success: true };
   } catch (e) {
     return { success: false, error: String(e) };
-  } finally {
-    db.close();
   }
 }
 

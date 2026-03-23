@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 
 export interface CoverageFunnel {
   total_institutions: number;
@@ -58,61 +58,57 @@ export interface DistrictCoverage {
   coverage_pct: number;
 }
 
-export function getCoverageFunnel(): CoverageFunnel {
-  const db = getDb();
-  const total = (db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets").get() as { cnt: number }).cnt;
-  const withWebsite = (db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL").get() as { cnt: number }).cnt;
-  const withFeeUrl = (db.prepare("SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL").get() as { cnt: number }).cnt;
-  const withFees = (db.prepare("SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees").get() as { cnt: number }).cnt;
-  const withApproved = (db.prepare("SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees WHERE review_status = 'approved'").get() as { cnt: number }).cnt;
+export async function getCoverageFunnel(): Promise<CoverageFunnel> {
+  const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
+  const [withWebsiteRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
+  const [withFeeUrlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
+  const [withFeesRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
+  const [withApprovedRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees WHERE review_status = 'approved'`;
 
   return {
-    total_institutions: total,
-    with_website: withWebsite,
-    with_fee_url: withFeeUrl,
-    with_fees: withFees,
-    with_approved: withApproved,
+    total_institutions: totalRow.cnt,
+    with_website: withWebsiteRow.cnt,
+    with_fee_url: withFeeUrlRow.cnt,
+    with_fees: withFeesRow.cnt,
+    with_approved: withApprovedRow.cnt,
   };
 }
 
-export function getTopUncategorized(limit = 20): UncategorizedFee[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getTopUncategorized(limit = 20): Promise<UncategorizedFee[]> {
+  return await sql`
     SELECT fee_name, COUNT(*) as count
     FROM extracted_fees
     WHERE fee_category IS NULL
     GROUP BY fee_name
     ORDER BY count DESC
-    LIMIT ?
-  `).all(limit) as UncategorizedFee[];
+    LIMIT ${limit}
+  ` as UncategorizedFee[];
 }
 
-export function getStaleInstitutions(daysSince = 90, limit = 20): StaleInstitution[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getStaleInstitutions(daysSince = 90, limit = 20): Promise<StaleInstitution[]> {
+  return await sql`
     SELECT
       id, institution_name, state_code, last_crawl_at,
-      CAST(julianday('now') - julianday(last_crawl_at) AS INTEGER) as days_stale
+      EXTRACT(DAY FROM NOW() - last_crawl_at)::int as days_stale
     FROM crawl_targets
     WHERE fee_schedule_url IS NOT NULL
       AND last_crawl_at IS NOT NULL
-      AND julianday('now') - julianday(last_crawl_at) > ?
+      AND NOW() - last_crawl_at > ${daysSince + ' days'}::interval
     ORDER BY days_stale DESC
-    LIMIT ?
-  `).all(daysSince, limit) as StaleInstitution[];
+    LIMIT ${limit}
+  ` as StaleInstitution[];
 }
 
-export function getRecentCrawlRuns(limit = 10): CrawlRunSummary[] {
-  const db = getDb();
-  const rows = db.prepare(`
+export async function getRecentCrawlRuns(limit = 10): Promise<CrawlRunSummary[]> {
+  const rows = await sql`
     SELECT
       id, started_at, targets_crawled, targets_succeeded,
       targets_failed, targets_unchanged, fees_extracted
     FROM crawl_runs
     WHERE status = 'completed'
     ORDER BY started_at DESC
-    LIMIT ?
-  `).all(limit) as Omit<CrawlRunSummary, "success_rate">[];
+    LIMIT ${limit}
+  ` as Omit<CrawlRunSummary, "success_rate">[];
 
   return rows.map((r) => ({
     ...r,
@@ -122,10 +118,9 @@ export function getRecentCrawlRuns(limit = 10): CrawlRunSummary[] {
   }));
 }
 
-export function getDiscoveryMethodStats(): DiscoveryMethodStats[] {
-  const db = getDb();
+export async function getDiscoveryMethodStats(): Promise<DiscoveryMethodStats[]> {
   try {
-    const rows = db.prepare(`
+    const rows = await sql`
       SELECT
         discovery_method,
         COUNT(*) as total_attempts,
@@ -133,7 +128,7 @@ export function getDiscoveryMethodStats(): DiscoveryMethodStats[] {
       FROM discovery_cache
       GROUP BY discovery_method
       ORDER BY total_attempts DESC
-    `).all() as { discovery_method: string; total_attempts: number; found_count: number }[];
+    ` as { discovery_method: string; total_attempts: number; found_count: number }[];
 
     return rows.map((r) => ({
       ...r,
@@ -146,9 +141,8 @@ export function getDiscoveryMethodStats(): DiscoveryMethodStats[] {
   }
 }
 
-export function getFailureReasons(limit = 10): FailureReasonStats[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getFailureReasons(limit = 10): Promise<FailureReasonStats[]> {
+  return await sql`
     SELECT
       COALESCE(failure_reason, 'unknown') as failure_reason,
       COUNT(*) as count
@@ -156,18 +150,17 @@ export function getFailureReasons(limit = 10): FailureReasonStats[] {
     WHERE failure_reason IS NOT NULL
     GROUP BY failure_reason
     ORDER BY count DESC
-    LIMIT ?
-  `).all(limit) as FailureReasonStats[];
+    LIMIT ${limit}
+  ` as FailureReasonStats[];
 }
 
-export function getTierCoverage(): TierCoverage[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getTierCoverage(): Promise<TierCoverage[]> {
+  return await sql`
     SELECT
       COALESCE(t.asset_size_tier, 'unknown') as asset_size_tier,
       COUNT(*) as total,
       COUNT(DISTINCT e.crawl_target_id) as with_fees,
-      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / MAX(COUNT(*), 1), 1) as coverage_pct
+      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(*), 1), 1) as coverage_pct
     FROM crawl_targets t
     LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
     WHERE t.asset_size_tier IS NOT NULL
@@ -182,7 +175,7 @@ export function getTierCoverage(): TierCoverage[] {
         WHEN 'community_small' THEN 6
         ELSE 7
       END
-  `).all() as TierCoverage[];
+  ` as TierCoverage[];
 }
 
 export interface RevenueDiscrepancy {
@@ -196,9 +189,8 @@ export interface RevenueDiscrepancy {
   fee_count: number;
 }
 
-export function getRevenueDiscrepancies(limit = 20): RevenueDiscrepancy[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getRevenueDiscrepancies(limit = 20): Promise<RevenueDiscrepancy[]> {
+  return await sql`
     SELECT
       t.id,
       t.institution_name,
@@ -237,22 +229,21 @@ export function getRevenueDiscrepancies(limit = 20): RevenueDiscrepancy[] {
         OR f.service_charge_income * 1.0 / NULLIF(e.total_amount, 0) < 0.1
       )
     ORDER BY f.service_charge_income DESC
-    LIMIT ?
-  `).all(limit) as RevenueDiscrepancy[];
+    LIMIT ${limit}
+  ` as RevenueDiscrepancy[];
 }
 
-export function getDistrictCoverage(): DistrictCoverage[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getDistrictCoverage(): Promise<DistrictCoverage[]> {
+  return await sql`
     SELECT
       t.fed_district,
       COUNT(*) as total,
       COUNT(DISTINCT e.crawl_target_id) as with_fees,
-      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / MAX(COUNT(*), 1), 1) as coverage_pct
+      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(*), 1), 1) as coverage_pct
     FROM crawl_targets t
     LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
     WHERE t.fed_district IS NOT NULL
     GROUP BY t.fed_district
     ORDER BY t.fed_district
-  `).all() as DistrictCoverage[];
+  ` as DistrictCoverage[];
 }

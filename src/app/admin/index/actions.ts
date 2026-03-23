@@ -21,8 +21,8 @@ export async function exportIndexCsv(
   );
 
   const entries = hasFilters
-    ? getPeerIndex(filters, approvedOnly)
-    : getNationalIndex(approvedOnly);
+    ? await getPeerIndex(filters, approvedOnly)
+    : await getNationalIndex(approvedOnly);
 
   const headers = [
     "Family",

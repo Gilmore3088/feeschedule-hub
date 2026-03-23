@@ -28,7 +28,7 @@ interface PageProps {
 
 export async function generateStaticParams() {
   const { hasData } = await import("@/lib/crawler-db/connection");
-  if (!hasData()) return [];
+  if (!(await hasData())) return [];
   return Array.from({ length: 12 }, (_, i) => ({ id: String(i + 1) }));
 }
 
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 function DeltaPill({ delta }: { delta: number }) {
   if (Math.abs(delta) < 0.5) {
-    return <span className="text-[11px] text-slate-400">-</span>;
+    return <span className="text-[11px] text-[#A09788]">-</span>;
   }
   const isBelow = delta < 0;
   return (
@@ -79,11 +79,11 @@ export default async function DistrictReportPage({ params }: PageProps) {
   const user = await getCurrentUser();
   const showFullDistrict = canAccessFullDistrict(user);
 
-  const stats = getDistrictStats(districtId);
-  const districtIndex = getPeerIndex({ fed_districts: [districtId] });
-  const nationalIndex = getNationalIndex();
-  const beigeHeadline = getBeigeBookHeadline(districtId);
-  const beigeSections = getLatestBeigeBook(districtId);
+  const stats = await getDistrictStats(districtId);
+  const districtIndex = await getPeerIndex({ fed_districts: [districtId] });
+  const nationalIndex = await getNationalIndex();
+  const beigeHeadline = await getBeigeBookHeadline(districtId);
+  const beigeSections = await getLatestBeigeBook(districtId);
 
   // States in this district
   const districtStates = Object.entries(STATE_TO_DISTRICT)
@@ -119,7 +119,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
   const belowNational = comparisons.filter((c) => c.delta !== null && c.delta < -2).length;
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-14">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -128,13 +128,22 @@ export default async function DistrictReportPage({ params }: PageProps) {
         ]}
       />
 
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+      {/* Breadcrumb — sticky on mobile */}
+      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+        <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <span className="text-[#5A5347]">{districtName}</span>
+      </nav>
+
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C44B2E]">
         Federal Reserve District {districtId}
       </p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+      <h1 className="mt-1 font-[family-name:var(--font-newsreader)] text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]">
         {districtName} District Fee Analysis
       </h1>
-      <p className="mt-2 max-w-2xl text-[14px] text-slate-600">
+      <p className="mt-2 max-w-2xl text-[14px] text-[#7A7062]">
         Fee benchmarks for {stats.institution_count.toLocaleString()} financial
         institutions across{" "}
         {districtStates.length} state{districtStates.length !== 1 ? "s" : ""}.
@@ -157,12 +166,12 @@ export default async function DistrictReportPage({ params }: PageProps) {
         ].map((card) => (
           <div
             key={card.label}
-            className="rounded-lg border border-slate-200 px-4 py-3"
+            className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3"
           >
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
               {card.label}
             </p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">
+            <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
               {card.value}
             </p>
           </div>
@@ -171,7 +180,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
 
       {/* States in district */}
       <section className="mt-8">
-        <h2 className="text-sm font-bold text-slate-800">
+        <h2 className="font-[family-name:var(--font-newsreader)] text-sm font-bold text-[#1A1815]">
           States in This District
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -179,7 +188,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
             <Link
               key={code}
               href={`/research/state/${code}`}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50/30 hover:text-blue-600"
+              className="rounded-full border border-[#E8DFD1] px-3.5 py-1.5 text-[12px] font-medium text-[#5A5347] transition-colors hover:border-[#C44B2E]/30 hover:text-[#C44B2E]"
             >
               {STATE_NAMES[code]}
             </Link>
@@ -195,10 +204,10 @@ export default async function DistrictReportPage({ params }: PageProps) {
       )}
       {showFullDistrict && beigeHeadline && (
         <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+          <h2 className="font-[family-name:var(--font-newsreader)] text-sm font-bold text-[#1A1815]">
             Economic Context — Beige Book
           </h2>
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/30 px-5 py-4">
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/30 px-5 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-600">
               Latest Release — {beigeHeadline.release_date}
             </p>
@@ -207,7 +216,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
               .map((section) => (
                 <p
                   key={section.id}
-                  className="mt-2 text-[13px] leading-relaxed text-slate-700"
+                  className="mt-2 text-[13px] leading-relaxed text-[#5A5347]"
                 >
                   {section.content_text.length > 600
                     ? section.content_text.slice(0, 597) + "..."
@@ -221,68 +230,68 @@ export default async function DistrictReportPage({ params }: PageProps) {
       {/* Fee comparison table */}
       {comparisons.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+          <h2 className="font-[family-name:var(--font-newsreader)] text-sm font-bold text-[#1A1815]">
             Fee Benchmarks — District {districtId} vs. National
           </h2>
-          <p className="mt-1 text-[13px] text-slate-500">
+          <p className="mt-1 text-[13px] text-[#7A7062]">
             {comparisons.length} fee categories with sufficient data.
           </p>
 
-          <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+          <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Fee Category
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     District Median
                   </th>
-                  <th className="hidden px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">
+                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
                     National Median
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Delta
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Banks
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     CUs
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#E8DFD1]/60">
                 {featured.map((row) => (
                   <tr
                     key={row.fee_category}
-                    className="hover:bg-slate-50/50 transition-colors"
+                    className="hover:bg-[#FAF7F2]/60 transition-colors"
                   >
                     <td className="px-4 py-2.5">
                       <Link
                         href={`/fees/${row.fee_category}`}
-                        className="font-medium text-slate-900 hover:text-blue-600 transition-colors"
+                        className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
                       >
                         {getDisplayName(row.fee_category)}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-900">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                       {formatAmount(row.median_amount)}
                     </td>
-                    <td className="hidden px-4 py-2.5 text-right tabular-nums text-slate-500 sm:table-cell">
+                    <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
                       {formatAmount(row.nationalMedian)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {row.delta !== null ? (
                         <DeltaPill delta={row.delta} />
                       ) : (
-                        <span className="text-[11px] text-slate-400">-</span>
+                        <span className="text-[11px] text-[#A09788]">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                       {row.bank_count}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                       {row.cu_count}
                     </td>
                   </tr>
@@ -293,7 +302,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
                     <tr>
                       <td
                         colSpan={6}
-                        className="bg-slate-50/80 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
+                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#A09788]"
                       >
                         Extended Categories
                       </td>
@@ -301,33 +310,33 @@ export default async function DistrictReportPage({ params }: PageProps) {
                     {extended.map((row) => (
                       <tr
                         key={row.fee_category}
-                        className="hover:bg-slate-50/50 transition-colors"
+                        className="hover:bg-[#FAF7F2]/60 transition-colors"
                       >
                         <td className="px-4 py-2.5">
                           <Link
                             href={`/fees/${row.fee_category}`}
-                            className="text-slate-700 hover:text-blue-600 transition-colors"
+                            className="text-[#5A5347] hover:text-[#C44B2E] transition-colors"
                           >
                             {getDisplayName(row.fee_category)}
                           </Link>
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                           {formatAmount(row.median_amount)}
                         </td>
-                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-slate-500 sm:table-cell">
+                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
                           {formatAmount(row.nationalMedian)}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           {row.delta !== null ? (
                             <DeltaPill delta={row.delta} />
                           ) : (
-                            <span className="text-[11px] text-slate-400">-</span>
+                            <span className="text-[11px] text-[#A09788]">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                           {row.bank_count}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                           {row.cu_count}
                         </td>
                       </tr>
@@ -341,11 +350,11 @@ export default async function DistrictReportPage({ params }: PageProps) {
       )}
 
       {/* Methodology */}
-      <section className="mt-10 rounded-lg border border-slate-200 bg-slate-50/50 px-5 py-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#A09788]">
           Methodology
         </h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+        <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">
           Data sourced from published fee schedules of FDIC-insured banks and
           NCUA-insured credit unions in Federal Reserve District {districtId} ({districtName}).
           Medians computed from extracted fee amounts excluding rejected reviews.

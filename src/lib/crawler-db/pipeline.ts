@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { sql } from "./connection";
 
 /** Institutions with more than this many consecutive failures are considered "failing" */
 export const FAILURE_THRESHOLD = 3;
@@ -48,27 +48,25 @@ const SORT_COLUMNS: Record<string, string> = {
   last_crawl: "ct.last_crawl_at",
 };
 
-export function getPipelineStats(): PipelineStats {
-  const db = getDb();
-
+export async function getPipelineStats(): Promise<PipelineStats> {
   // Consolidate crawl_targets counts into 1 query
-  const ct = db.prepare(`
-    SELECT
+  const [ct] = await sql.unsafe(
+    `SELECT
       COUNT(*) as total,
       SUM(CASE WHEN website_url IS NOT NULL AND website_url != '' THEN 1 ELSE 0 END) as with_website,
       SUM(CASE WHEN fee_schedule_url IS NOT NULL AND fee_schedule_url != '' THEN 1 ELSE 0 END) as with_fee_url,
-      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND (last_crawl_at < datetime('now', '-${STALE_DAYS} days') OR last_crawl_at IS NULL) THEN 1 ELSE 0 END) as stale,
-      SUM(CASE WHEN consecutive_failures > ${FAILURE_THRESHOLD} THEN 1 ELSE 0 END) as failing
-    FROM crawl_targets
-  `).get() as { total: number; with_website: number; with_fee_url: number; stale: number; failing: number };
+      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND (last_crawl_at < NOW() - INTERVAL '${STALE_DAYS} days' OR last_crawl_at IS NULL) THEN 1 ELSE 0 END) as stale,
+      SUM(CASE WHEN consecutive_failures > $1 THEN 1 ELSE 0 END) as failing
+    FROM crawl_targets`,
+    [FAILURE_THRESHOLD]
+  ) as { total: number; with_website: number; with_fee_url: number; stale: number; failing: number }[];
 
   // Consolidate extracted_fees counts into 1 query
-  const ef = db.prepare(`
+  const [ef] = await sql<{ with_fees: number; with_approved: number }[]>`
     SELECT
       COUNT(DISTINCT CASE WHEN review_status != 'rejected' THEN crawl_target_id END) as with_fees,
       COUNT(DISTINCT CASE WHEN review_status = 'approved' THEN crawl_target_id END) as with_approved
-    FROM extracted_fees
-  `).get() as { with_fees: number; with_approved: number };
+    FROM extracted_fees`;
 
   return {
     total_institutions: ct.total,
@@ -81,7 +79,7 @@ export function getPipelineStats(): PipelineStats {
   };
 }
 
-/** Consolidated pipeline stage data — replaces 12+ individual COUNT queries */
+/** Consolidated pipeline stage data -- replaces 12+ individual COUNT queries */
 export interface PipelineStageCounts {
   total: number;
   hasWebsite: number;
@@ -98,21 +96,18 @@ export interface PipelineStageCounts {
   stateGaps: { state_code: string; count: number }[];
 }
 
-export function getPipelineStageCounts(): PipelineStageCounts {
-  const db = getDb();
-
+export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
   // 1 query for all crawl_targets counts
-  const ct = db.prepare(`
+  const [ct] = await sql<{ total: number; has_website: number; has_url: number; failed_crawl: number }[]>`
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN website_url IS NOT NULL AND website_url != '' THEN 1 ELSE 0 END) as has_website,
       SUM(CASE WHEN fee_schedule_url IS NOT NULL AND fee_schedule_url != '' THEN 1 ELSE 0 END) as has_url,
       SUM(CASE WHEN fee_schedule_url IS NOT NULL AND consecutive_failures >= 5 THEN 1 ELSE 0 END) as failed_crawl
-    FROM crawl_targets
-  `).get() as { total: number; has_website: number; has_url: number; failed_crawl: number };
+    FROM crawl_targets`;
 
   // 1 query for all extracted_fees counts
-  const ef = db.prepare(`
+  const [ef] = await sql<{ with_fees: number; total_fees: number; categorized: number; approved: number; staged: number; flagged: number; rejected: number }[]>`
     SELECT
       COUNT(DISTINCT CASE WHEN review_status != 'rejected' THEN crawl_target_id END) as with_fees,
       SUM(CASE WHEN review_status != 'rejected' THEN 1 ELSE 0 END) as total_fees,
@@ -121,25 +116,22 @@ export function getPipelineStageCounts(): PipelineStageCounts {
       SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
       SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
       SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected
-    FROM extracted_fees
-  `).get() as { with_fees: number; total_fees: number; categorized: number; approved: number; staged: number; flagged: number; rejected: number };
+    FROM extracted_fees`;
 
   // Need crawl count
-  const nc = db.prepare(`
+  const [nc] = await sql<{ c: number }[]>`
     SELECT COUNT(*) as c FROM crawl_targets ct
     WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url != ''
     AND NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
-    AND ct.consecutive_failures < 5
-  `).get() as { c: number };
+    AND ct.consecutive_failures < 5`;
 
   // Top state gaps
-  const stateGaps = db.prepare(`
+  const stateGaps = await sql<{ state_code: string; count: number }[]>`
     SELECT ct.state_code, COUNT(*) as count FROM crawl_targets ct
     WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url != ''
     AND NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
     AND ct.consecutive_failures < 5
-    GROUP BY ct.state_code ORDER BY count DESC LIMIT 6
-  `).all() as { state_code: string; count: number }[];
+    GROUP BY ct.state_code ORDER BY count DESC LIMIT 6`;
 
   return {
     total: ct.total,
@@ -154,7 +146,7 @@ export function getPipelineStageCounts(): PipelineStageCounts {
     staged: ef.staged,
     flagged: ef.flagged,
     rejected: ef.rejected,
-    stateGaps,
+    stateGaps: stateGaps as { state_code: string; count: number }[],
   };
 }
 
@@ -168,23 +160,19 @@ export interface CoverageSnapshot {
   approved_fees: number;
 }
 
-export function getCoverageSnapshots(limit: number = 30): CoverageSnapshot[] {
-  const db = getDb();
+export async function getCoverageSnapshots(limit: number = 30): Promise<CoverageSnapshot[]> {
   try {
-    return db
-      .prepare(
-        `SELECT snapshot_date, total_institutions, with_fee_url, with_fees, with_approved, total_fees, approved_fees
-         FROM coverage_snapshots
-         ORDER BY snapshot_date DESC
-         LIMIT ?`
-      )
-      .all(limit) as CoverageSnapshot[];
+    return await sql`
+      SELECT snapshot_date, total_institutions, with_fee_url, with_fees, with_approved, total_fees, approved_fees
+      FROM coverage_snapshots
+      ORDER BY snapshot_date DESC
+      LIMIT ${limit}` as CoverageSnapshot[];
   } catch {
     return [];
   }
 }
 
-export function getCoverageGaps(opts: {
+export async function getCoverageGaps(opts: {
   status?: string;
   charter?: string;
   state?: string;
@@ -193,10 +181,10 @@ export function getCoverageGaps(opts: {
   dir?: string;
   limit?: number;
   offset?: number;
-}): { institutions: CoverageGap[]; total: number } {
-  const db = getDb();
+}): Promise<{ institutions: CoverageGap[]; total: number }> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
+  let paramIdx = 1;
 
   // Status filter
   if (opts.status === "no_url") {
@@ -205,7 +193,7 @@ export function getCoverageGaps(opts: {
     conditions.push(`ct.consecutive_failures > ${FAILURE_THRESHOLD}`);
   } else if (opts.status === "stale") {
     conditions.push("ct.fee_schedule_url IS NOT NULL");
-    conditions.push("(ct.last_crawl_at < datetime('now', '-90 days') OR ct.last_crawl_at IS NULL)");
+    conditions.push("(ct.last_crawl_at < NOW() - INTERVAL '90 days' OR ct.last_crawl_at IS NULL)");
   } else if (opts.status === "no_fees") {
     conditions.push("ct.fee_schedule_url IS NOT NULL");
     conditions.push("ct.id NOT IN (SELECT DISTINCT crawl_target_id FROM extracted_fees WHERE review_status != 'rejected')");
@@ -217,15 +205,15 @@ export function getCoverageGaps(opts: {
   }
 
   if (opts.charter) {
-    conditions.push("ct.charter_type = ?");
+    conditions.push(`ct.charter_type = $${paramIdx++}`);
     params.push(opts.charter);
   }
   if (opts.state) {
-    conditions.push("ct.state_code = ?");
+    conditions.push(`ct.state_code = $${paramIdx++}`);
     params.push(opts.state);
   }
   if (opts.search) {
-    conditions.push("ct.institution_name LIKE ?");
+    conditions.push(`ct.institution_name ILIKE $${paramIdx++}`);
     params.push(`%${opts.search}%`);
   }
 
@@ -235,10 +223,13 @@ export function getCoverageGaps(opts: {
   const limit = opts.limit || 50;
   const offset = opts.offset || 0;
 
-  const countRow = db.prepare(`SELECT COUNT(*) as c FROM crawl_targets ct ${where}`).get(...params) as { c: number };
+  const [countRow] = await sql.unsafe(
+    `SELECT COUNT(*) as c FROM crawl_targets ct ${where}`,
+    params
+  ) as { c: number }[];
 
-  const rows = db.prepare(`
-    SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+  const rows = await sql.unsafe(
+    `SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.website_url, ct.fee_schedule_url,
            ct.last_crawl_at, ct.consecutive_failures,
            COALESCE(fc.fee_count, 0) as fee_count,
@@ -256,8 +247,9 @@ export function getCoverageGaps(opts: {
     ) lr ON ct.id = lr.crawl_target_id AND lr.rn = 1
     ${where}
     ORDER BY ${sortCol} ${sortDir} NULLS LAST
-    LIMIT ? OFFSET ?
-  `).all(...params, limit, offset) as (CoverageGap & { fee_count: number })[];
+    LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+    [...params, limit, offset]
+  ) as (CoverageGap & { fee_count: number })[];
 
   const institutions = rows.map((r) => ({
     ...r,
@@ -274,22 +266,18 @@ function computeStatus(r: { fee_schedule_url: string | null; fee_count: number; 
   return "stale";
 }
 
-export function getRecentCrawls(limit = 20): RecentCrawl[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getRecentCrawls(limit = 20): Promise<RecentCrawl[]> {
+  return await sql`
     SELECT cr.id, cr.crawl_target_id, ct.institution_name,
            cr.status, cr.fees_extracted, cr.crawled_at, cr.error_message
     FROM crawl_results cr
     JOIN crawl_targets ct ON cr.crawl_target_id = ct.id
     ORDER BY cr.crawled_at DESC
-    LIMIT ?
-  `).all(limit) as RecentCrawl[];
+    LIMIT ${limit}` as RecentCrawl[];
 }
 
-export function getDistinctStates(): string[] {
-  const db = getDb();
-  const rows = db.prepare(
-    "SELECT DISTINCT state_code FROM crawl_targets WHERE state_code IS NOT NULL ORDER BY state_code"
-  ).all() as { state_code: string }[];
+export async function getDistinctStates(): Promise<string[]> {
+  const rows = await sql<{ state_code: string }[]>`
+    SELECT DISTINCT state_code FROM crawl_targets WHERE state_code IS NOT NULL ORDER BY state_code`;
   return rows.map((r) => r.state_code);
 }

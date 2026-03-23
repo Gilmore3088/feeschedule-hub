@@ -53,8 +53,36 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export async function generateStaticParams() {
   const { hasData } = await import("@/lib/crawler-db/connection");
-  if (!hasData()) return [];
+  if (!(await hasData())) return [];
   return Object.keys(DISPLAY_NAMES).map((category) => ({ category }));
+}
+
+function WarmTable({
+  headers,
+  children,
+}: {
+  headers: string[];
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+            {headers.map((h, i) => (
+              <th
+                key={h}
+                className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] ${i > 0 ? "text-right" : ""}`}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#E8DFD1]/40">{children}</tbody>
+      </table>
+    </div>
+  );
 }
 
 export default async function FeeCategoryPage({ params }: PageProps) {
@@ -71,22 +99,20 @@ export default async function FeeCategoryPage({ params }: PageProps) {
   const family = getFeeFamily(category);
   const familyColor = family ? getFamilyColor(family) : null;
   const tier = getFeeTier(category);
-  const detail = getFeeCategoryDetail(category);
-  const freshness = getDataFreshness();
+  const detail = await getFeeCategoryDetail(category);
+  const freshness = await getDataFreshness();
 
-  // Compute overall stats from fee amounts
   const amounts = detail.fees
     .filter((f) => f.amount !== null && f.amount > 0)
     .map((f) => f.amount!);
   const stats = computeStats(amounts);
 
-  // Related fees in same family
   const familyMembers = family
     ? (FEE_FAMILIES[family] ?? []).filter((c) => c !== category)
     : [];
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-14">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -96,35 +122,39 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       />
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-[12px] text-slate-400">
-        <Link href="/" className="hover:text-slate-600 transition-colors">
+      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-6">
+        <Link href="/" className="hover:text-[#1A1815] transition-colors">
           Home
         </Link>
-        <span>/</span>
-        <Link href="/fees" className="hover:text-slate-600 transition-colors">
+        <span className="text-[#D4C9BA]">/</span>
+        <Link href="/fees" className="hover:text-[#1A1815] transition-colors">
           Fee Index
         </Link>
-        <span>/</span>
-        <span className="text-slate-600">{name}</span>
+        <span className="text-[#D4C9BA]">/</span>
+        <span className="text-[#5A5347]">{name}</span>
       </nav>
 
       {/* Header */}
-      <div className="mt-4 flex items-start gap-3">
+      <div className="flex items-center gap-2">
         {family && familyColor && (
           <span
-            className={`mt-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${familyColor.bg} ${familyColor.text}`}
+            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] ${familyColor.bg} ${familyColor.text}`}
           >
             {family}
           </span>
         )}
-        <span className="mt-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <span className="rounded-full bg-[#E8DFD1]/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#7A7062]">
           {tier}
         </span>
       </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+
+      <h1
+        className="mt-3 text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
+        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+      >
         {name} Fee
       </h1>
-      <p className="mt-1 text-[14px] text-slate-600">
+      <p className="mt-2 text-[14px] text-[#7A7062]">
         National benchmarking data based on {amounts.length.toLocaleString()}{" "}
         observations from {detail.fees.length.toLocaleString()} institutions.
       </p>
@@ -145,12 +175,15 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-lg border border-slate-200 p-3.5"
+            className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3.5"
           >
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
               {s.label}
             </p>
-            <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
+            <p
+              className="mt-1 text-[22px] font-light tabular-nums text-[#1A1815]"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
               {s.value}
             </p>
           </div>
@@ -158,11 +191,14 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       </div>
 
       {/* Distribution */}
-      <section className="mt-8">
-        <h2 className="text-sm font-bold text-slate-800">
+      <section className="mt-10">
+        <h2
+          className="text-[16px] font-medium text-[#1A1815]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
           Fee Distribution
         </h2>
-        <div className="mt-3 rounded-lg border border-slate-200 p-4">
+        <div className="mt-3 rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
           <DistributionChart
             amounts={amounts}
             median={stats.median}
@@ -170,243 +206,182 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Peer breakdowns -- premium only */}
+      {/* Premium gate */}
       {!isPro && (
         <div className="mt-8">
           <UpgradeGate message={`Detailed ${name} breakdown by charter, tier, and state`} />
         </div>
       )}
 
+      {/* Bank vs. Credit Union */}
       {isPro && detail.by_charter_type.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+        <section className="mt-10">
+          <h2
+            className="text-[16px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
             Bank vs. Credit Union
           </h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Type
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Median
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Range
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Count
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {detail.by_charter_type.map((row) => (
-                  <tr
-                    key={row.dimension_value}
-                    className="hover:bg-slate-50/50 transition-colors"
-                  >
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {row.dimension_value}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-900">
-                      {formatAmount(row.median_amount)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                      {formatAmount(row.min_amount)} &ndash;{" "}
-                      {formatAmount(row.max_amount)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                      {row.count.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <WarmTable headers={["Type", "Median", "Range", "Count"]}>
+            {detail.by_charter_type.map((row) => (
+              <tr
+                key={row.dimension_value}
+                className="hover:bg-[#FAF7F2]/60 transition-colors"
+              >
+                <td className="px-4 py-2.5 font-medium text-[#1A1815]">
+                  {row.dimension_value}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                  {formatAmount(row.median_amount)}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  {formatAmount(row.min_amount)} &ndash;{" "}
+                  {formatAmount(row.max_amount)}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  {row.count.toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </WarmTable>
         </section>
       )}
 
-      {/* Asset tier breakdown */}
+      {/* Asset tier */}
       {isPro && detail.by_asset_tier.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+        <section className="mt-10">
+          <h2
+            className="text-[16px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
             By Asset Tier
           </h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Tier
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Median
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Range
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Count
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {detail.by_asset_tier.map((row) => (
-                  <tr
-                    key={row.dimension_value}
-                    className="hover:bg-slate-50/50 transition-colors"
-                  >
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {TIER_LABELS[row.dimension_value] ?? row.dimension_value}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-900">
-                      {formatAmount(row.median_amount)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                      {formatAmount(row.min_amount)} &ndash;{" "}
-                      {formatAmount(row.max_amount)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                      {row.count.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <WarmTable headers={["Tier", "Median", "Range", "Count"]}>
+            {detail.by_asset_tier.map((row) => (
+              <tr
+                key={row.dimension_value}
+                className="hover:bg-[#FAF7F2]/60 transition-colors"
+              >
+                <td className="px-4 py-2.5 font-medium text-[#1A1815]">
+                  {TIER_LABELS[row.dimension_value] ?? row.dimension_value}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                  {formatAmount(row.median_amount)}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  {formatAmount(row.min_amount)} &ndash;{" "}
+                  {formatAmount(row.max_amount)}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  {row.count.toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </WarmTable>
         </section>
       )}
 
-      {/* Fed district breakdown */}
+      {/* Fed district */}
       {detail.by_fed_district.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+        <section className="mt-10">
+          <h2
+            className="text-[16px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
             By Federal Reserve District
           </h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    District
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Median
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Range
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Count
-                  </th>
+          <WarmTable headers={["District", "Median", "Range", "Count"]}>
+            {detail.by_fed_district.map((row) => {
+              const distNum = parseInt(
+                row.dimension_value.replace("District ", "")
+              );
+              const distName =
+                DISTRICT_NAMES[distNum] ?? row.dimension_value;
+              return (
+                <tr
+                  key={row.dimension_value}
+                  className="hover:bg-[#FAF7F2]/60 transition-colors"
+                >
+                  <td className="px-4 py-2.5 font-medium text-[#1A1815]">
+                    {distName}{" "}
+                    <span className="text-[#A09788]">
+                      ({row.dimension_value})
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                    {formatAmount(row.median_amount)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                    {formatAmount(row.min_amount)} &ndash;{" "}
+                    {formatAmount(row.max_amount)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                    {row.count.toLocaleString()}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {detail.by_fed_district.map((row) => {
-                  const distNum = parseInt(
-                    row.dimension_value.replace("District ", "")
-                  );
-                  const distName =
-                    DISTRICT_NAMES[distNum] ?? row.dimension_value;
-                  return (
-                    <tr
-                      key={row.dimension_value}
-                      className="hover:bg-slate-50/50 transition-colors"
-                    >
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
-                        {distName}{" "}
-                        <span className="text-slate-400">
-                          ({row.dimension_value})
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-900">
-                        {formatAmount(row.median_amount)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                        {formatAmount(row.min_amount)} &ndash;{" "}
-                        {formatAmount(row.max_amount)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                        {row.count.toLocaleString()}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+              );
+            })}
+          </WarmTable>
         </section>
       )}
 
-      {/* State breakdown (top 15) */}
+      {/* State breakdown */}
       {isPro && detail.by_state.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+        <section className="mt-10">
+          <h2
+            className="text-[16px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
             By State
-            <span className="ml-2 text-[11px] font-normal text-slate-400">
+            <span className="ml-2 text-[12px] font-normal text-[#A09788]">
               Top {detail.by_state.length} by observation count
             </span>
           </h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    State
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Median
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Avg
-                  </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Count
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {detail.by_state.map((row) => (
-                  <tr
-                    key={row.dimension_value}
-                    className="hover:bg-slate-50/50 transition-colors"
-                  >
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {STATE_NAMES[row.dimension_value] ?? row.dimension_value}
-                      <span className="ml-1.5 text-slate-400">
-                        ({row.dimension_value})
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-900">
-                      {formatAmount(row.median_amount)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                      {formatAmount(row.avg_amount)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                      {row.count.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <WarmTable headers={["State", "Median", "Avg", "Count"]}>
+            {detail.by_state.map((row) => (
+              <tr
+                key={row.dimension_value}
+                className="hover:bg-[#FAF7F2]/60 transition-colors"
+              >
+                <td className="px-4 py-2.5 font-medium text-[#1A1815]">
+                  {STATE_NAMES[row.dimension_value] ?? row.dimension_value}
+                  <span className="ml-1.5 text-[#A09788]">
+                    ({row.dimension_value})
+                  </span>
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                  {formatAmount(row.median_amount)}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  {formatAmount(row.avg_amount)}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  {row.count.toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </WarmTable>
         </section>
       )}
 
       {/* Related fees */}
       {familyMembers.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
-            Related Fees in {family}
-          </h2>
-          <div className="mt-3 flex flex-wrap gap-2">
+        <section className="mt-10">
+          <div className="flex items-center gap-3 mb-4">
+            <h2
+              className="text-[16px] font-medium text-[#1A1815]"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
+              Related Fees in {family}
+            </h2>
+            <span className="h-px flex-1 bg-[#E8DFD1]" />
+          </div>
+          <div className="flex flex-wrap gap-2">
             {familyMembers.map((cat) => (
               <Link
                 key={cat}
                 href={`/fees/${cat}`}
-                className="rounded-md border border-slate-200 px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-colors"
+                className="rounded-full border border-[#E8DFD1] px-3.5 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
               >
                 {getDisplayName(cat)}
               </Link>
@@ -415,12 +390,12 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Methodology note */}
-      <section className="mt-10 rounded-lg border border-slate-200 bg-slate-50 p-5">
-        <h3 className="text-[12px] font-semibold uppercase tracking-wider text-slate-500">
+      {/* Methodology */}
+      <section className="mt-12 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 p-6">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
           Methodology
         </h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+        <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">
           Data sourced from published fee schedules of {detail.fees.length.toLocaleString()}{" "}
           US banks and credit unions. Fees are extracted using automated
           parsing with confidence scoring and human review. Statistics include

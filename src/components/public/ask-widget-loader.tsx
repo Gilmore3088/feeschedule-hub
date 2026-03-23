@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 
 const AskWidget = dynamic(
   () => import("@/components/public/ask-widget").then((m) => m.AskWidget),
@@ -8,5 +9,6 @@ const AskWidget = dynamic(
 );
 
 export function AskWidgetLoader() {
-  return <AskWidget />;
+  const pathname = usePathname();
+  return <AskWidget pagePath={pathname} />;
 }

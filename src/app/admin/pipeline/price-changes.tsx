@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { formatAmount, timeAgo } from "@/lib/format";
 
@@ -13,19 +13,17 @@ interface PriceChange {
   crawl_target_id: number;
 }
 
-function getRecentPriceChanges(): PriceChange[] {
-  const db = getDb();
+async function getRecentPriceChanges(): Promise<PriceChange[]> {
   try {
-    return db
-      .prepare(
-        `SELECT fce.crawl_target_id, ct.institution_name, fce.fee_category,
-                fce.previous_amount, fce.new_amount, fce.change_type, fce.detected_at
-         FROM fee_change_events fce
-         JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
-         ORDER BY fce.detected_at DESC
-         LIMIT 20`
-      )
-      .all() as PriceChange[];
+    const rows = await sql`
+      SELECT fce.crawl_target_id, ct.institution_name, fce.fee_category,
+              fce.previous_amount, fce.new_amount, fce.change_type, fce.detected_at
+       FROM fee_change_events fce
+       JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
+       ORDER BY fce.detected_at DESC
+       LIMIT 20
+    `;
+    return rows as unknown as unknown as PriceChange[];
   } catch {
     return [];
   }
@@ -44,8 +42,8 @@ function changeIcon(type: string): { icon: string; cls: string } {
   }
 }
 
-export function RecentPriceChanges() {
-  const changes = getRecentPriceChanges();
+export async function RecentPriceChanges() {
+  const changes = await getRecentPriceChanges();
 
   if (changes.length === 0) {
     return null; // Don't show section if no changes yet

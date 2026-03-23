@@ -1,5 +1,6 @@
 import { CustomerNav } from "@/components/customer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
+import { SearchModal } from "@/components/public/search-modal";
 
 export default function PublicLayout({
   children,
@@ -11,6 +12,7 @@ export default function PublicLayout({
       <CustomerNav />
       <main>{children}</main>
       <CustomerFooter />
+      <SearchModal />
     </div>
   );
 }

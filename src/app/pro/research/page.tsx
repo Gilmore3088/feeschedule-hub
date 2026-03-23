@@ -1,10 +1,20 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium } from "@/lib/access";
+import { canAccessPremium, getResearchQueryLimit } from "@/lib/access";
 import { getAgent } from "@/lib/research/agents";
-import { ensureResearchTables, getUsageStats } from "@/lib/research/history";
-import { getResearchQueryLimit } from "@/lib/access";
-import { ResearchChat } from "@/app/admin/research/[agentId]/research-chat";
+import {
+  ensureResearchTables,
+  getUsageStats,
+  listConversations,
+} from "@/lib/research/history";
+import { getPublicStats, getDataFreshness } from "@/lib/crawler-db";
+import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
+import { AnalystHub } from "./analyst-hub";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "AI Research | Bank Fee Index",
+};
 
 export default async function ProResearchPage() {
   const user = await getCurrentUser();
@@ -14,66 +24,77 @@ export default async function ProResearchPage() {
     redirect("/subscribe");
   }
 
-  ensureResearchTables();
+  await ensureResearchTables();
 
-  const agent = getAgent("fee-analyst");
+  const agent = await getAgent("fee-analyst");
   if (!agent) redirect("/account");
 
-  const usage = getUsageStats(user.id);
+  const usage = await getUsageStats(user.id);
   const dailyLimit = getResearchQueryLimit(user);
+  const stats = await getPublicStats();
+  const freshness = await getDataFreshness();
+
+  let conversations: { id: number; title: string; updatedAt: string }[] = [];
+  try {
+    const raw = await listConversations(user.id, "fee-analyst", 20);
+    conversations = raw.map((c) => ({
+      id: c.id,
+      title: c.title ?? "Untitled",
+      updatedAt: c.updated_at,
+    }));
+  } catch {
+    // history tables may not exist yet
+  }
+
+  const lastUpdated = freshness.last_crawl_at
+    ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      })
+    : "---";
 
   return (
-    <div className="space-y-6">
-      {/* Usage bar */}
-      <div className="flex items-center justify-between rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] px-5 py-3">
-        <div className="flex items-center gap-6">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A69D90]">
-              Queries Today
-            </p>
-            <p className="mt-0.5 text-lg font-bold tabular-nums text-[#1A1815]">
-              {usage.today}
-              <span className="text-[11px] font-normal text-[#A69D90]"> / {dailyLimit}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A69D90]">
-              This Month
-            </p>
-            <p className="mt-0.5 text-lg font-bold tabular-nums text-[#1A1815]">
-              {usage.month}
-            </p>
-          </div>
-        </div>
-        <div className="text-[11px] text-[#A69D90]">
-          {user.display_name}
+    <div>
+      {/* Dataset info bar */}
+      <div className="border-b border-[#E8DFD1] bg-[#FFFDF9]">
+        <div className="mx-auto max-w-[1600px] px-4 py-2 flex items-center gap-4 text-[11px] overflow-x-auto scrollbar-none">
+          <span
+            className="shrink-0 font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            Dataset: Bank Fee Index
+          </span>
+          <span className="shrink-0 h-3 w-px bg-[#D4C9BA]" />
+          <span className="shrink-0 text-[#A09788]">
+            <span className="tabular-nums font-medium text-[#5A5347]">
+              {stats.total_observations.toLocaleString()}
+            </span>{" "}
+            observations
+          </span>
+          <span className="shrink-0 text-[#A09788]">
+            <span className="tabular-nums font-medium text-[#5A5347]">
+              {stats.total_institutions.toLocaleString()}
+            </span>{" "}
+            institutions
+          </span>
+          <span className="shrink-0 text-[#A09788]">
+            {TAXONOMY_COUNT} fee types
+          </span>
+          <span className="shrink-0 ml-auto text-[#D4C9BA]">
+            Updated {lastUpdated}
+          </span>
         </div>
       </div>
 
-      {/* Agent chat */}
-      <div className="rounded-xl border border-[#E8DFD1] overflow-hidden">
-        <div className="bg-[#FFFDF9] px-5 py-3 border-b border-[#E8DFD1] flex items-center justify-between">
-          <div>
-            <h2
-              className="text-sm font-medium text-[#1A1815]"
-              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-            >
-              {agent.name}
-            </h2>
-            <p className="text-xs text-[#A69D90] mt-0.5">{agent.description}</p>
-          </div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#A69D90] bg-[#FAF7F2] px-2 py-1 rounded">
-            AI Research
-          </span>
-        </div>
-        <ResearchChat
-          agentId="fee-analyst"
-          agentName={agent.name}
-          agentDescription={agent.description}
-          exampleQuestions={agent.exampleQuestions}
-          conversations={[]}
-        />
-      </div>
+      {/* Analyst Hub */}
+      <AnalystHub
+        agentId="fee-analyst"
+        agentName={agent.name}
+        conversations={conversations}
+        queriesToday={usage.today}
+        dailyLimit={dailyLimit}
+        queryMonth={usage.month}
+      />
     </div>
   );
 }

@@ -1,9 +1,9 @@
 name: Refresh Research Data
 
 on:
-  schedule:
-    - cron: '0 11 * * *'      # daily at 6am ET (11 UTC)
-    - cron: '0 12 * * 1'      # weekly Monday 7am ET (12 UTC)
+  # schedule:                          # Paused during rebuild migration (2026-03-22)
+  #   - cron: '0 11 * * *'            # daily at 6am ET (11 UTC)
+  #   - cron: '0 12 * * 1'            # weekly Monday 7am ET (12 UTC)
   workflow_dispatch:
     inputs:
       cadence:

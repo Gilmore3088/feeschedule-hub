@@ -12,7 +12,7 @@ interface PageProps {
 
 export async function generateStaticParams() {
   const { hasData } = await import("@/lib/crawler-db/connection");
-  if (!hasData()) return [];
+  if (!(await hasData())) return [];
   return STATE_CODES.map((code) => ({ state: code.toLowerCase() }));
 }
 
@@ -40,7 +40,7 @@ export default async function StateCityDirectory({ params }: PageProps) {
 
   if (!stateName) notFound();
 
-  const cities = getCitiesInState(stateCode);
+  const cities = await getCitiesInState(stateCode);
 
   return (
     <>

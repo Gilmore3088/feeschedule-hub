@@ -11,8 +11,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  ensureResearchTables();
-  const article = getArticleBySlug(slug);
+  await ensureResearchTables();
+  const article = await getArticleBySlug(slug);
   if (!article || article.status !== "published") {
     return { title: "Article Not Found" };
   }
@@ -28,16 +28,16 @@ export default async function ArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  ensureResearchTables();
-  const article = getArticleBySlug(slug);
+  await ensureResearchTables();
+  const article = await getArticleBySlug(slug);
 
   if (!article || article.status !== "published") {
     notFound();
   }
 
-  incrementViewCount(slug);
+  await incrementViewCount(slug);
 
-  const relatedArticles = getPublishedArticles(4).filter((a) => a.slug !== slug).slice(0, 3);
+  const relatedArticles = (await getPublishedArticles(4)).filter((a) => a.slug !== slug).slice(0, 3);
 
   const publishedDate = article.published_at
     ? new Date(article.published_at).toLocaleDateString("en-US", {
@@ -48,7 +48,7 @@ export default async function ArticlePage({
     : null;
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-14">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -63,25 +63,28 @@ export default async function ArticlePage({
           <div className="mb-8">
             <Link
               href="/research"
-              className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors"
+              className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788] hover:text-[#1A1815] transition-colors"
             >
               &larr; Research
             </Link>
-            <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">
+            <h1
+              className="mt-3 text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] font-extrabold text-[#1A1815]"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
               {article.title}
             </h1>
             {article.subtitle && (
-              <p className="mt-2 text-[15px] text-slate-500">{article.subtitle}</p>
+              <p className="mt-2 text-[15px] text-[#7A7062]">{article.subtitle}</p>
             )}
-            <div className="mt-3 flex items-center gap-3 text-[12px] text-slate-400">
+            <div className="mt-3 flex items-center gap-3 text-[12px] text-[#A09788]">
               <span>{article.author}</span>
               {publishedDate && (
                 <>
-                  <span className="text-slate-300">&middot;</span>
+                  <span className="text-[#D4C9BA]">&middot;</span>
                   <span>{publishedDate}</span>
                 </>
               )}
-              <span className="text-slate-300">&middot;</span>
+              <span className="text-[#D4C9BA]">&middot;</span>
               <span className="capitalize">{article.category}</span>
             </div>
           </div>
@@ -92,17 +95,17 @@ export default async function ArticlePage({
           </div>
 
           {/* CTA */}
-          <div className="mt-12 rounded-lg border border-slate-200 bg-slate-50/50 px-6 py-5">
-            <p className="text-sm font-semibold text-slate-800">
+          <div className="mt-12 rounded-xl border border-[#E8DFD1]/80 bg-[#FAF7F2]/50 px-6 py-5">
+            <p className="text-sm font-semibold text-[#1A1815]">
               Need institution-specific benchmarking?
             </p>
-            <p className="mt-1 text-[13px] text-slate-500">
+            <p className="mt-1 text-[13px] text-[#7A7062]">
               Get a custom competitive analysis for your bank or credit union with peer comparisons, percentile rankings, and actionable insights.
             </p>
             <div className="mt-3">
               <a
                 href="/#request-access"
-                className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-[12px] font-semibold text-white hover:bg-slate-800 transition-colors"
+                className="inline-flex items-center rounded-md bg-[#C44B2E] px-4 py-2 text-[12px] font-semibold text-white hover:bg-[#C44B2E]/90 transition-colors"
               >
                 Request Custom Analysis
               </a>
@@ -114,8 +117,8 @@ export default async function ArticlePage({
         <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-5">
             {relatedArticles.length > 0 && (
-              <div className="rounded-lg border border-slate-200 px-4 py-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">
+              <div className="rounded-xl border border-[#E8DFD1]/80 px-4 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
                   Related Research
                 </p>
                 <ul className="space-y-2">
@@ -123,34 +126,34 @@ export default async function ArticlePage({
                     <li key={ra.slug}>
                       <Link
                         href={`/research/articles/${ra.slug}`}
-                        className="block text-[12px] font-medium text-slate-600 hover:text-blue-600 transition-colors leading-snug"
+                        className="block text-[12px] font-medium text-[#5A5347] hover:text-[#C44B2E] transition-colors leading-snug"
                       >
                         {ra.title}
                       </Link>
-                      <span className="text-[10px] text-slate-400 capitalize">{ra.category}</span>
+                      <span className="text-[10px] text-[#A09788] capitalize">{ra.category}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            <div className="rounded-lg border border-slate-200 px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">
+            <div className="rounded-xl border border-[#E8DFD1]/80 px-4 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
                 Explore
               </p>
               <ul className="space-y-1.5">
                 <li>
-                  <Link href="/research/national-fee-index" className="text-[12px] text-slate-600 hover:text-blue-600 transition-colors">
+                  <Link href="/research/national-fee-index" className="text-[12px] text-[#5A5347] hover:text-[#C44B2E] transition-colors">
                     National Fee Index
                   </Link>
                 </li>
                 <li>
-                  <Link href="/fees" className="text-[12px] text-slate-600 hover:text-blue-600 transition-colors">
+                  <Link href="/fees" className="text-[12px] text-[#5A5347] hover:text-[#C44B2E] transition-colors">
                     Fee Categories
                   </Link>
                 </li>
                 <li>
-                  <Link href="/guides" className="text-[12px] text-slate-600 hover:text-blue-600 transition-colors">
+                  <Link href="/guides" className="text-[12px] text-[#5A5347] hover:text-[#C44B2E] transition-colors">
                     Consumer Guides
                   </Link>
                 </li>

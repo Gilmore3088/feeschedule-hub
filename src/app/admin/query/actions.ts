@@ -1,17 +1,17 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { getDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 
 const MAX_ROWS = 500;
-const BLOCKED_KEYWORDS = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "ATTACH", "DETACH", "PRAGMA"];
+const BLOCKED_KEYWORDS = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "ATTACH", "DETACH"];
 
 export async function runQuery(
-  sql: string
+  query: string
 ): Promise<{ success: boolean; columns?: string[]; rows?: Record<string, unknown>[]; count?: number; error?: string; duration?: number }> {
   await requireAuth("view");
 
-  const trimmed = sql.trim();
+  const trimmed = query.trim();
   if (!trimmed) return { success: false, error: "Empty query" };
 
   // Block write operations
@@ -22,12 +22,10 @@ export async function runQuery(
     }
   }
 
-  const db = getDb();
   const start = performance.now();
 
   try {
-    const stmt = db.prepare(trimmed);
-    const rows = stmt.all() as Record<string, unknown>[];
+    const rows = await sql.unsafe(trimmed) as Record<string, unknown>[];
     const duration = Math.round(performance.now() - start);
 
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];

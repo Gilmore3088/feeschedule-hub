@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getWriteDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 import { spawnJob } from "@/lib/job-runner";
 
@@ -84,6 +84,9 @@ export async function runEnrich(): Promise<{ success: boolean; jobId?: number; e
 
 export async function runDiscover(state?: string): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
+  if (state && !/^[A-Z]{2}$/.test(state)) {
+    return { success: false, error: "Invalid state code" };
+  }
   try {
     const args: string[] = [];
     if (state) args.push("--state", state);
@@ -117,18 +120,16 @@ export async function addInstitution(
   if (!name || name.trim().length < 2) return { success: false, error: "Name is required" };
   if (!/^[A-Z]{2}$/.test(stateCode)) return { success: false, error: "Invalid state code" };
 
-  const db = getWriteDb();
   try {
-    const result = db.prepare(
-      `INSERT INTO crawl_targets (institution_name, state_code, charter_type, website_url, fee_schedule_url, source, status)
-       VALUES (?, ?, ?, ?, ?, 'manual', 'active')`
-    ).run(name.trim(), stateCode, charterType, websiteUrl || null, feeScheduleUrl || null);
+    const [result] = await sql`
+      INSERT INTO crawl_targets (institution_name, state_code, charter_type, website_url, fee_schedule_url, source, status)
+      VALUES (${name.trim()}, ${stateCode}, ${charterType}, ${websiteUrl || null}, ${feeScheduleUrl || null}, 'manual', 'active')
+      RETURNING id
+    `;
     revalidatePath("/admin/pipeline");
-    return { success: true, id: Number(result.lastInsertRowid) };
+    return { success: true, id: Number(result.id) };
   } catch (e) {
     return { success: false, error: String(e) };
-  } finally {
-    db.close();
   }
 }
 
@@ -141,18 +142,17 @@ export async function setFeeScheduleUrl(
     return { success: false, error: "Invalid URL" };
   }
 
-  const db = getWriteDb();
   try {
-    const result = db
-      .prepare("UPDATE crawl_targets SET fee_schedule_url = ? WHERE id = ?")
-      .run(url, institutionId);
-    if (result.changes === 0) {
+    const result = await sql`
+      UPDATE crawl_targets SET fee_schedule_url = ${url} WHERE id = ${institutionId}
+    `;
+    if (result.count === 0) {
       return { success: false, error: "Institution not found" };
     }
     revalidatePath("/admin/pipeline");
     return { success: true };
-  } finally {
-    db.close();
+  } catch (e) {
+    return { success: false, error: String(e) };
   }
 }
 
@@ -191,22 +191,18 @@ export async function bulkImportUrls(
     return { success: false, updated: 0, errors: errors.length > 0 ? errors : ["No valid rows found"] };
   }
 
-  const db = getWriteDb();
   try {
-    const stmt = db.prepare("UPDATE crawl_targets SET fee_schedule_url = ? WHERE id = ?");
-    const txn = db.transaction(() => {
-      let count = 0;
+    let count = 0;
+    await sql.begin(async (tx: any) => {
       for (const u of updates) {
-        const r = stmt.run(u.url, u.id);
-        if (r.changes > 0) count++;
+        const r = await tx`UPDATE crawl_targets SET fee_schedule_url = ${u.url} WHERE id = ${u.id}`;
+        if (r.count > 0) count++;
         else errors.push(`Institution ID ${u.id} not found`);
       }
-      return count;
     });
-    const updated = txn();
     revalidatePath("/admin/pipeline");
-    return { success: true, updated, errors };
-  } finally {
-    db.close();
+    return { success: true, updated: count, errors };
+  } catch (e) {
+    return { success: false, updated: 0, errors: [...errors, String(e)] };
   }
 }

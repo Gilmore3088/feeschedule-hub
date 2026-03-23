@@ -196,7 +196,7 @@ def cmd_ingest_ncua(args: argparse.Namespace) -> None:
     config = load_config()
     db = Database(config)
     try:
-        run(db, config, limit=args.limit)
+        run(db, config, quarter=args.quarter, limit=args.limit)
     finally:
         db.close()
 
@@ -299,6 +299,18 @@ def cmd_refresh_data(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_snapshot(args: argparse.Namespace) -> None:
+    """Take a snapshot of current fees and detect changes."""
+    from fee_crawler.commands.snapshot_fees import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, date=args.date)
+    finally:
+        db.close()
+
+
 def cmd_ingest_ofr(args: argparse.Namespace) -> None:
     """Ingest OFR Financial Stress Index."""
     from fee_crawler.commands.ingest_ofr import run
@@ -370,6 +382,65 @@ def cmd_run_pipeline(args: argparse.Namespace) -> None:
             skip_categorize=args.skip_categorize,
             state=args.state,
         )
+    finally:
+        db.close()
+
+
+def cmd_merge_fees(args: argparse.Namespace) -> None:
+    """Re-merge extracted fees with existing data."""
+    from fee_crawler.commands.merge_fees import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, dry_run=args.dry_run)
+    finally:
+        db.close()
+
+
+def cmd_rediscover_failed(args: argparse.Namespace) -> None:
+    """Clear bad URLs and prepare for rediscovery."""
+    from fee_crawler.commands.rediscover_failed import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, state=args.state, limit=args.limit, dry_run=args.dry_run)
+    finally:
+        db.close()
+
+
+def cmd_publish_index(args: argparse.Namespace) -> None:
+    """Publish fee index: coverage snapshot, cache, DB maintenance."""
+    from fee_crawler.commands.publish_index import run
+
+    config = load_config()
+    db = Database(config)
+    try:
+        run(db, config, dry_run=args.dry_run)
+    finally:
+        db.close()
+
+
+def cmd_pipeline_v2(args: argparse.Namespace) -> None:
+    """Run atomic pipeline with resume support."""
+    from fee_crawler.pipeline.executor import run_pipeline
+
+    config = load_config()
+    db = Database(config)
+    skip = frozenset(args.skip.split(",")) if args.skip else frozenset()
+    try:
+        run_id = run_pipeline(
+            db, config,
+            from_phase=args.from_phase,
+            resume_run_id=args.resume,
+            skip=skip,
+            dry_run=args.dry_run,
+            limit=args.limit,
+            workers=args.workers,
+            state=args.state,
+        )
+        print(f"\nPipeline run ID: {run_id}")
     finally:
         db.close()
 
@@ -727,6 +798,12 @@ def main() -> None:
     # ingest-ncua command
     ncua_fin_parser = subparsers.add_parser("ingest-ncua", help="Ingest NCUA 5300 financial data")
     ncua_fin_parser.add_argument(
+        "--quarter",
+        type=str,
+        default=None,
+        help="Quarter end date YYYY-MM (e.g. 2025-09). Default: latest available",
+    )
+    ncua_fin_parser.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -924,6 +1001,19 @@ def main() -> None:
     )
     refresh_parser.set_defaults(func=cmd_refresh_data)
 
+    # snapshot command
+    snapshot_parser = subparsers.add_parser(
+        "snapshot",
+        help="Snapshot current fees and detect changes since last snapshot",
+    )
+    snapshot_parser.add_argument(
+        "--date",
+        type=str,
+        default=None,
+        help="Snapshot date (YYYY-MM-DD). Default: today",
+    )
+    snapshot_parser.set_defaults(func=cmd_snapshot)
+
     # run-pipeline command
     pipeline_parser = subparsers.add_parser(
         "run-pipeline",
@@ -939,6 +1029,46 @@ def main() -> None:
     pipeline_parser.add_argument("--skip-categorize", action="store_true", help="Skip categorization stage")
     pipeline_parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     pipeline_parser.set_defaults(func=cmd_run_pipeline)
+
+    # merge-fees command
+    merge_parser = subparsers.add_parser(
+        "merge-fees",
+        help="Re-merge extracted fees with existing data",
+    )
+    merge_parser.add_argument("--dry-run", action="store_true", help="Show what would be merged")
+    merge_parser.set_defaults(func=cmd_merge_fees)
+
+    # rediscover-failed command
+    rediscover_parser = subparsers.add_parser(
+        "rediscover-failed",
+        help="Clear bad URLs (pre-screen fails, 404s) and prepare for rediscovery",
+    )
+    rediscover_parser.add_argument("--state", type=str, default=None, help="Filter by state code")
+    rediscover_parser.add_argument("--limit", type=int, default=None, help="Max institutions to process")
+    rediscover_parser.add_argument("--dry-run", action="store_true", help="Show what would be cleared")
+    rediscover_parser.set_defaults(func=cmd_rediscover_failed)
+
+    # publish-index command
+    publish_parser = subparsers.add_parser(
+        "publish-index",
+        help="Publish fee index: coverage snapshot, cache revalidation, DB maintenance",
+    )
+    publish_parser.add_argument("--dry-run", action="store_true", help="Show what would be published")
+    publish_parser.set_defaults(func=cmd_publish_index)
+
+    # pipeline-v2 command (new orchestrator with resume)
+    v2_parser = subparsers.add_parser(
+        "pipeline",
+        help="Run atomic pipeline with resume support (replaces run-pipeline)",
+    )
+    v2_parser.add_argument("--from-phase", type=int, default=1, help="Start from phase N (1-4)")
+    v2_parser.add_argument("--resume", type=int, default=None, help="Resume a previous run by ID")
+    v2_parser.add_argument("--skip", type=str, default=None, help="Comma-separated stage names to skip")
+    v2_parser.add_argument("--dry-run", action="store_true", help="Show what would run")
+    v2_parser.add_argument("--limit", type=int, default=None, help="Max institutions per stage")
+    v2_parser.add_argument("--workers", type=int, default=1, help="Concurrent workers")
+    v2_parser.add_argument("--state", type=str, default=None, help="Filter by state code (e.g., CA, TX, NY)")
+    v2_parser.set_defaults(func=cmd_pipeline_v2)
 
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")

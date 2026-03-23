@@ -13,10 +13,10 @@ export async function saveArticleFromChat(
     return { success: false, error: "Content too short to save as article" };
   }
 
-  ensureResearchTables();
+  await ensureResearchTables();
 
   // Safety: limit drafts per day
-  const { articles: todayArticles } = getArticles({ status: "draft" });
+  const { articles: todayArticles } = await getArticles({ status: "draft" });
   const today = new Date().toISOString().split("T")[0];
   const todayCount = todayArticles.filter(
     (a) => a.created_at.startsWith(today)
@@ -63,7 +63,7 @@ export async function saveArticleFromChat(
   }
 
   try {
-    createArticle({
+    await createArticle({
       slug,
       title,
       subtitle: subtitle ?? undefined,

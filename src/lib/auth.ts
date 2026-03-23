@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getDb, getWriteDb } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/crawler-db/connection";
 
 const SESSION_COOKIE = "fsh_session";
 const SESSION_TTL_HOURS = 24;
@@ -54,7 +54,7 @@ export interface User {
   asset_tier: string | null;
   state_code: string | null;
   job_role: string | null;
-  interests: string | null; // JSON array
+  interests: string | null;
 }
 
 export type Permission =
@@ -92,51 +92,38 @@ export async function login(
   username: string,
   password: string
 ): Promise<User | null> {
-  const db = getWriteDb();
-  try {
-    const row = db
-      .prepare(
-        `SELECT id, username, display_name, role, password_hash, email,
-                COALESCE(subscription_status, 'none') as subscription_status,
-                institution_name, institution_type, asset_tier, state_code, job_role, interests
-         FROM users WHERE (username = ? OR email = ?) AND is_active = 1`
-      )
-      .get(username, username) as
-      | (User & { password_hash: string })
-      | undefined;
+  const rows = await sql`
+    SELECT id, username, display_name, role, password_hash, email,
+           COALESCE(subscription_status, 'none') as subscription_status,
+           institution_name, institution_type, asset_tier, state_code, job_role, interests
+    FROM users WHERE (username = ${username} OR email = ${username}) AND is_active = true
+  `;
+  const row = rows[0] as (User & { password_hash: string }) | undefined;
 
-    if (!row) return null;
+  if (!row) return null;
 
-    // Use passwords.ts verifyPassword which handles both bcrypt and legacy SHA-256
-    const { verifyPassword: verifyPw } = await import("@/lib/passwords");
-    const { valid } = await verifyPw(password, row.password_hash);
-    if (!valid) return null;
+  const { verifyPassword: verifyPw } = await import("@/lib/passwords");
+  const { valid } = await verifyPw(password, row.password_hash);
+  if (!valid) return null;
 
-    // Create session
-    const sessionId = crypto.randomBytes(32).toString("hex");
-    // Store expiry in SQLite-compatible format (YYYY-MM-DD HH:MM:SS) for reliable comparison
-    const expiresDate = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
-    const expiresAt = expiresDate.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+  const sessionId = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
 
-    db.prepare(
-      "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)"
-    ).run(sessionId, row.id, expiresAt);
+  await sql`
+    INSERT INTO sessions (id, user_id, expires_at) VALUES (${sessionId}, ${row.id}, ${expiresAt})
+  `;
 
-    // Set signed cookie
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE, signSessionId(sessionId), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: SESSION_TTL_HOURS * 60 * 60,
-      path: "/",
-    });
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, signSessionId(sessionId), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: SESSION_TTL_HOURS * 60 * 60,
+    path: "/",
+  });
 
-    const { password_hash: _, ...user } = row;
-    return user;
-  } finally {
-    db.close();
-  }
+  const { password_hash: _, ...user } = row;
+  return user;
 }
 
 export async function logout(): Promise<void> {
@@ -145,12 +132,7 @@ export async function logout(): Promise<void> {
   const sessionId = raw ? verifyAndExtractSessionId(raw) : null;
 
   if (sessionId) {
-    const db = getWriteDb();
-    try {
-      db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
-    } finally {
-      db.close();
-    }
+    await sql`DELETE FROM sessions WHERE id = ${sessionId}`;
   }
 
   cookieStore.delete(SESSION_COOKIE);
@@ -164,21 +146,18 @@ export async function getCurrentUser(): Promise<User | null> {
   const sessionId = verifyAndExtractSessionId(raw);
   if (!sessionId) return null;
 
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT u.id, u.username, u.display_name, u.role,
-              u.email, u.stripe_customer_id,
-              COALESCE(u.subscription_status, 'none') as subscription_status,
-              u.institution_name, u.institution_type, u.asset_tier,
-              u.state_code, u.job_role, u.interests
-       FROM sessions s
-       JOIN users u ON s.user_id = u.id
-       WHERE s.id = ? AND s.expires_at > datetime('now') AND u.is_active = 1`
-    )
-    .get(sessionId) as User | undefined;
+  const rows = await sql`
+    SELECT u.id, u.username, u.display_name, u.role,
+           u.email, u.stripe_customer_id,
+           COALESCE(u.subscription_status, 'none') as subscription_status,
+           u.institution_name, u.institution_type, u.asset_tier,
+           u.state_code, u.job_role, u.interests
+    FROM sessions s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.id = ${sessionId} AND s.expires_at > NOW() AND u.is_active = true
+  `;
 
-  return row ?? null;
+  return (rows[0] as User) ?? null;
 }
 
 export function hasPermission(user: User, permission: Permission): boolean {

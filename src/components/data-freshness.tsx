@@ -1,7 +1,7 @@
 import { getDataFreshness } from "@/lib/crawler-db";
 
-export function DataFreshness() {
-  const freshness = getDataFreshness();
+export async function DataFreshness() {
+  const freshness = await getDataFreshness();
 
   const lastUpdated = freshness.last_crawl_at ?? freshness.last_fee_extracted_at;
 
@@ -14,7 +14,7 @@ export function DataFreshness() {
   });
 
   return (
-    <p className="text-[11px] text-slate-400">
+    <p className="text-[11px] text-[#A09788]">
       Data as of {dateStr} &middot;{" "}
       {freshness.total_observations.toLocaleString()} observations
     </p>

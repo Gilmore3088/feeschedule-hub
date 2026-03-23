@@ -38,9 +38,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const summary = getOpsJobSummary();
-  const activeJobs = getActiveJobs();
-  const recentJobs = getRecentJobs(20);
+  const summary = await getOpsJobSummary();
+  const activeJobs = await getActiveJobs();
+  const recentJobs = await getRecentJobs(20);
 
   // Attach live log tail + elapsed time to running jobs
   const now = Date.now();

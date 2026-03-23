@@ -12,9 +12,9 @@ import { timeAgo } from "@/lib/format";
 export default async function DistrictsIndexPage() {
   await requireAuth("view");
 
-  const metrics = getDistrictMetrics();
-  const headlines = getBeigeBookHeadlines();
-  const editions = getBeigeBookEditions(1);
+  const metrics = await getDistrictMetrics();
+  const headlines = await getBeigeBookHeadlines();
+  const editions = await getBeigeBookEditions(1);
   const latestEdition = editions[0] ?? null;
 
   return (

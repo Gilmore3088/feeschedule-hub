@@ -109,9 +109,60 @@ export function detectSkill(userMessage: string): SkillInfo | null {
 
 /**
  * Build the skill injection text to append to a system prompt.
+ *
+ * Skills are offered as optional deliverables, not auto-executed.
+ * The model answers the user's question concisely, then offers the
+ * deliverable as an option. The full skill content is NOT included
+ * until the user opts in — this prevents the model from following
+ * the skill's imperative instructions and burning tokens.
  */
 export function buildSkillInjection(skill: SkillInfo): string {
-  return `\n\n---\n\nYou are currently operating with the "${skill.name}" methodology active. Follow the framework below to structure your analysis and output.\n\n${skill.content}`;
+  return `\n\n---\n\nIMPORTANT INSTRUCTION: You detected that this question may relate to a "${skill.name}" deliverable (${skill.description}). Do NOT produce a full report, guide, analysis, or structured deliverable unless the user explicitly asks for one. Instead:
+1. Answer the user's question concisely using data from your tools (2-4 paragraphs max).
+2. At the end, add one sentence offering the option: "Would you like me to generate a full **${skill.name}**? This will provide a more detailed, structured analysis."
+3. Do NOT include any report template, executive summary, methodology section, or structured output format unless the user says yes.`;
+}
+
+/**
+ * Build the full skill execution prompt — only used when the user
+ * explicitly opts in to generating a deliverable.
+ */
+export function buildSkillExecution(skill: SkillInfo): string {
+  return `\n\n---\n\nThe user has requested a full "${skill.name}" deliverable. Follow the framework below to produce it.\n\n${skill.content}`;
+}
+
+/**
+ * Detect if the user's message is confirming a previously offered skill.
+ * Looks for short affirmative messages like "yes", "generate it", "sure", etc.
+ */
+export function isSkillOptIn(userMessage: string): boolean {
+  const msg = userMessage.trim().toLowerCase();
+  const optInPatterns = [
+    /^(yes|yeah|yep|sure|ok|okay|go ahead|do it|please|generate)/,
+    /^(go for it|let'?s do it|sounds good|absolutely)/,
+    /generate .*(report|guide|pulse|analysis|brief|deliverable)/,
+    /full .*(report|guide|pulse|analysis|brief|deliverable)/,
+  ];
+  return optInPatterns.some((p) => p.test(msg));
+}
+
+/**
+ * Scan conversation history to find which skill was previously offered.
+ * Looks for the "Would you like me to generate a full **skill-name**" pattern
+ * in assistant messages.
+ */
+export function findOfferedSkill(
+  assistantMessages: { text: string }[]
+): SkillInfo | null {
+  const skills = loadAllSkills();
+  for (const msg of [...assistantMessages].reverse()) {
+    for (const skill of skills) {
+      if (msg.text.includes(`**${skill.name}**`)) {
+        return skill;
+      }
+    }
+  }
+  return null;
 }
 
 export function listSkills(): Omit<SkillInfo, "content">[] {

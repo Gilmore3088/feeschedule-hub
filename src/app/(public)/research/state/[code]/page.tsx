@@ -26,7 +26,7 @@ interface PageProps {
 
 export async function generateStaticParams() {
   const { hasData } = await import("@/lib/crawler-db/connection");
-  if (!hasData()) return [];
+  if (!(await hasData())) return [];
   return STATE_CODES.map((code) => ({ code }));
 }
 
@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 function DeltaPill({ delta }: { delta: number }) {
   if (Math.abs(delta) < 0.5) {
-    return <span className="text-[11px] text-slate-400">-</span>;
+    return <span className="text-[11px] text-[#A09788]">-</span>;
   }
   const isBelow = delta < 0;
   return (
@@ -75,9 +75,9 @@ export default async function StateReportPage({ params }: PageProps) {
   const user = await getCurrentUser();
   const showAllCategories = canAccessAllCategories(user);
 
-  const stats = getStateStats(stateCode);
-  const stateIndex = getPeerIndex({ state_code: stateCode });
-  const nationalIndex = getNationalIndex();
+  const stats = await getStateStats(stateCode);
+  const stateIndex = await getPeerIndex({ state_code: stateCode });
+  const nationalIndex = await getNationalIndex();
   const district = STATE_TO_DISTRICT[stateCode];
 
   // Build national lookup
@@ -103,7 +103,7 @@ export default async function StateReportPage({ params }: PageProps) {
   const extended = comparisons.filter((c) => !isFeaturedFee(c.fee_category));
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
+    <div className="mx-auto max-w-7xl px-6 py-14">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -112,13 +112,25 @@ export default async function StateReportPage({ params }: PageProps) {
         ]}
       />
 
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        State Fee Report
-      </p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+      {/* Breadcrumb — sticky on mobile */}
+      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+        <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <span className="text-[#5A5347]">{stateName}</span>
+      </nav>
+
+      <div className="flex items-center gap-2 mb-4">
+        <span className="h-px w-8 bg-[#C44B2E]/40" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+          State Fee Report
+        </span>
+      </div>
+      <h1 className="mt-1 font-[Newsreader] text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]">
         {stateName} Bank & Credit Union Fees
       </h1>
-      <p className="mt-2 max-w-2xl text-[14px] text-slate-600">
+      <p className="mt-2 max-w-2xl text-[14px] text-[#7A7062]">
         Fee benchmarks for {stats.institution_count.toLocaleString()} financial
         institutions in {stateName}, compared against national medians.
         {district && (
@@ -126,7 +138,7 @@ export default async function StateReportPage({ params }: PageProps) {
             {" "}Part of{" "}
             <Link
               href={`/research/district/${district}`}
-              className="text-blue-600 hover:underline"
+              className="text-[#C44B2E] hover:underline"
             >
               Federal Reserve District {district} ({DISTRICT_NAMES[district]})
             </Link>
@@ -148,12 +160,12 @@ export default async function StateReportPage({ params }: PageProps) {
         ].map((card) => (
           <div
             key={card.label}
-            className="rounded-lg border border-slate-200 px-4 py-3"
+            className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3"
           >
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
               {card.label}
             </p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">
+            <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
               {card.value}
             </p>
           </div>
@@ -163,43 +175,43 @@ export default async function StateReportPage({ params }: PageProps) {
       {/* Charter breakdown */}
       {stateIndex.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+          <h2 className="font-[Newsreader] text-sm font-bold text-[#1A1815]">
             Bank vs. Credit Union — {stateName}
           </h2>
-          <p className="mt-1 text-[13px] text-slate-500">
+          <p className="mt-1 text-[13px] text-[#7A7062]">
             How fees compare between banks and credit unions in this state.
           </p>
-          <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+          <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Charter
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Institutions
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Fee Observations
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-2.5 font-medium text-slate-900">Banks</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+              <tbody className="divide-y divide-[#E8DFD1]/60">
+                <tr className="hover:bg-[#FAF7F2]/60 transition-colors">
+                  <td className="px-4 py-2.5 font-medium text-[#1A1815]">Banks</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                     {stats.bank_count.toLocaleString()}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                     {stateIndex.reduce((sum, e) => sum + e.bank_count, 0).toLocaleString()}
                   </td>
                 </tr>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-2.5 font-medium text-slate-900">Credit Unions</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                <tr className="hover:bg-[#FAF7F2]/60 transition-colors">
+                  <td className="px-4 py-2.5 font-medium text-[#1A1815]">Credit Unions</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                     {stats.cu_count.toLocaleString()}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                     {stateIndex.reduce((sum, e) => sum + e.cu_count, 0).toLocaleString()}
                   </td>
                 </tr>
@@ -212,63 +224,63 @@ export default async function StateReportPage({ params }: PageProps) {
       {/* Fee comparison table */}
       {comparisons.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-bold text-slate-800">
+          <h2 className="font-[Newsreader] text-sm font-bold text-[#1A1815]">
             Fee Benchmarks — {stateName} vs. National
           </h2>
-          <p className="mt-1 text-[13px] text-slate-500">
+          <p className="mt-1 text-[13px] text-[#7A7062]">
             {comparisons.length} fee categories with sufficient data.
             Green deltas indicate below-national fees; red indicates above.
           </p>
 
-          <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+          <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Fee Category
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     {stateName} Median
                   </th>
-                  <th className="hidden px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">
+                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
                     National Median
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Delta
                   </th>
-                  <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                     Institutions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#E8DFD1]/60">
                 {featured.map((row) => (
                   <tr
                     key={row.fee_category}
-                    className="hover:bg-slate-50/50 transition-colors"
+                    className="hover:bg-[#FAF7F2]/60 transition-colors"
                   >
                     <td className="px-4 py-2.5">
                       <Link
                         href={`/fees/${row.fee_category}`}
-                        className="font-medium text-slate-900 hover:text-blue-600 transition-colors"
+                        className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
                       >
                         {getDisplayName(row.fee_category)}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-900">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                       {formatAmount(row.median_amount)}
                     </td>
-                    <td className="hidden px-4 py-2.5 text-right tabular-nums text-slate-500 sm:table-cell">
+                    <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
                       {formatAmount(row.nationalMedian)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {row.delta !== null ? (
                         <DeltaPill delta={row.delta} />
                       ) : (
-                        <span className="text-[11px] text-slate-400">-</span>
+                        <span className="text-[11px] text-[#A09788]">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                       {row.institution_count.toLocaleString()}
                     </td>
                   </tr>
@@ -279,7 +291,7 @@ export default async function StateReportPage({ params }: PageProps) {
                     <tr>
                       <td
                         colSpan={5}
-                        className="bg-slate-50/80 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
+                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]"
                       >
                         Extended Categories
                       </td>
@@ -287,30 +299,30 @@ export default async function StateReportPage({ params }: PageProps) {
                     {extended.map((row) => (
                       <tr
                         key={row.fee_category}
-                        className="hover:bg-slate-50/50 transition-colors"
+                        className="hover:bg-[#FAF7F2]/60 transition-colors"
                       >
                         <td className="px-4 py-2.5">
                           <Link
                             href={`/fees/${row.fee_category}`}
-                            className="text-slate-700 hover:text-blue-600 transition-colors"
+                            className="text-[#5A5347] hover:text-[#C44B2E] transition-colors"
                           >
                             {getDisplayName(row.fee_category)}
                           </Link>
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                           {formatAmount(row.median_amount)}
                         </td>
-                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-slate-500 sm:table-cell">
+                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
                           {formatAmount(row.nationalMedian)}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           {row.delta !== null ? (
                             <DeltaPill delta={row.delta} />
                           ) : (
-                            <span className="text-[11px] text-slate-400">-</span>
+                            <span className="text-[11px] text-[#A09788]">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                           {row.institution_count.toLocaleString()}
                         </td>
                       </tr>
@@ -331,11 +343,11 @@ export default async function StateReportPage({ params }: PageProps) {
       )}
 
       {/* Methodology */}
-      <section className="mt-10 rounded-lg border border-slate-200 bg-slate-50/50 px-5 py-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
+        <h2 className="font-[Newsreader] text-xs font-semibold uppercase tracking-wider text-[#A09788]">
           Methodology
         </h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+        <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">
           Data sourced from published fee schedules of FDIC-insured banks and
           NCUA-insured credit unions in {stateName}. Medians computed from
           extracted fee amounts excluding rejected reviews. Delta shows

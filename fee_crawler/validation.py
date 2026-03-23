@@ -25,8 +25,6 @@ CAP_CATEGORIES = {"od_daily_cap", "nsf_daily_cap"}
 # Fee names that imply $0 / free / waived are normal
 FREE_FEE_KEYWORDS = {"free", "no charge", "no fee", "waived", "included", "$0"}
 
-AUTO_APPROVE_CONFIDENCE = 0.90
-
 
 @dataclass(frozen=True)
 class ValidationFlag:
@@ -226,7 +224,8 @@ def determine_review_status(
         'staged' if confidence >= threshold AND no error/warning flags
         'pending' otherwise
     """
-    threshold = config.extraction.confidence_auto_stage_threshold
+    stage_threshold = config.extraction.confidence_auto_stage_threshold
+    approve_threshold = config.extraction.confidence_approve_threshold
     has_blocking = any(f.severity in ("error", "warning") for f in flags)
 
     if has_blocking:
@@ -235,12 +234,12 @@ def determine_review_status(
     # Auto-approve: high confidence + categorized + amount in range
     if (
         fee_category
-        and confidence >= AUTO_APPROVE_CONFIDENCE
+        and confidence >= approve_threshold
         and _amount_in_range(amount, fee_category)
     ):
         return "approved"
 
-    if confidence >= threshold:
+    if confidence >= stage_threshold:
         return "staged"
     return "pending"
 

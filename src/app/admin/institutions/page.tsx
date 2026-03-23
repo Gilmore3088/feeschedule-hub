@@ -6,7 +6,7 @@ import { InstitutionTable } from "../institution-table";
 export default async function InstitutionsPage() {
   await requireAuth();
 
-  const institutions = getInstitutionsWithFees();
+  const institutions = await getInstitutionsWithFees();
 
   return (
     <div className="space-y-6">
