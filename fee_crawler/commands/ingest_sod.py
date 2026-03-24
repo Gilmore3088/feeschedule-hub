@@ -112,6 +112,9 @@ def ingest_sod(
                 msa_info["institutions"][cert] += deposits
 
             try:
+                # Commit every 500 rows to prevent connection exhaustion
+                if total_upserted > 0 and total_upserted % 500 == 0:
+                    db.commit()
                 db.execute(
                     """INSERT INTO branch_deposits
                        (cert, crawl_target_id, year, branch_number, is_main_office,
@@ -135,7 +138,7 @@ def ingest_sod(
                         target_id,
                         year,
                         _safe_int(d.get("BRNUM")) or 0,
-                        1 if d.get("BKMO") == 1 else 0,
+                        True if d.get("BKMO") == 1 else False,
                         deposits,
                         d.get("STALPBR"),
                         d.get("CITYBR"),
