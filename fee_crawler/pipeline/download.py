@@ -16,9 +16,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+import logging
 import requests
 
 from fee_crawler.config import Config
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
@@ -178,6 +181,28 @@ def download_document(
 
     content = resp.content
     content_type = resp.headers.get("Content-Type", "").lower()
+
+    # Playwright fallback: if HTML response looks like a JS shell or
+    # bot-protection challenge, re-fetch with headless Chromium
+    from fee_crawler.pipeline.playwright_fetcher import (
+        needs_browser_fallback,
+        fetch_with_browser,
+        is_playwright_available,
+    )
+
+    if needs_browser_fallback(content, content_type) and is_playwright_available():
+        logger.info("Thin HTML detected for %s (%d bytes), trying Playwright", url, len(content))
+        browser_result = fetch_with_browser(url)
+        if browser_result["success"] and browser_result["content"]:
+            content = browser_result["content"]
+            content_type = browser_result["content_type"] or content_type
+            logger.info("Playwright succeeded for %s: %d bytes", url, len(content))
+        else:
+            logger.warning(
+                "Playwright fallback failed for %s: %s",
+                url, browser_result.get("error", "unknown"),
+            )
+
     content_hash = compute_hash(content)
 
     # Change detection: skip if unchanged
