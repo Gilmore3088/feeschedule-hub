@@ -113,11 +113,23 @@ def ingest_sod(
 
             try:
                 db.execute(
-                    """INSERT OR REPLACE INTO branch_deposits
+                    """INSERT INTO branch_deposits
                        (cert, crawl_target_id, year, branch_number, is_main_office,
                         deposits, state, city, county_fips, msa_code, msa_name,
                         fed_district, latitude, longitude)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT (cert, year, branch_number) DO UPDATE SET
+                        crawl_target_id = EXCLUDED.crawl_target_id,
+                        is_main_office = EXCLUDED.is_main_office,
+                        deposits = EXCLUDED.deposits,
+                        state = EXCLUDED.state,
+                        city = EXCLUDED.city,
+                        county_fips = EXCLUDED.county_fips,
+                        msa_code = EXCLUDED.msa_code,
+                        msa_name = EXCLUDED.msa_name,
+                        fed_district = EXCLUDED.fed_district,
+                        latitude = EXCLUDED.latitude,
+                        longitude = EXCLUDED.longitude""",
                     (
                         int(cert) if cert else None,
                         target_id,
@@ -170,9 +182,15 @@ def ingest_sod(
         top3 = sum(sorted_shares[:3])
 
         db.execute(
-            """INSERT OR REPLACE INTO market_concentration
+            """INSERT INTO market_concentration
                (year, msa_code, msa_name, total_deposits, institution_count, hhi, top3_share)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (year, msa_code) DO UPDATE SET
+                msa_name = EXCLUDED.msa_name,
+                total_deposits = EXCLUDED.total_deposits,
+                institution_count = EXCLUDED.institution_count,
+                hhi = EXCLUDED.hhi,
+                top3_share = EXCLUDED.top3_share""",
             (year, msa_code, info["name"], total_dep, len(inst_deposits), hhi, round(top3, 2)),
         )
         hhi_count += 1
