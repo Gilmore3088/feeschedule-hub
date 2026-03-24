@@ -297,7 +297,7 @@ def run(
     """
     # Create a crawl run record
     run_id = db.insert_returning_id(
-        "INSERT INTO crawl_runs (trigger, targets_total) VALUES (?, 0)",
+        "INSERT INTO crawl_runs (trigger_type, targets_total) VALUES (?, 0)",
         ("manual",),
     )
     db.commit()
