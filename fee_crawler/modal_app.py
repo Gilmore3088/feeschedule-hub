@@ -10,13 +10,23 @@ Test:   modal run fee_crawler/modal_app.py::test_connection
 
 import modal
 
-image = (
+pdf_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("tesseract-ocr", "poppler-utils")
+    .pip_install_from_requirements("fee_crawler/requirements.txt")
+    .add_local_dir("fee_crawler", remote_path="/root/fee_crawler")
+)
+
+browser_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("tesseract-ocr", "poppler-utils")
     .pip_install_from_requirements("fee_crawler/requirements.txt")
     .run_commands(["playwright install --with-deps chromium"])
     .add_local_dir("fee_crawler", remote_path="/root/fee_crawler")
 )
+
+# Default image includes browser for backward compat with non-extraction workers
+image = browser_image
 
 app = modal.App("bank-fee-index-workers", image=image)
 secrets = [modal.Secret.from_name("bfi-secrets")]
@@ -49,18 +59,41 @@ async def run_discovery():
 
 @app.function(
     schedule=modal.Cron("0 3 * * *"),
-    timeout=14400,
+    timeout=10800,
     secrets=secrets,
-    memory=2048,
+    memory=1024,
+    image=pdf_image,
 )
-def run_extraction():
-    """Nightly extraction: crawl new fee URLs, extract text, send to LLM."""
+def run_pdf_extraction():
+    """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
     import os
     import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    # Crawl institutions with fee URLs but no extracted fees yet
     r = subprocess.run(
-        ["python3", "-m", "fee_crawler", "crawl", "--limit", "1000", "--workers", "2", "--include-failing"],
+        ["python3", "-m", "fee_crawler", "crawl",
+         "--limit", "500", "--workers", "4", "--include-failing",
+         "--doc-type", "pdf"],
+        capture_output=True, text=True, env=env, timeout=7200,
+    )
+    output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]
+    return output
+
+
+@app.function(
+    schedule=modal.Cron("0 4 * * *"),
+    timeout=14400,
+    secrets=secrets,
+    memory=2048,
+    image=browser_image,
+)
+def run_browser_extraction():
+    """Nightly browser extraction: Playwright for JS-rendered pages."""
+    import os
+    import subprocess
+    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    r = subprocess.run(
+        ["python3", "-m", "fee_crawler", "crawl",
+         "--limit", "500", "--workers", "2", "--include-failing"],
         capture_output=True, text=True, env=env, timeout=10800,
     )
     output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]

@@ -16,13 +16,22 @@ Security:
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import ipaddress
 import logging
 import socket
+import threading
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+# Browser singleton for context reuse within a process/container.
+# Each fetch gets a fresh context (no cookie leakage) but reuses the
+# expensive browser process.
+_browser_lock = threading.Lock()
+_browser_instance = None
+_playwright_instance = None
 
 # Block private/internal IP ranges (SSRF protection)
 _BLOCKED_NETWORKS = [
@@ -207,6 +216,57 @@ def needs_browser_fallback(content: bytes, content_type: str) -> bool:
     return False
 
 
+def _get_browser():
+    """Get or create the shared browser instance (thread-safe).
+
+    Reuses a single Chromium process across fetches within the same
+    Python process / Modal container. Each fetch still gets its own
+    browser context for isolation.
+    """
+    global _browser_instance, _playwright_instance
+
+    with _browser_lock:
+        if _browser_instance is not None and _browser_instance.is_connected():
+            return _browser_instance
+
+        from playwright.sync_api import sync_playwright
+
+        _playwright_instance = sync_playwright().start()
+        _browser_instance = _playwright_instance.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-gpu",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-setuid-sandbox",
+            ],
+        )
+        logger.info("Launched shared Chromium browser (PID reuse enabled)")
+        return _browser_instance
+
+
+def close_browser():
+    """Shut down the shared browser. Called at process exit."""
+    global _browser_instance, _playwright_instance
+
+    with _browser_lock:
+        if _browser_instance is not None:
+            try:
+                _browser_instance.close()
+            except Exception:
+                pass
+            _browser_instance = None
+        if _playwright_instance is not None:
+            try:
+                _playwright_instance.stop()
+            except Exception:
+                pass
+            _playwright_instance = None
+
+
+atexit.register(close_browser)
+
+
 def fetch_with_browser(url: str, timeout: int = 30) -> dict:
     """Fetch a URL using headless Chromium with full JS rendering.
 
@@ -217,8 +277,8 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
         content_hash: str | None - SHA-256 of content
         error: str | None
 
-    Each call creates a fresh browser context (no cookie leakage).
-    Blocks images/fonts/media for faster loads.
+    Reuses a shared browser process; each call gets a fresh context
+    (no cookie leakage). Blocks images/fonts/media for faster loads.
     Dismisses common cookie banners and popups.
     """
     result: dict = {
@@ -239,104 +299,91 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
 
     timeout_ms = timeout * 1000
 
-    from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
+    from playwright.sync_api import TimeoutError as PwTimeout
 
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    "--disable-gpu",
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-setuid-sandbox",
-                ],
+        browser = _get_browser()
+
+        context = browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
+            java_script_enabled=True,
+            ignore_https_errors=True,
+            viewport={"width": 1280, "height": 800},
+        )
+
+        # Block heavy resource types for faster loads
+        def _block_resources(route, request):
+            if request.resource_type in _BLOCKED_RESOURCE_TYPES:
+                route.abort()
+            else:
+                route.continue_()
+
+        page = context.new_page()
+        page.route("**/*", _block_resources)
+
+        try:
+            # Navigate and wait for initial load
+            page.goto(
+                url,
+                timeout=timeout_ms,
+                wait_until="domcontentloaded",
             )
+
+            # Wait for network to settle (JS frameworks finish loading)
             try:
-                context = browser.new_context(
-                    user_agent=(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/131.0.0.0 Safari/537.36"
-                    ),
-                    java_script_enabled=True,
-                    ignore_https_errors=True,
-                    viewport={"width": 1280, "height": 800},
+                page.wait_for_load_state(
+                    "networkidle",
+                    timeout=min(timeout_ms, 15_000),
+                )
+            except PwTimeout:
+                logger.debug(
+                    "Network idle timeout for %s, proceeding with current content",
+                    url,
                 )
 
-                # Block heavy resource types for faster loads
-                def _block_resources(route, request):
-                    if request.resource_type in _BLOCKED_RESOURCE_TYPES:
-                        route.abort()
-                    else:
-                        route.continue_()
+            # Dismiss common cookie banners / popups (best-effort)
+            _dismiss_popups(page)
 
-                page = context.new_page()
-                page.route("**/*", _block_resources)
+            # Small delay for any final rendering
+            page.wait_for_timeout(500)
 
-                try:
-                    # Navigate and wait for initial load
-                    page.goto(
-                        url,
-                        timeout=timeout_ms,
-                        wait_until="domcontentloaded",
-                    )
+            # Get the fully rendered HTML
+            html = page.content()
+            content_bytes = html.encode("utf-8")
 
-                    # Wait for network to settle (JS frameworks finish loading)
-                    # Use networkidle with a shorter timeout as a best-effort wait
-                    try:
-                        page.wait_for_load_state(
-                            "networkidle",
-                            timeout=min(timeout_ms, 15_000),
-                        )
-                    except PwTimeout:
-                        # Network didn't fully idle; page may still be usable
-                        logger.debug(
-                            "Network idle timeout for %s, proceeding with current content",
-                            url,
-                        )
+            if len(content_bytes) < _MIN_RENDERED_BYTES:
+                result["error"] = (
+                    f"Rendered page still too small "
+                    f"({len(content_bytes)} bytes)"
+                )
+                return result
 
-                    # Dismiss common cookie banners / popups (best-effort)
-                    _dismiss_popups(page)
+            result["success"] = True
+            result["content"] = content_bytes
+            result["content_type"] = "text/html; charset=utf-8"
+            result["content_hash"] = hashlib.sha256(
+                content_bytes
+            ).hexdigest()
 
-                    # Small delay for any final rendering
-                    page.wait_for_timeout(500)
+            logger.info(
+                "Playwright fetched %s: %d bytes",
+                url, len(content_bytes),
+            )
+            return result
 
-                    # Get the fully rendered HTML
-                    html = page.content()
-                    content_bytes = html.encode("utf-8")
-
-                    if len(content_bytes) < _MIN_RENDERED_BYTES:
-                        result["error"] = (
-                            f"Rendered page still too small "
-                            f"({len(content_bytes)} bytes)"
-                        )
-                        return result
-
-                    result["success"] = True
-                    result["content"] = content_bytes
-                    result["content_type"] = "text/html; charset=utf-8"
-                    result["content_hash"] = hashlib.sha256(
-                        content_bytes
-                    ).hexdigest()
-
-                    logger.info(
-                        "Playwright fetched %s: %d bytes",
-                        url, len(content_bytes),
-                    )
-                    return result
-
-                except PwTimeout:
-                    result["error"] = f"Navigation timeout ({timeout}s)"
-                    return result
-                except Exception as e:
-                    result["error"] = f"Navigation error: {str(e)[:200]}"
-                    return result
-                finally:
-                    page.close()
-                    context.close()
-            finally:
-                browser.close()
+        except PwTimeout:
+            result["error"] = f"Navigation timeout ({timeout}s)"
+            return result
+        except Exception as e:
+            result["error"] = f"Navigation error: {str(e)[:200]}"
+            return result
+        finally:
+            page.close()
+            context.close()
 
     except Exception as e:
         result["error"] = f"Browser launch failed: {str(e)[:200]}"
