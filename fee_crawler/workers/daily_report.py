@@ -131,6 +131,26 @@ def generate_report() -> str:
             lines.append(f"  {table:30s}    ERROR")
             conn.rollback()
 
+    # Discovery success rate
+    cur.execute("""
+        SELECT status, COUNT(*) as n
+        FROM jobs WHERE queue = 'discovery'
+        GROUP BY status ORDER BY n DESC
+    """)
+    disc_all = {r["status"]: r["n"] for r in cur.fetchall()}
+    total_disc = sum(disc_all.values())
+    completed_disc = disc_all.get("completed", 0)
+    failed_disc = disc_all.get("failed", 0)
+
+    lines.append("")
+    lines.append("DISCOVERY PIPELINE")
+    lines.append(f"  Total jobs:      {total_disc:,}")
+    lines.append(f"  Completed:       {completed_disc:,} ({100*completed_disc/max(total_disc,1):.1f}%)")
+    lines.append(f"  Failed:          {failed_disc:,} ({100*failed_disc/max(total_disc,1):.1f}%)")
+    lines.append(f"  Hit rate:        {100*completed_disc/max(completed_disc+failed_disc,1):.1f}% (found URL / probed)")
+    lines.append(f"  Still pending:   {disc_all.get('pending', 0):,}")
+    lines.append(f"  In progress:     {disc_all.get('running', 0):,}")
+
     # Errors (last 24h)
     cur.execute("""
         SELECT error, COUNT(*) as n
