@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
+import { validateApiKey } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/api-rate-limit";
+import { logApiUsage } from "@/lib/api-usage";
+import crypto from "crypto";
 
 export async function GET(request: NextRequest) {
+  // API auth + rate limiting
+  const authResult = await validateApiKey(request);
+  if (authResult.valid === false && authResult.error === "Invalid or revoked API key") {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const anonId = authResult.organizationId ? null : crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16);
+  const rateResult = await checkRateLimit(authResult.organizationId, anonId);
+  if (!rateResult.allowed) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: {
+      "X-RateLimit-Limit": String(rateResult.limit),
+      "X-RateLimit-Remaining": "0",
+      "X-RateLimit-Reset": rateResult.reset.toISOString(),
+    }});
+  }
   const { searchParams } = request.nextUrl;
   const state = searchParams.get("state");
   const charter = searchParams.get("charter");
@@ -65,14 +84,19 @@ export async function GET(request: NextRequest) {
     );
     const csv = [headers, ...rows].join("\n");
 
+    logApiUsage(authResult.organizationId, anonId, "api.v1.index.csv").catch(() => {});
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv",
         "Content-Disposition": "attachment; filename=fee-index.csv",
+        "X-RateLimit-Limit": String(rateResult.limit),
+        "X-RateLimit-Remaining": String(rateResult.remaining),
+        "X-RateLimit-Reset": rateResult.reset.toISOString(),
       },
     });
   }
 
+  logApiUsage(authResult.organizationId, anonId, "api.v1.index").catch(() => {});
   return NextResponse.json({
     scope: hasFilters ? "filtered" : "national",
     filters: {
@@ -82,5 +106,11 @@ export async function GET(request: NextRequest) {
     },
     total: data.length,
     data,
+  }, {
+    headers: {
+      "X-RateLimit-Limit": String(rateResult.limit),
+      "X-RateLimit-Remaining": String(rateResult.remaining),
+      "X-RateLimit-Reset": rateResult.reset.toISOString(),
+    },
   });
 }

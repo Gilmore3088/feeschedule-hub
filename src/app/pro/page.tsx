@@ -105,7 +105,7 @@ export default async function ProHomePage() {
   // Coverage stats
   const statesData = await getStatesWithFeeData();
   const totalStates = statesData.length;
-  const familyCount = FEE_FAMILIES.length;
+  const familyCount = Object.keys(FEE_FAMILIES).length;
 
   return (
     <div>
