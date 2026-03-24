@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import os
 import socket
 import time
 from pathlib import Path
@@ -229,19 +230,22 @@ def download_document(
     file_path = storage_dir / f"fee_schedule{ext}"
     file_path.write_bytes(content)
 
-    # Store in R2 (content-addressed, idempotent)
+    # Store in R2 (content-addressed, mandatory)
     r2_key = None
-    try:
-        import os
-        if os.environ.get("R2_ENDPOINT"):
-            from fee_crawler.pipeline.r2_store import upload_document
+    if os.environ.get("R2_ENDPOINT"):
+        from fee_crawler.pipeline.r2_store import upload_document
+        try:
             r2_key = upload_document(
                 content,
                 content_type=content_type or "application/octet-stream",
                 metadata={"target_id": str(target_id), "source_url": url},
             )
-    except Exception:
-        pass  # R2 upload is best-effort, don't fail the crawl
+        except Exception as e:
+            logger.error("R2 upload failed for target %d: %s", target_id, e)
+            result["error"] = f"R2 upload failed: {str(e)[:150]}"
+            return result
+    else:
+        logger.warning("R2_ENDPOINT not set — skipping R2 storage for target %d", target_id)
 
     result["success"] = True
     result["path"] = str(file_path)

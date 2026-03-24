@@ -56,6 +56,7 @@ def cmd_crawl(args: argparse.Namespace) -> None:
     try:
         run(db, config, target_id=getattr(args, 'target_id', None),
             limit=args.limit, state=args.state, tier=getattr(args, 'tier', None),
+            doc_type=getattr(args, 'doc_type', None),
             dry_run=args.dry_run, workers=args.workers, include_failing=args.include_failing,
             skip_with_fees=getattr(args, 'skip_with_fees', False),
             new_only=getattr(args, 'new_only', False))
@@ -410,6 +411,26 @@ def cmd_rediscover_failed(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_recrawl(args: argparse.Namespace) -> None:
+    """Reset content hashes to force re-download and R2 storage."""
+    from fee_crawler.commands.recrawl import run
+
+    config = load_config()
+    db = get_db(config)
+    try:
+        run(
+            db, config,
+            state=args.state,
+            doc_type=args.type,
+            limit=args.limit,
+            batch_size=args.batch_size,
+            dry_run=args.dry_run,
+            all_targets=args.all,
+        )
+    finally:
+        db.close()
+
+
 def cmd_publish_index(args: argparse.Namespace) -> None:
     """Publish fee index: coverage snapshot, cache, DB maintenance."""
     from fee_crawler.commands.publish_index import run
@@ -661,6 +682,14 @@ def main() -> None:
         "--new-only",
         action="store_true",
         help="Only crawl institutions with recently discovered URLs (never crawled before)",
+    )
+    crawl_parser.add_argument(
+        "--doc-type",
+        type=str,
+        default=None,
+        choices=["pdf", "html"],
+        dest="doc_type",
+        help="Filter by document type (pdf or html)",
     )
     crawl_parser.set_defaults(func=cmd_crawl)
 
@@ -1047,6 +1076,19 @@ def main() -> None:
     rediscover_parser.add_argument("--limit", type=int, default=None, help="Max institutions to process")
     rediscover_parser.add_argument("--dry-run", action="store_true", help="Show what would be cleared")
     rediscover_parser.set_defaults(func=cmd_rediscover_failed)
+
+    # recrawl command
+    recrawl_parser = subparsers.add_parser(
+        "recrawl",
+        help="Reset content hashes to force re-download and R2 storage",
+    )
+    recrawl_parser.add_argument("--state", type=str, default=None, help="Filter by state code")
+    recrawl_parser.add_argument("--type", type=str, default=None, choices=["pdf", "html"], help="Filter by document type")
+    recrawl_parser.add_argument("--limit", type=int, default=None, help="Max institutions to reset")
+    recrawl_parser.add_argument("--batch-size", type=int, default=100, help="Commit every N updates")
+    recrawl_parser.add_argument("--dry-run", action="store_true", help="Show what would be reset")
+    recrawl_parser.add_argument("--all", action="store_true", help="Reset all institutions, not just those missing R2 keys")
+    recrawl_parser.set_defaults(func=cmd_recrawl)
 
     # publish-index command
     publish_parser = subparsers.add_parser(

@@ -167,21 +167,41 @@ def _crawl_one(
         )
 
         if not doc_class["is_fee_schedule"]:
-            failure_reason = f"wrong_document:{doc_class['doc_type_guess']}"
-            result["status"] = "failed"
-            result["message"] = f"DOC CLASSIFY: {doc_class['doc_type_guess']} (conf={doc_class['confidence']:.2f})"
-            _save_result(db, run_id, target_id, "failed", url,
-                         content_hash=dl["content_hash"],
-                         error=f"Document classifier: {doc_class['doc_type_guess']} ({doc_class['confidence']:.2f})")
-            db.execute(
-                """UPDATE crawl_targets
-                   SET fee_schedule_url = NULL, failure_reason = ?,
-                       last_crawl_at = datetime('now')
-                   WHERE id = ?""",
-                (failure_reason, target_id),
-            )
-            db.commit()
-            return result
+            # Before giving up, try embedded PDF links in the HTML
+            if "html" in (dl.get("content_type") or "") and dl["content"]:
+                pdf_url = _find_embedded_pdf_link(dl["content"], url)
+                if pdf_url:
+                    print(f"    Doc classified as {doc_class['doc_type_guess']}, trying embedded PDF: {pdf_url[:80]}")
+                    pdf_dl = download_document(pdf_url, target_id, config, rate_limiter=rate_limiter)
+                    if pdf_dl["success"] and pdf_dl["content"]:
+                        try:
+                            pdf_text = extract_text_from_pdf(pdf_dl["content"])
+                            if pdf_text and len(pdf_text.strip()) >= 50:
+                                pdf_class = classify_document(pdf_text)
+                                if pdf_class["is_fee_schedule"]:
+                                    text = pdf_text
+                                    doc_type = "pdf"
+                                    dl = pdf_dl
+                                    doc_class = pdf_class
+                        except Exception:
+                            pass
+
+            if not doc_class["is_fee_schedule"]:
+                failure_reason = f"wrong_document:{doc_class['doc_type_guess']}"
+                result["status"] = "failed"
+                result["message"] = f"DOC CLASSIFY: {doc_class['doc_type_guess']} (conf={doc_class['confidence']:.2f})"
+                _save_result(db, run_id, target_id, "failed", url,
+                             content_hash=dl["content_hash"],
+                             error=f"Document classifier: {doc_class['doc_type_guess']} ({doc_class['confidence']:.2f})")
+                db.execute(
+                    """UPDATE crawl_targets
+                       SET fee_schedule_url = NULL, failure_reason = ?,
+                           last_crawl_at = datetime('now')
+                       WHERE id = ?""",
+                    (failure_reason, target_id),
+                )
+                db.commit()
+                return result
 
         # Step 3: LLM extraction (skip in dry run)
         if dry_run:
@@ -377,6 +397,7 @@ def run(
     limit: int | None = None,
     state: str | None = None,
     tier: str | None = None,
+    doc_type: str | None = None,
     dry_run: bool = False,
     workers: int = 1,
     include_failing: bool = False,
@@ -391,6 +412,7 @@ def run(
         limit: Max institutions to process.
         state: Filter by state code.
         tier: Filter by asset_size_tier (comma-separated for multiple).
+        doc_type: Filter by document type ('pdf' or 'html').
         dry_run: Download and extract text but skip LLM extraction (no API cost).
         workers: Number of concurrent worker threads.
         include_failing: Include institutions with 5+ consecutive failures (skipped by default).
@@ -442,6 +464,16 @@ def run(
         placeholders = ",".join("?" for _ in tiers)
         where_clauses.append(f"ct.asset_size_tier IN ({placeholders})")
         params.extend(tiers)
+
+    if doc_type:
+        if doc_type.lower() == "pdf":
+            where_clauses.append(
+                "(ct.document_type = 'pdf' OR ct.fee_schedule_url LIKE '%.pdf%')"
+            )
+        elif doc_type.lower() == "html":
+            where_clauses.append(
+                "(ct.document_type = 'html' OR (ct.document_type IS NULL AND ct.fee_schedule_url NOT LIKE '%.pdf%'))"
+            )
 
     if skip_with_fees:
         where_clauses.append(
@@ -792,6 +824,7 @@ def _find_embedded_pdf_link(content: bytes, page_url: str) -> str | None:
     fee_keywords = {
         "fee": 3, "schedule": 3, "pricing": 2, "charges": 2,
         "disclosure": 1, "service charge": 2, "fee schedule": 5,
+        "account agreement": 2, "truth in savings": 2,
     }
 
     def _score_candidate(href: str, text: str) -> int:
@@ -805,12 +838,23 @@ def _find_embedded_pdf_link(content: bytes, page_url: str) -> str | None:
 
     candidates: list[tuple[int, str]] = []
 
+    def _is_pdf_url(href: str) -> bool:
+        """Check if a URL points to a PDF (by extension or query params)."""
+        href_lower = href.lower()
+        if href_lower.endswith(".pdf"):
+            return True
+        if ".pdf?" in href_lower or ".pdf#" in href_lower:
+            return True
+        if "docs.google.com" in href_lower and "/viewer" in href_lower:
+            return True
+        return False
+
     # Check <a> tags with PDF href
     for tag in soup.find_all("a", href=True):
         href = tag["href"]
         if not isinstance(href, str):
             continue
-        if not href.lower().endswith(".pdf"):
+        if not _is_pdf_url(href):
             continue
         full_url = urljoin(page_url, href)
         link_text = tag.get_text(strip=True)
