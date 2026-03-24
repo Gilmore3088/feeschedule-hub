@@ -351,7 +351,7 @@ export default async function FeeCategoryDetailPage({
                           </span>
                         </td>
                         <td className="px-4 py-2 text-gray-500 text-xs">
-                          {evt.detected_at?.slice(0, 10) ?? "-"}
+                          {evt.detected_at ? new Date(evt.detected_at).toISOString().slice(0, 10) : "-"}
                         </td>
                       </tr>
                     ))}

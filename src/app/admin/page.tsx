@@ -738,7 +738,7 @@ export default async function AdminDashboard({
                       {rc.fees_extracted}
                     </td>
                     <td className="text-right text-gray-400 dark:text-gray-500 tabular-nums">
-                      {rc.crawled_at?.slice(0, 10) ?? "-"}
+                      {rc.crawled_at ? new Date(rc.crawled_at).toISOString().slice(0, 10) : "-"}
                     </td>
                   </tr>
                 ))}
@@ -794,7 +794,7 @@ export default async function AdminDashboard({
                       </span>
                     </td>
                     <td className="text-right text-gray-400 dark:text-gray-500 tabular-nums">
-                      {rr.created_at?.slice(0, 10) ?? "-"}
+                      {rr.created_at ? new Date(rr.created_at).toISOString().slice(0, 10) : "-"}
                     </td>
                   </tr>
                 ))}

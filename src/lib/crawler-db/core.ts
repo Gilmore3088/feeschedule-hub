@@ -364,9 +364,9 @@ export async function getOutlierFlaggedFees(
 ): Promise<{ fees: ReviewableFee[]; total: number }> {
   const conditions = [
     "ef.review_status IN ('flagged', 'pending', 'staged')",
-    `(ef.validation_flags LIKE '%statistical_outlier%'
-      OR ef.validation_flags LIKE '%decimal_error%'
-      OR ef.validation_flags LIKE '%percentage_confusion%')`,
+    `(ef.validation_flags::text LIKE '%statistical_outlier%'
+      OR ef.validation_flags::text LIKE '%decimal_error%'
+      OR ef.validation_flags::text LIKE '%percentage_confusion%')`,
   ];
   const params: (string | number)[] = [];
   let paramIdx = 1;
@@ -424,9 +424,9 @@ export async function getOutlierCount(): Promise<number> {
     SELECT COUNT(*) as cnt
     FROM extracted_fees
     WHERE review_status IN ('flagged', 'pending', 'staged')
-      AND (validation_flags LIKE '%statistical_outlier%'
-           OR validation_flags LIKE '%decimal_error%'
-           OR validation_flags LIKE '%percentage_confusion%')
+      AND (validation_flags::text LIKE '%statistical_outlier%'
+           OR validation_flags::text LIKE '%decimal_error%'
+           OR validation_flags::text LIKE '%percentage_confusion%')
   `;
   return Number(row.cnt);
 }
