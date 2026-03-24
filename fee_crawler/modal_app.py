@@ -40,16 +40,10 @@ async def test_connection():
     secrets=secrets,
     memory=2048,
 )
-def run_discovery():
+async def run_discovery():
     """Nightly URL discovery: sweep institutions with website but no fee URL."""
-    import os
-    import subprocess
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    r = subprocess.run(
-        ["python3", "-m", "fee_crawler", "discover-urls", "--limit", "500"],
-        capture_output=True, text=True, env=env, timeout=18000,
-    )
-    return r.stdout[-500:] if r.stdout else r.stderr[-500:]
+    from fee_crawler.workers.discovery_worker import run
+    return await run(concurrency=20)
 
 
 @app.function(

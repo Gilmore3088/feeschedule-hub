@@ -32,7 +32,7 @@ from fee_crawler.pipeline.url_discoverer import (
 
 logger = logging.getLogger(__name__)
 
-CONCURRENCY = 3  # Low for Supabase free tier (15 pooler connections). Increase after upgrade.
+CONCURRENCY = 20  # Supabase Pro tier (60 pooler connections)
 MAX_PROBES_PER_INSTITUTION = 60
 INTER_PROBE_DELAY = 0.1  # seconds between probes to the same domain
 USER_AGENT = "Mozilla/5.0 (compatible; BankFeeIndexBot/2.0)"
