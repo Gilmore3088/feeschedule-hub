@@ -47,15 +47,23 @@ async def run_discovery():
 
 
 @app.function(
-    schedule=modal.Cron("0 1 * * *"),
-    timeout=7200,
+    schedule=modal.Cron("0 3 * * *"),
+    timeout=14400,
     secrets=secrets,
-    memory=1024,
+    memory=2048,
 )
-def run_llm_batch():
-    """Nightly LLM batch extraction via Anthropic Batch API."""
-    from fee_crawler.workers.llm_batch_worker import run
-    return run(daily_budget_usd=20.0)
+def run_extraction():
+    """Nightly extraction: crawl new fee URLs, extract text, send to LLM."""
+    import os
+    import subprocess
+    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    # Crawl institutions with fee URLs but no extracted fees yet
+    r = subprocess.run(
+        ["python3", "-m", "fee_crawler", "crawl", "--limit", "200", "--workers", "1"],
+        capture_output=True, text=True, env=env, timeout=10800,
+    )
+    output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]
+    return output
 
 
 @app.function(
