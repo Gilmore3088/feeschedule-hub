@@ -10,7 +10,7 @@
  */
 
 import { sql } from "@/lib/crawler-db/connection";
-import { toDateStr } from "@/lib/pg-helpers";
+import { toDateStr, safeJsonb } from "@/lib/pg-helpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -562,6 +562,230 @@ export async function getUncategorizedTopFees(limit = 20): Promise<Uncategorized
     }));
   } catch (e) {
     console.error("getUncategorizedTopFees failed:", e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Review Page
+// ---------------------------------------------------------------------------
+
+export interface ReviewFeeRow {
+  id: number;
+  fee_name: string;
+  amount: number | null;
+  fee_category: string | null;
+  review_status: string;
+  institution_name: string;
+  crawl_target_id: number;
+  state_code: string | null;
+  charter_type: string | null;
+  confidence: number;
+  created_at: string;
+}
+
+export interface FeeDetailRow {
+  id: number;
+  fee_name: string;
+  amount: number | null;
+  frequency: string | null;
+  conditions: string | null;
+  fee_category: string | null;
+  fee_family: string | null;
+  review_status: string;
+  confidence: number;
+  created_at: string;
+  institution_name: string;
+  crawl_target_id: number;
+  state_code: string | null;
+  charter_type: string | null;
+  document_url: string | null;
+  fee_schedule_url: string | null;
+  validation_flags: string[];
+  review_history: ReviewHistoryRow[];
+}
+
+export interface ReviewHistoryRow {
+  action: string;
+  username: string | null;
+  previous_status: string | null;
+  new_status: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface FeeCatalogRow {
+  fee_category: string;
+  display_name: string;
+  count: number;
+  median: number | null;
+  p25: number | null;
+  p75: number | null;
+}
+
+export async function getReviewFees(
+  status: string,
+  page: number,
+  limit: number,
+  search?: string,
+): Promise<{ fees: ReviewFeeRow[]; total: number }> {
+  try {
+    const offset = (page - 1) * limit;
+    const conditions = ["ef.review_status = $1"];
+    const params: (string | number | null)[] = [status];
+    let paramIdx = 2;
+
+    if (search) {
+      conditions.push(
+        `(ef.fee_name ILIKE $${paramIdx++} OR ct.institution_name ILIKE $${paramIdx++})`,
+      );
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const countResult = await sql.unsafe<{ cnt: string }[]>(
+      `SELECT COUNT(*) as cnt
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${where}`,
+      params,
+    );
+    const total = Number(countResult[0].cnt);
+
+    const rows = await sql.unsafe<Record<string, unknown>[]>(
+      `SELECT ef.id, ef.fee_name, ef.amount, ef.fee_category,
+              ef.review_status, ct.institution_name, ef.crawl_target_id,
+              ct.state_code, ct.charter_type, ef.extraction_confidence,
+              ef.created_at
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${where}
+       ORDER BY ef.created_at DESC
+       LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+      [...params, limit, offset],
+    );
+
+    const fees: ReviewFeeRow[] = rows.map((r) => ({
+      id: Number(r.id),
+      fee_name: String(r.fee_name),
+      amount: r.amount != null ? Number(r.amount) : null,
+      fee_category: r.fee_category ? String(r.fee_category) : null,
+      review_status: String(r.review_status),
+      institution_name: String(r.institution_name),
+      crawl_target_id: Number(r.crawl_target_id),
+      state_code: r.state_code ? String(r.state_code) : null,
+      charter_type: r.charter_type ? String(r.charter_type) : null,
+      confidence: Number(r.extraction_confidence),
+      created_at: toDateStr(r.created_at as string | Date),
+    }));
+
+    return { fees, total };
+  } catch (e) {
+    console.error("getReviewFees failed:", e);
+    return { fees: [], total: 0 };
+  }
+}
+
+export async function getFeeDetail(feeId: number): Promise<FeeDetailRow | null> {
+  try {
+    const [row] = await sql<Record<string, unknown>[]>`
+      SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+             ef.fee_category, ef.fee_family, ef.review_status,
+             ef.extraction_confidence, ef.created_at, ef.validation_flags,
+             ct.institution_name, ef.crawl_target_id,
+             ct.state_code, ct.charter_type,
+             cr.document_url, ct.fee_schedule_url
+      FROM extracted_fees ef
+      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+      LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
+      WHERE ef.id = ${feeId}
+    `;
+    if (!row) return null;
+
+    const historyRows = await sql<Record<string, unknown>[]>`
+      SELECT rl.action, u.username, rl.previous_status, rl.new_status,
+             rl.notes, rl.created_at
+      FROM review_log rl
+      LEFT JOIN users u ON u.id = rl.user_id
+      WHERE rl.fee_id = ${feeId}
+      ORDER BY rl.created_at DESC
+    `;
+
+    const flags = safeJsonb<string[]>(row.validation_flags) ?? [];
+
+    const history: ReviewHistoryRow[] = historyRows.map((h) => ({
+      action: String(h.action),
+      username: h.username ? String(h.username) : null,
+      previous_status: h.previous_status ? String(h.previous_status) : null,
+      new_status: h.new_status ? String(h.new_status) : null,
+      notes: h.notes ? String(h.notes) : null,
+      created_at: toDateStr(h.created_at as string | Date),
+    }));
+
+    return {
+      id: Number(row.id),
+      fee_name: String(row.fee_name),
+      amount: row.amount != null ? Number(row.amount) : null,
+      frequency: row.frequency ? String(row.frequency) : null,
+      conditions: row.conditions ? String(row.conditions) : null,
+      fee_category: row.fee_category ? String(row.fee_category) : null,
+      fee_family: row.fee_family ? String(row.fee_family) : null,
+      review_status: String(row.review_status),
+      confidence: Number(row.extraction_confidence),
+      created_at: toDateStr(row.created_at as string | Date),
+      institution_name: String(row.institution_name),
+      crawl_target_id: Number(row.crawl_target_id),
+      state_code: row.state_code ? String(row.state_code) : null,
+      charter_type: row.charter_type ? String(row.charter_type) : null,
+      document_url: row.document_url ? String(row.document_url) : null,
+      fee_schedule_url: row.fee_schedule_url ? String(row.fee_schedule_url) : null,
+      validation_flags: flags,
+      review_history: history,
+    };
+  } catch (e) {
+    console.error("getFeeDetail failed:", e);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fees Catalog
+// ---------------------------------------------------------------------------
+
+export async function getFeeCatalogSummary(): Promise<FeeCatalogRow[]> {
+  try {
+    const rows = await sql<Record<string, unknown>[]>`
+      SELECT
+        fee_category,
+        COUNT(*) as cnt,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) as median,
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY amount) as p25,
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY amount) as p75
+      FROM extracted_fees
+      WHERE fee_category IS NOT NULL
+        AND review_status != 'rejected'
+        AND amount IS NOT NULL
+      GROUP BY fee_category
+      ORDER BY cnt DESC
+    `;
+
+    // Build display name lookup inline to avoid importing taxonomy at module level
+    const { DISPLAY_NAMES } = await import("@/lib/fee-taxonomy");
+
+    return rows.map((r) => {
+      const cat = String(r.fee_category);
+      return {
+        fee_category: cat,
+        display_name: DISPLAY_NAMES[cat] || cat.replace(/_/g, " "),
+        count: Number(r.cnt),
+        median: r.median != null ? Number(Number(r.median).toFixed(2)) : null,
+        p25: r.p25 != null ? Number(Number(r.p25).toFixed(2)) : null,
+        p75: r.p75 != null ? Number(Number(r.p75).toFixed(2)) : null,
+      };
+    });
+  } catch (e) {
+    console.error("getFeeCatalogSummary failed:", e);
     return [];
   }
 }
