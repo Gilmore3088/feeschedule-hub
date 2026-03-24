@@ -9,6 +9,7 @@ import {
   bulkUpdateFeeCategory,
 } from "@/lib/fee-actions";
 import { formatAmount } from "@/lib/format";
+import { safeJsonb, isEmptyJsonb } from "@/lib/pg-helpers";
 import { getDisplayName, DISPLAY_NAMES } from "@/lib/fee-taxonomy";
 
 interface Fee {
@@ -20,7 +21,7 @@ interface Fee {
   frequency: string | null;
   extraction_confidence: number | null;
   review_status: string;
-  validation_flags: string | null;
+  validation_flags: unknown;
   fee_category: string | null;
 }
 
@@ -50,35 +51,31 @@ function ConfidenceBadge({ value }: { value: number | null }) {
   );
 }
 
-function FlagBadges({ flags }: { flags: string | null }) {
-  if (!flags || flags === "[]") return null;
-  try {
-    const parsed = JSON.parse(flags) as {
-      rule: string;
-      severity: string;
-      message: string;
-    }[];
-    if (parsed.length === 0) return null;
-    return (
-      <div className="flex flex-wrap gap-1">
-        {parsed.map((f, i) => (
-          <span
-            key={i}
-            className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-              f.severity === "error"
-                ? "bg-red-50 text-red-600"
-                : "bg-amber-50 text-amber-600"
-            }`}
-            title={f.message}
-          >
-            {f.rule.replace(/_/g, " ")}
-          </span>
-        ))}
-      </div>
-    );
-  } catch {
-    return null;
-  }
+function FlagBadges({ flags }: { flags: unknown }) {
+  if (isEmptyJsonb(flags)) return null;
+  const parsed = safeJsonb<{
+    rule: string;
+    severity: string;
+    message: string;
+  }[]>(flags);
+  if (!parsed || parsed.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {parsed.map((f, i) => (
+        <span
+          key={i}
+          className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
+            f.severity === "error"
+              ? "bg-red-50 text-red-600"
+              : "bg-amber-50 text-amber-600"
+          }`}
+          title={f.message}
+        >
+          {f.rule.replace(/_/g, " ")}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function FeeTable({

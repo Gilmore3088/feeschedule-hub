@@ -126,7 +126,7 @@ export async function getCityInstitutions(city: string, stateCode: string): Prom
 
 export async function getCityFeeAverages(city: string, stateCode: string): Promise<CityFeeAverage[]> {
   const upperState = stateCode.toUpperCase();
-  return await sql`
+  const rows = await sql`
     SELECT ef.fee_category,
            ROUND(AVG(ef.amount)::numeric, 2) as median,
            COUNT(DISTINCT ef.crawl_target_id) as institution_count
@@ -140,6 +140,12 @@ export async function getCityFeeAverages(city: string, stateCode: string): Promi
     HAVING COUNT(DISTINCT ef.crawl_target_id) >= 2
     ORDER BY COUNT(DISTINCT ef.crawl_target_id) DESC
   ` as CityFeeAverage[];
+
+  return rows.map((r) => ({
+    ...r,
+    median: Number(r.median),
+    institution_count: Number(r.institution_count),
+  }));
 }
 
 export async function getCitiesInState(stateCode: string): Promise<CitySummary[]> {

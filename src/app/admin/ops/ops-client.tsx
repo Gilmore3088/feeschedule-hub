@@ -5,6 +5,7 @@ import { triggerJob, cancelOpsJob } from "./actions";
 import type { OpsJob, OpsJobSummary } from "@/lib/crawler-db/ops";
 import type { CrawlStats } from "@/lib/crawler-db/types";
 import { timeAgo } from "@/lib/format";
+import { safeJsonb, toDateStr } from "@/lib/pg-helpers";
 
 const STATUS_COLORS: Record<string, string> = {
   running: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -687,7 +688,7 @@ export function OpsClient({
                         {job.triggered_by}
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 tabular-nums">
-                        {job.started_at ? timeAgo(job.started_at) : "-"}
+                        {job.started_at ? timeAgo(String(job.started_at instanceof Date ? job.started_at.toISOString() : job.started_at)) : "-"}
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 tabular-nums">
                         {formatDuration(job.started_at, job.completed_at)}
@@ -750,13 +751,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function JobDetail({ job, onCancel }: { job: OpsJob; onCancel: (id: number) => void }) {
-  const params = (() => {
-    try {
-      return JSON.parse(job.params_json);
-    } catch {
-      return {};
-    }
-  })();
+  const params = safeJsonb<Record<string, unknown>>(job.params_json) ?? {};
 
   return (
     <div className="space-y-3 text-xs">
@@ -771,12 +766,12 @@ function JobDetail({ job, onCancel }: { job: OpsJob; onCancel: (id: number) => v
         </div>
         <div>
           <span className="text-gray-400">Created:</span>{" "}
-          <span className="text-gray-600 dark:text-gray-300">{job.created_at}</span>
+          <span className="text-gray-600 dark:text-gray-300">{toDateStr(job.created_at)}</span>
         </div>
         <div>
           <span className="text-gray-400">Params:</span>{" "}
           <span className="font-mono text-gray-600 dark:text-gray-300">
-            {params.args?.join(" ") || "none"}
+            {Array.isArray(params.args) ? params.args.join(" ") : "none"}
           </span>
         </div>
       </div>
@@ -816,7 +811,7 @@ function JobDetail({ job, onCancel }: { job: OpsJob; onCancel: (id: number) => v
   );
 }
 
-function formatDuration(start: string | null, end: string | null): string {
+function formatDuration(start: string | Date | null, end: string | Date | null): string {
   if (!start) return "-";
   const s = new Date(start).getTime();
   const e = end ? new Date(end).getTime() : Date.now();

@@ -3,20 +3,20 @@ import { sql } from "./connection";
 export interface OpsJob {
   id: number;
   command: string;
-  params_json: string;
+  params_json: unknown;
   status: string;
   triggered_by: string;
   target_id: number | null;
   crawl_run_id: number | null;
   pid: number | null;
   log_path: string | null;
-  started_at: string | null;
-  completed_at: string | null;
+  started_at: string | Date | null;
+  completed_at: string | Date | null;
   exit_code: number | null;
   stdout_tail: string | null;
   error_summary: string | null;
   result_summary: string | null;
-  created_at: string;
+  created_at: string | Date;
 }
 
 export interface OpsJobSummary {

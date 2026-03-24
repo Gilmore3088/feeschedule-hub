@@ -7,6 +7,7 @@ import { bulkApproveFees, bulkRejectFees } from "@/lib/fee-actions";
 import { ApproveButton, RejectButton, UnstageButton } from "./review-actions";
 import { CategorySelect } from "./category-select";
 import { formatAmount } from "@/lib/format";
+import { safeJsonb } from "@/lib/pg-helpers";
 import type { ReviewableFee } from "@/lib/crawler-db/types";
 
 interface ValidationFlag {
@@ -15,13 +16,8 @@ interface ValidationFlag {
   message: string;
 }
 
-function parseFlags(flags: string | null): ValidationFlag[] {
-  if (!flags) return [];
-  try {
-    return JSON.parse(flags);
-  } catch {
-    return [];
-  }
+function parseFlags(flags: unknown): ValidationFlag[] {
+  return safeJsonb<ValidationFlag[]>(flags) ?? [];
 }
 
 function confidenceBadge(conf: number) {

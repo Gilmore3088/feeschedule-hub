@@ -13,7 +13,7 @@ export async function ensureNewsTable(): Promise<void> {
       link TEXT NOT NULL,
       topic TEXT NOT NULL DEFAULT 'general',
       published_at TEXT,
-      created_at TEXT DEFAULT (NOW()::text)
+      created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
   await sql`

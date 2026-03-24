@@ -18,7 +18,7 @@ export interface ExtractedFee {
   conditions: string | null;
   extraction_confidence: number;
   review_status: string;
-  validation_flags: string | null;
+  validation_flags: unknown;
   institution_name: string;
   crawl_target_id: number;
 }
@@ -38,10 +38,10 @@ export interface FeeReview {
   username: string | null;
   previous_status: string | null;
   new_status: string | null;
-  previous_values: string | null;
-  new_values: string | null;
+  previous_values: unknown;
+  new_values: unknown;
   notes: string | null;
-  created_at: string;
+  created_at: string | Date;
 }
 
 export interface ReviewStats {

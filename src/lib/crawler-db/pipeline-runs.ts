@@ -5,12 +5,12 @@ export interface PipelineRun {
   status: string;
   last_completed_phase: number | null;
   last_completed_job: string | null;
-  config_json: string | null;
+  config_json: unknown;
   started_at: string;
   completed_at: string | null;
   error_msg: string | null;
   inst_count: number | null;
-  summary_json: string | null;
+  summary_json: unknown;
 }
 
 export interface IndexCacheEntry {
@@ -78,10 +78,18 @@ export async function getDiscoveryMethodStats(): Promise<DiscoveryMethodStats[]>
     ` as { discovery_method: string; discovered: number; crawl_success: number; prescreen_fail: number; http_error: number }[];
 
     return rows.map((r) => {
-      const total = r.crawl_success + r.prescreen_fail + r.http_error;
+      const discovered = Number(r.discovered);
+      const crawl_success = Number(r.crawl_success);
+      const prescreen_fail = Number(r.prescreen_fail);
+      const http_error = Number(r.http_error);
+      const total = crawl_success + prescreen_fail + http_error;
       return {
-        ...r,
-        success_rate: total > 0 ? Math.round((r.crawl_success / total) * 100) : 0,
+        discovery_method: r.discovery_method,
+        discovered,
+        crawl_success,
+        prescreen_fail,
+        http_error,
+        success_rate: total > 0 ? Math.round((crawl_success / total) * 100) : 0,
       };
     });
   } catch {

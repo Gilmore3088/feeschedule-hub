@@ -13,8 +13,8 @@ export interface Article {
   generated_by: string | null;
   conversation_id: number | null;
   published_at: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
   view_count: number;
 }
 

@@ -339,7 +339,7 @@ export interface CategoryReviewStats {
 }
 
 export async function getCategoryReviewStats(): Promise<CategoryReviewStats[]> {
-  return await sql`
+  const rows = await sql`
     SELECT
       fee_category,
       SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
@@ -352,7 +352,7 @@ export async function getCategoryReviewStats(): Promise<CategoryReviewStats[]> {
       SUM(CASE
         WHEN review_status IN ('staged', 'pending')
           AND extraction_confidence >= 0.9
-          AND (validation_flags IS NULL OR validation_flags = '[]')
+          AND (validation_flags IS NULL OR validation_flags = '[]'::jsonb)
         THEN 1 ELSE 0
       END) as ready_count
     FROM extracted_fees
@@ -360,6 +360,18 @@ export async function getCategoryReviewStats(): Promise<CategoryReviewStats[]> {
     GROUP BY fee_category
     ORDER BY total DESC
   ` as CategoryReviewStats[];
+
+  return rows.map((r) => ({
+    ...r,
+    staged: Number(r.staged),
+    flagged: Number(r.flagged),
+    pending: Number(r.pending),
+    approved: Number(r.approved),
+    rejected: Number(r.rejected),
+    total: Number(r.total),
+    avg_confidence: Number(r.avg_confidence),
+    ready_count: Number(r.ready_count),
+  }));
 }
 
 /** Get fees for a specific category with full detail for review */
@@ -373,7 +385,7 @@ export interface CategoryFeeRow {
   conditions: string | null;
   extraction_confidence: number | null;
   review_status: string;
-  validation_flags: string | null;
+  validation_flags: unknown;
   fee_category: string | null;
   created_at: string;
 }

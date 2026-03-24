@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createArticle, getArticles } from "@/lib/crawler-db/articles";
 import { ensureResearchTables } from "@/lib/research/history";
+import { toISO } from "@/lib/pg-helpers";
 
 const MAX_DRAFTS_PER_DAY = 5;
 
@@ -19,7 +20,7 @@ export async function saveArticleFromChat(
   const { articles: todayArticles } = await getArticles({ status: "draft" });
   const today = new Date().toISOString().split("T")[0];
   const todayCount = todayArticles.filter(
-    (a) => a.created_at.startsWith(today)
+    (a) => toISO(a.created_at)?.startsWith(today)
   ).length;
 
   if (todayCount >= MAX_DRAFTS_PER_DAY) {

@@ -126,7 +126,7 @@ export default async function ArticlesPage({
                   {article.view_count}
                 </td>
                 <td className="px-4 py-2.5 text-xs text-gray-500">
-                  {timeAgo(article.updated_at)}
+                  {timeAgo(article.updated_at instanceof Date ? article.updated_at.toISOString() : article.updated_at)}
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <ArticleActions article={article} />

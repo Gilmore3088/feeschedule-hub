@@ -15,7 +15,7 @@ export interface FeeRevenueCorrelation {
 }
 
 export async function getFeeRevenueData(): Promise<FeeRevenueCorrelation[]> {
-  return await sql`
+  const rows = await sql`
     SELECT
       ct.id as crawl_target_id,
       ct.institution_name,
@@ -47,6 +47,13 @@ export async function getFeeRevenueData(): Promise<FeeRevenueCorrelation[]> {
     HAVING COUNT(ef.id) >= 3
     ORDER BY ifin.total_assets DESC NULLS LAST
   ` as FeeRevenueCorrelation[];
+
+  return rows.map((r) => ({
+    ...r,
+    fee_income_ratio: r.fee_income_ratio !== null ? Number(r.fee_income_ratio) : null,
+    avg_fee: Number(r.avg_fee),
+    fee_count: Number(r.fee_count),
+  }));
 }
 
 export interface TierFeeRevenueSummary {
@@ -58,7 +65,7 @@ export interface TierFeeRevenueSummary {
 }
 
 export async function getTierFeeRevenueSummary(): Promise<TierFeeRevenueSummary[]> {
-  return await sql`
+  const rows = await sql`
     SELECT
       ct.asset_size_tier,
       COUNT(DISTINCT ct.id) as institution_count,
@@ -88,6 +95,14 @@ export async function getTierFeeRevenueSummary(): Promise<TierFeeRevenueSummary[
     GROUP BY ct.asset_size_tier
     ORDER BY AVG(ifin.total_assets) ASC
   ` as TierFeeRevenueSummary[];
+
+  return rows.map((r) => ({
+    ...r,
+    institution_count: Number(r.institution_count),
+    avg_service_charge_income: Number(r.avg_service_charge_income),
+    avg_fee_amount: Number(r.avg_fee_amount),
+    avg_fee_income_ratio: Number(r.avg_fee_income_ratio),
+  }));
 }
 
 export interface CharterFeeRevenueSummary {
@@ -99,7 +114,7 @@ export interface CharterFeeRevenueSummary {
 }
 
 export async function getCharterFeeRevenueSummary(): Promise<CharterFeeRevenueSummary[]> {
-  return await sql`
+  const rows = await sql`
     SELECT
       ct.charter_type,
       COUNT(DISTINCT ct.id) as institution_count,
@@ -127,4 +142,12 @@ export async function getCharterFeeRevenueSummary(): Promise<CharterFeeRevenueSu
       )
     GROUP BY ct.charter_type
   ` as CharterFeeRevenueSummary[];
+
+  return rows.map((r) => ({
+    ...r,
+    institution_count: Number(r.institution_count),
+    avg_service_charge_income: Number(r.avg_service_charge_income),
+    avg_fee_amount: Number(r.avg_fee_amount),
+    avg_fee_income_ratio: Number(r.avg_fee_income_ratio),
+  }));
 }

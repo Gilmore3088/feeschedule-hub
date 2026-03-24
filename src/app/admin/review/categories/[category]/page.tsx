@@ -5,6 +5,7 @@ import { getFeesByCategory } from "@/lib/crawler-db/fees";
 import { getFeeCategorySummaries } from "@/lib/crawler-db";
 import { getDisplayName, getFeeFamily } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
+import { isEmptyJsonb } from "@/lib/pg-helpers";
 import { CategoryReviewClient } from "./category-review-client";
 
 interface PageProps {
@@ -29,7 +30,7 @@ export default async function CategoryReviewDetailPage({ params }: PageProps) {
     (f) =>
       (f.review_status === "staged" || f.review_status === "pending") &&
       (f.extraction_confidence ?? 0) >= 0.9 &&
-      (!f.validation_flags || f.validation_flags === "[]")
+      isEmptyJsonb(f.validation_flags)
   );
 
   const needsReview = nonRejected.filter(

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { editAndApproveFee, rejectFee, bulkRejectFees, bulkEditAndApproveFees } from "@/lib/fee-actions";
 import { formatAmount } from "@/lib/format";
+import { safeJsonb } from "@/lib/pg-helpers";
 import { InlineAmountEditor } from "./inline-amount-editor";
 import { ReviewKeyboardNav } from "./keyboard-nav";
 import type { ReviewableFee } from "@/lib/crawler-db/types";
@@ -15,13 +16,8 @@ interface ValidationFlag {
   message: string;
 }
 
-function parseFlags(flags: string | null): ValidationFlag[] {
-  if (!flags) return [];
-  try {
-    return JSON.parse(flags);
-  } catch {
-    return [];
-  }
+function parseFlags(flags: unknown): ValidationFlag[] {
+  return safeJsonb<ValidationFlag[]>(flags) ?? [];
 }
 
 const OUTLIER_RULES = new Set([

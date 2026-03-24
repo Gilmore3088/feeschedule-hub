@@ -157,7 +157,7 @@ export async function getFailureReasons(limit = 10): Promise<FailureReasonStats[
 }
 
 export async function getTierCoverage(): Promise<TierCoverage[]> {
-  return await sql`
+  const rows = await sql`
     SELECT
       COALESCE(t.asset_size_tier, 'unknown') as asset_size_tier,
       COUNT(*) as total,
@@ -178,6 +178,13 @@ export async function getTierCoverage(): Promise<TierCoverage[]> {
         ELSE 7
       END
   ` as TierCoverage[];
+
+  return rows.map((r) => ({
+    ...r,
+    total: Number(r.total),
+    with_fees: Number(r.with_fees),
+    coverage_pct: Number(r.coverage_pct),
+  }));
 }
 
 export interface RevenueDiscrepancy {
@@ -236,7 +243,7 @@ export async function getRevenueDiscrepancies(limit = 20): Promise<RevenueDiscre
 }
 
 export async function getDistrictCoverage(): Promise<DistrictCoverage[]> {
-  return await sql`
+  const rows = await sql`
     SELECT
       t.fed_district,
       COUNT(*) as total,
@@ -248,4 +255,11 @@ export async function getDistrictCoverage(): Promise<DistrictCoverage[]> {
     GROUP BY t.fed_district
     ORDER BY t.fed_district
   ` as DistrictCoverage[];
+
+  return rows.map((r) => ({
+    ...r,
+    total: Number(r.total),
+    with_fees: Number(r.with_fees),
+    coverage_pct: Number(r.coverage_pct),
+  }));
 }

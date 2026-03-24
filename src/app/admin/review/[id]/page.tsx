@@ -5,6 +5,7 @@ import { getFeeById, getAuditTrail } from "@/lib/crawler-db";
 import { ApproveButton, RejectButton } from "../review-actions";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAmount } from "@/lib/format";
+import { safeJsonb } from "@/lib/pg-helpers";
 
 interface ValidationFlag {
   rule: string;
@@ -12,13 +13,8 @@ interface ValidationFlag {
   message: string;
 }
 
-function parseFlags(flags: string | null): ValidationFlag[] {
-  if (!flags) return [];
-  try {
-    return JSON.parse(flags);
-  } catch {
-    return [];
-  }
+function parseFlags(flags: unknown): ValidationFlag[] {
+  return safeJsonb<ValidationFlag[]>(flags) ?? [];
 }
 
 const STATUS_COLORS: Record<string, string> = {

@@ -492,7 +492,7 @@ export interface DailyTrend {
 }
 
 export async function getDailyTrends(days = 14): Promise<DailyTrend[]> {
-  return await sql.unsafe(
+  const rows = await sql.unsafe(
     `SELECT cr.crawled_at::date as date,
             COUNT(DISTINCT cr.crawl_target_id) as institutions,
             SUM(cr.fees_extracted) as fees_extracted,
@@ -502,7 +502,14 @@ export async function getDailyTrends(days = 14): Promise<DailyTrend[]> {
      GROUP BY cr.crawled_at::date
      ORDER BY date ASC`,
     [days]
-  ) as DailyTrend[];
+  ) as { date: string | Date; institutions: number; fees_extracted: number; fee_urls: number }[];
+
+  return rows.map((r) => ({
+    date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date),
+    institutions: Number(r.institutions),
+    fees_extracted: Number(r.fees_extracted),
+    fee_urls: Number(r.fee_urls),
+  }));
 }
 
 export interface RecentCrawlResult {
