@@ -11,9 +11,9 @@ export function getSql() {
     }
     _sql = postgres(DATABASE_URL, {
       ssl: "require",
-      max: 3,
-      idle_timeout: 10,
-      connect_timeout: 10,
+      max: 10,
+      idle_timeout: 20,
+      connect_timeout: 15,
       prepare: false,  // Required for Supabase transaction mode pooler (port 6543)
     });
   }
