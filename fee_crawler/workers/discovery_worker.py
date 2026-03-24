@@ -327,7 +327,10 @@ async def run(concurrency: int = CONCURRENCY) -> str:
     if not db_url:
         raise RuntimeError("DATABASE_URL environment variable is required")
 
-    pool = await asyncpg.create_pool(db_url, min_size=1, max_size=concurrency + 2, ssl="require")
+    pool = await asyncpg.create_pool(
+        db_url, min_size=1, max_size=concurrency + 2, ssl="require",
+        statement_cache_size=0,  # Required for Supabase transaction mode pooler
+    )
     if pool is None:
         raise RuntimeError("Failed to create database connection pool")
 
