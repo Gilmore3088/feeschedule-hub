@@ -173,6 +173,72 @@ def _crawl_one(
             return result
 
         charter = target.get("charter_type", "bank")
+
+        # Step 3a: Try platform rule extraction first (free, no LLM cost)
+        cms_platform = target.get("cms_platform")
+        extracted_by = "llm"
+        if cms_platform and "html" in (dl.get("content_type") or ""):
+            try:
+                from fee_crawler.pipeline.extract_platform import try_platform_extraction
+                platform_row = db.fetchone(
+                    "SELECT rule_enabled FROM platform_registry WHERE platform = ?",
+                    (cms_platform,),
+                )
+                if platform_row and platform_row["rule_enabled"]:
+                    rule_fees = try_platform_extraction(cms_platform, text, True)
+                    if rule_fees and len(rule_fees) >= 3:
+                        from fee_crawler.pipeline.extract_llm import ExtractedFee
+                        fees = [
+                            ExtractedFee(
+                                fee_name=f.fee_name, amount=f.amount,
+                                frequency=f.frequency, conditions=f.conditions,
+                                confidence=f.confidence,
+                            )
+                            for f in rule_fees
+                        ]
+                        extracted_by = f"{cms_platform}_rule"
+                        print(f"    Platform rule ({cms_platform}): {len(fees)} fees extracted (no LLM cost)")
+                        # Skip LLM — jump to step 4
+                        categories = [normalize_fee_name(f.fee_name) for f in fees]
+                        fee_families = [get_fee_family(c) if c else None for c in categories]
+                        validated = validate_and_classify_fees(fees, config, fee_categories=categories)
+                        # Jump to merge (step 5)
+                        from fee_crawler.commands.merge_fees import merge_institution_fees
+                        db.execute("BEGIN IMMEDIATE")
+                        try:
+                            result_id = _save_result(
+                                db, run_id, target_id, "success", url,
+                                content_hash=dl["content_hash"],
+                                document_path=dl["path"],
+                                fees_extracted=len(fees),
+                            )
+                            merge_stats = merge_institution_fees(
+                                db, target_id, result_id,
+                                validated, categories, fee_families,
+                                extracted_by=extracted_by,
+                            )
+                            r2_key = dl.get("r2_key")
+                            update_sql = """UPDATE crawl_targets
+                                   SET last_content_hash = ?, last_crawl_at = datetime('now'),
+                                       last_success_at = datetime('now'), consecutive_failures = 0"""
+                            if r2_key:
+                                update_sql += ", document_r2_key = ?"
+                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], r2_key, target_id))
+                            else:
+                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], target_id))
+                            db.commit()
+                        except Exception:
+                            db.execute("ROLLBACK")
+                            raise
+                        result["status"] = "success"
+                        result["fees"] = len(fees)
+                        result["staged"] = merge_stats.get("staged", 0)
+                        result["flagged"] = merge_stats.get("flagged", 0)
+                        result["message"] = f"RULE: {len(fees)} fees ({cms_platform})"
+                        return result
+            except Exception as e:
+                print(f"    Platform rule extraction failed: {e}")
+
         print(f"    LLM extraction: {len(text):,} chars, charter={charter}, doc_type={doc_type}")
         try:
             fees = extract_fees_with_llm(
