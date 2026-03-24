@@ -35,12 +35,12 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-[#1A1815] mb-1">
-          Email
+          Email or Username
         </label>
         <input
           id="email"
           name="email"
-          type="email"
+          type="text"
           required
           autoComplete="email"
           className="w-full rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent"
