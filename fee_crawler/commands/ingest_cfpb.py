@@ -194,9 +194,11 @@ def ingest_cfpb_complaints(
                 # Store total complaint count per product
                 try:
                     db.execute(
-                        """INSERT OR REPLACE INTO institution_complaints
+                        """INSERT INTO institution_complaints
                            (crawl_target_id, report_period, product, issue, complaint_count)
-                           VALUES (?, ?, ?, '_total', ?)""",
+                           VALUES (?, ?, ?, '_total', ?)
+                           ON CONFLICT (crawl_target_id, report_period, product, issue)
+                           DO UPDATE SET complaint_count = EXCLUDED.complaint_count""",
                         (target_id, year, product, total_count),
                     )
                     total_upserted += 1

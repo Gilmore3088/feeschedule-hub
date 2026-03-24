@@ -448,6 +448,18 @@ CREATE TABLE IF NOT EXISTS fee_index_cache (
 );
 """
 
+_CREATE_GOLD_STANDARD_FEES = """
+CREATE TABLE IF NOT EXISTS gold_standard_fees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    crawl_target_id INTEGER NOT NULL REFERENCES crawl_targets(id),
+    fee_id INTEGER NOT NULL REFERENCES extracted_fees(id),
+    verdict TEXT NOT NULL,
+    verified_by TEXT,
+    verified_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(fee_id)
+);
+"""
+
 _CREATE_PIPELINE_RUNS = """
 CREATE TABLE IF NOT EXISTS pipeline_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -528,6 +540,7 @@ class Database:
         self.conn.executescript(_CREATE_DEMOGRAPHICS)
         self.conn.executescript(_CREATE_CENSUS_TRACTS)
         self.conn.executescript(_CREATE_LEADS)
+        self.conn.executescript(_CREATE_GOLD_STANDARD_FEES)
         self.conn.executescript(_CREATE_PIPELINE_RUNS)
         self.conn.executescript(_CREATE_FEE_INDEX_CACHE)
         self._run_migrations()

@@ -179,10 +179,17 @@ def ingest_bls_series(
                 frequency = "Monthly" if period.startswith("M") else "Annual"
 
                 db.execute(
-                    """INSERT OR REPLACE INTO fed_economic_indicators
+                    """INSERT INTO fed_economic_indicators
                        (series_id, series_title, fed_district, observation_date,
                         value, units, frequency)
-                       VALUES (?, ?, NULL, ?, ?, ?, ?)""",
+                       VALUES (?, ?, NULL, ?, ?, ?, ?)
+                       ON CONFLICT (series_id, observation_date)
+                       DO UPDATE SET
+                         series_title = EXCLUDED.series_title,
+                         fed_district = EXCLUDED.fed_district,
+                         value = EXCLUDED.value,
+                         units = EXCLUDED.units,
+                         frequency = EXCLUDED.frequency""",
                     (sid, title, date, value, units, frequency),
                 )
                 upserted += 1

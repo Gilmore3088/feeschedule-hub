@@ -161,10 +161,17 @@ def ingest_series(
             continue
 
         db.execute(
-            """INSERT OR REPLACE INTO fed_economic_indicators
+            """INSERT INTO fed_economic_indicators
                (series_id, series_title, fed_district, observation_date,
                 value, units, frequency)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (series_id, observation_date)
+               DO UPDATE SET
+                 series_title = EXCLUDED.series_title,
+                 fed_district = EXCLUDED.fed_district,
+                 value = EXCLUDED.value,
+                 units = EXCLUDED.units,
+                 frequency = EXCLUDED.frequency""",
             (series_id, title, fed_district, date, value, units, frequency),
         )
         upserted += 1

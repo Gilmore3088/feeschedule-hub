@@ -76,7 +76,7 @@ export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
 }
 
 export async function getFeesByInstitution(targetId: number): Promise<ExtractedFee[]> {
-  return await sql<ExtractedFee[]>`
+  const rows = await sql<ExtractedFee[]>`
     SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
@@ -85,6 +85,14 @@ export async function getFeesByInstitution(targetId: number): Promise<ExtractedF
     WHERE ef.crawl_target_id = ${targetId}
     ORDER BY ef.fee_name
   `;
+  // Normalize numeric fields (Postgres NUMERIC/BIGINT returns strings)
+  return rows.map((r) => ({
+    ...r,
+    id: Number(r.id),
+    crawl_target_id: Number(r.crawl_target_id),
+    amount: r.amount !== null ? Number(r.amount) : null,
+    extraction_confidence: Number(r.extraction_confidence),
+  }));
 }
 
 export async function getAllFees(
@@ -217,7 +225,14 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
              ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
              ct.website_url, ct.fee_schedule_url
   `;
-  return row ?? null;
+  if (!row) return null;
+  return {
+    ...row,
+    id: Number(row.id),
+    asset_size: row.asset_size !== null ? Number(row.asset_size) : null,
+    fed_district: row.fed_district !== null ? Number(row.fed_district) : null,
+    fee_count: Number(row.fee_count),
+  };
 }
 
 export async function getPeerAnalysis(targetId: number): Promise<Record<string, unknown> | null> {
@@ -486,11 +501,11 @@ export interface DataFreshness {
 }
 
 export async function getDataFreshness(): Promise<DataFreshness> {
-  const [crawl] = await sql<{ last_at: string | null }[]>`
+  const [crawl] = await sql<{ last_at: string | Date | null }[]>`
     SELECT MAX(crawled_at) as last_at FROM crawl_results WHERE status = 'success'
   `;
 
-  const [fee] = await sql<{ last_at: string | null }[]>`
+  const [fee] = await sql<{ last_at: string | Date | null }[]>`
     SELECT MAX(created_at) as last_at FROM extracted_fees
   `;
 
@@ -498,9 +513,16 @@ export async function getDataFreshness(): Promise<DataFreshness> {
     SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status != 'rejected'
   `;
 
+  // Normalize Date objects (Postgres) to ISO strings
+  const normDate = (v: string | Date | null | undefined): string | null => {
+    if (!v) return null;
+    if (v instanceof Date) return v.toISOString();
+    return String(v);
+  };
+
   return {
-    last_crawl_at: crawl?.last_at ?? null,
-    last_fee_extracted_at: fee?.last_at ?? null,
+    last_crawl_at: normDate(crawl?.last_at),
+    last_fee_extracted_at: normDate(fee?.last_at),
     total_observations: Number(count.cnt),
   };
 }

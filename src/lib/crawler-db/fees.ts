@@ -103,13 +103,14 @@ export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
     }
     const entry = grouped.get(row.fee_category)!;
     entry.total++;
-    if (row.amount !== null && row.amount > 0) {
-      entry.amounts.push(row.amount);
+    const amt = row.amount !== null ? Number(row.amount) : null;
+    if (amt !== null && amt > 0) {
+      entry.amounts.push(amt);
     }
     if (row.charter_type === "bank") {
-      entry.banks.add(row.crawl_target_id);
+      entry.banks.add(Number(row.crawl_target_id));
     } else {
-      entry.cus.add(row.crawl_target_id);
+      entry.cus.add(Number(row.crawl_target_id));
     }
   }
 
@@ -143,7 +144,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   by_state: DimensionBreakdown[];
   change_events: FeeChangeEvent[];
 }> {
-  const fees = await sql`
+  const rawFees = await sql`
     SELECT ef.id, ct.institution_name, ef.crawl_target_id,
            ef.amount, ef.frequency, ef.conditions,
            ct.charter_type, ct.state_code, ct.asset_size_tier,
@@ -153,6 +154,16 @@ export async function getFeeCategoryDetail(category: string): Promise<{
     WHERE ef.fee_category = ${category} AND ef.review_status != 'rejected'
     ORDER BY ef.amount DESC NULLS LAST
   ` as FeeInstance[];
+
+  // Normalize numeric fields (Postgres NUMERIC returns strings)
+  const fees: FeeInstance[] = rawFees.map((f) => ({
+    ...f,
+    id: Number(f.id),
+    crawl_target_id: Number(f.crawl_target_id),
+    amount: f.amount !== null ? Number(f.amount) : null,
+    asset_size: f.asset_size !== null && f.asset_size !== undefined ? Number(f.asset_size) : null,
+    extraction_confidence: Number(f.extraction_confidence ?? 0),
+  }));
 
   // Compute dimensional breakdowns
   function buildBreakdown(
@@ -197,9 +208,11 @@ export async function getFeeCategoryDetail(category: string): Promise<{
 
   const districtGroups = new Map<number, number[]>();
   for (const row of districtRows) {
-    if (!districtGroups.has(row.fed_district)) districtGroups.set(row.fed_district, []);
-    if (row.amount !== null && row.amount > 0) {
-      districtGroups.get(row.fed_district)!.push(row.amount);
+    const dist = Number(row.fed_district);
+    const amt = row.amount !== null ? Number(row.amount) : null;
+    if (!districtGroups.has(dist)) districtGroups.set(dist, []);
+    if (amt !== null && amt > 0) {
+      districtGroups.get(dist)!.push(amt);
     }
   }
   const by_fed_district_real: DimensionBreakdown[] = [];

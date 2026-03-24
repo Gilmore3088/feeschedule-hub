@@ -153,11 +153,53 @@ def needs_browser_fallback(content: bytes, content_type: str) -> bool:
         )
         return True
 
+    # Text-to-markup ratio check: JS app shells have very little visible text
+    text_ratio = len(visible_text) / max(1, body_len)
+    if text_ratio < 0.05 and "<script" in html_lower:
+        logger.info(
+            "Low text-to-markup ratio (%.3f) with scripts, needs browser",
+            text_ratio,
+        )
+        return True
+
+    # Script density check: many scripts but little content structure
+    script_count = html_lower.count("<script")
+    content_tags = sum(html_lower.count(f"<{t}") for t in ["table", "p", "li", "dd", "h2", "h3"])
+    if script_count > 5 and content_tags < 3:
+        logger.info(
+            "High script density (%d scripts, %d content tags), needs browser",
+            script_count, content_tags,
+        )
+        return True
+
     # React/Angular/Vue root div with no content
     if ('id="root"' in html_lower or 'id="app"' in html_lower or 'id="__next"' in html_lower):
         if len(visible_text) < 500:
             logger.info(
                 "SPA root div detected with %d chars visible text, needs browser",
+                len(visible_text),
+            )
+            return True
+
+    # Additional SPA framework markers
+    spa_markers = [
+        "ng-app", "ng-version",           # Angular
+        "data-reactroot",                  # React
+        "data-v-",                         # Vue scoped styles
+    ]
+    for marker in spa_markers:
+        if marker in html_lower and len(visible_text) < 500:
+            logger.info(
+                "SPA framework marker '%s' detected with %d chars visible text, needs browser",
+                marker, len(visible_text),
+            )
+            return True
+
+    # Nuxt/Next SSR shells with empty content
+    if ("__nuxt__" in html_lower or "__next_data__" in html_lower):
+        if len(visible_text) < 300:
+            logger.info(
+                "Nuxt/Next data marker with %d chars visible text, needs browser",
                 len(visible_text),
             )
             return True
@@ -215,7 +257,7 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
                     user_agent=(
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                         "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/120.0.0.0 Safari/537.36"
+                        "Chrome/131.0.0.0 Safari/537.36"
                     ),
                     java_script_enabled=True,
                     ignore_https_errors=True,

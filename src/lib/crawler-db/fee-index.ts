@@ -226,19 +226,24 @@ function buildIndexEntries(
     }
     const entry = grouped.get(row.fee_category)!;
     entry.total++;
-    if (row.amount !== null && row.amount > 0) {
-      entry.amounts.push(row.amount);
+    const amt = row.amount !== null ? Number(row.amount) : null;
+    if (amt !== null && amt > 0) {
+      entry.amounts.push(amt);
     }
+    const targetId = Number(row.crawl_target_id);
     if (row.charter_type === "bank") {
-      entry.banks.add(row.crawl_target_id);
+      entry.banks.add(targetId);
     } else {
-      entry.cus.add(row.crawl_target_id);
+      entry.cus.add(targetId);
     }
     if (row.review_status === "approved") {
       entry.approved++;
     }
-    if (row.created_at > entry.latest) {
-      entry.latest = row.created_at;
+    const createdAt = (row.created_at as unknown) instanceof Date
+      ? (row.created_at as unknown as Date).toISOString()
+      : String(row.created_at ?? "");
+    if (createdAt > entry.latest) {
+      entry.latest = createdAt;
     }
   }
 

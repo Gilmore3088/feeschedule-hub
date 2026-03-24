@@ -190,12 +190,14 @@ def download_document(
         is_playwright_available,
     )
 
+    browser_rendered = False
     if needs_browser_fallback(content, content_type) and is_playwright_available():
         logger.info("Thin HTML detected for %s (%d bytes), trying Playwright", url, len(content))
         browser_result = fetch_with_browser(url)
         if browser_result["success"] and browser_result["content"]:
             content = browser_result["content"]
             content_type = browser_result["content_type"] or content_type
+            browser_rendered = True
             logger.info("Playwright succeeded for %s: %d bytes", url, len(content))
         else:
             logger.warning(
@@ -247,4 +249,5 @@ def download_document(
     result["content_type"] = content_type
     result["content"] = content
     result["r2_key"] = r2_key
+    result["browser_rendered"] = browser_rendered
     return result

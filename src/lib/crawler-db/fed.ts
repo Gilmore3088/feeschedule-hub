@@ -21,13 +21,22 @@ export async function getLatestBeigeBook(district: number): Promise<BeigeBookSec
 
     if (!latest) return [];
 
-    return await sql`
+    const rows = await sql`
       SELECT id, release_date, release_code, fed_district, section_name,
              content_text, source_url
       FROM fed_beige_book
       WHERE fed_district = ${district} AND release_code = ${latest.release_code}
       ORDER BY id
     ` as BeigeBookSection[];
+
+    // Normalize Date objects from Postgres
+    return rows.map((r) => ({
+      ...r,
+      id: Number(r.id),
+      release_date: (r.release_date as unknown) instanceof Date
+        ? (r.release_date as unknown as Date).toISOString().slice(0, 10)
+        : String(r.release_date),
+    }));
   } catch {
     return [];
   }
@@ -68,7 +77,10 @@ export async function getBeigeBookHeadline(
         ? firstSentence.slice(0, 77) + "..."
         : firstSentence;
 
-    return { text, release_date: row.release_date };
+    const releaseDate = row.release_date instanceof Date
+      ? row.release_date.toISOString().slice(0, 10)
+      : String(row.release_date);
+    return { text, release_date: releaseDate };
   } catch {
     return null;
   }

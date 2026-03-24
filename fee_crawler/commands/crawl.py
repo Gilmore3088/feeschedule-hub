@@ -25,6 +25,22 @@ from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 from fee_crawler.validation import validate_and_classify_fees, flags_to_json
 
 
+def _determine_crawl_strategy(dl: dict, doc_type: str) -> str:
+    """Determine the crawl strategy used for a successful download."""
+    content_type = dl.get("content_type") or ""
+    is_pdf = "application/pdf" in content_type or doc_type == "pdf"
+    browser_rendered = dl.get("browser_rendered", False)
+
+    if is_pdf and browser_rendered:
+        return "playwright_pdf"
+    elif is_pdf:
+        return "direct_pdf"
+    elif browser_rendered:
+        return "playwright_html"
+    else:
+        return "static_html"
+
+
 def _crawl_one(
     target: dict,
     config: Config,
@@ -176,12 +192,14 @@ def _crawl_one(
                 content_hash=dl["content_hash"],
                 document_path=dl["path"],
             )
+            strategy = _determine_crawl_strategy(dl, doc_type)
             db.execute(
                 """UPDATE crawl_targets
                    SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                       last_success_at = datetime('now'), consecutive_failures = 0
+                       last_success_at = datetime('now'), consecutive_failures = 0,
+                       crawl_strategy = ?
                    WHERE id = ?""",
-                (dl["content_hash"], target_id),
+                (dl["content_hash"], strategy, target_id),
             )
             db.commit()
             return result
@@ -232,14 +250,16 @@ def _crawl_one(
                                 extracted_by=extracted_by,
                             )
                             r2_key = dl.get("r2_key")
+                            strategy = _determine_crawl_strategy(dl, doc_type)
                             update_sql = """UPDATE crawl_targets
                                    SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                                       last_success_at = datetime('now'), consecutive_failures = 0"""
+                                       last_success_at = datetime('now'), consecutive_failures = 0,
+                                       crawl_strategy = ?"""
                             if r2_key:
                                 update_sql += ", document_r2_key = ?"
-                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], r2_key, target_id))
+                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, r2_key, target_id))
                             else:
-                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], target_id))
+                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, target_id))
                             db.commit()
                         except Exception:
                             db.execute("ROLLBACK")
@@ -292,14 +312,16 @@ def _crawl_one(
             )
 
             r2_key = dl.get("r2_key")
+            strategy = _determine_crawl_strategy(dl, doc_type)
             update_sql = """UPDATE crawl_targets
                    SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                       last_success_at = datetime('now'), consecutive_failures = 0"""
+                       last_success_at = datetime('now'), consecutive_failures = 0,
+                       crawl_strategy = ?"""
             if r2_key:
                 update_sql += ", document_r2_key = ?"
-                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], r2_key, target_id))
+                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, r2_key, target_id))
             else:
-                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], target_id))
+                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, target_id))
             db.commit()
         except Exception:
             db.execute("ROLLBACK")
@@ -749,8 +771,10 @@ def _find_embedded_pdf_link(content: bytes, page_url: str) -> str | None:
 
     Many bank websites link to a PDF fee schedule from a disclosures page.
     If the HTML itself has no fee data, following the PDF link often works.
+
+    Uses BeautifulSoup for robust parsing and scores candidates by keyword
+    relevance to find the best match.
     """
-    import re
     from urllib.parse import urljoin
 
     try:
@@ -758,22 +782,57 @@ def _find_embedded_pdf_link(content: bytes, page_url: str) -> str | None:
     except Exception:
         return None
 
-    # Find all <a href="...pdf"> links
-    links = re.findall(r'<a[^>]+href=["\']([^"\']+\.pdf)["\'][^>]*>(.*?)</a>', html, re.IGNORECASE | re.DOTALL)
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return None
 
-    fee_keywords = ["fee", "schedule", "pricing", "charges", "disclosure", "service charge"]
+    soup = BeautifulSoup(html, "html.parser")
 
-    for href, link_text in links:
+    fee_keywords = {
+        "fee": 3, "schedule": 3, "pricing": 2, "charges": 2,
+        "disclosure": 1, "service charge": 2, "fee schedule": 5,
+    }
+
+    def _score_candidate(href: str, text: str) -> int:
+        """Score a PDF link by keyword relevance."""
+        combined = (href + " " + text).lower()
+        score = 0
+        for keyword, weight in fee_keywords.items():
+            if keyword in combined:
+                score += weight
+        return score
+
+    candidates: list[tuple[int, str]] = []
+
+    # Check <a> tags with PDF href
+    for tag in soup.find_all("a", href=True):
+        href = tag["href"]
+        if not isinstance(href, str):
+            continue
+        if not href.lower().endswith(".pdf"):
+            continue
         full_url = urljoin(page_url, href)
-        combined = (href + " " + link_text).lower()
-        if any(kw in combined for kw in fee_keywords):
-            return full_url
+        link_text = tag.get_text(strip=True)
+        score = _score_candidate(href, link_text)
+        if score > 0:
+            candidates.append((score, full_url))
 
-    # Also check for standalone PDF URLs in the HTML (not in <a> tags)
-    pdf_urls = re.findall(r'https?://[^\s"\'<>]+\.pdf', html, re.IGNORECASE)
-    for pdf_url in pdf_urls:
-        if any(kw in pdf_url.lower() for kw in fee_keywords):
-            return pdf_url
+    # Check <iframe>, <embed>, <object> for embedded PDFs
+    for tag in soup.find_all(["iframe", "embed", "object"]):
+        src = tag.get("src") or tag.get("data") or ""
+        if not isinstance(src, str):
+            continue
+        if ".pdf" in src.lower():
+            full_url = urljoin(page_url, src)
+            score = _score_candidate(src, "")
+            # Embedded PDFs get a relevance bonus since they are the primary content
+            candidates.append((score + 2, full_url))
+
+    if candidates:
+        # Return the highest-scoring PDF link
+        candidates.sort(key=lambda c: c[0], reverse=True)
+        return candidates[0][1]
 
     return None
 

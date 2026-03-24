@@ -73,7 +73,7 @@ export async function getInstitutionIdsWithFees(): Promise<number[]> {
     WHERE review_status != 'rejected'
     ORDER BY crawl_target_id
   ` as { id: number }[];
-  return rows.map((r) => r.id);
+  return rows.map((r) => Number(r.id));
 }
 
 // --- City-level queries ---
@@ -184,7 +184,7 @@ export async function getStatesWithFeeData(): Promise<{ state_code: string; inst
   const codes = [...VALID_US_CODES];
   const params: string[] = codes;
   const placeholders = codes.map((_, i) => `$${i + 1}`).join(",");
-  return await sql.unsafe(
+  const rows = await sql.unsafe(
     `SELECT ct.state_code,
             COUNT(DISTINCT ct.id) as institution_count,
             COUNT(ef.id) as fee_count
@@ -195,5 +195,10 @@ export async function getStatesWithFeeData(): Promise<{ state_code: string; inst
      GROUP BY ct.state_code
      ORDER BY COUNT(DISTINCT ct.id) DESC`,
     params
-  ) as { state_code: string; institution_count: number; fee_count: number }[];
+  ) as { state_code: string; institution_count: string | number; fee_count: string | number }[];
+  return rows.map((r) => ({
+    state_code: r.state_code,
+    institution_count: Number(r.institution_count),
+    fee_count: Number(r.fee_count),
+  }));
 }

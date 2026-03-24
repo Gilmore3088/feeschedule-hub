@@ -1303,3 +1303,121 @@ export async function getPeerIndexData(filters: {
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Gold Standard Verification
+// ---------------------------------------------------------------------------
+
+export interface GoldStandardCandidate {
+  id: number;
+  institution_name: string;
+  state_code: string | null;
+  asset_size_tier: string | null;
+  asset_size: number | null;
+  fee_schedule_url: string | null;
+  fee_count: number;
+}
+
+export async function getGoldStandardCandidates(
+  limit = 50
+): Promise<GoldStandardCandidate[]> {
+  try {
+    const rows = await sql`
+      SELECT ct.id,
+             ct.institution_name,
+             ct.state_code,
+             ct.asset_size_tier,
+             ct.asset_size,
+             ct.fee_schedule_url,
+             COUNT(ef.id) as fee_count
+      FROM crawl_targets ct
+      JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
+      WHERE ef.review_status != 'rejected'
+      GROUP BY ct.id, ct.institution_name, ct.state_code,
+               ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
+      ORDER BY ct.asset_size DESC NULLS LAST
+      LIMIT ${limit}
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      institution_name: String(r.institution_name),
+      state_code: r.state_code ? String(r.state_code) : null,
+      asset_size_tier: r.asset_size_tier ? String(r.asset_size_tier) : null,
+      asset_size: r.asset_size != null ? Number(r.asset_size) : null,
+      fee_schedule_url: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
+      fee_count: Number(r.fee_count),
+    }));
+  } catch (e) {
+    console.error("getGoldStandardCandidates failed:", e);
+    return [];
+  }
+}
+
+export async function getGoldStandardCandidate(
+  id: number
+): Promise<GoldStandardCandidate | null> {
+  try {
+    const rows = await sql`
+      SELECT ct.id,
+             ct.institution_name,
+             ct.state_code,
+             ct.asset_size_tier,
+             ct.asset_size,
+             ct.fee_schedule_url,
+             COUNT(ef.id) as fee_count
+      FROM crawl_targets ct
+      JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
+      WHERE ct.id = ${id} AND ef.review_status != 'rejected'
+      GROUP BY ct.id, ct.institution_name, ct.state_code,
+               ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
+    `;
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      id: Number(r.id),
+      institution_name: String(r.institution_name),
+      state_code: r.state_code ? String(r.state_code) : null,
+      asset_size_tier: r.asset_size_tier ? String(r.asset_size_tier) : null,
+      asset_size: r.asset_size != null ? Number(r.asset_size) : null,
+      fee_schedule_url: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
+      fee_count: Number(r.fee_count),
+    };
+  } catch (e) {
+    console.error("getGoldStandardCandidate failed:", e);
+    return null;
+  }
+}
+
+export interface ExtractedFeeRow {
+  id: number;
+  fee_name: string;
+  amount: number | null;
+  fee_category: string | null;
+  frequency: string | null;
+  review_status: string;
+}
+
+export async function getExtractedFeesForInstitution(
+  institutionId: number
+): Promise<ExtractedFeeRow[]> {
+  try {
+    const rows = await sql`
+      SELECT id, fee_name, amount, fee_category, frequency, review_status
+      FROM extracted_fees
+      WHERE crawl_target_id = ${institutionId}
+        AND review_status != 'rejected'
+      ORDER BY fee_category NULLS LAST, fee_name
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      fee_name: String(r.fee_name),
+      amount: r.amount != null ? Number(r.amount) : null,
+      fee_category: r.fee_category ? String(r.fee_category) : null,
+      frequency: r.frequency ? String(r.frequency) : null,
+      review_status: String(r.review_status),
+    }));
+  } catch (e) {
+    console.error("getExtractedFeesForInstitution failed:", e);
+    return [];
+  }
+}

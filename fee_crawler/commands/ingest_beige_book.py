@@ -154,10 +154,15 @@ def ingest_edition(
     sections = _parse_summary_sections(html)
     for section_name, content_text in sections:
         db.execute(
-            """INSERT OR REPLACE INTO fed_beige_book
+            """INSERT INTO fed_beige_book
                (release_date, release_code, fed_district, section_name,
                 content_text, source_url)
-               VALUES (?, ?, NULL, ?, ?, ?)""",
+               VALUES (?, ?, NULL, ?, ?, ?)
+               ON CONFLICT (release_code, fed_district, section_name)
+               DO UPDATE SET
+                 release_date = EXCLUDED.release_date,
+                 content_text = EXCLUDED.content_text,
+                 source_url = EXCLUDED.source_url""",
             (release_date, edition, section_name, content_text, summary_url),
         )
         total_upserted += 1
@@ -176,10 +181,15 @@ def ingest_edition(
         sections = _parse_sections(html)
         for section_name, content_text in sections:
             db.execute(
-                """INSERT OR REPLACE INTO fed_beige_book
+                """INSERT INTO fed_beige_book
                    (release_date, release_code, fed_district, section_name,
                     content_text, source_url)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT (release_code, fed_district, section_name)
+                   DO UPDATE SET
+                     release_date = EXCLUDED.release_date,
+                     content_text = EXCLUDED.content_text,
+                     source_url = EXCLUDED.source_url""",
                 (release_date, edition, district, section_name,
                  content_text, district_url),
             )

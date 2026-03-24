@@ -64,7 +64,32 @@ export async function getFinancialsByInstitution(
     FROM institution_financials
     WHERE crawl_target_id = ${targetId}
     ORDER BY report_date DESC`;
-  return [...rows] as InstitutionFinancial[];
+
+  const numOrNull = (v: unknown): number | null =>
+    v !== null && v !== undefined ? Number(v) : null;
+
+  return [...rows].map((r: Record<string, unknown>) => ({
+    crawl_target_id: Number(r.crawl_target_id),
+    report_date: r.report_date instanceof Date
+      ? r.report_date.toISOString().slice(0, 10)
+      : String(r.report_date),
+    source: String(r.source),
+    total_assets: numOrNull(r.total_assets),
+    total_deposits: numOrNull(r.total_deposits),
+    total_loans: numOrNull(r.total_loans),
+    service_charge_income: numOrNull(r.service_charge_income),
+    other_noninterest_income: numOrNull(r.other_noninterest_income),
+    net_interest_margin: numOrNull(r.net_interest_margin),
+    efficiency_ratio: numOrNull(r.efficiency_ratio),
+    roa: numOrNull(r.roa),
+    roe: numOrNull(r.roe),
+    tier1_capital_ratio: numOrNull(r.tier1_capital_ratio),
+    branch_count: numOrNull(r.branch_count),
+    employee_count: numOrNull(r.employee_count),
+    member_count: numOrNull(r.member_count),
+    total_revenue: numOrNull(r.total_revenue),
+    fee_income_ratio: numOrNull(r.fee_income_ratio),
+  }));
 }
 
 export async function getComplaintsByInstitution(
@@ -129,7 +154,16 @@ export async function getMarketConcentrationForInstitution(
     JOIN branch_deposits bd ON bd.msa_code = mc.msa_code AND bd.year = mc.year
     WHERE bd.crawl_target_id = ${targetId} AND mc.year = ${y} AND bd.is_main_office = true
     LIMIT 1`;
-  return (row as MarketConcentration | undefined) ?? null;
+  if (!row) return null;
+  return {
+    msa_code: Number(row.msa_code),
+    msa_name: String(row.msa_name),
+    total_deposits: Number(row.total_deposits),
+    institution_count: Number(row.institution_count),
+    hhi: Number(row.hhi),
+    top3_share: Number(row.top3_share),
+    year: Number(row.year),
+  };
 }
 
 // --- Demographics (Census ACS) ---

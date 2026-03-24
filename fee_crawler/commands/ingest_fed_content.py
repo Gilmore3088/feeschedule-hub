@@ -138,10 +138,19 @@ def _ingest_speeches(
 
         try:
             db.execute(
-                """INSERT OR REPLACE INTO fed_content
+                """INSERT INTO fed_content
                    (content_type, title, speaker, fed_district, source_url,
                     published_at, description, source_feed)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT (source_url)
+                   DO UPDATE SET
+                     content_type = EXCLUDED.content_type,
+                     title = EXCLUDED.title,
+                     speaker = EXCLUDED.speaker,
+                     fed_district = EXCLUDED.fed_district,
+                     published_at = EXCLUDED.published_at,
+                     description = EXCLUDED.description,
+                     source_feed = EXCLUDED.source_feed""",
                 (content_type, title, speaker, district, link,
                  published, description, "speeches"),
             )
@@ -189,10 +198,19 @@ def _ingest_fed_in_print(
 
             try:
                 db.execute(
-                    """INSERT OR REPLACE INTO fed_content
+                    """INSERT INTO fed_content
                        (content_type, title, speaker, fed_district, source_url,
                         published_at, description, source_feed)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT (source_url)
+                       DO UPDATE SET
+                         content_type = EXCLUDED.content_type,
+                         title = EXCLUDED.title,
+                         speaker = EXCLUDED.speaker,
+                         fed_district = EXCLUDED.fed_district,
+                         published_at = EXCLUDED.published_at,
+                         description = EXCLUDED.description,
+                         source_feed = EXCLUDED.source_feed""",
                     ("research", title, author, district, link,
                      published, description, "fed_in_print"),
                 )
