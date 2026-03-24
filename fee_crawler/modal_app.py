@@ -60,7 +60,7 @@ def run_extraction():
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     # Crawl institutions with fee URLs but no extracted fees yet
     r = subprocess.run(
-        ["python3", "-m", "fee_crawler", "crawl", "--limit", "200", "--workers", "1"],
+        ["python3", "-m", "fee_crawler", "crawl", "--limit", "500", "--workers", "2", "--include-failing"],
         capture_output=True, text=True, env=env, timeout=10800,
     )
     output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]
