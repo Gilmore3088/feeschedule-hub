@@ -106,6 +106,7 @@ def needs_browser_fallback(content: bytes, content_type: str) -> bool:
 
     Returns True when the response is HTML but appears to be:
     - A JS shell (suspiciously small body, < 500 bytes)
+    - A JS app shell (has <script> tags but little visible text)
     - A bot-protection challenge page (Incapsula, Cloudflare, captcha)
 
     PDFs and other binary content types always return False.
@@ -123,17 +124,41 @@ def needs_browser_fallback(content: bytes, content_type: str) -> bool:
         )
         return True
 
-    # Check for bot-protection / challenge markers
     try:
-        text_lower = content[:4096].decode("utf-8", errors="replace").lower()
+        html = content.decode("utf-8", errors="replace")
+        html_lower = html.lower()
     except Exception:
         return False
 
+    # Check for bot-protection / challenge markers
     for marker in _CHALLENGE_MARKERS:
-        if marker in text_lower:
+        if marker in html_lower[:4096]:
             logger.info(
                 "Challenge marker '%s' detected, needs browser rendering",
                 marker,
+            )
+            return True
+
+    # JS app shell detection: strip all <script>, <style>, and <noscript> tags,
+    # then check if remaining visible text is too short
+    import re
+    stripped = re.sub(r"<(script|style|noscript|head)[^>]*>.*?</\1>", "", html_lower, flags=re.DOTALL)
+    stripped = re.sub(r"<[^>]+>", " ", stripped)  # remove remaining tags
+    visible_text = re.sub(r"\s+", " ", stripped).strip()
+
+    if len(visible_text) < 200 and "<script" in html_lower:
+        logger.info(
+            "JS app shell detected (%d bytes HTML, %d chars visible text), needs browser",
+            body_len, len(visible_text),
+        )
+        return True
+
+    # React/Angular/Vue root div with no content
+    if ('id="root"' in html_lower or 'id="app"' in html_lower or 'id="__next"' in html_lower):
+        if len(visible_text) < 500:
+            logger.info(
+                "SPA root div detected with %d chars visible text, needs browser",
+                len(visible_text),
             )
             return True
 

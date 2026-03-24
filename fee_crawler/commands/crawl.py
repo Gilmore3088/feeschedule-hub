@@ -118,11 +118,25 @@ def _crawl_one(
             text = extract_text_from_html(content)
 
         if not text or len(text.strip()) < 50:
-            result["status"] = "failed"
-            result["message"] = "NO TEXT EXTRACTED"
-            _save_result(db, run_id, target_id, "failed", url, error="No text extracted from document")
-            db.commit()
-            return result
+            # Try to find embedded PDF links in the HTML before giving up
+            if "html" in (dl.get("content_type") or ""):
+                pdf_url = _find_embedded_pdf_link(dl["content"], url)
+                if pdf_url:
+                    print(f"    Found embedded PDF: {pdf_url[:80]}")
+                    pdf_dl = download_document(pdf_url, target_id, config, rate_limiter=rate_limiter)
+                    if pdf_dl["success"] and pdf_dl["content"]:
+                        try:
+                            text = extract_text_from_pdf(pdf_dl["content"])
+                            doc_type = "pdf"
+                            dl = pdf_dl  # use the PDF download result
+                        except Exception:
+                            pass
+            if not text or len(text.strip()) < 50:
+                result["status"] = "failed"
+                result["message"] = "NO TEXT EXTRACTED"
+                _save_result(db, run_id, target_id, "failed", url, error="No text extracted from document")
+                db.commit()
+                return result
 
         # Step 2b: Document classification — skip non-fee documents to save API costs
         from fee_crawler.pipeline.classify_document import classify_document
@@ -730,69 +744,38 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
         pass  # Don't fail the crawl if snapshot fails
 
 
-def _classify_extraction_failure(text: str, doc_type: str) -> str:
-    """Classify why a document failed pre-LLM screening.
+def _find_embedded_pdf_link(content: bytes, page_url: str) -> str | None:
+    """Scan HTML for embedded PDF links that look like fee schedules.
 
-    Returns a short reason string stored in crawl_targets.failure_reason.
-    """
-    lower = text.lower()
-    text_len = len(text.strip())
-
-    if text_len < 50:
-        return "empty_document"
-    if doc_type == "pdf" and text_len < 200:
-        return "scanned_pdf_no_ocr"
-
-    # Check what's missing
-    import re
-    fee_keywords = [
-        "fee", "charge", "service charge", "overdraft", "nsf",
-        "maintenance", "wire transfer", "atm", "stop payment",
-        "schedule of fees", "fee schedule",
-    ]
-    keyword_matches = sum(1 for kw in fee_keywords if kw in lower)
-    dollar_matches = len(re.findall(r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?", text))
-
-    if keyword_matches == 0 and dollar_matches == 0:
-        return "not_fee_related"
-    if keyword_matches > 0 and dollar_matches == 0:
-        return "no_dollar_amounts"
-    if keyword_matches < 3:
-        return "too_few_fee_keywords"
-
-    return "unknown"
-
-
-def _is_likely_fee_schedule(text: str) -> bool:
-    """Pre-LLM screening: check if text is likely a fee schedule.
-
-    Loosened from original (3 keywords AND 2 dollars) to (2 keywords OR 1 dollar).
-    The document classifier now handles the real filtering — this just excludes
-    completely non-financial pages.
+    Many bank websites link to a PDF fee schedule from a disclosures page.
+    If the HTML itself has no fee data, following the PDF link often works.
     """
     import re
-    from fee_crawler.pipeline.classify_document import DEFINITIVE_TITLES
+    from urllib.parse import urljoin
 
-    lower = text.lower()
+    try:
+        html = content.decode("utf-8", errors="replace")
+    except Exception:
+        return None
 
-    # Definitive titles always pass — never pre-screen out explicit fee schedules
-    if any(t in lower for t in DEFINITIVE_TITLES):
-        return True
+    # Find all <a href="...pdf"> links
+    links = re.findall(r'<a[^>]+href=["\']([^"\']+\.pdf)["\'][^>]*>(.*?)</a>', html, re.IGNORECASE | re.DOTALL)
 
-    fee_keywords = [
-        "fee", "charge", "service charge", "overdraft", "nsf",
-        "non-sufficient funds", "insufficient funds", "maintenance",
-        "monthly service", "wire transfer", "atm", "stop payment",
-        "dormant", "inactive account", "cashier", "statement fee",
-        "per item", "per occurrence",
-    ]
-    keyword_matches = sum(1 for kw in fee_keywords if kw in lower)
+    fee_keywords = ["fee", "schedule", "pricing", "charges", "disclosure", "service charge"]
 
-    dollar_pattern = r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?"
-    dollar_matches = len(re.findall(dollar_pattern, text))
+    for href, link_text in links:
+        full_url = urljoin(page_url, href)
+        combined = (href + " " + link_text).lower()
+        if any(kw in combined for kw in fee_keywords):
+            return full_url
 
-    # Loosened: 2 keywords OR 1 dollar amount (was: 3 AND 2)
-    return keyword_matches >= 2 or dollar_matches >= 1
+    # Also check for standalone PDF URLs in the HTML (not in <a> tags)
+    pdf_urls = re.findall(r'https?://[^\s"\'<>]+\.pdf', html, re.IGNORECASE)
+    for pdf_url in pdf_urls:
+        if any(kw in pdf_url.lower() for kw in fee_keywords):
+            return pdf_url
+
+    return None
 
 
 def _save_result(
