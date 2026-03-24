@@ -39,11 +39,11 @@ export async function getCrawlHealth(): Promise<CrawlHealth> {
     last_run_at: lastRun?.completed_at ?? null,
     last_run_status: lastRun?.status ?? null,
     success_rate_24h:
-      recent.total > 0 ? recent.succeeded / recent.total : 0,
-    avg_confidence: confidence.avg_conf ?? 0,
-    institutions_failing: failing.cnt,
-    total_crawled_24h: recent.total,
-    crawl_runs_7d: runs7d.cnt,
+      Number(recent.total) > 0 ? Number(recent.succeeded) / Number(recent.total) : 0,
+    avg_confidence: Number(confidence.avg_conf ?? 0),
+    institutions_failing: Number(failing.cnt),
+    total_crawled_24h: Number(recent.total),
+    crawl_runs_7d: Number(runs7d.cnt),
   };
 }
 
@@ -64,8 +64,8 @@ export async function getStuckReviewItems(): Promise<StuckReviewItems> {
       AND created_at < NOW() - INTERVAL '30 days'`;
 
   return {
-    flagged_over_14d: flagged.cnt,
-    staged_over_30d: staged.cnt,
+    flagged_over_14d: Number(flagged.cnt),
+    staged_over_30d: Number(staged.cnt),
   };
 }
 
@@ -129,20 +129,23 @@ export async function getDistrictMetrics(filters?: {
     9: "Minneapolis", 10: "Kansas City", 11: "Dallas", 12: "San Francisco",
   };
 
-  return rows.map((r) => ({
-    district: r.district,
-    name: districtNames[r.district] ?? `District ${r.district}`,
-    institution_count: r.institution_count,
-    with_fee_url: r.with_fee_url,
-    fee_url_pct:
-      r.institution_count > 0
-        ? r.with_fee_url / r.institution_count
-        : 0,
-    total_fees: r.total_fees,
-    flagged_count: r.flagged_count,
-    flag_rate: r.total_fees > 0 ? r.flagged_count / r.total_fees : 0,
-    avg_confidence: r.avg_confidence ?? 0,
-  }));
+  return rows.map((r) => {
+    const instCount = Number(r.institution_count);
+    const feeUrlCount = Number(r.with_fee_url);
+    const totalFees = Number(r.total_fees);
+    const flaggedCount = Number(r.flagged_count);
+    return {
+      district: Number(r.district),
+      name: districtNames[Number(r.district)] ?? `District ${r.district}`,
+      institution_count: instCount,
+      with_fee_url: feeUrlCount,
+      fee_url_pct: instCount > 0 ? feeUrlCount / instCount : 0,
+      total_fees: totalFees,
+      flagged_count: flaggedCount,
+      flag_rate: totalFees > 0 ? flaggedCount / totalFees : 0,
+      avg_confidence: Number(r.avg_confidence ?? 0),
+    };
+  });
 }
 
 export interface PeerFilteredStats {
@@ -201,12 +204,12 @@ export async function getPeerFilteredStats(filters: {
   ) as { cnt: number }[];
 
   return {
-    total_institutions: row.total,
-    with_website: row.with_website,
-    with_fee_url: row.with_fee_url,
-    total_fees: feeRow.cnt,
-    banks: row.banks,
-    credit_unions: row.credit_unions,
+    total_institutions: Number(row.total),
+    with_website: Number(row.with_website),
+    with_fee_url: Number(row.with_fee_url),
+    total_fees: Number(feeRow.cnt),
+    banks: Number(row.banks),
+    credit_unions: Number(row.credit_unions),
   };
 }
 
@@ -311,7 +314,7 @@ export async function getVolatileCategories(
         : null;
     results.push({
       fee_category: cat.fee_category,
-      institution_count: cat.institution_count,
+      institution_count: Number(cat.institution_count),
       min_amount: stats.min,
       max_amount: stats.max,
       median_amount: stats.median,
@@ -319,8 +322,8 @@ export async function getVolatileCategories(
       p75_amount: stats.p75,
       iqr,
       range_width,
-      flagged_count: cat.flagged_count,
-      flag_rate: cat.total_count > 0 ? cat.flagged_count / cat.total_count : 0,
+      flagged_count: Number(cat.flagged_count),
+      flag_rate: Number(cat.total_count) > 0 ? Number(cat.flagged_count) / Number(cat.total_count) : 0,
     });
   }
 
@@ -468,8 +471,15 @@ export async function getRiskOutliers(filters?: {
   });
 
   return {
-    top_flagged_categories: flagged,
-    repeated_failures: failures,
+    top_flagged_categories: flagged.map(f => ({
+      ...f,
+      flagged_count: Number(f.flagged_count),
+      total_count: Number(f.total_count),
+    })),
+    repeated_failures: failures.map(f => ({
+      ...f,
+      consecutive_failures: Number(f.consecutive_failures),
+    })),
     extreme_outlier_fees: extremeOutliers.slice(0, 5),
   };
 }
@@ -483,13 +493,13 @@ export interface DailyTrend {
 
 export async function getDailyTrends(days = 14): Promise<DailyTrend[]> {
   return await sql.unsafe(
-    `SELECT date(cr.crawled_at) as date,
+    `SELECT cr.crawled_at::date as date,
             COUNT(DISTINCT cr.crawl_target_id) as institutions,
             SUM(cr.fees_extracted) as fees_extracted,
             COUNT(DISTINCT CASE WHEN cr.fees_extracted > 0 THEN cr.crawl_target_id END) as fee_urls
      FROM crawl_results cr
      WHERE cr.crawled_at > NOW() - INTERVAL '1 day' * $1
-     GROUP BY date(cr.crawled_at)
+     GROUP BY cr.crawled_at::date
      ORDER BY date ASC`,
     [days]
   ) as DailyTrend[];

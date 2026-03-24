@@ -23,7 +23,7 @@ export async function searchInstitutions(params: {
 
   if (params.query && params.query.trim().length >= 2) {
     paramIdx++;
-    conditions.push(`ct.institution_name LIKE $${paramIdx}`);
+    conditions.push(`ct.institution_name ILIKE $${paramIdx}`);
     queryParams.push(`%${params.query.trim()}%`);
   }
   if (params.state_code) {
@@ -63,7 +63,7 @@ export async function searchInstitutions(params: {
     [...queryParams, pageSize, offset]
   ) as InstitutionSearchResult[];
 
-  return { rows, total: countRow.cnt };
+  return { rows, total: Number(countRow.cnt) };
 }
 
 export async function autocompleteInstitutions(query: string, limit = 8): Promise<InstitutionSearchResult[]> {
@@ -74,7 +74,7 @@ export async function autocompleteInstitutions(query: string, limit = 8): Promis
            ct.charter_type, ct.asset_size_tier,
            (SELECT COUNT(*) FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
     FROM crawl_targets ct
-    WHERE ct.institution_name LIKE ${pattern}
+    WHERE ct.institution_name ILIKE ${pattern}
     ORDER BY fee_count DESC, ct.institution_name ASC
     LIMIT ${limit}
   ` as InstitutionSearchResult[];

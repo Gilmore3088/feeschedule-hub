@@ -183,7 +183,7 @@ export async function getArticleCount(opts: { source?: string; topic?: string; s
     `SELECT COUNT(*) as cnt FROM reg_articles ${where}`,
     params,
   );
-  return row.cnt;
+  return Number(row.cnt);
 }
 
 export async function getTopicCounts(since?: string): Promise<Record<string, number>> {
@@ -202,7 +202,7 @@ export async function getTopicCounts(since?: string): Promise<Record<string, num
   ) as { topic: string; cnt: number }[];
 
   const counts: Record<string, number> = {};
-  for (const row of rows) counts[row.topic] = row.cnt;
+  for (const row of rows) counts[row.topic] = Number(row.cnt);
   return counts;
 }
 
@@ -222,7 +222,7 @@ export async function getSourceCounts(since?: string): Promise<Record<string, nu
   ) as { source: string; cnt: number }[];
 
   const counts: Record<string, number> = {};
-  for (const row of rows) counts[row.source] = row.cnt;
+  for (const row of rows) counts[row.source] = Number(row.cnt);
   return counts;
 }
 

@@ -144,18 +144,18 @@ export async function getPeerPreviewStats(filters: {
     params
   ) as { cnt: number; flagged: number; avg_conf: number | null }[];
 
-  const total = row.total || 0;
-  const totalFees = feeRow.cnt || 0;
-  const flagged = feeRow.flagged || 0;
+  const total = Number(row.total) || 0;
+  const totalFees = Number(feeRow.cnt) || 0;
+  const flagged = Number(feeRow.flagged) || 0;
 
   return {
     total_institutions: total,
-    with_website: row.with_website || 0,
-    with_fee_url: row.with_fee_url || 0,
+    with_website: Number(row.with_website) || 0,
+    with_fee_url: Number(row.with_fee_url) || 0,
     total_fees: totalFees,
-    banks: row.banks || 0,
-    credit_unions: row.credit_unions || 0,
-    fee_url_pct: total > 0 ? (row.with_fee_url || 0) / total : 0,
+    banks: Number(row.banks) || 0,
+    credit_unions: Number(row.credit_unions) || 0,
+    fee_url_pct: total > 0 ? (Number(row.with_fee_url) || 0) / total : 0,
     flagged_count: flagged,
     flag_rate: totalFees > 0 ? flagged / totalFees : 0,
     avg_confidence: feeRow.avg_conf ?? 0,

@@ -55,10 +55,10 @@ export async function getPipelineStats(): Promise<PipelineStats> {
       COUNT(*) as total,
       SUM(CASE WHEN website_url IS NOT NULL AND website_url != '' THEN 1 ELSE 0 END) as with_website,
       SUM(CASE WHEN fee_schedule_url IS NOT NULL AND fee_schedule_url != '' THEN 1 ELSE 0 END) as with_fee_url,
-      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND (last_crawl_at < NOW() - INTERVAL '${STALE_DAYS} days' OR last_crawl_at IS NULL) THEN 1 ELSE 0 END) as stale,
-      SUM(CASE WHEN consecutive_failures > $1 THEN 1 ELSE 0 END) as failing
+      SUM(CASE WHEN fee_schedule_url IS NOT NULL AND (last_crawl_at < NOW() - INTERVAL '1 day' * $1 OR last_crawl_at IS NULL) THEN 1 ELSE 0 END) as stale,
+      SUM(CASE WHEN consecutive_failures > $2 THEN 1 ELSE 0 END) as failing
     FROM crawl_targets`,
-    [FAILURE_THRESHOLD]
+    [STALE_DAYS, FAILURE_THRESHOLD]
   ) as { total: number; with_website: number; with_fee_url: number; stale: number; failing: number }[];
 
   // Consolidate extracted_fees counts into 1 query
@@ -69,13 +69,13 @@ export async function getPipelineStats(): Promise<PipelineStats> {
     FROM extracted_fees`;
 
   return {
-    total_institutions: ct.total,
-    with_website: ct.with_website,
-    with_fee_url: ct.with_fee_url,
-    with_fees: ef.with_fees,
-    with_approved: ef.with_approved,
-    stale_count: ct.stale,
-    failing_count: ct.failing,
+    total_institutions: Number(ct.total),
+    with_website: Number(ct.with_website),
+    with_fee_url: Number(ct.with_fee_url),
+    with_fees: Number(ef.with_fees),
+    with_approved: Number(ef.with_approved),
+    stale_count: Number(ct.stale),
+    failing_count: Number(ct.failing),
   };
 }
 
@@ -134,19 +134,19 @@ export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
     GROUP BY ct.state_code ORDER BY count DESC LIMIT 6`;
 
   return {
-    total: ct.total,
-    hasWebsite: ct.has_website,
-    hasUrl: ct.has_url,
-    withFees: ef.with_fees,
-    needCrawl: nc.c,
-    failedCrawl: ct.failed_crawl,
-    totalFees: ef.total_fees,
-    categorized: ef.categorized,
-    approved: ef.approved,
-    staged: ef.staged,
-    flagged: ef.flagged,
-    rejected: ef.rejected,
-    stateGaps: stateGaps as { state_code: string; count: number }[],
+    total: Number(ct.total),
+    hasWebsite: Number(ct.has_website),
+    hasUrl: Number(ct.has_url),
+    withFees: Number(ef.with_fees),
+    needCrawl: Number(nc.c),
+    failedCrawl: Number(ct.failed_crawl),
+    totalFees: Number(ef.total_fees),
+    categorized: Number(ef.categorized),
+    approved: Number(ef.approved),
+    staged: Number(ef.staged),
+    flagged: Number(ef.flagged),
+    rejected: Number(ef.rejected),
+    stateGaps: (stateGaps as { state_code: string; count: number }[]).map(g => ({ ...g, count: Number(g.count) })),
   };
 }
 
@@ -256,7 +256,7 @@ export async function getCoverageGaps(opts: {
     status: computeStatus(r),
   }));
 
-  return { institutions, total: countRow.c };
+  return { institutions, total: Number(countRow.c) };
 }
 
 function computeStatus(r: { fee_schedule_url: string | null; fee_count: number; consecutive_failures: number; last_crawl_at: string | null }): CoverageGap["status"] {

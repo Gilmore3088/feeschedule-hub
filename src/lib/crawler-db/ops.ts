@@ -53,7 +53,7 @@ export async function getOpsJobs(
     [...params, limit, offset],
   ) as OpsJob[];
 
-  return { jobs, total: countRow.cnt };
+  return { jobs, total: Number(countRow.cnt) };
 }
 
 export async function getOpsJob(id: number): Promise<OpsJob | null> {
@@ -76,9 +76,10 @@ export async function getOpsJobSummary(): Promise<OpsJobSummary> {
   };
 
   for (const row of rows) {
-    summary.total += row.cnt;
+    const cnt = Number(row.cnt);
+    summary.total += cnt;
     if (row.status in summary) {
-      summary[row.status as keyof Omit<OpsJobSummary, "total">] = row.cnt;
+      summary[row.status as keyof Omit<OpsJobSummary, "total">] = cnt;
     }
   }
 

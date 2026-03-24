@@ -50,7 +50,7 @@ export async function getArticles(opts?: {
     [...params, limit, offset],
   ) as Article[];
 
-  return { articles, total: countRow.c };
+  return { articles, total: Number(countRow.c) };
 }
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {

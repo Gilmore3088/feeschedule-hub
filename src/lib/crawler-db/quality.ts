@@ -66,11 +66,11 @@ export async function getCoverageFunnel(): Promise<CoverageFunnel> {
   const [withApprovedRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees WHERE review_status = 'approved'`;
 
   return {
-    total_institutions: totalRow.cnt,
-    with_website: withWebsiteRow.cnt,
-    with_fee_url: withFeeUrlRow.cnt,
-    with_fees: withFeesRow.cnt,
-    with_approved: withApprovedRow.cnt,
+    total_institutions: Number(totalRow.cnt),
+    with_website: Number(withWebsiteRow.cnt),
+    with_fee_url: Number(withFeeUrlRow.cnt),
+    with_fees: Number(withFeesRow.cnt),
+    with_approved: Number(withApprovedRow.cnt),
   };
 }
 
@@ -132,8 +132,10 @@ export async function getDiscoveryMethodStats(): Promise<DiscoveryMethodStats[]>
 
     return rows.map((r) => ({
       ...r,
-      success_rate: r.total_attempts > 0
-        ? Math.round((r.found_count / r.total_attempts) * 100)
+      total_attempts: Number(r.total_attempts),
+      found_count: Number(r.found_count),
+      success_rate: Number(r.total_attempts) > 0
+        ? Math.round((Number(r.found_count) / Number(r.total_attempts)) * 100)
         : 0,
     }));
   } catch {

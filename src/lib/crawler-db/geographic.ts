@@ -29,12 +29,12 @@ export async function getStateStats(stateCode: string): Promise<GeoStats> {
   ` as { with_fees: number; total_fees: number; categories: number }[];
 
   return {
-    institution_count: inst.total,
-    bank_count: inst.banks,
-    cu_count: inst.cus,
-    with_fees: fees.with_fees,
-    total_fees: fees.total_fees,
-    fee_categories: fees.categories,
+    institution_count: Number(inst.total),
+    bank_count: Number(inst.banks),
+    cu_count: Number(inst.cus),
+    with_fees: Number(fees.with_fees),
+    total_fees: Number(fees.total_fees),
+    fee_categories: Number(fees.categories),
   };
 }
 
@@ -57,12 +57,12 @@ export async function getDistrictStats(districtId: number): Promise<GeoStats> {
   ` as { with_fees: number; total_fees: number; categories: number }[];
 
   return {
-    institution_count: inst.total,
-    bank_count: inst.banks,
-    cu_count: inst.cus,
-    with_fees: fees.with_fees,
-    total_fees: fees.total_fees,
-    fee_categories: fees.categories,
+    institution_count: Number(inst.total),
+    bank_count: Number(inst.banks),
+    cu_count: Number(inst.cus),
+    with_fees: Number(fees.with_fees),
+    total_fees: Number(fees.total_fees),
+    fee_categories: Number(fees.categories),
   };
 }
 
@@ -166,7 +166,7 @@ export async function getCityAutocomplete(query: string, limit: number = 10): Pr
   return await sql`
     SELECT ct.city, ct.state_code, COUNT(DISTINCT ct.id) as count
     FROM crawl_targets ct
-    WHERE ct.city LIKE ${pattern} AND ct.city IS NOT NULL
+    WHERE ct.city ILIKE ${pattern} AND ct.city IS NOT NULL
     AND ct.id IN (SELECT DISTINCT crawl_target_id FROM extracted_fees WHERE review_status != 'rejected')
     GROUP BY LOWER(ct.city), ct.city, ct.state_code
     ORDER BY count DESC

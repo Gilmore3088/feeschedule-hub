@@ -114,7 +114,7 @@ export async function getIndexCacheStats(): Promise<{
     ` as IndexCacheEntry[];
 
     return {
-      categories: count.cnt,
+      categories: Number(count.cnt),
       computed_at: computed.latest,
       spotlight,
     };

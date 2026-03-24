@@ -31,7 +31,7 @@ export async function getUncategorizedFeeCount(): Promise<number> {
     WHERE fee_category IS NULL
       AND review_status != 'rejected'
   `;
-  return row.cnt;
+  return Number(row.cnt);
 }
 
 export async function getNullAmountCount(): Promise<number> {
@@ -44,7 +44,7 @@ export async function getNullAmountCount(): Promise<number> {
       AND LOWER(fee_name) NOT LIKE '%waived%'
       AND LOWER(fee_name) NOT LIKE '%no charge%'
   `;
-  return row.cnt;
+  return Number(row.cnt);
 }
 
 export async function getStaleInstitutionCount(): Promise<number> {
@@ -54,7 +54,7 @@ export async function getStaleInstitutionCount(): Promise<number> {
     WHERE last_crawl_at < NOW() - INTERVAL '90 days'
        OR last_crawl_at IS NULL
   `;
-  return row.cnt;
+  return Number(row.cnt);
 }
 
 export async function getStatusDistribution(): Promise<{ review_status: string; count: number }[]> {
@@ -89,7 +89,7 @@ export async function getMissingFinancialsCount(): Promise<number> {
     LEFT JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
     WHERE ifin.id IS NULL
   `;
-  return row.cnt;
+  return Number(row.cnt);
 }
 
 export async function getDataQualityReport(): Promise<DataQualityReport> {
@@ -118,7 +118,7 @@ export async function getDataQualityReport(): Promise<DataQualityReport> {
     uncategorized_fees,
     null_amounts,
     stale_institutions,
-    total_institutions: totalRow.cnt,
+    total_institutions: Number(totalRow.cnt),
     status_distribution,
     duplicate_fees,
     missing_financials,

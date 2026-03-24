@@ -42,11 +42,11 @@ export async function getFinancialStats(): Promise<FinancialStats> {
   const [instComp] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints`;
 
   return {
-    fdic_records: (fdic as unknown as { cnt: number }).cnt,
-    ncua_records: (ncua as unknown as { cnt: number }).cnt,
-    institutions_with_financials: (instFin as unknown as { cnt: number }).cnt,
-    complaint_records: (complaints as unknown as { cnt: number }).cnt,
-    institutions_with_complaints: (instComp as unknown as { cnt: number }).cnt,
+    fdic_records: Number((fdic as unknown as { cnt: number }).cnt),
+    ncua_records: Number((ncua as unknown as { cnt: number }).cnt),
+    institutions_with_financials: Number((instFin as unknown as { cnt: number }).cnt),
+    complaint_records: Number((complaints as unknown as { cnt: number }).cnt),
+    institutions_with_complaints: Number((instComp as unknown as { cnt: number }).cnt),
   };
 }
 
@@ -127,7 +127,7 @@ export async function getMarketConcentrationForInstitution(
            mc.institution_count, mc.hhi, mc.top3_share, mc.year
     FROM market_concentration mc
     JOIN branch_deposits bd ON bd.msa_code = mc.msa_code AND bd.year = mc.year
-    WHERE bd.crawl_target_id = ${targetId} AND mc.year = ${y} AND bd.is_main_office = 1
+    WHERE bd.crawl_target_id = ${targetId} AND mc.year = ${y} AND bd.is_main_office = true
     LIMIT 1`;
   return (row as MarketConcentration | undefined) ?? null;
 }
@@ -334,7 +334,7 @@ export interface DataCoverageSummary {
 export async function getDataCoverageSummary(): Promise<DataCoverageSummary> {
   const count = async (query: string) => {
     const [row] = await sql.unsafe(query);
-    return (row as unknown as { cnt: number }).cnt;
+    return Number((row as unknown as { cnt: number }).cnt);
   };
 
   const [

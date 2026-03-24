@@ -303,10 +303,10 @@ export async function getFeeHistory(institutionId: number, category: string): Pr
 /** Get recent price changes across all institutions, optionally filtered by category */
 export async function getRecentPriceChanges(days: number = 90, category?: string): Promise<PriceChange[]> {
   try {
-    const conditions = [`fce.detected_at > NOW() - interval '${days} days'`];
-    const params: string[] = [];
+    const params: (string | number)[] = [days];
+    const conditions = [`fce.detected_at > NOW() - INTERVAL '1 day' * $1`];
     if (category) {
-      conditions.push("fce.fee_category = $1");
+      conditions.push("fce.fee_category = $2");
       params.push(category);
     }
     const query = `
@@ -413,9 +413,10 @@ export async function getPriceMovementSummary(days: number = 90): Promise<PriceM
               SUM(CASE WHEN change_type = 'removed' THEN 1 ELSE 0 END) as removed,
               COUNT(*) as total_changes
        FROM fee_change_events
-       WHERE detected_at > NOW() - interval '${days} days'
+       WHERE detected_at > NOW() - INTERVAL '1 day' * $1
        GROUP BY fee_category
-       ORDER BY total_changes DESC`
+       ORDER BY total_changes DESC`,
+      [days]
     ) as PriceMovement[];
   } catch {
     return [];

@@ -30,7 +30,12 @@ export async function getPublicStats(): Promise<PublicStats> {
       JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
       WHERE ct.state_code IN ${sql(validCodes)}
         AND ef.review_status != 'rejected'`;
-    return row;
+    return {
+      total_observations: Number(row.total_observations),
+      total_institutions: Number(row.total_institutions),
+      total_categories: Number(row.total_categories),
+      total_states: Number(row.total_states),
+    };
   } catch {
     return { total_observations: 0, total_institutions: 0, total_categories: 0, total_states: 0 };
   }
@@ -46,13 +51,13 @@ export async function getStats(): Promise<CrawlStats> {
   const [runs] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_runs`;
 
   return {
-    total_institutions: total.cnt,
-    banks: banks.cnt,
-    credit_unions: cus.cnt,
-    with_website: withUrl.cnt,
-    with_fee_url: withFee.cnt,
-    total_fees: fees.cnt,
-    crawl_runs: runs.cnt,
+    total_institutions: Number(total.cnt),
+    banks: Number(banks.cnt),
+    credit_unions: Number(cus.cnt),
+    with_website: Number(withUrl.cnt),
+    with_fee_url: Number(withFee.cnt),
+    total_fees: Number(fees.cnt),
+    crawl_runs: Number(runs.cnt),
   };
 }
 
@@ -92,8 +97,8 @@ export async function getAllFees(
 
   if (search) {
     conditions.push(
-      "(ef.fee_name LIKE $" + (params.length + 1) +
-      " OR ct.institution_name LIKE $" + (params.length + 2) + ")"
+      "(ef.fee_name ILIKE $" + (params.length + 1) +
+      " OR ct.institution_name ILIKE $" + (params.length + 2) + ")"
     );
     params.push(`%${search}%`, `%${search}%`);
   }
@@ -108,7 +113,7 @@ export async function getAllFees(
      ${where}`,
     params,
   );
-  const cnt = countResult[0].cnt;
+  const cnt = Number(countResult[0].cnt);
 
   const feesParams = [...params, limit, offset];
   const fees = await sql.unsafe<ExtractedFee[]>(
@@ -196,7 +201,7 @@ export async function getInstitutionsByFilter(filters: {
     LIMIT ${limitParam} OFFSET ${offsetParam}
   `, [...params, pageSize, offset]);
 
-  return { rows, total: countResult[0].cnt };
+  return { rows, total: Number(countResult[0].cnt) };
 }
 
 export async function getInstitutionById(id: number): Promise<InstitutionDetail | null> {
@@ -216,32 +221,36 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
 }
 
 export async function getPeerAnalysis(targetId: number): Promise<Record<string, unknown> | null> {
-  const [row] = await sql<{ result_json: string }[]>`
+  const [row] = await sql<{ result_json: string | Record<string, unknown> }[]>`
     SELECT result_json FROM analysis_results
     WHERE crawl_target_id = ${targetId} AND analysis_type = 'peer_comparison'
   `;
   if (!row) return null;
+  // Postgres JSONB returns parsed object; TEXT returns string
+  if (typeof row.result_json === "object") return row.result_json as Record<string, unknown>;
   return JSON.parse(row.result_json);
 }
 
 export async function getTierCounts(): Promise<{ tier: string; count: number }[]> {
-  return await sql<{ tier: string; count: number }[]>`
+  const rows = await sql<{ tier: string; count: number }[]>`
     SELECT asset_size_tier as tier, COUNT(*) as count
     FROM crawl_targets
     WHERE asset_size_tier IS NOT NULL
     GROUP BY asset_size_tier
     ORDER BY MIN(asset_size)
   `;
+  return rows.map(r => ({ ...r, count: Number(r.count) }));
 }
 
 export async function getDistrictCounts(): Promise<{ district: number; count: number }[]> {
-  return await sql<{ district: number; count: number }[]>`
+  const rows = await sql<{ district: number; count: number }[]>`
     SELECT fed_district as district, COUNT(*) as count
     FROM crawl_targets
     WHERE fed_district IS NOT NULL
     GROUP BY fed_district
     ORDER BY fed_district
   `;
+  return rows.map(r => ({ ...r, count: Number(r.count) }));
 }
 
 export async function getReviewStats(): Promise<ReviewStats> {
@@ -260,7 +269,7 @@ export async function getReviewStats(): Promise<ReviewStats> {
   };
   for (const row of rows) {
     if (row.review_status in stats) {
-      stats[row.review_status as keyof ReviewStats] = row.cnt;
+      stats[row.review_status as keyof ReviewStats] = Number(row.cnt);
     }
   }
   return stats;
@@ -287,7 +296,7 @@ export async function getFeesByStatus(
   let paramIdx = 2;
 
   if (search) {
-    conditions.push(`(ef.fee_name LIKE $${paramIdx++} OR ct.institution_name LIKE $${paramIdx++})`);
+    conditions.push(`(ef.fee_name ILIKE $${paramIdx++} OR ct.institution_name ILIKE $${paramIdx++})`);
     params.push(`%${search}%`, `%${search}%`);
   }
 
@@ -300,7 +309,7 @@ export async function getFeesByStatus(
      WHERE ${whereClause}`,
     params,
   );
-  const cnt = countResult[0].cnt;
+  const cnt = Number(countResult[0].cnt);
 
   const sortCol = (sort && REVIEW_SORT_COLUMNS[sort]) || "ct.institution_name";
   const sortDir = dir === "desc" ? "DESC" : "ASC";
@@ -376,7 +385,7 @@ export async function getOutlierFlaggedFees(
      ${where}`,
     params,
   );
-  const cnt = countResult[0].cnt;
+  const cnt = Number(countResult[0].cnt);
 
   const fees = await sql.unsafe<ReviewableFee[]>(
     `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
@@ -419,7 +428,7 @@ export async function getOutlierCount(): Promise<number> {
            OR validation_flags LIKE '%decimal_error%'
            OR validation_flags LIKE '%percentage_confusion%')
   `;
-  return row.cnt;
+  return Number(row.cnt);
 }
 
 export interface CategoryMedian {
@@ -445,7 +454,7 @@ export async function getCategoryMedians(): Promise<Record<string, CategoryMedia
     if (!grouped.has(row.fee_category)) {
       grouped.set(row.fee_category, []);
     }
-    grouped.get(row.fee_category)!.push(row.amount);
+    grouped.get(row.fee_category)!.push(Number(row.amount));
   }
 
   const result: Record<string, CategoryMedian> = {};
@@ -492,6 +501,6 @@ export async function getDataFreshness(): Promise<DataFreshness> {
   return {
     last_crawl_at: crawl?.last_at ?? null,
     last_fee_extracted_at: fee?.last_at ?? null,
-    total_observations: count.cnt,
+    total_observations: Number(count.cnt),
   };
 }
