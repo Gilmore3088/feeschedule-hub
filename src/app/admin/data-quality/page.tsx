@@ -263,22 +263,22 @@ async function getTableFreshness(): Promise<TableFreshness[]> {
     {
       name: "crawl_targets",
       countSql: sql`SELECT COUNT(*) as cnt FROM crawl_targets`,
-      dateSql: sql`SELECT MAX(updated_at) as latest FROM crawl_targets`,
+      dateSql: sql`SELECT MAX(created_at) as latest FROM crawl_targets`,
     },
     {
       name: "extracted_fees",
       countSql: sql`SELECT COUNT(*) as cnt FROM extracted_fees`,
-      dateSql: sql`SELECT MAX(updated_at) as latest FROM extracted_fees`,
+      dateSql: sql`SELECT MAX(created_at) as latest FROM extracted_fees`,
     },
     {
       name: "crawl_runs",
       countSql: sql`SELECT COUNT(*) as cnt FROM crawl_runs`,
-      dateSql: sql`SELECT MAX(completed_at) as latest FROM crawl_runs`,
+      dateSql: sql`SELECT MAX(started_at) as latest FROM crawl_runs`,
     },
     {
       name: "institution_financials",
       countSql: sql`SELECT COUNT(*) as cnt FROM institution_financials`,
-      dateSql: sql`SELECT MAX(created_at) as latest FROM institution_financials`,
+      dateSql: sql`SELECT MAX(fetched_at) as latest FROM institution_financials`,
     },
     {
       name: "ops_jobs",

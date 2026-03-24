@@ -7,10 +7,10 @@
 | Metric | Count | Percentage |
 |--------|------:|------------|
 | Total Institutions | 8,750 | - |
-| With Fee URL | 3,005 | 34.3% |
-| With Extracted Fees | 2,092 | 23.9% |
-| Total Fee Records | 60,238 | - |
-| Approved Fees | 53,561 | 88.9% |
+| With Fee URL | 2,972 | 34.0% |
+| With Extracted Fees | 2,094 | 23.9% |
+| Total Fee Records | 60,298 | - |
+| Approved Fees | 53,607 | 88.9% |
 
 ## Coverage by State
 
@@ -25,13 +25,13 @@
 | CT | 784 | 719 | 91.7% | 65 |
 | DC | 313 | 294 | 93.9% | 19 |
 | DE | 213 | 191 | 89.7% | 22 |
-| FL | 2,198 | 2,069 | 94.1% | 129 |
+| FL | 2,245 | 2,117 | 94.3% | 128 |
 | GA | 919 | 754 | 82.0% | 165 |
 | GU | 4 | 0 | 0.0% | 4 |
 | HI | 578 | 550 | 95.2% | 28 |
 | IA | 1,423 | 1,169 | 82.2% | 254 |
 | ID | 312 | 287 | 92.0% | 25 |
-| IL | 2,342 | 1,892 | 80.8% | 450 |
+| IL | 2,347 | 1,898 | 80.9% | 449 |
 | IN | 1,250 | 1,079 | 86.3% | 171 |
 | KS | 1,223 | 1,016 | 83.1% | 207 |
 | KY | 655 | 506 | 77.3% | 149 |
@@ -76,7 +76,7 @@
 | Tier | Total | With Fees | Coverage | Gap |
 |------|------:|----------:|---------:|----:|
 | Community ($1B-$10B) | 1,328 | 372 | 28.0% | 956 |
-| Community ($300M-$1B) | 1,998 | 464 | 23.2% | 1,534 |
+| Community ($300M-$1B) | 1,998 | 466 | 23.3% | 1,532 |
 | Community (<$300M) | 5,248 | 1,218 | 23.2% | 4,030 |
 | Large Regional ($50B-$250B) | 39 | 4 | 10.3% | 35 |
 | Regional ($10B-$50B) | 125 | 29 | 23.2% | 96 |
@@ -86,7 +86,7 @@
 
 | Charter | Total | With Fees | Coverage | Gap |
 |---------|------:|----------:|---------:|----:|
-| bank | 4,331 | 657 | 15.2% | 3,674 |
+| bank | 4,331 | 659 | 15.2% | 3,672 |
 | credit_union | 4,419 | 1,435 | 32.5% | 2,984 |
 
 ## Coverage by Fed District
@@ -98,8 +98,8 @@
 | 3. Philadelphia | 428 | 118 | 27.6% | 310 |
 | 4. Cleveland | 648 | 123 | 19.0% | 525 |
 | 5. Richmond | 461 | 146 | 31.7% | 315 |
-| 6. Atlanta | 1,180 | 270 | 22.9% | 910 |
-| 7. Chicago | 1,543 | 318 | 20.6% | 1,225 |
+| 6. Atlanta | 1,180 | 271 | 23.0% | 909 |
+| 7. Chicago | 1,543 | 319 | 20.7% | 1,224 |
 | 8. St. Louis | 414 | 95 | 22.9% | 319 |
 | 9. Minneapolis | 568 | 92 | 16.2% | 476 |
 | 10. Kansas City | 911 | 181 | 19.9% | 730 |
@@ -165,7 +165,7 @@
 
 | Type | Total | With Fees | Success Rate |
 |------|------:|----------:|-------------:|
-| unknown | 5,973 | 8 | 0.1% |
+| unknown | 5,973 | 10 | 0.2% |
 | html | 1,610 | 1,294 | 80.4% |
 | pdf | 1,167 | 790 | 67.7% |
 
@@ -173,12 +173,12 @@
 
 | Reason | Count |
 |--------|------:|
-| none | 8,580 |
-| wrong_document:other | 113 |
-| wrong_document:account_agreement | 22 |
-| wrong_document:tis_disclosure | 17 |
-| dead_url | 12 |
-| wrong_document:rate_sheet | 3 |
+| none | 8,547 |
+| wrong_document:other | 135 |
+| wrong_document:account_agreement | 24 |
+| wrong_document:tis_disclosure | 20 |
+| dead_url | 16 |
+| wrong_document:rate_sheet | 5 |
 | scanned_pdf_no_ocr | 3 |
 
 ## MSA Readiness
@@ -199,7 +199,7 @@
 
 ### [HIGH] Coverage
 
-Overall fee coverage is 23.9% (2,092 of 8,750). Focus crawl efforts on institutions with fee_schedule_url already discovered (3,005 have URLs).
+Overall fee coverage is 23.9% (2,094 of 8,750). Focus crawl efforts on institutions with fee_schedule_url already discovered (2,972 have URLs).
 
 ### [HIGH] Top Gaps
 
@@ -211,11 +211,11 @@ Overall fee coverage is 23.9% (2,092 of 8,750). Focus crawl efforts on instituti
 
 ### [MEDIUM] Failures
 
-"wrong_document:other" affects 113 institutions. Investigate root cause and consider specialized extraction or discovery strategies.
+"wrong_document:other" affects 135 institutions. Investigate root cause and consider specialized extraction or discovery strategies.
 
 ### [MEDIUM] Source Types
 
-"unknown" source type has 0.1% success rate across 5,973 institutions. May need specialized extraction pipeline.
+"unknown" source type has 0.2% success rate across 5,973 institutions. May need specialized extraction pipeline.
 
 ### [LOW] District Balance
 
