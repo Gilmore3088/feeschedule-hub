@@ -1,384 +1,216 @@
 export const dynamic = "force-dynamic";
-import { Suspense } from "react";
+
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
-import {
-  getNationalIndex,
-  getPeerIndex,
-  getTierCounts,
-  getFilteredTierCounts,
-  getDistrictMetrics,
-  getPeerPreviewStats,
-  getSavedPeerSets,
-  getSegmentOutliers,
-  getFeesForCategory,
-  getBeigeBookHeadlines,
-  buildMarketIndex,
-  type MarketIndexEntry,
-  type SegmentOutlier,
-} from "@/lib/crawler-db";
-import { formatAmount } from "@/lib/format";
+import { getMarketData } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { parsePeerFilters, buildFilterDescription } from "@/lib/fed-districts";
-import { getDisplayName } from "@/lib/fee-taxonomy";
-import { SavedSegments } from "@/components/saved-segments";
+import { formatAmount } from "@/lib/format";
 
-import { SegmentControlBar } from "./segment-control-bar";
-import { HeroBenchmarkCards } from "./hero-cards";
-import { CategoryExplorer } from "./category-explorer";
-import { DistributionPanel } from "./distribution-panel";
-import { DistrictMapPanel } from "./district-map-panel";
+function deltaPill(delta: number | null): React.ReactNode {
+  if (delta === null) return <span className="text-gray-400">-</span>;
+  const isBelow = delta < 0;
+  const cls = isBelow
+    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+    : delta > 0
+      ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+  return (
+    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${cls}`}>
+      {delta > 0 ? "+" : ""}{delta}%
+    </span>
+  );
+}
 
 export default async function MarketPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    type?: string;
+    charter?: string;
     tier?: string;
-    district?: string;
-    cat?: string;
-    mapMetric?: string;
-    approved?: string;
-    show?: string;
+    state?: string;
   }>;
 }) {
-  const user = await requireAuth("view");
+  await requireAuth("view");
+
   const params = await searchParams;
+  const charter = params.charter ?? "";
+  const tier = params.tier ?? "";
+  const state = params.state ?? "";
 
-  const peerFilters = parsePeerFilters(params);
-  const approvedOnly = params.approved === "1";
-  const selectedCategory = params.cat ?? null;
-  const mapMetric = params.mapMetric ?? "";
+  const hasFilters = !!(charter || tier || state);
 
-  const dbFilters = {
-    charter_type: peerFilters.charter,
-    asset_tiers: peerFilters.tiers,
-    fed_districts: peerFilters.districts,
-  };
+  let entries: Awaited<ReturnType<typeof getMarketData>> = [];
 
-  const hasFilters = !!(
-    peerFilters.charter ||
-    peerFilters.tiers ||
-    peerFilters.districts
-  );
-
-  // Data fetching (all async postgres)
-  const nationalIndex = await getNationalIndex(approvedOnly);
-  const segmentIndex = hasFilters
-    ? await getPeerIndex(dbFilters, approvedOnly)
-    : null;
-  const entries = buildMarketIndex(nationalIndex, segmentIndex);
-
-  const segmentStats = await getPeerPreviewStats(dbFilters);
-  const nationalStats = hasFilters ? await getPeerPreviewStats({}) : null;
-
-  const tierCounts = await getTierCounts();
-  const filteredTierCounts = hasFilters
-    ? await getFilteredTierCounts(dbFilters)
-    : null;
-
-  const districtMetrics = await getDistrictMetrics(dbFilters);
-  const beigeBookMap = await getBeigeBookHeadlines();
-  const beigeBookHeadlines: Record<
-    string,
-    { text: string; release_date: string }
-  > = {};
-  for (const [k, v] of beigeBookMap) {
-    beigeBookHeadlines[String(k)] = v;
+  try {
+    entries = await getMarketData({
+      charter_type: charter || undefined,
+      asset_tier: tier || undefined,
+      state_code: state || undefined,
+    });
+  } catch (e) {
+    console.error("Market page load failed:", e);
   }
 
-  const outliers = await getSegmentOutliers(dbFilters, 3);
-  const savedSets = await getSavedPeerSets(user.username);
-
-  // Distribution data (only when a category is selected)
-  const segmentFees = selectedCategory
-    ? await getFeesForCategory(selectedCategory, dbFilters, approvedOnly)
-    : [];
-  const nationalFees = selectedCategory
-    ? await getFeesForCategory(selectedCategory, {}, approvedOnly)
-    : [];
-
-  const selectedEntry = selectedCategory
-    ? entries.find((e) => e.fee_category === selectedCategory)
-    : null;
-
-  const filterDescription = hasFilters
-    ? buildFilterDescription(peerFilters)
-    : "All U.S. Financial Institutions";
-
-  // Tier breakdown data for right panel
-  const tierBreakdown = filteredTierCounts ?? tierCounts;
-  const totalTierCount = tierBreakdown.reduce((s, t) => s + t.count, 0);
-
-  // Highest and lowest outliers
-  const highestOutliers = outliers.filter((o) => o.type === "highest");
-  const lowestOutliers = outliers.filter((o) => o.type === "lowest");
+  const filterParts: string[] = [];
+  if (charter) filterParts.push(`Charter: ${charter}`);
+  if (tier) filterParts.push(`Tier: ${tier.replace(/_/g, " ")}`);
+  if (state) filterParts.push(`State: ${state}`);
+  const filterLabel = filterParts.length > 0 ? filterParts.join(" / ") : null;
 
   return (
-    <>
-      <div className="mb-4">
+    <div className="space-y-6">
+      <div>
         <Breadcrumbs
-          items={[
-            { label: "Dashboard", href: "/admin" },
-            { label: "Market Index" },
-          ]}
+          items={[{ label: "Dashboard", href: "/admin" }, { label: "Market Index" }]}
         />
-        <h1 className="text-xl font-bold tracking-tight text-gray-900">
+        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
           Market Index Explorer
         </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Build and analyze retail banking fee benchmarks across segments
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {hasFilters ? filterLabel : "National benchmark — apply filters to compare segments"}
         </p>
       </div>
 
-      {/* Segment control bar */}
-      <Suspense fallback={null}>
-        <SegmentControlBar
-          tierCounts={tierCounts}
-          selectedTiers={peerFilters.tiers ?? []}
-          selectedCharter={peerFilters.charter ?? ""}
-          selectedDistricts={peerFilters.districts ?? []}
-          hasFilters={hasFilters}
-          institutionCount={segmentStats.total_institutions}
-          nationalCount={
-            nationalStats?.total_institutions ??
-            segmentStats.total_institutions
-          }
-          filterDescription={filterDescription}
-        />
-      </Suspense>
-
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
-        {/* Left panel: benchmark engine */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Hero benchmark cards */}
-          <HeroBenchmarkCards entries={entries} hasFilters={hasFilters} />
-
-          {/* Category explorer */}
-          <Suspense fallback={null}>
-            <CategoryExplorer
-              entries={entries}
-              selectedCategory={selectedCategory}
-              hasFilters={hasFilters}
+      {/* Filter bar */}
+      <div className="admin-card p-4">
+        <form className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+              Charter Type
+            </label>
+            <select
+              name="charter"
+              defaultValue={charter}
+              className="rounded border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+            >
+              <option value="">All</option>
+              <option value="bank">Bank</option>
+              <option value="credit_union">Credit Union</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+              Asset Tier
+            </label>
+            <select
+              name="tier"
+              defaultValue={tier}
+              className="rounded border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+            >
+              <option value="">All</option>
+              <option value="community_small">Community (&lt;$300M)</option>
+              <option value="community_mid">Community ($300M-$1B)</option>
+              <option value="community_large">Community ($1B-$10B)</option>
+              <option value="regional">Regional ($10B-$50B)</option>
+              <option value="large_regional">Large Regional ($50B-$250B)</option>
+              <option value="super_regional">Super Regional ($250B+)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+              State
+            </label>
+            <input
+              name="state"
+              defaultValue={state}
+              placeholder="e.g. CA"
+              maxLength={2}
+              className="w-20 rounded border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 uppercase dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
             />
-          </Suspense>
-
-          {/* Distribution panel (conditional) */}
-          {selectedCategory && (
-            <DistributionPanel
-              category={selectedCategory}
-              segmentFees={segmentFees}
-              nationalFees={nationalFees}
-              segmentMedian={selectedEntry?.median_amount ?? null}
-              nationalMedian={selectedEntry?.national_median ?? null}
-            />
+          </div>
+          <button
+            type="submit"
+            className="rounded bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
+          >
+            Apply
+          </button>
+          {hasFilters && (
+            <Link
+              href="/admin/market"
+              className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            >
+              Reset
+            </Link>
           )}
-        </div>
-
-        {/* Right panel: segment intelligence */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* District map */}
-          <Suspense fallback={null}>
-            <DistrictMapPanel
-              districtMetrics={districtMetrics}
-              selectedDistricts={peerFilters.districts ?? []}
-              mapMetric={mapMetric}
-              selectedCategory={selectedCategory}
-              beigeBookHeadlines={beigeBookHeadlines}
-            />
-          </Suspense>
-
-          {/* Segment stats card */}
-          <div className="admin-card">
-            <div className="px-4 py-3 border-b bg-gray-50/80">
-              <h3 className="text-sm font-bold text-gray-800">
-                Segment Summary
-              </h3>
-            </div>
-            <div className="p-4 space-y-3">
-              <StatRow
-                label="Institutions"
-                value={segmentStats.total_institutions.toLocaleString()}
-                sub={
-                  hasFilters && nationalStats
-                    ? `${((segmentStats.total_institutions / nationalStats.total_institutions) * 100).toFixed(1)}% of national`
-                    : undefined
-                }
-              />
-              <StatRow
-                label="Fee URL Coverage"
-                value={
-                  segmentStats.total_institutions > 0
-                    ? `${((segmentStats.with_fee_url / segmentStats.total_institutions) * 100).toFixed(1)}%`
-                    : "0%"
-                }
-                sub={`${segmentStats.with_fee_url.toLocaleString()} of ${segmentStats.total_institutions.toLocaleString()}`}
-              />
-              <StatRow
-                label="Total Fees"
-                value={segmentStats.total_fees.toLocaleString()}
-              />
-              <StatRow
-                label="Avg Confidence"
-                value={`${(segmentStats.avg_confidence * 100).toFixed(1)}%`}
-              />
-              <StatRow
-                label="Flag Rate"
-                value={`${(segmentStats.flag_rate * 100).toFixed(1)}%`}
-                highlight={segmentStats.flag_rate > 0.15}
-              />
-            </div>
-          </div>
-
-          {/* Tier breakdown card */}
-          <div className="admin-card">
-            <div className="px-4 py-3 border-b bg-gray-50/80">
-              <h3 className="text-sm font-bold text-gray-800">
-                Tier Breakdown
-              </h3>
-            </div>
-            <div className="p-4 space-y-2.5">
-              {tierBreakdown.map((t) => {
-                const pct =
-                  totalTierCount > 0
-                    ? (t.count / totalTierCount) * 100
-                    : 0;
-                return (
-                  <div key={t.tier} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-600 w-28 truncate">
-                      {t.tier.replace(/_/g, " ")}
-                    </span>
-                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gray-400 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-500 tabular-nums w-12 text-right">
-                      {t.count.toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })}
-              {tierBreakdown.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-2">
-                  No tier data available
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Top outliers card */}
-          <div className="admin-card">
-            <div className="px-4 py-3 border-b bg-gray-50/80">
-              <h3 className="text-sm font-bold text-gray-800">
-                Top Outliers
-              </h3>
-            </div>
-            <div className="p-4 space-y-4">
-              {highestOutliers.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                    Highest Fees
-                  </p>
-                  <div className="space-y-1.5">
-                    {highestOutliers.map((o, i) => (
-                      <OutlierRow key={`h-${i}`} outlier={o} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {lowestOutliers.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                    Lowest Fees
-                  </p>
-                  <div className="space-y-1.5">
-                    {lowestOutliers.map((o, i) => (
-                      <OutlierRow key={`l-${i}`} outlier={o} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {outliers.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-2">
-                  No outlier data available
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+        </form>
       </div>
 
-      {/* Saved segments */}
-      <div className="mt-6">
-        <Suspense fallback={null}>
-          <SavedSegments
-            segments={savedSets}
-            hasFilters={hasFilters}
-            currentFilters={{
-              charter: peerFilters.charter,
-              tiers: peerFilters.tiers,
-              districts: peerFilters.districts,
-            }}
-            basePath="/admin/market"
-          />
-        </Suspense>
-      </div>
-    </>
-  );
-}
-
-function StatRow({
-  label,
-  value,
-  sub,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between">
-      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-        {label}
-      </span>
-      <div className="text-right">
-        <span
-          className={`text-sm font-bold tabular-nums ${
-            highlight ? "text-amber-600" : "text-gray-900"
-          }`}
-        >
-          {value}
-        </span>
-        {sub && (
-          <p className="text-[10px] text-gray-400 tabular-nums">{sub}</p>
+      {/* Results table */}
+      <div className="admin-card overflow-hidden">
+        <div className="px-4 py-2.5 border-b bg-gray-50/80 dark:bg-white/[0.04] flex items-center justify-between">
+          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200">
+            {hasFilters ? "Segment vs National" : "National Index"}
+          </h2>
+          <span className="text-[11px] text-gray-400 tabular-nums">
+            {entries.length} categories
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  National Median
+                </th>
+                {hasFilters && (
+                  <>
+                    <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                      Segment Median
+                    </th>
+                    <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                      Delta
+                    </th>
+                  </>
+                )}
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                  Institutions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((item) => (
+                <tr
+                  key={item.fee_category}
+                  className="border-b last:border-0 hover:bg-gray-50/50 dark:hover:bg-white/[0.03] transition-colors"
+                >
+                  <td className="px-4 py-2.5">
+                    <Link
+                      href={`/admin/fees/catalog/${item.fee_category}`}
+                      className="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                    >
+                      {item.display_name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">
+                    {formatAmount(item.national_median)}
+                  </td>
+                  {hasFilters && (
+                    <>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                        {formatAmount(item.segment_median)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {deltaPill(item.delta_pct)}
+                      </td>
+                    </>
+                  )}
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                    {item.institution_count.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {entries.length === 0 && (
+          <div className="text-center py-12 text-sm text-gray-400">
+            No market data available
+          </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function OutlierRow({ outlier }: { outlier: SegmentOutlier }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="min-w-0">
-        <p className="text-xs text-gray-700 truncate">
-          {getDisplayName(outlier.fee_category)}
-        </p>
-        <Link
-          href={`/admin/peers/${outlier.institution_id}`}
-          className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors truncate block"
-        >
-          {outlier.institution_name}
-        </Link>
-      </div>
-      <span className="text-sm font-bold tabular-nums text-gray-900 ml-3 flex-shrink-0">
-        {formatAmount(outlier.amount)}
-      </span>
     </div>
   );
 }

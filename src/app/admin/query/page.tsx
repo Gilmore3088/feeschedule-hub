@@ -7,15 +7,23 @@ export default async function QueryPage() {
   await requireAuth("view");
 
   return (
-    <>
-      <Breadcrumbs items={[{ label: "Dashboard", href: "/admin" }, { label: "Query" }]} />
-      <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-1">
-        Database Query
-      </h1>
-      <p className="text-sm text-gray-500 mb-4">
-        Run read-only SQL queries against the database
-      </p>
+    <div className="space-y-6">
+      <div>
+        <Breadcrumbs
+          items={[
+            { label: "Admin", href: "/admin" },
+            { label: "SQL Explorer" },
+          ]}
+        />
+        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          SQL Explorer
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Run read-only SQL queries against the database
+        </p>
+      </div>
+
       <QueryClient />
-    </>
+    </div>
   );
 }

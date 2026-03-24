@@ -7,10 +7,10 @@
 | Metric | Count | Percentage |
 |--------|------:|------------|
 | Total Institutions | 8,750 | - |
-| With Fee URL | 2,972 | 34.0% |
-| With Extracted Fees | 2,094 | 23.9% |
-| Total Fee Records | 60,298 | - |
-| Approved Fees | 53,607 | 88.9% |
+| With Fee URL | 2,939 | 33.6% |
+| With Extracted Fees | 2,096 | 24.0% |
+| Total Fee Records | 60,392 | - |
+| Approved Fees | 53,683 | 88.9% |
 
 ## Coverage by State
 
@@ -35,7 +35,7 @@
 | IN | 1,250 | 1,079 | 86.3% | 171 |
 | KS | 1,223 | 1,016 | 83.1% | 207 |
 | KY | 655 | 506 | 77.3% | 149 |
-| LA | 1,250 | 1,059 | 84.7% | 191 |
+| LA | 1,297 | 1,107 | 85.4% | 190 |
 | MA | 1,980 | 1,842 | 93.0% | 138 |
 | MD | 805 | 744 | 92.4% | 61 |
 | ME | 571 | 520 | 91.1% | 51 |
@@ -61,7 +61,7 @@
 | SC | 855 | 793 | 92.7% | 62 |
 | SD | 406 | 330 | 81.3% | 76 |
 | TN | 1,227 | 1,030 | 83.9% | 197 |
-| TX | 5,005 | 4,437 | 88.7% | 568 |
+| TX | 5,046 | 4,479 | 88.8% | 567 |
 | UT | 487 | 413 | 84.8% | 74 |
 | VA | 1,220 | 1,114 | 91.3% | 106 |
 | VI | 49 | 46 | 93.9% | 3 |
@@ -76,7 +76,7 @@
 | Tier | Total | With Fees | Coverage | Gap |
 |------|------:|----------:|---------:|----:|
 | Community ($1B-$10B) | 1,328 | 372 | 28.0% | 956 |
-| Community ($300M-$1B) | 1,998 | 466 | 23.3% | 1,532 |
+| Community ($300M-$1B) | 1,998 | 468 | 23.4% | 1,530 |
 | Community (<$300M) | 5,248 | 1,218 | 23.2% | 4,030 |
 | Large Regional ($50B-$250B) | 39 | 4 | 10.3% | 35 |
 | Regional ($10B-$50B) | 125 | 29 | 23.2% | 96 |
@@ -86,8 +86,8 @@
 
 | Charter | Total | With Fees | Coverage | Gap |
 |---------|------:|----------:|---------:|----:|
-| bank | 4,331 | 659 | 15.2% | 3,672 |
-| credit_union | 4,419 | 1,435 | 32.5% | 2,984 |
+| bank | 4,331 | 660 | 15.2% | 3,671 |
+| credit_union | 4,419 | 1,436 | 32.5% | 2,983 |
 
 ## Coverage by Fed District
 
@@ -98,12 +98,12 @@
 | 3. Philadelphia | 428 | 118 | 27.6% | 310 |
 | 4. Cleveland | 648 | 123 | 19.0% | 525 |
 | 5. Richmond | 461 | 146 | 31.7% | 315 |
-| 6. Atlanta | 1,180 | 271 | 23.0% | 909 |
+| 6. Atlanta | 1,180 | 272 | 23.1% | 908 |
 | 7. Chicago | 1,543 | 319 | 20.7% | 1,224 |
 | 8. St. Louis | 414 | 95 | 22.9% | 319 |
 | 9. Minneapolis | 568 | 92 | 16.2% | 476 |
 | 10. Kansas City | 911 | 181 | 19.9% | 730 |
-| 11. Dallas | 786 | 190 | 24.2% | 596 |
+| 11. Dallas | 786 | 191 | 24.3% | 595 |
 | 12. San Francisco | 764 | 264 | 34.6% | 500 |
 
 ## Top 50 Gaps (Largest Institutions Without Fee Data)
@@ -165,7 +165,7 @@
 
 | Type | Total | With Fees | Success Rate |
 |------|------:|----------:|-------------:|
-| unknown | 5,973 | 10 | 0.2% |
+| unknown | 5,973 | 12 | 0.2% |
 | html | 1,610 | 1,294 | 80.4% |
 | pdf | 1,167 | 790 | 67.7% |
 
@@ -173,12 +173,12 @@
 
 | Reason | Count |
 |--------|------:|
-| none | 8,547 |
-| wrong_document:other | 135 |
-| wrong_document:account_agreement | 24 |
-| wrong_document:tis_disclosure | 20 |
+| none | 8,514 |
+| wrong_document:other | 160 |
+| wrong_document:account_agreement | 27 |
+| wrong_document:tis_disclosure | 22 |
 | dead_url | 16 |
-| wrong_document:rate_sheet | 5 |
+| wrong_document:rate_sheet | 8 |
 | scanned_pdf_no_ocr | 3 |
 
 ## MSA Readiness
@@ -191,7 +191,7 @@
 
 | Date | Total | w/ URL | w/ Fees | Approved | Total Fees |
 |------|------:|-------:|--------:|---------:|-----------:|
-| 2026-03-24 | 8,750 | 3,005 | 2,309 | 2,142 | 60,238 |
+| 2026-03-24 | 8,750 | 2,939 | 2,313 | 2,146 | 60,392 |
 | 2026-03-23 | 8,750 | 2,785 | 2,304 | 2,138 | 60,206 |
 | 2026-03-17 | 8,750 | 2,776 | 2,304 | 2,138 | 67,405 |
 
@@ -199,7 +199,7 @@
 
 ### [HIGH] Coverage
 
-Overall fee coverage is 23.9% (2,094 of 8,750). Focus crawl efforts on institutions with fee_schedule_url already discovered (2,972 have URLs).
+Overall fee coverage is 24.0% (2,096 of 8,750). Focus crawl efforts on institutions with fee_schedule_url already discovered (2,939 have URLs).
 
 ### [HIGH] Top Gaps
 
@@ -211,7 +211,7 @@ Overall fee coverage is 23.9% (2,094 of 8,750). Focus crawl efforts on instituti
 
 ### [MEDIUM] Failures
 
-"wrong_document:other" affects 135 institutions. Investigate root cause and consider specialized extraction or discovery strategies.
+"wrong_document:other" affects 160 institutions. Investigate root cause and consider specialized extraction or discovery strategies.
 
 ### [MEDIUM] Source Types
 

@@ -753,6 +753,189 @@ export async function getFeeDetail(feeId: number): Promise<FeeDetailRow | null> 
 // Fees Catalog
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Operations (Ops)
+// ---------------------------------------------------------------------------
+
+export interface OpsJobRow {
+  id: number;
+  command: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_sec: number | null;
+  result_summary: string | null;
+  triggered_by: string | null;
+  error_summary: string | null;
+}
+
+export async function getOpsJobs(limit = 50): Promise<OpsJobRow[]> {
+  try {
+    const rows = await sql`
+      SELECT id, command, status, started_at, completed_at,
+             CASE WHEN started_at IS NOT NULL AND completed_at IS NOT NULL
+               THEN EXTRACT(EPOCH FROM (completed_at - started_at))::int
+               ELSE NULL END as duration_sec,
+             result_summary, triggered_by, error_summary
+      FROM ops_jobs
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      command: String(r.command),
+      status: String(r.status),
+      started_at: r.started_at ? toDateStr(r.started_at as string | Date) : null,
+      completed_at: r.completed_at ? toDateStr(r.completed_at as string | Date) : null,
+      duration_sec: r.duration_sec != null ? Number(r.duration_sec) : null,
+      result_summary: r.result_summary ? String(r.result_summary) : null,
+      triggered_by: r.triggered_by ? String(r.triggered_by) : null,
+      error_summary: r.error_summary ? String(r.error_summary) : null,
+    }));
+  } catch (e) {
+    console.error("getOpsJobs failed:", e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Institutions
+// ---------------------------------------------------------------------------
+
+export interface InstitutionRow {
+  id: number;
+  institution_name: string;
+  state_code: string | null;
+  charter_type: string | null;
+  asset_size: number | null;
+  has_fee_url: boolean;
+  fee_count: number;
+}
+
+export interface SearchInstitutionsResult {
+  institutions: InstitutionRow[];
+  total: number;
+}
+
+export async function searchInstitutions(
+  query: string | undefined,
+  page: number,
+  limit: number,
+): Promise<SearchInstitutionsResult> {
+  try {
+    const offset = (page - 1) * limit;
+
+    if (query && query.trim()) {
+      const pattern = `%${query.trim()}%`;
+      const countResult = await sql`
+        SELECT COUNT(*) as cnt FROM crawl_targets
+        WHERE institution_name ILIKE ${pattern}
+      `;
+      const total = Number(countResult[0].cnt);
+
+      const rows = await sql`
+        SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
+               (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
+               COALESCE(fc.fee_count, 0) as fee_count
+        FROM crawl_targets ct
+        LEFT JOIN (
+          SELECT crawl_target_id, COUNT(*) as fee_count
+          FROM extracted_fees WHERE review_status != 'rejected'
+          GROUP BY crawl_target_id
+        ) fc ON fc.crawl_target_id = ct.id
+        WHERE ct.institution_name ILIKE ${pattern}
+        ORDER BY ct.asset_size DESC NULLS LAST
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+
+      return {
+        total,
+        institutions: rows.map(mapInstitutionRow),
+      };
+    }
+
+    const countResult = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
+    const total = Number(countResult[0].cnt);
+
+    const rows = await sql`
+      SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
+             (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
+             COALESCE(fc.fee_count, 0) as fee_count
+      FROM crawl_targets ct
+      LEFT JOIN (
+        SELECT crawl_target_id, COUNT(*) as fee_count
+        FROM extracted_fees WHERE review_status != 'rejected'
+        GROUP BY crawl_target_id
+      ) fc ON fc.crawl_target_id = ct.id
+      ORDER BY ct.asset_size DESC NULLS LAST
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    return {
+      total,
+      institutions: rows.map(mapInstitutionRow),
+    };
+  } catch (e) {
+    console.error("searchInstitutions failed:", e);
+    return { institutions: [], total: 0 };
+  }
+}
+
+function mapInstitutionRow(r: Record<string, unknown>): InstitutionRow {
+  return {
+    id: Number(r.id),
+    institution_name: String(r.institution_name),
+    state_code: r.state_code ? String(r.state_code) : null,
+    charter_type: r.charter_type ? String(r.charter_type) : null,
+    asset_size: r.asset_size != null ? Number(r.asset_size) : null,
+    has_fee_url: Boolean(r.has_fee_url),
+    fee_count: Number(r.fee_count),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Leads
+// ---------------------------------------------------------------------------
+
+export interface LeadRow {
+  id: number;
+  name: string;
+  email: string;
+  company: string | null;
+  role: string | null;
+  use_case: string | null;
+  source: string | null;
+  created_at: string;
+}
+
+export async function getLeads(limit = 200): Promise<LeadRow[]> {
+  try {
+    const rows = await sql`
+      SELECT id, name, email, company, role, use_case, source, created_at
+      FROM leads
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      name: String(r.name),
+      email: String(r.email),
+      company: r.company ? String(r.company) : null,
+      role: r.role ? String(r.role) : null,
+      use_case: r.use_case ? String(r.use_case) : null,
+      source: r.source ? String(r.source) : null,
+      created_at: toDateStr(r.created_at as string | Date),
+    }));
+  } catch (e) {
+    console.error("getLeads failed:", e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fees Catalog
+// ---------------------------------------------------------------------------
+
 export async function getFeeCatalogSummary(): Promise<FeeCatalogRow[]> {
   try {
     const rows = await sql<Record<string, unknown>[]>`
@@ -786,6 +969,337 @@ export async function getFeeCatalogSummary(): Promise<FeeCatalogRow[]> {
     });
   } catch (e) {
     console.error("getFeeCatalogSummary failed:", e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Districts Overview
+// ---------------------------------------------------------------------------
+
+export interface DistrictOverviewRow {
+  district: number;
+  name: string;
+  total: number;
+  with_fees: number;
+  pct: number;
+}
+
+export async function getDistrictOverview(): Promise<DistrictOverviewRow[]> {
+  const NAMES: Record<number, string> = {
+    1: "Boston", 2: "New York", 3: "Philadelphia", 4: "Cleveland",
+    5: "Richmond", 6: "Atlanta", 7: "Chicago", 8: "St. Louis",
+    9: "Minneapolis", 10: "Kansas City", 11: "Dallas", 12: "San Francisco",
+  };
+
+  try {
+    const rows = await sql`
+      SELECT
+        ct.fed_district as district,
+        COUNT(*) as total,
+        COUNT(DISTINCT ef.crawl_target_id) as with_fees
+      FROM crawl_targets ct
+      LEFT JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
+        AND ef.review_status != 'rejected'
+      WHERE ct.fed_district IS NOT NULL
+      GROUP BY ct.fed_district
+      ORDER BY ct.fed_district
+    `;
+    return rows.map((r) => {
+      const total = Number(r.total);
+      const withFees = Number(r.with_fees);
+      const d = Number(r.district);
+      return {
+        district: d,
+        name: NAMES[d] ?? `District ${d}`,
+        total,
+        with_fees: withFees,
+        pct: total > 0 ? Math.round((withFees / total) * 100) : 0,
+      };
+    });
+  } catch (e) {
+    console.error("getDistrictOverview failed:", e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// National Fee Index
+// ---------------------------------------------------------------------------
+
+export interface NationalIndexRow {
+  fee_category: string;
+  display_name: string;
+  fee_family: string | null;
+  median: number | null;
+  p25: number | null;
+  p75: number | null;
+  min_amount: number | null;
+  max_amount: number | null;
+  institution_count: number;
+  observation_count: number;
+  approved_count: number;
+  bank_count: number;
+  cu_count: number;
+  maturity: string;
+}
+
+export async function getNationalIndexData(): Promise<NationalIndexRow[]> {
+  try {
+    const rows = await sql`
+      SELECT fee_category, fee_family,
+             median_amount, p25_amount, p75_amount,
+             min_amount, max_amount,
+             institution_count, observation_count, approved_count,
+             bank_count, cu_count, maturity_tier
+      FROM fee_index_cache
+      ORDER BY institution_count DESC
+    `;
+
+    const { DISPLAY_NAMES } = await import("@/lib/fee-taxonomy");
+
+    return rows.map((r) => {
+      const cat = String(r.fee_category);
+      return {
+        fee_category: cat,
+        display_name: DISPLAY_NAMES[cat] || cat.replace(/_/g, " "),
+        fee_family: r.fee_family ? String(r.fee_family) : null,
+        median: r.median_amount != null ? Number(Number(r.median_amount).toFixed(2)) : null,
+        p25: r.p25_amount != null ? Number(Number(r.p25_amount).toFixed(2)) : null,
+        p75: r.p75_amount != null ? Number(Number(r.p75_amount).toFixed(2)) : null,
+        min_amount: r.min_amount != null ? Number(Number(r.min_amount).toFixed(2)) : null,
+        max_amount: r.max_amount != null ? Number(Number(r.max_amount).toFixed(2)) : null,
+        institution_count: Number(r.institution_count),
+        observation_count: Number(r.observation_count),
+        approved_count: Number(r.approved_count),
+        bank_count: Number(r.bank_count),
+        cu_count: Number(r.cu_count),
+        maturity: String(r.maturity_tier),
+      };
+    });
+  } catch (e) {
+    console.error("getNationalIndexData failed:", e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Market Index (segment vs national)
+// ---------------------------------------------------------------------------
+
+export interface MarketIndexRow {
+  fee_category: string;
+  display_name: string;
+  national_median: number | null;
+  segment_median: number | null;
+  delta_pct: number | null;
+  institution_count: number;
+}
+
+export async function getMarketData(filters: {
+  charter_type?: string;
+  asset_tier?: string;
+  state_code?: string;
+}): Promise<MarketIndexRow[]> {
+  try {
+    // Always load national baseline from cache
+    const national = await sql`
+      SELECT fee_category, median_amount, institution_count
+      FROM fee_index_cache
+      ORDER BY institution_count DESC
+    `;
+
+    const { DISPLAY_NAMES } = await import("@/lib/fee-taxonomy");
+
+    const nationalMap = new Map<string, { median: number | null; count: number }>();
+    for (const r of national) {
+      nationalMap.set(String(r.fee_category), {
+        median: r.median_amount != null ? Number(r.median_amount) : null,
+        count: Number(r.institution_count),
+      });
+    }
+
+    const hasFilters = !!(filters.charter_type || filters.asset_tier || filters.state_code);
+
+    if (!hasFilters) {
+      return national.map((r) => {
+        const cat = String(r.fee_category);
+        return {
+          fee_category: cat,
+          display_name: DISPLAY_NAMES[cat] || cat.replace(/_/g, " "),
+          national_median: r.median_amount != null ? Number(Number(r.median_amount).toFixed(2)) : null,
+          segment_median: null,
+          delta_pct: null,
+          institution_count: Number(r.institution_count),
+        };
+      });
+    }
+
+    // Build filtered segment query
+    const conditions = [
+      "ef.fee_category IS NOT NULL",
+      "ef.review_status != 'rejected'",
+      "ef.amount IS NOT NULL",
+    ];
+    const params: (string | number | null)[] = [];
+    let paramIdx = 1;
+
+    if (filters.charter_type) {
+      conditions.push(`ct.charter_type = $${paramIdx++}`);
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tier) {
+      conditions.push(`ct.asset_tier = $${paramIdx++}`);
+      params.push(filters.asset_tier);
+    }
+    if (filters.state_code) {
+      conditions.push(`ct.state_code = $${paramIdx++}`);
+      params.push(filters.state_code);
+    }
+
+    const where = conditions.join(" AND ");
+    const segRows = await sql.unsafe(
+      `SELECT ef.fee_category,
+              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
+              COUNT(DISTINCT ct.id) as inst_count
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${where}
+       GROUP BY ef.fee_category`,
+      params,
+    );
+
+    const segMap = new Map<string, { median: number; count: number }>();
+    for (const r of segRows) {
+      segMap.set(String(r.fee_category), {
+        median: Number(r.median),
+        count: Number(r.inst_count),
+      });
+    }
+
+    // Merge: union of all categories
+    const allCats = new Set([...nationalMap.keys(), ...segMap.keys()]);
+    const results: MarketIndexRow[] = [];
+    for (const cat of allCats) {
+      const nat = nationalMap.get(cat);
+      const seg = segMap.get(cat);
+      const natMedian = nat?.median ?? null;
+      const segMedian = seg?.median ?? null;
+      let deltaPct: number | null = null;
+      if (natMedian != null && natMedian !== 0 && segMedian != null) {
+        deltaPct = Number(((segMedian - natMedian) / natMedian * 100).toFixed(1));
+      }
+      results.push({
+        fee_category: cat,
+        display_name: DISPLAY_NAMES[cat] || cat.replace(/_/g, " "),
+        national_median: natMedian != null ? Number(natMedian.toFixed(2)) : null,
+        segment_median: segMedian != null ? Number(segMedian.toFixed(2)) : null,
+        delta_pct: deltaPct,
+        institution_count: seg?.count ?? nat?.count ?? 0,
+      });
+    }
+
+    results.sort((a, b) => b.institution_count - a.institution_count);
+    return results;
+  } catch (e) {
+    console.error("getMarketData failed:", e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Peer Index
+// ---------------------------------------------------------------------------
+
+export interface PeerIndexRow {
+  fee_category: string;
+  display_name: string;
+  peer_median: number | null;
+  national_median: number | null;
+  delta_pct: number | null;
+  peer_count: number;
+  national_count: number;
+}
+
+export async function getPeerIndexData(filters: {
+  charter_type?: string;
+  asset_tier?: string;
+  fed_district?: number;
+}): Promise<PeerIndexRow[]> {
+  try {
+    const national = await sql`
+      SELECT fee_category, median_amount, institution_count
+      FROM fee_index_cache
+    `;
+
+    const { DISPLAY_NAMES } = await import("@/lib/fee-taxonomy");
+
+    const nationalMap = new Map<string, { median: number | null; count: number }>();
+    for (const r of national) {
+      nationalMap.set(String(r.fee_category), {
+        median: r.median_amount != null ? Number(r.median_amount) : null,
+        count: Number(r.institution_count),
+      });
+    }
+
+    const conditions = [
+      "ef.fee_category IS NOT NULL",
+      "ef.review_status != 'rejected'",
+      "ef.amount IS NOT NULL",
+    ];
+    const params: (string | number | null)[] = [];
+    let paramIdx = 1;
+
+    if (filters.charter_type) {
+      conditions.push(`ct.charter_type = $${paramIdx++}`);
+      params.push(filters.charter_type);
+    }
+    if (filters.asset_tier) {
+      conditions.push(`ct.asset_tier = $${paramIdx++}`);
+      params.push(filters.asset_tier);
+    }
+    if (filters.fed_district) {
+      conditions.push(`ct.fed_district = $${paramIdx++}`);
+      params.push(filters.fed_district);
+    }
+
+    const where = conditions.join(" AND ");
+    const peerRows = await sql.unsafe(
+      `SELECT ef.fee_category,
+              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
+              COUNT(DISTINCT ct.id) as inst_count
+       FROM extracted_fees ef
+       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       WHERE ${where}
+       GROUP BY ef.fee_category`,
+      params,
+    );
+
+    const results: PeerIndexRow[] = [];
+    for (const r of peerRows) {
+      const cat = String(r.fee_category);
+      const nat = nationalMap.get(cat);
+      const peerMedian = Number(r.median);
+      const natMedian = nat?.median ?? null;
+      let deltaPct: number | null = null;
+      if (natMedian != null && natMedian !== 0) {
+        deltaPct = Number(((peerMedian - natMedian) / natMedian * 100).toFixed(1));
+      }
+      results.push({
+        fee_category: cat,
+        display_name: DISPLAY_NAMES[cat] || cat.replace(/_/g, " "),
+        peer_median: Number(peerMedian.toFixed(2)),
+        national_median: natMedian != null ? Number(natMedian.toFixed(2)) : null,
+        delta_pct: deltaPct,
+        peer_count: Number(r.inst_count),
+        national_count: nat?.count ?? 0,
+      });
+    }
+
+    results.sort((a, b) => b.peer_count - a.peer_count);
+    return results;
+  } catch (e) {
+    console.error("getPeerIndexData failed:", e);
     return [];
   }
 }
