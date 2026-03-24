@@ -204,7 +204,7 @@ def _crawl_one(
                         validated = validate_and_classify_fees(fees, config, fee_categories=categories)
                         # Jump to merge (step 5)
                         from fee_crawler.commands.merge_fees import merge_institution_fees
-                        db.execute("BEGIN IMMEDIATE")
+                        db.execute("BEGIN")
                         try:
                             result_id = _save_result(
                                 db, run_id, target_id, "success", url,
@@ -263,7 +263,7 @@ def _crawl_one(
         # Step 5: Merge new fees with existing (compare, snapshot, change events)
         from fee_crawler.commands.merge_fees import merge_institution_fees
 
-        db.execute("BEGIN IMMEDIATE")
+        db.execute("BEGIN")
         try:
             result_id = _save_result(
                 db, run_id, target_id, "success", url,

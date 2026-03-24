@@ -753,6 +753,8 @@ def _sqlite_to_pg(sql: str) -> str:
             s = s.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
     # strftime('%Y-%m-%d', col) -> DATE(col)
     s = re.sub(r"strftime\('%Y-%m-%d',\s*(\w+)\)", r"DATE(\1)", s)
+    # BEGIN IMMEDIATE -> BEGIN (Postgres doesn't have IMMEDIATE mode)
+    s = s.replace("BEGIN IMMEDIATE", "BEGIN")
     # PRAGMA statements -> no-op
     if s.strip().upper().startswith("PRAGMA"):
         return "SELECT 1"
