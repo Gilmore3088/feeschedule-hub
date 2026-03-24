@@ -127,7 +127,7 @@ export default function GatewayClient() {
             <div className="mt-6 flex items-center gap-5 text-[12px] lg:text-[13px]">
               <div>
                 <span className="font-bold text-[#1A1815] tabular-nums">
-                  10,000+
+                  8,000+
                 </span>
                 <span className="ml-1.5 text-[#A09788]">institutions</span>
               </div>
@@ -278,7 +278,7 @@ export default function GatewayClient() {
       {/* Bottom attribution */}
       <div className="relative z-10 text-center px-6 py-5">
         <p className="text-[13px] text-white/15">
-          Independent fee benchmarking for 10,000+ U.S. financial institutions
+          Independent fee benchmarking for 8,000+ U.S. financial institutions
         </p>
       </div>
     </div>

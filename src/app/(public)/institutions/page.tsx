@@ -8,7 +8,7 @@ import { TIER_LABELS } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 
 export const metadata: Metadata = {
-  title: "Find Your Bank - Search 9,000+ Institutions",
+  title: "Find Your Bank - Search 8,000+ Institutions",
   description:
     "Search banks and credit unions to compare fees against national benchmarks. Free institution lookup for all US financial institutions.",
 };

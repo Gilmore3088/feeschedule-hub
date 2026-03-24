@@ -9,7 +9,7 @@ const COMING_SOON_HTML = `<!DOCTYPE html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bank Fee Index - The National Benchmark for Banking Fees</title>
-  <meta name="description" content="Compare bank and credit union fees across 9,000+ institutions. The first comprehensive fee benchmarking platform for consumers, consultants, and financial institutions." />
+  <meta name="description" content="Compare bank and credit union fees across 8,000+ institutions. The first comprehensive fee benchmarking platform for consumers, consultants, and financial institutions." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet" />
@@ -293,7 +293,7 @@ const COMING_SOON_HTML = `<!DOCTYPE html>
     <div class="badge">Coming Soon</div>
     <h1>The national benchmark for <em>banking fees</em></h1>
     <p class="subtitle">
-      Compare fees across 9,000+ banks and credit unions.
+      Compare fees across 8,000+ banks and credit unions.
       Research-grade data for consumers, consultants, fintechs,
       and financial institutions.
     </p>

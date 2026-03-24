@@ -58,7 +58,7 @@ export default async function RegisterPage() {
           {/* Feature list */}
           <ul className="space-y-4">
             {[
-              "Search 10,000+ institutions",
+              "Search 8,000+ institutions",
               "49 fee categories",
               "Plain-language guides",
               "3 free AI research queries/day",

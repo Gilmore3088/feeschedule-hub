@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     template: "%s | Bank Fee Index",
   },
   description:
-    "The national benchmark for banking fees. Compare fees across 9,000+ banks and credit unions with research-grade data.",
+    "The national benchmark for banking fees. Compare fees across 8,000+ banks and credit unions with research-grade data.",
   openGraph: {
     type: "website",
     siteName: "Bank Fee Index",

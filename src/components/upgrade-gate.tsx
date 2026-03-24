@@ -52,7 +52,7 @@ export function UpgradeGate({
           : "Unlock all 49 fee categories, peer benchmarks by charter/tier/district, data exports, and AI-powered research."}
       </p>
       <div className="text-[11px] text-[#A09788] mt-2 mb-4">
-        Based on 18,000+ fee observations from 10,000+ institutions
+        Based on 60,000+ fee observations from 8,000+ institutions
       </div>
       <Link
         href="/subscribe"
