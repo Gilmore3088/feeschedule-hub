@@ -2,6 +2,7 @@
 
 import { useReducer, useCallback, useEffect, useState, useRef } from "react";
 import type { FeeReport, AgentId, MappedFee } from "@/lib/scout/types";
+import type { AuditAgentId, AuditResult, BatchSummary } from "@/lib/scout/audit-types";
 
 // -- Constants ----------------------------------------------------------------
 
@@ -13,6 +14,24 @@ const STEPS: { id: AgentId; n: string; label: string; desc: string }[] = [
   { id: "extractor",  n: "03", label: "Fee Structuring",    desc: "Maps database records to report schema" },
   { id: "analyst",    n: "04", label: "Report Synthesis",   desc: "Claude generates intelligence report" },
 ];
+
+// -- Audit constants ----------------------------------------------------------
+
+const AUDIT_AGENT_IDS: AuditAgentId[] = ["validator", "discoverer", "ai_scout", "reporter"];
+
+const AUDIT_STEPS: { id: AuditAgentId; n: string; label: string; desc: string }[] = [
+  { id: "validator",  n: "01", label: "URL Validation",       desc: "Checks if existing URL is a real fee schedule" },
+  { id: "discoverer", n: "02", label: "Heuristic Discovery",  desc: "Runs 6-method cascade to find fee schedule URL" },
+  { id: "ai_scout",   n: "03", label: "AI Scout",             desc: "Claude evaluates homepage links for fee schedules" },
+  { id: "reporter",   n: "04", label: "Reporter",             desc: "Summarizes audit results and changes" },
+];
+
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
+  "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT",
+  "VA","WA","WV","WI","WY","DC","PR",
+] as const;
 
 const CATS: Record<string, { label: string; color: string }> = {
   account_maintenance: { label: "Account Maintenance", color: "#1d4ed8" },
@@ -122,6 +141,97 @@ function reducer(state: PipelineState, action: Action): PipelineState {
   }
 }
 
+// -- Audit state machine ------------------------------------------------------
+
+interface AuditAgentState {
+  status: AgentStatus;
+  data: Record<string, unknown> | null;
+  ms: number | null;
+  msgs: LogMsg[];
+}
+
+interface AuditPipelineState {
+  status: "idle" | "running" | "done" | "error";
+  agents: Record<AuditAgentId, AuditAgentState>;
+  result: AuditResult | null;
+  error: string | null;
+}
+
+type AuditAction =
+  | { type: "RESET" }
+  | { type: "STATUS"; val: AuditPipelineState["status"] }
+  | { type: "AGENT_START"; id: AuditAgentId }
+  | { type: "AGENT_DONE"; id: AuditAgentId; ok: boolean; data: Record<string, unknown> | null; ms: number }
+  | { type: "LOG"; agentId: AuditAgentId; msg: string }
+  | { type: "PIPELINE_ERROR"; msg: string }
+  | { type: "RESULT"; result: AuditResult };
+
+function mkAuditAgent(): AuditAgentState {
+  return { status: "idle", data: null, ms: null, msgs: [] };
+}
+
+function mkAuditState(): AuditPipelineState {
+  return {
+    status: "idle",
+    agents: Object.fromEntries(AUDIT_AGENT_IDS.map((id) => [id, mkAuditAgent()])) as Record<AuditAgentId, AuditAgentState>,
+    result: null,
+    error: null,
+  };
+}
+
+function auditReducer(state: AuditPipelineState, action: AuditAction): AuditPipelineState {
+  switch (action.type) {
+    case "RESET":
+      return mkAuditState();
+    case "STATUS":
+      return { ...state, status: action.val };
+    case "AGENT_START":
+      return {
+        ...state,
+        agents: { ...state.agents, [action.id]: { ...mkAuditAgent(), status: "running" } },
+      };
+    case "AGENT_DONE":
+      return {
+        ...state,
+        agents: {
+          ...state.agents,
+          [action.id]: {
+            ...state.agents[action.id],
+            status: action.ok ? "ok" : "warn",
+            data: action.data,
+            ms: action.ms,
+          },
+        },
+      };
+    case "LOG": {
+      const a = state.agents[action.agentId];
+      return {
+        ...state,
+        agents: {
+          ...state.agents,
+          [action.agentId]: {
+            ...a,
+            msgs: [...a.msgs, { id: Date.now() + Math.random(), text: action.msg }],
+          },
+        },
+      };
+    }
+    case "PIPELINE_ERROR": {
+      const agents = { ...state.agents };
+      AUDIT_AGENT_IDS.forEach((id) => {
+        if (agents[id].status === "running") {
+          agents[id] = { ...agents[id], status: "error" };
+        }
+      });
+      return { ...state, agents, error: action.msg };
+    }
+    case "RESULT":
+      return { ...state, result: action.result };
+    default:
+      return state;
+  }
+}
+
 // -- SSE pipeline runner ------------------------------------------------------
 
 async function runPipeline(query: string, dispatch: React.Dispatch<Action>) {
@@ -176,6 +286,165 @@ async function runPipeline(query: string, dispatch: React.Dispatch<Action>) {
             break;
           case "report":
             dispatch({ type: "REPORT", report: event.report });
+            break;
+          case "error":
+            dispatch({ type: "PIPELINE_ERROR", msg: event.msg });
+            break;
+          case "done":
+            dispatch({ type: "STATUS", val: event.success ? "done" : "error" });
+            break;
+        }
+      }
+    }
+  } catch (err) {
+    dispatch({
+      type: "PIPELINE_ERROR",
+      msg: err instanceof Error ? err.message : String(err),
+    });
+    dispatch({ type: "STATUS", val: "error" });
+  }
+}
+
+// -- Audit SSE runners --------------------------------------------------------
+
+async function runAudit(
+  institutionId: number,
+  dispatch: React.Dispatch<AuditAction>,
+) {
+  dispatch({ type: "RESET" });
+  dispatch({ type: "STATUS", val: "running" });
+
+  try {
+    const res = await fetch("/api/scout/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ institutionId }),
+    });
+
+    if (!res.ok || !res.body) {
+      dispatch({ type: "PIPELINE_ERROR", msg: `Audit error: ${res.status}` });
+      dispatch({ type: "STATUS", val: "error" });
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const event = JSON.parse(line.slice(6));
+
+        switch (event.type) {
+          case "agent":
+            if (event.status === "running") {
+              dispatch({ type: "AGENT_START", id: event.agentId });
+            } else {
+              dispatch({
+                type: "AGENT_DONE",
+                id: event.agentId,
+                ok: event.status === "ok",
+                data: null,
+                ms: event.durationMs,
+              });
+            }
+            break;
+          case "log":
+            dispatch({ type: "LOG", agentId: event.agentId, msg: event.msg });
+            break;
+          case "result":
+            dispatch({ type: "RESULT", result: event.result });
+            break;
+          case "error":
+            dispatch({ type: "PIPELINE_ERROR", msg: event.msg });
+            break;
+          case "done":
+            dispatch({ type: "STATUS", val: event.success ? "done" : "error" });
+            break;
+        }
+      }
+    }
+  } catch (err) {
+    dispatch({
+      type: "PIPELINE_ERROR",
+      msg: err instanceof Error ? err.message : String(err),
+    });
+    dispatch({ type: "STATUS", val: "error" });
+  }
+}
+
+async function runBatchAudit(
+  scope: string,
+  value: string,
+  dispatch: React.Dispatch<AuditAction>,
+  onProgress: (p: { current: number; total: number; institution: string }) => void,
+  onSummary: (s: BatchSummary) => void,
+) {
+  dispatch({ type: "RESET" });
+  dispatch({ type: "STATUS", val: "running" });
+
+  try {
+    const res = await fetch("/api/scout/audit-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope, value }),
+    });
+
+    if (!res.ok || !res.body) {
+      dispatch({ type: "PIPELINE_ERROR", msg: `Batch audit error: ${res.status}` });
+      dispatch({ type: "STATUS", val: "error" });
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value: chunk } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split("\n\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const event = JSON.parse(line.slice(6));
+
+        switch (event.type) {
+          case "agent":
+            if (event.status === "running") {
+              dispatch({ type: "AGENT_START", id: event.agentId });
+            } else {
+              dispatch({
+                type: "AGENT_DONE",
+                id: event.agentId,
+                ok: event.status === "ok",
+                data: null,
+                ms: event.durationMs,
+              });
+            }
+            break;
+          case "log":
+            dispatch({ type: "LOG", agentId: event.agentId, msg: event.msg });
+            break;
+          case "result":
+            dispatch({ type: "RESULT", result: event.result });
+            break;
+          case "batch_progress":
+            onProgress(event.batchProgress);
+            break;
+          case "batch_summary":
+            onSummary(event.batchSummary);
             break;
           case "error":
             dispatch({ type: "PIPELINE_ERROR", msg: event.msg });
@@ -287,14 +556,22 @@ function Tag({
 
 // -- Agent Card ---------------------------------------------------------------
 
+interface StepDef {
+  id: string;
+  n: string;
+  label: string;
+  desc: string;
+}
+
 interface AgentCardProps {
-  step: (typeof STEPS)[number];
+  step: StepDef;
   agent: AgentState;
   expanded: boolean;
   onToggle: () => void;
+  hideDetail?: boolean;
 }
 
-function AgentCard({ step, agent, expanded, onToggle }: AgentCardProps) {
+function AgentCard({ step, agent, expanded, onToggle, hideDetail }: AgentCardProps) {
   const { status, data, ms, msgs } = agent;
   const isIdle = status === "idle";
   const isRunning = status === "running";
@@ -404,14 +681,14 @@ function AgentCard({ step, agent, expanded, onToggle }: AgentCardProps) {
       )}
 
       {/* Expanded detail */}
-      {expanded && isDone && data && (
+      {expanded && isDone && (
         <div
           className="border-t border-gray-200 bg-gray-50 p-4"
           style={{ animation: "fadein .2s ease" }}
         >
           {/* Activity log */}
           {msgs.length > 0 && (
-            <div className="mb-4 pb-3.5 border-b border-gray-100">
+            <div className={data && !hideDetail ? "mb-4 pb-3.5 border-b border-gray-100" : ""}>
               <div className="font-sans text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Activity Log
               </div>
@@ -424,8 +701,8 @@ function AgentCard({ step, agent, expanded, onToggle }: AgentCardProps) {
             </div>
           )}
 
-          {/* Agent-specific detail */}
-          <AgentDetail step={step} data={data} />
+          {/* Agent-specific detail (research mode only) */}
+          {data && !hideDetail && <AgentDetail step={step} data={data} />}
         </div>
       )}
     </div>
@@ -434,7 +711,7 @@ function AgentCard({ step, agent, expanded, onToggle }: AgentCardProps) {
 
 // -- Agent detail panels (extracted for readability) --------------------------
 
-function AgentDetail({ step, data }: { step: (typeof STEPS)[number]; data: Record<string, unknown> }) {
+function AgentDetail({ step, data }: { step: StepDef; data: Record<string, unknown> }) {
   if (step.id === "scout") return <ScoutDetail data={data} />;
   if (step.id === "classifier") return <ClassifierDetail data={data} />;
   if (step.id === "extractor") return <ExtractorDetail data={data} />;
@@ -866,13 +1143,139 @@ function Report({ report }: { report: FeeReport }) {
 
 // -- Main FeeScout component --------------------------------------------------
 
+// -- Audit result display components ------------------------------------------
+
+function AuditResultCard({ result }: { result: AuditResult }) {
+  const actionColors: Record<string, { bg: string; text: string; label: string }> = {
+    validated:  { bg: "bg-emerald-50", text: "text-emerald-700", label: "Validated" },
+    cleared:    { bg: "bg-amber-50",   text: "text-amber-700",   label: "Cleared" },
+    discovered: { bg: "bg-blue-50",    text: "text-blue-700",    label: "Discovered" },
+    ai_found:   { bg: "bg-indigo-50",  text: "text-indigo-700",  label: "AI Found" },
+    not_found:  { bg: "bg-red-50",     text: "text-red-700",     label: "Not Found" },
+  };
+
+  const ac = actionColors[result.action] || actionColors.not_found;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-5 py-4 mb-3" style={{ animation: "fadein .3s ease" }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-sans font-semibold text-[15px] text-gray-900">
+          {result.institutionName}
+        </div>
+        <span className={`${ac.bg} ${ac.text} text-xs font-semibold px-2.5 py-1 rounded-md`}>
+          {ac.label}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="font-sans text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+            URL Before
+          </div>
+          <div className="font-mono text-[11px] text-gray-600 break-all">
+            {result.urlBefore || "None"}
+          </div>
+        </div>
+        <div>
+          <div className="font-sans text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+            URL After
+          </div>
+          <div className="font-mono text-[11px] text-gray-600 break-all">
+            {result.urlAfter || "None"}
+          </div>
+        </div>
+      </div>
+      {(result.discoveryMethod || result.confidence !== null) && (
+        <div className="flex gap-4 mt-3 pt-3 border-t border-gray-100">
+          {result.discoveryMethod && (
+            <div>
+              <span className="font-sans text-[10px] text-gray-400 uppercase tracking-wider">Method: </span>
+              <span className="font-sans text-xs text-gray-700">{result.discoveryMethod}</span>
+            </div>
+          )}
+          {result.confidence !== null && (
+            <div>
+              <span className="font-sans text-[10px] text-gray-400 uppercase tracking-wider">Confidence: </span>
+              <span className="font-sans text-xs text-gray-700">{Math.round(result.confidence * 100)}%</span>
+            </div>
+          )}
+          {result.reason && (
+            <div className="flex-1">
+              <span className="font-sans text-[10px] text-gray-400 uppercase tracking-wider">Reason: </span>
+              <span className="font-sans text-xs text-gray-500">{result.reason}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BatchProgressBar({ progress }: { progress: { current: number; total: number; institution: string } }) {
+  const pct = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-5 py-4 mb-4">
+      <div className="flex justify-between items-center mb-2">
+        <span className="font-sans text-sm font-medium text-gray-900">
+          {progress.current} / {progress.total} institutions
+        </span>
+        <span className="font-sans text-xs text-gray-500 truncate ml-3">
+          {progress.institution}
+        </span>
+      </div>
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-[#c44a2a] rounded-full transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function BatchSummaryGrid({ summary }: { summary: BatchSummary }) {
+  const items: [string, number, string][] = [
+    ["Total",      summary.total,        "text-gray-900"],
+    ["Validated",  summary.validated,     "text-emerald-700"],
+    ["Cleared",    summary.cleared,       "text-amber-700"],
+    ["Discovered", summary.discovered,    "text-blue-700"],
+    ["AI Found",   summary.aiFound,       "text-indigo-700"],
+    ["Missing",    summary.stillMissing,  "text-red-700"],
+  ];
+
+  return (
+    <div className="grid grid-cols-6 gap-3 mb-6" style={{ animation: "fadein .3s ease" }}>
+      {items.map(([label, value, color]) => (
+        <div key={label} className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+          <div className={`text-lg font-bold tabular-nums ${color}`}>{value}</div>
+          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// -- Main FeeScout component --------------------------------------------------
+
 export default function FeeScout() {
+  // Research mode state
   const [state, dispatch] = useReducer(reducer, undefined, mkState);
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const { suggestions, open, search, close } = useAutocomplete();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Mode toggle
+  const [mode, setMode] = useState<"research" | "audit">("research");
+
+  // Audit mode state
+  const [auditScope, setAuditScope] = useState<"single" | "state" | "district">("single");
+  const [scopeValue, setScopeValue] = useState("");
+  const [auditState, auditDispatch] = useReducer(auditReducer, undefined, mkAuditState);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; institution: string } | null>(null);
+  const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(null);
+
+  // Research mode handlers
   const handleRun = useCallback(async () => {
     if (!query.trim() || state.status === "running") return;
     close();
@@ -881,17 +1284,46 @@ export default function FeeScout() {
   }, [query, state.status, close]);
 
   const handleSelect = useCallback(
-    (name: string) => {
-      setQuery(name);
+    (item: AutocompleteItem) => {
+      setQuery(item.institution_name);
+      setSelectedInstitutionId(item.id);
       close();
       inputRef.current?.focus();
     },
     [close],
   );
 
+  // Audit mode handlers
+  const handleAuditRun = useCallback(async () => {
+    if (auditState.status === "running") return;
+    setExpanded({});
+    setBatchProgress(null);
+    setBatchSummary(null);
+
+    if (auditScope === "single") {
+      if (!selectedInstitutionId) return;
+      await runAudit(selectedInstitutionId, auditDispatch);
+    } else {
+      if (!scopeValue) return;
+      await runBatchAudit(
+        auditScope,
+        scopeValue,
+        auditDispatch,
+        setBatchProgress,
+        setBatchSummary,
+      );
+    }
+  }, [auditScope, scopeValue, selectedInstitutionId, auditState.status]);
+
   const { status, agents, report, error } = state;
-  const isRunning = status === "running";
-  const isActive = status !== "idle";
+  const isRunning = mode === "research" ? status === "running" : auditState.status === "running";
+  const isResearchActive = status !== "idle";
+  const isAuditActive = auditState.status !== "idle";
+
+  const canRunAudit =
+    auditScope === "single"
+      ? !!selectedInstitutionId && !!query.trim()
+      : !!scopeValue;
 
   return (
     <div>
@@ -901,128 +1333,354 @@ export default function FeeScout() {
         @keyframes fadein { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
       `}</style>
 
-      {/* Search bar */}
-      <div className="max-w-xl mx-auto mb-8 relative">
-        <div
-          className={`flex bg-white border rounded-lg overflow-hidden transition-all duration-200 ${
-            isRunning ? "border-[#c44a2a] ring-2 ring-red-100" : "border-gray-200 shadow-sm"
-          }`}
-        >
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              search(e.target.value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                close();
-                handleRun();
-              }
-              if (e.key === "Escape") close();
-            }}
-            onFocus={() => {
-              if (query.trim().length >= 2) search(query);
-            }}
-            onBlur={() => {
-              // Delay to allow click on suggestion
-              setTimeout(close, 200);
-            }}
-            placeholder="Enter institution name -- e.g. Chase, Ally Bank..."
-            disabled={isRunning}
-            className="flex-1 border-none outline-none bg-transparent px-4 py-3.5 text-[15px] text-gray-900 placeholder:text-gray-400 disabled:opacity-60"
-          />
+      {/* Mode toggle */}
+      <div className="flex justify-center mb-6">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           <button
-            onClick={handleRun}
-            disabled={isRunning || !query.trim()}
-            className={`px-6 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed ${
-              isRunning || !query.trim()
-                ? "bg-gray-200 text-gray-500"
-                : "bg-[#c44a2a] text-white hover:bg-[#a83d22]"
+            onClick={() => setMode("research")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border-none cursor-pointer ${
+              mode === "research" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700 bg-transparent"
             }`}
           >
-            {isRunning && <Spinner size={13} />}
-            {isRunning ? "Running..." : "Run Analysis"}
+            Research
+          </button>
+          <button
+            onClick={() => setMode("audit")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border-none cursor-pointer ${
+              mode === "audit" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700 bg-transparent"
+            }`}
+          >
+            URL Audit
           </button>
         </div>
-
-        {/* Autocomplete dropdown */}
-        {open && suggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-            {suggestions.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className="w-full text-left px-4 py-2.5 font-sans text-sm text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-between border-none bg-transparent cursor-pointer"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(s.institution_name);
-                }}
-              >
-                <span className="font-medium">{s.institution_name}</span>
-                <span className="text-[11px] text-gray-400">
-                  {[s.state, s.charter_type].filter(Boolean).join(" -- ")}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Pipeline cards */}
-      {isActive && (
-        <div className="mb-7">
-          <div className="font-sans text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2.5">
-            Analysis Pipeline
+      {/* ================================================================ */}
+      {/* RESEARCH MODE                                                     */}
+      {/* ================================================================ */}
+      {mode === "research" && (
+        <>
+          {/* Search bar */}
+          <div className="max-w-xl mx-auto mb-8 relative">
+            <div
+              className={`flex bg-white border rounded-lg overflow-hidden transition-all duration-200 ${
+                status === "running" ? "border-[#c44a2a] ring-2 ring-red-100" : "border-gray-200 shadow-sm"
+              }`}
+            >
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelectedInstitutionId(null);
+                  search(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    close();
+                    handleRun();
+                  }
+                  if (e.key === "Escape") close();
+                }}
+                onFocus={() => {
+                  if (query.trim().length >= 2) search(query);
+                }}
+                onBlur={() => {
+                  setTimeout(close, 200);
+                }}
+                placeholder="Enter institution name -- e.g. Chase, Ally Bank..."
+                disabled={status === "running"}
+                className="flex-1 border-none outline-none bg-transparent px-4 py-3.5 text-[15px] text-gray-900 placeholder:text-gray-400 disabled:opacity-60"
+              />
+              <button
+                onClick={handleRun}
+                disabled={status === "running" || !query.trim()}
+                className={`px-6 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed ${
+                  status === "running" || !query.trim()
+                    ? "bg-gray-200 text-gray-500"
+                    : "bg-[#c44a2a] text-white hover:bg-[#a83d22]"
+                }`}
+              >
+                {status === "running" && <Spinner size={13} />}
+                {status === "running" ? "Running..." : "Run Analysis"}
+              </button>
+            </div>
+
+            {/* Autocomplete dropdown */}
+            {open && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                {suggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="w-full text-left px-4 py-2.5 font-sans text-sm text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-between border-none bg-transparent cursor-pointer"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(s);
+                    }}
+                  >
+                    <span className="font-medium">{s.institution_name}</span>
+                    <span className="text-[11px] text-gray-400">
+                      {[s.state, s.charter_type].filter(Boolean).join(" -- ")}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {STEPS.map((step) => (
-            <AgentCard
-              key={step.id}
-              step={step}
-              agent={agents[step.id]}
-              expanded={!!expanded[step.id]}
-              onToggle={() => setExpanded((e) => ({ ...e, [step.id]: !e[step.id] }))}
-            />
-          ))}
-          {!isRunning && isActive && (
-            <div className="font-sans text-[11px] text-gray-400 text-right mt-1.5">
-              Click any completed step to inspect its output
+
+          {/* Pipeline cards */}
+          {isResearchActive && (
+            <div className="mb-7">
+              <div className="font-sans text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2.5">
+                Analysis Pipeline
+              </div>
+              {STEPS.map((step) => (
+                <AgentCard
+                  key={step.id}
+                  step={step}
+                  agent={agents[step.id]}
+                  expanded={!!expanded[step.id]}
+                  onToggle={() => setExpanded((e) => ({ ...e, [step.id]: !e[step.id] }))}
+                />
+              ))}
+              {status !== "running" && isResearchActive && (
+                <div className="font-sans text-[11px] text-gray-400 text-right mt-1.5">
+                  Click any completed step to inspect its output
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Report */}
-      {report && <Report report={report} />}
+          {/* Report */}
+          {report && <Report report={report} />}
 
-      {/* Error */}
-      {status === "error" && !report && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-4">
-          <div className="font-sans font-semibold text-[13px] text-[#c44a2a] mb-2">Analysis Error</div>
-          <div className="font-mono text-xs text-gray-900 leading-relaxed">{error}</div>
-        </div>
-      )}
+          {/* Error */}
+          {status === "error" && !report && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-4">
+              <div className="font-sans font-semibold text-[13px] text-[#c44a2a] mb-2">Analysis Error</div>
+              <div className="font-mono text-xs text-gray-900 leading-relaxed">{error}</div>
+            </div>
+          )}
 
-      {/* Idle state stats */}
-      {!isActive && (
-        <div className="text-center py-11">
-          <div className="inline-flex gap-9 flex-wrap justify-center">
-            {(
-              [
-                ["8,000+", "institutions"],
-                ["49", "fee categories"],
-                ["live", "database"],
-                ["verified", "sources"],
-              ] as [string, string][]
-            ).map(([val, label]) => (
-              <div key={label} className="text-center">
-                <div className="font-serif text-3xl text-[#c44a2a] tracking-tight">{val}</div>
-                <div className="font-sans text-xs text-gray-500 mt-1">{label}</div>
+          {/* Idle state stats */}
+          {!isResearchActive && (
+            <div className="text-center py-11">
+              <div className="inline-flex gap-9 flex-wrap justify-center">
+                {(
+                  [
+                    ["8,000+", "institutions"],
+                    ["49", "fee categories"],
+                    ["live", "database"],
+                    ["verified", "sources"],
+                  ] as [string, string][]
+                ).map(([val, label]) => (
+                  <div key={label} className="text-center">
+                    <div className="font-serif text-3xl text-[#c44a2a] tracking-tight">{val}</div>
+                    <div className="font-sans text-xs text-gray-500 mt-1">{label}</div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================================ */}
+      {/* AUDIT MODE                                                        */}
+      {/* ================================================================ */}
+      {mode === "audit" && (
+        <>
+          {/* Scope selector + search */}
+          <div className="max-w-xl mx-auto mb-8">
+            {/* Scope controls */}
+            <div className="flex gap-3 mb-3">
+              <select
+                value={auditScope}
+                onChange={(e) => {
+                  setAuditScope(e.target.value as "single" | "state" | "district");
+                  setScopeValue("");
+                }}
+                disabled={auditState.status === "running"}
+                className="border border-gray-200 rounded-md px-3 py-2 text-sm bg-white text-gray-900 disabled:opacity-60"
+              >
+                <option value="single">Single Institution</option>
+                <option value="state">By State</option>
+                <option value="district">By Fed District</option>
+              </select>
+              {auditScope === "state" && (
+                <select
+                  value={scopeValue}
+                  onChange={(e) => setScopeValue(e.target.value)}
+                  disabled={auditState.status === "running"}
+                  className="border border-gray-200 rounded-md px-3 py-2 text-sm bg-white text-gray-900 disabled:opacity-60"
+                >
+                  <option value="">Select state...</option>
+                  {US_STATES.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              )}
+              {auditScope === "district" && (
+                <select
+                  value={scopeValue}
+                  onChange={(e) => setScopeValue(e.target.value)}
+                  disabled={auditState.status === "running"}
+                  className="border border-gray-200 rounded-md px-3 py-2 text-sm bg-white text-gray-900 disabled:opacity-60"
+                >
+                  <option value="">Select district...</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={String(d)}>District {d}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Institution search (single mode only) */}
+            {auditScope === "single" && (
+              <div className="relative">
+                <div
+                  className={`flex bg-white border rounded-lg overflow-hidden transition-all duration-200 ${
+                    auditState.status === "running" ? "border-[#c44a2a] ring-2 ring-red-100" : "border-gray-200 shadow-sm"
+                  }`}
+                >
+                  <input
+                    ref={inputRef}
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setSelectedInstitutionId(null);
+                      search(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        close();
+                        handleAuditRun();
+                      }
+                      if (e.key === "Escape") close();
+                    }}
+                    onFocus={() => {
+                      if (query.trim().length >= 2) search(query);
+                    }}
+                    onBlur={() => {
+                      setTimeout(close, 200);
+                    }}
+                    placeholder="Search institution to audit..."
+                    disabled={auditState.status === "running"}
+                    className="flex-1 border-none outline-none bg-transparent px-4 py-3.5 text-[15px] text-gray-900 placeholder:text-gray-400 disabled:opacity-60"
+                  />
+                  <button
+                    onClick={handleAuditRun}
+                    disabled={auditState.status === "running" || !canRunAudit}
+                    className={`px-6 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed ${
+                      auditState.status === "running" || !canRunAudit
+                        ? "bg-gray-200 text-gray-500"
+                        : "bg-[#c44a2a] text-white hover:bg-[#a83d22]"
+                    }`}
+                  >
+                    {auditState.status === "running" && <Spinner size={13} />}
+                    {auditState.status === "running" ? "Auditing..." : "Run Audit"}
+                  </button>
+                </div>
+
+                {/* Autocomplete dropdown */}
+                {open && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 font-sans text-sm text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-between border-none bg-transparent cursor-pointer"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelect(s);
+                        }}
+                      >
+                        <span className="font-medium">{s.institution_name}</span>
+                        <span className="text-[11px] text-gray-400">
+                          {[s.state, s.charter_type].filter(Boolean).join(" -- ")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Batch run button (state/district modes) */}
+            {auditScope !== "single" && (
+              <button
+                onClick={handleAuditRun}
+                disabled={auditState.status === "running" || !canRunAudit}
+                className={`w-full py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed ${
+                  auditState.status === "running" || !canRunAudit
+                    ? "bg-gray-200 text-gray-500"
+                    : "bg-[#c44a2a] text-white hover:bg-[#a83d22]"
+                }`}
+              >
+                {auditState.status === "running" && <Spinner size={13} />}
+                {auditState.status === "running" ? "Auditing..." : "Run Batch Audit"}
+              </button>
+            )}
           </div>
-        </div>
+
+          {/* Batch progress */}
+          {batchProgress && auditState.status === "running" && (
+            <BatchProgressBar progress={batchProgress} />
+          )}
+
+          {/* Batch summary */}
+          {batchSummary && <BatchSummaryGrid summary={batchSummary} />}
+
+          {/* Audit pipeline cards */}
+          {isAuditActive && (
+            <div className="mb-7">
+              <div className="font-sans text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2.5">
+                Audit Pipeline
+              </div>
+              {AUDIT_STEPS.map((step) => (
+                <AgentCard
+                  key={step.id}
+                  step={step}
+                  agent={auditState.agents[step.id]}
+                  expanded={!!expanded[step.id]}
+                  onToggle={() => setExpanded((e) => ({ ...e, [step.id]: !e[step.id] }))}
+                  hideDetail
+                />
+              ))}
+              {auditState.status !== "running" && isAuditActive && (
+                <div className="font-sans text-[11px] text-gray-400 text-right mt-1.5">
+                  Click any completed step to view its log
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Audit result */}
+          {auditState.result && <AuditResultCard result={auditState.result} />}
+
+          {/* Audit error */}
+          {auditState.status === "error" && !auditState.result && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-4">
+              <div className="font-sans font-semibold text-[13px] text-[#c44a2a] mb-2">Audit Error</div>
+              <div className="font-mono text-xs text-gray-900 leading-relaxed">{auditState.error}</div>
+            </div>
+          )}
+
+          {/* Idle state description */}
+          {!isAuditActive && (
+            <div className="text-center py-11">
+              <div className="max-w-md mx-auto">
+                <div className="font-sans text-lg font-semibold text-gray-900 mb-2">URL Audit Pipeline</div>
+                <div className="font-sans text-sm text-gray-500 leading-relaxed">
+                  Validate existing fee schedule URLs, discover missing ones via heuristic search,
+                  and escalate failures to AI-powered discovery. Run on a single institution or
+                  batch-process an entire state or Fed district.
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
