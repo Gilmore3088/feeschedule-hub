@@ -180,3 +180,34 @@ def check_integrity():
     report = print_report(results)
     print(report)
     return f"Score: {results['score']}% ({results['passed']}/{results['total']} passed)"
+
+
+@app.function(secrets=secrets, timeout=120)
+@modal.web_endpoint(method="POST")
+def discover_url(item: dict) -> dict:
+    """HTTP endpoint for single-institution URL discovery.
+
+    Accepts: {"website_url": "https://...", "institution_id": 123}
+    Returns: DiscoveryResult as dict
+    """
+    from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
+    from fee_crawler.config import Config
+
+    website_url = item.get("website_url")
+    if not website_url:
+        return {"found": False, "error": "website_url required"}
+
+    config = Config()
+    discoverer = UrlDiscoverer(config)
+    result = discoverer.discover(website_url)
+
+    return {
+        "found": result.found,
+        "fee_schedule_url": result.fee_schedule_url,
+        "document_type": result.document_type,
+        "method": result.method,
+        "confidence": result.confidence,
+        "pages_checked": result.pages_checked,
+        "error": result.error,
+        "methods_tried": result.methods_tried,
+    }
