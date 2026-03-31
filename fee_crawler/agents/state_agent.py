@@ -201,6 +201,15 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
     """Write extracted fees to the database."""
     cur = conn.cursor()
 
+    # Remove reviews for non-approved fees first (FK constraint)
+    cur.execute(
+        """DELETE FROM fee_reviews WHERE fee_id IN (
+             SELECT id FROM extracted_fees
+             WHERE crawl_target_id = %s AND review_status NOT IN ('approved')
+           )""",
+        (crawl_target_id,),
+    )
+
     # Remove existing non-approved fees
     cur.execute(
         "DELETE FROM extracted_fees WHERE crawl_target_id = %s AND review_status NOT IN ('approved')",

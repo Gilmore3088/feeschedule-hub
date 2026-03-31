@@ -139,38 +139,31 @@ def run_post_processing():
 
 @app.function(
     schedule=modal.Cron("0 10 * * *"),
-    timeout=3600,
+    timeout=7200,
     secrets=secrets,
 )
-def ingest_daily():
-    """Daily data refreshes: FRED, NYFED, BLS, OFR."""
+def ingest_data():
+    """Daily + weekly data refreshes. Weekly jobs run on Mondays."""
     import os
     import subprocess
+    from datetime import datetime, timezone
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     results = []
+
+    # Daily: FRED, NYFED, BLS, OFR
     for cmd in ["ingest-fred", "ingest-nyfed", "ingest-bls", "ingest-ofr"]:
         r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
                            capture_output=True, text=True, env=env)
         results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
-    return "; ".join(results)
 
+    # Weekly (Monday only): FDIC, NCUA, CFPB, SOD, Beige Book, Call Reports
+    if datetime.now(timezone.utc).weekday() == 0:
+        for cmd in ["ingest-fdic", "ingest-ncua", "ingest-cfpb", "ingest-sod",
+                     "ingest-beige-book", "ingest-call-reports", "ingest-census-acs"]:
+            r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
+                               capture_output=True, text=True, env=env)
+            results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
 
-@app.function(
-    schedule=modal.Cron("0 10 * * 1"),
-    timeout=7200,
-    secrets=secrets,
-)
-def ingest_weekly():
-    """Weekly data refreshes: FDIC, NCUA, CFPB, SOD, Beige Book, Call Reports."""
-    import os
-    import subprocess
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    results = []
-    for cmd in ["ingest-fdic", "ingest-ncua", "ingest-cfpb", "ingest-sod",
-                 "ingest-beige-book", "ingest-call-reports", "ingest-census-acs"]:
-        r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
-                           capture_output=True, text=True, env=env)
-        results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
     return "; ".join(results)
 
 
@@ -184,24 +177,31 @@ def check_integrity():
     return f"Score: {results['score']}% ({results['passed']}/{results['total']} passed)"
 
 
+from pydantic import BaseModel as _BaseModel
+
+
+class DiscoverRequest(_BaseModel):
+    website_url: str
+    institution_id: int | None = None
+
+
+class StateAgentRequest(_BaseModel):
+    state_code: str
+
+
 @app.function(secrets=secrets, timeout=120)
 @modal.fastapi_endpoint(method="POST")
-def discover_url(item: dict) -> dict:
-    """HTTP endpoint for single-institution URL discovery.
-
-    Accepts: {"website_url": "https://...", "institution_id": 123}
-    Returns: DiscoveryResult as dict
-    """
+def discover_url(item: DiscoverRequest) -> dict:
+    """HTTP endpoint for single-institution URL discovery."""
     from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
     from fee_crawler.config import Config
 
-    website_url = item.get("website_url")
-    if not website_url:
+    if not item.website_url:
         return {"found": False, "error": "website_url required"}
 
     config = Config()
     discoverer = UrlDiscoverer(config)
-    result = discoverer.discover(website_url)
+    result = discoverer.discover(item.website_url)
 
     return {
         "found": result.found,
@@ -217,16 +217,12 @@ def discover_url(item: dict) -> dict:
 
 @app.function(secrets=secrets, timeout=7200, memory=2048, image=browser_image)
 @modal.fastapi_endpoint(method="POST")
-def run_state_agent(item: dict) -> dict:
-    """HTTP endpoint to run the full state agent.
-
-    Accepts: {"state_code": "WY"}
-    Returns: {"run_id": 123, "discovered": N, ...}
-    """
+def run_state_agent(item: StateAgentRequest) -> dict:
+    """HTTP endpoint to run the full state agent."""
     from fee_crawler.agents.state_agent import run_state_agent as _run
 
-    state_code = item.get("state_code", "").upper()
-    if not state_code or len(state_code) != 2:
-        return {"error": "state_code required (2-letter code)"}
+    state_code = item.state_code.upper()
+    if len(state_code) != 2:
+        return {"error": "state_code must be a 2-letter code"}
 
     return _run(state_code)
