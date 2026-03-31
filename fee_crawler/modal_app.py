@@ -211,3 +211,20 @@ def discover_url(item: dict) -> dict:
         "error": result.error,
         "methods_tried": result.methods_tried,
     }
+
+
+@app.function(secrets=secrets, timeout=7200, memory=2048, image=browser_image)
+@modal.web_endpoint(method="POST")
+def run_state_agent(item: dict) -> dict:
+    """HTTP endpoint to run the full state agent.
+
+    Accepts: {"state_code": "WY"}
+    Returns: {"run_id": 123, "discovered": N, ...}
+    """
+    from fee_crawler.agents.state_agent import run_state_agent as _run
+
+    state_code = item.get("state_code", "").upper()
+    if not state_code or len(state_code) != 2:
+        return {"error": "state_code required (2-letter code)"}
+
+    return _run(state_code)
