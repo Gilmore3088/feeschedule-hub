@@ -14,6 +14,7 @@ pdf_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("tesseract-ocr", "poppler-utils")
     .pip_install_from_requirements("fee_crawler/requirements.txt")
+    .pip_install("fastapi[standard]")
     .add_local_dir("fee_crawler", remote_path="/root/fee_crawler")
 )
 
@@ -21,6 +22,7 @@ browser_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("tesseract-ocr", "poppler-utils")
     .pip_install_from_requirements("fee_crawler/requirements.txt")
+    .pip_install("fastapi[standard]")
     .run_commands(["playwright install --with-deps chromium"])
     .add_local_dir("fee_crawler", remote_path="/root/fee_crawler")
 )
@@ -183,7 +185,7 @@ def check_integrity():
 
 
 @app.function(secrets=secrets, timeout=120)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def discover_url(item: dict) -> dict:
     """HTTP endpoint for single-institution URL discovery.
 
@@ -214,7 +216,7 @@ def discover_url(item: dict) -> dict:
 
 
 @app.function(secrets=secrets, timeout=7200, memory=2048, image=browser_image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def run_state_agent(item: dict) -> dict:
     """HTTP endpoint to run the full state agent.
 
