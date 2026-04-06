@@ -25,6 +25,8 @@ _EXTRACT_TOOL = {
                         "frequency": {"type": "string", "enum": ["per_occurrence", "monthly", "annual", "one_time", "daily", "other"]},
                         "conditions": {"type": ["string", "null"]},
                         "confidence": {"type": "number"},
+                        "account_product": {"type": ["string", "null"], "description": "Account type this fee applies to, e.g. free_checking, premier_checking, savings, money_market. null if applies to all accounts."},
+                        "is_cap": {"type": "boolean", "description": "True if this is a daily/monthly cap on fees, not a per-occurrence fee. E.g. 'max $210/day overdraft fees' is a cap."},
                     },
                     "required": ["fee_name", "amount", "frequency", "confidence"],
                 },
@@ -71,10 +73,25 @@ def _extract_fees_with_llm(text: str, institution: dict, doc_type: str) -> list[
         max_tokens=4096,
         system="""You are a financial data extraction specialist. Extract ALL fees from fee schedule documents.
 Use the extract_fees tool to record every fee you find.
-Look for: monthly maintenance fees, overdraft fees, NSF fees, ATM fees, wire transfer fees,
+
+WHAT TO EXTRACT:
+Monthly maintenance fees, overdraft fees, NSF fees, ATM fees, wire transfer fees,
 stop payment fees, returned item fees, card replacement fees, statement fees, dormant/inactivity fees,
 foreign transaction fees, cashier's check fees, money order fees, and any other service charges.
-Even if amounts say "varies" or are ranges, extract them with amount=null.""",
+Even if amounts say "varies" or are ranges, extract them with amount=null.
+
+ACCOUNT PRODUCTS:
+If fees differ by account type (Free Checking vs Premier Checking vs Savings etc.), tag each fee
+with account_product (e.g. "free_checking", "premier_checking", "interest_checking", "savings",
+"money_market"). Use null if the fee applies to all accounts.
+SKIP business/commercial account fees entirely — only extract personal/consumer accounts.
+
+DAILY FEE CAPS vs ACTUAL FEES:
+Banks often state "overdraft fee: $35, maximum $210 per day." The $35 is the actual per-occurrence fee.
+The $210 is a DAILY CAP (maximum total fees per day), NOT a fee itself.
+- Record the per-occurrence fee ($35) with is_cap=false
+- Record the daily cap ($210) separately with is_cap=true and fee_name like "Overdraft Daily Cap"
+- NEVER record a daily cap amount as the per-occurrence fee amount""",
         tools=[_EXTRACT_TOOL],
         tool_choice={"type": "tool", "name": "extract_fees"},
         messages=[{

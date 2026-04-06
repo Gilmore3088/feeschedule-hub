@@ -249,11 +249,17 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
     )
 
     for fee in fees:
+        # Skip business account fees
+        product = fee.get("account_product") or fee.get("account_product_type")
+        if product and "business" in str(product).lower():
+            continue
+
         cur.execute(
             """INSERT INTO extracted_fees
                (crawl_target_id, fee_name, amount, frequency, conditions,
-                extraction_confidence, review_status, fee_category, fee_family, extracted_by)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'agent_v1')""",
+                extraction_confidence, review_status, fee_category, fee_family,
+                account_product_type, is_fee_cap, extracted_by)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'agent_v1')""",
             (
                 crawl_target_id,
                 fee.get("fee_name"),
@@ -264,6 +270,8 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
                 "staged",
                 fee.get("fee_category"),
                 fee.get("fee_family"),
+                product,
+                fee.get("is_cap", False),
             ),
         )
 
