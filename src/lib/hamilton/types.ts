@@ -8,9 +8,13 @@ export type SectionType =
   | "findings"
   | "trend_analysis"
   | "peer_comparison"
+  | "peer_competitive"
   | "regional_analysis"
   | "recommendation"
   | "executive_summary"
+  | "national_index"
+  | "charter_analysis"
+  | "district_context"
   | "methodology_note";
 
 export interface SectionInput {
@@ -48,3 +52,60 @@ export interface ValidatedSection extends SectionOutput {
   validation: ValidationResult;
   input: SectionInput;
 }
+
+// ─── Report Data Types ─────────────────────────────────────────────────────────
+
+/**
+ * Input data shape for peer competitive benchmarking reports.
+ * All fields are pipeline-verified before passing to Hamilton.
+ */
+export interface PeerCompetitiveData {
+  title: string;
+  subtitle: string;
+  report_date: string;
+  peer_definition: {
+    charter_type?: string;
+    asset_tiers?: string[];
+    fed_districts?: number[];
+    state?: string;
+  };
+  categories: Array<{
+    fee_category: string;
+    display_name: string;
+    peer_median: number | null;
+    national_median: number | null;
+    p25_amount: number | null;
+    p75_amount: number | null;
+    delta_pct: number | null;
+    peer_count: number;
+    is_featured: boolean;
+  }>;
+  total_peer_institutions: number;
+  total_observations: number;
+}
+
+/**
+ * Input data shape for national fee index overview reports.
+ * All fields are pipeline-verified before passing to Hamilton.
+ */
+export interface NationalOverviewData {
+  report_date: string;
+  total_institutions: number;
+  categories: Array<{
+    fee_category: string;
+    display_name: string;
+    median_amount: number | null;
+    p25_amount: number | null;
+    p75_amount: number | null;
+    institution_count: number;
+    observation_count: number;
+    maturity: "strong" | "provisional" | "insufficient";
+  }>;
+  charter_split?: { banks: number; credit_unions: number };
+}
+
+/**
+ * Alias for SectionOutput — used by template functions to reference
+ * pre-generated Hamilton narrative outputs.
+ */
+export type GenerateSectionOutput = SectionOutput & { section_type: SectionType; generated_at: string };
