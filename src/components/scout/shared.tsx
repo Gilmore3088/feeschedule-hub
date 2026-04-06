@@ -30,14 +30,14 @@ export const US_STATES = [
   "VA","WA","WV","WI","WY","DC","PR",
 ] as const;
 
-export const CATS: Record<string, { label: string; color: string }> = {
-  account_maintenance: { label: "Account Maintenance", color: "#1d4ed8" },
-  overdraft_nsf:       { label: "Overdraft / NSF",     color: "#c44a2a" },
-  atm:                 { label: "ATM",                 color: "#2d7a5f" },
-  wire:                { label: "Wire Transfer",       color: "#9a6c1a" },
-  card:                { label: "Card Services",       color: "#6d28d9" },
-  foreign:             { label: "Foreign / FX",        color: "#0e7490" },
-  other:               { label: "Other",               color: "#7a7570" },
+export const CATS: Record<string, { label: string; tw: string; bgTw: string; borderTw: string }> = {
+  account_maintenance: { label: "Account Maintenance", tw: "text-blue-700",    bgTw: "bg-blue-50",    borderTw: "border-blue-200" },
+  overdraft_nsf:       { label: "Overdraft / NSF",     tw: "text-red-700",     bgTw: "bg-red-50",     borderTw: "border-red-200" },
+  atm:                 { label: "ATM",                 tw: "text-emerald-700", bgTw: "bg-emerald-50", borderTw: "border-emerald-200" },
+  wire:                { label: "Wire Transfer",       tw: "text-amber-700",   bgTw: "bg-amber-50",   borderTw: "border-amber-200" },
+  card:                { label: "Card Services",       tw: "text-purple-700",  bgTw: "bg-purple-50",  borderTw: "border-purple-200" },
+  foreign:             { label: "Foreign / FX",        tw: "text-teal-700",    bgTw: "bg-teal-50",    borderTw: "border-teal-200" },
+  other:               { label: "Other",               tw: "text-gray-500",    bgTw: "bg-gray-50",    borderTw: "border-gray-200" },
 };
 
 // -- Type definitions ---------------------------------------------------------
@@ -254,8 +254,8 @@ export function Spinner({ size = 14 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        border: "2px solid #e8b8a6",
-        borderTop: "2px solid #c44a2a",
+        border: "2px solid var(--scout-spinner-track)",
+        borderTop: "2px solid var(--scout-accent)",
         animation: "spin .8s linear infinite",
       }}
     />
@@ -265,7 +265,7 @@ export function Spinner({ size = 14 }: { size?: number }) {
 function Dot({ d }: { d: number }) {
   return (
     <span
-      className="inline-block w-1 h-1 rounded-full bg-[#c44a2a]"
+      className="inline-block w-1 h-1 rounded-full bg-red-700"
       style={{ animation: `blink 1.2s ${d * 0.25}s ease-in-out infinite` }}
     />
   );
@@ -273,23 +273,18 @@ function Dot({ d }: { d: number }) {
 
 function Tag({
   label,
-  color = "text-gray-500",
-  bg,
-  border,
+  twText = "text-gray-500",
+  twBg = "bg-gray-50",
+  twBorder = "border-gray-200",
 }: {
   label: string;
-  color?: string;
-  bg?: string;
-  border?: string;
+  twText?: string;
+  twBg?: string;
+  twBorder?: string;
 }) {
   return (
     <span
-      className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm"
-      style={{
-        background: bg || `${color}14`,
-        color,
-        border: `1px solid ${border || color + "30"}`,
-      }}
+      className={`font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm border ${twText} ${twBg} ${twBorder}`}
     >
       {label}
     </span>
@@ -315,7 +310,15 @@ export function AgentCard({ step, agent, expanded, onToggle, hideDetail }: Agent
   const isErr = status === "error";
   const isDone = isOk || isWarn;
 
-  const accentColor = isRunning ? "#c44a2a" : isOk ? "#2d7a5f" : isWarn ? "#9a6c1a" : isErr ? "#c44a2a" : "#ddd9d0";
+  const accentBorderClass = isRunning
+    ? "border-l-red-700"
+    : isOk
+      ? "border-l-emerald-700"
+      : isWarn
+        ? "border-l-amber-700"
+        : isErr
+          ? "border-l-red-700"
+          : "border-l-gray-200";
   const cardBgClass = isRunning
     ? "bg-red-50/60"
     : isOk
@@ -349,11 +352,8 @@ export function AgentCard({ step, agent, expanded, onToggle, hideDetail }: Agent
 
   return (
     <div
-      className={`${cardBgClass} border border-gray-200 rounded-md overflow-hidden mb-2 transition-all duration-200`}
-      style={{
-        borderLeft: `3px solid ${accentColor}`,
-        opacity: isIdle ? 0.4 : 1,
-      }}
+      className={`${cardBgClass} border border-gray-200 border-l-4 ${accentBorderClass} rounded-md overflow-hidden mb-2 transition-all duration-200`}
+      style={{ opacity: isIdle ? 0.4 : 1 }}
     >
       {/* Header */}
       <div
@@ -364,7 +364,7 @@ export function AgentCard({ step, agent, expanded, onToggle, hideDetail }: Agent
         {isRunning && <Spinner />}
         {isOk && <span className="text-emerald-700 text-[15px] shrink-0">&#10003;</span>}
         {isWarn && <span className="text-amber-700 text-[15px] shrink-0">&#9888;</span>}
-        {isErr && <span className="text-[#c44a2a] text-[15px] shrink-0">&#10007;</span>}
+        {isErr && <span className="text-red-700 text-[15px] shrink-0">&#10007;</span>}
         {isIdle && <span className="text-gray-400 text-[13px] shrink-0">&#9675;</span>}
         <div className="flex-1">
           <div className="font-sans font-semibold text-[13px] text-gray-900">{step.label}</div>
@@ -375,7 +375,7 @@ export function AgentCard({ step, agent, expanded, onToggle, hideDetail }: Agent
             <span className="font-mono text-[10px] text-gray-400">{(ms / 1000).toFixed(1)}s</span>
           )}
           {summary && <span className="font-sans text-[11px] text-emerald-700">{summary}</span>}
-          {isErr && <span className="font-sans text-[11px] text-[#c44a2a]">Failed</span>}
+          {isErr && <span className="font-sans text-[11px] text-red-700">Failed</span>}
           {isDone && <span className="text-gray-500 text-[11px]">{expanded ? "\u25B2" : "\u25BC"}</span>}
         </div>
       </div>
@@ -393,7 +393,7 @@ export function AgentCard({ step, agent, expanded, onToggle, hideDetail }: Agent
                 style={{ animation: "fadein .15s ease" }}
               >
                 <span
-                  className={`font-mono text-[10px] shrink-0 ${isActive ? "text-[#c44a2a]" : "text-gray-400"}`}
+                  className={`font-mono text-[10px] shrink-0 ${isActive ? "text-red-700" : "text-gray-400"}`}
                 >
                   {isActive ? "\u25B6" : "\u00B7"}
                 </span>
@@ -508,7 +508,7 @@ function ScoutDetail({ data }: { data: Record<string, unknown> }) {
             href={primaryDocUrl}
             target="_blank"
             rel="noreferrer"
-            className="font-mono text-[11px] text-[#c44a2a] break-all hover:underline"
+            className="font-mono text-[11px] text-red-700 break-all hover:underline"
           >
             {primaryDocUrl}
           </a>
@@ -534,7 +534,7 @@ function ClassifierDetail({ data }: { data: Record<string, unknown> }) {
       {(categories?.length ?? 0) > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {categories!.map((c) => (
-            <Tag key={c} label={c.replace(/_/g, " ")} color="#c44a2a" />
+            <Tag key={c} label={c.replace(/_/g, " ")} twText="text-red-700" twBg="bg-red-50" twBorder="border-red-200" />
           ))}
         </div>
       )}
@@ -565,7 +565,7 @@ function ExtractorDetail({ data }: { data: Record<string, unknown> }) {
               className={`flex justify-between items-center px-2.5 py-1.5 rounded-sm text-xs ${i % 2 ? "bg-white" : "bg-gray-50"}`}
             >
               <span className="font-sans text-gray-900">{f.name}</span>
-              <span className="font-mono text-[#c44a2a] font-medium ml-3">{f.amount}</span>
+              <span className="font-mono text-red-700 font-medium ml-3">{f.amount}</span>
             </div>
           ))}
           {fees!.length > 8 && (
@@ -606,20 +606,21 @@ function AnalystDetail({ data }: { data: Record<string, unknown> }) {
 export function ScoreRing({ score = 5 }: { score?: number }) {
   const r = 26;
   const circ = 2 * Math.PI * r;
-  const color = score >= 7 ? "#2d7a5f" : score >= 4 ? "#9a6c1a" : "#c44a2a";
+  const ringColor = score >= 7 ? "var(--scout-ok)" : score >= 4 ? "var(--scout-warn)" : "var(--scout-accent)";
+  const ringTextClass = score >= 7 ? "text-emerald-700" : score >= 4 ? "text-amber-700" : "text-red-700";
   const label = score >= 7 ? "Fee-Competitive" : score >= 4 ? "Market Average" : "Above Market";
 
   return (
     <div className="flex items-center gap-4">
       <div className="relative w-16 h-16 shrink-0">
         <svg width="64" height="64" viewBox="0 0 64 64">
-          <circle cx="32" cy="32" r={r} fill="none" stroke="#ddd9d0" strokeWidth="5" />
+          <circle cx="32" cy="32" r={r} fill="none" stroke="var(--scout-ring-track)" strokeWidth="5" />
           <circle
             cx="32"
             cy="32"
             r={r}
             fill="none"
-            stroke={color}
+            stroke={ringColor}
             strokeWidth="5"
             strokeDasharray={circ}
             strokeDashoffset={circ * (1 - score / 10)}
@@ -633,7 +634,7 @@ export function ScoreRing({ score = 5 }: { score?: number }) {
         </div>
       </div>
       <div>
-        <div className="font-sans font-semibold text-[15px]" style={{ color }}>
+        <div className={`font-sans font-semibold text-[15px] ${ringTextClass}`}>
           {label}
         </div>
         <div className="font-sans text-[11px] text-gray-500 mt-0.5">out of 10 -- consumer friendliness</div>
@@ -675,18 +676,13 @@ export function FeeTable({ categories }: { categories: Record<string, MappedFee[
               <tr key={i} className={`border-b border-gray-100 ${i % 2 ? "bg-gray-50" : "bg-white"}`}>
                 <td className="px-4 py-2.5">
                   <span
-                    className="font-mono text-[10px] px-2 py-0.5 rounded-sm whitespace-nowrap"
-                    style={{
-                      background: `${cm.color}12`,
-                      color: cm.color,
-                      border: `1px solid ${cm.color}28`,
-                    }}
+                    className={`font-mono text-[10px] px-2 py-0.5 rounded-sm whitespace-nowrap border ${cm.tw} ${cm.bgTw} ${cm.borderTw}`}
                   >
                     {cm.label}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 font-sans font-medium text-gray-900">{f.name || "\u2014"}</td>
-                <td className="px-4 py-2.5 font-mono text-xs text-[#c44a2a] font-medium whitespace-nowrap">
+                <td className="px-4 py-2.5 font-mono text-xs text-red-700 font-medium whitespace-nowrap">
                   {f.amount || "\u2014"}
                 </td>
                 <td className="px-4 py-2.5 text-center">
@@ -709,21 +705,13 @@ export function FeeTable({ categories }: { categories: Record<string, MappedFee[
 // -- Full Report --------------------------------------------------------------
 
 export function Report({ report }: { report: FeeReport }) {
-  const qColor: Record<string, string> = {
-    excellent: "#2d7a5f",
-    good: "#1d4ed8",
-    partial: "#9a6c1a",
-    limited: "#c44a2a",
+  const qualityClasses: Record<string, { text: string; bg: string; border: string }> = {
+    excellent: { text: "text-emerald-700", bg: "bg-emerald-50",  border: "border-emerald-200" },
+    good:      { text: "text-blue-700",    bg: "bg-blue-50",     border: "border-blue-200" },
+    partial:   { text: "text-amber-700",   bg: "bg-amber-50",    border: "border-amber-200" },
+    limited:   { text: "text-red-700",     bg: "bg-red-50",      border: "border-red-200" },
   };
-  const qBg: Record<string, string> = {
-    excellent: "#eaf4f0",
-    good: "#eff6ff",
-    partial: "#fdf6e3",
-    limited: "#fdf0ec",
-  };
-
-  const qualColor = qColor[report.data_quality] || "#7a7570";
-  const qualBg = qBg[report.data_quality] || "#faf8f4";
+  const qc = qualityClasses[report.data_quality] || { text: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200" };
 
   return (
     <div style={{ animation: "fadein .5s ease" }}>
@@ -736,8 +724,8 @@ export function Report({ report }: { report: FeeReport }) {
           <div>
             <h2 className="font-serif text-2xl text-gray-900 tracking-tight mb-2.5">{report.institution}</h2>
             <div className="flex gap-2 flex-wrap items-center">
-              <Tag label={report.source_summary?.type || "database"} color="#c44a2a" />
-              <Tag label="verified" color="#2d7a5f" bg="#eaf4f0" border="#a8d4c4" />
+              <Tag label={report.source_summary?.type || "database"} twText="text-red-700" twBg="bg-red-50" twBorder="border-red-200" />
+              <Tag label="verified" twText="text-emerald-700" twBg="bg-emerald-50" twBorder="border-emerald-200" />
               {report.source_summary?.as_of && (
                 <span className="font-sans text-[11px] text-gray-500">
                   data as of {report.source_summary.as_of}
@@ -748,19 +736,16 @@ export function Report({ report }: { report: FeeReport }) {
                   href={report.source_summary.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-sans text-[11px] text-[#c44a2a] hover:underline"
+                  className="font-sans text-[11px] text-red-700 hover:underline"
                 >
                   View source document &#8599;
                 </a>
               )}
             </div>
           </div>
-          <div
-            className="rounded-md px-4 py-3 text-center shrink-0"
-            style={{ background: qualBg, border: `1px solid ${qualColor}33` }}
-          >
+          <div className={`rounded-md px-4 py-3 text-center shrink-0 border ${qc.bg} ${qc.border}`}>
             <div className="font-sans text-[10px] text-gray-500 uppercase tracking-widest mb-1">Data Quality</div>
-            <div className="font-sans font-semibold text-sm capitalize" style={{ color: qualColor }}>
+            <div className={`font-sans font-semibold text-sm capitalize ${qc.text}`}>
               {report.data_quality}
             </div>
           </div>
@@ -800,36 +785,32 @@ export function Report({ report }: { report: FeeReport }) {
             key: "h",
             label: "Strengths",
             items: report.highlights || [],
-            color: "#2d7a5f",
-            bgClass: "bg-emerald-50",
-            borderColor: "#a8d4c4",
+            twText: "text-emerald-700",
+            twBg: "bg-emerald-50",
+            twBorder: "border-emerald-200",
             icon: "\u2191",
           },
           {
             key: "w",
             label: "Watch Out For",
             items: report.warnings || [],
-            color: "#c44a2a",
-            bgClass: "bg-red-50",
-            borderColor: "#e8b8a6",
+            twText: "text-red-700",
+            twBg: "bg-red-50",
+            twBorder: "border-red-200",
             icon: "\u2193",
           },
-        ].map(({ key, label, items, color, bgClass, borderColor, icon }) => (
+        ].map(({ key, label, items, twText, twBg, twBorder, icon }) => (
           <div
             key={key}
-            className={`flex-1 min-w-[200px] ${bgClass} rounded-lg px-4 py-4`}
-            style={{ border: `1px solid ${borderColor}` }}
+            className={`flex-1 min-w-[200px] ${twBg} ${twBorder} border rounded-lg px-4 py-4`}
           >
-            <div
-              className="font-sans text-[10px] font-semibold uppercase tracking-wider mb-3"
-              style={{ color }}
-            >
+            <div className={`font-sans text-[10px] font-semibold uppercase tracking-wider mb-3 ${twText}`}>
               {label}
             </div>
             {!items.length && <p className="font-sans text-xs text-gray-500">None identified.</p>}
             {items.map((item, i) => (
               <div key={i} className="flex gap-2 mb-2">
-                <span className="font-mono text-xs shrink-0 mt-0.5" style={{ color }}>
+                <span className={`font-mono text-xs shrink-0 mt-0.5 ${twText}`}>
                   {icon}
                 </span>
                 <span className="font-sans text-[13px] text-gray-900 leading-normal">{item}</span>
@@ -844,7 +825,7 @@ export function Report({ report }: { report: FeeReport }) {
             </div>
             {report.tips.map((tip, i) => (
               <div key={i} className="flex gap-2 mb-2">
-                <span className="font-mono text-[11px] text-[#c44a2a] shrink-0 mt-0.5">{i + 1}.</span>
+                <span className="font-mono text-[11px] text-red-700 shrink-0 mt-0.5">{i + 1}.</span>
                 <span className="font-sans text-[13px] text-gray-900 leading-normal">{tip}</span>
               </div>
             ))}
@@ -861,7 +842,7 @@ export function Report({ report }: { report: FeeReport }) {
               href={report.source_summary.url}
               target="_blank"
               rel="noreferrer"
-              className="font-sans text-xs text-[#c44a2a] hover:underline"
+              className="font-sans text-xs text-red-700 hover:underline"
             >
               View source document &#8599;
             </a>
@@ -957,7 +938,7 @@ export function BatchProgressBar({ progress }: { progress: { current: number; to
       </div>
       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
         <div
-          className="h-full bg-[#c44a2a] rounded-full transition-all duration-300"
+          className="h-full bg-red-700 rounded-full transition-all duration-300"
           style={{ width: `${pct}%` }}
         />
       </div>

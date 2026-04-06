@@ -194,7 +194,7 @@ export default function AgentMode() {
             className={`px-6 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed ${
               agentPolling
                 ? "bg-gray-200 text-gray-500"
-                : "bg-[#c44a2a] text-white hover:bg-[#a83d22]"
+                : "bg-red-700 text-white hover:bg-red-800"
             }`}
           >
             {agentPolling && <Spinner size={13} />}
@@ -244,7 +244,7 @@ export default function AgentMode() {
             {agentRun.total_institutions > 0 && (
               <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-[#c44a2a] transition-all duration-500"
+                  className="h-full rounded-full bg-red-700 transition-all duration-500"
                   style={{
                     width: `${Math.round((agentRun.validated / agentRun.total_institutions) * 100)}%`,
                   }}
@@ -315,7 +315,7 @@ export default function AgentMode() {
       {agentRun && agentRun.status === "failed" && (
         <div className="max-w-xl mx-auto mb-6">
           <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-4">
-            <div className="font-sans font-semibold text-[13px] text-[#c44a2a] mb-2">Agent Failed</div>
+            <div className="font-sans font-semibold text-[13px] text-red-700 mb-2">Agent Failed</div>
             <div className="font-sans text-xs text-gray-900 leading-relaxed">
               The agent encountered an error during the {agentRun.current_stage || "unknown"} stage.
               {agentRun.current_institution && ` Last institution: ${agentRun.current_institution}.`}
@@ -328,7 +328,7 @@ export default function AgentMode() {
       {agentError && (
         <div className="max-w-xl mx-auto mb-6">
           <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-4">
-            <div className="font-sans font-semibold text-[13px] text-[#c44a2a] mb-2">Error</div>
+            <div className="font-sans font-semibold text-[13px] text-red-700 mb-2">Error</div>
             <div className="font-mono text-xs text-gray-900 leading-relaxed">{agentError}</div>
           </div>
         </div>

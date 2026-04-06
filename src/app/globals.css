@@ -48,6 +48,13 @@
 }
 
 :root {
+  /* Scout component color tokens */
+  --scout-accent: #b91c1c;       /* red-700 */
+  --scout-spinner-track: #fecaca; /* red-200 */
+  --scout-ok: #047857;            /* emerald-700 */
+  --scout-warn: #b45309;          /* amber-700 */
+  --scout-ring-track: #e5e7eb;    /* gray-200 */
+
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

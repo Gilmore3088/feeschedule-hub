@@ -314,7 +314,7 @@ export default function AuditMode() {
           <div className="relative">
             <div
               className={`flex bg-white border rounded-lg overflow-hidden transition-all duration-200 ${
-                auditState.status === "running" ? "border-[#c44a2a] ring-2 ring-red-100" : "border-gray-200 shadow-sm"
+                auditState.status === "running" ? "border-red-700 ring-2 ring-red-100" : "border-gray-200 shadow-sm"
               }`}
             >
               <input
@@ -348,7 +348,7 @@ export default function AuditMode() {
                 className={`px-6 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed ${
                   auditState.status === "running" || !canRunAudit
                     ? "bg-gray-200 text-gray-500"
-                    : "bg-[#c44a2a] text-white hover:bg-[#a83d22]"
+                    : "bg-red-700 text-white hover:bg-red-800"
                 }`}
               >
                 {auditState.status === "running" && <Spinner size={13} />}
@@ -388,7 +388,7 @@ export default function AuditMode() {
             className={`w-full py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200 border-none cursor-pointer disabled:cursor-not-allowed ${
               auditState.status === "running" || !canRunAudit
                 ? "bg-gray-200 text-gray-500"
-                : "bg-[#c44a2a] text-white hover:bg-[#a83d22]"
+                : "bg-red-700 text-white hover:bg-red-800"
             }`}
           >
             {auditState.status === "running" && <Spinner size={13} />}
@@ -435,7 +435,7 @@ export default function AuditMode() {
       {/* Audit error */}
       {auditState.status === "error" && !auditState.result && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-4">
-          <div className="font-sans font-semibold text-[13px] text-[#c44a2a] mb-2">Audit Error</div>
+          <div className="font-sans font-semibold text-[13px] text-red-700 mb-2">Audit Error</div>
           <div className="font-mono text-xs text-gray-900 leading-relaxed">{auditState.error}</div>
         </div>
       )}
