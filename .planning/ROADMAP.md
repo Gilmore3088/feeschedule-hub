@@ -136,7 +136,10 @@ Plans:
   1. A single pytest invocation with `@pytest.mark.slow` runs seed → discover → extract → categorize → validate in sequence against 3-5 institutions in an isolated test DB, and the test passes without manual intervention
   2. The geography used is selected randomly at test time (state, county, or MSA) without requiring code changes between runs
   3. The test prints a summary report to stdout showing: institutions processed, fees extracted per institution, failures with stage and reason, and wall-clock time per stage
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 09-01-PLAN.md — pipeline_db module-scoped fixture (seed+discover+extract+categorize+validate) + test_full_pipeline_end_to_end + stdout/file summary report
 
 ### Phase 10: CI Integration
 **Goal**: GitHub Actions runs the e2e suite on schedule and uses pytest markers to control which tests run in fast vs full mode
@@ -171,6 +174,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Validation Stage Tests | 0/1 | Not started | - |
 | 7. Audit Trail Verification | 0/1 | Not started | - |
 | 8. Idempotency and Timing | 0/1 | Not started | - |
-| 9. Full Pipeline Test | TBD | Not started | - |
+| 9. Full Pipeline Test | 0/1 | Not started | - |
 | 10. CI Integration | TBD | Not started | - |
 | 11. Modal Pre-flight | TBD | Not started | - |
