@@ -53,6 +53,14 @@ async function AdminLayoutInner({
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-[oklch(0.13_0_0)]">
+      {/* Skip to content */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:text-gray-900 focus:px-4 focus:py-2 focus:rounded-md focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:text-sm focus:font-medium"
+      >
+        Skip to main content
+      </a>
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/90 dark:bg-[oklch(0.16_0_0)]/90 backdrop-blur-xl border-b border-black/[0.04] dark:border-white/[0.05]">
         <div className="flex items-center justify-between h-11 px-4">
@@ -60,6 +68,7 @@ async function AdminLayoutInner({
             <Link
               href="/admin"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              aria-label="Bank Fee Index — Dashboard"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -105,12 +114,12 @@ async function AdminLayoutInner({
       <div className="flex">
         {/* Sidebar */}
         <aside className="hidden md:flex flex-col w-[180px] shrink-0 sticky top-11 h-[calc(100vh-2.75rem)] border-r border-black/[0.04] dark:border-white/[0.04] bg-white/60 dark:bg-[oklch(0.15_0_0)]/60 backdrop-blur-sm overflow-y-auto">
-          <div className="flex-1 py-2.5">
+          <nav aria-label="Admin navigation" className="flex-1 py-2.5">
             <AdminNav />
             <Suspense fallback={null}>
               <JobStatusBadge />
             </Suspense>
-          </div>
+          </nav>
           <div className="border-t border-black/[0.04] dark:border-white/[0.04] px-3 py-2.5">
             <Link
               href="/"
@@ -132,7 +141,7 @@ async function AdminLayoutInner({
         </aside>
 
         {/* Main content */}
-        <main className="admin-content flex-1 min-w-0 px-5 py-5 lg:px-7">
+        <main id="main-content" className="admin-content flex-1 min-w-0 px-5 py-5 lg:px-7">
           <div className="mx-auto max-w-[1600px]">{children}</div>
         </main>
       </div>

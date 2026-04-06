@@ -25,6 +25,7 @@ export function DarkModeToggle() {
       onClick={toggle}
       className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-white/[0.06] transition-colors"
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
     >
       {dark ? (
         <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">

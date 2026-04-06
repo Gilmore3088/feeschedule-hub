@@ -170,6 +170,20 @@
 .admin-content > *:nth-child(9) { animation-delay: 265ms; }
 .admin-content > *:nth-child(10) { animation-delay: 275ms; }
 
+/* ─── Focus indicators ─── */
+*:focus-visible {
+  outline: 2px solid oklch(0.55 0.2 260);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .admin-content > * {
+    animation: none !important;
+  }
+}
+
 /* ─── Admin card refinements ─── */
 .admin-card {
   background: white;
