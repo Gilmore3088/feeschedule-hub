@@ -69,12 +69,17 @@ def _extract_fees_with_llm(text: str, institution: dict, doc_type: str) -> list[
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=4096,
-        system="You are a financial data extraction specialist. Extract ALL fees from fee schedule documents. Use the extract_fees tool to record every fee you find.",
+        system="""You are a financial data extraction specialist. Extract ALL fees from fee schedule documents.
+Use the extract_fees tool to record every fee you find.
+Look for: monthly maintenance fees, overdraft fees, NSF fees, ATM fees, wire transfer fees,
+stop payment fees, returned item fees, card replacement fees, statement fees, dormant/inactivity fees,
+foreign transaction fees, cashier's check fees, money order fees, and any other service charges.
+Even if amounts say "varies" or are ranges, extract them with amount=null.""",
         tools=[_EXTRACT_TOOL],
         tool_choice={"type": "tool", "name": "extract_fees"},
         messages=[{
             "role": "user",
-            "content": f"Extract all fees from this {charter} fee schedule ({doc_type}) for {name}.\n\nDocument text:\n{text[:8000]}",
+            "content": f"Extract all fees from this {charter} fee schedule ({doc_type}) for {name}.\n\nDocument text:\n{text[:12000]}",
         }],
         timeout=60,
     )

@@ -36,7 +36,11 @@ def extract_js(url: str, institution: dict) -> list[dict]:
         text = page.inner_text("body")
 
         # Check if this is an index page (lots of links, little fee content)
-        fee_keywords = ["monthly maintenance", "overdraft", "nsf", "atm fee", "wire transfer"]
+        fee_keywords = [
+            "monthly maintenance", "overdraft", "nsf", "atm fee", "wire transfer",
+            "service charge", "fee schedule", "stop payment", "returned item",
+            "dormant", "inactivity", "statement fee", "per item", "foreign transaction",
+        ]
         keyword_hits = sum(1 for kw in fee_keywords if kw in text.lower())
 
         if keyword_hits >= 2 and len(text) > 300:

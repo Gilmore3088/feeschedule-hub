@@ -65,14 +65,18 @@ def discover_url(institution_name: str, website_url: str) -> dict:
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=500,
-            system="""You find fee schedule URLs on bank and credit union websites.
-Given links from a page, identify which URL leads to the fee schedule, schedule of fees, or fee disclosure.
-If the fee schedule is likely on a sub-page (e.g., "Disclosures" or "Resources"), tell me to navigate there.
+            system="""You find fee schedule URLs on bank and credit union websites. Every bank and credit union publishes a fee schedule — your job is to find it.
+
+Look for links containing: fees, fee schedule, service charges, disclosures, rates, truth in savings, account agreements, pricing, schedule of fees, or PDFs with these terms.
+
+Fee schedules are often found under: Disclosures, Resources, About, Rates & Fees, Personal Banking, Checking, or Document Library pages.
+
+IMPORTANT: If you don't see a direct fee schedule link, navigate to the most promising page (Disclosures, Resources, Rates, About). NEVER give up on the first page — always navigate at least once.
 
 Return JSON only:
 {"action": "found", "url": "https://...", "confidence": 0.9, "reason": "..."}
 {"action": "navigate", "url": "https://...", "reason": "Fee schedule likely under this page"}
-{"action": "not_found", "reason": "No fee schedule link visible"}""",
+{"action": "not_found", "reason": "Exhausted all promising navigation paths"}""",
             messages=[{
                 "role": "user",
                 "content": f"Institution: {institution_name}\nCurrent page: {website_url}\n\nVisible links:\n{links_text}",
