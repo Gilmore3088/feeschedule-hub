@@ -51,7 +51,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md — seed tests: seeded_db fixture, FDIC test, NCUA test, combined charter-mix test
+- [x] 02-01-PLAN.md — seed tests: seeded_db fixture, FDIC test, NCUA test, combined charter-mix test
 
 ### Phase 3: Discovery Stage Tests
 **Goal**: The discovery stage finds and records fee schedule URLs for seeded institutions
