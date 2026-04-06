@@ -60,7 +60,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After running discovery against seeded crawl_targets, at least 1 institution has a non-null `fee_schedule_url` populated in the test DB
   2. Every discovery attempt (successful or not) has a corresponding `discovery_cache` row with `method` and `result` fields populated
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 03-01-PLAN.md — discovery tests: discovered_db fixture (module-scoped, FDIC-only, 60s timeout), fee_schedule_url assertion, cache completeness assertions
 
 ### Phase 4: Extraction Stage Tests
 **Goal**: The extraction stage produces confidence-scored fees with crawl records for all document types
@@ -147,7 +150,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Test Infrastructure | 0/2 | Not started | - |
 | 2. Seed Stage Tests | 0/1 | Not started | - |
-| 3. Discovery Stage Tests | TBD | Not started | - |
+| 3. Discovery Stage Tests | 0/1 | Not started | - |
 | 4. Extraction Stage Tests | TBD | Not started | - |
 | 5. Categorization Stage Tests | TBD | Not started | - |
 | 6. Validation Stage Tests | TBD | Not started | - |
