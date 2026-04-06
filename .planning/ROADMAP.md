@@ -244,7 +244,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [x] 15-01-PLAN.md — peer group confirmation UI + live brief status polling (BRIEF-02, PRO-02)
+- [ ] 15-01-PLAN.md — peer group confirmation UI + live brief status polling (BRIEF-02, PRO-02)
 - [ ] 15-02-PLAN.md — peer-competitive assembler + Hamilton sections + fee change events (BRIEF-01, BRIEF-03, BRIEF-04)
 - [ ] 15-03-PLAN.md — report library page + Supabase RLS migration (PRO-01, PRO-03)
 **UI hint**: yes
@@ -282,5 +282,5 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
 | 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 14. Recurring Reports | v2.0 | 3/3 | Complete    | 2026-04-06 |
-| 15. Premium Products | v2.0 | 1/3 | In Progress|  |
+| 15. Premium Products | v2.0 | 0/TBD | Not started | - |
 | 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |
