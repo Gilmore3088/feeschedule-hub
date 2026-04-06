@@ -111,7 +111,10 @@ Plans:
   2. A LEFT JOIN between `extracted_fees` and `crawl_results` returns zero rows where `crawl_result_id` is null or unmatched
   3. At least 1 institution has at least 1 extracted fee after a full pipeline run (non-zero extraction confirmed)
   4. For every fee that is currently `review_status = 'staged'`, there exists a `fee_reviews` row with `action = 'stage'` for that fee's ID
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 07-01-PLAN.md — audit trail tests: audit_db fixture (function-scoped, full FK chain), FK orphan detection (AUDT-01, AUDT-02) with positive + negative tests, non-zero extraction (AUDT-03), staged fee audit trail (AUDT-04)
 
 ### Phase 8: Idempotency and Timing
 **Goal**: Running the pipeline twice produces no duplicate rows and each stage completes within its time budget
@@ -163,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Extraction Stage Tests | 0/1 | Not started | - |
 | 5. Categorization Stage Tests | 0/1 | Not started | - |
 | 6. Validation Stage Tests | 0/1 | Not started | - |
-| 7. Audit Trail Verification | TBD | Not started | - |
+| 7. Audit Trail Verification | 0/1 | Not started | - |
 | 8. Idempotency and Timing | TBD | Not started | - |
 | 9. Full Pipeline Test | TBD | Not started | - |
 | 10. CI Integration | TBD | Not started | - |
