@@ -160,7 +160,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A Modal function exists that runs the full pipeline test and returns a pass/fail result — triggering it before a production cron confirms the Modal environment is healthy
   2. The Modal pre-flight uses an isolated test database (not production Supabase) — confirmed by asserting that no rows are written to the production `DATABASE_URL` during the pre-flight run
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 11-01-PLAN.md — preflight_e2e Modal function: isolated SQLite DB in /tmp, 5-stage pipeline, structured pass/fail JSON return
 
 ## Progress
 
@@ -179,4 +182,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Idempotency and Timing | 0/1 | Not started | - |
 | 9. Full Pipeline Test | 0/1 | Not started | - |
 | 10. CI Integration | 1/1 | Complete    | 2026-04-06 |
-| 11. Modal Pre-flight | TBD | Not started | - |
+| 11. Modal Pre-flight | 0/1 | Not started | - |
