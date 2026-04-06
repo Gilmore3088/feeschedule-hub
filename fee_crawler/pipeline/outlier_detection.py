@@ -264,7 +264,7 @@ def run_outlier_detection(db: Database, *, auto_flag: bool = True) -> None:
                 db.execute(
                     """INSERT INTO fee_reviews
                        (fee_id, action, user_id, username, previous_status, new_status, notes)
-                       VALUES (?, ?, 0, 'system', ?, ?, ?)""",
+                       VALUES (?, ?, NULL, 'system', ?, ?, ?)""",
                     (fee_id, action, prev_status, new_status, reason),
                 )
             db.commit()
