@@ -1,19 +1,18 @@
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**Bank Fee Index — E2E Pipeline Test**
+**Bank Fee Index**
 
-An end-to-end test suite for the Bank Fee Index data pipeline. Verifies the full crawl-to-extract loop works correctly: seeding institutions from a random geography, discovering their fee schedule URLs, crawling and extracting fees via LLM, categorizing and validating results, and confirming a complete audit trail in the database. Targets 3-5 institutions per test run.
+The national authority on bank and credit union fee data. A B2B platform that collects, analyzes, and publishes fee intelligence across 4,000+ financial institutions, powered by AI agents that crawl fee schedules and an AI research analyst (Hamilton) that produces McKinsey-grade reports. Revenue from subscriptions ($2,500/mo for peer benchmarking), consulting, and consumer-side ads/affiliates.
 
-**Core Value:** Prove the pipeline works end-to-end — from a cold start with a random geography to verified fees in the database with full audit trail — so regressions are caught before they reach production.
+**Core Value:** Accurate, complete, timely fee data with rich analysis — the kind of insight a bank executive would pay a consulting firm $15K to produce, generated on demand from live pipeline data.
 
 ### Constraints
 
-- **Test isolation**: Must use a separate test database, never touch production or dev data
-- **Rate limiting**: Respect robots.txt and concurrent_per_domain: 1 during discovery/crawl
-- **Cost**: LLM extraction costs real money — limit to 3-5 institutions per run
-- **Time**: Full pipeline run may take 5-10 minutes — acceptable for e2e, not unit tests
-- **Determinism**: Random geography selection means results vary — test assertions must be flexible (non-zero counts, not exact values)
+- **Content quality**: Reports must look like they came from McKinsey — not dashboards, not data dumps
+- **Accuracy**: All data in reports must trace to pipeline-verified fees
+- **Cost**: Claude API calls for Hamilton analysis are acceptable ($5-10 per report)
+- **No overlap**: Pipeline/agent work is being done by the owner in parallel — this milestone is content layer only
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:codebase/STACK.md -->

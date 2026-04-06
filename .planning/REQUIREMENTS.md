@@ -95,39 +95,39 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HAM-01 | Phase 1 | Pending |
-| HAM-02 | Phase 1 | Pending |
-| HAM-03 | Phase 1 | Pending |
-| TMPL-01 | Phase 1 | Pending |
-| TMPL-02 | Phase 1 | Pending |
-| TMPL-03 | Phase 1 | Pending |
-| ENG-01 | Phase 2 | Pending |
-| ENG-03 | Phase 2 | Pending |
-| ENG-04 | Phase 2 | Pending |
-| ENG-05 | Phase 2 | Pending |
-| ENG-06 | Phase 2 | Pending |
-| NQR-01 | Phase 3 | Pending |
-| NQR-02 | Phase 3 | Pending |
-| NQR-03 | Phase 3 | Pending |
-| NQR-04 | Phase 3 | Pending |
-| SFI-01 | Phase 3 | Pending |
-| SFI-02 | Phase 3 | Pending |
-| SFI-03 | Phase 3 | Pending |
-| PULSE-01 | Phase 3 | Pending |
-| PULSE-02 | Phase 3 | Pending |
-| PULSE-03 | Phase 3 | Pending |
-| BRIEF-01 | Phase 4 | Pending |
-| BRIEF-02 | Phase 4 | Pending |
-| BRIEF-03 | Phase 4 | Pending |
-| BRIEF-04 | Phase 4 | Pending |
-| METH-01 | Phase 1 | Pending |
-| METH-02 | Phase 5 | Pending |
-| PRO-01 | Phase 4 | Pending |
-| PRO-02 | Phase 4 | Pending |
-| PRO-03 | Phase 4 | Pending |
-| PUB-01 | Phase 5 | Pending |
-| PUB-02 | Phase 5 | Pending |
-| PUB-03 | Phase 5 | Pending |
+| HAM-01 | Phase 12 | Pending |
+| HAM-02 | Phase 12 | Pending |
+| HAM-03 | Phase 12 | Pending |
+| TMPL-01 | Phase 12 | Pending |
+| TMPL-02 | Phase 12 | Pending |
+| TMPL-03 | Phase 12 | Pending |
+| METH-01 | Phase 12 | Pending |
+| ENG-01 | Phase 13 | Pending |
+| ENG-03 | Phase 13 | Pending |
+| ENG-04 | Phase 13 | Pending |
+| ENG-05 | Phase 13 | Pending |
+| ENG-06 | Phase 13 | Pending |
+| NQR-01 | Phase 14 | Pending |
+| NQR-02 | Phase 14 | Pending |
+| NQR-03 | Phase 14 | Pending |
+| NQR-04 | Phase 14 | Pending |
+| SFI-01 | Phase 14 | Pending |
+| SFI-02 | Phase 14 | Pending |
+| SFI-03 | Phase 14 | Pending |
+| PULSE-01 | Phase 14 | Pending |
+| PULSE-02 | Phase 14 | Pending |
+| PULSE-03 | Phase 14 | Pending |
+| BRIEF-01 | Phase 15 | Pending |
+| BRIEF-02 | Phase 15 | Pending |
+| BRIEF-03 | Phase 15 | Pending |
+| BRIEF-04 | Phase 15 | Pending |
+| PRO-01 | Phase 15 | Pending |
+| PRO-02 | Phase 15 | Pending |
+| PRO-03 | Phase 15 | Pending |
+| METH-02 | Phase 16 | Pending |
+| PUB-01 | Phase 16 | Pending |
+| PUB-02 | Phase 16 | Pending |
+| PUB-03 | Phase 16 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 33 total
@@ -136,4 +136,4 @@
 
 ---
 *Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after v2.0 milestone start*
+*Last updated: 2026-04-06 after v2.0 roadmap creation*

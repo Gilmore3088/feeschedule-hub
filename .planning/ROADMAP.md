@@ -1,10 +1,14 @@
-# Roadmap: Bank Fee Index — E2E Pipeline Test Suite
+# Roadmap: Bank Fee Index
 
-## Overview
+## Milestones
 
-Starting from zero test coverage for the live pipeline, this roadmap builds a fine-grained, stage-isolated end-to-end test suite that proves the crawl-to-extract loop works correctly. Phase 1 establishes isolation foundations that every subsequent phase depends on. Phases 2-6 test each pipeline stage independently, so a breakage in discovery cannot mask a breakage in extraction. Phases 7-8 verify the audit trail and idempotency guarantees that make the pipeline trustworthy. Phase 9 runs the full chain end-to-end. Phases 10-11 wire everything into CI and Modal pre-flight validation.
+- [x] **v1.0 E2E Pipeline Test Suite** - Phases 1-11 (shipped 2026-04-06)
+- [ ] **v2.0 Hamilton — Research & Content Engine** - Phases 12-16 (in progress)
 
 ## Phases
+
+<details>
+<summary>v1.0 E2E Pipeline Test Suite (Phases 1-11) - SHIPPED 2026-04-06</summary>
 
 **Phase Numbering:**
 - Integer phases (1, 2, 3): Planned milestone work
@@ -12,19 +16,17 @@ Starting from zero test coverage for the live pipeline, this roadmap builds a fi
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Test Infrastructure** - Isolated test DB, pytest markers, HTTP mock server, geography fixtures, institution factory
-- [ ] **Phase 2: Seed Stage Tests** - FDIC + NCUA institution seeding into isolated crawl_targets
-- [ ] **Phase 3: Discovery Stage Tests** - Fee schedule URL discovery recorded in discovery_cache
-- [ ] **Phase 4: Extraction Stage Tests** - LLM fee extraction with confidence scoring and crawl_results records
-- [ ] **Phase 5: Categorization Stage Tests** - Fee family and category assignment via 49-category taxonomy
-- [ ] **Phase 6: Validation Stage Tests** - Confidence-based review_status transitions and outlier flagging
-- [ ] **Phase 7: Audit Trail Verification** - FK integrity and status transition assertions across all tables
-- [ ] **Phase 8: Idempotency and Timing** - No duplicate rows on re-run, per-stage time budget enforcement
-- [ ] **Phase 9: Full Pipeline Test** - End-to-end run for 3-5 institutions with summary report
+- [x] **Phase 1: Test Infrastructure** - Isolated test DB, pytest markers, HTTP mock server, geography fixtures, institution factory
+- [x] **Phase 2: Seed Stage Tests** - FDIC + NCUA institution seeding into isolated crawl_targets
+- [x] **Phase 3: Discovery Stage Tests** - Fee schedule URL discovery recorded in discovery_cache
+- [x] **Phase 4: Extraction Stage Tests** - LLM fee extraction with confidence scoring and crawl_results records
+- [x] **Phase 5: Categorization Stage Tests** - Fee family and category assignment via 49-category taxonomy
+- [x] **Phase 6: Validation Stage Tests** - Confidence-based review_status transitions and outlier flagging
+- [x] **Phase 7: Audit Trail Verification** - FK integrity and status transition assertions across all tables
+- [x] **Phase 8: Idempotency and Timing** - No duplicate rows on re-run, per-stage time budget enforcement
+- [x] **Phase 9: Full Pipeline Test** - End-to-end run for 3-5 institutions with summary report
 - [x] **Phase 10: CI Integration** - GitHub Actions workflow with marker-controlled e2e runs (completed 2026-04-06)
 - [x] **Phase 11: Modal Pre-flight** - Modal environment validation against isolated test database (completed 2026-04-06)
-
-## Phase Details
 
 ### Phase 1: Test Infrastructure
 **Goal**: A working, isolated test harness exists that all pipeline stage tests can build on
@@ -88,7 +90,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md — categorization tests: categorized_db fixture (function-scoped, synthetic rows), taxonomy membership assertions (CATG-01), alias normalization assertions (CATG-02)
+- [x] 05-01-PLAN.md — categorization tests: categorized_db fixture (function-scoped, synthetic rows), taxonomy membership assertions (CATG-01), alias normalization assertions (CATG-02)
 
 ### Phase 6: Validation Stage Tests
 **Goal**: The validation stage transitions review_status correctly based on confidence and flags statistical outliers
@@ -165,21 +167,99 @@ Plans:
 Plans:
 - [x] 11-01-PLAN.md — preflight_e2e Modal function: isolated SQLite DB in /tmp, 5-stage pipeline, structured pass/fail JSON return
 
+</details>
+
+---
+
+## v2.0 Hamilton — Research & Content Engine
+
+**Milestone Goal:** Build the report engine and content library that establishes Bank Fee Index as the national authority on bank fees, powered by Hamilton, the AI research analyst.
+
+- [ ] **Phase 12: Hamilton Foundation** - Hamilton persona, generateSection() API, numeric validator, shared template system, methodology paper draft
+- [ ] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step
+- [ ] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron
+- [ ] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating
+- [ ] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization
+
+### Phase 12: Hamilton Foundation
+**Goal**: The Hamilton analyst persona, data-to-narrative API, and shared template system exist and produce verifiable, McKinsey-grade output
+**Depends on**: Phase 11
+**Requirements**: HAM-01, HAM-02, HAM-03, TMPL-01, TMPL-02, TMPL-03, METH-01
+**Success Criteria** (what must be TRUE):
+  1. Calling `hamilton.generateSection({ type, data })` returns a structured narrative that never contains a statistic not present in the input data object (numeric validator confirms zero invented numbers)
+  2. Hamilton's output reads with a consistent voice — an analyst reviewing two sections from different reports can identify them as the same author without seeing metadata
+  3. Rendering a report template with fixture data produces a complete HTML document with cover page, section headers, data tables, and footnotes — no missing layout regions
+  4. The methodology paper draft exists as a reviewable document explaining data sources, crawl process, categorization logic, and confidence scoring
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 13: Report Engine Core
+**Goal**: Any report type can be triggered, tracked through a job queue, rendered to PDF, stored in R2, and downloaded via presigned URL — with a two-pass editorial review before finalization
+**Depends on**: Phase 12
+**Requirements**: ENG-01, ENG-03, ENG-04, ENG-05, ENG-06
+**Success Criteria** (what must be TRUE):
+  1. Triggering a report generation via the Next.js API returns a job ID; polling that ID transitions through `pending → assembling → rendering → complete` and a presigned download URL is available at completion
+  2. Requesting a report when the median crawl age exceeds threshold (120 days national, 90 days state) returns a clear error — no stale report is published
+  3. Every generated report artifact in R2 has a corresponding `report_jobs` row with a data manifest listing every source query and its result row count
+  4. The editor review step runs a second Claude pass on Hamilton's draft; sections flagged as inconsistent or unsupported are held for human review before the job reaches `complete`
+**Plans**: TBD
+
+### Phase 14: Recurring Reports
+**Goal**: National quarterly reports, per-state fee indexes, and monthly pulse reports are generated from live pipeline data and available for download
+**Depends on**: Phase 13
+**Requirements**: NQR-01, NQR-02, NQR-03, NQR-04, SFI-01, SFI-02, SFI-03, PULSE-01, PULSE-02, PULSE-03
+**Success Criteria** (what must be TRUE):
+  1. A national quarterly report covers all 49 fee categories with medians, P25/P75, institution counts, Hamilton narrative per section, and is sliceable by charter type and asset tier
+  2. A state fee index report for any covered state shows delta-to-national analysis per fee category with Fed district economic indicators woven into Hamilton's narrative
+  3. A monthly pulse report is generated and published on cron schedule, containing movement summary and trend lines with 1-2 paragraphs of Hamilton narrative — no manual trigger required
+  4. All three report types pass the freshness gate and numeric validator before reaching `complete` status
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 15: Premium Products
+**Goal**: Subscribers can trigger on-demand competitive briefs and access their full report library through an authenticated pro portal
+**Depends on**: Phase 14
+**Requirements**: BRIEF-01, BRIEF-02, BRIEF-03, BRIEF-04, PRO-01, PRO-02, PRO-03
+**Success Criteria** (what must be TRUE):
+  1. A subscriber can define a peer group (asset tier, charter, geography), confirm it in a UI before generation triggers, and receive a competitive brief with 3-6 Hamilton sections analyzing their institution vs peers
+  2. Where fee change event data exists, the competitive brief includes a "who moved first" timeline — the subscriber can see which peers changed fees and when
+  3. A subscriber can browse their report library, filter by type and date, and download any past report via a presigned URL — access is blocked for non-subscribers at the RLS layer
+  4. On-demand brief generation shows live polling status from `pending` to `complete` without a page refresh
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 16: Public Catalog + Go-to-Market
+**Goal**: The methodology is published, report landing pages are live with SEO optimization, and the public catalog converts visitors to subscribers
+**Depends on**: Phase 15
+**Requirements**: METH-02, PUB-01, PUB-02, PUB-03
+**Success Criteria** (what must be TRUE):
+  1. The methodology paper is live at a public URL and is linked from sales outreach materials — a prospect can read exactly how the index works before buying
+  2. Each published report has an ISR-cached landing page showing executive summary and 2 charts publicly, with a CTA/signup gate before the full PDF download
+  3. Report landing pages have correct OG metadata — sharing a report URL on LinkedIn renders a preview with title, description, and image
+  4. The public catalog lists all published reports with filtering, and search engines can index catalog and report landing pages
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
+Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Test Infrastructure | 0/2 | Not started | - |
-| 2. Seed Stage Tests | 0/1 | Not started | - |
-| 3. Discovery Stage Tests | 0/1 | Not started | - |
-| 4. Extraction Stage Tests | 0/1 | Not started | - |
-| 5. Categorization Stage Tests | 0/1 | Not started | - |
-| 6. Validation Stage Tests | 0/1 | Not started | - |
-| 7. Audit Trail Verification | 0/1 | Not started | - |
-| 8. Idempotency and Timing | 0/1 | Not started | - |
-| 9. Full Pipeline Test | 0/1 | Not started | - |
-| 10. CI Integration | 1/1 | Complete    | 2026-04-06 |
-| 11. Modal Pre-flight | 1/1 | Complete    | 2026-04-06 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Test Infrastructure | v1.0 | 2/2 | Complete | 2026-04-06 |
+| 2. Seed Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 3. Discovery Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 4. Extraction Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 5. Categorization Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 6. Validation Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 7. Audit Trail Verification | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 8. Idempotency and Timing | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 9. Full Pipeline Test | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 12. Hamilton Foundation | v2.0 | 0/TBD | Not started | - |
+| 13. Report Engine Core | v2.0 | 0/TBD | Not started | - |
+| 14. Recurring Reports | v2.0 | 0/TBD | Not started | - |
+| 15. Premium Products | v2.0 | 0/TBD | Not started | - |
+| 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |
