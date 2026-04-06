@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import {
@@ -10,6 +11,7 @@ import {
   getCoverageByState,
 } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { SkeletonPage } from "@/components/skeleton";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -18,6 +20,26 @@ function formatNumber(n: number): string {
 export default async function AdminDashboard() {
   await requireAuth("view");
 
+  return (
+    <>
+      <div className="mb-5">
+        <Breadcrumbs items={[{ label: "Dashboard" }]} />
+        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          Dashboard
+        </h1>
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          Bank Fee Index admin overview
+        </p>
+      </div>
+
+      <Suspense fallback={<SkeletonPage />}>
+        <DashboardContent />
+      </Suspense>
+    </>
+  );
+}
+
+async function DashboardContent() {
   let stats = { total_institutions: 0, with_fees: 0, with_urls: 0, coverage_pct: 0 };
   let queue = { staged: 0, flagged: 0, pending: 0, approved: 0, rejected: 0 };
   let crawlRuns: Awaited<ReturnType<typeof getRecentCrawlRuns>> = [];
@@ -40,16 +62,6 @@ export default async function AdminDashboard() {
 
   return (
     <>
-      <div className="mb-5">
-        <Breadcrumbs items={[{ label: "Dashboard" }]} />
-        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-          Dashboard
-        </h1>
-        <p className="text-[11px] text-gray-400 mt-0.5">
-          Bank Fee Index admin overview
-        </p>
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-8">
         <StatCard label="Total Institutions" value={formatNumber(stats.total_institutions)} />
