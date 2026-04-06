@@ -241,7 +241,12 @@ Plans:
   2. Where fee change event data exists, the competitive brief includes a "who moved first" timeline — the subscriber can see which peers changed fees and when
   3. A subscriber can browse their report library, filter by type and date, and download any past report via a presigned URL — access is blocked for non-subscribers at the RLS layer
   4. On-demand brief generation shows live polling status from `pending` to `complete` without a page refresh
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 15-01-PLAN.md — peer group confirmation UI + live brief status polling (BRIEF-02, PRO-02)
+- [ ] 15-02-PLAN.md — peer-competitive assembler + Hamilton sections + fee change events (BRIEF-01, BRIEF-03, BRIEF-04)
+- [ ] 15-03-PLAN.md — report library page + Supabase RLS migration (PRO-01, PRO-03)
 **UI hint**: yes
 
 ### Phase 16: Public Catalog + Go-to-Market
