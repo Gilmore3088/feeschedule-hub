@@ -190,8 +190,14 @@ Plans:
   2. Hamilton's output reads with a consistent voice — an analyst reviewing two sections from different reports can identify them as the same author without seeing metadata
   3. Rendering a report template with fixture data produces a complete HTML document with cover page, section headers, data tables, and footnotes — no missing layout regions
   4. The methodology paper draft exists as a reviewable document explaining data sources, crawl process, categorization logic, and confidence scoring
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 5 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Hamilton types.ts + voice.ts: locked persona, 7 style rules, type system (HAM-01)
+- [ ] 12-02-PLAN.md — generateSection() API + numeric validator with vitest tests (HAM-02, HAM-03)
+- [ ] 12-03-PLAN.md — Base layout components: PALETTE constants, REPORT_CSS, 8 component functions, wrapReport() (TMPL-01, TMPL-03)
+- [ ] 12-04-PLAN.md — Report templates: peer-competitive + national-overview pure functions + preview route (TMPL-02, TMPL-03)
+- [ ] 12-05-PLAN.md — Methodology paper: public /methodology page with 6 sections (METH-01)
 
 ### Phase 13: Report Engine Core
 **Goal**: Any report type can be triggered, tracked through a job queue, rendered to PDF, stored in R2, and downloaded via presigned URL — with a two-pass editorial review before finalization
@@ -258,7 +264,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 9. Full Pipeline Test | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 12. Hamilton Foundation | v2.0 | 0/TBD | Not started | - |
+| 12. Hamilton Foundation | v2.0 | 0/5 | Not started | - |
 | 13. Report Engine Core | v2.0 | 0/TBD | Not started | - |
 | 14. Recurring Reports | v2.0 | 0/TBD | Not started | - |
 | 15. Premium Products | v2.0 | 0/TBD | Not started | - |
