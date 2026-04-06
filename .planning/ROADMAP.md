@@ -100,7 +100,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 06-01-PLAN.md — validation tests: validated_db + outlier_db fixtures (function-scoped, synthetic rows), threshold boundary assertions (VALD-01), outlier flagging + JSON validity assertions (VALD-02)
+- [x] 06-01-PLAN.md — validation tests: validated_db + outlier_db fixtures (function-scoped, synthetic rows), threshold boundary assertions (VALD-01), outlier flagging + JSON validity assertions (VALD-02)
 
 ### Phase 7: Audit Trail Verification
 **Goal**: Every record in the pipeline has valid foreign keys and correct status history — no orphans, no missing transitions
