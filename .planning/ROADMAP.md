@@ -178,7 +178,7 @@ Plans:
 - [x] **Phase 12: Hamilton Foundation** - Hamilton persona, generateSection() API, numeric validator, shared template system, methodology paper draft (completed 2026-04-06)
 - [x] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step (completed 2026-04-06)
 - [x] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron (completed 2026-04-06)
-- [ ] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating
+- [x] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating (completed 2026-04-06)
 - [ ] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization
 
 ### Phase 12: Hamilton Foundation
@@ -244,8 +244,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 15-01-PLAN.md — peer group confirmation UI + live brief status polling (BRIEF-02, PRO-02)
-- [ ] 15-02-PLAN.md — peer-competitive assembler + Hamilton sections + fee change events (BRIEF-01, BRIEF-03, BRIEF-04)
+- [x] 15-01-PLAN.md — peer group confirmation UI + live brief status polling (BRIEF-02, PRO-02)
+- [x] 15-02-PLAN.md — peer-competitive assembler + Hamilton sections + fee change events (BRIEF-01, BRIEF-03, BRIEF-04)
 - [ ] 15-03-PLAN.md — report library page + Supabase RLS migration (PRO-01, PRO-03)
 **UI hint**: yes
 
@@ -282,5 +282,5 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
 | 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 14. Recurring Reports | v2.0 | 3/3 | Complete    | 2026-04-06 |
-| 15. Premium Products | v2.0 | 0/TBD | Not started | - |
+| 15. Premium Products | v2.0 | 2/3 | Complete    | 2026-04-06 |
 | 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |
