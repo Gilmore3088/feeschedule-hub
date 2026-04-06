@@ -38,8 +38,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — pytest markers (pyproject.toml) + geography CLI option + knowledge file stubs
-- [ ] 01-02-PLAN.md — e2e conftest fixtures: DB isolation, lock file override, R2 bypass guard, smoke tests
+- [x] 01-01-PLAN.md — pytest markers (pyproject.toml) + geography CLI option + knowledge file stubs
+- [x] 01-02-PLAN.md — e2e conftest fixtures: DB isolation, lock file override, R2 bypass guard, smoke tests
 
 ### Phase 2: Seed Stage Tests
 **Goal**: The seed stage correctly populates crawl_targets from both FDIC and NCUA sources in an isolated test DB
