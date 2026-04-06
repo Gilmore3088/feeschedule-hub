@@ -1,0 +1,108 @@
+name: E2E Pipeline Tests
+
+on:
+  schedule:
+    # Nightly at 02:00 UTC (fast mode) and weekly Sunday at 04:00 UTC (full mode)
+    - cron: "0 2 * * *"
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Test mode: fast (e2e only) or full (e2e + llm + slow)"
+        required: true
+        default: "fast"
+        type: choice
+        options:
+          - fast
+          - full
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Fast mode: runs only @pytest.mark.e2e tests — no LLM calls, no slow tests.
+  # Triggered nightly and on every workflow_dispatch with mode=fast.
+  # --------------------------------------------------------------------------
+  e2e-fast:
+    name: E2E Tests (fast — no LLM)
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'fast') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == '')
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pytest pytest-timeout
+
+      - name: Install system dependencies for PDF extraction
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr \
+            poppler-utils
+
+      - name: Run fast E2E tests (e2e marker only)
+        env:
+          # Explicitly unset R2_ENDPOINT so the R2 bypass guard passes
+          R2_ENDPOINT: ""
+        run: |
+          pytest -m "e2e and not llm and not slow" \
+            --timeout=120 \
+            -v \
+            --tb=short \
+            fee_crawler/tests/e2e/
+
+  # --------------------------------------------------------------------------
+  # Full mode: runs e2e + llm + slow tests — makes real Anthropic API calls.
+  # Triggered weekly (Sunday 04:00 UTC) and on workflow_dispatch with mode=full.
+  # Requires ANTHROPIC_API_KEY secret.
+  # --------------------------------------------------------------------------
+  e2e-full:
+    name: E2E Tests (full — with LLM)
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'schedule' && github.event.schedule == '0 4 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'full')
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pytest pytest-timeout
+
+      - name: Install system dependencies for PDF extraction
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr \
+            poppler-utils
+
+      - name: Run full E2E tests (e2e + llm + slow markers)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Explicitly unset R2_ENDPOINT so the R2 bypass guard passes
+          R2_ENDPOINT: ""
+        run: |
+          pytest -m "e2e or llm or slow" \
+            --timeout=600 \
+            -v \
+            --tb=short \
+            fee_crawler/tests/e2e/
