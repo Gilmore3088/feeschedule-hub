@@ -14,6 +14,7 @@ export interface AgentRun {
   failed: number;
   current_stage: string | null;
   current_institution: string | null;
+  results?: AgentRunResult[];
 }
 
 export interface AgentRunResult {

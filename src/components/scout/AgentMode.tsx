@@ -1,8 +1,107 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { AgentRun } from "@/lib/scout/agent-types";
+import type { AgentRun, AgentRunResult } from "@/lib/scout/agent-types";
 import { US_STATES, Spinner, ScoutKeyframes } from "./shared";
+
+const STAGES = ["discover", "classify", "extract", "validate"] as const;
+type Stage = (typeof STAGES)[number];
+
+function formatDetail(stage: Stage, detail: Record<string, unknown>): string {
+  if (stage === "extract" && typeof detail.fee_count === "number") {
+    return `${detail.fee_count} fees`;
+  }
+  if (stage === "validate" && typeof detail.data_quality === "string") {
+    return detail.data_quality as string;
+  }
+  if (typeof detail.document_type === "string") {
+    return detail.document_type as string;
+  }
+  if (typeof detail.reason === "string") {
+    return detail.reason as string;
+  }
+  if (typeof detail.error === "string") {
+    return (detail.error as string).slice(0, 60);
+  }
+  return "";
+}
+
+function InstitutionResultsTable({ results }: { results: AgentRunResult[] }) {
+  // Group results by crawl_target_id, preserving insertion order
+  const rowMap = new Map<number, Partial<Record<Stage, AgentRunResult>>>();
+  for (const r of results) {
+    if (!rowMap.has(r.crawl_target_id)) {
+      rowMap.set(r.crawl_target_id, {});
+    }
+    rowMap.get(r.crawl_target_id)![r.stage] = r;
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 bg-gray-50/80 border-b border-gray-200">
+        <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+          Per-Institution Results
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-gray-50/80 border-b border-gray-100">
+              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                Institution ID
+              </th>
+              {STAGES.map((s) => (
+                <th
+                  key={s}
+                  className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
+                >
+                  {s}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {Array.from(rowMap.entries()).map(([targetId, stageMap]) => (
+              <tr key={targetId} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-2.5 font-sans text-sm text-gray-900 tabular-nums">
+                  {targetId}
+                </td>
+                {STAGES.map((s) => {
+                  const result = stageMap[s];
+                  if (!result) {
+                    return (
+                      <td key={s} className="px-4 py-2.5 font-sans text-sm text-gray-300">
+                        &mdash;
+                      </td>
+                    );
+                  }
+                  const detail = formatDetail(s, result.detail);
+                  const isFailed = result.status === "failed";
+                  return (
+                    <td key={s} className="px-4 py-2.5 font-sans text-sm">
+                      <span
+                        className={
+                          isFailed ? "text-red-600" : "text-emerald-600"
+                        }
+                      >
+                        {result.status}
+                      </span>
+                      {detail && (
+                        <span className="ml-1 text-gray-400 text-[11px]">
+                          ({detail})
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 export default function AgentMode() {
   const [agentState, setAgentState] = useState<string>("WY");
@@ -172,8 +271,8 @@ export default function AgentMode() {
               Processed {agentRun.total_institutions} institutions in {agentRun.state_code}.
             </div>
           </div>
-          {/* Results table */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          {/* Stage summary table */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-4">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50/80">
@@ -205,6 +304,10 @@ export default function AgentMode() {
               </tbody>
             </table>
           </div>
+          {/* Per-institution results table */}
+          {agentRun.results && agentRun.results.length > 0 && (
+            <InstitutionResultsTable results={agentRun.results} />
+          )}
         </div>
       )}
 
