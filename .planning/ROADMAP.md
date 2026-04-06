@@ -35,7 +35,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A test that inserts rows into the test DB can verify that `data/crawler.db` modification time is unchanged after the test completes
   3. R2 document storage is bypassed in all tests — document writes go to a `tmp_path` directory and no Cloudflare API calls are made
   4. Geography parametrization can be overridden via `--geography state=VT` (or equivalent) without changing test code
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — pytest markers (pyproject.toml) + geography CLI option + knowledge file stubs
+- [ ] 01-02-PLAN.md — e2e conftest fixtures: DB isolation, lock file override, R2 bypass guard, smoke tests
 
 ### Phase 2: Seed Stage Tests
 **Goal**: The seed stage correctly populates crawl_targets from both FDIC and NCUA sources in an isolated test DB
@@ -138,7 +142,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Test Infrastructure | TBD | Not started | - |
+| 1. Test Infrastructure | 0/2 | Not started | - |
 | 2. Seed Stage Tests | TBD | Not started | - |
 | 3. Discovery Stage Tests | TBD | Not started | - |
 | 4. Extraction Stage Tests | TBD | Not started | - |
