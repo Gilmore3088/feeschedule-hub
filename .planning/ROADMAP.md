@@ -176,7 +176,7 @@ Plans:
 **Milestone Goal:** Build the report engine and content library that establishes Bank Fee Index as the national authority on bank fees, powered by Hamilton, the AI research analyst.
 
 - [x] **Phase 12: Hamilton Foundation** - Hamilton persona, generateSection() API, numeric validator, shared template system, methodology paper draft (completed 2026-04-06)
-- [ ] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step
+- [x] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step (completed 2026-04-06)
 - [ ] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron
 - [ ] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating
 - [ ] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization
@@ -211,9 +211,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Supabase migration (report_jobs + published_reports) + freshness gate module (ENG-04, ENG-06)
-- [ ] 13-02-PLAN.md — Modal generate_report function + editor review module (ENG-01, ENG-03)
-- [ ] 13-03-PLAN.md — Next.js API routes: generate, status, download + presign utility (ENG-05)
+- [x] 13-01-PLAN.md — Supabase migration (report_jobs + published_reports) + freshness gate module (ENG-04, ENG-06)
+- [x] 13-02-PLAN.md — Modal generate_report function + editor review module (ENG-01, ENG-03)
+- [x] 13-03-PLAN.md — Next.js API routes: generate, status, download + presign utility (ENG-05)
 
 ### Phase 14: Recurring Reports
 **Goal**: National quarterly reports, per-state fee indexes, and monthly pulse reports are generated from live pipeline data and available for download
@@ -270,7 +270,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
-| 13. Report Engine Core | v2.0 | 0/3 | Not started | - |
+| 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 14. Recurring Reports | v2.0 | 0/TBD | Not started | - |
 | 15. Premium Products | v2.0 | 0/TBD | Not started | - |
 | 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |
