@@ -73,7 +73,10 @@ Plans:
   1. At least 1 `extracted_fees` row exists with `extraction_confidence` in the range [0.0, 1.0] (no out-of-range values anywhere in the table)
   2. Extraction completes successfully for at least one PDF document and at least one HTML document (both `document_type` values represented in `crawl_results`)
   3. Every crawl attempt has a `crawl_results` row with `status` in `('success', 'failed', 'unchanged')` — no crawl attempt is unrecorded
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 04-01-PLAN.md — extraction tests: extracted_db fixture (module-scoped, builds on discovered_db), confidence range assertion, crawl_results completeness, document type coverage
 
 ### Phase 5: Categorization Stage Tests
 **Goal**: The categorization stage assigns valid taxonomy labels and normalizes fee names via alias matching
@@ -151,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Test Infrastructure | 0/2 | Not started | - |
 | 2. Seed Stage Tests | 0/1 | Not started | - |
 | 3. Discovery Stage Tests | 0/1 | Not started | - |
-| 4. Extraction Stage Tests | TBD | Not started | - |
+| 4. Extraction Stage Tests | 0/1 | Not started | - |
 | 5. Categorization Stage Tests | TBD | Not started | - |
 | 6. Validation Stage Tests | TBD | Not started | - |
 | 7. Audit Trail Verification | TBD | Not started | - |
