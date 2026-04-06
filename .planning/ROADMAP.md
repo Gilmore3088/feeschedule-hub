@@ -85,7 +85,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Every `extracted_fees` row has a non-null `fee_family` and `fee_category`, both matching values from the 49-category taxonomy
   2. At least 1 fee whose raw name matches a known alias is assigned the canonical `fee_category` (not left uncategorized)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 05-01-PLAN.md — categorization tests: categorized_db fixture (function-scoped, synthetic rows), taxonomy membership assertions (CATG-01), alias normalization assertions (CATG-02)
 
 ### Phase 6: Validation Stage Tests
 **Goal**: The validation stage transitions review_status correctly based on confidence and flags statistical outliers
@@ -155,7 +158,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Seed Stage Tests | 0/1 | Not started | - |
 | 3. Discovery Stage Tests | 0/1 | Not started | - |
 | 4. Extraction Stage Tests | 0/1 | Not started | - |
-| 5. Categorization Stage Tests | TBD | Not started | - |
+| 5. Categorization Stage Tests | 0/1 | Not started | - |
 | 6. Validation Stage Tests | TBD | Not started | - |
 | 7. Audit Trail Verification | TBD | Not started | - |
 | 8. Idempotency and Timing | TBD | Not started | - |
