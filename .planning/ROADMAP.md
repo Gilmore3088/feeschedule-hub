@@ -48,7 +48,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After running the seed stage, the test DB contains 3-5 `crawl_targets` rows with all required fields populated (name, charter_type, website_url, asset_size, fed_district)
   2. At least one seeded institution has `charter_type` matching a bank (FDIC source) and at least one matches a credit union (NCUA source)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — seed tests: seeded_db fixture, FDIC test, NCUA test, combined charter-mix test
 
 ### Phase 3: Discovery Stage Tests
 **Goal**: The discovery stage finds and records fee schedule URLs for seeded institutions
@@ -143,7 +146,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Test Infrastructure | 0/2 | Not started | - |
-| 2. Seed Stage Tests | TBD | Not started | - |
+| 2. Seed Stage Tests | 0/1 | Not started | - |
 | 3. Discovery Stage Tests | TBD | Not started | - |
 | 4. Extraction Stage Tests | TBD | Not started | - |
 | 5. Categorization Stage Tests | TBD | Not started | - |
