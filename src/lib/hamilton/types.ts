@@ -8,6 +8,7 @@ export type SectionType =
   | "findings"
   | "trend_analysis"
   | "peer_comparison"
+  | "peer_competitive"
   | "regional_analysis"
   | "recommendation"
   | "executive_summary"
