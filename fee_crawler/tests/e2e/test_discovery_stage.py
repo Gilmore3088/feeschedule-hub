@@ -28,7 +28,7 @@ Timeout approach:
 
 from __future__ import annotations
 
-import concurrent.futures
+import socket
 import warnings
 
 import pytest
@@ -40,7 +40,7 @@ from fee_crawler.commands.seed_institutions import seed_fdic
 # Module-scoped fixture: runs full discovery pipeline once for all tests
 # ---------------------------------------------------------------------------
 
-_DISCOVERY_TIMEOUT_SECONDS = 60
+_DISCOVERY_TIMEOUT_SECONDS = 120
 _SEED_LIMIT = 3
 
 
@@ -81,10 +81,15 @@ def discovered_db(test_db, test_config):
             "Skipping entire discovery module."
         )
 
-    # Filter to only institutions with a URL (these are the ones we can discover)
+    # Filter to only institutions with a URL, limited to _SEED_LIMIT.
+    # seed_fdic fetches full API pages (1000 rows) regardless of limit param,
+    # so crawl_targets may contain far more rows than _SEED_LIMIT. We cap the
+    # discovery loop to avoid spending 10+ minutes probing hundreds of sites.
     targets = test_db.fetchall(
         "SELECT id, institution_name, website_url, state_code, asset_size "
-        "FROM crawl_targets WHERE website_url IS NOT NULL"
+        "FROM crawl_targets WHERE website_url IS NOT NULL "
+        "ORDER BY asset_size DESC LIMIT ?",
+        (_SEED_LIMIT,),
     )
     if not targets:
         pytest.skip(
@@ -92,28 +97,27 @@ def discovered_db(test_db, test_config):
             "This may mean FDIC API returned institutions without WEBADDR fields."
         )
 
-    # Run discovery for each institution with a 60-second per-institution timeout.
-    # Uses ThreadPoolExecutor so future.result(timeout=60) works cross-platform
-    # (unlike signal.alarm which requires UNIX + main thread).
+    # Set a global socket timeout so that any HTTP request that hangs on
+    # SSL read or TCP recv will be interrupted after 15 seconds. The
+    # discoverer's `timeout` param only covers connection setup, not the
+    # full read — servers that accept but never respond cause indefinite hangs.
+    old_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(15)
+
+    # Run discovery for each institution directly in the main thread.
+    # No threading wrapper — _discover_one creates its own DB connection
+    # (get_worker_db) and runs the full cascade. Running in-process avoids
+    # the unkillable-thread problem that caused pytest-timeout hangs.
     for target in targets:
         target_dict = dict(target)
         name = target_dict.get("institution_name", "unknown")
 
         try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(
-                    _discover_one,
-                    target_dict,
-                    test_config,
-                    False,   # concurrent=False (single-threaded discovery)
-                    False,   # force=False (use cache TTL logic)
-                )
-                future.result(timeout=_DISCOVERY_TIMEOUT_SECONDS)
-        except concurrent.futures.TimeoutError:
-            warnings.warn(
-                f"Discovery timed out after {_DISCOVERY_TIMEOUT_SECONDS}s "
-                f"for {name!r} — skipping this institution.",
-                stacklevel=2,
+            _discover_one(
+                target_dict,
+                test_config,
+                False,   # concurrent=False (single-threaded discovery)
+                False,   # force=False (use cache TTL logic)
             )
         except Exception as exc:
             warnings.warn(
@@ -122,10 +126,12 @@ def discovered_db(test_db, test_config):
                 stacklevel=2,
             )
 
-    # Belt-and-suspenders: commit any uncommitted changes visible to test_db.
-    # The worker thread uses a separate thread-local SQLite connection that commits
-    # its own writes. This commit ensures test_db's own connection sees a consistent
-    # read-committed view when querying the WAL file below.
+    # Restore original socket timeout
+    socket.setdefaulttimeout(old_timeout)
+
+    # _discover_one uses get_worker_db which creates a thread-local SQLite
+    # connection to the same file. Since we're in the main thread now, the
+    # worker DB IS test_db's underlying file. Commit to ensure WAL is flushed.
     test_db.commit()
 
     yield test_db
@@ -194,8 +200,12 @@ def test_discover_records_all_attempts(discovered_db, test_config) -> None:
     - For rows where result='found', found_url starts with 'http' (D-07)
     - No assertion on which method or ordering (D-08)
     """
+    # Only check the institutions we actually ran discovery on (capped by _SEED_LIMIT)
+    # — seed_fdic fetches full API pages so crawl_targets has many more rows than we discovered.
     targets = discovered_db.fetchall(
-        "SELECT id, institution_name FROM crawl_targets WHERE website_url IS NOT NULL"
+        "SELECT id, institution_name FROM crawl_targets "
+        "WHERE website_url IS NOT NULL ORDER BY asset_size DESC LIMIT ?",
+        (_SEED_LIMIT,),
     )
     if not targets:
         pytest.skip(
