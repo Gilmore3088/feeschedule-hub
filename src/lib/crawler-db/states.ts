@@ -1,0 +1,199 @@
+/**
+ * State detail page queries.
+ *
+ * All functions use `sql` from connection.ts, wrap numeric returns with Number(),
+ * and provide try/catch with safe fallbacks.
+ */
+
+import { sql } from "@/lib/crawler-db/connection";
+import { toDateStr } from "@/lib/pg-helpers";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface StateInstitution {
+  id: number;
+  institution_name: string;
+  city: string | null;
+  charter_type: string | null;
+  asset_size_tier: string | null;
+  asset_size: number | null;
+  fee_schedule_url: string | null;
+  fee_count: number;
+  last_crawled: string;
+}
+
+export interface StateSummary {
+  total: number;
+  withUrl: number;
+  withFees: number;
+  coveragePct: number;
+}
+
+export interface StateAgentRun {
+  id: number;
+  started_at: string;
+  completed_at: string;
+  status: string;
+  total_institutions: number;
+  discovered: number;
+  classified: number;
+  extracted: number;
+  validated: number;
+  failed: number;
+}
+
+export interface ManualReviewInstitution {
+  id: number;
+  institution_name: string;
+  website_url: string | null;
+  latest_failure_reason: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Queries
+// ---------------------------------------------------------------------------
+
+export async function getStateInstitutions(
+  stateCode: string,
+): Promise<StateInstitution[]> {
+  try {
+    const rows = await sql`
+      SELECT
+        ct.id,
+        ct.institution_name,
+        ct.city,
+        ct.charter_type,
+        ct.asset_size_tier,
+        ct.asset_size,
+        ct.fee_schedule_url,
+        COALESCE(fc.fee_count, 0) as fee_count,
+        cr.last_crawled
+      FROM crawl_targets ct
+      LEFT JOIN (
+        SELECT crawl_target_id, COUNT(*) as fee_count
+        FROM extracted_fees WHERE review_status != 'rejected'
+        GROUP BY crawl_target_id
+      ) fc ON fc.crawl_target_id = ct.id
+      LEFT JOIN (
+        SELECT crawl_target_id, MAX(started_at) as last_crawled
+        FROM crawl_runs
+        GROUP BY crawl_target_id
+      ) cr ON cr.crawl_target_id = ct.id
+      WHERE ct.state_code = ${stateCode}
+      ORDER BY ct.asset_size DESC NULLS LAST
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      institution_name: String(r.institution_name),
+      city: r.city ? String(r.city) : null,
+      charter_type: r.charter_type ? String(r.charter_type) : null,
+      asset_size_tier: r.asset_size_tier ? String(r.asset_size_tier) : null,
+      asset_size: r.asset_size != null ? Number(r.asset_size) : null,
+      fee_schedule_url: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
+      fee_count: Number(r.fee_count),
+      last_crawled: toDateStr(r.last_crawled as string | Date | null),
+    }));
+  } catch (e) {
+    console.error("getStateInstitutions failed:", e);
+    return [];
+  }
+}
+
+export async function getStateSummary(
+  stateCode: string,
+): Promise<StateSummary> {
+  try {
+    const rows = await sql`
+      SELECT
+        COUNT(DISTINCT ct.id) as total,
+        COUNT(DISTINCT CASE WHEN ct.fee_schedule_url IS NOT NULL THEN ct.id END) as with_url,
+        COUNT(DISTINCT ef.crawl_target_id) as with_fees
+      FROM crawl_targets ct
+      LEFT JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
+        AND ef.review_status != 'rejected'
+      WHERE ct.state_code = ${stateCode}
+    `;
+    const r = rows[0];
+    const total = Number(r.total);
+    const withFees = Number(r.with_fees);
+    return {
+      total,
+      withUrl: Number(r.with_url),
+      withFees,
+      coveragePct: total > 0 ? Math.round((withFees / total) * 100) : 0,
+    };
+  } catch (e) {
+    console.error("getStateSummary failed:", e);
+    return { total: 0, withUrl: 0, withFees: 0, coveragePct: 0 };
+  }
+}
+
+export async function getStateAgentRuns(
+  stateCode: string,
+  limit = 5,
+): Promise<StateAgentRun[]> {
+  try {
+    const rows = await sql`
+      SELECT id, started_at, completed_at, status,
+             total_institutions, discovered, classified,
+             extracted, validated, failed
+      FROM agent_runs
+      WHERE state_code = ${stateCode}
+      ORDER BY started_at DESC
+      LIMIT ${limit}
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      started_at: toDateStr(r.started_at as string | Date | null),
+      completed_at: toDateStr(r.completed_at as string | Date | null),
+      status: String(r.status),
+      total_institutions: Number(r.total_institutions),
+      discovered: Number(r.discovered),
+      classified: Number(r.classified),
+      extracted: Number(r.extracted),
+      validated: Number(r.validated),
+      failed: Number(r.failed),
+    }));
+  } catch (e) {
+    console.error("getStateAgentRuns failed:", e);
+    return [];
+  }
+}
+
+export async function getStateManualReview(
+  stateCode: string,
+): Promise<ManualReviewInstitution[]> {
+  try {
+    const rows = await sql`
+      SELECT
+        ct.id,
+        ct.institution_name,
+        ct.website_url,
+        latest_result.reason as latest_failure_reason
+      FROM crawl_targets ct
+      LEFT JOIN LATERAL (
+        SELECT arr.detail->>'reason' as reason
+        FROM agent_run_results arr
+        WHERE arr.crawl_target_id = ct.id AND arr.status = 'failed'
+        ORDER BY arr.created_at DESC
+        LIMIT 1
+      ) latest_result ON true
+      WHERE ct.state_code = ${stateCode}
+        AND ct.fee_schedule_url IS NULL
+      ORDER BY ct.institution_name
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      institution_name: String(r.institution_name),
+      website_url: r.website_url ? String(r.website_url) : null,
+      latest_failure_reason: r.latest_failure_reason
+        ? String(r.latest_failure_reason)
+        : null,
+    }));
+  } catch (e) {
+    console.error("getStateManualReview failed:", e);
+    return [];
+  }
+}

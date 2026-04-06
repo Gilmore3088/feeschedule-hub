@@ -210,8 +210,9 @@ async function DashboardContent() {
           </div>
           <div className="grid grid-cols-5 md:grid-cols-10 gap-1 p-3">
             {stateCoverage.map((s) => (
-              <div
+              <Link
                 key={s.state_code}
+                href={`/admin/states/${s.state_code}`}
                 className="text-center rounded p-1.5 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                 title={`${s.state_code}: ${s.with_fees} of ${s.total} (${s.pct}%)`}
               >
@@ -227,7 +228,7 @@ async function DashboardContent() {
                 >
                   {s.pct}%
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
