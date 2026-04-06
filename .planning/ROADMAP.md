@@ -175,7 +175,7 @@ Plans:
 
 **Milestone Goal:** Build the report engine and content library that establishes Bank Fee Index as the national authority on bank fees, powered by Hamilton, the AI research analyst.
 
-- [ ] **Phase 12: Hamilton Foundation** - Hamilton persona, generateSection() API, numeric validator, shared template system, methodology paper draft
+- [x] **Phase 12: Hamilton Foundation** - Hamilton persona, generateSection() API, numeric validator, shared template system, methodology paper draft (completed 2026-04-06)
 - [ ] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step
 - [ ] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron
 - [ ] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating
@@ -193,11 +193,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Hamilton types.ts + voice.ts: locked persona, 7 style rules, type system (HAM-01)
-- [ ] 12-02-PLAN.md — generateSection() API + numeric validator with vitest tests (HAM-02, HAM-03)
-- [ ] 12-03-PLAN.md — Base layout components: PALETTE constants, REPORT_CSS, 8 component functions, wrapReport() (TMPL-01, TMPL-03)
-- [ ] 12-04-PLAN.md — Report templates: peer-competitive + national-overview pure functions + preview route (TMPL-02, TMPL-03)
-- [ ] 12-05-PLAN.md — Methodology paper: public /methodology page with 6 sections (METH-01)
+- [x] 12-01-PLAN.md — Hamilton types.ts + voice.ts: locked persona, 7 style rules, type system (HAM-01)
+- [x] 12-02-PLAN.md — generateSection() API + numeric validator with vitest tests (HAM-02, HAM-03)
+- [x] 12-03-PLAN.md — Base layout components: PALETTE constants, REPORT_CSS, 8 component functions, wrapReport() (TMPL-01, TMPL-03)
+- [x] 12-04-PLAN.md — Report templates: peer-competitive + national-overview pure functions + preview route (TMPL-02, TMPL-03)
+- [x] 12-05-PLAN.md — Methodology paper: public /methodology page with 6 sections (METH-01)
 
 ### Phase 13: Report Engine Core
 **Goal**: Any report type can be triggered, tracked through a job queue, rendered to PDF, stored in R2, and downloaded via presigned URL — with a two-pass editorial review before finalization
@@ -264,7 +264,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 9. Full Pipeline Test | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 12. Hamilton Foundation | v2.0 | 0/5 | Not started | - |
+| 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
 | 13. Report Engine Core | v2.0 | 0/TBD | Not started | - |
 | 14. Recurring Reports | v2.0 | 0/TBD | Not started | - |
 | 15. Premium Products | v2.0 | 0/TBD | Not started | - |
