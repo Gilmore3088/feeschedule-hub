@@ -20,6 +20,7 @@ export interface StateInstitution {
   asset_size_tier: string | null;
   asset_size: number | null;
   fee_schedule_url: string | null;
+  document_type: string | null;
   fee_count: number;
   last_crawled: string;
 }
@@ -68,6 +69,7 @@ export async function getStateInstitutions(
         ct.asset_size_tier,
         ct.asset_size,
         ct.fee_schedule_url,
+        ct.document_type,
         COALESCE(fc.fee_count, 0) as fee_count,
         cr.last_crawled
       FROM crawl_targets ct
@@ -92,6 +94,7 @@ export async function getStateInstitutions(
       asset_size_tier: r.asset_size_tier ? String(r.asset_size_tier) : null,
       asset_size: r.asset_size != null ? Number(r.asset_size) : null,
       fee_schedule_url: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
+      document_type: r.document_type ? String(r.document_type) : null,
       fee_count: Number(r.fee_count),
       last_crawled: toDateStr(r.last_crawled as string | Date | null),
     }));

@@ -10,6 +10,7 @@ import {
   getStateManualReview,
 } from "@/lib/crawler-db/states";
 import { ManualReviewRow } from "./manual-review-actions";
+import { InstitutionRow } from "./institution-row";
 
 // ---------------------------------------------------------------------------
 // State name lookup
@@ -118,51 +119,26 @@ export default async function StateDetailPage({
                   <th>Name</th>
                   <th>City</th>
                   <th>Charter</th>
-                  <th>Asset Tier</th>
-                  <th>Fee URL</th>
-                  <th className="text-right">Fees</th>
+                  <th>Status</th>
+                  <th>Fee URL / Actions</th>
                   <th className="text-right">Last Crawl</th>
                 </tr>
               </thead>
               <tbody>
                 {institutions.map((inst) => (
-                  <tr
+                  <InstitutionRow
                     key={inst.id}
-                    className={`hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors ${rowTint(!!inst.fee_schedule_url, inst.fee_count)}`}
-                  >
-                    <td>
-                      <Link
-                        href={`/admin/institutions?q=${encodeURIComponent(inst.institution_name)}`}
-                        className="text-gray-900 dark:text-gray-100 hover:text-blue-600 transition-colors font-medium"
-                      >
-                        {inst.institution_name}
-                      </Link>
-                    </td>
-                    <td className="text-gray-500">{inst.city ?? "-"}</td>
-                    <td className="text-gray-500">{inst.charter_type ?? "-"}</td>
-                    <td className="text-gray-500">{inst.asset_size_tier ?? "-"}</td>
-                    <td>
-                      {inst.fee_schedule_url ? (
-                        <a
-                          href={inst.fee_schedule_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:underline"
-                          title={inst.fee_schedule_url}
-                        >
-                          {truncateUrl(inst.fee_schedule_url)}
-                        </a>
-                      ) : (
-                        <span className="text-gray-300">none</span>
-                      )}
-                    </td>
-                    <td className="text-right tabular-nums text-gray-600 dark:text-gray-400">
-                      {inst.fee_count}
-                    </td>
-                    <td className="text-right tabular-nums text-gray-400">
-                      {inst.last_crawled}
-                    </td>
-                  </tr>
+                    id={inst.id}
+                    institution_name={inst.institution_name}
+                    city={inst.city}
+                    charter_type={inst.charter_type}
+                    asset_size_tier={inst.asset_size_tier}
+                    fee_schedule_url={inst.fee_schedule_url}
+                    document_type={inst.document_type}
+                    fee_count={inst.fee_count}
+                    last_crawled={inst.last_crawled}
+                    stateCode={stateCode}
+                  />
                 ))}
               </tbody>
             </table>
