@@ -14,3 +14,6 @@ export type {
 
 export { checkFreshness } from './freshness';
 export type { FreshnessResult } from './freshness';
+
+export { runEditorReview } from './editor';
+export type { EditorReviewResult, FlaggedSection } from './editor';
