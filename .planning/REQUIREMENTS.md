@@ -1,118 +1,139 @@
-# Requirements: Bank Fee Index — E2E Pipeline Test
+# Requirements: Bank Fee Index v2.0 Hamilton
 
 **Defined:** 2026-04-06
-**Core Value:** Prove the pipeline works end-to-end from geography selection to verified fees with audit trail
+**Core Value:** Accurate, complete, timely fee intelligence wrapped in McKinsey-grade reports that establish Bank Fee Index as the national authority
 
-## v1 Requirements
+## v2.0 Requirements
 
-### Test Infrastructure
+### Hamilton Foundation
 
-- [ ] **INFRA-01**: Pytest markers defined: `@pytest.mark.e2e`, `@pytest.mark.llm`, `@pytest.mark.slow` for selective test runs
-- [ ] **INFRA-02**: Geography parametrization allows different states/counties/MSAs across test runs
-- [ ] **INFRA-03**: Test database isolation via temp SQLite file (config override, lock file to tmp_path)
-- [ ] **INFRA-04**: R2 document storage bypassed in tests (local tmp_path fallback)
+- [ ] **HAM-01**: Hamilton persona module with locked voice file, system prompt, and 5-7 concrete stylistic rules versioned in src/lib/hamilton/
+- [ ] **HAM-02**: Hamilton generateSection() API that accepts typed data JSON and returns narrative — never invents statistics
+- [ ] **HAM-03**: Post-generation numeric validator that cross-checks all numbers in Hamilton output against source data before publication
 
-### Pipeline Stage Tests
+### Template System
 
-- [ ] **SEED-01**: Seed test populates crawl_targets with 3-5 institutions from a random geography with correct fields (name, charter_type, website_url, asset_size, fed_district)
-- [ ] **SEED-02**: Seed test handles both FDIC (banks) and NCUA (credit unions) sources
-- [ ] **DISC-01**: Discover test populates fee_schedule_url for at least 1 seeded institution
-- [ ] **DISC-02**: Discover test records attempts in discovery_cache with method and result
-- [ ] **EXTR-01**: Extract test creates extracted_fees rows with valid confidence scores (0.0-1.0)
-- [ ] **EXTR-02**: Extract test handles both PDF and HTML document types
-- [ ] **EXTR-03**: Extract test records crawl_results with status (success/failed/unchanged)
-- [ ] **CATG-01**: Categorize test assigns fee_family and fee_category from the 49-category taxonomy
-- [ ] **CATG-02**: Categorize test normalizes fee names via alias matching
-- [ ] **VALD-01**: Validate test transitions review_status based on confidence thresholds (>=0.85 staged, 0.7-0.85 pending, <0.7 extracted)
-- [ ] **VALD-02**: Validate test flags outliers (3+ std dev) in validation_flags
+- [ ] **TMPL-01**: Shared report base layout with cover page, section headers, data tables, chart containers, footnotes
+- [ ] **TMPL-02**: Per-report-type template composition — each template is a pure function (data, narratives) => HTML
+- [ ] **TMPL-03**: Report design system produces McKinsey-grade visual output (not dashboards, not data dumps)
 
-### Audit Trail Verification
+### Report Engine
 
-- [ ] **AUDT-01**: FK integrity verified — no orphaned crawl_results (every crawl_result has a valid crawl_target_id)
-- [ ] **AUDT-02**: FK integrity verified — no orphaned extracted_fees (every extracted_fee has a valid crawl_result_id)
-- [ ] **AUDT-03**: Non-zero extraction — at least 1 institution has extracted fees after full pipeline run
-- [ ] **AUDT-04**: Status transitions verified — review_status moves correctly through pipeline stages
+- [ ] **ENG-01**: Modal render worker — Playwright HTML-to-PDF generation on existing Modal image
+- [ ] **ENG-03**: R2 artifact storage with presigned download URLs (never store public URLs)
+- [ ] **ENG-04**: Supabase report_jobs table (pending → assembling → rendering → complete | failed) with data manifest for audit trail
+- [ ] **ENG-05**: Next.js API routes — trigger report generation, poll status, download via presigned URL
+- [ ] **ENG-06**: Data freshness gate — refuse to publish if median crawl age exceeds threshold (120 days national, 90 days state)
 
-### Idempotency & Timing
+### National Quarterly Report
 
-- [ ] **IDEM-01**: Running pipeline twice on same institutions produces no duplicate rows in extracted_fees
-- [ ] **TIME-01**: Each pipeline stage completes within its time budget (configurable per stage)
+- [ ] **NQR-01**: National Fee Index quarterly report covering all 49 fee categories with medians, P25/P75, and institution counts
+- [ ] **NQR-02**: Hamilton narrative per section — situation, complication, key finding, recommendation
+- [ ] **NQR-03**: Sliceable by charter type (FDIC vs NCUA) and asset tier within the national report
+- [ ] **NQR-04**: Fed district and Beige Book economic context woven into Hamilton's analysis
 
-### Full Pipeline Test
+### State Fee Index Reports
 
-- [ ] **PIPE-01**: Single test runs seed -> discover -> extract -> categorize -> validate end-to-end for 3-5 institutions
-- [ ] **PIPE-02**: Full pipeline test uses random geography selection (state/county/MSA)
-- [ ] **PIPE-03**: Summary report output showing institutions processed, fees extracted, failures, and timing per stage
+- [ ] **SFI-01**: Per-state fee index report using State Agent coverage data
+- [ ] **SFI-02**: State reports include Fed district economic indicators and Beige Book context
+- [ ] **SFI-03**: Comparison to national medians (delta analysis — above/below national per category)
 
-### CI & Deployment
+### Monthly Pulse
 
-- [ ] **CI-01**: GitHub Actions workflow runs e2e test suite on schedule (nightly or weekly)
-- [ ] **CI-02**: CI test uses pytest markers to control which tests run (e2e only, skip llm in fast mode)
-- [ ] **MODL-01**: Modal pre-flight validation confirms pipeline works in Modal environment before production cron
-- [ ] **MODL-02**: Modal pre-flight uses isolated test database (not production Supabase)
+- [ ] **PULSE-01**: Automated monthly report — what moved, notable movers, trend lines
+- [ ] **PULSE-02**: Template-driven with minimal Hamilton narrative (1-2 paragraphs)
+- [ ] **PULSE-03**: Cron-triggered generation and publication
 
-## v2 Requirements
+### Competitive Briefs
 
-### Enhanced Coverage
+- [ ] **BRIEF-01**: Hamilton-heavy on-demand competitive brief — institution vs peers by asset tier, charter, geography
+- [ ] **BRIEF-02**: Peer group confirmation UI before generation (subscriber selects/confirms peer definition)
+- [ ] **BRIEF-03**: 3-6 Hamilton section calls per brief with full narrative analysis
+- [ ] **BRIEF-04**: Fee change event analysis — "who moved first" tracking where data exists
 
-- **COV-01**: VCR cassettes for FDIC/NCUA API record/replay (offline CI without live API calls)
-- **COV-02**: Snapshot test — verify fee_snapshots table populated with change tracking after re-crawl
-- **COV-03**: Multi-geography batch test (run 3 different states in parallel)
+### Methodology
 
-### Reporting
+- [ ] **METH-01**: Methodology paper explaining how the index works — data sources, crawl process, categorization, confidence scoring
+- [ ] **METH-02**: Published at public URL before sales outreach begins
 
-- **RPT-01**: HTML test report with extraction confidence distribution charts
-- **RPT-02**: Slack/email notification on e2e test failure in CI
+### Pro Portal
+
+- [ ] **PRO-01**: Authenticated report library — browse, filter, download past reports
+- [ ] **PRO-02**: On-demand competitive brief generation trigger with polling UI
+- [ ] **PRO-03**: Report access gated by subscription tier via Supabase RLS
+
+### Public Catalog
+
+- [ ] **PUB-01**: Public report catalog with ISR-cached landing pages
+- [ ] **PUB-02**: Executive summary + 2 charts visible publicly; full PDF behind CTA/signup
+- [ ] **PUB-03**: OG metadata and SEO optimization for report landing pages
+
+## Future Requirements
+
+### Billing (v2.1)
+- **BILL-01**: Stripe subscription integration ($2,500/mo tier)
+- **BILL-02**: Per-report pricing for competitive briefs
+- **BILL-03**: Stripe Customer Portal for self-service management
+
+### Consumer (v2.1+)
+- **CONS-01**: Public institution fee lookup
+- **CONS-02**: Affiliate link integration
+- **CONS-03**: Ad revenue placement
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Admin UI browser tests | Separate concern — Cypress/Playwright for UI, not pipeline |
-| SerpAPI discovery testing | Never used, not part of active pipeline |
-| Public API endpoint tests | Downstream of extraction, not pipeline core |
-| Performance benchmarking | Correctness first, perf later |
-| Load testing (100+ institutions) | Cost prohibitive for routine e2e, use staging for load |
-| Exact fee amount assertions | LLM non-determinism makes exact values unreliable — use structural assertions |
+| Pipeline/agent infrastructure | Owner building in parallel — no overlap |
+| Self-serve dashboard portal | UX/onboarding investment premature; reports first |
+| API access for data subscribers | Premature before report product proven |
+| Real-time fee monitoring | Crawl cadence can't support; batch is sufficient |
+| Mobile app | Web-first |
+| Stripe billing | Deferred to v2.1 — need reports to exist before billing |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
-| INFRA-03 | Phase 1 | Pending |
-| INFRA-04 | Phase 1 | Pending |
-| SEED-01 | Phase 2 | Pending |
-| SEED-02 | Phase 2 | Pending |
-| DISC-01 | Phase 3 | Pending |
-| DISC-02 | Phase 3 | Pending |
-| EXTR-01 | Phase 4 | Pending |
-| EXTR-02 | Phase 4 | Pending |
-| EXTR-03 | Phase 4 | Pending |
-| CATG-01 | Phase 5 | Pending |
-| CATG-02 | Phase 5 | Pending |
-| VALD-01 | Phase 6 | Pending |
-| VALD-02 | Phase 6 | Pending |
-| AUDT-01 | Phase 7 | Pending |
-| AUDT-02 | Phase 7 | Pending |
-| AUDT-03 | Phase 7 | Pending |
-| AUDT-04 | Phase 7 | Pending |
-| IDEM-01 | Phase 8 | Pending |
-| TIME-01 | Phase 8 | Pending |
-| PIPE-01 | Phase 9 | Pending |
-| PIPE-02 | Phase 9 | Pending |
-| PIPE-03 | Phase 9 | Pending |
-| CI-01 | Phase 10 | Pending |
-| CI-02 | Phase 10 | Pending |
-| MODL-01 | Phase 11 | Pending |
-| MODL-02 | Phase 11 | Pending |
+| HAM-01 | Phase 1 | Pending |
+| HAM-02 | Phase 1 | Pending |
+| HAM-03 | Phase 1 | Pending |
+| TMPL-01 | Phase 1 | Pending |
+| TMPL-02 | Phase 1 | Pending |
+| TMPL-03 | Phase 1 | Pending |
+| ENG-01 | Phase 2 | Pending |
+| ENG-03 | Phase 2 | Pending |
+| ENG-04 | Phase 2 | Pending |
+| ENG-05 | Phase 2 | Pending |
+| ENG-06 | Phase 2 | Pending |
+| NQR-01 | Phase 3 | Pending |
+| NQR-02 | Phase 3 | Pending |
+| NQR-03 | Phase 3 | Pending |
+| NQR-04 | Phase 3 | Pending |
+| SFI-01 | Phase 3 | Pending |
+| SFI-02 | Phase 3 | Pending |
+| SFI-03 | Phase 3 | Pending |
+| PULSE-01 | Phase 3 | Pending |
+| PULSE-02 | Phase 3 | Pending |
+| PULSE-03 | Phase 3 | Pending |
+| BRIEF-01 | Phase 4 | Pending |
+| BRIEF-02 | Phase 4 | Pending |
+| BRIEF-03 | Phase 4 | Pending |
+| BRIEF-04 | Phase 4 | Pending |
+| METH-01 | Phase 1 | Pending |
+| METH-02 | Phase 5 | Pending |
+| PRO-01 | Phase 4 | Pending |
+| PRO-02 | Phase 4 | Pending |
+| PRO-03 | Phase 4 | Pending |
+| PUB-01 | Phase 5 | Pending |
+| PUB-02 | Phase 5 | Pending |
+| PUB-03 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 28 total
-- Mapped to phases: 28
+- v2.0 requirements: 33 total
+- Mapped to phases: 33
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after initial definition*
+*Last updated: 2026-04-06 after v2.0 milestone start*
