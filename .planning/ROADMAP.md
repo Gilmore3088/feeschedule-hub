@@ -123,7 +123,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After running the full pipeline twice against the same 3-5 institutions, the count of `extracted_fees` rows is identical between run 1 and run 2 (no duplicate fee rows created)
   2. Each pipeline stage records its wall-clock duration and a test asserts that no stage exceeds its configured time budget (configurable per stage; test fails fast if a stage hangs)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 08-01-PLAN.md — idempotency + timing tests: idem_db fixture (function-scoped, synthetic rows), double-run row count assertions (IDEM-01), time.monotonic() budget assertions (TIME-01)
 
 ### Phase 9: Full Pipeline Test
 **Goal**: A single test runs all five stages end-to-end for 3-5 institutions from a random geography and produces a human-readable summary report
@@ -167,7 +170,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Categorization Stage Tests | 0/1 | Not started | - |
 | 6. Validation Stage Tests | 0/1 | Not started | - |
 | 7. Audit Trail Verification | 0/1 | Not started | - |
-| 8. Idempotency and Timing | TBD | Not started | - |
+| 8. Idempotency and Timing | 0/1 | Not started | - |
 | 9. Full Pipeline Test | TBD | Not started | - |
 | 10. CI Integration | TBD | Not started | - |
 | 11. Modal Pre-flight | TBD | Not started | - |
