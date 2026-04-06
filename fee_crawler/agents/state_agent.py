@@ -25,6 +25,7 @@ from fee_crawler.agents.extract_js import extract_js
 from fee_crawler.agents.validate import validate_fees
 from fee_crawler.knowledge.loader import load_knowledge, write_learnings, get_known_failures
 from fee_crawler.knowledge.pruner import should_prune_state, prune_state
+from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
 
 log = logging.getLogger(__name__)
 
