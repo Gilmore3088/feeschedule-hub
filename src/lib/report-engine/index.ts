@@ -17,3 +17,5 @@ export type { FreshnessResult } from './freshness';
 
 export { runEditorReview } from './editor';
 export type { EditorReviewResult, FlaggedSection } from './editor';
+
+export { generatePresignedUrl } from './presign';
