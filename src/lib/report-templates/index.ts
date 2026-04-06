@@ -28,3 +28,6 @@ export type {
 } from "./base/components";
 
 export { PALETTE, TYPOGRAPHY, REPORT_CSS } from "./base/styles";
+
+export { renderNationalQuarterlyReport } from "./templates/national-quarterly";
+export type { NationalQuarterlyReportInput } from "./templates/national-quarterly";
