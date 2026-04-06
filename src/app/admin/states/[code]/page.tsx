@@ -9,6 +9,7 @@ import {
   getStateAgentRuns,
   getStateManualReview,
 } from "@/lib/crawler-db/states";
+import { ManualReviewRow } from "./manual-review-actions";
 
 // ---------------------------------------------------------------------------
 // State name lookup
@@ -255,31 +256,14 @@ export default async function StateDetailPage({
             </thead>
             <tbody>
               {manualReview.map((inst) => (
-                <tr
+                <ManualReviewRow
                   key={inst.id}
-                  className="hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors"
-                >
-                  <td className="text-gray-900 dark:text-gray-100 font-medium">
-                    {inst.institution_name}
-                  </td>
-                  <td>
-                    {inst.website_url ? (
-                      <a
-                        href={inst.website_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        {truncateUrl(inst.website_url)}
-                      </a>
-                    ) : (
-                      <span className="text-gray-300">none</span>
-                    )}
-                  </td>
-                  <td className="text-gray-500 max-w-xs truncate">
-                    {inst.latest_failure_reason ?? "-"}
-                  </td>
-                </tr>
+                  institutionId={inst.id}
+                  institutionName={inst.institution_name}
+                  websiteUrl={inst.website_url}
+                  stateCode={stateCode}
+                  failureReason={inst.latest_failure_reason}
+                />
               ))}
             </tbody>
           </table>
