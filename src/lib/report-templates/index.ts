@@ -28,3 +28,8 @@ export type {
 } from "./base/components";
 
 export { PALETTE, TYPOGRAPHY, REPORT_CSS } from "./base/styles";
+
+// ─── Report Templates ──────────────────────────────────────────────────────────
+
+export { renderMonthlyPulseReport } from "./templates/monthly-pulse";
+export type { MonthlyPulseReportInput } from "./templates/monthly-pulse";

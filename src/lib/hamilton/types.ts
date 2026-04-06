@@ -48,3 +48,10 @@ export interface ValidatedSection extends SectionOutput {
   validation: ValidationResult;
   input: SectionInput;
 }
+
+/**
+ * Alias for SectionOutput — used by template functions to reference
+ * the output of generateSection() in report input types.
+ * Includes section_type and generated_at for traceability.
+ */
+export type GenerateSectionOutput = SectionOutput & { section_type: SectionType; generated_at: string };
