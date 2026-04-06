@@ -47,6 +47,24 @@ export async function approveFee(
   }
 }
 
+export async function markDuplicate(
+  feeId: number,
+  institutionId: number,
+): Promise<{ ok?: boolean; error?: string }> {
+  await requireAuth("reject");
+
+  try {
+    await sql`
+      UPDATE extracted_fees SET review_status = 'rejected', validation_flags = jsonb_build_object('reason', 'duplicate') WHERE id = ${feeId}
+    `;
+    revalidatePath(`/admin/institution/${institutionId}`);
+    return { ok: true };
+  } catch (e) {
+    console.error("markDuplicate failed:", e);
+    return { error: "Failed to mark as duplicate" };
+  }
+}
+
 export async function rejectFee(
   feeId: number,
   institutionId: number,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { approveFee, rejectFee, approveAllFees, updateFee } from "./actions";
+import { approveFee, rejectFee, markDuplicate, approveAllFees, updateFee } from "./actions";
 
 interface Fee {
   id: number;
@@ -27,6 +27,7 @@ const STATUS_STYLES: Record<string, string> = {
   pending: "bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400",
   flagged: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   rejected: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  duplicate: "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
 };
 
 function formatAmount(amount: number | null): string {
@@ -57,6 +58,13 @@ export function FeeTable({ fees, institutionId }: Props) {
     startTransition(async () => {
       const result = await rejectFee(feeId, institutionId);
       if (result.ok) setStatuses((s) => ({ ...s, [feeId]: "rejected" }));
+    });
+  }
+
+  function handleDuplicate(feeId: number) {
+    startTransition(async () => {
+      const result = await markDuplicate(feeId, institutionId);
+      if (result.ok) setStatuses((s) => ({ ...s, [feeId]: "duplicate" }));
     });
   }
 
@@ -154,7 +162,7 @@ export function FeeTable({ fees, institutionId }: Props) {
                     <tr
                       key={fee.id}
                       className={`hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors ${
-                        status === "rejected" ? "opacity-40" : ""
+                        status === "rejected" || status === "duplicate" ? "opacity-40" : ""
                       }`}
                     >
                       <td className="text-gray-900 dark:text-gray-100 font-medium">
@@ -226,7 +234,7 @@ export function FeeTable({ fees, institutionId }: Props) {
                         </span>
                       </td>
                       <td className="text-right">
-                        {status !== "approved" && status !== "rejected" && (
+                        {status !== "approved" && status !== "rejected" && status !== "duplicate" && (
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => handleApprove(fee.id)}
@@ -234,6 +242,13 @@ export function FeeTable({ fees, institutionId }: Props) {
                               className="px-1.5 py-0.5 text-[10px] font-medium rounded text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
                             >
                               Approve
+                            </button>
+                            <button
+                              onClick={() => handleDuplicate(fee.id)}
+                              disabled={pending}
+                              className="px-1.5 py-0.5 text-[10px] font-medium rounded text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50"
+                            >
+                              Dupe
                             </button>
                             <button
                               onClick={() => handleReject(fee.id)}
@@ -247,7 +262,7 @@ export function FeeTable({ fees, institutionId }: Props) {
                         {status === "approved" && (
                           <span className="text-[10px] text-gray-400">approved</span>
                         )}
-                        {status === "rejected" && (
+                        {(status === "rejected" || status === "duplicate") && (
                           <button
                             onClick={() => handleApprove(fee.id)}
                             disabled={pending}
