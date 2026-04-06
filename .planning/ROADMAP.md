@@ -227,8 +227,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — NQR assembler + national-quarterly template (NQR-01 to NQR-04)
-- [ ] 14-02-PLAN.md — SFI assembler + state-fee-index template with DeltaPill (SFI-01 to SFI-03)
+- [x] 14-01-PLAN.md — NQR assembler + national-quarterly template (NQR-01 to NQR-04)
+- [x] 14-02-PLAN.md — SFI assembler + state-fee-index template with DeltaPill (SFI-01 to SFI-03)
 - [ ] 14-03-PLAN.md — Monthly pulse assembler + template + Modal cron (PULSE-01 to PULSE-03)
 **UI hint**: yes
 
@@ -276,6 +276,6 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
 | 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
-| 14. Recurring Reports | v2.0 | 0/3 | Not started | - |
+| 14. Recurring Reports | v2.0 | 2/3 | In Progress|  |
 | 15. Premium Products | v2.0 | 0/TBD | Not started | - |
 | 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |

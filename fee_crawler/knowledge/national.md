@@ -61,3 +61,18 @@
 - Implement URL freshness validation between discovery and extraction phases, especially for PDF resources
 - Single-digit fee extractions from institutional pages warrant secondary verification; may signal extraction coverage gaps or institution-specific limited fee disclosures
 - Discovery algorithm should recognize indirect fee references ('service charges,' 'account fees,' 'pricing') as discovery signals, not just explicit 'fee schedule' links
+
+## Promoted — 2026-04-06
+- js_rendered pages appear more reliable for fee schedule extraction than PDF-only approaches; consider prioritizing js_rendered classification in extraction workflows
+- PDF classification alone is insufficient; extraction failures on PDFs suggest document structure variation within PDF format requires format-specific handling
+- Many institutions appear to segment fee information across multiple pages rather than consolidating; discovery logic should account for product-specific fee pages and cross-reference multiple disclosure sections
+- URL validation should occur during classification before extraction attempt to reduce downstream failures
+- Validation success across varied fee counts indicates extraction logic is robust to document size differences
+- js_rendered classification is necessary but not sufficient for success; some dynamically-rendered pages may require additional parsing or JavaScript simulation depth
+
+## Promoted — 2026-04-06
+- JS-rendered fee schedule content requires enhanced extraction logic; current pipeline may be missing dynamically-loaded fee tables
+- PDF classification success does not guarantee extractable structured fee data; OCR or PDF parsing may be inconsistent
+- Credit unions may have more standardized, accessible fee schedule publishing practices than commercial banks
+- Direct fee schedule links on homepage yield better discovery than inference from rates pages; worth prioritizing direct link patterns
+- Discovery skip logic may be too conservative; consider retry or alternative discovery methods for skipped institutions

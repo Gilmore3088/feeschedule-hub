@@ -36,3 +36,9 @@ export type { PeerCompetitiveReportInput } from "./templates/peer-competitive";
 
 export { renderNationalOverviewReport } from "./templates/national-overview";
 export type { NationalOverviewReportInput } from "./templates/national-overview";
+
+export { renderNationalQuarterlyReport } from "./templates/national-quarterly";
+export type { NationalQuarterlyReportInput } from "./templates/national-quarterly";
+
+export { renderStateFeeIndexReport } from "./templates/state-fee-index";
+export type { StateFeeIndexReportInput } from "./templates/state-fee-index";

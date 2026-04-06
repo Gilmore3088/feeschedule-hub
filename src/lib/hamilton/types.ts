@@ -14,6 +14,10 @@ export type SectionType =
   | "executive_summary"
   | "national_index"
   | "charter_analysis"
+<<<<<<< HEAD
+=======
+  | "district_context"
+>>>>>>> worktree-agent-adba58bd
   | "methodology_note";
 
 export interface SectionInput {

@@ -48,3 +48,29 @@ Discovered: 1 | Extracted: 25 | Failed: 18
 
 ### Promoted to National
 - Discovery strategy may need to expand beyond dedicated 'fee schedule' pages to capture institutions that disclose fees inline on product pages
+
+## Run #16 — 2026-04-06
+Discovered: 0 | Extracted: 25 | Failed: 18
+
+### New Patterns
+- js_rendered classification correlates with successful extraction across multiple institutions
+- PDF-classified documents show mixed extraction results despite successful classification
+- Discover phase failures reveal common misdirection patterns in bank websites
+- 404 errors during extraction indicate stale or incorrect document URLs in classification phase
+- Successful extraction from small fee counts (1-6 fees) vs. large counts (36-38 fees) suggests consistent document parsing
+
+### Site Notes
+- Pinnacle Bank, Uniwyo Federal Credit Union, First Federal Bank & Trust, First National Bank of Gillette all classified as js_rendered and extracted successfully with varying fee counts (1-38)
+- First Northern Bank of Wyoming and Meridian Trust Federal Credit Union both classified as PDF but failed extraction with 'no fees extracted', while other PDFs (Blue Federal, Hilltop) succeeded
+- The Converse County Bank, Platte Valley Bank, and Jonah Bank discovery failures show banks hosting forms/general disclosures/product-specific disclosures without linking to comprehensive fee schedules
+- Trona Valley Community Federal Credit Union returned 404 on classified document URL, suggesting URL may be outdated or incorrectly parsed during classification
+- RSNB Bank (5 fees), Sundance State Bank (6 fees), and First National Bank of Gillette (36 fees) all validated successfully despite wide variance in extraction volume
+- Security State Bank, Bank of Star Valley both js_rendered but extraction failed with 'no fees extracted' - pattern differs from successful js_rendered cases
+
+### Promoted to National
+- js_rendered pages appear more reliable for fee schedule extraction than PDF-only approaches; consider prioritizing js_rendered classification in extraction workflows
+- PDF classification alone is insufficient; extraction failures on PDFs suggest document structure variation within PDF format requires format-specific handling
+- Many institutions appear to segment fee information across multiple pages rather than consolidating; discovery logic should account for product-specific fee pages and cross-reference multiple disclosure sections
+- URL validation should occur during classification before extraction attempt to reduce downstream failures
+- Validation success across varied fee counts indicates extraction logic is robust to document size differences
+- js_rendered classification is necessary but not sufficient for success; some dynamically-rendered pages may require additional parsing or JavaScript simulation depth
