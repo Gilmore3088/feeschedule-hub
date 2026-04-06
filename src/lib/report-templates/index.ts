@@ -42,3 +42,6 @@ export type { NationalQuarterlyReportInput } from "./templates/national-quarterl
 
 export { renderStateFeeIndexReport } from "./templates/state-fee-index";
 export type { StateFeeIndexReportInput } from "./templates/state-fee-index";
+
+export { renderMonthlyPulseReport } from "./templates/monthly-pulse";
+export type { MonthlyPulseReportInput } from "./templates/monthly-pulse";

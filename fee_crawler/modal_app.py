@@ -228,6 +228,7 @@ def run_state_agent(item: StateAgentRequest) -> dict:
     return _run(state_code)
 
 
+<<<<<<< HEAD
 @app.function(secrets=secrets, timeout=300, image=browser_image, memory=2048)
 async def generate_report(job_id: str, html: str, report_type: str) -> dict:
     """Render assembled HTML to PDF, upload to R2, update job status."""
@@ -240,3 +241,47 @@ async def generate_report(job_id: str, html: str, report_type: str) -> dict:
     except Exception as exc:
         update_job_status(job_id, "failed", error=str(exc)[:500])
         raise
+=======
+@app.function(
+    schedule=modal.Cron("0 8 1 * *"),
+    timeout=60,
+    secrets=secrets,
+)
+def run_monthly_pulse():
+    """Monthly pulse report: triggers generation on the 1st of each month at 08:00 UTC."""
+    import os
+    import json
+    import urllib.request
+    import urllib.error
+    from datetime import datetime, timezone
+
+    app_url = os.environ.get("NEXT_PUBLIC_APP_URL", "")
+    cron_secret = os.environ.get("REPORT_CRON_SECRET", "")
+    if not app_url:
+        return {"triggered": False, "error": "NEXT_PUBLIC_APP_URL not set"}
+    if not cron_secret:
+        return {"triggered": False, "error": "REPORT_CRON_SECRET not set"}
+
+    endpoint = f"{app_url.rstrip('/')}/api/reports/generate"
+    payload = json.dumps({"report_type": "monthly_pulse"}).encode()
+
+    req = urllib.request.Request(
+        endpoint,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-Cron-Secret": cron_secret,
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.loads(resp.read().decode())
+            period = datetime.now(timezone.utc).strftime("%B %Y")
+            return {"triggered": True, "job_id": body.get("jobId"), "period": period}
+    except urllib.error.HTTPError as exc:
+        return {"triggered": False, "error": exc.read().decode()[:500], "status_code": exc.code}
+    except Exception as exc:
+        return {"triggered": False, "error": str(exc)[:500]}
+>>>>>>> worktree-agent-a6da4c7b

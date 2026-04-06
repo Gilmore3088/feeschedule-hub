@@ -177,7 +177,7 @@ Plans:
 
 - [x] **Phase 12: Hamilton Foundation** - Hamilton persona, generateSection() API, numeric validator, shared template system, methodology paper draft (completed 2026-04-06)
 - [x] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step (completed 2026-04-06)
-- [ ] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron
+- [x] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron (completed 2026-04-06)
 - [ ] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating
 - [ ] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization
 
@@ -229,7 +229,7 @@ Plans:
 Plans:
 - [x] 14-01-PLAN.md — NQR assembler + national-quarterly template (NQR-01 to NQR-04)
 - [x] 14-02-PLAN.md — SFI assembler + state-fee-index template with DeltaPill (SFI-01 to SFI-03)
-- [ ] 14-03-PLAN.md — Monthly pulse assembler + template + Modal cron (PULSE-01 to PULSE-03)
+- [x] 14-03-PLAN.md — Monthly pulse assembler + template + Modal cron (PULSE-01 to PULSE-03)
 **UI hint**: yes
 
 ### Phase 15: Premium Products
@@ -276,6 +276,6 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
 | 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
-| 14. Recurring Reports | v2.0 | 2/3 | In Progress|  |
+| 14. Recurring Reports | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 15. Premium Products | v2.0 | 0/TBD | Not started | - |
 | 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |

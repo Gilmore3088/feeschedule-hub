@@ -1,14 +1,30 @@
 /**
  * POST /api/reports/generate
+<<<<<<< HEAD
  * Phase 13-03: D-07 implementation
+=======
+ * Phase 13-03 + 14-03: report generation endpoint with cron auth support.
+>>>>>>> worktree-agent-a6da4c7b
  *
  * Enqueues a report generation job. Returns jobId immediately — does NOT wait
  * for Modal to complete (fire-and-forget). Clients poll /api/reports/[id]/status.
  *
+<<<<<<< HEAD
  * Flow: auth → validate report_type → freshness gate → DB insert → Modal trigger
  *
  * Decision refs: D-04, D-07, D-10 (see 13-CONTEXT.md)
  * Threat refs: T-13-10, T-13-13
+=======
+ * Auth paths:
+ *   1. Session cookie (getCurrentUser) — normal user-triggered generation
+ *   2. X-Cron-Secret header — cron-triggered generation (run_monthly_pulse)
+ *      Cron jobs get user_id=null in report_jobs; this is correct per ReportJob spec.
+ *
+ * Flow: auth → validate report_type → freshness gate → DB insert → Modal trigger
+ *
+ * Decision refs: D-04, D-07, D-10 (see 13-CONTEXT.md)
+ * Threat refs: T-13-10, T-13-13, T-14-07
+>>>>>>> worktree-agent-a6da4c7b
  */
 
 import { NextResponse } from 'next/server';
@@ -37,9 +53,26 @@ function getFreshnessScope(
 }
 
 export async function POST(request: Request) {
+<<<<<<< HEAD
   // T-13-10: auth required before any processing
   const user = await getCurrentUser();
   if (!user) {
+=======
+  // T-13-10 / T-14-07: dual auth — session cookie or cron secret header
+  const user = await getCurrentUser();
+
+  let cronAuthed = false;
+  if (!user) {
+    const cronSecret = process.env.REPORT_CRON_SECRET;
+    const headerSecret = request.headers.get('x-cron-secret');
+    // T-14-07: guard length > 0 prevents empty-string bypass
+    if (cronSecret && cronSecret.length > 0 && headerSecret === cronSecret) {
+      cronAuthed = true;
+    }
+  }
+
+  if (!user && !cronAuthed) {
+>>>>>>> worktree-agent-a6da4c7b
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -88,6 +121,10 @@ export async function POST(request: Request) {
   }
 
   // Insert report_jobs row — returns id immediately
+<<<<<<< HEAD
+=======
+  // user_id is null for cron-triggered jobs (T-14-08: designed behavior)
+>>>>>>> worktree-agent-a6da4c7b
   const sql = getSql();
   const rows = await sql<Array<{ id: string }>>`
     INSERT INTO report_jobs (report_type, status, params, user_id)
@@ -95,7 +132,11 @@ export async function POST(request: Request) {
       ${validatedType},
       'pending',
       ${JSON.stringify(validatedParams)},
+<<<<<<< HEAD
       ${user.id}
+=======
+      ${user?.id ?? null}
+>>>>>>> worktree-agent-a6da4c7b
     )
     RETURNING id
   `;
@@ -109,7 +150,10 @@ export async function POST(request: Request) {
   }
 
   // Fire-and-forget Modal trigger — do NOT await (job tracked via polling)
+<<<<<<< HEAD
   // MODAL_REPORT_URL is optional at this stage; warn if missing
+=======
+>>>>>>> worktree-agent-a6da4c7b
   const modalUrl = process.env.MODAL_REPORT_URL;
   if (!modalUrl) {
     console.warn('[reports/generate] MODAL_REPORT_URL not configured — skipping Modal trigger');

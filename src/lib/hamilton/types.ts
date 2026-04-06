@@ -56,6 +56,7 @@ export interface ValidatedSection extends SectionOutput {
   input: SectionInput;
 }
 
+<<<<<<< HEAD
 // ─── Report Data Types ─────────────────────────────────────────────────────────
 
 /**
@@ -110,5 +111,11 @@ export interface NationalOverviewData {
 /**
  * Alias for SectionOutput — used by template functions to reference
  * pre-generated Hamilton narrative outputs.
+=======
+/**
+ * Alias for SectionOutput — used by template functions to reference
+ * the output of generateSection() in report input types.
+ * Includes section_type and generated_at for traceability.
+>>>>>>> worktree-agent-a6da4c7b
  */
 export type GenerateSectionOutput = SectionOutput & { section_type: SectionType; generated_at: string };
