@@ -20,7 +20,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
     if (result.success && result.redirect) {
       router.push(result.redirect);
     } else {
-      setError(result.error || "Invalid email or password");
+      setError(result.error || "Invalid username or password");
       setPending(false);
     }
   }
@@ -34,15 +34,15 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       )}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-[#1A1815] mb-1">
-          Email or Username
+        <label htmlFor="username" className="block text-sm font-medium text-[#1A1815] mb-1">
+          Username
         </label>
         <input
-          id="email"
-          name="email"
+          id="username"
+          name="username"
           type="text"
           required
-          autoComplete="email"
+          autoComplete="username"
           className="w-full rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent"
         />
       </div>

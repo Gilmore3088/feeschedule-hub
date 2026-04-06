@@ -6,14 +6,14 @@ export async function loginAction(
   formData: FormData,
   redirectTo: string,
 ): Promise<{ success: boolean; redirect?: string; error?: string }> {
-  const email = formData.get("email") as string;
+  const username = formData.get("username") as string;
   const password = formData.get("password") as string;
 
-  if (!email || !password) {
-    return { success: false, error: "Email and password are required" };
+  if (!username || !password) {
+    return { success: false, error: "Username and password are required" };
   }
 
-  const user = await login(email, password);
+  const user = await login(username, password);
   if (!user) {
     return { success: false, error: "Invalid email or password" };
   }
