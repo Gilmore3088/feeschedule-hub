@@ -567,4 +567,9 @@
 /* ── Research page: index gradient card ── */
 .consumer-brand .from-blue-50\/60 { --tw-gradient-from: rgb(253 240 237 / 0.6); }
 .consumer-brand .to-blue-50\/30 { --tw-gradient-to: rgb(253 240 237 / 0.3); }
+
+/* ── Scrollbar hide utility ── */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
 .consumer-brand .via-white { --tw-gradient-via: #FDFBF8; }

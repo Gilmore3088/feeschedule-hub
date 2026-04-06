@@ -224,7 +224,7 @@ export function AdminNavInline() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex md:hidden items-center gap-0.5 overflow-x-auto">
+    <nav className="flex md:hidden items-center gap-0.5 overflow-x-auto scrollbar-hide">
       {NAV_GROUPS.flatMap((group) =>
         group.items.map((item) => {
           const isActive = item.exact
