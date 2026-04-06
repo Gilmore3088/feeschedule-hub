@@ -224,7 +224,12 @@ Plans:
   2. A state fee index report for any covered state shows delta-to-national analysis per fee category with Fed district economic indicators woven into Hamilton's narrative
   3. A monthly pulse report is generated and published on cron schedule, containing movement summary and trend lines with 1-2 paragraphs of Hamilton narrative — no manual trigger required
   4. All three report types pass the freshness gate and numeric validator before reaching `complete` status
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — NQR assembler + national-quarterly template (NQR-01 to NQR-04)
+- [ ] 14-02-PLAN.md — SFI assembler + state-fee-index template with DeltaPill (SFI-01 to SFI-03)
+- [ ] 14-03-PLAN.md — Monthly pulse assembler + template + Modal cron (PULSE-01 to PULSE-03)
 **UI hint**: yes
 
 ### Phase 15: Premium Products
@@ -271,6 +276,6 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
 | 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
-| 14. Recurring Reports | v2.0 | 0/TBD | Not started | - |
+| 14. Recurring Reports | v2.0 | 0/3 | Not started | - |
 | 15. Premium Products | v2.0 | 0/TBD | Not started | - |
 | 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |
