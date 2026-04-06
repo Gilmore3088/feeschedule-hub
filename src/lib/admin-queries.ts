@@ -228,7 +228,8 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
       SELECT
         t.state_code,
         COUNT(DISTINCT t.id) as total,
-        COUNT(DISTINCT e.crawl_target_id) as with_fees
+        COUNT(DISTINCT e.crawl_target_id) as with_fees,
+        COUNT(DISTINCT CASE WHEN t.document_type = 'offline' OR t.website_url IS NULL THEN t.id END) as excluded
       FROM crawl_targets t
       LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
       WHERE t.state_code IS NOT NULL
@@ -238,11 +239,13 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
     return rows.map((r) => {
       const total = Number(r.total);
       const withFees = Number(r.with_fees);
+      const excluded = Number(r.excluded);
+      const addressable = total - excluded;
       return {
         state_code: String(r.state_code),
         total,
         with_fees: withFees,
-        pct: total > 0 ? Math.round((withFees / total) * 100) : 0,
+        pct: addressable > 0 ? Math.round((withFees / addressable) * 100) : 0,
       };
     });
   } catch (e) {

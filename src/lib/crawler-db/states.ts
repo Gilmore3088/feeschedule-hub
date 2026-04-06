@@ -109,7 +109,9 @@ export async function getStateSummary(
       SELECT
         COUNT(DISTINCT ct.id) as total,
         COUNT(DISTINCT CASE WHEN ct.fee_schedule_url IS NOT NULL THEN ct.id END) as with_url,
-        COUNT(DISTINCT ef.crawl_target_id) as with_fees
+        COUNT(DISTINCT ef.crawl_target_id) as with_fees,
+        COUNT(DISTINCT CASE WHEN ct.document_type = 'offline' THEN ct.id END) as offline,
+        COUNT(DISTINCT CASE WHEN ct.website_url IS NULL THEN ct.id END) as no_website
       FROM crawl_targets ct
       LEFT JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
         AND ef.review_status != 'rejected'
@@ -118,11 +120,15 @@ export async function getStateSummary(
     const r = rows[0];
     const total = Number(r.total);
     const withFees = Number(r.with_fees);
+    const offline = Number(r.offline);
+    const noWebsite = Number(r.no_website);
+    // Coverage = institutions with fees / institutions that could have fees (exclude offline + no website)
+    const addressable = total - offline - noWebsite;
     return {
       total,
       withUrl: Number(r.with_url),
       withFees,
-      coveragePct: total > 0 ? Math.round((withFees / total) * 100) : 0,
+      coveragePct: addressable > 0 ? Math.round((withFees / addressable) * 100) : 0,
     };
   } catch (e) {
     console.error("getStateSummary failed:", e);
@@ -182,6 +188,7 @@ export async function getStateManualReview(
       ) latest_result ON true
       WHERE ct.state_code = ${stateCode}
         AND ct.fee_schedule_url IS NULL
+        AND (ct.document_type IS DISTINCT FROM 'offline')
       ORDER BY ct.institution_name
     `;
     return rows.map((r) => ({
