@@ -176,6 +176,15 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        href: "/admin/methodology",
+        label: "Methodology",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M2 3h12M2 6h8M2 9h10M2 12h6" />
+          </svg>
+        ),
+      },
     ],
   },
 ];
