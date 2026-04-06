@@ -148,7 +148,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A GitHub Actions workflow file exists that triggers on schedule (nightly or weekly) and runs the e2e test suite against the repository
   2. The CI workflow accepts a parameter (or uses separate jobs) to run either `e2e` marker only (fast mode, no LLM calls) or `e2e` + `llm` + `slow` (full mode with real Haiku calls)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 10-01-PLAN.md — GitHub Actions workflow: nightly fast job (e2e and not llm and not slow) + weekly full job (e2e) + workflow_dispatch mode selector
 
 ### Phase 11: Modal Pre-flight
 **Goal**: A Modal function validates that the pipeline works end-to-end in the Modal execution environment before any production cron job runs
@@ -175,5 +178,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Audit Trail Verification | 0/1 | Not started | - |
 | 8. Idempotency and Timing | 0/1 | Not started | - |
 | 9. Full Pipeline Test | 0/1 | Not started | - |
-| 10. CI Integration | TBD | Not started | - |
+| 10. CI Integration | 0/1 | Not started | - |
 | 11. Modal Pre-flight | TBD | Not started | - |
