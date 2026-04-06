@@ -30,3 +30,6 @@
 - Send up to 12K chars of document text (was 8K, increased for better coverage)
 - Broader system prompt listing all common fee categories improves extraction
 - Always build fee_categories from extractor output, never trust Claude to re-categorize
+
+## Promoted — 2026-04-06
+- Discovery strategy may need to expand beyond dedicated 'fee schedule' pages to capture institutions that disclose fees inline on product pages
