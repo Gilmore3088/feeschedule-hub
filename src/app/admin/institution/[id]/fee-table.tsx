@@ -260,7 +260,22 @@ export function FeeTable({ fees, institutionId }: Props) {
                           </div>
                         )}
                         {status === "approved" && (
-                          <span className="text-[10px] text-gray-400">approved</span>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleDuplicate(fee.id)}
+                              disabled={pending}
+                              className="px-1.5 py-0.5 text-[10px] font-medium rounded text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50"
+                            >
+                              Dupe
+                            </button>
+                            <button
+                              onClick={() => handleReject(fee.id)}
+                              disabled={pending}
+                              className="px-1.5 py-0.5 text-[10px] font-medium rounded text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         )}
                         {(status === "rejected" || status === "duplicate") && (
                           <button
