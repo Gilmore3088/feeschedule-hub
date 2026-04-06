@@ -97,7 +97,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Every fee with `extraction_confidence >= 0.85` has `review_status = 'staged'`; fees in [0.7, 0.85) have `review_status = 'pending'`; fees below 0.7 have `review_status = 'extracted'`
   2. At least 1 fee that deviates 3+ standard deviations from the category median has a non-null entry in `validation_flags`; all `validation_flags` values parse as valid JSON
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 06-01-PLAN.md — validation tests: validated_db + outlier_db fixtures (function-scoped, synthetic rows), threshold boundary assertions (VALD-01), outlier flagging + JSON validity assertions (VALD-02)
 
 ### Phase 7: Audit Trail Verification
 **Goal**: Every record in the pipeline has valid foreign keys and correct status history — no orphans, no missing transitions
@@ -159,7 +162,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Discovery Stage Tests | 0/1 | Not started | - |
 | 4. Extraction Stage Tests | 0/1 | Not started | - |
 | 5. Categorization Stage Tests | 0/1 | Not started | - |
-| 6. Validation Stage Tests | TBD | Not started | - |
+| 6. Validation Stage Tests | 0/1 | Not started | - |
 | 7. Audit Trail Verification | TBD | Not started | - |
 | 8. Idempotency and Timing | TBD | Not started | - |
 | 9. Full Pipeline Test | TBD | Not started | - |
