@@ -1345,6 +1345,30 @@ export default function FeeScout() {
     }
   }, []);
 
+  // Auto-detect existing agent runs when switching to agent tab or changing state
+  useEffect(() => {
+    if (mode !== "agent") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/scout/agent?state=${agentState}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.run) {
+          setAgentRun(data.run);
+          setAgentRunId(data.run.id);
+          if (data.run.status === "running") {
+            setAgentPolling(true);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mode, agentState]);
+
+  // Poll for agent progress
   useEffect(() => {
     if (!agentPolling || !agentRunId) return;
     const interval = setInterval(async () => {

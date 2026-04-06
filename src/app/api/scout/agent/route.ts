@@ -2,7 +2,28 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { ensureAgentTables } from "@/lib/scout/agent-db";
+import { ensureAgentTables, getLatestAgentRun, getAgentRunResults } from "@/lib/scout/agent-db";
+
+export async function GET(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const state = req.nextUrl.searchParams.get("state")?.toUpperCase();
+  if (!state || state.length !== 2) {
+    return NextResponse.json({ error: "state param required" }, { status: 400 });
+  }
+
+  await ensureAgentTables();
+  const run = await getLatestAgentRun(state);
+  if (!run) {
+    return NextResponse.json({ run: null });
+  }
+
+  const results = await getAgentRunResults(run.id);
+  return NextResponse.json({ run: { ...run, results } });
+}
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
