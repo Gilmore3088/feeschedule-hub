@@ -38,11 +38,14 @@ import warnings
 import pytest
 
 from fee_crawler.commands.crawl import _crawl_one
+from fee_crawler.commands.discover_urls import _discover_one
+from fee_crawler.commands.seed_institutions import seed_fdic
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
+_SEED_LIMIT = 3
 _CRAWL_LIMIT = 3
 _VALID_STATUSES = frozenset({"success", "failed", "unchanged"})
 
@@ -52,119 +55,108 @@ _VALID_STATUSES = frozenset({"success", "failed", "unchanged"})
 
 
 @pytest.fixture(scope="module")
-def extracted_db(discovered_db, test_config):
-    """Module-scoped fixture: run extraction pipeline against discovered institutions.
+def extracted_db(test_db, test_config):
+    """Module-scoped fixture: seed → discover → extract in one self-contained pipeline.
 
-    discovered_db already yields test_db — use it as the DB handle throughout.
+    Self-contained because module-scoped fixtures can't cross file boundaries
+    in pytest. This fixture inlines the seed + discover + extract steps.
 
     Setup:
-      1. Delete any existing crawl data in FK order (extracted_fees → crawl_results → crawl_runs
-         WHERE trigger='test') to ensure a clean state if a prior run left orphaned rows.
-      2. Insert a crawl_runs row with trigger='test' → get run_id.
-      3. Query crawl_targets WHERE fee_schedule_url IS NOT NULL ORDER BY asset_size DESC LIMIT 3.
-      4. If 0 targets: pytest.skip — discovery found no institutions with fee_schedule_url.
-      5. For each target: call _crawl_one(dict(target), test_config, run_id), catching exceptions
-         and warning on failure (same pattern as discovered_db fixture).
-      6. Commit (belt-and-suspenders WAL flush, same pattern as discovered_db).
-      7. Skip guard: if no crawl_results rows exist after the loop, skip entire module.
-      8. yield discovered_db (the underlying test_db — gives tests access to the same DB handle).
+      1. Clean slate: truncate all pipeline tables.
+      2. Seed FDIC institutions (top by assets, LIMIT _SEED_LIMIT).
+      3. Run discovery on seeded institutions with website_url.
+      4. Insert crawl_runs row, run _crawl_one on discovered institutions.
+      5. Commit, skip guards, yield DB handle.
 
-    Socket timeout:
-      Set socket.setdefaulttimeout(30) before the loop and restore after. LLM calls need
-      longer than the 15s used in discovery — SSL reads for large PDF downloads can take 20s+.
-
-    Teardown:
-      DELETE FROM extracted_fees, crawl_results, crawl_runs WHERE trigger='test'.
-      (crawl_targets and discovery_cache teardown is handled by discovered_db's own teardown.)
+    Teardown: truncate all pipeline tables in FK order.
     """
-    # Step 1: clean existing crawl data from any prior test run (FK order)
-    discovered_db.execute("DELETE FROM extracted_fees")
-    discovered_db.execute("DELETE FROM crawl_results")
-    discovered_db.execute("DELETE FROM crawl_runs WHERE trigger = 'test'")
-    discovered_db.commit()
+    # Step 1: clean slate
+    test_db.execute("DELETE FROM extracted_fees")
+    test_db.execute("DELETE FROM crawl_results")
+    test_db.execute("DELETE FROM crawl_runs WHERE trigger = 'test'")
+    test_db.execute("DELETE FROM discovery_cache")
+    test_db.execute("DELETE FROM crawl_targets")
+    test_db.commit()
 
-    # Step 2: create a crawl_runs record to anchor all crawl_results rows
-    run_id = discovered_db.insert_returning_id(
-        "INSERT INTO crawl_runs (trigger, targets_total) VALUES (?, 0)",
-        ("test",),
+    # Step 2: seed FDIC institutions
+    count = seed_fdic(test_db, test_config, limit=_SEED_LIMIT)
+    if count == 0:
+        pytest.skip("seed_fdic returned 0 rows — FDIC API unavailable.")
+
+    # Step 3: discover fee schedule URLs
+    disc_targets = test_db.fetchall(
+        "SELECT id, institution_name, website_url, state_code, asset_size "
+        "FROM crawl_targets WHERE website_url IS NOT NULL "
+        "ORDER BY asset_size DESC LIMIT ?",
+        (_SEED_LIMIT,),
     )
-    discovered_db.commit()
+    if not disc_targets:
+        pytest.skip("No FDIC institutions have website_url.")
 
-    # Step 3: fetch institutions that have a fee_schedule_url (discovery succeeded)
-    # Note: cms_platform may not exist in older schemas — handle with dict.get() in _crawl_one
+    old_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(15)
+    for target in disc_targets:
+        try:
+            _discover_one(dict(target), test_config, False, False)
+        except Exception as exc:
+            warnings.warn(f"Discovery failed for {target['institution_name']!r}: {exc}")
+    socket.setdefaulttimeout(old_timeout)
+    test_db.commit()
+
+    # Step 4: extract fees from discovered institutions
     try:
-        targets = discovered_db.fetchall(
+        crawl_targets = test_db.fetchall(
             "SELECT id, institution_name, fee_schedule_url, document_type, "
             "last_content_hash, state_code, charter_type, asset_size, cms_platform "
-            "FROM crawl_targets "
-            "WHERE fee_schedule_url IS NOT NULL "
+            "FROM crawl_targets WHERE fee_schedule_url IS NOT NULL "
             "ORDER BY asset_size DESC LIMIT ?",
             (_CRAWL_LIMIT,),
         )
     except Exception:
-        # cms_platform may not exist in the schema — fall back without it
-        targets = discovered_db.fetchall(
+        crawl_targets = test_db.fetchall(
             "SELECT id, institution_name, fee_schedule_url, document_type, "
             "last_content_hash, state_code, charter_type, asset_size "
-            "FROM crawl_targets "
-            "WHERE fee_schedule_url IS NOT NULL "
+            "FROM crawl_targets WHERE fee_schedule_url IS NOT NULL "
             "ORDER BY asset_size DESC LIMIT ?",
             (_CRAWL_LIMIT,),
         )
 
-    # Step 4: skip if discovery yielded no fee schedule URLs
-    if not targets:
-        pytest.skip(
-            "No institutions with fee_schedule_url — discovery may have found none. "
-            "Skipping entire extraction module."
-        )
+    if not crawl_targets:
+        pytest.skip("No institutions with fee_schedule_url after discovery.")
 
-    # Step 5: set socket timeout for LLM + PDF download calls
+    run_id = test_db.insert_returning_id(
+        "INSERT INTO crawl_runs (trigger, targets_total) VALUES (?, 0)",
+        ("test",),
+    )
+    test_db.commit()
+
     old_timeout = socket.getdefaulttimeout()
     socket.setdefaulttimeout(30)
-
-    # Run _crawl_one for each institution directly in the main thread.
-    # _crawl_one creates its own DB connection (get_worker_db) pointing to the same
-    # SQLite WAL file. Running in-process avoids threading complications.
-    for target in targets:
+    for target in crawl_targets:
         target_dict = dict(target)
-        # Ensure cms_platform key exists (older schema rows may lack it)
         target_dict.setdefault("cms_platform", None)
         name = target_dict.get("institution_name", "unknown")
-
         try:
             _crawl_one(target_dict, test_config, run_id)
         except Exception as exc:
-            warnings.warn(
-                f"_crawl_one raised an exception for {name!r}: {exc} — "
-                "skipping this institution.",
-                stacklevel=2,
-            )
-
-    # Restore original socket timeout
+            warnings.warn(f"_crawl_one failed for {name!r}: {exc}")
     socket.setdefaulttimeout(old_timeout)
 
-    # Step 6: commit to flush WAL writes from _crawl_one's worker DB connection
-    discovered_db.commit()
+    test_db.commit()
 
-    # Step 7: skip guard — if zero crawl_results rows exist, the pipeline didn't run at all
-    check_rows = discovered_db.fetchall("SELECT id FROM crawl_results LIMIT 1")
+    check_rows = test_db.fetchall("SELECT id FROM crawl_results LIMIT 1")
     if not check_rows:
-        pytest.skip(
-            "No crawl_results rows after extraction loop — all _crawl_one calls raised "
-            "exceptions or the pipeline did not record any attempts. "
-            "This is likely a network or API key issue, not a pipeline bug."
-        )
+        pytest.skip("No crawl_results after extraction — network or API key issue.")
 
-    # Step 8: yield the DB handle for tests to query
-    yield discovered_db
+    yield test_db
 
-    # Teardown: remove extraction data in FK order
-    # crawl_targets and discovery_cache are cleaned up by discovered_db's own teardown
-    discovered_db.execute("DELETE FROM extracted_fees")
-    discovered_db.execute("DELETE FROM crawl_results")
-    discovered_db.execute("DELETE FROM crawl_runs WHERE trigger = 'test'")
-    discovered_db.commit()
+    # Teardown in FK order
+    test_db.execute("DELETE FROM extracted_fees")
+    test_db.execute("DELETE FROM crawl_results")
+    test_db.execute("DELETE FROM crawl_runs WHERE trigger = 'test'")
+    test_db.execute("DELETE FROM discovery_cache")
+    test_db.execute("DELETE FROM crawl_targets")
+    test_db.commit()
 
 
 # ---------------------------------------------------------------------------
