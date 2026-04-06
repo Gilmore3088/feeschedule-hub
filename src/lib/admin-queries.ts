@@ -908,13 +908,14 @@ export interface LeadRow {
   role: string | null;
   use_case: string | null;
   source: string | null;
+  status: string;
   created_at: string;
 }
 
 export async function getLeads(limit = 200): Promise<LeadRow[]> {
   try {
     const rows = await sql`
-      SELECT id, name, email, company, role, use_case, source, created_at
+      SELECT id, name, email, company, role, use_case, source, status, created_at
       FROM leads
       ORDER BY created_at DESC
       LIMIT ${limit}
@@ -927,6 +928,7 @@ export async function getLeads(limit = 200): Promise<LeadRow[]> {
       role: r.role ? String(r.role) : null,
       use_case: r.use_case ? String(r.use_case) : null,
       source: r.source ? String(r.source) : null,
+      status: String(r.status || "new"),
       created_at: toDateStr(r.created_at as string | Date),
     }));
   } catch (e) {
