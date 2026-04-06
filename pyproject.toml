@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["fee_crawler/tests"]
+timeout = 600
+markers = [
+    "e2e: full pipeline end-to-end test (slow, requires network and real APIs)",
+    "llm: test makes a real Anthropic API call (incurs cost; skip with -m 'not llm')",
+    "slow: test takes more than 30 seconds",
+]
+filterwarnings = [
+    "error::pytest.PytestUnknownMarkWarning",
+]

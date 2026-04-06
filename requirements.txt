@@ -4,3 +4,4 @@ PyYAML>=6.0
 beautifulsoup4>=4.12
 lxml>=5.0
 python-dotenv>=1.0
+pytest-timeout>=2.3
