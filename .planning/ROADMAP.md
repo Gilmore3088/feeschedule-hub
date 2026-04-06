@@ -208,7 +208,12 @@ Plans:
   2. Requesting a report when the median crawl age exceeds threshold (120 days national, 90 days state) returns a clear error — no stale report is published
   3. Every generated report artifact in R2 has a corresponding `report_jobs` row with a data manifest listing every source query and its result row count
   4. The editor review step runs a second Claude pass on Hamilton's draft; sections flagged as inconsistent or unsupported are held for human review before the job reaches `complete`
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Supabase migration (report_jobs + published_reports) + freshness gate module (ENG-04, ENG-06)
+- [ ] 13-02-PLAN.md — Modal generate_report function + editor review module (ENG-01, ENG-03)
+- [ ] 13-03-PLAN.md — Next.js API routes: generate, status, download + presign utility (ENG-05)
 
 ### Phase 14: Recurring Reports
 **Goal**: National quarterly reports, per-state fee indexes, and monthly pulse reports are generated from live pipeline data and available for download
@@ -265,7 +270,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
-| 13. Report Engine Core | v2.0 | 0/TBD | Not started | - |
+| 13. Report Engine Core | v2.0 | 0/3 | Not started | - |
 | 14. Recurring Reports | v2.0 | 0/TBD | Not started | - |
 | 15. Premium Products | v2.0 | 0/TBD | Not started | - |
 | 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |
