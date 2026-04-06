@@ -29,10 +29,19 @@ COMMON_PATHS = [
     "/personal/fees", "/personal/disclosures",
     "/about/fees", "/about/disclosures",
     "/resources/fee-schedule", "/resources/disclosures",
-    "/documents", "/forms-and-disclosures",
+    "/documents", "/forms-and-disclosures", "/forms",
     "/truth-in-savings", "/service-charges",
     "/wp-content/uploads/fee-schedule.pdf",
     "/sites/default/files/fee-schedule.pdf",
+    # Credit union patterns
+    "/learn/information/fee-schedule", "/members/fee-schedule",
+    "/membership/fees", "/accounts/fees",
+    # Community bank patterns
+    "/personal-banking/fees", "/checking/fees",
+    "/customer-service/disclosures", "/about-us/disclosures",
+    "/legal/disclosures", "/legal/fees",
+    # CMS patterns
+    "/content/fee-schedule", "/page/fee-schedule",
 ]
 
 # Keywords that indicate a link points to a fee schedule
@@ -145,11 +154,38 @@ def discover_url(institution_name: str, website_url: str) -> dict:
             browser.close()
             return _found(best, pages_checked, "Fee-related PDF found in page links")
 
-        # ── Strategy 3: Probe common paths ────────────────────────────
+        # ── Strategy 2.5: Navigate to /disclosures and scan for PDFs ──
         from urllib.parse import urlparse
         base = urlparse(website_url)
         base_url = f"{base.scheme}://{base.netloc}"
 
+        for disc_path in ["/disclosures", "/disclosure", "/resources", "/documents", "/forms"]:
+            try:
+                resp = page.goto(base_url + disc_path, wait_until="domcontentloaded", timeout=10_000)
+                pages_checked += 1
+                if resp and resp.status == 200:
+                    disc_links = _extract_links(page)
+                    # Check direct fee links
+                    direct_hit = _check_direct_fee_links(disc_links)
+                    if direct_hit:
+                        browser.close()
+                        return _found(direct_hit, pages_checked, f"Fee link found on {disc_path} page")
+                    # Score all PDFs on this page
+                    disc_pdfs = _score_pdf_links(_find_pdf_links(disc_links))
+                    if disc_pdfs:
+                        browser.close()
+                        return _found(disc_pdfs[0], pages_checked, f"Fee PDF found on {disc_path} page")
+                    # Check page content
+                    body = page.inner_text("body")[:2000]
+                    if _page_has_fee_content(body):
+                        browser.close()
+                        return _found(base_url + disc_path, pages_checked, f"Fee content found on {disc_path} page")
+            except Exception:
+                continue
+            if pages_checked >= 12:
+                break
+
+        # ── Strategy 3: Probe common paths ────────────────────────────
         for path in COMMON_PATHS:
             probe_url = base_url + path
             try:
@@ -172,11 +208,17 @@ def discover_url(institution_name: str, website_url: str) -> dict:
                     if direct_hit:
                         browser.close()
                         return _found(direct_hit, pages_checked, f"Fee link found on {path} page")
+
+                    # Also check PDFs on this page
+                    probe_pdfs = _score_pdf_links(_find_pdf_links(probe_links))
+                    if probe_pdfs:
+                        browser.close()
+                        return _found(probe_pdfs[0], pages_checked, f"Fee PDF found on {path} page")
             except Exception:
                 continue
 
-            # Stop probing after 8 total pages
-            if pages_checked >= 8:
+            # Stop probing after 15 total pages
+            if pages_checked >= 15:
                 break
 
         browser.close()
