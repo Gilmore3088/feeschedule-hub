@@ -227,7 +227,7 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
     const rows = await sql`
       SELECT
         t.state_code,
-        COUNT(*) as total,
+        COUNT(DISTINCT t.id) as total,
         COUNT(DISTINCT e.crawl_target_id) as with_fees
       FROM crawl_targets t
       LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id

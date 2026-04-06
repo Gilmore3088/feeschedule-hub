@@ -160,9 +160,9 @@ export async function getTierCoverage(): Promise<TierCoverage[]> {
   const rows = await sql`
     SELECT
       COALESCE(t.asset_size_tier, 'unknown') as asset_size_tier,
-      COUNT(*) as total,
+      COUNT(DISTINCT t.id) as total,
       COUNT(DISTINCT e.crawl_target_id) as with_fees,
-      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(*), 1), 1) as coverage_pct
+      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(DISTINCT t.id), 1), 1) as coverage_pct
     FROM crawl_targets t
     LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
     WHERE t.asset_size_tier IS NOT NULL
@@ -246,9 +246,9 @@ export async function getDistrictCoverage(): Promise<DistrictCoverage[]> {
   const rows = await sql`
     SELECT
       t.fed_district,
-      COUNT(*) as total,
+      COUNT(DISTINCT t.id) as total,
       COUNT(DISTINCT e.crawl_target_id) as with_fees,
-      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(*), 1), 1) as coverage_pct
+      ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(DISTINCT t.id), 1), 1) as coverage_pct
     FROM crawl_targets t
     LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
     WHERE t.fed_district IS NOT NULL
