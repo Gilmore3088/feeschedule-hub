@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 8: Idempotency and Timing** - No duplicate rows on re-run, per-stage time budget enforcement
 - [ ] **Phase 9: Full Pipeline Test** - End-to-end run for 3-5 institutions with summary report
 - [x] **Phase 10: CI Integration** - GitHub Actions workflow with marker-controlled e2e runs (completed 2026-04-06)
-- [ ] **Phase 11: Modal Pre-flight** - Modal environment validation against isolated test database
+- [x] **Phase 11: Modal Pre-flight** - Modal environment validation against isolated test database (completed 2026-04-06)
 
 ## Phase Details
 
@@ -163,7 +163,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 11-01-PLAN.md — preflight_e2e Modal function: isolated SQLite DB in /tmp, 5-stage pipeline, structured pass/fail JSON return
+- [x] 11-01-PLAN.md — preflight_e2e Modal function: isolated SQLite DB in /tmp, 5-stage pipeline, structured pass/fail JSON return
 
 ## Progress
 
@@ -182,4 +182,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Idempotency and Timing | 0/1 | Not started | - |
 | 9. Full Pipeline Test | 0/1 | Not started | - |
 | 10. CI Integration | 1/1 | Complete    | 2026-04-06 |
-| 11. Modal Pre-flight | 0/1 | Not started | - |
+| 11. Modal Pre-flight | 1/1 | Complete    | 2026-04-06 |
