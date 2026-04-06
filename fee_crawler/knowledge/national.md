@@ -76,3 +76,10 @@
 - Credit unions may have more standardized, accessible fee schedule publishing practices than commercial banks
 - Direct fee schedule links on homepage yield better discovery than inference from rates pages; worth prioritizing direct link patterns
 - Discovery skip logic may be too conservative; consider retry or alternative discovery methods for skipped institutions
+
+## Promoted — 2026-04-06
+- JS rendering may not be capturing dynamic fee table content properly - extraction logic may need adjustment for rendered DOM state or timing issues
+- Static content formats (HTML, PDF) are more reliable for fee extraction than JS-rendered pages in this state
+- Discovery strategy should systematically check compliance/disclosures/security pages, not just homepage and primary navigation
+- Need better filtering to distinguish between general disclosure pages and actual fee schedule pages during discovery phase
+- Prioritize PDF extraction reliability; current PDF failures in ME may indicate extraction logic gaps specific to banking fee PDFs
