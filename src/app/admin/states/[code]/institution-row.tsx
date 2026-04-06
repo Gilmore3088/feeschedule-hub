@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { setFeeScheduleUrl, markOffline } from "./actions";
 
 interface Props {
@@ -89,7 +90,12 @@ export function InstitutionRow({
   return (
     <tr className="hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors">
       <td className="text-gray-900 dark:text-gray-100 font-medium">
-        {institution_name}
+        <Link
+          href={`/admin/institution/${id}`}
+          className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
+          {institution_name}
+        </Link>
       </td>
       <td className="text-gray-500">{city ?? "-"}</td>
       <td className="text-gray-500">{charter_type ?? "-"}</td>

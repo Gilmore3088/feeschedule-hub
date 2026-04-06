@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -182,7 +183,12 @@ export default async function AgentRunDetailPage({
                     className="hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors"
                   >
                     <td className="text-gray-900 dark:text-gray-100 font-medium">
-                      {row.institution_name}
+                      <Link
+                        href={`/admin/institution/${row.crawl_target_id}`}
+                        className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      >
+                        {row.institution_name}
+                      </Link>
                     </td>
                     <td className="text-center">
                       <StageCell result={row.discover} stage="discover" />
