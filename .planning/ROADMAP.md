@@ -126,7 +126,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 08-01-PLAN.md — idempotency + timing tests: idem_db fixture (function-scoped, synthetic rows), double-run row count assertions (IDEM-01), time.monotonic() budget assertions (TIME-01)
+- [x] 08-01-PLAN.md — idempotency + timing tests: idem_db fixture (function-scoped, synthetic rows), double-run row count assertions (IDEM-01), time.monotonic() budget assertions (TIME-01)
 
 ### Phase 9: Full Pipeline Test
 **Goal**: A single test runs all five stages end-to-end for 3-5 institutions from a random geography and produces a human-readable summary report
