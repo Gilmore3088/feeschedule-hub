@@ -226,3 +226,17 @@ def run_state_agent(item: StateAgentRequest) -> dict:
         return {"error": "state_code must be a 2-letter code"}
 
     return _run(state_code)
+
+
+@app.function(secrets=secrets, timeout=300, image=browser_image, memory=2048)
+async def generate_report(job_id: str, html: str, report_type: str) -> dict:
+    """Render assembled HTML to PDF, upload to R2, update job status."""
+    from fee_crawler.workers.report_render import render_and_store, update_job_status
+    try:
+        update_job_status(job_id, "rendering")
+        key = await render_and_store(html, job_id, report_type)
+        update_job_status(job_id, "complete", artifact_key=key)
+        return {"key": key, "status": "complete"}
+    except Exception as exc:
+        update_job_status(job_id, "failed", error=str(exc)[:500])
+        raise
