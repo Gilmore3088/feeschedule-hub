@@ -28,3 +28,11 @@ export type {
 } from "./base/components";
 
 export { PALETTE, TYPOGRAPHY, REPORT_CSS } from "./base/styles";
+
+// ─── Report Templates ──────────────────────────────────────────────────────────
+
+export { renderPeerCompetitiveReport } from "./templates/peer-competitive";
+export type { PeerCompetitiveReportInput } from "./templates/peer-competitive";
+
+export { renderNationalOverviewReport } from "./templates/national-overview";
+export type { NationalOverviewReportInput } from "./templates/national-overview";
