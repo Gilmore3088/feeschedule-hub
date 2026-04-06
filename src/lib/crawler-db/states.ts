@@ -6,7 +6,7 @@
  */
 
 import { sql } from "@/lib/crawler-db/connection";
-import { toDateStr } from "@/lib/pg-helpers";
+import { toDateStr, safeJsonb } from "@/lib/pg-helpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -165,6 +165,87 @@ export async function getStateAgentRuns(
   } catch (e) {
     console.error("getStateAgentRuns failed:", e);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Agent Run Detail
+// ---------------------------------------------------------------------------
+
+export interface AgentRunDetail {
+  id: number;
+  state_code: string;
+  status: string;
+  discovered: number;
+  classified: number;
+  extracted: number;
+  validated: number;
+  failed: number;
+  started_at: string;
+  completed_at: string;
+}
+
+export interface AgentRunResult {
+  id: number;
+  crawl_target_id: number;
+  institution_name: string;
+  stage: string;
+  status: string;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export async function getAgentRunDetail(runId: number): Promise<{
+  run: AgentRunDetail | null;
+  results: AgentRunResult[];
+}> {
+  try {
+    const runRows = await sql`
+      SELECT id, state_code, status, discovered, classified,
+             extracted, validated, failed, started_at, completed_at
+      FROM agent_runs
+      WHERE id = ${runId}
+      LIMIT 1
+    `;
+    if (runRows.length === 0) return { run: null, results: [] };
+
+    const r = runRows[0];
+    const run: AgentRunDetail = {
+      id: Number(r.id),
+      state_code: String(r.state_code),
+      status: String(r.status),
+      discovered: Number(r.discovered),
+      classified: Number(r.classified),
+      extracted: Number(r.extracted),
+      validated: Number(r.validated),
+      failed: Number(r.failed),
+      started_at: toDateStr(r.started_at as string | Date | null),
+      completed_at: toDateStr(r.completed_at as string | Date | null),
+    };
+
+    const resultRows = await sql`
+      SELECT arr.id, arr.crawl_target_id, ct.institution_name,
+             arr.stage, arr.status, arr.detail, arr.created_at
+      FROM agent_run_results arr
+      JOIN crawl_targets ct ON ct.id = arr.crawl_target_id
+      WHERE arr.agent_run_id = ${runId}
+      ORDER BY ct.institution_name, arr.created_at
+    `;
+
+    const results: AgentRunResult[] = resultRows.map((row) => ({
+      id: Number(row.id),
+      crawl_target_id: Number(row.crawl_target_id),
+      institution_name: String(row.institution_name),
+      stage: String(row.stage),
+      status: String(row.status),
+      detail: safeJsonb<Record<string, unknown>>(row.detail),
+      created_at: toDateStr(row.created_at as string | Date | null),
+    }));
+
+    return { run, results };
+  } catch (e) {
+    console.error("getAgentRunDetail failed:", e);
+    return { run: null, results: [] };
   }
 }
 

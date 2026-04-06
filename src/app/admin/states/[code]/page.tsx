@@ -201,7 +201,12 @@ export default async function StateDetailPage({
                   className="hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors"
                 >
                   <td className="text-gray-700 dark:text-gray-300 tabular-nums">
-                    {run.started_at}
+                    <Link
+                      href={`/admin/states/${stateCode}/runs/${run.id}`}
+                      className="hover:text-blue-600 transition-colors"
+                    >
+                      {run.started_at}
+                    </Link>
                   </td>
                   <td className="text-center">
                     <AgentStatusBadge status={run.status} />
