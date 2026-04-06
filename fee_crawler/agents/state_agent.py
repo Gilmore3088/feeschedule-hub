@@ -23,6 +23,8 @@ from fee_crawler.agents.extract_pdf import extract_pdf
 from fee_crawler.agents.extract_html import extract_html
 from fee_crawler.agents.extract_js import extract_js
 from fee_crawler.agents.validate import validate_fees
+from fee_crawler.knowledge.loader import load_knowledge, write_learnings, get_known_failures
+from fee_crawler.knowledge.pruner import should_prune_state, prune_state
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +77,14 @@ def run_state_agent(state_code: str) -> dict:
 
     log.info(f"Run #{run_id}: {len(institutions)} institutions in {state_code}")
 
+    # ── Load knowledge ────────────────────────────────────────────────
+    knowledge = load_knowledge(state_code)
+    known_failures = get_known_failures(state_code)
+    if knowledge:
+        log.info(f"Loaded {len(knowledge)} chars of knowledge ({len(known_failures)} known failures)")
+
     stats = {"discovered": 0, "classified": 0, "extracted": 0, "validated": 0, "failed": 0}
+    learnings = []
 
     for i, inst in enumerate(institutions):
         inst_name = inst["institution_name"]
@@ -89,8 +98,15 @@ def run_state_agent(state_code: str) -> dict:
         website_url = inst["website_url"]
 
         if not fee_url and website_url:
+            # Skip institutions known to not publish online
+            if any(inst_name.lower().startswith(f.lower()) for f in known_failures):
+                _record_result(conn, run_id, inst_id, "discover", "skipped", {"reason": "known failure from knowledge base"})
+                stats["failed"] += 1
+                log.info(f"  Skipped (known failure)")
+                continue
+
             try:
-                result = discover_url(inst_name, website_url)
+                result = discover_url(inst_name, website_url, knowledge=knowledge)
                 if result["found"]:
                     fee_url = result["url"]
                     cur.execute(
@@ -185,6 +201,19 @@ def run_state_agent(state_code: str) -> dict:
 
         _update_run(conn, run_id, validated=stats["validated"])
 
+    # ── Write learnings ─────────────────────────────────────────────
+    _update_run(conn, run_id, current_stage="learnings")
+    try:
+        learnings = _generate_learnings(conn, run_id, state_code, stats)
+        write_learnings(state_code, run_id, stats, learnings)
+        log.info(f"Wrote {len(learnings)} learnings to knowledge base")
+
+        if should_prune_state(state_code):
+            log.info(f"Pruning {state_code} knowledge file...")
+            prune_state(state_code)
+    except Exception as e:
+        log.error(f"Knowledge write error: {e}")
+
     # ── Complete ──────────────────────────────────────────────────────
     _update_run(
         conn, run_id,
@@ -245,3 +274,69 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
     )
 
     conn.commit()
+
+
+def _generate_learnings(conn, run_id: int, state_code: str, stats: dict) -> list[dict]:
+    """Ask Claude to generate learnings from this run's results."""
+    import anthropic
+
+    cur = conn.cursor()
+    cur.execute(
+        """SELECT r.crawl_target_id, r.stage, r.status, r.detail,
+                  ct.institution_name, ct.website_url, ct.fee_schedule_url, ct.document_type
+           FROM agent_run_results r
+           JOIN crawl_targets ct ON ct.id = r.crawl_target_id
+           WHERE r.agent_run_id = %s
+           ORDER BY r.id""",
+        (run_id,),
+    )
+    results = cur.fetchall()
+
+    if not results:
+        return []
+
+    # Build a summary of what happened
+    summary_lines = []
+    for r in results:
+        detail = r["detail"] if isinstance(r["detail"], dict) else json.loads(r["detail"] or "{}")
+        info = detail.get("reason") or detail.get("error") or detail.get("document_type") or detail.get("fee_count") or ""
+        summary_lines.append(
+            f"{r['institution_name']}: {r['stage']}={r['status']} ({str(info)[:80]})"
+        )
+
+    summary = "\n".join(summary_lines[:60])
+
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1000,
+        system="""You analyze fee schedule agent run results and extract learnings.
+
+Return a JSON array of learnings. Each learning has optional fields:
+- "pattern": a general discovery/extraction pattern (applies beyond one institution)
+- "site_note": an institution-specific note (what worked or failed and why)
+- "national": a pattern worth promoting to national knowledge (applies to all states)
+
+Only include genuinely useful learnings — skip obvious successes and routine failures.
+Focus on: new discovery methods that worked, CMS/platform observations, surprising failures, institutions confirmed to not publish online.
+
+Return JSON array only, no explanation.""",
+        messages=[{
+            "role": "user",
+            "content": f"State: {state_code}\nStats: discovered={stats['discovered']}, extracted={stats['extracted']}, failed={stats['failed']}\n\nRun results:\n{summary}",
+        }],
+        timeout=30,
+    )
+
+    text = "".join(b.text for b in response.content if b.type == "text")
+
+    try:
+        import re
+        m = re.search(r'\[[\s\S]*\]', text)
+        if m:
+            return json.loads(m.group())
+    except (json.JSONDecodeError, AttributeError):
+        pass
+
+    return []

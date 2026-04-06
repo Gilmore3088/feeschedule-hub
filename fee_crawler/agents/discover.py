@@ -59,7 +59,7 @@ def _get_client():
     return _client
 
 
-def discover_url(institution_name: str, website_url: str) -> dict:
+def discover_url(institution_name: str, website_url: str, knowledge: str = "") -> dict:
     """
     Find the fee schedule URL for an institution.
 
@@ -103,8 +103,11 @@ def discover_url(institution_name: str, website_url: str) -> dict:
         # ── Strategy 1: AI-guided navigation (up to 7 more pages) ────
         client = _get_client()
 
+        # Truncate knowledge to avoid blowing context
+        knowledge_context = knowledge[:2000] if knowledge else ""
+
         links_text = _format_links(links)
-        result = _ask_claude(client, institution_name, website_url, links_text)
+        result = _ask_claude(client, institution_name, website_url, links_text, knowledge_context)
 
         for attempt in range(7):
             if not result:
@@ -300,16 +303,20 @@ def _format_links(links: list[dict]) -> str:
     return "\n".join(f"- {l['text']}: {l['href']}" for l in links[:80])
 
 
-def _ask_claude(client, institution_name: str, current_url: str, links_text: str) -> dict | None:
+def _ask_claude(client, institution_name: str, current_url: str, links_text: str, knowledge: str = "") -> dict | None:
+    knowledge_section = ""
+    if knowledge:
+        knowledge_section = f"\n\nPrior knowledge about this institution/region:\n{knowledge}\n"
+
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=500,
-        system="""You find fee schedule URLs on bank and credit union websites. Every bank publishes a fee schedule — your job is to find it.
+        system=f"""You find fee schedule URLs on bank and credit union websites. Every bank publishes a fee schedule — your job is to find it.
 
 Look for links to: fees, fee schedule, service charges, disclosures, truth in savings, account agreements, pricing, schedule of fees, rates & fees.
 
 Fee schedules are often 1-2 clicks deep under: Disclosures, Resources, About, Rates & Fees, Personal Banking, Documents, Forms.
-
+{knowledge_section}
 RULES:
 1. If you see a direct link to a fee schedule or fee-related PDF, return "found"
 2. If no direct link, navigate to the most promising section page
@@ -317,9 +324,9 @@ RULES:
 4. Prefer pages titled: Disclosures, Documents, Forms, Resources, Rates, Fees, About
 
 Return JSON only:
-{"action": "found", "url": "https://...", "confidence": 0.9, "reason": "..."}
-{"action": "navigate", "url": "https://...", "reason": "..."}
-{"action": "not_found", "reason": "Checked multiple sub-pages, no fee schedule found"}""",
+{{"action": "found", "url": "https://...", "confidence": 0.9, "reason": "..."}}
+{{"action": "navigate", "url": "https://...", "reason": "..."}}
+{{"action": "not_found", "reason": "Checked multiple sub-pages, no fee schedule found"}}""",
         messages=[{
             "role": "user",
             "content": f"Institution: {institution_name}\nCurrent page: {current_url}\n\nVisible links:\n{links_text}",
