@@ -1,193 +1,261 @@
-# Technology Stack: E2E Pipeline Test Suite
+# Technology Stack: Hamilton Report Engine + B2B Content Platform
 
-**Project:** Bank Fee Index — E2E Pipeline Tests
-**Domain:** Python data pipeline testing (web crawl + LLM extraction + DB verification)
+**Project:** Bank Fee Index — v2.0 Hamilton (Report & Content Engine)
+**Domain:** B2B financial intelligence — PDF/PPTX report generation, AI narrative analysis, subscription portal
 **Researched:** 2026-04-06
+**Overall confidence:** HIGH for core choices; MEDIUM for chart rendering path
 
 ---
 
-## Recommended Stack
+## What This Stack Covers
 
-### Test Runner and Core Infrastructure
+This document covers **only the additions** needed for the Hamilton milestone. The existing stack
+(Next.js 16 App Router, React 19, Tailwind v4, Python 3.12 on Modal, Claude Haiku, Supabase) is
+already in production and is not reconsidered here.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| pytest | >=8.0 | Test runner, fixture system, markers | Standard for Python; already in use in this codebase (60 existing tests). Plugin ecosystem is unmatched. |
-| pytest-asyncio | >=1.0 | Async test support | Required because the pipeline uses httpx, asyncpg, and Playwright, which are all async. v1.0 dropped the old `event_loop` fixture — use `asyncio_mode = "auto"` in `pyproject.toml` to avoid per-test decorator noise. |
-| pytest-timeout | >=2.3 | Per-test timeout guards | E2E runs can hang on network I/O or Playwright. Prevents CI from stalling. Set a global 600s ceiling and override per-test with `@pytest.mark.timeout(60)`. |
-| pytest-cov | >=6.0 | Coverage reporting | Measures whether the e2e path actually exercises extraction and categorization branches. Use `--cov=fee_crawler` with `--cov-report=term-missing`. |
+The additions span three distinct areas:
 
-**Confidence:** HIGH — pytest 8.x and its plugin ecosystem verified via PyPI and official docs.
-
----
-
-### HTTP Mocking (Web Crawl Layer)
-
-The pipeline makes three distinct classes of HTTP calls that each need their own mocking strategy:
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| pytest-httpserver | >=1.1.5 | Local HTTP server for HTML/PDF fixture serving | Best choice for crawl simulation. Spins up a real localhost server; the crawler code touches it with real TCP connections, so no monkey-patching needed. Configures response headers, status codes, and body content per URL path. Supports `requests`, `httpx`, and Playwright — all three HTTP clients the pipeline uses. |
-| vcrpy (via pytest-recording) | vcrpy >=8.1.1, pytest-recording >=0.13 | Record-and-replay for FDIC/NCUA API calls | Record real FDIC/NCUA API responses once, commit cassettes, replay offline. Eliminates network dependency for institution seeding tests. Use `filter_headers=['Authorization']` in `vcr_config` fixture to scrub any keys from cassettes before committing. Do NOT use pytest-vcr — it conflicts with pytest-recording. |
-
-**Why not `responses` or `httpretty`?** Both only mock `requests`. The pipeline uses `httpx` for async calls and Playwright for browser extraction — neither is intercepted by those libraries. pytest-httpserver works at TCP level; vcrpy intercepts at the urllib/httpx transport level.
-
-**Confidence:** HIGH for pytest-httpserver (verified against 1.1.5 docs). MEDIUM for vcrpy 8.1.1 (confirmed on PyPI/GitHub, released January 2026).
+1. **Report generation engine** — PDF and PPTX output from structured data + Hamilton narrative
+2. **Hamilton AI analyst** — Claude model selection, prompt architecture, cost management
+3. **B2B subscription portal** — Stripe billing, Supabase RLS gating, Next.js protected routes
 
 ---
 
-### LLM Mocking (Anthropic Claude Haiku)
+## Part 1: Report Generation Engine
+
+### Core Strategy: HTML-to-PDF via Playwright (Python, runs on Modal)
+
+The report pipeline lives in Python alongside the existing data pipeline. Generate reports
+server-side on Modal as background jobs. Store output in the existing Cloudflare R2 bucket.
+Expose download URLs to the Next.js frontend.
+
+**Why HTML-to-PDF rather than ReportLab or WeasyPrint:**
+ReportLab requires building layouts imperatively in Python — every chart position, font, and
+spacing is code. This is fast but produces rigid, programmer-aesthetic output. McKinsey-grade
+reports need precise typographic control, multi-column layouts, bleed, and CSS effects that are
+trivial to specify in HTML+CSS but extremely tedious in ReportLab's canvas API.
+
+Playwright (already a pipeline dependency at `playwright>=1.40`) renders Chromium headlessly
+and calls `page.pdf()`, capturing pixel-perfect CSS layout. You design the report in HTML+CSS
+once and generate it at scale. This is the same approach used by Notion, Linear, and financial
+SaaS companies for PDF exports. ReportLab is a fallback only if PDF file sizes become a
+performance problem.
+
+### PDF Generation
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| `unittest.mock` (stdlib) | n/a | Mock Anthropic client responses | The Anthropic Python SDK (`anthropic>=0.40`, already a dependency) is a standard Python class — `unittest.mock.patch` handles it cleanly without extra libraries. Mock `anthropic.Anthropic.messages.create` to return a pre-built `ToolUseBlock` response with known fee values. |
-| pytest-mock | >=3.14 | Cleaner mock fixture interface | Wraps `unittest.mock` behind a `mocker` fixture; reduces boilerplate compared to `@patch` decorators. Works with any sync or async code. |
+| Playwright (Python) | `>=1.40` (already installed) | HTML-to-PDF via headless Chromium | Already a pipeline dependency; `page.pdf()` supports `format`, `margin`, `print_background`; PDF generation works only in Chromium — confirmed. No extra install cost. |
+| Jinja2 | `>=3.1` | HTML template engine for report layout | Standard Python templating. Loops over data arrays, conditional sections, filter support for currency/percent formatting. Already likely a transitive dependency. |
+| WeasyPrint | `>=62.0` | Fallback for lightweight PDFs (no JS required) | If Playwright is too heavy for simple one-page pulse reports, WeasyPrint renders HTML+CSS without a browser. Slower at CSS rendering edge cases but no browser dependency. Reserve for monthly pulse reports only. |
 
-**Why not a dedicated LLM testing library (DeepEval, LangSmith)?** Those tools evaluate LLM output quality — they are not for pipeline regression testing. This test suite needs deterministic, cost-free runs. Mock the SDK call entirely; use a canned response that exercises the fee extraction schema without hitting the API.
+**Confidence:** HIGH — Playwright `page.pdf()` is official API, confirmed in docs. Jinja2 is
+the standard Python templating choice with no meaningful alternatives at this scope.
 
-**Pattern for LLM mocking:**
+### PPTX Generation
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| python-pptx | `>=1.0.0` | Programmatic PowerPoint generation | The only maintained Python library for `.pptx` output. v1.0.0 released 2024, stable API. Does not require PowerPoint to be installed; works on Modal Linux containers. Supports slide masters, custom layouts, tables, text runs, charts (via embedded OOXML), and image insertion. |
+| Matplotlib | `>=3.9` | Chart image generation (PNG) embedded in PPTX/PDF | Renders charts to `BytesIO` buffers server-side — no DOM required. Use `matplotlib.use("Agg")` backend on Modal (headless). Export charts as PNG, embed in Jinja2 HTML for PDF or insert via `python-pptx` for PPTX. The pipeline already uses pandas; Matplotlib integrates directly. |
+
+**Why not Recharts for chart generation?** Recharts is a React/D3 client-side library. Rendering
+it server-side for static image export would require spinning up a Node.js headless browser
+separately just to capture chart screenshots — two headless browsers instead of one, adding
+complexity and cost. Matplotlib runs in the same Python process as the data queries, eliminates
+a network hop, and produces publication-quality static figures.
+
+**Confidence:** HIGH — python-pptx 1.0.0 confirmed on PyPI/official docs. Matplotlib Agg
+backend for headless server rendering is well-established.
+
+### Chart Rendering Detail
+
+Use the `Agg` (non-interactive) backend: `matplotlib.use("Agg")` at module top. This is
+required on Modal containers (no display server). Render charts to `io.BytesIO`, then:
+- For PDF: encode to base64 and embed as `<img src="data:image/png;base64,...">` in Jinja2 HTML
+- For PPTX: pass the `BytesIO` buffer directly to `slide.shapes.add_picture()`
+
+Seaborn is acceptable as a Matplotlib wrapper for statistical charts (distributions, heatmaps)
+but add it only if needed — Matplotlib alone covers bar, line, scatter, waterfall, and box plots
+sufficient for fee benchmarking reports.
+
+### Report Storage
+
+Modal jobs generate the file, upload to the existing Cloudflare R2 bucket via the S3-compatible
+API, and write a record to the Supabase `reports` table with the R2 key and metadata. The
+Next.js frontend generates a signed R2 URL on-demand for download. No new storage infrastructure
+is required.
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `boto3` | `>=1.35` | R2 upload from Modal Python job | R2 is S3-compatible; boto3 with a custom `endpoint_url` is the standard approach. Already likely used for existing pipeline storage. |
+
+---
+
+## Part 2: Hamilton AI Analyst
+
+### Model Selection
+
+Use **Claude Sonnet 4.6** (not Opus 4) for Hamilton report generation.
+
+**Rationale:**
+- Sonnet 4.6: ~$3/M input, ~$15/M output — a 2,000-token output costs ~$0.03
+- Opus 4: ~$15/M input, ~$75/M output — same output costs ~$0.15, 5x more expensive
+- A complete Hamilton report (4-6 narrative sections) totals ~5,000-8,000 output tokens = $0.08-0.12 at Sonnet rates
+- Sonnet 4.6 is the current production Sonnet model (confirmed: this is the model powering the current session)
+- For Hamilton's use case — structured analysis with clear data inputs — Sonnet 4.6 quality is
+  indistinguishable from Opus for well-engineered prompts
+
+**Reserve Opus 4.6 for:** competitive peer briefs where a client is paying $500+ per report and
+document quality justifies the cost. Gate the model choice on report type in the job config.
+
+**Prompt caching:** Enable prompt caching on the Hamilton system prompt and the fee taxonomy
+context block. These are large, stable, and reused across every report call. Caching reduces
+cost by up to 90% on the repeated context. Use `cache_control: {"type": "ephemeral"}` on the
+system prompt blocks in the messages API.
+
+**Batch API:** For monthly automated reports (pulse, state index), use the Anthropic Batch API
+(~50% cost reduction) since these do not require real-time response.
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `anthropic` SDK | `>=0.40` (already installed) | Hamilton narrative generation | Already in production for Haiku extraction. Upgrade to structured outputs (`output_format` param) for section-by-section JSON responses that map cleanly to Jinja2 template slots. |
+
+### Structured Output Schema
+
+Use Anthropic's structured outputs (released November 2025) for Hamilton. Define a Pydantic
+schema for each report type:
 
 ```python
-@pytest.fixture
-def mock_claude(mocker):
-    """Return a fixed extraction result for any Haiku call."""
-    fake_tool_use = {
-        "type": "tool_use",
-        "id": "toolu_test",
-        "name": "extract_fees",
-        "input": {
-            "fees": [
-                {"fee_name": "Monthly Maintenance Fee", "amount": 12.00,
-                 "category": "monthly_maintenance", "confidence": 0.95}
-            ]
-        }
-    }
-    return mocker.patch(
-        "fee_crawler.workers.extraction_worker.anthropic.Anthropic.messages.create",
-        return_value=fake_tool_use,
-    )
+class HamiltonReportSection(BaseModel):
+    headline: str          # One-sentence insight title
+    body: str              # 2-3 paragraph narrative
+    key_stat: str          # Single pull-quote statistic
+    footnote: str | None   # Data caveat if needed
+
+class HamiltonReport(BaseModel):
+    executive_summary: str
+    sections: list[HamiltonReportSection]
+    methodology_note: str
 ```
 
-**Confidence:** HIGH — `unittest.mock` is stdlib; pytest-mock 3.14 verified on PyPI.
+This prevents malformed output from breaking report assembly and eliminates JSON parsing errors
+in the template pipeline.
+
+**Confidence:** HIGH — Anthropic structured outputs confirmed in official docs (November 2025 GA).
 
 ---
 
-### Database Isolation
+## Part 3: B2B Subscription Portal
+
+### Authentication
+
+Supabase Auth is already in production. No change. The subscription layer builds on top of it.
+
+### Stripe Integration
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| SQLite `:memory:` (stdlib) | n/a | Isolated test database per session | The pipeline's `db.py` already supports SQLite via the same `DATABASE_URL` env var path. An in-memory SQLite DB created via `sqlite3.connect(":memory:")` is already the pattern in `test_transition_fee_status.py`. Apply it at session scope for e2e tests (one DB per run, not per test — the pipeline stages must chain across tables). |
-| `tmp_path` fixture (pytest stdlib) | n/a | Ephemeral file paths for document storage | Use pytest's built-in `tmp_path` for local R2 fallback (`data/documents/` equivalent). Set `DATA_DIR` env var to `tmp_path` in the e2e fixture. |
+| `stripe` (Python SDK) | `>=10.0` | Webhook handling in Python (on Modal or Vercel) | Stripe webhooks update subscription status in Supabase. Python SDK matches the existing pipeline language; process webhooks in a Modal web endpoint or Next.js API route. |
+| `@stripe/stripe-js` | `>=4.0` | Stripe.js + Elements on frontend | Official client-side Stripe library. Required for Stripe Checkout redirect and Customer Portal link generation. |
+| `stripe` (npm) | `>=16.0` | Server-side Stripe calls in Next.js | Customer Portal session creation, checkout session creation, webhook verification. Use in Next.js Server Actions. |
 
-**Why not testcontainers (PostgreSQL)?** The pipeline runs SQLite locally. Spinning a Docker container adds 30-60s startup and requires Docker available in CI. The sqlite `:memory:` pattern already works and is proven in the existing test file. Reserve testcontainers for integration tests that must validate PostgreSQL-specific queries (e.g., production Supabase migration verification) — not for this milestone.
+**Subscription state pattern:** Mirror Stripe subscription status into a Supabase `subscriptions`
+table. Do NOT query Stripe on every request — cache locally. Listen to these webhook events:
+`customer.subscription.created`, `customer.subscription.updated`,
+`customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`.
 
-**Confidence:** HIGH — pattern is already in use in this codebase (`test_transition_fee_status.py`).
-
----
-
-### Playwright Mock Server (Browser Extraction Layer)
+### Access Gating
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Playwright route interception (built-in) | playwright >=1.40 (already a dependency) | Mock JS-rendered fee pages | Playwright's `page.route()` intercepts network requests within the browser context. Point the crawler at `localhost` URLs served by `pytest-httpserver` — no additional library needed. The pytest-playwright plugin provides `browser` and `page` fixtures but is optional for pipeline testing (the pipeline drives Playwright directly, not the pytest fixtures). |
+| `@supabase/ssr` | `>=0.6` | Supabase auth in Next.js middleware | The current `@supabase/auth-helpers-nextjs` is deprecated; `@supabase/ssr` is the current package for App Router. Manages session cookies in middleware cleanly. |
+| Next.js Middleware | built-in | Route-level subscription gating | Check `subscriptions` table (via Supabase) in `middleware.ts` before serving `/reports/*` and `/portal/*` routes. Redirect unauthenticated or unpaid users to `/pricing`. |
 
-**Why not pytest-playwright fixtures?** That plugin is for browser UI tests (clicking, asserting DOM). The pipeline controls Playwright programmatically for scraping. Use pytest-httpserver as the server and let the pipeline's own Playwright code hit it.
+**RLS policy for report access:**
+```sql
+-- Users can only download reports they have an active subscription for
+create policy "report_access_by_subscription"
+on reports for select
+using (
+  exists (
+    select 1 from subscriptions
+    where subscriptions.user_id = auth.uid()
+    and subscriptions.status = 'active'
+    and subscriptions.tier >= reports.required_tier
+  )
+);
+```
 
-**Confidence:** MEDIUM — verified Playwright route interception exists in official docs; combined pytest-httpserver + Playwright pipeline pattern inferred from multiple 2025 community examples.
+**Confidence:** MEDIUM for RLS policy pattern — the `@supabase/ssr` package and middleware
+pattern are confirmed in current Supabase docs; the exact RLS policy above is derived from
+documented patterns but will need validation against actual schema.
+
+### Consumer-Facing Pages
+
+No new libraries required. Consumer fee lookup pages use the existing Next.js App Router +
+Tailwind v4 stack. Server Components fetch from Supabase directly. No client-side state
+management library is needed at this scale.
 
 ---
 
-### Supporting Utilities
+## Alternatives Considered
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `freezegun` | >=1.5 | Freeze `datetime.now()` for deterministic timestamps | Use when asserting `crawled_at`, `created_at` fields in DB audit trail. The pipeline writes wall-clock timestamps — freeze time to get deterministic assertions. |
-| `pytest-freezer` | >=0.4 | Pytest fixture wrapper around freezegun | Use instead of `@freeze_time` decorator — the `freezer` fixture integrates cleanly with `async` tests. Note: `pytest-freezegun` is deprecated; use `pytest-freezer`. |
-| `Faker` | >=30.0 | Generate realistic institution fixture data | Seed test institutions with realistic names/URLs/cert numbers without hardcoding. Keeps tests maintainable as schema evolves. |
-
-**Confidence:** MEDIUM for freezegun/pytest-freezer (PyPI verified, community-confirmed async support). MEDIUM for Faker (widely used, version >=30 confirmed on PyPI as of early 2026).
-
----
-
-## Stack Not to Use
-
-| Category | Rejected Option | Why |
-|----------|----------------|-----|
-| HTTP mocking | `responses` library | Only intercepts `requests`; pipeline uses `httpx` + Playwright |
-| HTTP mocking | `httpretty` | Socket-level patching breaks async code and Playwright; known incompatibility with asyncio |
-| HTTP mocking | `respx` | Good for pure-httpx projects, but pipeline mixes `requests` + `httpx` + Playwright — pytest-httpserver + vcrpy covers all three |
-| DB isolation | testcontainers PostgreSQL | Adds Docker dependency and 30-60s startup; SQLite `:memory:` already validated in this codebase |
-| LLM testing | DeepEval / LangSmith | LLM quality evaluation tools, not regression fixtures; introduces cost and non-determinism |
-| Async testing | `anyio` / `trio` | Pipeline uses only `asyncio`; anyio adds complexity without benefit |
-| pytest plugin | `pytest-vcr` | Conflicts with `pytest-recording`; superseded by it |
-| Browser testing | `pytest-playwright` fixtures | Designed for UI click-testing; pipeline uses Playwright as a scraping tool, not a browser under test |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| PDF generation | Playwright HTML-to-PDF | ReportLab | ReportLab requires imperative layout code — cannot match CSS-designed McKinsey templates without enormous boilerplate |
+| PDF generation | Playwright HTML-to-PDF | WeasyPrint (primary) | WeasyPrint's CSS support lags Chromium; flexbox/grid layouts and web fonts render inconsistently. Use WeasyPrint only as fallback for simple pages. |
+| Chart generation | Matplotlib (Python, server) | Recharts (React, client) | Recharts requires a DOM; rendering to static PNG for PDF embed requires a second headless Node.js process. Matplotlib runs in the same Python process as data queries. |
+| PPTX | python-pptx | Aspose.Slides | Aspose requires a commercial license; python-pptx is MIT and sufficient for all slide types needed |
+| AI model | Claude Sonnet 4.6 | Claude Opus 4.6 | Opus is 5x more expensive; quality difference is negligible for structured narrative tasks with well-engineered prompts. Use Opus only for on-demand premium competitive briefs. |
+| Subscription billing | Stripe | Paddle | Stripe is already confirmed in project memory (test keys present). No reason to switch. |
+| Auth | Supabase Auth | Clerk | Supabase Auth already in production; Clerk adds a new vendor with no benefit at this scale |
+| Frontend charts (web UI) | Recharts (existing) | Chart.js / ECharts | Recharts is already used in the existing admin dashboard. Consistency over marginal gains. |
 
 ---
 
 ## Installation
 
 ```bash
-# Core test dependencies (add to fee_crawler/requirements-test.txt)
-pytest>=8.0
-pytest-asyncio>=1.0
-pytest-timeout>=2.3
-pytest-cov>=6.0
-pytest-mock>=3.14
-
-# HTTP mocking
-pytest-httpserver>=1.1.5
-vcrpy>=8.1.1
-pytest-recording>=0.13
-
-# Time + data helpers
-freezegun>=1.5
-pytest-freezer>=0.4
-Faker>=30.0
+# Python additions (fee_crawler/requirements.txt or requirements-report.txt)
+jinja2>=3.1
+python-pptx>=1.0.0
+matplotlib>=3.9
+boto3>=1.35
+# anthropic and playwright are already installed
+# stripe Python SDK (if webhook handling in Python)
+stripe>=10.0
 ```
 
 ```bash
-pip install -r fee_crawler/requirements-test.txt
-```
-
-### pyproject.toml (or pytest.ini) configuration
-
-```toml
-[tool.pytest.ini_options]
-asyncio_mode = "auto"          # pytest-asyncio v1.0 requirement
-timeout = 600                  # Global ceiling for e2e tests
-markers = [
-    "e2e: full pipeline end-to-end test (slow, requires network)",
-    "unit: fast isolated test",
-]
+# Node additions (package.json)
+npm install stripe @stripe/stripe-js
+npm install @supabase/ssr
+# playwright, @anthropic-ai/sdk, recharts already installed
 ```
 
 ---
 
-## Key Configuration Decisions
+## Modal Configuration Notes
 
-### asyncio_mode = "auto"
-pytest-asyncio 1.0 removed the `event_loop` fixture. With `asyncio_mode = "auto"`, all `async def test_*` functions are automatically collected as asyncio tests without `@pytest.mark.asyncio` decorators. This is mandatory — without it, async tests silently pass without actually running on Python 3.12+.
-
-### Session-scoped DB fixture for E2E
-E2E tests must share a single SQLite DB across pipeline stages (seed → discover → crawl → extract → validate). Use `scope="session"` on the DB fixture. Per-test DB teardown would break pipeline stage chaining.
-
-### VCR cassette placement
-Store cassettes in `fee_crawler/tests/cassettes/`. Add `*.yaml` to `.gitignore` unless you intentionally commit them. For FDIC/NCUA APIs, committing cassettes is recommended — they are public data, stable, and make CI reproducible without network access.
-
-### LLM cost guard
-Mark all tests that call the real Anthropic API with `@pytest.mark.e2e`. Add a `--real-llm` CLI flag (custom pytest plugin or conftest option) to the test suite. By default, tests use the mock. CI always runs with the mock. A monthly manual run uses `--real-llm` to verify the actual model hasn't regressed.
+- Playwright on Modal: use the `playwright` image with Chromium; it is already in use for
+  crawling — the same image and container can run `page.pdf()` for report generation
+- Matplotlib Agg: set `MPLBACKEND=Agg` as a Modal environment variable to guarantee headless
+  rendering without needing `matplotlib.use("Agg")` in every script
+- Report jobs: define a `@app.function(timeout=300)` for PDF generation — allow up to 5 minutes
+  for complex reports with many charts; typical simple reports will finish in 15-30 seconds
 
 ---
 
 ## Sources
 
-- pytest-asyncio 1.0 migration: https://pytest-asyncio.readthedocs.io/ (verified current docs)
-- pytest-httpserver 1.1.5: https://pytest-httpserver.readthedocs.io/ (verified)
-- vcrpy 8.1.1 changelog: https://vcrpy.readthedocs.io/en/latest/changelog.html (verified)
-- pytest-recording vs pytest-vcr conflict: https://github.com/kiwicom/pytest-recording (verified README)
-- VCR.py cassette secret filtering: https://vcrpy.readthedocs.io/en/latest/advanced.html (verified)
-- pytest-freezer replacing pytest-freezegun: https://pypi.org/project/pytest-freezer/ (verified)
-- pytest-cov 7.0.0: https://pytest-cov.readthedocs.io/ (verified)
-- In-memory SQLite pattern: already used in `fee_crawler/tests/test_transition_fee_status.py` (local codebase)
-- Playwright route interception: https://playwright.dev/python/docs/mock (verified official docs)
-- Testcontainers Python: https://testcontainers-python.readthedocs.io/ (reviewed, rejected for this scope)
+- Playwright `page.pdf()` official API: https://playwright.dev/python/docs/api/class-page#page-pdf (confirmed)
+- python-pptx 1.0.0 docs: https://python-pptx.readthedocs.io/ (confirmed)
+- Anthropic structured outputs (November 2025 GA): https://claude.com/blog/structured-outputs-on-the-claude-developer-platform (confirmed)
+- Anthropic pricing (Sonnet 4.6 vs Opus 4.6): https://platform.claude.com/docs/en/about-claude/pricing (confirmed)
+- Anthropic prompt caching: https://platform.claude.com/docs/en/build-with-claude/prompt-caching (official docs)
+- Modal cloud bucket mounts (R2 support): https://modal.com/docs/guide/cloud-bucket-mounts (confirmed)
+- @supabase/ssr package (replaces deprecated auth-helpers): https://supabase.com/docs/guides/auth/auth-helpers/nextjs (confirmed)
+- Stripe Next.js 2025 guide: https://www.pedroalonso.net/blog/stripe-nextjs-complete-guide-2025/ (MEDIUM — community source)
+- Matplotlib Agg backend (headless server rendering): https://matplotlib.org/stable/users/explain/backends.html (confirmed)
+- WeasyPrint vs Playwright comparison: https://dev.to/claudeprime/generate-pdfs-in-python-weasyprint-vs-reportlab-ifi (MEDIUM — community source)

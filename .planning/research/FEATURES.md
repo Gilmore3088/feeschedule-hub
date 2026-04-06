@@ -1,127 +1,164 @@
-# Feature Landscape: E2E Pipeline Test Suite
+# Feature Landscape: B2B Bank Fee Intelligence Platform
 
-**Domain:** End-to-end tests for a Python data extraction pipeline (seed → discover → crawl → extract → categorize → validate → audit)
+**Domain:** B2B financial research and fee benchmarking platform
 **Researched:** 2026-04-06
-**Confidence:** HIGH (based on codebase inspection + verified against Start Data Engineering articles and community patterns)
+**Milestone context:** v2.0 Hamilton — Adding content/report layer to existing fee data pipeline
 
 ---
 
 ## Table Stakes
 
-Features without which the tests are useless or untrustworthy.
+Features that bank executives and consultants expect from any credible fee intelligence product.
+Missing any of these signals an incomplete or unserious product.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Isolated test database | Without this, tests corrupt dev/prod data or are contaminated by prior state. Non-negotiable. | Low | Use `tmp_path` or in-memory SQLite. `db.py` already supports path injection via `Config`. |
-| Geography-scoped institution seeding | Tests must start from a real cold start. Seeding 3-5 institutions from a real state/county gives a realistic, bounded corpus. | Low | `seed_institutions.py` + FDIC API already support `--state` filtering. |
-| Stage-by-stage execution with a captured run_id | Must be able to drive the pipeline programmatically and reference the run for post-run assertions. | Low | `run_pipeline()` already returns `run_id`. E2e test wraps it. |
-| Non-zero fee extraction assertion | Proves the pipeline isn't silently returning empty results. Must assert `extracted_fees` count > 0 across the seeded institutions. | Low | Flexible bound: ≥1 fee per institution that had a URL discovered. |
-| URL discovery assertion | Proves discovery stage works: at least 1 of the seeded institutions must have a `fee_schedule_url` populated in `crawl_targets`. | Low | Discovery may fail for some institutions — assert at least partial success. |
-| Crawl result record verification | Each attempted crawl must produce a `crawl_results` row with a non-null status. Verifies the audit trail at the crawl layer. | Low | Assert status IN ('success', 'failed', 'unchanged') — all are valid, but NULL is not. |
-| Extracted fees FK integrity | Every `extracted_fees` row must reference a valid `crawl_result_id` and `crawl_target_id`. Catches silent FK violations (especially after schema migrations). | Low | One SQL assertion: `LEFT JOIN` check for orphaned rows. |
-| Fee categorization coverage | At least one extracted fee must have a non-null `fee_category`. Verifies `categorize_fees.py` ran and produced output. | Low | Does not require 100% categorization — pipeline is expected to leave some uncategorized. |
-| Confidence scoring populated | At least one extracted fee must have `extraction_confidence > 0`. Confirms validation ran and scored fees. | Low | `backfill_validation.py` populates this field. |
-| Auto-staging result assertion | At least one fee with `extraction_confidence >= 0.85` must have `review_status = 'staged'`. Confirms `auto_review.py` ran. | Low | This is the 0.85 threshold in `Config.extraction.confidence_auto_stage_threshold`. |
-| Human-readable summary report | Tests must emit what was found, what was extracted, and which stages failed. Required for debugging failures in CI. | Low | Mirrors `_print_run_report()` from `executor.py` but scoped to the test run's institutions. |
-| Teardown / cleanup | Test database and any downloaded documents must be removed after the run. Prevents disk accumulation in CI. | Low | `tmp_path` fixture handles SQLite. Need explicit cleanup for `data/documents/` if R2 is bypassed. |
+| Peer benchmarking by custom group | Core use case — "how do I compare to banks like me?" | Medium | Define peers by charter, asset tier, geography |
+| National median / P25/P75 per fee category | Standard statistical framing banks use internally | Low | Already built in National Fee Index |
+| Historical trend lines (12–24 months) | One data point is noise; movement is signal | Medium | Requires re-crawl preservation; fee_change_events table |
+| Coverage across major fee categories | Overdraft, NSF, maintenance, ATM, wire are minimum | Low | 49 categories already classified |
+| Downloadable / exportable data | Excel and CSV are the universal format for bank analysts | Low | CSV export exists in admin; needs public-facing version |
+| Methodology documentation | Institutional buyers require knowing how data is collected | Low | "Methodology paper" is in active requirements |
+| Report / PDF deliverable format | B2B buyers share findings internally; dashboards don't circulate | Medium | Core deliverable of Hamilton milestone |
+| Geographic segmentation (state, Fed district) | Banks plan regionally; national only is too blunt | Low | Already built in pipeline and admin |
+| Charter / institution type segmentation | Banks and credit unions have structurally different fee strategies | Low | Already in peer filter system |
+| Asset tier segmentation | Community vs. regional vs. mega-bank dynamics are distinct | Low | Tier system already built |
+| Named, consistent analyst voice | Credibility: reports should read like they were written by someone | Medium | Hamilton persona — core of this milestone |
 
 ---
 
 ## Differentiators
 
-Features that elevate test quality beyond "it ran without crashing."
+Features that set Bank Fee Index apart from FDIC call reports, Bankrate editorial, or generic benchmarking tools.
+These justify the $2,500/mo price point and the "national authority" positioning.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Per-institution funnel trace | For each seeded institution: was a URL found? Was it crawled? Were fees extracted? Were fees categorized? Surfaces exactly where the pipeline broke per institution rather than just aggregate counts. | Medium | Implemented as a structured dict keyed by `crawl_target_id`, built from joins across 4 tables. |
-| Audit trail completeness check | Verify that `fee_reviews` rows exist for every fee that transitioned to 'staged' or 'approved'. The pipeline must leave an immutable record of every status change. | Medium | One SQL assertion: `extracted_fees` with `review_status = 'staged'` must have corresponding `fee_reviews` rows with `action = 'stage'`. |
-| fee_category distribution assertion | Among extracted fees, assert the distribution spans at least N distinct `fee_category` values (e.g., ≥ 2). Proves categorization didn't collapse everything into one bucket. | Low | Fragile if institution count is very small — guard with `if total_fees >= 5`. |
-| Confidence distribution sanity check | Assert that no fee has `extraction_confidence > 1.0` or `< 0.0`. Also assert median confidence is above some floor (e.g., 0.6). Catches broken confidence scoring. | Low | Pure SQL — fast and always valid regardless of institution selection. |
-| Validation flags format check | `validation_flags` is a JSON array. Assert it parses as valid JSON for all non-null rows. Catches serialization bugs in `validation.py`. | Low | `json.loads()` in a loop — trivial to implement. |
-| Parametric geography fixture | Rather than hardcoding a state, accept `--geography state=XX` as a pytest CLI option. Lets CI run the same test suite against different geographies on different days. | Medium | Uses `pytest_addoption` + fixture that reads the option. Falls back to a deterministic default (e.g., 'VT' — small state, fast run). |
-| Stage timing capture | Record wall-clock time per pipeline stage and emit it in the summary. Catches performance regressions (e.g., a query becoming 10x slower) without formal benchmarking. | Low | Wrap `_execute_stage()` calls with `time.perf_counter()`. |
-| Idempotency test | Run the full pipeline twice against the same institutions. Assert that the second run does not create duplicate `extracted_fees` rows. Tests the `UNIQUE(source, cert_number)` constraint and merge logic in `merge_fees.py`. | High | Requires running the pipeline twice in the same test. Valuable but slow (doubles run time). Mark as `@pytest.mark.slow`. |
-| Skip-stage selective execution | Allow the e2e test to skip specific stages (e.g., skip `publish` and `snapshot` which have external side effects). Maps directly to `run_pipeline(skip=frozenset(...))`. | Low | Already supported by `executor.py` — test just needs to pass the right `skip` set. |
-| Document content hash verification | For institutions where a document was downloaded, assert `crawl_results.content_hash` is non-null and is a valid SHA-256 hex string (64 chars). Verifies the R2/local store wrote correctly. | Low | Regex match on the hash column. |
+| AI-generated narrative analysis (Hamilton) | Turns data into conclusions an executive can act on, not just tables | High | Primary differentiator; McKinsey-grade prose from live data |
+| Fee change event tracking ("who moved first") | Shows which institutions led market repricing vs. followed | Medium | Requires fee_change_events history; peer-relevant signal |
+| On-demand competitive brief for specific institution | "Give me a report on First National Bank of Wyoming" | High | Premium product; Hamilton-heavy; $500–$1K per report |
+| Coverage freshness indicators | Knowing data is 3 months old vs. 3 years old changes trust level | Low | Last-crawled date per institution already tracked |
+| Outlier flagging ("who is priced above market") | Actionable for pricing strategy — not just where you stand, but who is extreme | Low | Outlier queries already built in Market index |
+| State-level fee environment reports | "What does the Montana competitive landscape look like?" | Medium | State Agent already running; state reports in active requirements |
+| Fed district economic context layered into fee reports | Connects fee strategy to macro environment (Beige Book, FRED data) | High | Beige Book + FRED ingestion already built |
+| Fee revenue correlation analysis | Ties fee strategy to non-interest income performance | High | Listed as existing skill in project context |
+| Monthly pulse (automated recurring) | Keeps subscribers engaged between deep reports; builds habit | Medium | In active requirements; template-driven = cheap to run |
+| Hamilton byline and consistent persona | Memorable brand anchor; human-readable reports signal quality | Low | Naming + voice design, not technical complexity |
 
 ---
 
 ## Anti-Features
 
-Features to deliberately NOT build in this milestone.
+Features to explicitly NOT build in this milestone. Each has a reason and a better alternative.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Exact fee value assertions | LLM extraction is non-deterministic. Asserting `monthly_maintenance = $12.00` will flake across runs and across institutions. | Assert structural properties: non-null, amount > 0, amount < 10000 (sanity bound). |
-| Mocking the LLM call | Mocking Claude Haiku removes the point of e2e testing. If the prompt changes or the schema breaks, a mocked test won't catch it. | Use real LLM calls, limited to 3-5 institutions to keep cost under $0.10/run. |
-| Mocking HTTP / crawl responses | Same issue. If Playwright or pdfplumber regresses, mock tests won't catch it. The value of e2e is real I/O. | Use real institutions (small state geography) so pages are actually fetched. |
-| Assertion on `fee_name` text | Fee names are raw LLM output strings. They will vary. Asserting on exact strings will flake immediately. | Assert `fee_name IS NOT NULL AND LENGTH(fee_name) > 0`. |
-| Coverage of all 49 fee categories | You cannot guarantee a random 3-5 institution sample covers all 49 categories. This assertion will randomly fail. | Assert `fee_category IN (select valid categories from taxonomy)` — validate the values, not the count. |
-| Performance benchmarking assertions | "Stage must complete in < 30s" will flake in CI based on network conditions and LLM response time. | Emit timing in the report for visibility, but do not assert on it. |
-| Testing Modal-specific execution paths in unit test scope | Modal remote execution is an infrastructure concern, not a pipeline logic concern. | Verify that Modal workers call the same `run_pipeline()` entry point. Test that entry point, not Modal. |
-| Browser-based admin UI assertions | Out of scope per PROJECT.md. `/admin/fees/catalog` is tested separately. | Defer to a Playwright/Cypress test suite in a future milestone. |
-| SerpAPI discovery fallback | PROJECT.md explicitly excludes this. | Do not stub or exercise this path. |
-| Testing DB migration scripts | Migration correctness belongs in schema tests, not e2e tests. | Add to the existing `fee_crawler/tests/` unit suite if needed. |
-| Parallel institution crawling during tests | `concurrent_per_domain: 1` is required by PROJECT.md constraints. Parallel crawling adds test flakiness. | Always run with `workers=1` in test config. |
+| Real-time fee monitoring / alerts | Batch crawl cadence makes real-time misleading; creates alert fatigue | Show last-crawled date prominently; re-crawl on demand for premium tier |
+| Fee calculators / "what would my bank save" tools | Consumer UX, not B2B research positioning; muddies the brand | Keep Bank Fee Index focused on market intelligence, not advisory tools |
+| League tables / "best bank" rankings | SEO bait that erodes credibility with institutional buyers | Produce ranked findings within context (e.g., "lowest overdraft in Midwest community banks") |
+| Self-serve dashboard with 40+ filters | Enterprise dashboards require sales, onboarding, support; out of scope | Lead with reports and published benchmarks; add portal as Phase 3+ |
+| Integration with core banking systems | Complex, compliance-heavy, multi-year sales cycle | Provide exports (CSV/Excel/PDF) that integrate via copy-paste |
+| Automated email alerts on competitor fee changes | Requires near-real-time crawl pipeline; current cadence cannot support it reliably | Monthly pulse email is the right cadence; flag "notable movers" in each issue |
+| Ratings / grades for institutions | Subjective, liability-creating, off-brand for research positioning | Use objective market position language ("above median", "top quartile") |
 
 ---
 
 ## Feature Dependencies
 
+The dependency chain that governs build order:
+
 ```
-Geography fixture
-  → Institution seeding (requires fixture to know which state)
-    → URL discovery assertion (requires seeded institutions)
-      → Crawl result assertion (requires discovered URLs)
-        → Extracted fees assertion (requires crawl results)
-          → FK integrity check (requires extracted fees)
-          → Categorization assertion (requires extracted fees)
-          → Confidence assertion (requires extracted fees + validation stage)
-            → Auto-staging assertion (requires confidence scores)
-              → Audit trail assertion (requires staged fees in fee_reviews)
+Fee data pipeline (done)
+  └── National index (done)
+        └── Peer index (done)
+              └── Peer benchmark report (Hamilton template)
+                    └── On-demand competitive brief (Hamilton deep)
 
-Per-institution funnel trace (depends on all of the above)
-Summary report (depends on all of the above)
+State agent + coverage (done)
+  └── State index data (done)
+        └── State Fee Report (Hamilton template)
 
-Idempotency test (depends on the full pipeline completing once, then re-running)
+fee_change_events table
+  └── Historical trend data
+        └── "Who moved first" analysis
+              └── Fee change alert language in monthly pulse
+
+Beige Book + FRED ingestion (done)
+  └── District economic context
+        └── District + macro layering in Hamilton reports
+
+Hamilton persona design
+  └── Report template system
+        └── All report types (national, state, pulse, competitive brief)
 ```
 
 ---
 
-## MVP Recommendation
+## MVP Recommendation for v2.0 Hamilton Milestone
 
-Build in this order:
+Build in this priority order based on dependency chain and highest B2B value:
 
-1. **Isolated test database fixture** — pytest fixture using `tmp_path`, injects a `Config` pointing at a temp SQLite file. All other tests depend on this.
-2. **Geography-scoped seeding** — call `seed_institutions.py` `run()` with `state='VT'` (or a configurable default). Verify 3-5 institutions are seeded.
-3. **Full pipeline execution** via `run_pipeline()` with `skip={'snapshot', 'publish-index'}` (skip external-side-effect stages). Capture `run_id`.
-4. **Core assertions** in order: URL discovery → crawl results → extracted fees → FK integrity → categorization → confidence → auto-staging.
-5. **Audit trail assertion** — fee_reviews rows exist for staged fees.
-6. **Summary report** — emit per-institution funnel + aggregate counts to stdout.
+**Phase 1 — Foundation (must ship before any reports)**
+1. Hamilton persona definition (voice, byline, tone document)
+2. Report design system (PDF-grade template: cover, sections, data tables, charts)
+3. Methodology paper (how the index works, what the data covers)
 
-Defer:
-- **Idempotency test**: Valuable but doubles run time. Add as `@pytest.mark.slow`, excluded from default CI run.
-- **Parametric geography fixture**: Add in a follow-up once the basic test is stable. Default to 'VT' for now.
-- **Stage timing capture**: Easy to add to the summary report but not a blocker for MVP.
+**Phase 2 — Recurring reports (template-driven, low ongoing cost)**
+4. National Fee Index quarterly report (Hamilton narrative + index data)
+5. State Fee Index reports (per-state, Hamilton prose + State Agent data)
+6. Monthly pulse report (automated, "notable movers" + national snapshot)
+
+**Phase 3 — Premium products (Hamilton-heavy, high-value)**
+7. On-demand competitive peer brief (single institution or named peer set)
+8. Fee change trend analysis ("who moved and when")
+
+**Defer:**
+- Consumer-facing institution fee lookup: Consumer traffic value is real but splits the product's identity at launch. Build once B2B product has traction.
+- Self-serve dashboard portal: Requires UX/onboarding investment out of scope for content milestone.
+- API access for data subscribers: Real differentiator at scale, but premature before report product is proven.
 
 ---
 
-## Confidence Assessment
+## Competitive Positioning Map
 
-| Area | Confidence | Notes |
-|------|------------|-------|
-| Table stakes identification | HIGH | Derived directly from pipeline schema and PROJECT.md constraints |
-| Differentiator selection | HIGH | Audit trail / FK integrity patterns verified against pipeline schema |
-| Anti-feature rationale | HIGH | Non-determinism patterns verified against LLM testing literature |
-| Complexity estimates | MEDIUM | Based on codebase familiarity; actual effort depends on fixture setup |
+| Platform | Data Source | Report Output | Peer Benchmarking | Fee Focus | Price Signal |
+|----------|-------------|---------------|-------------------|-----------|--------------|
+| **Bank Fee Index** | AI crawl of 4,000+ live fee schedules | Hamilton narrative PDF + web | Custom (charter/tier/geo) | Primary | $2,500/mo |
+| Curinos | Proprietary FI data partnerships | Analyst reports + platform | Deep (product-level) | Deposit pricing, not fee schedules | $50K+/yr |
+| Raddon (Fiserv) | Client data + proprietary surveys | Semiannual performance reports | FI-submitted data | Non-interest income; no schedule-level | $10K–$20K/yr |
+| ProSight (BAI/RMA) | Member-submitted data | Monthly pulse + semiannual reports | Deposit/rate focus | Rate benchmarking; minimal fee detail | Membership-based |
+| McKinsey Finalta | Client + partner data | Annual deep-dive studies | Global peer sets | Digital performance; not fees | $100K+ engagements |
+| FDIC/FFIEC tools | Call report data | Peer ratio reports | Basic financial ratios | No consumer fee schedule data | Free |
+| Visbanking | FDIC/FFIEC data | Dashboard + analysis | 4,600+ institutions | Financial performance ratios | $299–$999/mo |
+
+**Bank Fee Index sustainable advantage:** The only platform with crawled, current, institution-level consumer fee schedule data across 4,000+ institutions. No competitor has this primary data source. Curinos has product-level rate data but not fee schedule text. FDIC has reported financials but not granular fee categories. This data moat is only valuable if the product wraps it in deliverables B2B buyers recognize as worth paying for — which is what Hamilton does.
+
+---
+
+## What B2B Buyers Actually Pay For
+
+Based on ProSight, Curinos, Finalta, and Raddon research:
+
+1. **Actionable peer context** — not national averages, but "banks like you." Custom peer groups are a table-stakes expectation among bank strategy teams. ProSight, Curinos, and FFIEC all offer this. Bank Fee Index already has the filter infrastructure.
+
+2. **Narrative synthesis** — executives pay for analysis, not data. Finalta's annual deep-dives and Raddon's performance reports are valued precisely because they convert numbers into strategy. This is Hamilton's entire reason for existing.
+
+3. **Recurring cadence** — monthly or quarterly touchpoints justify subscription renewal. ProSight Consumer Pulse+ is specifically monthly to maintain engagement. One-time reports churn; recurring reports build dependency.
+
+4. **Credibility signals** — methodology papers, named analysts, institutional partner logos. These exist because the B2B buyer has an internal audience to convince. Hamilton byline and methodology paper are both credibility features, not just marketing.
+
+5. **Export / shareability** — bank analysts circulate findings in Excel and PDF. Every platform provides export. Locked-in web views lose subscribers.
 
 ---
 
 ## Sources
 
-- [Setting up end-to-end tests for cloud data pipelines — Start Data Engineering](https://www.startdataengineering.com/post/setting-up-e2e-tests/)
-- [How to Write Integration Tests for Python Data Pipelines — Start Data Engineering](https://www.startdataengineering.com/post/python-datapipeline-integration-test/)
-- [Testing AI Agents: Validating Non-Deterministic Behavior — SitePoint](https://www.sitepoint.com/testing-ai-agents-deterministic-evaluation-in-a-non-deterministic-world/)
-- [LLM Testing: A Practical Guide — Langfuse](https://langfuse.com/blog/2025-10-21-testing-llm-applications)
-- [A Complete Guide to Data Engineering Testing with Python — Medium/Datainsights](https://medium.com/@datainsights17/a-complete-guide-to-data-engineering-testing-with-python-best-practices-for-2024-bd0d9be2d9ca)
-- Codebase inspection: `fee_crawler/pipeline/executor.py`, `fee_crawler/db.py`, `fee_crawler/tests/test_executor.py`
+- [Curinos Digital Banking Analyzer](https://curinos.com/digital-banking-analyzer/) — Medium confidence (WebSearch summary)
+- [ProSight Consumer Deposits Benchmarking](https://www.prosightfa.org/research-benchmarking/consumer/) — Medium confidence
+- [McKinsey Finalta Overview](https://www.mckinsey.com/industries/financial-services/how-we-help-clients/finalta/overview) — Medium confidence
+- [Raddon Research Insights](https://www.raddon.com/en/insights/raddon_research_insights.html) — Medium confidence
+- [Visbanking Competitive Benchmarking Guide](https://visbanking.com/what-is-competitive-benchmarking) — Medium confidence
+- [FFIEC Custom Peer Group Report](https://www.ffiec.gov/CustomPeerGroupReport.htm) — High confidence (official source)
+- [ABA Bank Performance Benchmarking Tool](https://www.aba.com/news-research/analysis-guides/bank-performance-benchmarking-tool) — Medium confidence
+- [Bank Fee Analysis Software Market](https://market.us/report/bank-fee-analysis-software-market/) — Low confidence (market research aggregator)
+- [Inflexion B2B Data Sector Spotlight](https://www.inflexion.com/news-and-insights/insights/2024/spotlight-b2b-data/) — Medium confidence

@@ -1,6 +1,6 @@
-# Architecture Patterns: E2E Tests for Multi-Stage Data Pipelines
+# Architecture Patterns: Report Generation System
 
-**Domain:** End-to-end testing of a Python crawl/extract pipeline
+**Domain:** Template + AI hybrid report engine integrated into an existing Next.js App Router app
 **Researched:** 2026-04-06
 **Overall confidence:** HIGH
 
@@ -8,368 +8,465 @@
 
 ## Recommended Architecture
 
-E2E tests for multi-stage pipelines are organized into four distinct layers that form a dependency hierarchy. Each layer must exist before the next can be built. The layers are: Infrastructure, Fixtures, Helpers/Factories, and Test Cases.
+A report generation system for Bank Fee Index has five distinct layers. Each layer has a single responsibility and a clear interface to the next.
 
 ```
-┌─────────────────────────────────────┐
-│  Layer 4: Test Cases                │  test_e2e_*.py
-│  (assertions against DB state)      │
-├─────────────────────────────────────┤
-│  Layer 3: Helpers & Factories       │  helpers/, factories/
-│  (data builders, assertion utils)   │
-├─────────────────────────────────────┤
-│  Layer 2: Fixtures                  │  conftest.py (session + function scope)
-│  (DB, mocks, config, temp dirs)     │
-├─────────────────────────────────────┤
-│  Layer 1: Infrastructure            │  pytest.ini, conftest.py (root), env
-│  (test config, markers, env vars)   │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  Layer 5: Distribution                                           │
+│  Public catalog (ISR), pro download (signed URL), email/Stripe   │
+├──────────────────────────────────────────────────────────────────┤
+│  Layer 4: Storage                                                │
+│  Cloudflare R2 (PDFs) + Supabase (metadata + job state)         │
+├──────────────────────────────────────────────────────────────────┤
+│  Layer 3: Render                                                 │
+│  HTML string → Playwright PDF (Modal worker)                    │
+├──────────────────────────────────────────────────────────────────┤
+│  Layer 2: Assembly                                               │
+│  Data queries → Hamilton Claude calls → Template fill            │
+├──────────────────────────────────────────────────────────────────┤
+│  Layer 1: Trigger                                                │
+│  Next.js Route Handler (on-demand) or cron job (recurring)      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-This maps directly to a directory layout inside `fee_crawler/tests/e2e/`:
-
-```
-fee_crawler/tests/
-├── conftest.py                  # Existing unit test fixtures (unchanged)
-├── test_executor.py             # Existing unit tests
-├── test_review_status.py
-├── test_transition_fee_status.py
-│
-└── e2e/
-    ├── conftest.py              # E2E-specific session fixtures
-    ├── helpers/
-    │   ├── __init__.py
-    │   ├── db_assertions.py     # Assert DB state after pipeline runs
-    │   └── report.py           # Summary report builder
-    ├── factories/
-    │   ├── __init__.py
-    │   └── institution.py      # Build synthetic crawl_target rows
-    ├── fixtures/
-    │   ├── fdic_response.json   # Canned FDIC API response (3-5 banks)
-    │   ├── ncua_response.json   # Canned NCUA API response
-    │   ├── fee_schedule.html    # Static fee schedule HTML page
-    │   └── fee_schedule.pdf     # Static fee schedule PDF
-    ├── test_pipeline_seed.py    # Stage 1: institution seeding
-    ├── test_pipeline_discover.py # Stage 2: URL discovery
-    ├── test_pipeline_crawl.py   # Stage 3: crawl + extract
-    ├── test_pipeline_validate.py # Stage 4: categorize + validate
-    └── test_pipeline_full.py    # Full pipeline, end-to-end
-```
+This is the same pattern as the existing FeeScout and URL audit pipelines — a Next.js trigger layer, a Modal async worker layer, Supabase for state, and R2 for artifacts. The report engine reuses every one of those infrastructure components without adding new ones.
 
 ---
 
 ## Component Boundaries
 
-### Layer 1: Infrastructure (pytest.ini + root conftest)
-
-Responsibility: Establish conventions, register markers, suppress noise.
-
-What lives here:
-- `pytest.ini` with `[pytest]` section — markers declaration (`e2e`, `slow`, `llm`), log level, test paths
-- Root `conftest.py` — nothing yet; do not import `e2e/` fixtures here
-- Environment variable contract — `TEST_DB_PATH`, `TEST_ANTHROPIC_API_KEY`, `MOCK_HTTP=1`
-
-Does NOT contain: fixtures, test data, mock responses.
-
-Communicates with: All other layers (consumed implicitly by pytest).
-
-### Layer 2: Fixtures (e2e/conftest.py)
-
-Responsibility: Provide lifecycle-managed resources to every test in `e2e/`.
-
-Three fixture scopes are needed:
-
-**Session-scoped (one per `pytest` invocation):**
-- `test_db_path` — creates a temp SQLite file via `tmp_path_factory`, runs all schema migrations, yields the path, deletes on teardown
-- `test_config` — returns a `Config` object with `database.path` pointing at `test_db_path`, crawl delays zeroed out, LLM model set to Haiku
-- `http_mock` — activates `responses` library activation (or `requests_mock`) for the entire session; intercepting FDIC, NCUA, and HTTP crawl requests
-
-**Function-scoped (one per test):**
-- `clean_db` — truncates all pipeline tables between tests that need isolation; does not recreate schema
-- `seeded_institutions` — uses `InstitutionFactory` to insert 3-5 synthetic `crawl_targets` rows directly, skipping the FDIC API
-
-**Scope rules:**
-- Session scope = expensive setup that is safe to share (schema creation, mock server activation)
-- Function scope = anything that writes data rows (prevents cross-test contamination)
-- Never use `autouse=True` for data-writing fixtures; always request them explicitly
-
-### Layer 3: Helpers and Factories
-
-Responsibility: Reusable logic that is not test assertions and not infrastructure.
-
-**factories/institution.py**
-Builds synthetic `crawl_target` rows from a small, deterministic set of real-looking bank records. These rows have:
-- A `website_url` pointing to a mock HTTP server address (e.g., `http://mock.bank.test/`)
-- A `fee_schedule_url` pointing to a fixture file path or mock URL
-- Realistic `asset_size`, `charter_type`, `state_code` values
-
-Factory output is a `dict` that can be passed directly to `db.execute("INSERT INTO crawl_targets ...")`.
-
-**helpers/db_assertions.py**
-Houses assertions about final DB state:
-- `assert_crawl_result_exists(db, target_id)` — verifies a `crawl_results` row with `status='success'`
-- `assert_fees_extracted(db, target_id, min_count=1)` — verifies `extracted_fees` rows exist
-- `assert_audit_trail_complete(db, target_id)` — verifies `crawl_results` + `extracted_fees` + `fee_reviews` all have rows for the same `crawl_target_id`
-- `assert_fees_categorized(db, target_id)` — verifies `fee_category IS NOT NULL` for extracted fees
-
-**helpers/report.py**
-Generates the post-run summary report (institutions processed, fees extracted, stages that errored, elapsed time). Reads from DB, returns a structured dict. Called from `test_pipeline_full.py` at the end of the full run.
-
-Does NOT contain: DB setup/teardown, fixture lifecycle, test assertions (those go in test files).
-
-### Layer 4: Test Cases (test_pipeline_*.py)
-
-Responsibility: Assert that each pipeline stage produces correct DB state given controlled inputs.
-
-Each file tests one stage in isolation using the fixtures and helpers from layers 1-3. File-level stage isolation is intentional: when stage 3 breaks, the test for stage 3 fails — not the full pipeline test.
-
-`test_pipeline_full.py` is the only file that runs the full linear chain. Its assertions are intentionally flexible:
-- "At least 1 institution has fees" (not exact counts)
-- "All crawl_results have status in {success, failed, unchanged}" (no unknown statuses)
-- "Audit trail is complete for every successful crawl" (relational consistency)
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `app/api/reports/[type]/route.ts` | Trigger: enqueue job, return job ID | Supabase `report_jobs` table |
+| `app/api/reports/[id]/status/route.ts` | Polling: return job state + artifact URL | Supabase |
+| `src/lib/report-templates/` | Assembly: data fetch + Claude calls + HTML render | Supabase DB queries, Anthropic SDK |
+| Modal `generate_report.py` | Render: receive HTML, run Playwright, output PDF bytes | R2 upload, Supabase job update |
+| `app/pro/reports/` | Pro download: auth check, generate R2 presigned URL | Supabase, R2 |
+| `app/(public)/reports/` | Public catalog: ISR-cached report index + preview pages | Supabase |
+| `src/lib/hamilton/` | Hamilton AI persona: prompt system, voice guidelines | Anthropic SDK |
 
 ---
 
-## Data Flow Through the Test System
+## Two Report Modes
 
-Test data moves through the system in one direction, through five transformations:
+The project explicitly requires two modes with different cost profiles. The architecture enforces this distinction at the assembly layer.
 
+### Mode A: Template-Driven (recurring, cheap)
+
+Used for: National Fee Index quarterly, State Fee Index, monthly pulse.
+
+Flow:
 ```
-1. Factory → DB rows
-   InstitutionFactory builds synthetic crawl_targets.
-   Inserted by the `seeded_institutions` fixture before the test runs.
-
-2. DB rows → Discovery stage
-   discover_urls.run() reads crawl_targets where fee_schedule_url IS NULL.
-   HTTP requests to FDIC/sitemap endpoints are intercepted by http_mock.
-   Mock returns canned fixture JSON. Stage writes fee_schedule_url back to DB.
-
-3. DB rows (with URLs) → Crawl stage
-   crawl.run() reads crawl_targets where fee_schedule_url IS NOT NULL.
-   HTTP requests to bank websites are intercepted by http_mock.
-   Mock returns fixture HTML/PDF bytes. Stage writes crawl_results + extracted_fees.
-
-4. extracted_fees → Validation / Categorize
-   categorize_fees.run() + validate_and_classify_fees() consume extracted_fees.
-   No HTTP calls. Purely local computation. Updates fee_category + review_status.
-
-5. DB state → Assertions
-   db_assertions helpers read final DB state and assert correctness.
-   report.py reads DB and builds the summary.
+Cron trigger
+  → enqueue job in Supabase
+    → Modal worker: call assembleTemplateReport(type, params)
+        → fetch data from Supabase (no LLM calls for data)
+        → run 1 Hamilton "narrative summary" call ($0.50-1.00)
+        → fill HTML template with data + narrative
+        → render PDF via Playwright
+        → upload to R2
+        → mark job complete
 ```
 
-Key constraint: **data always flows forward**. No test stage modifies upstream tables. This makes individual stage tests composable — a test for stage 3 can call the stage 1 and 2 fixtures as prerequisites without needing to re-run those pipelines.
+Cost per report: $0.50-1.50 (one Hamilton narrative call + compute).
+
+### Mode B: Hamilton-Heavy (on-demand, high-value)
+
+Used for: Competitive peer briefs, custom benchmarking reports.
+
+Flow:
+```
+User trigger (pro route)
+  → auth + entitlement check
+    → enqueue job in Supabase
+      → Modal worker: call assembleHamiltonReport(type, params)
+          → fetch data (peer index, peer comparables, district data)
+          → 3-6 Hamilton section calls (executive summary, fee analysis,
+            peer positioning, recommendations, market context, outlook)
+          → assemble HTML with full narrative sections
+          → render PDF via Playwright
+          → upload to R2
+          → notify user (email or UI poll)
+```
+
+Cost per report: $5-10 (multiple Claude calls) — matches the project's stated tolerance.
+
+---
+
+## Data Flow: Assembly Layer
+
+The assembly layer is the most complex. It separates three concerns that must stay separate:
+
+```
+1. Data fetch (pure Supabase queries, no AI)
+   getNationalIndex(), getPeerIndex(), getStateData(), getDistrictData()
+   → produces: structured ReportData object
+
+2. Hamilton analysis (pure AI, no DB queries)
+   hamiltonNarrative(section, data, voiceGuidelines)
+   → produces: prose strings for each report section
+
+3. Template render (pure HTML, no data or AI)
+   fillTemplate(templateId, data, narratives)
+   → produces: complete HTML string
+```
+
+Why this separation matters: Hamilton calls are expensive and slow. Data queries are cheap and fast. Template rendering is synchronous and trivial. Keeping them separate means each can fail independently, be retried independently, and be cached independently.
+
+---
+
+## Render Layer: Playwright on Modal
+
+PDF rendering must happen off the Next.js server. The reasons are definitive:
+
+- Vercel serverless functions cap at 50MB uncompressed. Chromium is ~130MB.
+- `@sparticuz/chromium-min` workarounds are fragile and produce inconsistent output.
+- McKinsey-grade reports require pixel-perfect CSS, custom fonts, and precise print layout — these require a real Chromium instance, not `@react-pdf/renderer`.
+
+The project already runs Modal workers for the State Agent and FeeScout pipelines. The report render worker is another Modal function using Playwright, the same dependency already installed.
+
+```python
+# modal_workers/generate_report.py (pattern)
+@app.function(image=crawler_image, timeout=120)
+async def render_report_to_pdf(html: str, report_id: str) -> str:
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html, wait_until="networkidle")
+        pdf_bytes = await page.pdf(
+            format="Letter",
+            print_background=True,
+            margin={"top": "0.75in", "right": "0.75in",
+                    "bottom": "0.75in", "left": "0.75in"},
+        )
+        await browser.close()
+
+    key = f"reports/{report_id}.pdf"
+    upload_to_r2(pdf_bytes, key)
+    return key
+```
+
+`@react-pdf/renderer` is not recommended here. It requires rebuilding every visual element as a React-PDF primitive and cannot use existing Tailwind/CSS styles. The existing `brief-generator.ts` already produces HTML strings — Playwright consuming that HTML is a zero-friction path.
+
+---
+
+## Job Queue Pattern
+
+Report generation is async. The user cannot wait 60 seconds for a synchronous HTTP response.
+
+The recommended pattern uses Supabase as the job store (no external queue service required):
+
+```
+report_jobs table:
+  id          uuid PK
+  type        text  ('national_index' | 'state_index' | 'peer_brief' | 'monthly_pulse')
+  params      jsonb (filters, segment, date range)
+  status      text  ('pending' | 'assembling' | 'rendering' | 'complete' | 'failed')
+  artifact_key text  (R2 object key when complete)
+  error       text
+  created_at  timestamptz
+  completed_at timestamptz
+  user_id     uuid FK (null for cron-triggered)
+```
+
+Trigger → poll flow:
+1. `POST /api/reports` creates a `report_jobs` row, returns `{ jobId }`.
+2. Modal worker picks up the job (called directly via `.remote()`, not via a queue poller — same pattern as State Agent).
+3. Client polls `GET /api/reports/:jobId/status` every 3 seconds.
+4. When `status = 'complete'`, client receives a short-lived presigned R2 URL.
+
+This matches the existing SSE polling pattern used by FeeScout and the State Agent — the codebase already has this infrastructure in `app/api/research/` and `app/api/scout/`. Report jobs use the simpler polling variant (not SSE) since report generation is batch, not streaming.
+
+---
+
+## Storage Pattern: R2 + Supabase
+
+PDFs go to Cloudflare R2. Metadata goes to Supabase. Never store a public URL in the database — store only the R2 object key.
+
+```
+R2 bucket layout:
+  reports/
+    {report_id}.pdf          ← final PDF
+    previews/
+      {report_id}.png        ← thumbnail (optional, for catalog)
+    drafts/
+      {report_id}-draft.html ← HTML before PDF render (for debugging)
+```
+
+Access control for downloads:
+```
+User clicks "Download"
+  → GET /api/reports/:id/download
+    → verify session + subscription tier
+      → if authorized: generate R2 presigned URL (15-min TTL)
+        → redirect to presigned URL
+      → if unauthorized: 403
+```
+
+Presigned URLs are treated as bearer tokens — short TTL prevents sharing. This is the canonical R2 pattern for gated downloads.
+
+---
+
+## Distribution: Public Catalog vs. Pro Download
+
+Two distinct surfaces, both served from the same Next.js app:
+
+### Public Report Catalog (`app/(public)/reports/`)
+
+- ISR with `revalidate: 3600` (hourly)
+- Lists published reports with title, date, teaser paragraph, chart thumbnail
+- Individual report pages show Hamilton executive summary + sample charts
+- Full PDF gated behind subscription CTA
+- Purpose: SEO, lead generation, authority signal
+
+```
+app/(public)/reports/
+  page.tsx              ← catalog index (ISR)
+  [slug]/
+    page.tsx            ← report landing page (ISR)
+    page.tsx generates metadata for og:image, title, description
+```
+
+### Pro Report Library (`app/pro/reports/`)
+
+- SSR (authenticated, user-specific)
+- Lists all reports the user can access given their subscription tier
+- On-demand generation trigger for Hamilton-heavy reports
+- Download button → presigned URL flow
+- Generation status poll UI
+
+```
+app/pro/reports/
+  page.tsx              ← authenticated library
+  [id]/
+    page.tsx            ← report detail + download
+    generate/
+      route.ts          ← POST: trigger generation
+      [jobId]/
+        route.ts        ← GET: poll status
+```
+
+---
+
+## Access Control Pattern
+
+The existing `canAccessPremium()` in `src/lib/access.ts` is the right hook. Report access needs one additional concept: report tier.
+
+```typescript
+// Extend existing pattern
+type ReportTier = 'public' | 'pro' | 'enterprise'
+
+function canDownloadReport(user: User | null, reportTier: ReportTier): boolean {
+  if (reportTier === 'public') return true
+  if (!user) return false
+  if (reportTier === 'pro') return canAccessPremium(user)
+  if (reportTier === 'enterprise') return user.subscription_tier === 'enterprise'
+  return false
+}
+```
+
+Middleware protects `/pro/*` routes. Individual report downloads check tier at the presigned URL generation step.
+
+---
+
+## Hamilton Persona Layer
+
+Hamilton is a voice, not a model configuration. The persona lives in a dedicated module that wraps Claude calls.
+
+```
+src/lib/hamilton/
+  index.ts          ← public API: generateSection(), generateNarrative()
+  voice.ts          ← system prompt, tone guidelines, forbidden phrases
+  sections.ts       ← per-section prompt templates
+  types.ts          ← HamiltonSection, ReportContext, SectionOutput
+```
+
+Key principle: Hamilton calls receive structured data (numbers, percentages, institution counts) and return prose. Hamilton never queries the database. The assembly layer provides the data; Hamilton interprets it.
+
+```typescript
+// voice.ts — the system prompt is the product
+export const HAMILTON_SYSTEM_PROMPT = `
+You are Hamilton, the AI research analyst at Bank Fee Index.
+Your tone: authoritative, precise, data-driven — McKinsey, not MBA thesis.
+Your readers: bank executives and compliance officers who distrust fluff.
+Rules:
+- Lead with the finding, not the methodology
+- Cite specific numbers in every paragraph
+- Never use "it is important to note" or "as we can see"
+- Paragraphs are 2-4 sentences. No five-sentence paragraphs.
+- End each section with an implication, not a summary
+`
+```
+
+---
+
+## Template System
+
+Templates are HTML files with typed data slots. They are not JSX — they are plain HTML strings processed server-side (same pattern as the existing `brief-generator.ts`).
+
+```
+src/lib/report-templates/
+  base-layout.ts         ← shared header, footer, styles
+  national-index.ts      ← National Fee Index template
+  state-index.ts         ← State Fee Index template
+  monthly-pulse.ts       ← Monthly Pulse template
+  peer-brief.ts          ← Peer Brief template (extends existing brief-generator.ts)
+  types.ts               ← ReportData, TemplateSlot interfaces
+```
+
+Each template is a function: `(data: ReportData, narratives: HamiltonNarratives) => string`.
+
+Design constraints for PDF output:
+- Use only web-safe or Google Fonts (loaded inline via `@import` in `<style>`)
+- Avoid JS-dependent layouts — Playwright renders with `waitUntil: 'networkidle'` but print CSS is evaluated before JS
+- Use CSS `@media print` rules to control page breaks
+- Avoid Tailwind utility classes in report templates — use explicit CSS properties for print predictability
+- Target Letter format (8.5in × 11in), 0.75in margins
 
 ---
 
 ## Patterns to Follow
 
-### Pattern 1: Layered conftest.py
+### Pattern 1: Report Assembly as Pure Function
 
-Keep `e2e/conftest.py` separate from the unit test `conftest.py`. The unit test fixtures (MockConfig, in-memory DB) use different conventions than the e2e fixtures (file-backed SQLite, HTTP mocking). Mixing them causes scope conflicts and makes the unit test suite slower.
+Assembly functions take typed inputs and return a typed output. No side effects, no DB writes, no file I/O inside the assembly function itself. This makes templates testable without infrastructure.
 
-```python
-# fee_crawler/tests/e2e/conftest.py
-import pytest
-from pathlib import Path
+```typescript
+// src/lib/report-templates/national-index.ts
+export async function assembleNationalIndex(
+  data: NationalIndexData,
+  opts: { includeHamiltonNarrative: boolean }
+): Promise<ReportDocument> {
+  const narratives = opts.includeHamiltonNarrative
+    ? await generateNarratives('national_index', data)
+    : PLACEHOLDER_NARRATIVES
 
-@pytest.fixture(scope="session")
-def test_db_path(tmp_path_factory) -> Path:
-    db_path = tmp_path_factory.mktemp("db") / "test_pipeline.db"
-    db = Database(str(db_path))
-    db.initialize()
-    yield db_path
-    # tmp_path_factory handles cleanup
-
-@pytest.fixture(scope="session")
-def test_config(test_db_path) -> Config:
-    cfg = Config.defaults()
-    cfg.database.path = str(test_db_path)
-    cfg.crawl.delay_seconds = 0.0
-    cfg.extraction.model = "claude-haiku-4-5-20251001"
-    return cfg
+  return {
+    html: fillNationalIndexTemplate(data, narratives),
+    metadata: { type: 'national_index', generatedAt: new Date() },
+  }
+}
 ```
 
-### Pattern 2: responses Library for HTTP Mocking
+### Pattern 2: Modal Worker as Thin Orchestrator
 
-The pipeline uses `requests` (not `httpx`) for FDIC/NCUA seeding and the main document download. The `responses` library intercepts `requests` calls without patching — it works at the transport layer and requires no changes to production code.
-
-```python
-# e2e/conftest.py
-import responses as responses_lib
-
-@pytest.fixture(scope="session", autouse=True)
-def mock_external_http():
-    with responses_lib.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-        # FDIC API
-        rsps.add(
-            responses_lib.GET,
-            "https://api.fdic.gov/banks/institutions",
-            json=load_fixture("fdic_response.json"),
-        )
-        # Fee schedule pages — keyed by institution
-        rsps.add(
-            responses_lib.GET,
-            "http://mock.bank.test/fees",
-            body=load_fixture_bytes("fee_schedule.html"),
-            content_type="text/html",
-        )
-        yield rsps
-```
-
-For `httpx`-based calls (document download has an httpx path), use `respx` with the same pattern.
-
-For Playwright (browser-rendered crawl): mock at the network level using `page.route()` inside a session-scoped async fixture, or use a lightweight local HTTP server (`http.server.HTTPServer` in a thread) that serves fixture files. The local server approach is simpler and does not require Playwright API knowledge in test code.
-
-### Pattern 3: Flexible Assertions for Non-Deterministic Output
-
-LLM output varies. Assertions must avoid brittle exact-value checks. Use range checks and structural checks:
+The Modal function calls the assembly function (imported from the Next.js codebase via a shared package or API call), then renders. It does not contain business logic.
 
 ```python
-# Good
-fees = db.fetchall("SELECT * FROM extracted_fees WHERE crawl_target_id = ?", (target_id,))
-assert len(fees) >= 1, "Expected at least one fee extracted"
-assert all(f["fee_name"] for f in fees), "All fees must have a name"
+@app.function(image=crawler_image, timeout=180)
+async def generate_report(job_id: str) -> None:
+    job = get_job(job_id)  # fetch from Supabase
+    update_job_status(job_id, 'assembling')
 
-# Bad
-assert fees[0]["amount"] == 12.0  # LLM may round differently
-assert len(fees) == 7             # Exact count is fragile
+    html = await assemble_report(job['type'], job['params'])  # calls Next.js API or shared lib
+
+    update_job_status(job_id, 'rendering')
+    pdf_key = await render_to_pdf(html, job_id)
+
+    update_job_status(job_id, 'complete', artifact_key=pdf_key)
 ```
 
-### Pattern 4: Stage-Isolation via Skip Flags
+### Pattern 3: ISR for Public Report Pages
 
-Each pipeline stage command accepts `skip_*` flags. Use them to test stages independently without re-running the full chain:
+Public report pages use ISR with a 1-hour revalidation. When a new report is published, call `revalidatePath('/reports')` from the API route that marks a job complete. This avoids manual cache busting.
 
-```python
-def test_crawl_stage_only(test_config, seeded_institutions_with_urls, test_db_path):
-    db = Database(str(test_db_path))
-    results = run_pipeline(db, test_config, skip_discover=True, skip_categorize=True)
-    assert results["stages"]["crawl"]["status"] == "success"
+```typescript
+// api/reports/[id]/publish/route.ts
+await supabase.from('reports').update({ published: true }).eq('id', id)
+revalidatePath('/reports')
+revalidatePath(`/reports/${slug}`)
 ```
 
-### Pattern 5: LLM Call Control
+### Pattern 4: Strict Separation of Public and Pro Routes
 
-Real LLM calls cost money. Gate them with a pytest marker:
-
-```python
-# pytest.ini
-markers =
-    llm: marks tests that make real Anthropic API calls (deselect with -m "not llm")
-    e2e: marks full pipeline tests
-    slow: marks tests taking > 30s
-```
-
-Local runs default to `pytest -m "e2e and not llm"`. CI runs with real Haiku calls use `pytest -m "e2e"` when `ANTHROPIC_API_KEY` is present.
-
-For the no-LLM path: pre-populate `extracted_fees` rows directly in the fixture, bypassing the crawl stage. This lets stages 3-5 (categorize, validate, audit trail) be tested without any API cost.
+Public report pages render HTML previews with deliberately truncated data — enough for SEO and authority, not enough to replace a subscription. The rule: public pages show executive summary + 2 charts. Full data tables, peer comparisons, and Hamilton recommendations are pro-only.
 
 ---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Shared Mutable State Between Tests
+### Anti-Pattern 1: PDF Generation in a Next.js Route Handler
 
-**What goes wrong:** A test that inserts 5 institutions leaves them in the DB. The next test sees 10.
-**Why it happens:** Session-scoped DB fixture + no cleanup.
-**Instead:** Function-scoped `clean_db` fixture truncates pipeline tables. Session-scoped fixture only creates the schema.
+Running Playwright or Puppeteer inside a Next.js API route works locally and breaks in every deployment that matters (Vercel, Railway with small instances). Even on a VPS, tying the Next.js process to a Chromium instance creates memory pressure that kills the web server under concurrent load.
 
-### Anti-Pattern 2: Testing the Full Chain in Every Test File
+Consequence: Intermittent 502s on report generation. Reports take 30-60 seconds; Next.js route handler timeouts are typically 10-30 seconds on serverless.
 
-**What goes wrong:** A bug in the discovery stage causes every test to fail, including tests that are only checking fee categorization.
-**Why it happens:** Every test file calls the full pipeline.
-**Instead:** Each stage file runs only that stage. `test_pipeline_full.py` is the only full-chain test. Stage tests use direct DB inserts to set up the inputs that upstream stages would have produced.
+Prevention: All PDF rendering happens inside Modal functions. The Next.js layer only enqueues jobs and polls status. This is already the established pattern for FeeScout.
 
-### Anti-Pattern 3: Exact-Value Assertions on LLM Output
+### Anti-Pattern 2: Synchronous Report Generation
 
-**What goes wrong:** Test flakiness when Haiku rephrases a fee name slightly.
-**Why it happens:** `assert fee["fee_name"] == "Monthly Maintenance Fee"`.
-**Instead:** Assert structural properties: `assert fee["fee_name"]` (non-empty), `assert 0 <= fee["amount"] <= 1000`, `assert fee["fee_category"] in VALID_CATEGORIES`.
+Generating a Hamilton-heavy report takes 30-90 seconds (6 Claude calls + Playwright render). Treating this as a synchronous API response means users see spinner timeouts and retries cause duplicate jobs.
 
-### Anti-Pattern 4: Using requests-mock for Playwright Fetches
+Prevention: Always async. Trigger returns a job ID immediately. Client polls status. This is identical to the existing State Agent flow.
 
-**What goes wrong:** `requests-mock` and `responses` do not intercept Playwright's Chromium network stack. Browser fetches go to the real internet.
-**Why it happens:** Playwright uses its own HTTP stack, not Python's `requests`.
-**Instead:** Use a local HTTP server (threading + `http.server`) or Playwright's `page.route()` intercept API to mock browser-rendered pages.
+### Anti-Pattern 3: Using @react-pdf/renderer for McKinsey-Grade Output
 
-### Anti-Pattern 5: Importing Production `get_db()` Singleton in Tests
+`@react-pdf/renderer` produces PDFs by constructing a PDF document from scratch using its own layout engine. It does not render CSS. It cannot use existing Tailwind styles. Complex multi-column layouts, custom fonts, and data tables require reimplementing everything in react-pdf primitives.
 
-**What goes wrong:** The production singleton caches the DB path. Tests that point to a temp path still connect to the production DB.
-**Why it happens:** Module-level singleton is initialized at import time.
-**Instead:** Pass the `Database` instance explicitly into each stage's `run()` function. All existing pipeline commands already accept `db: Database` as a parameter — this pattern is already established.
+The existing `brief-generator.ts` already produces styled HTML. Playwright consuming that HTML output is the zero-migration path.
+
+### Anti-Pattern 4: Public URLs for Report PDFs
+
+Storing a public R2 URL in the database means any user who finds the URL (via browser history, shared link, dev tools) can download gated content. R2 presigned URLs expire — they enforce access control at the resource level, not just at the UI level.
+
+### Anti-Pattern 5: Embedding Hamilton Prompts in Template Files
+
+When prompts are inlined inside template rendering functions, they become invisible to future Hamilton calibration work. Iterate on voice, tone, and section structure without touching template layout code by keeping them in `src/lib/hamilton/sections.ts`.
 
 ---
 
 ## Scalability Considerations
 
-| Concern | At 3-5 institutions (current) | At 50 institutions | At 500 institutions |
-|---------|-------------------------------|---------------------|----------------------|
-| Test DB size | In-memory or small file, fast | File-based SQLite, < 1s setup | Consider PostgreSQL for tests |
-| LLM costs | < $0.10/run with Haiku | $0.50-$1.00/run | Gate behind feature flag |
-| Test duration | 5-10 min acceptable | Start batching crawl stage | Parallelize with pytest-xdist |
-| Mock complexity | Single canned HTML/PDF fixture | Per-institution fixture files | Fixture registry pattern |
-| CI environment | Local only | Add GitHub Actions job | Separate e2e job with schedule |
+| Concern | At 10 reports/month | At 100 reports/month | At 1,000 reports/month |
+|---------|--------------------|--------------------|----------------------|
+| Modal compute | Single function, on-demand | Same, no change | Add concurrency limit |
+| R2 storage | < 1GB | ~5-10GB | Still free tier (10GB free egress) |
+| Supabase job table | Trivial | Add index on `status, created_at` | Partition by month |
+| Claude API cost | $50-100/mo | $500-1,000/mo | Cache common sections, add tiers |
+| PDF cache hits | Not needed | Cache state-level reports (same data) | Cache by data hash |
 
 ---
 
 ## Build Order
 
-This is the dependency sequence for implementing the test infrastructure. Each item depends on the ones before it.
+Each step depends on the ones before it.
 
-**Step 1 — Configure infrastructure (no code yet)**
-- Add `[pytest]` section to `pytest.ini` at project root (or `pyproject.toml`)
-- Register markers: `e2e`, `slow`, `llm`
-- Set `testpaths = fee_crawler/tests`
-- Add `pytest-responses` or `responses` + `respx` to `fee_crawler/requirements.txt`
+**Step 1 — Supabase schema**
+Create `report_jobs` and `published_reports` tables. Add R2 bucket (`bfi-reports`). No code yet.
 
-**Step 2 — Build fixture data files**
-- Create `fee_crawler/tests/e2e/fixtures/` directory
-- Add `fdic_response.json` — 5 banks with realistic names, websites, asset sizes
-- Add `fee_schedule.html` — a minimal HTML fee schedule with 3-5 parseable fees
-- Add `fee_schedule.pdf` — optional; a minimal PDF (can use a 1-page text PDF)
-- These files are the ground truth for all assertions downstream
+**Step 2 — Hamilton persona module**
+`src/lib/hamilton/` — system prompt, `generateSection()` function. Write unit tests with fixture data before touching templates.
 
-**Step 3 — Build factories**
-- `factories/institution.py` — `build_institution()` function returning a dict, `insert_institution(db, overrides)` function
-- Keep factories dependency-free (no imports from pipeline)
+**Step 3 — Extend brief-generator.ts to template system**
+`src/lib/report-templates/` — start with `peer-brief.ts` (extends the existing generator), then `national-index.ts`. Each template is a pure function.
 
-**Step 4 — Build the session/function fixtures in e2e/conftest.py**
-Depends on: Step 1 (pytest config), Step 2 (fixture files), Step 3 (factories)
-- `test_db_path` (session) — temp SQLite, migrated schema
-- `test_config` (session) — Config pointing at test DB
-- `mock_external_http` (session, autouse) — registers all fixture responses
-- `clean_db` (function) — truncates pipeline tables
-- `seeded_institutions` (function) — inserts 3-5 rows via factory
+**Step 4 — Assembly functions**
+`assembleTemplateReport()` and `assembleHamiltonReport()` — compose data fetch + Hamilton calls + template fill. Test with stub Claude responses.
 
-**Step 5 — Build db_assertions helpers**
-Depends on: Step 4 (know the DB schema via the fixture)
-- `assert_crawl_result_exists`, `assert_fees_extracted`, `assert_audit_trail_complete`, `assert_fees_categorized`
+**Step 5 — Modal render worker**
+`modal_workers/generate_report.py` — call assembly (via Next.js API or shared lib), Playwright PDF, R2 upload, Supabase update.
 
-**Step 6 — Write stage-isolated test files**
-Depends on: Steps 4 and 5
-Order within this step:
-1. `test_pipeline_seed.py` — simplest, no HTTP mocking needed, tests DB row counts
-2. `test_pipeline_discover.py` — requires HTTP mock for FDIC/sitemap
-3. `test_pipeline_crawl.py` — requires HTTP mock + seeded URLs in DB
-4. `test_pipeline_validate.py` — requires seeded `extracted_fees` rows, no HTTP
+**Step 6 — Next.js API routes**
+`POST /api/reports` (trigger), `GET /api/reports/:id/status` (poll), `GET /api/reports/:id/download` (presigned URL). Wire to job table.
 
-**Step 7 — Write full pipeline test**
-Depends on: All previous steps
-- `test_pipeline_full.py` — runs full chain, uses report helper, marked `@pytest.mark.slow`
+**Step 7 — Pro UI**
+`app/pro/reports/` — report library, generation trigger, polling UI, download button.
 
-**Step 8 — Wire up local server for Playwright**
-Depends on: Step 6 (know which tests need browser crawl)
-- Only needed if any seeded institutions have Playwright-only fee schedule URLs
-- Thread-based `http.server.HTTPServer` serving `fixtures/fee_schedule.html` on localhost
+**Step 8 — Public catalog**
+`app/(public)/reports/` — ISR catalog, individual report pages, SEO metadata, CTA for non-subscribers.
 
 ---
 
 ## Sources
 
-- [Integration Testing for Python Data Pipelines — Start Data Engineering](https://www.startdataengineering.com/post/python-datapipeline-integration-test/) — MEDIUM confidence (WebSearch verified)
-- [Setting Up E2E Tests for Cloud Data Pipelines — Start Data Engineering](https://www.startdataengineering.com/post/setting-up-e2e-tests/) — MEDIUM confidence (WebFetch verified)
-- [josephmachado/e2e_datapipeline_test — GitHub](https://github.com/josephmachado/e2e_datapipeline_test) — MEDIUM confidence (WebFetch verified)
-- [Designing E2E Test Infrastructure with Pytest — Medium](https://medium.com/@noopurtiwari01/my-journey-designing-end-to-end-test-infrastructure-with-pytest-8dabdf60e766) — MEDIUM confidence (WebFetch verified)
-- [responses library — requests-mock pytest docs](https://requests-mock.readthedocs.io/en/latest/pytest.html) — HIGH confidence (official docs)
-- [respx — HTTPX mocking](https://lundberg.github.io/respx/) — HIGH confidence (official docs)
-- [pytest fixtures documentation](https://docs.pytest.org/en/stable/how-to/fixtures.html) — HIGH confidence (official docs)
-- [tmp_path and tmp_path_factory — pytest built-in fixtures](https://python-basics-tutorial.readthedocs.io/en/latest/test/pytest/builtin-fixtures.html) — HIGH confidence (official docs)
+- [PDF Generation in Next.js 15 with Puppeteer — Dev Genius](https://blog.devgenius.io/pdf-generation-in-next-js-15-with-puppeteer-3023df1ead95) — MEDIUM confidence (verified architecture pattern)
+- [Creating a Next.js API to Convert HTML to PDF with Puppeteer (Vercel-Compatible) — DEV Community](https://dev.to/harshvats2000/creating-a-nextjs-api-to-convert-html-to-pdf-with-puppeteer-vercel-compatible-16fc) — MEDIUM confidence (serverless constraints confirmed)
+- [How to Generate PDFs in 2025 — DEV Community](https://dev.to/michal_szymanowski/how-to-generate-pdfs-in-2025-26gi) — MEDIUM confidence (comparison of approaches)
+- [Building Secure, Scalable Downloads with Cloudflare R2 + Next.js — MD Pabel](https://www.mdpabel.com/blog/secure-file-downloads-with-cloudflare-r2-and-next-js-complete-setup-guide) — MEDIUM confidence (R2 presigned URL pattern)
+- [Presigned URLs — Cloudflare R2 docs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/) — HIGH confidence (official docs)
+- [Background Jobs for Node.js using Next.js, Inngest, Supabase, and Vercel — Medium](https://medium.com/@cyri113/background-jobs-for-node-js-using-next-js-inngest-supabase-and-vercel-e5148d094e3f) — MEDIUM confidence (async job pattern)
+- [How I Solved Background Jobs using Supabase Tables and Edge Functions — jigz.dev](https://www.jigz.dev/blogs/how-i-solved-background-jobs-using-supabase-tables-and-edge-functions) — MEDIUM confidence (Supabase table-as-queue pattern)
+- [Building Blocks of LLM Report Generation: Beyond Basic RAG — LlamaIndex](https://www.llamaindex.ai/blog/building-blocks-of-llm-report-generation-beyond-basic-rag) — MEDIUM confidence (multi-agent report pattern, WebSearch)
+- [Stripe Subscription Lifecycle in Next.js — DEV Community](https://dev.to/thekarlesi/stripe-subscription-lifecycle-in-nextjs-the-complete-developer-guide-2026-4l9d) — MEDIUM confidence (access control pattern)
+- [PptxGenJS — npm](https://www.npmjs.com/package/pptxgenjs) — HIGH confidence (official package, confirmed Node.js server-side support)
+- Existing codebase: `src/app/pro/brief/route.ts`, `src/lib/brief-generator.ts` — HIGH confidence (direct inspection, establishes baseline)

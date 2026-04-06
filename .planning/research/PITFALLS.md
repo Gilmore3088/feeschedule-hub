@@ -1,424 +1,406 @@
-# Domain Pitfalls: E2E Pipeline Testing (Crawl + LLM Extraction)
+# Domain Pitfalls: B2B Financial Content & AI Report Engine
 
-**Domain:** End-to-end testing of Python data pipelines with real HTTP, LLM calls, and DB verification
-**Project:** Bank Fee Index — fee_crawler e2e test suite
+**Domain:** B2B financial intelligence platform — AI-generated research reports for banking executives
+**Project:** Bank Fee Index — v2.0 Hamilton content/report engine
 **Researched:** 2026-04-06
+**Confidence:** MEDIUM-HIGH (multiple sources; some claims verified with official docs, some WebSearch only)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, contaminate production data, or make the test suite permanently unreliable.
+Mistakes that cause rewrites, credibility loss with paying customers, or product-level failures.
 
 ---
 
-### Pitfall 1: Test Database Contamination
+### Pitfall 1: Hamilton Fabricates a Statistic (AI Hallucination in Published Reports)
 
-**What goes wrong:** The e2e test writes crawl targets, crawl results, and extracted fees into the same
-SQLite file used for local development (`data/crawler.db`). After the test run the dev DB contains
-3-5 fake institutions and fake fees. Future manual exploration shows misleading data. A re-run without
-cleanup double-inserts rows, hitting the `UNIQUE(source, cert_number)` constraint and silently
-skipping re-seeding, causing later assertions to pass on stale data.
+**What goes wrong:** Hamilton produces a narrative like "Banks in Montana charge a median overdraft fee
+of $34 — 18% above the national average." The national median in the pipeline is $29, not the baseline
+Hamilton used. The 18% delta is fabricated. A bank compliance officer cites it in an internal memo.
+When the discrepancy surfaces, the credibility of every published report is called into question.
 
-**Why it happens:** The `Database` class reads its path from `Config`, which defaults to `data/crawler.db`.
-If the test fixture does not override the config before constructing the DB object, the default path is used.
+**Why it happens:** LLMs (including Claude) synthesize plausible-sounding numbers when given partial
+context. If the prompt does not pin every numeric claim to a specific pipeline query result, the model
+will interpolate from training data — which for bank fees is stale, incomplete, and often wrong.
+Chatbots have been documented hallucinating as much as 27% of responses; financial figures are a
+high-risk category because the model has seen many financial statistics and will confidently produce
+variants of them.
 
 **Consequences:**
-- Median fee calculations on the admin dashboard are polluted by test institutions.
-- The `crawl_targets` UNIQUE constraint means a second e2e run does not re-seed — it silently reuses
-  stale rows, which may have a different `status` or `fee_schedule_url` from a previous run.
-- CI on Modal shares no filesystem, so contamination may appear only locally, masking the problem.
+- A single verifiably wrong statistic in a published report destroys trust with B2B subscribers who
+  are paying $2,500/mo precisely because they need reliable data.
+- Regulatory exposure: banks citing wrong fee data in competitive analyses could face compliance
+  questions if the source is later discredited.
+- The "McKinsey-grade" positioning collapses — McKinsey reports are trusted because they are auditable.
 
 **Prevention:**
-- Create a pytest fixture with `scope="session"` that sets `DATABASE_URL` (or patches `Config.database.path`)
-  to a temp file (`tmp_path_factory` or `:memory:`) before any test runs.
-- Use `yield` in the fixture so teardown unconditionally deletes the temp file even on assertion failures.
-- Assert at fixture teardown that the production DB path was never touched (check `mtime` before/after).
+- All numeric claims in Hamilton output must be injected via structured data from the pipeline — never
+  derived by the LLM from context. Use a data injection pattern: query the DB, format results as a
+  typed JSON object, pass to Hamilton, and prompt with "use only the figures provided below — do not
+  calculate or infer statistics."
+- Implement a post-generation validator that extracts all numeric values from Hamilton's output and
+  cross-checks them against the source data object. If a number appears in the report that was not
+  in the input data, flag the report as requiring human review before publication.
+- Never allow Hamilton to receive raw narrative context (e.g., previous reports) without a grounding
+  anchor of current pipeline data. RAG over past reports alone is a hallucination vector.
 
 **Detection (warning signs):**
-- Admin fee counts spike after running pytest locally.
-- Second e2e run completes faster than first (stale targets reused silently).
-- `UNIQUE constraint failed` errors in test output that are swallowed.
-
-**Phase:** Address in Phase 1 (test infrastructure) before any real crawling is attempted.
+- Hamilton output contains percentages, ratios, or medians that differ from the pipeline values passed in.
+- Report mentions a fee category or institution count not present in the source data JSON.
+- Hamilton uses hedge phrases like "approximately" or "roughly" — a signal it is interpolating, not citing.
 
 ---
 
-### Pitfall 2: SQLite–PostgreSQL Behavioral Divergence
+### Pitfall 2: Data Freshness Theater — Reports Look Current But Are Stale
 
-**What goes wrong:** The pipeline uses SQLite locally and PostgreSQL (Supabase) in production. The e2e
-test uses an isolated SQLite file. Tests pass locally but the same pipeline logic fails in production
-because SQLite and PostgreSQL differ in:
+**What goes wrong:** The National Fee Index report publishes quarterly. A bank executive reads the Q1
+report in late March. The underlying fee data was last updated in November. The report headline says
+"Q1 2026 Fee Intelligence" but 60% of the institutions in the national index have not been re-crawled
+since Q3 2025. The report feels current but is materially stale.
 
-- `RETURNING` clause syntax (SQLite added it in 3.35; older distros lack it)
-- `UNIQUE` constraint violation handling on `INSERT OR IGNORE` vs Postgres `ON CONFLICT DO NOTHING`
-- `datetime('now')` vs `NOW()` / `CURRENT_TIMESTAMP`
-- Case-sensitivity of `LIKE` on text columns
-- Foreign key enforcement (SQLite requires `PRAGMA foreign_keys = ON`; easy to forget in test DB setup)
-
-**Why it happens:** Tests written against the isolated SQLite DB pass because SQLite silently accepts
-constructs that fail or behave differently on Postgres. The discrepancy surfaces only in production.
-
-**Consequences:** Pipeline stages that pass e2e locally fail on Modal/Supabase deployments. The test
-suite provides false confidence.
-
-**Prevention:**
-- Set `PRAGMA foreign_keys = ON` in the test DB connection immediately after creation.
-- Include at least one smoke-test CI run against a real Postgres instance (e.g., `psycopg2` pointing
-  at a Supabase test schema or a Dockerised Postgres).
-- Document which SQL constructs the pipeline uses that are SQLite-only.
-
-**Detection (warning signs):**
-- Any SQL using `RETURNING`, `ON CONFLICT`, `jsonb`, window functions, or Postgres-specific casts.
-- Pipeline passes e2e locally but fails on first Modal deploy.
-
-**Phase:** Note risk in Phase 1 setup; address in Phase 3 (CI/Modal validation).
-
----
-
-### Pitfall 3: Asserting Exact Values Against Non-Deterministic LLM Output
-
-**What goes wrong:** The test asserts `extracted_fees[0]["amount"] == 15.00` or
-`len(extracted_fees) == 12`. Claude Haiku may return slightly different fee counts, different
-confidence scores, or rephrase a fee name, causing the assertion to fail on re-run even though the
-pipeline is working correctly. Tests become flaky and developers start ignoring failures.
-
-**Why it happens:** LLMs have non-zero temperature by default. Even with `temperature=0`, the Anthropic
-API does not guarantee deterministic output across model versions. Tool-use schemas constrain the
-structure but not the count or exact values of extracted fees.
+**Why it happens:** Stale peer groups and stale data are the most commonly cited failure modes in
+financial benchmarking products. The pipeline has coverage gaps — Wyoming is 91%, Montana is 47% — and
+re-crawl cadence is not uniform. Without explicit coverage metadata in reports, the data age is opaque.
 
 **Consequences:**
-- Flaky tests erode trust. When the test suite fails 20% of the time by chance, real regressions are
-  dismissed as "probably just LLM variance."
-- Test runs that re-run on failure to check for flakiness double the real API cost.
+- A subscriber discovers that a competitor's fee listed as $12 in the report actually changed to $8 in
+  January. They stop trusting the platform and churn at renewal.
+- The "timely" aspect of the value proposition — "accurate, complete, timely fee data" — is broken.
 
 **Prevention:**
-- Assert structural properties, not exact values:
-  - `len(extracted_fees) >= 1` (non-zero extraction)
-  - `all(f["amount"] > 0 for f in extracted_fees)` (positive amounts)
-  - `all(f["category"] in VALID_CATEGORIES for f in extracted_fees)` (valid taxonomy)
-  - `all(0.0 <= f["confidence"] <= 1.0 for f in extracted_fees)` (confidence in range)
-- Assert that `crawl_results` rows exist with `status = 'success'` — the pipeline ran — rather than
-  auditing every extracted value.
-- Test exact extraction logic in unit tests with pre-recorded LLM responses (mocked `anthropic` client).
+- Every published report must include a "Data Coverage" section: total institutions in the index,
+  median crawl age (in days), percentage crawled within the last 90 days, and a per-state coverage map.
+- Do not publish a report if median crawl age exceeds a defined threshold (e.g., 120 days for national,
+  90 days for state reports). Surface this as a build-time gate in the report generation pipeline.
+- Differentiate between "in index" (we have a fee record) and "recently verified" (crawled within the
+  coverage window). Reports should only use "recently verified" data for headline statistics.
 
 **Detection (warning signs):**
-- Test failures that disappear on re-run with no code change.
-- Assertions comparing specific fee amounts extracted from real institution websites.
-
-**Phase:** Address in Phase 1 (assertion design) to prevent the pattern from being baked in.
+- The pipeline `last_crawled_at` distribution is heavily bimodal — many institutions never re-crawled
+  after initial ingestion.
+- Reports omit a "last updated" or "coverage" section entirely.
 
 ---
 
-### Pitfall 4: Fixture State Leaking Between Test Functions
+### Pitfall 3: The Report Is a Dashboard in Disguise
 
-**What goes wrong:** A session-scoped fixture creates the test database and populates it with seed
-institutions. One test modifies those rows (e.g., marks targets as `crawled`). A later test in the same
-session assumes all targets are in the initial state and fails intermittently depending on test
-execution order.
+**What goes wrong:** The "Hamilton report" is actually a PDF dump of the admin dashboard tables —
+rows of fee categories, medians, and counts, with a brief AI-written paragraph at the top summarizing
+them. Bank executives open it, see 12 tables and 3 charts, and file it away unread. It does not feel
+like a McKinsey report; it feels like a data export.
 
-**Why it happens:** `scope="session"` fixtures persist across all tests in the session. Any write
-in one test is visible to all subsequent tests. Pytest does not run tests in a deterministic order
-by default unless `pytest-randomly` is disabled or order is enforced.
+**Why it happens:** It is far easier to generate a report template by serializing DB query results
+into a document than it is to structure an argument around those results. Developers naturally produce
+table-first output because that is how they think about data.
 
 **Consequences:**
-- Tests pass alone (`pytest tests/e2e/test_crawl.py::test_discovery`) but fail together
-  (`pytest tests/e2e/`). Debugging is extremely time-consuming.
+- The $2,500/mo subscriber renews based on the peer benchmarking tool, not the reports. The reports
+  become a secondary afterthought, eliminating a major retention and upsell driver.
+- The report cannot be used as a marketing/SEO asset because it offers no shareable insights —
+  just data a competitor could get from public FDIC call report filings.
 
 **Prevention:**
-- Use `scope="session"` only for the database file creation and schema setup.
-- Use `scope="function"` fixtures for any data state that individual tests read.
-- Use `db.execute("DELETE FROM crawl_targets")` + re-seed in a function-scoped fixture wrapping
-  each test that modifies data.
-- Alternatively: each test function creates its own temp DB file (slower but completely isolated).
+- Structure every report around an executive narrative, not tables. The template must impose a
+  fixed structure: situation → complication → key finding → recommendation → supporting data. Tables
+  are appendices, not the body.
+- Every section of a Hamilton report must have an "insight title" following the McKinsey rule: the
+  title states the conclusion, not the topic. "Montana overdraft fees run 23% above the national median"
+  not "Overdraft Fee Analysis."
+- Enforce the rule: no section body may be purely tabular. Every table must be preceded by a
+  1-2 sentence interpretive sentence written by Hamilton.
 
 **Detection (warning signs):**
-- A test passes in isolation but fails when the full suite runs.
-- Test output shows correct row counts on the first run, wrong counts on the second test in the file.
-
-**Phase:** Address in Phase 1 (fixture design) before writing any data-touching tests.
+- The report's table-of-contents reads like a list of fee categories rather than a list of findings.
+- A reader can extract all meaningful content by reading only the tables and ignoring the prose.
 
 ---
 
-### Pitfall 5: Lock File and Pipeline State Surviving Between Test Runs
+### Pitfall 4: Hamilton Voice Drift Across Reports
 
-**What goes wrong:** `fee_crawler/pipeline/executor.py` uses a PID-file lock at `data/pipeline.lock`.
-If an e2e test run is interrupted (Ctrl-C, timeout), the lock file is not cleaned up. The next test run
-immediately fails with "pipeline already running" before any assertions are reached.
+**What goes wrong:** The January national index report is formal and analytical. The March Montana
+state report is conversational. The April competitive brief sounds like a press release. Each report
+was generated with a slightly different system prompt because the persona definition was not locked.
+Subscribers who read multiple reports notice the inconsistency. The brand feels unpolished.
 
-**Why it happens:** The lock is released in teardown, but Ctrl-C raises `KeyboardInterrupt` before
-`finally` blocks in the test runner reach the `release_lock()` call. The lock file path is hardcoded
-relative to the working directory, so it may also collide with a parallel test run.
+**Why it happens:** AI persona drift happens when the system prompt for "Hamilton" evolves without
+versioning, or when different report types use subtly different prompt templates that each embed slightly
+different persona instructions. Over months, drift accumulates.
 
 **Consequences:**
-- CI jobs that time out leave stale locks, causing all subsequent runs to fail until a human manually
-  deletes the file. On Modal, the ephemeral container means the lock disappears, but locally it persists.
+- "McKinsey-grade" positioning requires a consistent, authoritative voice. Inconsistency signals
+  that the reports are algorithmically generated rather than analyst-authored — which is true, but
+  should not be obvious.
+- If the persona is ever described as "Hamilton, Bank Fee Index's research analyst," inconsistent tone
+  undercuts the brand equity being built around that name.
 
 **Prevention:**
-- Override `LOCK_FILE` in the test fixture to point to a path inside `tmp_path`.
-- Wrap all pipeline invocations in the test in a `try/finally` that calls `release_lock()`.
-- Add a pre-test assertion that no lock file exists at the test-specific path.
+- Lock the Hamilton persona in a single canonical system prompt file (`prompts/hamilton-persona.md`),
+  versioned in git. All report generation scripts import from this one file — no inline persona definitions.
+- Define the persona with 5-7 concrete stylistic rules (active voice, no hedging language, lead with
+  insight not caveat, use "institution" not "bank" when including credit unions, etc.) rather than
+  vague adjectives like "professional" or "analytical."
+- Add a persona consistency review step: before publishing any report, run Hamilton's output through
+  a second prompt that checks adherence to the style rules and flags violations.
 
 **Detection (warning signs):**
-- Test output shows "pipeline already running" after a previously interrupted run.
-- Stale `data/pipeline.lock` file exists when no pipeline process is running.
+- Different reports use different terms for the same concept ("financial institution" vs "bank" vs "lender").
+- The hedging density (count of "may," "might," "could," "approximately") varies significantly between reports.
 
-**Phase:** Address in Phase 1 (environment setup).
+---
+
+### Pitfall 5: PDF Generation Breaks in Serverless — The Puppeteer Trap
+
+**What goes wrong:** The report engine generates PDFs using Puppeteer (headless Chrome). This works
+perfectly in local development. On Vercel or Modal, it fails with a 504 timeout or `Error: Failed to
+launch the browser process` because serverless environments have no persistent writable filesystem, no
+Chromium binary, and insufficient memory for a full browser process.
+
+**Why it happens:** This is the most widely documented PDF generation pitfall in Next.js deployments.
+Puppeteer requires a full OS, persistent writable filesystem, and 500MB+ of memory — all of which are
+absent in constrained serverless runtimes. Even with `@sparticuz/chromium` (the serverless-compatible
+Chromium build), cold start times exceed 10 seconds and Lambda-style memory limits cause crashes on
+multi-page reports.
+
+**Consequences:**
+- Report generation silently fails in production while working in development. The first production
+  subscriber to request a competitive brief PDF gets an error.
+- Migrating away from Puppeteer after the report template system is built around HTML-to-PDF conversion
+  requires a full template rewrite.
+
+**Prevention:**
+- Do not use Puppeteer for report PDF generation on serverless. Use `@react-pdf/renderer` (server-side
+  React component tree → PDF) or `pdfmake` for report templates. Both run in Node.js without a browser
+  dependency and work in serverless.
+- If the design system requires precise HTML/CSS fidelity in PDFs, use a dedicated PDF microservice
+  on a persistent compute environment (Modal or a long-running container), not the Next.js API route.
+- Decide the PDF rendering architecture before building the first report template — the choice of
+  library determines the component authoring model.
+
+**Detection (warning signs):**
+- Any `import puppeteer` or `import chromium from '@sparticuz/chromium'` in an API route or Server Action.
+- PDF generation works locally but returns 504 or 500 in the Vercel deploy logs.
+
+---
+
+### Pitfall 6: Traceability Loss — No Audit Trail from Report Claim to Source Row
+
+**What goes wrong:** Hamilton's Q1 national report states "The median monthly maintenance fee across
+3,847 institutions is $11.50." A subscriber asks: which 3,847 institutions? Were credit unions included?
+Were only approved fees used or also staged fees? The report cannot be answered because the query
+that generated the $11.50 figure was not preserved with the report artifact.
+
+**Why it happens:** Report generation scripts run a query, pass the result to a template, render the
+PDF, and discard the intermediate data. The final artifact has no lineage metadata.
+
+**Consequences:**
+- Regulatory or compliance questions from subscribers cannot be answered with certainty.
+- Internal teams cannot reproduce a historical report's figures after the pipeline data changes
+  (re-crawls update medians; the original figure is gone).
+- The "accuracy" pillar of the value proposition — "all data traces to pipeline-verified fees" — is
+  meaningless if the trace is not stored.
+
+**Prevention:**
+- Every published report must store a "report manifest" alongside the PDF: the exact SQL queries run,
+  the data snapshot (as a JSON object), the pipeline version/commit hash, and the generation timestamp.
+  Store this in the database linked to the report record.
+- For on-demand Hamilton reports (competitive briefs), store the full input data object passed to
+  the LLM as a separate artifact. This allows exact report reproduction and answer to "where did
+  this number come from."
+- Implement a `--reproduce` flag in the report CLI that takes a report ID and re-generates the report
+  from the stored manifest, allowing diff comparison against the current pipeline data.
+
+**Detection (warning signs):**
+- The reports table has no `source_query` or `data_snapshot` column.
+- Two runs of the same report generation script on different days produce different figures with no
+  record of why.
+
+---
+
+### Pitfall 7: Underpricing Relative to the Consulting Alternative
+
+**What goes wrong:** Bank Fee Index launches at $2,500/mo and the competitive brief feature (Hamilton
+deep analysis) is included in that subscription. A bank's strategy team uses it to replace a $15K
+consulting engagement. The platform has delivered $15K of value but captured $2,500 of it. When the
+bank renews, they negotiate to $1,500/mo because "we don't use all the features."
+
+**Why it happens:** B2B SaaS founders consistently underprice when they lack reference points for
+willingness to pay. The platform is new, there is no track record, and pricing feels like guessing.
+The instinct is to price low to acquire customers, but in B2B financial services this signals lower
+quality — banking executives have anchored expectations from McKinsey/Bain/Deloitte fee structures.
+
+**Consequences:**
+- Gross revenue retention degrades because the product is not embedded in a workflow at a price that
+  justifies switching costs. Top-performing B2B SaaS achieves 90-92% gross revenue retention; under-
+  priced products that feel "nice to have" rather than "mission critical" fall below this threshold.
+- Competitive briefs priced as a subscription feature rather than a per-report product eliminates the
+  natural scarcity that drives urgency ("we need this before our board meeting").
+
+**Prevention:**
+- Separate subscription from on-demand. The $2,500/mo subscription covers the index access and monthly
+  pulse reports. Competitive briefs are sold per-report at $750-$2,000 each — framed as "replacing a
+  $15K consultant engagement."
+- Anchor pricing to the consulting alternative in sales conversations, not to competing SaaS platforms.
+  The relevant comparison is not "vs. VisbanKing" but "vs. what you'd pay a consultant to do this."
+- Before launch, conduct 5 pricing interviews with target buyers (bank strategy officers or CFOs).
+  Ask "what would you pay a consultant for this analysis" not "what would you pay for this software."
+
+**Detection (warning signs):**
+- Subscribers use competitive briefs frequently (> 2/month) without any per-unit pricing friction.
+- Sales conversations with new prospects focus on monthly cost comparisons to other SaaS tools.
+
+---
+
+### Pitfall 8: AI Disclosure Opacity Creates Compliance Risk for Subscribers
+
+**What goes wrong:** A bank's BSA officer uses a Hamilton competitive brief in a board presentation
+on competitive fee strategy. The brief is polished and professionally formatted. The officer does not
+disclose to the board that the narrative analysis was AI-generated. When this surfaces later, the bank
+faces an internal governance question about AI use in board-level materials — and blames the vendor
+for not making the AI origin clear.
+
+**Why it happens:** OCC, Federal Reserve, and CFPB guidance consistently requires explainability and
+transparency when AI systems influence financial institution decisions. While Hamilton reports are
+analytical (not credit decisions), banks have internal policies about AI in governance processes
+that are tightening in 2025-2026.
+
+**Consequences:**
+- A subscriber blames the platform for an internal compliance issue, leading to churn and a
+  reputational reference problem.
+- If the platform eventually serves larger institutions, disclosure requirements may become a
+  contractual requirement.
+
+**Prevention:**
+- Every Hamilton-generated report must include a visible, non-apologetic AI disclosure footer:
+  "This report was generated by Hamilton, Bank Fee Index's AI research system. All statistics
+  are sourced from the Bank Fee Index pipeline. Human editorial review is available on request."
+- Frame AI authorship as a feature (speed, consistency, data access) not a caveat to hide.
+- Include in subscriber agreements a clause that the platform's reports are AI-generated and that
+  subscribers are responsible for their own use in regulated contexts.
+
+**Detection (warning signs):**
+- Published reports contain no mention of AI generation methodology.
+- Subscribers ask "did a human write this?" without a clear answer in the report itself.
+
+---
+
+### Pitfall 9: Template Proliferation — Every Report Type Becomes a Custom Build
+
+**What goes wrong:** The national index report is built as a bespoke Next.js page. The state report
+is built as a separate bespoke page. The competitive brief is built as a separate bespoke template.
+Three months in there are seven report types, each with its own layout, data-fetching logic, and
+PDF generation path. Adding a new data field requires touching seven files. A design change requires
+seven updates.
+
+**Why it happens:** Each report type is started by a developer who "just needs to add one more thing"
+to the previous template. There is no shared component layer because "the reports are all different
+anyway."
+
+**Consequences:**
+- Adding a new report type takes a week instead of a day because the pattern is not reusable.
+- Design inconsistencies accumulate (the "McKinsey-grade" visual language drifts across report types).
+- Bug fixes (wrong date format, wrong number formatting) must be applied to seven templates instead of one.
+
+**Prevention:**
+- Define the report component system before writing any report template. The system must include:
+  shared layout shell (cover page, section header, data table, chart container, footnote), shared
+  data formatters, and a Hamilton narrative block component.
+- All report types are composed from the shared component system. The template only defines which
+  components appear and what data feeds them — not the rendering logic of those components.
+- A "new report type" should require writing only: a data query function, a Hamilton prompt template,
+  and a composition config (which sections appear in which order).
+
+**Detection (warning signs):**
+- Each report type has its own `formatAmount()` function or its own chart styling.
+- A design change to the report header requires editing more than one file.
+
+---
+
+### Pitfall 10: Peer Group Definition Mismatch Erodes Trust
+
+**What goes wrong:** A $2B community bank in Wyoming subscribes to peer benchmarking. Hamilton's
+competitive brief compares them to "peers" — but the peer group includes $10B regional banks and
+$500M thrifts because the filter used asset tier broadly. The benchmark medians are meaningless for
+their competitive context, and the bank's strategy officer says "these aren't our peers."
+
+**Why it happens:** Peer group construction is the most commonly cited failure mode in financial
+benchmarking products. Dynamic, relevant peer groups require understanding that institutions self-
+define their competitive set by charter type, asset tier, geography, and business model — not just
+size band.
+
+**Consequences:**
+- The subscriber's primary use case (competitive intelligence) fails on its first use. This is the
+  most likely single-report churn trigger.
+- The peer group mismatch may not be obvious in the report output — the bank executive may just
+  find the benchmarks "off" without articulating why, leading to diffuse dissatisfaction rather than
+  a specific complaint to fix.
+
+**Prevention:**
+- Before generating any competitive brief, surface the peer group definition explicitly: "Your peer
+  group is defined as: community banks (charter: commercial), asset tier $1B-$3B, Fed District 10
+  (Kansas City), n=47 institutions." Require subscriber confirmation before generating.
+- Allow peer group customization at the institution level, not just at report generation time. The
+  saved peer set should persist and be reusable across reports.
+- Never use a single asset tier filter for peer groups. The effective peer group for fee benchmarking
+  requires at minimum charter type + asset band + geography (state or Fed district).
+
+**Detection (warning signs):**
+- Competitive briefs compare an institution against a peer set that includes institutions 5x+ their
+  asset size.
+- Peer group n is < 5 (too narrow, unstable medians) or > 200 (too broad, not comparable).
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that cause flakiness, wasted LLM spend, or poor signal-to-noise in test output.
-
 ---
 
-### Pitfall 6: Not Accounting for Institution Website Downtime
+### Pitfall 11: Report Generation Cost Runaway
 
-**What goes wrong:** The test selects 3-5 real institutions from FDIC/NCUA and crawls their actual
-websites. One institution's website is down, redirecting to a "site under maintenance" page, or has
-changed its fee schedule URL since the last run. The test fails because `fees_extracted == 0` for that
-institution, even though the pipeline logic is correct.
-
-**Why it happens:** Real websites fail. The test selects institutions randomly, so no institution is
-guaranteed to be stable across runs. Community banks sometimes take their sites down for weeks.
-
-**Consequences:**
-- Test suite reports failures that are external infrastructure problems, not pipeline bugs.
-- CI blocks merges due to a third-party outage.
+**What goes wrong:** Each Hamilton competitive brief calls Claude Sonnet 3.5 with a 15K-token
+context window (peer data, national benchmarks, state context, Hamilton persona, formatting instructions).
+At $5-10 per report that is acceptable. But the template is iterated on rapidly, and each iteration
+generates 10-20 test reports during development. A two-week sprint burns $200-400 in API costs
+before a single subscriber sees a report.
 
 **Prevention:**
-- Assert against the aggregate, not each institution: `total_fees_extracted >= 1` across all
-  institutions, not `fees_extracted >= 1 per institution`.
-- Allow a configurable failure tolerance: if 1 of 5 institutions returns zero fees, the test still
-  passes (set `MIN_SUCCESSFUL_EXTRACTIONS = 2`).
-- Log per-institution results in the test report so failures are diagnosable even when the assertion
-  passes overall.
-
-**Detection (warning signs):**
-- Test fails only on certain days or certain randomly selected geographies.
-- Failure message shows `crawl_results.status = 'failed'` and `error_message` contains HTTP 503 or
-  connection timeout.
-
-**Phase:** Address in Phase 2 (assertion strategy and test report design).
+- Use a development fixture mode: capture one real report generation call's input/output as a golden
+  fixture, then iterate on template design against the fixture without calling the API.
+- Set a per-report cost cap in the generation pipeline. If the prompt exceeds the token budget, fail
+  fast with a diagnostic message rather than silently truncating context.
+- Log cost per report to the reports table. Track cumulative monthly API spend against a budget alert.
 
 ---
 
-### Pitfall 7: LLM Cost Runaway from Unguarded Re-runs
+### Pitfall 12: SEO-Driven Public Reports Conflict with Subscriber-Exclusive Value
 
-**What goes wrong:** The e2e test calls Claude Haiku for real extraction. A developer runs the suite
-five times while debugging a fixture problem (unrelated to extraction). Each run incurs ~$0.05-0.20 in
-API costs. Over a sprint, this accumulates to tens of dollars in waste.
-
-**Why it happens:** There is no caching of LLM responses between runs, and the test does not check
-whether the content being sent to the LLM has changed since the last run. The pipeline's content-hash
-deduplication (`last_content_hash`) only works across crawl runs that share a database — not across
-isolated test databases.
-
-**Consequences:**
-- Unexpected Anthropic API bills. At `daily_budget_usd: 20.0` in config, a CI system that retries
-  failed jobs three times per commit could hit the daily limit.
+**What goes wrong:** The platform publishes public state fee reports to drive SEO traffic. Subscribers
+who paid $2,500/mo for peer intelligence find that the core benchmark data (national medians, state
+medians) is freely available on the public site. The value proposition for subscription weakens.
 
 **Prevention:**
-- Cache crawled document content to a fixture directory on first run; on subsequent runs, skip
-  the HTTP fetch and LLM call if the cached document exists. Use a `--no-cache` flag to force a fresh run.
-- In CI, run the e2e suite at most once per day (schedule trigger, not PR trigger).
-- Log estimated API cost per run to stdout so it is visible in test output.
-- Set `ExtractionConfig.daily_budget_usd` to a lower value (e.g., `2.0`) in the test config.
-
-**Detection (warning signs):**
-- Anthropic API usage dashboard shows many small charges from the same IP during development hours.
-- Test run time is consistently 3-5 minutes even when the pipeline has not changed.
-
-**Phase:** Address in Phase 2 (LLM integration and cost controls).
+- Public reports contain lagged data (previous quarter) and national/state averages only.
+- Subscriber reports contain current data, peer-group breakdowns, institution-level comparisons,
+  and Hamilton's interpretive analysis — none of which appears in the public version.
+- The public report explicitly notes what subscribers can access that the public report does not.
+  "Subscribers also receive peer-benchmarked comparisons for 12 specific fee categories filtered
+  to their charter type and asset tier."
 
 ---
 
-### Pitfall 8: FDIC/NCUA API Dependency Without a Fallback Seed
+### Pitfall 13: Methodology Opacity Creates Sales Blockers
 
-**What goes wrong:** The test starts by calling the FDIC API (`https://api.fdic.gov/banks`) to seed
-institutions. If the FDIC API is down, rate-limits the test runner, or returns an unexpected response
-format, the entire test fails at step one before any pipeline logic is exercised.
-
-**Why it happens:** `api.fdic.gov` is a public government API with no SLA. It has experienced outages
-and schema changes without notice. NCUA's bulk CSV download is similarly unversioned.
-
-**Consequences:**
-- CI fails on an external dependency unrelated to the pipeline code under test.
-- Debugging time is wasted determining whether the failure is in the seeding code or the API.
+**What goes wrong:** A bank's procurement team asks "how is this data collected?" before approving
+the subscription. The sales answer is vague ("AI-powered crawling"). The procurement team cannot
+assess the reliability or compliance implications. The deal stalls.
 
 **Prevention:**
-- Ship a small fixture file (`fee_crawler/tests/fixtures/fdic_seed_wy.json`) containing 5-10
-  pre-fetched FDIC institution records from a stable, small-state geography (e.g., Wyoming). Use this
-  as the default seed in e2e tests, bypassing the live API.
-- Add a `--live-seed` flag that calls the real FDIC API for fresh institutions. Run this in scheduled
-  CI only, not on every PR.
-- The seeding fixture should include `website_url` values so the URL discovery stage is also exercised.
-
-**Detection (warning signs):**
-- Test fails at `seed_institutions` stage with an HTTP error or JSON parse error.
-- FDIC API returns HTTP 503 or unexpected pagination structure.
-
-**Phase:** Address in Phase 1 (test infrastructure and fixture design).
-
----
-
-### Pitfall 9: Discovery Stage Timing Out on Slow Bank Websites
-
-**What goes wrong:** Community bank websites are sometimes hosted on shared hosting with response
-times of 5-30 seconds per request. The URL discovery stage probes 50+ common paths per institution.
-At `delay_seconds: 2.0` and sequential probing, a single institution can take 5-10 minutes.
-The test times out before extraction begins.
-
-**Why it happens:** The `COMMON_PATHS` list in `url_discoverer.py` contains 50+ paths. Each probe is
-sequential (one request at a time per domain). Slow websites compound this dramatically.
-
-**Consequences:**
-- The e2e test exceeds pytest's default timeout or Modal's container time limit.
-- Tests appear to hang with no output, making the developer unsure whether to kill them.
-
-**Prevention:**
-- Use a shorter `COMMON_PATHS` list (top 10 paths only) in test config, overridable via `Config`.
-- Set a per-domain request timeout of 10 seconds in the test config (`CrawlConfig.timeout_seconds`).
-- Log discovery progress: which paths were probed and which responded, so a slow test is diagnosable.
-- Set a wall-clock timeout for the entire discovery stage per institution (e.g., 60 seconds max).
-
-**Detection (warning signs):**
-- Test output stalls at "Discovering fee schedule URL for [institution]" with no progress for > 2 minutes.
-- Test only passes for institutions where discovery finds a URL in the first 5 probed paths.
-
-**Phase:** Address in Phase 2 (crawl configuration for test environment).
-
----
-
-### Pitfall 10: Audit Trail Assertions That Miss Partial Failures
-
-**What goes wrong:** The test asserts `crawl_results` rows exist and `extracted_fees` rows exist, but
-does not verify the relational linkage. A bug causes `crawl_results.id` to not match
-`extracted_fees.crawl_result_id`, or `fee_reviews` rows are created with a null `fee_id`. The audit
-trail is incomplete, but the test passes because it only checks row counts.
-
-**Why it happens:** Row count assertions are easy to write. Relational integrity assertions require
-joining tables, which feels like over-specifying the test.
-
-**Consequences:**
-- The admin review UI shows fees with no crawl provenance (`fee_id IS NULL` in `fee_reviews`).
-- The `fee_reviews` table grows with orphaned records that cannot be traced to source documents.
-- The "immutable audit trail" guarantee — a core product property — is silently broken.
-
-**Prevention:**
-- Assert the full chain explicitly:
-  ```python
-  # Every extracted fee must link to a crawl result
-  orphaned = db.execute(
-      "SELECT COUNT(*) FROM extracted_fees ef "
-      "LEFT JOIN crawl_results cr ON cr.id = ef.crawl_result_id "
-      "WHERE cr.id IS NULL"
-  ).fetchone()[0]
-  assert orphaned == 0
-
-  # Every fee_review must link to an extracted fee
-  orphaned_reviews = db.execute(
-      "SELECT COUNT(*) FROM fee_reviews fr "
-      "LEFT JOIN extracted_fees ef ON ef.id = fr.fee_id "
-      "WHERE ef.id IS NULL"
-  ).fetchone()[0]
-  assert orphaned_reviews == 0
-  ```
-- Run these assertions as a dedicated "audit trail integrity" test phase, not inline with extraction.
-
-**Detection (warning signs):**
-- Admin review UI shows fees with missing institution names or blank source URLs.
-- `fee_reviews.fee_id IS NULL` rows appear in the database after an e2e run.
-
-**Phase:** Address in Phase 3 (audit trail verification stage).
-
----
-
-### Pitfall 11: Modal Environment Divergence from Local
-
-**What goes wrong:** The e2e test passes locally (SQLite, local file paths, no container) but fails on
-Modal because:
-- The Modal container has no access to `data/` paths — everything must use `/tmp/` or environment variables.
-- The lock file path (`data/pipeline.lock`) does not exist in the container filesystem.
-- The `ANTHROPIC_API_KEY` is present locally but not injected as a Modal secret.
-- SQLite in-memory mode works locally but Modal containers do not persist state between function invocations.
-
-**Why it happens:** Local development assumes a stable filesystem. Modal containers are ephemeral and
-stateless. The pipeline code uses hardcoded relative paths in several places
-(`data/pipeline.lock`, `data/documents/`, `data/logs/`).
-
-**Consequences:**
-- The e2e test "runs on Modal" but silently skips stages that fail to initialize, reporting a false pass.
-
-**Prevention:**
-- Make all filesystem paths configurable via `Config` (no hardcoded `data/` strings in pipeline code).
-- In the Modal e2e test, assert at startup that `ANTHROPIC_API_KEY` is set; fail fast if not.
-- The test's Modal function should use `DATABASE_URL` pointing to a Supabase test schema (not SQLite).
-- Add a `--dry-run` mode that validates config and connectivity without crawling.
-
-**Detection (warning signs):**
-- `FileNotFoundError` for `data/pipeline.lock` in Modal logs.
-- Extraction stage is skipped silently because the API key was not injected.
-- Modal test passes in 5 seconds (too fast — extraction was skipped).
-
-**Phase:** Address in Phase 3 (Modal environment validation).
-
----
-
-## Minor Pitfalls
-
----
-
-### Pitfall 12: Test Report Is Unreadable Without Context
-
-**What goes wrong:** The test run produces a standard pytest pass/fail output. A developer reading CI
-logs cannot tell: which institutions were tested, how many fees were extracted, which stages succeeded
-vs failed, or what the LLM returned. When a failure occurs, there is no context for diagnosing it.
-
-**Prevention:**
-- Print a structured summary at the end of the e2e run:
-  - Institutions tested (name, cert number, geography)
-  - Per-institution: discovery outcome, crawl outcome, fees extracted, confidence range
-  - Total run duration and estimated API cost
-  - Any per-institution failures with error messages
-- Write this summary to a file (`data/e2e_report.json`) so it survives even if pytest output is truncated.
-
-**Phase:** Address in Phase 3 (reporting).
-
----
-
-### Pitfall 13: robots.txt Blocking During Tests Is Not Surfaced
-
-**What goes wrong:** A randomly selected institution's website blocks the crawler in `robots.txt`. The
-discovery stage silently returns zero URLs (correct behavior — the pipeline respects robots.txt).
-The test fails the `total_fees_extracted >= 1` assertion. The failure looks like a pipeline bug but is
-actually correct crawler behavior.
-
-**Prevention:**
-- Log `robots.txt` check results per institution during discovery: "robots.txt disallowed for
-  [institution] — skipping."
-- Count `robots_blocked` institutions separately in the test report.
-- Adjust the minimum-success assertion to exclude robots-blocked institutions from the denominator.
-
-**Phase:** Address in Phase 2 (discovery stage observability).
-
----
-
-### Pitfall 14: PDF Extraction Produces Empty Text Without Warning
-
-**What goes wrong:** Some bank fee schedule PDFs are scanned images (no text layer). `pdfplumber`
-returns empty text. The pipeline falls back to OCR (Tesseract), but if Tesseract is not installed in
-the test environment, the fallback silently produces empty text and the LLM receives an empty document.
-Claude returns zero fees. The test fails with `fees_extracted == 0` but no indication that OCR was attempted.
-
-**Prevention:**
-- Assert in the test that if a PDF was crawled and produced zero fees, the crawl result includes an
-  `error_message` or `document_type = 'pdf_scanned_no_ocr'` flag.
-- Verify Tesseract is available in the test environment as a pre-flight check.
-- Log which extraction method (pdfplumber, OCR, HTML) was used per document.
-
-**Phase:** Address in Phase 2 (extraction observability).
+- Publish a methodology paper before sales outreach begins. It should cover: institution sourcing
+  (FDIC/NCUA), URL discovery approach, extraction method (LLM + schema), confidence scoring,
+  validation pipeline, and re-crawl cadence. The paper does not need to disclose proprietary details —
+  it needs to answer "is this reliable?" for a compliance-minded buyer.
+- The methodology paper is a sales asset, not a technical document. Write it for a bank's Chief
+  Risk Officer, not a developer.
 
 ---
 
@@ -426,28 +408,34 @@ Claude returns zero fees. The test fails with `fees_extracted == 0` but no indic
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|----------------|------------|
-| Phase 1: Test DB setup | Contaminating dev DB (Pitfall 1) | Override config path before any DB construction |
-| Phase 1: Fixture design | Session-scoped state leaking between tests (Pitfall 4) | Function-scoped data fixtures |
-| Phase 1: FDIC seeding | FDIC API downtime (Pitfall 8) | Ship pre-fetched fixture JSON |
-| Phase 1: Lock file | Stale lock blocking reruns (Pitfall 5) | Override LOCK_FILE in fixture |
-| Phase 2: Assertions | Exact-value assertions on LLM output (Pitfall 3) | Structural assertions only |
-| Phase 2: Discovery | Website timeouts (Pitfall 9) | Shorter path list + per-domain timeout |
-| Phase 2: Cost | LLM cost runaway (Pitfall 7) | Budget cap + document caching |
-| Phase 2: robots.txt | Silent zero-fee from blocked crawls (Pitfall 13) | Log blocks, exclude from denominator |
-| Phase 3: DB verification | Missing relational integrity check (Pitfall 10) | Explicit JOIN-based orphan assertions |
-| Phase 3: Modal | Environment divergence (Pitfall 11) | Config-driven paths + pre-flight checks |
-| Phase 3: Reporting | Unreadable CI output (Pitfall 12) | Structured JSON report per run |
-| Phase 3: PDF | OCR fallback silent failure (Pitfall 14) | Pre-flight Tesseract check |
+| Hamilton persona setup | Voice drift across report types (Pitfall 4) | Lock system prompt in versioned file before writing any template |
+| Report template design | Dashboard-in-disguise (Pitfall 3) | Enforce narrative-first structure from day one |
+| PDF export | Puppeteer serverless failure (Pitfall 5) | Decide library before building first template |
+| Report generation scripts | Hallucinated statistics (Pitfall 1) | Data injection pattern + post-gen numeric validator |
+| National/state index reports | Stale data theater (Pitfall 2) | Crawl age gate + coverage section in every report |
+| Competitive briefs | Wrong peer group (Pitfall 10) | Confirm peer definition with subscriber before generating |
+| Competitive briefs | Audit trail loss (Pitfall 6) | Store manifest (query + data snapshot + commit hash) per report |
+| Pricing/packaging | Underpricing (Pitfall 7) | Separate subscription from per-report competitive briefs |
+| AI disclosure | Compliance exposure (Pitfall 8) | AI disclosure footer required on all reports |
+| Multi-report type expansion | Template proliferation (Pitfall 9) | Define shared component system first |
+| Development iteration | API cost runaway (Pitfall 11) | Golden fixture for development; budget cap per report |
+| Public SEO reports | Value cannibalization (Pitfall 12) | Lagged + aggregated public; current + peer-filtered subscriber |
+| Sales process | Methodology opacity (Pitfall 13) | Publish methodology paper before sales outreach |
 
 ---
 
 ## Sources
 
-- [How to Test AI Agents Before They Burn Your Budget](https://dev.to/nebulagg/how-to-test-ai-agents-before-they-burn-your-budget-53kl) — LLM cost control in test contexts
-- [You Can't Assert Your Way Out of Non-Determinism](https://medium.com/advisor360-com/you-cant-assert-your-way-out-of-non-determinism-a-practical-qa-strategy-for-llm-applications-fd32e617cdec) — LLM assertion strategy (MEDIUM confidence — single source)
-- [The Dangers of Testing in SQLite as a Postgres User](https://neon.com/blog/testing-sqlite-postgres) — SQLite/Postgres divergence (HIGH confidence — official Neon docs)
-- [Troubleshooting Fixture Leakage and State Contamination in PyTest](https://www.mindfulchase.com/explore/troubleshooting-tips/testing-frameworks/troubleshooting-fixture-leakage-and-state-contamination-in-pytest.html) — Session scope pitfalls
-- [Modern E2E Test Architecture: Patterns and Anti-Patterns](https://www.thunders.ai/articles/modern-e2e-test-architecture-patterns-and-anti-patterns-for-a-maintainable-test-suite) — General e2e anti-patterns
-- [Web Scraper Testing](https://datawookie.dev/blog/2025/01/web-scraper-testing/) — Strategy for testing scrapers against live sites (MEDIUM confidence)
-- [How to Use SQLite in Testing](https://oneuptime.com/blog/post/2026-02-02-sqlite-testing/view) — SQLite isolation patterns for test suites
-- [Testing AI Agents: Validating Non-Deterministic Behavior](https://www.sitepoint.com/testing-ai-agents-deterministic-evaluation-in-a-non-deterministic-world/) — Non-determinism in LLM testing
+- [AI Hallucinations in Financial Insights — Orbit](https://www.orbitfin.ai/news/the-hallucination-frustration) — Documented financial data hallucination cases (MEDIUM confidence — single vendor source)
+- [The impact of AI on your audit — Deloitte](https://www.deloitte.com/us/en/services/audit-assurance/blogs/accounting-finance/ai-finance-accounting-data-transparency-management.html) — AI output accuracy requirements in regulated contexts (HIGH confidence — Big 4 official)
+- [Artificial Intelligence in Financial Services — World Economic Forum 2025](https://reports.weforum.org/docs/WEF_Artificial_Intelligence_in_Financial_Services_2025.pdf) — Transparency and explainability as compliance requirements (HIGH confidence)
+- [What Is Financial Benchmarking? — Visbanking](https://visbanking.com/what-is-financial-benchmarking/) — Stale peer groups as primary benchmarking failure mode (MEDIUM confidence)
+- [Building a PDF generation service using Next.js and React PDF — Medium](https://03balogun.medium.com/building-a-pdf-generation-service-using-nextjs-and-react-pdf-78d5931a13c7) — Puppeteer serverless failure pattern (MEDIUM confidence)
+- [Solved: Anyone generating PDFs server-side in Next.js? — techresolve](https://techresolve.blog/2025/12/25/anyone-generating-pdfs-server-side-in-next-js/) — 504 timeout issue with Puppeteer in serverless (MEDIUM confidence — community source)
+- [How McKinsey Creates Clear And Insightful Charts — Analyst Academy](https://www.theanalystacademy.com/mckinsey-report-breakdown/) — Action title rule, executive audience design principles (HIGH confidence)
+- [The Three Biggest Problems Facing B2B SaaS in 2025 — Sturdy.ai](https://www.sturdy.ai/blog/the-three-biggest-problems-facing-b2b-saas-in-2025) — Churn drivers, value perception (MEDIUM confidence)
+- [Data Traceability — Sigma Computing](https://www.sigmacomputing.com/blog/data-traceability) — Lineage requirements for financial report credibility (MEDIUM confidence)
+- [Audit Trail and Traceability in Financial Data — NeoXam](https://www.neoxam.com/datahub/ensure-audit-lineage-data-quality/) — Audit trail for financial reporting artifacts (MEDIUM confidence)
+- [B2B SaaS Churn Rate Benchmarks — Vitally](https://www.vitally.io/post/saas-churn-benchmarks) — C-suite buyer churn vs. IC buyer churn differential (MEDIUM confidence)
+- [The State of B2B Monetization in 2025 — Growth Unhinged](https://www.growthunhinged.com/p/2025-state-of-b2b-monetization) — Per-seat vs. per-report pricing dynamics (MEDIUM confidence)
+- [U.S. GAO — Artificial Intelligence: Use and Oversight in Financial Services](https://www.gao.gov/products/gao-25-107197) — Regulatory context for AI in banking (HIGH confidence — official government source)
