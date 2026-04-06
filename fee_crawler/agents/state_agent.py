@@ -107,6 +107,7 @@ def run_state_agent(state_code: str) -> dict:
                     log.info(f"  Discovery failed: {result.get('reason', 'unknown')}")
                     continue
             except Exception as e:
+                conn.rollback()
                 _record_result(conn, run_id, inst_id, "discover", "failed", {"error": str(e)})
                 stats["failed"] += 1
                 log.error(f"  Discovery error: {e}")
@@ -133,6 +134,7 @@ def run_state_agent(state_code: str) -> dict:
             _record_result(conn, run_id, inst_id, "classify", "ok", {"document_type": doc_type})
             log.info(f"  Classified: {doc_type}")
         except Exception as e:
+            conn.rollback()
             _record_result(conn, run_id, inst_id, "classify", "failed", {"error": str(e)})
             stats["failed"] += 1
             log.error(f"  Classify error: {e}")
@@ -162,6 +164,7 @@ def run_state_agent(state_code: str) -> dict:
                 log.info(f"  Extraction returned 0 fees")
                 continue
         except Exception as e:
+            conn.rollback()  # Reset transaction state so subsequent queries work
             _record_result(conn, run_id, inst_id, "extract", "failed", {"error": str(e)})
             stats["failed"] += 1
             log.error(f"  Extract error: {e}")
@@ -235,15 +238,7 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
             ),
         )
 
-    # Also write a crawl_result record
-    cur.execute(
-        """INSERT INTO crawl_results
-           (crawl_target_id, status, fees_extracted, crawled_at)
-           VALUES (%s, 'success', %s, NOW())""",
-        (crawl_target_id, len(fees)),
-    )
-
-    # Update crawl target timestamps
+    # Update crawl target timestamps (skip crawl_results — it requires crawl_run_id)
     cur.execute(
         "UPDATE crawl_targets SET last_crawl_at = NOW(), last_success_at = NOW(), consecutive_failures = 0 WHERE id = %s",
         (crawl_target_id,),
