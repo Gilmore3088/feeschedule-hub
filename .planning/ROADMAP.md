@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 7: Audit Trail Verification** - FK integrity and status transition assertions across all tables
 - [ ] **Phase 8: Idempotency and Timing** - No duplicate rows on re-run, per-stage time budget enforcement
 - [ ] **Phase 9: Full Pipeline Test** - End-to-end run for 3-5 institutions with summary report
-- [ ] **Phase 10: CI Integration** - GitHub Actions workflow with marker-controlled e2e runs
+- [x] **Phase 10: CI Integration** - GitHub Actions workflow with marker-controlled e2e runs (completed 2026-04-06)
 - [ ] **Phase 11: Modal Pre-flight** - Modal environment validation against isolated test database
 
 ## Phase Details
@@ -151,7 +151,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 10-01-PLAN.md — GitHub Actions workflow: nightly fast job (e2e and not llm and not slow) + weekly full job (e2e) + workflow_dispatch mode selector
+- [x] 10-01-PLAN.md — GitHub Actions workflow: nightly fast job (e2e and not llm and not slow) + weekly full job (e2e) + workflow_dispatch mode selector
 
 ### Phase 11: Modal Pre-flight
 **Goal**: A Modal function validates that the pipeline works end-to-end in the Modal execution environment before any production cron job runs
@@ -178,5 +178,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Audit Trail Verification | 0/1 | Not started | - |
 | 8. Idempotency and Timing | 0/1 | Not started | - |
 | 9. Full Pipeline Test | 0/1 | Not started | - |
-| 10. CI Integration | 0/1 | Not started | - |
+| 10. CI Integration | 1/1 | Complete    | 2026-04-06 |
 | 11. Modal Pre-flight | TBD | Not started | - |
