@@ -49,3 +49,34 @@ export interface ValidatedSection extends SectionOutput {
   validation: ValidationResult;
   input: SectionInput;
 }
+
+// ─── Report Data Types ─────────────────────────────────────────────────────────
+
+/**
+ * Input data shape for peer competitive benchmarking reports.
+ * All fields are pipeline-verified before passing to Hamilton.
+ */
+export interface PeerCompetitiveData {
+  title: string;
+  subtitle: string;
+  report_date: string;
+  peer_definition: {
+    charter_type?: string;
+    asset_tiers?: string[];
+    fed_districts?: number[];
+    state?: string;
+  };
+  categories: Array<{
+    fee_category: string;
+    display_name: string;
+    peer_median: number | null;
+    national_median: number | null;
+    p25_amount: number | null;
+    p75_amount: number | null;
+    delta_pct: number | null;
+    peer_count: number;
+    is_featured: boolean;
+  }>;
+  total_peer_institutions: number;
+  total_observations: number;
+}
