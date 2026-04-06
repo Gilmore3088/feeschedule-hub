@@ -4,7 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { formatAmount, formatAssets } from "@/lib/format";
+import { formatAssets } from "@/lib/format";
+import { FeeTable } from "./fee-table";
 import {
   getInstitution,
   getInstitutionFees,
@@ -38,9 +39,6 @@ export default async function InstitutionDetailPage({
   if (!institution) notFound();
 
   const stateCode = institution.state_code ?? "??";
-
-  // Group fees by category for section headers
-  const feesByCategory = groupFeesByCategory(fees);
 
   return (
     <>
@@ -164,31 +162,7 @@ export default async function InstitutionDetailPage({
           </h2>
         </div>
         {fees.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="admin-table w-full text-xs">
-              <thead>
-                <tr className="text-left">
-                  <th>Fee Name</th>
-                  <th className="text-right">Amount</th>
-                  <th>Frequency</th>
-                  <th>Category</th>
-                  <th>Account Product</th>
-                  <th className="text-right">Confidence</th>
-                  <th className="text-center">Status</th>
-                  <th className="text-center">Cap?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {feesByCategory.map(({ category, items }) => (
-                  <FeeCategoryGroup
-                    key={category}
-                    category={category}
-                    fees={items}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <FeeTable fees={fees} institutionId={institution.id} />
         ) : (
           <div className="p-6 text-xs text-gray-400 text-center">
             No fees extracted. Set a fee schedule URL and run the agent.
@@ -347,36 +321,6 @@ function truncate(s: string, max = 60): string {
   return s.length > max ? s.slice(0, max) + "..." : s;
 }
 
-interface FeeGroup {
-  category: string;
-  items: Array<{
-    id: number;
-    fee_name: string;
-    amount: number | null;
-    frequency: string | null;
-    fee_category: string | null;
-    account_product_type: string | null;
-    extraction_confidence: number | null;
-    review_status: string;
-    is_fee_cap: boolean;
-  }>;
-}
-
-function groupFeesByCategory(
-  fees: FeeGroup["items"],
-): FeeGroup[] {
-  const map = new Map<string, FeeGroup["items"]>();
-  for (const fee of fees) {
-    const cat = fee.fee_category ?? "uncategorized";
-    if (!map.has(cat)) map.set(cat, []);
-    map.get(cat)!.push(fee);
-  }
-  return Array.from(map.entries()).map(([category, items]) => ({
-    category,
-    items,
-  }));
-}
-
 function summarizeDetail(
   detail: Record<string, unknown> | null,
 ): string {
@@ -430,29 +374,6 @@ function DocTypeBadge({ type }: { type: string }) {
   );
 }
 
-function ReviewStatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    approved:
-      "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    staged:
-      "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    pending:
-      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    flagged:
-      "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  };
-  const cls =
-    styles[status] ??
-    "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
-  return (
-    <span
-      className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${cls}`}
-    >
-      {status}
-    </span>
-  );
-}
-
 function StageBadge({ status }: { status: string }) {
   const isOk =
     status === "ok" || status === "success" || status === "completed";
@@ -499,68 +420,3 @@ function CrawlStatusBadge({ status }: { status: string }) {
   );
 }
 
-function FeeCategoryGroup({
-  category,
-  fees,
-}: {
-  category: string;
-  fees: FeeGroup["items"];
-}) {
-  return (
-    <>
-      <tr>
-        <td
-          colSpan={8}
-          className="bg-gray-50/80 dark:bg-white/[0.03] px-4 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em] border-t border-gray-100 dark:border-white/[0.04]"
-        >
-          {formatCategoryLabel(category)}
-        </td>
-      </tr>
-      {fees.map((fee) => (
-        <tr
-          key={fee.id}
-          className="hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors"
-        >
-          <td className="text-gray-900 dark:text-gray-100 font-medium">
-            {fee.fee_name}
-          </td>
-          <td className="text-right tabular-nums text-gray-700 dark:text-gray-300">
-            {formatAmount(fee.amount)}
-          </td>
-          <td className="text-gray-500">{fee.frequency ?? "-"}</td>
-          <td className="text-gray-500">{formatCategoryLabel(fee.fee_category ?? "-")}</td>
-          <td>
-            {fee.account_product_type ? (
-              <span className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
-                {fee.account_product_type}
-              </span>
-            ) : (
-              <span className="text-gray-400">-</span>
-            )}
-          </td>
-          <td className="text-right tabular-nums text-gray-500">
-            {fee.extraction_confidence != null
-              ? `${Math.round(fee.extraction_confidence * 100)}%`
-              : "-"}
-          </td>
-          <td className="text-center">
-            <ReviewStatusBadge status={fee.review_status} />
-          </td>
-          <td className="text-center">
-            {fee.is_fee_cap ? (
-              <span className="inline-block rounded px-1 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                CAP
-              </span>
-            ) : (
-              <span className="text-gray-300 dark:text-gray-600">-</span>
-            )}
-          </td>
-        </tr>
-      ))}
-    </>
-  );
-}
-
-function formatCategoryLabel(category: string): string {
-  return category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
