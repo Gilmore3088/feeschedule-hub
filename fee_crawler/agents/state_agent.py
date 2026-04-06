@@ -249,11 +249,25 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
         (crawl_target_id,),
     )
 
+    # Deduplicate: track (category, account_product, amount) to skip exact dupes
+    seen = set()
+
     for fee in fees:
         # Skip business account fees
         product = fee.get("account_product") or fee.get("account_product_type")
         if product and "business" in str(product).lower():
             continue
+
+        # Categorize using the existing taxonomy
+        fee_name = fee.get("fee_name", "")
+        category = normalize_fee_name(fee_name)
+        family = get_fee_family(category)
+
+        # Dedup: skip if we already have this exact (category, product, amount)
+        dedup_key = (category, product, fee.get("amount"))
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
 
         cur.execute(
             """INSERT INTO extracted_fees
@@ -263,14 +277,14 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'agent_v1')""",
             (
                 crawl_target_id,
-                fee.get("fee_name"),
+                fee_name,
                 fee.get("amount"),
                 fee.get("frequency"),
                 fee.get("conditions"),
                 fee.get("confidence", 0.9),
                 "staged",
-                fee.get("fee_category"),
-                fee.get("fee_family"),
+                category,
+                family,
                 product,
                 fee.get("is_cap", False),
             ),
