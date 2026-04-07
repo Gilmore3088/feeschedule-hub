@@ -78,20 +78,23 @@ export async function POST(request: Request) {
       );
     }
   } catch {
-    // Tables may not exist yet — allow through
+    // Non-critical — continue if cost check fails
   }
 
-  // T-17-02: Auth required (analyst or admin)
+  // Auth check: analyst or admin only (T-17-02)
   const user = await getCurrentUser();
   if (!user) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
   if (user.role !== "analyst" && user.role !== "admin") {
-    return Response.json({ error: "Analyst or admin access required" }, { status: 403 });
+    return Response.json(
+      { error: "Hamilton requires analyst or admin role" },
+      { status: 403 }
+    );
   }
 
   // Rate limiting
-  const rateResult = checkAdminRateLimit(
+  const rateResult = await checkAdminRateLimit(
     user.id,
     user.role as "analyst" | "admin"
   );
