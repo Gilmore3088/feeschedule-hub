@@ -376,7 +376,11 @@ Plans:
   3. Institution count trends (total active banks, total active CUs) are available with period-over-period changes
   4. Each of the 12 Fed districts has a 2-3 sentence economic narrative summary derived from Beige Book content
   5. A national economic summary and key theme extraction (growth, employment, prices, lending) are derived from all 12 district reports
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 24-01-PLAN.md -- Industry health metrics (ROA, ROE, efficiency, deposits, loans, institution counts, charter segmentation)
+- [ ] 24-02-PLAN.md -- Beige Book LLM summarization (district summaries, national themes, TypeScript queries)
 
 ### Phase 25: Derived Analytics & Hamilton Tools
 **Goal**: Cross-source derived metrics are computed and Hamilton can access all summary data (Call Reports, FRED, Beige Book, health, derived) through its existing tool/query layer
@@ -443,7 +447,7 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
 | 23. Call Report & FRED Foundation | v5.0 | 2/2 | Complete    | 2026-04-07 |
-| 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
+| 24. Industry Health & Beige Book | v5.0 | 0/2 | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
 | 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
 | 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |
