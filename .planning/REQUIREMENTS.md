@@ -1,7 +1,7 @@
 # Requirements: Bank Fee Index v5.0 National Data Layer
 
 **Defined:** 2026-04-07
-**Core Value:** Build the data foundation for credible national analysis — fix queries, create summaries, build admin views for all national data sources
+**Core Value:** Build the data foundation for credible national analysis -- fix queries, create summaries, build admin views for all national data sources
 
 ## v5.0 Requirements
 
@@ -15,7 +15,7 @@
 
 ### FRED Economic Data (FRED)
 - [ ] **FRED-01**: CPI year-over-year change computed correctly (not raw index)
-- [ ] **FRED-02**: Consumer sentiment (UMCSENT) available — ingest if missing
+- [ ] **FRED-02**: Consumer sentiment (UMCSENT) available -- ingest if missing
 - [ ] **FRED-03**: National economic summary available (fed funds rate, unemployment, CPI YoY, sentiment)
 - [ ] **FRED-04**: District-level economic indicators queryable (per-district unemployment, etc.)
 
@@ -51,8 +51,36 @@
 ## Traceability
 
 | Requirement | Phase | Status |
-|------------|-------|--------|
-| (populated by roadmap) | | |
+|-------------|-------|--------|
+| CALL-01 | Phase 23 | Pending |
+| CALL-02 | Phase 23 | Pending |
+| CALL-03 | Phase 23 | Pending |
+| CALL-04 | Phase 23 | Pending |
+| CALL-05 | Phase 23 | Pending |
+| CALL-06 | Phase 23 | Pending |
+| FRED-01 | Phase 23 | Pending |
+| FRED-02 | Phase 23 | Pending |
+| FRED-03 | Phase 23 | Pending |
+| FRED-04 | Phase 23 | Pending |
+| HEALTH-01 | Phase 24 | Pending |
+| HEALTH-02 | Phase 24 | Pending |
+| HEALTH-03 | Phase 24 | Pending |
+| HEALTH-04 | Phase 24 | Pending |
+| BEIGE-01 | Phase 24 | Pending |
+| BEIGE-02 | Phase 24 | Pending |
+| BEIGE-03 | Phase 24 | Pending |
+| DERIVE-01 | Phase 25 | Pending |
+| DERIVE-02 | Phase 25 | Pending |
+| DERIVE-03 | Phase 25 | Pending |
+| ADMIN-05 | Phase 25 | Pending |
+| ADMIN-01 | Phase 26 | Pending |
+| ADMIN-02 | Phase 26 | Pending |
+| ADMIN-03 | Phase 26 | Pending |
+| ADMIN-04 | Phase 26 | Pending |
+| INTEL-01 | Phase 27 | Pending |
+| INTEL-02 | Phase 27 | Pending |
+| INTEL-03 | Phase 27 | Pending |
+| INTEL-04 | Phase 27 | Pending |
 
 ## Future (v6.0)
 

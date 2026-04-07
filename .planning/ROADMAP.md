@@ -5,6 +5,7 @@
 - [x] **v1.0 E2E Pipeline Test Suite** - Phases 1-11 (shipped 2026-04-06)
 - [x] **v2.0 Hamilton — Research & Content Engine** - Phases 12-18 (shipped 2026-04-07)
 - [ ] **v3.0 National Coverage Push** - Phases 19-22 (in progress)
+- [ ] **v5.0 National Data Layer** - Phases 23-27 (planned)
 
 ## Phases
 
@@ -136,7 +137,7 @@ Plans:
 **Depends on**: Phase 8
 **Requirements**: PIPE-01, PIPE-02, PIPE-03
 **Success Criteria** (what must be TRUE):
-  1. A single pytest invocation with `@pytest.mark.slow` runs seed → discover → extract → categorize → validate in sequence against 3-5 institutions in an isolated test DB, and the test passes without manual intervention
+  1. A single pytest invocation with `@pytest.mark.slow` runs seed -> discover -> extract -> categorize -> validate in sequence against 3-5 institutions in an isolated test DB, and the test passes without manual intervention
   2. The geography used is selected randomly at test time (state, county, or MSA) without requiring code changes between runs
   3. The test prints a summary report to stdout showing: institutions processed, fees extracted per institution, failures with stage and reason, and wall-clock time per stage
 **Plans**: 1 plan
@@ -204,7 +205,7 @@ Plans:
 **Depends on**: Phase 12
 **Requirements**: ENG-01, ENG-03, ENG-04, ENG-05, ENG-06
 **Success Criteria** (what must be TRUE):
-  1. Triggering a report generation via the Next.js API returns a job ID; polling that ID transitions through `pending → assembling → rendering → complete` and a presigned download URL is available at completion
+  1. Triggering a report generation via the Next.js API returns a job ID; polling that ID transitions through `pending -> assembling -> rendering -> complete` and a presigned download URL is available at completion
   2. Requesting a report when the median crawl age exceeds threshold (120 days national, 90 days state) returns a clear error — no stale report is published
   3. Every generated report artifact in R2 has a corresponding `report_jobs` row with a data manifest listing every source query and its result row count
   4. The editor review step runs a second Claude pass on Hamilton's draft; sections flagged as inconsistent or unsupported are held for human review before the job reaches `complete`
@@ -278,13 +279,13 @@ Plans:
 - [x] 17-03-PLAN.md — Two-tab layout + Reports sub-route + nav consolidation + Research/Scout redirects (D-02, D-11 to D-14)
 
 ### Phase 18: Report Assembly Pipeline — Wire data + Hamilton + templates to PDF output
-**Goal**: Wire the generate route so clicking "Generate State Index → Wyoming" produces a real PDF — assembleAndRender() orchestrates assembler + Hamilton narratives + template rendering + Modal trigger
+**Goal**: Wire the generate route so clicking "Generate State Index -> Wyoming" produces a real PDF — assembleAndRender() orchestrates assembler + Hamilton narratives + template rendering + Modal trigger
 **Requirements**: WIRE-01, WIRE-02, WIRE-03
 **Depends on**: Phase 17
 **Plans**: 1 plan
 
 Plans:
-- [x] 18-01-PLAN.md — assembleAndRender() orchestrator + generate route update: all 4 report types, Hamilton narrative generation, graceful degradation, pending → assembling → rendering status progression
+- [x] 18-01-PLAN.md — assembleAndRender() orchestrator + generate route update: all 4 report types, Hamilton narrative generation, graceful degradation, pending -> assembling -> rendering status progression
 
 </details>
 
@@ -296,8 +297,6 @@ Plans:
 - [ ] **Phase 20: Iterative Deepening** - Multi-pass per-state logic with strategy escalation and per-pass progress logging
 - [ ] **Phase 21: Knowledge Automation** - Auto-logging learnings to state files, cross-state promotion to national.md, pruning at 50-state scale
 - [ ] **Phase 22: Wave Reporting** - Post-wave summary report: states improved, coverage delta, top discoveries
-
-## Phase Details
 
 ### Phase 19: Wave Orchestrator
 **Goal**: The operator can define a wave of states, launch all agents in batch, and resume a partial wave without re-running completed states
@@ -311,7 +310,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 19-01-PLAN.md — Wave data layer: DB tables, coverage computation, state prioritization
+- [x] 19-01-PLAN.md — Wave data layer: DB tables, coverage computation, state prioritization
 - [ ] 19-02-PLAN.md — Wave orchestrator engine, CLI commands (run/recommend/resume)
 
 ### Phase 20: Iterative Deepening
@@ -345,10 +344,79 @@ Plans:
 
 ---
 
+## v5.0 National Data Layer
+
+**Milestone Goal:** Build the data foundation that Hamilton needs to produce credible national analysis. Fix data queries, create summary views, and build admin portal pages for national data -- the raw work that feeds reports later.
+
+- [ ] **Phase 23: Call Report & FRED Foundation** - Fix revenue scaling, build economic summaries, establish the data layer everything else depends on
+- [ ] **Phase 24: Industry Health & Beige Book** - Compute health metrics from institution financials, condense Beige Book narratives into usable summaries
+- [ ] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer
+- [ ] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports
+- [ ] **Phase 27: External Intelligence System** - Ingest, store, and query external research/surveys alongside internal data
+
+### Phase 23: Call Report & FRED Foundation
+**Goal**: All Call Report revenue queries return correct dollar amounts with trend, segmentation, and charter splits; FRED economic data is complete and queryable as a national summary
+**Depends on**: Nothing (data foundation -- independent of v3.0 progress)
+**Requirements**: CALL-01, CALL-02, CALL-03, CALL-04, CALL-05, CALL-06, FRED-01, FRED-02, FRED-03, FRED-04
+**Success Criteria** (what must be TRUE):
+  1. Querying service charge income for any institution returns dollar amounts (not thousands) that match Call Report filings
+  2. A YoY revenue trend query returns 8 quarters of data with computed growth rates
+  3. Revenue can be split by bank vs credit union and by asset tier, with correct totals that reconcile to national aggregate
+  4. A national economic summary query returns fed funds rate, unemployment rate, CPI YoY change (not raw index), and consumer sentiment -- all with current values
+  5. District-level economic indicators are queryable (at minimum unemployment per district)
+**Plans**: TBD
+
+### Phase 24: Industry Health & Beige Book
+**Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
+**Depends on**: Phase 23 (uses corrected financial data patterns)
+**Requirements**: HEALTH-01, HEALTH-02, HEALTH-03, HEALTH-04, BEIGE-01, BEIGE-02, BEIGE-03
+**Success Criteria** (what must be TRUE):
+  1. Industry-wide ROA, ROE, and efficiency ratio averages are queryable, segmented by bank vs credit union
+  2. Deposit and loan growth YoY trends are computed from institution_financials with correct period comparisons
+  3. Institution count trends (total active banks, total active CUs) are available with period-over-period changes
+  4. Each of the 12 Fed districts has a 2-3 sentence economic narrative summary derived from Beige Book content
+  5. A national economic summary and key theme extraction (growth, employment, prices, lending) are derived from all 12 district reports
+**Plans**: TBD
+
+### Phase 25: Derived Analytics & Hamilton Tools
+**Goal**: Cross-source derived metrics are computed and Hamilton can access all summary data (Call Reports, FRED, Beige Book, health, derived) through its existing tool/query layer
+**Depends on**: Phase 23, Phase 24 (needs corrected revenue data and health metrics)
+**Requirements**: DERIVE-01, DERIVE-02, DERIVE-03, ADMIN-05
+**Success Criteria** (what must be TRUE):
+  1. Revenue concentration analysis shows what percentage of total service charge income comes from the top N fee categories
+  2. Fee dependency ratio (SC income / total revenue) is queryable by charter type and asset tier
+  3. Revenue-per-institution averages are computed by asset tier and charter, enabling peer comparison
+  4. Hamilton can call tools that return all national summary data (Call Report trends, FRED summary, Beige Book summaries, health metrics, derived analytics) and incorporate them into analysis
+**Plans**: TBD
+
+### Phase 26: National Data Admin Portal
+**Goal**: Admin users can view, verify, and explore all national data sources through dedicated portal pages before data flows into reports
+**Depends on**: Phase 23, Phase 24, Phase 25 (needs all data queries and summaries built)
+**Requirements**: ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04
+**Success Criteria** (what must be TRUE):
+  1. `/admin/national` shows a summary page with cards/sections for each data source (Call Reports, FRED, Beige Book, Industry Health) with current status and key numbers
+  2. Call Report revenue dashboard displays trends over 8 quarters, top institutions by service charge income, and bank vs CU charter split
+  3. Economic conditions panel shows FRED indicators (rates, unemployment, CPI YoY, sentiment) alongside Beige Book district summaries on a single view
+  4. Industry health panel displays ROA, efficiency ratio, deposit/loan growth with charter segmentation
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 27: External Intelligence System
+**Goal**: Admin users can ingest external research, surveys, and reports into the platform; Hamilton can search and cite external sources alongside internal data
+**Depends on**: Phase 25 (Hamilton tools layer must exist to extend)
+**Requirements**: INTEL-01, INTEL-02, INTEL-03, INTEL-04
+**Success Criteria** (what must be TRUE):
+  1. Admin can upload or paste external reports/surveys with source attribution (source name, date, category, relevance tags)
+  2. External intelligence is stored with structured metadata and is searchable by category and tags
+  3. Hamilton can search external intelligence alongside internal data and cite external sources with proper attribution in analysis output
+**Plans**: TBD
+
+---
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 19 → 20 → 21 → 22
+Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -370,7 +438,12 @@ Phases execute in numeric order: 19 → 20 → 21 → 22
 | 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete | 2026-04-07 |
 | 17. Hamilton Chat | v2.0 | 3/3 | Complete | 2026-04-07 |
 | 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
-| 19. Wave Orchestrator | v3.0 | 0/2 | Not started | - |
+| 19. Wave Orchestrator | v3.0 | 1/2 | In Progress | - |
 | 20. Iterative Deepening | v3.0 | 0/? | Not started | - |
 | 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
+| 23. Call Report & FRED Foundation | v5.0 | 0/TBD | Not started | - |
+| 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
+| 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
+| 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
+| 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |
