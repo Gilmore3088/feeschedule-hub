@@ -387,7 +387,13 @@ Plans:
   2. Fee dependency ratio (SC income / total revenue) is queryable by charter type and asset tier
   3. Revenue-per-institution averages are computed by asset tier and charter, enabling peer comparison
   4. Hamilton can call tools that return all national summary data (Call Report trends, FRED summary, Beige Book summaries, health metrics, derived analytics) and incorporate them into analysis
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [x] 25-01-PLAN.md — Derived analytics functions (concentration, dependency, per-institution)
+- [x] 25-02-PLAN.md — Hamilton queryNationalData tool + legacy agent consolidation
+- [ ] 25-03-PLAN.md — Gap closure: overdraft_revenue schema + FDIC ingestion + token guard
+
 
 ### Phase 26: National Data Admin Portal
 **Goal**: Admin users can view, verify, and explore all national data sources through dedicated portal pages before data flows into reports
@@ -444,6 +450,6 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
 | 23. Call Report & FRED Foundation | v5.0 | 0/TBD | Not started | - |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
-| 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
+| 25. Derived Analytics & Hamilton Tools | v5.0 | 2/3 | In Progress | - |
 | 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
 | 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |
