@@ -1,12 +1,5 @@
 import { getSql } from "./connection";
 
-export function priorYearQuarter(quarter: string): string {
-  const match = /^(\d{4})-Q(\d)$/.exec(quarter);
-  if (!match) return "";
-  const year = parseInt(match[1], 10) - 1;
-  return `${year}-Q${match[2]}`;
-}
-
 export interface RevenueSnapshot {
   quarter: string;
   total_service_charges: number;
