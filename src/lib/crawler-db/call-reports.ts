@@ -27,20 +27,24 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
   const sql = getSql();
 
   try {
+    // institution_financials has crawl_target_id, not cert_number/charter_type directly.
+    // JOIN to crawl_targets for charter_type and cert_number.
+    // report_date is TEXT (e.g. '2024-12-31') — cast to date for DATE_TRUNC.
     const rows = await sql.unsafe(
       `SELECT
-         TO_CHAR(DATE_TRUNC('quarter', report_date::date), 'YYYY-"Q"Q') AS quarter,
-         MIN(report_date::text)                                    AS quarter_date,
-         SUM(service_charge_income)                               AS total_service_charges,
-         COUNT(DISTINCT cert_number)                              AS total_institutions,
-         SUM(CASE WHEN charter_type = 'bank' THEN service_charge_income ELSE 0 END)
+         TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
+         MIN(inf.report_date)                                     AS quarter_date,
+         SUM(inf.service_charge_income)                           AS total_service_charges,
+         COUNT(DISTINCT ct.cert_number)                           AS total_institutions,
+         SUM(CASE WHEN ct.charter_type = 'bank' THEN inf.service_charge_income ELSE 0 END)
                                                                    AS bank_service_charges,
-         SUM(CASE WHEN charter_type = 'credit_union' THEN service_charge_income ELSE 0 END)
+         SUM(CASE WHEN ct.charter_type = 'credit_union' THEN inf.service_charge_income ELSE 0 END)
                                                                    AS cu_service_charges
-       FROM institution_financials
-       WHERE service_charge_income > 0
-       GROUP BY DATE_TRUNC('quarter', report_date::date)
-       ORDER BY DATE_TRUNC('quarter', report_date::date) DESC
+       FROM institution_financials inf
+       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       WHERE inf.service_charge_income > 0
+       GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
+       ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
        LIMIT $1`,
       [quarterCount]
     ) as {
@@ -104,14 +108,14 @@ export async function getTopRevenueInstitutions(
 
     const rows = await sql.unsafe(
       `SELECT
-         inf.cert_number,
-         ct.name           AS institution_name,
-         COALESCE(inf.charter_type, ct.charter_type, 'unknown') AS charter_type,
+         ct.cert_number,
+         ct.institution_name,
+         COALESCE(ct.charter_type, 'unknown') AS charter_type,
          inf.report_date::text                                   AS report_date,
          inf.service_charge_income,
          inf.total_assets
        FROM institution_financials inf
-       LEFT JOIN crawl_targets ct ON ct.cert_number = inf.cert_number
+       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
        WHERE inf.report_date = $1
          AND inf.service_charge_income > 0
        ORDER BY inf.service_charge_income DESC
