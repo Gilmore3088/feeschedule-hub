@@ -3,7 +3,8 @@
 ## Milestones
 
 - [x] **v1.0 E2E Pipeline Test Suite** - Phases 1-11 (shipped 2026-04-06)
-- [ ] **v2.0 Hamilton — Research & Content Engine** - Phases 12-17 (in progress)
+- [x] **v2.0 Hamilton — Research & Content Engine** - Phases 12-18 (shipped 2026-04-07)
+- [ ] **v3.0 National Coverage Push** - Phases 19-22 (in progress)
 
 ## Phases
 
@@ -169,33 +170,8 @@ Plans:
 
 </details>
 
-### Phase 17: Hamilton Chat — Unified Research Interface
-
-**Goal:** Hamilton is a single conversational interface at /admin/hamilton where the user talks to their senior research analyst and gets streaming answers or structured mini-reports — replacing Research Hub, Scout, and FeeScout as separate destinations
-**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17
-**Depends on:** Phase 16
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 17-01-PLAN.md — Hamilton chat API route + tool registry + Supabase persistent memory (D-01, D-03 to D-10, D-13, D-15)
-- [x] 17-02-PLAN.md — Chat tab UI: streaming + mini-report rendering + history sidebar + export actions (D-01, D-02, D-16, D-17)
-- [x] 17-03-PLAN.md — Two-tab layout + Reports sub-route + nav consolidation + Research/Scout redirects (D-02, D-11 to D-14)
-
-### Phase 18: Report Assembly Pipeline — Wire data + Hamilton + templates to PDF output
-
-**Goal:** Wire the generate route so clicking "Generate State Index → Wyoming" produces a real PDF — assembleAndRender() orchestrates assembler + Hamilton narratives + template rendering + Modal trigger
-**Requirements**: WIRE-01, WIRE-02, WIRE-03
-**Depends on:** Phase 17
-**Plans:** 1/1 plans complete
-
-Plans:
-- [x] 18-01-PLAN.md — assembleAndRender() orchestrator + generate route update: all 4 report types, Hamilton narrative generation, graceful degradation, pending → assembling → rendering status progression
-
----
-
-## v2.0 Hamilton — Research & Content Engine
-
-**Milestone Goal:** Build the report engine and content library that establishes Bank Fee Index as the national authority on bank fees, powered by Hamilton, the AI research analyst.
+<details>
+<summary>v2.0 Hamilton — Research & Content Engine (Phases 12-18) - SHIPPED 2026-04-07</summary>
 
 - [x] **Phase 12: Hamilton Foundation** - Hamilton persona, generateSection() API, numeric validator, shared template system, methodology paper draft (completed 2026-04-06)
 - [x] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step (completed 2026-04-06)
@@ -203,6 +179,7 @@ Plans:
 - [x] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating (completed 2026-04-06)
 - [x] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization (completed 2026-04-07)
 - [x] **Phase 17: Hamilton Chat** - Unified conversational interface absorbing Research Hub, Scout, FeeScout under one Hamilton persona (completed 2026-04-07)
+- [x] **Phase 18: Report Assembly Pipeline** - assembleAndRender() orchestrator wiring generate route to real PDF output (completed 2026-04-07)
 
 ### Phase 12: Hamilton Foundation
 **Goal**: The Hamilton analyst persona, data-to-narrative API, and shared template system exist and produce verifiable, McKinsey-grade output
@@ -269,7 +246,7 @@ Plans:
 Plans:
 - [x] 15-01-PLAN.md — peer group confirmation UI + live brief status polling (BRIEF-02, PRO-02)
 - [x] 15-02-PLAN.md — peer-competitive assembler + Hamilton sections + fee change events (BRIEF-01, BRIEF-03, BRIEF-04)
-- [ ] 15-03-PLAN.md — report library page + Supabase RLS migration (PRO-01, PRO-03)
+- [x] 15-03-PLAN.md — report library page + Supabase RLS migration (PRO-01, PRO-03)
 **UI hint**: yes
 
 ### Phase 16: Public Catalog + Go-to-Market
@@ -289,10 +266,85 @@ Plans:
 - [x] 16-03-PLAN.md — Admin report management (/admin/reports): generation buttons, inline polling, publish + retry actions (D-12 to D-17)
 **UI hint**: yes
 
+### Phase 17: Hamilton Chat — Unified Research Interface
+**Goal**: Hamilton is a single conversational interface at /admin/hamilton where the user talks to their senior research analyst and gets streaming answers or structured mini-reports — replacing Research Hub, Scout, and FeeScout as separate destinations
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17
+**Depends on**: Phase 16
+**Plans**: 3 plans
+
+Plans:
+- [x] 17-01-PLAN.md — Hamilton chat API route + tool registry + Supabase persistent memory (D-01, D-03 to D-10, D-13, D-15)
+- [x] 17-02-PLAN.md — Chat tab UI: streaming + mini-report rendering + history sidebar + export actions (D-01, D-02, D-16, D-17)
+- [x] 17-03-PLAN.md — Two-tab layout + Reports sub-route + nav consolidation + Research/Scout redirects (D-02, D-11 to D-14)
+
+### Phase 18: Report Assembly Pipeline — Wire data + Hamilton + templates to PDF output
+**Goal**: Wire the generate route so clicking "Generate State Index → Wyoming" produces a real PDF — assembleAndRender() orchestrates assembler + Hamilton narratives + template rendering + Modal trigger
+**Requirements**: WIRE-01, WIRE-02, WIRE-03
+**Depends on**: Phase 17
+**Plans**: 1 plan
+
+Plans:
+- [x] 18-01-PLAN.md — assembleAndRender() orchestrator + generate route update: all 4 report types, Hamilton narrative generation, graceful degradation, pending → assembling → rendering status progression
+
+</details>
+
+## v3.0 National Coverage Push
+
+**Milestone Goal:** Systematic state-by-state crawl campaign to maximize fee database coverage across all 50 states, running waves of 5-10 states with 3-5 iterations each, largest states first.
+
+- [ ] **Phase 19: Wave Orchestrator** - Batch launch, auto-prioritization by institution count, CLI/Modal triggers, resume-from-failure
+- [ ] **Phase 20: Iterative Deepening** - Multi-pass per-state logic with strategy escalation and per-pass progress logging
+- [ ] **Phase 21: Knowledge Automation** - Auto-logging learnings to state files, cross-state promotion to national.md, pruning at 50-state scale
+- [ ] **Phase 22: Wave Reporting** - Post-wave summary report: states improved, coverage delta, top discoveries
+
+## Phase Details
+
+### Phase 19: Wave Orchestrator
+**Goal**: The operator can define a wave of states, launch all agents in batch, and resume a partial wave without re-running completed states
+**Depends on**: Phase 18
+**Requirements**: WAVE-01, WAVE-02, WAVE-03, WAVE-04
+**Success Criteria** (what must be TRUE):
+  1. Running `python -m fee_crawler wave run --states WY,MT,TX,CA` (or Modal HTTP trigger) launches state agents for each listed state concurrently and writes a wave manifest to the DB
+  2. Running `python -m fee_crawler wave recommend` prints a ranked list of states ordered by institution count with current coverage %, so the operator can choose the highest-impact targets
+  3. A wave interrupted after 3 of 8 states complete can be resumed via `wave resume <wave_id>` — the 3 completed states are skipped and the remaining 5 run from where they left off
+  4. Wave execution respects Modal's existing cron slot budget — concurrent state agents do not exceed the configured parallelism limit
+**Plans**: TBD
+
+### Phase 20: Iterative Deepening
+**Goal**: Each state is crawled 3-5 times automatically, with each pass escalating to harder discovery strategies and injecting learnings from prior passes
+**Depends on**: Phase 19
+**Requirements**: ITER-01, ITER-02, ITER-03
+**Success Criteria** (what must be TRUE):
+  1. After a wave run, each state in the wave has at least 3 agent_run entries in the DB — one per iteration — without manual re-triggering between passes
+  2. Pass 1 uses easy URL discovery (sitemap, common paths); pass 2 activates Playwright for JS-rendered pages; pass 3+ adds PDF search and fee schedule keyword queries — the escalation is visible in each run's strategy field
+  3. After each pass completes, a per-pass log entry exists showing: fees discovered this pass, cumulative coverage %, and any new URL patterns or extraction patterns found
+**Plans**: TBD
+
+### Phase 21: Knowledge Automation
+**Goal**: Learnings from every iteration are automatically persisted to the knowledge system without manual editing, and the knowledge base remains prompt-quality at 50-state scale
+**Depends on**: Phase 20
+**Requirements**: KNOW-01, KNOW-02
+**Success Criteria** (what must be TRUE):
+  1. After any iteration completes, the state's knowledge file in `fee_crawler/knowledge/states/` is updated with new URL patterns, fee schedule locations, and extraction notes discovered in that pass — no manual step required
+  2. Patterns that appear in 3+ states are automatically promoted to `fee_crawler/knowledge/national.md` so future state agents start with cross-state intelligence
+  3. Running `python -m fee_crawler knowledge prune` reduces each state knowledge file to under the configured token budget while retaining the highest-signal entries — prompt quality does not degrade as coverage scales to 50 states
+**Plans**: TBD
+
+### Phase 22: Wave Reporting
+**Goal**: After each wave completes, an operator-readable summary report is generated showing what improved, by how much, and what was found
+**Depends on**: Phase 21
+**Requirements**: COV-01
+**Success Criteria** (what must be TRUE):
+  1. After a wave finishes, a wave summary report is automatically written (stdout + optional file) showing: each state's before/after coverage %, national coverage delta, total fees added, and the top 3-5 new URL patterns or institutional discoveries from the wave
+  2. The report is readable without opening a database — a plain-text or Markdown format that can be scanned in 60 seconds
+**Plans**: TBD
+
+---
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17
+Phases execute in numeric order: 19 → 20 → 21 → 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -307,10 +359,14 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17
 | 9. Full Pipeline Test | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 12. Hamilton Foundation | v2.0 | 5/5 | Complete    | 2026-04-06 |
-| 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
-| 14. Recurring Reports | v2.0 | 3/3 | Complete    | 2026-04-06 |
-| 15. Premium Products | v2.0 | 2/3 | Complete    | 2026-04-06 |
-| 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete    | 2026-04-07 |
-| 17. Hamilton Chat | v2.0 | 3/3 | Complete    | 2026-04-07 |
-| 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete    | 2026-04-07 |
+| 12. Hamilton Foundation | v2.0 | 5/5 | Complete | 2026-04-06 |
+| 13. Report Engine Core | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 14. Recurring Reports | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 15. Premium Products | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete | 2026-04-07 |
+| 17. Hamilton Chat | v2.0 | 3/3 | Complete | 2026-04-07 |
+| 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
+| 19. Wave Orchestrator | v3.0 | 0/? | Not started | - |
+| 20. Iterative Deepening | v3.0 | 0/? | Not started | - |
+| 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
+| 22. Wave Reporting | v3.0 | 0/? | Not started | - |

@@ -51,21 +51,21 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WAVE-01 | — | Pending |
-| WAVE-02 | — | Pending |
-| WAVE-03 | — | Pending |
-| WAVE-04 | — | Pending |
-| ITER-01 | — | Pending |
-| ITER-02 | — | Pending |
-| ITER-03 | — | Pending |
-| KNOW-01 | — | Pending |
-| KNOW-02 | — | Pending |
-| COV-01 | — | Pending |
+| WAVE-01 | Phase 19 | Pending |
+| WAVE-02 | Phase 19 | Pending |
+| WAVE-03 | Phase 19 | Pending |
+| WAVE-04 | Phase 19 | Pending |
+| ITER-01 | Phase 20 | Pending |
+| ITER-02 | Phase 20 | Pending |
+| ITER-03 | Phase 20 | Pending |
+| KNOW-01 | Phase 21 | Pending |
+| KNOW-02 | Phase 21 | Pending |
+| COV-01 | Phase 22 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-06*
