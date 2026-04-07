@@ -184,6 +184,11 @@ export function buildHamiltonTools() {
         };
       }
 
+      const cronSecret = process.env.BFI_REVALIDATE_TOKEN;
+      if (!cronSecret) {
+        return { error: "Report generation is not configured (missing BFI_REVALIDATE_TOKEN)." };
+      }
+
       const baseUrl =
         process.env.BFI_APP_URL ||
         process.env.NEXT_PUBLIC_SITE_URL ||
@@ -195,7 +200,7 @@ export function buildHamiltonTools() {
           headers: {
             "Content-Type": "application/json",
             // Pass internal cron secret so the report route accepts this request
-            "X-Cron-Secret": process.env.BFI_REVALIDATE_TOKEN ?? "",
+            "X-Cron-Secret": cronSecret,
           },
           body: JSON.stringify({ report_type, params: params ?? {} }),
         });
