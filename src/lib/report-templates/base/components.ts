@@ -315,26 +315,64 @@ export function chapterDivider(number: string, title: string): string {
 // ─── Table of Contents ─────────────────────────────────────────────────────────
 
 export interface TocEntry {
+  number?: string;       // "01", "02" etc — omit for exec summary, playbook, appendix
   title: string;
-  page: string;
+  description: string;   // subtitle line
+  page: number;
+  sectionLabel?: string; // "EXECUTIVE SUMMARY", "PLAYBOOK", "APPENDIX" — renders as category header
 }
 
 /**
- * Dot-leader table of contents. Typically placed after the cover page.
+ * Premium research report table of contents with section labels,
+ * chapter numbers, descriptions, and clean whitespace separation.
  */
 export function tableOfContents(chapters: TocEntry[]): string {
   const entries = chapters
-    .map(
-      (ch) => `
-  <div class="toc-entry">
-    <span class="toc-title">${escapeHtml(ch.title)}</span>
-    <span class="toc-dots"></span>
-    <span class="toc-page">${escapeHtml(ch.page)}</span>
-  </div>`,
-    )
+    .map((ch, i) => {
+      const parts: string[] = [];
+
+      // Section label header (e.g., "EXECUTIVE SUMMARY")
+      if (ch.sectionLabel) {
+        parts.push(`<div class="toc-section-label">${escapeHtml(ch.sectionLabel)}</div>`);
+      }
+
+      // Divider between groups (after first entry, when no section label)
+      if (i > 0 && !ch.sectionLabel && chapters[i - 1].sectionLabel) {
+        // Already separated by section label styling
+      } else if (i > 0 && (ch.sectionLabel || (!ch.number && !chapters[i - 1].number) || (ch.number && !chapters[i - 1].number))) {
+        parts.push(`<div class="toc-divider"></div>`);
+      }
+
+      const pageStr = String(ch.page).padStart(2, "0");
+
+      if (ch.number) {
+        // Numbered chapter entry
+        parts.push(`
+    <div class="toc-entry">
+      <div class="toc-chapter-num">${escapeHtml(ch.number)}</div>
+      <div class="toc-entry-body">
+        <div class="toc-entry-title">${escapeHtml(ch.title)}</div>
+        <div class="toc-entry-desc">${escapeHtml(ch.description)}</div>
+      </div>
+      <div class="toc-entry-page">${escapeHtml(pageStr)}</div>
+    </div>`);
+      } else {
+        // Non-numbered entry (exec summary, playbook, appendix)
+        parts.push(`
+    <div class="toc-entry">
+      <div class="toc-entry-body">
+        <div class="toc-entry-title">${escapeHtml(ch.title)}</div>
+        <div class="toc-entry-desc">${escapeHtml(ch.description)}</div>
+      </div>
+      <div class="toc-entry-page">${escapeHtml(pageStr)}</div>
+    </div>`);
+      }
+
+      return parts.join("\n");
+    })
     .join("");
 
-  return `<nav class="table-of-contents">${entries}\n</nav>`;
+  return `<nav class="toc">${entries}\n</nav>`;
 }
 
 // ─── Compact Table ─────────────────────────────────────────────────────────────

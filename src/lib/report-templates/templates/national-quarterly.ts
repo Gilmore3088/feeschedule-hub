@@ -98,15 +98,59 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
 
   // ── Table of Contents ──────────────────────────────────────────────────────
   const toc = tableOfContents([
-    { title: "Executive Summary \u2014 5 Truths About Banking Fees", page: "3" },
-    { title: "Chapter 1 \u2014 The Illusion of Fee Differentiation", page: "4" },
-    { title: "Chapter 2 \u2014 Banks vs Credit Unions: Two Models", page: "5" },
-    { title: "Chapter 3 \u2014 Where the Money Actually Comes From", page: "6" },
-    { title: "Chapter 4 \u2014 The Industry Blind Spot", page: "7" },
-    { title: "Chapter 5 \u2014 The Future of Fee Strategy", page: "8" },
-    { title: "Playbook \u2014 What Winning Institutions Will Do Next", page: "9" },
-    { title: "Methodology", page: "10" },
-    { title: "Appendix \u2014 Full 49-Category Index", page: "11" },
+    {
+      title: "5 Truths About Banking Fees in 2026",
+      description: "A structural shift in how banks generate fee revenue",
+      page: 3,
+      sectionLabel: "EXECUTIVE SUMMARY",
+    },
+    {
+      number: "01",
+      title: "The Illusion of Fee Differentiation",
+      description: "Why pricing no longer creates competitive advantage",
+      page: 4,
+    },
+    {
+      number: "02",
+      title: "Banks vs Credit Unions: Two Models",
+      description: "Divergent strategies, convergent outcomes",
+      page: 5,
+    },
+    {
+      number: "03",
+      title: "Where the Money Actually Comes From",
+      description: "Revenue concentration and the proxy model",
+      page: 6,
+    },
+    {
+      number: "04",
+      title: "The Industry Blind Spot",
+      description: "Why no institution can benchmark fee revenue nationally",
+      page: 7,
+    },
+    {
+      number: "05",
+      title: "The Future of Fee Strategy",
+      description: "Behavioral pricing, bundling, and segmentation",
+      page: 8,
+    },
+    {
+      title: "What Winning Institutions Will Do Next",
+      description: "Actionable recommendations by charter type",
+      page: 9,
+      sectionLabel: "PLAYBOOK",
+    },
+    {
+      title: "Methodology",
+      description: "Data sources, computation methods, and maturity definitions",
+      page: 10,
+    },
+    {
+      title: "Full 49-Category Index",
+      description: "Complete national benchmark data for all tracked fee categories",
+      page: 11,
+      sectionLabel: "APPENDIX",
+    },
   ]);
 
   // ── Executive Summary: "5 Truths About Banking Fees" ──────────────────────

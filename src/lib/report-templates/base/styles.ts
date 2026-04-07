@@ -485,31 +485,71 @@ body {
 
 /* Table of contents */
 .toc {
-  margin: 32px 0;
+  max-width: 600px;
+  margin: 0 auto;
+  padding-top: 48px;
 }
 
-.toc-row {
+.toc-section-label {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: ${PALETTE.accent};
+  margin-bottom: 8px;
+  margin-top: 32px;
+}
+
+.toc-divider {
+  border: none;
+  border-top: 1px solid ${PALETTE.border};
+  margin: 24px 0;
+}
+
+.toc-entry {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  margin-bottom: 10px;
-  font-family: ${TYPOGRAPHY.sans};
-  font-size: 13px;
+  gap: 16px;
+  padding: 12px 0;
+  min-height: 48px;
+}
+
+.toc-chapter-num {
+  font-family: ${TYPOGRAPHY.serif};
+  font-size: 28px;
+  font-weight: 300;
+  color: ${PALETTE.border};
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.toc-entry-body {
+  flex: 1;
+}
+
+.toc-entry-title {
+  font-family: ${TYPOGRAPHY.serif};
+  font-size: 15px;
+  font-weight: 600;
   color: ${PALETTE.text};
 }
 
-.toc-dots {
-  flex: 1;
-  border-bottom: 1px dotted ${PALETTE.border};
-  margin-bottom: 3px;
-}
-
-.toc-page {
+.toc-entry-desc {
   font-family: ${TYPOGRAPHY.sans};
   font-size: 11px;
   color: ${PALETTE.textMuted};
-  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.toc-entry-page {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 13px;
+  color: ${PALETTE.textMuted};
+  min-width: 24px;
+  text-align: right;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Compact table */
