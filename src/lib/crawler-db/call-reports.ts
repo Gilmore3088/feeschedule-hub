@@ -29,7 +29,7 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
   try {
     const rows = await sql.unsafe(
       `SELECT
-         TO_CHAR(DATE_TRUNC('quarter', report_date), 'YYYY-Q"Q"') AS quarter,
+         TO_CHAR(DATE_TRUNC('quarter', report_date::date), 'YYYY-"Q"Q') AS quarter,
          MIN(report_date::text)                                    AS quarter_date,
          SUM(service_charge_income)                               AS total_service_charges,
          COUNT(DISTINCT cert_number)                              AS total_institutions,
@@ -39,8 +39,8 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
                                                                    AS cu_service_charges
        FROM institution_financials
        WHERE service_charge_income > 0
-       GROUP BY DATE_TRUNC('quarter', report_date)
-       ORDER BY DATE_TRUNC('quarter', report_date) DESC
+       GROUP BY DATE_TRUNC('quarter', report_date::date)
+       ORDER BY DATE_TRUNC('quarter', report_date::date) DESC
        LIMIT $1`,
       [quarterCount]
     ) as {
@@ -77,7 +77,8 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
       quarters: snapshots,
       latest: snapshots[0] ?? null,
     };
-  } catch {
+  } catch (e) {
+    console.warn('[getRevenueTrend]', e);
     return { quarters: [], latest: null };
   }
 }

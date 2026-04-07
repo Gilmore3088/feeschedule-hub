@@ -295,8 +295,8 @@ body {
 
 /* Page break (print) */
 .page-break {
-  page-break-before: always;
-  break-before: page;
+  page-break-after: always;
+  break-after: page;
   height: 0;
   margin: 0;
   padding: 0;
@@ -599,21 +599,49 @@ body {
 
 /* Print overrides */
 @media print {
+  .report-cover {
+    min-height: 90vh;
+  }
+
   .chapter-divider {
     page-break-before: always;
     break-before: page;
+    margin-top: 0;
   }
 
   .stat-cards {
     break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .h-bar-chart {
     break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .finding {
     break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .key-finding {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-table-wrapper {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .numbered-findings {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .hamilton-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 `;

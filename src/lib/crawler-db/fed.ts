@@ -215,16 +215,38 @@ export async function getFredSummary(): Promise<FredSummary> {
       const date = row.observation_date instanceof Date
         ? row.observation_date.toISOString().slice(0, 10)
         : String(row.observation_date);
-      byId.set(row.series_id, { value: row.value, observation_date: date });
+      byId.set(row.series_id, { value: Number(row.value), observation_date: date });
     }
 
-    const dates = [...byId.values()].map((r) => r.observation_date).sort().reverse();
+    const dates = Array.from(byId.values()).map((r) => r.observation_date).sort().reverse();
     const as_of = dates[0] ?? empty.as_of;
+
+    // Compute CPI YoY change: compare latest value to 12 months prior
+    let cpiYoy: number | null = null;
+    try {
+      const cpiRows = await sql`
+        SELECT value, observation_date
+        FROM fed_economic_indicators
+        WHERE series_id = 'CPIAUCSL'
+        ORDER BY observation_date DESC
+        LIMIT 13
+      ` as { value: number | string | null; observation_date: string | Date }[];
+
+      if (cpiRows.length >= 13) {
+        const latest = Number(cpiRows[0].value);
+        const prior = Number(cpiRows[12].value);
+        if (prior > 0 && !isNaN(latest) && !isNaN(prior)) {
+          cpiYoy = ((latest - prior) / prior) * 100;
+        }
+      }
+    } catch {
+      // CPI YoY computation failed — leave as null
+    }
 
     return {
       fed_funds_rate: byId.get("FEDFUNDS")?.value ?? null,
       unemployment_rate: byId.get("UNRATE")?.value ?? null,
-      cpi_yoy_pct: byId.get("CPIAUCSL")?.value ?? null,
+      cpi_yoy_pct: cpiYoy,
       consumer_sentiment: byId.get("UMCSENT")?.value ?? null,
       as_of,
     };
