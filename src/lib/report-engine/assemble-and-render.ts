@@ -132,137 +132,124 @@ export async function assembleAndRender(
     switch (reportType) {
       case 'national_index': {
         const payload = await assembleNationalQuarterly();
+        const V3_CONTEXT = 'Maximum 75 words. Write 2-3 sentences only. Be strategic, not descriptive. State implications, not observations. This is a McKinsey-grade intelligence product.';
 
-        // Run Hamilton calls in parallel — D-08: any failure degrades gracefully
+        // V3: Run 6 Hamilton calls in parallel — strategic framing
         const [
           execResult,
-          economicResult,
+          diffResult,
+          charterResult,
           revenueResult,
-          feeIndexResult,
-          marketResult,
-          outlookResult,
+          blindSpotResult,
+          futureResult,
         ] = await Promise.allSettled([
           generateSection({
             type: 'executive_summary',
-            title: 'National Fee Landscape — Key Findings',
+            title: '5 Truths About Banking Fees — Executive Summary',
             data: {
+              ...payload.derived,
               total_institutions: payload.total_institutions,
-              total_bank_institutions: payload.total_bank_institutions,
-              total_cu_institutions: payload.total_cu_institutions,
-              category_count: payload.categories.length,
-              top_categories: payload.categories.slice(0, 5).map((c) => ({
-                name: c.display_name,
-                median: c.median_amount,
-                count: c.institution_count,
-              })),
             },
-          }),
-          generateSection({
-            type: 'regional_analysis',
-            title: 'Macroeconomic Conditions Shaping Fee Pressure',
-            data: {
-              fred: payload.fred ?? null,
-              district_headlines: payload.district_headlines,
-            },
+            context: `${V3_CONTEXT}\n\nWrite 2-3 punchy sentences summarizing the 5 key insights. No preamble. Max 75 words.`,
           }),
           generateSection({
             type: 'trend_analysis',
-            title: 'Service Charge Revenue — The Revenue Paradox',
+            title: 'The Illusion of Fee Differentiation',
             data: {
-              revenue: payload.revenue ?? null,
-              total_institutions: payload.total_institutions,
+              avg_iqr_spread_pct: payload.derived.avg_iqr_spread_pct,
+              commoditized_count: payload.derived.commoditized_count,
+              total_priced_categories: payload.derived.total_priced_categories,
+              tightest_spreads: payload.derived.tightest_spreads,
+              widest_spreads: payload.derived.widest_spreads,
             },
-          }),
-          generateSection({
-            type: 'trend_analysis',
-            title: 'What Banks Charge — Fee Index Analysis',
-            data: {
-              categories: payload.categories.map((c) => ({
-                name: c.display_name,
-                median: c.median_amount,
-                p25: c.p25_amount,
-                p75: c.p75_amount,
-                count: c.institution_count,
-                maturity: c.maturity_tier,
-                bank_median: c.bank_median,
-                cu_median: c.cu_median,
-              })),
-            },
+            context: `${V3_CONTEXT}\n\nAnalyze fee clustering and commoditization. 2-3 sentences. The data shows tight IQR spreads. What does this mean strategically?`,
           }),
           generateSection({
             type: 'peer_comparison',
-            title: 'Market Structure — Banks vs. Credit Unions',
+            title: 'Banks vs Credit Unions: Two Models',
             data: {
-              total_institutions: payload.total_institutions,
-              total_bank_institutions: payload.total_bank_institutions,
-              total_cu_institutions: payload.total_cu_institutions,
-              categories_with_both: payload.categories
-                .filter((c) => c.bank_count > 0 && c.cu_count > 0)
-                .slice(0, 10)
-                .map((c) => ({
-                  name: c.display_name,
-                  bank_median: c.bank_median,
-                  cu_median: c.cu_median,
-                })),
+              bank_higher_count: payload.derived.bank_higher_count,
+              cu_higher_count: payload.derived.cu_higher_count,
+              comparable_count: payload.derived.comparable_count,
+              biggest_bank_premiums: payload.derived.biggest_bank_premiums,
+              biggest_cu_premiums: payload.derived.biggest_cu_premiums,
             },
+            context: `${V3_CONTEXT}\n\nCompare bank vs CU fee strategies. Banks monetize convenience, CUs monetize penalties. 2-3 sentences.`,
           }),
           generateSection({
-            type: 'executive_summary',
-            title: 'Outlook & Strategic Implications',
+            type: 'trend_analysis',
+            title: 'Where the Money Actually Comes From',
             data: {
-              total_institutions: payload.total_institutions,
-              category_count: payload.categories.length,
               revenue: payload.revenue ?? null,
-              fred: payload.fred ?? null,
+              revenue_per_institution: payload.derived.revenue_per_institution,
+              bank_revenue_share_pct: payload.derived.bank_revenue_share_pct,
+              cu_revenue_share_pct: payload.derived.cu_revenue_share_pct,
             },
+            context: `${V3_CONTEXT}\n\nAnalyze service charge revenue concentration. What does the bank vs CU split reveal? 2-3 sentences.`,
+          }),
+          generateSection({
+            type: 'findings',
+            title: 'The Industry Blind Spot',
+            data: {
+              categories_with_data_count: payload.derived.categories_with_data_count,
+              total_categories: payload.categories.length,
+              strong_maturity_count: payload.derived.strong_maturity_count,
+              provisional_maturity_count: payload.derived.provisional_maturity_count,
+            },
+            context: `${V3_CONTEXT}\n\nDiscuss the lack of standardized fee revenue benchmarking. Position Bank Fee Index as solving this. 2-3 sentences.`,
+          }),
+          generateSection({
+            type: 'recommendation',
+            title: 'The Future of Fee Strategy',
+            data: {
+              avg_iqr_spread_pct: payload.derived.avg_iqr_spread_pct,
+              bank_higher_count: payload.derived.bank_higher_count,
+              total_institutions: payload.total_institutions,
+            },
+            context: `${V3_CONTEXT}\n\nWrite prescriptive guidance on behavioral pricing, bundling, and dynamic fee strategies. 2-3 sentences.`,
           }),
         ]);
 
         const executive_summary =
           execResult.status === 'fulfilled'
             ? execResult.value
-            : fallbackNarrative('National fee data is presented in the tables below.');
-        const economic_landscape =
-          economicResult.status === 'fulfilled'
-            ? economicResult.value
-            : fallbackNarrative('Macroeconomic context will be updated as Federal Reserve data is released.');
-        const revenue_landscape =
+            : fallbackNarrative('Fee pricing is commoditized across the industry, with limited room for price-based differentiation.');
+        const fee_differentiation =
+          diffResult.status === 'fulfilled'
+            ? diffResult.value
+            : fallbackNarrative('IQR spreads reveal tight clustering — pricing alone does not differentiate.');
+        const banks_vs_credit_unions =
+          charterResult.status === 'fulfilled'
+            ? charterResult.value
+            : fallbackNarrative('Banks and credit unions pursue fundamentally different fee strategies.');
+        const revenue_reality =
           revenueResult.status === 'fulfilled'
             ? revenueResult.value
             : fallbackNarrative('Revenue data sourced from FDIC Call Reports and NCUA 5300 filings.');
-        const fee_index =
-          feeIndexResult.status === 'fulfilled'
-            ? feeIndexResult.value
-            : fallbackNarrative('Fee distribution data is presented in the table below.');
-        const market_structure =
-          marketResult.status === 'fulfilled'
-            ? marketResult.value
-            : fallbackNarrative('Market structure data reflects FDIC and NCUA institution counts.');
-        const outlook =
-          outlookResult.status === 'fulfilled'
-            ? outlookResult.value
-            : fallbackNarrative('Fee trends and strategic implications are subject to ongoing data collection.');
+        const industry_blind_spot =
+          blindSpotResult.status === 'fulfilled'
+            ? blindSpotResult.value
+            : fallbackNarrative('No standardized fee revenue benchmarking exists across the industry today.');
+        const future_strategy =
+          futureResult.status === 'fulfilled'
+            ? futureResult.value
+            : fallbackNarrative('Future fee revenue growth depends on behavioral pricing and intelligent segmentation.');
 
-        // D-07: Validate numerics, warn on failure — do NOT reject the narrative
-        const execData = {
-          total_institutions: payload.total_institutions,
-          total_bank_institutions: payload.total_bank_institutions,
-          total_cu_institutions: payload.total_cu_institutions,
-          category_count: payload.categories.length,
-        };
-        validateAndWarn('executive_summary', executive_summary, execData);
-        validateAndWarn('fee_index', fee_index, { categories: payload.categories });
-        validateAndWarn('market_structure', market_structure, execData);
+        // D-07: Validate numerics on key sections
+        const derivedData = payload.derived as unknown as Record<string, unknown>;
+        validateAndWarn('executive_summary', executive_summary, derivedData);
+        validateAndWarn('fee_differentiation', fee_differentiation, derivedData);
+        validateAndWarn('banks_vs_credit_unions', banks_vs_credit_unions, derivedData);
 
         return renderNationalQuarterlyReport({
           data: payload,
           narratives: {
             executive_summary,
-            economic_landscape,
-            revenue_landscape,
-            fee_index,
-            market_structure,
-            outlook,
+            fee_differentiation,
+            banks_vs_credit_unions,
+            revenue_reality,
+            industry_blind_spot,
+            future_strategy,
           },
         });
       }
