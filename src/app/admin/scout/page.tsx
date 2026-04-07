@@ -1,9 +1,5 @@
-import FeeScout from "@/components/scout/FeeScout";
+import { permanentRedirect } from "next/navigation";
 
-export const metadata = {
-  title: "FeeScout - Bank Fee Index",
-};
-
-export default function ScoutPage() {
-  return <FeeScout />;
+export default function ScoutRedirect() {
+  permanentRedirect("/admin/hamilton");
 }

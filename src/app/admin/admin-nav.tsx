@@ -92,42 +92,12 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     items: [
       {
         href: "/admin/hamilton",
-        label: "Reports",
-        exact: true,
+        label: "Hamilton",
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
-            <path d="M5.5 6h5M5.5 9h5M5.5 12h3" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/hamilton/research",
-        label: "Research",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10.5 10.5L14 14" />
-            <path d="M5 7h4M7 5v4" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/hamilton/scout",
-        label: "Scout",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10.5 10.5L14 14" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/hamilton/methodology",
-        label: "Methodology",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M2 3h12M2 6h8M2 9h10M2 12h6" />
+            <circle cx="8" cy="5" r="2.5" />
+            <path d="M3 14c0-3 2-5 5-5s5 2 5 5" />
+            <path d="M11 7.5l2.5 1.5M5 7.5L2.5 9" />
           </svg>
         ),
       },
