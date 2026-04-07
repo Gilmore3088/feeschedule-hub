@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateFeeUrl, markInstitutionOffline } from "./actions";
+import { updateFeeUrl, markInstitutionOffline, runExtract } from "./actions";
 
 interface Props {
   institutionId: number;
@@ -131,13 +131,27 @@ export function InstitutionActions({
               {pending ? "..." : "Mark Offline"}
             </button>
           )}
-          <button
-            disabled
-            className="px-3 py-1.5 text-[11px] font-semibold rounded bg-gray-50 text-gray-400 dark:bg-white/[0.03] dark:text-gray-500 cursor-not-allowed"
-            title="Coming soon: trigger single-institution extraction"
-          >
-            Run Extract
-          </button>
+          {currentUrl && currentDocType !== "offline" && (
+            <button
+              onClick={() => {
+                setError(null);
+                startTransition(async () => {
+                  setMessage("Triggering extraction...");
+                  const result = await runExtract(institutionId);
+                  if (result.error) {
+                    setMessage(null);
+                    setError(result.error);
+                  } else {
+                    setMessage("Agent triggered — extraction running. Refresh in a few minutes.");
+                  }
+                });
+              }}
+              disabled={pending}
+              className="px-3 py-1.5 text-[11px] font-semibold rounded bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50"
+            >
+              {pending ? "Running..." : "Run Extract"}
+            </button>
+          )}
         </div>
       )}
 

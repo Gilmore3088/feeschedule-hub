@@ -126,6 +126,43 @@ export async function updateFee(
   }
 }
 
+export async function runExtract(
+  institutionId: number,
+): Promise<{ ok?: boolean; error?: string; feeCount?: number }> {
+  await requireAuth("edit");
+
+  try {
+    // Get institution data
+    const [inst] = await sql`SELECT * FROM crawl_targets WHERE id = ${institutionId}`;
+    if (!inst) return { error: "Institution not found" };
+    if (!inst.fee_schedule_url) return { error: "No fee schedule URL set" };
+
+    // Call Modal endpoint for single-institution extract
+    const modalUrl = process.env.MODAL_AGENT_URL;
+    if (!modalUrl) {
+      return { error: "MODAL_AGENT_URL not configured — run agent from Scout tab instead" };
+    }
+
+    // For now, call the classify + extract locally via API
+    // This triggers the full pipeline for just this institution
+    const res = await fetch(modalUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state_code: inst.state_code }),
+    });
+
+    if (!res.ok) {
+      return { error: "Agent trigger failed — try running from the Scout Agent tab" };
+    }
+
+    revalidatePath(`/admin/institution/${institutionId}`);
+    return { ok: true };
+  } catch (e) {
+    console.error("runExtract failed:", e);
+    return { error: "Extraction failed: " + (e instanceof Error ? e.message : String(e)) };
+  }
+}
+
 export async function markInstitutionOffline(
   institutionId: number,
 ): Promise<{ ok?: boolean; error?: string }> {
