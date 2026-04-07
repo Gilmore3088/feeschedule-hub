@@ -150,6 +150,23 @@ export async function getTopRevenueInstitutions(
   }
 }
 
+export interface RevenueByTier {
+  asset_size_tier: string;
+  total_service_charges: number;
+  institution_count: number;
+  avg_service_charges: number;
+}
+
+export interface FeeIncomeRatioEntry {
+  cert_number: string;
+  institution_name: string | null;
+  charter_type: string;
+  asset_size_tier: string | null;
+  fee_income_ratio: number;
+  service_charge_income: number;
+  total_revenue: number;
+}
+
 export async function getRevenueByCharter(quarter?: string): Promise<RevenueByCharter[]> {
   const sql = getSql();
 
@@ -189,6 +206,91 @@ export async function getRevenueByCharter(quarter?: string): Promise<RevenueByCh
     }));
   } catch (e) {
     console.warn('[getRevenueByCharter]', e);
+    return [];
+  }
+}
+
+export async function getRevenueByTier(): Promise<RevenueByTier[]> {
+  const sql = getSql();
+
+  try {
+    // institution_financials stores service_charge_income in thousands; multiply by 1000 for dollars.
+    const rows = await sql.unsafe(
+      `SELECT
+         COALESCE(ct.asset_size_tier, 'unknown')    AS asset_size_tier,
+         SUM(inf.service_charge_income * 1000)       AS total_service_charges,
+         COUNT(DISTINCT ct.cert_number)              AS institution_count,
+         AVG(inf.service_charge_income * 1000)       AS avg_service_charges
+       FROM institution_financials inf
+       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       WHERE inf.service_charge_income > 0
+         AND inf.report_date = (SELECT MAX(report_date) FROM institution_financials WHERE service_charge_income > 0)
+       GROUP BY ct.asset_size_tier
+       ORDER BY AVG(inf.total_assets) ASC NULLS LAST`,
+      []
+    ) as {
+      asset_size_tier: string;
+      total_service_charges: string;
+      institution_count: string;
+      avg_service_charges: string;
+    }[];
+
+    return rows.map((row) => ({
+      asset_size_tier: row.asset_size_tier,
+      total_service_charges: Number(row.total_service_charges),
+      institution_count: Number(row.institution_count),
+      avg_service_charges: Number(row.avg_service_charges),
+    }));
+  } catch (e) {
+    console.warn('[getRevenueByTier]', e);
+    return [];
+  }
+}
+
+export async function getFeeIncomeRatio(limit = 50): Promise<FeeIncomeRatioEntry[]> {
+  const sql = getSql();
+
+  try {
+    // fee_income_ratio is dimensionless (thousands/thousands cancel) -- do NOT scale by 1000.
+    // service_charge_income and total_revenue are in thousands -- scale by 1000 for dollars.
+    const rows = await sql.unsafe(
+      `SELECT
+         ct.cert_number,
+         ct.institution_name,
+         COALESCE(ct.charter_type, 'unknown')        AS charter_type,
+         ct.asset_size_tier,
+         inf.fee_income_ratio,
+         inf.service_charge_income * 1000            AS service_charge_income,
+         inf.total_revenue * 1000                    AS total_revenue
+       FROM institution_financials inf
+       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       WHERE inf.fee_income_ratio IS NOT NULL
+         AND inf.fee_income_ratio > 0
+         AND inf.report_date = (SELECT MAX(report_date) FROM institution_financials WHERE service_charge_income > 0)
+       ORDER BY inf.fee_income_ratio DESC
+       LIMIT $1`,
+      [limit]
+    ) as {
+      cert_number: string;
+      institution_name: string | null;
+      charter_type: string;
+      asset_size_tier: string | null;
+      fee_income_ratio: string;
+      service_charge_income: string;
+      total_revenue: string;
+    }[];
+
+    return rows.map((row) => ({
+      cert_number: row.cert_number,
+      institution_name: row.institution_name,
+      charter_type: row.charter_type,
+      asset_size_tier: row.asset_size_tier,
+      fee_income_ratio: Number(row.fee_income_ratio),
+      service_charge_income: Number(row.service_charge_income),
+      total_revenue: Number(row.total_revenue),
+    }));
+  } catch (e) {
+    console.warn('[getFeeIncomeRatio]', e);
     return [];
   }
 }
