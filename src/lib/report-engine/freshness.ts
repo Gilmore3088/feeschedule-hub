@@ -52,19 +52,19 @@ export async function checkFreshness(
   if (scope === 'state' && stateCode) {
     rows = await sql<Array<{ median_age: string | null }>>`
       SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (
-        ORDER BY EXTRACT(EPOCH FROM (NOW() - last_crawled_at)) / 86400.0
+        ORDER BY EXTRACT(EPOCH FROM (NOW() - last_crawl_at::timestamptz)) / 86400.0
       ) AS median_age
       FROM crawl_targets
-      WHERE last_crawled_at IS NOT NULL
-        AND state_abbr = ${stateCode}
+      WHERE last_crawl_at IS NOT NULL
+        AND state_code = ${stateCode}
     `;
   } else {
     rows = await sql<Array<{ median_age: string | null }>>`
       SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (
-        ORDER BY EXTRACT(EPOCH FROM (NOW() - last_crawled_at)) / 86400.0
+        ORDER BY EXTRACT(EPOCH FROM (NOW() - last_crawl_at::timestamptz)) / 86400.0
       ) AS median_age
       FROM crawl_targets
-      WHERE last_crawled_at IS NOT NULL
+      WHERE last_crawl_at IS NOT NULL
     `;
   }
 
