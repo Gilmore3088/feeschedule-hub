@@ -13,7 +13,7 @@
 import { createHash } from "crypto";
 import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db/fee-index";
 import { getBeigeBookHeadlines } from "@/lib/crawler-db/fed";
-import { getDisplayName } from "@/lib/fee-taxonomy";
+import { getDisplayName, FEE_TIERS } from "@/lib/fee-taxonomy";
 import type { DataManifest } from "@/lib/report-engine/types";
 
 // ─── Payload Types ─────────────────────────────────────────────────────────────
@@ -104,8 +104,9 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
   const bankByCategory = new Map(bankEntries.map((e) => [e.fee_category, e]));
   const cuByCategory = new Map(cuEntries.map((e) => [e.fee_category, e]));
 
-  // Build categories array from national index
-  const categories: NationalQuarterlySection[] = nationalEntries.map((entry) => {
+  // Build categories array — only the 49 taxonomy categories, not raw uncategorized fee names
+  const taxonomyEntries = nationalEntries.filter((e) => e.fee_category in FEE_TIERS);
+  const categories: NationalQuarterlySection[] = taxonomyEntries.map((entry) => {
     const bankEntry = bankByCategory.get(entry.fee_category);
     const cuEntry = cuByCategory.get(entry.fee_category);
 
