@@ -172,7 +172,13 @@ def _extract_national_themes(district_summaries: list[str]) -> dict:
         }],
     )
     try:
-        return json_module.loads(response.content[0].text)
+        raw = json_module.loads(response.content[0].text)
+        return {
+            "growth": raw.get("growth") or None,
+            "employment": raw.get("employment") or None,
+            "prices": raw.get("prices") or None,
+            "lending": raw.get("lending") or None,
+        }
     except Exception:
         return {"growth": None, "employment": None, "prices": None, "lending": None}
 
