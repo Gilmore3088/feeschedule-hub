@@ -133,88 +133,115 @@ export async function assembleAndRender(
       case 'national_index': {
         const payload = await assembleNationalQuarterly();
 
-        const hasCharterData = payload.categories.some(
-          (c) => c.bank_count > 0 && c.cu_count > 0,
-        );
-        const hasDistrictData = payload.district_headlines.length > 0;
-
         // Run Hamilton calls in parallel — D-08: any failure degrades gracefully
-        const [execResult, nationalResult, charterResult, districtResult] =
-          await Promise.allSettled([
-            generateSection({
-              type: 'executive_summary',
-              title: 'National Fee Landscape — Key Findings',
-              data: {
-                total_institutions: payload.total_institutions,
-                total_bank_institutions: payload.total_bank_institutions,
-                total_cu_institutions: payload.total_cu_institutions,
-                category_count: payload.categories.length,
-                top_categories: payload.categories.slice(0, 5).map((c) => ({
+        const [
+          execResult,
+          economicResult,
+          revenueResult,
+          feeIndexResult,
+          marketResult,
+          outlookResult,
+        ] = await Promise.allSettled([
+          generateSection({
+            type: 'executive_summary',
+            title: 'National Fee Landscape — Key Findings',
+            data: {
+              total_institutions: payload.total_institutions,
+              total_bank_institutions: payload.total_bank_institutions,
+              total_cu_institutions: payload.total_cu_institutions,
+              category_count: payload.categories.length,
+              top_categories: payload.categories.slice(0, 5).map((c) => ({
+                name: c.display_name,
+                median: c.median_amount,
+                count: c.institution_count,
+              })),
+            },
+          }),
+          generateSection({
+            type: 'regional_analysis',
+            title: 'Macroeconomic Conditions Shaping Fee Pressure',
+            data: {
+              fred: payload.fred ?? null,
+              district_headlines: payload.district_headlines,
+            },
+          }),
+          generateSection({
+            type: 'trend_analysis',
+            title: 'Service Charge Revenue — The Revenue Paradox',
+            data: {
+              revenue: payload.revenue ?? null,
+              total_institutions: payload.total_institutions,
+            },
+          }),
+          generateSection({
+            type: 'trend_analysis',
+            title: 'What Banks Charge — Fee Index Analysis',
+            data: {
+              categories: payload.categories.map((c) => ({
+                name: c.display_name,
+                median: c.median_amount,
+                p25: c.p25_amount,
+                p75: c.p75_amount,
+                count: c.institution_count,
+                maturity: c.maturity_tier,
+                bank_median: c.bank_median,
+                cu_median: c.cu_median,
+              })),
+            },
+          }),
+          generateSection({
+            type: 'peer_comparison',
+            title: 'Market Structure — Banks vs. Credit Unions',
+            data: {
+              total_institutions: payload.total_institutions,
+              total_bank_institutions: payload.total_bank_institutions,
+              total_cu_institutions: payload.total_cu_institutions,
+              categories_with_both: payload.categories
+                .filter((c) => c.bank_count > 0 && c.cu_count > 0)
+                .slice(0, 10)
+                .map((c) => ({
                   name: c.display_name,
-                  median: c.median_amount,
-                  count: c.institution_count,
+                  bank_median: c.bank_median,
+                  cu_median: c.cu_median,
                 })),
-              },
-            }),
-            generateSection({
-              type: 'trend_analysis',
-              title: 'Fee Distribution Across 49 Categories',
-              data: {
-                categories: payload.categories.map((c) => ({
-                  name: c.display_name,
-                  median: c.median_amount,
-                  p25: c.p25_amount,
-                  p75: c.p75_amount,
-                  count: c.institution_count,
-                  maturity: c.maturity_tier,
-                })),
-              },
-            }),
-            hasCharterData
-              ? generateSection({
-                  type: 'peer_comparison',
-                  title:
-                    'Banks vs. Credit Unions — Where Charter Type Drives Fee Divergence',
-                  data: {
-                    categories: payload.categories
-                      .filter((c) => c.bank_count > 0 && c.cu_count > 0)
-                      .slice(0, 10)
-                      .map((c) => ({
-                        name: c.display_name,
-                        bank_median: c.bank_median,
-                        cu_median: c.cu_median,
-                      })),
-                  },
-                })
-              : Promise.reject(new Error('No charter data available')),
-            hasDistrictData
-              ? generateSection({
-                  type: 'regional_analysis',
-                  title:
-                    'Fed District Economic Conditions Influencing Fee Pressure',
-                  data: { headlines: payload.district_headlines },
-                })
-              : Promise.reject(new Error('No district headlines available')),
-          ]);
+            },
+          }),
+          generateSection({
+            type: 'executive_summary',
+            title: 'Outlook & Strategic Implications',
+            data: {
+              total_institutions: payload.total_institutions,
+              category_count: payload.categories.length,
+              revenue: payload.revenue ?? null,
+              fred: payload.fred ?? null,
+            },
+          }),
+        ]);
 
         const executive_summary =
           execResult.status === 'fulfilled'
             ? execResult.value
-            : fallbackNarrative(
-                'National fee data is presented in the tables below.',
-              );
-        const national_index =
-          nationalResult.status === 'fulfilled'
-            ? nationalResult.value
-            : fallbackNarrative(
-                'Fee distribution data is presented in the table below.',
-              );
-        const charter_analysis =
-          charterResult.status === 'fulfilled' ? charterResult.value : undefined;
-        const district_context =
-          districtResult.status === 'fulfilled'
-            ? districtResult.value
-            : undefined;
+            : fallbackNarrative('National fee data is presented in the tables below.');
+        const economic_landscape =
+          economicResult.status === 'fulfilled'
+            ? economicResult.value
+            : fallbackNarrative('Macroeconomic context will be updated as Federal Reserve data is released.');
+        const revenue_landscape =
+          revenueResult.status === 'fulfilled'
+            ? revenueResult.value
+            : fallbackNarrative('Revenue data sourced from FDIC Call Reports and NCUA 5300 filings.');
+        const fee_index =
+          feeIndexResult.status === 'fulfilled'
+            ? feeIndexResult.value
+            : fallbackNarrative('Fee distribution data is presented in the table below.');
+        const market_structure =
+          marketResult.status === 'fulfilled'
+            ? marketResult.value
+            : fallbackNarrative('Market structure data reflects FDIC and NCUA institution counts.');
+        const outlook =
+          outlookResult.status === 'fulfilled'
+            ? outlookResult.value
+            : fallbackNarrative('Fee trends and strategic implications are subject to ongoing data collection.');
 
         // D-07: Validate numerics, warn on failure — do NOT reject the narrative
         const execData = {
@@ -224,27 +251,18 @@ export async function assembleAndRender(
           category_count: payload.categories.length,
         };
         validateAndWarn('executive_summary', executive_summary, execData);
-        validateAndWarn('national_index', national_index, {
-          categories: payload.categories,
-        });
-        if (charter_analysis) {
-          validateAndWarn('charter_analysis', charter_analysis, {
-            categories: payload.categories,
-          });
-        }
-        if (district_context) {
-          validateAndWarn('district_context', district_context, {
-            headlines: payload.district_headlines,
-          });
-        }
+        validateAndWarn('fee_index', fee_index, { categories: payload.categories });
+        validateAndWarn('market_structure', market_structure, execData);
 
         return renderNationalQuarterlyReport({
           data: payload,
           narratives: {
             executive_summary,
-            national_index,
-            ...(charter_analysis ? { charter_analysis } : {}),
-            ...(district_context ? { district_context } : {}),
+            economic_landscape,
+            revenue_landscape,
+            fee_index,
+            market_structure,
+            outlook,
           },
         });
       }
