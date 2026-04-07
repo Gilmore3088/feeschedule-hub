@@ -258,7 +258,12 @@ Plans:
   2. Each published report has an ISR-cached landing page showing executive summary and 2 charts publicly, with a CTA/signup gate before the full PDF download
   3. Report landing pages have correct OG metadata — sharing a report URL on LinkedIn renders a preview with title, description, and image
   4. The public catalog lists all published reports with filtering, and search engines can index catalog and report landing pages
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 16-01-PLAN.md — Methodology SEO: OG metadata + JSON-LD Article schema + sitemap entry (METH-02)
+- [ ] 16-02-PLAN.md — Public catalog (/reports) + ISR landing pages (/reports/[slug]) + email gate + sitemap (PUB-01, PUB-02, PUB-03)
+- [ ] 16-03-PLAN.md — Admin report management (/admin/reports): generation buttons, inline polling, publish + retry actions (D-12 to D-17)
 **UI hint**: yes
 
 ## Progress
@@ -283,4 +288,4 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 14. Recurring Reports | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 15. Premium Products | v2.0 | 2/3 | Complete    | 2026-04-06 |
-| 16. Public Catalog + Go-to-Market | v2.0 | 0/TBD | Not started | - |
+| 16. Public Catalog + Go-to-Market | v2.0 | 0/3 | Not started | - |
