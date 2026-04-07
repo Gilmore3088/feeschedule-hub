@@ -31,6 +31,14 @@ export interface RevenueByCharter {
   quarter: string;
 }
 
+/** Derive the same quarter one year prior: "2024-Q3" → "2023-Q3". */
+function priorYearQuarter(quarter: string): string {
+  const match = /^(\d{4})-Q(\d)$/.exec(quarter);
+  if (!match) return "";
+  const year = parseInt(match[1], 10) - 1;
+  return `${year}-Q${match[2]}`;
+}
+
 export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
   const sql = getSql();
 
@@ -72,14 +80,15 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
       yoy_change_pct: null,
     }));
 
-    // Attach YoY change: compare index i to index i+4 (same quarter, prior year)
-    for (let i = 0; i < snapshots.length; i++) {
-      const priorYearIdx = i + 4;
-      if (priorYearIdx < snapshots.length) {
-        const current = snapshots[i].total_service_charges;
-        const prior = snapshots[priorYearIdx].total_service_charges;
-        snapshots[i].yoy_change_pct =
-          prior > 0 ? ((current - prior) / prior) * 100 : null;
+    // Attach YoY change: look up the same quarter in the prior year by label
+    // rather than by positional offset, so gaps in the data don't produce wrong values.
+    const byQuarter = new Map(snapshots.map((s) => [s.quarter, s]));
+    for (const snap of snapshots) {
+      const prior = byQuarter.get(priorYearQuarter(snap.quarter));
+      if (prior && prior.total_service_charges > 0) {
+        snap.yoy_change_pct =
+          ((snap.total_service_charges - prior.total_service_charges) /
+            prior.total_service_charges) * 100;
       }
     }
 
