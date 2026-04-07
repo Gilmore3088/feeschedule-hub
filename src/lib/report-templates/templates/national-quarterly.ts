@@ -100,57 +100,58 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
   // ── Table of Contents ──────────────────────────────────────────────────────
   const toc = tableOfContents([
     {
-      title: "5 Truths About Banking Fees in 2026",
+      title: "5 Truths About Banking Fees",
       description: "A structural shift in how banks generate fee revenue",
       page: 3,
-      sectionLabel: "EXECUTIVE SUMMARY",
+      sectionLabel: "Executive Summary",
     },
     {
       number: "01",
       title: "The Illusion of Fee Differentiation",
-      description: "Why pricing no longer creates competitive advantage",
+      description: "Why pricing no longer drives advantage",
       page: 4,
+      sectionLabel: "Core Analysis",
     },
     {
       number: "02",
       title: "Banks vs Credit Unions: Two Models",
-      description: "Divergent strategies, convergent outcomes",
+      description: "Convenience vs penalty economics",
       page: 5,
     },
     {
       number: "03",
       title: "Where the Money Actually Comes From",
-      description: "Revenue concentration and the proxy model",
+      description: "Revenue concentration + national data",
       page: 6,
     },
     {
       number: "04",
       title: "The Industry Blind Spot",
-      description: "Why no institution can benchmark fee revenue nationally",
+      description: "Why pricing lacks benchmark context",
       page: 7,
     },
     {
       number: "05",
       title: "The Future of Fee Strategy",
-      description: "Behavioral pricing, bundling, and segmentation",
+      description: "Behavior, bundling, and segmentation",
       page: 8,
     },
     {
-      title: "What Winning Institutions Will Do Next",
+      title: "What Winning Institutions Do Next",
       description: "Actionable recommendations by charter type",
       page: 9,
-      sectionLabel: "PLAYBOOK",
+      sectionLabel: "Strategy",
     },
     {
       title: "Methodology",
       description: "Data sources, computation methods, and maturity definitions",
       page: 10,
+      sectionLabel: "Data",
     },
     {
       title: "Full 49-Category Index",
       description: "Complete national benchmark data for all tracked fee categories",
       page: 11,
-      sectionLabel: "APPENDIX",
     },
   ]);
 

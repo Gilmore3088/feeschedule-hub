@@ -319,52 +319,53 @@ export interface TocEntry {
   title: string;
   description: string;   // subtitle line
   page: number;
-  sectionLabel?: string; // "EXECUTIVE SUMMARY", "PLAYBOOK", "APPENDIX" — renders as category header
+  sectionLabel?: string; // "Core Analysis", "Strategy", "Data" — renders as group header
 }
 
 /**
- * Premium research report table of contents with section labels,
- * chapter numbers, descriptions, and clean whitespace separation.
+ * Single-page table of contents with proper hierarchy.
+ * Section group labels are small/muted/bold (not uppercase).
+ * Numbered entries show large light numbers left of the text column.
+ * Dotted leaders connect titles to page numbers.
  */
 export function tableOfContents(chapters: TocEntry[]): string {
   const entries = chapters
-    .map((ch, i) => {
+    .map((ch) => {
       const parts: string[] = [];
 
-      // Section label header (e.g., "EXECUTIVE SUMMARY")
+      // Section group label (e.g., "Core Analysis")
       if (ch.sectionLabel) {
         parts.push(`<div class="toc-section-label">${escapeHtml(ch.sectionLabel)}</div>`);
-      }
-
-      // Divider between groups (after first entry, when no section label)
-      if (i > 0 && !ch.sectionLabel && chapters[i - 1].sectionLabel) {
-        // Already separated by section label styling
-      } else if (i > 0 && (ch.sectionLabel || (!ch.number && !chapters[i - 1].number) || (ch.number && !chapters[i - 1].number))) {
-        parts.push(`<div class="toc-divider"></div>`);
       }
 
       const pageStr = String(ch.page).padStart(2, "0");
 
       if (ch.number) {
-        // Numbered chapter entry
+        // Numbered chapter entry with large number
         parts.push(`
-    <div class="toc-entry">
+    <div class="toc-entry toc-entry-numbered">
       <div class="toc-chapter-num">${escapeHtml(ch.number)}</div>
       <div class="toc-entry-body">
-        <div class="toc-entry-title">${escapeHtml(ch.title)}</div>
+        <div class="toc-entry-title-row">
+          <span class="toc-entry-title">${escapeHtml(ch.title)}</span>
+          <span class="toc-leader"></span>
+          <span class="toc-entry-page">${escapeHtml(pageStr)}</span>
+        </div>
         <div class="toc-entry-desc">${escapeHtml(ch.description)}</div>
       </div>
-      <div class="toc-entry-page">${escapeHtml(pageStr)}</div>
     </div>`);
       } else {
-        // Non-numbered entry (exec summary, playbook, appendix)
+        // Non-numbered entry (exec summary, playbook, methodology, appendix)
         parts.push(`
     <div class="toc-entry">
       <div class="toc-entry-body">
-        <div class="toc-entry-title">${escapeHtml(ch.title)}</div>
+        <div class="toc-entry-title-row">
+          <span class="toc-entry-title">${escapeHtml(ch.title)}</span>
+          <span class="toc-leader"></span>
+          <span class="toc-entry-page">${escapeHtml(pageStr)}</span>
+        </div>
         <div class="toc-entry-desc">${escapeHtml(ch.description)}</div>
       </div>
-      <div class="toc-entry-page">${escapeHtml(pageStr)}</div>
     </div>`);
       }
 

@@ -483,36 +483,35 @@ body {
   color: ${PALETTE.text};
 }
 
-/* Table of contents */
+/* Table of contents — single page, compact, proper hierarchy */
 .toc {
   max-width: 600px;
   margin: 0 auto;
-  padding-top: 48px;
+  padding-top: 32px;
 }
 
 .toc-section-label {
   font-family: ${TYPOGRAPHY.sans};
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 3px;
-  color: ${PALETTE.accent};
-  margin-bottom: 8px;
-  margin-top: 32px;
+  color: ${PALETTE.textSecondary};
+  margin-bottom: 4px;
+  margin-top: 16px;
 }
 
-.toc-divider {
-  border: none;
-  border-top: 1px solid ${PALETTE.border};
-  margin: 24px 0;
+.toc-section-label:first-child {
+  margin-top: 0;
 }
 
 .toc-entry {
   display: flex;
   align-items: baseline;
-  gap: 16px;
-  padding: 12px 0;
-  min-height: 48px;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.toc-entry-numbered {
+  padding: 6px 0;
 }
 
 .toc-chapter-num {
@@ -520,36 +519,54 @@ body {
   font-size: 28px;
   font-weight: 300;
   color: ${PALETTE.border};
-  min-width: 40px;
+  min-width: 36px;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .toc-entry-body {
   flex: 1;
+  min-width: 0;
+}
+
+.toc-entry-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .toc-entry-title {
   font-family: ${TYPOGRAPHY.serif};
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: ${PALETTE.text};
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.toc-entry-desc {
-  font-family: ${TYPOGRAPHY.sans};
-  font-size: 11px;
-  color: ${PALETTE.textMuted};
-  margin-top: 2px;
+.toc-leader {
+  flex: 1;
+  border-bottom: 1px dotted ${PALETTE.textMuted};
+  min-width: 20px;
+  position: relative;
+  top: -3px;
 }
 
 .toc-entry-page {
   font-family: ${TYPOGRAPHY.sans};
   font-size: 13px;
   color: ${PALETTE.textMuted};
-  min-width: 24px;
+  min-width: 20px;
   text-align: right;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
+}
+
+.toc-entry-desc {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 11px;
+  color: ${PALETTE.textMuted};
+  margin-top: 1px;
 }
 
 /* Compact table */
