@@ -8,7 +8,7 @@
 ### Wave Orchestration
 
 - [ ] **WAVE-01**: User can define a wave of 5-10 states and launch all state agents in batch
-- [ ] **WAVE-02**: System auto-prioritizes states by institution count (largest first) and generates recommended wave order
+- [ ] **WAVE-02**: System auto-prioritizes states by coverage gap % (lowest coverage first) and generates recommended wave order
 - [ ] **WAVE-03**: Waves trigger via Modal HTTP endpoint or CLI command, respecting existing cron slots
 - [ ] **WAVE-04**: If a wave fails midway, user can resume from the last incomplete state without re-running completed ones
 
