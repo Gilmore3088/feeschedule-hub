@@ -47,10 +47,10 @@ export async function GET(
   }
 
   // T-13-12: ownership guard — same as status route
-  // user.id is a number in the DB schema; job.user_id is stored as string in report_jobs
-  const isOwner = job.user_id === String(user.id);
-  const isAdminViewingCronJob = user.role === 'admin' && job.user_id === null;
-  if (!isOwner && !isAdminViewingCronJob) {
+  const isOwner = Number(job.user_id) === Number(user.id);
+  const isAdminViewingCronJob = user.role === 'admin' && job.user_id == null;
+  const isAdmin = user.role === 'admin';
+  if (!isOwner && !isAdminViewingCronJob && !isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
