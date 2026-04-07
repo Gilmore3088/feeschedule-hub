@@ -179,7 +179,7 @@ Plans:
 - [x] **Phase 13: Report Engine Core** - Modal render worker, R2 artifact storage, Supabase job queue, Next.js API routes, freshness gate, editor review step (completed 2026-04-06)
 - [x] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron (completed 2026-04-06)
 - [x] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating (completed 2026-04-06)
-- [ ] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization
+- [x] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization (completed 2026-04-07)
 
 ### Phase 12: Hamilton Foundation
 **Goal**: The Hamilton analyst persona, data-to-narrative API, and shared template system exist and produce verifiable, McKinsey-grade output
@@ -261,9 +261,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 16-01-PLAN.md — Methodology SEO: OG metadata + JSON-LD Article schema + sitemap entry (METH-02)
-- [ ] 16-02-PLAN.md — Public catalog (/reports) + ISR landing pages (/reports/[slug]) + email gate + sitemap (PUB-01, PUB-02, PUB-03)
-- [ ] 16-03-PLAN.md — Admin report management (/admin/reports): generation buttons, inline polling, publish + retry actions (D-12 to D-17)
+- [x] 16-01-PLAN.md — Methodology SEO: OG metadata + JSON-LD Article schema + sitemap entry (METH-02)
+- [x] 16-02-PLAN.md — Public catalog (/reports) + ISR landing pages (/reports/[slug]) + email gate + sitemap (PUB-01, PUB-02, PUB-03)
+- [x] 16-03-PLAN.md — Admin report management (/admin/reports): generation buttons, inline polling, publish + retry actions (D-12 to D-17)
 **UI hint**: yes
 
 ## Progress
@@ -288,4 +288,4 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 13. Report Engine Core | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 14. Recurring Reports | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 15. Premium Products | v2.0 | 2/3 | Complete    | 2026-04-06 |
-| 16. Public Catalog + Go-to-Market | v2.0 | 0/3 | Not started | - |
+| 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete    | 2026-04-07 |
