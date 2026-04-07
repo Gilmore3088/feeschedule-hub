@@ -202,6 +202,130 @@ export async function getBeigeBookHeadlines(): Promise<Map<number, { text: strin
   }
 }
 
+export interface NationalEconomicSummary {
+  fed_funds_rate: RichIndicator | null;
+  unemployment_rate: RichIndicator | null;
+  cpi_yoy_pct: RichIndicator | null;
+  consumer_sentiment: RichIndicator | null;
+}
+
+async function fetchRichIndicator(seriesId: string): Promise<RichIndicator | null> {
+  try {
+    const rows = await sql`
+      SELECT observation_date, value
+      FROM fed_economic_indicators
+      WHERE series_id = ${seriesId}
+        AND value IS NOT NULL
+      ORDER BY observation_date DESC
+      LIMIT 5
+    ` as { observation_date: string | Date; value: number | string }[];
+
+    if (rows.length === 0) return null;
+
+    const current = Number(rows[0].value);
+    const asOf = rows[0].observation_date instanceof Date
+      ? rows[0].observation_date.toISOString().slice(0, 10)
+      : String(rows[0].observation_date);
+
+    const historyDesc = rows.slice(1);
+    const history = historyDesc.reverse().map((r) => ({
+      date: r.observation_date instanceof Date
+        ? r.observation_date.toISOString().slice(0, 10)
+        : String(r.observation_date),
+      value: Number(r.value),
+    }));
+
+    return { current, history, trend: deriveTrend(current, history), asOf };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCpiYoyIndicator(): Promise<RichIndicator | null> {
+  try {
+    const rows = await sql`
+      SELECT observation_date, value
+      FROM fed_economic_indicators
+      WHERE series_id = 'CPIAUCSL'
+        AND value IS NOT NULL
+      ORDER BY observation_date DESC
+      LIMIT 17
+    ` as { observation_date: string | Date; value: number | string }[];
+
+    if (rows.length < 13) return null;
+
+    const yoyPoints: { date: string; value: number }[] = [];
+    for (let offset = 0; offset < Math.min(4, rows.length - 12); offset++) {
+      const latest = Number(rows[offset].value);
+      const prior = Number(rows[offset + 12].value);
+      if (prior > 0 && !isNaN(latest) && !isNaN(prior)) {
+        const yoy = ((latest - prior) / prior) * 100;
+        const date = rows[offset].observation_date instanceof Date
+          ? rows[offset].observation_date.toISOString().slice(0, 10)
+          : String(rows[offset].observation_date);
+        yoyPoints.push({ date, value: Math.round(yoy * 100) / 100 });
+      }
+    }
+
+    if (yoyPoints.length === 0) return null;
+
+    const current = yoyPoints[0].value;
+    const asOf = yoyPoints[0].date;
+    const history = yoyPoints.slice(1).reverse();
+
+    return { current, history, trend: deriveTrend(current, history), asOf };
+  } catch {
+    return null;
+  }
+}
+
+export async function getNationalEconomicSummary(): Promise<NationalEconomicSummary> {
+  try {
+    const [fedFunds, unemployment, cpiYoy, sentiment] = await Promise.all([
+      fetchRichIndicator('FEDFUNDS'),
+      fetchRichIndicator('UNRATE'),
+      fetchCpiYoyIndicator(),
+      fetchRichIndicator('UMCSENT'),
+    ]);
+
+    return {
+      fed_funds_rate: fedFunds,
+      unemployment_rate: unemployment,
+      cpi_yoy_pct: cpiYoy,
+      consumer_sentiment: sentiment,
+    };
+  } catch {
+    return {
+      fed_funds_rate: null,
+      unemployment_rate: null,
+      cpi_yoy_pct: null,
+      consumer_sentiment: null,
+    };
+  }
+}
+
+export async function getDistrictUnemployment(): Promise<Map<number, number>> {
+  try {
+    const rows = await sql`
+      SELECT DISTINCT ON (fed_district)
+        fed_district, value
+      FROM fed_economic_indicators
+      WHERE series_id LIKE '%UR'
+        AND fed_district IS NOT NULL
+        AND value IS NOT NULL
+      ORDER BY fed_district, observation_date DESC
+    ` as { fed_district: number | string; value: number | string }[];
+
+    const map = new Map<number, number>();
+    for (const row of rows) {
+      map.set(Number(row.fed_district), Number(row.value));
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 export interface FredSummary {
   fed_funds_rate: number | null;
   unemployment_rate: number | null;
