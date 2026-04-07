@@ -114,39 +114,40 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     ? Math.round((d.commoditized_count / d.total_priced_categories) * 100)
     : 0;
 
-  const execInsightCards = insightCardRow([
+  // Build 5 Truths as individual insight cards — each: bold claim, proof stat, arrow implication
+  const fiveTruths = [
     {
       number: `${commoditizedPct}%`,
-      insight: "of fees are commoditized",
-      supporting: `${d.commoditized_count} of ${d.total_priced_categories} categories have IQR spreads under 30%`,
+      insight: "Pricing is not a competitive advantage",
+      supporting: `${d.commoditized_count} of ${d.total_priced_categories} categories cluster within narrow IQR ranges. Competing on price alone is ineffective.`,
     },
     {
       number: String(d.bank_higher_count),
-      insight: "categories where banks charge more",
-      supporting: `Out of ${d.comparable_count} categories with both bank and CU data`,
+      insight: "Credit unions win perception, not pricing",
+      supporting: `Banks charge more in ${d.bank_higher_count} of ${d.comparable_count} comparable categories, yet CUs carry higher penalty exposure. Fee strategy must align with customer behavior.`,
     },
     {
       number: d.bank_revenue_share_pct !== null ? `${d.bank_revenue_share_pct.toFixed(0)}%` : "\u2014",
-      insight: "of fee revenue from banks",
-      supporting: d.cu_revenue_share_pct !== null
-        ? `Credit unions account for ${d.cu_revenue_share_pct.toFixed(0)}%`
-        : "Revenue data pending",
+      insight: "Revenue visibility is broken",
+      supporting: d.bank_revenue_share_pct !== null
+        ? `Banks hold ${d.bank_revenue_share_pct.toFixed(0)}% of fee revenue, yet no standardized benchmarking exists. Institutions are pricing without context.`
+        : "No standardized fee revenue benchmarking exists. Institutions are pricing without context.",
     },
     {
       number: String(d.strong_maturity_count),
-      insight: "categories with strong maturity",
-      supporting: `${d.provisional_maturity_count} additional categories are provisional`,
+      insight: "Fee income is concentrated",
+      supporting: `Only ${d.strong_maturity_count} categories have strong data maturity out of ${d.total_priced_categories}. Optimization must focus on high-impact fees.`,
     },
     {
       number: d.avg_iqr_spread_pct !== null ? `${d.avg_iqr_spread_pct.toFixed(0)}%` : "\u2014",
-      insight: "average price spread",
-      supporting: "IQR as percentage of median across all priced categories",
+      insight: "Behavior beats pricing",
+      supporting: `Average IQR spread of ${d.avg_iqr_spread_pct !== null ? d.avg_iqr_spread_pct.toFixed(0) + "%" : "N/A"} confirms static fee schedules cannot capture value. Future advantage = segmentation + behavior.`,
     },
-  ]);
+  ];
 
   const execSummary = [
     chapterDivider("", "5 Truths About Banking Fees in 2026"),
-    execInsightCards,
+    insightCardRow(fiveTruths),
     hamiltonNarrativeBlock(narratives.executive_summary.narrative),
   ].join("\n");
 
@@ -162,11 +163,11 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     chapterDivider("01", "The Illusion of Fee Differentiation"),
     horizontalBarChart({
       bars: tightestBars,
-      title: "Top 10 Most Commoditized Fees (Smallest IQR Spread)",
+      title: "Top 10 Functionally Undifferentiated Fees (Smallest IQR Spread)",
       source: `Bank Fee Index \u2014 ${data.total_institutions.toLocaleString()} institutions`,
     }),
     hamiltonNarrativeBlock(narratives.fee_differentiation.narrative),
-    soWhatBox("Stop competing on price alone. Differentiation must come from experience, packaging, and targeting."),
+    soWhatBox("Stop competing on price alone. Differences exist but are too small to influence customer choice. Differentiation must come from experience, packaging, and targeting."),
   ].join("\n");
 
   // ── Ch2: Banks vs Credit Unions — Two Models ─────────────────────────────
@@ -304,6 +305,23 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
   const ch5 = [
     pageBreak(),
     chapterDivider("05", "The Future of Fee Strategy"),
+    statCardRow([
+      {
+        label: "Avg Price Spread",
+        value: d.avg_iqr_spread_pct !== null ? `${d.avg_iqr_spread_pct.toFixed(0)}%` : "\u2014",
+        source: "IQR as % of median",
+      },
+      {
+        label: "Effectively Commoditized",
+        value: `${commoditizedPct}%`,
+        source: `${d.commoditized_count} of ${d.total_priced_categories} categories`,
+      },
+      {
+        label: "Institutions Tracked",
+        value: data.total_institutions.toLocaleString(),
+        source: "national coverage",
+      },
+    ]),
     hamiltonNarrativeBlock(narratives.future_strategy.narrative),
     soWhatBox("Future revenue growth comes from behavior design, bundling, and segmentation — not static price sheets."),
   ].join("\n");
@@ -315,9 +333,8 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
       {
         title: "If You Are a Bank",
         recommendations: [
-          "Monetize convenience fees where you hold pricing power (wires, research, specialized services)",
+          "Monetize convenience fees where you hold pricing power (wires, specialized services)",
           "Reduce reliance on penalty fees — regulatory and reputational risk is growing",
-          "Justify premium pricing with transparent value communication",
           "Build fee bundles that align price with customer segment behavior",
         ],
       },
@@ -326,17 +343,15 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
         recommendations: [
           "Rebalance penalty fee exposure — NSF and overdraft concentration creates regulatory vulnerability",
           "Expand digital and convenience monetization (mobile, instant transfers)",
-          "Leverage member relationship data for behavior-based fee strategies",
-          "Close the revenue benchmarking gap against bank competitors",
+          "Leverage member data for behavior-based fee strategies",
         ],
       },
       {
         title: "If You Are Behind",
         recommendations: [
-          "Stop benchmarking on price alone — your peers are already commoditized",
+          "Stop benchmarking on price alone — your peers are already effectively commoditized",
           "Start with segmentation: know which customers generate fee revenue and why",
           "Invest in behavioral pricing models before competitors capture the advantage",
-          "Use national fee intelligence to identify where you over- or under-charge",
         ],
       },
     ]),

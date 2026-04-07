@@ -162,7 +162,7 @@ export async function assembleAndRender(
               tightest_spreads: payload.derived.tightest_spreads,
               widest_spreads: payload.derived.widest_spreads,
             },
-            context: `${V3_CONTEXT}\n\nAnalyze fee clustering and commoditization. 2-3 sentences. The data shows tight IQR spreads. What does this mean strategically?`,
+            context: `${V3_CONTEXT}\n\nAnalyze fee clustering. Prices are not identical, but differences are too small to influence customer choice — fees are effectively commoditized. 2-3 sentences. Use "functionally undifferentiated" not "commoditized." What does this mean strategically?`,
           }),
           generateSection({
             type: 'peer_comparison',
@@ -185,7 +185,7 @@ export async function assembleAndRender(
               bank_revenue_share_pct: payload.derived.bank_revenue_share_pct,
               cu_revenue_share_pct: payload.derived.cu_revenue_share_pct,
             },
-            context: `${V3_CONTEXT}\n\nAnalyze service charge revenue concentration. What does the bank vs CU split reveal? 2-3 sentences.`,
+            context: `${V3_CONTEXT}\n\nFrame revenue as concentrated in a few categories. ${payload.revenue ? 'The data confirms fee revenue is dominated by NSF/overdraft with maintenance fees as secondary driver.' : 'Industry data indicates NSF/OD fees dominate revenue, with maintenance fees as secondary driver. Use directional language since exact figures are pending.'} 2-3 sentences.`,
           }),
           generateSection({
             type: 'findings',
@@ -196,7 +196,7 @@ export async function assembleAndRender(
               strong_maturity_count: payload.derived.strong_maturity_count,
               provisional_maturity_count: payload.derived.provisional_maturity_count,
             },
-            context: `${V3_CONTEXT}\n\nDiscuss the lack of standardized fee revenue benchmarking. Position Bank Fee Index as solving this. 2-3 sentences.`,
+            context: `${V3_CONTEXT}\n\nDiscuss the lack of standardized fee revenue benchmarking. Bank Fee Index is building the first national fee revenue benchmark. Position this as closing the industry blind spot. 2-3 sentences.`,
           }),
           generateSection({
             type: 'recommendation',
@@ -206,18 +206,18 @@ export async function assembleAndRender(
               bank_higher_count: payload.derived.bank_higher_count,
               total_institutions: payload.total_institutions,
             },
-            context: `${V3_CONTEXT}\n\nWrite prescriptive guidance on behavioral pricing, bundling, and dynamic fee strategies. 2-3 sentences.`,
+            context: `${V3_CONTEXT}\n\nWrite 5 concrete predictions about fee strategy evolution. Use "will" not "may" — no hedging. Cover behavioral pricing, bundling, dynamic fees, segmentation, and data-driven optimization. 2-3 sentences with certainty.`,
           }),
         ]);
 
         const executive_summary =
           execResult.status === 'fulfilled'
             ? execResult.value
-            : fallbackNarrative('Fee pricing is commoditized across the industry, with limited room for price-based differentiation.');
+            : fallbackNarrative('Fee pricing is effectively commoditized across the industry, with differences too small to influence customer choice.');
         const fee_differentiation =
           diffResult.status === 'fulfilled'
             ? diffResult.value
-            : fallbackNarrative('IQR spreads reveal tight clustering — pricing alone does not differentiate.');
+            : fallbackNarrative('IQR spreads reveal tight clustering — fees are functionally undifferentiated, and pricing alone does not create competitive advantage.');
         const banks_vs_credit_unions =
           charterResult.status === 'fulfilled'
             ? charterResult.value
