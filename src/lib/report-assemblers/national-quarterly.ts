@@ -36,6 +36,32 @@ export interface NationalQuarterlySection {
   cu_count: number;
 }
 
+export interface DerivedAnalytics {
+  // Ch1: Fee Differentiation analysis
+  avg_iqr_spread_pct: number | null;
+  commoditized_count: number;
+  total_priced_categories: number;
+  tightest_spreads: Array<{ display_name: string; spread_pct: number; median: number }>;
+  widest_spreads: Array<{ display_name: string; spread_pct: number; median: number }>;
+
+  // Ch2: Bank vs CU comparison
+  bank_higher_count: number;
+  cu_higher_count: number;
+  comparable_count: number;
+  biggest_bank_premiums: Array<{ display_name: string; bank_median: number; cu_median: number; diff_pct: number }>;
+  biggest_cu_premiums: Array<{ display_name: string; bank_median: number; cu_median: number; diff_pct: number }>;
+
+  // Ch3: Revenue concentration
+  revenue_per_institution: number | null;
+  bank_revenue_share_pct: number | null;
+  cu_revenue_share_pct: number | null;
+
+  // General
+  categories_with_data_count: number;
+  strong_maturity_count: number;
+  provisional_maturity_count: number;
+}
+
 export interface NationalQuarterlyPayload {
   report_date: string;
   quarter: string;
@@ -64,6 +90,8 @@ export interface NationalQuarterlyPayload {
     headline: string;
     release_date: string;
   }>;
+  // V3 derived analytics
+  derived: DerivedAnalytics;
   manifest: DataManifest;
 }
 
@@ -230,9 +258,83 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
   void bankInstitutionSet;
   void cuInstitutionSet;
 
+  // ── V3 Derived Analytics ──────────────────────────────────────────────────
+  const spreads = categories
+    .filter((c) => c.median_amount !== null && c.median_amount > 0.5 && c.p25_amount !== null && c.p75_amount !== null)
+    .map((c) => ({
+      display_name: c.display_name,
+      spread_pct: ((c.p75_amount! - c.p25_amount!) / c.median_amount!) * 100,
+      median: c.median_amount!,
+    }));
+
+  const sortedBySpreadAsc = [...spreads].sort((a, b) => a.spread_pct - b.spread_pct);
+  const sortedBySpreadDesc = [...spreads].sort((a, b) => b.spread_pct - a.spread_pct);
+
+  const commoditized_count = spreads.filter((s) => s.spread_pct < 30).length;
+  const avg_iqr_spread_pct = spreads.length > 0
+    ? spreads.reduce((sum, s) => sum + s.spread_pct, 0) / spreads.length
+    : null;
+
+  // Bank vs CU comparison
+  const comparableCategories = categories.filter(
+    (c) => c.bank_count > 0 && c.cu_count > 0 && c.bank_median !== null && c.cu_median !== null
+  );
+  const bank_higher_count = comparableCategories.filter((c) => c.bank_median! > c.cu_median!).length;
+  const cu_higher_count = comparableCategories.filter((c) => c.cu_median! > c.bank_median!).length;
+
+  const bankPremiums = comparableCategories
+    .filter((c) => c.cu_median! > 0)
+    .map((c) => ({
+      display_name: c.display_name,
+      bank_median: c.bank_median!,
+      cu_median: c.cu_median!,
+      diff_pct: ((c.bank_median! - c.cu_median!) / c.cu_median!) * 100,
+    }));
+
+  const sortedBankPremium = [...bankPremiums].sort((a, b) => b.diff_pct - a.diff_pct);
+  const sortedCuPremium = [...bankPremiums].sort((a, b) => a.diff_pct - b.diff_pct);
+
+  // Revenue concentration
+  let revenue_per_institution: number | null = null;
+  let bank_revenue_share_pct: number | null = null;
+  let cu_revenue_share_pct: number | null = null;
+  if (revenue && revenue.total_service_charges > 0) {
+    revenue_per_institution = revenue.total_institutions > 0
+      ? revenue.total_service_charges / revenue.total_institutions
+      : null;
+    bank_revenue_share_pct = (revenue.bank_service_charges / revenue.total_service_charges) * 100;
+    cu_revenue_share_pct = (revenue.cu_service_charges / revenue.total_service_charges) * 100;
+  }
+
+  // Maturity counts
+  const strong_maturity_count = categories.filter((c) => c.maturity_tier === "strong").length;
+  const provisional_maturity_count = categories.filter((c) => c.maturity_tier === "provisional").length;
+
+  const derived: DerivedAnalytics = {
+    avg_iqr_spread_pct,
+    commoditized_count,
+    total_priced_categories: spreads.length,
+    tightest_spreads: sortedBySpreadAsc.slice(0, 5),
+    widest_spreads: sortedBySpreadDesc.slice(0, 5),
+    bank_higher_count,
+    cu_higher_count,
+    comparable_count: comparableCategories.length,
+    biggest_bank_premiums: sortedBankPremium.filter((p) => p.diff_pct > 0).slice(0, 5),
+    biggest_cu_premiums: sortedCuPremium.filter((p) => p.diff_pct < 0).slice(0, 5).map((p) => ({
+      ...p,
+      diff_pct: Math.abs(p.diff_pct),
+    })),
+    revenue_per_institution,
+    bank_revenue_share_pct,
+    cu_revenue_share_pct,
+    categories_with_data_count: categories.filter((c) => c.median_amount !== null).length,
+    strong_maturity_count,
+    provisional_maturity_count,
+  };
+
   // Compute data_hash over assembled payload content
   const data_hash = createHash("sha256")
-    .update(JSON.stringify({ categories, district_headlines, revenue, fred }))
+    .update(JSON.stringify({ categories, district_headlines, revenue, fred, derived }))
     .digest("hex");
 
   const pipeline_commit = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
@@ -247,6 +349,7 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
     revenue,
     fred,
     district_headlines,
+    derived,
     manifest: {
       queries: manifestEntries,
       data_hash,
