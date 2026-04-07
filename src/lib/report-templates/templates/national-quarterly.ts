@@ -30,6 +30,10 @@ import {
   insightCardRow,
   comparisonChart,
   playbook,
+  layoutAnalytical,
+  layoutStatement,
+  revenuePyramid,
+  dataFramework,
   PALETTE,
 } from "../index";
 
@@ -262,8 +266,6 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
 
   // ── Ch3: Where the Money Actually Comes From ─────────────────────────────
   // Revenue proxy model: estimate impact from fee prevalence and median amount.
-  // Categories with highest institution_count AND highest medians are the biggest
-  // revenue drivers. estimated_impact = median_amount * institution_count.
   const revenueProxy = data.categories
     .filter((c) => c.median_amount !== null && c.median_amount > 0 && c.institution_count > 0)
     .map((c) => ({
@@ -274,8 +276,8 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     }))
     .sort((a, b) => b.estimated_impact - a.estimated_impact);
 
-  const primaryDrivers = revenueProxy.slice(0, 3);
-  const secondaryDrivers = revenueProxy.slice(3, 8);
+  const primaryDriverNames = revenueProxy.slice(0, 3).map((r) => r.display_name).join(" / ");
+  const secondaryDriverNames = revenueProxy.slice(3, 8).map((r) => r.display_name).join(", ");
   const longTailCount = Math.max(revenueProxy.length - 8, 0);
 
   const ch3Sections: string[] = [
@@ -283,91 +285,80 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     chapterDivider("03", "Where the Money Actually Comes From"),
   ];
 
+  // Revenue concentration pyramid — always shown
+  ch3Sections.push(
+    revenuePyramid([
+      {
+        label: primaryDriverNames,
+        description: "Primary Revenue Drivers",
+        widthPct: 30,
+      },
+      {
+        label: secondaryDriverNames,
+        description: "Secondary Drivers",
+        widthPct: 55,
+      },
+      {
+        label: `${longTailCount} Other Categories`,
+        description: "Long Tail -- Minimal Revenue",
+        widthPct: 90,
+      },
+    ])
+  );
+
   if (data.revenue) {
-    // Real revenue data path
-    const revPerInst = d.revenue_per_institution !== null
-      ? `$${(d.revenue_per_institution / 1_000_000).toFixed(1)}M`
-      : "\u2014";
+    // Real revenue data path — filter out $0 values
+    const revenueCards: Array<{ label: string; value: string; delta?: string; source?: string }> = [];
 
-    ch3Sections.push(
-      statCardRow([
-        {
-          label: "Total Service Charges",
-          value: fmtBillions(data.revenue.total_service_charges),
-          delta: data.revenue.yoy_change_pct !== null ? `${data.revenue.yoy_change_pct > 0 ? "+" : ""}${data.revenue.yoy_change_pct.toFixed(1)}% YoY` : undefined,
-          source: data.revenue.latest_quarter,
-        },
-        {
-          label: "Revenue per Institution",
-          value: revPerInst,
-          source: `${data.revenue.total_institutions.toLocaleString()} reporting institutions`,
-        },
-        {
-          label: "Reporting Institutions",
-          value: data.revenue.total_institutions.toLocaleString(),
-          source: "FDIC + NCUA filings",
-        },
-      ])
-    );
+    if (data.revenue.total_service_charges > 0) {
+      revenueCards.push({
+        label: "Total Service Charges",
+        value: fmtBillions(data.revenue.total_service_charges),
+        delta: data.revenue.yoy_change_pct !== null ? `${data.revenue.yoy_change_pct > 0 ? "+" : ""}${data.revenue.yoy_change_pct.toFixed(1)}% YoY` : undefined,
+        source: data.revenue.latest_quarter,
+      });
+    }
 
-    // Revenue contribution bar chart using proxy ranking
-    ch3Sections.push(
-      horizontalBarChart({
-        bars: revenueProxy.slice(0, 8).map((r) => ({
-          label: r.display_name,
-          value: r.estimated_impact,
-          displayValue: `$${r.median.toFixed(2)} \u00d7 ${r.institutions.toLocaleString()}`,
-        })),
-        title: "Estimated Revenue Contribution (Median x Institution Count)",
-        source: `Bank Fee Index \u2014 ${data.total_institutions.toLocaleString()} institutions`,
-      })
-    );
-  } else {
-    // Proxy mode — no Call Report data available
-    ch3Sections.push(
-      keyFinding(
-        "Fee revenue is highly concentrated \u2014 but most institutions don't measure it",
-        "Revenue Proxy Model",
-      )
-    );
+    if (d.revenue_per_institution !== null && d.revenue_per_institution > 0) {
+      revenueCards.push({
+        label: "Revenue per Institution",
+        value: `$${(d.revenue_per_institution / 1_000_000).toFixed(1)}M`,
+        source: `${data.revenue.total_institutions.toLocaleString()} reporting institutions`,
+      });
+    }
 
-    ch3Sections.push(
-      statCardRow([
-        {
-          label: "Primary Revenue Drivers",
-          value: "3 categories",
-          source: primaryDrivers.map((d) => d.display_name).join(", "),
-        },
-        {
-          label: "Secondary Drivers",
-          value: `${secondaryDrivers.length} categories`,
-          source: secondaryDrivers.map((d) => d.display_name).join(", "),
-        },
-        {
-          label: "Long Tail",
-          value: `${longTailCount} categories`,
-          source: "Minimal revenue contribution",
-        },
-      ])
-    );
+    if (data.revenue.total_institutions > 0) {
+      revenueCards.push({
+        label: "Reporting Institutions",
+        value: data.revenue.total_institutions.toLocaleString(),
+        source: "FDIC + NCUA filings",
+      });
+    }
 
-    // Proxy revenue bar chart
-    ch3Sections.push(
-      horizontalBarChart({
-        bars: revenueProxy.slice(0, 8).map((r) => ({
-          label: r.display_name,
-          value: r.estimated_impact,
-          displayValue: `$${r.median.toFixed(2)} \u00d7 ${r.institutions.toLocaleString()}`,
-        })),
-        title: "Estimated Revenue Impact (Median Fee x Institution Count)",
-        source: `Bank Fee Index \u2014 proxy model based on ${data.total_institutions.toLocaleString()} institutions`,
-      })
-    );
+    if (revenueCards.length > 0) {
+      ch3Sections.push(statCardRow(revenueCards));
+    }
   }
 
-  // Framing text — direct template string, not Hamilton narrative
+  // Revenue contribution bar chart (proxy ranking) — after pyramid
   ch3Sections.push(
-    `<p class="report-narrative" style="font-style:italic;color:${PALETTE.textSecondary};">This analysis combines observed pricing data with inferred revenue dynamics based on national reporting frameworks.</p>`
+    horizontalBarChart({
+      bars: revenueProxy.slice(0, 8).map((r) => ({
+        label: r.display_name,
+        value: r.estimated_impact,
+        displayValue: `$${r.median.toFixed(2)} \u00d7 ${r.institutions.toLocaleString()}`,
+      })),
+      title: "Estimated Revenue Contribution (Median x Institution Count)",
+      source: `Bank Fee Index \u2014 ${data.total_institutions.toLocaleString()} institutions`,
+    })
+  );
+
+  // National Data Framework block
+  ch3Sections.push(
+    dataFramework(
+      "National Fee Revenue Framework",
+      `This analysis integrates FDIC Call Report service charge data, NCUA 5300 credit union filings, and observed pricing across ${data.total_institutions.toLocaleString()} institutions. Because fee revenue is not reported at the category level, this report models revenue concentration using median fee amounts, institutional prevalence, and regulatory reporting totals.`,
+    )
   );
 
   ch3Sections.push(hamiltonNarrativeBlock(narratives.revenue_reality.narrative));
@@ -499,17 +490,19 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     }),
   ].join("\n");
 
-  // ── Assemble ───────────────────────────────────────────────────────────────
+  // ── Assemble with layout wrappers ───────────────────────────────────────────
+  // Layout A (analytical, left-aligned): Chapters 1-4
+  // Layout B (statement, centered cards/headers): Exec Summary, Ch5, Playbook
   const body = [
     cover,
     toc,
-    execSummary,
-    ch1,
-    ch2,
-    ch3,
-    ch4,
-    ch5,
-    playbookSection,
+    layoutStatement(execSummary),
+    layoutAnalytical(ch1),
+    layoutAnalytical(ch2),
+    layoutAnalytical(ch3),
+    layoutAnalytical(ch4),
+    layoutStatement(ch5),
+    layoutStatement(playbookSection),
     methodology,
     appendix,
   ]

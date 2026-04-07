@@ -31,6 +31,10 @@ export {
   insightCardRow,
   comparisonChart,
   playbook,
+  layoutAnalytical,
+  layoutStatement,
+  revenuePyramid,
+  dataFramework,
 } from "./base/components";
 
 export type {
@@ -48,6 +52,7 @@ export type {
   ComparisonChartProps,
   ComparisonChartBar,
   PlaybookSegment,
+  RevenuePyramidTier,
 } from "./base/components";
 
 export { PALETTE, TYPOGRAPHY, REPORT_CSS } from "./base/styles";

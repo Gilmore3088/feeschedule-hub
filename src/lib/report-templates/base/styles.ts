@@ -889,6 +889,100 @@ body {
   color: ${PALETTE.accent};
 }
 
+/* Layout wrappers */
+.layout-analytical {
+  text-align: left;
+}
+
+.layout-statement {
+  text-align: left;
+}
+
+.layout-statement .stat-cards {
+  justify-content: center;
+}
+
+.layout-statement .chapter-divider {
+  text-align: center;
+}
+
+.layout-statement .insight-cards {
+  justify-content: center;
+}
+
+/* Revenue concentration pyramid */
+.revenue-pyramid {
+  max-width: 500px;
+  margin: 24px auto;
+}
+
+.pyramid-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.pyramid-bar {
+  background: ${PALETTE.accent};
+  height: 40px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.pyramid-tier-1 .pyramid-bar {
+  opacity: 1.0;
+}
+
+.pyramid-tier-2 .pyramid-bar {
+  opacity: 0.6;
+}
+
+.pyramid-tier-3 .pyramid-bar {
+  opacity: 0.3;
+}
+
+.pyramid-label {
+  color: #fff;
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pyramid-desc {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 11px;
+  color: ${PALETTE.textSecondary};
+  white-space: nowrap;
+}
+
+/* Data framework block */
+.data-framework {
+  background: ${PALETTE.sectionBg};
+  border-left: 3px solid ${PALETTE.accent};
+  padding: 20px 24px;
+  border-radius: 0 8px 8px 0;
+  margin: 20px 0;
+}
+
+.data-framework-title {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 11px;
+  font-weight: 700;
+  color: ${PALETTE.textDark3};
+  margin-bottom: 6px;
+}
+
+.data-framework-body {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 12px;
+  color: ${PALETTE.textSecondary};
+  line-height: 1.7;
+}
+
 /* Print overrides */
 @media print {
   .report-cover {

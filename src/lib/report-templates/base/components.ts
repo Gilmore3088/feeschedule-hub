@@ -598,5 +598,64 @@ export function playbook(segments: PlaybookSegment[]): string {
 </div>`;
 }
 
+// ─── Layout Wrappers ──────────────────────────────────────────────────────────
+
+/**
+ * Layout A: Analytical (left-aligned) — Chapters 1-4.
+ * Default text alignment, data-forward presentation.
+ */
+export function layoutAnalytical(content: string): string {
+  return `<div class="layout-analytical">${content}</div>`;
+}
+
+/**
+ * Layout B: Statement (centered) — Executive Summary, Chapter 5, Playbook.
+ * Centered stat cards, chapter dividers, and insight card rows.
+ * Body text remains left-aligned for readability.
+ */
+export function layoutStatement(content: string): string {
+  return `<div class="layout-statement">${content}</div>`;
+}
+
+// ─── Revenue Concentration Pyramid ────────────────────────────────────────────
+
+export interface RevenuePyramidTier {
+  label: string;
+  description: string;
+  widthPct: number;   // bar width as percentage (e.g. 30, 55, 90)
+}
+
+/**
+ * Simple HTML/CSS pyramid showing revenue concentration across fee tiers.
+ * Top tier is narrowest (highest impact), bottom is widest (long tail).
+ */
+export function revenuePyramid(tiers: RevenuePyramidTier[]): string {
+  const tiersHtml = tiers
+    .map((tier, i) => `
+  <div class="pyramid-tier pyramid-tier-${i + 1}">
+    <div class="pyramid-bar" style="width:${tier.widthPct}%;">
+      <span class="pyramid-label">${escapeHtml(tier.label)}</span>
+    </div>
+    <span class="pyramid-desc">${escapeHtml(tier.description)}</span>
+  </div>`)
+    .join("");
+
+  return `<div class="revenue-pyramid">${tiersHtml}\n</div>`;
+}
+
+// ─── Data Framework Block ─────────────────────────────────────────────────────
+
+/**
+ * Styled callout block explaining the data methodology.
+ * Cream background with terracotta left border.
+ */
+export function dataFramework(title: string, body: string): string {
+  return `
+<div class="data-framework">
+  <div class="data-framework-title">${escapeHtml(title)}</div>
+  <div class="data-framework-body">${escapeHtml(body)}</div>
+</div>`;
+}
+
 // Keep PALETTE accessible to any component that needs inline style overrides
 export { PALETTE };
