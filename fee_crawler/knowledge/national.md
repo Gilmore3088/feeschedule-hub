@@ -83,3 +83,19 @@
 - Discovery strategy should systematically check compliance/disclosures/security pages, not just homepage and primary navigation
 - Need better filtering to distinguish between general disclosure pages and actual fee schedule pages during discovery phase
 - Prioritize PDF extraction reliability; current PDF failures in ME may indicate extraction logic gaps specific to banking fee PDFs
+
+## Promoted — 2026-04-06
+- Credit unions outperform banks in SD dataset - 5 credit unions all extracted successfully (total 194 fees) vs mixed results for banks, suggesting credit unions may publish fee schedules more consistently or in more extraction-friendly formats
+
+## Promoted — 2026-04-06
+- Add /disclosures to standard discovery paths for financial institutions
+- JS-rendered pages require validation that content fully loads before extraction; discovery success doesn't guarantee extraction success
+- Validate URL format before navigation attempts to prevent net::ERR_NAME_NOT_RESOLVED failures
+- Regulation E PDFs should be revisited with alternative extraction methods; format may differ from standard fee schedules
+- Prioritize homepage link extraction before navigating to nested account pages
+- Document institutions confirmed to not publish fee schedules publicly; avoid repeated discovery attempts
+- HTML-rendered fee schedules have higher extraction success than JS-rendered alternatives
+
+## Promoted — 2026-04-06
+- PDF extraction reliability is a critical bottleneck - Trugrocer, Lookout, and Connections FCUs all had discoverable PDFs but zero fees extracted. Investigate PDF parsing/OCR quality issues.
+- Manual curation of direct fee schedule URLs significantly outperforms automated discovery for this state
