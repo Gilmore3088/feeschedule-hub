@@ -8,7 +8,6 @@ export interface InstitutionFinancial {
   total_deposits: number | null;
   total_loans: number | null;
   service_charge_income: number | null;
-  overdraft_revenue: number | null;
   other_noninterest_income: number | null;
   net_interest_margin: number | null;
   efficiency_ratio: number | null;
@@ -61,8 +60,7 @@ export async function getFinancialsByInstitution(
            net_interest_margin, efficiency_ratio,
            roa, roe, tier1_capital_ratio,
            branch_count, employee_count, member_count,
-           total_revenue, fee_income_ratio,
-           overdraft_revenue
+           total_revenue, fee_income_ratio
     FROM institution_financials
     WHERE crawl_target_id = ${targetId}
     ORDER BY report_date DESC`;
@@ -91,7 +89,6 @@ export async function getFinancialsByInstitution(
     member_count: numOrNull(r.member_count),
     total_revenue: numOrNull(r.total_revenue),
     fee_income_ratio: numOrNull(r.fee_income_ratio),
-    overdraft_revenue: numOrNull(r.overdraft_revenue),
   }));
 }
 

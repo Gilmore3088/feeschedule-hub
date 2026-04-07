@@ -13,10 +13,6 @@ import { z } from "zod";
 import { HAMILTON_SYSTEM_PROMPT } from "@/lib/hamilton/voice";
 import { publicTools } from "@/lib/research/tools";
 import { internalTools } from "@/lib/research/tools-internal";
-import { getRevenueTrend } from "@/lib/crawler-db/call-reports";
-import { getNationalEconomicSummary, getNationalBeigeBookSummary } from "@/lib/crawler-db/fed";
-import { getIndustryHealthMetrics } from "@/lib/crawler-db/health";
-import { getRevenueConcentration, getFeeDependencyRatio, getRevenuePerInstitution } from "@/lib/crawler-db/derived";
 
 // Allowlist for report types passed to the report engine (T-17-01)
 const VALID_REPORT_TYPES = new Set([
@@ -110,52 +106,13 @@ RESPONSE FORMAT:
 - Complex analyses (geographic scope, peer comparison, multi-category trends): produce a structured mini-report in markdown with ### headings, data tables, and a "## Key Finding" pull-quote section at the conclusion.
 - When triggering a report, confirm the report type and parameters before calling triggerReport, then inform the user the report is generating.
 
-Use the queryNationalData tool for national-level analysis. Call with section='all' for comprehensive analysis or target specific sections (callReports, fred, beigeBook, health, derived) for focused queries. This tool provides Call Report revenue trends, FRED economic indicators, Beige Book narratives, industry health metrics, and derived analytics including revenue concentration and fee dependency ratios.
-
 Today's date: ${today}. Always ground analysis in tool results — never invent statistics.`;
 }
 
 /**
- * Build the Hamilton tool set — all public + admin internal tools + report trigger + national data.
+ * Build the Hamilton tool set — all public + admin internal tools + report trigger.
  */
 export function buildHamiltonTools() {
-  const queryNationalData = tool({
-    description:
-      "Get national summary data for analysis. Returns Call Report revenue trends, FRED economic indicators, Beige Book narratives, industry health metrics, and/or derived analytics (revenue concentration, fee dependency, revenue-per-institution). Use section='all' for a complete national picture or target a specific section to reduce token usage.",
-    inputSchema: z.object({
-      section: z
-        .enum(["callReports", "fred", "beigeBook", "health", "derived", "all"])
-        .default("all")
-        .describe(
-          "Which data section to return. Use 'all' for full picture, or a specific section for targeted analysis."
-        ),
-    }),
-    execute: async ({ section }) => {
-      const result: Record<string, unknown> = {};
-      const load = async (key: string, fn: () => Promise<unknown>) => {
-        if (section === "all" || section === key) {
-          try {
-            result[key] = await fn();
-          } catch {
-            result[key] = null;
-          }
-        }
-      };
-      await Promise.all([
-        load("callReports", () => getRevenueTrend(8)),
-        load("fred", getNationalEconomicSummary),
-        load("beigeBook", getNationalBeigeBookSummary),
-        load("health", getIndustryHealthMetrics),
-        load("derived", async () => ({
-          concentration: await getRevenueConcentration(5),
-          dependency: await getFeeDependencyRatio(),
-          perInstitution: await getRevenuePerInstitution(),
-        })),
-      ]);
-      return result;
-    },
-  });
-
   const triggerReport = tool({
     description:
       "Trigger a structured report for a geographic area or national index. Use when the user asks to generate, create, or produce a report. Returns a jobId — inform the user the report is being generated.",
@@ -184,11 +141,6 @@ export function buildHamiltonTools() {
         };
       }
 
-      const cronSecret = process.env.BFI_REVALIDATE_TOKEN;
-      if (!cronSecret) {
-        return { error: "Report generation is not configured (missing BFI_REVALIDATE_TOKEN)." };
-      }
-
       const baseUrl =
         process.env.BFI_APP_URL ||
         process.env.NEXT_PUBLIC_SITE_URL ||
@@ -200,7 +152,7 @@ export function buildHamiltonTools() {
           headers: {
             "Content-Type": "application/json",
             // Pass internal cron secret so the report route accepts this request
-            "X-Cron-Secret": cronSecret,
+            "X-Cron-Secret": process.env.BFI_REVALIDATE_TOKEN ?? "",
           },
           body: JSON.stringify({ report_type, params: params ?? {} }),
         });
@@ -232,6 +184,5 @@ export function buildHamiltonTools() {
     ...publicTools,
     ...internalTools,
     triggerReport,
-    queryNationalData,
   };
 }

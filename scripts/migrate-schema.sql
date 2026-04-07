@@ -143,7 +143,6 @@ CREATE TABLE IF NOT EXISTS institution_financials (
     total_deposits          BIGINT,
     total_loans             BIGINT,
     service_charge_income   BIGINT,
-    overdraft_revenue       BIGINT,
     other_noninterest_income BIGINT,
     net_interest_margin     FLOAT,
     efficiency_ratio        FLOAT,
@@ -723,8 +722,3 @@ INSERT INTO platform_registry (platform, fee_paths) VALUES
     ('fis',       ARRAY['/digitalbanking/fees', '/personal-banking/fees']),
     ('ncr',       ARRAY['/d3banking/fees', '/ncr/fee-schedule'])
 ON CONFLICT DO NOTHING;
-
--- ── MIGRATIONS ─────────────────────────────────────────────────────────────
--- Phase 25 gap closure: overdraft_revenue for DERIVE-02
-ALTER TABLE institution_financials
-  ADD COLUMN IF NOT EXISTS overdraft_revenue BIGINT;

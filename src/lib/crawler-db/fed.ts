@@ -1,113 +1,4 @@
-import { sql, getSql } from "./connection";
-
-export interface RichIndicator {
-  current: number;
-  history: { date: string; value: number }[];
-  trend: "rising" | "falling" | "stable";
-  asOf: string;
-}
-
-export interface NationalEconomicSummary {
-  fed_funds_rate: RichIndicator | null;
-  unemployment_rate: RichIndicator | null;
-  cpi_yoy_pct: RichIndicator | null;
-  consumer_sentiment: RichIndicator | null;
-}
-
-function buildTrend(history: { date: string; value: number }[]): "rising" | "falling" | "stable" {
-  if (history.length < 2) return "stable";
-  const diff = history[0].value - history[1].value;
-  if (Math.abs(diff) < 0.001) return "stable";
-  return diff > 0 ? "rising" : "falling";
-}
-
-async function getRichIndicator(
-  seriesId: string,
-  limit = 12
-): Promise<RichIndicator | null> {
-  const db = getSql();
-  try {
-    const rows = await db.unsafe(
-      `SELECT observation_date, value
-       FROM fed_economic_indicators
-       WHERE series_id = $1 AND value IS NOT NULL
-       ORDER BY observation_date DESC
-       LIMIT $2`,
-      [seriesId, limit]
-    ) as { observation_date: string | Date; value: string }[];
-
-    if (rows.length === 0) return null;
-
-    const history = rows.map((r) => ({
-      date: r.observation_date instanceof Date
-        ? r.observation_date.toISOString().slice(0, 10)
-        : String(r.observation_date),
-      value: Number(r.value),
-    }));
-
-    return {
-      current: history[0].value,
-      history,
-      trend: buildTrend(history),
-      asOf: history[0].date,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function getCpiYoyRichIndicator(limit = 14): Promise<RichIndicator | null> {
-  const db = getSql();
-  try {
-    const rows = await db.unsafe(
-      `SELECT observation_date, value
-       FROM fed_economic_indicators
-       WHERE series_id = 'CPIAUCSL' AND value IS NOT NULL
-       ORDER BY observation_date DESC
-       LIMIT $1`,
-      [limit]
-    ) as { observation_date: string | Date; value: string }[];
-
-    if (rows.length < 13) return null;
-
-    // Build YoY series: for each month, compute YoY vs 12 months prior
-    const history: { date: string; value: number }[] = [];
-    for (let i = 0; i + 12 < rows.length; i++) {
-      const current = Number(rows[i].value);
-      const prior = Number(rows[i + 12].value);
-      if (prior > 0) {
-        const obsDate = rows[i].observation_date;
-        const date = (obsDate as unknown) instanceof Date
-          ? (obsDate as unknown as Date).toISOString().slice(0, 10)
-          : String(obsDate);
-        history.push({ date, value: ((current - prior) / prior) * 100 });
-      }
-    }
-
-    if (history.length === 0) return null;
-
-    return {
-      current: history[0].value,
-      history,
-      trend: buildTrend(history),
-      asOf: history[0].date,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function getNationalEconomicSummary(): Promise<NationalEconomicSummary> {
-  const [fed_funds_rate, unemployment_rate, cpi_yoy_pct, consumer_sentiment] =
-    await Promise.all([
-      getRichIndicator("FEDFUNDS"),
-      getRichIndicator("UNRATE"),
-      getCpiYoyRichIndicator(),
-      getRichIndicator("UMCSENT"),
-    ]);
-
-  return { fed_funds_rate, unemployment_rate, cpi_yoy_pct, consumer_sentiment };
-}
+import { sql } from "./connection";
 
 export interface BeigeBookSection {
   id: number;
@@ -288,6 +179,209 @@ export async function getBeigeBookHeadlines(): Promise<Map<number, { text: strin
     return map;
   } catch {
     return new Map();
+  }
+}
+
+// --- Rich Indicator (history + trend for sparklines) ---
+
+export interface RichIndicator {
+  current: number;
+  history: { date: string; value: number }[];
+  trend: "rising" | "falling" | "stable";
+  asOf: string;
+}
+
+export interface NationalEconomicSummary {
+  fed_funds_rate: RichIndicator | null;
+  unemployment_rate: RichIndicator | null;
+  cpi_yoy_pct: RichIndicator | null;
+  consumer_sentiment: RichIndicator | null;
+}
+
+export interface DistrictBeigeBookSummary {
+  district_number: number;
+  district_name: string;
+  summary: string;
+  themes: string[];
+  release_date: string;
+}
+
+const DISTRICT_NAMES: Record<number, string> = {
+  1: "Boston",
+  2: "New York",
+  3: "Philadelphia",
+  4: "Cleveland",
+  5: "Richmond",
+  6: "Atlanta",
+  7: "Chicago",
+  8: "St. Louis",
+  9: "Minneapolis",
+  10: "Kansas City",
+  11: "Dallas",
+  12: "San Francisco",
+};
+
+async function buildRichIndicator(
+  seriesId: string,
+  historyLimit = 12
+): Promise<RichIndicator | null> {
+  try {
+    const rows = await sql`
+      SELECT observation_date, value
+      FROM fed_economic_indicators
+      WHERE series_id = ${seriesId}
+        AND value IS NOT NULL
+      ORDER BY observation_date DESC
+      LIMIT ${historyLimit}
+    ` as { observation_date: string | Date; value: number | string }[];
+
+    if (rows.length === 0) return null;
+
+    const parsed = rows.map((r) => ({
+      date: r.observation_date instanceof Date
+        ? r.observation_date.toISOString().slice(0, 10)
+        : String(r.observation_date),
+      value: Number(r.value),
+    }));
+
+    const current = parsed[0].value;
+    const asOf = parsed[0].date;
+
+    let trend: "rising" | "falling" | "stable" = "stable";
+    if (parsed.length >= 3) {
+      const recent = parsed.slice(0, 3).reduce((sum, p) => sum + p.value, 0) / 3;
+      const older = parsed.slice(-3).reduce((sum, p) => sum + p.value, 0) / 3;
+      const delta = recent - older;
+      if (Math.abs(delta) < 0.05 * Math.abs(older || 1)) {
+        trend = "stable";
+      } else {
+        trend = delta > 0 ? "rising" : "falling";
+      }
+    }
+
+    return { current, history: parsed, trend, asOf };
+  } catch {
+    return null;
+  }
+}
+
+export async function getNationalEconomicSummary(): Promise<NationalEconomicSummary> {
+  const [fedFunds, unemployment, cpiRows, consumerSentiment] = await Promise.all([
+    buildRichIndicator("FEDFUNDS"),
+    buildRichIndicator("UNRATE"),
+    (async (): Promise<RichIndicator | null> => {
+      // CPI YoY: compute rolling 12-month change from index levels
+      try {
+        const rows = await sql`
+          SELECT observation_date, value
+          FROM fed_economic_indicators
+          WHERE series_id = 'CPIAUCSL' AND value IS NOT NULL
+          ORDER BY observation_date DESC
+          LIMIT 24
+        ` as { observation_date: string | Date; value: number | string }[];
+
+        if (rows.length < 13) return null;
+
+        const parsed = rows.map((r) => ({
+          date: r.observation_date instanceof Date
+            ? r.observation_date.toISOString().slice(0, 10)
+            : String(r.observation_date),
+          value: Number(r.value),
+        }));
+
+        // Build YoY history for up to 12 points
+        const yoyHistory: { date: string; value: number }[] = [];
+        for (let i = 0; i < parsed.length - 12; i++) {
+          const current = parsed[i].value;
+          const prior = parsed[i + 12].value;
+          if (prior > 0) {
+            yoyHistory.push({
+              date: parsed[i].date,
+              value: ((current - prior) / prior) * 100,
+            });
+          }
+        }
+
+        if (yoyHistory.length === 0) return null;
+
+        const current = yoyHistory[0].value;
+        const asOf = yoyHistory[0].date;
+
+        let trend: "rising" | "falling" | "stable" = "stable";
+        if (yoyHistory.length >= 3) {
+          const delta = yoyHistory[0].value - yoyHistory[Math.min(2, yoyHistory.length - 1)].value;
+          trend = Math.abs(delta) < 0.1 ? "stable" : delta > 0 ? "rising" : "falling";
+        }
+
+        return { current, history: yoyHistory, trend, asOf };
+      } catch {
+        return null;
+      }
+    })(),
+    buildRichIndicator("UMCSENT"),
+  ]);
+
+  return {
+    fed_funds_rate: fedFunds,
+    unemployment_rate: unemployment,
+    cpi_yoy_pct: cpiRows,
+    consumer_sentiment: consumerSentiment,
+  };
+}
+
+export async function getDistrictBeigeBookSummaries(
+  limit = 12
+): Promise<DistrictBeigeBookSummary[]> {
+  try {
+    // Fetch the latest Beige Book summary section per district
+    const rows = await sql`
+      SELECT DISTINCT ON (bb.fed_district)
+        bb.fed_district,
+        bb.content_text,
+        bb.release_date
+      FROM fed_beige_book bb
+      WHERE bb.section_name = 'Summary of Economic Activity'
+        AND bb.fed_district IS NOT NULL
+      ORDER BY bb.fed_district, bb.release_date DESC
+      LIMIT ${limit}
+    ` as { fed_district: number; content_text: string; release_date: string | Date }[];
+
+    return rows.map((row) => {
+      const districtNum = Number(row.fed_district);
+      const districtName = DISTRICT_NAMES[districtNum] ?? `District ${districtNum}`;
+
+      // Truncate summary to ~300 chars
+      const fullText = row.content_text ?? "";
+      const summary = fullText.length > 300
+        ? fullText.slice(0, 297) + "..."
+        : fullText;
+
+      // Extract simple themes from first few sentences (keywords)
+      const themes: string[] = [];
+      const lc = fullText.toLowerCase();
+      if (lc.includes("employment") || lc.includes("labor")) themes.push("Labor Market");
+      if (lc.includes("inflation") || lc.includes("prices")) themes.push("Inflation");
+      if (lc.includes("consumer") || lc.includes("spending")) themes.push("Consumer Spending");
+      if (lc.includes("manufacturing") || lc.includes("industrial")) themes.push("Manufacturing");
+      if (lc.includes("real estate") || lc.includes("housing")) themes.push("Real Estate");
+      if (lc.includes("lending") || lc.includes("credit") || lc.includes("loan")) themes.push("Credit");
+      if (lc.includes("agriculture") || lc.includes("farm")) themes.push("Agriculture");
+      if (lc.includes("energy") || lc.includes("oil")) themes.push("Energy");
+
+      const releaseDate = row.release_date instanceof Date
+        ? row.release_date.toISOString().slice(0, 10)
+        : String(row.release_date);
+
+      return {
+        district_number: districtNum,
+        district_name: districtName,
+        summary,
+        themes: themes.slice(0, 4),
+        release_date: releaseDate,
+      };
+    });
+  } catch {
+    return [];
   }
 }
 
