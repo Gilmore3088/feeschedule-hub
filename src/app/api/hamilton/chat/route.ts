@@ -196,6 +196,8 @@ export async function POST(request: Request) {
     return result.toUIMessageStreamResponse();
   } catch (err) {
     const message = err instanceof Error ? err.message : "An unexpected error occurred";
+    const stack = err instanceof Error ? err.stack : "";
+    console.error("[hamilton/chat] Error:", message, "\nStack:", stack);
 
     if (message.includes("authentication") || message.includes("API key")) {
       return Response.json(
@@ -211,7 +213,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-      { error: "Failed to process your question. Please try again." },
+      { error: `Hamilton error: ${message}` },
       { status: 500 }
     );
   }
