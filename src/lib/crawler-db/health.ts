@@ -30,12 +30,19 @@ export interface HealthByCharter {
   credit_union: IndustryHealthMetrics;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const ALLOWED_METRIC_FIELDS = new Set<string>(['roa', 'roe', 'efficiency_ratio']);
+
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 async function fetchIndustryMetric(
   field: 'roa' | 'roe' | 'efficiency_ratio',
   quarterCount = 8
 ): Promise<RichIndicator | null> {
+  if (!ALLOWED_METRIC_FIELDS.has(field)) {
+    throw new Error(`Invalid metric field: ${field}`);
+  }
   const sql = getSql();
 
   const rows = await sql.unsafe(
@@ -67,6 +74,9 @@ async function fetchCharterMetric(
   charterType: 'bank' | 'credit_union',
   quarterCount = 8
 ): Promise<RichIndicator | null> {
+  if (!ALLOWED_METRIC_FIELDS.has(field)) {
+    throw new Error(`Invalid metric field: ${field}`);
+  }
   const sql = getSql();
 
   const rows = await sql.unsafe(
