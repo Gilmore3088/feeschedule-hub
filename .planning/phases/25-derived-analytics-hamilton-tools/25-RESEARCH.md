@@ -364,22 +364,16 @@ db.execute(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **What is the actual overdraft revenue field in the FDIC BankFind API response?**
-   - What we know: SC (RIAD4080) is exposed. RIAD4070 is not returned by the API.
-   - What's unclear: Whether the `raw_json` column stores additional sub-fields that aren't in the primary response.
-   - Recommendation: At implementation start, run `SELECT raw_json FROM institution_financials WHERE source = 'fdic' LIMIT 1` and inspect keys. If an overdraft key exists, use it. If not, implement Option D (NULL + schema ready).
+   - **RESOLVED:** RIAD4070 is NOT exposed by FDIC BankFind API. Plan adds `overdraft_revenue` column to schema (NULL initially). Implementation inspects `raw_json` at runtime -- if an overdraft sub-field exists, use it; otherwise column stays NULL until FFIEC CDR bulk download path is established.
 
 2. **Are there active external callers of `/api/research/[agentId]`?**
-   - What we know: The route exists and four agents are registered.
-   - What's unclear: Whether any frontend component, third-party integration, or test suite calls specific legacy agent IDs.
-   - Recommendation: Search for agent ID strings (`"ask"`, `"fee-analyst"`, `"content-writer"`, `"custom-query"`) across `src/app/` before removing definitions.
+   - **RESOLVED:** Plan 25-02 Task 2 searches for legacy agent ID strings before removal. All legacy IDs (`ask`, `fee-analyst`, `content-writer`, `custom-query`) route to Hamilton instead of being deleted, preserving backward compatibility.
 
-3. **Where does `queryNationalData` live — tools-internal.ts or hamilton-agent.ts?**
-   - What we know: `queryDistrictData` and other internal tools are in `tools-internal.ts` and bundled into `internalTools`. Hamilton imports `internalTools`.
-   - What's unclear: Whether `queryNationalData` belongs in the shared `internalTools` bundle (accessible to legacy agents) or only in Hamilton.
-   - Recommendation: Per D-07 (full Hamilton consolidation), placing it in `hamilton-agent.ts` (alongside `triggerReport`) keeps it Hamilton-exclusive. This is slightly cleaner and avoids confusion.
+3. **Where does `queryNationalData` live -- tools-internal.ts or hamilton-agent.ts?**
+   - **RESOLVED:** Per D-07 (full Hamilton consolidation), placed in `hamilton-agent.ts` alongside `triggerReport`. Hamilton-exclusive, keeps the tool set clean.
 
 ---
 
