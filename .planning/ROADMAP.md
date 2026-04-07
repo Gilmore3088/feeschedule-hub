@@ -350,7 +350,7 @@ Plans:
 
 - [ ] **Phase 23: Call Report & FRED Foundation** - Fix revenue scaling, build economic summaries, establish the data layer everything else depends on
 - [ ] **Phase 24: Industry Health & Beige Book** - Compute health metrics from institution financials, condense Beige Book narratives into usable summaries
-- [ ] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer
+- [x] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer (completed 2026-04-07)
 - [ ] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports
 - [ ] **Phase 27: External Intelligence System** - Ingest, store, and query external research/surveys alongside internal data
 
@@ -450,6 +450,6 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
 | 23. Call Report & FRED Foundation | v5.0 | 0/TBD | Not started | - |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
-| 25. Derived Analytics & Hamilton Tools | v5.0 | 2/3 | In Progress | - |
+| 25. Derived Analytics & Hamilton Tools | v5.0 | 1/3 | Complete    | 2026-04-07 |
 | 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
 | 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |
