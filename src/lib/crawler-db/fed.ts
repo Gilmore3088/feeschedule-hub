@@ -57,7 +57,8 @@ export async function getLatestBeigeBook(district: number): Promise<BeigeBookSec
         ? (r.release_date as unknown as Date).toISOString().slice(0, 10)
         : String(r.release_date),
     }));
-  } catch {
+  } catch (err) {
+    console.error('[fed] getLatestBeigeBook failed:', err);
     return [];
   }
 }
@@ -72,7 +73,8 @@ export async function getBeigeBookEditions(
       ORDER BY release_date DESC
       LIMIT ${limit}
     ` as { release_code: string; release_date: string }[];
-  } catch {
+  } catch (err) {
+    console.error('[fed] getBeigeBookEditions failed:', err);
     return [];
   }
 }
@@ -101,7 +103,8 @@ export async function getBeigeBookHeadline(
       ? row.release_date.toISOString().slice(0, 10)
       : String(row.release_date);
     return { text, release_date: releaseDate };
-  } catch {
+  } catch (err) {
+    console.error('[fed] getBeigeBookHeadline failed:', err);
     return null;
   }
 }
@@ -130,7 +133,8 @@ export async function getDistrictContent(
       ORDER BY published_at DESC
       LIMIT ${limit}
     ` as FedContentItem[];
-  } catch {
+  } catch (err) {
+    console.error('[fed] getDistrictContent failed:', err);
     return [];
   }
 }
@@ -145,7 +149,8 @@ export async function getRecentSpeeches(limit = 10): Promise<FedContentItem[]> {
       ORDER BY published_at DESC
       LIMIT ${limit}
     ` as FedContentItem[];
-  } catch {
+  } catch (err) {
+    console.error('[fed] getRecentSpeeches failed:', err);
     return [];
   }
 }
@@ -168,7 +173,8 @@ export async function getDistrictIndicators(
       WHERE fed_district = ${district} OR fed_district IS NULL
       ORDER BY series_id, observation_date DESC
     ` as EconomicIndicator[];
-  } catch {
+  } catch (err) {
+    console.error('[fed] getDistrictIndicators failed:', err);
     return [];
   }
 }
@@ -197,7 +203,8 @@ export async function getBeigeBookHeadlines(): Promise<Map<number, { text: strin
       map.set(row.fed_district, { text, release_date: row.release_date });
     }
     return map;
-  } catch {
+  } catch (err) {
+    console.error('[fed] getBeigeBookHeadlines failed:', err);
     return new Map();
   }
 }
@@ -236,7 +243,8 @@ async function fetchRichIndicator(seriesId: string): Promise<RichIndicator | nul
     }));
 
     return { current, history, trend: deriveTrend(current, history), asOf };
-  } catch {
+  } catch (err) {
+    console.error('[fed] fetchRichIndicator failed:', err);
     return null;
   }
 }
@@ -274,7 +282,8 @@ async function fetchCpiYoyIndicator(): Promise<RichIndicator | null> {
     const history = yoyPoints.slice(1).reverse();
 
     return { current, history, trend: deriveTrend(current, history), asOf };
-  } catch {
+  } catch (err) {
+    console.error('[fed] fetchCpiYoyIndicator failed:', err);
     return null;
   }
 }
@@ -294,7 +303,8 @@ export async function getNationalEconomicSummary(): Promise<NationalEconomicSumm
       cpi_yoy_pct: cpiYoy,
       consumer_sentiment: sentiment,
     };
-  } catch {
+  } catch (err) {
+    console.error('[fed] getNationalEconomicSummary failed:', err);
     return {
       fed_funds_rate: null,
       unemployment_rate: null,
@@ -367,7 +377,8 @@ export async function getDistrictBeigeBookSummaries(
         ? r.generated_at.toISOString()
         : String(r.generated_at),
     }));
-  } catch {
+  } catch (err) {
+    console.error('[fed] getDistrictBeigeBookSummaries failed:', err);
     return [];
   }
 }
@@ -432,7 +443,8 @@ export async function getNationalBeigeBookSummary(
         ? row.generated_at.toISOString()
         : String(row.generated_at),
     };
-  } catch {
+  } catch (err) {
+    console.error('[fed] getNationalBeigeBookSummary failed:', err);
     return null;
   }
 }
@@ -454,7 +466,8 @@ export async function getDistrictUnemployment(): Promise<Map<number, number>> {
       map.set(Number(row.fed_district), Number(row.value));
     }
     return map;
-  } catch {
+  } catch (err) {
+    console.error('[fed] getDistrictUnemployment failed:', err);
     return new Map();
   }
 }
@@ -527,7 +540,8 @@ export async function getFredSummary(): Promise<FredSummary> {
       consumer_sentiment: byId.get("UMCSENT")?.value ?? null,
       as_of,
     };
-  } catch {
+  } catch (err) {
+    console.error('[fed] getFredSummary failed:', err);
     return empty;
   }
 }

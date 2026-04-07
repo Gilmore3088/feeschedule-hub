@@ -117,7 +117,8 @@ export async function getIndustryHealthMetrics(): Promise<IndustryHealthMetrics>
       fetchIndustryMetric('efficiency_ratio'),
     ]);
     return { roa, roe, efficiency_ratio };
-  } catch {
+  } catch (err) {
+    console.error('[health] getIndustryHealthMetrics failed:', err);
     return empty;
   }
 }
@@ -175,7 +176,8 @@ export async function getDepositGrowthTrend(quarterCount = 8): Promise<GrowthTre
       trend,
       asOf,
     };
-  } catch {
+  } catch (err) {
+    console.error('[health] getDepositGrowthTrend failed:', err);
     return null;
   }
 }
@@ -230,7 +232,8 @@ export async function getLoanGrowthTrend(quarterCount = 8): Promise<GrowthTrend 
       trend,
       asOf,
     };
-  } catch {
+  } catch (err) {
+    console.error('[health] getLoanGrowthTrend failed:', err);
     return null;
   }
 }
@@ -266,7 +269,8 @@ export async function getInstitutionCountTrend(
     }));
 
     return snapshots;
-  } catch {
+  } catch (err) {
+    console.error('[health] getInstitutionCountTrend failed:', err);
     return [];
   }
 }
@@ -289,7 +293,8 @@ export async function getHealthMetricsByCharter(): Promise<HealthByCharter> {
       bank: { roa: bankRoa, roe: bankRoe, efficiency_ratio: bankEff },
       credit_union: { roa: cuRoa, roe: cuRoe, efficiency_ratio: cuEff },
     };
-  } catch {
+  } catch (err) {
+    console.error('[health] getHealthMetricsByCharter failed:', err);
     return empty;
   }
 }
