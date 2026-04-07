@@ -304,6 +304,139 @@ export async function getNationalEconomicSummary(): Promise<NationalEconomicSumm
   }
 }
 
+export interface DistrictBeigeBookSummary {
+  fed_district: number;
+  district_summary: string;
+  release_code: string;
+  generated_at: string;
+}
+
+export interface BeigeBookThemes {
+  growth: string | null;
+  employment: string | null;
+  prices: string | null;
+  lending: string | null;
+}
+
+export interface NationalBeigeBookSummary {
+  release_code: string;
+  national_summary: string;
+  themes: BeigeBookThemes | null;
+  generated_at: string;
+}
+
+export async function getDistrictBeigeBookSummaries(
+  releaseCode?: string
+): Promise<DistrictBeigeBookSummary[]> {
+  try {
+    let rows: {
+      fed_district: number | string;
+      district_summary: string;
+      release_code: string;
+      generated_at: string | Date;
+    }[];
+
+    if (releaseCode) {
+      rows = await sql`
+        SELECT fed_district, district_summary, release_code, generated_at
+        FROM beige_book_summaries
+        WHERE release_code = ${releaseCode}
+          AND fed_district IS NOT NULL
+          AND district_summary IS NOT NULL
+        ORDER BY fed_district
+      ` as typeof rows;
+    } else {
+      rows = await sql`
+        SELECT fed_district, district_summary, release_code, generated_at
+        FROM beige_book_summaries
+        WHERE release_code = (
+          SELECT MAX(release_code) FROM beige_book_summaries
+          WHERE fed_district IS NOT NULL
+        )
+          AND fed_district IS NOT NULL
+          AND district_summary IS NOT NULL
+        ORDER BY fed_district
+      ` as typeof rows;
+    }
+
+    return rows.map((r) => ({
+      fed_district: Number(r.fed_district),
+      district_summary: String(r.district_summary),
+      release_code: String(r.release_code),
+      generated_at: r.generated_at instanceof Date
+        ? r.generated_at.toISOString()
+        : String(r.generated_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getNationalBeigeBookSummary(
+  releaseCode?: string
+): Promise<NationalBeigeBookSummary | null> {
+  try {
+    let rows: {
+      release_code: string;
+      national_summary: string;
+      themes: unknown;
+      generated_at: string | Date;
+    }[];
+
+    if (releaseCode) {
+      rows = await sql`
+        SELECT release_code, national_summary, themes, generated_at
+        FROM beige_book_summaries
+        WHERE release_code = ${releaseCode}
+          AND fed_district IS NULL
+        ORDER BY generated_at DESC
+        LIMIT 1
+      ` as typeof rows;
+    } else {
+      rows = await sql`
+        SELECT release_code, national_summary, themes, generated_at
+        FROM beige_book_summaries
+        WHERE fed_district IS NULL
+        ORDER BY generated_at DESC
+        LIMIT 1
+      ` as typeof rows;
+    }
+
+    if (rows.length === 0) return null;
+
+    const row = rows[0];
+
+    // Parse themes: Postgres returns JSONB as object; SQLite stores as string
+    let themes: BeigeBookThemes | null = null;
+    try {
+      if (row.themes !== null && row.themes !== undefined) {
+        const parsed = typeof row.themes === "string"
+          ? JSON.parse(row.themes)
+          : row.themes;
+        themes = {
+          growth: parsed.growth ?? null,
+          employment: parsed.employment ?? null,
+          prices: parsed.prices ?? null,
+          lending: parsed.lending ?? null,
+        };
+      }
+    } catch {
+      themes = null;
+    }
+
+    return {
+      release_code: String(row.release_code),
+      national_summary: String(row.national_summary),
+      themes,
+      generated_at: row.generated_at instanceof Date
+        ? row.generated_at.toISOString()
+        : String(row.generated_at),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getDistrictUnemployment(): Promise<Map<number, number>> {
   try {
     const rows = await sql`

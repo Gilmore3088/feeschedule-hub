@@ -11,7 +11,13 @@ vi.mock("./connection", () => {
   };
 });
 
-import { getFredSummary, getNationalEconomicSummary, getDistrictUnemployment } from "./fed";
+import {
+  getFredSummary,
+  getNationalEconomicSummary,
+  getDistrictUnemployment,
+  getDistrictBeigeBookSummaries,
+  getNationalBeigeBookSummary,
+} from "./fed";
 import { getSql } from "./connection";
 
 type MockSql = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
@@ -314,5 +320,219 @@ describe("getDistrictUnemployment", () => {
 
     const result = await getDistrictUnemployment();
     expect(result.get(3)).toBe(4.2);
+  });
+});
+
+// ── getDistrictBeigeBookSummaries ─────────────────────────────────────────────
+
+describe("getDistrictBeigeBookSummaries", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns array with fed_district, district_summary, release_code, generated_at", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        fed_district: 1,
+        district_summary: "Boston showed moderate growth in consumer lending.",
+        release_code: "202601",
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+      {
+        fed_district: 2,
+        district_summary: "New York activity was steady across sectors.",
+        release_code: "202601",
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+    ]);
+
+    const result = await getDistrictBeigeBookSummaries("202601");
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(2);
+
+    const first = result[0];
+    expect(typeof first.fed_district).toBe("number");
+    expect(first.fed_district).toBe(1);
+    expect(typeof first.district_summary).toBe("string");
+    expect(first.district_summary).toBe("Boston showed moderate growth in consumer lending.");
+    expect(first.release_code).toBe("202601");
+    expect(typeof first.generated_at).toBe("string");
+  });
+
+  it("filters by specific releaseCode when provided", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        fed_district: 7,
+        district_summary: "Chicago manufacturing output rose.",
+        release_code: "202503",
+        generated_at: "2025-03-10T00:00:00Z",
+      },
+    ]);
+
+    const result = await getDistrictBeigeBookSummaries("202503");
+
+    expect(result.length).toBe(1);
+    expect(result[0].release_code).toBe("202503");
+    expect(result[0].fed_district).toBe(7);
+  });
+
+  it("uses latest edition when no releaseCode provided", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        fed_district: 5,
+        district_summary: "Richmond district conditions improved.",
+        release_code: "202601",
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+    ]);
+
+    const result = await getDistrictBeigeBookSummaries();
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(1);
+    expect(result[0].fed_district).toBe(5);
+  });
+
+  it("coerces fed_district string values to numbers", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        fed_district: "4",
+        district_summary: "Cleveland activity was stable.",
+        release_code: "202601",
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+    ]);
+
+    const result = await getDistrictBeigeBookSummaries("202601");
+
+    expect(typeof result[0].fed_district).toBe("number");
+    expect(result[0].fed_district).toBe(4);
+  });
+
+  it("returns empty array on DB error", async () => {
+    getMock().mockRejectedValue(new Error("connection lost"));
+
+    const result = await getDistrictBeigeBookSummaries("202601");
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+
+  it("returns empty array when no summaries exist", async () => {
+    getMock().mockResolvedValueOnce([]);
+
+    const result = await getDistrictBeigeBookSummaries("202601");
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+});
+
+// ── getNationalBeigeBookSummary ───────────────────────────────────────────────
+
+describe("getNationalBeigeBookSummary", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns object with national_summary, themes, release_code, generated_at", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        release_code: "202601",
+        national_summary: "The national economy continued to expand at a moderate pace.",
+        themes: {
+          growth: "GDP growth remained positive across most regions.",
+          employment: "Labor markets stayed tight with low unemployment.",
+          prices: "Inflation pressures eased slightly.",
+          lending: "Credit demand was moderate with tighter standards.",
+        },
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+    ]);
+
+    const result = await getNationalBeigeBookSummary("202601");
+
+    expect(result).not.toBeNull();
+    expect(result!.release_code).toBe("202601");
+    expect(typeof result!.national_summary).toBe("string");
+    expect(result!.national_summary).toContain("national economy");
+    expect(typeof result!.generated_at).toBe("string");
+  });
+
+  it("themes has growth, employment, prices, lending keys", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        release_code: "202601",
+        national_summary: "Conditions were broadly stable.",
+        themes: {
+          growth: "Moderate expansion.",
+          employment: "Labor markets remained tight.",
+          prices: "Inflation eased.",
+          lending: "Credit was available but demand slowed.",
+        },
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+    ]);
+
+    const result = await getNationalBeigeBookSummary();
+
+    expect(result).not.toBeNull();
+    const themes = result!.themes;
+    expect(themes).not.toBeNull();
+    expect(themes).toHaveProperty("growth");
+    expect(themes).toHaveProperty("employment");
+    expect(themes).toHaveProperty("prices");
+    expect(themes).toHaveProperty("lending");
+  });
+
+  it("handles themes as JSON string (SQLite path) with try/catch", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        release_code: "202601",
+        national_summary: "Economy was stable.",
+        themes: '{"growth":"ok","employment":"ok","prices":"ok","lending":"ok"}',
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+    ]);
+
+    const result = await getNationalBeigeBookSummary("202601");
+
+    expect(result).not.toBeNull();
+    // themes should be parsed as object (not raw string)
+    expect(typeof result!.themes).toBe("object");
+    expect(result!.themes).toHaveProperty("growth");
+  });
+
+  it("returns null themes when themes field is malformed JSON string", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        release_code: "202601",
+        national_summary: "Economy was stable.",
+        themes: "NOT VALID JSON",
+        generated_at: "2026-01-15T00:00:00Z",
+      },
+    ]);
+
+    const result = await getNationalBeigeBookSummary("202601");
+
+    expect(result).not.toBeNull();
+    expect(result!.themes).toBeNull();
+  });
+
+  it("returns null when no national summary exists", async () => {
+    getMock().mockResolvedValueOnce([]);
+
+    const result = await getNationalBeigeBookSummary("202601");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null on DB error", async () => {
+    getMock().mockRejectedValue(new Error("DB timeout"));
+
+    const result = await getNationalBeigeBookSummary("202601");
+
+    expect(result).toBeNull();
   });
 });
