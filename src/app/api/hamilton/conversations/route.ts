@@ -6,7 +6,7 @@
  */
 
 import { getCurrentUser } from "@/lib/auth";
-import { listConversations } from "@/lib/hamilton/chat-memory";
+import { listConversations, createConversation } from "@/lib/hamilton/chat-memory";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -23,6 +23,28 @@ export async function GET() {
   } catch {
     return Response.json(
       { error: "Failed to load conversations" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return Response.json({ error: "Authentication required" }, { status: 401 });
+  }
+  if (user.role !== "analyst" && user.role !== "admin") {
+    return Response.json({ error: "Insufficient role" }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const title = typeof body.title === "string" ? body.title : "New conversation";
+    const id = await createConversation(user.id, title);
+    return Response.json({ id }, { status: 201 });
+  } catch {
+    return Response.json(
+      { error: "Failed to create conversation" },
       { status: 500 }
     );
   }

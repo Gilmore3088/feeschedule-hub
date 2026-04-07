@@ -94,16 +94,39 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
     }
   }, [status, messages.length]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function ensureConversation(): Promise<string | null> {
+    if (conversationId) return conversationId;
+    try {
+      const res = await fetch("/api/hamilton/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "New conversation" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newId = data.id ?? data.conversation_id;
+        if (newId) {
+          setConversationId(newId);
+          conversationIdRef.current = newId;
+          return newId;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     setError(null);
+    await ensureConversation();
     sendMessage({ text: input });
     setInput("");
   }
 
-  function handleSuggestion(q: string) {
+  async function handleSuggestion(q: string) {
     setError(null);
+    await ensureConversation();
     sendMessage({ text: q });
   }
 
