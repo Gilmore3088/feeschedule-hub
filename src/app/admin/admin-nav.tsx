@@ -88,15 +88,56 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "Content",
+    label: "Hamilton",
     items: [
       {
         href: "/admin/hamilton",
-        label: "Hamilton",
+        label: "Reports",
+        exact: true,
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
             <path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
             <path d="M5.5 6h5M5.5 9h5M5.5 12h3" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/hamilton/research",
+        label: "Research",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+            <path d="M5 7h4M7 5v4" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/hamilton/scout",
+        label: "Scout",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/hamilton/leads",
+        label: "Leads",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5v13M4.5 5L8 1.5 11.5 5" />
+            <rect x="2" y="9" width="12" height="5" rx="1" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/hamilton/methodology",
+        label: "Methodology",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M2 3h12M2 6h8M2 9h10M2 12h6" />
           </svg>
         ),
       },
@@ -152,51 +193,6 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
             <path d="M8 1v14M1 8h14" />
             <circle cx="8" cy="8" r="6" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "Research",
-    items: [
-      {
-        href: "/admin/research",
-        label: "Research Hub",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10.5 10.5L14 14" />
-            <path d="M5 7h4M7 5v4" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/scout",
-        label: "Scout",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10.5 10.5L14 14" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/leads",
-        label: "Leads",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5v13M4.5 5L8 1.5 11.5 5" />
-            <rect x="2" y="9" width="12" height="5" rx="1" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/methodology",
-        label: "Methodology",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M2 3h12M2 6h8M2 9h10M2 12h6" />
           </svg>
         ),
       },
