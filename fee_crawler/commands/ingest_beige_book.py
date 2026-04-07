@@ -286,9 +286,9 @@ def ingest_edition(
             db.execute(
                 """INSERT INTO beige_book_summaries (release_code, fed_district, district_summary)
                    VALUES (?, ?, ?)
-                   ON CONFLICT (release_code, fed_district)
+                   ON CONFLICT (release_code, fed_district) WHERE fed_district IS NOT NULL
                    DO UPDATE SET district_summary = EXCLUDED.district_summary,
-                                 generated_at = datetime('now')""",
+                                 generated_at = NOW()""",
                 (edition, district, summary),
             )
 
@@ -318,10 +318,10 @@ def ingest_edition(
     db.execute(
         """INSERT INTO beige_book_summaries (release_code, fed_district, national_summary, themes)
            VALUES (?, NULL, ?, ?)
-           ON CONFLICT (release_code, fed_district)
+           ON CONFLICT (release_code) WHERE fed_district IS NULL
            DO UPDATE SET national_summary = EXCLUDED.national_summary,
                          themes = EXCLUDED.themes,
-                         generated_at = datetime('now')""",
+                         generated_at = NOW()""",
         (edition, national_summary, json_module.dumps(themes)),
     )
     db.commit()
