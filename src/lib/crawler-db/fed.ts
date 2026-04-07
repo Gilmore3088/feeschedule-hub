@@ -360,7 +360,10 @@ export async function getFredSummary(): Promise<FredSummary> {
       const date = row.observation_date instanceof Date
         ? row.observation_date.toISOString().slice(0, 10)
         : String(row.observation_date);
-      byId.set(row.series_id, { value: Number(row.value), observation_date: date });
+      byId.set(row.series_id, {
+        value: row.value !== null && row.value !== undefined ? Number(row.value) : null,
+        observation_date: date,
+      });
     }
 
     const dates = Array.from(byId.values()).map((r) => r.observation_date).sort().reverse();
