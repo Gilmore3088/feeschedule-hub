@@ -228,21 +228,65 @@ def run_state_agent(item: StateAgentRequest) -> dict:
     return _run(state_code)
 
 
-@app.function(secrets=secrets, timeout=300, image=browser_image, memory=2048)
+@app.function(secrets=secrets, timeout=600, image=browser_image, memory=2048)
 @modal.fastapi_endpoint(method="POST")
 async def generate_report(request: dict) -> dict:
-    """Render assembled HTML to PDF, upload to R2, update job status.
+    """Orchestrate full report pipeline: assemble HTML via Next.js, render PDF, upload to R2.
 
-    Accepts POST JSON: { job_id, html, report_type }
-    Called by Next.js /api/reports/generate route.
+    Accepts POST JSON: { job_id, report_type, params }
+    Called by Next.js /api/reports/generate route (fire-and-forget trigger).
+    Calls back to /api/reports/{job_id}/assemble to get assembled HTML.
     """
+    import os
+    import json
+    import urllib.request
+    import urllib.error
     from fee_crawler.workers.report_render import render_and_store, update_job_status
+
     job_id = request.get("job_id", "")
-    html = request.get("html", "")
     report_type = request.get("report_type", "")
+    params = request.get("params", {})
+
     try:
+        # Step 1: Call Next.js assemble endpoint to get HTML
+        update_job_status(job_id, "assembling")
+
+        app_url = os.environ.get("BFI_APP_URL", "https://bankfeeindex.com")
+        internal_secret = os.environ.get("REPORT_INTERNAL_SECRET", "")
+        if not internal_secret:
+            raise ValueError("REPORT_INTERNAL_SECRET not set in Modal secrets")
+
+        assemble_url = f"{app_url.rstrip('/')}/api/reports/{job_id}/assemble"
+        payload = json.dumps(params).encode()
+
+        req = urllib.request.Request(
+            assemble_url,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-Internal-Secret": internal_secret,
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                body = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            error_body = exc.read().decode()[:500]
+            raise RuntimeError(
+                f"Assemble endpoint returned {exc.code}: {error_body}"
+            ) from exc
+
+        html = body.get("html", "")
+        if not html:
+            raise ValueError("Assemble endpoint returned empty HTML")
+
+        # Step 2: Render PDF and upload to R2
         update_job_status(job_id, "rendering")
         key = await render_and_store(html, job_id, report_type)
+
+        # Step 3: Mark complete
         update_job_status(job_id, "complete", artifact_key=key)
         return {"key": key, "status": "complete"}
     except Exception as exc:
