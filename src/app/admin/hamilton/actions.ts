@@ -63,6 +63,57 @@ export async function publishReport(
 }
 
 /**
+ * Cancel a pending/assembling/rendering report job.
+ * Sets status to 'failed' with a cancellation reason.
+ */
+export async function cancelReport(
+  jobId: string,
+): Promise<{ success: boolean; error?: string }> {
+  await requireAuth("trigger_jobs");
+
+  try {
+    const sql = getSql();
+    const rows = await sql`
+      UPDATE report_jobs
+      SET status = 'failed', error = 'Cancelled by user', completed_at = NOW()
+      WHERE id = ${jobId} AND status IN ('pending', 'assembling', 'rendering')
+      RETURNING id
+    `;
+
+    if (!rows[0]) {
+      return { success: false, error: "Job not found or already complete/failed" };
+    }
+
+    revalidatePath("/admin/hamilton");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Cancel all non-terminal report jobs at once.
+ */
+export async function cancelAllPending(): Promise<{ success: boolean; count?: number; error?: string }> {
+  await requireAuth("trigger_jobs");
+
+  try {
+    const sql = getSql();
+    const rows = await sql`
+      UPDATE report_jobs
+      SET status = 'failed', error = 'Cancelled by user (bulk)', completed_at = NOW()
+      WHERE status IN ('pending', 'assembling', 'rendering')
+      RETURNING id
+    `;
+
+    revalidatePath("/admin/hamilton");
+    return { success: true, count: rows.length };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
  * Retry a failed report job — creates a new job with the same type and params.
  * T-16-09: requireAuth first; WHERE status = 'failed' prevents misuse.
  * T-16-10: UUID mismatch returns no rows gracefully.

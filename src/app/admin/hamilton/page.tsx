@@ -2,7 +2,7 @@ import { getSql } from "@/lib/crawler-db/connection";
 import { timeAgo } from "@/lib/format";
 import type { ReportJob, ReportType } from "@/lib/report-engine/types";
 import { ReportControls } from "./report-controls";
-import { publishReport, retryReport } from "./actions";
+import { publishReport, retryReport, cancelReport, cancelAllPending } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +131,19 @@ export default async function AdminReportsPage({
               </a>
             )}
           </form>
+          <form
+            action={async () => {
+              "use server";
+              await cancelAllPending();
+            }}
+          >
+            <button
+              type="submit"
+              className="text-[11px] px-2.5 py-1 rounded border border-red-200 bg-white hover:bg-red-50 dark:border-red-800 dark:bg-white/[0.04] dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-medium transition-colors"
+            >
+              Cancel All Pending
+            </button>
+          </form>
         </div>
 
         {jobs.length === 0 ? (
@@ -227,6 +240,22 @@ export default async function AdminReportsPage({
                             <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
                               Published
                             </span>
+                          )}
+
+                          {["pending", "assembling", "rendering"].includes(job.status) && (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await cancelReport(job.id);
+                              }}
+                            >
+                              <button
+                                type="submit"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded bg-gray-500 text-white hover:bg-gray-600 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </form>
                           )}
 
                           {job.status === "failed" && (
