@@ -3,6 +3,7 @@ import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_CODES } from "@/lib/us-states";
 import { getInstitutionIdsWithFees, getCitiesInState } from "@/lib/crawler-db";
 import { GUIDES } from "@/lib/guides";
+import { getSql } from "@/lib/crawler-db/connection";
 
 import { SITE_URL } from "@/lib/constants";
 
@@ -108,8 +109,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
+  // Published report catalog entry
+  const reportsCatalogPage: MetadataRoute.Sitemap = [
+    {
+      url: `${BASE_URL}/reports`,
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority: 0.9,
+    },
+  ];
+
+  // Individual published report landing pages
+  let reportPages: MetadataRoute.Sitemap = [];
+  try {
+    const sql = getSql();
+    const reportRows = await sql<Array<{ slug: string; published_at: string }>>`
+      SELECT slug, published_at
+      FROM published_reports
+      WHERE is_public = true
+      ORDER BY published_at DESC
+      LIMIT 500
+    `;
+    reportPages = reportRows.map((r) => ({
+      url: `${BASE_URL}/reports/${r.slug}`,
+      lastModified: new Date(r.published_at),
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    }));
+  } catch {
+    // No published_reports table yet or DB unavailable — return empty
+    reportPages = [];
+  }
+
   return [
     ...staticPages,
+    ...reportsCatalogPage,
     ...categoryPages,
     ...statePages,
     ...districtPages,
@@ -119,5 +153,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...guidePages,
     ...stateCityDirPages,
     ...cityPages,
+    ...reportPages,
   ];
 }
