@@ -183,13 +183,13 @@ Plans:
 
 ### Phase 18: Report Assembly Pipeline — Wire data + Hamilton + templates to PDF output
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Wire the generate route so clicking "Generate State Index → Wyoming" produces a real PDF — assembleAndRender() orchestrates assembler + Hamilton narratives + template rendering + Modal trigger
+**Requirements**: WIRE-01, WIRE-02, WIRE-03
 **Depends on:** Phase 17
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 18 to break down)
+- [ ] 18-01-PLAN.md — assembleAndRender() orchestrator + generate route update: all 4 report types, Hamilton narrative generation, graceful degradation, pending → assembling → rendering status progression
 
 ---
 
@@ -313,3 +313,4 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17
 | 15. Premium Products | v2.0 | 2/3 | Complete    | 2026-04-06 |
 | 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete    | 2026-04-07 |
 | 17. Hamilton Chat | v2.0 | 3/3 | Complete    | 2026-04-07 |
+| 18. Report Assembly Pipeline | v2.0 | 0/1 | In Progress | — |
