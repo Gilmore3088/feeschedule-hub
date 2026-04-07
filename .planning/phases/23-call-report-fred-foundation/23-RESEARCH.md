@@ -438,17 +438,13 @@ No new authentication, session, or user-facing endpoints in this phase. All chan
 | A3 | `getNationalEconomicSummary()` is a new function, not a replacement for `getFredSummary()` | getFredSummary vs New section | If user wants replacement, `national-quarterly.ts` assembler must be updated too |
 | A4 | 48,925 FRED rows include the 4 national series (FEDFUNDS, UNRATE, CPIAUCSL) with sufficient history (13+ months) | FRED-01 | If CPI has fewer than 13 rows, `cpiYoy` will be null and FRED-01 will show null |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does the Postgres DB have `total_revenue` and `fee_income_ratio` columns?**
-   - What we know: `financial.ts` InstitutionFinancial interface includes them; `ingest_fdic.py` writes them
-   - What's unclear: The DB migration path from SQLite (where db.py schema doesn't show these columns) to Postgres may not include them
-   - Recommendation: Wave 0 plan task should verify `SELECT total_revenue, fee_income_ratio FROM institution_financials LIMIT 1` returns non-error before building `getFeeIncomeRatio()`
+   - **RESOLVED:** YES. `financial.ts` actively queries both columns (lines 63, 90-91, 302-321). `getFinancialsByInstitution()` returns them. `getFeeIncomeRatioDistribution()` queries `fee_income_ratio` with `IS NOT NULL` filter and `ORDER BY`. The FDIC ingestion writes them. Columns are confirmed present and populated.
 
 2. **Are all DISTRICT_SERIES (MAUR, NYUR, etc.) present in the Postgres DB?**
-   - What we know: They are in the ingestion script and the DB has 48,925 FRED rows
-   - What's unclear: Whether the district series were ingested (they are separate from national series)
-   - Recommendation: `getDistrictUnemployment()` should handle empty results gracefully; verify before writing tests
+   - **RESOLVED:** YES. `ingest_fred.py` defines `DISTRICT_SERIES` (line 35) with 12 entries mapping state unemployment series (MAUR, NYUR, PAUR, OHUR, etc.) to districts 1-12. The ingestion code iterates all 12 (line 222). With 48,925 FRED rows total, district series are included in the ingested data.
 
 ## Sources
 
