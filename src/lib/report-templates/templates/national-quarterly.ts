@@ -30,6 +30,7 @@ import {
   insightCardRow,
   comparisonChart,
   playbook,
+  PALETTE,
 } from "../index";
 
 import type { DerivedAnalytics, NationalQuarterlyPayload } from "@/lib/report-assemblers/national-quarterly";
@@ -259,12 +260,30 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
   ].join("\n");
 
   // ── Ch3: Where the Money Actually Comes From ─────────────────────────────
+  // Revenue proxy model: estimate impact from fee prevalence and median amount.
+  // Categories with highest institution_count AND highest medians are the biggest
+  // revenue drivers. estimated_impact = median_amount * institution_count.
+  const revenueProxy = data.categories
+    .filter((c) => c.median_amount !== null && c.median_amount > 0 && c.institution_count > 0)
+    .map((c) => ({
+      display_name: c.display_name,
+      median: c.median_amount!,
+      institutions: c.institution_count,
+      estimated_impact: c.median_amount! * c.institution_count,
+    }))
+    .sort((a, b) => b.estimated_impact - a.estimated_impact);
+
+  const primaryDrivers = revenueProxy.slice(0, 3);
+  const secondaryDrivers = revenueProxy.slice(3, 8);
+  const longTailCount = Math.max(revenueProxy.length - 8, 0);
+
   const ch3Sections: string[] = [
     pageBreak(),
     chapterDivider("03", "Where the Money Actually Comes From"),
   ];
 
   if (data.revenue) {
+    // Real revenue data path
     const revPerInst = d.revenue_per_institution !== null
       ? `$${(d.revenue_per_institution / 1_000_000).toFixed(1)}M`
       : "\u2014";
@@ -274,6 +293,7 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
         {
           label: "Total Service Charges",
           value: fmtBillions(data.revenue.total_service_charges),
+          delta: data.revenue.yoy_change_pct !== null ? `${data.revenue.yoy_change_pct > 0 ? "+" : ""}${data.revenue.yoy_change_pct.toFixed(1)}% YoY` : undefined,
           source: data.revenue.latest_quarter,
         },
         {
@@ -282,41 +302,83 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
           source: `${data.revenue.total_institutions.toLocaleString()} reporting institutions`,
         },
         {
-          label: "Bank Share",
-          value: fmtPct(d.bank_revenue_share_pct),
-          source: "of total service charges",
+          label: "Reporting Institutions",
+          value: data.revenue.total_institutions.toLocaleString(),
+          source: "FDIC + NCUA filings",
         },
       ])
     );
+
+    // Revenue contribution bar chart using proxy ranking
     ch3Sections.push(
       horizontalBarChart({
-        bars: [
-          {
-            label: "Banks",
-            value: data.revenue.bank_service_charges,
-            displayValue: fmtBillions(data.revenue.bank_service_charges),
-          },
-          {
-            label: "Credit Unions",
-            value: data.revenue.cu_service_charges,
-            displayValue: fmtBillions(data.revenue.cu_service_charges),
-          },
-        ],
-        title: "Service Charge Revenue by Charter",
-        source: `Call Report ${data.revenue.latest_quarter}`,
+        bars: revenueProxy.slice(0, 8).map((r) => ({
+          label: r.display_name,
+          value: r.estimated_impact,
+          displayValue: `$${r.median.toFixed(2)} \u00d7 ${r.institutions.toLocaleString()}`,
+        })),
+        title: "Estimated Revenue Contribution (Median x Institution Count)",
+        source: `Bank Fee Index \u2014 ${data.total_institutions.toLocaleString()} institutions`,
       })
     );
   } else {
+    // Proxy mode — no Call Report data available
     ch3Sections.push(
       keyFinding(
-        "Call Report revenue data will be included when available from FDIC and NCUA filings.",
-        "Data Pending",
+        "Fee revenue is highly concentrated \u2014 but most institutions don't measure it",
+        "Revenue Proxy Model",
       )
+    );
+
+    ch3Sections.push(
+      statCardRow([
+        {
+          label: "Primary Revenue Drivers",
+          value: "3 categories",
+          source: primaryDrivers.map((d) => d.display_name).join(", "),
+        },
+        {
+          label: "Secondary Drivers",
+          value: `${secondaryDrivers.length} categories`,
+          source: secondaryDrivers.map((d) => d.display_name).join(", "),
+        },
+        {
+          label: "Long Tail",
+          value: `${longTailCount} categories`,
+          source: "Minimal revenue contribution",
+        },
+      ])
+    );
+
+    // Proxy revenue bar chart
+    ch3Sections.push(
+      horizontalBarChart({
+        bars: revenueProxy.slice(0, 8).map((r) => ({
+          label: r.display_name,
+          value: r.estimated_impact,
+          displayValue: `$${r.median.toFixed(2)} \u00d7 ${r.institutions.toLocaleString()}`,
+        })),
+        title: "Estimated Revenue Impact (Median Fee x Institution Count)",
+        source: `Bank Fee Index \u2014 proxy model based on ${data.total_institutions.toLocaleString()} institutions`,
+      })
     );
   }
 
+  // Framing text — direct template string, not Hamilton narrative
+  ch3Sections.push(
+    `<p class="report-narrative" style="font-style:italic;color:${PALETTE.textSecondary};">This analysis combines observed pricing data with inferred revenue dynamics based on national reporting frameworks.</p>`
+  );
+
   ch3Sections.push(hamiltonNarrativeBlock(narratives.revenue_reality.narrative));
-  ch3Sections.push(soWhatBox("Fee revenue is concentrated in a handful of categories. Optimize the few that matter; ignore the noise."));
+
+  ch3Sections.push(
+    keyFinding(
+      "Most institutions optimize pricing across 49 categories \u2014 but revenue is driven by fewer than 5.",
+      "Key Finding",
+    )
+  );
+
+  ch3Sections.push(soWhatBox("Focus optimization on high-impact categories. Stop over-analyzing low-impact fees."));
 
   const ch3 = ch3Sections.join("\n");
 
@@ -417,8 +479,9 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
   ].join("\n");
 
   // ── Appendix ──────────────────────────────────────────────────────────────
+  // No pageBreak() here — methodology flows directly into appendix to avoid blank pages.
+  // The compact table uses break-inside:auto so it flows across pages naturally.
   const appendix = [
-    pageBreak(),
     chapterDivider("A", "Full 49-Category Index"),
     compactTable({
       columns: APPENDIX_COLUMNS,

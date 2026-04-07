@@ -559,6 +559,8 @@ body {
   font-family: ${TYPOGRAPHY.sans};
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 .compact-table thead tr {
@@ -579,6 +581,11 @@ body {
   padding: 8px 12px;
   border-bottom: 1px solid ${PALETTE.borderLight};
   color: ${PALETTE.text};
+}
+
+.compact-table tbody tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .compact-table tbody tr:last-child td {
@@ -900,6 +907,12 @@ body {
   .report-table-wrapper {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* Compact tables (appendix) must flow across pages — override wrapper rule */
+  .report-table-wrapper:has(.compact-table) {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   .numbered-findings {
