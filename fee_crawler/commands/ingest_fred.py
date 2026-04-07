@@ -25,6 +25,7 @@ NATIONAL_SERIES: list[str] = [
     "QBPQYTNIY",        # Total Noninterest Income (quarterly, QBP)
     "QBPQYTNIYSRVDP",   # Service Charges on Deposit Accounts (quarterly, QBP)
     "QBPQYNTYBKNI",     # Net Income, all banks (quarterly, QBP)
+    "UMCSENT",          # University of Michigan Consumer Sentiment (monthly)
 ]
 
 # NOTE: BLS series CUUR0000SEMC01 (CPI: Checking Account & Other Bank Services)

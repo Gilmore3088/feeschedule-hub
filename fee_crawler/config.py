@@ -67,6 +67,7 @@ class FREDConfig(BaseModel):
         "QBPQYTNIY",        # Total Noninterest Income (quarterly, QBP)
         "QBPQYTNIYSRVDP",   # Service Charges on Deposit Accounts (quarterly, QBP)
         "QBPQYNTYBKNI",     # Net Income (quarterly, QBP)
+        "UMCSENT",          # Consumer Sentiment (monthly)
     ]
 
 
