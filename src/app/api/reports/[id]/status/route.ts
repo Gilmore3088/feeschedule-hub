@@ -75,3 +75,58 @@ export async function GET(
     presigned_url: presignedUrl,
   });
 }
+
+/**
+ * PATCH /api/reports/[id]/status
+ * Internal endpoint for Modal worker to update job status via HTTP.
+ * Auth: X-Internal-Secret header (same as assemble endpoint).
+ *
+ * Body: { status, artifact_key?, error? }
+ */
+const VALID_STATUSES = new Set(['assembling', 'rendering', 'complete', 'failed']);
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const secret = process.env.REPORT_INTERNAL_SECRET;
+  const headerSecret = request.headers.get('x-internal-secret');
+  if (!secret || secret.length === 0 || headerSecret !== secret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  let body: { status?: string; artifact_key?: string; error?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  if (!body.status || !VALID_STATUSES.has(body.status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  }
+
+  const sql = getSql();
+  const isTerminal = body.status === 'complete' || body.status === 'failed';
+
+  if (isTerminal) {
+    await sql`
+      UPDATE report_jobs
+      SET status = ${body.status},
+          artifact_key = ${body.artifact_key ?? null},
+          error = ${body.error ?? null},
+          completed_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else {
+    await sql`
+      UPDATE report_jobs
+      SET status = ${body.status}
+      WHERE id = ${id}
+    `;
+  }
+
+  return NextResponse.json({ ok: true });
+}

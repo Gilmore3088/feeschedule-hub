@@ -235,13 +235,15 @@ async def generate_report(request: dict) -> dict:
 
     Accepts POST JSON: { job_id, report_type, params }
     Called by Next.js /api/reports/generate route.
-    Runs synchronously — Vercel does not await the response (fire-and-forget fetch).
+
+    Status updates use HTTP calls to /api/reports/[id]/status (PATCH) instead of
+    direct psycopg2 — browser_image containers can't reach Supabase via IPv6.
     """
     import os
     import json
     import urllib.request
     import urllib.error
-    from fee_crawler.workers.report_render import render_and_store, update_job_status
+    from fee_crawler.workers.report_render import render_and_store
 
     job_id = request.get("job_id", "")
     report_type = request.get("report_type", "")
@@ -250,16 +252,36 @@ async def generate_report(request: dict) -> dict:
     if not job_id or not report_type:
         return {"error": "job_id and report_type are required", "status": "error"}
 
+    app_url = os.environ.get("BFI_APP_URL", "https://feeinsight.com").rstrip("/")
+    internal_secret = os.environ.get("REPORT_INTERNAL_SECRET", "")
+    if not internal_secret:
+        return {"error": "REPORT_INTERNAL_SECRET not set", "status": "error"}
+
+    def _update_status(status, artifact_key=None, error=None):
+        """Update job status via Vercel API instead of direct DB."""
+        body = {"status": status}
+        if artifact_key:
+            body["artifact_key"] = artifact_key
+        if error:
+            body["error"] = error[:500]
+        req = urllib.request.Request(
+            f"{app_url}/api/reports/{job_id}/status",
+            data=json.dumps(body).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "X-Internal-Secret": internal_secret,
+            },
+            method="PATCH",
+        )
+        try:
+            urllib.request.urlopen(req, timeout=10)
+        except Exception as e:
+            print(f"[generate_report] status update to '{status}' failed: {e}")
+
     try:
         # Step 1: Call Next.js assemble endpoint to get HTML
-        update_job_status(job_id, "assembling")
-
-        app_url = os.environ.get("BFI_APP_URL", "https://feeinsight.com")
-        internal_secret = os.environ.get("REPORT_INTERNAL_SECRET", "")
-        if not internal_secret:
-            raise ValueError("REPORT_INTERNAL_SECRET not set in Modal secrets")
-
-        assemble_url = f"{app_url.rstrip('/')}/api/reports/{job_id}/assemble"
+        # assembleAndRender sets status to 'assembling' internally
+        assemble_url = f"{app_url}/api/reports/{job_id}/assemble"
         payload = json.dumps(params).encode()
 
         req = urllib.request.Request(
@@ -286,14 +308,14 @@ async def generate_report(request: dict) -> dict:
             raise ValueError("Assemble endpoint returned empty HTML")
 
         # Step 2: Render PDF and upload to R2
-        update_job_status(job_id, "rendering")
+        _update_status("rendering")
         key = await render_and_store(html, job_id, report_type)
 
         # Step 3: Mark complete
-        update_job_status(job_id, "complete", artifact_key=key)
+        _update_status("complete", artifact_key=key)
         return {"key": key, "status": "complete"}
     except Exception as exc:
-        update_job_status(job_id, "failed", error=str(exc)[:500])
+        _update_status("failed", error=str(exc)[:500])
         raise
 
 
