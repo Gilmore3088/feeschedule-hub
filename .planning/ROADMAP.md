@@ -3,7 +3,7 @@
 ## Milestones
 
 - [x] **v1.0 E2E Pipeline Test Suite** - Phases 1-11 (shipped 2026-04-06)
-- [ ] **v2.0 Hamilton — Research & Content Engine** - Phases 12-16 (in progress)
+- [ ] **v2.0 Hamilton — Research & Content Engine** - Phases 12-17 (in progress)
 
 ## Phases
 
@@ -171,13 +171,15 @@ Plans:
 
 ### Phase 17: Hamilton Chat — Unified Research Interface
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Hamilton is a single conversational interface at /admin/hamilton where the user talks to their senior research analyst and gets streaming answers or structured mini-reports — replacing Research Hub, Scout, and FeeScout as separate destinations
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17
 **Depends on:** Phase 16
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 17 to break down)
+- [ ] 17-01-PLAN.md — Hamilton chat API route + tool registry + Supabase persistent memory (D-01, D-03 to D-10, D-13, D-15)
+- [ ] 17-02-PLAN.md — Chat tab UI: streaming + mini-report rendering + history sidebar + export actions (D-01, D-02, D-16, D-17)
+- [ ] 17-03-PLAN.md — Two-tab layout + Reports sub-route + nav consolidation + Research/Scout redirects (D-02, D-11 to D-14)
 
 ---
 
@@ -190,6 +192,7 @@ Plans:
 - [x] **Phase 14: Recurring Reports** - National quarterly report, state fee indexes, monthly pulse with cron (completed 2026-04-06)
 - [x] **Phase 15: Premium Products** - On-demand competitive briefs with peer UI, pro portal with subscription gating (completed 2026-04-06)
 - [x] **Phase 16: Public Catalog + Go-to-Market** - Methodology published, ISR-cached public report pages, SEO optimization (completed 2026-04-07)
+- [ ] **Phase 17: Hamilton Chat** - Unified conversational interface absorbing Research Hub, Scout, FeeScout under one Hamilton persona
 
 ### Phase 12: Hamilton Foundation
 **Goal**: The Hamilton analyst persona, data-to-narrative API, and shared template system exist and produce verifiable, McKinsey-grade output
@@ -279,7 +282,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
+Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -299,3 +302,4 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16
 | 14. Recurring Reports | v2.0 | 3/3 | Complete    | 2026-04-06 |
 | 15. Premium Products | v2.0 | 2/3 | Complete    | 2026-04-06 |
 | 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete    | 2026-04-07 |
+| 17. Hamilton Chat | v2.0 | 0/3 | Not started | — |
