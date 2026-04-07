@@ -106,3 +106,9 @@
 - PDF extraction reliability is significantly higher than JavaScript-rendered content; prioritize PDF identification during discovery
 - Flag institutions with security blocks or 404s for manual review or alternative contact methods rather than repeated automated attempts
 - Disclosure pages vary in fee schedule inclusion; need enhanced content matching beyond document title matching
+
+## Promoted — 2026-04-06
+- JS-rendered fee schedules require specialized extraction handling; current approach extracts structure but not populated content
+- PDF-based fee schedules are more reliably extractable; prioritize PDF discovery and classification
+- Many institutions bury fee schedules; discovery may need to check /disclosures, /rates, /legal URLs as fallbacks
+- Some PDFs pass classification but fail extraction due to non-standard formatting; may need institution-specific parsing rules
