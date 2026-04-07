@@ -153,7 +153,7 @@ export async function retryReport(
       fetch(modalUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: newJobId, html: "", report_type }),
+        body: JSON.stringify({ job_id: newJobId, report_type, params: params ?? {} }),
       }).catch((err: unknown) => {
         console.error(
           "[retryReport] Modal trigger failed:",

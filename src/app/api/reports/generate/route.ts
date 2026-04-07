@@ -48,10 +48,12 @@ export async function POST(request: Request) {
 
   let cronAuthed = false;
   if (!user) {
-    const cronSecret = process.env.REPORT_CRON_SECRET;
     const headerSecret = request.headers.get('x-cron-secret');
-    // T-14-07: guard length > 0 prevents empty-string bypass
-    if (cronSecret && cronSecret.length > 0 && headerSecret === cronSecret) {
+    // Accept either REPORT_CRON_SECRET or BFI_REVALIDATE_TOKEN (Hamilton chat uses the latter)
+    const secrets = [process.env.REPORT_CRON_SECRET, process.env.BFI_REVALIDATE_TOKEN].filter(
+      (s): s is string => typeof s === 'string' && s.length > 0,
+    );
+    if (headerSecret && secrets.some((s) => s === headerSecret)) {
       cronAuthed = true;
     }
   }
