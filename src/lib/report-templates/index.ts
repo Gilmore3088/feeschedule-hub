@@ -17,6 +17,15 @@ export {
   footnote,
   hamiltonNarrativeBlock,
   pageBreak,
+  statCardRow,
+  keyFinding,
+  horizontalBarChart,
+  twoColumn,
+  chapterDivider,
+  tableOfContents,
+  compactTable,
+  trendIndicator,
+  numberedFindings,
 } from "./base/components";
 
 export type {
@@ -25,6 +34,11 @@ export type {
   DataTableProps,
   DataTableColumn,
   ChartContainerProps,
+  StatCard,
+  BarChartBar,
+  HorizontalBarChartProps,
+  TocEntry,
+  NumberedFinding,
 } from "./base/components";
 
 export { PALETTE, TYPOGRAPHY, REPORT_CSS } from "./base/styles";

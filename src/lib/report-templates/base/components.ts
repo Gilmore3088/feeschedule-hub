@@ -194,5 +194,238 @@ export function pageBreak(): string {
   return `<div class="page-break"></div>`;
 }
 
+// ─── Stat Card Row ─────────────────────────────────────────────────────────────
+
+export interface StatCard {
+  label: string;
+  value: string;
+  delta?: string;
+  deltaColor?: "positive" | "negative" | "neutral";
+  source?: string;
+}
+
+/**
+ * Renders 2-3 stat cards in a responsive CSS grid.
+ * Use for key metrics at the top of a section.
+ */
+export function statCardRow(cards: StatCard[]): string {
+  const cardHtml = cards
+    .map((card) => {
+      const deltaClass = card.deltaColor ? ` delta-${card.deltaColor}` : "";
+      return `
+  <div class="stat-card">
+    <div class="stat-card-label">${escapeHtml(card.label)}</div>
+    <div class="stat-card-value">${escapeHtml(card.value)}</div>
+    ${card.delta ? `<div class="stat-card-delta${deltaClass}">${escapeHtml(card.delta)}</div>` : ""}
+    ${card.source ? `<div class="stat-card-source">${escapeHtml(card.source)}</div>` : ""}
+  </div>`;
+    })
+    .join("");
+
+  return `<div class="stat-cards">${cardHtml}\n</div>`;
+}
+
+// ─── Key Finding ───────────────────────────────────────────────────────────────
+
+/**
+ * Terracotta-bordered callout box for a single critical finding.
+ * Use sparingly — one per section maximum.
+ */
+export function keyFinding(text: string, label?: string): string {
+  return `
+<div class="key-finding">
+  ${label ? `<div class="key-finding-label">${escapeHtml(label)}</div>` : ""}
+  <div class="key-finding-text">${escapeHtml(text)}</div>
+</div>`;
+}
+
+// ─── Horizontal Bar Chart ──────────────────────────────────────────────────────
+
+export interface BarChartBar {
+  label: string;
+  value: number;
+  displayValue?: string;
+}
+
+export interface HorizontalBarChartProps {
+  bars: BarChartBar[];
+  title?: string;
+  source?: string;
+}
+
+/**
+ * CSS-only horizontal bar chart (no SVG). Bar widths are calculated as a
+ * percentage of the maximum value. Bars decrease in opacity from top to bottom.
+ */
+export function horizontalBarChart(props: HorizontalBarChartProps): string {
+  const maxValue = Math.max(...props.bars.map((b) => b.value));
+  const barHtml = props.bars
+    .map((bar, i) => {
+      const widthPct = maxValue > 0 ? (bar.value / maxValue) * 100 : 0;
+      const opacity = 1 - i * (0.6 / Math.max(props.bars.length - 1, 1));
+      const display = bar.displayValue ?? String(bar.value);
+      return `
+  <div class="h-bar-row">
+    <div class="h-bar-label">${escapeHtml(bar.label)}</div>
+    <div class="h-bar-track">
+      <div class="h-bar-fill" style="width:${widthPct.toFixed(1)}%;opacity:${opacity.toFixed(2)};"></div>
+    </div>
+    <div class="h-bar-value">${escapeHtml(display)}</div>
+  </div>`;
+    })
+    .join("");
+
+  return `
+<div class="h-bar-chart">
+  ${props.title ? `<div class="h-bar-title">${escapeHtml(props.title)}</div>` : ""}
+  ${barHtml}
+  ${props.source ? `<div class="h-bar-source">${escapeHtml(props.source)}</div>` : ""}
+</div>`;
+}
+
+// ─── Two Column ────────────────────────────────────────────────────────────────
+
+/**
+ * CSS grid wrapper for a two-column layout.
+ * ratio defaults to "1.2fr 1fr" for a slightly wider left column.
+ * Left and right are pre-rendered HTML strings.
+ */
+export function twoColumn(left: string, right: string, ratio = "1.2fr 1fr"): string {
+  return `
+<div class="two-column" style="grid-template-columns:${ratio};">
+  <div class="two-column-left">${left}</div>
+  <div class="two-column-right">${right}</div>
+</div>`;
+}
+
+// ─── Chapter Divider ───────────────────────────────────────────────────────────
+
+/**
+ * Full-width chapter opener with terracotta accent number and large heading.
+ * Use at the start of major report sections.
+ */
+export function chapterDivider(number: string, title: string): string {
+  return `
+<div class="chapter-divider">
+  <div class="chapter-number">${escapeHtml(number)}</div>
+  <h2 class="chapter-title">${escapeHtml(title)}</h2>
+</div>`;
+}
+
+// ─── Table of Contents ─────────────────────────────────────────────────────────
+
+export interface TocEntry {
+  title: string;
+  page: string;
+}
+
+/**
+ * Dot-leader table of contents. Typically placed after the cover page.
+ */
+export function tableOfContents(chapters: TocEntry[]): string {
+  const entries = chapters
+    .map(
+      (ch) => `
+  <div class="toc-entry">
+    <span class="toc-title">${escapeHtml(ch.title)}</span>
+    <span class="toc-dots"></span>
+    <span class="toc-page">${escapeHtml(ch.page)}</span>
+  </div>`,
+    )
+    .join("");
+
+  return `<nav class="table-of-contents">${entries}\n</nav>`;
+}
+
+// ─── Compact Table ─────────────────────────────────────────────────────────────
+
+/**
+ * Same as dataTable but uses the "compact-table" CSS class for tighter spacing.
+ * Use inside sidebar panels or when vertical space is limited.
+ */
+export function compactTable(props: DataTableProps): string {
+  const headers = props.columns
+    .map((c) => `<th style="text-align:${c.align ?? "left"}">${escapeHtml(c.label)}</th>`)
+    .join("");
+
+  const rows = props.rows
+    .map((row) => {
+      const cells = props.columns
+        .map((c) => {
+          const val = row[c.key] ?? null;
+          return `<td style="text-align:${c.align ?? "left"}">${formatCell(val, c.format)}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  return `
+<div class="report-table-wrapper">
+  ${props.caption ? `<div class="report-table-caption">${escapeHtml(props.caption)}</div>` : ""}
+  <table class="compact-table">
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>`;
+}
+
+// ─── Trend Indicator ───────────────────────────────────────────────────────────
+
+/**
+ * Inline colored up/down/flat indicator for a numeric change value.
+ * Values with abs(value) > 0.5 render as up or down; otherwise flat.
+ * format: 'percent' adds % suffix; 'amount' adds $ prefix.
+ */
+export function trendIndicator(value: number, format: "percent" | "amount" = "percent"): string {
+  const absVal = Math.abs(value);
+  const isUp = value > 0.5;
+  const isDown = value < -0.5;
+
+  let displayVal: string;
+  if (format === "amount") {
+    displayVal = `$${absVal.toFixed(2)}`;
+  } else {
+    displayVal = `${absVal.toFixed(1)}%`;
+  }
+
+  if (isUp) {
+    return `<span class="trend-indicator trend-up">\u25b2 ${displayVal}</span>`;
+  }
+  if (isDown) {
+    return `<span class="trend-indicator trend-down">\u25bc ${displayVal}</span>`;
+  }
+  return `<span class="trend-indicator trend-flat">\u2014 ${displayVal}</span>`;
+}
+
+// ─── Numbered Findings ─────────────────────────────────────────────────────────
+
+export interface NumberedFinding {
+  number: string;
+  title: string;
+  detail: string;
+}
+
+/**
+ * Ordered list of key findings with a prominent number, bold title, and
+ * supporting detail paragraph. Use for executive summary sections.
+ */
+export function numberedFindings(findings: NumberedFinding[]): string {
+  const items = findings
+    .map(
+      (f) => `
+  <div class="numbered-finding">
+    <div class="finding-number">${escapeHtml(f.number)}</div>
+    <div class="finding-body">
+      <div class="finding-title">${escapeHtml(f.title)}</div>
+      <div class="finding-detail">${escapeHtml(f.detail)}</div>
+    </div>
+  </div>`,
+    )
+    .join("");
+
+  return `<div class="numbered-findings">${items}\n</div>`;
+}
+
 // Keep PALETTE accessible to any component that needs inline style overrides
 export { PALETTE };
