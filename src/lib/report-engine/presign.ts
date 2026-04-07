@@ -25,14 +25,19 @@ export async function generatePresignedUrl(
   key: string,
   ttlSeconds: number = DEFAULT_TTL_SECONDS,
 ): Promise<string> {
+  const endpoint = process.env.R2_ENDPOINT;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+
+  if (!endpoint || !accessKeyId || !secretAccessKey) {
+    console.error('[presign] R2 credentials not configured — cannot generate presigned URL');
+    throw new Error('Report storage not configured. Set R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY.');
+  }
+
   const client = new S3Client({
-    endpoint: process.env.R2_ENDPOINT!,
+    endpoint,
     region: 'auto',
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-    // Required for Cloudflare R2: disable virtual-hosted-style URLs
+    credentials: { accessKeyId, secretAccessKey },
     forcePathStyle: true,
   });
 

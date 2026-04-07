@@ -57,7 +57,12 @@ export async function GET(
   // Generate presigned URL only when complete — per D-04 "generate at download time"
   let presignedUrl: string | null = null;
   if (job.status === 'complete' && job.artifact_key) {
-    presignedUrl = await generatePresignedUrl(job.artifact_key, PRESIGNED_TTL_SECONDS);
+    try {
+      presignedUrl = await generatePresignedUrl(job.artifact_key, PRESIGNED_TTL_SECONDS);
+    } catch (err) {
+      console.error('[reports/status] Presign failed:', err instanceof Error ? err.message : err);
+      // Don't crash the status endpoint — return null URL with a note
+    }
   }
 
   return NextResponse.json({
