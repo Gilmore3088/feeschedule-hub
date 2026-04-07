@@ -41,13 +41,26 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - Mobile app — web-first
 - Real-time fee monitoring — batch/quarterly cadence is sufficient
 
-## Current Milestone: v3.0 National Coverage Push
+## Current Milestone: v5.0 National Data Layer
 
-**Goal:** Systematic state-by-state crawl campaign to maximize fee database coverage across all 50 states, running waves of 5-10 states with 3-5 iterations each, largest states first.
+**Goal:** Build the data foundation that Hamilton needs to produce credible national analysis. Fix data queries, create summary views, and build admin portal pages for national data — the raw work that feeds reports later.
 
-**Strategy:** Iterative deepening — easy URLs → harder discovery → PDF/fee schedule search → manual sources. Each iteration writes learnings back to knowledge system for compounding returns.
+**Target features:**
+- Fix Call Report revenue queries (scaling thousands→dollars, YoY trends, bank vs CU, top institutions)
+- FRED economic summaries (rates, unemployment, CPI YoY, consumer sentiment — verified and complete)
+- Beige Book district summaries (condensed economic narratives per district)
+- Industry health summaries (ROA, efficiency, deposits, loans from institution_financials)
+- Derived metrics (fee_income_ratio, revenue concentration, charter comparisons)
+- Admin portal pages for national data (`/admin/national` — raw summaries before they hit reports)
+- Hamilton can query and digest all data sources via tools
 
-**Coverage targets:** 50%+ baseline, 75%+ gold standard
+**Not in scope:** Report template redesign — v4.2 template is locked. This builds data; future milestone wires it into reports.
+
+**Previous milestones:**
+- v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
+- v2.0 Hamilton Research & Content Engine (shipped 2026-04-07)
+- v3.0 National Coverage Push (in progress — agents running state crawls in parallel)
+- v4.x Report Design (completed 2026-04-07 — template v4.2 deployed)
 
 ## Context
 
