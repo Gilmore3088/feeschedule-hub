@@ -28,32 +28,26 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 
 ### Active
 
-- [ ] Hamilton AI analyst persona (consistent voice, byline, tone)
-- [ ] Report design system (McKinsey-grade templates, shared visual language)
-- [ ] National Fee Index quarterly report
-- [ ] State Fee Index reports (per-state, data-driven + Hamilton narrative)
-- [ ] Monthly pulse reports (automated recurring)
-- [ ] Competitive peer briefs (Hamilton deep analysis, on-demand premium product)
-- [ ] Multi-dimensional slicing (state, MSA, Fed district, charter, asset tier)
-- [ ] Consumer-facing institution fee lookup
-- [ ] Methodology paper (how the index works)
+- [ ] Wave orchestrator for batched state crawl campaigns
+- [ ] Iterative deepening strategy (easy URLs → harder discovery → PDF sources)
+- [ ] Automated knowledge logging (learnings feed next iteration)
+- [ ] Per-state coverage tracking and progress reporting
+- [ ] State prioritization by institution count (largest first)
+- [ ] Coverage targets: 50%+ baseline, 75%+ gold
 
 ### Out of Scope
 
-- Building more pipeline/agent infrastructure — owner is building that in parallel
-- Admin UI redesign — current admin works, focus on content output
+- Admin UI redesign — current admin works, focus on data coverage
 - Mobile app — web-first
 - Real-time fee monitoring — batch/quarterly cadence is sufficient
 
-## Current Milestone: v2.0 Hamilton — Research & Content Engine
+## Current Milestone: v3.0 National Coverage Push
 
-**Goal:** Build the report engine and content library that establishes Bank Fee Index as the national authority on bank fees, powered by Hamilton, the AI research analyst.
+**Goal:** Systematic state-by-state crawl campaign to maximize fee database coverage across all 50 states, running waves of 5-10 states with 3-5 iterations each, largest states first.
 
-**Business model:** B2B primary (banks + consultants ~$2,500/mo), consumer site secondary (traffic/ads/affiliates)
+**Strategy:** Iterative deepening — easy URLs → harder discovery → PDF/fee schedule search → manual sources. Each iteration writes learnings back to knowledge system for compounding returns.
 
-**Two report modes:**
-- Template-driven (recurring, cheap) — national/state indexes, monthly pulse
-- Hamilton-heavy (on-demand, high-value) — competitive briefs, peer reports
+**Coverage targets:** 50%+ baseline, 75%+ gold standard
 
 ## Context
 
@@ -98,4 +92,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-06 after v2.0 milestone start*
+*Last updated: 2026-04-06 after v3.0 milestone start*
