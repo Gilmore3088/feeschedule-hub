@@ -10,7 +10,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { renderPeerCompetitiveReport } from "@/lib/report-templates/templates/peer-competitive";
-import type { PeerCompetitiveData, GenerateSectionOutput } from "@/lib/hamilton/types";
+import type { PeerCompetitiveData, SectionOutput } from "@/lib/hamilton/types";
 
 const FIXTURE_DATA: PeerCompetitiveData = {
   title: "Midwest Community Banks — Peer Fee Benchmarking Brief",
@@ -107,8 +107,8 @@ const FIXTURE_DATA: PeerCompetitiveData = {
 const now = new Date().toISOString();
 
 const FIXTURE_NARRATIVES: {
-  executive_summary: GenerateSectionOutput;
-  featured_fees: GenerateSectionOutput;
+  executive_summary: SectionOutput;
+  featured_fees: SectionOutput;
 } = {
   executive_summary: {
     narrative:
@@ -116,8 +116,6 @@ const FIXTURE_NARRATIVES: {
     wordCount: 108,
     model: "fixture",
     usage: { inputTokens: 0, outputTokens: 0 },
-    section_type: "executive_summary",
-    generated_at: now,
   },
   featured_fees: {
     narrative:
@@ -125,8 +123,6 @@ const FIXTURE_NARRATIVES: {
     wordCount: 96,
     model: "fixture",
     usage: { inputTokens: 0, outputTokens: 0 },
-    section_type: "peer_competitive",
-    generated_at: now,
   },
 };
 

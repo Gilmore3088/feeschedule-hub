@@ -24,6 +24,9 @@ export interface SectionInput {
   context?: string;
 }
 
+/** @deprecated Use SectionOutput instead */
+export type GenerateSectionOutput = SectionOutput;
+
 export interface SectionOutput {
   /** Hamilton narrative — validated against source data before use */
   narrative: string;
@@ -51,6 +54,27 @@ export interface ValidatedSection extends SectionOutput {
 }
 
 // ─── Report Data Types ─────────────────────────────────────────────────────────
+
+/**
+ * Input data shape for national overview reports.
+ */
+export interface NationalOverviewData {
+  report_date: string;
+  total_institutions: number;
+  total_observations: number;
+  categories: Array<{
+    fee_category: string;
+    display_name: string;
+    median_amount: number | null;
+    p25_amount: number | null;
+    p75_amount: number | null;
+    institution_count: number;
+    observation_count: number;
+    maturity: string;
+    is_featured: boolean;
+  }>;
+  charter_split?: Record<string, unknown>;
+}
 
 /**
  * Input data shape for peer competitive benchmarking reports.
