@@ -16,13 +16,14 @@
  * Threat refs: T-13-10, T-13-13, T-14-07
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getSql } from '@/lib/crawler-db/connection';
 import { checkFreshness } from '@/lib/report-engine/freshness';
 import type { ReportType } from '@/lib/report-engine/types';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 // Allowlist — T-13-13: explicit validation before DB insert
 const VALID_REPORT_TYPES: ReadonlySet<string> = new Set([
@@ -125,30 +126,32 @@ export async function POST(request: Request) {
     );
   }
 
-  // Trigger Modal — await the POST since the endpoint now returns immediately
-  // (it spawns the heavy work as a background Modal function).
+  // Trigger Modal via after() — runs after response is sent, Vercel keeps function alive.
+  // Modal endpoint is synchronous (runs full pipeline), so we can't await it before responding.
   const modalUrl = process.env.MODAL_REPORT_URL;
 
   if (modalUrl) {
-    try {
-      const triggerRes = await fetch(modalUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: jobId,
-          report_type: validatedType,
-          params: validatedParams,
-        }),
-      });
-      if (!triggerRes.ok) {
-        console.error('[reports/generate] Modal trigger returned', triggerRes.status);
+    after(async () => {
+      try {
+        const triggerRes = await fetch(modalUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: jobId,
+            report_type: validatedType,
+            params: validatedParams,
+          }),
+        });
+        if (!triggerRes.ok) {
+          console.error('[reports/generate] Modal returned', triggerRes.status);
+        }
+      } catch (err: unknown) {
+        console.error(
+          '[reports/generate] Modal trigger failed:',
+          err instanceof Error ? err.message : String(err),
+        );
       }
-    } catch (err: unknown) {
-      console.error(
-        '[reports/generate] Modal trigger failed:',
-        err instanceof Error ? err.message : String(err),
-      );
-    }
+    });
   } else {
     console.warn('[reports/generate] MODAL_REPORT_URL not configured — skipping Modal trigger');
   }
