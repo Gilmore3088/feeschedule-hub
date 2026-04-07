@@ -25,7 +25,6 @@ NATIONAL_SERIES: list[str] = [
     "QBPQYTNIY",        # Total Noninterest Income (quarterly, QBP)
     "QBPQYTNIYSRVDP",   # Service Charges on Deposit Accounts (quarterly, QBP)
     "QBPQYNTYBKNI",     # Net Income, all banks (quarterly, QBP)
-    "UMCSENT",          # University of Michigan Consumer Sentiment (monthly)
 ]
 
 # NOTE: BLS series CUUR0000SEMC01 (CPI: Checking Account & Other Bank Services)
@@ -51,9 +50,11 @@ DISTRICT_SERIES: dict[str, int] = {
 
 
 def _get_api_key(config: Config) -> str | None:
-    """Get FRED API key from FRED_API_KEY env var (sole source of truth)."""
-    del config  # api_key is not stored in config — env var only
+    """Get FRED API key from env var or config."""
     key = os.environ.get("FRED_API_KEY", "").strip()
+    if key:
+        return key
+    key = config.fred.api_key.strip()
     return key if key else None
 
 
@@ -190,7 +191,7 @@ def run(
     api_key = _get_api_key(config)
     if not api_key:
         print("FRED API key not configured.")
-        print("Set the FRED_API_KEY environment variable.")
+        print("Set FRED_API_KEY env var or add fred.api_key to config.yaml")
         print("Get a free key at: https://fred.stlouisfed.org/docs/api/api_key.html")
         return
 

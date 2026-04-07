@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel
 
 
 class DatabaseConfig(BaseModel):
@@ -56,7 +56,7 @@ class FedContentConfig(BaseModel):
 
 
 class FREDConfig(BaseModel):
-    # api_key intentionally omitted — use FRED_API_KEY env var exclusively
+    api_key: str = ""  # Or FRED_API_KEY env var
     base_url: str = "https://api.stlouisfed.org/fred"
     series: list[str] = [
         "UNRATE",           # Unemployment Rate (monthly)
@@ -67,7 +67,6 @@ class FREDConfig(BaseModel):
         "QBPQYTNIY",        # Total Noninterest Income (quarterly, QBP)
         "QBPQYTNIYSRVDP",   # Service Charges on Deposit Accounts (quarterly, QBP)
         "QBPQYNTYBKNI",     # Net Income (quarterly, QBP)
-        "UMCSENT",          # Consumer Sentiment (monthly)
     ]
 
 
@@ -77,20 +76,10 @@ class SeedUser(BaseModel):
     display_name: str
     role: str = "viewer"
 
-    @model_validator(mode='after')
-    def password_must_not_be_empty(self) -> 'SeedUser':
-        if not self.password:
-            raise ValueError(
-                f"Seed user '{self.username}' has an empty password. "
-                f"Set the BFI_{self.username.upper()}_PASSWORD environment variable."
-            )
-        return self
 
-
-def _default_seed_users() -> list[SeedUser]:
-    """Build seed users at runtime so env vars are read lazily and the
-    password_must_not_be_empty validator fires only when config is loaded."""
-    return [
+class AuthConfig(BaseModel):
+    session_ttl_hours: int = 24
+    seed_users: list[SeedUser] = [
         SeedUser(
             username="admin",
             password=os.environ.get("BFI_ADMIN_PASSWORD", ""),
@@ -106,21 +95,16 @@ def _default_seed_users() -> list[SeedUser]:
     ]
 
 
-class AuthConfig(BaseModel):
-    session_ttl_hours: int = 24
-    seed_users: list[SeedUser] = Field(default_factory=_default_seed_users)
-
-
 class Config(BaseModel):
-    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
-    fdic_api: FDICConfig = Field(default_factory=FDICConfig)
-    ncua_api: NCUAConfig = Field(default_factory=NCUAConfig)
-    crawl: CrawlConfig = Field(default_factory=CrawlConfig)
-    claude: ClaudeConfig = Field(default_factory=ClaudeConfig)
-    extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
-    auth: AuthConfig = Field(default_factory=AuthConfig)
-    fed_content: FedContentConfig = Field(default_factory=FedContentConfig)
-    fred: FREDConfig = Field(default_factory=FREDConfig)
+    database: DatabaseConfig = DatabaseConfig()
+    fdic_api: FDICConfig = FDICConfig()
+    ncua_api: NCUAConfig = NCUAConfig()
+    crawl: CrawlConfig = CrawlConfig()
+    claude: ClaudeConfig = ClaudeConfig()
+    extraction: ExtractionConfig = ExtractionConfig()
+    auth: AuthConfig = AuthConfig()
+    fed_content: FedContentConfig = FedContentConfig()
+    fred: FREDConfig = FREDConfig()
 
 
 def load_config(path: Path | None = None) -> Config:
