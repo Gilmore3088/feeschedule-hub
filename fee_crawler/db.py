@@ -762,7 +762,11 @@ def _sqlite_to_pg(sql: str) -> str:
     s = s.replace("?", "%s")
     # datetime functions
     s = re.sub(r"datetime\('now'\)", "NOW()", s)
-    s = re.sub(r"datetime\('now',\s*'(-?\d+)\s*days?'\)", r"NOW() + INTERVAL '\1 days'", s)
+    s = re.sub(
+        r"datetime\('now',\s*'(-?\d+)\s*(days?|hours?|minutes?|months?)'\)",
+        r"NOW() + INTERVAL '\1 \2'",
+        s,
+    )
     # INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
     if "INSERT OR IGNORE" in s:
         s = s.replace("INSERT OR IGNORE", "INSERT")
