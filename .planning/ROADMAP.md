@@ -308,7 +308,11 @@ Plans:
   2. Running `python -m fee_crawler wave recommend` prints a ranked list of states ordered by institution count with current coverage %, so the operator can choose the highest-impact targets
   3. A wave interrupted after 3 of 8 states complete can be resumed via `wave resume <wave_id>` — the 3 completed states are skipped and the remaining 5 run from where they left off
   4. Wave execution respects Modal's existing cron slot budget — concurrent state agents do not exceed the configured parallelism limit
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — Wave data layer: DB tables, coverage computation, state prioritization
+- [ ] 19-02-PLAN.md — Wave orchestrator engine, CLI commands (run/recommend/resume)
 
 ### Phase 20: Iterative Deepening
 **Goal**: Each state is crawled 3-5 times automatically, with each pass escalating to harder discovery strategies and injecting learnings from prior passes
@@ -366,7 +370,7 @@ Phases execute in numeric order: 19 → 20 → 21 → 22
 | 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete | 2026-04-07 |
 | 17. Hamilton Chat | v2.0 | 3/3 | Complete | 2026-04-07 |
 | 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
-| 19. Wave Orchestrator | v3.0 | 0/? | Not started | - |
+| 19. Wave Orchestrator | v3.0 | 0/2 | Not started | - |
 | 20. Iterative Deepening | v3.0 | 0/? | Not started | - |
 | 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
