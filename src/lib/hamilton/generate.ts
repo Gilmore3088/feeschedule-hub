@@ -8,8 +8,18 @@ import { HAMILTON_VOICE } from "./voice";
 import type { SectionInput, SectionOutput } from "./types";
 
 const MODEL = "claude-sonnet-4-20250514";
-const MAX_TOKENS = 1500;
+const MAX_TOKENS = 500;
 const REQUEST_TIMEOUT_MS = 60_000;
+
+/**
+ * Prepend the hard word-limit constraint to every context field.
+ * Ensures brevity regardless of what the orchestrator passes.
+ */
+function formatContext(input: SectionInput): string {
+  const base = input.context ?? '';
+  const wordLimit = 'HARD LIMIT: 75 words maximum. Write exactly 2-3 sentences.';
+  return base ? `${wordLimit}\n\n${base}` : wordLimit;
+}
 
 function buildUserMessage(input: SectionInput): string {
   const lines: string[] = [];
@@ -17,9 +27,8 @@ function buildUserMessage(input: SectionInput): string {
   lines.push(`SECTION TYPE: ${input.type}`);
   lines.push(`SECTION TITLE: ${input.title}`);
 
-  if (input.context) {
-    lines.push(`\nCONTEXT:\n${input.context}`);
-  }
+  const context = formatContext(input);
+  lines.push(`\nCONTEXT:\n${context}`);
 
   lines.push("\nDATA (use only these figures — do not invent, estimate, or extrapolate any statistic not present below):");
   lines.push("```json");

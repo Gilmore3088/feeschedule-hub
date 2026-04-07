@@ -12,7 +12,8 @@ export type SectionType =
   | "regional_analysis"
   | "recommendation"
   | "executive_summary"
-  | "methodology_note";
+  | "methodology_note"
+  | "strategic";
 
 export interface SectionInput {
   type: SectionType;
