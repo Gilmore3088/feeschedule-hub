@@ -7,6 +7,8 @@ import { SkeletonCards } from "@/components/skeleton";
 import { TabNav, TABS, type Tab } from "./tab-nav";
 import { OverviewPanel } from "./overview-panel";
 import { CallReportsPanel } from "./call-reports-panel";
+import { EconomicPanel } from "./economic-panel";
+import { HealthPanel } from "./health-panel";
 
 export default async function NationalPage({
   searchParams,
@@ -38,11 +40,8 @@ export default async function NationalPage({
         <Suspense fallback={<SkeletonCards count={4} />}>
           {validatedTab === "overview" && <OverviewPanel />}
           {validatedTab === "call-reports" && <CallReportsPanel />}
-          {(validatedTab === "economic" || validatedTab === "health") && (
-            <div className="admin-card p-8 text-center text-gray-400">
-              Coming soon
-            </div>
-          )}
+          {validatedTab === "economic" && <EconomicPanel />}
+          {validatedTab === "health" && <HealthPanel />}
         </Suspense>
       </div>
     </div>
