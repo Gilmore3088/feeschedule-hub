@@ -94,10 +94,6 @@ def ingest_fdic_financials(
             cert_map[cert] = row["id"]
 
     print(f"Found {len(cert_map):,} FDIC institutions in database")
-    print(
-        "Note: Overdraft revenue (RIAD4070) extraction attempted from FDIC API. "
-        "Column will be NULL if field unavailable."
-    )
 
     for date in dates:
         print(f"\nFetching financials for report date {date}...")
@@ -150,22 +146,6 @@ def ingest_fdic_financials(
                 # Convert SC to thousands to match.
                 sc_raw = _safe_int(d.get("SC"))
                 sc = sc_raw // 1000 if sc_raw is not None else None
-
-                # Overdraft revenue (RIAD4070) — attempt extraction; NULL if unavailable.
-                # RIAD4070 is not consistently exposed by the FDIC BankFind API,
-                # so we try several possible key names and fall back to None.
-                od_raw = (
-                    d.get("RIAD4070")
-                    or d.get("RIAD4070a")
-                    or d.get("IDRSSD4070")
-                    or next(
-                        (v for k, v in d.items() if "4070" in k or "OVERDRAFT" in k.upper()),
-                        None,
-                    )
-                )
-                od_safe = _safe_int(od_raw)
-                overdraft_revenue = od_safe // 1000 if od_safe is not None else None
-
                 nonii = _safe_int(d.get("NONII"))
                 intinc = _safe_int(d.get("INTINC"))
                 eintexp = _safe_int(d.get("EINTEXP"))
@@ -185,8 +165,7 @@ def ingest_fdic_financials(
                         """INSERT INTO institution_financials
                            (crawl_target_id, report_date, source,
                             total_assets, total_deposits, total_loans,
-                            service_charge_income, overdraft_revenue,
-                            other_noninterest_income,
+                            service_charge_income, other_noninterest_income,
                             net_interest_margin, efficiency_ratio,
                             roa, roe, tier1_capital_ratio,
                             branch_count, employee_count,
@@ -195,7 +174,6 @@ def ingest_fdic_financials(
                            VALUES (?, ?, 'fdic',
                                    ?, ?, ?,
                                    ?, ?,
-                                   ?,
                                    ?, ?,
                                    ?, ?, ?,
                                    ?, ?,
@@ -206,7 +184,6 @@ def ingest_fdic_financials(
                             total_deposits = excluded.total_deposits,
                             total_loans = excluded.total_loans,
                             service_charge_income = excluded.service_charge_income,
-                            overdraft_revenue = excluded.overdraft_revenue,
                             other_noninterest_income = excluded.other_noninterest_income,
                             net_interest_margin = excluded.net_interest_margin,
                             efficiency_ratio = excluded.efficiency_ratio,
@@ -225,7 +202,6 @@ def ingest_fdic_financials(
                             _safe_int(d.get("DEP")),
                             _safe_int(d.get("LNLSNET")),
                             sc,
-                            overdraft_revenue,
                             nonii,
                             _safe_float(d.get("NIMY")),
                             _safe_float(d.get("EEFFR")),

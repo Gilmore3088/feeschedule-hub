@@ -23,6 +23,20 @@ export interface TopRevenueInstitution {
   total_assets: number | null;
 }
 
+/**
+ * Given a quarter label like "2024Q3" or "2024-Q3", return the same quarter one year prior.
+ * Supports both formats produced by TO_CHAR(..., 'YYYY-"Q"Q') and 'YYYY"Q"Q'.
+ * Used for YoY computation in health metrics.
+ */
+export function priorYearQuarter(quarter: string): string {
+  // Match "2024-Q4" or "2024Q4"
+  const match = /^(\d{4})-?Q(\d)$/.exec(quarter);
+  if (!match) return quarter;
+  const year = parseInt(match[1], 10) - 1;
+  const sep = quarter.includes("-Q") ? "-Q" : "Q";
+  return `${year}${sep}${match[2]}`;
+}
+
 export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
   const sql = getSql();
 

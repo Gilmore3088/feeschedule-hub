@@ -61,7 +61,8 @@ export async function getFinancialsByInstitution(
            net_interest_margin, efficiency_ratio,
            roa, roe, tier1_capital_ratio,
            branch_count, employee_count, member_count,
-           total_revenue, fee_income_ratio
+           total_revenue, fee_income_ratio,
+           overdraft_revenue
     FROM institution_financials
     WHERE crawl_target_id = ${targetId}
     ORDER BY report_date DESC`;
@@ -90,6 +91,7 @@ export async function getFinancialsByInstitution(
     member_count: numOrNull(r.member_count),
     total_revenue: numOrNull(r.total_revenue),
     fee_income_ratio: numOrNull(r.fee_income_ratio),
+    overdraft_revenue: numOrNull(r.overdraft_revenue),
   }));
 }
 

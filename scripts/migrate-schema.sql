@@ -143,7 +143,6 @@ CREATE TABLE IF NOT EXISTS institution_financials (
     total_deposits          BIGINT,
     total_loans             BIGINT,
     service_charge_income   BIGINT,
-    overdraft_revenue       BIGINT,
     other_noninterest_income BIGINT,
     net_interest_margin     FLOAT,
     efficiency_ratio        FLOAT,
@@ -711,11 +710,6 @@ CREATE INDEX IF NOT EXISTS idx_ops_jobs_created ON ops_jobs(created_at);
 CREATE INDEX IF NOT EXISTS idx_reg_articles_published ON reg_articles(published_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_jobs_queue_pending ON jobs(queue, priority DESC, id ASC) WHERE status = 'pending';
-
--- ── MIGRATIONS ──────────────────────────────────────────────────────────────
-
--- Phase 25: overdraft revenue granularity (D-03)
-ALTER TABLE institution_financials ADD COLUMN IF NOT EXISTS overdraft_revenue BIGINT;
 
 -- ── SEED DATA ───────────────────────────────────────────────────────────────
 
