@@ -404,7 +404,11 @@ Plans:
   2. Call Report revenue dashboard displays trends over 8 quarters, top institutions by service charge income, and bank vs CU charter split
   3. Economic conditions panel shows FRED indicators (rates, unemployment, CPI YoY, sentiment) alongside Beige Book district summaries on a single view
   4. Industry health panel displays ROA, efficiency ratio, deposit/loan growth with charter segmentation
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 26-01-PLAN.md — Page shell with tab nav, admin nav entry, overview panel with data source summary cards
+- [ ] 26-02-PLAN.md — Call Reports panel (revenue trend chart, top institutions), Economic panel (FRED + Beige Book), Health panel (ROA/growth charts)
 **UI hint**: yes
 
 ### Phase 27: External Intelligence System
@@ -451,5 +455,5 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 23. Call Report & FRED Foundation | v5.0 | 0/TBD | Not started | - |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 1/3 | Complete    | 2026-04-07 |
-| 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
+| 26. National Data Admin Portal | v5.0 | 0/2 | Not started | - |
 | 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |
