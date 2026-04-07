@@ -181,3 +181,54 @@ export async function getBeigeBookHeadlines(): Promise<Map<number, { text: strin
     return new Map();
   }
 }
+
+export interface FredSummary {
+  fed_funds_rate: number | null;
+  unemployment_rate: number | null;
+  cpi_yoy_pct: number | null;
+  consumer_sentiment: number | null;
+  as_of: string;
+}
+
+export async function getFredSummary(): Promise<FredSummary> {
+  const empty: FredSummary = {
+    fed_funds_rate: null,
+    unemployment_rate: null,
+    cpi_yoy_pct: null,
+    consumer_sentiment: null,
+    as_of: new Date().toISOString().slice(0, 10),
+  };
+
+  try {
+    const rows = await sql`
+      SELECT DISTINCT ON (series_id)
+        series_id,
+        value,
+        observation_date
+      FROM fed_economic_indicators
+      WHERE series_id IN ('FEDFUNDS', 'UNRATE', 'CPIAUCSL', 'UMCSENT')
+      ORDER BY series_id, observation_date DESC
+    ` as { series_id: string; value: number | null; observation_date: string | Date }[];
+
+    const byId = new Map<string, { value: number | null; observation_date: string }>();
+    for (const row of rows) {
+      const date = row.observation_date instanceof Date
+        ? row.observation_date.toISOString().slice(0, 10)
+        : String(row.observation_date);
+      byId.set(row.series_id, { value: row.value, observation_date: date });
+    }
+
+    const dates = [...byId.values()].map((r) => r.observation_date).sort().reverse();
+    const as_of = dates[0] ?? empty.as_of;
+
+    return {
+      fed_funds_rate: byId.get("FEDFUNDS")?.value ?? null,
+      unemployment_rate: byId.get("UNRATE")?.value ?? null,
+      cpi_yoy_pct: byId.get("CPIAUCSL")?.value ?? null,
+      consumer_sentiment: byId.get("UMCSENT")?.value ?? null,
+      as_of,
+    };
+  } catch {
+    return empty;
+  }
+}
