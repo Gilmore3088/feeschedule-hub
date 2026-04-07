@@ -1,4 +1,113 @@
-import { sql } from "./connection";
+import { sql, getSql } from "./connection";
+
+export interface RichIndicator {
+  current: number;
+  history: { date: string; value: number }[];
+  trend: "rising" | "falling" | "stable";
+  asOf: string;
+}
+
+export interface NationalEconomicSummary {
+  fed_funds_rate: RichIndicator | null;
+  unemployment_rate: RichIndicator | null;
+  cpi_yoy_pct: RichIndicator | null;
+  consumer_sentiment: RichIndicator | null;
+}
+
+function buildTrend(history: { date: string; value: number }[]): "rising" | "falling" | "stable" {
+  if (history.length < 2) return "stable";
+  const diff = history[0].value - history[1].value;
+  if (Math.abs(diff) < 0.001) return "stable";
+  return diff > 0 ? "rising" : "falling";
+}
+
+async function getRichIndicator(
+  seriesId: string,
+  limit = 12
+): Promise<RichIndicator | null> {
+  const db = getSql();
+  try {
+    const rows = await db.unsafe(
+      `SELECT observation_date, value
+       FROM fed_economic_indicators
+       WHERE series_id = $1 AND value IS NOT NULL
+       ORDER BY observation_date DESC
+       LIMIT $2`,
+      [seriesId, limit]
+    ) as { observation_date: string | Date; value: string }[];
+
+    if (rows.length === 0) return null;
+
+    const history = rows.map((r) => ({
+      date: r.observation_date instanceof Date
+        ? r.observation_date.toISOString().slice(0, 10)
+        : String(r.observation_date),
+      value: Number(r.value),
+    }));
+
+    return {
+      current: history[0].value,
+      history,
+      trend: buildTrend(history),
+      asOf: history[0].date,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getCpiYoyRichIndicator(limit = 14): Promise<RichIndicator | null> {
+  const db = getSql();
+  try {
+    const rows = await db.unsafe(
+      `SELECT observation_date, value
+       FROM fed_economic_indicators
+       WHERE series_id = 'CPIAUCSL' AND value IS NOT NULL
+       ORDER BY observation_date DESC
+       LIMIT $1`,
+      [limit]
+    ) as { observation_date: string | Date; value: string }[];
+
+    if (rows.length < 13) return null;
+
+    // Build YoY series: for each month, compute YoY vs 12 months prior
+    const history: { date: string; value: number }[] = [];
+    for (let i = 0; i + 12 < rows.length; i++) {
+      const current = Number(rows[i].value);
+      const prior = Number(rows[i + 12].value);
+      if (prior > 0) {
+        const obsDate = rows[i].observation_date;
+        const date = (obsDate as unknown) instanceof Date
+          ? (obsDate as unknown as Date).toISOString().slice(0, 10)
+          : String(obsDate);
+        history.push({ date, value: ((current - prior) / prior) * 100 });
+      }
+    }
+
+    if (history.length === 0) return null;
+
+    return {
+      current: history[0].value,
+      history,
+      trend: buildTrend(history),
+      asOf: history[0].date,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getNationalEconomicSummary(): Promise<NationalEconomicSummary> {
+  const [fed_funds_rate, unemployment_rate, cpi_yoy_pct, consumer_sentiment] =
+    await Promise.all([
+      getRichIndicator("FEDFUNDS"),
+      getRichIndicator("UNRATE"),
+      getCpiYoyRichIndicator(),
+      getRichIndicator("UMCSENT"),
+    ]);
+
+  return { fed_funds_rate, unemployment_rate, cpi_yoy_pct, consumer_sentiment };
+}
 
 export interface BeigeBookSection {
   id: number;
