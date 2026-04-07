@@ -364,7 +364,11 @@ Plans:
   3. Revenue can be split by bank vs credit union and by asset tier, with correct totals that reconcile to national aggregate
   4. A national economic summary query returns fed funds rate, unemployment rate, CPI YoY change (not raw index), and consumer sentiment -- all with current values
   5. District-level economic indicators are queryable (at minimum unemployment per district)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 23-01-PLAN.md -- Fix Call Report revenue scaling (* 1000) + add charter split, tier split, fee income ratio functions
+- [ ] 23-02-PLAN.md -- Add UMCSENT to FRED ingestion + getNationalEconomicSummary with rich indicators + getDistrictUnemployment
 
 ### Phase 24: Industry Health & Beige Book
 **Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
