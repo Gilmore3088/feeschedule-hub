@@ -597,6 +597,234 @@ body {
   line-height: 1.6;
 }
 
+/* So What Box */
+.so-what-box {
+  background: ${PALETTE.text};
+  color: #fff;
+  border-radius: 6px;
+  padding: 18px 20px;
+  margin: 24px 0;
+}
+
+.so-what-label {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: ${PALETTE.accent};
+  margin-bottom: 6px;
+}
+
+.so-what-text {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #fff;
+}
+
+/* Insight Cards */
+.insight-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.insight-card {
+  background: ${PALETTE.sectionBg};
+  border: 1px solid ${PALETTE.border};
+  border-radius: 8px;
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.insight-card-number {
+  font-family: ${TYPOGRAPHY.serif};
+  font-size: 36px;
+  font-weight: 600;
+  color: ${PALETTE.accent};
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.insight-card-insight {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 15px;
+  font-weight: 600;
+  color: ${PALETTE.text};
+  margin-bottom: 6px;
+}
+
+.insight-card-supporting {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 12px;
+  color: ${PALETTE.textSecondary};
+  font-style: italic;
+}
+
+/* Comparison Chart (butterfly/tornado) */
+.comparison-chart {
+  margin: 24px 0;
+}
+
+.comparison-chart-title {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: ${PALETTE.textSecondary};
+  margin-bottom: 12px;
+}
+
+.comparison-chart-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: ${PALETTE.textSecondary};
+}
+
+.comp-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  height: 24px;
+}
+
+.comp-left-track {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  height: 8px;
+}
+
+.comp-left-bar {
+  height: 100%;
+  background: ${PALETTE.accent};
+  border-radius: 4px;
+}
+
+.comp-label {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 10px;
+  color: ${PALETTE.textDark3};
+  width: 120px;
+  text-align: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.comp-right-track {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  height: 8px;
+}
+
+.comp-right-bar {
+  height: 100%;
+  background: #3B82F6;
+  border-radius: 4px;
+}
+
+.comp-left-value {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 10px;
+  color: ${PALETTE.textDark3};
+  font-variant-numeric: tabular-nums;
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.comp-right-value {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 10px;
+  color: ${PALETTE.textDark3};
+  font-variant-numeric: tabular-nums;
+  width: 48px;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.comparison-chart-source {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 9px;
+  color: ${PALETTE.textMuted};
+  margin-top: 10px;
+  font-style: italic;
+}
+
+/* Playbook */
+.playbook {
+  margin: 32px 0;
+}
+
+.playbook-heading {
+  font-family: ${TYPOGRAPHY.serif};
+  font-size: 20px;
+  font-weight: 600;
+  color: ${PALETTE.text};
+  margin-bottom: 20px;
+}
+
+.playbook-segments {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.playbook-segment {
+  background: ${PALETTE.sectionBg};
+  border: 1px solid ${PALETTE.border};
+  border-radius: 6px;
+  padding: 20px;
+}
+
+.playbook-title {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: ${PALETTE.accent};
+  margin-bottom: 12px;
+}
+
+.playbook-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.playbook-list li {
+  font-family: ${TYPOGRAPHY.sans};
+  font-size: 13px;
+  color: ${PALETTE.text};
+  line-height: 1.6;
+  margin-bottom: 6px;
+  padding-left: 12px;
+  position: relative;
+}
+
+.playbook-list li::before {
+  content: "\\2022";
+  position: absolute;
+  left: 0;
+  color: ${PALETTE.accent};
+}
+
 /* Print overrides */
 @media print {
   .report-cover {
@@ -640,6 +868,26 @@ body {
   }
 
   .hamilton-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .so-what-box {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .insight-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .comparison-chart {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .playbook-segment {
     break-inside: avoid;
     page-break-inside: avoid;
   }

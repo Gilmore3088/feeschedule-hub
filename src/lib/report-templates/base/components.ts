@@ -427,5 +427,137 @@ export function numberedFindings(findings: NumberedFinding[]): string {
   return `<div class="numbered-findings">${items}\n</div>`;
 }
 
+// ─── So What Box ──────────────────────────────────────────────────────────────
+
+/**
+ * Dark-background strategic implication callout.
+ * Visually distinct from keyFinding — signals "what this means for you".
+ */
+export function soWhatBox(implication: string, label?: string): string {
+  return `
+<div class="so-what-box">
+  <div class="so-what-label">${escapeHtml(label ?? "SO WHAT")}</div>
+  <div class="so-what-text">${escapeHtml(implication)}</div>
+</div>`;
+}
+
+// ─── Insight Card ─────────────────────────────────────────────────────────────
+
+export interface InsightCardProps {
+  number: string;       // e.g., "85%"
+  insight: string;      // e.g., "of fees fall within tight ranges"
+  supporting: string;   // e.g., "Pricing is commoditized across 49 categories"
+}
+
+/**
+ * Large number + 1 sentence + supporting metric. For exec summary "5 Truths" cards.
+ */
+export function insightCard(props: InsightCardProps): string {
+  return `
+<div class="insight-card">
+  <div class="insight-card-number">${escapeHtml(props.number)}</div>
+  <div class="insight-card-insight">${escapeHtml(props.insight)}</div>
+  <div class="insight-card-supporting">${escapeHtml(props.supporting)}</div>
+</div>`;
+}
+
+/**
+ * Wraps multiple insight cards in a responsive grid row.
+ */
+export function insightCardRow(cards: InsightCardProps[]): string {
+  return `<div class="insight-cards">${cards.map((c) => insightCard(c)).join("")}\n</div>`;
+}
+
+// ─── Comparison Chart ─────────────────────────────────────────────────────────
+
+export interface ComparisonChartBar {
+  label: string;       // fee category name
+  leftValue: number;   // bank median
+  rightValue: number;  // CU median
+  leftDisplay?: string;
+  rightDisplay?: string;
+}
+
+export interface ComparisonChartProps {
+  bars: ComparisonChartBar[];
+  leftLabel: string;   // "Banks"
+  rightLabel: string;  // "Credit Unions"
+  title?: string;
+  source?: string;
+}
+
+/**
+ * Butterfly/tornado chart comparing two segments side-by-side.
+ * Left bars extend right-to-left, right bars extend left-to-right.
+ */
+export function comparisonChart(props: ComparisonChartProps): string {
+  const maxValue = Math.max(
+    ...props.bars.map((b) => Math.max(b.leftValue, b.rightValue))
+  );
+
+  const rowsHtml = props.bars
+    .map((bar) => {
+      const leftPct = maxValue > 0 ? (bar.leftValue / maxValue) * 100 : 0;
+      const rightPct = maxValue > 0 ? (bar.rightValue / maxValue) * 100 : 0;
+      const leftDisplay = bar.leftDisplay ?? `$${bar.leftValue.toFixed(2)}`;
+      const rightDisplay = bar.rightDisplay ?? `$${bar.rightValue.toFixed(2)}`;
+      return `
+  <div class="comp-row">
+    <div class="comp-left-value">${escapeHtml(leftDisplay)}</div>
+    <div class="comp-left-track">
+      <div class="comp-left-bar" style="width:${leftPct.toFixed(1)}%;"></div>
+    </div>
+    <div class="comp-label">${escapeHtml(bar.label)}</div>
+    <div class="comp-right-track">
+      <div class="comp-right-bar" style="width:${rightPct.toFixed(1)}%;"></div>
+    </div>
+    <div class="comp-right-value">${escapeHtml(rightDisplay)}</div>
+  </div>`;
+    })
+    .join("");
+
+  return `
+<div class="comparison-chart">
+  ${props.title ? `<div class="comparison-chart-title">${escapeHtml(props.title)}</div>` : ""}
+  <div class="comparison-chart-header">
+    <span>${escapeHtml(props.leftLabel)}</span>
+    <span>${escapeHtml(props.rightLabel)}</span>
+  </div>
+  ${rowsHtml}
+  ${props.source ? `<div class="comparison-chart-source">${escapeHtml(props.source)}</div>` : ""}
+</div>`;
+}
+
+// ─── Playbook ─────────────────────────────────────────────────────────────────
+
+export interface PlaybookSegment {
+  title: string;              // e.g., "If You Are a Bank"
+  recommendations: string[];  // bullet points
+}
+
+/**
+ * 3-segment recommendation section with grid layout.
+ */
+export function playbook(segments: PlaybookSegment[]): string {
+  const segmentsHtml = segments
+    .map((seg) => {
+      const items = seg.recommendations
+        .map((r) => `<li>${escapeHtml(r)}</li>`)
+        .join("");
+      return `
+  <div class="playbook-segment">
+    <div class="playbook-title">${escapeHtml(seg.title)}</div>
+    <ul class="playbook-list">${items}</ul>
+  </div>`;
+    })
+    .join("");
+
+  return `
+<div class="playbook">
+  <h2 class="playbook-heading">What Winning Institutions Will Do Next</h2>
+  <div class="playbook-segments">${segmentsHtml}\n  </div>
+</div>`;
+}
+
 // Keep PALETTE accessible to any component that needs inline style overrides
 export { PALETTE };

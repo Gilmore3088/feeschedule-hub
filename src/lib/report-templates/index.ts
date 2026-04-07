@@ -26,6 +26,11 @@ export {
   compactTable,
   trendIndicator,
   numberedFindings,
+  soWhatBox,
+  insightCard,
+  insightCardRow,
+  comparisonChart,
+  playbook,
 } from "./base/components";
 
 export type {
@@ -39,6 +44,10 @@ export type {
   HorizontalBarChartProps,
   TocEntry,
   NumberedFinding,
+  InsightCardProps,
+  ComparisonChartProps,
+  ComparisonChartBar,
+  PlaybookSegment,
 } from "./base/components";
 
 export { PALETTE, TYPOGRAPHY, REPORT_CSS } from "./base/styles";
