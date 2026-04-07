@@ -424,22 +424,16 @@ function daysSince(dateStr: string): number {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Add to AdminNav immediately or keep as hidden route?**
-   - What we know: D-09 is Claude's discretion per CONTEXT.md
-   - What's unclear: Owner preference for discoverability vs. staging
-   - Recommendation: Add it to AdminNav under "Benchmarks" group as "Data Hub" — the page is a verification tool that gains utility immediately. If it shouldn't appear, it's a 3-line removal.
+   - **RESOLVED:** Add to AdminNav under "Benchmarks" group as "Data Hub". The page is a verification tool that gains utility immediately. Plan 26-01 Task 1 adds the nav entry.
 
 2. **`getRevenueByCharter()` referenced in D-06 but does not exist**
-   - What we know: `getRevenueTrend()` already returns bank/CU split per quarter
-   - What's unclear: Was a standalone `getRevenueByCharter()` intended for a different view?
-   - Recommendation: Use existing `RevenueSnapshot.bank_service_charges` / `cu_service_charges` data. Document this substitution in the plan. No new DB query needed.
+   - **RESOLVED:** Use existing `RevenueSnapshot.bank_service_charges` / `cu_service_charges` from `getRevenueTrend()`. No new DB query needed. Plan 26-02 Task 1 uses this approach.
 
 3. **ROA data units: ratio or percentage?**
-   - What we know: `fetchIndustryMetric('roa')` runs `AVG(roa)` against `institution_financials.roa`. The DB schema stores ROA as a ratio (e.g., 0.012 = 1.2%) based on standard Call Report conventions.
-   - What's unclear: Whether Phase 24 normalized to ratio or percentage
-   - Recommendation: Read the actual value from the live DB before rendering. If `roa.current > 1.0`, it's stored as percentage; if < 0.1, it's a ratio. Add a defensive check and format accordingly.
+   - **RESOLVED:** ROA is stored as a ratio (e.g., 0.012 = 1.2%) per standard Call Report conventions. Phase 24's `health.ts` queries `AVG(roa)` directly from `institution_financials` without conversion. Display should multiply by 100 and format as percentage. Plan includes defensive check: if value > 1.0, treat as already-percentage.
 
 ---
 
