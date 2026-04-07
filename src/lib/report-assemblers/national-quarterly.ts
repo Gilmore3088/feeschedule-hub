@@ -12,7 +12,8 @@
 
 import { createHash } from "crypto";
 import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db/fee-index";
-import { getBeigeBookHeadlines } from "@/lib/crawler-db/fed";
+import { getRevenueTrend } from "@/lib/crawler-db/call-reports";
+import { getBeigeBookHeadlines, getFredSummary } from "@/lib/crawler-db/fed";
 import { getDisplayName, FEE_TIERS } from "@/lib/fee-taxonomy";
 import type { DataManifest } from "@/lib/report-engine/types";
 
@@ -42,6 +43,21 @@ export interface NationalQuarterlyPayload {
   total_bank_institutions: number;
   total_cu_institutions: number;
   categories: NationalQuarterlySection[];
+  revenue: {
+    latest_quarter: string;
+    total_service_charges: number;
+    yoy_change_pct: number | null;
+    total_institutions: number;
+    bank_service_charges: number;
+    cu_service_charges: number;
+  } | null;
+  fred: {
+    fed_funds_rate: number | null;
+    unemployment_rate: number | null;
+    cpi_yoy_pct: number | null;
+    consumer_sentiment: number | null;
+    as_of: string;
+  } | null;
   // Fed district context (NQR-04)
   district_headlines: Array<{
     district: number;
@@ -92,13 +108,76 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
     executed_at: assembled_at,
   });
 
-  // Query 4: Beige Book headlines for all districts
-  const headlinesMap = await getBeigeBookHeadlines();
-  manifestEntries.push({
-    sql: "getBeigeBookHeadlines()",
-    row_count: headlinesMap.size,
-    executed_at: assembled_at,
-  });
+  // Query 4: Call Report revenue trend (graceful degradation)
+  let revenue: NationalQuarterlyPayload["revenue"] = null;
+  try {
+    const trend = await getRevenueTrend(8);
+    if (trend.latest) {
+      revenue = {
+        latest_quarter: trend.latest.quarter,
+        total_service_charges: trend.latest.total_service_charges,
+        yoy_change_pct: trend.latest.yoy_change_pct,
+        total_institutions: trend.latest.total_institutions,
+        bank_service_charges: trend.latest.bank_service_charges,
+        cu_service_charges: trend.latest.cu_service_charges,
+      };
+    }
+    manifestEntries.push({
+      sql: "getRevenueTrend(8)",
+      row_count: trend.quarters.length,
+      executed_at: assembled_at,
+    });
+  } catch (e) {
+    console.warn("[assembler] Call Report query failed, skipping:", e);
+    manifestEntries.push({
+      sql: "getRevenueTrend(8)",
+      row_count: 0,
+      executed_at: assembled_at,
+    });
+  }
+
+  // Query 5: FRED economic indicators (graceful degradation)
+  let fred: NationalQuarterlyPayload["fred"] = null;
+  try {
+    const fredData = await getFredSummary();
+    fred = {
+      fed_funds_rate: fredData.fed_funds_rate,
+      unemployment_rate: fredData.unemployment_rate,
+      cpi_yoy_pct: fredData.cpi_yoy_pct,
+      consumer_sentiment: fredData.consumer_sentiment,
+      as_of: fredData.as_of,
+    };
+    manifestEntries.push({
+      sql: "getFredSummary()",
+      row_count: fred ? 1 : 0,
+      executed_at: assembled_at,
+    });
+  } catch (e) {
+    console.warn("[assembler] FRED query failed, skipping:", e);
+    manifestEntries.push({
+      sql: "getFredSummary()",
+      row_count: 0,
+      executed_at: assembled_at,
+    });
+  }
+
+  // Query 6: Beige Book headlines for all districts (graceful degradation)
+  let headlinesMap = new Map<number, { text: string; release_date: string }>();
+  try {
+    headlinesMap = await getBeigeBookHeadlines();
+    manifestEntries.push({
+      sql: "getBeigeBookHeadlines()",
+      row_count: headlinesMap.size,
+      executed_at: assembled_at,
+    });
+  } catch (e) {
+    console.warn("[assembler] Beige Book query failed, skipping:", e);
+    manifestEntries.push({
+      sql: "getBeigeBookHeadlines()",
+      row_count: 0,
+      executed_at: assembled_at,
+    });
+  }
 
   // Build lookup maps by fee_category for O(1) charter lookups
   const bankByCategory = new Map(bankEntries.map((e) => [e.fee_category, e]));
@@ -153,7 +232,7 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
 
   // Compute data_hash over assembled payload content
   const data_hash = createHash("sha256")
-    .update(JSON.stringify({ categories, district_headlines }))
+    .update(JSON.stringify({ categories, district_headlines, revenue, fred }))
     .digest("hex");
 
   const pipeline_commit = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
@@ -165,6 +244,8 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
     total_bank_institutions,
     total_cu_institutions,
     categories,
+    revenue,
+    fred,
     district_headlines,
     manifest: {
       queries: manifestEntries,
