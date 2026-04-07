@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json as json_module
+import os
 import re
 import time
 
+import anthropic
 import requests
 from bs4 import BeautifulSoup
 
@@ -121,12 +124,66 @@ def _parse_summary_sections(html: str) -> list[tuple[str, str]]:
     return _parse_sections(html)
 
 
+def _summarize_district(content_text: str, district_num: int) -> str:
+    """Generate 2-3 sentence economic narrative for one Fed district."""
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    if district_num == 0:
+        prompt = (
+            "Summarize the overall national economic conditions across all Federal Reserve "
+            "districts in exactly 2-3 sentences. Focus on the dominant national trends in "
+            "economic activity, employment, and prices. Be specific about direction "
+            "(growing, slowing, mixed).\n\n"
+            f"District summaries:\n{content_text[:8000]}"
+        )
+    else:
+        prompt = (
+            f"Summarize the economic conditions in Federal Reserve District {district_num} "
+            f"in exactly 2-3 sentences. Focus on overall economic activity, key sectors, "
+            f"and notable trends. Be specific about direction (growing, slowing, steady).\n\n"
+            f"Beige Book text:\n{content_text[:4000]}"
+        )
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=256,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text.strip()
+
+
+def _extract_national_themes(district_summaries: list[str]) -> dict:
+    """Extract structured national themes from all district summaries."""
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    combined = "\n\n".join(
+        f"District {i + 1}: {s}" for i, s in enumerate(district_summaries)
+    )
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=512,
+        system="Respond with only valid JSON. No markdown, no explanation.",
+        messages=[{
+            "role": "user",
+            "content": (
+                "Extract 4 key national economic themes from these Federal Reserve "
+                "district reports. Respond with JSON: "
+                '{"growth": "...", "employment": "...", "prices": "...", "lending": "..."}. '
+                "Each value is 1-2 sentences summarizing the national picture.\n\n"
+                + combined[:8000]
+            ),
+        }],
+    )
+    try:
+        return json_module.loads(response.content[0].text)
+    except Exception:
+        return {"growth": None, "employment": None, "prices": None, "lending": None}
+
+
 def ingest_edition(
     db: Database,
     edition: str,
     *,
     delay: float = 2.0,
     base_url: str = BASE_URL_DEFAULT,
+    skip_llm: bool = False,
 ) -> int:
     """Ingest a single Beige Book edition (all districts + national summary).
 
@@ -198,6 +255,78 @@ def ingest_edition(
         print(f"    {len(sections)} sections")
 
     db.commit()
+
+    # LLM summarization step — skippable via skip_llm=True or missing API key
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if skip_llm or not api_key:
+        if not api_key and not skip_llm:
+            print("  Warning: ANTHROPIC_API_KEY not set — skipping LLM summarization")
+        return total_upserted
+
+    print("  Running LLM summarization for all 12 districts...")
+    district_summaries: list[str] = []
+    for district in DISTRICT_SLUGS:
+        row = db.fetchone(
+            "SELECT content_text FROM fed_beige_book "
+            "WHERE release_code = ? AND fed_district = ? "
+            "AND section_name = 'Summary of Economic Activity'",
+            (edition, district),
+        )
+        if not row:
+            district_summaries.append("")
+            continue
+        content = row["content_text"] if hasattr(row, "__getitem__") else row[0]
+        try:
+            summary = _summarize_district(content, district)
+        except Exception as e:
+            print(f"    District {district} summarization failed: {e}")
+            summary = ""
+        district_summaries.append(summary)
+        if summary:
+            db.execute(
+                """INSERT INTO beige_book_summaries (release_code, fed_district, district_summary)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT (release_code, fed_district)
+                   DO UPDATE SET district_summary = EXCLUDED.district_summary,
+                                 generated_at = datetime('now')""",
+                (edition, district, summary),
+            )
+
+    # Extract national themes from district summaries
+    non_empty = [s for s in district_summaries if s]
+    themes: dict = {}
+    if non_empty:
+        try:
+            themes = _extract_national_themes(non_empty)
+        except Exception as e:
+            print(f"  National themes extraction failed: {e}")
+            themes = {"growth": None, "employment": None, "prices": None, "lending": None}
+    else:
+        themes = {"growth": None, "employment": None, "prices": None, "lending": None}
+
+    # Generate national prose summary
+    national_summary = ""
+    if non_empty:
+        try:
+            combined = "\n\n".join(
+                f"District {i + 1}: {s}" for i, s in enumerate(district_summaries) if s
+            )
+            national_summary = _summarize_district(combined, 0)
+        except Exception as e:
+            print(f"  National summary generation failed: {e}")
+
+    db.execute(
+        """INSERT INTO beige_book_summaries (release_code, fed_district, national_summary, themes)
+           VALUES (?, NULL, ?, ?)
+           ON CONFLICT (release_code, fed_district)
+           DO UPDATE SET national_summary = EXCLUDED.national_summary,
+                         themes = EXCLUDED.themes,
+                         generated_at = datetime('now')""",
+        (edition, national_summary, json_module.dumps(themes)),
+    )
+    db.commit()
+    print(f"  LLM summarization complete for edition {edition}")
+
     return total_upserted
 
 
@@ -207,6 +336,7 @@ def run(
     *,
     edition: str | None = None,
     all_editions: bool = False,
+    skip_llm: bool = False,
 ) -> None:
     """Entry point for the CLI command."""
     delay = config.fed_content.crawl_delay
@@ -219,10 +349,19 @@ def run(
         # Default: latest known edition
         editions = [KNOWN_EDITIONS[-1]]
 
+    # Auto-disable LLM if API key is missing
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("Warning: ANTHROPIC_API_KEY not set — LLM summarization disabled")
+        skip_llm = True
+
     total = 0
     for ed in editions:
         print(f"\n--- Beige Book {ed} ---")
-        count = ingest_edition(db, ed, delay=delay, base_url=config.fed_content.beige_book_base_url)
+        count = ingest_edition(
+            db, ed, delay=delay,
+            base_url=config.fed_content.beige_book_base_url,
+            skip_llm=skip_llm,
+        )
         total += count
         print(f"  Upserted: {count} rows")
 

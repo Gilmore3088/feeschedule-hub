@@ -255,6 +255,20 @@ CREATE TABLE IF NOT EXISTS fed_beige_book (
 );
 """
 
+_CREATE_BEIGE_BOOK_SUMMARIES = """
+CREATE TABLE IF NOT EXISTS beige_book_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    release_code TEXT NOT NULL,
+    fed_district INTEGER,
+    district_summary TEXT,
+    national_summary TEXT,
+    themes TEXT,
+    model_used TEXT NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
+    generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(release_code, fed_district)
+);
+"""
+
 _CREATE_FED_CONTENT = """
 CREATE TABLE IF NOT EXISTS fed_content (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -530,6 +544,7 @@ class Database:
         self.conn.executescript(_CREATE_FEE_CHANGE_EVENTS)
         self.conn.executescript(_CREATE_COVERAGE_SNAPSHOTS)
         self.conn.executescript(_CREATE_FED_BEIGE_BOOK)
+        self.conn.executescript(_CREATE_BEIGE_BOOK_SUMMARIES)
         self.conn.executescript(_CREATE_FED_CONTENT)
         self.conn.executescript(_CREATE_FED_ECONOMIC_INDICATORS)
         self.conn.executescript(_CREATE_DISCOVERY_CACHE)
@@ -640,7 +655,7 @@ class Database:
         "analysis_results", "users", "fee_reviews", "sessions",
         "institution_financials", "institution_complaints",
         "fee_snapshots", "fee_change_events", "coverage_snapshots",
-        "fed_beige_book", "fed_content", "fed_economic_indicators",
+        "fed_beige_book", "beige_book_summaries", "fed_content", "fed_economic_indicators",
         "discovery_cache", "community_submissions", "ops_jobs",
         "branch_deposits", "market_concentration", "demographics",
         "census_tracts", "leads", "pipeline_runs", "fee_index_cache",

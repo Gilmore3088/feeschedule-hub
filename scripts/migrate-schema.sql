@@ -243,6 +243,21 @@ CREATE TABLE IF NOT EXISTS fed_beige_book (
     UNIQUE(release_code, fed_district, section_name)
 );
 
+CREATE TABLE IF NOT EXISTS beige_book_summaries (
+    id              BIGSERIAL PRIMARY KEY,
+    release_code    TEXT        NOT NULL,
+    fed_district    INT,
+    district_summary TEXT,
+    national_summary TEXT,
+    themes          JSONB,
+    model_used      TEXT        NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
+    generated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(release_code, fed_district)
+);
+
+CREATE INDEX IF NOT EXISTS idx_beige_book_summaries_release
+    ON beige_book_summaries (release_code, generated_at DESC);
+
 CREATE TABLE IF NOT EXISTS fed_content (
     id              BIGSERIAL PRIMARY KEY,
     content_type    TEXT        NOT NULL,
