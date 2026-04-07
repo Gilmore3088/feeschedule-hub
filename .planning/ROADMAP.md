@@ -181,6 +181,16 @@ Plans:
 - [x] 17-02-PLAN.md — Chat tab UI: streaming + mini-report rendering + history sidebar + export actions (D-01, D-02, D-16, D-17)
 - [x] 17-03-PLAN.md — Two-tab layout + Reports sub-route + nav consolidation + Research/Scout redirects (D-02, D-11 to D-14)
 
+### Phase 18: Report Assembly Pipeline — Wire data + Hamilton + templates to PDF output
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 17
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 18 to break down)
+
 ---
 
 ## v2.0 Hamilton — Research & Content Engine
