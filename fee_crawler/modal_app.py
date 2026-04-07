@@ -229,23 +229,16 @@ def run_state_agent(item: StateAgentRequest) -> dict:
 
 
 @app.function(secrets=secrets, timeout=600, image=browser_image, memory=2048)
-@modal.fastapi_endpoint(method="POST")
-async def generate_report(request: dict) -> dict:
-    """Orchestrate full report pipeline: assemble HTML via Next.js, render PDF, upload to R2.
+async def _generate_report_worker(job_id: str, report_type: str, params: dict) -> dict:
+    """Background worker: assemble HTML via Next.js, render PDF, upload to R2.
 
-    Accepts POST JSON: { job_id, report_type, params }
-    Called by Next.js /api/reports/generate route (fire-and-forget trigger).
-    Calls back to /api/reports/{job_id}/assemble to get assembled HTML.
+    Spawned by generate_report endpoint. Runs async — the endpoint returns immediately.
     """
     import os
     import json
     import urllib.request
     import urllib.error
     from fee_crawler.workers.report_render import render_and_store, update_job_status
-
-    job_id = request.get("job_id", "")
-    report_type = request.get("report_type", "")
-    params = request.get("params", {})
 
     try:
         # Step 1: Call Next.js assemble endpoint to get HTML
@@ -292,6 +285,27 @@ async def generate_report(request: dict) -> dict:
     except Exception as exc:
         update_job_status(job_id, "failed", error=str(exc)[:500])
         raise
+
+
+@app.function(secrets=secrets, timeout=30)
+@modal.fastapi_endpoint(method="POST")
+async def generate_report(request: dict) -> dict:
+    """Lightweight trigger: accept request and spawn background worker.
+
+    Returns immediately so Vercel's fetch resolves fast.
+    The actual work runs in _generate_report_worker via Modal's .spawn().
+    """
+    job_id = request.get("job_id", "")
+    report_type = request.get("report_type", "")
+    params = request.get("params", {})
+
+    if not job_id or not report_type:
+        return {"error": "job_id and report_type are required", "status": "error"}
+
+    # Spawn the worker — returns immediately, work runs in background
+    _generate_report_worker.spawn(job_id, report_type, params)
+
+    return {"status": "accepted", "job_id": job_id}
 
 
 @app.function(

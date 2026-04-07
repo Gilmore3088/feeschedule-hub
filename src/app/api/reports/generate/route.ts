@@ -125,29 +125,32 @@ export async function POST(request: Request) {
     );
   }
 
-  // Return 202 immediately — Modal handles assembly + PDF rendering
+  // Trigger Modal — await the POST since the endpoint now returns immediately
+  // (it spawns the heavy work as a background Modal function).
   const modalUrl = process.env.MODAL_REPORT_URL;
 
-  // Fire-and-forget: POST trigger to Modal — do NOT await (job tracked via polling)
-  if (!modalUrl) {
-    console.warn('[reports/generate] MODAL_REPORT_URL not configured — skipping Modal trigger');
-  } else {
-    // Non-blocking: intentionally not awaited. Modal calls back to /api/reports/[id]/assemble
-    fetch(modalUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        job_id: jobId,
-        report_type: validatedType,
-        params: validatedParams,
-      }),
-    }).catch((err: unknown) => {
+  if (modalUrl) {
+    try {
+      const triggerRes = await fetch(modalUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: jobId,
+          report_type: validatedType,
+          params: validatedParams,
+        }),
+      });
+      if (!triggerRes.ok) {
+        console.error('[reports/generate] Modal trigger returned', triggerRes.status);
+      }
+    } catch (err: unknown) {
       console.error(
         '[reports/generate] Modal trigger failed:',
         err instanceof Error ? err.message : String(err),
       );
-      // Job stays 'pending' — visible as stuck in admin, can be retried
-    });
+    }
+  } else {
+    console.warn('[reports/generate] MODAL_REPORT_URL not configured — skipping Modal trigger');
   }
 
   return NextResponse.json({ jobId }, { status: 202 });
