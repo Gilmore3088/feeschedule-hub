@@ -503,22 +503,16 @@ Step 2.6 NOTES: No new external dependencies. All tools confirmed present. [VERI
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `priorYearQuarter()` be exported from `call-reports.ts` or duplicated in `health.ts`?**
-   - What we know: it's a 6-line pure function in `call-reports.ts:36`
-   - What's unclear: project convention on sharing private helpers
-   - Recommendation: Export it from `call-reports.ts` and import in `health.ts`. One source of truth.
+   - **RESOLVED:** Export from `call-reports.ts` and import in `health.ts`. Plan 24-01 Task 1 explicitly adds `export` to `priorYearQuarter`.
 
 2. **Does `ingest_beige_book.py` need a `--skip-llm` flag for testing?**
-   - What we know: LLM calls cost money and take time; existing commands have no such flag
-   - What's unclear: test environment has `ANTHROPIC_API_KEY` available?
-   - Recommendation: Add `--skip-llm` flag to `run()` that writes NULL summaries; pytest mocks the client
+   - **RESOLVED:** Yes. Plan 24-02 Task 1 adds `skip_llm: bool = False` parameter to the ingestion function. Pytest tests use mocked Anthropic client.
 
 3. **How many Beige Book editions should be backfilled on first run?**
-   - What we know: 130 rows across ~17 editions already in DB (STATE.md); summaries don't exist yet
-   - What's unclear: Whether to summarize all historical editions or only newest
-   - Recommendation: Default to latest edition only (matches existing `run()` default); add `--backfill` flag for historical run
+   - **RESOLVED:** Default to latest edition only (existing `run()` default). Plan 24-02 Task 1 uses `ingest_edition()` which processes the latest edition.
 
 ---
 
