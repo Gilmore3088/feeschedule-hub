@@ -38,9 +38,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json().catch(() => ({}));
-    const title = typeof body.title === "string" ? body.title : "New conversation";
-    const id = await createConversation(user.id, title);
+    const id = await createConversation(user.id);
     return Response.json({ id }, { status: 201 });
   } catch {
     return Response.json(
