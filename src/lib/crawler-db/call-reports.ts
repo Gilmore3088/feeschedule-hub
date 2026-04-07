@@ -145,7 +145,8 @@ export async function getTopRevenueInstitutions(
       service_charge_income: Number(row.service_charge_income),
       total_assets: row.total_assets !== null ? Number(row.total_assets) : null,
     }));
-  } catch {
+  } catch (e) {
+    console.warn('[getTopRevenueInstitutions]', e);
     return [];
   }
 }
