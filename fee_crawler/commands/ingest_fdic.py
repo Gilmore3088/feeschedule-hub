@@ -19,6 +19,7 @@ FDIC_FINANCIAL_FIELDS = ",".join([
     "DEP",         # total deposits
     "LNLSNET",    # net loans and leases
     "SC",          # service charges on deposit accounts (RIAD4080)
+    "RIAD4070",   # overdraft/NSF revenue (RIAD4070)
     "NONII",      # total non-interest income
     "INTINC",     # total interest income
     "EINTEXP",    # total interest expense
@@ -146,6 +147,9 @@ def ingest_fdic_financials(
                 # Convert SC to thousands to match.
                 sc_raw = _safe_int(d.get("SC"))
                 sc = sc_raw // 1000 if sc_raw is not None else None
+                # Overdraft/NSF revenue (RIAD4070) -- reported in whole dollars like SC
+                od_raw = _safe_int(d.get("RIAD4070"))
+                od = od_raw // 1000 if od_raw is not None else None
                 nonii = _safe_int(d.get("NONII"))
                 intinc = _safe_int(d.get("INTINC"))
                 eintexp = _safe_int(d.get("EINTEXP"))
@@ -165,7 +169,7 @@ def ingest_fdic_financials(
                         """INSERT INTO institution_financials
                            (crawl_target_id, report_date, source,
                             total_assets, total_deposits, total_loans,
-                            service_charge_income, other_noninterest_income,
+                            service_charge_income, overdraft_revenue, other_noninterest_income,
                             net_interest_margin, efficiency_ratio,
                             roa, roe, tier1_capital_ratio,
                             branch_count, employee_count,
@@ -173,7 +177,7 @@ def ingest_fdic_financials(
                             raw_json)
                            VALUES (?, ?, 'fdic',
                                    ?, ?, ?,
-                                   ?, ?,
+                                   ?, ?, ?,
                                    ?, ?,
                                    ?, ?, ?,
                                    ?, ?,
@@ -184,6 +188,7 @@ def ingest_fdic_financials(
                             total_deposits = excluded.total_deposits,
                             total_loans = excluded.total_loans,
                             service_charge_income = excluded.service_charge_income,
+                            overdraft_revenue = excluded.overdraft_revenue,
                             other_noninterest_income = excluded.other_noninterest_income,
                             net_interest_margin = excluded.net_interest_margin,
                             efficiency_ratio = excluded.efficiency_ratio,
@@ -202,6 +207,7 @@ def ingest_fdic_financials(
                             _safe_int(d.get("DEP")),
                             _safe_int(d.get("LNLSNET")),
                             sc,
+                            od,
                             nonii,
                             _safe_float(d.get("NIMY")),
                             _safe_float(d.get("EEFFR")),
