@@ -1,14 +1,60 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/constants";
+
+const METHODOLOGY_URL = `${SITE_URL}/methodology`;
+
+const jsonLdData = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "How Bank Fee Index Works",
+  description:
+    "A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across 4,000+ financial institutions.",
+  url: METHODOLOGY_URL,
+  datePublished: "2026-04-06T00:00:00Z",
+  author: {
+    "@type": "Organization",
+    name: "Bank Fee Index",
+    url: SITE_URL,
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "Bank Fee Index",
+    url: SITE_URL,
+  },
+};
 
 export const metadata: Metadata = {
   title: "Methodology — How Bank Fee Index Works",
   description:
     "Bank Fee Index collects fee schedules from 4,000+ banks and credit unions using automated crawling, AI extraction, and statistical validation. Learn how our data is collected, categorized, and verified.",
+  alternates: {
+    canonical: METHODOLOGY_URL,
+  },
+  openGraph: {
+    title: "Methodology — How Bank Fee Index Works",
+    description:
+      "A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across 4,000+ financial institutions.",
+    url: METHODOLOGY_URL,
+    siteName: "Bank Fee Index",
+    type: "article",
+    publishedTime: "2026-04-06T00:00:00Z",
+    authors: ["Bank Fee Index"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Methodology — How Bank Fee Index Works",
+    description:
+      "A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across 4,000+ financial institutions.",
+  },
 };
 
 export default function MethodologyPage() {
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData) }}
+      />
       <div style={{ maxWidth: "760px", margin: "0 auto", padding: "64px 24px 96px" }}>
 
         {/* Header */}
