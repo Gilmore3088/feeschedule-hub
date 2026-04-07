@@ -85,6 +85,17 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        href: "/admin/national",
+        label: "Data Hub",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <ellipse cx="8" cy="4" rx="6" ry="2.5" />
+            <path d="M2 4v4c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V4" />
+            <path d="M2 8v4c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V8" />
+          </svg>
+        ),
+      },
     ],
   },
   {
