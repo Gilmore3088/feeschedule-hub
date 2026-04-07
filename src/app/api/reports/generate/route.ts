@@ -20,7 +20,6 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getSql } from '@/lib/crawler-db/connection';
 import { checkFreshness } from '@/lib/report-engine/freshness';
-import { assembleAndRender } from '@/lib/report-engine/assemble-and-render';
 import type { ReportType } from '@/lib/report-engine/types';
 
 export const dynamic = 'force-dynamic';
@@ -126,41 +125,29 @@ export async function POST(request: Request) {
     );
   }
 
-  // Return 202 immediately — assembly runs in background (30-90s, not acceptable to block)
+  // Return 202 immediately — Modal handles assembly + PDF rendering
   const modalUrl = process.env.MODAL_REPORT_URL;
 
-  // Fire-and-forget: assemble HTML then trigger Modal — do NOT await (job tracked via polling)
+  // Fire-and-forget: POST trigger to Modal — do NOT await (job tracked via polling)
   if (!modalUrl) {
     console.warn('[reports/generate] MODAL_REPORT_URL not configured — skipping Modal trigger');
   } else {
-    // Non-blocking: intentionally not awaited
-    (async () => {
-      try {
-        // D-09: assembleAndRender updates status to 'assembling' internally
-        const html = await assembleAndRender(validatedType, validatedParams, jobId);
-
-        // Update status to 'rendering' before Modal call
-        const sql = getSql();
-        await sql`UPDATE report_jobs SET status = 'rendering' WHERE id = ${jobId}`;
-
-        await fetch(modalUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            job_id: jobId,
-            html,
-            report_type: validatedType,
-          }),
-        });
-      } catch (err: unknown) {
-        console.error(
-          '[reports/generate] assembly or Modal trigger failed:',
-          err instanceof Error ? err.message : String(err),
-        );
-        // assembleAndRender() already updates status to 'failed' on its own errors.
-        // This catch handles unexpected failures outside that scope.
-      }
-    })();
+    // Non-blocking: intentionally not awaited. Modal calls back to /api/reports/[id]/assemble
+    fetch(modalUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_id: jobId,
+        report_type: validatedType,
+        params: validatedParams,
+      }),
+    }).catch((err: unknown) => {
+      console.error(
+        '[reports/generate] Modal trigger failed:',
+        err instanceof Error ? err.message : String(err),
+      );
+      // Job stays 'pending' — visible as stuck in admin, can be retried
+    });
   }
 
   return NextResponse.json({ jobId }, { status: 202 });
