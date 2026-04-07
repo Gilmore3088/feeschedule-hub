@@ -99,3 +99,10 @@
 ## Promoted — 2026-04-06
 - PDF extraction reliability is a critical bottleneck - Trugrocer, Lookout, and Connections FCUs all had discoverable PDFs but zero fees extracted. Investigate PDF parsing/OCR quality issues.
 - Manual curation of direct fee schedule URLs significantly outperforms automated discovery for this state
+
+## Promoted — 2026-04-06
+- js_rendered fee schedules may require enhanced parsing or alternative extraction methods - consider whether content is dynamically loaded after page render or if fee tables use non-standard markup
+- Maintain registry of institutions with predictable fee schedule URLs to accelerate discovery phase for repeat collections
+- PDF extraction reliability is significantly higher than JavaScript-rendered content; prioritize PDF identification during discovery
+- Flag institutions with security blocks or 404s for manual review or alternative contact methods rather than repeated automated attempts
+- Disclosure pages vary in fee schedule inclusion; need enhanced content matching beyond document title matching
