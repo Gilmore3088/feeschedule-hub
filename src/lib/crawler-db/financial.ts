@@ -8,6 +8,7 @@ export interface InstitutionFinancial {
   total_deposits: number | null;
   total_loans: number | null;
   service_charge_income: number | null;
+  overdraft_revenue: number | null;
   other_noninterest_income: number | null;
   net_interest_margin: number | null;
   efficiency_ratio: number | null;
