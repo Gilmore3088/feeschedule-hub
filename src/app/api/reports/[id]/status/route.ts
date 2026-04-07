@@ -46,11 +46,11 @@ export async function GET(
   }
 
   // T-13-11: ownership guard
-  // Users can view their own jobs; admin can view cron jobs (user_id IS NULL)
-  // user.id is a number in the DB schema; job.user_id is stored as string in report_jobs
-  const isOwner = job.user_id === String(user.id);
-  const isAdminViewingCronJob = user.role === 'admin' && job.user_id === null;
-  if (!isOwner && !isAdminViewingCronJob) {
+  // Both user.id and job.user_id are integers — compare with Number() for safety
+  const isOwner = Number(job.user_id) === Number(user.id);
+  const isAdminViewingCronJob = user.role === 'admin' && job.user_id == null;
+  const isAdmin = user.role === 'admin';
+  if (!isOwner && !isAdminViewingCronJob && !isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
