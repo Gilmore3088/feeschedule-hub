@@ -11,8 +11,17 @@ vi.mock("./connection", () => {
   };
 });
 
-import { getRevenueTrend, getTopRevenueInstitutions } from "./call-reports";
-import type { RevenueSnapshot, RevenueTrend, TopRevenueInstitution } from "./call-reports";
+import {
+  getRevenueTrend,
+  getTopRevenueInstitutions,
+  getRevenueByCharter,
+} from "./call-reports";
+import type {
+  RevenueSnapshot,
+  RevenueTrend,
+  TopRevenueInstitution,
+  RevenueByCharter,
+} from "./call-reports";
 import { getSql } from "./connection";
 
 type MockSql = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
@@ -199,6 +208,16 @@ describe("getRevenueTrend", () => {
     const params: unknown[] = callArgs[1];
     expect(params).toContain(4);
   });
+
+  it("SQL contains * 1000 scaling for service_charge_income", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    await getRevenueTrend(1);
+
+    const callArgs = getMock().unsafe.mock.calls[0];
+    const sql: string = callArgs[0];
+    expect(sql).toContain("* 1000");
+  });
 });
 
 // ── getTopRevenueInstitutions ─────────────────────────────────────────────────
@@ -271,5 +290,106 @@ describe("getTopRevenueInstitutions", () => {
     // Should not throw; latest_date handling covers Date instances
     const result = await getTopRevenueInstitutions();
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("SQL contains * 1000 scaling for service_charge_income and total_assets", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-09-30" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    await getTopRevenueInstitutions(5);
+
+    const callArgs = getMock().unsafe.mock.calls[0];
+    const sql: string = callArgs[0];
+    expect(sql).toContain("service_charge_income * 1000");
+    expect(sql).toContain("total_assets * 1000");
+  });
+});
+
+// ── getRevenueByCharter ────────────────────────────────────────────────────────
+
+describe("getRevenueByCharter", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns rows with charter_type bank and credit_union from mock data", async () => {
+    const dbRows = [
+      {
+        charter_type: "bank",
+        total_service_charges: "750000000",
+        institution_count: "3500",
+        avg_service_charges: "214285",
+        quarter: "2024-Q4",
+      },
+      {
+        charter_type: "credit_union",
+        total_service_charges: "250000000",
+        institution_count: "2000",
+        avg_service_charges: "125000",
+        quarter: "2024-Q4",
+      },
+    ];
+    getMock().unsafe = vi.fn().mockResolvedValue(dbRows);
+
+    const result = await getRevenueByCharter();
+    expect(result).toHaveLength(2);
+    const charterTypes = result.map((r) => r.charter_type);
+    expect(charterTypes).toContain("bank");
+    expect(charterTypes).toContain("credit_union");
+  });
+
+  it("returns empty array on DB error", async () => {
+    getMock().unsafe = vi.fn().mockRejectedValue(new Error("connection error"));
+
+    const result = await getRevenueByCharter();
+    expect(result).toEqual([]);
+  });
+
+  it("passes optional quarter parameter as $1 positional param", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    await getRevenueByCharter("2024-Q4");
+
+    const callArgs = getMock().unsafe.mock.calls[0];
+    const params: unknown[] = callArgs[1];
+    expect(params).toContain("2024-Q4");
+  });
+
+  it("returns numeric values (not strings) for amounts", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        charter_type: "bank",
+        total_service_charges: "750000000",
+        institution_count: "3500",
+        avg_service_charges: "214285",
+        quarter: "2024-Q4",
+      },
+    ]);
+
+    const result = await getRevenueByCharter();
+    expect(typeof result[0].total_service_charges).toBe("number");
+    expect(typeof result[0].institution_count).toBe("number");
+    expect(typeof result[0].avg_service_charges).toBe("number");
+  });
+
+  it("SQL contains * 1000 scaling", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    await getRevenueByCharter();
+
+    const callArgs = getMock().unsafe.mock.calls[0];
+    const sql: string = callArgs[0];
+    expect(sql).toContain("* 1000");
+  });
+
+  it("type RevenueByCharter has required fields", () => {
+    const entry: RevenueByCharter = {
+      charter_type: "bank",
+      total_service_charges: 750_000_000,
+      institution_count: 3500,
+      avg_service_charges: 214285,
+      quarter: "2024-Q4",
+    };
+    expect(entry.charter_type).toBe("bank");
   });
 });

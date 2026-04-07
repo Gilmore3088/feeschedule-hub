@@ -23,23 +23,30 @@ export interface TopRevenueInstitution {
   total_assets: number | null;
 }
 
+export interface RevenueByCharter {
+  charter_type: string;
+  total_service_charges: number;
+  institution_count: number;
+  avg_service_charges: number;
+  quarter: string;
+}
+
 export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
   const sql = getSql();
 
   try {
-    // institution_financials has crawl_target_id, not cert_number/charter_type directly.
-    // JOIN to crawl_targets for charter_type and cert_number.
-    // report_date is TEXT (e.g. '2024-12-31') — cast to date for DATE_TRUNC.
+    // institution_financials stores service_charge_income in thousands.
+    // Multiply by 1000 in SQL to return real dollar amounts.
     const rows = await sql.unsafe(
       `SELECT
          TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
-         MIN(inf.report_date)                                     AS quarter_date,
-         SUM(inf.service_charge_income)                           AS total_service_charges,
-         COUNT(DISTINCT ct.cert_number)                           AS total_institutions,
-         SUM(CASE WHEN ct.charter_type = 'bank' THEN inf.service_charge_income ELSE 0 END)
-                                                                   AS bank_service_charges,
-         SUM(CASE WHEN ct.charter_type = 'credit_union' THEN inf.service_charge_income ELSE 0 END)
-                                                                   AS cu_service_charges
+         MIN(inf.report_date)                                                 AS quarter_date,
+         SUM(inf.service_charge_income * 1000)                               AS total_service_charges,
+         COUNT(DISTINCT ct.cert_number)                                       AS total_institutions,
+         SUM(CASE WHEN ct.charter_type = 'bank'
+               THEN inf.service_charge_income * 1000 ELSE 0 END)             AS bank_service_charges,
+         SUM(CASE WHEN ct.charter_type = 'credit_union'
+               THEN inf.service_charge_income * 1000 ELSE 0 END)             AS cu_service_charges
        FROM institution_financials inf
        JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
        WHERE inf.service_charge_income > 0
@@ -56,13 +63,12 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
       cu_service_charges: string;
     }[];
 
-    const snapshots: RevenueSnapshot[] = rows.map((row, idx) => ({
+    const snapshots: RevenueSnapshot[] = rows.map((row) => ({
       quarter: row.quarter,
       total_service_charges: Number(row.total_service_charges),
       total_institutions: Number(row.total_institutions),
       bank_service_charges: Number(row.bank_service_charges),
       cu_service_charges: Number(row.cu_service_charges),
-      // YoY = compare to 4 quarters back (idx + 4); null if not available
       yoy_change_pct: null,
     }));
 
@@ -106,14 +112,15 @@ export async function getTopRevenueInstitutions(
       ? latestRow.latest_date.toISOString().slice(0, 10)
       : String(latestRow.latest_date);
 
+    // institution_financials stores monetary fields in thousands; multiply by 1000 for dollars.
     const rows = await sql.unsafe(
       `SELECT
          ct.cert_number,
          ct.institution_name,
-         COALESCE(ct.charter_type, 'unknown') AS charter_type,
-         inf.report_date::text                                   AS report_date,
-         inf.service_charge_income,
-         inf.total_assets
+         COALESCE(ct.charter_type, 'unknown')      AS charter_type,
+         inf.report_date::text                      AS report_date,
+         inf.service_charge_income * 1000           AS service_charge_income,
+         inf.total_assets * 1000                    AS total_assets
        FROM institution_financials inf
        JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
        WHERE inf.report_date = $1
@@ -139,6 +146,49 @@ export async function getTopRevenueInstitutions(
       total_assets: row.total_assets !== null ? Number(row.total_assets) : null,
     }));
   } catch {
+    return [];
+  }
+}
+
+export async function getRevenueByCharter(quarter?: string): Promise<RevenueByCharter[]> {
+  const sql = getSql();
+
+  try {
+    const quarterFilter = quarter
+      ? `AND TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') = $1`
+      : `AND inf.report_date = (SELECT MAX(report_date) FROM institution_financials WHERE service_charge_income > 0)`;
+
+    const rows = await sql.unsafe(
+      `SELECT
+         COALESCE(ct.charter_type, 'unknown')                AS charter_type,
+         SUM(inf.service_charge_income * 1000)               AS total_service_charges,
+         COUNT(DISTINCT ct.cert_number)                       AS institution_count,
+         AVG(inf.service_charge_income * 1000)               AS avg_service_charges,
+         TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter
+       FROM institution_financials inf
+       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       WHERE inf.service_charge_income > 0
+         ${quarterFilter}
+       GROUP BY ct.charter_type, DATE_TRUNC('quarter', inf.report_date::date)
+       ORDER BY total_service_charges DESC`,
+      quarter ? [quarter] : []
+    ) as {
+      charter_type: string;
+      total_service_charges: string;
+      institution_count: string;
+      avg_service_charges: string;
+      quarter: string;
+    }[];
+
+    return rows.map((row) => ({
+      charter_type: row.charter_type,
+      total_service_charges: Number(row.total_service_charges),
+      institution_count: Number(row.institution_count),
+      avg_service_charges: Number(row.avg_service_charges),
+      quarter: row.quarter,
+    }));
+  } catch (e) {
+    console.warn('[getRevenueByCharter]', e);
     return [];
   }
 }
