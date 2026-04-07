@@ -51,11 +51,9 @@ DISTRICT_SERIES: dict[str, int] = {
 
 
 def _get_api_key(config: Config) -> str | None:
-    """Get FRED API key from env var or config."""
+    """Get FRED API key from FRED_API_KEY env var (sole source of truth)."""
+    del config  # api_key is not stored in config — env var only
     key = os.environ.get("FRED_API_KEY", "").strip()
-    if key:
-        return key
-    key = config.fred.api_key.strip()
     return key if key else None
 
 
@@ -192,7 +190,7 @@ def run(
     api_key = _get_api_key(config)
     if not api_key:
         print("FRED API key not configured.")
-        print("Set FRED_API_KEY env var or add fred.api_key to config.yaml")
+        print("Set the FRED_API_KEY environment variable.")
         print("Get a free key at: https://fred.stlouisfed.org/docs/api/api_key.html")
         return
 

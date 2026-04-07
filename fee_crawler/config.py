@@ -56,7 +56,7 @@ class FedContentConfig(BaseModel):
 
 
 class FREDConfig(BaseModel):
-    api_key: str = ""  # Or FRED_API_KEY env var
+    # api_key intentionally omitted — use FRED_API_KEY env var exclusively
     base_url: str = "https://api.stlouisfed.org/fred"
     series: list[str] = [
         "UNRATE",           # Unemployment Rate (monthly)
