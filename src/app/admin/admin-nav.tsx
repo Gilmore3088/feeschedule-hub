@@ -91,8 +91,8 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: "Content",
     items: [
       {
-        href: "/admin/reports",
-        label: "Reports",
+        href: "/admin/hamilton",
+        label: "Hamilton",
         icon: (
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
             <path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
