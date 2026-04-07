@@ -228,11 +228,18 @@ def run_state_agent(item: StateAgentRequest) -> dict:
     return _run(state_code)
 
 
-<<<<<<< HEAD
 @app.function(secrets=secrets, timeout=300, image=browser_image, memory=2048)
-async def generate_report(job_id: str, html: str, report_type: str) -> dict:
-    """Render assembled HTML to PDF, upload to R2, update job status."""
+@modal.fastapi_endpoint(method="POST")
+async def generate_report(request: dict) -> dict:
+    """Render assembled HTML to PDF, upload to R2, update job status.
+
+    Accepts POST JSON: { job_id, html, report_type }
+    Called by Next.js /api/reports/generate route.
+    """
     from fee_crawler.workers.report_render import render_and_store, update_job_status
+    job_id = request.get("job_id", "")
+    html = request.get("html", "")
+    report_type = request.get("report_type", "")
     try:
         update_job_status(job_id, "rendering")
         key = await render_and_store(html, job_id, report_type)
@@ -241,9 +248,11 @@ async def generate_report(job_id: str, html: str, report_type: str) -> dict:
     except Exception as exc:
         update_job_status(job_id, "failed", error=str(exc)[:500])
         raise
-=======
+
+
 @app.function(
-    schedule=modal.Cron("0 8 1 * *"),
+    # Cron removed — Modal free tier limited to 5 cron jobs.
+    # Trigger manually from /admin/hamilton or merge with existing cron.
     timeout=60,
     secrets=secrets,
 )
@@ -284,4 +293,3 @@ def run_monthly_pulse():
         return {"triggered": False, "error": exc.read().decode()[:500], "status_code": exc.code}
     except Exception as exc:
         return {"triggered": False, "error": str(exc)[:500]}
->>>>>>> worktree-agent-a6da4c7b
