@@ -351,7 +351,7 @@ Plans:
 - [ ] **Phase 23: Call Report & FRED Foundation** - Fix revenue scaling, build economic summaries, establish the data layer everything else depends on
 - [ ] **Phase 24: Industry Health & Beige Book** - Compute health metrics from institution financials, condense Beige Book narratives into usable summaries
 - [x] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer (completed 2026-04-07)
-- [ ] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports
+- [x] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports (completed 2026-04-07)
 - [ ] **Phase 27: External Intelligence System** - Ingest, store, and query external research/surveys alongside internal data
 
 ### Phase 23: Call Report & FRED Foundation
@@ -407,8 +407,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 26-01-PLAN.md — Page shell with tab nav, admin nav entry, overview panel with data source summary cards
-- [ ] 26-02-PLAN.md — Call Reports panel (revenue trend chart, top institutions), Economic panel (FRED + Beige Book), Health panel (ROA/growth charts)
+- [x] 26-01-PLAN.md — Page shell with tab nav, admin nav entry, overview panel with data source summary cards
+- [x] 26-02-PLAN.md — Call Reports panel (revenue trend chart, top institutions), Economic panel (FRED + Beige Book), Health panel (ROA/growth charts)
 **UI hint**: yes
 
 ### Phase 27: External Intelligence System
@@ -455,5 +455,5 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 23. Call Report & FRED Foundation | v5.0 | 0/TBD | Not started | - |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 1/3 | Complete    | 2026-04-07 |
-| 26. National Data Admin Portal | v5.0 | 0/2 | Not started | - |
+| 26. National Data Admin Portal | v5.0 | 2/2 | Complete    | 2026-04-07 |
 | 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |
