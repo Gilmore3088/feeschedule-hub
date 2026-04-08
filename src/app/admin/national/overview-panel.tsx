@@ -63,7 +63,7 @@ function mostRecentAsOf(indicators: (RichIndicator | null)[]): string | null {
     .filter((ind): ind is RichIndicator => ind !== null)
     .map((ind) => ind.asOf);
   if (dates.length === 0) return null;
-  return dates.sort().reverse()[0];
+  return dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
 }
 
 export async function OverviewPanel() {
