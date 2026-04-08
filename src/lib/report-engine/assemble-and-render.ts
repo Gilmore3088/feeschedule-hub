@@ -11,9 +11,9 @@
  */
 
 import { getSql } from '@/lib/crawler-db/connection';
-import { generateSection } from '@/lib/hamilton/generate';
+import { generateSection, generateGlobalThesis } from '@/lib/hamilton/generate';
 import { validateNumerics } from '@/lib/hamilton/validate';
-import { assembleNationalQuarterly } from '@/lib/report-assemblers/national-quarterly';
+import { assembleNationalQuarterly, buildThesisSummary } from '@/lib/report-assemblers/national-quarterly';
 import { assembleMonthlyPulse } from '@/lib/report-assemblers/monthly-pulse';
 import { assemblePeerCompetitivePayload } from '@/lib/report-assemblers/peer-competitive';
 import type { PeerCompetitiveFilters } from '@/lib/report-assemblers/peer-competitive';
@@ -21,7 +21,7 @@ import { renderNationalQuarterlyReport } from '@/lib/report-templates/templates/
 import { renderStateFeeIndexReport } from '@/lib/report-templates/templates/state-fee-index';
 import { renderMonthlyPulseReport } from '@/lib/report-templates/templates/monthly-pulse';
 import { renderPeerCompetitiveReport } from '@/lib/report-templates/templates/peer-competitive';
-import type { SectionOutput } from '@/lib/hamilton/types';
+import type { SectionOutput, ThesisOutput } from '@/lib/hamilton/types';
 import type { ReportType } from '@/lib/report-engine/types';
 
 // ─── State Name Map ────────────────────────────────────────────────────────────
@@ -132,7 +132,24 @@ export async function assembleAndRender(
     switch (reportType) {
       case 'national_index': {
         const payload = await assembleNationalQuarterly();
-        const V3_CONTEXT = 'Maximum 75 words. Write 2-3 sentences only. Be strategic, not descriptive. State implications, not observations. This is a McKinsey-grade intelligence product.';
+
+        // Phase 33: Generate global thesis before sections (per D-01, D-04)
+        // Thesis uses condensed payload (~5KB) not full payload.
+        // Graceful degradation: if thesis fails, sections generate without it.
+        let thesis: ThesisOutput | null = null;
+        try {
+          const summary = buildThesisSummary(payload);
+          thesis = await generateGlobalThesis({ scope: 'quarterly', data: summary });
+        } catch (thesisErr) {
+          console.warn(
+            '[assembleAndRender] thesis generation failed, continuing without thesis context:',
+            thesisErr instanceof Error ? thesisErr.message : String(thesisErr),
+          );
+        }
+
+        const thesisContext = thesis?.narrative_summary
+          ? `GLOBAL THESIS (reference this in your analysis — your section is one argument in a unified report):\n${thesis.narrative_summary}\n\n`
+          : '';
 
         // V3: Run 6 Hamilton calls in parallel — strategic framing
         const [
@@ -150,7 +167,7 @@ export async function assembleAndRender(
               ...payload.derived,
               total_institutions: payload.total_institutions,
             },
-            context: `${V3_CONTEXT}\n\nWrite 2-3 punchy sentences summarizing the 5 key insights. No preamble. Max 75 words.`,
+            context: `${thesisContext}Write 2-3 punchy sentences summarizing the 5 key insights. No preamble. Max 75 words.`,
           }),
           generateSection({
             type: 'trend_analysis',
@@ -162,7 +179,7 @@ export async function assembleAndRender(
               tightest_spreads: payload.derived.tightest_spreads,
               widest_spreads: payload.derived.widest_spreads,
             },
-            context: `${V3_CONTEXT}\n\nAnalyze fee clustering. Prices are not identical, but differences are too small to influence customer choice — fees are effectively commoditized. 2-3 sentences. Use "functionally undifferentiated" not "commoditized." What does this mean strategically?`,
+            context: `${thesisContext}Analyze fee clustering. Prices are not identical, but differences are too small to influence customer choice — fees are effectively commoditized. 2-3 sentences. Use "functionally undifferentiated" not "commoditized." What does this mean strategically?`,
           }),
           generateSection({
             type: 'peer_comparison',
@@ -174,7 +191,7 @@ export async function assembleAndRender(
               biggest_bank_premiums: payload.derived.biggest_bank_premiums,
               biggest_cu_premiums: payload.derived.biggest_cu_premiums,
             },
-            context: `${V3_CONTEXT}\n\nCompare bank vs CU fee strategies. Banks monetize convenience, CUs monetize penalties. 2-3 sentences.`,
+            context: `${thesisContext}Compare bank vs CU fee strategies. Banks monetize convenience, CUs monetize penalties. 2-3 sentences.`,
           }),
           generateSection({
             type: 'trend_analysis',
@@ -185,7 +202,7 @@ export async function assembleAndRender(
               bank_revenue_share_pct: payload.derived.bank_revenue_share_pct,
               cu_revenue_share_pct: payload.derived.cu_revenue_share_pct,
             },
-            context: `${V3_CONTEXT}\n\nFrame revenue as concentrated in a few categories. ${payload.revenue ? 'The data confirms fee revenue is dominated by NSF/overdraft with maintenance fees as secondary driver.' : 'Industry data indicates NSF/OD fees dominate revenue, with maintenance fees as secondary driver. Use directional language since exact figures are pending.'} 2-3 sentences.`,
+            context: `${thesisContext}Frame revenue as concentrated in a few categories. ${payload.revenue ? 'The data confirms fee revenue is dominated by NSF/overdraft with maintenance fees as secondary driver.' : 'Industry data indicates NSF/OD fees dominate revenue, with maintenance fees as secondary driver. Use directional language since exact figures are pending.'} 2-3 sentences.`,
           }),
           generateSection({
             type: 'findings',
@@ -196,7 +213,7 @@ export async function assembleAndRender(
               strong_maturity_count: payload.derived.strong_maturity_count,
               provisional_maturity_count: payload.derived.provisional_maturity_count,
             },
-            context: `${V3_CONTEXT}\n\nDiscuss the lack of standardized fee revenue benchmarking. Bank Fee Index is building the first national fee revenue benchmark. Position this as closing the industry blind spot. 2-3 sentences.`,
+            context: `${thesisContext}Discuss the lack of standardized fee revenue benchmarking. Bank Fee Index is building the first national fee revenue benchmark. Position this as closing the industry blind spot. 2-3 sentences.`,
           }),
           generateSection({
             type: 'recommendation',
@@ -206,7 +223,7 @@ export async function assembleAndRender(
               bank_higher_count: payload.derived.bank_higher_count,
               total_institutions: payload.total_institutions,
             },
-            context: `${V3_CONTEXT}\n\nWrite 5 concrete predictions about fee strategy evolution. Use "will" not "may" — no hedging. Cover behavioral pricing, bundling, dynamic fees, segmentation, and data-driven optimization. 2-3 sentences with certainty.`,
+            context: `${thesisContext}Write 5 concrete predictions about fee strategy evolution. Use "will" not "may" — no hedging. Cover behavioral pricing, bundling, dynamic fees, segmentation, and data-driven optimization. 2-3 sentences with certainty.`,
           }),
         ]);
 
