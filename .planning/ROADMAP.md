@@ -510,6 +510,20 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 30.1: Institution Page V2 -- Consumer Decision Page (INSERTED)
+**Goal**: Transform the institution page from a static fee table into a consumer decision page with summary card, interpretation block, visual comparisons, fee count context, strengths/watch section, enhanced table indicators, comparison hooks, and clear pro CTAs
+**Depends on**: Phase 30
+**Requirements**: INST-01, INST-02, INST-03, INST-04
+**Success Criteria** (what must be TRUE):
+  1. A consumer can answer "Is this institution expensive or not?" within 5 seconds of landing on the page (summary card with green/yellow/red rating visible above the fold)
+  2. Visual comparison bars show the institution's key fees (overdraft, maintenance, wire, NSF) against national medians with normalized bar lengths
+  3. Fee table replaces "-" indicators with directional arrows (above/below/equal) with color coding
+  4. A single mid-page CTA and footer CTA provide clear upgrade paths without interrupting the consumer flow
+  5. "Strengths" and "Watch" bullets are derived from fee-vs-median comparisons, max 2 each
+**Plans**: TBD
+**UI hint**: yes
+**Spec**: `.planning/phases/30-institution-educational-pages/institution-v2-spec.md`
+
 ### Phase 31: B2B Launchpad Dashboard
 **Goal**: Pro subscribers land on a coherent starting point -- a four-door launchpad surfacing their most relevant tools, a peer snapshot against the national median, recent activity, and a personalized Beige Book digest for their district
 **Depends on**: Phase 28 (auth guard and personalization service must exist before B2B dashboard can use them)

@@ -53,6 +53,7 @@ Recent decisions affecting current work:
 - [v7.0]: Unified chat persona (Phase 35) is architecturally independent of voice/section changes (Phase 34) — can be parallelized if needed, but thesis engine must exist first
 - [v7.0]: Tool descriptions upgrade (Phase 36) is a sweep task across 16 files — mechanical but must reference thesis reasoning patterns, so Phase 33 must precede it
 - [v7.0]: Editor v2 (Phase 37) validates output from all other phases — it is the integration gate, not a standalone feature
+- [v6.0]: Phase 30.1 inserted after Phase 30: Institution Page V2 -- Consumer Decision Page (URGENT)
 - [v6.0]: Audience shell separation first -- layout shells before any page content to prevent rework
 - [v6.0]: SEO no-URL-changes contract -- never add /consumer/ or /pro/ prefixes to indexed paths
 - [v6.0]: Personalization deferred from launchpad -- ship Phase 31 with national views, add DB-linked personalization later
