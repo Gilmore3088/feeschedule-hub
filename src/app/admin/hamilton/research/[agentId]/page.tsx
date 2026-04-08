@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { requireAuth } from "@/lib/auth";
-import { getAgent } from "@/lib/research/agents";
+import { getHamilton } from "@/lib/research/agents";
 import { notFound } from "next/navigation";
 import { listConversations, ensureResearchTables } from "@/lib/research/history";
 import { ResearchChat } from "./research-chat";
@@ -11,8 +11,11 @@ export default async function AgentChatPage({
   params: Promise<{ agentId: string }>;
 }) {
   const { agentId } = await params;
-  const agent = await getAgent(agentId);
-  if (!agent || !agent.requiresAuth) notFound();
+  // All hamilton agents require auth; derive role from agentId for legacy URL compat
+  const hamiltonRole =
+    agentId === "custom-query" || agentId === "content-writer" ? "admin" : "pro";
+  const agent = await getHamilton(hamiltonRole);
+  if (!agent.requiresAuth) notFound();
 
   const user = await requireAuth("view");
 

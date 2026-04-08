@@ -1,14 +1,19 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
-import { getAdminAgents } from "@/lib/research/agents";
+import { getHamilton } from "@/lib/research/agents";
 import { ensureResearchTables, getUsageStats } from "@/lib/research/history";
 
 export default async function ResearchHubPage() {
   const user = await requireAuth("view");
   await ensureResearchTables();
 
-  const agents = await getAdminAgents();
+  // Build agent cards for pro and admin roles
+  const [proAgent, adminAgent] = await Promise.all([
+    getHamilton("pro"),
+    getHamilton("admin"),
+  ]);
+  const agents = [proAgent, adminAgent];
   const usage = await getUsageStats(user.id);
 
   const roleOrder: Record<string, number> = { viewer: 0, premium: 1, analyst: 2, admin: 3 };
@@ -107,7 +112,7 @@ export default async function ResearchHubPage() {
               <div className="mt-4">
                 {hasAccess ? (
                   <Link
-                    href={`/admin/research/${agent.id}`}
+                    href="/admin/hamilton/research/hamilton"
                     className="inline-block rounded-md bg-gray-900 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-gray-800"
                   >
                     Open Agent
