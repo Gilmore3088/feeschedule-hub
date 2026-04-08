@@ -520,7 +520,10 @@ Plans:
   3. Fee table replaces "-" indicators with directional arrows (above/below/equal) with color coding
   4. A single mid-page CTA and footer CTA provide clear upgrade paths without interrupting the consumer flow
   5. "Strengths" and "Watch" bullets are derived from fee-vs-median comparisons, max 2 each
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 30.1-01-PLAN.md -- Rating engine + V2 consumer components (FeeSummaryCard, InterpretationBlock, FeeComparisonBars, FeeCountCard, ProsConsBlock)
+- [ ] 30.1-02-PLAN.md -- Page restructure, table indicators, MidPageCTA, CompareSection, footer CTA
 **UI hint**: yes
 **Spec**: `.planning/phases/30-institution-educational-pages/institution-v2-spec.md`
 
