@@ -305,14 +305,14 @@ async function DistrictDetailContent({ districtId }: { districtId: number }) {
                   <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Employment</div>
                   {econSummary.unemployment_rate !== null && (
                     <div className="mb-2">
-                      <span className="text-lg font-bold tabular-nums text-gray-900">{econSummary.unemployment_rate.toFixed(1)}%</span>
+                      <span className="text-lg font-bold tabular-nums text-gray-900">{econSummary.unemployment_rate.current.toFixed(1)}%</span>
                       <span className="text-[11px] text-gray-400 ml-1">unemployment</span>
                     </div>
                   )}
-                  {econSummary.nonfarm_payroll_yoy !== null && (
+                  {econSummary.nonfarm_yoy_pct !== null && (
                     <div>
-                      <span className={`text-sm font-medium tabular-nums ${econSummary.nonfarm_payroll_yoy > 0 ? "text-emerald-600" : "text-red-600"}`}>
-                        {econSummary.nonfarm_payroll_yoy > 0 ? "+" : ""}{econSummary.nonfarm_payroll_yoy.toFixed(1)}%
+                      <span className={`text-sm font-medium tabular-nums ${econSummary.nonfarm_yoy_pct > 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {econSummary.nonfarm_yoy_pct > 0 ? "+" : ""}{econSummary.nonfarm_yoy_pct.toFixed(1)}%
                       </span>
                       <span className="text-[11px] text-gray-400 ml-1">nonfarm payroll YoY</span>
                     </div>

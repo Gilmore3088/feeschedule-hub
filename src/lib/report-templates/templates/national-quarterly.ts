@@ -220,8 +220,8 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     }
 
     econSections.push(
-      `<div style="margin: 32px 0; padding: 24px 28px; background: ${PALETTE.warmGray}; border-radius: 8px; border-left: 4px solid ${PALETTE.terracotta};">`,
-      `<h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: ${PALETTE.terracotta}; margin: 0 0 16px 0;">Economic Environment \u2014 ${data.fred.as_of || data.quarter}</h3>`,
+      `<div style="margin: 32px 0; padding: 24px 28px; background: ${PALETTE.sectionBg}; border-radius: 8px; border-left: 4px solid ${PALETTE.accent};">`,
+      `<h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: ${PALETTE.accent}; margin: 0 0 16px 0;">Economic Environment \u2014 ${data.fred.as_of || data.quarter}</h3>`,
       statCardRow(econCards),
       `</div>`,
     );
