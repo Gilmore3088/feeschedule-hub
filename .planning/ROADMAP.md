@@ -492,6 +492,16 @@ Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
 | 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
+### Phase 23: Unified fee pipeline — single workflow from discovery to validated fees
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 22
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 23 to break down)
+
 ---
 
 ## v6.0 Two-Sided Experience
