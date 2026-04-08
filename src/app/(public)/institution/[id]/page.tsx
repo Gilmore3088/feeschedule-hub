@@ -397,11 +397,7 @@ function CompetitiveScorecard({
             ))}
           </div>
         </div>
-      ) : (
-        <div className="mt-5">
-          <UpgradeGate message="Unlock fee-by-fee positioning analysis with percentile bars" />
-        </div>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -598,12 +594,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         <InfoCard label="Published Fees" value={String(fees.length)} />
       </div>
 
-      {/* Financial snapshot */}
-      {!isPro && latestFinancial && (
-        <div className="mt-8">
-          <UpgradeGate message="Financial snapshot from Call Reports" />
-        </div>
-      )}
+      {/* Financial snapshot (pro only — no UpgradeGate for consumers) */}
       {isPro && latestFinancial && (
         <section className="mt-10">
           <h2
@@ -638,12 +629,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Market context */}
-      {!isPro && marketConcentration && (
-        <div className="mt-8">
-          <UpgradeGate message="Market concentration and competitive landscape" />
-        </div>
-      )}
+      {/* Market context (pro only — no UpgradeGate for consumers) */}
       {isPro && marketConcentration && (
         <section className="mt-8">
           <h2
@@ -682,12 +668,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         tierLabel={tierLabel ?? "Unknown"}
       />
 
-      {/* Financial Context — Call Report data (pro-gated) */}
-      {!isPro && (revenueTrend.length > 0 || peerRanking) && (
-        <div className="mt-8">
-          <UpgradeGate message="Call Report revenue trends and peer ranking" />
-        </div>
-      )}
+      {/* Financial Context — Call Report data (pro only — no UpgradeGate for consumers) */}
       {isPro && (revenueTrend.length > 0 || peerRanking) && (
         <section className="mt-10">
           <h2
@@ -1007,9 +988,26 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           </div>
         </section>
       ) : (
-        <div className="mt-10">
-          <UpgradeGate message="Unlock competitive intelligence — see how your peer group compares." />
-        </div>
+        <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-6 py-8 text-center">
+          <h2
+            className="text-[18px] font-normal text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            Need deeper analysis?
+          </h2>
+          <p className="mt-2 text-[14px] text-[#6B6355] max-w-md mx-auto">
+            Financial professionals get access to Call Report data, peer
+            benchmarking, competitive intelligence, and AI-powered research.
+          </p>
+          <div className="mt-5">
+            <Link
+              href="/for-institutions"
+              className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-6 py-2.5 text-[14px] font-bold text-white hover:bg-[#A93D25] transition-colors"
+            >
+              Learn about Pro access
+            </Link>
+          </div>
+        </section>
       )}
 
       {/* Methodology */}
