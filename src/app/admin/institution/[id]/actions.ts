@@ -140,52 +140,25 @@ export async function runExtract(
     if (!inst) return { error: "Institution not found" };
     if (!inst.fee_schedule_url) return { error: "No fee schedule URL set" };
 
-    // Run extraction directly via Python subprocess (no HTTP round-trip, no auth issues)
-    const { spawn } = await import("child_process");
-    const script = `
-import os, json, sys
-from dotenv import load_dotenv; load_dotenv('.env.local'); load_dotenv()
-import psycopg2, psycopg2.extras
-conn = psycopg2.connect(os.environ['DATABASE_URL'], cursor_factory=psycopg2.extras.RealDictCursor)
-cur = conn.cursor()
-cur.execute('SELECT * FROM crawl_targets WHERE id = %s', (${institutionId},))
-inst = cur.fetchone()
-if not inst or not inst['fee_schedule_url']:
-    print(json.dumps({"error": "no url"})); sys.exit(1)
-from fee_crawler.agents.classify import classify_document
-from fee_crawler.agents.extract_pdf import extract_pdf
-from fee_crawler.agents.extract_html import extract_html
-url = inst['fee_schedule_url']
-doc_type = classify_document(url)
-fees = extract_pdf(url, inst) if doc_type == 'pdf' else extract_html(url, inst)
-if fees:
-    from fee_crawler.agents.state_agent import _write_fees
-    _write_fees(conn, inst['id'], fees)
-print(json.dumps({"ok": True, "feeCount": len(fees), "docType": doc_type}))
-conn.close()
-`;
+    // Call Modal endpoint for single-institution extraction
+    const modalExtractUrl = process.env.MODAL_EXTRACT_URL || "https://gilmore3088--bank-fee-index-workers-extract-single.modal.run";
 
-    const result = await new Promise<{ stdout: string; code: number }>((resolve) => {
-      const proc = spawn("python3", ["-c", script], {
-        cwd: process.cwd(),
-        env: { ...process.env },
-        timeout: 120_000,
-      });
-      let stdout = "";
-      proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-      proc.stderr.on("data", () => {});
-      proc.on("close", (code: number | null) => resolve({ stdout, code: code ?? 1 }));
+    const res = await fetch(modalExtractUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target_id: institutionId }),
     });
 
-    revalidatePath(`/admin/institution/${institutionId}`);
-
-    try {
-      const parsed = JSON.parse(result.stdout.trim().split("\n").pop() || "{}");
-      if (parsed.error) return { error: parsed.error };
-      return { ok: true, feeCount: parsed.feeCount };
-    } catch {
-      return { ok: result.code === 0 };
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { error: `Modal extraction failed (${res.status}): ${body.slice(0, 200)}` };
     }
+
+    const result = await res.json();
+    if (result.error) return { error: result.error };
+
+    revalidatePath(`/admin/institution/${institutionId}`);
+    return { ok: true, feeCount: result.feeCount };
   } catch (e) {
     console.error("runExtract failed:", e);
     return { error: "Extraction failed: " + (e instanceof Error ? e.message : String(e)) };

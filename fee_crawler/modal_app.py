@@ -189,6 +189,57 @@ class StateAgentRequest(_BaseModel):
     state_code: str
 
 
+class ExtractRequest(_BaseModel):
+    target_id: int
+
+
+@app.function(secrets=secrets, timeout=180, memory=2048, image=browser_image)
+@modal.fastapi_endpoint(method="POST")
+def extract_single(item: ExtractRequest) -> dict:
+    """HTTP endpoint to extract fees from a single institution by ID."""
+    import os
+    import json
+    import psycopg2
+    import psycopg2.extras
+
+    conn = psycopg2.connect(
+        os.environ["DATABASE_URL"],
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM crawl_targets WHERE id = %s", (item.target_id,))
+    inst = cur.fetchone()
+
+    if not inst:
+        conn.close()
+        return {"error": "Institution not found", "ok": False}
+    if not inst["fee_schedule_url"]:
+        conn.close()
+        return {"error": "No fee schedule URL set", "ok": False}
+
+    from fee_crawler.agents.classify import classify_document
+    from fee_crawler.agents.extract_pdf import extract_pdf
+    from fee_crawler.agents.extract_html import extract_html
+    from fee_crawler.agents.extract_js import extract_js
+    from fee_crawler.agents.state_agent import _write_fees
+
+    url = inst["fee_schedule_url"]
+    doc_type = classify_document(url)
+
+    if doc_type == "pdf":
+        fees = extract_pdf(url, inst)
+    elif doc_type == "js_rendered":
+        fees = extract_js(url, inst)
+    else:
+        fees = extract_html(url, inst)
+
+    if fees:
+        _write_fees(conn, inst["id"], fees)
+
+    conn.close()
+    return {"ok": True, "feeCount": len(fees), "docType": doc_type}
+
+
 @app.function(secrets=secrets, timeout=120)
 @modal.fastapi_endpoint(method="POST")
 def discover_url(item: DiscoverRequest) -> dict:
