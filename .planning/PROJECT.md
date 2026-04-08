@@ -41,25 +41,29 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - Mobile app — web-first
 - Real-time fee monitoring — batch/quarterly cadence is sufficient
 
-## Current Milestone: v6.0 Two-Sided Experience
+## Current Milestone: v7.0 Hamilton Reasoning Engine
 
-**Goal:** Create distinct, cohesive user experiences for consumers and B2B subscribers -- so each audience gets a tailored front door, clear value proposition, and purpose-built tools.
+**Goal:** Upgrade Hamilton from a section-based report writer to a unified intelligence engine with global thesis generation, cross-source reasoning, and role-based delivery for admin, B2B, and consumers.
 
 **Target features:**
-- Consumer landing page redesign (value-prop-first, Fee Scout integration, no split-panel gateway)
-- Institution pages as educational experiences (fees, complaints, financial health benchmarked with "why does this matter?" context)
-- Consumer guides integrated contextually from institution and fee pages
-- B2B launchpad dashboard (four doors: Hamilton, Peer Builder, Reports, Federal Data)
-- B2B personalization (institution-specific Call Reports, district Beige Book, competitive landscape on login)
-- Expanded Hamilton for pro users (scoped report generation: peer briefs, annual summaries, competitive snapshots)
-- Distinct navigation and layout for consumer vs B2B experiences
+- Global thesis generator (quarterly thesis emerges from data, not hardcoded)
+- Voice v3 (150-200 words per section, think-then-compress, revenue prioritization, tension model)
+- Section generator v2 (cross-source context — fees + revenue + economic + regulatory + complaints in every analysis)
+- Unified chat persona (consolidate 4 agents into 1 role-based Hamilton)
+- Editor v2 (thesis alignment across sections, contradiction detection, revenue > pricing validation)
+- Tool descriptions v2 (strategic guidance for when to pull what data)
+
+**Not in scope:** Signal detection/ingestion (v8.0), consumer delivery (v9.0), scheduled automation (v8.0).
+
+**Master spec:** `docs/specs/hamilton-v2-master-spec.md`
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
 - v2.0 Hamilton Research & Content Engine (shipped 2026-04-07)
 - v3.0 National Coverage Push (shipped)
 - v4.x Report Design (completed 2026-04-07 -- template v4.2 deployed)
-- v5.0 National Data Layer (completed -- Call Reports, FRED, Beige Book data foundation)
+- v5.0 National Data Layer (completed 2026-04-08 -- Call Reports, FRED, Beige Book, CFPB, derived analytics)
+- v6.0 Two-Sided Experience (in progress -- consumer/B2B layout shells, landing pages)
 
 ## Context
 
