@@ -11,6 +11,10 @@ import {
 } from "@/lib/crawler-db";
 import { getMarketConcentrationForInstitution } from "@/lib/crawler-db/financial";
 import {
+  getInstitutionRevenueTrend,
+  getInstitutionPeerRanking,
+} from "@/lib/crawler-db/call-reports";
+import {
   getDisplayName,
   getFeeFamily,
   getFeeTier,
@@ -312,12 +316,17 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const fees = (await getFeesByInstitution(instId)).filter(
     (f) => f.review_status === "approved"
   );
-  const financials = await getFinancialsByInstitution(instId);
-  const nationalIndex = await getNationalIndex();
+  const [financials, nationalIndex, revenueTrend, peerRanking] = await Promise.all([
+    getFinancialsByInstitution(instId),
+    getNationalIndex(),
+    getInstitutionRevenueTrend(instId),
+    getInstitutionPeerRanking(instId),
+  ]);
 
   const nationalMedians = new Map(
     nationalIndex.map((e) => [e.fee_category, e.median_amount])
   );
+
 
   const categorized = new Map<string, typeof fees>();
   for (const fee of fees) {
@@ -501,6 +510,107 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
       {/* Competitive Position */}
       <CompetitiveScorecard fees={fees} indexEntries={nationalIndex} isPro={isPro} />
+
+      {/* Financial Context — Call Report data (D-08, D-09, D-10) */}
+      {(revenueTrend.length > 0 || peerRanking) && (
+        <section className="mt-10">
+          <h2
+            className="text-[16px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            Financial Context
+          </h2>
+          <p className="mt-1 text-[13px] text-[#7A7062]">
+            Call Report data — service charge income, fee dependency, and peer benchmarking.
+          </p>
+
+          {peerRanking && (
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <InfoCard
+                label="SC Income"
+                value={formatAmount(peerRanking.sc_income)}
+              />
+              <InfoCard
+                label={`Rank in ${peerRanking.tier} Peers`}
+                value={`#${peerRanking.sc_rank} of ${peerRanking.peer_count}`}
+              />
+              <InfoCard
+                label="Peer Median SC"
+                value={formatAmount(peerRanking.peer_median_sc)}
+              />
+              <InfoCard
+                label="Fee Dependency"
+                value={
+                  peerRanking.fee_income_ratio !== null
+                    ? `${peerRanking.fee_income_ratio.toFixed(1)}%${
+                        peerRanking.peer_median_fee_ratio !== null
+                          ? ` vs ${peerRanking.peer_median_fee_ratio.toFixed(1)}% median`
+                          : ""
+                      }`
+                    : "N/A"
+                }
+              />
+            </div>
+          )}
+
+          {revenueTrend.length > 0 && (
+            <div className="mt-4 overflow-x-auto rounded-xl border border-[#E8DFD1]/80">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#FAF8F5] border-b border-[#E8DFD1]/60">
+                    <th className="text-left px-4 py-2 text-[11px] font-semibold text-[#A09788] uppercase tracking-wider">
+                      Quarter
+                    </th>
+                    <th className="text-right px-4 py-2 text-[11px] font-semibold text-[#A09788] uppercase tracking-wider">
+                      SC Income
+                    </th>
+                    <th className="text-right px-4 py-2 text-[11px] font-semibold text-[#A09788] uppercase tracking-wider">
+                      Fee Ratio
+                    </th>
+                    <th className="text-right px-4 py-2 text-[11px] font-semibold text-[#A09788] uppercase tracking-wider">
+                      YoY
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revenueTrend.map((q) => (
+                    <tr
+                      key={q.quarter}
+                      className="border-b border-[#E8DFD1]/30 hover:bg-[#FAF8F5]/50 transition-colors"
+                    >
+                      <td className="px-4 py-2 font-medium text-[#1A1815]">{q.quarter}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-[#1A1815]">
+                        {formatAmount(q.service_charge_income)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-[#7A7062]">
+                        {q.fee_income_ratio !== null
+                          ? `${q.fee_income_ratio.toFixed(1)}%`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {q.yoy_change_pct !== null ? (
+                          <span
+                            className={
+                              q.yoy_change_pct >= 0
+                                ? "text-red-600"
+                                : "text-emerald-600"
+                            }
+                          >
+                            {q.yoy_change_pct >= 0 ? "+" : ""}
+                            {q.yoy_change_pct.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-[#A09788]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Fee schedule */}
       <section className="mt-10">

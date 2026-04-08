@@ -470,3 +470,215 @@ describe("getRevenueByTier", () => {
     expect(getMock().mock.calls.length).toBe(0);
   });
 });
+describe("getInstitutionRevenueTrend", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns empty array when institution has no financials", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    const result = await getInstitutionRevenueTrend(999);
+    expect(result).toEqual([]);
+  });
+
+  it("returns quarterly SC income for a specific institution", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        quarter: "2024-Q4",
+        service_charge_income: "450000",
+        fee_income_ratio: "13.5",
+      },
+      {
+        quarter: "2024-Q3",
+        service_charge_income: "420000",
+        fee_income_ratio: "12.8",
+      },
+    ]);
+
+    const result = await getInstitutionRevenueTrend(42);
+    expect(result).toHaveLength(2);
+    expect(result[0].quarter).toBe("2024-Q4");
+    expect(result[0].service_charge_income).toBe(450_000);
+    expect(result[0].fee_income_ratio).toBe(13.5);
+  });
+
+  it("handles null fee_income_ratio", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        quarter: "2024-Q4",
+        service_charge_income: "300000",
+        fee_income_ratio: null,
+      },
+    ]);
+
+    const result = await getInstitutionRevenueTrend(10);
+    expect(result[0].fee_income_ratio).toBeNull();
+  });
+
+  it("computes YoY change when same-quarter prior year is present", async () => {
+    // 5 rows: newest first. Row[0]=2024-Q4, Row[4]=2023-Q4 (same quarter suffix Q4)
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      { quarter: "2024-Q4", service_charge_income: "110000", fee_income_ratio: null },
+      { quarter: "2024-Q3", service_charge_income: "105000", fee_income_ratio: null },
+      { quarter: "2024-Q2", service_charge_income: "102000", fee_income_ratio: null },
+      { quarter: "2024-Q1", service_charge_income: "101000", fee_income_ratio: null },
+      { quarter: "2023-Q4", service_charge_income: "100000", fee_income_ratio: null },
+    ]);
+
+    const result = await getInstitutionRevenueTrend(42, 5);
+    // YoY for 2024-Q4: ((110000 - 100000) / 100000) * 100 = 10%
+    expect(result[0].yoy_change_pct).not.toBeNull();
+    expect(result[0].yoy_change_pct).toBeCloseTo(10, 1);
+  });
+
+  it("returns null YoY when no prior year quarter available", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      { quarter: "2024-Q4", service_charge_income: "200000", fee_income_ratio: "11.0" },
+    ]);
+
+    const result = await getInstitutionRevenueTrend(5);
+    expect(result[0].yoy_change_pct).toBeNull();
+  });
+
+  it("passes targetId and quarterCount to query parameters", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    await getInstitutionRevenueTrend(77, 6);
+
+    const callArgs = getMock().unsafe.mock.calls[0];
+    const params: unknown[] = callArgs[1];
+    expect(params).toContain(77);
+    expect(params).toContain(6);
+  });
+});
+
+// ── getInstitutionPeerRanking ──────────────────────────────────────────────────
+
+describe("getInstitutionPeerRanking", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns null when institution not found in financials", async () => {
+    // First unsafe call returns empty array (no institution data)
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    const result = await getInstitutionPeerRanking(999);
+    expect(result).toBeNull();
+  });
+
+  it("returns peer ranking with correct tier classification for community bank", async () => {
+    // First call: get institution's latest financials
+    // Second call: get peer stats
+    // Third call: get rank
+    const unsafe = vi.fn()
+      .mockResolvedValueOnce([
+        {
+          institution_name: "Community Bank",
+          total_assets: "500000000", // $500M → community tier
+          service_charge_income: "800000",
+          fee_income_ratio: "14.5",
+          report_date: "2024-09-30",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          peer_count: "180",
+          median_sc: "600000",
+          median_fee_ratio: "12.0",
+        },
+      ])
+      .mockResolvedValueOnce([
+        { better_count: "39" },
+      ]);
+
+    getMock().unsafe = unsafe;
+
+    const result = await getInstitutionPeerRanking(42);
+    expect(result).not.toBeNull();
+    expect(result!.tier).toBe("community");
+    expect(result!.sc_income).toBe(800_000);
+    expect(result!.sc_rank).toBe(40); // better_count(39) + 1
+    expect(result!.peer_count).toBe(180);
+    expect(result!.peer_median_sc).toBe(600_000);
+    expect(result!.fee_income_ratio).toBe(14.5);
+    expect(result!.peer_median_fee_ratio).toBe(12.0);
+  });
+
+  it("uses same asset tier as the target institution (not hardcoded)", async () => {
+    // Institution with $50M assets → micro tier
+    const unsafe = vi.fn()
+      .mockResolvedValueOnce([
+        {
+          institution_name: "Tiny Credit Union",
+          total_assets: "50000000", // $50M → micro
+          service_charge_income: "50000",
+          fee_income_ratio: null,
+          report_date: "2024-09-30",
+        },
+      ])
+      .mockResolvedValueOnce([
+        { peer_count: "50", median_sc: "40000", median_fee_ratio: null },
+      ])
+      .mockResolvedValueOnce([
+        { better_count: "10" },
+      ]);
+    getMock().unsafe = unsafe;
+
+    const result = await getInstitutionPeerRanking(7);
+    expect(result!.tier).toBe("micro");
+    // Verify the second unsafe call uses tier bounds for micro (0 to 100_000_000)
+    const statsCallParams: unknown[] = unsafe.mock.calls[1][1];
+    expect(statsCallParams).toContain(0);
+    expect(statsCallParams).toContain(100_000_000);
+  });
+
+  it("uses midsize tier for $2B institution", async () => {
+    const unsafe = vi.fn()
+      .mockResolvedValueOnce([
+        {
+          institution_name: "Mid Bank",
+          total_assets: "2000000000", // $2B → midsize
+          service_charge_income: "5000000",
+          fee_income_ratio: "15.0",
+          report_date: "2024-12-31",
+        },
+      ])
+      .mockResolvedValueOnce([
+        { peer_count: "100", median_sc: "4000000", median_fee_ratio: "13.0" },
+      ])
+      .mockResolvedValueOnce([
+        { better_count: "20" },
+      ]);
+    getMock().unsafe = unsafe;
+
+    const result = await getInstitutionPeerRanking(99);
+    expect(result!.tier).toBe("midsize");
+  });
+
+  it("handles null peer_median_fee_ratio gracefully", async () => {
+    const unsafe = vi.fn()
+      .mockResolvedValueOnce([
+        {
+          institution_name: "Bank A",
+          total_assets: "200000000",
+          service_charge_income: "300000",
+          fee_income_ratio: null,
+          report_date: "2024-09-30",
+        },
+      ])
+      .mockResolvedValueOnce([
+        { peer_count: "75", median_sc: "250000", median_fee_ratio: null },
+      ])
+      .mockResolvedValueOnce([
+        { better_count: "5" },
+      ]);
+    getMock().unsafe = unsafe;
+
+    const result = await getInstitutionPeerRanking(33);
+    expect(result).not.toBeNull();
+    expect(result!.fee_income_ratio).toBeNull();
+    expect(result!.peer_median_fee_ratio).toBeNull();
+  });
+});
