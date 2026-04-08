@@ -351,8 +351,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
+- [ ] 22-01-PLAN.md — Wave reporter module (queries + Markdown renderer) + orchestrator hook
+- [ ] 22-02-PLAN.md — CLI 'wave report' subcommand + unit tests
 
 ---
 
