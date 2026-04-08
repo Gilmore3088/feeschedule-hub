@@ -419,7 +419,12 @@ Plans:
   1. Admin can upload or paste external reports/surveys with source attribution (source name, date, category, relevance tags)
   2. External intelligence is stored with structured metadata and is searchable by category and tags
   3. Hamilton can search external intelligence alongside internal data and cite external sources with proper attribution in analysis output
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 27-01-PLAN.md — Schema migration (external_intelligence table + tsvector), intelligence.ts query module, Hamilton searchIntelligence tool + citation prompt
+- [ ] 27-02-PLAN.md — Intelligence tab UI on /admin/national: ingestion form (text paste + URL fetch), document list, server actions
+**UI hint**: yes
 
 ---
 
@@ -456,4 +461,4 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 1/3 | Complete    | 2026-04-07 |
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete    | 2026-04-07 |
-| 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |
+| 27. External Intelligence System | v5.0 | 0/2 | Not started | - |
