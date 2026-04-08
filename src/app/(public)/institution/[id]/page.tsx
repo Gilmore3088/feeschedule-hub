@@ -18,9 +18,6 @@ import {
 } from "@/lib/crawler-db/call-reports";
 import {
   getDisplayName,
-  getFeeFamily,
-  getFeeTier,
-  FEE_FAMILIES,
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
@@ -42,88 +39,204 @@ import { FeeCountCard } from "./fee-count-card";
 import { ProsConsBlock } from "./pros-cons-block";
 import { MidPageCTA } from "./mid-page-cta";
 import { CompareSection } from "./compare-section";
+import type { IndexEntry } from "@/lib/crawler-db/fee-index";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-async function getRelatedReports(inst: {
-  charter_type: string | null;
-  asset_size_tier: string | null;
-  fed_district: number | null;
-}): Promise<{ slug: string; title: string }[]> {
-  try {
-    const { getSql } = await import("@/lib/crawler-db/connection");
-    const db = getSql();
-    const rows = await db<{ slug: string; title: string }[]>`
-      SELECT slug, title
-      FROM published_reports
-      WHERE is_public = true
-      ORDER BY published_at DESC
-      LIMIT 20
-    `;
-    const keywords: string[] = [];
-    if (inst.charter_type)
-      keywords.push(inst.charter_type === "bank" ? "bank" : "credit union");
-    if (inst.fed_district) keywords.push(`district ${inst.fed_district}`);
-    if (inst.asset_size_tier) keywords.push(inst.asset_size_tier);
+// ─── Category detection helpers ─────────────────────────────────────────────
 
-    const matched = rows.filter((r) => {
-      const titleLower = r.title.toLowerCase();
-      return keywords.some((kw) => titleLower.includes(kw.toLowerCase()));
-    });
-    return matched.slice(0, 5);
-  } catch {
-    return [];
+type FeeDisplayCategory =
+  | "Overdraft / NSF"
+  | "Maintenance"
+  | "Wire"
+  | "ATM"
+  | "Service"
+  | "Other";
+
+const CATEGORY_ORDER: FeeDisplayCategory[] = [
+  "Overdraft / NSF",
+  "Maintenance",
+  "Wire",
+  "ATM",
+  "Service",
+  "Other",
+];
+
+const IMPACT_MAP: Record<FeeDisplayCategory, "High" | "Med" | "Low"> = {
+  "Overdraft / NSF": "High",
+  "Maintenance": "High",
+  "Wire": "Med",
+  "ATM": "Med",
+  "Service": "Low",
+  "Other": "Low",
+};
+
+const KEY_CATEGORIES = new Set<FeeDisplayCategory>(["Overdraft / NSF", "Maintenance"]);
+
+function detectFeeCategory(feeName: string): FeeDisplayCategory {
+  const n = feeName.toLowerCase();
+  if (
+    n.includes("overdraft") ||
+    n.includes(" od ") ||
+    n.startsWith("od_") ||
+    n === "od"
+  ) {
+    return "Overdraft / NSF";
   }
+  if (
+    n.includes("nsf") ||
+    n.includes("returned") ||
+    n.includes("insufficient")
+  ) {
+    return "Overdraft / NSF";
+  }
+  if (
+    n.includes("maintenance") ||
+    n.includes("monthly") ||
+    n.includes("service charge")
+  ) {
+    return "Maintenance";
+  }
+  if (n.includes("wire")) {
+    return "Wire";
+  }
+  if (n.includes("atm")) {
+    return "ATM";
+  }
+  if (
+    n.includes("stop payment") ||
+    n.includes("cashier") ||
+    n.includes("money order") ||
+    n.includes("notary") ||
+    n.includes("safe deposit") ||
+    n.includes("check")
+  ) {
+    return "Service";
+  }
+  return "Other";
 }
 
-export async function generateStaticParams() {
-  try {
-    const ids = await getInstitutionIdsWithFees();
-    return ids.map((id) => ({ id: String(id) }));
-  } catch {
-    return [];
-  }
+// ─── Fee comparison helpers ──────────────────────────────────────────────────
+
+type ComparisonResult = "above" | "below" | "equal" | "none";
+
+function getComparisonResult(
+  amount: number | null,
+  median: number | null
+): ComparisonResult {
+  if (!amount || !median || amount <= 0 || median <= 0) return "none";
+  const absDiff = Math.abs(amount - median);
+  const pctDiff = absDiff / median;
+  if (absDiff <= 1 || pctDiff <= 0.05) return "equal";
+  return amount > median ? "above" : "below";
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { id } = await params;
-  const inst = await getInstitutionById(parseInt(id, 10));
-  if (!inst) return { title: "Institution Not Found" };
-
-  const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
-  const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
-
-  return {
-    title: `${inst.institution_name} Fees - ${charterLabel} Fee Schedule`,
-    description: `Fee schedule for ${inst.institution_name}${stateName ? ` in ${stateName}` : ""}. ${inst.fee_count} fees extracted and benchmarked against national medians.`,
-    keywords: [
-      inst.institution_name,
-      `${inst.institution_name} fees`,
-      `${inst.institution_name} overdraft fee`,
-      stateName ? `${stateName} ${charterLabel.toLowerCase()} fees` : "",
-    ].filter(Boolean),
-  };
-}
-
-function DeltaPill({ delta }: { delta: number }) {
-  if (Math.abs(delta) < 0.5) {
-    return <span className="text-[11px] text-[#A09788]">at median</span>;
+function ComparisonArrow({ result }: { result: ComparisonResult }) {
+  if (result === "none") return null;
+  if (result === "above") {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-red-600"
+        title="Above national median"
+      >
+        ↑
+      </span>
+    );
   }
-  const isBelow = delta < 0;
+  if (result === "below") {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-emerald-600"
+        title="Below national median"
+      >
+        ↓
+      </span>
+    );
+  }
   return (
     <span
-      className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-        isBelow
-          ? "bg-emerald-50 text-emerald-600"
-          : "bg-red-50 text-red-600"
-      }`}
+      className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-[#A09788]"
+      title="At national median"
     >
-      {isBelow ? "" : "+"}{delta.toFixed(0)}%
+      =
     </span>
   );
 }
+
+function CategoryPill({ category }: { category: FeeDisplayCategory }) {
+  return (
+    <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-[#F0EDE8] text-[#A09788]">
+      {category}
+    </span>
+  );
+}
+
+function ImpactBadge({ impact }: { impact: "High" | "Med" | "Low" }) {
+  const colors =
+    impact === "High"
+      ? "text-[#C44B2E]/70"
+      : impact === "Med"
+        ? "text-[#A09788]"
+        : "text-[#C4B9A8]";
+  return (
+    <span className={`text-[10px] font-semibold uppercase tracking-wide ${colors}`}>
+      {impact}
+    </span>
+  );
+}
+
+// ─── FeeTableSummary: max 3 bullets for key fees ─────────────────────────────
+
+interface SummaryBullet {
+  label: string;
+  amount: number;
+  comparison: ComparisonResult;
+}
+
+function FeeTableSummary({ bullets }: { bullets: SummaryBullet[] }) {
+  if (bullets.length === 0) return null;
+
+  const compLabel = (c: ComparisonResult): string => {
+    if (c === "above") return "Above average";
+    if (c === "below") return "Below average";
+    if (c === "equal") return "In line";
+    return "";
+  };
+
+  const compColor = (c: ComparisonResult): string => {
+    if (c === "above") return "text-red-600";
+    if (c === "below") return "text-emerald-600";
+    if (c === "equal") return "text-[#7A7062]";
+    return "text-[#A09788]";
+  };
+
+  return (
+    <div className="mb-4 rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/70 px-4 py-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-2">
+        Key Fees at a Glance
+      </p>
+      <ul className="space-y-1">
+        {bullets.map((b, i) => (
+          <li key={i} className="flex items-center gap-2 text-[13px]">
+            <span className="text-[#5A5347] font-medium">{b.label}:</span>
+            <span className="tabular-nums text-[#1A1815] font-semibold">
+              {formatAmount(b.amount)}
+            </span>
+            {b.comparison !== "none" && (
+              <span className={`text-[11px] ${compColor(b.comparison)}`}>
+                ({compLabel(b.comparison)})
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Existing helpers ────────────────────────────────────────────────────────
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
@@ -131,16 +244,12 @@ function InfoCard({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
         {label}
       </p>
-      <p
-        className="mt-1 text-[15px] font-medium tabular-nums text-[#1A1815]"
-      >
+      <p className="mt-1 text-[15px] font-medium tabular-nums text-[#1A1815]">
         {value}
       </p>
     </div>
   );
 }
-
-import type { IndexEntry } from "@/lib/crawler-db/fee-index";
 
 interface ScorecardComparison {
   name: string;
@@ -249,21 +358,17 @@ function PositionBar({
         {getDisplayName(comp.name)}
       </span>
       <div className="flex-1 relative h-5">
-        {/* Track */}
         <div className="absolute inset-y-0 left-0 right-0 flex items-center">
           <div className="w-full h-[3px] rounded-full bg-[#E8DFD1]/60" />
         </div>
-        {/* P25-P75 range */}
         <div
           className="absolute top-1/2 -translate-y-1/2 h-[6px] rounded-full bg-[#E8DFD1]"
           style={{ left: `${pctP25}%`, width: `${Math.max(pctP75 - pctP25, 1)}%` }}
         />
-        {/* Median marker */}
         <div
           className="absolute top-1/2 -translate-y-1/2 w-[2px] h-3 bg-[#A09788] rounded-full"
           style={{ left: `${pctMedian}%` }}
         />
-        {/* Fee position dot */}
         <div
           className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${
             isBelow ? "bg-emerald-500" : isAbove ? "bg-red-500" : "bg-[#7A7062]"
@@ -339,7 +444,6 @@ function CompetitiveScorecard({
         {comparisons.length} fees benchmarked against national medians.
       </p>
 
-      {/* Score + summary cards */}
       <div className="mt-4 grid grid-cols-4 gap-3">
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 px-4 py-3 text-center">
           <p className={`text-[28px] font-bold tabular-nums ${scoreColor}`}>
@@ -375,7 +479,6 @@ function CompetitiveScorecard({
         </div>
       </div>
 
-      {/* Percentile position bars — Pro only */}
       {isPro ? (
         <div className="mt-5 rounded-xl border border-[#E8DFD1]/80 bg-white/70 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
@@ -431,7 +534,7 @@ function FeeCallout({
 
   return (
     <tr>
-      <td colSpan={5} className="px-4 pb-3 pt-0">
+      <td colSpan={6} className="px-4 pb-3 pt-0">
         <div className="mt-1 rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/70 px-4 py-3">
           <p className="text-[13px] leading-relaxed text-[#5A5347]">
             {explainer}{" "}
@@ -450,6 +553,66 @@ function FeeCallout({
       </td>
     </tr>
   );
+}
+
+async function getRelatedReports(inst: {
+  charter_type: string | null;
+  asset_size_tier: string | null;
+  fed_district: number | null;
+}): Promise<{ slug: string; title: string }[]> {
+  try {
+    const { getSql } = await import("@/lib/crawler-db/connection");
+    const db = getSql();
+    const rows = await db<{ slug: string; title: string }[]>`
+      SELECT slug, title
+      FROM published_reports
+      WHERE is_public = true
+      ORDER BY published_at DESC
+      LIMIT 20
+    `;
+    const keywords: string[] = [];
+    if (inst.charter_type)
+      keywords.push(inst.charter_type === "bank" ? "bank" : "credit union");
+    if (inst.fed_district) keywords.push(`district ${inst.fed_district}`);
+    if (inst.asset_size_tier) keywords.push(inst.asset_size_tier);
+
+    const matched = rows.filter((r) => {
+      const titleLower = r.title.toLowerCase();
+      return keywords.some((kw) => titleLower.includes(kw.toLowerCase()));
+    });
+    return matched.slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+export async function generateStaticParams() {
+  try {
+    const ids = await getInstitutionIdsWithFees();
+    return ids.map((id) => ({ id: String(id) }));
+  } catch {
+    return [];
+  }
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const inst = await getInstitutionById(parseInt(id, 10));
+  if (!inst) return { title: "Institution Not Found" };
+
+  const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
+  const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
+
+  return {
+    title: `${inst.institution_name} Fees - ${charterLabel} Fee Schedule`,
+    description: `Fee schedule for ${inst.institution_name}${stateName ? ` in ${stateName}` : ""}. ${inst.fee_count} fees extracted and benchmarked against national medians.`,
+    keywords: [
+      inst.institution_name,
+      `${inst.institution_name} fees`,
+      `${inst.institution_name} overdraft fee`,
+      stateName ? `${stateName} ${charterLabel.toLowerCase()} fees` : "",
+    ].filter(Boolean),
+  };
 }
 
 export default async function InstitutionProfilePage({ params }: PageProps) {
@@ -499,22 +662,13 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     nationalIndex.map((e) => [e.fee_category, e.median_amount])
   );
 
-
-  const categorized = new Map<string, typeof fees>();
-  for (const fee of fees) {
-    if (!fee.amount || fee.amount <= 0) continue;
-    const key = fee.fee_name;
-    if (!categorized.has(key)) categorized.set(key, []);
-    categorized.get(key)!.push(fee);
-  }
-
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
   const tierLabel = inst.asset_size_tier ? FDIC_TIER_LABELS[inst.asset_size_tier] : null;
   const latestFinancial = financials[0] ?? null;
   const marketConcentration = await getMarketConcentrationForInstitution(instId);
 
-  // --- V2 rating engine ---
+  // V2 rating engine
   const rating = computeInstitutionRating(fees, nationalIndex);
   const strengthsWatch = deriveStrengthsAndWatch(fees, nationalIndex);
 
@@ -530,7 +684,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     charterType: inst.charter_type,
   });
 
-  // Build comparison bars for key fee categories (D-06: hidden if no matches)
+  // Build comparison bars for key fee categories
   const COMPARISON_CATEGORIES: Array<{ key: string; label: string }> = [
     { key: "overdraft", label: "Overdraft" },
     { key: "monthly_maintenance", label: "Monthly Maintenance" },
@@ -554,6 +708,65 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     return [{ label, institutionAmount: instAmt, nationalMedian: indexEntry.median_amount }];
   });
 
+  // Build grouped fee rows for enhanced table
+  type FeeRow = {
+    id: number;
+    fee_name: string;
+    amount: number | null;
+    frequency: string | null;
+    conditions: string | null;
+    review_status: string;
+    displayCategory: FeeDisplayCategory;
+    nationalMedian: number | null;
+    comparison: ComparisonResult;
+    impact: "High" | "Med" | "Low";
+    isKeyRow: boolean;
+  };
+
+  const feeRows: FeeRow[] = fees.map((f) => {
+    const displayCategory = detectFeeCategory(f.fee_name);
+    const median = nationalMedians.get(f.fee_name) ?? null;
+    const comparison = getComparisonResult(f.amount, median);
+    return {
+      ...f,
+      displayCategory,
+      nationalMedian: median,
+      comparison,
+      impact: IMPACT_MAP[displayCategory],
+      isKeyRow: KEY_CATEGORIES.has(displayCategory),
+    };
+  });
+
+  // Group by display category, sorted by CATEGORY_ORDER
+  const groupedFees = new Map<FeeDisplayCategory, FeeRow[]>();
+  for (const cat of CATEGORY_ORDER) {
+    groupedFees.set(cat, []);
+  }
+  for (const row of feeRows) {
+    groupedFees.get(row.displayCategory)!.push(row);
+  }
+
+  // Build FeeTableSummary bullets: pick up to 3 key fees with amounts
+  const summaryBullets: SummaryBullet[] = [];
+  const SUMMARY_PRIORITY = [
+    "overdraft",
+    "nsf",
+    "monthly_maintenance",
+    "wire_domestic_outgoing",
+    "atm_non_network",
+  ];
+  for (const key of SUMMARY_PRIORITY) {
+    if (summaryBullets.length >= 3) break;
+    const fee = fees.find((f) => f.fee_name === key && f.amount && f.amount > 0);
+    if (!fee) continue;
+    const median = nationalMedians.get(key) ?? null;
+    summaryBullets.push({
+      label: getDisplayName(key),
+      amount: fee.amount!,
+      comparison: getComparisonResult(fee.amount, median),
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-14">
       <BreadcrumbJsonLd
@@ -564,7 +777,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         ]}
       />
 
-      {/* Breadcrumb — sticky on mobile for navigation context */}
+      {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-6 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm border-b border-transparent sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none sm:border-none [&:not(:hover)]:sm:border-transparent">
         <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
         <span className="text-[#D4C9BA]">/</span>
@@ -573,6 +786,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         <span className="text-[#5A5347] truncate max-w-[200px]">{inst.institution_name}</span>
       </nav>
 
+      {/* ── 1. Institution Header ─────────────────────────────────────── */}
       <div className="flex items-center gap-2 mb-3">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
@@ -637,26 +851,27 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </div>
       )}
 
-      {/* V2: Summary Card — most prominent, answers "Is this expensive?" above fold */}
+      {/* ── 2. Summary Card ──────────────────────────────────────────── */}
       <div className="mt-8 text-center">
         <div className="mx-auto max-w-xl text-left">
           <FeeSummaryCard rating={rating} />
         </div>
       </div>
 
-      {/* V2: Interpretation block */}
+      {/* ── 3. What This Means ──────────────────────────────────────── */}
       <div className="mt-6 mx-auto max-w-xl">
         <InterpretationBlock text={interpretation} />
       </div>
 
-      {/* V2: Visual comparison bars (hidden if no category matches per D-06) */}
-      {comparisonData.length > 0 && (
-        <div className="mt-6">
-          <FeeComparisonBars comparisons={comparisonData} />
-        </div>
-      )}
+      {/* ── 4. Key Metrics Row ───────────────────────────────────────── */}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <InfoCard label="Charter Type" value={charterLabel} />
+        <InfoCard label="Asset Tier" value={tierLabel ?? "Unknown"} />
+        <InfoCard label="Total Assets" value={inst.asset_size ? formatAssets(inst.asset_size) : "N/A"} />
+        <InfoCard label="Published Fees" value={String(fees.length)} />
+      </div>
 
-      {/* V2: Fee count context card */}
+      {/* ── 5. Fee Count Card ────────────────────────────────────────── */}
       <div className="mt-6">
         <FeeCountCard
           institutionCount={fees.length}
@@ -664,32 +879,147 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         />
       </div>
 
-      {/* V2: Strengths / Watch section (hidden if no data per D-09) */}
-      {(strengthsWatch.strengths.length > 0 || strengthsWatch.watch.length > 0) && (
+      {/* ── 6. Fee Comparison Bars ───────────────────────────────────── */}
+      {comparisonData.length > 0 && (
         <div className="mt-6">
-          <ProsConsBlock
-            strengths={strengthsWatch.strengths}
-            watch={strengthsWatch.watch}
-          />
+          <FeeComparisonBars comparisons={comparisonData} />
         </div>
       )}
 
-      {/* V2: Mid-page CTA — only for non-pro users (D-15, D-17) */}
-      {!isPro && (
-        <div className="mt-8">
-          <MidPageCTA />
+      {/* ── 7. Fee Table (Enhanced) ──────────────────────────────────── */}
+      <section className="mt-8">
+        <h2
+          className="text-[16px] font-medium text-[#1A1815]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Fee Schedule
+        </h2>
+        <p className="mt-1 text-[13px] text-[#7A7062]">
+          {fees.length} fees extracted from published fee schedule, grouped by category.
+        </p>
+
+        {/* Summary bullets above table */}
+        <div className="mt-4">
+          <FeeTableSummary bullets={summaryBullets} />
         </div>
-      )}
 
-      {/* Info cards */}
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <InfoCard label="Charter Type" value={charterLabel} />
-        <InfoCard label="Asset Tier" value={tierLabel ?? "Unknown"} />
-        <InfoCard label="Total Assets" value={inst.asset_size ? formatAssets(inst.asset_size) : "N/A"} />
-        <InfoCard label="Published Fees" value={String(fees.length)} />
-      </div>
+        <div className="overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  Fee
+                </th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  Amount
+                </th>
+                <th className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                  Frequency
+                </th>
+                <th className="hidden px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
+                  vs. Median
+                </th>
+                <th className="hidden px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] lg:table-cell">
+                  Impact
+                </th>
+                <th className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] lg:table-cell">
+                  Category
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E8DFD1]/40">
+              {CATEGORY_ORDER.map((cat) => {
+                const rows = groupedFees.get(cat) ?? [];
+                if (rows.length === 0) return null;
 
-      {/* Financial snapshot (pro only) */}
+                return (
+                  <>
+                    {/* Category group header */}
+                    <tr key={`header-${cat}`} className="bg-[#FAF7F2]/40">
+                      <td
+                        colSpan={6}
+                        className="px-4 py-1.5"
+                      >
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A09788]">
+                          {cat}
+                        </h3>
+                      </td>
+                    </tr>
+
+                    {/* Fee rows */}
+                    {rows.map((fee) => {
+                      const showCallout =
+                        fee.amount !== null &&
+                        fee.amount > 0 &&
+                        getExplainer(fee.fee_name) !== null;
+
+                      return (
+                        <>
+                          <tr
+                            key={fee.id}
+                            className={`hover:bg-[#FAF7F2]/60 transition-colors ${
+                              fee.isKeyRow
+                                ? "border-l-2 border-l-[#C44B2E]"
+                                : "border-l-2 border-l-transparent"
+                            }`}
+                          >
+                            <td className="px-4 py-2.5">
+                              <span className="font-medium text-[#1A1815]">
+                                {getDisplayName(fee.fee_name)}
+                              </span>
+                              {fee.conditions && (
+                                <span className="mt-0.5 block text-[11px] text-[#A09788] max-w-xs truncate">
+                                  {fee.conditions}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                              {formatAmount(fee.amount)}
+                            </td>
+                            <td className="hidden px-4 py-2.5 text-[#7A7062] sm:table-cell">
+                              {fee.frequency ?? (
+                                <span className="text-[#C4B9A8] text-[11px]">—</span>
+                              )}
+                            </td>
+                            <td className="hidden px-4 py-2.5 text-center md:table-cell">
+                              <ComparisonArrow result={fee.comparison} />
+                            </td>
+                            <td className="hidden px-4 py-2.5 text-center lg:table-cell">
+                              <ImpactBadge impact={fee.impact} />
+                            </td>
+                            <td className="hidden px-4 py-2.5 lg:table-cell">
+                              <CategoryPill category={fee.displayCategory} />
+                            </td>
+                          </tr>
+                          {showCallout && (
+                            <FeeCallout
+                              key={`callout-${fee.id}`}
+                              category={fee.fee_name}
+                              amount={fee.amount!}
+                              institutionName={inst.institution_name}
+                              charterLabel={charterLabel}
+                              nationalMedian={fee.nationalMedian}
+                            />
+                          )}
+                        </>
+                      );
+                    })}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ── 8. Compare Section ───────────────────────────────────────── */}
+      <CompareSection
+        stateCode={inst.state_code}
+        charterType={inst.charter_type}
+        stateName={stateName}
+      />
+
+      {/* ── Pro-only: Financial Snapshot ─────────────────────────────── */}
       {isPro && latestFinancial && (
         <section className="mt-10">
           <h2
@@ -724,7 +1054,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Market context (pro only) */}
+      {/* ── Pro-only: Market Context ──────────────────────────────────── */}
       {isPro && marketConcentration && (
         <section className="mt-8">
           <h2
@@ -754,16 +1084,18 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Competitive Position */}
-      <CompetitiveScorecard
-        fees={fees}
-        indexEntries={nationalIndex}
-        isPro={isPro}
-        charterType={charterLabel}
-        tierLabel={tierLabel ?? "Unknown"}
-      />
+      {/* ── Pro-only: Competitive Position ───────────────────────────── */}
+      {isPro && (
+        <CompetitiveScorecard
+          fees={fees}
+          indexEntries={nationalIndex}
+          isPro={isPro}
+          charterType={charterLabel}
+          tierLabel={tierLabel ?? "Unknown"}
+        />
+      )}
 
-      {/* Financial Context — Call Report data (pro only) */}
+      {/* ── Pro-only: Financial Context (Call Reports) ───────────────── */}
       {isPro && (revenueTrend.length > 0 || peerRanking) && (
         <section className="mt-10">
           <h2
@@ -837,7 +1169,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                       <td className="px-4 py-2 text-right tabular-nums text-[#7A7062]">
                         {q.fee_income_ratio !== null
                           ? `${q.fee_income_ratio.toFixed(1)}%`
-                          : "—"}
+                          : <span className="text-[#A09788]">—</span>}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums">
                         {q.yoy_change_pct !== null ? (
@@ -864,8 +1196,8 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Fee Distribution */}
-      {distributionData.length >= 2 && (
+      {/* ── Pro-only: Fee Distribution ────────────────────────────────── */}
+      {isPro && distributionData.length >= 2 && (
         <section className="mt-12">
           <h2
             className="text-[16px] font-medium text-[#1A1815]"
@@ -896,129 +1228,17 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Fee schedule */}
-      {(() => {
-        // D-07: hide National Median + vs. Median columns entirely if zero rows match
-        const anyHasMedian = fees.some(
-          (f) => nationalMedians.get(f.fee_name) !== undefined && f.amount && f.amount > 0
-        );
-        return (
-          <section className="mt-10">
-            <h2
-              className="text-[16px] font-medium text-[#1A1815]"
-              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-            >
-              Fee Schedule
-            </h2>
-            <p className="mt-1 text-[13px] text-[#7A7062]">
-              {fees.length} fees extracted from published fee schedule.
-              {anyHasMedian && " Compared against national medians where category data is available."}
-            </p>
+      {/* ── Strengths / Watch (all users) ────────────────────────────── */}
+      {(strengthsWatch.strengths.length > 0 || strengthsWatch.watch.length > 0) && (
+        <div className="mt-8">
+          <ProsConsBlock
+            strengths={strengthsWatch.strengths}
+            watch={strengthsWatch.watch}
+          />
+        </div>
+      )}
 
-            <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                      Fee
-                    </th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                      Amount
-                    </th>
-                    <th className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                      Frequency
-                    </th>
-                    {anyHasMedian && (
-                      <th className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
-                        National Median
-                      </th>
-                    )}
-                    {anyHasMedian && (
-                      <th className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
-                        vs. Median
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E8DFD1]/40">
-                  {fees.map((fee) => {
-                    const nationalMedian = nationalMedians.get(fee.fee_name) ?? null;
-                    const delta =
-                      nationalMedian && fee.amount
-                        ? ((fee.amount - nationalMedian) / nationalMedian) * 100
-                        : null;
-                    const showCallout =
-                      fee.amount !== null && fee.amount > 0 && getExplainer(fee.fee_name) !== null;
-
-                    return (
-                      <>
-                        <tr
-                          key={fee.id}
-                          className="hover:bg-[#FAF7F2]/60 transition-colors"
-                        >
-                          <td className="px-4 py-2.5">
-                            <span className="font-medium text-[#1A1815]">
-                              {fee.fee_name}
-                            </span>
-                            {fee.conditions && (
-                              <span className="mt-0.5 block text-[11px] text-[#A09788] max-w-xs truncate">
-                                {fee.conditions}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                            {formatAmount(fee.amount)}
-                          </td>
-                          <td className="hidden px-4 py-2.5 text-[#7A7062] sm:table-cell">
-                            {fee.frequency ?? "—"}
-                          </td>
-                          {anyHasMedian && (
-                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
-                              {formatAmount(nationalMedian)}
-                            </td>
-                          )}
-                          {anyHasMedian && (
-                            <td className="hidden px-4 py-2.5 text-right md:table-cell">
-                              {delta !== null ? (
-                                delta > 0.5 ? (
-                                  <span className="text-[13px] font-medium text-red-600" title={`${delta.toFixed(0)}% above national median`}>↑</span>
-                                ) : delta < -0.5 ? (
-                                  <span className="text-[13px] font-medium text-emerald-600" title={`${Math.abs(delta).toFixed(0)}% below national median`}>↓</span>
-                                ) : (
-                                  <span className="text-[13px] font-medium text-[#A09788]" title="At national median">=</span>
-                                )
-                              ) : null}
-                            </td>
-                          )}
-                        </tr>
-                        {showCallout && (
-                          <FeeCallout
-                            key={`callout-${fee.id}`}
-                            category={fee.fee_name}
-                            amount={fee.amount!}
-                            institutionName={inst.institution_name}
-                            charterLabel={charterLabel}
-                            nationalMedian={nationalMedian}
-                          />
-                        )}
-                      </>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        );
-      })()}
-
-      {/* V2: Compare section — links to filtered institution search (D-10, D-11) */}
-      <CompareSection
-        stateCode={inst.state_code}
-        charterType={inst.charter_type}
-        stateName={stateName}
-      />
-
-      {/* Intelligence & Reports */}
+      {/* ── 9. CTA (bottom only) ─────────────────────────────────────── */}
       {isPro ? (
         <section className="mt-10">
           <h2
@@ -1031,7 +1251,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             Reports and analysis for this institution&apos;s peer group.
           </p>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Left — Related Reports */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                 Related Reports
@@ -1054,7 +1273,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 )}
               </div>
             </div>
-            {/* Right — Hamilton CTAs */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
                 Ask Hamilton
@@ -1073,7 +1291,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   Ask about this institution
                 </Link>
               </div>
-              {/* Absorbed secondary links */}
               <div className="mt-3 flex flex-wrap gap-2">
                 <a
                   href={`/api/reports/institution/${instId}?format=html`}
@@ -1110,28 +1327,12 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           </div>
         </section>
       ) : (
-        <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-6 py-8 text-center">
-          <h2
-            className="text-[18px] font-normal text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            Built for financial professionals
-          </h2>
-          <p className="mt-2 text-[14px] text-[#6B6355] max-w-md mx-auto">
-            Financial professionals use Bank Fee Index to benchmark pricing, analyze revenue, and identify opportunities.
-          </p>
-          <div className="mt-5">
-            <Link
-              href="/for-institutions"
-              className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-6 py-2.5 text-[14px] font-bold text-white hover:bg-[#A93D25] transition-colors"
-            >
-              Learn about Pro access
-            </Link>
-          </div>
-        </section>
+        <div className="mt-10">
+          <MidPageCTA />
+        </div>
       )}
 
-      {/* Methodology */}
+      {/* ── Methodology ───────────────────────────────────────────────── */}
       <section className="mt-12 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-6 py-5">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
           Data Sources
