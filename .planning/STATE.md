@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: National Coverage Push
-status: executing
-stopped_at: Phase 30.1 context gathered
-last_updated: "2026-04-08T22:49:12.694Z"
+status: Between milestones
+stopped_at: Completed 30.1-01-PLAN.md
+last_updated: "2026-04-08T23:03:33.800Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 4
@@ -68,6 +68,8 @@ Recent decisions affecting current work:
 - [Phase 30]: estimatePercentile uses piecewise linear interpolation across min/p25/median/p75/max segments, clamped 1-99
 - [Phase 30]: InstitutionHistogram is a separate component from admin FeeHistogram — consumer warm palette conflicts with admin dark-mode styling
 - [Phase 30]: Fee Distribution section is free (no pro gate) — strongest visual differentiator, gates removed the conversion hook
+- [Phase 30.1-institution-page-v2]: Overdraft detection by fee_name substring, not fee_category field (D-05)
+- [Phase 30.1-institution-page-v2]: Locked overdraft thresholds: <=20 green, 20.01-36 yellow, >36 red (D-01)
 
 ### Pending Todos
 
@@ -84,9 +86,10 @@ None yet.
 | 260406-w3p | Move assembleAndRender into Modal worker | 2026-04-07 | 4881546 | [260406-w3p](./quick/260406-w3p-move-assembleandrender-into-modal-worker/) |
 | Phase 29-consumer-landing-page P02 | 5 | 1 tasks | 1 files |
 | Phase 28-audience-shell-separation P01 | 3 | 2 tasks | 5 files |
+| Phase 30.1-institution-page-v2 P01 | 231 | 2 tasks | 7 files |
 
 ## Session Continuity
 
-Last session: 2026-04-08T22:48:04.289Z
-Stopped at: Phase 30.1 context gathered
-Resume file: .planning/phases/30.1-institution-page-v2/30.1-CONTEXT.md
+Last session: 2026-04-08T23:03:29.336Z
+Stopped at: Completed 30.1-01-PLAN.md
+Resume file: None

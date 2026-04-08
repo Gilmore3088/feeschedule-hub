@@ -458,7 +458,7 @@ Plans:
 
 - [x] **Phase 28: Audience Shell Separation** - Distinct nav components per audience, centralized pro auth guard, personalization service (completed 2026-04-08)
 - [x] **Phase 29: Consumer Landing Page** - Value-prop-first landing page replacing split-panel gateway, embedded Fee Scout, trust signals, consumer guide teasers, B2B door (completed 2026-04-08)
-- [ ] **Phase 30: Institution Educational Pages** - "Why does this matter?" callouts, peer percentile indicators, fee distribution charts, B2B report links per institution
+- [x] **Phase 30: Institution Educational Pages** - "Why does this matter?" callouts, peer percentile indicators, fee distribution charts, B2B report links per institution (completed 2026-04-08)
 - [ ] **Phase 31: B2B Launchpad Dashboard** - Four-door pro dashboard (Hamilton, Peer Builder, Reports, Federal Data), peer snapshot, recent activity, Beige Book digest
 - [ ] **Phase 32: Scoped Report Generation and PDF Export** - Structured report type selector, PDF download, report history, per-user daily limits
 
@@ -504,7 +504,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 30-01-PLAN.md -- Fee callout explainers + PercentileBadge in PositionBar
-- [ ] 30-02-PLAN.md -- Fee Distribution histograms + Intelligence section with B2B CTAs
+- [x] 30-02-PLAN.md -- Fee Distribution histograms + Intelligence section with B2B CTAs
 
 
 
@@ -632,7 +632,7 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 27. External Intelligence System | v5.0 | 1/2 | In Progress|  |
 | 28. Audience Shell Separation | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 29. Consumer Landing Page | v6.0 | 2/2 | Complete   | 2026-04-08 |
-| 30. Institution Educational Pages | v6.0 | 1/2 | In Progress|  |
+| 30. Institution Educational Pages | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
 | 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
 | 33. Global Thesis Engine | v7.0 | 3/3 | Complete    | 2026-04-08 |
