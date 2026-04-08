@@ -52,10 +52,9 @@ describe("HAMILTON_VOICE", () => {
     expect(HAMILTON_SYSTEM_PROMPT).toContain("Do not invent");
   });
 
-  it("systemPrompt references narrative structure", () => {
-    expect(HAMILTON_SYSTEM_PROMPT).toContain("situation");
-    expect(HAMILTON_SYSTEM_PROMPT).toContain("complication");
-    expect(HAMILTON_SYSTEM_PROMPT).toContain("finding");
+  it("systemPrompt references decisive analytical voice", () => {
+    expect(HAMILTON_SYSTEM_PROMPT).toContain("decisive");
+    expect(HAMILTON_SYSTEM_PROMPT).toContain("McKinsey");
     expect(HAMILTON_SYSTEM_PROMPT).toContain("implication");
   });
 
