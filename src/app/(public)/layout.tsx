@@ -1,4 +1,4 @@
-import { CustomerNav } from "@/components/customer-nav";
+import { ConsumerNav } from "@/components/consumer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
 
@@ -9,7 +9,7 @@ export default function PublicLayout({
 }) {
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
-      <CustomerNav />
+      <ConsumerNav />
       <main>{children}</main>
       <CustomerFooter />
       <SearchModal />
