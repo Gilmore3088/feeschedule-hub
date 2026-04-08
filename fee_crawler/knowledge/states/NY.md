@@ -52,3 +52,30 @@ Discovered: 8 | Extracted: 165 | Failed: 227
 - Coverage: 56% (193/344 addressable)
 - Total institutions: 392 (excluded: 48)
 - Institutions with URL but no fees: needs investigation
+
+## Run #217 — 2026-04-07
+Discovered: 2 | Extracted: 160 | Failed: 232
+
+### New Patterns
+- JS-rendered pages (Flagstar, Popular Bank, Dime, Teachers, Tompkins) show mixed extraction results - some succeed, others fail despite successful rendering
+- PDF documents show inconsistent extraction: some succeed (BNY Mellon classified ok but extract failed; Flushing Bank 39 fees; Broadview FCU extract failed; Amalgamated extract failed)
+- HTML pages with successful extractions (Morgan Stanley 31 fees, M&T 5 fees, United Nations FCU 49 fees) suggest better structured fee presentation in HTML vs other formats
+- Multiple discover failures cite wrong page type captured: Deutsche Bank (costs/charges but corporate/investment focus), Apple Bank (rates/APY not fees), Israel Discount (performance page), Metropolitan Commercial (Tools & Resources description)
+- No website_url failures (Bank of China, State Bank of India, Community Bank, Bank of Baroda, Bank Hapoalim) - systematic data availability issue at discovery source
+- Security/access barriers at discover stage: Goldman Sachs (CAPTCHA/security challenge), NBT Bank (later 403 error) - institutional anti-bot protections
+
+### Site Notes
+- Flagstar Bank extracted 4 fees from js_rendered, but Popular Bank and Teachers FCU failed extraction from js_rendered - suggests rendering alone doesn't guarantee extractable fee data
+- NBT Bank returned 403 Forbidden on PDF access attempt - access control issue distinct from format issue
+- Morgan Stanley Private Bank and United Nations FCU both HTML with high fee counts (31, 49) - may indicate institutional size/complexity correlation
+- Discovery is identifying banking pages but not specifically fee schedule pages - suggests search/URL selection needs fee schedule targeting refinement
+- 5 institutions missing website_url suggests upstream data quality issue in institution master list
+- Goldman Sachs blocks discovery with security challenge; NBT Bank allows discovery but blocks PDF retrieval
+
+### Promoted to National
+- JS rendering classification doesn't predict extraction success; content structure/formatting varies significantly even when page type matches
+- PDF fee schedules require permission validation separate from discovery; format type alone insufficient predictor of extractability
+- HTML-based fee schedules appear more extraction-friendly than PDF or js_rendered alternatives
+- Keyword-based discovery conflates related financial disclosure pages with actual fee schedules; need more specific page type detection
+- Institution reference data validation needed before discovery attempts - missing URLs waste processing cycles
+- Some institutions employ progressive access restrictions - initial page accessible but document retrieval blocked

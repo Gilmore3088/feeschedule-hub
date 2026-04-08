@@ -561,3 +561,11 @@
 4. Re-extract all 960 institutions with 1-5 fees using correct URLs
 5. Kill SQLite — all paths must use Postgres (legacy db.py still breaks CLI commands)
 6. Build URL health check into the pipeline — HEAD-check before counting as coverage
+
+## Promoted — 2026-04-07
+- JS rendering classification doesn't predict extraction success; content structure/formatting varies significantly even when page type matches
+- PDF fee schedules require permission validation separate from discovery; format type alone insufficient predictor of extractability
+- HTML-based fee schedules appear more extraction-friendly than PDF or js_rendered alternatives
+- Keyword-based discovery conflates related financial disclosure pages with actual fee schedules; need more specific page type detection
+- Institution reference data validation needed before discovery attempts - missing URLs waste processing cycles
+- Some institutions employ progressive access restrictions - initial page accessible but document retrieval blocked
