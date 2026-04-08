@@ -1,4 +1,10 @@
-import { CustomerNav } from "@/components/customer-nav";
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
+import { derivePersonalizationContext } from "@/lib/personalization";
+import { ProNav } from "@/components/pro-nav";
+import { ProMobileNav } from "@/components/pro-mobile-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
 import type { Metadata } from "next";
@@ -16,8 +22,49 @@ export default function ProLayout({
   children: React.ReactNode;
 }) {
   return (
+    <Suspense fallback={null}>
+      <ProLayoutInner>{children}</ProLayoutInner>
+    </Suspense>
+  );
+}
+
+async function ProLayoutInner({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Get current user
+  let user = null;
+  try {
+    user = await getCurrentUser();
+  } catch {
+    // DB not available or session expired
+  }
+
+  // Redirect unauthenticated users to login
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Redirect non-premium users to subscribe
+  if (!canAccessPremium(user)) {
+    redirect("/subscribe");
+  }
+
+  // Derive personalization context from user profile
+  const personalization = derivePersonalizationContext(user);
+
+  // Prepare user props for nav components
+  const userProps = {
+    displayName: user.display_name,
+    institutionName: user.institution_name,
+    initial: (user.institution_name?.[0] || user.display_name?.[0] || "U").toUpperCase(),
+  };
+
+  return (
     <div className="min-h-screen bg-[#FAF7F2]">
-      <CustomerNav />
+      <ProNav user={userProps} personalization={personalization} />
+      <ProMobileNav user={userProps} personalization={personalization} />
       <main>{children}</main>
       <CustomerFooter />
       <SearchModal />
