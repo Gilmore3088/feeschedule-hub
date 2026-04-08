@@ -1,9 +1,52 @@
-# Requirements: Bank Fee Index v5.0 National Data Layer
+# Requirements: Bank Fee Index
 
 **Defined:** 2026-04-07
-**Core Value:** Build the data foundation for credible national analysis -- fix queries, create summaries, build admin views for all national data sources
+**Core Value:** Accurate, complete, timely fee data with rich analysis -- the kind of insight a bank executive would pay a consulting firm $15K to produce, generated on demand from live pipeline data.
 
-## v5.0 Requirements
+## v6.0 Requirements
+
+Requirements for Two-Sided Experience milestone. Each maps to roadmap phases.
+
+### Audience Shell
+
+- [ ] **SHELL-01**: Consumer and pro audiences have distinct navigation components with separate visual identities
+- [ ] **SHELL-02**: Pro route auth guard is centralized in pro/layout.tsx (not scattered per-page)
+- [ ] **SHELL-03**: Personalization service derives user context (institution, district, tier, peer group) from account profile for dashboard use
+
+### Consumer Landing
+
+- [ ] **CLND-01**: Landing page replaces split-panel gateway as the universal entry point for all visitors (consumer and B2B alike)
+- [ ] **CLND-02**: Landing page hero immediately communicates the value proposition with quantified impact ("see what your bank charges vs. the national median")
+- [ ] **CLND-03**: Fee Scout search is embedded in the hero -- visitor can look up any institution without authentication
+- [ ] **CLND-04**: Landing page displays trust signals that establish authority (institution count, data freshness, data source provenance)
+- [ ] **CLND-05**: Landing page includes a clear "how it works" section (Search, Compare, Save / Act)
+- [ ] **CLND-06**: Landing page surfaces 2-3 consumer guide teasers for education and SEO
+- [ ] **CLND-07**: Landing page includes a clear B2B value section ("For Financial Institutions") with professional upgrade path -- not a gate, a door
+- [ ] **CLND-08**: Landing page design meets Salesforce Connected FINS / McKinsey quality bar (editorial typography, generous whitespace, consulting-grade presentation)
+
+### Institution Pages
+
+- [ ] **INST-01**: Institution page displays "why does this matter?" contextual callouts per fee category
+- [ ] **INST-02**: Institution page shows peer percentile indicator per fee ("higher than 72% of similar banks")
+- [ ] **INST-03**: Institution page includes fee distribution chart showing where the institution sits nationally
+- [ ] **INST-04**: Institution page surfaces relevant B2B reports and links for professional users
+
+### B2B Launchpad
+
+- [ ] **B2B-01**: Pro dashboard displays four primary action doors (Hamilton, Peer Builder, Reports, Federal Data)
+- [ ] **B2B-02**: Pro dashboard shows peer snapshot panel with subscriber's peer group vs national median
+- [ ] **B2B-03**: Pro dashboard surfaces recent activity (last Hamilton conversations, recent reports)
+- [ ] **B2B-04**: Pro dashboard displays personalized Beige Book digest based on subscriber's district
+- [ ] **B2B-05**: Pro experience is positioned as one-stop shop for premium consulting (replacing $15K engagements)
+
+### Scoped Reports
+
+- [ ] **RPT-01**: Pro user can select from structured report types (peer brief, competitive snapshot, district outlook, monthly pulse)
+- [ ] **RPT-02**: Pro user can download generated reports as PDF
+- [ ] **RPT-03**: Generated reports are persisted and retrievable from report history
+- [ ] **RPT-04**: Report templates are scoped and small (3-5 pages, not flagship national reports)
+
+## v5.0 Requirements (Previous Milestone)
 
 ### Call Report Revenue (CALL)
 - [ ] **CALL-01**: Revenue queries return correct dollar amounts (fix thousands scaling)
@@ -48,49 +91,68 @@
 - [ ] **INTEL-03**: External intelligence stored with metadata (source, date, category, relevance tags)
 - [ ] **INTEL-04**: Hamilton's tools can search/query external intelligence alongside internal data
 
+## Future Requirements
+
+### v6.1
+
+- **CFPB-01**: Institution pages display CFPB complaint count benchmarked against district and national averages
+- **HIST-01**: Institution pages show fee history timeline when re-crawl data exists
+- **PERS-01**: Competitive landscape snapshot on B2B launchpad ("3 institutions in your peer group changed fees")
+- **BRFG-01**: Hamilton generates weekly "morning briefing" narrative for subscribers
+- **RVER-01**: Report versioning -- re-run same scope with fresh data and show what changed
+
+### v7+
+
+- **GEO-01**: "Banks near you charging less" contextual consumer suggestion with geo-aware peer query
+- **ANNO-01**: Hamilton annotation layer -- pro users can edit/annotate reports before PDF export
+- **BRAND-01**: Branded PDF export with subscriber institution name on cover page
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Star ratings / letter grades for institutions | Legally ambiguous, editorially unstable; use objective language ("above median", "top quartile") |
+| Consumer dark mode toggle | Dark mode CSS only exists for admin; consumer pages use hardcoded warm palette tokens |
+| URL restructuring / new prefixes | SEO regression risk; all consumer redesign happens in-place inside existing (public) route group |
+| Free-form-only report prompts | Structured scope forms produce more consistent output; free-form is secondary |
+| Unlimited report generation without controls | Per-user daily limits required before pro access to prevent cost runaway |
+| Real-time crawl activity feed for pro users | Admin-level noise; subscribers get peer-relevant freshness indicators only |
+| Report template redesign | v4.2 template is locked |
+
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CALL-01 | Phase 23 | Pending |
-| CALL-02 | Phase 23 | Pending |
-| CALL-03 | Phase 23 | Pending |
-| CALL-04 | Phase 23 | Pending |
-| CALL-05 | Phase 23 | Pending |
-| CALL-06 | Phase 23 | Pending |
-| FRED-01 | Phase 23 | Pending |
-| FRED-02 | Phase 23 | Pending |
-| FRED-03 | Phase 23 | Pending |
-| FRED-04 | Phase 23 | Pending |
-| HEALTH-01 | Phase 24 | Pending |
-| HEALTH-02 | Phase 24 | Pending |
-| HEALTH-03 | Phase 24 | Pending |
-| HEALTH-04 | Phase 24 | Pending |
-| BEIGE-01 | Phase 24 | Pending |
-| BEIGE-02 | Phase 24 | Pending |
-| BEIGE-03 | Phase 24 | Pending |
-| DERIVE-01 | Phase 25 | Pending |
-| DERIVE-02 | Phase 25 | Pending |
-| DERIVE-03 | Phase 25 | Pending |
-| ADMIN-05 | Phase 25 | Pending |
-| ADMIN-01 | Phase 26 | Pending |
-| ADMIN-02 | Phase 26 | Pending |
-| ADMIN-03 | Phase 26 | Pending |
-| ADMIN-04 | Phase 26 | Pending |
-| INTEL-01 | Phase 27 | Pending |
-| INTEL-02 | Phase 27 | Pending |
-| INTEL-03 | Phase 27 | Pending |
-| INTEL-04 | Phase 27 | Pending |
+| SHELL-01 | Pending | Pending |
+| SHELL-02 | Pending | Pending |
+| SHELL-03 | Pending | Pending |
+| CLND-01 | Pending | Pending |
+| CLND-02 | Pending | Pending |
+| CLND-03 | Pending | Pending |
+| CLND-04 | Pending | Pending |
+| CLND-05 | Pending | Pending |
+| CLND-06 | Pending | Pending |
+| CLND-07 | Pending | Pending |
+| CLND-08 | Pending | Pending |
+| INST-01 | Pending | Pending |
+| INST-02 | Pending | Pending |
+| INST-03 | Pending | Pending |
+| INST-04 | Pending | Pending |
+| B2B-01 | Pending | Pending |
+| B2B-02 | Pending | Pending |
+| B2B-03 | Pending | Pending |
+| B2B-04 | Pending | Pending |
+| B2B-05 | Pending | Pending |
+| RPT-01 | Pending | Pending |
+| RPT-02 | Pending | Pending |
+| RPT-03 | Pending | Pending |
+| RPT-04 | Pending | Pending |
 
-## Future (v6.0)
+**Coverage:**
+- v6.0 requirements: 24 total
+- Mapped to phases: 0
+- Unmapped: 24
 
-- State/regional report data layer (state-specific Call Reports, FRED by district, Beige Book per district)
-- MSA-level drill-down queries
-- Consumer insights and guides layer (plain language summaries, how-tos)
-- State summary pages at `/admin/national/state/[code]`
-
-## Out of Scope
-
-- Report template redesign (v4.2 is locked)
-- Interactive web dashboards (PDF reports only for now)
-- Real-time data feeds (batch/quarterly cadence)
+---
+*Requirements defined: 2026-04-07*
+*Last updated: 2026-04-07 after initial definition*
