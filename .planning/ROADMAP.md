@@ -488,7 +488,7 @@ Plans:
   5. A "For Financial Institutions" section with a clear upgrade CTA is present without acting as a barrier to consumer use; the page design meets a consulting-grade visual quality bar (editorial typography, generous whitespace)
 **Plans**: 2 plans
 Plans:
-- [ ] 29-01-PLAN.md -- Landing page hero with Fee Scout search, value prop cards, trust stats
+- [x] 29-01-PLAN.md -- Landing page hero with Fee Scout search, value prop cards, trust stats
 - [ ] 29-02-PLAN.md -- Gateway cleanup and visual quality verification
 **UI hint**: yes
 
@@ -561,8 +561,8 @@ Plans:
   5. When revenue data exists for the subject of a section, the section's first substantive statement concerns revenue implications, not pricing observations
 **Plans**: 3 plans
 Plans:
-- [ ] 33-01-PLAN.md -- Foundation: thesis types (ThesisInput/ThesisOutput/ThesisSummaryPayload) + Hamilton voice v3 with revenue-first and tension model rules
-- [ ] 33-02-PLAN.md -- Generator: buildThesisSummary() condensation + generateGlobalThesis() Claude call + MAX_TOKENS 1500 + remove 75-word limit
+- [x] 33-01-PLAN.md -- Foundation: thesis types (ThesisInput/ThesisOutput/ThesisSummaryPayload) + Hamilton voice v3 with revenue-first and tension model rules
+- [x] 33-02-PLAN.md -- Generator: buildThesisSummary() condensation + generateGlobalThesis() Claude call + MAX_TOKENS 1500 + remove 75-word limit
 - [ ] 33-03-PLAN.md -- Wiring: inject thesis into national_index orchestrator; narrative_summary passed to all 6 sections
 
 ### Phase 34: Voice v3 and Section Generator v2
@@ -618,7 +618,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -669,11 +669,11 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | 2026-04-08 |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete | 2026-04-08 |
 | 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
-| 29. Consumer Landing Page | v6.0 | 0/TBD | Not started | - |
+| 29. Consumer Landing Page | v6.0 | 1/2 | In Progress|  |
 | 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
 | 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
-| 33. Global Thesis Engine | v7.0 | 0/TBD | Not started | - |
+| 33. Global Thesis Engine | v7.0 | 2/3 | In Progress|  |
 | 34. Voice v3 and Section Generator v2 | v7.0 | 0/TBD | Not started | - |
 | 35. Unified Chat Persona | v7.0 | 0/TBD | Not started | - |
 | 36. Tool and Regulation Intelligence | v7.0 | 0/TBD | Not started | - |
