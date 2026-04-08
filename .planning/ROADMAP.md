@@ -376,12 +376,12 @@ Plans:
   3. Revenue can be split by bank vs credit union and by asset tier, with correct totals that reconcile to national aggregate
   4. A national economic summary query returns fed funds rate, unemployment rate, CPI YoY change (not raw index), and consumer sentiment -- all with current values
   5. District-level economic indicators are queryable (at minimum unemployment per district)
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
-
+- [ ] 23-01-PLAN.md — Fix FFIEC scaling bug + backfill migration + test extensions (CALL-01 to CALL-05)
+- [ ] 23-02-PLAN.md — FRED gap closure: UMCSENT ingestion + district nonfarm payrolls + fed.test.ts (FRED-01 to FRED-04)
+- [ ] 23-03-PLAN.md — FDIC standard 5-tier system replacement + getRevenueByTier (CALL-06)
 ### Phase 24: Industry Health & Beige Book
 **Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
 **Depends on**: Phase 23 (uses corrected financial data patterns)
@@ -474,7 +474,7 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 20. Iterative Deepening | v3.0 | 0/? | Not started | - |
 | 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
-| 23. Call Report & FRED Foundation | v5.0 | 0/TBD | Not started | - |
+| 23. Call Report & FRED Foundation | v5.0 | 0/3 | Planned | - |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
 | 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
