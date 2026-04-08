@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: National Coverage Push
 status: Between milestones
-stopped_at: Completed 30.1-01-PLAN.md
-last_updated: "2026-04-08T23:03:33.800Z"
+stopped_at: Completed 30.1-02-PLAN.md — awaiting visual checkpoint
+last_updated: "2026-04-08T23:09:24.209Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 4
@@ -70,6 +70,8 @@ Recent decisions affecting current work:
 - [Phase 30]: Fee Distribution section is free (no pro gate) — strongest visual differentiator, gates removed the conversion hook
 - [Phase 30.1-institution-page-v2]: Overdraft detection by fee_name substring, not fee_category field (D-05)
 - [Phase 30.1-institution-page-v2]: Locked overdraft thresholds: <=20 green, 20.01-36 yellow, >36 red (D-01)
+- [Phase 30.1-institution-page-v2]: Fee table column hiding uses IIFE pattern to conditionally render both th+td pairs without prop-drilling
+- [Phase 30.1-institution-page-v2]: CompareSection URL-encodes stateCode and charterType (T-30.1-05) before href insertion
 
 ### Pending Todos
 
@@ -87,9 +89,10 @@ None yet.
 | Phase 29-consumer-landing-page P02 | 5 | 1 tasks | 1 files |
 | Phase 28-audience-shell-separation P01 | 3 | 2 tasks | 5 files |
 | Phase 30.1-institution-page-v2 P01 | 231 | 2 tasks | 7 files |
+| Phase 30.1-institution-page-v2 P02 | 212 | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-04-08T23:03:29.336Z
-Stopped at: Completed 30.1-01-PLAN.md
+Last session: 2026-04-08T23:09:24.206Z
+Stopped at: Completed 30.1-02-PLAN.md — awaiting visual checkpoint
 Resume file: None

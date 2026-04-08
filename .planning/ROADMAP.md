@@ -522,8 +522,8 @@ Plans:
   5. "Strengths" and "Watch" bullets are derived from fee-vs-median comparisons, max 2 each
 **Plans**: 2 plans
 Plans:
-- [ ] 30.1-01-PLAN.md -- Rating engine + V2 consumer components (FeeSummaryCard, InterpretationBlock, FeeComparisonBars, FeeCountCard, ProsConsBlock)
-- [ ] 30.1-02-PLAN.md -- Page restructure, table indicators, MidPageCTA, CompareSection, footer CTA
+- [x] 30.1-01-PLAN.md -- Rating engine + V2 consumer components (FeeSummaryCard, InterpretationBlock, FeeComparisonBars, FeeCountCard, ProsConsBlock)
+- [x] 30.1-02-PLAN.md -- Page restructure, table indicators, MidPageCTA, CompareSection, footer CTA
 **UI hint**: yes
 **Spec**: `.planning/phases/30-institution-educational-pages/institution-v2-spec.md`
 
