@@ -11,8 +11,8 @@ vi.mock("./connection", () => {
   };
 });
 
-import { getRevenueTrend, getTopRevenueInstitutions } from "./call-reports";
-import type { RevenueSnapshot, RevenueTrend, TopRevenueInstitution } from "./call-reports";
+import { getRevenueTrend, getTopRevenueInstitutions, getDistrictFeeRevenue } from "./call-reports";
+import type { RevenueSnapshot, RevenueTrend, TopRevenueInstitution, DistrictFeeRevenue } from "./call-reports";
 import { getSql } from "./connection";
 
 type MockSql = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
@@ -271,5 +271,82 @@ describe("getTopRevenueInstitutions", () => {
     // Should not throw; latest_date handling covers Date instances
     const result = await getTopRevenueInstitutions();
     expect(Array.isArray(result)).toBe(true);
+  });
+});
+
+// ── getDistrictFeeRevenue ─────────────────────────────────────────────────────
+
+describe("getDistrictFeeRevenue", () => {
+  beforeEach(() => {
+    const mock = getMock();
+    resetMock(mock);
+    mock.mockResolvedValue([{ latest_date: "2024-12-31" }]);
+    mock.unsafe = vi.fn().mockResolvedValue([]);
+  });
+
+  it("returns fee revenue metrics for a district", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-12-31" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        fed_district: "2",
+        institution_count: "150",
+        total_sc_income: "500000000",
+        avg_sc_income: "3333333",
+        total_other_noninterest: "200000000",
+      },
+    ]);
+
+    const result = await getDistrictFeeRevenue(2);
+    expect(result).not.toBeNull();
+    expect(result!.fed_district).toBe(2);
+    expect(result!.institution_count).toBe(150);
+    expect(result!.total_sc_income).toBeGreaterThan(0);
+    expect(result!.total_other_noninterest).toBeGreaterThan(0);
+  });
+
+  it("returns null for district with no data", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-12-31" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    const result = await getDistrictFeeRevenue(99);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when no report dates exist", async () => {
+    getMock().mockResolvedValue([{}]);
+
+    const result = await getDistrictFeeRevenue(1);
+    expect(result).toBeNull();
+  });
+
+  it("uses provided reportDate instead of querying for latest", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        fed_district: "5",
+        institution_count: "80",
+        total_sc_income: "120000000",
+        avg_sc_income: "1500000",
+        total_other_noninterest: "50000000",
+      },
+    ]);
+
+    const result = await getDistrictFeeRevenue(5, "2024-09-30");
+    expect(result).not.toBeNull();
+    expect(result!.fed_district).toBe(5);
+    expect(result!.avg_sc_income).toBe(1500000);
+    // When reportDate provided, the tagged template (latest date query) should NOT be called
+    expect(getMock().mock.calls.length).toBe(0);
+  });
+
+  it("type-checks DistrictFeeRevenue shape", () => {
+    const rev: DistrictFeeRevenue = {
+      fed_district: 7,
+      institution_count: 200,
+      total_sc_income: 750000000,
+      avg_sc_income: 3750000,
+      total_other_noninterest: 300000000,
+    };
+    expect(rev.fed_district).toBe(7);
+    expect(rev.total_sc_income).toBeGreaterThan(0);
   });
 });
