@@ -105,3 +105,85 @@ export interface PeerCompetitiveData {
   total_peer_institutions: number;
   total_observations: number;
 }
+
+// ─── Thesis Types (Phase 33) ────────────────────────────────────────────────
+
+/**
+ * Report scope determines thesis depth.
+ * quarterly = full treatment (all fields). Others = lighter (no contrarian_insight).
+ */
+export type ThesisScope = 'quarterly' | 'monthly_pulse' | 'peer_brief' | 'state_index';
+
+/** A single tension: two opposing forces + what the opposition implies for strategy. */
+export interface ThesisTension {
+  force_a: string;
+  force_b: string;
+  implication: string;
+}
+
+/**
+ * Structured thesis output from generateGlobalThesis().
+ * contrarian_insight is null for lighter scopes (monthly_pulse, peer_brief, state_index).
+ */
+export interface ThesisOutput {
+  core_thesis: string;
+  tensions: ThesisTension[];
+  revenue_model: string;
+  competitive_dynamic: string;
+  /** Non-obvious finding. Null for lighter scopes (not quarterly). */
+  contrarian_insight: string | null;
+  /** 150-word flowing summary injected into every section's context. */
+  narrative_summary: string;
+  model: string;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+}
+
+/**
+ * Condensed data summary (~5KB) passed to the thesis generator.
+ * Derived from NationalQuarterlyPayload by buildThesisSummary().
+ */
+export interface ThesisSummaryPayload {
+  quarter: string;
+  total_institutions: number;
+  top_categories: Array<{
+    fee_category: string;
+    display_name: string;
+    median_amount: number | null;
+    bank_median: number | null;
+    cu_median: number | null;
+    institution_count: number;
+    maturity_tier: string;
+  }>;
+  revenue_snapshot: {
+    latest_quarter: string;
+    total_service_charges: number;
+    yoy_change_pct: number | null;
+    bank_service_charges: number;
+    cu_service_charges: number;
+    total_institutions: number;
+  } | null;
+  fred_snapshot: {
+    fed_funds_rate: number | null;
+    unemployment_rate: number | null;
+    cpi_yoy_pct: number | null;
+    consumer_sentiment: number | null;
+    as_of: string;
+  } | null;
+  /** Beige Book headline text snippets, one per Fed district that has data. */
+  beige_book_themes: string[];
+  /**
+   * Pre-computed tension candidates from the assembler's derived analytics.
+   * E.g. "Bank fees exceed CU fees in 18 of 22 comparable categories".
+   * Helps the thesis generator identify genuine data tensions quickly.
+   */
+  derived_tensions: string[];
+}
+
+/** Input contract for generateGlobalThesis(). */
+export interface ThesisInput {
+  scope: ThesisScope;
+  data: ThesisSummaryPayload;
+}
