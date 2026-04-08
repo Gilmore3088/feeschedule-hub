@@ -22,3 +22,7 @@ Discovered: 2 | Extracted: 64 | Failed: 43
 - Low fee counts (1-2) likely reflect actual disclosure limits; flag for manual verification if anomalous
 - Keyword-based discovery filtering effective; implement for financial institution pages
 - Discover skipping masks accessible content; restore discovery process with pre-filtering
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 74% (78/105 addressable)
+- Total institutions: 107 (excluded: 2)
+- Institutions with URL but no fees: needs investigation

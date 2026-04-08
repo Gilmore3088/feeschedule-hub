@@ -72,3 +72,8 @@ Discovered: 0 | Extracted: 42 | Failed: 71
 
 ### Promoted to National
 - None
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 46% (48/105 addressable)
+- Total institutions: 113 (excluded: 8)
+- Institutions with URL but no fees: needs investigation

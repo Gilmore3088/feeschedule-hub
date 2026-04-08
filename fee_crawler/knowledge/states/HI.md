@@ -87,3 +87,8 @@ Discovered: 0 | Extracted: 31 | Failed: 20
 
 ### Promoted to National
 - Credit unions systematically publish fee schedules more consistently than commercial banks in Hawaii
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 71% (34/48 addressable)
+- Total institutions: 51 (excluded: 3)
+- Institutions with URL but no fees: needs investigation

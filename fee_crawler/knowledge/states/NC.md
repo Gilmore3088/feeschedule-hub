@@ -60,3 +60,8 @@ Discovered: 1 | Extracted: 40 | Failed: 56
 
 ### Promoted to National
 - JS-rendered content requires fallback to alternative discovery or classification methods when extraction fails—dynamic rendering alone does not guarantee fee data extractability
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 55% (51/92 addressable)
+- Total institutions: 96 (excluded: 4)
+- Institutions with URL but no fees: needs investigation

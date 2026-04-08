@@ -73,3 +73,8 @@ Discovered: 4 | Extracted: 63 | Failed: 69
 
 ### Promoted to National
 - PDF format appears most reliable for fee extraction across institutions - prioritize PDF discovery and classification
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 55% (69/126 addressable)
+- Total institutions: 132 (excluded: 6)
+- Institutions with URL but no fees: needs investigation

@@ -74,3 +74,8 @@ Discovered: 1 | Extracted: 13 | Failed: 16
 - Need more sophisticated link detection for banking sites that don't use explicit 'fee schedule' terminology
 - Validate PDF URLs before or after classification step; broken references are wasting extraction attempts
 - Successful discovery doesn't guarantee extractable content; validate page content matches discovery expectations
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 55% (16/29 addressable)
+- Total institutions: 29 (excluded: 0)
+- Institutions with URL but no fees: needs investigation

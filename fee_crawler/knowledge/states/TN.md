@@ -68,3 +68,8 @@ Discovered: 4 | Extracted: 95 | Failed: 146
 - When classifying financial institution fee documents, prioritize PDF sources over JavaScript-rendered pages for extraction reliability
 - Extraction pipelines for js_rendered fee content need specialized handling — standard extraction fails despite successful page classification
 - Discovery failures often legitimate — many institutions may not publish centralized fee schedules online; failures on product pages suggest discovery correctly routing away from non-disclosure content
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 46% (105/228 addressable)
+- Total institutions: 241 (excluded: 13)
+- Institutions with URL but no fees: needs investigation

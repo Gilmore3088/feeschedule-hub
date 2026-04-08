@@ -73,3 +73,8 @@ Discovered: 0 | Extracted: 29 | Failed: 33
 ### Promoted to National
 - PDF classification alone does not guarantee extractable fee data; PDF content quality/structure varies significantly
 - Product detail pages should be re-examined with different extraction logic rather than rejected outright
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 61% (36/59 addressable)
+- Total institutions: 62 (excluded: 3)
+- Institutions with URL but no fees: needs investigation

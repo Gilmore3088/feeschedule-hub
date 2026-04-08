@@ -69,3 +69,8 @@ Discovered: 0 | Extracted: 127 | Failed: 119
 - Account comparison pages are common false positives - need to distinguish from actual fee schedules in discovery logic
 - PDF-based fee schedules are more reliably structured for extraction than dynamically rendered web content
 - Post-classification validation needed: classify=ok with extract failure warrant manual review for parsing logic gaps
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 63% (152/242 addressable)
+- Total institutions: 246 (excluded: 4)
+- Institutions with URL but no fees: needs investigation

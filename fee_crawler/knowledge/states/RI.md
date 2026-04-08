@@ -47,3 +47,8 @@ Discovered: 0 | Extracted: 7 | Failed: 13
 - HTML format appears less reliable than PDF; likely indicates fee information is minimal or not presented in structured format
 - JS-rendered pages with successful extraction warrant pattern analysis to improve extraction logic for similar institutions
 - Data quality issue: prioritize validating source institution data before pipeline execution
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 61% (11/18 addressable)
+- Total institutions: 20 (excluded: 2)
+- Institutions with URL but no fees: needs investigation

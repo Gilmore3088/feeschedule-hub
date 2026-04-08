@@ -70,3 +70,8 @@ Discovered: 0 | Extracted: 11 | Failed: 17
 
 ### Promoted to National
 - Extraction failures on successfully-classified PDFs warrant investigation into extraction logic
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 55% (12/22 addressable)
+- Total institutions: 28 (excluded: 6)
+- Institutions with URL but no fees: needs investigation

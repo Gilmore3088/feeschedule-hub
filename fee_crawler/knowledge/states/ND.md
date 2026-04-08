@@ -30,3 +30,8 @@ Discovered: 24 | Extracted: 20 | Failed: 70
 - Prioritize homepage link extraction before navigating to nested account pages
 - Document institutions confirmed to not publish fee schedules publicly; avoid repeated discovery attempts
 - HTML-rendered fee schedules have higher extraction success than JS-rendered alternatives
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 33% (29/87 addressable)
+- Total institutions: 90 (excluded: 3)
+- Institutions with URL but no fees: needs investigation

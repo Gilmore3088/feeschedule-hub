@@ -39,3 +39,8 @@ Discovered: 5 | Extracted: 29 | Failed: 48
 - Kasasa product materials may require specialized parsing; consider adding Kasasa-specific extraction rules
 - Institutions with standardized, cleanly-formatted PDFs extract successfully; could establish baseline PDF quality metrics
 - Discovery filtering is working well; focus remediation on institutions where PDFs are found but extraction fails
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 52% (37/71 addressable)
+- Total institutions: 77 (excluded: 6)
+- Institutions with URL but no fees: needs investigation

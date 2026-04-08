@@ -69,3 +69,8 @@ Discovered: 0 | Extracted: 89 | Failed: 106
 - Institutions using CAPTCHA or heavy JS-dependent content loading require alternative discovery methods (API, cached pages, or manual research).
 - Many institutions lack clear fee schedule landing pages; consider searching for account disclosure documents, terms of service, or product-specific pages as secondary discovery paths.
 - HTML pages with tabular or list-structured fee data are reliable; extraction failures on HTML likely indicate poorly formatted tables or missing semantic markup.
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 56% (106/190 addressable)
+- Total institutions: 195 (excluded: 5)
+- Institutions with URL but no fees: needs investigation

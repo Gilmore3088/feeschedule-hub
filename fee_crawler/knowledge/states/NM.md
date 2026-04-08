@@ -68,3 +68,8 @@ Discovered: 0 | Extracted: 31 | Failed: 35
 - PDF extraction success rate high; failures warrant manual review for PDF quality issues rather than process failure
 - Homepage link-discovery method misses institutions with embedded/inline fee disclosure; secondary search strategy needed for fee pages not linked from homepage
 - HTML fee pages may contain less structured data or fewer products; validation needed on whether low extraction reflects actual fee count or extraction method limitation
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 52% (33/63 addressable)
+- Total institutions: 66 (excluded: 3)
+- Institutions with URL but no fees: needs investigation

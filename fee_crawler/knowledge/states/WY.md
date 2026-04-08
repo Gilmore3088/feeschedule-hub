@@ -31,3 +31,7 @@ Bank Of Jackson Hole Trust, Guernsey Community FCU, Cheyenne State Bank, Cowboy 
 - Implement URL validation during classification phase
 - Consider product-specific fee pages and cross-reference multiple disclosure sections
 - Manual review needed for First Northern Bank of Wyoming, Meridian Trust FCU, Security State Bank, Bank of Star Valley (classified successfully but no fees extracted)
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 91% (30/33 addressable)
+- Total institutions: 43 (excluded: 10)
+- Institutions with URL but no fees: needs investigation

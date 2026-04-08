@@ -76,3 +76,8 @@ Discovered: 0 | Extracted: 36 | Failed: 60
 - Homepage inaccessibility warrants manual verification; some institutions may deliberately not publish fee schedules online
 - Corporate vs. consumer banking distinction matters - institutions serving businesses may not publish retail fee schedules
 - Tracking URL changes and maintaining fallback discovery methods needed for institutions that reorganize disclosure locations
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 51% (43/84 addressable)
+- Total institutions: 96 (excluded: 12)
+- Institutions with URL but no fees: needs investigation

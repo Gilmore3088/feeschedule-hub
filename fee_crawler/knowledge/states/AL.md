@@ -74,3 +74,8 @@ Discovered: 3 | Extracted: 63 | Failed: 120
 - HTML pages may require institution-specific parsing; one-size-fits-all HTML extraction underperforms vs PDF/JS
 - Low-yield results (under 10 fees) from js_rendered pages warrant manual review to assess completeness
 - Maintain curated seed list of known fee schedule URLs; reduces discovery errors on secondary pages
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 43% (71/165 addressable)
+- Total institutions: 183 (excluded: 18)
+- Institutions with URL but no fees: needs investigation

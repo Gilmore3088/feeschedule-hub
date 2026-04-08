@@ -45,3 +45,8 @@ Discovered: 0 | Extracted: 14 | Failed: 13
 - Federal credit union PDFs may use non-standard fee table layouts; develop specialized extraction rules for FCUA-affiliated institutions
 - Implement secondary discovery strategy: search institution websites directly for 'fee schedule' or 'pricing' rather than relying on homepage navigation
 - JavaScript-rendered fee schedules may require DOM-specific selectors; current extraction likely incomplete for client-side rendered content
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 65% (17/26 addressable)
+- Total institutions: 27 (excluded: 1)
+- Institutions with URL but no fees: needs investigation

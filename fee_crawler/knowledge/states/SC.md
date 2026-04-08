@@ -69,3 +69,8 @@ Discovered: 2 | Extracted: 40 | Failed: 49
 - Account comparison/product pages frequently lack fee schedule links. Direct search for 'fees', 'schedule', 'charges' terms on homepage may be more reliable than following account navigation paths.
 - Static HTML fee pages are more reliably parseable than JS-rendered or dynamically loaded content. Consider prioritizing HTML-classified institutions.
 - Failed extractions from successfully-classified pages warrant post-classification content inspection step to identify parsing rule mismatches before extraction attempt.
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 49% (42/86 addressable)
+- Total institutions: 89 (excluded: 3)
+- Institutions with URL but no fees: needs investigation

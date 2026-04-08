@@ -69,3 +69,8 @@ Discovered: 3 | Extracted: 87 | Failed: 140
 
 ### Promoted to National
 - Establish direct URL discovery methods for institutions with skipped discovery; 11 of 27 institutions used this path, indicating viable pre-research or CMS-pattern approach worth systematizing
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 43% (96/221 addressable)
+- Total institutions: 227 (excluded: 6)
+- Institutions with URL but no fees: needs investigation

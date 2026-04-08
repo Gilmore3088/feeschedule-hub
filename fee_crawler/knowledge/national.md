@@ -514,3 +514,50 @@
 - Federal credit union PDFs may use non-standard fee table layouts; develop specialized extraction rules for FCUA-affiliated institutions
 - Implement secondary discovery strategy: search institution websites directly for 'fee schedule' or 'pricing' rather than relying on homepage navigation
 - JavaScript-rendered fee schedules may require DOM-specific selectors; current extraction likely incomplete for client-side rendered content
+
+## v3.0 Campaign Report — 2026-04-07
+
+### Results
+- Institutions with fees: 2,619 → 4,003 (+1,384 this session)
+- Total clean fees: 104,591 (44,003 rejected by Roomba)
+- States over 50%: 31 (was 2 at session start)
+- States over 75%: 3 (WY, AK, DC)
+- Only state under 30%: GU (Guam)
+
+### Strategy Hit Rates
+- State agent full crawl: ~17% new institutions per pass (best for initial coverage)
+- Manual URL curation: 36% hit rate (best ROI for high-value targets)
+- Google search discovery: TBD (running)
+- URL pattern probing: 5% (low yield)
+- JS re-extract retry: 2% (not worth repeating)
+- PDF OCR retry: 8-16% on first pass, 2% on second (diminishing returns)
+- HTML re-extract: 18% (decent for small batches)
+
+### Known Blockers (stop retrying these)
+- JS-rendered pages at 2% hit rate — 755 institutions classified as js_rendered with 0 fees are mostly dead ends (CAPTCHAs, SPAs that don't render fee data, login walls)
+- PDF failures after OCR: 361 institutions — URLs are dead (404), password-protected, or scanned images tesseract can't read
+- Goldman Sachs/Marcus, Synchrony Bank, Principal Bank — online-only with no traditional fee schedule
+- Deutsche Bank Trust Americas, TriState Capital — institutional/private banks, no consumer fees
+
+### Biggest Remaining Gaps
+- 1,164 institutions have URLs but 0 fees extracted
+  - 276 are >$1B in assets (high value, likely wrong URLs)
+  - Most common issue: URL points to landing page, not actual fee schedule
+- 960 institutions have 1-5 fees (incomplete extraction, need re-extract with better URLs)
+- Top missing banks: Goldman ($644B), PNC ($564B), BNY Mellon ($367B), State Street ($366B), Schwab ($243B)
+
+### Data Quality Findings
+- Overdraft fees: $0 is legitimate (no fee), $0.01-$9.99 is extraction error, $10+ is real
+- NSF and overdraft are distinct — never infer one from the other
+- Extraction creates freeform categories (20K+ unique) — must run categorization to map to 49-category taxonomy
+- Duplicate fees from multiple crawl runs — dedup required after each campaign (38,065 removed)
+- Per-check/per-item charges ($0.25-$2) frequently misclassified as overdraft/NSF
+- card_foreign_txn often stores percentage as dollar amount (1%, 3% → $1, $3)
+
+### Recommendations for Next Campaign
+1. Run Roomba dedup + outlier sweep before and after every campaign
+2. Focus manual URL curation on >$1B institutions (276 targets, 36% hit rate)
+3. Don't retry JS-rendered failures — find PDF alternatives via Google instead
+4. Re-extract all 960 institutions with 1-5 fees using correct URLs
+5. Kill SQLite — all paths must use Postgres (legacy db.py still breaks CLI commands)
+6. Build URL health check into the pipeline — HEAD-check before counting as coverage

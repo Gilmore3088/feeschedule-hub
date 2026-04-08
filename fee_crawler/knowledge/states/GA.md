@@ -70,3 +70,8 @@ Discovered: 2 | Extracted: 72 | Failed: 132
 - JS-rendered fee schedules may require different extraction pipeline; consider JavaScript content timing issues or dynamic table rendering failures
 - Update discovery to identify account comparison/selector pages and extract fee-bearing links from within those tools
 - Current discover phase may be obsolete for mature banking markets; consider shifting to incremental URL refresh vs. full discovery
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 41% (78/191 addressable)
+- Total institutions: 204 (excluded: 13)
+- Institutions with URL but no fees: needs investigation

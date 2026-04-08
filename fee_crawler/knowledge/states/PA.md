@@ -80,3 +80,8 @@ Discovered: 5 | Extracted: 169 | Failed: 227
 - Implement retry logic with backoff for connection-reset errors; may recover data on retry
 - Discover filter is working as intended; these rejections are accurate
 - Credit unions may be more reliable sources for fee schedule discovery overall
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 52% (189/361 addressable)
+- Total institutions: 396 (excluded: 35)
+- Institutions with URL but no fees: needs investigation

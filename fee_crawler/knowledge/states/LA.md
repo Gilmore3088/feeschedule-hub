@@ -79,3 +79,8 @@ Discovered: 4 | Extracted: 86 | Failed: 158
 - HTML pages reachable during classification may become inaccessible during extraction; requires retry logic or session handling
 - Fee mentions in legal text should trigger deeper crawl; current discovery stops at pages that mention but don't display fee data
 - Skip logic needs clarification: if institution is skipped during discovery, clarify why it proceeds to classification/extraction
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 47% (98/210 addressable)
+- Total institutions: 244 (excluded: 34)
+- Institutions with URL but no fees: needs investigation

@@ -68,3 +68,8 @@ Discovered: 4 | Extracted: 55 | Failed: 137
 ### Promoted to National
 - PDF documents appear to be the primary format for comprehensive fee data in banking; prioritize PDF discovery and classification
 - JavaScript-rendered fee content presents extraction challenges; may require DOM inspection or different parsing approach
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 33% (60/184 addressable)
+- Total institutions: 192 (excluded: 8)
+- Institutions with URL but no fees: needs investigation

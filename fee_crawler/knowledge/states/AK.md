@@ -24,3 +24,8 @@ Discovered: 0 | Extracted: 8 | Failed: 6
 - Implement pre-discovery validation: check for 404 status and confirm page content type before attempting discovery. About Us and account features pages are common false positives.
 - HTML documents appear most reliable for fee extraction. Prioritize HTML format detection and scraping strategies.
 - Low fee counts may indicate institutions with minimal published fee structures; validate against known fee-bearing account types to confirm data completeness.
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 91% (10/11 addressable)
+- Total institutions: 14 (excluded: 3)
+- Institutions with URL but no fees: needs investigation

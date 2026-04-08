@@ -91,3 +91,8 @@ Discovered: 1 | Extracted: 16 | Failed: 20
 - JS-rendered content represents systematic extraction weakness; may require enhanced DOM parsing or content stabilization before extraction attempt
 - Financial institutions often have 'disclosures' or 'policies' sections that don't contain fee schedules; discovery URLs need validation that page contains actual fee data, not just regulatory boilerplate
 - Pure HTML fee schedules deliver reliable, high-volume extraction; may indicate these institutions use more standardized fee table markup
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 60% (18/30 addressable)
+- Total institutions: 36 (excluded: 6)
+- Institutions with URL but no fees: needs investigation

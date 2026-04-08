@@ -61,3 +61,8 @@ Discovered: 2 | Extracted: 81 | Failed: 100
 
 ### Promoted to National
 - High skipped discover rate (12 of 18 institutions) with successful downstream classification and extraction indicates discover step may be unnecessarily conservative — consider reducing discover skip criteria or validating that classification/extraction can reliably replace discovery
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 62% (90/146 addressable)
+- Total institutions: 181 (excluded: 35)
+- Institutions with URL but no fees: needs investigation

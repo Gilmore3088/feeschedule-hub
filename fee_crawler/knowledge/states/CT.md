@@ -65,3 +65,8 @@ Discovered: 0 | Extracted: 53 | Failed: 43
 ### Promoted to National
 - PDF-hosted fee schedules are more reliable extraction targets than HTML or JS-rendered pages; prioritize PDF discovery in future workflows
 - HTML-based fee schedules require more sophisticated parsing than PDFs; consider HTML as secondary extraction target after exhausting PDF sources
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 72% (62/86 addressable)
+- Total institutions: 96 (excluded: 10)
+- Institutions with URL but no fees: needs investigation

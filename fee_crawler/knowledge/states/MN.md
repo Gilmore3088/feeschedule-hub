@@ -72,3 +72,8 @@ Discovered: 4 | Extracted: 103 | Failed: 209
 - Discovery rejection messages are accurate - these are legitimate non-matches, not failures
 - Prioritize PDF-hosted fee schedules in discovery; they have consistent extraction success
 - Federal credit union fee disclosure formats may require specialized extraction templates
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 39% (118/306 addressable)
+- Total institutions: 312 (excluded: 6)
+- Institutions with URL but no fees: needs investigation

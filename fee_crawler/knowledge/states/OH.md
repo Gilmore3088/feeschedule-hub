@@ -75,3 +75,8 @@ Discovered: 5 | Extracted: 137 | Failed: 221
 - Improve discovery filtering to distinguish between financial institution pages and fee schedule pages; current keyword matching produces false positives on related documents.
 - Large national banks may require different discovery paths than regional institutions; consider institution-specific URL patterns for major chains.
 - Implement retry logic for protocol errors in discover phase; these are often transient.
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 52% (157/303 addressable)
+- Total institutions: 358 (excluded: 55)
+- Institutions with URL but no fees: needs investigation

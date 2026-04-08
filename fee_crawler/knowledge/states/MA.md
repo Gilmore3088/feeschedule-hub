@@ -65,3 +65,8 @@ Discovered: 2 | Extracted: 121 | Failed: 97
 ### Promoted to National
 - Institutions publishing fees as structured HTML tables should be prioritized in discovery workflows - significantly higher success rate than other formats
 - When extraction succeeds in MA run, data quality is reliable - focus remediation on improving discovery/classification rather than validation
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 66% (137/207 addressable)
+- Total institutions: 218 (excluded: 11)
+- Institutions with URL but no fees: needs investigation

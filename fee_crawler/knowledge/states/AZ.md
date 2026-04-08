@@ -63,3 +63,8 @@ Discovered: 1 | Extracted: 25 | Failed: 21
 - JS-rendered fee pages warrant investigation of extraction logic—may need DOM structure adjustment or post-render content parsing verification
 - PDF extraction pipeline is reliable; prioritize PDF discovery in financial institution websites
 - Banking sites increasingly bury fee schedules behind secondary navigation or account type pages; static discovery URLs insufficient
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 64% (29/45 addressable)
+- Total institutions: 46 (excluded: 1)
+- Institutions with URL but no fees: needs investigation

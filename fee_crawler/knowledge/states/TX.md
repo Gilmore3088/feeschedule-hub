@@ -78,3 +78,8 @@ Discovered: 8 | Extracted: 274 | Failed: 466
 - Security service blocking is a systematic barrier in TX. May require user-agent rotation, proxy strategies, or manual intervention protocol for Cloudflare-protected sites
 - Skipped discovery flag may indicate known/pre-registered institutions with stable URLs - consider maintaining whitelist of discover-skip candidates to reduce failed discovery attempts
 - Need improved pre-classification filtering to eliminate generic landing pages and news articles from discovery results before extraction
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 47% (323/691 addressable)
+- Total institutions: 740 (excluded: 49)
+- Institutions with URL but no fees: needs investigation

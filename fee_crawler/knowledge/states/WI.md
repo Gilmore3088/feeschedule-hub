@@ -66,3 +66,8 @@ Discovered: 2 | Extracted: 101 | Failed: 156
 
 ### Promoted to National
 - Checking account feature/comparison pages are frequently mislabeled as fee schedule sources during discovery - homepage checking account comparison links should not be treated as primary fee disclosure sources
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 48% (119/248 addressable)
+- Total institutions: 257 (excluded: 9)
+- Institutions with URL but no fees: needs investigation

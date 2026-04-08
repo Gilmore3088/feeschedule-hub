@@ -53,3 +53,8 @@ Discovered: 9 | Extracted: 59 | Failed: 115
 - HTML-formatted fee schedules are more reliably parseable; prioritize discovery of HTML formats over PDFs when available
 - Kentucky institutions resist standard homepage-based discovery; maintain curated lists of known fee disclosure URLs as primary strategy
 - Some institutions may not publish comprehensive fee schedules online; flag for manual verification after 2 failed automated discovery attempts
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 41% (70/169 addressable)
+- Total institutions: 174 (excluded: 5)
+- Institutions with URL but no fees: needs investigation

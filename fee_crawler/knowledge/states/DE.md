@@ -87,3 +87,8 @@ Discovered: 0 | Extracted: 16 | Failed: 16
 
 ### Promoted to National
 - Credit unions outperformed banks in fee schedule availability and extraction volume in DE run (avg 34 fees vs 15 for banks). Pattern worth investigating: credit unions may publish more comprehensive fee disclosures or use more standardized formats.
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 57% (17/30 addressable)
+- Total institutions: 32 (excluded: 2)
+- Institutions with URL but no fees: needs investigation

@@ -47,3 +47,8 @@ Discovered: 8 | Extracted: 165 | Failed: 227
 - Improve discovery filtering to exclude comparison pages, about pages, and financial highlights pages that match finance keywords but lack fee data
 - Some institution types (particularly smaller regional/international banks) may not publish fee schedules online; document as unlocatable rather than extraction failure
 - Extraction templates may not match regional/institution-specific fee table layouts; requires layout analysis of failed extractions to identify missing patterns
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 56% (193/344 addressable)
+- Total institutions: 392 (excluded: 48)
+- Institutions with URL but no fees: needs investigation

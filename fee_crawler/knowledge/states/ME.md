@@ -26,3 +26,7 @@ Discovered: 0 | Extracted: 39 | Failed: 31
 - Expand discovery patterns to target secondary pages: 'disclosure', 'schedule of fees', 'service charges' in footer links, help sections, account-specific sub-pages
 - Investigate PDF failures for image-based vs. text-based PDF correlation
 - Formalize discover-skip as discovery bypass strategy for known-good sources
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 69% (48/70 addressable)
+- Total institutions: 70 (excluded: 0)
+- Institutions with URL but no fees: needs investigation

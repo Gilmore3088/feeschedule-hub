@@ -25,3 +25,7 @@ Discovered: 0 | Extracted: 19 | Failed: 14
 - PDF structural variability warrants format-specific extraction rules or fallback OCR detection
 - Implement URL freshness validation between classify and extract phases to catch broken links early
 - When discovery is systematically skipped, document format distribution should be tracked to assess discovery necessity and coverage gaps
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 85% (22/26 addressable)
+- Total institutions: 33 (excluded: 7)
+- Institutions with URL but no fees: needs investigation

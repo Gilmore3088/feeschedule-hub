@@ -70,3 +70,8 @@ Discovered: 0 | Extracted: 54 | Failed: 73
 - No learning—this is expected behavior indicating PDFs format fee schedules more consistently than HTML.
 - Institutions may publish fee schedules but not link them from main navigation. Consider separate crawling strategy targeting /disclosures, /fees, /documents subdirectories.
 - HTML extraction failures despite classification suggest the extraction regex/parser needs tuning for regional bank HTML patterns.
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 49% (61/124 addressable)
+- Total institutions: 127 (excluded: 3)
+- Institutions with URL but no fees: needs investigation

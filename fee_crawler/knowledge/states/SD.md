@@ -20,3 +20,8 @@ Discovered: 22 | Extracted: 24 | Failed: 65
 
 ### Promoted to National
 - Credit unions outperform banks in SD dataset - 5 credit unions all extracted successfully (total 194 fees) vs mixed results for banks, suggesting credit unions may publish fee schedules more consistently or in more extraction-friendly formats
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 34% (30/87 addressable)
+- Total institutions: 89 (excluded: 2)
+- Institutions with URL but no fees: needs investigation

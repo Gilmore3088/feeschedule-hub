@@ -69,3 +69,8 @@ Discovered: 2 | Extracted: 100 | Failed: 187
 - Prioritize PDF discovery for fee schedules; PDF content extraction is significantly more reliable than web pages
 - Search for separate fee schedule documents/disclosures rather than assuming they appear on account product pages
 - Credit unions appear to follow standardized fee disclosure practices; investigate NCUA disclosure requirements as source
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 40% (110/275 addressable)
+- Total institutions: 287 (excluded: 12)
+- Institutions with URL but no fees: needs investigation

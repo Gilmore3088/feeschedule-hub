@@ -59,3 +59,8 @@ Discovered: 0 | Extracted: 3 | Failed: 5
 
 ### Promoted to National
 - Credit unions in Puerto Rico show mixed online disclosure patterns—some have clear PDF fee schedules (Vapr, Caribe) while others embed fees in documents pages or lack homepage visibility
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 38% (3/8 addressable)
+- Total institutions: 8 (excluded: 0)
+- Institutions with URL but no fees: needs investigation

@@ -30,3 +30,8 @@ Discovered: 99 | Extracted: 147 | Failed: 383
 - HTML-native fee schedules appear more reliable than JS-rendered or PDF formats for automated extraction
 - Pre-verified institution URLs significantly improve extraction outcomes; prioritize maintaining authoritative URL database over discovery for known institutions
 - Implement validation gate to prevent discover attempts on institutions without verified website_url
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 38% (176/468 addressable)
+- Total institutions: 530 (excluded: 62)
+- Institutions with URL but no fees: needs investigation

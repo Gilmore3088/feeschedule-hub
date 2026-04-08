@@ -45,3 +45,8 @@ Discovered: 5 | Extracted: 171 | Failed: 195
 
 ### Promoted to National
 - Network and infrastructure failures occur during discovery (HTTP/2 protocol error for First Technology Federal Credit Union) - need robust error handling and retry logic for discovery phase to avoid false negatives
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 62% (209/338 addressable)
+- Total institutions: 366 (excluded: 28)
+- Institutions with URL but no fees: needs investigation

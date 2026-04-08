@@ -74,3 +74,8 @@ Discovered: 0 | Extracted: 71 | Failed: 81
 - JS-rendered fee pages may require longer DOM settlement waiting or post-render validation; current approach appears to capture incomplete datasets
 - Bank discovery pages appear more prone to navigation complexity; credit unions may have more standardized disclosure page locations, enabling skip-to-classification approach for known institutional types
 - Validate whether discovery step is functional or redundant in current pipeline; extraction success implies URLs already known through other means
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 60% (83/138 addressable)
+- Total institutions: 152 (excluded: 14)
+- Institutions with URL but no fees: needs investigation

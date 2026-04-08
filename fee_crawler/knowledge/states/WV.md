@@ -65,3 +65,8 @@ Discovered: 2 | Extracted: 33 | Failed: 83
 - Categorize Cloudflare/network access failures separately; cannot be solved by extraction improvements
 - Improve discovery filtering to distinguish rates/privacy pages from fee schedules; reduces wasted classify/extract cycles
 - May warrant separate extraction strategies or expectation-setting by institution type
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 36% (36/101 addressable)
+- Total institutions: 116 (excluded: 15)
+- Institutions with URL but no fees: needs investigation

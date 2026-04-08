@@ -65,3 +65,8 @@ Discovered: 1 | Extracted: 45 | Failed: 46
 
 ### Promoted to National
 - Credit unions overall higher success rate (8 of 12 attempted) vs. traditional banks (3 of 5 attempted) - credit unions more likely to publish structured fee schedules online or in standardized formats
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 65% (54/83 addressable)
+- Total institutions: 91 (excluded: 8)
+- Institutions with URL but no fees: needs investigation

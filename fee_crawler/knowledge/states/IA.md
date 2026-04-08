@@ -79,3 +79,8 @@ Discovered: 3 | Extracted: 83 | Failed: 213
 - Need fallback discovery pattern for institutions that embed fee info in product pages rather than linking to schedules
 - Skip discover phase for known-good URLs; move directly to classification for faster processing
 - Prioritize searching for 'Disclosures' link text in discovery; more reliable than generic 'fee schedule' terminology
+
+## v3.0 Campaign Summary — 2026-04-07
+- Coverage: 33% (94/283 addressable)
+- Total institutions: 296 (excluded: 13)
+- Institutions with URL but no fees: needs investigation
