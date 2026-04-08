@@ -49,12 +49,16 @@ class TestRunWave(unittest.TestCase):
     @patch("fee_crawler.wave.orchestrator.run_state_agent")
     @patch("fee_crawler.wave.orchestrator.update_wave_run")
     @patch("fee_crawler.wave.orchestrator.update_wave_state")
+    @patch("fee_crawler.wave.orchestrator.update_wave_state_pass")
+    @patch("fee_crawler.wave.orchestrator._get_coverage_pct")
     @patch("fee_crawler.wave.orchestrator.create_wave_run")
     @patch("fee_crawler.wave.orchestrator.ensure_tables")
     def test_run_wave_creates_wave_run_and_runs_states(
         self,
         mock_ensure,
         mock_create,
+        mock_coverage,
+        mock_update_pass,
         mock_update_state,
         mock_update_run,
         mock_run_agent,
@@ -62,115 +66,138 @@ class TestRunWave(unittest.TestCase):
         states = ["WY", "MT"]
         wave = _make_wave_run(7, states)
         mock_create.return_value = wave
+        mock_coverage.return_value = 50.0
         mock_run_agent.return_value = {"run_id": 101, "discovered": 5, "classified": 5, "extracted": 5, "validated": 5, "failed": 0}
 
         result = run_wave(self.conn, states=states)
 
         mock_ensure.assert_called_once_with(self.conn)
         mock_create.assert_called_once_with(self.conn, states, len(states), None)
-        self.assertEqual(mock_run_agent.call_count, 2)
+        # 2 states x 3 passes = 6 agent calls
+        self.assertEqual(mock_run_agent.call_count, 6)
         self.assertEqual(result, 7)
 
     @patch("fee_crawler.wave.orchestrator.run_state_agent")
     @patch("fee_crawler.wave.orchestrator.update_wave_run")
     @patch("fee_crawler.wave.orchestrator.update_wave_state")
+    @patch("fee_crawler.wave.orchestrator.update_wave_state_pass")
+    @patch("fee_crawler.wave.orchestrator._get_coverage_pct")
     @patch("fee_crawler.wave.orchestrator.create_wave_run")
     @patch("fee_crawler.wave.orchestrator.ensure_tables")
     def test_run_wave_calls_states_sequentially(
         self,
         mock_ensure,
         mock_create,
+        mock_coverage,
+        mock_update_pass,
         mock_update_state,
         mock_update_run,
         mock_run_agent,
     ):
-        """States run in order: WY then MT, not concurrently."""
+        """States run in order: all WY passes then all MT passes, not interleaved."""
         states = ["WY", "MT"]
         wave = _make_wave_run(1, states)
         mock_create.return_value = wave
+        mock_coverage.return_value = 50.0
         call_order = []
-        def capture_state(state_code):
+
+        def capture_state(state_code, pass_number=1, strategy=None):
             call_order.append(state_code)
-            return {"run_id": 1, "discovered": 1, "classified": 1, "extracted": 1, "validated": 1, "failed": 0}
+            return {"run_id": pass_number, "discovered": 1, "classified": 1, "extracted": 1, "validated": 1, "failed": 0}
+
         mock_run_agent.side_effect = capture_state
 
         run_wave(self.conn, states=states)
 
-        self.assertEqual(call_order, ["WY", "MT"])
+        # WY runs all 3 passes, then MT runs all 3 passes
+        self.assertEqual(call_order, ["WY", "WY", "WY", "MT", "MT", "MT"])
 
     @patch("fee_crawler.wave.orchestrator.run_state_agent")
     @patch("fee_crawler.wave.orchestrator.update_wave_run")
     @patch("fee_crawler.wave.orchestrator.update_wave_state")
+    @patch("fee_crawler.wave.orchestrator.update_wave_state_pass")
+    @patch("fee_crawler.wave.orchestrator._get_coverage_pct")
     @patch("fee_crawler.wave.orchestrator.create_wave_run")
     @patch("fee_crawler.wave.orchestrator.ensure_tables")
     def test_per_state_error_marks_failed_and_continues(
         self,
         mock_ensure,
         mock_create,
+        mock_coverage,
+        mock_update_pass,
         mock_update_state,
         mock_update_run,
         mock_run_agent,
     ):
-        """When MT raises a non-hard exception, wave continues to next state."""
+        """When all passes for MT raise soft exceptions, wave continues to ID."""
         states = ["WY", "MT", "ID"]
         wave = _make_wave_run(2, states)
         mock_create.return_value = wave
+        mock_coverage.return_value = 50.0
 
-        def agent_side_effect(state_code):
+        def agent_side_effect(state_code, pass_number=1, strategy=None):
             if state_code == "MT":
                 raise ValueError("Connection timeout")
-            return {"run_id": 1, "discovered": 1, "classified": 1, "extracted": 1, "validated": 1, "failed": 0}
+            return {"run_id": pass_number, "discovered": 1, "classified": 1, "extracted": 1, "validated": 1, "failed": 0}
 
         mock_run_agent.side_effect = agent_side_effect
 
-        # Should not raise — soft error is caught and logged
+        # Should not raise — all MT passes are soft errors, WY and ID succeed
         run_wave(self.conn, states=states)
 
-        # All 3 states were attempted
-        self.assertEqual(mock_run_agent.call_count, 3)
+        # WY (3 passes) + MT (3 passes, all fail) + ID (3 passes) = 9 agent calls
+        self.assertEqual(mock_run_agent.call_count, 9)
 
         # MT was marked failed via update_wave_state
-        # update_wave_state(conn, wave_run_id, state_code, status=...) — status is a kwarg
         failed_calls = [
             c for c in mock_update_state.call_args_list
-            if c.args[2] == "MT" and c.kwargs.get("status") == "failed"
+            if len(c.args) >= 3 and c.args[2] == "MT" and c.kwargs.get("status") == "failed"
         ]
         self.assertEqual(len(failed_calls), 1)
 
     @patch("fee_crawler.wave.orchestrator.run_state_agent")
     @patch("fee_crawler.wave.orchestrator.update_wave_run")
     @patch("fee_crawler.wave.orchestrator.update_wave_state")
+    @patch("fee_crawler.wave.orchestrator.update_wave_state_pass")
+    @patch("fee_crawler.wave.orchestrator._get_coverage_pct")
     @patch("fee_crawler.wave.orchestrator.create_wave_run")
     @patch("fee_crawler.wave.orchestrator.ensure_tables")
     def test_hard_failure_stops_campaign(
         self,
         mock_ensure,
         mock_create,
+        mock_coverage,
+        mock_update_pass,
         mock_update_state,
         mock_update_run,
         mock_run_agent,
     ):
-        """psycopg2.OperationalError is a hard failure — campaign stops."""
+        """psycopg2.OperationalError is a hard failure — campaign stops immediately."""
         states = ["WY", "MT"]
         wave = _make_wave_run(3, states)
         mock_create.return_value = wave
+        mock_coverage.return_value = 50.0
         mock_run_agent.side_effect = psycopg2.OperationalError("DB connection lost")
 
         with self.assertRaises(psycopg2.OperationalError):
             run_wave(self.conn, states=states)
 
-        # Only WY was attempted (MT never reached)
+        # Only WY pass 1 was attempted (hard failure stops immediately)
         self.assertEqual(mock_run_agent.call_count, 1)
 
     @patch("fee_crawler.wave.orchestrator.run_state_agent")
     @patch("fee_crawler.wave.orchestrator.update_wave_run")
     @patch("fee_crawler.wave.orchestrator.update_wave_state")
+    @patch("fee_crawler.wave.orchestrator.update_wave_state_pass")
+    @patch("fee_crawler.wave.orchestrator._get_coverage_pct")
     @patch("fee_crawler.wave.orchestrator.create_wave_run")
     @patch("fee_crawler.wave.orchestrator.ensure_tables")
     def test_wave_run_status_set_to_running_then_complete(
         self,
         mock_ensure,
         mock_create,
+        mock_coverage,
+        mock_update_pass,
         mock_update_state,
         mock_update_run,
         mock_run_agent,
@@ -178,6 +205,7 @@ class TestRunWave(unittest.TestCase):
         states = ["WY"]
         wave = _make_wave_run(4, states)
         mock_create.return_value = wave
+        mock_coverage.return_value = 50.0
         mock_run_agent.return_value = {"run_id": 1, "discovered": 1, "classified": 1, "extracted": 1, "validated": 1, "failed": 0}
 
         run_wave(self.conn, states=states)
@@ -200,23 +228,31 @@ class TestResumeWave(unittest.TestCase):
     @patch("fee_crawler.wave.orchestrator.run_state_agent")
     @patch("fee_crawler.wave.orchestrator.update_wave_run")
     @patch("fee_crawler.wave.orchestrator.update_wave_state")
+    @patch("fee_crawler.wave.orchestrator.update_wave_state_pass")
+    @patch("fee_crawler.wave.orchestrator._get_coverage_pct")
+    @patch("fee_crawler.wave.orchestrator.get_last_completed_pass")
     @patch("fee_crawler.wave.orchestrator.get_incomplete_states")
     def test_resume_only_runs_incomplete_states(
         self,
         mock_incomplete,
+        mock_last_pass,
+        mock_coverage,
+        mock_update_pass,
         mock_update_state,
         mock_update_run,
         mock_run_agent,
     ):
-        """WY completed before crash — only MT and ID are resumed."""
+        """WY completed before crash — only MT and ID are resumed from their last pass."""
         mock_incomplete.return_value = ["MT", "ID"]
+        mock_last_pass.return_value = 0  # no passes completed yet for these states
+        mock_coverage.return_value = 50.0
         mock_run_agent.return_value = {"run_id": 2, "discovered": 1, "classified": 1, "extracted": 1, "validated": 1, "failed": 0}
 
         result = resume_wave(self.conn, wave_run_id=5)
 
         mock_incomplete.assert_called_once_with(self.conn, 5)
-        self.assertEqual(mock_run_agent.call_count, 2)
-        # WY was NOT called
+        # MT (3 passes) + ID (3 passes) = 6 agent calls; WY was already complete
+        self.assertEqual(mock_run_agent.call_count, 6)
         called_states = [c.args[0] for c in mock_run_agent.call_args_list]
         self.assertNotIn("WY", called_states)
         self.assertIn("MT", called_states)

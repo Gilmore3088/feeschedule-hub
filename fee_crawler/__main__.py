@@ -1138,6 +1138,13 @@ def main() -> None:
         default=8,
         help="States per wave chunk (default: 8)",
     )
+    wave_run_parser.add_argument(
+        "--max-passes",
+        type=int,
+        default=3,
+        dest="max_passes",
+        help="Number of discovery passes per state (default: 3). Each pass escalates strategy: tier1 -> tier2 -> tier3.",
+    )
     wave_run_parser.set_defaults(
         func=lambda args: __import__(
             "fee_crawler.wave.cli", fromlist=["cmd_wave_run"]
@@ -1168,6 +1175,13 @@ def main() -> None:
         "wave_id",
         type=int,
         help="Wave run ID to resume (from wave_runs.id)",
+    )
+    wave_resume_parser.add_argument(
+        "--max-passes",
+        type=int,
+        default=3,
+        dest="max_passes",
+        help="Number of discovery passes per state (default: 3). Each pass escalates strategy: tier1 -> tier2 -> tier3.",
     )
     wave_resume_parser.set_defaults(
         func=lambda args: __import__(

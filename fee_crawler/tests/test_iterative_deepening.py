@@ -356,6 +356,57 @@ class TestWaveStateRunLastCompletedPass(unittest.TestCase):
         self.assertEqual(result, 0)
 
 
+# ─── Task 2 (Plan 02): Per-pass log format tests ─────────────────────────────
+
+class TestPerPassLogFormat(unittest.TestCase):
+    """write_learnings() per-pass block uses 'Pass N (tierN)' and 'Coverage: X.X%' format."""
+
+    def test_per_pass_log_format(self):
+        """Block header contains 'Pass 2 (tier2)' and 'Coverage: 45.3%'."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("fee_crawler.knowledge.loader.KNOWLEDGE_DIR", Path(tmpdir)):
+                (Path(tmpdir) / "states").mkdir()
+
+                from fee_crawler.knowledge.loader import write_learnings
+                stats = {
+                    "discovered": 5,
+                    "extracted": 3,
+                    "failed": 2,
+                    "pass_number": 2,
+                    "strategy": "tier2",
+                    "coverage_pct": 45.3,
+                }
+                write_learnings("AA", run_id=7, stats=stats, learnings=[])
+
+                content = (Path(tmpdir) / "states" / "AA.md").read_text()
+
+        self.assertIn("Pass 2 (tier2)", content, "Block must contain 'Pass 2 (tier2)'")
+        self.assertIn("Coverage: 45.3%", content, "Block must contain 'Coverage: 45.3%'")
+
+    def test_per_pass_log_without_pass_info(self):
+        """write_learnings without pass_number produces valid output (backward compat)."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("fee_crawler.knowledge.loader.KNOWLEDGE_DIR", Path(tmpdir)):
+                (Path(tmpdir) / "states").mkdir()
+
+                from fee_crawler.knowledge.loader import write_learnings
+                stats = {"discovered": 2, "extracted": 1, "failed": 1}
+                write_learnings("BB", run_id=3, stats=stats, learnings=[])
+
+                content = (Path(tmpdir) / "states" / "BB.md").read_text()
+
+        self.assertIn("Run #3", content, "Block must include run ID")
+        # Must NOT crash and must not contain 'Pass' when no pass_number given
+        self.assertNotIn("Pass None", content)
+        self.assertNotIn("Coverage: None", content)
+
+
 # ─── Task 1 (Plan 02): Orchestrator inner pass loop tests ────────────────────
 
 class TestOrchestratorPassLoop(unittest.TestCase):
