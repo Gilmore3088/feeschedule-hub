@@ -367,7 +367,7 @@ Plans:
 - [x] **Phase 27: External Intelligence System** - Ingest, store, and query external research/surveys alongside internal data (completed 2026-04-08)
 
 ### Phase 23: Call Report & FRED Foundation
-**Goal**: All Call Report revenue queries return correct dollar amounts with trend, segmentation, and charter splits; FRED economic data is complete and queryable as a national summary
+**Goal**: All Call Report revenue queries return correct dollar amounts with trend, segmentation, and charter splits; FRED economic data is complete and queryable; CFPB complaints ingested; institution pages show financial context with peer comparison
 **Depends on**: Nothing (data foundation -- independent of v3.0 progress)
 **Requirements**: CALL-01, CALL-02, CALL-03, CALL-04, CALL-05, CALL-06, FRED-01, FRED-02, FRED-03, FRED-04
 **Success Criteria** (what must be TRUE):
@@ -376,12 +376,16 @@ Plans:
   3. Revenue can be split by bank vs credit union and by asset tier, with correct totals that reconcile to national aggregate
   4. A national economic summary query returns fed funds rate, unemployment rate, CPI YoY change (not raw index), and consumer sentiment -- all with current values
   5. District-level economic indicators are queryable (at minimum unemployment per district)
-**Plans**: 3 plans
+  6. CFPB complaint data ingested via Postgres with district-level and institution-level queries
+  7. Institution slug pages show Call Report financial context (SC income, fee dependency, peer ranking)
+**Plans**: 5 plans
 
 Plans:
-- [ ] 23-01-PLAN.md — Fix FFIEC scaling bug + backfill migration + test extensions (CALL-01 to CALL-05)
-- [ ] 23-02-PLAN.md — FRED gap closure: UMCSENT ingestion + district nonfarm payrolls + fed.test.ts (FRED-01 to FRED-04)
-- [ ] 23-03-PLAN.md — FDIC standard 5-tier system replacement + getRevenueByTier (CALL-06)
+- [ ] 23-01-PLAN.md -- Fix FFIEC scaling bug + backfill migration + pytest scaling test (CALL-01 to CALL-05)
+- [ ] 23-02-PLAN.md -- FRED gap closure: UMCSENT + housing permits + district nonfarm payrolls + district fee revenue (FRED-01 to FRED-04, D-05, D-06)
+- [ ] 23-03-PLAN.md -- FDIC standard 5-tier system replacement + getRevenueByTier + crawl_targets migration (CALL-06)
+- [ ] 23-04-PLAN.md -- CFPB complaint ingestion Postgres migration + district/institution complaint queries (D-07)
+- [ ] 23-05-PLAN.md -- Institution financial context + peer comparison on slug pages (D-08, D-09, D-10)
 ### Phase 24: Industry Health & Beige Book
 **Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
 **Depends on**: Phase 23 (uses corrected financial data patterns)
@@ -474,7 +478,7 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 20. Iterative Deepening | v3.0 | 0/? | Not started | - |
 | 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
-| 23. Call Report & FRED Foundation | v5.0 | 0/3 | Planned | - |
+| 23. Call Report & FRED Foundation | v5.0 | 0/5 | Planned | - |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
 | 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
