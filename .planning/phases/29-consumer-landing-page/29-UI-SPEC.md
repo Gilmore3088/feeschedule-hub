@@ -54,16 +54,23 @@ Source: Established consumer page pattern at `mx-auto max-w-6xl px-6 py-16 lg:py
 
 ## Typography
 
+Permitted sizes: 12, 14, 28, 40 (4 sizes)
+Permitted weights: 400 (regular), 700 (bold) (2 weights)
+
 | Role | Size | Weight | Line Height | Font |
 |------|------|--------|-------------|------|
-| Display (h1 hero) | clamp: 28px (mobile) → 40px (desktop) | 300–400 (light + regular, italic for emphasis) | 1.08 | Newsreader serif |
-| Heading (h2 sections) | 24px (mobile) → 28px (desktop) | 400 | 1.15 | Newsreader serif |
-| Body | 15px (mobile) → 17px (desktop) | 400 | 1.6 (leading-relaxed) | Geist Sans |
-| Label / UI text | 14px | 400 | 1.5 | Geist Sans |
-| Data / stat | 32px (stat number) | 700 | 1.0 | Geist Sans + tabular-nums |
-| Caption / meta | 11px–12px | 600 uppercase (tracking-[0.1em]) | 1.4 | Geist Sans |
+| Display (h1 hero) | clamp(28px, 5vw, 40px) | 400 (italic for emphasis via `<em>`) | 1.08 | Newsreader serif |
+| Heading (h2 sections) | 28px | 400 | 1.15 | Newsreader serif |
+| Body / UI text / label | 14px | 400 | 1.5–1.6 (leading-relaxed) | Geist Sans |
+| Data / stat number | 28px | 700 | 1.0 | Geist Sans + tabular-nums |
+| Caption / meta | 12px | 400 uppercase (tracking-[0.1em]) | 1.4 | Geist Sans |
 
-Permitted sizes: 11, 12, 14, 15, 17, 28, 32, 40 (8 sizes — landing pages warrant broader range than internal admin pages due to editorial hierarchy depth)
+Notes on consolidation:
+- Body (previously 15–17px step-up) unified at 14px. Desktop step-up removed.
+- Stat numbers (previously 32px) moved to 28px — shares the heading size slot, differentiated by weight 700 and tabular-nums.
+- Captions (previously 11–12px semibold) unified at 12px weight 400. Uppercase + tracking-[0.1em] provides visual differentiation without a separate weight.
+- Card titles (previously 20px semibold) move to 14px weight 400 with uppercase tracking to maintain hierarchy within the body size.
+- H2 sections (previously 24px mobile / 28px desktop) unified at 28px flat.
 
 Source: CONTEXT.md established patterns + consumer/page.tsx hero markup confirmed
 
@@ -106,8 +113,8 @@ This landing page has exactly 3 sections (D-04 from CONTEXT.md). Each section's 
 **Layout:** Full-width within `mx-auto max-w-6xl px-6 py-16 lg:py-20`. Content constrained to `max-w-2xl`.
 
 **Components:**
-- `<h1>`: Display size, Newsreader, "What is your bank *really* charging you?" with `<em>` italic on "really" at weight 300
-- Supporting text: 15–17px, #6B6355, "Compare fees across {stats.total_institutions.toLocaleString()} banks and credit unions."
+- `<h1>`: Display size (clamp 28–40px), Newsreader, "What is your bank *really* charging you?" with `<em>` italic on "really" at weight 400
+- Supporting text: 14px, #6B6355, "Compare fees across {stats.total_institutions.toLocaleString()} banks and credit unions."
 - `InstitutionSearchBar` (extracted from `src/app/(public)/institutions/search-bar.tsx`): Embedded directly, no auth gate, renders server-side wrapper client component. Max-width: `max-w-xl` on desktop, full-width on mobile.
 - Subtle gradient accent: `bg-gradient-to-l from-[#C44B2E]/[0.03]` positioned top-right (existing pattern from consumer/page.tsx)
 
@@ -133,8 +140,8 @@ This landing page has exactly 3 sections (D-04 from CONTEXT.md). Each section's 
 **Card anatomy:**
 - Container: `rounded-xl border border-[#E8DFD1] bg-white p-6 hover:border-[#C44B2E]/30 hover:shadow-md transition-all duration-300`
 - Icon: Lucide icon (16px, #C44B2E), chosen per card: Search, BarChart2, BookOpen
-- Card label: 11px, font-semibold, uppercase, tracking-[0.1em], #A09788
-- Card title: 20px, Geist Sans, font-semibold, #1A1815
+- Card label: 12px, weight 400, uppercase, tracking-[0.1em], #A09788
+- Card title: 14px, weight 400, uppercase, tracking-[0.05em], #1A1815
 - Card body: 14px, #6B6355, leading-relaxed, 2 sentences max
 - Arrow indicator: Lucide `ArrowRight` (14px, #A09788), appears on hover via `group-hover:text-[#C44B2E]`
 - Entire card is a `<Link>` wrapper with `group` class for hover coordination
@@ -152,8 +159,8 @@ This landing page has exactly 3 sections (D-04 from CONTEXT.md). Each section's 
 4. "FDIC & NCUA" — "Verified Sources"
 
 **Stat typography:**
-- Stat number: 28px, font-bold, #1A1815, tabular-nums
-- Stat label: 12px, font-medium, #7A7062, uppercase, tracking-wide
+- Stat number: 28px, weight 700, #1A1815, tabular-nums
+- Stat label: 12px, weight 400, #7A7062, uppercase, tracking-wide
 
 **No hardcoded numbers.** All figures rendered from live DB queries (D-09 from CONTEXT.md).
 
@@ -220,7 +227,7 @@ Source: CONTEXT.md decisions D-01, D-03, D-09 + REQUIREMENTS.md CLND-02, CLND-04
 - Search input: `<label>` wrapping or `aria-label="Search for a bank or credit union"` on the `<input>`
 - Search results dropdown: `role="listbox"`, each result button has `aria-label` with institution name
 - Trust stats: `<dl>` / `<dt>` / `<dd>` semantic structure for stat label/value pairs
-- Color contrast: #1A1815 on #FAF7F2 = 17.8:1 (AAA). #6B6355 on #FAF7F2 = 5.9:1 (AA). #C44B2E on white = 4.6:1 (AA for large text — only used on CTA button at 14px semibold = passes AA large)
+- Color contrast: #1A1815 on #FAF7F2 = 17.8:1 (AAA). #6B6355 on #FAF7F2 = 5.9:1 (AA). #C44B2E on white = 4.6:1 (AA for large text — only used on CTA button at 14px uppercase = passes AA large)
 - Touch targets: all interactive elements minimum 44px height
 
 ---
