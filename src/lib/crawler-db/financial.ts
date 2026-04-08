@@ -54,34 +54,17 @@ export async function getFinancialStats(): Promise<FinancialStats> {
 export async function getFinancialsByInstitution(
   targetId: number
 ): Promise<InstitutionFinancial[]> {
-  const BASE_COLS = `crawl_target_id, report_date, source,
+  const rows = [...await sql`
+    SELECT crawl_target_id, report_date, source,
            total_assets, total_deposits, total_loans,
            service_charge_income, other_noninterest_income,
            net_interest_margin, efficiency_ratio,
            roa, roe, tier1_capital_ratio,
            branch_count, employee_count, member_count,
-           total_revenue, fee_income_ratio`;
-
-  // Try with overdraft_revenue first; fall back if column doesn't exist yet
-  let rows: Record<string, unknown>[];
-  try {
-    rows = [...await sql.unsafe(
-      `SELECT ${BASE_COLS}, overdraft_revenue FROM institution_financials WHERE crawl_target_id = $1 ORDER BY report_date DESC`,
-      [targetId]
-    )];
-  } catch {
-    rows = [...await sql`
-      SELECT crawl_target_id, report_date, source,
-             total_assets, total_deposits, total_loans,
-             service_charge_income, other_noninterest_income,
-             net_interest_margin, efficiency_ratio,
-             roa, roe, tier1_capital_ratio,
-             branch_count, employee_count, member_count,
-             total_revenue, fee_income_ratio
-      FROM institution_financials
-      WHERE crawl_target_id = ${targetId}
-      ORDER BY report_date DESC`];
-  }
+           total_revenue, fee_income_ratio, overdraft_revenue
+    FROM institution_financials
+    WHERE crawl_target_id = ${targetId}
+    ORDER BY report_date DESC`];
 
   const numOrNull = (v: unknown): number | null =>
     v !== null && v !== undefined ? Number(v) : null;
