@@ -9,6 +9,8 @@ import {
   getNationalIndex,
   getInstitutionIdsWithFees,
 } from "@/lib/crawler-db";
+import { getFeesForCategory } from "@/lib/crawler-db/market";
+import { InstitutionHistogram } from "./fee-distribution";
 import { getMarketConcentrationForInstitution } from "@/lib/crawler-db/financial";
 import {
   getInstitutionRevenueTrend,
@@ -433,6 +435,26 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     getInstitutionPeerRanking(instId),
   ]);
 
+  const SPOTLIGHT_CATEGORIES = [
+    "overdraft",
+    "nsf",
+    "monthly_maintenance",
+    "atm_non_network",
+    "wire_domestic_outgoing",
+    "card_foreign_txn",
+  ];
+
+  const instSpotlightFees = fees.filter(
+    (f) => SPOTLIGHT_CATEGORIES.includes(f.fee_name) && f.amount && f.amount > 0
+  );
+
+  const distributionData = await Promise.all(
+    instSpotlightFees.map(async (f) => {
+      const allFees = await getFeesForCategory(f.fee_name, {});
+      return { category: f.fee_name, institutionAmount: f.amount!, allFees };
+    })
+  );
+
   const nationalMedians = new Map(
     nationalIndex.map((e) => [e.fee_category, e.median_amount])
   );
@@ -725,6 +747,38 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               </table>
             </div>
           )}
+        </section>
+      )}
+
+      {/* Fee Distribution */}
+      {distributionData.length >= 2 && (
+        <section className="mt-12">
+          <h2
+            className="text-[16px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            Fee Distribution
+          </h2>
+          <p className="mt-1 text-[13px] text-[#7A7062]">
+            Where {inst.institution_name}&apos;s fees sit in the national distribution.
+          </p>
+          <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {distributionData.map((d) => {
+              const indexEntry = nationalIndex.find(
+                (e) => e.fee_category === d.category
+              );
+              return (
+                <InstitutionHistogram
+                  key={d.category}
+                  categoryName={getDisplayName(d.category)}
+                  institutionName={inst.institution_name}
+                  institutionAmount={d.institutionAmount}
+                  fees={d.allFees}
+                  median={indexEntry?.median_amount ?? null}
+                />
+              );
+            })}
+          </div>
         </section>
       )}
 
