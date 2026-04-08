@@ -11,30 +11,7 @@ import {
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAssets, formatAmount, timeAgo } from "@/lib/format";
 import { FeeUrlActions } from "./fee-url-actions";
-
-const TIER_LABELS: Record<string, string> = {
-  community_small: "Community (<$300M)",
-  community_mid: "Community ($300M-$1B)",
-  community_large: "Community ($1B-$10B)",
-  regional: "Regional ($10B-$50B)",
-  large_regional: "Large Regional ($50B-$250B)",
-  super_regional: "Super Regional ($250B+)",
-};
-
-const DISTRICT_NAMES: Record<number, string> = {
-  1: "Boston",
-  2: "New York",
-  3: "Philadelphia",
-  4: "Cleveland",
-  5: "Richmond",
-  6: "Atlanta",
-  7: "Chicago",
-  8: "St. Louis",
-  9: "Minneapolis",
-  10: "Kansas City",
-  11: "Dallas",
-  12: "San Francisco",
-};
+import { FDIC_TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
 
 interface FeeComparisonRow {
   canonical_name: string;
@@ -119,7 +96,7 @@ export default async function PeerDetailPage({
           <span className="tabular-nums">{formatAssets(institution.asset_size)}</span>
           {institution.asset_size_tier && (
             <span>
-              {TIER_LABELS[institution.asset_size_tier] ||
+              {FDIC_TIER_LABELS[institution.asset_size_tier] ||
                 institution.asset_size_tier}
             </span>
           )}
@@ -488,7 +465,7 @@ export default async function PeerDetailPage({
                         </td>
                         <td className="px-4 py-2.5 text-xs text-gray-500">
                           {peer.tier
-                            ? TIER_LABELS[peer.tier] || peer.tier
+                            ? FDIC_TIER_LABELS[peer.tier] || peer.tier
                             : "-"}
                         </td>
                         <td className="px-4 py-2.5 text-center tabular-nums text-gray-500">

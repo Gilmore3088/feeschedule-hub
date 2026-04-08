@@ -98,12 +98,11 @@ export default async function MarketPage({
               className="rounded border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
             >
               <option value="">All</option>
-              <option value="community_small">Community (&lt;$300M)</option>
-              <option value="community_mid">Community ($300M-$1B)</option>
-              <option value="community_large">Community ($1B-$10B)</option>
-              <option value="regional">Regional ($10B-$50B)</option>
-              <option value="large_regional">Large Regional ($50B-$250B)</option>
-              <option value="super_regional">Super Regional ($250B+)</option>
+              <option value="micro">Micro (&lt;$100M)</option>
+              <option value="community">Community ($100M-$1B)</option>
+              <option value="midsize">Mid-Size ($1B-$10B)</option>
+              <option value="regional">Regional ($10B-$250B)</option>
+              <option value="mega">Mega (&gt;$250B)</option>
             </select>
           </div>
           <div>

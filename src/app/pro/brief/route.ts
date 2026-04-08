@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
 import { generatePeerBrief } from "@/lib/brief-generator";
-import { DISTRICT_NAMES, TIER_LABELS } from "@/lib/fed-districts";
+import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const parts: string[] = [];
   if (charter === "bank") parts.push("Banks");
   else if (charter === "credit_union") parts.push("Credit Unions");
-  if (tiers.length > 0) parts.push(tiers.map((t) => TIER_LABELS[t] || t).join(", "));
+  if (tiers.length > 0) parts.push(tiers.map((t) => FDIC_TIER_LABELS[t] || t).join(", "));
   if (districts.length > 0) parts.push(districts.map((d) => `District ${d} (${DISTRICT_NAMES[d]})`).join(", "));
 
   const segmentLabel = parts.length > 0 ? parts.join(" / ") : "All Institutions";

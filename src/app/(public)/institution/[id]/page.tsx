@@ -16,7 +16,7 @@ import {
   getFeeTier,
   FEE_FAMILIES,
 } from "@/lib/fee-taxonomy";
-import { DISTRICT_NAMES, TIER_LABELS } from "@/lib/fed-districts";
+import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -329,7 +329,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
-  const tierLabel = inst.asset_size_tier ? TIER_LABELS[inst.asset_size_tier] : null;
+  const tierLabel = inst.asset_size_tier ? FDIC_TIER_LABELS[inst.asset_size_tier] : null;
   const latestFinancial = financials[0] ?? null;
   const marketConcentration = await getMarketConcentrationForInstitution(instId);
 

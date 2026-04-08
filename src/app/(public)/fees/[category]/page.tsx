@@ -16,7 +16,7 @@ import {
   FEE_FAMILIES,
   DISPLAY_NAMES,
 } from "@/lib/fee-taxonomy";
-import { DISTRICT_NAMES, TIER_LABELS } from "@/lib/fed-districts";
+import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
@@ -264,7 +264,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
                 className="hover:bg-[#FAF7F2]/60 transition-colors"
               >
                 <td className="px-4 py-2.5 font-medium text-[#1A1815]">
-                  {TIER_LABELS[row.dimension_value] ?? row.dimension_value}
+                  {FDIC_TIER_LABELS[row.dimension_value] ?? row.dimension_value}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                   {formatAmount(row.median_amount)}

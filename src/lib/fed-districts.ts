@@ -13,23 +13,47 @@ export const DISTRICT_NAMES: Record<number, string> = {
   12: "San Francisco",
 };
 
-export const TIER_LABELS: Record<string, string> = {
-  community_small: "Community (<$300M)",
-  community_mid: "Community ($300M-$1B)",
-  community_large: "Community ($1B-$10B)",
-  regional: "Regional ($10B-$50B)",
-  large_regional: "Large Regional ($50B-$250B)",
-  super_regional: "Super Regional ($250B+)",
+export const FDIC_TIER_LABELS: Record<string, string> = {
+  micro:     "Micro (<$100M)",
+  community: "Community ($100M-$1B)",
+  midsize:   "Mid-Size ($1B-$10B)",
+  regional:  "Regional ($10B-$250B)",
+  mega:      "Mega (>$250B)",
 };
 
-export const TIER_ORDER = [
-  "community_small",
-  "community_mid",
-  "community_large",
+export const FDIC_TIER_ORDER = [
+  "micro",
+  "community",
+  "midsize",
   "regional",
-  "large_regional",
-  "super_regional",
+  "mega",
 ] as const;
+
+export const FDIC_TIER_BREAKPOINTS: Record<string, [number, number]> = {
+  micro:     [0,                100_000_000],
+  community: [100_000_000,      1_000_000_000],
+  midsize:   [1_000_000_000,    10_000_000_000],
+  regional:  [10_000_000_000,   250_000_000_000],
+  mega:      [250_000_000_000,  Infinity],
+};
+
+/** Classify an institution by total assets (in dollars) into FDIC tier */
+export function getTierForAssets(totalAssets: number): string {
+  if (totalAssets < 100_000_000) return "micro";
+  if (totalAssets < 1_000_000_000) return "community";
+  if (totalAssets < 10_000_000_000) return "midsize";
+  if (totalAssets < 250_000_000_000) return "regional";
+  return "mega";
+}
+
+const OLD_TO_NEW_TIER: Record<string, string> = {
+  community_small: "micro",
+  community_mid:   "community",
+  community_large: "midsize",
+  // "regional" stays "regional" (same key)
+  large_regional:  "regional",
+  super_regional:  "mega",
+};
 
 export const STATE_TO_DISTRICT: Record<string, number> = {
   CT: 1, ME: 1, MA: 1, NH: 1, RI: 1, VT: 1,
@@ -68,9 +92,10 @@ export function parsePeerFilters(params: {
   if (params.tier) {
     const tiers = params.tier
       .split(",")
-      .filter((t) => t in TIER_LABELS);
+      .map((t) => OLD_TO_NEW_TIER[t] ?? t)
+      .filter((t) => t in FDIC_TIER_LABELS);
     if (tiers.length > 0) {
-      filters.tiers = tiers;
+      filters.tiers = [...new Set(tiers)];
     }
   }
 
@@ -102,7 +127,7 @@ export function buildFilterDescription(filters: PeerFilters): string {
   }
 
   if (filters.tiers && filters.tiers.length > 0) {
-    const tierLabels = filters.tiers.map((t) => TIER_LABELS[t] ?? t);
+    const tierLabels = filters.tiers.map((t) => FDIC_TIER_LABELS[t] ?? t);
     parts.push(tierLabels.join(", "));
   }
 

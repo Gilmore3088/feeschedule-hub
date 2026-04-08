@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
-import { TIER_LABELS, TIER_ORDER, DISTRICT_NAMES } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS, FDIC_TIER_ORDER, DISTRICT_NAMES } from "@/lib/fed-districts";
 
 const selectClasses =
   "rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-gray-700 " +
@@ -85,9 +85,9 @@ export function PeerFiltersBar() {
         className={selectClasses}
       >
         <option value="">All Tiers</option>
-        {TIER_ORDER.map((t) => (
+        {FDIC_TIER_ORDER.map((t) => (
           <option key={t} value={t}>
-            {TIER_LABELS[t]}
+            {FDIC_TIER_LABELS[t]}
           </option>
         ))}
       </select>

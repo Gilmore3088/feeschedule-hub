@@ -424,3 +424,49 @@ describe("getDistrictFeeRevenue", () => {
     expect(rev.total_sc_income).toBeGreaterThan(0);
   });
 });
+describe("getRevenueByTier", () => {
+  beforeEach(() => {
+    const mock = getMock();
+    resetMock(mock);
+    mock.mockResolvedValue([{ latest_date: "2024-12-31" }]);
+    mock.unsafe = vi.fn();
+  });
+
+  it("returns 5 FDIC tiers with revenue aggregates", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-12-31" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      { tier: "micro",     institution_count: "500",  total_sc_income: "100000000",   avg_sc_income: "200000" },
+      { tier: "community", institution_count: "2000", total_sc_income: "800000000",   avg_sc_income: "400000" },
+      { tier: "midsize",   institution_count: "400",  total_sc_income: "2000000000",  avg_sc_income: "5000000" },
+      { tier: "regional",  institution_count: "80",   total_sc_income: "15000000000", avg_sc_income: "187500000" },
+      { tier: "mega",      institution_count: "10",   total_sc_income: "25000000000", avg_sc_income: "2500000000" },
+    ]);
+
+    const result = await getRevenueByTier();
+    expect(result).toHaveLength(5);
+    expect(result.map((r: TierRevenue) => r.tier)).toEqual(["micro", "community", "midsize", "regional", "mega"]);
+    for (const r of result) {
+      expect(r.total_sc_income).toBeGreaterThan(0);
+      expect(r.institution_count).toBeGreaterThan(0);
+    }
+  });
+
+  it("returns empty array when no data", async () => {
+    getMock().mockResolvedValue([{}]);
+
+    const result = await getRevenueByTier();
+    expect(result).toEqual([]);
+  });
+
+  it("uses provided reportDate instead of querying for latest", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      { tier: "community", institution_count: "100", total_sc_income: "50000000", avg_sc_income: "500000" },
+    ]);
+
+    const result = await getRevenueByTier("2024-09-30");
+    expect(result).toHaveLength(1);
+    expect(result[0].tier).toBe("community");
+    // When reportDate provided, the tagged template (latest date query) should NOT be called
+    expect(getMock().mock.calls.length).toBe(0);
+  });
+});

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { DISTRICT_NAMES, TIER_LABELS, TIER_ORDER } from '@/lib/fed-districts';
+import { DISTRICT_NAMES, FDIC_TIER_LABELS, FDIC_TIER_ORDER } from '@/lib/fed-districts';
 import { BriefStatusPoller } from './brief-status-poller';
 
 interface PeerPreview {
@@ -139,14 +139,14 @@ export function PeerGroupSelector() {
             Asset Tier
           </p>
           <div className="flex flex-wrap gap-2">
-            {TIER_ORDER.map((tierKey) => (
+            {FDIC_TIER_ORDER.map((tierKey) => (
               <button
                 key={tierKey}
                 type="button"
                 onClick={() => toggleTier(tierKey)}
                 className={tiers.includes(tierKey) ? activeChip : inactiveChip}
               >
-                {TIER_LABELS[tierKey]}
+                {FDIC_TIER_LABELS[tierKey]}
               </button>
             ))}
           </div>

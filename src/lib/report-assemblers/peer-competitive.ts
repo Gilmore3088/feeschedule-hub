@@ -16,7 +16,7 @@ import { createHash } from "crypto";
 import { getPeerIndex, getNationalIndex } from "@/lib/crawler-db/fee-index";
 import { getFeeChangeEvents } from "@/lib/crawler-db/fee-changes";
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
-import { DISTRICT_NAMES, TIER_LABELS } from "@/lib/fed-districts";
+import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import type { PeerCompetitiveData, SectionType } from "@/lib/hamilton/types";
 import type { DataManifest } from "@/lib/report-engine/types";
 
@@ -58,7 +58,7 @@ function buildSegmentLabel(filters: PeerCompetitiveFilters): string {
   }
 
   if (filters.asset_tiers && filters.asset_tiers.length > 0) {
-    parts.push(filters.asset_tiers.map((t) => TIER_LABELS[t] ?? t).join(", "));
+    parts.push(filters.asset_tiers.map((t) => FDIC_TIER_LABELS[t] ?? t).join(", "));
   }
 
   if (filters.fed_districts && filters.fed_districts.length > 0) {

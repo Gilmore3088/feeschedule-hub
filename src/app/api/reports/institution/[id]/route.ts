@@ -6,7 +6,7 @@ import {
   getSpotlightCategories,
   FEE_FAMILIES,
 } from "@/lib/fee-taxonomy";
-import { TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 
 // ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ function generateHtml(
 ): string {
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] ?? inst.state_code : null;
-  const tierLabel = inst.asset_size_tier ? TIER_LABELS[inst.asset_size_tier] ?? inst.asset_size_tier : null;
+  const tierLabel = inst.asset_size_tier ? FDIC_TIER_LABELS[inst.asset_size_tier] ?? inst.asset_size_tier : null;
   const districtName = inst.fed_district ? DISTRICT_NAMES[inst.fed_district] : null;
   const generatedAt = new Date().toLocaleDateString("en-US", {
     year: "numeric",

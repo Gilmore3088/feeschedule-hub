@@ -7,7 +7,7 @@ import { canAccessPremium } from "@/lib/access";
 import { searchInstitutions } from "@/lib/crawler-db/search";
 import { getPublicStats, getDataFreshness } from "@/lib/crawler-db";
 import { getStatesWithFeeData } from "@/lib/crawler-db";
-import { TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 import { formatAssets } from "@/lib/format";
 import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
@@ -231,7 +231,7 @@ export default async function ProDataPage({ searchParams }: PageProps) {
                   <td className="hidden lg:table-cell px-4 py-2.5 text-[#7A7062]">
                     {r.asset_size_tier ? (
                       <span className="text-[11px]">
-                        {TIER_LABELS[r.asset_size_tier] ?? r.asset_size_tier}
+                        {FDIC_TIER_LABELS[r.asset_size_tier] ?? r.asset_size_tier}
                       </span>
                     ) : (
                       <span className="text-[#D4C9BA]">--</span>
