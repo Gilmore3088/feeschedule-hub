@@ -25,8 +25,6 @@ import psycopg2
 import psycopg2.extras
 
 from fee_crawler.agents.state_agent import run_state_agent
-from fee_crawler.knowledge.loader import append_coverage_note
-from fee_crawler.knowledge.promoter import promote_cross_state_patterns
 from fee_crawler.agents.strategy import (
     tier_for_pass,
     DEFAULT_MAX_PASSES,
@@ -43,6 +41,7 @@ from fee_crawler.wave.models import (
     get_incomplete_states,
 )
 from fee_crawler.wave.recommend import recommend_states
+from fee_crawler.wave.reporter import print_wave_report
 
 log = logging.getLogger(__name__)
 
@@ -142,8 +141,6 @@ def _run_single_state(
             strategy.name,
         )
 
-        coverage_before = _get_coverage_pct(conn, state_code)
-
         try:
             result = run_state_agent(state_code, pass_number=pass_num, strategy=strategy)
         except HARD_FAILURES:
@@ -174,37 +171,24 @@ def _run_single_state(
             agent_run_id=run_id,
         )
 
-        coverage_after = _get_coverage_pct(conn, state_code)
-        coverage_delta = round(coverage_after - coverage_before, 1)
-
-        try:
-            append_coverage_note(state_code, run_id, coverage_after, coverage_delta)
-        except Exception as _exc:
-            log.warning(
-                "Could not append coverage note for %s run #%d: %s",
-                state_code, run_id, _exc,
-            )
-
-        result["coverage_pct"] = coverage_after
-        result["coverage_delta"] = coverage_delta
-
+        coverage = _get_coverage_pct(conn, state_code)
         log.info(
             "Pass %d/%d for %s: strategy=%s, coverage=%.1f%%",
             pass_num,
             max_passes,
             state_code,
             strategy.name,
-            coverage_after,
+            coverage,
         )
 
         # Early stop: minimum 3 passes enforced (ITER-01)
-        if pass_num >= 3 and coverage_after >= EARLY_STOP_COVERAGE_PCT:
+        if pass_num >= 3 and coverage >= EARLY_STOP_COVERAGE_PCT:
             log.info(
                 "Wave #%d: %s early stop at pass %d — coverage %.1f%% >= %.0f%%",
                 wave_run_id,
                 state_code,
                 pass_num,
-                coverage_after,
+                coverage,
                 EARLY_STOP_COVERAGE_PCT,
             )
             break
@@ -323,19 +307,9 @@ def run_wave(
         len(states),
         failed,
     )
-
-    # Cross-state pattern promotion (KNOW-02): scan all state files for patterns
-    # appearing in 3+ states and promote them to national.md.
-    try:
-        promoted = promote_cross_state_patterns(min_states=3)
-        if promoted:
-            log.info(
-                "Wave #%d: promoted %d cross-state pattern(s) to national.md",
-                wave.id, promoted,
-            )
-    except Exception as _exc:
-        log.warning("Cross-state promotion failed (non-fatal): %s", _exc)
-
+    # Per D-03: auto-print wave summary report after completion.
+    # print_wave_report catches all exceptions internally — never interrupts the return.
+    print_wave_report(conn, wave.id)
     return wave.id
 
 

@@ -259,3 +259,46 @@ Do not make direct repo edits outside a GSD workflow unless the user explicitly 
 > Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
 > This section is managed by `generate-claude-profile` -- do not edit manually.
 <!-- GSD:profile-end -->
+
+## Design Context
+
+### Users
+
+**B2B (Admin/Pro):** Bank executives (C-suite, VP-level), financial analysts, and consultants performing competitive fee intelligence, peer benchmarking, and market analysis. They use the platform during strategic planning, board prep, and pricing reviews. They need to find data fast, trust it immediately, and export presentation-ready insights.
+
+**B2C (Public/Consumer):** Everyday banking consumers comparing fees, understanding charges, and making informed decisions about financial institutions. They arrive via search, need clarity over density, and should feel empowered rather than overwhelmed.
+
+**Job to be done:** Transform raw fee data into executive-grade intelligence that commands the same authority as a $15K consulting engagement.
+
+### Brand Personality
+
+**Authoritative, precise, clean.**
+
+- Evokes confidence and institutional trust -- the feeling of reading an FT special report or a McKinsey white paper
+- Admin experience: Bloomberg-grade data density with Stripe-level polish
+- Consumer experience: Warm, editorial, accessible -- Newsreader serif headlines, terracotta accents, generous breathing room
+- Reports must feel like Salesforce annual reports (Connected FINS is the gold standard): bold stat callouts, numbered chapter structure, clean editorial layout, professional typography hierarchy
+
+### Aesthetic Direction
+
+**Visual tone:** Professional editorial meets modern data platform. Not a dashboard tool -- a research authority.
+
+**References (what to emulate):**
+- McKinsey/Bain consulting reports: insight-forward presentation, "so what" boxes, bold claims backed by data
+- FT/Economist: serif headlines, warm tones, premium content feel, editorial craft
+- Salesforce Connected FINS Report: clean page structure, bold stat callouts, generous whitespace, numbered chapters, professional hierarchy
+- Current Bank Fee Index branding (keep it -- the warm/cool dual-brand system is working)
+
+**Anti-references (what to avoid):**
+- Generic SaaS dashboards with endless gray cards
+- Data dumps without narrative or hierarchy
+- Overly playful/startup-y aesthetics
+- Cold, sterile interfaces that feel like internal tooling
+
+### Design Principles
+
+1. **Insight over data.** Every screen should answer "so what?" -- not just display numbers but frame them in context.
+2. **Two brands, one system.** Admin (cool, dense, Bloomberg-like) and Consumer (warm, editorial, FT-like) share components but express distinct personalities.
+3. **Consulting-grade presentation.** Charts, tables, and reports should look like they came from a top-tier consulting firm.
+4. **Progressive density.** Start clean, reveal depth on demand.
+5. **Earned trust through precision.** Tabular numbers, consistent formatting, maturity indicators, and source attribution.

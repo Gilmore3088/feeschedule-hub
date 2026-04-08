@@ -51,3 +51,26 @@ Discovered: 3 | Extracted: 13 | Failed: 16
 - Implement redirect-following and URL validation before extraction attempt; 404s on classified PDFs indicate indexing/link decay
 - HTML extraction quality varies by bank's fee table markup; consider institution-specific parsing rules
 - Skipped discoveries need periodic re-validation; URLs may become stale or institutions may change publishing practices
+
+## Run #219 — 2026-04-07
+Discovered: 1 | Extracted: 13 | Failed: 16
+
+### New Patterns
+- js_rendered documents consistently fail extraction despite successful classification
+- PDF format shows strongest extraction success rate in this run
+- Generic homepage link text leads to failed discovery
+- 404 errors on classified PDFs suggest broken document references
+
+### Site Notes
+- Bank of New Hampshire, Lighthouse Federal Credit Union, Merrimack County Savings Bank (succeeded), and Bellwether Community Federal Credit Union all classified as js_rendered but most extract=failed or minimal data
+- Service Federal Credit Union (28 fees), St. Mary's Bank (42 fees), Franklin Savings Bank (39 fees), Triangle Federal Credit Union (37 fees), Holy Rosary Federal Credit Union (28 fees) all PDFs with successful extractions
+- Mascoma Bank (links to general banking services), Primary Bank (mentions 'little or no fees'), First Seacoast Bank (links to account types), Salem Co-operative Bank and Bank of New England (no links found) all discovery=failed
+- Granite State Federal Credit Union: PDF classified but 404 error on https://www.gscu.org/content/docs/Consumer- indicates incomplete or moved URLs
+- Bellwether Community Federal Credit Union: discover=ok found 'Fee Free Services' link but extract=failed with no fees, suggesting link text doesn't match actual content structure
+
+### Promoted to National
+- js_rendered fee schedules may require post-rendering content stabilization or different extraction templates than static HTML/PDF
+- Prioritize PDF discovery and extraction as most reliable format for banking fee schedules
+- Need more sophisticated link detection for banking sites that don't use explicit 'fee schedule' terminology
+- Validate PDF URLs before or after classification step; broken references are wasting extraction attempts
+- Successful discovery doesn't guarantee extractable content; validate page content matches discovery expectations

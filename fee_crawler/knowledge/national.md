@@ -482,3 +482,35 @@
 - Implement redirect-following and URL validation before extraction attempt; 404s on classified PDFs indicate indexing/link decay
 - HTML extraction quality varies by bank's fee table markup; consider institution-specific parsing rules
 - Skipped discoveries need periodic re-validation; URLs may become stale or institutions may change publishing practices
+
+## Promoted — 2026-04-07
+- js_rendered fee schedules may require post-rendering content stabilization or different extraction templates than static HTML/PDF
+- Prioritize PDF discovery and extraction as most reliable format for banking fee schedules
+- Need more sophisticated link detection for banking sites that don't use explicit 'fee schedule' terminology
+- Validate PDF URLs before or after classification step; broken references are wasting extraction attempts
+- Successful discovery doesn't guarantee extractable content; validate page content matches discovery expectations
+
+## Promoted — 2026-04-07
+- When classification identifies JS-rendered content, apply secondary HTML parsing or text extraction strategy after rendering, as current extraction pipeline may not be processing JS-rendered fee tables correctly
+- Improve discovery validation: confirm page contains actual fee/charge tables, not just structural similarity to fee schedule pages
+- HTML extraction logic may have institution-specific dependencies or whitespace/table structure sensitivity — needs debugging on consistent HTML extraction approach
+- Validate website_url field completeness in state institution rosters before running discovery
+- Institution type and preferred fee disclosure format are correlated; consider format-specific extraction tuning
+
+## Promoted — 2026-04-07
+- Prioritize PDF classification pathway for credit unions; PDF format appears more standardized for fee disclosure than JS-rendered pages
+- JS-rendered pages require enhanced extraction logic or may indicate obfuscated/dynamic fee content; Community & Teachers FCU exception warrants analysis
+- Failure messages are becoming more specific; use these patterns to improve pre-discovery filtering
+- HTML format appears less reliable than PDF; likely indicates fee information is minimal or not presented in structured format
+- JS-rendered pages with successful extraction warrant pattern analysis to improve extraction logic for similar institutions
+- Data quality issue: prioritize validating source institution data before pipeline execution
+
+## Promoted — 2026-04-07
+- PDF classification succeeds even when extraction fails; classify step is unreliable signal for extraction viability
+
+## Promoted — 2026-04-07
+- Prioritize PDF fee schedule documents in discovery and extraction pipelines; they show more reliable fee data encoding
+- Credit unions may publish abbreviated fee schedules; validate that extraction completeness is institution-specific, not a data quality issue
+- Federal credit union PDFs may use non-standard fee table layouts; develop specialized extraction rules for FCUA-affiliated institutions
+- Implement secondary discovery strategy: search institution websites directly for 'fee schedule' or 'pricing' rather than relying on homepage navigation
+- JavaScript-rendered fee schedules may require DOM-specific selectors; current extraction likely incomplete for client-side rendered content
