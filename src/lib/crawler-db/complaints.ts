@@ -80,6 +80,43 @@ export async function getDistrictComplaintSummary(
   };
 }
 
+export async function getNationalComplaintSummary(): Promise<{
+  total_complaints: number;
+  fee_related_pct: number;
+  average_per_institution: number;
+}> {
+  const sql = getSql();
+
+  const totalRows = await sql.unsafe(
+    `SELECT
+       COUNT(DISTINCT ic.crawl_target_id)::int AS institution_count,
+       COALESCE(SUM(ic.complaint_count), 0)::int AS total_complaints
+     FROM institution_complaints ic
+     WHERE ic.issue = '_total'`
+  ) as { institution_count: string; total_complaints: string }[];
+
+  const feeRows = await sql.unsafe(
+    `SELECT COALESCE(SUM(ic.complaint_count), 0)::int AS fee_complaints
+     FROM institution_complaints ic
+     WHERE ic.issue != '_total'
+       AND ic.issue IN (
+         'Problem caused by your funds being low',
+         'Fees or interest',
+         'Managing an account'
+       )`
+  ) as { fee_complaints: string }[];
+
+  const total = totalRows[0] ? Number(totalRows[0].total_complaints) : 0;
+  const instCount = totalRows[0] ? Number(totalRows[0].institution_count) : 1;
+  const feeRelated = feeRows[0] ? Number(feeRows[0].fee_complaints) : 0;
+
+  return {
+    total_complaints: total,
+    fee_related_pct: total > 0 ? (feeRelated / total) * 100 : 0,
+    average_per_institution: instCount > 0 ? total / instCount : 0,
+  };
+}
+
 export async function getInstitutionComplaintProfile(
   targetId: number
 ): Promise<InstitutionComplaintProfile> {
