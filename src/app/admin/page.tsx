@@ -9,6 +9,7 @@ import {
   getRecentCrawlRuns,
   getRecentReviews,
   getCoverageByState,
+  getDataQualityStats,
 } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SkeletonPage } from "@/components/skeleton";
@@ -45,14 +46,16 @@ async function DashboardContent() {
   let crawlRuns: Awaited<ReturnType<typeof getRecentCrawlRuns>> = [];
   let reviews: Awaited<ReturnType<typeof getRecentReviews>> = [];
   let stateCoverage: Awaited<ReturnType<typeof getCoverageByState>> = [];
+  let quality = { total_with_fees: 0, good_6plus: 0, incomplete_1to5: 0, url_no_fees: 0, no_url: 0, freeform_fees: 0, rejected_fees: 0, quality_pct: 0 };
 
   try {
-    [stats, queue, crawlRuns, reviews, stateCoverage] = await Promise.all([
+    [stats, queue, crawlRuns, reviews, stateCoverage, quality] = await Promise.all([
       getDashboardStats(),
       getReviewQueueCounts(),
       getRecentCrawlRuns(10),
       getRecentReviews(15),
       getCoverageByState(),
+      getDataQualityStats(),
     ]);
   } catch (e) {
     console.error("Dashboard data load failed:", e);
@@ -68,6 +71,41 @@ async function DashboardContent() {
         <StatCard label="With Fee URL" value={formatNumber(stats.with_urls)} />
         <StatCard label="With Fees" value={formatNumber(stats.with_fees)} />
         <StatCard label="Coverage" value={`${stats.coverage_pct}%`} highlight />
+      </div>
+
+      {/* Data Quality Panel */}
+      <div className="admin-card overflow-hidden mb-8">
+        <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
+          <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
+            Data Quality
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-100 dark:bg-white/[0.04]">
+          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Credible (6+ fees)</p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">{formatNumber(quality.good_6plus)}</p>
+            <p className="text-[11px] text-gray-400">{quality.quality_pct}% quality rate</p>
+          </div>
+          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Incomplete (1-5 fees)</p>
+            <p className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1 tabular-nums">{formatNumber(quality.incomplete_1to5)}</p>
+            <p className="text-[11px] text-gray-400">need re-extraction</p>
+          </div>
+          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">URL, No Fees</p>
+            <p className="text-lg font-bold text-red-600 dark:text-red-400 mt-1 tabular-nums">{formatNumber(quality.url_no_fees)}</p>
+            <p className="text-[11px] text-gray-400">extraction gap</p>
+          </div>
+          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">No URL</p>
+            <p className="text-lg font-bold text-gray-600 dark:text-gray-400 mt-1 tabular-nums">{formatNumber(quality.no_url)}</p>
+            <p className="text-[11px] text-gray-400">discovery gap</p>
+          </div>
+        </div>
+        <div className="px-4 py-2 border-t border-gray-100 dark:border-white/[0.04] flex gap-4 text-[11px] text-gray-400">
+          <span>Freeform fees: {formatNumber(quality.freeform_fees)}</span>
+          <span>Rejected: {formatNumber(quality.rejected_fees)}</span>
+        </div>
       </div>
 
       {/* Review Queue */}

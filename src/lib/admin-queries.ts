@@ -132,6 +132,91 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 }
 
+export interface DataQualityStats {
+  total_with_fees: number;
+  good_6plus: number;
+  incomplete_1to5: number;
+  url_no_fees: number;
+  no_url: number;
+  freeform_fees: number;
+  rejected_fees: number;
+  quality_pct: number;
+}
+
+export async function getDataQualityStats(): Promise<DataQualityStats> {
+  try {
+    // Institutions with 6+ fees (credible)
+    const [goodRow] = await sql`
+      SELECT COUNT(*) as cnt FROM (
+        SELECT crawl_target_id FROM extracted_fees
+        WHERE review_status != 'rejected'
+        GROUP BY crawl_target_id HAVING COUNT(*) >= 6
+      ) sub`;
+
+    // Institutions with 1-5 fees (incomplete)
+    const [incompleteRow] = await sql`
+      SELECT COUNT(*) as cnt FROM (
+        SELECT crawl_target_id FROM extracted_fees
+        WHERE review_status != 'rejected'
+        GROUP BY crawl_target_id HAVING COUNT(*) BETWEEN 1 AND 5
+      ) sub`;
+
+    // Have URL but no fees
+    const [urlNoFeesRow] = await sql`
+      SELECT COUNT(*) as cnt FROM crawl_targets ct
+      WHERE ct.fee_schedule_url IS NOT NULL AND ct.status = 'active'
+        AND NOT EXISTS (
+          SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected'
+        )`;
+
+    // No URL at all (addressable)
+    const [noUrlRow] = await sql`
+      SELECT COUNT(*) as cnt FROM crawl_targets ct
+      WHERE ct.fee_schedule_url IS NULL AND ct.status = 'active'
+        AND ct.website_url IS NOT NULL
+        AND (ct.document_type IS NULL OR ct.document_type != 'offline')`;
+
+    // Freeform fees (not in 49-category taxonomy)
+    const [freeformRow] = await sql`
+      SELECT COUNT(*) as cnt FROM extracted_fees
+      WHERE review_status != 'rejected'
+        AND fee_category NOT IN (
+          'overdraft','nsf','wire_domestic_outgoing','wire_domestic_incoming',
+          'wire_intl_outgoing','wire_intl_incoming','atm_non_network','atm_international',
+          'monthly_maintenance','minimum_balance','dormant_account','account_closing',
+          'early_closure','paper_statement','estatement_fee','stop_payment',
+          'cashiers_check','money_order','check_printing','check_image','counter_check',
+          'check_cashing','certified_check','card_replacement','card_foreign_txn',
+          'card_dispute','rush_card','cash_advance','ach_origination','ach_return',
+          'od_protection_transfer','od_daily_cap','od_line_of_credit','nsf_daily_cap',
+          'continuous_od','deposited_item_return','late_payment','garnishment_levy',
+          'legal_process','notary_fee','safe_deposit_box','coin_counting','bill_pay',
+          'mobile_deposit','zelle_fee','night_deposit','account_research',
+          'account_verification','balance_inquiry','appraisal_fee','loan_origination'
+        )`;
+
+    const [rejectedRow] = await sql`SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status = 'rejected'`;
+
+    const good = Number(goodRow.cnt);
+    const incomplete = Number(incompleteRow.cnt);
+    const total = good + incomplete;
+
+    return {
+      total_with_fees: total,
+      good_6plus: good,
+      incomplete_1to5: incomplete,
+      url_no_fees: Number(urlNoFeesRow.cnt),
+      no_url: Number(noUrlRow.cnt),
+      freeform_fees: Number(freeformRow.cnt),
+      rejected_fees: Number(rejectedRow.cnt),
+      quality_pct: total > 0 ? Math.round((good / total) * 100) : 0,
+    };
+  } catch (e) {
+    console.error("getDataQualityStats failed:", e);
+    return { total_with_fees: 0, good_6plus: 0, incomplete_1to5: 0, url_no_fees: 0, no_url: 0, freeform_fees: 0, rejected_fees: 0, quality_pct: 0 };
+  }
+}
+
 export async function getReviewQueueCounts(): Promise<ReviewQueueCounts> {
   try {
     const rows = await sql`
