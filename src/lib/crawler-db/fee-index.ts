@@ -1,6 +1,9 @@
 import { sql } from "./connection";
-import { getFeeFamily } from "@/lib/fee-taxonomy";
+import { getFeeFamily, FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { computeStats } from "./fees";
+
+/** All 49 canonical fee categories — only these appear in indexes and reports */
+const CANONICAL_CATEGORIES = Object.values(FEE_FAMILIES).flat();
 
 export interface IndexEntry {
   fee_category: string;
@@ -29,7 +32,7 @@ export async function getNationalIndex(approvedOnly = false): Promise<IndexEntry
             ef.review_status, ef.created_at, ct.charter_type
      FROM extracted_fees ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-     WHERE ef.fee_category IS NOT NULL AND ${statusFilter}`
+     WHERE ef.fee_category = ANY(ARRAY[${CANONICAL_CATEGORIES.map((c) => `'${c}'`).join(",")}]) AND ${statusFilter}`
   ) as {
     fee_category: string;
     amount: number | null;
