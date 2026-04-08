@@ -56,7 +56,7 @@ import {
 
 export const queryDistrictData = tool({
   description:
-    "Get comprehensive data for a Federal Reserve district: institution count, fee count, coverage, Beige Book economic commentary.",
+    "Returns institution count, fee count, coverage stats, and Beige Book commentary for a Fed district. When: district-level analysis, regional benchmarking. Combine with: queryNationalData(fed_content, district:N) for recent speeches, queryNationalData(complaints, district:N) for CFPB signals, queryNationalData(economic, district:N) for FRED labor/inflation data.",
   inputSchema: z.object({
     districtId: z.number().min(1).max(12).describe("Fed district number (1-12)"),
   }),
@@ -77,7 +77,7 @@ export const queryDistrictData = tool({
 
 export const queryStateData = tool({
   description:
-    "Get comprehensive data for a US state: institution count, fee count, coverage stats.",
+    "Returns institution count, fee count, and coverage stats for a US state. When: state-level scoping, geography filters, state ranking. Combine with: queryNationalData(demographics, stateFips:XX) for Census income/poverty context, queryNationalData(deposits, stateFips:XX) for deposit market share.",
   inputSchema: z.object({
     stateCode: z.string().length(2).describe("Two-letter state code (e.g., CA, TX)"),
   }),
@@ -88,7 +88,7 @@ export const queryStateData = tool({
 
 export const queryFeeRevenueCorrelation = tool({
   description:
-    "Get fee-to-revenue correlation data showing how extracted fees relate to service charge income from call reports. Includes per-institution data, tier summaries, and charter type summaries.",
+    "Returns correlation between published fee schedules and FDIC/NCUA service charge income. Views: institutions (per-institution), by_tier (asset tier summary), by_charter (bank vs CU). When: revenue dependency questions, fee-to-income analysis. Combine with: queryNationalData(call_reports) for revenue trends, queryNationalData(health) for ROA/efficiency context.",
   inputSchema: z.object({
     view: z
       .enum(["institutions", "by_tier", "by_charter"])
@@ -119,7 +119,7 @@ export const queryFeeRevenueCorrelation = tool({
 
 export const queryOutliers = tool({
   description:
-    "Get fees flagged as statistical outliers (significantly above or below median). Useful for identifying unusual pricing.",
+    "Returns fees flagged as statistical outliers — amounts significantly above or below category median. When: outlier detection, pricing anomalies, data quality review. Combine with: queryRegulatoryRisk if the outlier category is overdraft/NSF/junk fees, rankInstitutions(above_p75) for breadth across all categories.",
   inputSchema: z.object({
     category: z.string().optional().describe("Filter to a specific fee category"),
     limit: z
@@ -147,7 +147,7 @@ export const queryOutliers = tool({
 
 export const getCrawlStatus = tool({
   description:
-    "Get current crawl health and pipeline status: total institutions, success rates, recent crawl activity.",
+    "Returns crawl health: total institutions, success rates, recent crawl activity. When: pipeline status questions, 'did the last crawl run?', coverage freshness checks. Combine with: getReviewQueueStats for review backlog, queryDataQuality(funnel) for end-to-end coverage picture.",
   inputSchema: z.object({}),
   execute: async () => {
     const health = await getCrawlHealth();
@@ -163,7 +163,7 @@ export const getCrawlStatus = tool({
 
 export const getReviewQueueStats = tool({
   description:
-    "Get review queue statistics: pending, approved, rejected, staged counts.",
+    "Returns pending, approved, rejected, staged counts in the fee review pipeline. When: review backlog questions, approval pipeline health. Combine with: getCrawlStatus for pipeline breadth, queryDataQuality(review_status) for detailed breakdown.",
   inputSchema: z.object({}),
   execute: async () => {
     return await getReviewStats();
@@ -172,7 +172,7 @@ export const getReviewQueueStats = tool({
 
 export const searchInstitutionsByName = tool({
   description:
-    "Search for institutions by name (fuzzy match). Returns matching institutions with IDs.",
+    "Returns matching institutions with IDs, state, city, charter type, and asset tier. When: named institution lookups, finding institution IDs for follow-up queries. Combine with: getInstitution (public tool) for full fee profile, queryFeeRevenueCorrelation(institutions) for revenue correlation.",
   inputSchema: z.object({
     query: z.string().describe("Institution name to search for"),
     limit: z.number().optional().default(10).describe("Max results"),
@@ -209,7 +209,7 @@ export const searchInstitutionsByName = tool({
 
 export const rankInstitutions = tool({
   description:
-    "Rank institutions by fee positioning against national benchmarks. Returns top N institutions with counts of fees above P75, below P25, total fee count, or outlier count. Use this for questions like 'which institutions have the most expensive fees' or 'top 10 by outliers'.",
+    "Ranks institutions by above_p75 (most fees above 75th pct), below_p25, total_fees, or outlier_flags. When: 'which institutions have the highest fees?', pricing leadership, outlier leaderboard. Combine with: queryRegulatoryRisk if ranking by overdraft/NSF categories, queryNationalData(complaints) to correlate pricing with complaints.",
   inputSchema: z.object({
     metric: z
       .enum(["above_p75", "below_p25", "total_fees", "outlier_flags"])
@@ -331,7 +331,7 @@ export const rankInstitutions = tool({
 
 export const queryJobStatus = tool({
   description:
-    "Get pipeline job status: recent jobs, active jobs, or details of a specific job. Answers 'did the last crawl succeed?' and 'what jobs are running?'.",
+    "Returns recent, active, or detailed pipeline job status. When: 'did the last crawl succeed?', 'what's running now?', job failure investigation. Combine with: getCrawlStatus for coverage impact of recent jobs.",
   inputSchema: z.object({
     view: z
       .enum(["recent", "active", "detail"])
@@ -359,7 +359,7 @@ export const queryJobStatus = tool({
 
 export const queryDataQuality = tool({
   description:
-    "Get data quality metrics: coverage funnel, uncategorized fees, stale institutions, review pipeline health.",
+    "Returns data quality metrics: funnel (coverage), uncategorized fees, stale institutions, review_status breakdown. When: coverage gap questions, data hygiene review, pre-analysis quality check. Combine with: getCrawlStatus for pipeline health, queryNationalData(fee_index) to contextualize coverage against category depth.",
   inputSchema: z.object({
     view: z
       .enum(["funnel", "uncategorized", "stale", "review_status"])
@@ -411,7 +411,7 @@ const SAFE_PIPELINE_COMMANDS = new Set([
 
 export const triggerPipelineJob = tool({
   description:
-    "Trigger a pipeline job (admin only). Safe commands: categorize, auto-review, validate, outlier-detect, enrich, publish-index, snapshot, merge-fees. Does NOT allow crawl or discover (those use API credits).",
+    "Triggers a safe pipeline job: categorize, auto-review, validate, outlier-detect, enrich, publish-index, snapshot, merge-fees. When: operator asks to run a pipeline step. Does NOT trigger crawl or discover (those use API credits). Combine with: queryJobStatus to confirm the triggered job is running.",
   inputSchema: z.object({
     command: z.string().describe("Pipeline command name"),
     dryRun: z.boolean().optional().default(false).describe("If true, pass --dry-run flag"),
@@ -436,7 +436,7 @@ const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_
 
 export const queryNationalData = tool({
   description:
-    "Query national summary data across all sources. Use 'source' to pick a data domain: call_reports (revenue trends, top institutions, tier/charter splits), economic (FRED rates, Beige Book themes, national summary), health (ROA, efficiency, deposits, loans, institution counts), complaints (CFPB district summaries), fee_index (national/peer fee medians and distributions), derived (revenue concentration, fee dependency trends, per-institution revenue trends), fed_content (Fed speeches and research papers), labor (BLS labor indicators), demographics (Census ACS by state FIPS), research (NY Fed + OFR financial stability data), deposits (FDIC SOD market share). Use 'view' to narrow to a specific aspect within the source.",
+    "Query national summary data across all 11 source domains. Sources: call_reports (FDIC/NCUA revenue trends), economic (FRED rates, Beige Book themes), health (ROA, efficiency, deposits, loans), complaints (CFPB district summaries), fee_index (national/peer fee medians), derived (concentration, fee dependency), fed_content (Fed speeches/papers by district), labor (BLS unemployment, payroll, bank-fee CPI), demographics (Census ACS income/poverty by state), research (NY Fed + OFR financial stability data), deposits (FDIC SOD market share). When: any macroeconomic, regional, or financial context question. Combine with: district analysis → economic+complaints+fed_content; compliance question → complaints+fee_index+fed_content; consumer impact → demographics+labor+fee_index.",
   inputSchema: z.object({
     source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits"])
       .describe("Data source category to query"),
@@ -689,7 +689,7 @@ const REGULATORY_KEYWORDS = [
 
 export const queryRegulatoryRisk = tool({
   description:
-    "Assess regulatory risk by cross-referencing CFPB complaint data, fee outliers in scrutinized categories (overdraft, NSF, junk fees), and recent Fed speeches/papers mentioning enforcement signals. Returns a risk score (0-100), affected institution count, and the three signal sources. Use when someone asks about compliance risk, enforcement exposure, regulatory pressure, or CFPB-related fee concerns.",
+    "Assesses regulatory risk by cross-referencing fee outliers in scrutinized categories (overdraft, NSF, junk fees), CFPB complaint volumes for fee-related products, and recent Fed speeches mentioning enforcement signals. Returns risk score (0-100), affected institution count, and three signal sources. When: compliance risk questions, 'how many institutions face enforcement risk?', CFPB enforcement impact analysis, regulatory pressure on fee categories. Combine with: queryOutliers for institution-level outlier detail, queryNationalData(complaints) for district-level complaint breakdown, queryNationalData(fed_content) for full speech text.",
   inputSchema: z.object({
     categories: z
       .array(z.string())
