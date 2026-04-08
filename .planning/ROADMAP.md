@@ -447,7 +447,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 27-01-PLAN.md — External intelligence DB schema and ingest UI (INTEL-01, INTEL-03)
+- [x] 27-01-PLAN.md — External intelligence DB schema and ingest UI (INTEL-01, INTEL-03)
 - [ ] 27-02-PLAN.md — Hamilton tool integration for search and citation (INTEL-02, INTEL-04)
 
 ---
@@ -503,8 +503,11 @@ Plans:
   4. Authenticated pro users see relevant B2B report links on the institution page surfacing competitive or peer reports applicable to that institution's peer group
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
-- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
+- [ ] 30-01-PLAN.md -- Fee callout explainers + PercentileBadge in PositionBar
+- [ ] 30-02-PLAN.md -- Fee Distribution histograms + Intelligence section with B2B CTAs
+
+
+
 **UI hint**: yes
 
 ### Phase 31: B2B Launchpad Dashboard
@@ -632,7 +635,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 2/2 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -681,7 +684,7 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 24. Industry Health & Beige Book | v5.0 | 1/2 | Complete | 2026-04-08 |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 2/2 | Complete | 2026-04-08 |
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | 2026-04-08 |
-| 27. External Intelligence System | v5.0 | 2/0 | Complete | 2026-04-08 |
+| 27. External Intelligence System | v5.0 | 1/2 | In Progress|  |
 | 28. Audience Shell Separation | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 29. Consumer Landing Page | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
