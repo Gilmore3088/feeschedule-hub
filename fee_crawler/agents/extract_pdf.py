@@ -94,7 +94,14 @@ Banks often state "overdraft fee: $35, maximum $210 per day." The $35 is the act
 The $210 is a DAILY CAP (maximum total fees per day), NOT a fee itself.
 - Record the per-occurrence fee ($35) with is_cap=false
 - Record the daily cap ($210) separately with is_cap=true and fee_name like "Overdraft Daily Cap"
-- NEVER record a daily cap amount as the per-occurrence fee amount""",
+- NEVER record a daily cap amount as the per-occurrence fee amount
+
+NSF vs OVERDRAFT — CRITICAL DISTINCTION:
+- Overdraft (OD): Bank COVERS the transaction, charges a fee. Payment goes through.
+- NSF (Non-Sufficient Funds): Bank BOUNCES/RETURNS the transaction, charges a fee. Payment is rejected.
+These are DIFFERENT fees. NEVER infer one from the other.
+- If the document says "Overdraft Fee: $35" and says nothing about NSF/returned items, do NOT create an NSF fee.
+- Only extract fees that are EXPLICITLY stated in the document. Never infer or assume related fees exist.""",
         tools=[_EXTRACT_TOOL],
         tool_choice={"type": "tool", "name": "extract_fees"},
         messages=[{
