@@ -24,6 +24,8 @@ import {
   getBeigeBookThemes,
   getFredSummary,
   getDistrictEconomicSummary,
+  getDistrictContent,
+  getRecentSpeeches,
 } from "@/lib/crawler-db/fed";
 import {
   getIndustryHealthMetrics,
@@ -32,7 +34,14 @@ import {
   getLoanGrowthTrend,
   getInstitutionCountTrends,
 } from "@/lib/crawler-db/health";
-import { getDistrictComplaintSummary } from "@/lib/crawler-db/complaints";
+import {
+  getStateDemographics,
+  getLatestIndicators,
+  getSodMarketShare,
+  getNyFedData,
+  getOfrData,
+} from "@/lib/crawler-db/financial";
+import { getDistrictComplaintSummary, getNationalComplaintSummary } from "@/lib/crawler-db/complaints";
 import { getIndexSnapshot, getPeerIndex } from "@/lib/crawler-db/fee-index";
 import {
   getRevenueConcentration,
@@ -423,13 +432,13 @@ export const triggerPipelineJob = tool({
 
 // ── Unified National Data Tool ───────────────────────────────────────────────
 
-const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_index", "derived"] as const;
+const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits"] as const;
 
 export const queryNationalData = tool({
   description:
-    "Query national summary data across all sources. Use 'source' to pick a data domain: call_reports (revenue trends, top institutions, tier/charter splits), economic (FRED rates, Beige Book themes, national summary), health (ROA, efficiency, deposits, loans, institution counts), complaints (CFPB district summaries), fee_index (national/peer fee medians and distributions), derived (revenue concentration, fee dependency trends, per-institution revenue trends). Use 'view' to narrow to a specific aspect within the source.",
+    "Query national summary data across all sources. Use 'source' to pick a data domain: call_reports (revenue trends, top institutions, tier/charter splits), economic (FRED rates, Beige Book themes, national summary), health (ROA, efficiency, deposits, loans, institution counts), complaints (CFPB district summaries), fee_index (national/peer fee medians and distributions), derived (revenue concentration, fee dependency trends, per-institution revenue trends), fed_content (Fed speeches and research papers), labor (BLS labor indicators), demographics (Census ACS by state FIPS), research (NY Fed + OFR financial stability data), deposits (FDIC SOD market share). Use 'view' to narrow to a specific aspect within the source.",
   inputSchema: z.object({
-    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived"])
+    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits"])
       .describe("Data source category to query"),
     view: z.string().optional()
       .describe("Specific view within the source (e.g., 'trend', 'by_tier', 'fred', 'concentration'). Omit for all data."),
@@ -438,15 +447,19 @@ export const queryNationalData = tool({
     quarters: z.number().optional().default(8)
       .describe("Number of quarters for trend data"),
     district: z.number().min(1).max(12).optional()
-      .describe("Fed district number (for complaints, economic district view)"),
+      .describe("Fed district number (for complaints, economic district view, fed_content)"),
     charter: z.enum(["bank", "credit_union"]).optional()
       .describe("Charter type filter"),
     tiers: z.array(z.string()).optional()
       .describe("Asset size tier filter (for fee_index peer queries)"),
     top_n: z.number().optional().default(5)
       .describe("Top N for concentration analysis"),
+    stateFips: z.string().optional()
+      .describe("State FIPS code for demographics/deposits (e.g., '06' for California, '36' for New York)"),
+    seriesIds: z.array(z.string()).optional()
+      .describe("BLS series IDs for labor view (defaults to unemployment, payroll, bank fee CPI)"),
   }),
-  execute: async ({ source, view, limit, quarters, district, charter, tiers, top_n }) => {
+  execute: async ({ source, view, limit, quarters, district, charter, tiers, top_n, stateFips, seriesIds }) => {
     switch (source) {
       case "call_reports":
         return handleCallReports(view, quarters, limit, district);
@@ -460,6 +473,16 @@ export const queryNationalData = tool({
         return handleFeeIndex(charter, tiers, limit);
       case "derived":
         return handleDerived(view, top_n, quarters);
+      case "fed_content":
+        return handleFedContent(district, limit ?? 10);
+      case "labor":
+        return handleLabor(seriesIds);
+      case "demographics":
+        return handleDemographics(stateFips);
+      case "research":
+        return handleResearch(limit ?? 20);
+      case "deposits":
+        return handleDeposits(stateFips, limit ?? 10);
       default:
         return { error: `Unknown source '${source}'. Valid sources: ${VALID_SOURCES.join(", ")}` };
     }
@@ -587,6 +610,62 @@ async function handleDerived(
     default:
       return { error: `Unknown derived view '${view}'. Valid: concentration, dependency, revenue_per_institution` };
   }
+}
+
+// ── New source handlers (Phase 36) ───────────────────────────────────────────
+
+const BLS_LABOR_SERIES = ["LNS14000000", "CES0000000001", "CUUR0000SEMC01"] as const;
+
+async function handleFedContent(district: number | undefined, limit: number) {
+  if (district) {
+    const content = await getDistrictContent(district, limit);
+    return {
+      district,
+      content: content.map((c) => ({
+        type: c.content_type,
+        title: c.title,
+        speaker: c.speaker,
+        published: c.published_at,
+        description: c.description,
+      })),
+    };
+  }
+  const speeches = await getRecentSpeeches(limit);
+  return {
+    speeches: speeches.map((c) => ({
+      type: c.content_type,
+      title: c.title,
+      speaker: c.speaker,
+      district: c.fed_district,
+      published: c.published_at,
+    })),
+  };
+}
+
+async function handleLabor(seriesIds: string[] | undefined) {
+  const ids = seriesIds && seriesIds.length > 0 ? seriesIds : [...BLS_LABOR_SERIES];
+  const indicators = await getLatestIndicators(ids);
+  return { labor_indicators: indicators };
+}
+
+async function handleDemographics(stateFips: string | undefined) {
+  if (!stateFips) {
+    return {
+      error: "stateFips parameter required for demographics source (e.g., '06' for California, '36' for New York)",
+    };
+  }
+  const state = await getStateDemographics(stateFips);
+  return { state_demographics: state };
+}
+
+async function handleResearch(limit: number) {
+  const [nyfed, ofr] = await Promise.all([getNyFedData(limit), getOfrData(limit)]);
+  return { nyfed_data: nyfed, ofr_data: ofr };
+}
+
+async function handleDeposits(stateFips: string | undefined, limit: number) {
+  const data = await getSodMarketShare(stateFips);
+  return { deposit_market_share: data.slice(0, limit) };
 }
 
 /** All internal tools bundled for admin agent configs */

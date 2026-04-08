@@ -411,3 +411,77 @@ export async function getDataCoverageSummary(): Promise<DataCoverageSummary> {
     census_tracts,
   };
 }
+
+// --- SOD Market Share (FDIC Summary of Deposits) ---
+
+export async function getSodMarketShare(stateFips?: string): Promise<{
+  institution_name: string;
+  state_fips: string;
+  total_deposits: number | null;
+  branch_count: number | null;
+  year: number;
+}[]> {
+  try {
+    if (stateFips) {
+      return await sql`
+        SELECT institution_name, state_fips, total_deposits, branch_count, year
+        FROM sod_deposits
+        WHERE state_fips = ${stateFips}
+        ORDER BY total_deposits DESC NULLS LAST
+        LIMIT 10
+      ` as any[];
+    }
+    return await sql`
+      SELECT institution_name, state_fips, total_deposits, branch_count, year
+      FROM sod_deposits
+      ORDER BY total_deposits DESC NULLS LAST
+      LIMIT 10
+    ` as any[];
+  } catch {
+    return [];
+  }
+}
+
+// --- NY Fed Data ---
+
+export async function getNyFedData(limit = 20): Promise<{
+  series_id: string;
+  series_title: string | null;
+  observation_date: string;
+  value: number | null;
+  units: string | null;
+}[]> {
+  try {
+    return await sql`
+      SELECT DISTINCT ON (series_id)
+        series_id, series_title, observation_date, value, units
+      FROM nyfed_data
+      ORDER BY series_id, observation_date DESC
+      LIMIT ${limit}
+    ` as any[];
+  } catch {
+    return [];
+  }
+}
+
+// --- OFR Data (Office of Financial Research) ---
+
+export async function getOfrData(limit = 20): Promise<{
+  series_id: string;
+  series_title: string | null;
+  observation_date: string;
+  value: number | null;
+  description: string | null;
+}[]> {
+  try {
+    return await sql`
+      SELECT DISTINCT ON (series_id)
+        series_id, series_title, observation_date, value, description
+      FROM ofr_data
+      ORDER BY series_id, observation_date DESC
+      LIMIT ${limit}
+    ` as any[];
+  } catch {
+    return [];
+  }
+}
