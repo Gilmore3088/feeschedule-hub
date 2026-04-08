@@ -321,7 +321,11 @@ Plans:
   1. After a wave run, each state in the wave has at least 3 agent_run entries in the DB — one per iteration — without manual re-triggering between passes
   2. Pass 1 uses easy URL discovery (sitemap, common paths); pass 2 activates Playwright for JS-rendered pages; pass 3+ adds PDF search and fee schedule keyword queries — the escalation is visible in each run's strategy field
   3. After each pass completes, a per-pass log entry exists showing: fees discovered this pass, cumulative coverage %, and any new URL patterns or extraction patterns found
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ### Phase 21: Knowledge Automation
 **Goal**: Learnings from every iteration are automatically persisted to the knowledge system without manual editing, and the knowledge base remains prompt-quality at 50-state scale
@@ -331,7 +335,11 @@ Plans:
   1. After any iteration completes, the state's knowledge file in `fee_crawler/knowledge/states/` is updated with new URL patterns, fee schedule locations, and extraction notes discovered in that pass — no manual step required
   2. Patterns that appear in 3+ states are automatically promoted to `fee_crawler/knowledge/national.md` so future state agents start with cross-state intelligence
   3. Running `python -m fee_crawler knowledge prune` reduces each state knowledge file to under the configured token budget while retaining the highest-signal entries — prompt quality does not degrade as coverage scales to 50 states
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ### Phase 22: Wave Reporting
 **Goal**: After each wave completes, an operator-readable summary report is generated showing what improved, by how much, and what was found
@@ -340,7 +348,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After a wave finishes, a wave summary report is automatically written (stdout + optional file) showing: each state's before/after coverage %, national coverage delta, total fees added, and the top 3-5 new URL patterns or institutional discoveries from the wave
   2. The report is readable without opening a database — a plain-text or Markdown format that can be scanned in 60 seconds
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ---
 
@@ -364,7 +376,11 @@ Plans:
   3. Revenue can be split by bank vs credit union and by asset tier, with correct totals that reconcile to national aggregate
   4. A national economic summary query returns fed funds rate, unemployment rate, CPI YoY change (not raw index), and consumer sentiment -- all with current values
   5. District-level economic indicators are queryable (at minimum unemployment per district)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ### Phase 24: Industry Health & Beige Book
 **Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
@@ -376,7 +392,11 @@ Plans:
   3. Institution count trends (total active banks, total active CUs) are available with period-over-period changes
   4. Each of the 12 Fed districts has a 2-3 sentence economic narrative summary derived from Beige Book content
   5. A national economic summary and key theme extraction (growth, employment, prices, lending) are derived from all 12 district reports
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ### Phase 25: Derived Analytics & Hamilton Tools
 **Goal**: Cross-source derived metrics are computed and Hamilton can access all summary data (Call Reports, FRED, Beige Book, health, derived) through its existing tool/query layer
@@ -387,7 +407,11 @@ Plans:
   2. Fee dependency ratio (SC income / total revenue) is queryable by charter type and asset tier
   3. Revenue-per-institution averages are computed by asset tier and charter, enabling peer comparison
   4. Hamilton can call tools that return all national summary data (Call Report trends, FRED summary, Beige Book summaries, health metrics, derived analytics) and incorporate them into analysis
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ### Phase 26: National Data Admin Portal
 **Goal**: Admin users can view, verify, and explore all national data sources through dedicated portal pages before data flows into reports
@@ -398,7 +422,11 @@ Plans:
   2. Call Report revenue dashboard displays trends over 8 quarters, top institutions by service charge income, and bank vs CU charter split
   3. Economic conditions panel shows FRED indicators (rates, unemployment, CPI YoY, sentiment) alongside Beige Book district summaries on a single view
   4. Industry health panel displays ROA, efficiency ratio, deposit/loan growth with charter segmentation
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 **UI hint**: yes
 
 ### Phase 27: External Intelligence System
@@ -409,7 +437,11 @@ Plans:
   1. Admin can upload or paste external reports/surveys with source attribution (source name, date, category, relevance tags)
   2. External intelligence is stored with structured metadata and is searchable by category and tags
   3. Hamilton can search external intelligence alongside internal data and cite external sources with proper attribution in analysis output
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
+- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ---
 
