@@ -30,7 +30,18 @@ import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { UpgradeGate } from "@/components/upgrade-gate";
+import {
+  computeInstitutionRating,
+  deriveStrengthsAndWatch,
+  generateInterpretation,
+} from "@/lib/institution-rating";
+import { FeeSummaryCard } from "./summary-card";
+import { InterpretationBlock } from "./interpretation-block";
+import { FeeComparisonBars } from "./fee-comparison-bars";
+import { FeeCountCard } from "./fee-count-card";
+import { ProsConsBlock } from "./pros-cons-block";
+import { MidPageCTA } from "./mid-page-cta";
+import { CompareSection } from "./compare-section";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -503,6 +514,46 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const latestFinancial = financials[0] ?? null;
   const marketConcentration = await getMarketConcentrationForInstitution(instId);
 
+  // --- V2 rating engine ---
+  const rating = computeInstitutionRating(fees, nationalIndex);
+  const strengthsWatch = deriveStrengthsAndWatch(fees, nationalIndex);
+
+  const overdraftFee = fees.find((f) =>
+    f.fee_name.toLowerCase().includes("overdraft") && f.amount !== null
+  );
+  const overdraftAmount = overdraftFee?.amount ?? null;
+
+  const interpretation = generateInterpretation({
+    rating,
+    feeCount: fees.length,
+    overdraftAmount,
+    charterType: inst.charter_type,
+  });
+
+  // Build comparison bars for key fee categories (D-06: hidden if no matches)
+  const COMPARISON_CATEGORIES: Array<{ key: string; label: string }> = [
+    { key: "overdraft", label: "Overdraft" },
+    { key: "monthly_maintenance", label: "Monthly Maintenance" },
+    { key: "wire_domestic_outgoing", label: "Domestic Wire" },
+    { key: "nsf", label: "NSF" },
+  ];
+  const feeByCategory = new Map(fees.map((f) => [f.fee_name, f.amount]));
+  const comparisonData = COMPARISON_CATEGORIES.flatMap(({ key, label }) => {
+    const instAmt = feeByCategory.get(key);
+    const indexEntry = nationalIndex.find((e) => e.fee_category === key);
+    if (
+      instAmt === null ||
+      instAmt === undefined ||
+      instAmt <= 0 ||
+      !indexEntry ||
+      indexEntry.median_amount === null ||
+      indexEntry.median_amount <= 0
+    ) {
+      return [];
+    }
+    return [{ label, institutionAmount: instAmt, nationalMedian: indexEntry.median_amount }];
+  });
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-14">
       <BreadcrumbJsonLd
@@ -586,15 +637,59 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </div>
       )}
 
+      {/* V2: Summary Card — most prominent, answers "Is this expensive?" above fold */}
+      <div className="mt-8 text-center">
+        <div className="mx-auto max-w-xl text-left">
+          <FeeSummaryCard rating={rating} />
+        </div>
+      </div>
+
+      {/* V2: Interpretation block */}
+      <div className="mt-6 mx-auto max-w-xl">
+        <InterpretationBlock text={interpretation} />
+      </div>
+
+      {/* V2: Visual comparison bars (hidden if no category matches per D-06) */}
+      {comparisonData.length > 0 && (
+        <div className="mt-6">
+          <FeeComparisonBars comparisons={comparisonData} />
+        </div>
+      )}
+
+      {/* V2: Fee count context card */}
+      <div className="mt-6">
+        <FeeCountCard
+          institutionCount={fees.length}
+          charterType={inst.charter_type}
+        />
+      </div>
+
+      {/* V2: Strengths / Watch section (hidden if no data per D-09) */}
+      {(strengthsWatch.strengths.length > 0 || strengthsWatch.watch.length > 0) && (
+        <div className="mt-6">
+          <ProsConsBlock
+            strengths={strengthsWatch.strengths}
+            watch={strengthsWatch.watch}
+          />
+        </div>
+      )}
+
+      {/* V2: Mid-page CTA — only for non-pro users (D-15, D-17) */}
+      {!isPro && (
+        <div className="mt-8">
+          <MidPageCTA />
+        </div>
+      )}
+
       {/* Info cards */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <InfoCard label="Charter Type" value={charterLabel} />
         <InfoCard label="Asset Tier" value={tierLabel ?? "Unknown"} />
         <InfoCard label="Total Assets" value={inst.asset_size ? formatAssets(inst.asset_size) : "N/A"} />
         <InfoCard label="Published Fees" value={String(fees.length)} />
       </div>
 
-      {/* Financial snapshot (pro only — no UpgradeGate for consumers) */}
+      {/* Financial snapshot (pro only) */}
       {isPro && latestFinancial && (
         <section className="mt-10">
           <h2
@@ -629,7 +724,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Market context (pro only — no UpgradeGate for consumers) */}
+      {/* Market context (pro only) */}
       {isPro && marketConcentration && (
         <section className="mt-8">
           <h2
@@ -668,7 +763,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         tierLabel={tierLabel ?? "Unknown"}
       />
 
-      {/* Financial Context — Call Report data (pro only — no UpgradeGate for consumers) */}
+      {/* Financial Context — Call Report data (pro only) */}
       {isPro && (revenueTrend.length > 0 || peerRanking) && (
         <section className="mt-10">
           <h2
@@ -802,99 +897,126 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
       )}
 
       {/* Fee schedule */}
-      <section className="mt-10">
-        <h2
-          className="text-[16px] font-medium text-[#1A1815]"
-          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-        >
-          Fee Schedule
-        </h2>
-        <p className="mt-1 text-[13px] text-[#7A7062]">
-          {fees.length} fees extracted from published fee schedule.
-          Compared against national medians where category data is available.
-        </p>
+      {(() => {
+        // D-07: hide National Median + vs. Median columns entirely if zero rows match
+        const anyHasMedian = fees.some(
+          (f) => nationalMedians.get(f.fee_name) !== undefined && f.amount && f.amount > 0
+        );
+        return (
+          <section className="mt-10">
+            <h2
+              className="text-[16px] font-medium text-[#1A1815]"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
+              Fee Schedule
+            </h2>
+            <p className="mt-1 text-[13px] text-[#7A7062]">
+              {fees.length} fees extracted from published fee schedule.
+              {anyHasMedian && " Compared against national medians where category data is available."}
+            </p>
 
-        <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                  Fee
-                </th>
-                <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                  Amount
-                </th>
-                <th className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                  Frequency
-                </th>
-                <th className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
-                  National Median
-                </th>
-                <th className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
-                  vs. Median
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E8DFD1]/40">
-              {fees.map((fee) => {
-                const nationalMedian = nationalMedians.get(fee.fee_name) ?? null;
-                const delta =
-                  nationalMedian && fee.amount
-                    ? ((fee.amount - nationalMedian) / nationalMedian) * 100
-                    : null;
-                const showCallout =
-                  fee.amount !== null && fee.amount > 0 && getExplainer(fee.fee_name) !== null;
-
-                return (
-                  <>
-                    <tr
-                      key={fee.id}
-                      className="hover:bg-[#FAF7F2]/60 transition-colors"
-                    >
-                      <td className="px-4 py-2.5">
-                        <span className="font-medium text-[#1A1815]">
-                          {fee.fee_name}
-                        </span>
-                        {fee.conditions && (
-                          <span className="mt-0.5 block text-[11px] text-[#A09788] max-w-xs truncate">
-                            {fee.conditions}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                        {formatAmount(fee.amount)}
-                      </td>
-                      <td className="hidden px-4 py-2.5 text-[#7A7062] sm:table-cell">
-                        {fee.frequency ?? "-"}
-                      </td>
-                      <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
-                        {formatAmount(nationalMedian)}
-                      </td>
-                      <td className="hidden px-4 py-2.5 text-right md:table-cell">
-                        {delta !== null ? (
-                          <DeltaPill delta={delta} />
-                        ) : (
-                          <span className="text-[11px] text-[#A09788]">-</span>
-                        )}
-                      </td>
-                    </tr>
-                    {showCallout && (
-                      <FeeCallout
-                        key={`callout-${fee.id}`}
-                        category={fee.fee_name}
-                        amount={fee.amount!}
-                        institutionName={inst.institution_name}
-                        charterLabel={charterLabel}
-                        nationalMedian={nationalMedian}
-                      />
+            <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                      Fee
+                    </th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                      Amount
+                    </th>
+                    <th className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                      Frequency
+                    </th>
+                    {anyHasMedian && (
+                      <th className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
+                        National Median
+                      </th>
                     )}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    {anyHasMedian && (
+                      <th className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
+                        vs. Median
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E8DFD1]/40">
+                  {fees.map((fee) => {
+                    const nationalMedian = nationalMedians.get(fee.fee_name) ?? null;
+                    const delta =
+                      nationalMedian && fee.amount
+                        ? ((fee.amount - nationalMedian) / nationalMedian) * 100
+                        : null;
+                    const showCallout =
+                      fee.amount !== null && fee.amount > 0 && getExplainer(fee.fee_name) !== null;
+
+                    return (
+                      <>
+                        <tr
+                          key={fee.id}
+                          className="hover:bg-[#FAF7F2]/60 transition-colors"
+                        >
+                          <td className="px-4 py-2.5">
+                            <span className="font-medium text-[#1A1815]">
+                              {fee.fee_name}
+                            </span>
+                            {fee.conditions && (
+                              <span className="mt-0.5 block text-[11px] text-[#A09788] max-w-xs truncate">
+                                {fee.conditions}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                            {formatAmount(fee.amount)}
+                          </td>
+                          <td className="hidden px-4 py-2.5 text-[#7A7062] sm:table-cell">
+                            {fee.frequency ?? "—"}
+                          </td>
+                          {anyHasMedian && (
+                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
+                              {formatAmount(nationalMedian)}
+                            </td>
+                          )}
+                          {anyHasMedian && (
+                            <td className="hidden px-4 py-2.5 text-right md:table-cell">
+                              {delta !== null ? (
+                                delta > 0.5 ? (
+                                  <span className="text-[13px] font-medium text-red-600" title={`${delta.toFixed(0)}% above national median`}>↑</span>
+                                ) : delta < -0.5 ? (
+                                  <span className="text-[13px] font-medium text-emerald-600" title={`${Math.abs(delta).toFixed(0)}% below national median`}>↓</span>
+                                ) : (
+                                  <span className="text-[13px] font-medium text-[#A09788]" title="At national median">=</span>
+                                )
+                              ) : null}
+                            </td>
+                          )}
+                        </tr>
+                        {showCallout && (
+                          <FeeCallout
+                            key={`callout-${fee.id}`}
+                            category={fee.fee_name}
+                            amount={fee.amount!}
+                            institutionName={inst.institution_name}
+                            charterLabel={charterLabel}
+                            nationalMedian={nationalMedian}
+                          />
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* V2: Compare section — links to filtered institution search (D-10, D-11) */}
+      <CompareSection
+        stateCode={inst.state_code}
+        charterType={inst.charter_type}
+        stateName={stateName}
+      />
 
       {/* Intelligence & Reports */}
       {isPro ? (
@@ -993,11 +1115,10 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             className="text-[18px] font-normal text-[#1A1815]"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
-            Need deeper analysis?
+            Built for financial professionals
           </h2>
           <p className="mt-2 text-[14px] text-[#6B6355] max-w-md mx-auto">
-            Financial professionals get access to Call Report data, peer
-            benchmarking, competitive intelligence, and AI-powered research.
+            Financial professionals use Bank Fee Index to benchmark pricing, analyze revenue, and identify opportunities.
           </p>
           <div className="mt-5">
             <Link
