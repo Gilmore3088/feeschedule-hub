@@ -361,9 +361,9 @@ Plans:
 **Milestone Goal:** Build the data foundation that Hamilton needs to produce credible national analysis. Fix data queries, create summary views, and build admin portal pages for national data -- the raw work that feeds reports later.
 
 - [x] **Phase 23: Call Report & FRED Foundation** - Fix revenue scaling, build economic summaries, establish the data layer everything else depends on (completed 2026-04-08)
-- [ ] **Phase 24: Industry Health & Beige Book** - Compute health metrics from institution financials, condense Beige Book narratives into usable summaries
-- [ ] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer
-- [ ] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports
+- [x] **Phase 24: Industry Health & Beige Book** - Compute health metrics from institution financials, condense Beige Book narratives into usable summaries
+- [x] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer
+- [x] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports
 - [x] **Phase 27: External Intelligence System** - Ingest, store, and query external research/surveys alongside internal data (completed 2026-04-08)
 
 ### Phase 23: Call Report & FRED Foundation
@@ -479,7 +479,85 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 21. Knowledge Automation | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 22. Wave Reporting | v3.0 | 1/2 | Complete    | 2026-04-08 |
 | 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete    | 2026-04-08 |
-| 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
-| 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
-| 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
+| 24. Industry Health & Beige Book | v5.0 | 2/2 | Complete | - |
+| 25. Derived Analytics & Hamilton Tools | v5.0 | 3/3 | Complete | - |
+| 26. National Data Admin Portal | v5.0 | 2/2 | Complete | - |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete    | 2026-04-08 |
+
+---
+
+## v6.0 Two-Sided Experience
+
+**Milestone Goal:** Create distinct, cohesive user experiences for consumers and B2B subscribers -- so each audience gets a tailored front door, clear value proposition, and purpose-built tools.
+
+- [ ] **Phase 28: Audience Shell Separation** - Distinct nav components per audience, centralized pro auth guard, personalization service
+- [ ] **Phase 29: Consumer Landing Page** - Value-prop-first landing page replacing split-panel gateway, embedded Fee Scout, trust signals, consumer guide teasers, B2B door
+- [ ] **Phase 30: Institution Educational Pages** - "Why does this matter?" callouts, peer percentile indicators, fee distribution charts, B2B report links per institution
+- [ ] **Phase 31: B2B Launchpad Dashboard** - Four-door pro dashboard (Hamilton, Peer Builder, Reports, Federal Data), peer snapshot, recent activity, Beige Book digest
+- [ ] **Phase 32: Scoped Report Generation and PDF Export** - Structured report type selector, PDF download, report history, per-user daily limits
+
+### Phase 28: Audience Shell Separation
+**Goal**: Consumer and pro experiences have stable, independent layout shells -- distinct nav components, centralized auth guard, and a personalization service -- that all subsequent phases build on
+**Depends on**: Phase 27
+**Requirements**: SHELL-01, SHELL-02, SHELL-03
+**Success Criteria** (what must be TRUE):
+  1. A consumer visitor landing on any `(public)/` route sees `ConsumerNav`; a pro subscriber on any `/pro/*` route sees `ProNav` -- no conditional branching between the two components
+  2. Accessing any `/pro/*` route without a valid premium session redirects to login -- the auth check lives only in `pro/layout.tsx`, not in individual page components
+  3. `derivePersonalizationContext(user)` returns the user's institution name, Fed district label, asset tier, and peer group label from their account profile without a DB call
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 29: Consumer Landing Page
+**Goal**: The root `/` is a search-engine-indexable, value-prop-first consumer landing page that lets anyone search without authentication and directs B2B prospects to an upgrade path without gating them
+**Depends on**: Phase 28
+**Requirements**: CLND-01, CLND-02, CLND-03, CLND-04, CLND-05, CLND-06, CLND-07, CLND-08
+**Success Criteria** (what must be TRUE):
+  1. A first-time visitor arriving at `/` can type any bank or credit union name into Fee Scout and view results -- no login prompt appears at any point during search
+  2. The page renders full server-side HTML so search engines can index its content; `generateMetadata()` produces correct title, description, and OG image for the root URL
+  3. Trust signals are visible above the fold: institution count covered, data freshness date, and data source provenance (FDIC/NCUA)
+  4. A "how it works" section explains the three-step consumer journey (Search, Compare, Act) and at least two consumer guide teasers appear linking to full guide content
+  5. A "For Financial Institutions" section with a clear upgrade CTA is present without acting as a barrier to consumer use; the page design meets a consulting-grade visual quality bar (editorial typography, generous whitespace)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 30: Institution Educational Pages
+**Goal**: Institution detail pages are interpretive consumer experiences -- every fee category has a contextual callout explaining its significance, a peer percentile position, and a distribution chart showing where the institution sits nationally
+**Depends on**: Phase 29
+**Requirements**: INST-01, INST-02, INST-03, INST-04
+**Success Criteria** (what must be TRUE):
+  1. Each fee category row on an institution page shows a "why does this matter?" callout explaining the real-world consumer impact of that fee in plain language (not a data label)
+  2. Each fee row shows a peer percentile indicator ("higher than 72% of similar banks") computed against institutions of the same charter type and asset tier
+  3. A Recharts histogram chart shows where the institution's fee amount sits relative to the national distribution for that category, with the institution's position visually distinguished
+  4. Authenticated pro users see relevant B2B report links on the institution page surfacing competitive or peer reports applicable to that institution's peer group
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 31: B2B Launchpad Dashboard
+**Goal**: Pro subscribers land on a coherent starting point -- a four-door launchpad surfacing their most relevant tools, a peer snapshot against the national median, recent activity, and a personalized Beige Book digest for their district
+**Depends on**: Phase 28 (auth guard and personalization service must exist before B2B dashboard can use them)
+**Requirements**: B2B-01, B2B-02, B2B-03, B2B-04, B2B-05
+**Success Criteria** (what must be TRUE):
+  1. A pro subscriber landing on `/pro` sees four prominent action doors: Hamilton, Peer Builder, Reports, and Federal Data -- each links to its destination with a one-line description of what it does
+  2. A peer snapshot panel shows the subscriber's peer group median vs national median for at least the top 3 fee categories with delta indicators
+  3. Recent activity shows the subscriber's last 3 Hamilton conversations and last 3 generated reports with direct resume or download links
+  4. A Beige Book digest section shows a 2-3 sentence economic summary for the subscriber's Fed district sourced from the most recent Beige Book ingestion
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 32: Scoped Report Generation and PDF Export
+**Goal**: Pro subscribers can select a structured report type, generate a scoped 3-5 page report with pre-filled peer context, download it as PDF, retrieve past reports from history, and are prevented from exceeding per-user daily generation limits
+**Depends on**: Phase 31 (report center lives in the B2B launchpad; Phase 28 `canAccessReportType()` gates access by subscription tier)
+**Requirements**: RPT-01, RPT-02, RPT-03, RPT-04
+**Success Criteria** (what must be TRUE):
+  1. A pro subscriber can choose from at least three report types (peer brief, competitive snapshot, district outlook) via a structured scope form with peer group pre-filled from their profile, and trigger generation without writing a free-form prompt
+  2. A generated report can be downloaded as a PDF file that opens correctly in a standard PDF viewer
+  3. All previously generated reports appear in a report history view with type, date, and status; any completed report can be re-downloaded without re-generating
+  4. A subscriber who hits the daily report limit (configurable, default 5/day for pro) sees a clear "daily limit reached" message and cannot trigger additional generations until the following day
+**Plans**: TBD
+**UI hint**: yes
+
+| 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
+| 29. Consumer Landing Page | v6.0 | 0/TBD | Not started | - |
+| 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
+| 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
+| 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
