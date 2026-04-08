@@ -22,6 +22,7 @@ import {
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
+import { getExplainer } from "@/lib/fee-explainers";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
@@ -106,6 +107,7 @@ interface ScorecardComparison {
   min: number;
   max: number;
   delta: number;
+  indexEntry: IndexEntry;
 }
 
 function computeScorecard(
@@ -127,12 +129,48 @@ function computeScorecard(
         min: entry.min_amount ?? 0,
         max: entry.max_amount ?? entry.median_amount * 2,
         delta: ((f.amount! - entry.median_amount) / entry.median_amount) * 100,
+        indexEntry: entry,
       };
     })
     .filter(Boolean) as ScorecardComparison[];
 }
 
-function PositionBar({ comp }: { comp: ScorecardComparison }) {
+function estimatePercentile(
+  amount: number,
+  entry: {
+    p25_amount: number | null;
+    p75_amount: number | null;
+    min_amount: number | null;
+    max_amount: number | null;
+    median_amount: number | null;
+  }
+): number {
+  const median = entry.median_amount ?? 0;
+  const p25 = entry.p25_amount ?? median;
+  const p75 = entry.p75_amount ?? median;
+  const min = entry.min_amount ?? 0;
+  const max = entry.max_amount ?? median * 2;
+
+  if (amount <= min) return 1;
+  if (amount >= max) return 99;
+  if (amount <= p25)
+    return Math.max(1, Math.round((25 * (amount - min)) / Math.max(p25 - min, 0.01)));
+  if (amount <= median)
+    return Math.round(25 + (25 * (amount - p25)) / Math.max(median - p25, 0.01));
+  if (amount <= p75)
+    return Math.round(50 + (25 * (amount - median)) / Math.max(p75 - median, 0.01));
+  return Math.min(99, Math.round(75 + (25 * (amount - p75)) / Math.max(max - p75, 0.01)));
+}
+
+function PositionBar({
+  comp,
+  charterType,
+  tierLabel,
+}: {
+  comp: ScorecardComparison;
+  charterType: string;
+  tierLabel: string;
+}) {
   const rangeMin = comp.min;
   const rangeMax = Math.max(comp.max, comp.amount);
   const span = rangeMax - rangeMin || 1;
@@ -142,6 +180,24 @@ function PositionBar({ comp }: { comp: ScorecardComparison }) {
   const pctFee = Math.max(0, Math.min(100, ((comp.amount - rangeMin) / span) * 100));
   const isBelow = comp.delta < -0.5;
   const isAbove = comp.delta > 0.5;
+
+  const percentile = estimatePercentile(comp.amount, comp.indexEntry);
+  const isPercentileBelow = percentile < 50;
+  const isPercentileAbove = percentile > 50;
+  const percentileLabel =
+    isPercentileBelow
+      ? `top ${percentile}%`
+      : isPercentileAbove
+        ? `bottom ${100 - percentile}%`
+        : "50th pct";
+  const percentileColor = isPercentileBelow
+    ? "text-emerald-600"
+    : isPercentileAbove
+      ? "text-red-600"
+      : "text-[#A09788]";
+  const tooltipText = isPercentileBelow
+    ? `Lower than ${100 - percentile}% of ${charterType} institutions in the ${tierLabel} asset tier`
+    : `Higher than ${percentile}% of ${charterType} institutions in the ${tierLabel} asset tier`;
 
   return (
     <div className="flex items-center gap-3 py-2">
@@ -179,6 +235,12 @@ function PositionBar({ comp }: { comp: ScorecardComparison }) {
       }`}>
         {isAbove ? "+" : ""}{comp.delta.toFixed(0)}%
       </span>
+      <span
+        className={`w-[60px] shrink-0 text-right text-[10px] tabular-nums font-medium ${percentileColor}`}
+        title={tooltipText}
+      >
+        {percentileLabel}
+      </span>
     </div>
   );
 }
@@ -187,10 +249,14 @@ function CompetitiveScorecard({
   fees,
   indexEntries,
   isPro,
+  charterType,
+  tierLabel,
 }: {
   fees: { id: number; fee_name: string; amount: number | null }[];
   indexEntries: IndexEntry[];
   isPro: boolean;
+  charterType: string;
+  tierLabel: string;
 }) {
   const comparisons = computeScorecard(fees, indexEntries);
   if (comparisons.length < 2) return null;
@@ -289,7 +355,12 @@ function CompetitiveScorecard({
           </div>
           <div className="divide-y divide-[#E8DFD1]/30">
             {sorted.map((comp) => (
-              <PositionBar key={comp.name} comp={comp} />
+              <PositionBar
+                key={comp.name}
+                comp={comp}
+                charterType={charterType}
+                tierLabel={tierLabel}
+              />
             ))}
           </div>
         </div>
@@ -299,6 +370,45 @@ function CompetitiveScorecard({
         </div>
       )}
     </section>
+  );
+}
+
+function FeeCallout({
+  category,
+  amount,
+  institutionName,
+  charterLabel,
+  nationalMedian,
+}: {
+  category: string;
+  amount: number;
+  institutionName: string;
+  charterLabel: string;
+  nationalMedian: number | null;
+}) {
+  const explainer = getExplainer(category);
+  if (!explainer) return null;
+
+  return (
+    <tr>
+      <td colSpan={5} className="px-4 pb-3 pt-0">
+        <div className="mt-1 rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/70 px-4 py-3">
+          <p className="text-[13px] leading-relaxed text-[#5A5347]">
+            {explainer}{" "}
+            {nationalMedian !== null ? (
+              <span className="text-[13px] leading-relaxed text-[#1A1815] font-medium">
+                {institutionName} charges {formatAmount(amount)}. The national median for{" "}
+                {charterLabel.toLowerCase()} institutions is {formatAmount(nationalMedian)}.
+              </span>
+            ) : (
+              <span className="text-[13px] leading-relaxed text-[#A09788]">
+                Benchmark data unavailable for this category.
+              </span>
+            )}
+          </p>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -509,7 +619,13 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
       )}
 
       {/* Competitive Position */}
-      <CompetitiveScorecard fees={fees} indexEntries={nationalIndex} isPro={isPro} />
+      <CompetitiveScorecard
+        fees={fees}
+        indexEntries={nationalIndex}
+        isPro={isPro}
+        charterType={charterLabel}
+        tierLabel={tierLabel ?? "Unknown"}
+      />
 
       {/* Financial Context — Call Report data (D-08, D-09, D-10) */}
       {(revenueTrend.length > 0 || peerRanking) && (
@@ -653,39 +769,53 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   nationalMedian && fee.amount
                     ? ((fee.amount - nationalMedian) / nationalMedian) * 100
                     : null;
+                const showCallout =
+                  fee.amount !== null && fee.amount > 0 && getExplainer(fee.fee_name) !== null;
 
                 return (
-                  <tr
-                    key={fee.id}
-                    className="hover:bg-[#FAF7F2]/60 transition-colors"
-                  >
-                    <td className="px-4 py-2.5">
-                      <span className="font-medium text-[#1A1815]">
-                        {fee.fee_name}
-                      </span>
-                      {fee.conditions && (
-                        <span className="mt-0.5 block text-[11px] text-[#A09788] max-w-xs truncate">
-                          {fee.conditions}
+                  <>
+                    <tr
+                      key={fee.id}
+                      className="hover:bg-[#FAF7F2]/60 transition-colors"
+                    >
+                      <td className="px-4 py-2.5">
+                        <span className="font-medium text-[#1A1815]">
+                          {fee.fee_name}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                      {formatAmount(fee.amount)}
-                    </td>
-                    <td className="hidden px-4 py-2.5 text-[#7A7062] sm:table-cell">
-                      {fee.frequency ?? "-"}
-                    </td>
-                    <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
-                      {formatAmount(nationalMedian)}
-                    </td>
-                    <td className="hidden px-4 py-2.5 text-right md:table-cell">
-                      {delta !== null ? (
-                        <DeltaPill delta={delta} />
-                      ) : (
-                        <span className="text-[11px] text-[#A09788]">-</span>
-                      )}
-                    </td>
-                  </tr>
+                        {fee.conditions && (
+                          <span className="mt-0.5 block text-[11px] text-[#A09788] max-w-xs truncate">
+                            {fee.conditions}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                        {formatAmount(fee.amount)}
+                      </td>
+                      <td className="hidden px-4 py-2.5 text-[#7A7062] sm:table-cell">
+                        {fee.frequency ?? "-"}
+                      </td>
+                      <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
+                        {formatAmount(nationalMedian)}
+                      </td>
+                      <td className="hidden px-4 py-2.5 text-right md:table-cell">
+                        {delta !== null ? (
+                          <DeltaPill delta={delta} />
+                        ) : (
+                          <span className="text-[11px] text-[#A09788]">-</span>
+                        )}
+                      </td>
+                    </tr>
+                    {showCallout && (
+                      <FeeCallout
+                        key={`callout-${fee.id}`}
+                        category={fee.fee_name}
+                        amount={fee.amount!}
+                        institutionName={inst.institution_name}
+                        charterLabel={charterLabel}
+                        nationalMedian={nationalMedian}
+                      />
+                    )}
+                  </>
                 );
               })}
             </tbody>
