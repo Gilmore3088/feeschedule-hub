@@ -18,6 +18,7 @@ import psycopg2
 import psycopg2.extras
 
 from fee_crawler.agents.discover import discover_url
+from fee_crawler.agents.strategy import StrategyTier, TIER1, tier_for_pass
 from fee_crawler.agents.classify import classify_document
 from fee_crawler.agents.extract_pdf import extract_pdf
 from fee_crawler.agents.extract_html import extract_html
@@ -53,25 +54,57 @@ def _record_result(conn, run_id: int, target_id: int, stage: str, status: str, d
     conn.commit()
 
 
-def run_state_agent(state_code: str) -> dict:
-    """Run the full 5-stage agent for a state. Returns summary dict."""
+def run_state_agent(
+    state_code: str,
+    pass_number: int = 1,
+    strategy: StrategyTier | None = None,
+) -> dict:
+    """Run the full 5-stage agent for a state. Returns summary dict.
+
+    Args:
+        state_code: Two-letter state code (e.g. "WY").
+        pass_number: Which iteration pass this is (1=easy, 2=medium, 3+=hard).
+            Defaults to 1 for backward compatibility.
+        strategy: StrategyTier controlling discovery aggressiveness.
+            If None, derived from pass_number via tier_for_pass().
+    """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+
+    if strategy is None:
+        strategy = tier_for_pass(pass_number)
 
     conn = _connect()
     cur = conn.cursor()
 
     # ── Stage 1: Inventory ────────────────────────────────────────────
-    log.info(f"Stage 1: Inventory for {state_code}")
-    cur.execute(
-        "SELECT * FROM crawl_targets WHERE status = 'active' AND state_code = %s ORDER BY asset_size DESC NULLS LAST",
-        (state_code,),
-    )
+    log.info(f"Stage 1: Inventory for {state_code} (pass {pass_number}, strategy={strategy.name})")
+
+    if pass_number == 1:
+        # Pass 1: full inventory of all active institutions in state
+        cur.execute(
+            "SELECT * FROM crawl_targets WHERE status = 'active' AND state_code = %s ORDER BY asset_size DESC NULLS LAST",
+            (state_code,),
+        )
+    else:
+        # Pass 2+: narrow to institutions without successful fee extraction
+        # Avoids re-iterating institutions already covered by prior passes (D-09)
+        cur.execute(
+            """SELECT ct.* FROM crawl_targets ct
+               WHERE ct.status = 'active' AND ct.state_code = %s
+                 AND NOT EXISTS (
+                   SELECT 1 FROM extracted_fees ef
+                   WHERE ef.crawl_target_id = ct.id
+                     AND ef.review_status != 'rejected'
+                 )
+               ORDER BY ct.asset_size DESC NULLS LAST""",
+            (state_code,),
+        )
     institutions = cur.fetchall()
 
-    # Create agent run
+    # Create agent run — record pass_number and strategy for audit trail (ITER-02)
     cur.execute(
-        "INSERT INTO agent_runs (state_code, total_institutions, current_stage) VALUES (%s, %s, 'inventory') RETURNING id",
-        (state_code, len(institutions)),
+        "INSERT INTO agent_runs (state_code, total_institutions, current_stage, pass_number, strategy) VALUES (%s, %s, 'inventory', %s, %s) RETURNING id",
+        (state_code, len(institutions), pass_number, strategy.name),
     )
     run_id = cur.fetchone()["id"]
     conn.commit()
@@ -107,7 +140,7 @@ def run_state_agent(state_code: str) -> dict:
                 continue
 
             try:
-                result = discover_url(inst_name, website_url, knowledge=knowledge)
+                result = discover_url(inst_name, website_url, knowledge=knowledge, strategy=strategy)
                 if result["found"]:
                     fee_url = result["url"]
                     cur.execute(
@@ -205,6 +238,9 @@ def run_state_agent(state_code: str) -> dict:
     # ── Write learnings ─────────────────────────────────────────────
     _update_run(conn, run_id, current_stage="learnings")
     try:
+        # Extend stats with pass metadata so write_learnings() can log them (ITER-03)
+        stats["pass_number"] = pass_number
+        stats["strategy"] = strategy.name
         learnings = _generate_learnings(conn, run_id, state_code, stats)
         write_learnings(state_code, run_id, stats, learnings)
         log.info(f"Wrote {len(learnings)} learnings to knowledge base")
@@ -227,7 +263,7 @@ def run_state_agent(state_code: str) -> dict:
     conn.close()
 
     log.info(f"Run #{run_id} complete: {json.dumps(stats)}")
-    return {"run_id": run_id, **stats}
+    return {"run_id": run_id, "pass_number": pass_number, "strategy": strategy.name, **stats}
 
 
 def _write_fees(conn, crawl_target_id: int, fees: list[dict]):

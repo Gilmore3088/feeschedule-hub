@@ -50,8 +50,18 @@ def write_learnings(
     site_notes = [l["site_note"] for l in learnings if l.get("site_note")]
     nationals = [l["national"] for l in learnings if l.get("national")]
 
-    block = f"\n## Run #{run_id} — {date.today().isoformat()}\n"
-    block += f"Discovered: {stats.get('discovered', 0)} | Extracted: {stats.get('extracted', 0)} | Failed: {stats.get('failed', 0)}\n"
+    pass_info = (
+        f" -- Pass {stats['pass_number']} ({stats['strategy']})"
+        if stats.get("pass_number")
+        else ""
+    )
+    coverage_info = (
+        f" | Coverage: {stats['coverage_pct']:.1f}%"
+        if stats.get("coverage_pct") is not None
+        else ""
+    )
+    block = f"\n## Run #{run_id}{pass_info} — {date.today().isoformat()}\n"
+    block += f"Discovered: {stats.get('discovered', 0)} | Extracted: {stats.get('extracted', 0)} | Failed: {stats.get('failed', 0)}{coverage_info}\n"
 
     if patterns:
         block += "\n### New Patterns\n"

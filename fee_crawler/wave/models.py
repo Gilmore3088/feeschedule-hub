@@ -39,6 +39,7 @@ class WaveStateRun:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error: str | None = None
+    last_completed_pass: int = 0
 
 
 # ─── Schema bootstrap ─────────────────────────────────────────────────────────
@@ -74,10 +75,18 @@ CREATE TABLE IF NOT EXISTS wave_state_runs (
 
 
 def ensure_tables(conn) -> None:
-    """Create wave tables if they don't exist (for envs where migration hasn't run)."""
+    """Create wave tables if they don't exist (for envs where migration hasn't run).
+
+    Also applies iterative deepening columns (20260408 migration) so both the
+    migration and runtime bootstrap paths stay in sync.
+    """
     cur = conn.cursor()
     cur.execute(_CREATE_WAVE_RUNS)
     cur.execute(_CREATE_WAVE_STATE_RUNS)
+    # Phase 20-01: iterative deepening columns — safe to re-run (IF NOT EXISTS)
+    cur.execute("ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS pass_number INTEGER DEFAULT 1")
+    cur.execute("ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS strategy TEXT DEFAULT 'tier1'")
+    cur.execute("ALTER TABLE wave_state_runs ADD COLUMN IF NOT EXISTS last_completed_pass INTEGER DEFAULT 0")
     conn.commit()
 
 
@@ -235,6 +244,51 @@ def get_latest_wave(conn) -> WaveRun | None:
     if row is None:
         return None
     return _row_to_wave_run(row)
+
+
+def update_wave_state_pass(
+    conn,
+    wave_run_id: int,
+    state_code: str,
+    last_completed_pass: int,
+    agent_run_id: int | None = None,
+) -> None:
+    """Update last_completed_pass (and optionally agent_run_id) on wave_state_runs.
+
+    Called after each pass completes so resume_wave() can restart from pass N+1.
+    Parameterized query per T-19-01.
+    """
+    sets: list[str] = ["last_completed_pass = %s"]
+    vals: list[Any] = [last_completed_pass]
+
+    if agent_run_id is not None:
+        sets.append("agent_run_id = %s")
+        vals.append(agent_run_id)
+
+    vals.extend([wave_run_id, state_code])
+
+    cur = conn.cursor()
+    cur.execute(
+        f"UPDATE wave_state_runs SET {', '.join(sets)} WHERE wave_run_id = %s AND state_code = %s",
+        vals,
+    )
+    conn.commit()
+
+
+def get_last_completed_pass(conn, wave_run_id: int, state_code: str) -> int:
+    """Return last_completed_pass for a given (wave_run_id, state_code), or 0 if not found.
+
+    Used by resume_wave() to restart multi-pass iteration from the correct pass.
+    """
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT last_completed_pass FROM wave_state_runs WHERE wave_run_id = %s AND state_code = %s",
+        (wave_run_id, state_code),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return 0
+    return row["last_completed_pass"] or 0
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
