@@ -569,6 +569,77 @@ def cmd_stats(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_knowledge_prune(args: argparse.Namespace) -> None:
+    """Prune knowledge files to stay within token budget."""
+    from fee_crawler.knowledge.pruner import prune_state, prune_national
+    from fee_crawler.knowledge import loader as knowledge_loader
+    from pathlib import Path
+
+    config = load_config()
+    budget = config.knowledge.token_budget_chars
+
+    if args.state:
+        state = args.state.upper()
+        print(f"Pruning {state} knowledge file (budget: {budget} chars)...")
+        prune_state(state, token_budget_chars=budget)
+        print("Done.")
+    elif args.all:
+        states_dir = Path(knowledge_loader.KNOWLEDGE_DIR) / "states"
+        state_files = sorted(states_dir.glob("*.md")) if states_dir.exists() else []
+        print(f"Pruning {len(state_files)} state files and national.md (budget: {budget} chars)...")
+        for f in state_files:
+            prune_state(f.stem, token_budget_chars=budget)
+        prune_national(token_budget_chars=budget)
+        print(f"Done. Pruned {len(state_files)} states + national.")
+    else:
+        print("Specify --state XX or --all", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_knowledge_status(args: argparse.Namespace) -> None:
+    """Show knowledge base file sizes and token budget status."""
+    from fee_crawler.knowledge import loader as knowledge_loader
+    from pathlib import Path
+
+    config = load_config()
+    budget = config.knowledge.token_budget_chars
+
+    knowledge_dir = Path(knowledge_loader.KNOWLEDGE_DIR)
+    states_dir = knowledge_dir / "states"
+    national_path = knowledge_dir / "national.md"
+
+    print(f"Knowledge base: {knowledge_dir}")
+    print(f"Token budget: {budget} chars (~{budget // 4} tokens)")
+    print()
+
+    state_files = sorted(states_dir.glob("*.md")) if states_dir.exists() else []
+    over_budget = []
+    total_chars = 0
+
+    for f in state_files:
+        size = len(f.read_text())
+        total_chars += size
+        if size > budget:
+            over_budget.append((f.stem, size))
+
+    print(f"States: {len(state_files)} files, {total_chars:,} total chars")
+    if over_budget:
+        print(f"Over budget ({budget} chars): {len(over_budget)} states")
+        for code, size in over_budget[:10]:
+            print(f"  {code}: {size:,} chars")
+        if len(over_budget) > 10:
+            print(f"  ... and {len(over_budget) - 10} more")
+    else:
+        print("All state files within budget.")
+
+    if national_path.exists():
+        nat_size = len(national_path.read_text())
+        status = "OVER BUDGET" if nat_size > budget else "OK"
+        print(f"national.md: {nat_size:,} chars [{status}]")
+    else:
+        print("national.md: not yet created")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="fee_crawler",
@@ -1188,6 +1259,41 @@ def main() -> None:
             "fee_crawler.wave.cli", fromlist=["cmd_wave_resume"]
         ).cmd_wave_resume(args)
     )
+
+    # ── Knowledge management ───────────────────────────────────────────
+    knowledge_parser = subparsers.add_parser(
+        "knowledge",
+        help="Knowledge base management: prune, status",
+    )
+    knowledge_sub = knowledge_parser.add_subparsers(
+        dest="knowledge_command", required=True
+    )
+
+    # knowledge prune
+    k_prune_parser = knowledge_sub.add_parser(
+        "prune",
+        help="Prune knowledge files to stay within token budget",
+    )
+    k_prune_parser.add_argument(
+        "--state",
+        type=str,
+        default=None,
+        metavar="XX",
+        help="Two-letter state code to prune (e.g. WY)",
+    )
+    k_prune_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Prune all state files and national.md",
+    )
+    k_prune_parser.set_defaults(func=cmd_knowledge_prune)
+
+    # knowledge status
+    k_status_parser = knowledge_sub.add_parser(
+        "status",
+        help="Show knowledge base file sizes and budget status",
+    )
+    k_status_parser.set_defaults(func=cmd_knowledge_status)
 
     args = parser.parse_args()
     args.func(args)
