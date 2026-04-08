@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** The product is the data — the largest collection of bank fees anywhere. Hamilton is the gateway that turns national noise into actionable intelligence.
-**Current focus:** Phase 36 — Tool & Regulation Intelligence
+**Current focus:** v7.0 shipped. v6.0 Phase 30 in progress. Planning next milestone.
 
 ## Current Position
 
-Phase: 37
-Plan: Not started
-Status: Ready to execute
+Phase: v7.0 complete (Phases 33-37 shipped)
+Plan: v6.0 Phase 30-32 remaining
+Status: Between milestones
 Last activity: 2026-04-08
 
-Progress: [░░░░░░░░░░] 0%
+Progress: v7.0 [##########] 100%
 
 ## Performance Metrics
 
@@ -75,11 +75,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 33 pre-planning]: Quarterly thesis generation requires a "full data payload" definition — need to specify which tables/queries compose the thesis input before Phase 33 planning
-- [Phase 35 pre-planning]: Four existing chat agents must be identified and their route files confirmed before consolidation plan can be written
-- [Phase 36 pre-planning]: Confirm all 13 ingestion sources are actually wired to queryNationalData — verify BLS, Census, NY Fed, OFR, SOD before Phase 36 planning
 - [Phase 32 pre-planning]: @react-pdf/renderer primitive system differs from Tailwind -- Recharts SVGs cannot render inside PDF; need chart-to-PNG strategy before Phase 32 implementation
-- [Phase 29 pre-planning]: Anonymous search gate location not yet confirmed -- verify exact mechanism before Phase 29 planning
 
 ### Quick Tasks Completed
 

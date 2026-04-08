@@ -25,6 +25,12 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - ✓ State detail pages with interactive institution tables — built parallel
 - ✓ Account product tagging + fee cap detection — built parallel
 - ✓ Wyoming 91% coverage, Montana 47% — built parallel
+- ✓ Global thesis engine (quarterly thesis generation from data payload) — v7.0
+- ✓ Voice v3.1 (revenue-first, tension model, think-then-compress, 150-200 words) — v7.0
+- ✓ Unified chat persona (single Hamilton with consumer/pro/admin roles) — v7.0
+- ✓ 12-source queryNationalData + queryRegulatoryRisk tool — v7.0
+- ✓ Editor v2 (thesis alignment, revenue prioritization, "so what?" checks) — v7.0
+- ✓ 17 tool descriptions with Returns/When/Combine-with guidance — v7.0
 
 ### Active
 
@@ -41,29 +47,29 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - Mobile app — web-first
 - Real-time fee monitoring — batch/quarterly cadence is sufficient
 
-## Current Milestone: v7.0 Hamilton Reasoning Engine
+## Current State
 
-**Goal:** Upgrade Hamilton from a section-based report writer to a unified intelligence engine with global thesis generation, cross-source reasoning, and role-based delivery for admin, B2B, and consumers.
+**Latest shipped:** v7.0 Hamilton Reasoning Engine (2026-04-08)
 
-**Target features:**
-- Global thesis generator (quarterly thesis emerges from data, not hardcoded)
-- Voice v3 (150-200 words per section, think-then-compress, revenue prioritization, tension model)
-- Section generator v2 (cross-source context — fees + revenue + economic + regulatory + complaints in every analysis)
-- Unified chat persona (consolidate 4 agents into 1 role-based Hamilton)
-- Editor v2 (thesis alignment across sections, contradiction detection, revenue > pricing validation)
-- Tool descriptions v2 (strategic guidance for when to pull what data)
+**What shipped in v7.0:**
+- Global thesis engine (quarterly thesis from full data payload, injected into all report sections)
+- Voice v3.1 (revenue-first, tension framing, 150-200 word budget, 10-rule system prompt)
+- Unified chat persona (single getHamilton(role) replacing 4 separate agents)
+- 12-source intelligence layer (queryNationalData expanded, queryRegulatoryRisk tool)
+- Editor v2 (thesis alignment, revenue prioritization, "so what?" enforcement)
 
-**Not in scope:** Signal detection/ingestion (v8.0), consumer delivery (v9.0), scheduled automation (v8.0).
+**In progress:** v6.0 Two-Sided Experience (Phases 28-32) — consumer landing page shipped, institution pages in progress, B2B launchpad and PDF export not started.
 
-**Master spec:** `docs/specs/hamilton-v2-master-spec.md`
+**Next milestone:** v8.0 (TBD — signal detection, automated monitoring, morning briefs)
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
 - v2.0 Hamilton Research & Content Engine (shipped 2026-04-07)
-- v3.0 National Coverage Push (shipped)
+- v3.0 National Coverage Push (shipped 2026-04-08)
 - v4.x Report Design (completed 2026-04-07 -- template v4.2 deployed)
-- v5.0 National Data Layer (completed 2026-04-08 -- Call Reports, FRED, Beige Book, CFPB, derived analytics)
-- v6.0 Two-Sided Experience (in progress -- consumer/B2B layout shells, landing pages)
+- v5.0 National Data Layer (completed 2026-04-08)
+- v6.0 Two-Sided Experience (in progress)
+- v7.0 Hamilton Reasoning Engine (shipped 2026-04-08)
 
 ## Context
 
@@ -85,10 +91,13 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Hamilton as AI analyst persona | Consistent brand voice, scalable, memorable name | — Pending |
-| B2B primary, consumer secondary | Banks/consultants pay, consumers drive visibility | — Pending |
-| Template + Claude hybrid reports | Recurring = cheap templates, on-demand = deep Claude analysis | — Pending |
+| Hamilton as AI analyst persona | Consistent brand voice, scalable, memorable name | ✓ Good — unified persona ships in v7.0 |
+| B2B primary, consumer secondary | Banks/consultants pay, consumers drive visibility | ✓ Good — role-based depth (consumer/pro/admin) |
+| Template + Claude hybrid reports | Recurring = cheap templates, on-demand = deep Claude analysis | ✓ Good — thesis engine adds depth layer |
 | $2,500/mo subscription model | Peer benchmarking on demand justifies premium pricing | — Pending |
+| Unified Hamilton replaces 4 agents | Single getHamilton(role) shares one reasoning layer | ✓ Good — v7.0, simpler codebase |
+| Revenue-first insight ordering | Revenue implications lead, pricing data follows | ✓ Good — v7.0 voice rules + editor enforcement |
+| Editor v2 informational only | Non-blocking validation preserves pipeline resilience | ✓ Good — v7.0, flags but doesn't block rendering |
 
 ## Evolution
 
@@ -108,4 +117,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-06 after v3.0 milestone start*
+*Last updated: 2026-04-08 after v7.0 milestone*
