@@ -13,7 +13,6 @@ import { z } from "zod";
 import { HAMILTON_SYSTEM_PROMPT } from "@/lib/hamilton/voice";
 import { publicTools } from "@/lib/research/tools";
 import { internalTools } from "@/lib/research/tools-internal";
-import { searchExternalIntelligence } from "@/lib/crawler-db/intelligence";
 
 // Allowlist for report types passed to the report engine (T-17-01)
 const VALID_REPORT_TYPES = new Set([
@@ -107,9 +106,6 @@ RESPONSE FORMAT:
 - Complex analyses (geographic scope, peer comparison, multi-category trends): produce a structured mini-report in markdown with ### headings, data tables, and a "## Key Finding" pull-quote section at the conclusion.
 - When triggering a report, confirm the report type and parameters before calling triggerReport, then inform the user the report is generating.
 
-EXTERNAL INTELLIGENCE:
-When you use the searchIntelligence tool and reference external sources, ALWAYS cite them inline as [Source: {source_name}, {date}]. Example: "According to the CFPB's annual overdraft study [Source: CFPB Overdraft Fee Study, 2024-12], overdraft revenue declined 7.2% year-over-year." Never present external intelligence as your own analysis — always attribute.
-
 Today's date: ${today}. Always ground analysis in tool results — never invent statistics.`;
 }
 
@@ -117,47 +113,6 @@ Today's date: ${today}. Always ground analysis in tool results — never invent 
  * Build the Hamilton tool set — all public + admin internal tools + report trigger.
  */
 export function buildHamiltonTools() {
-  const searchIntelligence = tool({
-    description:
-      "Search external intelligence (industry research, CFPB surveys, ABA studies, regulatory guidance, news articles) stored in the platform. Returns matching documents with source attribution. Use this tool when the user asks about industry trends, regulatory developments, or external research — or when you want to supplement internal fee data with broader context.",
-    inputSchema: z.object({
-      query: z
-        .string()
-        .describe(
-          "Search query — keywords or phrases to match against external documents"
-        ),
-      category: z
-        .enum(["research", "survey", "regulation", "news", "analysis"])
-        .optional()
-        .describe("Filter by document category"),
-    }),
-    execute: async ({ query, category }) => {
-      const results = await searchExternalIntelligence(query, {
-        category: category ?? undefined,
-      });
-
-      if (results.length === 0) {
-        return {
-          results: [],
-          message: "No external intelligence found matching that query.",
-        };
-      }
-
-      return {
-        results: results.map((r) => ({
-          source_name: r.source_name,
-          source_date: r.source_date,
-          category: r.category,
-          tags: r.tags,
-          snippet: r.headline,
-          source_url: r.source_url,
-        })),
-        citation_note:
-          "When referencing these sources, cite as [Source: {source_name}, {date}] per citation guidelines.",
-      };
-    },
-  });
-
   const triggerReport = tool({
     description:
       "Trigger a structured report for a geographic area or national index. Use when the user asks to generate, create, or produce a report. Returns a jobId — inform the user the report is being generated.",
@@ -229,6 +184,5 @@ export function buildHamiltonTools() {
     ...publicTools,
     ...internalTools,
     triggerReport,
-    searchIntelligence,
   };
 }
