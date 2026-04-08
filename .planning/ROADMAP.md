@@ -574,7 +574,10 @@ Plans:
   2. A section generated for a fee category that has Call Report revenue data includes at least one revenue figure alongside its fee data — the two sources appear in the same analytical paragraph
   3. A section generated for a Fed district topic references at least one FRED indicator and one Beige Book theme from that district's most recent report
   4. The word count of any generated section falls between 150 and 200 words — verified by automated character/word count assertion in the test suite
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 34-01-PLAN.md -- Fix voice Rule 6 conflict + enrich section data payloads (FRED/Beige Book) + cross-source context instructions + word-count range tests
 
 ### Phase 35: Unified Chat Persona
 **Goal**: The four existing chat agents (Ask/Analyst/ContentWriter/CustomQuery) are replaced by a single Hamilton that routes depth and language by user role — consumer, pro, or admin — while sharing one reasoning layer
