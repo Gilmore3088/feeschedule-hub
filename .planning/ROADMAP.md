@@ -589,7 +589,11 @@ Plans:
   3. A consumer-role response to "explain my bank's overdraft fee" reads as plain language a non-banker can understand — no industry acronyms without explanation, no data dumps
   4. A pro-role response to a competitive question includes peer context and revenue comparison — not just the queried institution's data in isolation
   5. An admin-role response to a fee anomaly question includes a data quality signal or operational flag alongside the substantive analysis
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 35-01-PLAN.md — Rewrite agents.ts: buildHamilton(role) with role prefixes, tool gating, model selection + create /api/research/hamilton/route.ts
+- [ ] 35-02-PLAN.md — Update chat UI, delete old [agentId] route, update Research Hub and pro/research pages
 
 ### Phase 36: Tool and Regulation Intelligence
 **Goal**: All 16 tool descriptions carry strategic cross-reference guidance; all 13 data sources are confirmed accessible via queryNationalData; CFPB, OCC, and Fed regulatory signals are connected to internal fee data with institution-level impact counts
