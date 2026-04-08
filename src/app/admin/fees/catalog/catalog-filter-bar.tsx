@@ -28,7 +28,9 @@ export function CatalogFilterBar({ families }: CatalogFilterBarProps) {
         }
       }
       const qs = params.toString();
-      router.push(qs ? `${pathname}?${qs}` : pathname);
+      const url = qs ? `${pathname}?${qs}` : pathname;
+      router.push(url);
+      router.refresh();
     },
     [searchParams, router, pathname]
   );
@@ -36,7 +38,7 @@ export function CatalogFilterBar({ families }: CatalogFilterBarProps) {
   const hasAnyFilter = search || family || showAll;
 
   return (
-    <div className="sticky top-[57px] z-30 -mx-6 px-6 py-3 bg-white/95 backdrop-blur-sm border-b dark:bg-[oklch(0.15_0_0)]/95 dark:border-white/[0.08] mb-6">
+    <div className="sticky top-[57px] z-40 -mx-6 px-6 py-3 bg-white/95 backdrop-blur-sm border-b dark:bg-[oklch(0.15_0_0)]/95 dark:border-white/[0.08] mb-6">
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => updateParams({ show: showAll ? null : "all" })}
