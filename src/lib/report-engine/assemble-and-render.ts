@@ -21,7 +21,8 @@ import { renderNationalQuarterlyReport } from '@/lib/report-templates/templates/
 import { renderStateFeeIndexReport } from '@/lib/report-templates/templates/state-fee-index';
 import { renderMonthlyPulseReport } from '@/lib/report-templates/templates/monthly-pulse';
 import { renderPeerCompetitiveReport } from '@/lib/report-templates/templates/peer-competitive';
-import type { SectionOutput, ThesisOutput } from '@/lib/hamilton/types';
+import { runEditorReview } from '@/lib/report-engine/editor';
+import type { SectionOutput, ThesisOutput, ValidatedSection } from '@/lib/hamilton/types';
 import type { ReportType } from '@/lib/report-engine/types';
 
 // ─── State Name Map ────────────────────────────────────────────────────────────
@@ -275,6 +276,51 @@ export async function assembleAndRender(
         validateAndWarn('executive_summary', executive_summary, derivedData);
         validateAndWarn('fee_differentiation', fee_differentiation, derivedData);
         validateAndWarn('banks_vs_credit_unions', banks_vs_credit_unions, derivedData);
+
+        // Phase 37: Editor v2 — validate sections against thesis before rendering
+        // Build minimal ValidatedSection wrappers for fulfilled section outputs only.
+        // Editor review is informational — does not block rendering on flag results.
+        const passedValidation = { passed: true, inventedNumbers: [] as string[], checkedCount: 0, sourceValues: [] as number[] };
+        const editorSections: ValidatedSection[] = [];
+        if (execResult.status === 'fulfilled') {
+          editorSections.push({ ...executive_summary, validation: passedValidation, input: { type: 'executive_summary' as const, title: '5 Truths About Banking Fees — Executive Summary', data: { ...(payload.derived as unknown as Record<string, unknown>), total_institutions: payload.total_institutions } } });
+        }
+        if (diffResult.status === 'fulfilled') {
+          editorSections.push({ ...fee_differentiation, validation: passedValidation, input: { type: 'trend_analysis' as const, title: 'The Illusion of Fee Differentiation', data: { avg_iqr_spread_pct: payload.derived.avg_iqr_spread_pct, commoditized_count: payload.derived.commoditized_count } } });
+        }
+        if (charterResult.status === 'fulfilled') {
+          editorSections.push({ ...banks_vs_credit_unions, validation: passedValidation, input: { type: 'peer_comparison' as const, title: 'Banks vs Credit Unions: Two Models', data: { bank_higher_count: payload.derived.bank_higher_count, cu_higher_count: payload.derived.cu_higher_count } } });
+        }
+        if (revenueResult.status === 'fulfilled') {
+          editorSections.push({ ...revenue_reality, validation: passedValidation, input: { type: 'trend_analysis' as const, title: 'Where the Money Actually Comes From', data: { revenue: payload.revenue ?? null, revenue_per_institution: payload.derived.revenue_per_institution } } });
+        }
+        if (blindSpotResult.status === 'fulfilled') {
+          editorSections.push({ ...industry_blind_spot, validation: passedValidation, input: { type: 'findings' as const, title: 'The Industry Blind Spot', data: { categories_with_data_count: payload.derived.categories_with_data_count, total_categories: payload.categories.length } } });
+        }
+        if (futureResult.status === 'fulfilled') {
+          editorSections.push({ ...future_strategy, validation: passedValidation, input: { type: 'recommendation' as const, title: 'The Future of Fee Strategy', data: { avg_iqr_spread_pct: payload.derived.avg_iqr_spread_pct, bank_higher_count: payload.derived.bank_higher_count, total_institutions: payload.total_institutions } } });
+        }
+
+        if (editorSections.length > 0) {
+          try {
+            const editorResult = await runEditorReview(editorSections, thesis);
+            console.info('[assembleAndRender] editor review:', {
+              approved: editorResult.approved,
+              majorFlags: editorResult.flaggedSections.filter(f => f.severity === 'major').length,
+              minorFlags: editorResult.flaggedSections.filter(f => f.severity === 'minor').length,
+              reviewNote: editorResult.reviewNote,
+            });
+            if (!editorResult.approved) {
+              console.warn('[assembleAndRender] editor major flags:', editorResult.flaggedSections.filter(f => f.severity === 'major'));
+            }
+          } catch (editorErr) {
+            // Editor review is informational in this phase — do not block rendering
+            console.warn(
+              '[assembleAndRender] editor review failed, continuing with rendering:',
+              editorErr instanceof Error ? editorErr.message : String(editorErr),
+            );
+          }
+        }
 
         return renderNationalQuarterlyReport({
           data: payload,
