@@ -130,9 +130,10 @@ class TestRunWave(unittest.TestCase):
         self.assertEqual(mock_run_agent.call_count, 3)
 
         # MT was marked failed via update_wave_state
+        # update_wave_state(conn, wave_run_id, state_code, status=...) — status is a kwarg
         failed_calls = [
             c for c in mock_update_state.call_args_list
-            if c.args[2] == "MT" and c.args[3] == "failed"
+            if c.args[2] == "MT" and c.kwargs.get("status") == "failed"
         ]
         self.assertEqual(len(failed_calls), 1)
 
