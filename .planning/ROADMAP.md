@@ -360,7 +360,7 @@ Plans:
 
 **Milestone Goal:** Build the data foundation that Hamilton needs to produce credible national analysis. Fix data queries, create summary views, and build admin portal pages for national data -- the raw work that feeds reports later.
 
-- [ ] **Phase 23: Call Report & FRED Foundation** - Fix revenue scaling, build economic summaries, establish the data layer everything else depends on
+- [x] **Phase 23: Call Report & FRED Foundation** - Fix revenue scaling, build economic summaries, establish the data layer everything else depends on (completed 2026-04-08)
 - [ ] **Phase 24: Industry Health & Beige Book** - Compute health metrics from institution financials, condense Beige Book narratives into usable summaries
 - [ ] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer
 - [ ] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports
@@ -385,7 +385,7 @@ Plans:
 - [x] 23-02-PLAN.md -- FRED gap closure: UMCSENT + housing permits + district nonfarm payrolls + district fee revenue (FRED-01 to FRED-04, D-05, D-06)
 - [x] 23-03-PLAN.md -- FDIC standard 5-tier system replacement + getRevenueByTier + crawl_targets migration (CALL-06)
 - [x] 23-04-PLAN.md -- CFPB complaint ingestion Postgres migration + district/institution complaint queries (D-07)
-- [ ] 23-05-PLAN.md -- Institution financial context + peer comparison on slug pages (D-08, D-09, D-10)
+- [x] 23-05-PLAN.md -- Institution financial context + peer comparison on slug pages (D-08, D-09, D-10)
 ### Phase 24: Industry Health & Beige Book
 **Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
 **Depends on**: Phase 23 (uses corrected financial data patterns)
@@ -478,7 +478,7 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 20. Iterative Deepening | v3.0 | 1/2 | Complete    | 2026-04-08 |
 | 21. Knowledge Automation | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 22. Wave Reporting | v3.0 | 1/2 | Complete    | 2026-04-08 |
-| 23. Call Report & FRED Foundation | v5.0 | 4/5 | In Progress|  |
+| 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete    | 2026-04-08 |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
 | 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
