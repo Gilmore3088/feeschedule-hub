@@ -399,8 +399,12 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
+- [ ] 24-01-PLAN.md — Audit health queries, add tests, implement institution count trends (HEALTH-01 to HEALTH-04)
+- [ ] 24-02-PLAN.md — Beige Book LLM theme extraction, migration, query layer (BEIGE-01 to BEIGE-03)
+
+
+
+
 
 ### Phase 25: Derived Analytics & Hamilton Tools
 **Goal**: Cross-source derived metrics are computed and Hamilton can access all summary data (Call Reports, FRED, Beige Book, health, derived) through its existing tool/query layer
