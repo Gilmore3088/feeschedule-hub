@@ -338,8 +338,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
+- [ ] 21-01-PLAN.md — Coverage delta in pass learnings + cross-state pattern promotion
+- [ ] 21-02-PLAN.md — knowledge CLI subcommand + configurable token budget
 
 ### Phase 22: Wave Reporting
 **Goal**: After each wave completes, an operator-readable summary report is generated showing what improved, by how much, and what was found
