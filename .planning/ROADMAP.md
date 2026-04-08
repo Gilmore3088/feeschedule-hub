@@ -589,3 +589,25 @@ Plans:
 - [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
 - [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
 **UI hint**: yes
+
+---
+
+## Backlog
+
+### Phase 999.1: Make all admin tables sortable (BACKLOG)
+
+**Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: Wire Phase 23-24 data into districts pages (BACKLOG)
+
+**Goal:** /admin/districts and /admin/districts/[id] pages should consume new Phase 23-24 query functions: getDistrictEconomicSummary(), getDistrictFeeRevenue(), getDistrictComplaintSummary(), getBeigeBookThemes(). Currently district pages may show stale or incomplete data.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
