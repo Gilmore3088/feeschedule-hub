@@ -418,8 +418,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 25-01-PLAN.md — Derived analytics queries: revenue concentration, fee dependency trend, revenue-per-institution trend (DERIVE-01, DERIVE-02, DERIVE-03)
-- [ ] 25-02-PLAN.md — Unified queryNationalData Hamilton tool wiring all data sources (ADMIN-05)
+- [x] 25-01-PLAN.md — Derived analytics queries: revenue concentration, fee dependency trend, revenue-per-institution trend (DERIVE-01, DERIVE-02, DERIVE-03)
+- [x] 25-02-PLAN.md — Unified queryNationalData Hamilton tool wiring all data sources (ADMIN-05)
 
 
 
@@ -486,7 +486,7 @@ Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | 22. Wave Reporting | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete    | 2026-04-08 |
 | 24. Industry Health & Beige Book | v5.0 | 1/2 | Complete    | 2026-04-08 |
-| 25. Derived Analytics & Hamilton Tools | v5.0 | 3/3 | Complete | - |
+| 25. Derived Analytics & Hamilton Tools | v5.0 | 2/2 | Complete    | 2026-04-08 |
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | - |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete    | 2026-04-08 |
 | 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
@@ -499,7 +499,7 @@ Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 22
-**Plans:** 1/2 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 23 to break down)
