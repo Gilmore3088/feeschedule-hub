@@ -19,7 +19,7 @@ import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 
 export const searchFees = tool({
   description:
-    "Search fee categories with national statistics. Returns median, P25, P75, min, max, institution count for each of 49 fee categories. Optionally get detailed breakdown for a single category.",
+    "Returns national statistics (median, P25, P75, min, max, institution count) for each of 49 fee categories. Optionally returns detailed breakdown for a single category by charter type, asset tier, Fed district, and state. When: fee benchmark questions, 'what is the national average overdraft fee?', category deep-dives. Combine with: searchIndex for filtered peer comparison, queryNationalData(complaints) when the category is overdraft/NSF (regulatory context adds value).",
   inputSchema: z.object({
     category: z
       .string()
@@ -73,7 +73,7 @@ export const searchFees = tool({
 
 export const searchIndex = tool({
   description:
-    "Get the national fee index or a filtered peer index. Returns median, P25, P75, min, max for each fee category. Filter by state, charter type (bank or credit_union), or Fed district.",
+    "Returns the national fee index or a filtered peer index with median, P25, P75 per category. Filter by state, charter type (bank/credit_union), or Fed district. When: peer benchmarking, 'how does District 7 compare to national?', charter-type comparison. Combine with: queryNationalData(economic) for macroeconomic context, queryNationalData(health) for ROA/efficiency alongside fee positioning.",
   inputSchema: z.object({
     state: z
       .string()
@@ -127,7 +127,7 @@ export const searchIndex = tool({
 
 export const searchInstitutions = tool({
   description:
-    "List financial institutions with fee data. Paginated, filterable by state and charter type. Returns id, name, state, city, charter type, asset size, fee count.",
+    "Lists financial institutions with fee data, paginated, filterable by state and charter type. Returns id, name, state, city, charter type, asset size, fee count. When: browsing institutions, finding institutions to profile, narrowing a question to a specific segment. Combine with: getInstitution for a single institution's full fee profile, searchIndex(state:XX) for that state's fee benchmark.",
   inputSchema: z.object({
     state: z
       .string()
@@ -179,7 +179,7 @@ export const searchInstitutions = tool({
 
 export const getInstitution = tool({
   description:
-    "Get a single institution's profile including all extracted fees, financial data, and comparison to national medians.",
+    "Returns a single institution's full profile: all non-rejected fees, financial data, and comparison to national medians. When: institution-specific queries, 'what does Bank X charge?', profiling a named institution. Combine with: searchIndex(charter:bank, district:N) to benchmark against peer group, queryNationalData(complaints) if the institution is in a region with elevated complaint rates.",
   inputSchema: z.object({
     id: z.number().describe("Institution ID"),
   }),
