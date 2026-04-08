@@ -239,6 +239,12 @@ def cmd_ingest_fed_content(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_ingest_ffiec_cdr(args: argparse.Namespace) -> None:
+    """Ingest overdraft revenue from FFIEC CDR bulk Call Report data."""
+    from fee_crawler.commands.ingest_ffiec_cdr import run
+    run(args)
+
+
 def cmd_ingest_fred(args: argparse.Namespace) -> None:
     """Ingest economic indicators from FRED API."""
     from fee_crawler.commands.ingest_fred import run
@@ -979,6 +985,23 @@ def main() -> None:
         help="Start date for observations (YYYY-MM-DD). Default: last 10 years",
     )
     fred_parser.set_defaults(func=cmd_ingest_fred)
+
+    # ingest-ffiec-cdr command
+    cdr_parser = subparsers.add_parser(
+        "ingest-ffiec-cdr", help="Ingest overdraft revenue (RIADH032) from FFIEC CDR bulk data"
+    )
+    cdr_parser.add_argument(
+        "--quarter",
+        type=str,
+        default=None,
+        help="Specific quarter (YYYYMMDD, e.g. 20251231). Default: latest",
+    )
+    cdr_parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help="Backfill all 8 quarters (2-year history)",
+    )
+    cdr_parser.set_defaults(func=cmd_ingest_ffiec_cdr)
 
     # ingest-bls command
     bls_parser = subparsers.add_parser(

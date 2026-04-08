@@ -167,6 +167,24 @@ def ingest_data():
     return "; ".join(results)
 
 
+@app.function(
+    schedule=modal.Cron("0 8 15 1,4,7,10 *"),
+    timeout=600,
+    secrets=secrets,
+)
+def ingest_ffiec_cdr():
+    """Quarterly: FFIEC CDR overdraft revenue (RIADH032). Runs Jan/Apr/Jul/Oct 15th."""
+    import os
+    import subprocess
+    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    r = subprocess.run(
+        ["python3", "-m", "fee_crawler", "ingest-ffiec-cdr", "--backfill"],
+        capture_output=True, text=True, env=env,
+    )
+    output = r.stdout[-500:] if r.stdout else ""
+    return f"FFIEC CDR: {'OK' if r.returncode == 0 else 'FAIL'}\n{output}"
+
+
 @app.function(timeout=300, secrets=secrets)
 def check_integrity():
     """On-demand data integrity check."""
