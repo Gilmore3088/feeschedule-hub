@@ -1,6 +1,8 @@
 import { getRevenueTrend, getTopRevenueInstitutions } from "@/lib/crawler-db/call-reports";
+import { getRevenueConcentration } from "@/lib/crawler-db/derived-analytics";
 import { formatAmount } from "@/lib/format";
 import { RevenueTrendChart } from "./revenue-trend-chart";
+import { CallReportsConcentrationChart } from "./call-reports-concentration-chart";
 
 function formatLargeAmount(value: number): string {
   if (Math.abs(value) >= 1_000_000_000) {
@@ -33,11 +35,13 @@ function CharterBadge({ charter }: { charter: string }) {
 export async function CallReportsPanel() {
   let trend;
   let topInstitutions;
+  let concentration;
 
   try {
-    [trend, topInstitutions] = await Promise.all([
+    [trend, topInstitutions, concentration] = await Promise.all([
       getRevenueTrend(8),
       getTopRevenueInstitutions(10),
+      getRevenueConcentration().catch(() => null),
     ]);
   } catch {
     return (
@@ -120,7 +124,28 @@ export async function CallReportsPanel() {
         <RevenueTrendChart data={quarters} />
       </div>
 
-      {/* Section 2: Top Institutions */}
+      {/* Section 2: Revenue Concentration by Category */}
+      {concentration && concentration.dollar_volume.length > 0 && (
+        <div className="admin-card p-5 space-y-3">
+          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            Revenue Concentration by Category
+          </span>
+
+          <div className="bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded border border-gray-100 dark:border-gray-800">
+            <p className="text-[12px] text-gray-600 dark:text-gray-400">
+              Top {concentration.summary.top_n} categories account for{" "}
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                {concentration.summary.dollar_volume_pct.toFixed(1)}%
+              </span>{" "}
+              of national service charge revenue
+            </p>
+          </div>
+
+          <CallReportsConcentrationChart data={concentration.dollar_volume.slice(0, 5)} />
+        </div>
+      )}
+
+      {/* Section 3: Top Institutions */}
       <div className="admin-card p-5 space-y-3">
         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
           Top Institutions by Service Charge Income
