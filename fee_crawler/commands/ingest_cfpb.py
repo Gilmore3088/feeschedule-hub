@@ -1,13 +1,15 @@
 """Ingest consumer complaint data from CFPB API into institution_complaints."""
 
+import os
 import time
 
+import psycopg2
+import psycopg2.extras
 import requests
 
 MAX_RETRIES = 3
 
 from fee_crawler.config import Config
-from fee_crawler.db import Database
 
 CFPB_BASE = "https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/"
 
@@ -31,6 +33,14 @@ FEE_ISSUES = [
     "Opening an account",
     "Closing an account",
 ]
+
+
+def _connect():
+    """Open a psycopg2 connection using DATABASE_URL from environment."""
+    return psycopg2.connect(
+        os.environ["DATABASE_URL"],
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
 
 
 def _normalize_name(name: str) -> str:
@@ -73,13 +83,15 @@ def _normalize_name(name: str) -> str:
     return name.strip()
 
 
-def _build_name_index(db: Database) -> dict[str, int]:
+def _build_name_index(conn) -> dict[str, int]:
     """Build a mapping from normalized names to crawl_target_id.
 
     Uses institution_name from crawl_targets. For common holding companies
     vs bank entities, maps both forms.
     """
-    rows = db.fetchall("SELECT id, institution_name FROM crawl_targets")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, institution_name FROM crawl_targets")
+    rows = cursor.fetchall()
     index: dict[str, int] = {}
     for row in rows:
         name = row["institution_name"]
@@ -126,7 +138,7 @@ def _fetch_with_retry(url: str, params: dict) -> dict | None:
 
 
 def ingest_cfpb_complaints(
-    db: Database,
+    conn,
     config: Config,
     *,
     years: list[str] | None = None,
@@ -142,13 +154,15 @@ def ingest_cfpb_complaints(
     Returns total rows upserted.
     """
     report_years = years or DEFAULT_YEARS
-    name_index = _build_name_index(db)
+    name_index = _build_name_index(conn)
     print(f"Built name index with {len(name_index):,} normalized names")
 
     total_upserted = 0
     total_unmatched = 0
     matched_companies: set[str] = set()
     unmatched_companies: list[tuple[str, int]] = []
+
+    cursor = conn.cursor()
 
     for year in report_years:
         date_min = f"{year}-01-01"
@@ -193,10 +207,10 @@ def ingest_cfpb_complaints(
 
                 # Store total complaint count per product
                 try:
-                    db.execute(
+                    cursor.execute(
                         """INSERT INTO institution_complaints
                            (crawl_target_id, report_period, product, issue, complaint_count)
-                           VALUES (?, ?, ?, '_total', ?)
+                           VALUES (%s, %s, %s, '_total', %s)
                            ON CONFLICT (crawl_target_id, report_period, product, issue)
                            DO UPDATE SET complaint_count = EXCLUDED.complaint_count""",
                         (target_id, year, product, total_count),
@@ -233,7 +247,7 @@ def ingest_cfpb_complaints(
             print(f"  Matched: {len(matched_companies)} | Unmatched: {total_unmatched}")
             time.sleep(0.5)
 
-    db.commit()
+    conn.commit()
 
     if unmatched_companies:
         unmatched_companies.sort(key=lambda x: -x[1])
@@ -247,25 +261,28 @@ def ingest_cfpb_complaints(
 
 
 def run(
-    db: Database,
+    conn,
     config: Config,
     *,
     years: list[str] | None = None,
     limit: int | None = None,
 ) -> None:
     """Entry point for the CLI command."""
-    ingest_cfpb_complaints(db, config, years=years, limit=limit)
+    ingest_cfpb_complaints(conn, config, years=years, limit=limit)
 
-    count = db.fetchone("SELECT COUNT(*) as cnt FROM institution_complaints")
-    cnt = count["cnt"] if count else 0
-    institutions = db.fetchone(
-        "SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints"
-    )
-    inst_cnt = institutions["cnt"] if institutions else 0
-    periods = db.fetchone(
-        "SELECT COUNT(DISTINCT report_period) as cnt FROM institution_complaints"
-    )
-    p_cnt = periods["cnt"] if periods else 0
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) as cnt FROM institution_complaints")
+    count_row = cursor.fetchone()
+    cnt = count_row["cnt"] if count_row else 0
+
+    cursor.execute("SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints")
+    inst_row = cursor.fetchone()
+    inst_cnt = inst_row["cnt"] if inst_row else 0
+
+    cursor.execute("SELECT COUNT(DISTINCT report_period) as cnt FROM institution_complaints")
+    period_row = cursor.fetchone()
+    p_cnt = period_row["cnt"] if period_row else 0
+
     print(f"\nTotal complaint records: {cnt:,}")
     print(f"Institutions with complaints: {inst_cnt:,}")
     print(f"Report periods: {p_cnt}")
