@@ -301,15 +301,17 @@ export async function getDistrictFeeRevenue(
   const sql = getSql();
 
   // Find latest report date if not specified
-  let date = reportDate;
-  if (!date) {
+  let date: string;
+  if (reportDate) {
+    date = reportDate;
+  } else {
     const [row] = await sql`
       SELECT MAX(report_date)::text AS latest_date
       FROM institution_financials
       WHERE service_charge_income > 0
     `;
     if (!row?.latest_date) return null;
-    date = row.latest_date;
+    date = String(row.latest_date);
   }
 
   const rows = await sql.unsafe(
