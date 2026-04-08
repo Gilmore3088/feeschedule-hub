@@ -37,7 +37,7 @@ function confidenceBadge(conf: number) {
 export default async function ReviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string; sort?: string; dir?: string }>;
 }) {
   await requireAuth("view");
 
@@ -45,6 +45,8 @@ export default async function ReviewPage({
   const activeStatus = params.status || "staged";
   const searchQuery = params.q || "";
   const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
+  const sortKey = params.sort || "date";
+  const sortDir = params.dir || "desc";
 
   let fees: Awaited<ReturnType<typeof getReviewFees>>["fees"] = [];
   let total = 0;
@@ -54,7 +56,7 @@ export default async function ReviewPage({
 
   try {
     [{ fees, total }, counts] = await Promise.all([
-      getReviewFees(activeStatus, currentPage, PAGE_SIZE, searchQuery || undefined),
+      getReviewFees(activeStatus, currentPage, PAGE_SIZE, searchQuery || undefined, sortKey, sortDir),
       getReviewQueueCounts(),
     ]);
   } catch (e) {
@@ -159,24 +161,24 @@ export default async function ReviewPage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50/80 text-left">
+                <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                     Fee Name
                   </th>
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
-                    Amount
+                    <ReviewSortLink label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
                   </th>
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    Category
+                    <ReviewSortLink label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
                   </th>
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    Institution
+                    <ReviewSortLink label="Institution" sortKey="institution" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
                   </th>
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
-                    Confidence
+                    <ReviewSortLink label="Confidence" sortKey="confidence" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
                   </th>
                   <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    Date
+                    <ReviewSortLink label="Date" sortKey="date" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
                   </th>
                 </tr>
               </thead>
@@ -240,5 +242,50 @@ export default async function ReviewPage({
         </div>
       )}
     </>
+  );
+}
+
+function ReviewSortLink({
+  label,
+  sortKey,
+  currentSort,
+  currentDir,
+  status,
+  q,
+}: {
+  label: string;
+  sortKey: string;
+  currentSort: string;
+  currentDir: string;
+  status: string;
+  q: string;
+}) {
+  const isActive = currentSort === sortKey;
+  const nextDir = isActive && currentDir === "desc" ? "asc" : "desc";
+
+  const params = new URLSearchParams();
+  params.set("status", status);
+  if (q) params.set("q", q);
+  params.set("sort", sortKey);
+  params.set("dir", nextDir);
+
+  return (
+    <Link
+      href={`/admin/review?${params.toString()}`}
+      className="inline-flex items-center gap-1 group/sort"
+      aria-label={`Sort by ${label}, currently ${isActive ? currentDir : "unsorted"}`}
+    >
+      {label}
+      <span
+        aria-hidden="true"
+        className={`text-[9px] ${
+          isActive
+            ? "text-gray-700 dark:text-gray-300"
+            : "text-gray-300 group-hover/sort:text-gray-400 dark:text-gray-600"
+        }`}
+      >
+        {isActive ? (currentDir === "desc" ? "\u25BC" : "\u25B2") : "\u25B2\u25BC"}
+      </span>
+    </Link>
   );
 }

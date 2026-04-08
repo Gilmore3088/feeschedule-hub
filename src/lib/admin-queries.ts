@@ -631,6 +631,8 @@ export async function getReviewFees(
   page: number,
   limit: number,
   search?: string,
+  sort?: string,
+  dir?: string,
 ): Promise<{ fees: ReviewFeeRow[]; total: number }> {
   try {
     const offset = (page - 1) * limit;
@@ -664,7 +666,7 @@ export async function getReviewFees(
        FROM extracted_fees ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
-       ORDER BY ef.created_at DESC
+       ORDER BY ${sort === "amount" ? "ef.amount" : sort === "category" ? "ef.fee_category" : sort === "institution" ? "ct.institution_name" : sort === "confidence" ? "ef.extraction_confidence" : "ef.created_at"} ${dir === "asc" ? "ASC" : "DESC"} NULLS LAST
        LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
       [...params, limit, offset],
     );
