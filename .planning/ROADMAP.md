@@ -619,7 +619,10 @@ Plans:
   1. Running the editor against a multi-section report draft flags any section whose argument contradicts the global thesis — the flag includes the specific contradiction, not a generic warning
   2. Running the editor against a section that describes pricing data without mentioning revenue (when revenue data exists) flags that section with a "revenue prioritization" warning — the editor does not pass it silently
   3. Running the editor against a section that ends with data description and no implication ("fees averaged $X") flags it with a "missing implication" warning — the editor enforces "so what?" presence
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 37-01-PLAN.md — Editor v2: three new checks + thesis wiring + integration test
 
 ---
 
