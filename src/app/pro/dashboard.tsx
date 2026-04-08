@@ -4,13 +4,28 @@ import {
   getPeerIndex,
 } from "@/lib/crawler-db";
 import { getSpotlightCategories, getDisplayName } from "@/lib/fee-taxonomy";
-import { formatAmount } from "@/lib/format";
-import { STATE_TO_DISTRICT } from "@/lib/fed-districts";
+import { formatAmount, timeAgo } from "@/lib/format";
+import { STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { derivePersonalizationContext } from "@/lib/personalization";
 import type { User } from "@/lib/auth";
+import {
+  ensureResearchTables,
+  listConversations,
+  type Conversation,
+} from "@/lib/research/history";
+import { getBeigeBookThemes, type BeigeBookTheme } from "@/lib/crawler-db/fed";
+import { sql } from "@/lib/crawler-db/connection";
 
 interface DashboardProps {
   user: User;
+}
+
+interface RecentReport {
+  id: number;
+  title: string;
+  slug: string;
+  report_type: string;
+  published_at: string;
 }
 
 // SVG path data for door icons (Heroicons outline)
@@ -61,6 +76,27 @@ const DOORS = [
   },
 ];
 
+const THEME_ORDER: Record<BeigeBookTheme["theme_category"], number> = {
+  growth: 0,
+  employment: 1,
+  prices: 2,
+  lending_conditions: 3,
+};
+
+const THEME_LABELS: Record<BeigeBookTheme["theme_category"], string> = {
+  growth: "Growth",
+  employment: "Employment",
+  prices: "Prices",
+  lending_conditions: "Lending",
+};
+
+const SENTIMENT_DOT: Record<BeigeBookTheme["sentiment"], string> = {
+  positive: "bg-emerald-500",
+  negative: "bg-red-400",
+  neutral: "bg-gray-400",
+  mixed: "bg-amber-400",
+};
+
 export async function ProDashboard({ user }: DashboardProps) {
   const personalization = derivePersonalizationContext(user);
 
@@ -86,10 +122,56 @@ export async function ProDashboard({ user }: DashboardProps) {
 
   const hasPeerFilters = Object.keys(peerFilters).length > 0;
 
+  // Fetch all data in parallel
+  let recentConversations: Conversation[] = [];
+  let recentReports: RecentReport[] = [];
+  let beigeBookDigest: BeigeBookTheme[] = [];
+
   const [nationalIndex, peerIndex] = await Promise.all([
     getNationalIndexCached(),
     hasPeerFilters ? getPeerIndex(peerFilters) : Promise.resolve([]),
   ]);
+
+  // Fetch recent Hamilton conversations
+  try {
+    await ensureResearchTables();
+    recentConversations = await listConversations(user.id, "hamilton", 3);
+  } catch {
+    // tables may not exist
+  }
+
+  // Fetch recent reports
+  try {
+    recentReports = await sql`
+      SELECT id, title, slug, report_type, published_at
+      FROM published_reports
+      WHERE status = 'completed' OR published_at IS NOT NULL
+      ORDER BY published_at DESC NULLS LAST
+      LIMIT 3
+    ` as RecentReport[];
+  } catch {
+    // table may not exist
+  }
+
+  // Fetch Beige Book themes for user's district
+  try {
+    const allThemes = await getBeigeBookThemes();
+    if (district) {
+      const districtThemes = allThemes.filter(
+        (t) => t.fed_district === district
+      );
+      // Sort by preferred category order and take top 3
+      beigeBookDigest = districtThemes
+        .sort(
+          (a, b) =>
+            (THEME_ORDER[a.theme_category] ?? 99) -
+            (THEME_ORDER[b.theme_category] ?? 99)
+        )
+        .slice(0, 3);
+    }
+  } catch {
+    // table may not exist
+  }
 
   const spotlightCats = getSpotlightCategories().slice(0, 3);
 
@@ -217,6 +299,156 @@ export async function ProDashboard({ user }: DashboardProps) {
               </Link>
             ))}
           </div>
+
+          {/* Recent activity section */}
+          <div className="mt-8">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
+              Recent Activity
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Hamilton Conversations */}
+              <div className="rounded-xl border border-[#E8DFD1] bg-white/80 backdrop-blur-sm overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                    Hamilton Conversations
+                  </span>
+                  <Link
+                    href="/pro/research"
+                    className="text-[11px] font-medium text-[#C44B2E]/70 hover:text-[#C44B2E] transition-colors no-underline"
+                  >
+                    View all
+                  </Link>
+                </div>
+                {recentConversations.length > 0 ? (
+                  <div>
+                    {recentConversations.map((c, idx) => (
+                      <Link
+                        key={c.id}
+                        href={`/pro/research?conversation=${c.id}`}
+                        className={[
+                          "flex items-center justify-between px-4 py-2.5",
+                          "hover:bg-[#FAF7F2] transition-colors no-underline",
+                          idx < recentConversations.length - 1
+                            ? "border-b border-[#E8DFD1]/40"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        <span className="text-[13px] text-[#1A1815] truncate min-w-0 mr-3">
+                          {c.title || "Untitled conversation"}
+                        </span>
+                        <span className="text-[11px] text-[#A09788] tabular-nums shrink-0">
+                          {timeAgo(c.updated_at)}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-[#7A7062] px-4 py-6 text-center">
+                    No conversations yet. Start one in Hamilton.
+                  </p>
+                )}
+              </div>
+
+              {/* Generated Reports */}
+              <div className="rounded-xl border border-[#E8DFD1] bg-white/80 backdrop-blur-sm overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                    Generated Reports
+                  </span>
+                  <Link
+                    href="/pro/reports"
+                    className="text-[11px] font-medium text-[#C44B2E]/70 hover:text-[#C44B2E] transition-colors no-underline"
+                  >
+                    View all
+                  </Link>
+                </div>
+                {recentReports.length > 0 ? (
+                  <div>
+                    {recentReports.map((r, idx) => (
+                      <Link
+                        key={r.id}
+                        href={`/research/${r.slug}`}
+                        className={[
+                          "flex items-center justify-between px-4 py-2.5",
+                          "hover:bg-[#FAF7F2] transition-colors no-underline",
+                          idx < recentReports.length - 1
+                            ? "border-b border-[#E8DFD1]/40"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        <div className="min-w-0 mr-3">
+                          <span className="block text-[13px] text-[#1A1815] truncate">
+                            {r.title}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wider text-[#A09788]">
+                            {r.report_type}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#A09788] tabular-nums shrink-0">
+                          {timeAgo(r.published_at)}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-[#7A7062] px-4 py-6 text-center">
+                    No reports yet. Generate one from Reports.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Beige Book district digest */}
+          {beigeBookDigest.length > 0 && district && (
+            <div className="mt-6">
+              <div className="rounded-xl border border-[#E8DFD1] bg-white/80 backdrop-blur-sm p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p
+                      className="text-[13px] font-semibold text-[#1A1815]"
+                      style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+                    >
+                      Economic Outlook: {DISTRICT_NAMES[district]}
+                    </p>
+                    <p className="text-[10px] text-[#A09788] mt-0.5">
+                      Latest Beige Book Summary
+                    </p>
+                  </div>
+                  <Link
+                    href={`/pro/districts/${district}`}
+                    className="text-[11px] font-medium text-[#C44B2E]/70 hover:text-[#C44B2E] transition-colors no-underline shrink-0 ml-4"
+                  >
+                    Full district report
+                  </Link>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {beigeBookDigest.map((theme) => (
+                    <div
+                      key={theme.theme_category}
+                      className="flex items-start gap-2"
+                    >
+                      <span
+                        className={`mt-1.5 inline-block h-1.5 w-1.5 rounded-full shrink-0 ${SENTIMENT_DOT[theme.sentiment]}`}
+                      />
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#A09788] mr-1.5">
+                          {THEME_LABELS[theme.theme_category]}
+                        </span>
+                        <span className="text-[13px] leading-relaxed text-[#5A5347]">
+                          {theme.summary}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Peer snapshot sidebar */}
