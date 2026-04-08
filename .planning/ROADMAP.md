@@ -543,7 +543,7 @@ Plans:
 
 **Milestone Goal:** Upgrade Hamilton from a section-based report writer to a unified intelligence engine with global thesis generation, cross-source reasoning, and role-based delivery for admin, B2B, and consumers.
 
-- [ ] **Phase 33: Global Thesis Engine** - Hamilton generates a quarterly thesis from full data payload; every section references it; think-then-compress reasoning and tension model replace descriptive observations
+- [x] **Phase 33: Global Thesis Engine** - Hamilton generates a quarterly thesis from full data payload; every section references it; think-then-compress reasoning and tension model replace descriptive observations (completed 2026-04-08)
 - [ ] **Phase 34: Voice v3 and Section Generator v2** - Voice system prompt upgraded with revenue prioritization and tension model; sections receive global thesis + cross-source context; word budget raised to 150-200 words
 - [ ] **Phase 35: Unified Chat Persona** - Four chat agents consolidated into one role-based Hamilton that adjusts depth and language by audience (consumer, pro, admin) on a shared reasoning layer
 - [ ] **Phase 36: Tool and Regulation Intelligence** - All 16 tool descriptions upgraded with strategic cross-reference guidance; all 13 ingestion sources verified; CFPB/OCC/Fed regulatory signals connected to internal fee data
@@ -563,7 +563,7 @@ Plans:
 Plans:
 - [x] 33-01-PLAN.md -- Foundation: thesis types (ThesisInput/ThesisOutput/ThesisSummaryPayload) + Hamilton voice v3 with revenue-first and tension model rules
 - [x] 33-02-PLAN.md -- Generator: buildThesisSummary() condensation + generateGlobalThesis() Claude call + MAX_TOKENS 1500 + remove 75-word limit
-- [ ] 33-03-PLAN.md -- Wiring: inject thesis into national_index orchestrator; narrative_summary passed to all 6 sections
+- [x] 33-03-PLAN.md -- Wiring: inject thesis into national_index orchestrator; narrative_summary passed to all 6 sections
 
 ### Phase 34: Voice v3 and Section Generator v2
 **Goal**: The Hamilton voice system prompt encodes revenue prioritization, tension model, and think-then-compress; every section receives the global thesis plus cross-source context (fees + revenue + economic + regulatory + complaints); section output reaches 150-200 words
@@ -618,7 +618,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 2/2 plans complete
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -673,7 +673,7 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
 | 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
-| 33. Global Thesis Engine | v7.0 | 2/3 | In Progress|  |
+| 33. Global Thesis Engine | v7.0 | 3/3 | Complete    | 2026-04-08 |
 | 34. Voice v3 and Section Generator v2 | v7.0 | 0/TBD | Not started | - |
 | 35. Unified Chat Persona | v7.0 | 0/TBD | Not started | - |
 | 36. Tool and Regulation Intelligence | v7.0 | 0/TBD | Not started | - |
