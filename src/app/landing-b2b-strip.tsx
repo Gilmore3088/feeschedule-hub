@@ -7,7 +7,7 @@ export function LandingB2BStrip() {
       <div className="mx-auto max-w-6xl px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <h2
-            className="text-[28px] font-normal text-[#1A1815]"
+            className="text-[20px] font-normal text-[#1A1815]"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
             For Financial Institutions
@@ -19,7 +19,7 @@ export function LandingB2BStrip() {
         </div>
 
         <Link
-          href="/pro"
+          href="/for-institutions"
           className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-6 py-3 text-[14px] font-normal text-white hover:bg-[#A93D25] transition-colors shrink-0"
         >
           Learn More
