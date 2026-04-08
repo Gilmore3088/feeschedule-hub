@@ -49,47 +49,47 @@ Requirements for Two-Sided Experience milestone. Each maps to roadmap phases.
 ## v5.0 Requirements (Previous Milestone)
 
 ### Call Report Revenue (CALL)
-- [ ] **CALL-01**: Revenue queries return correct dollar amounts (fix thousands scaling)
-- [ ] **CALL-02**: YoY revenue trend available for last 8 quarters with growth rate
-- [ ] **CALL-03**: Bank vs credit union revenue split queryable
-- [ ] **CALL-04**: Top institutions by service charge income queryable with name, assets, charter
-- [ ] **CALL-05**: Fee income ratio (service charges / total revenue) computed per institution
-- [ ] **CALL-06**: Revenue segmented by asset tier (community, mid-size, regional, large, mega)
+- [x] **CALL-01**: Revenue queries return correct dollar amounts (fix thousands scaling)
+- [x] **CALL-02**: YoY revenue trend available for last 8 quarters with growth rate
+- [x] **CALL-03**: Bank vs credit union revenue split queryable
+- [x] **CALL-04**: Top institutions by service charge income queryable with name, assets, charter
+- [x] **CALL-05**: Fee income ratio (service charges / total revenue) computed per institution
+- [x] **CALL-06**: Revenue segmented by asset tier (community, mid-size, regional, large, mega)
 
 ### FRED Economic Data (FRED)
-- [ ] **FRED-01**: CPI year-over-year change computed correctly (not raw index)
-- [ ] **FRED-02**: Consumer sentiment (UMCSENT) available -- ingest if missing
-- [ ] **FRED-03**: National economic summary available (fed funds rate, unemployment, CPI YoY, sentiment)
-- [ ] **FRED-04**: District-level economic indicators queryable (per-district unemployment, etc.)
+- [x] **FRED-01**: CPI year-over-year change computed correctly (not raw index)
+- [x] **FRED-02**: Consumer sentiment (UMCSENT) available -- ingest if missing
+- [x] **FRED-03**: National economic summary available (fed funds rate, unemployment, CPI YoY, sentiment)
+- [x] **FRED-04**: District-level economic indicators queryable (per-district unemployment, etc.)
 
 ### Beige Book (BEIGE)
-- [ ] **BEIGE-01**: District economic narratives condensed into 2-3 sentence summaries
-- [ ] **BEIGE-02**: National economic summary derived from all 12 district reports
-- [ ] **BEIGE-03**: Key themes extracted (growth, employment, prices, lending conditions)
+- [x] **BEIGE-01**: District economic narratives condensed into 2-3 sentence summaries
+- [x] **BEIGE-02**: National economic summary derived from all 12 district reports
+- [x] **BEIGE-03**: Key themes extracted (growth, employment, prices, lending conditions)
 
 ### Industry Health (HEALTH)
-- [ ] **HEALTH-01**: Industry-wide ROA, ROE, efficiency ratio averages computed
-- [ ] **HEALTH-02**: Deposit and loan growth trends (YoY) from institution_financials
-- [ ] **HEALTH-03**: Institution count trends (new charters, closures if detectable)
-- [ ] **HEALTH-04**: Health metrics segmented by charter type (bank vs CU)
+- [x] **HEALTH-01**: Industry-wide ROA, ROE, efficiency ratio averages computed
+- [x] **HEALTH-02**: Deposit and loan growth trends (YoY) from institution_financials
+- [x] **HEALTH-03**: Institution count trends (new charters, closures if detectable)
+- [x] **HEALTH-04**: Health metrics segmented by charter type (bank vs CU)
 
 ### Derived Analytics (DERIVE)
-- [ ] **DERIVE-01**: Revenue concentration analysis (% of total SC income from top N categories)
-- [ ] **DERIVE-02**: Fee dependency ratio (SC income / total revenue) by charter, tier
-- [ ] **DERIVE-03**: Revenue per institution averages by asset tier and charter
+- [x] **DERIVE-01**: Revenue concentration analysis (% of total SC income from top N categories)
+- [x] **DERIVE-02**: Fee dependency ratio (SC income / total revenue) by charter, tier
+- [x] **DERIVE-03**: Revenue per institution averages by asset tier and charter
 
 ### Admin Portal (ADMIN)
-- [ ] **ADMIN-01**: National data summary page at `/admin/national` showing all data sources
-- [ ] **ADMIN-02**: Call Report revenue dashboard (trends, top institutions, charter split)
-- [ ] **ADMIN-03**: Economic conditions panel (FRED + Beige Book summaries)
-- [ ] **ADMIN-04**: Industry health panel (ROA, efficiency, deposits, loans)
-- [ ] **ADMIN-05**: Hamilton can access all summary data via existing tool/query layer
+- [x] **ADMIN-01**: National data summary page at `/admin/national` showing all data sources
+- [x] **ADMIN-02**: Call Report revenue dashboard (trends, top institutions, charter split)
+- [x] **ADMIN-03**: Economic conditions panel (FRED + Beige Book summaries)
+- [x] **ADMIN-04**: Industry health panel (ROA, efficiency, deposits, loans)
+- [x] **ADMIN-05**: Hamilton can access all summary data via existing tool/query layer
 
 ### External Intelligence (INTEL)
-- [ ] **INTEL-01**: Admin can upload/paste external reports, surveys, or research with source attribution
-- [ ] **INTEL-02**: Hamilton can cite external sources in analysis
-- [ ] **INTEL-03**: External intelligence stored with metadata (source, date, category, relevance tags)
-- [ ] **INTEL-04**: Hamilton's tools can search/query external intelligence alongside internal data
+- [x] **INTEL-01**: Admin can upload/paste external reports, surveys, or research with source attribution
+- [x] **INTEL-02**: Hamilton can cite external sources in analysis
+- [x] **INTEL-03**: External intelligence stored with metadata (source, date, category, relevance tags)
+- [x] **INTEL-04**: Hamilton's tools can search/query external intelligence alongside internal data
 
 ## Future Requirements
 
@@ -121,6 +121,42 @@ Requirements for Two-Sided Experience milestone. Each maps to roadmap phases.
 
 ## Traceability
 
+### v5.0 National Data Layer (Complete)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CALL-01 | Phase 23 | Complete |
+| CALL-02 | Phase 23 | Complete |
+| CALL-03 | Phase 23 | Complete |
+| CALL-04 | Phase 23 | Complete |
+| CALL-05 | Phase 23 | Complete |
+| CALL-06 | Phase 23 | Complete |
+| FRED-01 | Phase 23 | Complete |
+| FRED-02 | Phase 23 | Complete |
+| FRED-03 | Phase 23 | Complete |
+| FRED-04 | Phase 23 | Complete |
+| HEALTH-01 | Phase 24 | Complete |
+| HEALTH-02 | Phase 24 | Complete |
+| HEALTH-03 | Phase 24 | Complete |
+| HEALTH-04 | Phase 24 | Complete |
+| BEIGE-01 | Phase 24 | Complete |
+| BEIGE-02 | Phase 24 | Complete |
+| BEIGE-03 | Phase 24 | Complete |
+| DERIVE-01 | Phase 25 | Complete |
+| DERIVE-02 | Phase 25 | Complete |
+| DERIVE-03 | Phase 25 | Complete |
+| ADMIN-01 | Phase 26 | Complete |
+| ADMIN-02 | Phase 26 | Complete |
+| ADMIN-03 | Phase 26 | Complete |
+| ADMIN-04 | Phase 26 | Complete |
+| ADMIN-05 | Phase 25 | Complete |
+| INTEL-01 | Phase 27 | Complete |
+| INTEL-02 | Phase 27 | Complete |
+| INTEL-03 | Phase 27 | Complete |
+| INTEL-04 | Phase 27 | Complete |
+
+### v6.0 (Pending)
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SHELL-01 | Pending | Pending |
@@ -149,10 +185,11 @@ Requirements for Two-Sided Experience milestone. Each maps to roadmap phases.
 | RPT-04 | Pending | Pending |
 
 **Coverage:**
+- v5.0 requirements: 29 total (all complete)
 - v6.0 requirements: 24 total
 - Mapped to phases: 0
 - Unmapped: 24
 
 ---
 *Requirements defined: 2026-04-07*
-*Last updated: 2026-04-07 after initial definition*
+*Last updated: 2026-04-08 after v5.0 completion*

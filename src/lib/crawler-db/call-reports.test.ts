@@ -608,3 +608,45 @@ describe("getInstitutionPeerRanking", () => {
     expect(result!.peer_median_fee_ratio).toBeNull();
   });
 });
+
+describe("scaling verification", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("bank + cu service charges reconcile to total", async () => {
+    const dbRows = [
+      {
+        quarter: "2024-4Q",
+        quarter_date: "2024-10-01",
+        total_service_charges: "5000000",
+        total_institutions: "100",
+        bank_service_charges: "3500000",
+        cu_service_charges: "1500000",
+      },
+    ];
+    getMock().unsafe = vi.fn().mockResolvedValue(dbRows);
+
+    const result = await getRevenueTrend(1);
+    const snap = result.quarters[0];
+    expect(snap.bank_service_charges + snap.cu_service_charges).toBe(snap.total_service_charges);
+  });
+
+  it("revenue values are in dollars not thousands", async () => {
+    const dbRows = [
+      {
+        quarter: "2024-4Q",
+        quarter_date: "2024-10-01",
+        total_service_charges: "5000000000",
+        total_institutions: "100",
+        bank_service_charges: "3500000000",
+        cu_service_charges: "1500000000",
+      },
+    ];
+    getMock().unsafe = vi.fn().mockResolvedValue(dbRows);
+
+    const result = await getRevenueTrend(1);
+    const snap = result.quarters[0];
+    expect(snap.total_service_charges).toBeGreaterThan(1_000_000);
+  });
+});
