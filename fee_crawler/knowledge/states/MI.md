@@ -48,3 +48,24 @@ Discovered: 7 | Extracted: 125 | Failed: 121
 - PDF classification success without extraction warrants review of table parsing logic and fee-identifier keywords
 - Require discovery phase for all institutions to distinguish 'not published' from 'extraction failed'
 - Banks with FAQ-heavy or rates-focused pages are less likely to have linked fee schedules; consider alternate discovery strategies
+
+## Run #202 — 2026-04-07
+Discovered: 0 | Extracted: 127 | Failed: 119
+
+### New Patterns
+- JS-rendered pages show higher extraction failure rate than PDF/HTML
+- Discovery failures concentrated on checking account comparison/feature pages without direct fee document links
+- PDF classification consistently succeeds but HTML/JS rendering shows variable extraction outcomes
+- Extract failures on successfully classified documents suggest content parsing issues rather than document availability
+
+### Site Notes
+- ChoiceOne Bank, Isabella Bank, Advia Federal Credit Union all failed extraction despite successful classification from js_rendered content
+- First National Bank of America, Macatawa Bank, Bank of Ann Arbor had discover fail on account comparison pages that mention fees but lack extraction links
+- PDF documents (Dfcu, Michigan State, Dort Financial) had 100% extraction success; HTML (Lake Trust, Dow) and JS-rendered pages mixed results
+- Michigan Schools Government FCU, Advia FCU, Dow FCU, Isabella Bank all classified correctly but extracted zero fees - indicates content exists but is not being parsed
+
+### Promoted to National
+- JS-rendered fee schedules may require additional parsing logic or content validation beyond standard rendering
+- Account comparison pages are common false positives - need to distinguish from actual fee schedules in discovery logic
+- PDF-based fee schedules are more reliably structured for extraction than dynamically rendered web content
+- Post-classification validation needed: classify=ok with extract failure warrant manual review for parsing logic gaps

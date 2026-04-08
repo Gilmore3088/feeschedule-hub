@@ -242,7 +242,7 @@ export default async function FeeCatalogPage({
               <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50/80 dark:bg-[oklch(0.17_0_0)] z-10 min-w-[220px]">
                   <Suspense fallback="Fee Type">
-                    <SortLink label="Fee Type" sortKey="fee_category" currentSort={sortKey} currentDir={sortDir} />
+                    <SortLink label="Fee Type" sortKey="fee_category" currentSort={sortKey} currentDir={sortDir} searchParams={params} />
                   </Suspense>
                 </th>
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -250,12 +250,12 @@ export default async function FeeCatalogPage({
                 </th>
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
                   <Suspense fallback="Inst.">
-                    <SortLink label="Inst." sortKey="institution_count" currentSort={sortKey} currentDir={sortDir} />
+                    <SortLink label="Inst." sortKey="institution_count" currentSort={sortKey} currentDir={sortDir} searchParams={params} />
                   </Suspense>
                 </th>
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
                   <Suspense fallback="Median">
-                    <SortLink label="Median" sortKey="median_amount" currentSort={sortKey} currentDir={sortDir} />
+                    <SortLink label="Median" sortKey="median_amount" currentSort={sortKey} currentDir={sortDir} searchParams={params} />
                   </Suspense>
                 </th>
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
@@ -269,7 +269,7 @@ export default async function FeeCatalogPage({
                 </th>
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider min-w-[120px]">
                   <Suspense fallback="Range">
-                    <SortLink label="Range" sortKey="spread" currentSort={sortKey} currentDir={sortDir} />
+                    <SortLink label="Range" sortKey="spread" currentSort={sortKey} currentDir={sortDir} searchParams={params} />
                   </Suspense>
                 </th>
                 <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
@@ -432,18 +432,30 @@ function SortLink({
   sortKey,
   currentSort,
   currentDir,
+  searchParams,
 }: {
   label: string;
   sortKey: string;
   currentSort: string;
   currentDir: string;
+  searchParams?: Record<string, string | undefined>;
 }) {
   const isActive = currentSort === sortKey;
   const nextDir = isActive && currentDir === "desc" ? "asc" : "desc";
 
+  // Preserve existing params (show, search, family) when sorting
+  const params = new URLSearchParams();
+  if (searchParams) {
+    for (const [k, v] of Object.entries(searchParams)) {
+      if (v && k !== "sort" && k !== "dir") params.set(k, v);
+    }
+  }
+  params.set("sort", sortKey);
+  params.set("dir", nextDir);
+
   return (
     <Link
-      href={`/admin/fees/catalog?sort=${sortKey}&dir=${nextDir}`}
+      href={`/admin/fees/catalog?${params.toString()}`}
       className="inline-flex items-center gap-1 group/sort"
     >
       {label}

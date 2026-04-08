@@ -54,3 +54,27 @@ Discovered: 12 | Extracted: 273 | Failed: 467
 - HTML-based fee pages may contain more comprehensive fee schedules than JS-rendered equivalents
 - Discover phase needs secondary link-following logic to distinguish landing pages from actual fee schedule documents
 - Validate institution dataset completeness before running discovery; missing URLs block entire institutions
+
+## Run #185 — 2026-04-07
+Discovered: 8 | Extracted: 274 | Failed: 466
+
+### New Patterns
+- JS-rendered pages frequently fail extraction despite successful classification
+- PDF and HTML formats show higher extraction success than js_rendered
+- Cloudflare and security service blocks affecting discovery at multiple institutions
+- Discover-skipped institutions had reliable classification and extraction outcomes
+- Landing pages and redirect pages masquerading as fee schedule pages
+
+### Site Notes
+- Charles Schwab Bank, Prosperity Bank, Southside Bank, TBK BANK all classify as js_rendered but extract zero fees. Suggests js_rendered detection doesn't guarantee fee content accessibility or that rendering misses dynamic fee disclosure elements.
+- PDF sources (Randolph-Brooks FCU: 36 fees, Security Service FCU: 39 fees, American Airlines FCU: 3 fees) and static HTML (Texas Capital: 42, International Bank of Commerce: 48) consistently extract fees. JS-rendered sources fail extraction.
+- First Financial Bank (Cloudflare), Sunflower Bank (security service) discovery blocked. These are legitimate institutions with fee schedules but inaccessible via automated discovery.
+- All 8 skipped discoveries (Frost, Prosperity, Texas Capital, Randolph-Brooks, Security Service FCU, Amarillo, International Bank of Commerce, Woodforest, American Airlines, The American National Bank, Vantage) that proceeded to classification achieved either successful extraction or meaningful results.
+- NexBank, PlainsCapital Bank, Stellar Bank discovery failed because pages contained news articles, empty pages, or educational resources rather than fee schedules despite being identified as fee disclosure candidates.
+
+### Promoted to National
+- JS rendering classification success rate does not correlate with extraction success - may need additional validation step for js_rendered classified pages before extraction attempt
+- Consider deprioritizing js_rendered pages in discovery workflow or implementing fallback to PDF/static HTML alternatives when available
+- Security service blocking is a systematic barrier in TX. May require user-agent rotation, proxy strategies, or manual intervention protocol for Cloudflare-protected sites
+- Skipped discovery flag may indicate known/pre-registered institutions with stable URLs - consider maintaining whitelist of discover-skip candidates to reduce failed discovery attempts
+- Need improved pre-classification filtering to eliminate generic landing pages and news articles from discovery results before extraction

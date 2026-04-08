@@ -46,3 +46,23 @@ Discovered: 0 | Extracted: 62 | Failed: 45
 - Flag extractions under 10 fees for manual review—may indicate discovery/classification errors or genuinely minimal fee schedules
 - WA run may have used pre-identified institution URLs rather than discovery crawl; consider whether this represents a process deviation
 - Consider institution type (bank vs. credit union) in extraction validation thresholds
+
+## Run #201 — 2026-04-07
+Discovered: 0 | Extracted: 65 | Failed: 42
+
+### New Patterns
+- JS-rendered pages with fee schedules often fail extraction despite successful classification
+- PDF-format fee schedules show high extraction reliability
+- Institutions with very low fee counts (1-5) may have incomplete online disclosure
+- Discover failure reason provides actionable content hints
+- HTML-classified pages show highest consistency in extraction success
+
+### Site Notes
+- Boeing Employees FCU, Washington Trust Bank, Washington State Employees FCU, Coastal Community Bank all classified as js_rendered but Boeing and Washington Trust failed extraction with 'no fees extracted'. This suggests rendering succeeded but fee content structure differs from expected patterns.
+- Spokane Teachers FCU (58 fees), Peak FCU (4 fees), Harborstone FCU extracted from PDFs with high yield, but Harborstone failed extraction despite PDF classification. PDF format itself not deterministic.
+- Gesa FCU (1), Peak FCU (4), Numerica FCU (2), Columbia Community FCU (4) show minimal extracted fees despite successful extraction. May indicate partial online publication of fee schedules.
+- 1st Security Bank of Washington discover failed with hint 'Fee schedules and disclosures are often found in the Security and Privacy section' - suggests custom navigation rules needed for banks organizing fees in non-standard locations
+- WaFd Bank, Banner Bank, Heritage Bank, Gesa FCU, Numerica FCU all html-classified with successful extraction (33, 34, 33, 1, 2 fees). Only Sound FCU (html) failed with 'no fees extracted'.
+
+### Promoted to National
+- JS rendering classification success does not guarantee extractable fee content; may need separate extraction patterns for dynamically-rendered fee schedules

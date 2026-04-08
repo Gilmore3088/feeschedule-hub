@@ -373,3 +373,76 @@
 - Flag extractions under 10 fees for manual review—may indicate discovery/classification errors or genuinely minimal fee schedules
 - WA run may have used pre-identified institution URLs rather than discovery crawl; consider whether this represents a process deviation
 - Consider institution type (bank vs. credit union) in extraction validation thresholds
+
+## Promoted — 2026-04-07
+- JS rendering classification success does not guarantee extractable fee content; may need separate extraction patterns for dynamically-rendered fee schedules
+
+## Promoted — 2026-04-07
+- Prioritize PDF discovery paths for credit unions; PDFs appear more reliably structured than HTML/JS-rendered pages
+- JS-rendered classification alone is insufficient predictor of extraction success; rendering quality/content variation is high
+- Discover failures on institution homepages may indicate sites requiring direct URL knowledge or site search functionality
+- Rhode Island run relied on institutional knowledge rather than homepage link crawling; effectiveness limited by database completeness
+- Data quality issue: verify all institutions have website URLs populated before discovery workflow initiation
+
+## Promoted — 2026-04-07
+- Multi-step navigation paths (homepage → account type → fees) require recursive crawling or secondary page discovery strategy
+- PDF documents are reliable extraction source - prioritize PDF discovery in classification strategy
+- Data quality issue - ensure all institution records include valid website URLs before discovery phase
+- Discovery failures with contextual hints indicate viable alternative paths exist - implement multi-path discovery for common institutional layouts
+
+## Promoted — 2026-04-07
+- JS-rendered fee schedules need enhanced extraction logic — standard patterns may not apply to dynamically loaded fee tables
+- PDF extraction consistency issue — may indicate OCR/parsing failures on certain PDF layouts or font encoding problems
+- Banks increasingly embed fee information in account comparison tables rather than standalone documents — discovery logic should prioritize table extraction
+- JS-rendered extraction success is possible but not guaranteed — needs investigation into what structural differences enabled this success
+- Prioritize HTML/PDF discovery pathways over JavaScript rendering for fee schedule location
+
+## Promoted — 2026-04-07
+- PDF format institutions in VT show 100% classification success but variable extraction quality; recommend standardized PDF table extraction logic as priority over HTML/JS variants
+
+## Promoted — 2026-04-07
+- Extraction success correlates strongly with content format: HTML > PDF > js_rendered. Prioritize HTML scraping strategies.
+- PDF fee schedules need format-specific extraction logic; blanket PDF processing fails ~50% of time
+- Direct file URL discovery insufficient for some institutions; require full page crawl to find accessible fee schedule links
+- JavaScript rendering alone insufficient—need multiple fee table pattern matchers for dynamic content
+- Credit union fee schedules may use non-standard formatting or be stored in restricted access locations; warrant separate extraction strategy
+
+## Promoted — 2026-04-07
+- Consider implementing fallback discovery patterns for institutions where homepage links fail — check /fees, /rates, /schedules URLs or secondary navigation before marking as unavailable
+
+## Promoted — 2026-04-07
+- JS rendering classification success rate does not correlate with extraction success - may need additional validation step for js_rendered classified pages before extraction attempt
+- Consider deprioritizing js_rendered pages in discovery workflow or implementing fallback to PDF/static HTML alternatives when available
+- Security service blocking is a systematic barrier in TX. May require user-agent rotation, proxy strategies, or manual intervention protocol for Cloudflare-protected sites
+- Skipped discovery flag may indicate known/pre-registered institutions with stable URLs - consider maintaining whitelist of discover-skip candidates to reduce failed discovery attempts
+- Need improved pre-classification filtering to eliminate generic landing pages and news articles from discovery results before extraction
+
+## Promoted — 2026-04-07
+- PDF documents with embedded text show more reliable extraction than dynamically rendered pages, but authentication/access controls are a significant blocker for financial institutions
+
+## Promoted — 2026-04-07
+- Skipped discover steps (no discovery attempt) consistently preceded successful classification and extraction, suggesting pre-populated institution lists may be more efficient than automated discovery for fee schedule location
+
+## Promoted — 2026-04-07
+- JS-rendered fee schedules may require additional parsing logic or content validation beyond standard rendering
+- Account comparison pages are common false positives - need to distinguish from actual fee schedules in discovery logic
+- PDF-based fee schedules are more reliably structured for extraction than dynamically rendered web content
+- Post-classification validation needed: classify=ok with extract failure warrant manual review for parsing logic gaps
+
+## Promoted — 2026-04-07
+- Need to improve extraction logic for PDF fee schedules; classification is not validating actual extractable content
+- JS rendering pipeline may need refinement for financial tables and structured fee data
+- Kasasa product materials may require specialized parsing; consider adding Kasasa-specific extraction rules
+- Institutions with standardized, cleanly-formatted PDFs extract successfully; could establish baseline PDF quality metrics
+- Discovery filtering is working well; focus remediation on institutions where PDFs are found but extraction fails
+
+## Promoted — 2026-04-07
+- JS-rendered fee schedule pages require either improved rendering wait times or alternative extraction strategies. Current approach is unreliable for this format.
+- Prioritize discovery targeting HTML/PDF fee disclosures. Static document formats are extraction-reliable; focus crawler improvements on identifying and directing to these formats rather than JS-rendered pages.
+- Many institutions bury fee schedules behind multiple clicks or in non-obvious page locations. Consider expanding discovery patterns to search for 'disclosure', 'schedule of fees', 'service charges' in footer links, help sections, and account-specific sub-pages.
+- PDF extraction is viable but inconsistent. Investigate whether PDF failures correlate with image-based PDFs vs. text-based PDFs, or specific fee table structures.
+- Consider whether discover skip represents prior knowledge/direct linking that should be formalized as a discovery bypass strategy for known-good sources.
+
+## Promoted — 2026-04-07
+- Institutions publishing fees as structured HTML tables should be prioritized in discovery workflows - significantly higher success rate than other formats
+- When extraction succeeds in MA run, data quality is reliable - focus remediation on improving discovery/classification rather than validation
