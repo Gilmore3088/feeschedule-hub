@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-07T06:19:27.992Z",
+    "version": 2
+  },
+  "languages": [
+    "TypeScript",
+    "Python",
+    "JavaScript",
+    "SQL"
+  ],
+  "frameworks": [
+    "Next.js 16.1.6",
+    "React 19.2.3",
+    "Tailwind CSS 4",
+    "Modal"
+  ],
+  "tools": [
+    "ESLint 9",
+    "Vitest",
+    "Pytest",
+    "Docker",
+    "Playwright",
+    "Tesseract OCR"
+  ],
+  "build_system": "npm scripts + Modal deploy",
+  "test_framework": "Vitest (TS) + Pytest (Python)",
+  "package_manager": "npm (JS) + pip (Python)",
+  "content_formats": [
+    "Markdown (research skills, guides, articles)",
+    "YAML (fee_crawler config.yaml)",
+    "JSON (API responses, OpenAPI spec)",
+    "HTML (report templates, fee schedule extraction)"
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-07T06:19:30.557Z",
+    "version": 2
+  },
+  "entries": {
+    "next": {
+      "version": "16.1.6",
+      "type": "production",
+      "used_by": [
+        "npm run dev",
+        "npm run build",
+        "npm run start"
+      ],
+      "invocation": "npm run dev"
+    },
+    "react": {
+      "version": "19.2.3",
+      "type": "production",
+      "used_by": [
+        "npm run dev",
+        "npm run build"
+      ],
+      "invocation": "implicit"
+    },
+    "postgres": {
+      "version": "^3.4.8",
+      "type": "production",
+      "used_by": [
+        "src/lib/crawler-db/connection.ts"
+      ],
+      "invocation": "require"
+    },
+    "@anthropic-ai/sdk": {
+      "version": "^0.80.0",
+      "type": "production",
+      "used_by": [
+        "src/lib/hamilton/"
+      ],
+      "invocation": "require"
+    },
+    "ai": {
+      "version": "^6.0.116",
+      "type": "production",
+      "used_by": [
+        "src/app/api/research/",
+        "src/app/api/hamilton/"
+      ],
+      "invocation": "require"
+    },
+    "@ai-sdk/anthropic": {
+      "version": "^3.0.58",
+      "type": "production",
+      "used_by": [
+        "src/app/api/research/",
+        "src/app/api/hamilton/"
+      ],
+      "invocation": "require"
+    },
+    "stripe": {
+      "version": "^20.4.1",
+      "type": "production",
+      "used_by": [
+        "src/lib/stripe.ts",
+        "src/app/api/webhooks/stripe/"
+      ],
+      "invocation": "require"
+    },
+    "zod": {
+      "version": "^4.3.6",
+      "type": "production",
+      "used_by": [
+        "src/lib/",
+        "src/app/api/"
+      ],
+      "invocation": "require"
+    },
+    "recharts": {
+      "version": "^3.7.0",
+      "type": "production",
+      "used_by": [
+        "src/components/fee-histogram.tsx",
+        "src/components/breakdown-chart.tsx"
+      ],
+      "invocation": "require"
+    },
+    "bcryptjs": {
+      "version": "^3.0.3",
+      "type": "production",
+      "used_by": [
+        "src/lib/auth.ts",
+        "src/lib/passwords.ts"
+      ],
+      "invocation": "require"
+    },
+    "sanitize-html": {
+      "version": "^2.17.1",
+      "type": "production",
+      "used_by": [
+        "src/lib/"
+      ],
+      "invocation": "require"
+    },
+    "radix-ui": {
+      "version": "^1.4.3",
+      "type": "production",
+      "used_by": [
+        "src/components/ui/"
+      ],
+      "invocation": "require"
+    },
+    "tailwindcss": {
+      "version": "^4",
+      "type": "development",
+      "used_by": [
+        "npm run dev",
+        "npm run build"
+      ],
+      "invocation": "implicit"
+    },
+    "eslint": {
+      "version": "^9",
+      "type": "development",
+      "used_by": [
+        "npm run lint"
+      ],
+      "invocation": "npm run lint"
+    },
+    "typescript": {
+      "version": "^5",
+      "type": "development",
+      "used_by": [
+        "npm run build"
+      ],
+      "invocation": "implicit"
+    },
+    "modal": {
+      "version": "latest",
+      "type": "production",
+      "used_by": [
+        "fee_crawler/modal_app.py"
+      ],
+      "invocation": "modal deploy fee_crawler/modal_app.py"
+    },
+    "pydantic": {
+      "version": "2.0+",
+      "type": "production",
+      "used_by": [
+        "fee_crawler/config.py"
+      ],
+      "invocation": "require"
+    },
+    "anthropic (python)": {
+      "version": "0.40+",
+      "type": "production",
+      "used_by": [
+        "fee_crawler/pipeline/extract_llm.py"
+      ],
+      "invocation": "require"
+    },
+    "playwright": {
+      "version": "1.40+",
+      "type": "production",
+      "used_by": [
+        "fee_crawler/pipeline/playwright_fetcher.py"
+      ],
+      "invocation": "require"
+    }
+  }
+}

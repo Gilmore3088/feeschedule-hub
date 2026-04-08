@@ -1,0 +1,377 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-07T06:19:28.894Z",
+    "version": 2
+  },
+  "entries": {
+    "src/app/page.tsx": {
+      "exports": [],
+      "imports": [],
+      "type": "entry-point"
+    },
+    "src/app/admin/page.tsx": {
+      "exports": [],
+      "imports": [
+        "@/lib/crawler-db",
+        "@/lib/auth"
+      ],
+      "type": "entry-point"
+    },
+    "src/lib/crawler-db/index.ts": {
+      "exports": [],
+      "imports": [
+        "./types",
+        "./connection",
+        "./core",
+        "./financial",
+        "./fees",
+        "./dashboard",
+        "./peers",
+        "./saved-peers",
+        "./fed",
+        "./fee-index",
+        "./market",
+        "./quality",
+        "./geographic",
+        "./fee-revenue",
+        "./hygiene",
+        "./pipeline",
+        "./articles"
+      ],
+      "type": "module"
+    },
+    "src/lib/crawler-db/connection.ts": {
+      "exports": [
+        "getSql",
+        "hasData",
+        "sql"
+      ],
+      "imports": [
+        "postgres"
+      ],
+      "type": "module"
+    },
+    "src/lib/auth.ts": {
+      "exports": [
+        "login",
+        "logout",
+        "getCurrentUser",
+        "hasPermission",
+        "requireAuth"
+      ],
+      "imports": [
+        "bcryptjs",
+        "@/lib/crawler-db/connection"
+      ],
+      "type": "module"
+    },
+    "src/lib/fee-taxonomy.ts": {
+      "exports": [
+        "getDisplayName",
+        "getFeeFamily",
+        "getFamilyColor",
+        "getFeeTier",
+        "isFeaturedFee",
+        "getFeaturedCategories",
+        "getSpotlightCategories",
+        "TAXONOMY_COUNT",
+        "FEATURED_COUNT"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/lib/format.ts": {
+      "exports": [
+        "formatAmount",
+        "formatAssets",
+        "timeAgo",
+        "formatPct"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/lib/fed-districts.ts": {
+      "exports": [
+        "parsePeerFilters",
+        "buildFilterDescription",
+        "TIER_ORDER"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/lib/fee-actions.ts": {
+      "exports": [
+        "approveFee",
+        "rejectFee",
+        "editFee",
+        "updateFeeCategory",
+        "editAndApproveFee",
+        "bulkApproveStagedFees",
+        "bulkRejectFees",
+        "bulkEditAndApproveFees",
+        "bulkApproveFees",
+        "bulkApproveByConfidence",
+        "bulkRejectByInstitution",
+        "unstageFee",
+        "bulkUpdateFeeCategory"
+      ],
+      "imports": [
+        "@/lib/crawler-db/connection"
+      ],
+      "type": "module"
+    },
+    "src/lib/stripe.ts": {
+      "exports": [
+        "getStripe",
+        "getWebhookSecret"
+      ],
+      "imports": [
+        "stripe"
+      ],
+      "type": "module"
+    },
+    "src/lib/research/skills.ts": {
+      "exports": [
+        "detectSkill",
+        "buildSkillInjection",
+        "buildSkillExecution",
+        "isSkillOptIn",
+        "findOfferedSkill",
+        "listSkills"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/lib/research/agents.ts": {
+      "exports": [],
+      "imports": [
+        "@/lib/research/skills"
+      ],
+      "type": "module"
+    },
+    "src/lib/hamilton/index.ts": {
+      "exports": [
+        "HAMILTON_VOICE",
+        "HAMILTON_VERSION",
+        "HAMILTON_RULES",
+        "HAMILTON_FORBIDDEN",
+        "HAMILTON_SYSTEM_PROMPT",
+        "generateSection",
+        "validateNumerics",
+        "validateSection"
+      ],
+      "imports": [
+        "@anthropic-ai/sdk"
+      ],
+      "type": "module"
+    },
+    "src/lib/hamilton/hamilton-agent.ts": {
+      "exports": [],
+      "imports": [
+        "@/lib/hamilton/index",
+        "@/lib/hamilton/types"
+      ],
+      "type": "module"
+    },
+    "src/lib/report-engine/index.ts": {
+      "exports": [],
+      "imports": [
+        "@/lib/report-engine/types",
+        "@/lib/report-engine/editor"
+      ],
+      "type": "module"
+    },
+    "src/lib/report-engine/assemble-and-render.ts": {
+      "exports": [],
+      "imports": [
+        "@/lib/report-engine/types",
+        "@/lib/report-templates"
+      ],
+      "type": "module"
+    },
+    "src/lib/scout/db.ts": {
+      "exports": [],
+      "imports": [
+        "@/lib/crawler-db/connection"
+      ],
+      "type": "module"
+    },
+    "src/lib/api-auth.ts": {
+      "exports": [],
+      "imports": [
+        "@/lib/crawler-db/connection"
+      ],
+      "type": "module"
+    },
+    "src/lib/api-rate-limit.ts": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "src/lib/brand.ts": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "src/app/api/v1/fees/route.ts": {
+      "exports": [
+        "GET"
+      ],
+      "imports": [
+        "@/lib/crawler-db",
+        "@/lib/fee-taxonomy",
+        "@/lib/auth",
+        "@/lib/access",
+        "@/lib/api-auth",
+        "@/lib/api-rate-limit",
+        "@/lib/api-usage"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/v1/index/route.ts": {
+      "exports": [
+        "GET"
+      ],
+      "imports": [
+        "@/lib/crawler-db",
+        "@/lib/fee-taxonomy",
+        "@/lib/api-auth",
+        "@/lib/api-rate-limit",
+        "@/lib/api-usage"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/v1/institutions/route.ts": {
+      "exports": [
+        "GET"
+      ],
+      "imports": [
+        "@/lib/crawler-db"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/webhooks/stripe/route.ts": {
+      "exports": [
+        "POST"
+      ],
+      "imports": [
+        "@/lib/stripe",
+        "@/lib/crawler-db/connection"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/research/[agentId]/route.ts": {
+      "exports": [
+        "POST"
+      ],
+      "imports": [
+        "ai",
+        "@ai-sdk/anthropic",
+        "@/lib/research/agents",
+        "@/lib/auth",
+        "@/lib/research/rate-limit",
+        "@/lib/research/history",
+        "@/lib/research/skills"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/hamilton/chat/route.ts": {
+      "exports": [
+        "POST"
+      ],
+      "imports": [
+        "ai",
+        "@ai-sdk/anthropic",
+        "@/lib/auth",
+        "@/lib/hamilton/hamilton-agent"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/reports/generate/route.ts": {
+      "exports": [
+        "POST"
+      ],
+      "imports": [
+        "@/lib/auth",
+        "@/lib/report-engine"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/health/route.ts": {
+      "exports": [
+        "GET"
+      ],
+      "imports": [
+        "@/lib/crawler-db/connection"
+      ],
+      "type": "entry-point"
+    },
+    "src/app/api/leads/route.ts": {
+      "exports": [
+        "POST"
+      ],
+      "imports": [
+        "@/lib/crawler-db/connection"
+      ],
+      "type": "entry-point"
+    },
+    "fee_crawler/__main__.py": {
+      "exports": [],
+      "imports": [
+        "fee_crawler.config",
+        "fee_crawler.db",
+        "fee_crawler.commands.*"
+      ],
+      "type": "entry-point"
+    },
+    "fee_crawler/modal_app.py": {
+      "exports": [],
+      "imports": [
+        "modal",
+        "fee_crawler"
+      ],
+      "type": "entry-point"
+    },
+    "fee_crawler/config.py": {
+      "exports": [],
+      "imports": [
+        "pydantic"
+      ],
+      "type": "config"
+    },
+    "fee_crawler/fee_analysis.py": {
+      "exports": [],
+      "imports": [
+        "fee_crawler.config"
+      ],
+      "type": "module"
+    },
+    "fee_crawler/validation.py": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "fee_crawler/db.py": {
+      "exports": [],
+      "imports": [
+        "psycopg2",
+        "fee_crawler.config"
+      ],
+      "type": "module"
+    },
+    "next.config.ts": {
+      "exports": [
+        "default"
+      ],
+      "imports": [
+        "next"
+      ],
+      "type": "config"
+    },
+    "tsconfig.json": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    }
+  }
+}

@@ -21,6 +21,10 @@ export async function updateFeeUrl(
           document_type = NULL
       WHERE id = ${institutionId}
     `;
+
+    // Auto-trigger extraction after URL save (fire-and-forget)
+    runExtract(institutionId).catch(() => {});
+
     revalidatePath(`/admin/institution/${institutionId}`);
     return { ok: true };
   } catch (e) {
@@ -137,22 +141,22 @@ export async function runExtract(
     if (!inst) return { error: "Institution not found" };
     if (!inst.fee_schedule_url) return { error: "No fee schedule URL set" };
 
-    // Call Modal endpoint for single-institution extract
-    const modalUrl = process.env.MODAL_AGENT_URL;
-    if (!modalUrl) {
-      return { error: "MODAL_AGENT_URL not configured — run agent from Scout tab instead" };
-    }
-
-    // For now, call the classify + extract locally via API
-    // This triggers the full pipeline for just this institution
-    const res = await fetch(modalUrl, {
+    // Run single-institution extraction via local pipeline (Postgres, not SQLite)
+    const appUrl = process.env.BFI_APP_URL || "http://localhost:3000";
+    const res = await fetch(`${appUrl}/api/extract`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state_code: inst.state_code }),
+      body: JSON.stringify({ targetId: institutionId }),
     });
 
     if (!res.ok) {
-      return { error: "Agent trigger failed — try running from the Scout Agent tab" };
+      const body = await res.json().catch(() => ({}));
+      return { error: body.error || "Extraction failed" };
+    }
+
+    const result = await res.json();
+    if (!result.ok) {
+      return { error: result.error || "Extraction returned no results" };
     }
 
     revalidatePath(`/admin/institution/${institutionId}`);

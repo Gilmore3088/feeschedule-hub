@@ -7,6 +7,8 @@ import requests
 import anthropic
 import pdfplumber
 
+from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf as _pipeline_extract_text
+
 log = logging.getLogger(__name__)
 
 _EXTRACT_TOOL = {
@@ -47,15 +49,16 @@ def extract_pdf(url: str, institution: dict) -> list[dict]:
         f.write(resp.content)
         pdf_path = f.name
 
-    # Extract text
+    # Extract text using pipeline's full extractor (tables + OCR fallback)
     try:
-        with pdfplumber.open(pdf_path) as pdf:
-            text = "\n".join(page.extract_text() or "" for page in pdf.pages[:20])
+        with open(pdf_path, "rb") as fh:
+            pdf_bytes = fh.read()
+        text = _pipeline_extract_text(pdf_bytes)
     finally:
         os.unlink(pdf_path)
 
     if not text.strip():
-        log.warning("PDF text extraction returned empty")
+        log.warning("PDF text extraction returned empty (including OCR fallback)")
         return []
 
     return _extract_fees_with_llm(text, institution, "pdf")

@@ -1,0 +1,118 @@
+<h2>Report Design Direction</h2>
+<p class="subtitle">Which visual approach feels right for a bank executive audience?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#FDFBF8;padding:24px;min-height:320px;">
+      <!-- McKinsey/Deloitte style -->
+      <div style="font-family:Georgia,serif;max-width:480px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#C44B2E;margin-bottom:8px;">National Fee Landscape</div>
+        <div style="font-size:22px;font-weight:600;color:#1A1815;line-height:1.3;margin-bottom:16px;">Overdraft Revenue Climbs While Fee Prices Hold Flat</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div style="font-size:13px;color:#3D3830;line-height:1.6;">
+            Bank service charge revenue reached $7.2B in Q1, up 4.2% year-over-year, even as median overdraft fees held steady at $29.00 across 1,506 institutions. The divergence suggests volume — not pricing — is the primary growth driver.
+          </div>
+          <div>
+            <div style="background:#F5EFE6;border-radius:8px;padding:16px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7A7062;margin-bottom:4px;">Median OD Fee</div>
+              <div style="font-size:32px;font-weight:700;color:#1A1815;">$29.00</div>
+              <div style="font-size:11px;color:#7A7062;">Flat YoY — 1,506 institutions</div>
+            </div>
+            <div style="background:#F5EFE6;border-radius:8px;padding:16px;margin-top:8px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7A7062;margin-bottom:4px;">Service Charge Revenue</div>
+              <div style="font-size:32px;font-weight:700;color:#C44B2E;">$7.2B</div>
+              <div style="font-size:11px;color:#C44B2E;">+4.2% YoY</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Narrative + Stat Cards</h3>
+      <p>Two-column: Hamilton narrative left, bold stat callouts right. Warm cream palette. Feels like McKinsey/Deloitte. Text-heavy but data-grounded. Your current palette expanded.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0B1F3A;padding:24px;min-height:320px;">
+      <!-- Dark/modern corporate style -->
+      <div style="max-width:480px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#4A90D9;margin-bottom:8px;">Q2 2026 Quarterly Report</div>
+        <div style="font-family:system-ui;font-size:22px;font-weight:700;color:#FFFFFF;line-height:1.3;margin-bottom:20px;">The Fee Landscape Is Shifting</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
+          <div style="background:rgba(74,144,217,0.15);border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:#FFFFFF;">2,106</div>
+            <div style="font-size:10px;color:#8AACCC;text-transform:uppercase;letter-spacing:1px;">Institutions</div>
+          </div>
+          <div style="background:rgba(74,144,217,0.15);border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:#4ADB8B;">+4.2%</div>
+            <div style="font-size:10px;color:#8AACCC;text-transform:uppercase;letter-spacing:1px;">Revenue Growth</div>
+          </div>
+          <div style="background:rgba(74,144,217,0.15);border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:#FF6B4A;">$29</div>
+            <div style="font-size:10px;color:#8AACCC;text-transform:uppercase;letter-spacing:1px;">Median OD Fee</div>
+          </div>
+        </div>
+        <!-- Mini bar chart mockup -->
+        <div style="display:flex;align-items:flex-end;gap:6px;height:80px;padding:0 20px;">
+          <div style="flex:1;background:rgba(74,144,217,0.3);height:45%;border-radius:3px 3px 0 0;"></div>
+          <div style="flex:1;background:rgba(74,144,217,0.4);height:55%;border-radius:3px 3px 0 0;"></div>
+          <div style="flex:1;background:rgba(74,144,217,0.5);height:50%;border-radius:3px 3px 0 0;"></div>
+          <div style="flex:1;background:rgba(74,144,217,0.6);height:65%;border-radius:3px 3px 0 0;"></div>
+          <div style="flex:1;background:rgba(74,144,217,0.7);height:60%;border-radius:3px 3px 0 0;"></div>
+          <div style="flex:1;background:#4A90D9;height:72%;border-radius:3px 3px 0 0;"></div>
+          <div style="flex:1;background:#4ADB8B;height:80%;border-radius:3px 3px 0 0;"></div>
+        </div>
+        <div style="font-size:10px;color:#8AACCC;text-align:center;margin-top:4px;">Service charge revenue trend (Q1 2024 — Q2 2026)</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Dark Corporate + Charts</h3>
+      <p>Dark navy background, bold stat tiles, inline SVG charts. Feels like EXL/Bloomberg. Data-forward, chart-heavy. Modern fintech feel.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#FFFFFF;padding:24px;min-height:320px;border-bottom:3px solid #C44B2E;">
+      <!-- Clean white + accent style -->
+      <div style="max-width:480px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+          <div style="width:4px;height:24px;background:#C44B2E;border-radius:2px;"></div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#7A7062;font-weight:600;">Chapter 02 — Revenue Landscape</div>
+        </div>
+        <div style="font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1A1815;line-height:1.3;margin-bottom:16px;">Service Charge Revenue Tells a Different Story Than Fee Schedules</div>
+        <div style="font-size:13px;color:#3D3830;line-height:1.7;margin-bottom:16px;">
+          Published fee amounts suggest stability. Call Report data reveals the opposite — revenue from deposit account service charges grew 4.2% nationally in Q1, driven by overdraft volume among financially stressed consumers.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="border:1px solid #E8DFD1;border-radius:8px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <div style="font-size:11px;color:#7A7062;text-transform:uppercase;letter-spacing:1px;">Fee Prices</div>
+              <div style="font-size:11px;color:#7A7062;">YoY</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;">
+              <div style="font-size:28px;font-weight:700;color:#1A1815;">Flat</div>
+              <div style="font-size:14px;font-weight:600;color:#7A7062;">0.0%</div>
+            </div>
+          </div>
+          <div style="border:1px solid #E8DFD1;border-radius:8px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <div style="font-size:11px;color:#7A7062;text-transform:uppercase;letter-spacing:1px;">Revenue</div>
+              <div style="font-size:11px;color:#7A7062;">YoY</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;">
+              <div style="font-size:28px;font-weight:700;color:#C44B2E;">$7.2B</div>
+              <div style="font-size:14px;font-weight:600;color:#C44B2E;">+4.2%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C: Clean White + Terracotta Accent</h3>
+      <p>White background, chapter structure, conclusion-first headings, paired stat cards. Feels like Salesforce report meets your existing palette. Professional, authoritative, print-friendly.</p>
+    </div>
+  </div>
+</div>
+</content>
+</invoke>

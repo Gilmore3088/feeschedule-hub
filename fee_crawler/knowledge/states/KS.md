@@ -48,3 +48,47 @@ Discovered: 8 | Extracted: 84 | Failed: 167
 - PDF-based fee schedules are more reliably extractable; prioritize PDF discovery and classification
 - Many institutions bury fee schedules; discovery may need to check /disclosures, /rates, /legal URLs as fallbacks
 - Some PDFs pass classification but fail extraction due to non-standard formatting; may need institution-specific parsing rules
+
+## Run #135 — 2026-04-07
+Discovered: 3 | Extracted: 95 | Failed: 156
+
+### New Patterns
+- PDF documents consistently yield higher fee counts than HTML equivalents
+- JavaScript-rendered content extraction failure correlates with complex dynamic fee displays
+- PDF classification without successful extraction indicates extraction logic gaps
+- Homepage link discovery failures are rare but recoverable
+- High extraction variance within same format class indicates content structuring differences
+
+### Site Notes
+- Fidelity Bank (49 fees from PDF), Communityamerica FCU (43 from PDF), Landmark National Bank (35 from PDF) vs. Equity Bank (3 fees from HTML), Armed Forces Bank (8 from HTML). PDF format may preserve table structures better for fee schedule extraction.
+- Central National Bank classified as js_rendered but extracted zero fees, suggesting dynamic fee schedule layouts are not being captured by current extraction logic
+- Community National Bank & Trust: classified as PDF but extraction failed with 'no fees extracted' — suggests valid PDF detected but fee table parsing unsuccessful
+- Peoples Bank and Trust Company: discover failed ('No links found on homepage') — institution likely publishes fees but discovery method missed navigation paths
+- HTML banks range from 3 fees (Equity) to 42 fees (Credit Union of America) — suggests some banks present fees in tabular layouts while others use prose or scattered formats
+
+### Promoted to National
+- Prioritize PDF discovery and extraction pipelines; HTML parsing may require enhanced table/structure detection for fee schedules
+- JS-rendered fee schedule pages need specialized DOM parsing; current extraction may timeout or miss dynamically-loaded fee tables
+- PDF structure varies significantly; implement fallback OCR or template-based extraction for PDF documents that pass classification but fail extraction
+- When homepage link extraction fails, implement secondary discovery: search for 'fees', 'rates', 'disclosures' in site structure or rely on direct URL patterns
+- HTML fee schedules benefit from multi-strategy extraction (tables, definition lists, paragraph patterns) rather than single parsing approach
+
+## Run #147 — 2026-04-07
+Discovered: 6 | Extracted: 98 | Failed: 153
+
+### New Patterns
+- PDF-based fee schedules extract consistently well (33-50 fees), while HTML varies widely (3-44 fees)
+- JavaScript-rendered content (js_rendered classification) appears problematic for fee extraction
+- Some institutions publish fee schedules but extraction yields zero fees despite successful classification
+- Discover phase consistently skipped across all successful runs suggests pre-existing URL knowledge
+- Homepage link-based discovery fails for some institutions
+
+### Site Notes
+- KS institutions using PDFs (Capitol Federal, Fidelity Bank, Community National Bank & Trust, CoreFirst) show better extraction rates than HTML counterparts
+- Central National Bank classified as js_rendered failed extraction completely despite successful classification
+- Community National Bank & Trust (PDF) and Central National Bank (js_rendered) both classified successfully but extracted no fees—suggests fee data may be structured differently or embedded in non-standard formats
+- All 6 discovered institutions in KS appear to have had URLs pre-populated, indicating discover phase may not be critical for well-known regional banks
+- Peoples Bank and Trust Company discovery failed with 'No links found on homepage'—suggests some banks may not link to fee schedules from homepage or use navigation structures that resist crawling
+
+### Promoted to National
+- None

@@ -1,0 +1,187 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-07T06:19:29.790Z",
+    "version": 2
+  },
+  "entries": {
+    "GET /api/health": {
+      "method": "GET",
+      "path": "/api/health",
+      "params": [],
+      "file": "src/app/api/health/route.ts",
+      "description": "Health check returning fee count and timestamp"
+    },
+    "GET /api/v1/fees": {
+      "method": "GET",
+      "path": "/api/v1/fees",
+      "params": [
+        "category",
+        "state",
+        "charter",
+        "format",
+        "page",
+        "limit"
+      ],
+      "file": "src/app/api/v1/fees/route.ts",
+      "description": "Public fee data with optional API key auth and rate limiting"
+    },
+    "GET /api/v1/index": {
+      "method": "GET",
+      "path": "/api/v1/index",
+      "params": [
+        "state",
+        "charter",
+        "district",
+        "format"
+      ],
+      "file": "src/app/api/v1/index/route.ts",
+      "description": "National/peer fee index with median, P25, P75 stats"
+    },
+    "GET /api/v1/institutions": {
+      "method": "GET",
+      "path": "/api/v1/institutions",
+      "params": [
+        "id",
+        "state",
+        "charter",
+        "page",
+        "limit"
+      ],
+      "file": "src/app/api/v1/institutions/route.ts",
+      "description": "Institution lookup by ID or filtered list"
+    },
+    "GET /api/v1/openapi.json": {
+      "method": "GET",
+      "path": "/api/v1/openapi.json",
+      "params": [],
+      "file": "src/app/api/v1/openapi.json/route.ts",
+      "description": "OpenAPI specification for public API"
+    },
+    "POST /api/research/[agentId]": {
+      "method": "POST",
+      "path": "/api/research/[agentId]",
+      "params": [
+        "agentId"
+      ],
+      "file": "src/app/api/research/[agentId]/route.ts",
+      "description": "Streaming research agent chat with skill detection"
+    },
+    "POST /api/hamilton/chat": {
+      "method": "POST",
+      "path": "/api/hamilton/chat",
+      "params": [],
+      "file": "src/app/api/hamilton/chat/route.ts",
+      "description": "Hamilton unified research chat with conversation memory"
+    },
+    "GET /api/hamilton/conversations": {
+      "method": "GET",
+      "path": "/api/hamilton/conversations",
+      "params": [],
+      "file": "src/app/api/hamilton/conversations/route.ts",
+      "description": "List Hamilton chat conversations"
+    },
+    "GET /api/hamilton/conversations/[id]/messages": {
+      "method": "GET",
+      "path": "/api/hamilton/conversations/[id]/messages",
+      "params": [
+        "id"
+      ],
+      "file": "src/app/api/hamilton/conversations/[id]/messages/route.ts",
+      "description": "Get messages for a Hamilton conversation"
+    },
+    "POST /api/webhooks/stripe": {
+      "method": "POST",
+      "path": "/api/webhooks/stripe",
+      "params": [],
+      "file": "src/app/api/webhooks/stripe/route.ts",
+      "description": "Stripe webhook handler for subscription events"
+    },
+    "POST /api/leads": {
+      "method": "POST",
+      "path": "/api/leads",
+      "params": [
+        "name",
+        "email",
+        "company",
+        "role",
+        "use_case",
+        "source"
+      ],
+      "file": "src/app/api/leads/route.ts",
+      "description": "Lead capture form submission"
+    },
+    "GET /api/institutions": {
+      "method": "GET",
+      "path": "/api/institutions",
+      "params": [],
+      "file": "src/app/api/institutions/route.ts",
+      "description": "Internal institution listing"
+    },
+    "POST /api/revalidate": {
+      "method": "POST",
+      "path": "/api/revalidate",
+      "params": [],
+      "file": "src/app/api/revalidate/route.ts",
+      "description": "ISR revalidation trigger for Next.js pages"
+    },
+    "GET /api/alerts": {
+      "method": "GET",
+      "path": "/api/alerts",
+      "params": [],
+      "file": "src/app/api/alerts/route.ts",
+      "description": "Pipeline alert notifications"
+    },
+    "POST /api/reports/generate": {
+      "method": "POST",
+      "path": "/api/reports/generate",
+      "params": [
+        "report_type"
+      ],
+      "file": "src/app/api/reports/generate/route.ts",
+      "description": "Enqueue report generation job (fire-and-forget)"
+    },
+    "GET /api/reports/[id]/status": {
+      "method": "GET",
+      "path": "/api/reports/[id]/status",
+      "params": [
+        "id"
+      ],
+      "file": "src/app/api/reports/[id]/status/route.ts",
+      "description": "Poll report generation job status"
+    },
+    "POST /api/reports/[id]/assemble": {
+      "method": "POST",
+      "path": "/api/reports/[id]/assemble",
+      "params": [
+        "id"
+      ],
+      "file": "src/app/api/reports/[id]/assemble/route.ts",
+      "description": "Assemble and render final report"
+    },
+    "GET /api/reports/[id]/download": {
+      "method": "GET",
+      "path": "/api/reports/[id]/download",
+      "params": [
+        "id"
+      ],
+      "file": "src/app/api/reports/[id]/download/route.ts",
+      "description": "Download rendered report file"
+    },
+    "GET /api/scout/agent": {
+      "method": "GET",
+      "path": "/api/scout/agent",
+      "params": [
+        "state"
+      ],
+      "file": "src/app/api/scout/agent/route.ts",
+      "description": "Get latest state agent run results"
+    },
+    "GET /api/scout/institutions": {
+      "method": "GET",
+      "path": "/api/scout/institutions",
+      "params": [],
+      "file": "src/app/api/scout/institutions/route.ts",
+      "description": "Scout institution listing"
+    }
+  }
+}
