@@ -242,7 +242,9 @@ def cmd_ingest_fed_content(args: argparse.Namespace) -> None:
 def cmd_ingest_ffiec_cdr(args: argparse.Namespace) -> None:
     """Ingest overdraft revenue from FFIEC CDR bulk Call Report data."""
     from fee_crawler.commands.ingest_ffiec_cdr import run
-    run(args)
+    config = load_config()
+    db = get_db(config)
+    run(db, args)
 
 
 def cmd_ingest_fred(args: argparse.Namespace) -> None:

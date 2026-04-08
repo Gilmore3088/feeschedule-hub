@@ -23,7 +23,6 @@ from pathlib import Path
 
 import requests
 
-from fee_crawler.config import Config
 from fee_crawler.db import Database
 
 
@@ -56,65 +55,101 @@ def _safe_int(val: str | None) -> int | None:
 
 def download_ri_e_data(quarter: str, timeout: int = 60) -> list[dict]:
     """
-    Download Schedule RI-E (service charge detail) from FFIEC CDR for a quarter.
+    Download Call Report data from FFIEC CDR including RIADH032 (overdraft revenue).
 
-    Returns list of dicts with keys: IDRSSD, CERT, RIADH032, REPDTE.
+    Uses "Four Periods" report type which includes income statement data (RIAD fields).
+    The ZIP contains two files -- file 2 has RIAD columns including H032.
+    Converts the year-based download into quarter-specific rows via Reporting Period End Date.
+
+    Returns list of dicts with keys: idrssd, cert, riadh032, report_date.
     """
-    cdr_date = _quarter_to_cdr_date(quarter)
+    # Four Periods uses year labels, not quarter dates
+    year = quarter[:4]
 
-    # The CDR bulk download uses a POST form submission.
-    # We request Schedule RI-E data specifically.
-    params = {
-        "DtASOf": cdr_date,
-        "DtRptPrd": cdr_date,
-        "RptType": "Call",
-        "DtRptSbType": "RI-E",
-        "RunRpt": "Download",
-        "TabDelimited": "Y",
-    }
-
-    print(f"  Downloading FFIEC CDR RI-E for {quarter}...")
+    print(f"  Downloading FFIEC CDR Call Reports for {year} via Playwright...")
 
     try:
-        resp = requests.post(CDR_BULK_URL, data=params, timeout=timeout)
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        print(f"  Warning: CDR download failed for {quarter}: {e}")
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  Error: Playwright not installed. Run: pip install playwright && playwright install chromium")
         return []
 
-    content = resp.content
+    download_path = Path(f"/tmp/ffiec_cdr_{year}.zip")
 
-    # Response may be a ZIP file or raw TSV
-    if content[:2] == b"PK":  # ZIP magic bytes
-        try:
-            with zipfile.ZipFile(io.BytesIO(content)) as zf:
-                # Find the TSV/CSV file inside
-                names = zf.namelist()
-                data_file = next((n for n in names if n.endswith((".txt", ".csv", ".tsv"))), names[0])
-                raw = zf.read(data_file).decode("utf-8", errors="replace")
-        except Exception as e:
-            print(f"  Warning: Failed to extract ZIP for {quarter}: {e}")
-            return []
+    # Use cached download if available (avoid re-downloading same year)
+    if download_path.exists() and download_path.stat().st_size > 1000:
+        print(f"  Using cached download: {download_path}")
+        content = download_path.read_bytes()
     else:
-        raw = content.decode("utf-8", errors="replace")
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(CDR_BULK_URL, wait_until="networkidle", timeout=30000)
 
-    # Parse TSV
+                # Select "Call Reports -- Balance Sheet, Income Statement, Past Due -- Four Periods"
+                report_select = "select[name='ctl00$MainContentHolder$ListBox1']"
+                page.select_option(report_select, value="ReportingSeriesSubsetSchedulesFourPeriods")
+                page.wait_for_timeout(3000)  # ASP.NET postback to populate dates
+
+                # Select the year
+                date_select = "select[name='ctl00$MainContentHolder$DatesDropDownList']"
+                page.select_option(date_select, label=year)
+                page.wait_for_timeout(1000)
+
+                # Click Download and wait for file
+                with page.expect_download(timeout=300000) as download_info:
+                    page.click("#Download_0")
+
+                download = download_info.value
+                download.save_as(download_path)
+                browser.close()
+
+                content = download_path.read_bytes()
+
+        except Exception as e:
+            print(f"  Warning: CDR download failed for {year}: {e}")
+            return []
+
+    # ZIP contains 2 data files + Readme. File 2 has RIAD (income statement) columns.
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            # Find file 2 (income statement)
+            names = [n for n in zf.namelist() if "Readme" not in n]
+            data_file = next((n for n in names if "(2 of 2)" in n), names[-1])
+            raw = zf.read(data_file).decode("utf-8", errors="replace")
+    except Exception as e:
+        print(f"  Warning: Failed to extract ZIP for {year}: {e}")
+        return []
+
+    # Convert quarter YYYYMMDD to YYYY-MM-DD for matching the Reporting Period End Date column
+    target_date = f"{quarter[:4]}-{quarter[4:6]}-{quarter[6:8]}"
+
+    # Parse TSV -- filter to matching quarter only (file has 4 quarters per year)
     rows = []
     reader = csv.DictReader(io.StringIO(raw), delimiter="\t")
 
     for row in reader:
-        # FFIEC uses IDRSSD as primary key. We need CERT for matching to our DB.
-        idrssd = row.get("IDRSSD", "").strip()
-        cert = row.get("CERT", row.get("FDIC Certificate Number", "")).strip()
-        riadh032 = row.get("RIADH032", row.get("H032", "")).strip()
-
-        if not idrssd and not cert:
+        # Filter to the requested quarter
+        repdte = row.get("Reporting Period End Date", "").strip()
+        if repdte != target_date:
             continue
+
+        cert = row.get("FDIC Certificate Number", "").strip()
+        idrssd = row.get("IDRSSD", "").strip()
+
+        if not cert and not idrssd:
+            continue
+
+        try:
+            riadh032 = _safe_int(row.get("RIADH032", ""))
+        except (ValueError, TypeError):
+            riadh032 = None
 
         rows.append({
             "idrssd": idrssd,
             "cert": cert,
-            "riadh032": _safe_int(riadh032),
+            "riadh032": riadh032,
             "report_date": quarter,
         })
 
@@ -147,8 +182,9 @@ def update_overdraft_revenue(db: Database, rows: list[dict]) -> int:
         overdraft_thousands = row["riadh032"]
 
         try:
-            if db.is_postgres:
-                result = db.execute(
+            from fee_crawler.db import PostgresDatabase
+            if isinstance(db, PostgresDatabase):
+                cursor = db.execute(
                     """UPDATE institution_financials
                        SET overdraft_revenue = %s
                        WHERE crawl_target_id = (
@@ -158,7 +194,7 @@ def update_overdraft_revenue(db: Database, rows: list[dict]) -> int:
                     (overdraft_thousands, cert, f"{report_date}%")
                 )
             else:
-                result = db.execute(
+                cursor = db.execute(
                     """UPDATE institution_financials
                        SET overdraft_revenue = ?
                        WHERE crawl_target_id = (
@@ -168,19 +204,16 @@ def update_overdraft_revenue(db: Database, rows: list[dict]) -> int:
                     (overdraft_thousands, cert, f"{report_date}%")
                 )
 
-            if result and result.rowcount and result.rowcount > 0:
+            if cursor and cursor.rowcount and cursor.rowcount > 0:
                 updated += 1
-        except Exception as e:
-            # Skip individual row errors
+        except Exception:
             continue
 
     return updated
 
 
-def run(args) -> None:
+def run(db: "Database", args) -> None:
     """Main entry point for ingest-ffiec-cdr command."""
-    config = Config.load()
-    db = Database(config)
 
     # Ensure overdraft_revenue column exists
     _ensure_column(db)
@@ -203,6 +236,7 @@ def run(args) -> None:
             continue
 
         count = update_overdraft_revenue(db, rows)
+        db.commit()
         total_updated += count
         print(f"  Updated {count} institutions for {quarter}")
 
@@ -212,18 +246,16 @@ def run(args) -> None:
 
     print(f"\nFFIEC CDR ingestion complete: {total_updated} total rows updated with overdraft revenue (RIADH032)")
 
-    db.close()
 
-
-def _ensure_column(db: Database) -> None:
+def _ensure_column(db) -> None:
     """Add overdraft_revenue column if it doesn't exist."""
+    from fee_crawler.db import PostgresDatabase
     try:
-        if db.is_postgres:
+        if isinstance(db, PostgresDatabase):
             db.execute(
                 "ALTER TABLE institution_financials ADD COLUMN IF NOT EXISTS overdraft_revenue BIGINT"
             )
         else:
-            # SQLite: check if column exists first
             cols = db.fetchall("PRAGMA table_info(institution_financials)")
             col_names = [c["name"] for c in cols]
             if "overdraft_revenue" not in col_names:
