@@ -4,8 +4,8 @@
 
 - [x] **v1.0 E2E Pipeline Test Suite** - Phases 1-11 (shipped 2026-04-06)
 - [x] **v2.0 Hamilton — Research & Content Engine** - Phases 12-18 (shipped 2026-04-07)
-- [ ] **v3.0 National Coverage Push** - Phases 19-22 (in progress)
-- [ ] **v5.0 National Data Layer** - Phases 23-27 (planned)
+- [x] **v3.0 National Coverage Push** - Phases 19-22 (shipped 2026-04-08)
+- [x] **v5.0 National Data Layer** - Phases 23-27 (shipped 2026-04-08)
 
 ## Phases
 
@@ -452,7 +452,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
+Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -474,16 +474,20 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete | 2026-04-07 |
 | 17. Hamilton Chat | v2.0 | 3/3 | Complete | 2026-04-07 |
 | 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
-| 19. Wave Orchestrator | v3.0 | 1/2 | In Progress | - |
+| 19. Wave Orchestrator | v3.0 | 2/2 | Complete | - |
 | 20. Iterative Deepening | v3.0 | 1/2 | Complete    | 2026-04-08 |
 | 21. Knowledge Automation | v3.0 | 2/2 | Complete    | 2026-04-08 |
-| 22. Wave Reporting | v3.0 | 1/2 | Complete    | 2026-04-08 |
+| 22. Wave Reporting | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete    | 2026-04-08 |
 | 24. Industry Health & Beige Book | v5.0 | 2/2 | Complete | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 3/3 | Complete | - |
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | - |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete    | 2026-04-08 |
-
+| 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
+| 29. Consumer Landing Page | v6.0 | 0/TBD | Not started | - |
+| 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
+| 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
+| 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
 ---
 
 ## v6.0 Two-Sided Experience
@@ -555,9 +559,3 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
   4. A subscriber who hits the daily report limit (configurable, default 5/day for pro) sees a clear "daily limit reached" message and cannot trigger additional generations until the following day
 **Plans**: TBD
 **UI hint**: yes
-
-| 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
-| 29. Consumer Landing Page | v6.0 | 0/TBD | Not started | - |
-| 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
-| 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
-| 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
