@@ -10,6 +10,7 @@ import anthropic
 log = logging.getLogger(__name__)
 
 KNOWLEDGE_DIR = Path(__file__).parent
+# Defaults — superseded by config.knowledge.prune_state_every when available
 PRUNE_STATE_EVERY = 5    # runs
 PRUNE_NATIONAL_EVERY = 10  # total runs across all states
 
@@ -35,14 +36,21 @@ def should_prune_national() -> bool:
     return total_runs > 0 and total_runs % PRUNE_NATIONAL_EVERY == 0
 
 
-def prune_file(file_path: Path, retired_path: Path):
+def prune_file(
+    file_path: Path,
+    retired_path: Path,
+    token_budget_chars: int = 4000,
+) -> None:
     """Condense a knowledge file and archive removed content."""
     if not file_path.exists():
         return
 
     original = file_path.read_text()
-    if len(original) < 500:
-        log.info(f"Skipping prune of {file_path} — too short ({len(original)} chars)")
+    if len(original) <= token_budget_chars:
+        log.info(
+            "Skipping prune of %s — within budget (%d/%d chars)",
+            file_path, len(original), token_budget_chars,
+        )
         return
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -95,15 +103,15 @@ Return ONLY the condensed content. No explanation.""",
     )
 
 
-def prune_state(state_code: str):
+def prune_state(state_code: str, token_budget_chars: int = 4000) -> None:
     """Prune a state knowledge file."""
     file_path = KNOWLEDGE_DIR / "states" / f"{state_code}.md"
     retired_path = KNOWLEDGE_DIR / "retired" / "states" / f"{state_code}.md"
-    prune_file(file_path, retired_path)
+    prune_file(file_path, retired_path, token_budget_chars=token_budget_chars)
 
 
-def prune_national():
+def prune_national(token_budget_chars: int = 4000) -> None:
     """Prune the national knowledge file."""
     file_path = KNOWLEDGE_DIR / "national.md"
     retired_path = KNOWLEDGE_DIR / "retired" / "national.md"
-    prune_file(file_path, retired_path)
+    prune_file(file_path, retired_path, token_budget_chars=token_budget_chars)

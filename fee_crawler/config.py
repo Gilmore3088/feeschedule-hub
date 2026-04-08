@@ -70,6 +70,17 @@ class FREDConfig(BaseModel):
     ]
 
 
+class KnowledgeConfig(BaseModel):
+    # Max characters before a state knowledge file is eligible for pruning.
+    # ~2000 chars ≈ ~500 tokens (rough 4:1 ratio). Haiku context is 200K tokens,
+    # but we want each state file to stay under ~1K tokens as agent context.
+    token_budget_chars: int = 4000
+    # How often to auto-prune state files (every N runs)
+    prune_state_every: int = 5
+    # How often to auto-prune national.md (every N total runs across all states)
+    prune_national_every: int = 10
+
+
 class SeedUser(BaseModel):
     username: str
     password: str
@@ -105,6 +116,7 @@ class Config(BaseModel):
     auth: AuthConfig = AuthConfig()
     fed_content: FedContentConfig = FedContentConfig()
     fred: FREDConfig = FREDConfig()
+    knowledge: KnowledgeConfig = KnowledgeConfig()
 
 
 def load_config(path: Path | None = None) -> Config:
