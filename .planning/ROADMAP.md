@@ -457,7 +457,7 @@ Plans:
 **Milestone Goal:** Create distinct, cohesive user experiences for consumers and B2B subscribers -- so each audience gets a tailored front door, clear value proposition, and purpose-built tools.
 
 - [ ] **Phase 28: Audience Shell Separation** - Distinct nav components per audience, centralized pro auth guard, personalization service
-- [ ] **Phase 29: Consumer Landing Page** - Value-prop-first landing page replacing split-panel gateway, embedded Fee Scout, trust signals, consumer guide teasers, B2B door
+- [x] **Phase 29: Consumer Landing Page** - Value-prop-first landing page replacing split-panel gateway, embedded Fee Scout, trust signals, consumer guide teasers, B2B door (completed 2026-04-08)
 - [ ] **Phase 30: Institution Educational Pages** - "Why does this matter?" callouts, peer percentile indicators, fee distribution charts, B2B report links per institution
 - [ ] **Phase 31: B2B Launchpad Dashboard** - Four-door pro dashboard (Hamilton, Peer Builder, Reports, Federal Data), peer snapshot, recent activity, Beige Book digest
 - [ ] **Phase 32: Scoped Report Generation and PDF Export** - Structured report type selector, PDF download, report history, per-user daily limits
@@ -489,7 +489,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 29-01-PLAN.md -- Landing page hero with Fee Scout search, value prop cards, trust stats
-- [ ] 29-02-PLAN.md -- Gateway cleanup and visual quality verification
+- [x] 29-02-PLAN.md -- Gateway cleanup and visual quality verification
 **UI hint**: yes
 
 ### Phase 30: Institution Educational Pages
@@ -618,7 +618,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -669,7 +669,7 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | 2026-04-08 |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete | 2026-04-08 |
 | 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
-| 29. Consumer Landing Page | v6.0 | 1/2 | In Progress|  |
+| 29. Consumer Landing Page | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
 | 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
