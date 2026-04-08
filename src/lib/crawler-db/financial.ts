@@ -61,7 +61,11 @@ export async function getFinancialsByInstitution(
            net_interest_margin, efficiency_ratio,
            roa, roe, tier1_capital_ratio,
            branch_count, employee_count, member_count,
-           total_revenue, fee_income_ratio
+           total_revenue, fee_income_ratio,
+           CASE WHEN EXISTS (
+             SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'institution_financials' AND column_name = 'overdraft_revenue'
+           ) THEN overdraft_revenue ELSE NULL END AS overdraft_revenue
     FROM institution_financials
     WHERE crawl_target_id = ${targetId}
     ORDER BY report_date DESC`;
