@@ -250,3 +250,89 @@ describe("formatContext change (no 75-word limit)", () => {
     expect(userMessage).not.toContain("HARD LIMIT");
   });
 });
+
+// SECTION-03: Word budget contract — 150-200 words per section.
+// Tests 1-2 confirm countWords() accurately measures in-range output.
+// Tests 3-4 confirm the measurement detects out-of-range output (CI with real keys will catch regressions).
+describe("generateSection word count range (SECTION-03)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.ANTHROPIC_API_KEY = "test-key-12345";
+  });
+
+  /**
+   * Generate a deterministic n-word string using the pattern "word-1 word-2 word-3 ...".
+   * Used to construct mock API responses of an exact known word count.
+   */
+  function makeNWords(n: number): string {
+    return Array.from({ length: n }, (_, i) => `word-${i + 1}`).join(" ");
+  }
+
+  it("mock response with 150 words produces wordCount >= 150 and <= 200", async () => {
+    const text = makeNWords(150);
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text }],
+      usage: { input_tokens: 300, output_tokens: 150 },
+    });
+
+    const result = await generateSection({
+      type: "overview",
+      title: "Test Section",
+      data: { median: 25 },
+    });
+
+    expect(result.wordCount).toBeGreaterThanOrEqual(150);
+    expect(result.wordCount).toBeLessThanOrEqual(200);
+  });
+
+  it("mock response with 175 words produces wordCount in 150-200 range", async () => {
+    const text = makeNWords(175);
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text }],
+      usage: { input_tokens: 320, output_tokens: 175 },
+    });
+
+    const result = await generateSection({
+      type: "findings",
+      title: "Test Findings",
+      data: { count: 10 },
+    });
+
+    expect(result.wordCount).toBeGreaterThanOrEqual(150);
+    expect(result.wordCount).toBeLessThanOrEqual(200);
+  });
+
+  it("mock response with 120 words produces wordCount below minimum (detects under-range output)", async () => {
+    const text = makeNWords(120);
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text }],
+      usage: { input_tokens: 280, output_tokens: 120 },
+    });
+
+    const result = await generateSection({
+      type: "overview",
+      title: "Short Section",
+      data: { value: 5 },
+    });
+
+    expect(result.wordCount).toBe(120);
+    expect(result.wordCount).toBeLessThan(150);
+  });
+
+  it("mock response with 220 words produces wordCount above maximum (detects over-range output)", async () => {
+    const text = makeNWords(220);
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text }],
+      usage: { input_tokens: 350, output_tokens: 220 },
+    });
+
+    const result = await generateSection({
+      type: "recommendation",
+      title: "Long Section",
+      data: { metric: 42 },
+    });
+
+    expect(result.wordCount).toBe(220);
+    expect(result.wordCount).toBeGreaterThan(200);
+  });
+});

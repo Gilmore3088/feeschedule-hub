@@ -166,8 +166,19 @@ export async function assembleAndRender(
             data: {
               ...payload.derived,
               total_institutions: payload.total_institutions,
+              fred_snapshot: payload.fred
+                ? {
+                    fed_funds_rate: payload.fred.fed_funds_rate,
+                    unemployment_rate: payload.fred.unemployment_rate,
+                    cpi_yoy_pct: payload.fred.cpi_yoy_pct,
+                    as_of: payload.fred.as_of,
+                  }
+                : null,
+              beige_book_themes: payload.district_headlines
+                .slice(0, 5)
+                .map((d) => `District ${d.district}: ${d.headline}`),
             },
-            context: `${thesisContext}Write 2-3 punchy sentences summarizing the 5 key insights. No preamble. Max 75 words.`,
+            context: `${thesisContext}Write 2-3 punchy sentences summarizing the 5 key insights. No preamble. Max 75 words.\n\nCROSS-SOURCE INSTRUCTION: Your DATA block contains fred_snapshot (FRED economic indicators) and beige_book_themes (Federal Reserve district reports). You MUST reference at least one FRED indicator and at least one Beige Book theme in your analysis. State the economic context before the fee observation — macro conditions frame the pricing story.`,
           }),
           generateSection({
             type: 'trend_analysis',
@@ -201,8 +212,15 @@ export async function assembleAndRender(
               revenue_per_institution: payload.derived.revenue_per_institution,
               bank_revenue_share_pct: payload.derived.bank_revenue_share_pct,
               cu_revenue_share_pct: payload.derived.cu_revenue_share_pct,
+              fred_snapshot: payload.fred
+                ? {
+                    fed_funds_rate: payload.fred.fed_funds_rate,
+                    cpi_yoy_pct: payload.fred.cpi_yoy_pct,
+                    as_of: payload.fred.as_of,
+                  }
+                : null,
             },
-            context: `${thesisContext}Frame revenue as concentrated in a few categories. ${payload.revenue ? 'The data confirms fee revenue is dominated by NSF/overdraft with maintenance fees as secondary driver.' : 'Industry data indicates NSF/OD fees dominate revenue, with maintenance fees as secondary driver. Use directional language since exact figures are pending.'} 2-3 sentences.`,
+            context: `${thesisContext}Frame revenue as concentrated in a few categories. ${payload.revenue ? 'The data confirms fee revenue is dominated by NSF/overdraft with maintenance fees as secondary driver.' : 'Industry data indicates NSF/OD fees dominate revenue, with maintenance fees as secondary driver. Use directional language since exact figures are pending.'} 2-3 sentences.\n\nCROSS-SOURCE INSTRUCTION: Your DATA block contains fred_snapshot (FRED indicators). When revenue data and macro context both exist, connect them: rising rates and falling fee revenue tell a specific story about institutional margin pressure.`,
           }),
           generateSection({
             type: 'findings',
