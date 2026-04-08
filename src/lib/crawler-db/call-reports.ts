@@ -1,5 +1,12 @@
 import { getSql } from "./connection";
 
+export interface TierRevenue {
+  tier: string;
+  institution_count: number;
+  total_sc_income: number;
+  avg_sc_income: number;
+}
+
 export interface RevenueSnapshot {
   quarter: string;
   total_service_charges: number;
@@ -200,4 +207,54 @@ export async function getDistrictFeeRevenue(
     avg_sc_income: Number(r.avg_sc_income),
     total_other_noninterest: Number(r.total_other_noninterest),
   };
+}
+
+export async function getRevenueByTier(
+  reportDate?: string
+): Promise<TierRevenue[]> {
+  const sql = getSql();
+
+  let date = reportDate;
+  if (!date) {
+    const [row] = await sql`
+      SELECT MAX(report_date)::text AS latest_date
+      FROM institution_financials
+      WHERE service_charge_income > 0
+    `;
+    if (!row?.latest_date) return [];
+    date = row.latest_date as string;
+  }
+
+  const rows = await sql.unsafe(
+    `SELECT
+       CASE
+         WHEN inf.total_assets < 100000000             THEN 'micro'
+         WHEN inf.total_assets < 1000000000            THEN 'community'
+         WHEN inf.total_assets < 10000000000           THEN 'midsize'
+         WHEN inf.total_assets < 250000000000          THEN 'regional'
+         ELSE                                               'mega'
+       END AS tier,
+       COUNT(DISTINCT inf.crawl_target_id)::int        AS institution_count,
+       SUM(inf.service_charge_income)::bigint          AS total_sc_income,
+       AVG(inf.service_charge_income)::bigint          AS avg_sc_income
+     FROM institution_financials inf
+     WHERE inf.report_date = $1
+       AND inf.service_charge_income > 0
+       AND inf.total_assets > 0
+     GROUP BY 1
+     ORDER BY MIN(inf.total_assets)`,
+    [date]
+  ) as {
+    tier: string;
+    institution_count: string;
+    total_sc_income: string;
+    avg_sc_income: string;
+  }[];
+
+  return rows.map((r) => ({
+    tier: r.tier,
+    institution_count: Number(r.institution_count),
+    total_sc_income: Number(r.total_sc_income),
+    avg_sc_income: Number(r.avg_sc_income),
+  }));
 }
