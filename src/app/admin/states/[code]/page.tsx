@@ -10,7 +10,7 @@ import {
   getStateManualReview,
 } from "@/lib/crawler-db/states";
 import { ManualReviewRow } from "./manual-review-actions";
-import { InstitutionRow } from "./institution-row";
+import { SortableInstitutionTable } from "./sortable-institution-table";
 
 // ---------------------------------------------------------------------------
 // State name lookup
@@ -36,24 +36,8 @@ const STATE_NAMES: Record<string, string> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function truncateUrl(url: string, maxLen = 40): string {
-  try {
-    const parsed = new URL(url);
-    const display = parsed.hostname + parsed.pathname;
-    return display.length > maxLen ? display.slice(0, maxLen) + "..." : display;
-  } catch {
-    return url.length > maxLen ? url.slice(0, maxLen) + "..." : url;
-  }
-}
-
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
-}
-
-function rowTint(hasFeeUrl: boolean, feeCount: number): string {
-  if (feeCount > 0) return "bg-emerald-50/40 dark:bg-emerald-900/10";
-  if (hasFeeUrl) return "";
-  return "bg-red-50/40 dark:bg-red-900/10";
 }
 
 // ---------------------------------------------------------------------------
@@ -105,50 +89,10 @@ export default async function StateDetailPage({
       </div>
 
       {/* Institution Table */}
-      <div className="admin-card overflow-hidden mb-8">
-        <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
-          <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-            Institutions ({institutions.length})
-          </h2>
-        </div>
-        {institutions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="admin-table w-full text-xs">
-              <thead>
-                <tr className="text-left">
-                  <th>Name</th>
-                  <th>City</th>
-                  <th>Charter</th>
-                  <th>Status</th>
-                  <th>Fee URL / Actions</th>
-                  <th className="text-right">Last Crawl</th>
-                </tr>
-              </thead>
-              <tbody>
-                {institutions.map((inst) => (
-                  <InstitutionRow
-                    key={inst.id}
-                    id={inst.id}
-                    institution_name={inst.institution_name}
-                    city={inst.city}
-                    charter_type={inst.charter_type}
-                    asset_size_tier={inst.asset_size_tier}
-                    fee_schedule_url={inst.fee_schedule_url}
-                    document_type={inst.document_type}
-                    fee_count={inst.fee_count}
-                    last_crawled={inst.last_crawled}
-                    stateCode={stateCode}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-6 text-xs text-gray-400 text-center">
-            No institutions found in {stateCode}
-          </div>
-        )}
-      </div>
+      <SortableInstitutionTable
+        institutions={institutions}
+        stateCode={stateCode}
+      />
 
       {/* Agent Run History */}
       <div className="admin-card overflow-hidden mb-8">

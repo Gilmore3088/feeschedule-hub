@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { setFeeScheduleUrl, markOffline } from "./actions";
+import { formatAssets } from "@/lib/format";
 
 interface Props {
   id: number;
@@ -15,6 +16,7 @@ interface Props {
   fee_count: number;
   last_crawled: string;
   stateCode: string;
+  assetSize?: number | null;
 }
 
 function truncateUrl(url: string, maxLen = 35): string {
@@ -51,6 +53,7 @@ export function InstitutionRow({
   fee_count,
   last_crawled,
   stateCode,
+  assetSize,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState(fee_schedule_url || "");
@@ -173,8 +176,8 @@ export function InstitutionRow({
           </div>
         )}
       </td>
-      <td className="text-right tabular-nums text-gray-400">
-        {last_crawled}
+      <td className="text-right tabular-nums text-gray-500 dark:text-gray-400">
+        {assetSize !== undefined ? formatAssets(assetSize ?? null) : last_crawled}
       </td>
     </tr>
   );
