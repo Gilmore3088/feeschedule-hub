@@ -428,7 +428,7 @@ const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_
 export const queryNationalData = tool({
   description:
     "Query national summary data across all sources. Use 'source' to pick a data domain: call_reports (revenue trends, top institutions, tier/charter splits), economic (FRED rates, Beige Book themes, national summary), health (ROA, efficiency, deposits, loans, institution counts), complaints (CFPB district summaries), fee_index (national/peer fee medians and distributions), derived (revenue concentration, fee dependency trends, per-institution revenue trends). Use 'view' to narrow to a specific aspect within the source.",
-  parameters: z.object({
+  inputSchema: z.object({
     source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived"])
       .describe("Data source category to query"),
     view: z.string().optional()

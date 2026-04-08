@@ -76,7 +76,8 @@ import * as feeIndex from "@/lib/crawler-db/fee-index";
 import * as derivedAnalytics from "@/lib/crawler-db/derived-analytics";
 
 describe("queryNationalData", () => {
-  const execute = internalTools.queryNationalData.execute;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const execute = internalTools.queryNationalData.execute as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
