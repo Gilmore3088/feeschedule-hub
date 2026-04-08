@@ -550,7 +550,7 @@ Plans:
 - [x] **Phase 34: Voice v3 and Section Generator v2** - Voice system prompt upgraded with revenue prioritization and tension model; sections receive global thesis + cross-source context; word budget raised to 150-200 words (completed 2026-04-08)
 - [x] **Phase 35: Unified Chat Persona** - Four chat agents consolidated into one role-based Hamilton that adjusts depth and language by audience (consumer, pro, admin) on a shared reasoning layer (completed 2026-04-08)
 - [x] **Phase 36: Tool and Regulation Intelligence** - All 16 tool descriptions upgraded with strategic cross-reference guidance; all 13 ingestion sources verified; CFPB/OCC/Fed regulatory signals connected to internal fee data (completed 2026-04-08)
-- [ ] **Phase 37: Editor v2 and Integration Testing** - Editor validates thesis alignment, revenue prioritization order, and "so what?" presence across all sections; full integration test confirms V2 quality bar
+- [x] **Phase 37: Editor v2 and Integration Testing** - Editor validates thesis alignment, revenue prioritization order, and "so what?" presence across all sections; full integration test confirms V2 quality bar (completed 2026-04-08)
 
 ### Phase 33: Global Thesis Engine
 **Goal**: Hamilton analyzes the full quarterly data payload and produces a structured global thesis — core argument, key tensions, and revenue model — that every report section subsequently receives and argues from
@@ -625,7 +625,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 37-01-PLAN.md — Editor v2: three new checks + thesis wiring + integration test
+- [x] 37-01-PLAN.md — Editor v2: three new checks + thesis wiring + integration test
 
 ---
 
@@ -635,7 +635,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 1/2 plans executed
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -694,4 +694,4 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 34. Voice v3 and Section Generator v2 | v7.0 | 0/1 | Complete    | 2026-04-08 |
 | 35. Unified Chat Persona | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 36. Tool and Regulation Intelligence | v7.0 | 2/2 | Complete    | 2026-04-08 |
-| 37. Editor v2 and Integration Testing | v7.0 | 0/TBD | Not started | - |
+| 37. Editor v2 and Integration Testing | v7.0 | 1/1 | Complete    | 2026-04-08 |
