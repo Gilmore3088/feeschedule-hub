@@ -19,7 +19,7 @@ export interface InstitutionFinancial {
   member_count: number | null;
   total_revenue: number | null;
   fee_income_ratio: number | null;
-  // overdraft_revenue removed — column does not exist in DB
+  overdraft_revenue: number | null;
 }
 
 export interface FinancialStats {
@@ -54,26 +54,39 @@ export async function getFinancialStats(): Promise<FinancialStats> {
 export async function getFinancialsByInstitution(
   targetId: number
 ): Promise<InstitutionFinancial[]> {
-  const rows = await sql`
-    SELECT crawl_target_id, report_date, source,
+  const BASE_COLS = `crawl_target_id, report_date, source,
            total_assets, total_deposits, total_loans,
            service_charge_income, other_noninterest_income,
            net_interest_margin, efficiency_ratio,
            roa, roe, tier1_capital_ratio,
            branch_count, employee_count, member_count,
-           total_revenue, fee_income_ratio,
-           CASE WHEN EXISTS (
-             SELECT 1 FROM information_schema.columns
-             WHERE table_name = 'institution_financials' AND column_name = 'overdraft_revenue'
-           ) THEN overdraft_revenue ELSE NULL END AS overdraft_revenue
-    FROM institution_financials
-    WHERE crawl_target_id = ${targetId}
-    ORDER BY report_date DESC`;
+           total_revenue, fee_income_ratio`;
+
+  // Try with overdraft_revenue first; fall back if column doesn't exist yet
+  let rows: Record<string, unknown>[];
+  try {
+    rows = [...await sql.unsafe(
+      `SELECT ${BASE_COLS}, overdraft_revenue FROM institution_financials WHERE crawl_target_id = $1 ORDER BY report_date DESC`,
+      [targetId]
+    )];
+  } catch {
+    rows = [...await sql`
+      SELECT crawl_target_id, report_date, source,
+             total_assets, total_deposits, total_loans,
+             service_charge_income, other_noninterest_income,
+             net_interest_margin, efficiency_ratio,
+             roa, roe, tier1_capital_ratio,
+             branch_count, employee_count, member_count,
+             total_revenue, fee_income_ratio
+      FROM institution_financials
+      WHERE crawl_target_id = ${targetId}
+      ORDER BY report_date DESC`];
+  }
 
   const numOrNull = (v: unknown): number | null =>
     v !== null && v !== undefined ? Number(v) : null;
 
-  return [...rows].map((r: Record<string, unknown>) => ({
+  return rows.map((r: Record<string, unknown>) => ({
     crawl_target_id: Number(r.crawl_target_id),
     report_date: r.report_date instanceof Date
       ? r.report_date.toISOString().slice(0, 10)
@@ -94,7 +107,7 @@ export async function getFinancialsByInstitution(
     member_count: numOrNull(r.member_count),
     total_revenue: numOrNull(r.total_revenue),
     fee_income_ratio: numOrNull(r.fee_income_ratio),
-    // overdraft_revenue removed — column does not exist in DB
+    overdraft_revenue: numOrNull(r.overdraft_revenue),
   }));
 }
 
