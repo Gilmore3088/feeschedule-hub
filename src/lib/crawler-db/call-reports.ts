@@ -142,6 +142,150 @@ export async function getTopRevenueInstitutions(
   }
 }
 
+export interface InstitutionRevenueQuarter {
+  quarter: string;
+  service_charge_income: number;
+  fee_income_ratio: number | null;
+  yoy_change_pct: number | null;
+}
+
+export async function getInstitutionRevenueTrend(
+  targetId: number,
+  quarterCount = 8
+): Promise<InstitutionRevenueQuarter[]> {
+  const sql = getSql();
+
+  try {
+    const rows = await sql.unsafe(
+      `SELECT
+         TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
+         inf.service_charge_income,
+         inf.fee_income_ratio
+       FROM institution_financials inf
+       WHERE inf.crawl_target_id = $1
+         AND inf.service_charge_income IS NOT NULL
+       ORDER BY inf.report_date DESC
+       LIMIT $2`,
+      [targetId, quarterCount]
+    ) as { quarter: string; service_charge_income: string; fee_income_ratio: string | null }[];
+
+    return rows.map((row, idx) => {
+      const sc = Number(row.service_charge_income);
+      // Find same quarter suffix from prior year for YoY (e.g. "Q4" matches "Q4")
+      const quarterSuffix = row.quarter.slice(5); // "Q4" from "2024-Q4"
+      const priorIdx = rows.findIndex(
+        (r, i) => i > idx && r.quarter.slice(5) === quarterSuffix
+      );
+      const priorSc = priorIdx >= 0 ? Number(rows[priorIdx].service_charge_income) : null;
+      const yoy = priorSc !== null && priorSc > 0 ? ((sc - priorSc) / priorSc) * 100 : null;
+
+      return {
+        quarter: row.quarter,
+        service_charge_income: sc,
+        fee_income_ratio: row.fee_income_ratio !== null ? Number(row.fee_income_ratio) : null,
+        yoy_change_pct: yoy !== null ? Math.round(yoy * 10) / 10 : null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export interface PeerRanking {
+  institution_name: string | null;
+  tier: string;
+  sc_income: number;
+  sc_rank: number;
+  peer_count: number;
+  peer_median_sc: number;
+  fee_income_ratio: number | null;
+  peer_median_fee_ratio: number | null;
+}
+
+export async function getInstitutionPeerRanking(
+  targetId: number
+): Promise<PeerRanking | null> {
+  const sql = getSql();
+
+  const instRows = await sql.unsafe(
+    `SELECT ct.institution_name, inf.total_assets, inf.service_charge_income,
+            inf.fee_income_ratio, inf.report_date
+     FROM institution_financials inf
+     JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+     WHERE inf.crawl_target_id = $1
+       AND inf.service_charge_income IS NOT NULL
+       AND inf.total_assets IS NOT NULL
+     ORDER BY inf.report_date DESC
+     LIMIT 1`,
+    [targetId]
+  ) as {
+    institution_name: string;
+    total_assets: string;
+    service_charge_income: string;
+    fee_income_ratio: string | null;
+    report_date: string;
+  }[];
+
+  if (!instRows.length) return null;
+  const inst = instRows[0];
+
+  const totalAssets = Number(inst.total_assets);
+  const scIncome = Number(inst.service_charge_income);
+  const feeRatio = inst.fee_income_ratio !== null ? Number(inst.fee_income_ratio) : null;
+
+  // Determine FDIC asset tier from total_assets
+  let tier: string;
+  let tierMin: number;
+  let tierMax: number;
+  if (totalAssets < 100_000_000) {
+    tier = "micro"; tierMin = 0; tierMax = 100_000_000;
+  } else if (totalAssets < 1_000_000_000) {
+    tier = "community"; tierMin = 100_000_000; tierMax = 1_000_000_000;
+  } else if (totalAssets < 10_000_000_000) {
+    tier = "midsize"; tierMin = 1_000_000_000; tierMax = 10_000_000_000;
+  } else if (totalAssets < 250_000_000_000) {
+    tier = "regional"; tierMin = 10_000_000_000; tierMax = 250_000_000_000;
+  } else {
+    tier = "mega"; tierMin = 250_000_000_000; tierMax = Number.MAX_SAFE_INTEGER;
+  }
+
+  const statsRows = await sql.unsafe(
+    `SELECT
+       COUNT(DISTINCT inf.crawl_target_id)::int AS peer_count,
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY inf.service_charge_income) AS median_sc,
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY inf.fee_income_ratio) AS median_fee_ratio
+     FROM institution_financials inf
+     WHERE inf.report_date = $1
+       AND inf.total_assets >= $2 AND inf.total_assets < $3
+       AND inf.service_charge_income > 0`,
+    [inst.report_date, tierMin, tierMax]
+  ) as { peer_count: string; median_sc: string; median_fee_ratio: string | null }[];
+
+  const rankRows = await sql.unsafe(
+    `SELECT COUNT(*)::int AS better_count
+     FROM institution_financials inf
+     WHERE inf.report_date = $1
+       AND inf.total_assets >= $2 AND inf.total_assets < $3
+       AND inf.service_charge_income > $4`,
+    [inst.report_date, tierMin, tierMax, scIncome]
+  ) as { better_count: string }[];
+
+  const stats = statsRows[0];
+  const peerCount = stats ? Number(stats.peer_count) : 0;
+  const rank = rankRows[0] ? Number(rankRows[0].better_count) + 1 : peerCount;
+
+  return {
+    institution_name: inst.institution_name || null,
+    tier,
+    sc_income: scIncome,
+    sc_rank: rank,
+    peer_count: peerCount,
+    peer_median_sc: stats ? Number(stats.median_sc) : 0,
+    fee_income_ratio: feeRatio,
+    peer_median_fee_ratio: stats?.median_fee_ratio ? Number(stats.median_fee_ratio) : null,
+  };
+}
+
 export interface DistrictFeeRevenue {
   fed_district: number;
   institution_count: number;
