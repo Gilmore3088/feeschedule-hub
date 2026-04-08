@@ -183,7 +183,7 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
         systemPrompt,
         tools: adminTools,
         model: process.env.BFI_MODEL_ADMIN || "claude-sonnet-4-6",
-        maxTokens: 6000,
+        maxTokens: 12000,
         maxSteps: 4,
         requiresAuth: true,
         requiredRole: "admin",
