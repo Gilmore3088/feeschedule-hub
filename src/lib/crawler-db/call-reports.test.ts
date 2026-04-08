@@ -273,3 +273,159 @@ describe("getTopRevenueInstitutions", () => {
     expect(Array.isArray(result)).toBe(true);
   });
 });
+
+// ── Scaling verification ───────────────────────────────────────────────────────
+
+describe("scaling verification", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("getRevenueTrend returns dollar-scale values for JPMorgan-scale totals", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        quarter: "2024-4Q",
+        quarter_date: "2024-10-01",
+        total_service_charges: "5200000000",
+        total_institutions: "1",
+        bank_service_charges: "5200000000",
+        cu_service_charges: "0",
+      },
+    ]);
+
+    const result = await getRevenueTrend(1);
+    expect(result.quarters[0].total_service_charges).toBeGreaterThan(1_000_000_000);
+    expect(result.quarters[0].total_service_charges).toBe(5_200_000_000);
+  });
+
+  it("getTopRevenueInstitutions returns correct numeric value for large income", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-09-30" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        cert_number: "00001",
+        institution_name: "JPMorgan Chase Bank",
+        charter_type: "bank",
+        report_date: "2024-09-30",
+        service_charge_income: "5200000000",
+        total_assets: "4000000000000",
+      },
+    ]);
+
+    const result = await getTopRevenueInstitutions(1);
+    expect(result[0].service_charge_income).toBeGreaterThan(1_000_000_000);
+    expect(result[0].service_charge_income).toBe(5_200_000_000);
+  });
+});
+
+// ── Charter split reconciliation ──────────────────────────────────────────────
+
+describe("charter split reconciliation", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("bank_service_charges + cu_service_charges equals total_service_charges for each snapshot", async () => {
+    const dbRows = [
+      {
+        quarter: "2024-4Q",
+        quarter_date: "2024-10-01",
+        total_service_charges: "5000000",
+        total_institutions: "100",
+        bank_service_charges: "3500000",
+        cu_service_charges: "1500000",
+      },
+      {
+        quarter: "2024-3Q",
+        quarter_date: "2024-07-01",
+        total_service_charges: "4800000",
+        total_institutions: "98",
+        bank_service_charges: "3360000",
+        cu_service_charges: "1440000",
+      },
+    ];
+    getMock().unsafe = vi.fn().mockResolvedValue(dbRows);
+
+    const result = await getRevenueTrend(2);
+    for (const snap of result.quarters) {
+      expect(snap.bank_service_charges + snap.cu_service_charges).toBe(snap.total_service_charges);
+    }
+  });
+});
+
+// ── Range assertions ──────────────────────────────────────────────────────────
+
+describe("range assertions", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("no institution has service_charge_income outside [0, 100B)", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-09-30" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        cert_number: "00001",
+        institution_name: "JPMorgan Chase Bank",
+        charter_type: "bank",
+        report_date: "2024-09-30",
+        service_charge_income: "5200000000",
+        total_assets: "4000000000000",
+      },
+      {
+        cert_number: "00002",
+        institution_name: "Wells Fargo Bank",
+        charter_type: "bank",
+        report_date: "2024-09-30",
+        service_charge_income: "3000000000",
+        total_assets: "1900000000000",
+      },
+      {
+        cert_number: "00003",
+        institution_name: "Small CU",
+        charter_type: "credit_union",
+        report_date: "2024-09-30",
+        service_charge_income: "50000",
+        total_assets: "10000000",
+      },
+    ]);
+
+    const result = await getTopRevenueInstitutions(3);
+    for (const inst of result) {
+      expect(inst.service_charge_income).toBeGreaterThanOrEqual(0);
+      expect(inst.service_charge_income).toBeLessThan(100_000_000_000);
+    }
+  });
+
+  it("getTopRevenueInstitutions returns results sorted DESC by service_charge_income", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-09-30" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        cert_number: "00001",
+        institution_name: "Big Bank",
+        charter_type: "bank",
+        report_date: "2024-09-30",
+        service_charge_income: "5000000000",
+        total_assets: null,
+      },
+      {
+        cert_number: "00002",
+        institution_name: "Medium Bank",
+        charter_type: "bank",
+        report_date: "2024-09-30",
+        service_charge_income: "3000000000",
+        total_assets: null,
+      },
+      {
+        cert_number: "00003",
+        institution_name: "Small Bank",
+        charter_type: "bank",
+        report_date: "2024-09-30",
+        service_charge_income: "1000000000",
+        total_assets: null,
+      },
+    ]);
+
+    const result = await getTopRevenueInstitutions(3);
+    expect(result[0].service_charge_income).toBeGreaterThan(result[1].service_charge_income);
+    expect(result[1].service_charge_income).toBeGreaterThan(result[2].service_charge_income);
+  });
+});
