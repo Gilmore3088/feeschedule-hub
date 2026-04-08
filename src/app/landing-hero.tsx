@@ -9,7 +9,7 @@ interface LandingHeroProps {
 export function LandingHero({ totalInstitutions }: LandingHeroProps) {
   return (
     <section className="relative overflow-hidden">
-      <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
+      <div className="mx-auto max-w-6xl px-6 pt-12 pb-10 lg:pt-16 lg:pb-12">
         <div className="max-w-2xl mx-auto text-center">
           <h1
             className="text-[#1A1815] leading-[1.08] tracking-[-0.02em]"
@@ -23,7 +23,7 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
             <em style={{ fontStyle: "italic" }}>really</em> charging you?
           </h1>
 
-          <p className="mt-4 text-[14px] leading-relaxed text-[#6B6355]">
+          <p className="mt-4 text-[15px] leading-relaxed text-[#6B6355]">
             Compare fees across {totalInstitutions.toLocaleString()}+ banks and
             credit unions. Free, no account required.
           </p>

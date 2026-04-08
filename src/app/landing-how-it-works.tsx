@@ -2,7 +2,7 @@ import { Search, BarChart2, Zap } from "lucide-react";
 
 export function LandingHowItWorks() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
+    <section className="mx-auto max-w-6xl px-6 py-10 lg:py-12">
       <h2
         className="text-[28px] font-normal text-[#1A1815] text-center"
         style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
@@ -10,7 +10,7 @@ export function LandingHowItWorks() {
         How It Works
       </h2>
       <p className="mt-3 text-[14px] leading-relaxed text-[#6B6355] text-center max-w-lg mx-auto">
-        Three steps to understanding what your bank charges.
+        It takes 30 seconds. No account needed.
       </p>
 
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
@@ -24,8 +24,8 @@ export function LandingHowItWorks() {
             Search
           </h3>
           <p className="mt-2 text-[14px] leading-relaxed text-[#6B6355] max-w-xs mx-auto">
-            Type your bank or credit union name. We cover over 4,000
-            institutions nationwide.
+            Type your bank's name. We've got fee data on thousands of banks
+            and credit unions.
           </p>
         </div>
 
@@ -39,8 +39,8 @@ export function LandingHowItWorks() {
             Compare
           </h3>
           <p className="mt-2 text-[14px] leading-relaxed text-[#6B6355] max-w-xs mx-auto">
-            See every fee your bank charges, benchmarked against the national
-            median.
+            See how your fees stack up against what other people are paying at
+            similar banks.
           </p>
         </div>
 
@@ -54,8 +54,8 @@ export function LandingHowItWorks() {
             Act
           </h3>
           <p className="mt-2 text-[14px] leading-relaxed text-[#6B6355] max-w-xs mx-auto">
-            Know exactly where you stand. Switch banks or negotiate with
-            confidence.
+            Paying too much? You'll know. Staying put? At least it's your
+            choice now.
           </p>
         </div>
       </div>

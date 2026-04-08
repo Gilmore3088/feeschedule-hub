@@ -20,7 +20,7 @@ decisions:
 metrics:
   duration: "< 5 minutes"
   completed: "2026-04-07"
-  tasks_completed: 1
+  tasks_completed: 2
   tasks_total: 2
   files_changed: 1
 requirements: [CLND-08]
