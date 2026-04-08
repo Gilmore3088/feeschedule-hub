@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: National Coverage Push
-status: completed
-stopped_at: Roadmap created for v5.0 National Data Layer (Phases 23-27)
-last_updated: "2026-04-08T01:20:14.911Z"
-last_activity: 2026-04-08
+milestone: v6.0
+milestone_name: Two-Sided Experience
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-04-07"
+last_activity: 2026-04-07 -- Milestone v6.0 started
 progress:
-  total_phases: 9
+  total_phases: 0
   completed_phases: 0
-  total_plans: 2
-  completed_plans: 3
-  percent: 100
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,22 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Accurate, complete, timely fee data with rich analysis -- the kind of insight a bank executive would pay a consulting firm $15K to produce
-**Current focus:** v5.0 National Data Layer -- fix data queries, build summaries, admin portal for national data
+**Current focus:** Defining requirements for v6.0 Two-Sided Experience
 
 ## Current Position
 
-Phase: 27 of 27 (Call Report & FRED Foundation)
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-04-08
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Not started (defining requirements)
+Plan: --
+Status: Defining requirements
+Last activity: 2026-04-07 -- Milestone v6.0 started
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 2
+- Total plans completed: 0
 - Average duration: --
 - Total execution time: 0 hours
 

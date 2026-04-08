@@ -41,26 +41,25 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - Mobile app — web-first
 - Real-time fee monitoring — batch/quarterly cadence is sufficient
 
-## Current Milestone: v5.0 National Data Layer
+## Current Milestone: v6.0 Two-Sided Experience
 
-**Goal:** Build the data foundation that Hamilton needs to produce credible national analysis. Fix data queries, create summary views, and build admin portal pages for national data — the raw work that feeds reports later.
+**Goal:** Create distinct, cohesive user experiences for consumers and B2B subscribers -- so each audience gets a tailored front door, clear value proposition, and purpose-built tools.
 
 **Target features:**
-- Fix Call Report revenue queries (scaling thousands→dollars, YoY trends, bank vs CU, top institutions)
-- FRED economic summaries (rates, unemployment, CPI YoY, consumer sentiment — verified and complete)
-- Beige Book district summaries (condensed economic narratives per district)
-- Industry health summaries (ROA, efficiency, deposits, loans from institution_financials)
-- Derived metrics (fee_income_ratio, revenue concentration, charter comparisons)
-- Admin portal pages for national data (`/admin/national` — raw summaries before they hit reports)
-- Hamilton can query and digest all data sources via tools
-
-**Not in scope:** Report template redesign — v4.2 template is locked. This builds data; future milestone wires it into reports.
+- Consumer landing page redesign (value-prop-first, Fee Scout integration, no split-panel gateway)
+- Institution pages as educational experiences (fees, complaints, financial health benchmarked with "why does this matter?" context)
+- Consumer guides integrated contextually from institution and fee pages
+- B2B launchpad dashboard (four doors: Hamilton, Peer Builder, Reports, Federal Data)
+- B2B personalization (institution-specific Call Reports, district Beige Book, competitive landscape on login)
+- Expanded Hamilton for pro users (scoped report generation: peer briefs, annual summaries, competitive snapshots)
+- Distinct navigation and layout for consumer vs B2B experiences
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
 - v2.0 Hamilton Research & Content Engine (shipped 2026-04-07)
-- v3.0 National Coverage Push (in progress — agents running state crawls in parallel)
-- v4.x Report Design (completed 2026-04-07 — template v4.2 deployed)
+- v3.0 National Coverage Push (shipped)
+- v4.x Report Design (completed 2026-04-07 -- template v4.2 deployed)
+- v5.0 National Data Layer (completed -- Call Reports, FRED, Beige Book data foundation)
 
 ## Context
 
