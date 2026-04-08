@@ -96,6 +96,53 @@ def _promote_to_national(patterns: list[str]):
         f.write("\n".join(f"- {p}" for p in patterns) + "\n")
 
 
+def append_coverage_note(
+    state_code: str,
+    run_id: int,
+    coverage_pct: float,
+    coverage_delta: float,
+) -> None:
+    """Append a coverage annotation to the most recent run block in a state file.
+
+    Called by the wave orchestrator AFTER run_state_agent() returns, once it has
+    computed pre/post coverage from the DB. Keeps orchestrator-level metrics
+    out of state_agent (single responsibility).
+    """
+    state_path = KNOWLEDGE_DIR / "states" / f"{state_code}.md"
+    if not state_path.exists():
+        log.warning("Cannot append coverage note — %s does not exist", state_path)
+        return
+
+    sign = "+" if coverage_delta >= 0 else ""
+    note = f"Coverage after pass: {coverage_pct:.1f}% ({sign}{coverage_delta:.1f}% delta)\n"
+
+    content = state_path.read_text()
+    marker = f"## Run #{run_id}"
+    idx = content.rfind(marker)
+
+    if idx == -1:
+        # Fallback: append at end of file
+        with open(state_path, "a") as f:
+            f.write(note)
+        log.info(
+            "Coverage note appended at end for %s run #%d (marker not found)",
+            state_code, run_id,
+        )
+        return
+
+    # Insert after the stats line (second line of the run block)
+    header_end = content.index("\n", idx) + 1        # end of "## Run #N..." line
+    stats_line_end = content.index("\n", header_end) # end of "Discovered: ..." line
+    insert_at = stats_line_end + 1
+
+    updated = content[:insert_at] + note + content[insert_at:]
+    state_path.write_text(updated)
+    log.info(
+        "Coverage note added for %s run #%d: %.1f%% (%s%.1f%%)",
+        state_code, run_id, coverage_pct, sign, coverage_delta,
+    )
+
+
 def get_run_count(state_code: str) -> int:
     """Count how many runs are recorded in the state knowledge file."""
     state_path = KNOWLEDGE_DIR / "states" / f"{state_code}.md"
