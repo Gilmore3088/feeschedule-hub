@@ -13,6 +13,7 @@ import type { IndexEntry } from "./crawler-db/fee-index";
 function makeEntry(category: string, median: number): IndexEntry {
   return {
     fee_category: category,
+    fee_family: null,
     institution_count: 100,
     median_amount: median,
     p25_amount: median * 0.75,
@@ -21,6 +22,10 @@ function makeEntry(category: string, median: number): IndexEntry {
     max_amount: median * 2,
     approved_count: 80,
     observation_count: 100,
+    bank_count: 60,
+    cu_count: 40,
+    maturity_tier: "strong",
+    last_updated: null,
   };
 }
 
