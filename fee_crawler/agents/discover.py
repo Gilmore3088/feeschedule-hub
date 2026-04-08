@@ -2,10 +2,12 @@
 Stage 2: AI-powered URL discovery.
 
 Uses Claude + Playwright to find fee schedule URLs.
-Max 8 page loads per institution. Three strategies:
-  1. AI-guided navigation (up to 7 pages)
-  2. Common path probing (fee-schedule, disclosures, etc.)
-  3. PDF link scanning on any page visited
+Base budget: 8 page loads per institution (TIER2+ increases to 15).
+Four strategies (enabled by StrategyTier):
+  1. AI-guided navigation (always active — up to 7 pages)
+  2. PDF link scanning (use_pdf_hunt)
+  3. Common path probing (use_common_paths; always True in current tiers)
+  4. Site-internal keyword search (use_keyword_search — TIER3 only)
 """
 
 import os
@@ -16,6 +18,8 @@ from urllib.parse import urljoin
 
 import anthropic
 from playwright.sync_api import sync_playwright
+
+from fee_crawler.agents.strategy import StrategyTier, TIER1
 
 log = logging.getLogger(__name__)
 
@@ -59,14 +63,34 @@ def _get_client():
     return _client
 
 
-def discover_url(institution_name: str, website_url: str, knowledge: str = "") -> dict:
+def discover_url(
+    institution_name: str,
+    website_url: str,
+    knowledge: str = "",
+    strategy: StrategyTier | None = None,
+) -> dict:
     """
     Find the fee schedule URL for an institution.
+
+    Args:
+        institution_name: Display name of the institution.
+        website_url: Homepage URL to start discovery from.
+        knowledge: Prior knowledge context string (loaded from knowledge base).
+        strategy: StrategyTier controlling which discovery paths are active.
+            If None, uses legacy behavior (all strategies active) for backward compat.
 
     Returns: {"found": bool, "url": str|None, "document_type": str|None,
               "confidence": float, "reason": str, "pages_checked": int}
     """
     pages_checked = 0
+
+    # When strategy is None, use backward-compatible "all active" behavior
+    # by treating it like TIER3 (all flags True) for gating purposes.
+    # Explicit None means "don't restrict" — legacy callers stay unaffected.
+    effective_strategy = strategy  # None means no gating
+
+    # TIER2+ increases page budget from 8 to 15 for deeper link following
+    max_pages = 15 if (effective_strategy is not None and effective_strategy.use_deep_crawl) else 8
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -150,79 +174,100 @@ def discover_url(institution_name: str, website_url: str, knowledge: str = "") -
                 # not_found — break to try other strategies
                 break
 
-        # ── Strategy 2: Check collected PDF links ─────────────────────
-        fee_pdfs = _score_pdf_links(all_pdf_links)
-        if fee_pdfs:
-            best = fee_pdfs[0]
-            browser.close()
-            return _found(best, pages_checked, "Fee-related PDF found in page links")
+        # ── Strategy 2: Check collected PDF links (gated by use_pdf_hunt) ──
+        # When strategy is None (legacy), PDF hunt is always active.
+        pdf_hunt_active = effective_strategy is None or effective_strategy.use_pdf_hunt
+        if pdf_hunt_active:
+            fee_pdfs = _score_pdf_links(all_pdf_links)
+            if fee_pdfs:
+                best = fee_pdfs[0]
+                browser.close()
+                return _found(best, pages_checked, "Fee-related PDF found in page links")
 
         # ── Strategy 2.5: Navigate to /disclosures and scan for PDFs ──
+        # Gated by use_common_paths (always True in all defined tiers, but honored when strategy set).
         from urllib.parse import urlparse
         base = urlparse(website_url)
         base_url = f"{base.scheme}://{base.netloc}"
 
-        for disc_path in ["/disclosures", "/disclosure", "/resources", "/documents", "/forms"]:
-            try:
-                resp = page.goto(base_url + disc_path, wait_until="domcontentloaded", timeout=10_000)
-                pages_checked += 1
-                if resp and resp.status == 200:
-                    disc_links = _extract_links(page)
-                    # Check direct fee links
-                    direct_hit = _check_direct_fee_links(disc_links)
-                    if direct_hit:
-                        browser.close()
-                        return _found(direct_hit, pages_checked, f"Fee link found on {disc_path} page")
-                    # Score all PDFs on this page
-                    disc_pdfs = _score_pdf_links(_find_pdf_links(disc_links))
-                    if disc_pdfs:
-                        browser.close()
-                        return _found(disc_pdfs[0], pages_checked, f"Fee PDF found on {disc_path} page")
-                    # Check page content
-                    body = page.inner_text("body")[:2000]
-                    if _page_has_fee_content(body):
-                        browser.close()
-                        return _found(base_url + disc_path, pages_checked, f"Fee content found on {disc_path} page")
-            except Exception:
-                continue
-            if pages_checked >= 12:
-                break
+        common_paths_active = effective_strategy is None or effective_strategy.use_common_paths
+        if common_paths_active:
+            for disc_path in ["/disclosures", "/disclosure", "/resources", "/documents", "/forms"]:
+                try:
+                    resp = page.goto(base_url + disc_path, wait_until="domcontentloaded", timeout=10_000)
+                    pages_checked += 1
+                    if resp and resp.status == 200:
+                        disc_links = _extract_links(page)
+                        # Check direct fee links
+                        direct_hit = _check_direct_fee_links(disc_links)
+                        if direct_hit:
+                            browser.close()
+                            return _found(direct_hit, pages_checked, f"Fee link found on {disc_path} page")
+                        # Score all PDFs on this page (only when pdf_hunt active)
+                        if pdf_hunt_active:
+                            disc_pdfs = _score_pdf_links(_find_pdf_links(disc_links))
+                            if disc_pdfs:
+                                browser.close()
+                                return _found(disc_pdfs[0], pages_checked, f"Fee PDF found on {disc_path} page")
+                        # Check page content
+                        body = page.inner_text("body")[:2000]
+                        if _page_has_fee_content(body):
+                            browser.close()
+                            return _found(base_url + disc_path, pages_checked, f"Fee content found on {disc_path} page")
+                except Exception:
+                    continue
+                if pages_checked >= 12:
+                    break
 
         # ── Strategy 3: Probe common paths ────────────────────────────
-        for path in COMMON_PATHS:
-            probe_url = base_url + path
-            try:
-                resp = page.goto(probe_url, wait_until="domcontentloaded", timeout=8_000)
-                pages_checked += 1
-                if resp and resp.status == 200:
-                    content_type = resp.headers.get("content-type", "")
-                    if "pdf" in content_type:
-                        browser.close()
-                        return _found(probe_url, pages_checked, f"PDF found at common path {path}")
+        if common_paths_active:
+            for path in COMMON_PATHS:
+                probe_url = base_url + path
+                try:
+                    resp = page.goto(probe_url, wait_until="domcontentloaded", timeout=8_000)
+                    pages_checked += 1
+                    if resp and resp.status == 200:
+                        content_type = resp.headers.get("content-type", "")
+                        if "pdf" in content_type:
+                            browser.close()
+                            return _found(probe_url, pages_checked, f"PDF found at common path {path}")
 
-                    body = page.inner_text("body")[:2000]
-                    if _page_has_fee_content(body):
-                        browser.close()
-                        return _found(probe_url, pages_checked, f"Fee content found at common path {path}")
+                        body = page.inner_text("body")[:2000]
+                        if _page_has_fee_content(body):
+                            browser.close()
+                            return _found(probe_url, pages_checked, f"Fee content found at common path {path}")
 
-                    # Check links on this page for fee PDFs
-                    probe_links = _extract_links(page)
-                    direct_hit = _check_direct_fee_links(probe_links)
-                    if direct_hit:
-                        browser.close()
-                        return _found(direct_hit, pages_checked, f"Fee link found on {path} page")
+                        # Check links on this page for fee PDFs
+                        probe_links = _extract_links(page)
+                        direct_hit = _check_direct_fee_links(probe_links)
+                        if direct_hit:
+                            browser.close()
+                            return _found(direct_hit, pages_checked, f"Fee link found on {path} page")
 
-                    # Also check PDFs on this page
-                    probe_pdfs = _score_pdf_links(_find_pdf_links(probe_links))
-                    if probe_pdfs:
-                        browser.close()
-                        return _found(probe_pdfs[0], pages_checked, f"Fee PDF found on {path} page")
-            except Exception:
-                continue
+                        # Also check PDFs on this page (when pdf_hunt active)
+                        if pdf_hunt_active:
+                            probe_pdfs = _score_pdf_links(_find_pdf_links(probe_links))
+                            if probe_pdfs:
+                                browser.close()
+                                return _found(probe_pdfs[0], pages_checked, f"Fee PDF found on {path} page")
+                except Exception:
+                    continue
 
-            # Stop probing after 15 total pages
-            if pages_checked >= 15:
-                break
+                # Respect max_pages budget
+                if pages_checked >= max_pages:
+                    break
+
+        # ── Strategy 4: Site-internal keyword search (TIER3 only) ─────
+        # Probes the institution's own search endpoint for fee schedule content.
+        # No external search API — site-internal only. Per D-09 / T-20-02.
+        keyword_search_active = effective_strategy is not None and effective_strategy.use_keyword_search
+        if keyword_search_active and pages_checked < max_pages:
+            found = _site_internal_keyword_search(page, base_url, pages_checked, max_pages)
+            if found:
+                browser.close()
+                pages_checked = found["pages_checked"]
+                return found
+            pages_checked = found["pages_checked"] if found else pages_checked
 
         browser.close()
         return _not_found(
@@ -379,6 +424,56 @@ def _extract_links(page) -> list[dict]:
         return links
     except Exception:
         return []
+
+
+def _site_internal_keyword_search(page, base_url: str, pages_checked: int, max_pages: int) -> dict | None:
+    """TIER3: Search the institution's own site for fee schedule content.
+
+    Probes common site-internal search endpoints with fee-related queries.
+    No external search API — only the institution's own domain. T-20-02.
+
+    Returns a _found() dict if successful, None otherwise.
+    """
+    search_patterns = [
+        "/search?q=fee+schedule",
+        "/search?query=fee+schedule",
+        "/?s=fee+schedule",
+        "/search?q=fees",
+        "/sitesearch?q=fee+schedule",
+    ]
+
+    for search_path in search_patterns:
+        if pages_checked >= max_pages:
+            break
+        try:
+            resp = page.goto(base_url + search_path, wait_until="domcontentloaded", timeout=10_000)
+            pages_checked += 1
+            if resp and resp.status == 200:
+                search_links = _extract_links(page)
+                direct_hit = _check_direct_fee_links(search_links)
+                if direct_hit:
+                    return {
+                        "found": True,
+                        "url": direct_hit,
+                        "document_type": "pdf" if direct_hit.lower().endswith(".pdf") else None,
+                        "confidence": 0.85,
+                        "reason": f"Fee schedule link found via site-internal search ({search_path})",
+                        "pages_checked": pages_checked,
+                    }
+                fee_pdfs = _score_pdf_links(_find_pdf_links(search_links))
+                if fee_pdfs:
+                    return {
+                        "found": True,
+                        "url": fee_pdfs[0],
+                        "document_type": "pdf",
+                        "confidence": 0.85,
+                        "reason": f"Fee PDF found via site-internal search ({search_path})",
+                        "pages_checked": pages_checked,
+                    }
+        except Exception:
+            continue
+
+    return None
 
 
 def _parse_json(response) -> dict | None:
