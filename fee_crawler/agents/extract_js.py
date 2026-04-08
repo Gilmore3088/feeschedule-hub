@@ -18,19 +18,28 @@ def extract_js(url: str, institution: dict) -> list[dict]:
     """Render page with Playwright, extract fees."""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page(user_agent="BankFeeIndex/1.0 (fee-schedule-agent)")
-        page.set_default_timeout(15_000)
+        page = browser.new_page(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        )
+        page.set_default_timeout(30_000)
 
         try:
-            page.goto(url, wait_until="networkidle", timeout=30_000)
+            page.goto(url, wait_until="networkidle", timeout=45_000)
         except Exception as e:
             log.warning(f"Page load failed: {e}")
-            # Try with domcontentloaded fallback
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=15_000)
+                page.goto(url, wait_until="domcontentloaded", timeout=20_000)
+                # Wait extra for JS to render fee tables
+                page.wait_for_timeout(3000)
             except Exception:
                 browser.close()
                 return []
+
+        # Wait for content to render (SPAs often load data async)
+        try:
+            page.wait_for_timeout(2000)
+        except Exception:
+            pass
 
         # Get rendered text
         text = page.inner_text("body")
@@ -43,7 +52,7 @@ def extract_js(url: str, institution: dict) -> list[dict]:
         ]
         keyword_hits = sum(1 for kw in fee_keywords if kw in text.lower())
 
-        if keyword_hits >= 2 and len(text) > 300:
+        if keyword_hits >= 1 and len(text) > 200:
             # Page has fee content — extract directly
             browser.close()
             return _extract_fees_with_llm(text, institution, "js_rendered")
