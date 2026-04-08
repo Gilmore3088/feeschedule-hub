@@ -20,6 +20,8 @@ NATIONAL_SERIES: list[str] = [
     "UNRATE",           # Unemployment Rate (monthly)
     "FEDFUNDS",         # Effective Federal Funds Rate (monthly)
     "CPIAUCSL",         # Consumer Price Index, Urban All Items (monthly)
+    "UMCSENT",          # Consumer Sentiment (U of Michigan, monthly)
+    "PERMIT",           # New Housing Permits (thousands of units, SA, monthly) -- D-05 housing/CRE
     "DPSACBM027NBOG",   # Deposits, All Commercial Banks (monthly)
     "QBPQYNTIY",        # Net Interest Income, all banks (quarterly, QBP)
     "QBPQYTNIY",        # Total Noninterest Income (quarterly, QBP)
@@ -46,6 +48,19 @@ DISTRICT_SERIES: dict[str, int] = {
     "COUR": 10,   # Colorado (Kansas City)
     "TXUR": 11,   # Texas (Dallas)
     "CAUR": 12,   # California (San Francisco)
+    # Nonfarm payroll employment (thousands of persons, SA, monthly)
+    "MANA": 1,    # Massachusetts (Boston)
+    "NYNA": 2,    # New York (New York)
+    "PANA": 3,    # Pennsylvania (Philadelphia)
+    "OHNA": 4,    # Ohio (Cleveland)
+    "VANA": 5,    # Virginia (Richmond)
+    "GANA": 6,    # Georgia (Atlanta)
+    "ILNA": 7,    # Illinois (Chicago)
+    "MONA": 8,    # Missouri (St. Louis)
+    "MNNA": 9,    # Minnesota (Minneapolis)
+    "CONA": 10,   # Colorado (Kansas City)
+    "TXNA": 11,   # Texas (Dallas)
+    "CANA": 12,   # California (San Francisco)
 }
 
 

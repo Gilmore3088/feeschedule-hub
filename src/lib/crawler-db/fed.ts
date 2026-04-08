@@ -385,6 +385,48 @@ export async function getDistrictBeigeBookSummaries(
   }
 }
 
+const DISTRICT_UNEMPLOYMENT_SERIES: Record<number, string> = {
+  1: "MAUR", 2: "NYUR", 3: "PAUR", 4: "OHUR",
+  5: "VAUR", 6: "GAUR", 7: "ILUR", 8: "MOUR",
+  9: "MNUR", 10: "COUR", 11: "TXUR", 12: "CAUR",
+};
+
+const DISTRICT_PAYROLL_SERIES: Record<number, string> = {
+  1: "MANA", 2: "NYNA", 3: "PANA", 4: "OHNA",
+  5: "VANA", 6: "GANA", 7: "ILNA", 8: "MONA",
+  9: "MNNA", 10: "CONA", 11: "TXNA", 12: "CANA",
+};
+
+export interface DistrictEconomicSummary {
+  district: number;
+  unemployment_rate: RichIndicator | null;
+  nonfarm_payroll: RichIndicator | null;
+  nonfarm_yoy_pct: number | null;
+}
+
+export async function getDistrictEconomicSummary(
+  district: number
+): Promise<DistrictEconomicSummary> {
+  const unemployId = DISTRICT_UNEMPLOYMENT_SERIES[district];
+  const payrollId = DISTRICT_PAYROLL_SERIES[district];
+
+  const [unemployment, payroll] = await Promise.all([
+    unemployId ? buildRichIndicator(unemployId) : Promise.resolve(null),
+    payrollId ? buildRichIndicator(payrollId, 13) : Promise.resolve(null),
+  ]);
+
+  let nonfarm_yoy_pct: number | null = null;
+  if (payroll && payroll.history.length >= 13) {
+    const cur = payroll.history[0].value;
+    const prior = payroll.history[12].value;
+    if (prior > 0) {
+      nonfarm_yoy_pct = ((cur - prior) / prior) * 100;
+    }
+  }
+
+  return { district, unemployment_rate: unemployment, nonfarm_payroll: payroll, nonfarm_yoy_pct };
+}
+
 export interface FredSummary {
   fed_funds_rate: number | null;
   unemployment_rate: number | null;

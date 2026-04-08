@@ -41,7 +41,36 @@ def extract_js(url: str, institution: dict) -> list[dict]:
         except Exception:
             pass
 
-        # Get rendered text
+        # Expand all accordion/collapsible sections before extracting
+        try:
+            page.evaluate("""() => {
+                // Click all common accordion/expand triggers
+                const selectors = [
+                    'details:not([open])',
+                    '[data-toggle="collapse"]:not(.show)',
+                    '.accordion-button.collapsed',
+                    '[aria-expanded="false"]',
+                    '.expandable:not(.expanded)',
+                    '.collapsible-header',
+                    '.toggle-content',
+                    'button[class*="expand"]',
+                    'button[class*="accordion"]',
+                    'a[class*="accordion"]',
+                    '[class*="collaps"]:not(.show):not(.in)',
+                ];
+                for (const sel of selectors) {
+                    document.querySelectorAll(sel).forEach(el => {
+                        try { el.click(); } catch(e) {}
+                    });
+                }
+                // Open all <details> elements
+                document.querySelectorAll('details').forEach(d => d.open = true);
+            }""")
+            page.wait_for_timeout(1500)
+        except Exception:
+            pass
+
+        # Get rendered text (after expanding)
         text = page.inner_text("body")
 
         # Check if this is an index page (lots of links, little fee content)
