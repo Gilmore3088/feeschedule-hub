@@ -1,21 +1,19 @@
 import type { Metadata } from "next";
 import { getPublicStats, getDataFreshness } from "@/lib/crawler-db/core";
 import { LandingHero } from "./landing-hero";
-import { LandingValueCards } from "./landing-value-cards";
-import { LandingHowItWorks } from "./landing-how-it-works";
-import { LandingGuideTeasers } from "./landing-guide-teasers";
-import { LandingB2BStrip } from "./landing-b2b-strip";
+import { LandingDataAuthority } from "./landing-data-authority";
+import { LandingTwoTrack } from "./landing-two-track";
 import { LandingTrustStats } from "./landing-trust-stats";
 import { CustomerFooter } from "@/components/customer-footer";
 
 export const metadata: Metadata = {
-  title: "Bank Fee Index -- Find What Your Bank Really Charges",
+  title: "Bank Fee Index -- Fee Intelligence for Consumers & Institutions",
   description:
-    "Compare fees across 8,000+ banks and credit unions. See how your bank's fees compare to the national median. Free, no account required.",
+    "Compare fees across 8,000+ banks and credit unions. Consumers: look up your bank free. Institutions: peer benchmarking, AI research, and board-ready reports.",
   openGraph: {
-    title: "Bank Fee Index -- Find What Your Bank Really Charges",
+    title: "Bank Fee Index -- Fee Intelligence for Consumers & Institutions",
     description:
-      "Compare fees across 8,000+ banks and credit unions. See how your bank's fees compare to the national median.",
+      "Compare fees across 8,000+ banks and credit unions. Free consumer lookup. Professional-grade intelligence for banking teams.",
   },
 };
 
@@ -28,10 +26,8 @@ export default async function LandingPage() {
   return (
     <div className="min-h-screen bg-[#FAF7F2] consumer-brand">
       <LandingHero totalInstitutions={stats.total_institutions} />
-      <LandingValueCards />
-      <LandingHowItWorks />
-      <LandingGuideTeasers />
-      <LandingB2BStrip />
+      <LandingDataAuthority stats={stats} />
+      <LandingTwoTrack />
       <LandingTrustStats stats={stats} freshness={freshness} />
       <CustomerFooter />
     </div>
