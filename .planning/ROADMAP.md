@@ -542,10 +542,9 @@ Plans:
   5. A "For Financial Institutions" section with a clear upgrade CTA is present without acting as a barrier to consumer use; the page design meets a consulting-grade visual quality bar (editorial typography, generous whitespace)
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
-- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
+- [ ] 29-01-PLAN.md -- Landing page hero with Fee Scout search, value prop cards, trust stats
+- [ ] 29-02-PLAN.md -- Gateway cleanup and visual quality verification
 **UI hint**: yes
-
 ### Phase 30: Institution Educational Pages
 **Goal**: Institution detail pages are interpretive consumer experiences -- every fee category has a contextual callout explaining its significance, a peer percentile position, and a distribution chart showing where the institution sits nationally
 **Depends on**: Phase 29
