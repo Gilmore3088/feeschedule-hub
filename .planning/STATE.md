@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: National Coverage Push
 status: executing
-stopped_at: Completed 30-01-PLAN.md
-last_updated: "2026-04-08T20:17:59.887Z"
+stopped_at: "Completed 30-02-PLAN.md (checkpoint: awaiting human-verify Task 3)"
+last_updated: "2026-04-08T20:22:44.854Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 4
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - [Phase 28-audience-shell-separation]: ConsumerNav is a dedicated server component with no pro/consumer branching -- each audience layout imports its own nav
 - [Phase 30]: FeeCallout renders as sibling <tr colSpan=5> inside <tbody> to preserve table structure
 - [Phase 30]: estimatePercentile uses piecewise linear interpolation across min/p25/median/p75/max segments, clamped 1-99
+- [Phase 30]: InstitutionHistogram is a separate component from admin FeeHistogram — consumer warm palette conflicts with admin dark-mode styling
+- [Phase 30]: Fee Distribution section is free (no pro gate) — strongest visual differentiator, gates removed the conversion hook
 
 ### Pending Todos
 
@@ -88,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T20:17:55.920Z
-Stopped at: Completed 30-01-PLAN.md
+Last session: 2026-04-08T20:22:39.971Z
+Stopped at: Completed 30-02-PLAN.md (checkpoint: awaiting human-verify Task 3)
 Resume file: None
