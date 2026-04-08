@@ -503,7 +503,7 @@ Plans:
   4. Authenticated pro users see relevant B2B report links on the institution page surfacing competitive or peer reports applicable to that institution's peer group
 **Plans**: 2 plans
 Plans:
-- [ ] 30-01-PLAN.md -- Fee callout explainers + PercentileBadge in PositionBar
+- [x] 30-01-PLAN.md -- Fee callout explainers + PercentileBadge in PositionBar
 - [ ] 30-02-PLAN.md -- Fee Distribution histograms + Intelligence section with B2B CTAs
 
 
@@ -635,7 +635,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 1/1 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -687,7 +687,7 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 27. External Intelligence System | v5.0 | 1/2 | In Progress|  |
 | 28. Audience Shell Separation | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 29. Consumer Landing Page | v6.0 | 2/2 | Complete   | 2026-04-08 |
-| 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
+| 30. Institution Educational Pages | v6.0 | 1/2 | In Progress|  |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
 | 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
 | 33. Global Thesis Engine | v7.0 | 3/3 | Complete    | 2026-04-08 |

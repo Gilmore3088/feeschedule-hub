@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: National Coverage Push
 status: executing
-stopped_at: Phase 37 context gathered
-last_updated: "2026-04-08T20:10:08.340Z"
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-04-08T20:17:59.887Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 4
@@ -63,6 +63,8 @@ Recent decisions affecting current work:
 - [Phase 29-consumer-landing-page]: gateway-client.tsx deleted with zero broken references; landing page is fully server-rendered via page.tsx
 - [Phase 28-audience-shell-separation]: Personalization context is pure (no DB calls, synchronous) -- derivePersonalizationContext takes User, returns PersonalizationContext
 - [Phase 28-audience-shell-separation]: ConsumerNav is a dedicated server component with no pro/consumer branching -- each audience layout imports its own nav
+- [Phase 30]: FeeCallout renders as sibling <tr colSpan=5> inside <tbody> to preserve table structure
+- [Phase 30]: estimatePercentile uses piecewise linear interpolation across min/p25/median/p75/max segments, clamped 1-99
 
 ### Pending Todos
 
@@ -86,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T19:55:38.109Z
-Stopped at: Phase 37 context gathered
-Resume file: .planning/phases/37-editor-v2-integration-testing/37-CONTEXT.md
+Last session: 2026-04-08T20:17:55.920Z
+Stopped at: Completed 30-01-PLAN.md
+Resume file: None
