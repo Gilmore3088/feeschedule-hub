@@ -435,8 +435,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
+- [x] 26-01-PLAN.md — Audit and verify overview panel data flows, call-reports panel enhancement, verify all panels post-Phase-23 scaling (ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04)
+- [x] 26-02-PLAN.md — Add CFPB complaints to economic panel, derived analytics to overview, revenue concentration chart (ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04)
 **UI hint**: yes
 
 ### Phase 27: External Intelligence System
@@ -450,8 +450,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
+- [ ] 27-01-PLAN.md — External intelligence DB schema and ingest UI (INTEL-01, INTEL-03)
+- [ ] 27-02-PLAN.md — Hamilton tool integration for search and citation (INTEL-02, INTEL-04)
 
 ---
 
