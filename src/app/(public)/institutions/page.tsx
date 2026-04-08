@@ -32,17 +32,16 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   const hasSearch = query.length >= 2 || stateCode || charterType;
   const stats = await getPublicStats();
 
-  const results = hasSearch
-    ? await searchInstitutions({
-        query: query || undefined,
-        state_code: stateCode || undefined,
-        charter_type: charterType || undefined,
-        page,
-        pageSize: 25,
-      })
-    : null;
+  // Always show results — default to all institutions sorted by name
+  const results = await searchInstitutions({
+    query: hasSearch ? (query || undefined) : undefined,
+    state_code: stateCode || undefined,
+    charter_type: charterType || undefined,
+    page,
+    pageSize: 25,
+  });
 
-  const totalPages = results ? Math.ceil(results.total / 25) : 0;
+  const totalPages = Math.ceil(results.total / 25);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -95,7 +94,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
       </form>
 
       {/* Results */}
-      {results && (
+      {results.total > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-[#7A7062]">
@@ -187,11 +186,11 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      {/* Empty state -- no search yet */}
-      {!results && (
+      {/* Empty results */}
+      {results.total === 0 && (
         <div className="text-center py-8">
           <p className="text-sm text-[#A69D90]">
-            Start typing to search, or use the filters above to browse.
+            No institutions found. Try adjusting your search or filters.
           </p>
         </div>
       )}
