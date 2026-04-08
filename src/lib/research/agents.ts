@@ -31,6 +31,9 @@ const PRO_PREFIX =
 const ADMIN_PREFIX =
   "You are speaking with a Bank Fee Index administrator or analyst. Include operational flags, data quality signals, pipeline status, and review queue context when relevant to the question. Surface extraction confidence and coverage gaps alongside fee analysis.";
 
+const REGULATION_INSTRUCTION =
+  "When analyzing fees subject to regulatory scrutiny — overdraft, NSF, monthly maintenance, junk fees — always check CFPB complaint data and Fed Content for enforcement signals before concluding. Use queryRegulatoryRisk for compliance, enforcement risk, or regulatory exposure questions. Flag institutions with above-median fees AND above-average complaint rates as potential compliance risks. Reference ROA, efficiency ratio, and deposit growth when answering fee revenue questions — the financial context makes fee analysis actionable.";
+
 // Non-ops internal tools available to pro role (all internalTools minus ops-only tools)
 const OPS_TOOL_NAMES = new Set([
   "getCrawlStatus",
@@ -78,7 +81,7 @@ async function opsContext(): Promise<string> {
 export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
   const s = await getPublicStats();
 
-  const dataStats = `You have access to ${s.total_observations.toLocaleString()}+ fee observations across ${s.total_categories} categories from ${s.total_institutions.toLocaleString()}+ institutions, plus FDIC Call Reports, FRED economic indicators, Fed Beige Book narratives, CFPB complaint data, industry health metrics, and derived analytics (revenue concentration, fee dependency trends, per-institution averages).`;
+  const dataStats = `You have access to ${s.total_observations.toLocaleString()}+ fee observations across ${s.total_categories} categories from ${s.total_institutions.toLocaleString()}+ institutions, plus: FDIC Call Reports (revenue trends), FRED economic indicators, Fed Beige Book narratives, Fed speeches and research papers (Fed Content), CFPB complaint data, industry health metrics (ROA, efficiency, deposits, loans), BLS labor indicators, Census ACS demographics, NY Fed research data, OFR financial stability data, FDIC Summary of Deposits (market share), and derived analytics (revenue concentration, fee dependency trends, per-institution averages).`;
 
   switch (role) {
     case "consumer": {
@@ -105,7 +108,7 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
     }
 
     case "pro": {
-      const systemPrompt = `${PRO_PREFIX}\n\n${dataStats}\n\n${HAMILTON_SYSTEM_PROMPT}`;
+      const systemPrompt = `${PRO_PREFIX}\n\n${dataStats}\n\n${REGULATION_INSTRUCTION}\n\n${HAMILTON_SYSTEM_PROMPT}`;
       return {
         id: "hamilton",
         name: "Hamilton",
@@ -129,7 +132,7 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
 
     case "admin": {
       const ops = await opsContext();
-      const systemPrompt = `${ADMIN_PREFIX}\n\n${dataStats}\n\n${HAMILTON_SYSTEM_PROMPT}${ops}`;
+      const systemPrompt = `${ADMIN_PREFIX}\n\n${dataStats}\n\n${REGULATION_INSTRUCTION}\n\n${HAMILTON_SYSTEM_PROMPT}${ops}`;
       return {
         id: "hamilton",
         name: "Hamilton",
