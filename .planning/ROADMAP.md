@@ -483,7 +483,7 @@ Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | 21. Knowledge Automation | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 22. Wave Reporting | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete    | 2026-04-08 |
-| 24. Industry Health & Beige Book | v5.0 | 1/2 | In Progress|  |
+| 24. Industry Health & Beige Book | v5.0 | 1/2 | Complete    | 2026-04-08 |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 3/3 | Complete | - |
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | - |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete    | 2026-04-08 |
@@ -497,7 +497,7 @@ Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 22
-**Plans:** 1/2 plans executed
+**Plans:** 1/2 plans complete
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 23 to break down)
