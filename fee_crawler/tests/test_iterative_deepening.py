@@ -356,5 +356,194 @@ class TestWaveStateRunLastCompletedPass(unittest.TestCase):
         self.assertEqual(result, 0)
 
 
+# ─── Task 1 (Plan 02): Orchestrator inner pass loop tests ────────────────────
+
+class TestOrchestratorPassLoop(unittest.TestCase):
+    """_run_single_state executes 3 passes with tier-escalating strategies."""
+
+    def _make_conn(self):
+        conn = MagicMock()
+        cur = MagicMock()
+        cur.fetchone.return_value = {"coverage_pct": 50.0}
+        conn.cursor.return_value = cur
+        return conn, cur
+
+    def _make_agent_result(self, run_id: int, pass_number: int = 1):
+        return {
+            "run_id": run_id,
+            "discovered": 5,
+            "extracted": 3,
+            "failed": 0,
+            "pass_number": pass_number,
+            "strategy": f"tier{pass_number}",
+        }
+
+    def test_three_passes_created(self):
+        """_run_single_state calls run_state_agent 3 times with tier escalation."""
+        from fee_crawler.wave.orchestrator import _run_single_state
+        from fee_crawler.agents.strategy import TIER1, TIER2, TIER3
+
+        conn, cur = self._make_conn()
+        agent_results = [
+            self._make_agent_result(1, 1),
+            self._make_agent_result(2, 2),
+            self._make_agent_result(3, 3),
+        ]
+
+        with patch("fee_crawler.wave.orchestrator.run_state_agent", side_effect=agent_results) as mock_agent, \
+             patch("fee_crawler.wave.orchestrator.update_wave_state") as mock_update_state, \
+             patch("fee_crawler.wave.orchestrator.update_wave_state_pass") as mock_update_pass, \
+             patch("fee_crawler.wave.orchestrator._get_coverage_pct", return_value=50.0):
+
+            _run_single_state(conn, wave_run_id=1, state_code="WY")
+
+        self.assertEqual(mock_agent.call_count, 3)
+        calls = mock_agent.call_args_list
+        self.assertEqual(calls[0], call("WY", pass_number=1, strategy=TIER1))
+        self.assertEqual(calls[1], call("WY", pass_number=2, strategy=TIER2))
+        self.assertEqual(calls[2], call("WY", pass_number=3, strategy=TIER3))
+
+        # update_wave_state_pass called 3 times with last_completed_pass=1,2,3
+        pass_calls = mock_update_pass.call_args_list
+        self.assertEqual(len(pass_calls), 3)
+        self.assertEqual(pass_calls[0], call(conn, 1, "WY", last_completed_pass=1, agent_run_id=1))
+        self.assertEqual(pass_calls[1], call(conn, 1, "WY", last_completed_pass=2, agent_run_id=2))
+        self.assertEqual(pass_calls[2], call(conn, 1, "WY", last_completed_pass=3, agent_run_id=3))
+
+    def test_early_stop_after_three_passes(self):
+        """Early stop fires after pass 3 when coverage >= 90%, not before."""
+        from fee_crawler.wave.orchestrator import _run_single_state
+
+        conn, cur = self._make_conn()
+        agent_results = [
+            self._make_agent_result(1, 1),
+            self._make_agent_result(2, 2),
+            self._make_agent_result(3, 3),
+            self._make_agent_result(4, 4),
+            self._make_agent_result(5, 5),
+        ]
+
+        with patch("fee_crawler.wave.orchestrator.run_state_agent", side_effect=agent_results) as mock_agent, \
+             patch("fee_crawler.wave.orchestrator.update_wave_state"), \
+             patch("fee_crawler.wave.orchestrator.update_wave_state_pass"), \
+             patch("fee_crawler.wave.orchestrator._get_coverage_pct", return_value=95.0):
+
+            # Even with max_passes=5 and 95% coverage, minimum 3 passes must run
+            _run_single_state(conn, wave_run_id=1, state_code="WY", max_passes=5)
+
+        # Early stop after pass 3 (3 >= 3 AND coverage >= 90%)
+        self.assertEqual(mock_agent.call_count, 3)
+
+    def test_early_stop_not_before_three(self):
+        """Early stop cannot fire before 3 passes even if coverage >= 90% after pass 1."""
+        from fee_crawler.wave.orchestrator import _run_single_state
+
+        conn, cur = self._make_conn()
+        agent_results = [
+            self._make_agent_result(1, 1),
+            self._make_agent_result(2, 2),
+            self._make_agent_result(3, 3),
+        ]
+
+        with patch("fee_crawler.wave.orchestrator.run_state_agent", side_effect=agent_results) as mock_agent, \
+             patch("fee_crawler.wave.orchestrator.update_wave_state"), \
+             patch("fee_crawler.wave.orchestrator.update_wave_state_pass"), \
+             patch("fee_crawler.wave.orchestrator._get_coverage_pct", return_value=95.0):
+
+            _run_single_state(conn, wave_run_id=1, state_code="WY", max_passes=5)
+
+        # Must still run 3 passes despite high coverage
+        self.assertEqual(mock_agent.call_count, 3)
+
+    def test_resume_from_last_pass(self):
+        """start_pass=2 causes run_state_agent to be called with pass_number=2 first."""
+        from fee_crawler.wave.orchestrator import _run_single_state
+
+        conn, cur = self._make_conn()
+        agent_results = [
+            self._make_agent_result(2, 2),
+            self._make_agent_result(3, 3),
+        ]
+
+        with patch("fee_crawler.wave.orchestrator.run_state_agent", side_effect=agent_results) as mock_agent, \
+             patch("fee_crawler.wave.orchestrator.update_wave_state"), \
+             patch("fee_crawler.wave.orchestrator.update_wave_state_pass"), \
+             patch("fee_crawler.wave.orchestrator._get_coverage_pct", return_value=50.0):
+
+            _run_single_state(conn, wave_run_id=1, state_code="WY", start_pass=2)
+
+        calls = mock_agent.call_args_list
+        self.assertEqual(calls[0][1]["pass_number"], 2)
+        self.assertEqual(mock_agent.call_count, 2)
+
+    def test_last_pass_run_id_recorded(self):
+        """wave_state_runs.agent_run_id is set to the LAST pass's run_id after loop."""
+        from fee_crawler.wave.orchestrator import _run_single_state
+
+        conn, cur = self._make_conn()
+        agent_results = [
+            self._make_agent_result(10, 1),
+            self._make_agent_result(11, 2),
+            self._make_agent_result(12, 3),
+        ]
+
+        final_update_state_calls = []
+
+        def capture_update_state(c, wid, sc, status, agent_run_id=None, error=None):
+            final_update_state_calls.append((status, agent_run_id))
+
+        with patch("fee_crawler.wave.orchestrator.run_state_agent", side_effect=agent_results), \
+             patch("fee_crawler.wave.orchestrator.update_wave_state", side_effect=capture_update_state), \
+             patch("fee_crawler.wave.orchestrator.update_wave_state_pass"), \
+             patch("fee_crawler.wave.orchestrator._get_coverage_pct", return_value=50.0):
+
+            _run_single_state(conn, wave_run_id=1, state_code="WY")
+
+        # The final update_wave_state("complete") call should use run_id=12 (last pass)
+        complete_calls = [c for c in final_update_state_calls if c[0] == "complete"]
+        self.assertTrue(complete_calls, "Expected a 'complete' update_wave_state call")
+        self.assertEqual(complete_calls[-1][1], 12)
+
+    def test_coverage_pct_query(self):
+        """_get_coverage_pct queries crawl_targets and returns float."""
+        from fee_crawler.wave.orchestrator import _get_coverage_pct
+
+        conn = MagicMock()
+        cur = MagicMock()
+        conn.cursor.return_value = cur
+        # Simulate dict cursor row
+        cur.fetchone.return_value = {"coverage_pct": 67.5}
+
+        result = _get_coverage_pct(conn, "WY")
+        self.assertAlmostEqual(result, 67.5)
+        cur.execute.assert_called_once()
+        sql = cur.execute.call_args[0][0].lower()
+        self.assertIn("crawl_targets", sql)
+
+    def test_coverage_pct_tuple_row(self):
+        """_get_coverage_pct handles tuple rows (not just dict cursor)."""
+        from fee_crawler.wave.orchestrator import _get_coverage_pct
+
+        conn = MagicMock()
+        cur = MagicMock()
+        conn.cursor.return_value = cur
+        cur.fetchone.return_value = (42.0,)
+
+        result = _get_coverage_pct(conn, "MT")
+        self.assertAlmostEqual(result, 42.0)
+
+    def test_coverage_pct_none_row(self):
+        """_get_coverage_pct returns 0.0 when no rows found."""
+        from fee_crawler.wave.orchestrator import _get_coverage_pct
+
+        conn = MagicMock()
+        cur = MagicMock()
+        conn.cursor.return_value = cur
+        cur.fetchone.return_value = None
+
+        result = _get_coverage_pct(conn, "AK")
+        self.assertEqual(result, 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()
