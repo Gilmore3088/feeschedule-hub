@@ -668,6 +668,152 @@ async function handleDeposits(stateFips: string | undefined, limit: number) {
   return { deposit_market_share: data.slice(0, limit) };
 }
 
+// ── Regulatory Risk Tool ──────────────────────────────────────────────────────
+
+const REGULATED_FEE_CATEGORIES = [
+  "overdraft",
+  "nsf",
+  "monthly_maintenance",
+  "atm_non_network",
+  "wire_domestic_outgoing",
+] as const;
+
+const REGULATORY_KEYWORDS = [
+  "overdraft",
+  "junk fee",
+  "consumer protection",
+  "fee",
+  "cfpb",
+  "enforcement",
+] as const;
+
+export const queryRegulatoryRisk = tool({
+  description:
+    "Assess regulatory risk by cross-referencing CFPB complaint data, fee outliers in scrutinized categories (overdraft, NSF, junk fees), and recent Fed speeches/papers mentioning enforcement signals. Returns a risk score (0-100), affected institution count, and the three signal sources. Use when someone asks about compliance risk, enforcement exposure, regulatory pressure, or CFPB-related fee concerns.",
+  inputSchema: z.object({
+    categories: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Fee categories to assess (default: overdraft, nsf, monthly_maintenance, atm_non_network, wire_domestic_outgoing)"
+      ),
+    district: z
+      .number()
+      .min(1)
+      .max(12)
+      .optional()
+      .describe("Narrow complaint signals to a specific Fed district"),
+    limit: z.number().optional().default(5).describe("Max outlier institutions to surface"),
+  }),
+  execute: async ({ categories, district: _district, limit }) => {
+    const targetCategories = categories && categories.length > 0
+      ? categories
+      : [...REGULATED_FEE_CATEGORIES];
+    const n = limit ?? 5;
+
+    // 1. Fee outlier signals — institutions above P75 in regulated categories
+    const feeOutlierSignals = await (async () => {
+      try {
+        const fees = await sql`
+          SELECT ef.fee_category, ef.amount, ct.institution_name, ct.state_code
+          FROM extracted_fees ef
+          JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+          WHERE ef.fee_category = ANY(${targetCategories}::text[])
+            AND ef.amount > 0
+            AND ef.review_status != 'rejected'
+          ORDER BY ef.fee_category, ef.amount DESC
+        ` as { fee_category: string; amount: number; institution_name: string; state_code: string }[];
+
+        // Compute P75 per category
+        const grouped: Record<string, number[]> = {};
+        for (const r of fees) {
+          if (!grouped[r.fee_category]) grouped[r.fee_category] = [];
+          grouped[r.fee_category].push(r.amount);
+        }
+        const p75Map: Record<string, number> = {};
+        for (const [cat, amounts] of Object.entries(grouped)) {
+          const sorted = [...amounts].sort((a, b) => a - b);
+          p75Map[cat] = sorted[Math.floor(sorted.length * 0.75)] ?? 0;
+        }
+
+        const outliers = fees.filter((r) => r.amount > (p75Map[r.fee_category] ?? 0));
+        const uniqueInstitutions = [...new Set(outliers.map((r) => r.institution_name))];
+
+        return {
+          outlier_institution_count: uniqueInstitutions.length,
+          top_institutions: uniqueInstitutions.slice(0, n),
+          categories_with_outliers: Object.keys(p75Map).filter((cat) =>
+            fees.some((r) => r.fee_category === cat && r.amount > (p75Map[cat] ?? 0))
+          ),
+        };
+      } catch {
+        return { outlier_institution_count: 0, top_institutions: [], categories_with_outliers: [] };
+      }
+    })();
+
+    // 2. Complaint signals — fee-related CFPB products
+    const complaintSignals = await (async () => {
+      try {
+        const national = await getNationalComplaintSummary();
+        return {
+          total_fee_complaints: national.total_complaints,
+          fee_related_pct: national.fee_related_pct,
+          average_per_institution: national.average_per_institution,
+        };
+      } catch {
+        return { total_fee_complaints: 0, fee_related_pct: 0, average_per_institution: 0 };
+      }
+    })();
+
+    // 3. Fed Content signals — recent speeches mentioning regulatory keywords
+    const fedContentSignals = await (async () => {
+      try {
+        const speeches = await getRecentSpeeches(30);
+        const relevant = speeches.filter((s) => {
+          const text = `${s.title ?? ""} ${s.description ?? ""}`.toLowerCase();
+          return REGULATORY_KEYWORDS.some((kw) => text.includes(kw));
+        });
+        return {
+          signal_count: relevant.length,
+          recent_titles: relevant.slice(0, 3).map((s) => ({
+            title: s.title,
+            speaker: s.speaker,
+            published: s.published_at,
+          })),
+        };
+      } catch {
+        return { signal_count: 0, recent_titles: [] };
+      }
+    })();
+
+    // Compute risk score: up to 33 points per signal source
+    const outlierScore = Math.min(
+      33,
+      Math.round((feeOutlierSignals.outlier_institution_count / 100) * 33)
+    );
+    const complaintScore = Math.min(
+      33,
+      Math.round((Math.min(complaintSignals.total_fee_complaints, 1000) / 1000) * 33)
+    );
+    const fedScore = Math.min(34, fedContentSignals.signal_count * 10);
+    const riskScore = Math.min(100, outlierScore + complaintScore + fedScore);
+
+    return {
+      risk_score: riskScore,
+      risk_label: riskScore >= 70 ? "high" : riskScore >= 40 ? "moderate" : "low",
+      signal_count:
+        feeOutlierSignals.categories_with_outliers.length +
+        (fedContentSignals.signal_count > 0 ? 1 : 0) +
+        (complaintSignals.total_fee_complaints > 0 ? 1 : 0),
+      affected_institutions: feeOutlierSignals.outlier_institution_count,
+      fee_outlier_signals: feeOutlierSignals,
+      complaint_signals: complaintSignals,
+      fed_content_signals: fedContentSignals,
+      categories_assessed: targetCategories,
+    };
+  },
+});
+
 /** All internal tools bundled for admin agent configs */
 export const internalTools = {
   queryDistrictData,
@@ -682,4 +828,5 @@ export const internalTools = {
   queryDataQuality,
   triggerPipelineJob,
   queryNationalData,
+  queryRegulatoryRisk,
 };
