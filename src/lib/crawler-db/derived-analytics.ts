@@ -1,0 +1,302 @@
+import { sql } from "./connection";
+
+// ── Interfaces ───────────────────────────────────────────────────────────────
+
+export interface ConcentrationEntry {
+  fee_category: string;
+  value: number;
+  pct_of_total: number;
+}
+
+export interface RevenueConcentration {
+  dollar_volume: ConcentrationEntry[];
+  institution_prevalence: ConcentrationEntry[];
+  summary: {
+    top_n: number;
+    dollar_volume_pct: number;
+    prevalence_pct: number;
+    total_fee_dollars: number;
+    total_institutions: number;
+  };
+}
+
+export interface TrendSignals {
+  qoq_change_pct: number | null;
+  yoy_change_pct: number | null;
+}
+
+export interface FeeDependencyTrend {
+  trend: { report_date: string; avg_fee_income_ratio: number; institution_count: number }[];
+  signals: TrendSignals;
+}
+
+export interface RevenuePerInstitutionTrend {
+  current: {
+    by_tier: { tier: string; avg_sc_income: number; institution_count: number }[];
+    by_charter: { charter: string; avg_sc_income: number; institution_count: number }[];
+  };
+  trend: { report_date: string; avg_sc_income: number; institution_count: number }[];
+  signals: TrendSignals;
+}
+
+// ── Shared utility ───────────────────────────────────────────────────────────
+
+export function computeTrendSignals(
+  values: { date: string; value: number }[]
+): TrendSignals {
+  const result: TrendSignals = { qoq_change_pct: null, yoy_change_pct: null };
+
+  if (values.length < 2) return result;
+
+  const current = values[0].value;
+  const previous = values[1].value;
+
+  if (previous !== 0) {
+    result.qoq_change_pct = Math.round(((current - previous) / previous) * 10000) / 100;
+  }
+
+  if (values.length >= 5) {
+    const yearAgo = values[4].value;
+    if (yearAgo !== 0) {
+      result.yoy_change_pct = Math.round(((current - yearAgo) / yearAgo) * 10000) / 100;
+    }
+  }
+
+  return result;
+}
+
+// ── DERIVE-01: Revenue Concentration ─────────────────────────────────────────
+
+const EMPTY_CONCENTRATION: RevenueConcentration = {
+  dollar_volume: [],
+  institution_prevalence: [],
+  summary: {
+    top_n: 5,
+    dollar_volume_pct: 0,
+    prevalence_pct: 0,
+    total_fee_dollars: 0,
+    total_institutions: 0,
+  },
+};
+
+export async function getRevenueConcentration(
+  topN = 5
+): Promise<RevenueConcentration> {
+  try {
+    const rows = await sql`
+      SELECT
+        fee_category,
+        SUM(amount) as total_fee_dollars,
+        COUNT(DISTINCT crawl_target_id) as institution_count
+      FROM extracted_fees
+      WHERE fee_category IS NOT NULL
+        AND amount > 0
+        AND review_status != 'rejected'
+      GROUP BY fee_category
+      ORDER BY total_fee_dollars DESC
+    `;
+
+    const totalRow = await sql`
+      SELECT COUNT(DISTINCT crawl_target_id) as total
+      FROM extracted_fees
+      WHERE review_status != 'rejected'
+    `;
+
+    if (rows.length === 0) {
+      return { ...EMPTY_CONCENTRATION, summary: { ...EMPTY_CONCENTRATION.summary, top_n: topN } };
+    }
+
+    const totalInstitutions = Number(totalRow[0]?.total ?? 0);
+    const grandTotalDollars = rows.reduce(
+      (sum: number, r: Record<string, unknown>) => sum + Number(r.total_fee_dollars),
+      0
+    );
+
+    // Dollar volume axis: already sorted by total_fee_dollars DESC
+    const dollarEntries: ConcentrationEntry[] = rows.map(
+      (r: Record<string, unknown>) => ({
+        fee_category: String(r.fee_category),
+        value: Number(r.total_fee_dollars),
+        pct_of_total:
+          grandTotalDollars > 0
+            ? Math.round((Number(r.total_fee_dollars) / grandTotalDollars) * 10000) / 100
+            : 0,
+      })
+    );
+
+    // Prevalence axis: sort by institution_count DESC
+    const prevalenceSorted = [...rows].sort(
+      (a: Record<string, unknown>, b: Record<string, unknown>) =>
+        Number(b.institution_count) - Number(a.institution_count)
+    );
+    const prevalenceEntries: ConcentrationEntry[] = prevalenceSorted.map(
+      (r: Record<string, unknown>) => ({
+        fee_category: String(r.fee_category),
+        value: Number(r.institution_count),
+        pct_of_total:
+          totalInstitutions > 0
+            ? Math.round((Number(r.institution_count) / totalInstitutions) * 10000) / 100
+            : 0,
+      })
+    );
+
+    const topDollar = dollarEntries.slice(0, topN);
+    const topPrevalence = prevalenceEntries.slice(0, topN);
+
+    const dollarVolumePct =
+      grandTotalDollars > 0
+        ? Math.round(
+            (topDollar.reduce((s, e) => s + e.value, 0) / grandTotalDollars) * 10000
+          ) / 100
+        : 0;
+
+    const prevalencePct =
+      topPrevalence.length > 0 ? topPrevalence[0].pct_of_total : 0;
+
+    return {
+      dollar_volume: topDollar,
+      institution_prevalence: topPrevalence,
+      summary: {
+        top_n: topN,
+        dollar_volume_pct: dollarVolumePct,
+        prevalence_pct: prevalencePct,
+        total_fee_dollars: grandTotalDollars,
+        total_institutions: totalInstitutions,
+      },
+    };
+  } catch {
+    return { ...EMPTY_CONCENTRATION, summary: { ...EMPTY_CONCENTRATION.summary, top_n: topN } };
+  }
+}
+
+// ── DERIVE-02: Fee Dependency Trend ──────────────────────────────────────────
+
+const EMPTY_DEPENDENCY: FeeDependencyTrend = {
+  trend: [],
+  signals: { qoq_change_pct: null, yoy_change_pct: null },
+};
+
+export async function getFeeDependencyTrend(
+  quarters = 4
+): Promise<FeeDependencyTrend> {
+  try {
+    const trendRows = await sql`
+      SELECT
+        report_date,
+        ROUND(AVG(
+          CASE WHEN total_revenue > 0
+               THEN service_charge_income * 1.0 / total_revenue * 100
+               ELSE NULL END
+        ), 2) as avg_fee_income_ratio,
+        COUNT(DISTINCT crawl_target_id) as institution_count
+      FROM institution_financials
+      WHERE service_charge_income IS NOT NULL
+      GROUP BY report_date
+      ORDER BY report_date DESC
+      LIMIT ${quarters}
+    `;
+
+    const trend = trendRows.map((r: Record<string, unknown>) => ({
+      report_date: String(r.report_date),
+      avg_fee_income_ratio: Number(r.avg_fee_income_ratio),
+      institution_count: Number(r.institution_count),
+    }));
+
+    const signals = computeTrendSignals(
+      trend.map((t) => ({ date: t.report_date, value: t.avg_fee_income_ratio }))
+    );
+
+    return { trend, signals };
+  } catch {
+    return EMPTY_DEPENDENCY;
+  }
+}
+
+// ── DERIVE-03: Revenue Per Institution Trend ─────────────────────────────────
+
+const EMPTY_RPI: RevenuePerInstitutionTrend = {
+  current: { by_tier: [], by_charter: [] },
+  trend: [],
+  signals: { qoq_change_pct: null, yoy_change_pct: null },
+};
+
+export async function getRevenuePerInstitutionTrend(
+  quarters = 4
+): Promise<RevenuePerInstitutionTrend> {
+  try {
+    // Current: by tier
+    const tierRows = await sql`
+      SELECT
+        ct.asset_size_tier as tier,
+        ROUND(AVG(ifin.service_charge_income * 1000), 0) as avg_sc_income,
+        COUNT(DISTINCT ct.id) as institution_count
+      FROM crawl_targets ct
+      JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
+      WHERE ifin.service_charge_income IS NOT NULL
+        AND ct.asset_size_tier IS NOT NULL
+        AND ifin.report_date = (
+          SELECT MAX(report_date) FROM institution_financials
+        )
+      GROUP BY ct.asset_size_tier
+      ORDER BY AVG(ifin.total_assets) ASC
+    `;
+
+    // Current: by charter
+    const charterRows = await sql`
+      SELECT
+        ct.charter_type as charter,
+        ROUND(AVG(ifin.service_charge_income * 1000), 0) as avg_sc_income,
+        COUNT(DISTINCT ct.id) as institution_count
+      FROM crawl_targets ct
+      JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
+      WHERE ifin.service_charge_income IS NOT NULL
+        AND ifin.report_date = (
+          SELECT MAX(report_date) FROM institution_financials
+        )
+      GROUP BY ct.charter_type
+    `;
+
+    // Trend: time series
+    const trendRows = await sql`
+      SELECT
+        report_date,
+        ROUND(AVG(service_charge_income * 1000), 0) as avg_sc_income,
+        COUNT(DISTINCT crawl_target_id) as institution_count
+      FROM institution_financials
+      WHERE service_charge_income IS NOT NULL
+      GROUP BY report_date
+      ORDER BY report_date DESC
+      LIMIT ${quarters}
+    `;
+
+    const byTier = tierRows.map((r: Record<string, unknown>) => ({
+      tier: String(r.tier),
+      avg_sc_income: Number(r.avg_sc_income),
+      institution_count: Number(r.institution_count),
+    }));
+
+    const byCharter = charterRows.map((r: Record<string, unknown>) => ({
+      charter: String(r.charter),
+      avg_sc_income: Number(r.avg_sc_income),
+      institution_count: Number(r.institution_count),
+    }));
+
+    const trend = trendRows.map((r: Record<string, unknown>) => ({
+      report_date: String(r.report_date),
+      avg_sc_income: Number(r.avg_sc_income),
+      institution_count: Number(r.institution_count),
+    }));
+
+    const signals = computeTrendSignals(
+      trend.map((t) => ({ date: t.report_date, value: t.avg_sc_income }))
+    );
+
+    return {
+      current: { by_tier: byTier, by_charter: byCharter },
+      trend,
+      signals,
+    };
+  } catch {
+    return EMPTY_RPI;
+  }
+}
