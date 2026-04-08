@@ -1,200 +1,200 @@
 # Project Research Summary
 
-**Project:** Bank Fee Index — E2E Pipeline Test Suite
-**Domain:** End-to-end testing of a Python web crawl + LLM extraction + DB verification pipeline
-**Researched:** 2026-04-06
+**Project:** Bank Fee Index v6.0 — Two-Sided Experience
+**Domain:** Consumer fintech education + B2B financial intelligence (dual-audience UX split on existing Next.js monolith)
+**Researched:** 2026-04-07
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This project adds end-to-end test coverage to an existing Python data pipeline that seeds bank institutions from FDIC/NCUA, discovers fee schedule URLs, crawls documents (HTML + PDF via Playwright), extracts fees via Claude Haiku, categorizes them against a 49-category taxonomy, and validates results into a SQLite database. The established pattern for this domain is a four-layer test architecture: Infrastructure (pytest config + markers), Fixtures (DB setup, HTTP mocking, config injection), Helpers and Factories (assertion utilities, synthetic data builders), and Test Cases (one file per pipeline stage plus a full-chain test). The critical design constraint is that each pipeline stage must be testable in isolation, with the full-chain test being the only test that runs all stages end-to-end.
+Bank Fee Index v6.0 adds distinct consumer and B2B experiences to a production-grade Next.js 16 App Router monolith. The existing codebase is structurally further along than a greenfield project: route groups `(public)/` and `pro/` already exist, Hamilton agents are operational, all 49 fee categories are classified, peer index queries are built, Call Report data is in Postgres, and the Beige Book is ingested. The v6.0 milestone is primarily a UX and access-control project — the data layer is largely ready; the job is surfacing it correctly per audience and building the missing output layer (PDF reports).
 
-The recommended stack is pytest 8.x with pytest-asyncio (auto mode), pytest-httpserver for crawl-layer HTTP mocking, and `unittest.mock` / pytest-mock for LLM call interception. The FEATURES.md research and the existing codebase agree on a key design split: unit tests mock the LLM to test extraction logic deterministically, while the e2e test makes real Claude Haiku calls against real institutions to validate the live pipeline. Both modes are needed — they test different things. The test DB must use an isolated SQLite file (or `:memory:`) injected via `Config`, never the production `data/crawler.db`.
+The recommended approach is audience-shell architecture: each audience (consumer, B2B) gets its own `layout.tsx` that owns chrome (nav, footer, personalization), while all data components and DB query functions remain shared. The critical sequencing insight from architecture research is to build the two layout shells and nav components first, then populate them with pages — not the other way around. This avoids the main failure mode of this type of project, which is building audience-specific page content before the shared boundaries are settled, leading to component duplication that becomes structural technical debt.
 
-The dominant risk category is environment isolation: five of the fourteen identified pitfalls involve some form of state contamination — dev DB pollution, session fixture leakage, stale lock files, Modal path divergence, and SQLite/PostgreSQL behavioral differences. These must all be addressed in Phase 1 (test infrastructure) before any crawling or extraction tests are written. A secondary risk is cost control: real LLM calls during e2e runs must be gated behind a pytest marker (`llm`) and limited to 3-5 institutions per run to keep per-run costs under $0.10.
+The top risks are (1) SEO regression if existing consumer URL paths are moved instead of redesigned in-place — `/fees/`, `/institution/`, and `/guides/` paths are already indexed and must never acquire audience prefixes; (2) Hamilton agent security gaps if new pro-facing agents are added without explicit `requiredRole` enforcement at the API layer; and (3) uncontrolled AI report generation costs when pro users can trigger on-demand Claude runs without per-user daily limits. All three risks have concrete preventions and must be addressed before the phases that introduce them.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing codebase already uses pytest with 60 passing unit tests, SQLite `:memory:` isolation (in `test_transition_fee_status.py`), and the `Config` injection pattern throughout pipeline commands. The e2e test infrastructure extends this rather than replacing it. All recommended libraries are either already in use or are incremental additions that do not change production code.
+The existing stack requires only three additions for v6.0. The framework, DB client, AI SDK, Stripe, and all component libraries are already installed and production-validated. New dependencies are minimal by design: `@react-pdf/renderer` (v4.3.3) for server-side PDF generation, `next-plausible` (v3.12.0) for audience-segmented analytics, and optionally `schema-dts` as a dev dependency for typed JSON-LD structured data on institution pages.
 
-The HTTP mocking strategy requires two tools because the pipeline uses three HTTP clients: `pytest-httpserver` handles the crawl layer (works with `requests`, `httpx`, and Playwright via real TCP), and `vcrpy` + `pytest-recording` handles FDIC/NCUA API calls via record-and-replay cassettes. LLM mocking uses `unittest.mock.patch` on `anthropic.Anthropic.messages.create` — no third-party LLM testing library is needed and none should be used (they test output quality, not pipeline regression).
+Puppeteer was explicitly evaluated and rejected for PDF generation: it hits Vercel's 250MB bundle limit, requires a Vercel Pro plan for the 60-second timeout PDF generation needs, and runs 4-8x slower in serverless environments. `@react-pdf/renderer` generates PDFs natively in Node.js using React component syntax with no headless browser dependency. SEO metadata (dynamic titles, OG images, JSON-LD) uses Next.js 16 built-in APIs (`generateMetadata()`, `ImageResponse` from `next/og`) — no additional packages required.
 
-**Core technologies:**
-- `pytest >= 8.0`: Test runner — already in use; plugin ecosystem unmatched for Python
-- `pytest-asyncio >= 1.0` with `asyncio_mode = "auto"`: Async test support — required for httpx/asyncpg/Playwright; must use auto mode to prevent silent test skipping on Python 3.12+
-- `pytest-httpserver >= 1.1.5`: Crawl HTTP mocking — only tool that intercepts all three HTTP clients at TCP level
-- `vcrpy >= 8.1.1` + `pytest-recording >= 0.13`: FDIC/NCUA API replay — commit cassettes for CI reproducibility; use `filter_headers=['Authorization']` before committing
-- `pytest-mock >= 3.14`: LLM mock interface — cleaner than raw `@patch` decorators, works with async
-- `freezegun >= 1.5` + `pytest-freezer >= 0.4`: Timestamp control — required for deterministic `crawled_at` / `created_at` assertions
-- `Faker >= 30.0`: Synthetic institution data — avoids hardcoded fixture banks that go stale
-- `pytest-timeout >= 2.3`: CI safety — prevent hangs on network I/O; global 600s ceiling
-- SQLite `:memory:` (stdlib): Test DB isolation — already validated in this codebase
-
-**Do not use:** `responses` (only intercepts `requests`, not httpx/Playwright), `httpretty` (breaks asyncio), `pytest-vcr` (conflicts with pytest-recording), `testcontainers` (Docker adds 30-60s startup), `DeepEval`/`LangSmith` (LLM quality tools, not regression fixtures), `pytest-playwright` fixtures (designed for UI testing, not scraping).
+**Core technologies (additions only):**
+- `@react-pdf/renderer` ^4.3.3: server-side PDF generation for pro report downloads — only viable serverless PDF option for Vercel; requires `serverComponentsExternalPackages` in next.config.ts
+- `next-plausible` ^3.12.0: Plausible integration with custom property support — enables consumer vs. B2B funnel tracking without PostHog overhead
+- `schema-dts` ^1.1.2 (dev only): TypeScript types for JSON-LD Schema.org — zero runtime impact; add if structured data grows beyond 3 schema types
+- `generateMetadata()` + `ImageResponse` (built-in Next.js): per-page SEO metadata and dynamic OG images — no external SEO library needed or acceptable
 
 ### Expected Features
 
-**Must have (table stakes):**
-- Isolated test database — override `Config.database.path` to `tmp_path` before any DB construction; never touch `data/crawler.db`
-- Geography-scoped institution seeding — `state='VT'` (small, fast) as deterministic default; fixture JSON for FDIC API fallback
-- Stage-by-stage pipeline execution with captured `run_id` — test wraps `run_pipeline()` and references the run for post-run assertions
-- Non-zero fee extraction assertion — at least 1 fee extracted across all seeded institutions (not per institution)
-- URL discovery assertion — at least 1 `crawl_targets` row gets a `fee_schedule_url` populated
-- Crawl result record verification — every attempted crawl has a `crawl_results` row with `status IN ('success', 'failed', 'unchanged')`
-- FK integrity check — no orphaned `extracted_fees` rows (LEFT JOIN assertion)
-- Fee categorization coverage — at least 1 fee has a non-null `fee_category`
-- Confidence scoring populated — at least 1 fee with `extraction_confidence > 0`
-- Auto-staging assertion — at least 1 fee with `confidence >= 0.85` has `review_status = 'staged'`
-- Human-readable summary report — per-institution funnel trace + aggregate counts to stdout
-- Teardown and cleanup — `tmp_path` handles DB; explicit cleanup for any downloaded documents
+**Must have — v6.0 launch (table stakes):**
+- Consumer landing page with value-prop hero and embedded Fee Scout with no auth gate — current split-panel gateway is the #1 acquisition blocker
+- Remove auth gate from anonymous consumer search — platforms that gate search see 40-60% higher bounce rates
+- Institution educational pages with "why does this matter?" callouts per fee category — transforms raw data into consumer product
+- Peer percentile indicator per fee on institution pages ("higher than 72% of similar banks")
+- B2B launchpad with four-door layout: Hamilton, Peer Builder, Reports, Federal Data
+- Subscriber profile with institution + district fields — prerequisite for all B2B personalization
+- Report history table + list view — generated reports must be retrievable between sessions
+- Distinct consumer nav and B2B nav as separate components — current `CustomerNav` conditional branching is not sustainable
 
-**Should have (differentiators):**
-- Per-institution funnel trace — structured dict showing exactly where each institution's pipeline broke
-- Audit trail completeness check — every staged fee must have a `fee_reviews` row with `action = 'stage'`; relational JOIN assertions, not row counts
-- Confidence distribution sanity check — no fee outside `[0.0, 1.0]`; median above 0.6
-- Validation flags format check — `validation_flags` parses as valid JSON for all non-null rows
-- Stage timing capture — wall-clock time per stage in the summary report (emit, do not assert)
-- Parametric geography fixture — `--geography state=XX` CLI option with 'VT' default
+**Should have — v6.1 (differentiators):**
+- PDF export for Hamilton reports — first B2B subscriber will ask "how do I share this?"
+- Personalized Beige Book digest on B2B launchpad by district
+- Structured scope form for report generation (per report type) — prevents inconsistent free-form Hamilton output
+- Fee distribution chart on institution pages (Recharts histogram, institution marker)
+- B2B launchpad peer snapshot panel with live peer index teaser
 
-**Defer to later:**
-- Idempotency test — run pipeline twice, assert no duplicate rows; valuable but doubles run time; add as `@pytest.mark.slow`
-- Browser-based admin UI assertions — out of scope per PROJECT.md
-- SerpAPI discovery fallback — explicitly excluded per PROJECT.md
-- DB migration script tests — belongs in schema tests, not e2e tests
+**Defer — v7+ (not essential for launch):**
+- CFPB complaint data on institution pages — requires new API integration, not core to fee data value prop
+- Fee history timeline — needs `fee_change_events` data coverage to grow first
+- "Banks near you charging less" consumer suggestion — affiliate/geo logic is a separate product layer
+- Report versioning / re-run with fresh data — power feature for established subscriber base
+- Hamilton annotation layer before export — validate PDF export proves popular first
 
 ### Architecture Approach
 
-The test suite uses a four-layer architecture inside `fee_crawler/tests/e2e/`: Infrastructure (pytest.ini markers + env var contract), Fixtures (session-scoped DB + config + HTTP mock; function-scoped data inserts), Helpers and Factories (db_assertions.py for relational assertions, report.py for summary output, institution.py factory for synthetic crawl_target rows), and Test Cases (one file per pipeline stage: seed, discover, crawl, validate, plus `test_pipeline_full.py`). The directory structure is additive — it does not touch the existing `fee_crawler/tests/` unit tests. Data always flows forward through the test: factory inserts rows, stages transform them, assertions read final state. No test stage modifies upstream tables.
+The codebase already has the right structural bones but has not completed the separation. `pro/layout.tsx` currently imports `CustomerNav` — the same nav as `(public)/layout.tsx`. The auth guard is duplicated in individual pro page components rather than centralized in the layout. The milestone work is completing the architectural intent already present in the route structure: give each audience an independent layout shell, centralize the auth guard in `pro/layout.tsx`, extract a `personalization.ts` service for deriving district/institution context from the User type, and build `ProNav` as a separate component from `ConsumerNav`.
 
 **Major components:**
-1. `e2e/conftest.py` — Session fixtures: `test_db_path` (schema creation), `test_config` (Config pointing at test DB, delays zeroed), `mock_external_http` (autouse, intercepts FDIC/NCUA + crawl URLs)
-2. `factories/institution.py` — Builds synthetic `crawl_target` dicts with `website_url` pointing to mock server; inserts via direct DB call
-3. `helpers/db_assertions.py` — Relational assertions: `assert_crawl_result_exists`, `assert_fees_extracted`, `assert_audit_trail_complete`, `assert_fees_categorized`
-4. `helpers/report.py` — Post-run summary builder; reads DB, returns structured dict, called from `test_pipeline_full.py`
-5. `test_pipeline_full.py` — Only file that runs the full linear chain; marked `@pytest.mark.slow`; uses flexible assertions
+1. `pro/layout.tsx` — centralized auth guard (`canAccessPremium`) + ProNav + PersonalizationBanner; protects all `/pro/*` routes in one place; eliminates per-page auth guard duplication
+2. `src/lib/personalization.ts` — pure function `derivePersonalizationContext(user)` mapping User fields to district/institution display context; no DB call; consumed by all pro dashboard components
+3. `src/lib/access.ts` — extend with `canAccessReportType(user, reportType)` gating peer_brief/state_index/monthly_pulse for pro users vs. full set for admin
+4. `src/lib/reports/` — `@react-pdf/renderer` component tree; report layouts consume existing DB query functions; render via `POST /api/reports/generate`
+5. `src/components/consumer/nav.tsx` / `src/components/pro/nav.tsx` — two distinct nav components replacing the conditional-branch pattern in `CustomerNav`
+6. `(public)/page.tsx` — consumer landing page as a Server Component (ISR, no "use client") replacing the client-rendered GatewayClient for organic traffic
+
+**Build order (dependency-driven):**
+`personalization.ts` → `access.ts` extension → `pro/layout.tsx` auth guard → `ProNav` → `ConsumerNav` rename → `PersonalizationBanner` → `ProDashboard` four-door refactor → consumer landing → report scoping → institution page educational layer
 
 ### Critical Pitfalls
 
-1. **Test database contamination** — Override `Config.database.path` to `tmp_path_factory` temp file before any DB construction; assert at teardown that production DB `mtime` was not changed. Address in Phase 1.
-2. **Session fixture state leakage** — Use `scope="session"` only for schema creation and mock server activation; use `scope="function"` for any fixture that writes data rows; never `autouse=True` on data-writing fixtures. Address in Phase 1.
-3. **Stale pipeline lock file** — Override `LOCK_FILE` config to point inside `tmp_path`; wrap all pipeline invocations in `try/finally` calling `release_lock()`. Address in Phase 1.
-4. **Asserting exact values on LLM output** — Assert structural properties only: `len >= 1`, `amount > 0`, `category IN VALID_CATEGORIES`, `0.0 <= confidence <= 1.0`. Never assert specific amounts, fee names, or exact row counts. Address in Phase 1 (design time).
-5. **FDIC API downtime breaking seed stage** — Ship pre-fetched `fdic_seed_vt.json` fixture file; use it as default; add `--live-seed` flag for scheduled CI only. Address in Phase 1.
-6. **LLM cost runaway** — Gate real Haiku calls behind `@pytest.mark.llm`; cache crawled documents to a fixture dir on first run; set `daily_budget_usd = 2.0` in test config; run e2e at most once per day in CI. Address in Phase 2.
-7. **Missing relational integrity assertions** — Do not rely on row counts alone; use explicit LEFT JOIN orphan checks for `extracted_fees → crawl_results` and `fee_reviews → extracted_fees`. Address in Phase 3.
+1. **SEO regression from URL restructuring** — Never add `/consumer/` or `/pro/` prefixes to URLs already indexed at bare paths (`/fees/`, `/institution/`, `/guides/`). Redesign `(public)/` pages in-place. Enforce as a contract before Phase 1 begins. Verification: `sitemap.ts` output for existing URLs must be byte-identical before and after each phase.
+
+2. **Split-panel gateway blocks organic traffic** — Root `/` is currently a "use client" component that renders no indexable content for search engines. Replace with a Server Component consumer landing page. This is the highest-leverage first move of the milestone and resolves the SSR gap in one commit.
+
+3. **Hamilton agent security gap** — Any new pro-facing agent added to `agents.ts` without explicit `requiredRole: "premium"` can be called by unauthenticated users if they discover the `agentId`. Admin agents (`content-writer`, `custom-query`) must return 403 for `role: "premium"` sessions. Write one integration test per agent verifying access boundaries; run in CI.
+
+4. **Report generation cost overrun without per-user limits** — The global $50/day circuit breaker does not prevent a single pro user from exhausting the daily Claude budget. At $5-10 per report, 10 users x 5 reports/day = $250-500. Add a `report_generation_events` table with a per-user daily count check before enqueueing. Cannot ship pro-user report generation without this.
+
+5. **Personalization over-engineering blocks launchpad launch** — B2B personalization has a long dependency chain. The four-door launchpad delivers immediate value without personalization. Ship with national/non-personalized views first; add personalization as a separate phase. Do not add DB schema changes for user-institution linking in the same phase as B2B UI work.
+
+6. **Component duplication between audience trees** — Enforce: if a component queries `crawler-db`, it lives in `src/components/` and is shared. Navigation components are legitimately distinct; fee display components are not. `ProFeeTable` and `PublicFeeTable` calling `getNationalIndex()` separately is a structural failure.
+
+7. **Dark mode scope confusion** — Admin dark mode uses `.dark .admin-card` CSS overrides. Consumer pages use hardcoded hex values with no dark mode CSS. Decide at Phase 1 start: dark mode applies to admin only, or consumer too. If admin only, `DarkModeToggle` must not appear in `ConsumerNav`. Do not silently inherit the toggle on layouts that have no dark mode support.
+
+---
 
 ## Implications for Roadmap
 
-Based on combined research, the build has three natural phases driven by dependency order and risk mitigation priorities.
+Based on research, suggested phase structure:
 
-### Phase 1: Test Infrastructure and Isolation
+### Phase 1: Foundation — Audience Shell Separation
+**Rationale:** All subsequent phases depend on stable nav components and centralized auth. Building page content before the layout shells are settled causes rework. Involves no new features — only structural clarification of what already exists. Zero risk, maximum leverage.
+**Delivers:** `pro/layout.tsx` with centralized auth guard; `src/components/pro/nav.tsx` (new); `src/components/consumer/nav.tsx` (renamed from `customer-nav.tsx`); `src/lib/personalization.ts`; `src/lib/access.ts` extended with `canAccessReportType()`; dark mode scope decision documented
+**Addresses:** FEATURES — distinct nav per audience (P1); ARCHITECTURE anti-patterns 1 and 2 (conditional nav, per-page auth guards)
+**Avoids:** Component duplication pitfall; admin bookmark breakage pitfall
 
-**Rationale:** Five of the fourteen pitfalls are in this phase. Environment contamination is the highest-consequence failure mode — if the test DB isolation is wrong, every subsequent test produces unreliable data. This must be built and verified before any real crawling happens. It is also fast to build (pure configuration and fixture code, no actual pipeline invocations).
+### Phase 2: Consumer Front Door
+**Rationale:** The split-panel gateway is the #1 acquisition blocker and an SEO gap. Converting root `/` to a Server Component consumer landing page with embedded Fee Scout is the single highest-leverage consumer move. Must happen before institution page work because the landing establishes the consumer design language.
+**Delivers:** `(public)/page.tsx` as SEO-optimized Server Component; value-prop hero + embedded Fee Scout; auth gate removed from anonymous search; `generateMetadata()` + `ImageResponse` on consumer landing; SEO no-URL-changes contract enforced
+**Uses:** `next-plausible` (audience: 'consumer' tracking); built-in `generateMetadata()` and `ImageResponse`; existing Fee Scout
+**Avoids:** SEO regression pitfall (URL structure stays intact); GatewayClient SSR gap
 
-**Delivers:** A working pytest configuration, isolated temp DB, HTTP mock server activation, FDIC fixture JSON, institution factory, and function-scoped clean_db fixture. A minimal smoke test that seeds 3 institutions into the test DB and asserts the row count is the acceptance criterion.
+### Phase 3: Institution Educational Pages
+**Rationale:** Institution pages are the primary SEO content that converts consumer visitors. "Why does this matter?" callouts and peer percentile indicators transform existing raw fee data into an interpretive consumer product. Builds on Phase 2 consumer design language.
+**Delivers:** "Why does this matter?" contextual callout per fee category; peer percentile indicator; fee distribution chart (Recharts histogram via existing `getFeesForCategory()`); JSON-LD `FinancialService` structured data; dynamic `generateMetadata()` per institution; consumer guide contextual links per fee row
+**Implements:** FEATURES.md Area 2 — institution educational pages
+**Avoids:** Showing only 15 featured categories (show all 49, ordered by prominence); ratings/grades anti-feature
 
-**Addresses:** Table stakes — isolated test DB, geography-scoped seeding, teardown/cleanup.
+### Phase 4: B2B Launchpad
+**Rationale:** Pro subscribers have no coherent starting point. Personalization is explicitly deferred — the launchpad ships with non-personalized views. Auth guard from Phase 1 makes this safe to build without per-page auth duplication.
+**Delivers:** `ProDashboard` refactored as four-door launchpad; `PersonalizationBanner` using `derivePersonalizationContext()`; peer snapshot panel; Hamilton quick-start card; recent reports list; subscriber profile with institution + district fields in DB
+**Implements:** ARCHITECTURE Pattern 4 (four-door launchpad) + Pattern 2 (profile-driven personalization)
+**Avoids:** Personalization over-engineering pitfall (defer user-institution linking); metrics-heavy dashboard anti-feature
 
-**Avoids:**
-- Pitfall 1 (DB contamination) — Config path override + teardown assertion
-- Pitfall 4 (fixture leakage) — Function-scoped data fixtures
-- Pitfall 5 (stale lock file) — LOCK_FILE override in fixture
-- Pitfall 8 (FDIC API downtime) — Committed fixture JSON
-- Pitfall 3 (exact-value LLM assertions) — Assertion guidelines established before any test is written
+### Phase 5: Scoped Report Generation + PDF Export
+**Rationale:** PDF export is a critical gap — web-only output is insufficient for B2B deliverables. Per-user cost controls are a hard prerequisite for shipping. Gated on Phase 4 because the report center needs a home in the B2B launchpad.
+**Delivers:** `@react-pdf/renderer` integration; `POST /api/reports/generate` returning PDF buffer; report component tree in `src/lib/reports/` (peer-brief, state-index, monthly-pulse); `report_generation_events` table with per-user daily limit (3-5/day pro, 20/day admin); report history list; structured scope form with peer group pre-fill
+**Uses:** `@react-pdf/renderer` ^4.3.3; `canAccessReportType()` from Phase 1
+**Avoids:** Report cost overrun pitfall (per-user limits required before shipping); report template machinery exposed to pro users (presigned R2 URL pattern, templates stay server-side)
 
-**Stack used:** pytest 8.0, pytest-asyncio, pytest-httpserver, vcrpy + pytest-recording, Faker, tmp_path_factory
-
-### Phase 2: Stage-Isolated Pipeline Tests with Real I/O
-
-**Rationale:** With isolation proven, each pipeline stage can be tested independently using controlled inputs. The key insight from ARCHITECTURE.md is that stage tests should use direct DB inserts to set up inputs that upstream stages would have produced — this allows testing stage 3 (crawl) without re-running stages 1 and 2. LLM cost controls must be established here before any real Haiku calls are made.
-
-**Delivers:** Four stage-isolated test files (`test_pipeline_seed.py`, `test_pipeline_discover.py`, `test_pipeline_crawl.py`, `test_pipeline_validate.py`), db_assertions helpers, LLM marker (`@pytest.mark.llm`) with cost guard, and stage timing capture in the report helper.
-
-**Addresses:** Core assertions (URL discovery, crawl results, extracted fees, FK integrity, categorization, confidence, auto-staging); differentiators (per-institution funnel trace, confidence distribution sanity check, validation flags format check).
-
-**Avoids:**
-- Pitfall 3 (exact-value assertions) — Structural checks enforced via db_assertions helper contract
-- Pitfall 6 (website downtime) — Aggregate assertions with `MIN_SUCCESSFUL_EXTRACTIONS = 2`
-- Pitfall 7 (LLM cost runaway) — Document cache + budget cap in test config
-- Pitfall 9 (discovery timeout) — Shortened COMMON_PATHS list + 10s per-domain timeout in test config
-- Pitfall 13 (robots.txt silent failure) — Log blocks separately, exclude from assertion denominator
-- Pitfall 14 (PDF/OCR silent failure) — Pre-flight Tesseract check; assert error_message present on zero-fee PDF
-
-**Stack used:** pytest-mock (LLM mock fixture), freezegun + pytest-freezer (timestamp assertions), pytest-httpserver (Playwright-compatible crawl mocking), helpers/report.py
-
-### Phase 3: Full Pipeline Test, Audit Trail Verification, and CI Integration
-
-**Rationale:** Only after all stages pass in isolation does it make sense to run the full chain. The full-chain test is slow and expensive — it should be marked `@pytest.mark.slow` and excluded from default CI runs. Audit trail relational integrity requires the full pipeline to have run, so it belongs here. Modal environment validation also belongs here since it requires a working full pipeline to validate.
-
-**Delivers:** `test_pipeline_full.py` (full chain, `@pytest.mark.slow`), audit trail relational integrity assertions, structured JSON run report (`data/e2e_report.json`), GitHub Actions job configuration for scheduled daily e2e runs, Modal environment pre-flight validation.
-
-**Addresses:** Differentiators — audit trail completeness check, parametric geography fixture; table stakes — human-readable summary report.
-
-**Avoids:**
-- Pitfall 10 (missing relational integrity) — Explicit LEFT JOIN orphan assertions for fee_reviews chain
-- Pitfall 11 (Modal environment divergence) — Config-driven paths, API key pre-flight check, DATABASE_URL pointing at Supabase test schema
-- Pitfall 12 (unreadable CI output) — Structured JSON report written alongside pytest output
-- Pitfall 2 (SQLite/Postgres divergence) — Smoke-test CI run against Supabase test schema to surface Postgres-specific failures
+### Phase 6: B2B Personalization
+**Rationale:** Personalization is the highest-value B2B differentiator but has a dependency chain that would block Phase 4 if combined. By Phase 6, subscription data is flowing and the launchpad is validated. User-to-institution linking and district-defaulted views can now be layered in.
+**Delivers:** Personalized Beige Book digest by user's district; competitive landscape snapshot using `fee_change_events`; peer group health summary from Call Report indicators; Hamilton morning briefing (weekly digest)
+**Implements:** FEATURES.md Area 3 differentiators (Beige Book digest, competitive landscape, peer group health)
+**Avoids:** Over-engineering warning — DB schema changes for personalization isolated to this phase only
 
 ### Phase Ordering Rationale
 
-- Phase 1 must come first because all subsequent tests depend on correct DB isolation. Building tests before isolation is proven will produce unreliable results that waste debugging time.
-- Phase 2 stage isolation comes before the full-chain test because when a stage breaks, you need a clear signal from the stage-specific test, not a full-pipeline failure that could be caused by anything upstream.
-- Phase 3 is last because the full-chain test and audit trail assertions require all stages to be working correctly. Modal validation requires a working full pipeline.
-- The overall order follows the data flow: Infrastructure → Stage isolation → Integration.
+- Phases 1-2 establish structural integrity before any feature work. Stable nav shells and centralized auth must precede audience-specific content; otherwise every page built in the wrong structure requires rework.
+- Phase 3 (institution pages) before Phase 4 (B2B launchpad): consumer SEO drives the discovery funnel that feeds B2B trial signups. Consumer organic traffic is the acquisition engine for B2B revenue.
+- Phase 5 (PDF) after Phase 4 (launchpad): the report center needs a home; Phase 4 also validates that subscribers want reports before investing in PDF infrastructure.
+- Phase 6 (personalization) last: requires real subscriber data to validate personalization hypotheses; launchpad is already valuable without it.
+- The SEO no-URL-changes contract is a pre-Phase 1 prerequisite, not a Phase 1 deliverable — it must be established as a team norm before any file is moved.
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 3:** Modal environment configuration for e2e runs — the interaction between ephemeral containers, SQLite vs Supabase test schemas, and Modal secrets injection is complex enough to warrant a focused research spike before implementation.
-- **Phase 2 (Playwright + pytest-httpserver integration):** The combined pattern of `pytest-httpserver` serving fixture HTML to Playwright browser contexts via pipeline code (not pytest-playwright fixtures) is verified but has limited documented examples. A prototype in Phase 1 to validate the integration is recommended before committing to it.
+- **Phase 5 (PDF generation):** `@react-pdf/renderer` primitive system differs entirely from Tailwind. Recharts SVGs cannot render inside PDF components — need a server-side chart-to-PNG conversion strategy (node-canvas, sharp, or isolated Playwright screenshot) before implementation begins. Spike recommended.
+- **Phase 6 (Personalization):** `fee_change_events` data coverage is uncertain — validate actual row counts before committing to the competitive landscape "who moved" feature. May need to defer that specific feature within Phase 6.
 
 Phases with standard patterns (skip research-phase):
-- **Phase 1:** Pure pytest fixture configuration — well-documented, established patterns, existing examples in this codebase.
-- **Phase 2 (non-Playwright):** pytest-mock + vcrpy + db_assertions patterns are all well-documented with official docs verified.
+- **Phase 1 (Shell separation):** Well-documented Next.js App Router layout patterns; codebase already has the structure; no new packages required.
+- **Phase 2 (Consumer landing):** `generateMetadata()` and `ImageResponse` are official Next.js built-in APIs with extensive documentation.
+- **Phase 3 (Institution pages):** Recharts histograms and `getFeesForCategory()` are already in use; work is display layer, not infrastructure.
+- **Phase 4 (B2B launchpad):** Four-door layout is a standard card-navigation pattern; `personalization.ts` is a pure function with no external dependencies.
+
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Core tools (pytest, pytest-asyncio, pytest-mock) verified via official docs and PyPI. pytest-httpserver 1.1.5 verified. vcrpy 8.1.1 confirmed on PyPI/GitHub (released Jan 2026). One uncertainty: combined pytest-httpserver + Playwright pipeline pattern inferred from community examples, not official documentation. |
-| Features | HIGH | Derived directly from pipeline schema (`executor.py`, `db.py`) and PROJECT.md constraints. Feature dependency graph verified against actual pipeline stage order. Anti-features (exact LLM value assertions, mocking HTTP for e2e) are well-supported by LLM testing literature. |
-| Architecture | HIGH | Four-layer pattern verified against multiple data engineering testing references. In-memory SQLite isolation already proven in this codebase. One discrepancy between STACK.md and ARCHITECTURE.md: STACK.md recommends `pytest-httpserver` while ARCHITECTURE.md references the `responses` library — STACK.md is correct for this pipeline because `responses` only intercepts `requests`, not httpx or Playwright. |
-| Pitfalls | HIGH | Most pitfalls derived from direct codebase analysis (lock file path, UNIQUE constraints, Config default path, singleton pattern). SQLite/Postgres divergence risk documented by Neon official docs. Session fixture leakage pattern from official pytest fixture documentation. |
+| Stack | HIGH | Existing stack verified from package.json; new additions verified via official docs; Puppeteer alternative explicitly evaluated against official Vercel KB |
+| Features | MEDIUM | Core consumer fintech patterns verified against NerdWallet/AlphaSense; some conversion rate statistics from WebSearch summaries, not primary research |
+| Architecture | HIGH | Based on direct codebase inspection of src/app/, src/lib/, src/components/; route group behavior per official Next.js docs |
+| Pitfalls | HIGH | Based on direct codebase inspection of existing anti-patterns (CustomerNav conditionals, per-page auth guards, GatewayClient as "use client") |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **STACK.md / ARCHITECTURE.md discrepancy on HTTP mocking library:** ARCHITECTURE.md Pattern 2 references the `responses` library for session-scoped HTTP mocking, but STACK.md correctly identifies that `responses` only intercepts `requests` (not httpx or Playwright). During implementation, use `pytest-httpserver` as specified in STACK.md. The `responses` library reference in ARCHITECTURE.md should be treated as illustrative of the fixture pattern, not a library choice.
-- **Playwright + pytest-httpserver integration prototype:** The pattern of `pytest-httpserver` serving files to a Playwright browser context driven by pipeline code (not pytest-playwright) has limited documented examples. Prototype this early in Phase 1 to de-risk Phase 2.
-- **Modal e2e scope decision:** Research flags Modal as requiring a Supabase test schema (not SQLite). This requires a decision on whether to create a dedicated Supabase test schema or to run Modal e2e against a staging database. This decision should be made before Phase 3 planning begins.
-- **vcrpy cassette strategy for CI:** The research recommends committing FDIC/NCUA cassettes since they are public data. Confirm this does not violate any rate-limiting terms of service for these government APIs before committing cassettes.
+- **CFPB complaint data:** Expected on institution pages by consumer fintech standards but requires a new API integration. Deferred to v7+; confirm during Phase 3 planning whether it belongs in v6.1.
+- **`fee_change_events` coverage:** The competitive landscape feature in Phase 6 depends on meaningful historical fee change data. Validate actual row counts before committing to this feature in Phase 6 planning.
+- **Recharts-to-PNG for PDF:** The conversion mechanism for embedding Recharts charts in `@react-pdf/renderer` documents is not yet specified. Spike before Phase 5 implementation begins.
+- **Anonymous search gate location:** Fee Scout auth gate removal is a P1 feature but the exact gating mechanism (middleware, page-level redirect, or component) was not inspected. Confirm before Phase 2 scoping.
+- **Per-user report limit calibration:** The 3-5 reports/day suggestion is a recommendation. Validate the cost model (actual Claude API cost per report at production scale) before Phase 5 sets the limit in code.
+
+---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- pytest-asyncio 1.0 migration docs (pytest-asyncio.readthedocs.io) — asyncio_mode auto requirement
-- pytest-httpserver 1.1.5 docs (pytest-httpserver.readthedocs.io) — TCP-level HTTP mocking
-- Official pytest fixture docs (docs.pytest.org) — scope rules, tmp_path_factory, fixture lifecycle
-- Official Playwright Python docs (playwright.dev/python/docs/mock) — route interception
-- requests-mock / respx official docs — HTTP transport mocking patterns
-- Neon official docs (neon.com/blog) — SQLite vs PostgreSQL behavioral divergence
-- Existing codebase: `fee_crawler/tests/test_transition_fee_status.py` — in-memory SQLite pattern already in use
-- Existing codebase: `fee_crawler/pipeline/executor.py` — `run_pipeline()` interface, skip flags, `run_id` return
+- Direct codebase inspection: `src/app/`, `src/lib/`, `src/components/`, `src/lib/research/agents.ts`, `src/lib/access.ts`, `src/app/sitemap.ts`, `src/app/globals.css` (2026-04-07)
+- npmjs.com/@react-pdf/renderer — v4.3.3 confirmed current, React 19 support since v4.1.0
+- github.com/diegomura/react-pdf/issues/2460 — `serverComponentsExternalPackages` requirement confirmed
+- vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel — 250MB bundle limit, 10s hobby timeout, 4-8x slowdown confirmed
+- nextjs.org/docs/app/getting-started/metadata-and-og-images — `generateMetadata()` and `ImageResponse` built-in
+- nextjs.org/docs/app/api-reference/file-conventions/route-groups — route groups confirmed zero-dependency
+- plausible.io/docs/custom-props/for-pageviews — custom property segmentation confirmed, up to 30 properties
+- vercel.com/templates/next.js/ab-testing-simple — middleware cookie A/B pattern (official Vercel template)
 
 ### Secondary (MEDIUM confidence)
-- Start Data Engineering: E2E + integration test articles — pipeline stage isolation patterns
-- josephmachado/e2e_datapipeline_test (GitHub) — reference implementation for data pipeline e2e tests
-- vcrpy 8.1.1 changelog (vcrpy.readthedocs.io) — confirmed on PyPI/GitHub, released January 2026
-- Medium: Designing E2E Test Infrastructure with Pytest — four-layer architecture pattern
-- SitePoint: Testing AI Agents Non-Deterministic Behavior — assertion strategy for LLM output
+- intuitionlabs.ai/articles/alphasense-platform-review — AlphaSense platform feature review (full content reviewed)
+- eleken.co/blog-posts/modern-fintech-design-guide — fintech design patterns (full content reviewed)
+- wallstreetprep.com/knowledge/bloomberg-vs-capital-iq-vs-factset — B2B financial platform comparison
+- github.com/4lejandrito/next-plausible — App Router compatibility confirmed, actively maintained
+- alpha-sense.com/resources/product-articles/product-releases-2025/ — 2025 product release notes
 
 ### Tertiary (LOW confidence)
-- Community examples for combined pytest-httpserver + Playwright pipeline testing — the specific pattern of using pytest-httpserver as a backend for pipeline-driven Playwright is inferred from multiple 2025 examples, not a single authoritative source
+- NerdWallet banking reviews — structure inferred from search result descriptions (403 blocked on direct access)
+- WSA fintech landing page guide — WebSearch summary only; direct access failed
+- B2B SaaS dashboard design statistics (conversion rate claims) — WebSearch summaries; treat as directional, not definitive
 
 ---
-*Research completed: 2026-04-06*
+*Research completed: 2026-04-07*
 *Ready for roadmap: yes*
