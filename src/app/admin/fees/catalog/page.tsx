@@ -39,7 +39,7 @@ export default async function FeeCatalogPage({
   const activeFamily = params.family ?? "";
   const sortKey = params.sort ?? "institution_count";
   const sortDir = params.dir ?? "desc";
-  const showAll = params.show === "all";
+  const showFeatured = params.show === "featured";
 
   let summaries = await getFeeCategorySummaries();
 
@@ -52,8 +52,8 @@ export default async function FeeCatalogPage({
     );
   }
 
-  // Apply tier filter: default to featured only, unless searching or show=all
-  if (!showAll && !searchTerm) {
+  // Apply tier filter: default to ALL, unless show=featured is explicitly set
+  if (showFeatured && !searchTerm) {
     summaries = summaries.filter((s) => isFeaturedFee(s.fee_category));
   }
 
@@ -171,8 +171,8 @@ export default async function FeeCatalogPage({
               {totalCategories}
             </p>
             <p className="text-[11px] text-gray-400 mt-0.5">
-              of {showAll || searchTerm ? TAXONOMY_COUNT : FEATURED_COUNT}{" "}
-              {showAll || searchTerm ? "total" : "featured"}
+              of {showFeatured ? FEATURED_COUNT : TAXONOMY_COUNT}{" "}
+              {showFeatured ? "featured" : "total"}
             </p>
           </div>
           {mostCommon && (

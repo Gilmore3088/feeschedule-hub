@@ -15,7 +15,7 @@ export function CatalogFilterBar({ families }: CatalogFilterBarProps) {
 
   const search = searchParams.get("search") ?? "";
   const family = searchParams.get("family") ?? "";
-  const showAll = searchParams.get("show") === "all";
+  const showFeatured = searchParams.get("show") === "featured";
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -35,21 +35,21 @@ export function CatalogFilterBar({ families }: CatalogFilterBarProps) {
     [searchParams, router, pathname]
   );
 
-  const hasAnyFilter = search || family || showAll;
+  const hasAnyFilter = search || family || showFeatured;
 
   return (
     <div className="sticky top-[57px] z-40 -mx-6 px-6 py-3 bg-white/95 backdrop-blur-sm border-b dark:bg-[oklch(0.15_0_0)]/95 dark:border-white/[0.08] mb-6">
       <div className="flex flex-wrap items-center gap-3">
         <button
-          onClick={() => updateParams({ show: showAll ? null : "all" })}
-          aria-pressed={showAll}
+          onClick={() => updateParams({ show: showFeatured ? null : "featured" })}
+          aria-pressed={showFeatured}
           className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-            showAll
+            showFeatured
               ? "bg-gray-900 border-gray-900 text-white dark:bg-white/15 dark:border-white/15"
               : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-white/[0.12] dark:text-gray-400"
           }`}
         >
-          {showAll ? `All (${TAXONOMY_COUNT})` : `Featured (${FEATURED_COUNT})`}
+          {showFeatured ? `Featured (${FEATURED_COUNT})` : `All (${TAXONOMY_COUNT})`}
         </button>
 
         <input
