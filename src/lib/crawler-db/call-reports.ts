@@ -201,3 +201,62 @@ export async function getDistrictFeeRevenue(
     total_other_noninterest: Number(r.total_other_noninterest),
   };
 }
+export interface DistrictFeeRevenue {
+  fed_district: number;
+  institution_count: number;
+  total_sc_income: number;
+  avg_sc_income: number;
+  total_other_noninterest: number;
+}
+
+export async function getDistrictFeeRevenue(
+  district: number,
+  reportDate?: string
+): Promise<DistrictFeeRevenue | null> {
+  const sql = getSql();
+
+  // Find latest report date if not specified
+  let date = reportDate;
+  if (!date) {
+    const [row] = await sql`
+      SELECT MAX(report_date)::text AS latest_date
+      FROM institution_financials
+      WHERE service_charge_income > 0
+    `;
+    if (!row?.latest_date) return null;
+    date = row.latest_date;
+  }
+
+  const rows = await sql.unsafe(
+    `SELECT
+       ct.fed_district,
+       COUNT(DISTINCT inf.crawl_target_id)::int  AS institution_count,
+       COALESCE(SUM(inf.service_charge_income), 0)::bigint AS total_sc_income,
+       COALESCE(AVG(inf.service_charge_income), 0)::bigint AS avg_sc_income,
+       COALESCE(SUM(inf.other_noninterest_income), 0)::bigint AS total_other_noninterest
+     FROM institution_financials inf
+     JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+     WHERE inf.report_date = $1
+       AND ct.fed_district = $2
+       AND inf.service_charge_income > 0
+     GROUP BY ct.fed_district`,
+    [date, district]
+  ) as {
+    fed_district: string;
+    institution_count: string;
+    total_sc_income: string;
+    avg_sc_income: string;
+    total_other_noninterest: string;
+  }[];
+
+  if (rows.length === 0) return null;
+
+  const r = rows[0];
+  return {
+    fed_district: Number(r.fed_district),
+    institution_count: Number(r.institution_count),
+    total_sc_income: Number(r.total_sc_income),
+    avg_sc_income: Number(r.avg_sc_income),
+    total_other_noninterest: Number(r.total_other_noninterest),
+  };
+}
