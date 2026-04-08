@@ -295,7 +295,7 @@ Plans:
 
 - [ ] **Phase 19: Wave Orchestrator** - Batch launch, auto-prioritization by institution count, CLI/Modal triggers, resume-from-failure
 - [x] **Phase 20: Iterative Deepening** - Multi-pass per-state logic with strategy escalation and per-pass progress logging (completed 2026-04-08)
-- [ ] **Phase 21: Knowledge Automation** - Auto-logging learnings to state files, cross-state promotion to national.md, pruning at 50-state scale
+- [x] **Phase 21: Knowledge Automation** - Auto-logging learnings to state files, cross-state promotion to national.md, pruning at 50-state scale (completed 2026-04-08)
 - [ ] **Phase 22: Wave Reporting** - Post-wave summary report: states improved, coverage delta, top discoveries
 
 ### Phase 19: Wave Orchestrator
@@ -338,8 +338,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 21-01-PLAN.md — Coverage delta in pass learnings + cross-state pattern promotion
-- [ ] 21-02-PLAN.md — knowledge CLI subcommand + configurable token budget
+- [x] 21-01-PLAN.md — Coverage delta in pass learnings + cross-state pattern promotion
+- [x] 21-02-PLAN.md — knowledge CLI subcommand + configurable token budget
 
 ### Phase 22: Wave Reporting
 **Goal**: After each wave completes, an operator-readable summary report is generated showing what improved, by how much, and what was found
@@ -381,10 +381,10 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 23-01-PLAN.md -- Fix FFIEC scaling bug + backfill migration + pytest scaling test (CALL-01 to CALL-05)
-- [ ] 23-02-PLAN.md -- FRED gap closure: UMCSENT + housing permits + district nonfarm payrolls + district fee revenue (FRED-01 to FRED-04, D-05, D-06)
+- [x] 23-01-PLAN.md -- Fix FFIEC scaling bug + backfill migration + pytest scaling test (CALL-01 to CALL-05)
+- [x] 23-02-PLAN.md -- FRED gap closure: UMCSENT + housing permits + district nonfarm payrolls + district fee revenue (FRED-01 to FRED-04, D-05, D-06)
 - [ ] 23-03-PLAN.md -- FDIC standard 5-tier system replacement + getRevenueByTier + crawl_targets migration (CALL-06)
-- [ ] 23-04-PLAN.md -- CFPB complaint ingestion Postgres migration + district/institution complaint queries (D-07)
+- [x] 23-04-PLAN.md -- CFPB complaint ingestion Postgres migration + district/institution complaint queries (D-07)
 - [ ] 23-05-PLAN.md -- Institution financial context + peer comparison on slug pages (D-08, D-09, D-10)
 ### Phase 24: Industry Health & Beige Book
 **Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
@@ -476,9 +476,9 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 19. Wave Orchestrator | v3.0 | 1/2 | In Progress | - |
 | 20. Iterative Deepening | v3.0 | 1/2 | Complete    | 2026-04-08 |
-| 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
+| 21. Knowledge Automation | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
-| 23. Call Report & FRED Foundation | v5.0 | 0/5 | Planned | - |
+| 23. Call Report & FRED Foundation | v5.0 | 3/5 | In Progress|  |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
 | 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
