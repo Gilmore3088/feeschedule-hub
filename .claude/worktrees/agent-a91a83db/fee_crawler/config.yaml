@@ -1,0 +1,39 @@
+# Fee Crawler Configuration
+# Copy to config.local.yaml and edit for your environment
+
+database:
+  # Local SQLite for dev; swap to Supabase PostgreSQL for production
+  type: sqlite
+  path: data/crawler.db
+
+fdic_api:
+  base_url: https://api.fdic.gov/banks
+  page_size: 1000
+
+ncua_api:
+  # NCUA data via FFIEC or direct download
+  base_url: https://www.ncua.gov/files/publications/analysis
+
+crawl:
+  delay_seconds: 2.0
+  max_retries: 3
+  user_agent: "FeeScheduleHub/1.0 (fee-benchmarking; contact@feeschedulehub.com)"
+  respect_robots_txt: true
+  concurrent_per_domain: 1
+
+extraction:
+  confidence_auto_stage_threshold: 0.85
+  outlier_std_dev_threshold: 3.0
+  model: claude-haiku-4-5-20251001
+  max_tokens: 2048
+  use_batch_api: true
+  daily_budget_usd: 20.0
+
+knowledge:
+  # Max characters before a state knowledge file is eligible for pruning.
+  # ~4000 chars keeps each state file under ~1K tokens as agent context.
+  token_budget_chars: 4000
+  # Auto-prune state files every N runs (0 = disable auto-prune)
+  prune_state_every: 5
+  # Auto-prune national.md every N total runs across all states (0 = disable)
+  prune_national_every: 10
