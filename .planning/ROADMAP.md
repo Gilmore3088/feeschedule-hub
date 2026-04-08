@@ -399,7 +399,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 24-01-PLAN.md — Audit health queries, add tests, implement institution count trends (HEALTH-01 to HEALTH-04)
+- [x] 24-01-PLAN.md — Audit health queries, add tests, implement institution count trends (HEALTH-01 to HEALTH-04)
 - [ ] 24-02-PLAN.md — Beige Book LLM theme extraction, migration, query layer (BEIGE-01 to BEIGE-03)
 
 
@@ -483,7 +483,7 @@ Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | 21. Knowledge Automation | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 22. Wave Reporting | v3.0 | 2/2 | Complete    | 2026-04-08 |
 | 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete    | 2026-04-08 |
-| 24. Industry Health & Beige Book | v5.0 | 2/2 | Complete | - |
+| 24. Industry Health & Beige Book | v5.0 | 1/2 | In Progress|  |
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 3/3 | Complete | - |
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | - |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete    | 2026-04-08 |
@@ -497,7 +497,7 @@ Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 22
-**Plans:** 0 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 23 to break down)
@@ -522,7 +522,10 @@ Plans:
   1. A consumer visitor landing on any `(public)/` route sees `ConsumerNav`; a pro subscriber on any `/pro/*` route sees `ProNav` -- no conditional branching between the two components
   2. Accessing any `/pro/*` route without a valid premium session redirects to login -- the auth check lives only in `pro/layout.tsx`, not in individual page components
   3. `derivePersonalizationContext(user)` returns the user's institution name, Fed district label, asset tier, and peer group label from their account profile without a DB call
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
+- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
 **UI hint**: yes
 
 ### Phase 29: Consumer Landing Page
@@ -535,7 +538,10 @@ Plans:
   3. Trust signals are visible above the fold: institution count covered, data freshness date, and data source provenance (FDIC/NCUA)
   4. A "how it works" section explains the three-step consumer journey (Search, Compare, Act) and at least two consumer guide teasers appear linking to full guide content
   5. A "For Financial Institutions" section with a clear upgrade CTA is present without acting as a barrier to consumer use; the page design meets a consulting-grade visual quality bar (editorial typography, generous whitespace)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
+- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
 **UI hint**: yes
 
 ### Phase 30: Institution Educational Pages
@@ -547,7 +553,10 @@ Plans:
   2. Each fee row shows a peer percentile indicator ("higher than 72% of similar banks") computed against institutions of the same charter type and asset tier
   3. A Recharts histogram chart shows where the institution's fee amount sits relative to the national distribution for that category, with the institution's position visually distinguished
   4. Authenticated pro users see relevant B2B report links on the institution page surfacing competitive or peer reports applicable to that institution's peer group
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
+- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
 **UI hint**: yes
 
 ### Phase 31: B2B Launchpad Dashboard
@@ -559,7 +568,10 @@ Plans:
   2. A peer snapshot panel shows the subscriber's peer group median vs national median for at least the top 3 fee categories with delta indicators
   3. Recent activity shows the subscriber's last 3 Hamilton conversations and last 3 generated reports with direct resume or download links
   4. A Beige Book digest section shows a 2-3 sentence economic summary for the subscriber's Fed district sourced from the most recent Beige Book ingestion
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
+- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
 **UI hint**: yes
 
 ### Phase 32: Scoped Report Generation and PDF Export
@@ -571,5 +583,8 @@ Plans:
   2. A generated report can be downloaded as a PDF file that opens correctly in a standard PDF viewer
   3. All previously generated reports appear in a report history view with type, date, and status; any completed report can be re-downloaded without re-generating
   4. A subscriber who hits the daily report limit (configurable, default 5/day for pro) sees a clear "daily limit reached" message and cannot trigger additional generations until the following day
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
+- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
 **UI hint**: yes
