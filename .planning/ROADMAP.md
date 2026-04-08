@@ -6,6 +6,8 @@
 - [x] **v2.0 Hamilton — Research & Content Engine** - Phases 12-18 (shipped 2026-04-07)
 - [x] **v3.0 National Coverage Push** - Phases 19-22 (shipped 2026-04-08)
 - [x] **v5.0 National Data Layer** - Phases 23-27 (shipped 2026-04-08)
+- [ ] **v6.0 Two-Sided Experience** - Phases 28-32 (in progress)
+- [ ] **v7.0 Hamilton Reasoning Engine** - Phases 33-37 (planned)
 
 ## Phases
 
@@ -386,6 +388,7 @@ Plans:
 - [x] 23-03-PLAN.md -- FDIC standard 5-tier system replacement + getRevenueByTier + crawl_targets migration (CALL-06)
 - [x] 23-04-PLAN.md -- CFPB complaint ingestion Postgres migration + district/institution complaint queries (D-07)
 - [x] 23-05-PLAN.md -- Institution financial context + peer comparison on slug pages (D-08, D-09, D-10)
+
 ### Phase 24: Industry Health & Beige Book
 **Goal**: Industry health metrics (ROA, efficiency, deposits, loans) are computed from institution financials; Beige Book reports are condensed into district-level and national summaries with extracted themes
 **Depends on**: Phase 23 (uses corrected financial data patterns)
@@ -402,10 +405,6 @@ Plans:
 - [x] 24-01-PLAN.md — Audit health queries, add tests, implement institution count trends (HEALTH-01 to HEALTH-04)
 - [ ] 24-02-PLAN.md — Beige Book LLM theme extraction, migration, query layer (BEIGE-01 to BEIGE-03)
 
-
-
-
-
 ### Phase 25: Derived Analytics & Hamilton Tools
 **Goal**: Cross-source derived metrics are computed and Hamilton can access all summary data (Call Reports, FRED, Beige Book, health, derived) through its existing tool/query layer
 **Depends on**: Phase 23, Phase 24 (needs corrected revenue data and health metrics)
@@ -420,8 +419,6 @@ Plans:
 Plans:
 - [x] 25-01-PLAN.md — Derived analytics queries: revenue concentration, fee dependency trend, revenue-per-institution trend (DERIVE-01, DERIVE-02, DERIVE-03)
 - [x] 25-02-PLAN.md — Unified queryNationalData Hamilton tool wiring all data sources (ADMIN-05)
-
-
 
 ### Phase 26: National Data Admin Portal
 **Goal**: Admin users can view, verify, and explore all national data sources through dedicated portal pages before data flows into reports
@@ -452,57 +449,6 @@ Plans:
 Plans:
 - [ ] 27-01-PLAN.md — External intelligence DB schema and ingest UI (INTEL-01, INTEL-03)
 - [ ] 27-02-PLAN.md — Hamilton tool integration for search and citation (INTEL-02, INTEL-04)
-
----
-
-## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 1 -> ... -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 1. Test Infrastructure | v1.0 | 2/2 | Complete | 2026-04-06 |
-| 2. Seed Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 3. Discovery Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 4. Extraction Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 5. Categorization Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 6. Validation Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 7. Audit Trail Verification | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 8. Idempotency and Timing | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 9. Full Pipeline Test | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 12. Hamilton Foundation | v2.0 | 5/5 | Complete | 2026-04-06 |
-| 13. Report Engine Core | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 14. Recurring Reports | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 15. Premium Products | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete | 2026-04-07 |
-| 17. Hamilton Chat | v2.0 | 3/3 | Complete | 2026-04-07 |
-| 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
-| 19. Wave Orchestrator | v3.0 | 2/2 | Complete | - |
-| 20. Iterative Deepening | v3.0 | 1/2 | Complete    | 2026-04-08 |
-| 21. Knowledge Automation | v3.0 | 2/2 | Complete    | 2026-04-08 |
-| 22. Wave Reporting | v3.0 | 2/2 | Complete    | 2026-04-08 |
-| 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete    | 2026-04-08 |
-| 24. Industry Health & Beige Book | v5.0 | 1/2 | Complete    | 2026-04-08 |
-| 25. Derived Analytics & Hamilton Tools | v5.0 | 2/2 | Complete    | 2026-04-08 |
-| 26. National Data Admin Portal | v5.0 | 2/2 | Complete    | 2026-04-08 |
-| 27. External Intelligence System | v5.0 | 2/0 | Complete    | 2026-04-08 |
-| 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
-| 29. Consumer Landing Page | v6.0 | 0/TBD | Not started | - |
-| 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
-| 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
-| 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
-### Phase 23: Unified fee pipeline — single workflow from discovery to validated fees
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 22
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 23 to break down)
 
 ---
 
@@ -545,6 +491,7 @@ Plans:
 - [ ] 29-01-PLAN.md -- Landing page hero with Fee Scout search, value prop cards, trust stats
 - [ ] 29-02-PLAN.md -- Gateway cleanup and visual quality verification
 **UI hint**: yes
+
 ### Phase 30: Institution Educational Pages
 **Goal**: Institution detail pages are interpretive consumer experiences -- every fee category has a contextual callout explaining its significance, a peer percentile position, and a distribution chart showing where the institution sits nationally
 **Depends on**: Phase 29
@@ -592,6 +539,75 @@ Plans:
 
 ---
 
+## v7.0 Hamilton Reasoning Engine
+
+**Milestone Goal:** Upgrade Hamilton from a section-based report writer to a unified intelligence engine with global thesis generation, cross-source reasoning, and role-based delivery for admin, B2B, and consumers.
+
+- [ ] **Phase 33: Global Thesis Engine** - Hamilton generates a quarterly thesis from full data payload; every section references it; think-then-compress reasoning and tension model replace descriptive observations
+- [ ] **Phase 34: Voice v3 and Section Generator v2** - Voice system prompt upgraded with revenue prioritization and tension model; sections receive global thesis + cross-source context; word budget raised to 150-200 words
+- [ ] **Phase 35: Unified Chat Persona** - Four chat agents consolidated into one role-based Hamilton that adjusts depth and language by audience (consumer, pro, admin) on a shared reasoning layer
+- [ ] **Phase 36: Tool and Regulation Intelligence** - All 16 tool descriptions upgraded with strategic cross-reference guidance; all 13 ingestion sources verified; CFPB/OCC/Fed regulatory signals connected to internal fee data
+- [ ] **Phase 37: Editor v2 and Integration Testing** - Editor validates thesis alignment, revenue prioritization order, and "so what?" presence across all sections; full integration test confirms V2 quality bar
+
+### Phase 33: Global Thesis Engine
+**Goal**: Hamilton analyzes the full quarterly data payload and produces a structured global thesis — core argument, key tensions, and revenue model — that every report section subsequently receives and argues from
+**Depends on**: Phase 32
+**Requirements**: THESIS-01, THESIS-02, THESIS-03, THESIS-04, THESIS-05
+**Success Criteria** (what must be TRUE):
+  1. Calling the thesis generator with a quarterly data payload returns a structured object containing: core thesis statement, 2-3 key tensions framed as competing forces, identified revenue model, and competitive dynamics summary
+  2. Generating any report section after thesis generation produces output that explicitly references the global thesis — a reader can identify the section as part of a single argument, not an isolated observation
+  3. Hamilton's internal reasoning trace (if surfaced) contains 5-8 sentences; the final section output contains 2-3 sentences drawn from that reasoning — the compression is observable when verbose mode is enabled
+  4. At least one insight in every generated section uses tension framing ("X while Y") rather than observation framing ("X is at level Z")
+  5. When revenue data exists for the subject of a section, the section's first substantive statement concerns revenue implications, not pricing observations
+**Plans**: TBD
+
+### Phase 34: Voice v3 and Section Generator v2
+**Goal**: The Hamilton voice system prompt encodes revenue prioritization, tension model, and think-then-compress; every section receives the global thesis plus cross-source context (fees + revenue + economic + regulatory + complaints); section output reaches 150-200 words
+**Depends on**: Phase 33
+**Requirements**: VOICE-01, SECTION-01, SECTION-02, SECTION-03
+**Success Criteria** (what must be TRUE):
+  1. The voice system prompt file contains explicit instructions for: revenue-before-pricing ordering, tension framing, and a think-then-compress directive — all three are present and expressed as rules, not guidelines
+  2. A section generated for a fee category that has Call Report revenue data includes at least one revenue figure alongside its fee data — the two sources appear in the same analytical paragraph
+  3. A section generated for a Fed district topic references at least one FRED indicator and one Beige Book theme from that district's most recent report
+  4. The word count of any generated section falls between 150 and 200 words — verified by automated character/word count assertion in the test suite
+**Plans**: TBD
+
+### Phase 35: Unified Chat Persona
+**Goal**: The four existing chat agents (Ask/Analyst/ContentWriter/CustomQuery) are replaced by a single Hamilton that routes depth and language by user role — consumer, pro, or admin — while sharing one reasoning layer
+**Depends on**: Phase 33 (unified persona inherits the voice and reasoning layer established by thesis engine)
+**Requirements**: UNIFY-01, UNIFY-02, UNIFY-03, UNIFY-04, UNIFY-05
+**Success Criteria** (what must be TRUE):
+  1. A single API route handles all chat requests; the agent behavior differs by role parameter (consumer/pro/admin) — no separate agent files or routes exist for the old four agents
+  2. Two responses to the same question, one as consumer role and one as admin role, are observably different in vocabulary and depth — consumer response avoids jargon; admin response includes operational flags or data quality signals
+  3. A consumer-role response to "explain my bank's overdraft fee" reads as plain language a non-banker can understand — no industry acronyms without explanation, no data dumps
+  4. A pro-role response to a competitive question includes peer context and revenue comparison — not just the queried institution's data in isolation
+  5. An admin-role response to a fee anomaly question includes a data quality signal or operational flag alongside the substantive analysis
+**Plans**: TBD
+
+### Phase 36: Tool and Regulation Intelligence
+**Goal**: All 16 tool descriptions carry strategic cross-reference guidance; all 13 data sources are confirmed accessible via queryNationalData; CFPB, OCC, and Fed regulatory signals are connected to internal fee data with institution-level impact counts
+**Depends on**: Phase 33 (tool guidance should reference thesis-driven reasoning patterns)
+**Requirements**: TOOLS-01, TOOLS-02, TOOLS-03, REG-01, REG-02, REG-03
+**Success Criteria** (what must be TRUE):
+  1. Every tool description contains a "when to use" section specifying the question type that warrants pulling that tool's data — not just what the tool returns
+  2. Querying `queryNationalData` with a district-focused question triggers calls to at least three distinct sources (e.g., Beige Book + FRED + CFPB) — confirmed by tool call trace in verbose mode
+  3. Hamilton can answer "how many institutions in our database have fee structures similar to those targeted by this CFPB enforcement action?" — the response cites both the regulatory source and an institution count from internal data
+  4. A compliance risk query returns institutions with above-median fees AND above-average complaint rates for at least one fee category — both signals appear in the same response
+  5. Hamilton can reference industry ROA, efficiency ratio, or deposit growth in an answer that starts from a fee question — the financial context enrichment is automatic, not prompt-dependent
+**Plans**: TBD
+
+### Phase 37: Editor v2 and Integration Testing
+**Goal**: The editor validates thesis alignment, revenue prioritization, and implication presence across all sections; a full integration run through a quarterly report confirms the V2 quality bar is met end-to-end
+**Depends on**: Phase 34, Phase 35, Phase 36 (editor validates output from all upgraded components)
+**Requirements**: VOICE-02, VOICE-03, VOICE-04
+**Success Criteria** (what must be TRUE):
+  1. Running the editor against a multi-section report draft flags any section whose argument contradicts the global thesis — the flag includes the specific contradiction, not a generic warning
+  2. Running the editor against a section that describes pricing data without mentioning revenue (when revenue data exists) flags that section with a "revenue prioritization" warning — the editor does not pass it silently
+  3. Running the editor against a section that ends with data description and no implication ("fees averaged $X") flags it with a "missing implication" warning — the editor enforces "so what?" presence
+**Plans**: TBD
+
+---
+
 ## Backlog
 
 ### Phase 999.1: Make all admin tables sortable (BACKLOG)
@@ -611,3 +627,50 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+---
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Test Infrastructure | v1.0 | 2/2 | Complete | 2026-04-06 |
+| 2. Seed Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 3. Discovery Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 4. Extraction Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 5. Categorization Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 6. Validation Stage Tests | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 7. Audit Trail Verification | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 8. Idempotency and Timing | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 9. Full Pipeline Test | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 10. CI Integration | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 11. Modal Pre-flight | v1.0 | 1/1 | Complete | 2026-04-06 |
+| 12. Hamilton Foundation | v2.0 | 5/5 | Complete | 2026-04-06 |
+| 13. Report Engine Core | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 14. Recurring Reports | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 15. Premium Products | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 16. Public Catalog + Go-to-Market | v2.0 | 3/3 | Complete | 2026-04-07 |
+| 17. Hamilton Chat | v2.0 | 3/3 | Complete | 2026-04-07 |
+| 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
+| 19. Wave Orchestrator | v3.0 | 2/2 | Complete | - |
+| 20. Iterative Deepening | v3.0 | 1/2 | Complete | 2026-04-08 |
+| 21. Knowledge Automation | v3.0 | 2/2 | Complete | 2026-04-08 |
+| 22. Wave Reporting | v3.0 | 2/2 | Complete | 2026-04-08 |
+| 23. Call Report & FRED Foundation | v5.0 | 5/5 | Complete | 2026-04-08 |
+| 24. Industry Health & Beige Book | v5.0 | 1/2 | Complete | 2026-04-08 |
+| 25. Derived Analytics & Hamilton Tools | v5.0 | 2/2 | Complete | 2026-04-08 |
+| 26. National Data Admin Portal | v5.0 | 2/2 | Complete | 2026-04-08 |
+| 27. External Intelligence System | v5.0 | 2/0 | Complete | 2026-04-08 |
+| 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
+| 29. Consumer Landing Page | v6.0 | 0/TBD | Not started | - |
+| 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
+| 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
+| 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
+| 33. Global Thesis Engine | v7.0 | 0/TBD | Not started | - |
+| 34. Voice v3 and Section Generator v2 | v7.0 | 0/TBD | Not started | - |
+| 35. Unified Chat Persona | v7.0 | 0/TBD | Not started | - |
+| 36. Tool and Regulation Intelligence | v7.0 | 0/TBD | Not started | - |
+| 37. Editor v2 and Integration Testing | v7.0 | 0/TBD | Not started | - |

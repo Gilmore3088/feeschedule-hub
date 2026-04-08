@@ -68,35 +68,35 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| THESIS-01 | TBD | Pending |
-| THESIS-02 | TBD | Pending |
-| THESIS-03 | TBD | Pending |
-| THESIS-04 | TBD | Pending |
-| THESIS-05 | TBD | Pending |
-| UNIFY-01 | TBD | Pending |
-| UNIFY-02 | TBD | Pending |
-| UNIFY-03 | TBD | Pending |
-| UNIFY-04 | TBD | Pending |
-| UNIFY-05 | TBD | Pending |
-| SECTION-01 | TBD | Pending |
-| SECTION-02 | TBD | Pending |
-| SECTION-03 | TBD | Pending |
-| VOICE-01 | TBD | Pending |
-| VOICE-02 | TBD | Pending |
-| VOICE-03 | TBD | Pending |
-| VOICE-04 | TBD | Pending |
-| TOOLS-01 | TBD | Pending |
-| TOOLS-02 | TBD | Pending |
-| TOOLS-03 | TBD | Pending |
-| REG-01 | TBD | Pending |
-| REG-02 | TBD | Pending |
-| REG-03 | TBD | Pending |
+| THESIS-01 | Phase 33 | Pending |
+| THESIS-02 | Phase 33 | Pending |
+| THESIS-03 | Phase 33 | Pending |
+| THESIS-04 | Phase 33 | Pending |
+| THESIS-05 | Phase 33 | Pending |
+| VOICE-01 | Phase 34 | Pending |
+| SECTION-01 | Phase 34 | Pending |
+| SECTION-02 | Phase 34 | Pending |
+| SECTION-03 | Phase 34 | Pending |
+| UNIFY-01 | Phase 35 | Pending |
+| UNIFY-02 | Phase 35 | Pending |
+| UNIFY-03 | Phase 35 | Pending |
+| UNIFY-04 | Phase 35 | Pending |
+| UNIFY-05 | Phase 35 | Pending |
+| TOOLS-01 | Phase 36 | Pending |
+| TOOLS-02 | Phase 36 | Pending |
+| TOOLS-03 | Phase 36 | Pending |
+| REG-01 | Phase 36 | Pending |
+| REG-02 | Phase 36 | Pending |
+| REG-03 | Phase 36 | Pending |
+| VOICE-02 | Phase 37 | Pending |
+| VOICE-03 | Phase 37 | Pending |
+| VOICE-04 | Phase 37 | Pending |
 
 **Coverage:**
 - v7.0 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 after milestone v7.0 definition*
+*Last updated: 2026-04-08 after milestone v7.0 roadmap creation*
