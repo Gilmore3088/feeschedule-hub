@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Set to false to disable the coming soon page
-const COMING_SOON = true;
+// Coming soon gate: disabled on localhost, enabled in production
+const COMING_SOON = process.env.NODE_ENV === "production";
 
 const COMING_SOON_HTML = `<!DOCTYPE html>
 <html lang="en">

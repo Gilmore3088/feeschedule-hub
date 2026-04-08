@@ -457,7 +457,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   if (!inst) notFound();
 
   const fees = (await getFeesByInstitution(instId)).filter(
-    (f) => f.review_status === "approved"
+    (f) => f.review_status !== "rejected"
   );
   const [financials, nationalIndex, revenueTrend, peerRanking] = await Promise.all([
     getFinancialsByInstitution(instId),
