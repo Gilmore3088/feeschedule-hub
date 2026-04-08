@@ -16,11 +16,11 @@ const INSTITUTION_TYPES = [
 
 const ASSET_TIERS = [
   { value: "", label: "Select..." },
-  { value: "community_small", label: "Under $300M" },
-  { value: "community_mid", label: "$300M - $1B" },
-  { value: "community_large", label: "$1B - $10B" },
-  { value: "regional", label: "$10B - $50B" },
-  { value: "large_regional", label: "$50B+" },
+  { value: "micro", label: "Under $100M" },
+  { value: "community", label: "$100M - $1B" },
+  { value: "midsize", label: "$1B - $10B" },
+  { value: "regional", label: "$10B - $250B" },
+  { value: "mega", label: "Over $250B" },
 ];
 
 const JOB_ROLES = [

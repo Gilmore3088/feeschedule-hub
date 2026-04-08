@@ -6,7 +6,7 @@ import {
   getTierFeeRevenueSummary,
   getCharterFeeRevenueSummary,
 } from "@/lib/crawler-db";
-import { TIER_LABELS } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
@@ -215,7 +215,7 @@ export default async function FeeRevenueAnalysisPage() {
                     className="hover:bg-[#FAF7F2]/60 transition-colors"
                   >
                     <td className="px-4 py-2.5 font-medium text-[#1A1815]">
-                      {TIER_LABELS[row.asset_size_tier] ?? row.asset_size_tier}
+                      {FDIC_TIER_LABELS[row.asset_size_tier] ?? row.asset_size_tier}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                       {row.institution_count.toLocaleString()}

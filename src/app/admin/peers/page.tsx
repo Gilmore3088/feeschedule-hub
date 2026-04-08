@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { getPeerIndexData } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAmount } from "@/lib/format";
-import { DISTRICT_NAMES, TIER_LABELS } from "@/lib/fed-districts";
+import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 
 function deltaPill(delta: number | null): React.ReactNode {
   if (delta === null) return <span className="text-gray-400">-</span>;
@@ -54,7 +54,7 @@ export default async function PeersPage({
 
   const filterParts: string[] = [];
   if (charter) filterParts.push(`Charter: ${charter}`);
-  if (tier) filterParts.push(`Tier: ${TIER_LABELS[tier] ?? tier}`);
+  if (tier) filterParts.push(`Tier: ${FDIC_TIER_LABELS[tier] ?? tier}`);
   if (district) filterParts.push(`District: ${DISTRICT_NAMES[Number(district)] ?? district}`);
   const filterLabel = filterParts.length > 0 ? filterParts.join(" / ") : null;
 
@@ -105,12 +105,11 @@ export default async function PeersPage({
               className="rounded border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
             >
               <option value="">All</option>
-              <option value="community_small">Community (&lt;$300M)</option>
-              <option value="community_mid">Community ($300M-$1B)</option>
-              <option value="community_large">Community ($1B-$10B)</option>
-              <option value="regional">Regional ($10B-$50B)</option>
-              <option value="large_regional">Large Regional ($50B-$250B)</option>
-              <option value="super_regional">Super Regional ($250B+)</option>
+              <option value="micro">Micro (&lt;$100M)</option>
+              <option value="community">Community ($100M-$1B)</option>
+              <option value="midsize">Mid-Size ($1B-$10B)</option>
+              <option value="regional">Regional ($10B-$250B)</option>
+              <option value="mega">Mega (&gt;$250B)</option>
             </select>
           </div>
           <div>

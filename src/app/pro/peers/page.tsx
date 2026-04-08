@@ -11,7 +11,7 @@ import {
 } from "@/lib/crawler-db";
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
-import { DISTRICT_NAMES, TIER_LABELS, TIER_ORDER } from "@/lib/fed-districts";
+import { DISTRICT_NAMES, FDIC_TIER_LABELS, FDIC_TIER_ORDER } from "@/lib/fed-districts";
 import { SavedGroups } from "./saved-groups";
 
 export const metadata: Metadata = {
@@ -35,7 +35,7 @@ function buildFilterDescription(
   if (charter === "bank") parts.push("Banks");
   else if (charter === "credit_union") parts.push("Credit Unions");
   if (tiers.length > 0) {
-    parts.push(tiers.map((t) => TIER_LABELS[t] || t).join(", "));
+    parts.push(tiers.map((t) => FDIC_TIER_LABELS[t] || t).join(", "));
   }
   if (districts.length > 0) {
     parts.push(
@@ -270,7 +270,7 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
               Asset Tier
             </p>
             <div className="flex flex-wrap gap-2">
-              {TIER_ORDER.map((tierKey) => {
+              {FDIC_TIER_ORDER.map((tierKey) => {
                 const active = tiers.includes(tierKey);
                 const nextTiers = toggleParam(tiers, tierKey);
                 return (
@@ -283,7 +283,7 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
                         : "bg-white text-[#5A5347] border-[#E8DFD1] hover:border-[#C44B2E]/40 hover:text-[#C44B2E]"
                     }`}
                   >
-                    {TIER_LABELS[tierKey]}
+                    {FDIC_TIER_LABELS[tierKey]}
                   </Link>
                 );
               })}

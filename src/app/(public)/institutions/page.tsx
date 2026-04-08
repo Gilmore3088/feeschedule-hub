@@ -4,7 +4,7 @@ import Link from "next/link";
 import { searchInstitutions } from "@/lib/crawler-db/search";
 import { getPublicStats } from "@/lib/crawler-db/core";
 import { InstitutionSearchBar } from "./search-bar";
-import { TIER_LABELS } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 
 export const metadata: Metadata = {
@@ -143,7 +143,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                       {r.charter_type === "bank" ? "Bank" : "Credit Union"}
                       {r.asset_size_tier && (
                         <span className="ml-1 text-[#A69D90] text-xs">
-                          ({TIER_LABELS[r.asset_size_tier] || r.asset_size_tier})
+                          ({FDIC_TIER_LABELS[r.asset_size_tier] || r.asset_size_tier})
                         </span>
                       )}
                     </td>

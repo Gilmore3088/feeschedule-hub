@@ -46,12 +46,6 @@ export function getTierForAssets(totalAssets: number): string {
   return "mega";
 }
 
-// Backward compatibility aliases — will be removed after all consumers migrate
-/** @deprecated Use FDIC_TIER_LABELS */
-export const TIER_LABELS = FDIC_TIER_LABELS;
-/** @deprecated Use FDIC_TIER_ORDER */
-export const TIER_ORDER = FDIC_TIER_ORDER;
-
 const OLD_TO_NEW_TIER: Record<string, string> = {
   community_small: "micro",
   community_mid:   "community",

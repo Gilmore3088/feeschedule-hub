@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
-import { TIER_LABELS, TIER_ORDER, DISTRICT_NAMES } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS, FDIC_TIER_ORDER, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { FEATURED_COUNT, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { exportIndexCsv } from "./actions";
 
@@ -149,7 +149,7 @@ export function IndexFilterBar({
           Tiers
         </span>
         <div className="flex flex-wrap items-center gap-1">
-          {TIER_ORDER.map((t) => {
+          {FDIC_TIER_ORDER.map((t) => {
             const isSelected = selectedTiers.includes(t);
             return (
               <button
@@ -161,7 +161,7 @@ export function IndexFilterBar({
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-white/[0.06]"
                 }`}
               >
-                {TIER_LABELS[t].replace(/\s*\(.*?\)/, "")}
+                {FDIC_TIER_LABELS[t].replace(/\s*\(.*?\)/, "")}
               </button>
             );
           })}

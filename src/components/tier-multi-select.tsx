@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
-import { TIER_LABELS } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
 
 interface TierMultiSelectProps {
   tiers: { tier: string; count: number }[];
@@ -52,7 +52,7 @@ export function TierMultiSelect({ tiers, selected, basePath }: TierMultiSelectPr
             }`}
           >
             <div className="text-gray-900 text-xs font-medium">
-              {TIER_LABELS[tc.tier] || tc.tier}
+              {FDIC_TIER_LABELS[tc.tier] || tc.tier}
             </div>
             <div className="text-xs text-gray-500 mt-0.5">
               {tc.count.toLocaleString()} institutions

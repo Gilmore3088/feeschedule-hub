@@ -8,7 +8,7 @@ import { formatAssets } from "@/lib/format";
 import {
   parsePeerFilters,
   buildFilterDescription,
-  TIER_LABELS,
+  FDIC_TIER_LABELS,
   DISTRICT_NAMES,
 } from "@/lib/fed-districts";
 
@@ -90,7 +90,7 @@ export default async function ExplorePeersPage({
   // Build context-aware breadcrumb
   const fromQuality = hasTierFilter || hasDistrictFilter;
   const breadcrumbLabel = hasTierFilter
-    ? TIER_LABELS[peerFilters.tiers![0]] || "Tier"
+    ? FDIC_TIER_LABELS[peerFilters.tiers![0]] || "Tier"
     : hasDistrictFilter
       ? `District ${peerFilters.districts![0]} - ${DISTRICT_NAMES[peerFilters.districts![0]] || ""}`
       : "Explore";
@@ -176,7 +176,7 @@ export default async function ExplorePeersPage({
         <div className="admin-card mb-4 px-4 py-3 flex items-center gap-6 text-sm">
           <span className="font-semibold text-gray-900">
             {hasTierFilter
-              ? TIER_LABELS[peerFilters.tiers![0]]
+              ? FDIC_TIER_LABELS[peerFilters.tiers![0]]
               : `District ${peerFilters.districts![0]} - ${DISTRICT_NAMES[peerFilters.districts![0]] || ""}`}
           </span>
           <span className="text-gray-400">|</span>
@@ -266,7 +266,7 @@ export default async function ExplorePeersPage({
                   </td>
                   <td className="px-4 py-2.5 text-xs text-gray-500">
                     {inst.asset_size_tier
-                      ? TIER_LABELS[inst.asset_size_tier] ||
+                      ? FDIC_TIER_LABELS[inst.asset_size_tier] ||
                         inst.asset_size_tier
                       : "-"}
                   </td>

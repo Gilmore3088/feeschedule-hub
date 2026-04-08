@@ -169,13 +169,12 @@ export async function getTierCoverage(): Promise<TierCoverage[]> {
     GROUP BY t.asset_size_tier
     ORDER BY
       CASE t.asset_size_tier
-        WHEN 'super_regional' THEN 1
-        WHEN 'large_regional' THEN 2
-        WHEN 'regional' THEN 3
-        WHEN 'community_large' THEN 4
-        WHEN 'community_mid' THEN 5
-        WHEN 'community_small' THEN 6
-        ELSE 7
+        WHEN 'mega'      THEN 1
+        WHEN 'regional'  THEN 2
+        WHEN 'midsize'   THEN 3
+        WHEN 'community' THEN 4
+        WHEN 'micro'     THEN 5
+        ELSE 6
       END
   ` as TierCoverage[];
 
