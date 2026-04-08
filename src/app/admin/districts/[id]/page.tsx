@@ -9,9 +9,12 @@ import {
   getDistrictIndicators,
   getDistrictMetrics,
 } from "@/lib/crawler-db";
+import { getDistrictEconomicSummary, getBeigeBookThemes } from "@/lib/crawler-db/fed";
+import { getDistrictFeeRevenue } from "@/lib/crawler-db/call-reports";
+import { getDistrictComplaintSummary } from "@/lib/crawler-db/complaints";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
-import { timeAgo } from "@/lib/format";
+import { timeAgo, formatAmount } from "@/lib/format";
 
 export default async function DistrictDetailPage({
   params,
@@ -35,12 +38,19 @@ export default async function DistrictDetailPage({
 
 async function DistrictDetailContent({ districtId }: { districtId: number }) {
   const districtName = DISTRICT_NAMES[districtId] ?? `District ${districtId}`;
-  const beigeBook = await getLatestBeigeBook(districtId);
-  const editions = await getBeigeBookEditions(8);
-  const content = await getDistrictContent(districtId, 15);
-  const indicators = await getDistrictIndicators(districtId);
-  const metrics = await getDistrictMetrics();
+  const [beigeBook, editions, content, indicators, metrics, econSummary, feeRevenue, complaints, themes] = await Promise.all([
+    getLatestBeigeBook(districtId),
+    getBeigeBookEditions(8),
+    getDistrictContent(districtId, 15),
+    getDistrictIndicators(districtId),
+    getDistrictMetrics(),
+    getDistrictEconomicSummary(districtId).catch(() => null),
+    getDistrictFeeRevenue(districtId).catch(() => null),
+    getDistrictComplaintSummary(districtId).catch(() => null),
+    getBeigeBookThemes().catch(() => []),
+  ]);
   const districtMetric = metrics.find((m) => m.district === districtId);
+  const districtThemes = themes.filter((t: { fed_district: number }) => t.fed_district === districtId);
 
   const summary = beigeBook.find(
     (s) => s.section_name === "Summary of Economic Activity"
@@ -277,6 +287,89 @@ async function DistrictDetailContent({ districtId }: { districtId: number }) {
                   );
                 }
               )}
+            </div>
+          </div>
+        )}
+
+        {/* District Economic Summary (Phase 23-24) */}
+        {(econSummary || feeRevenue || complaints) && (
+          <div className="rounded-lg border bg-white">
+            <div className="px-5 py-3 border-b bg-gray-50/80">
+              <h2 className="text-sm font-bold text-gray-800">
+                District Intelligence
+              </h2>
+            </div>
+            <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {econSummary && (
+                <div className="rounded-lg border p-3">
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Employment</div>
+                  {econSummary.unemployment_rate !== null && (
+                    <div className="mb-2">
+                      <span className="text-lg font-bold tabular-nums text-gray-900">{econSummary.unemployment_rate.toFixed(1)}%</span>
+                      <span className="text-[11px] text-gray-400 ml-1">unemployment</span>
+                    </div>
+                  )}
+                  {econSummary.nonfarm_payroll_yoy !== null && (
+                    <div>
+                      <span className={`text-sm font-medium tabular-nums ${econSummary.nonfarm_payroll_yoy > 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {econSummary.nonfarm_payroll_yoy > 0 ? "+" : ""}{econSummary.nonfarm_payroll_yoy.toFixed(1)}%
+                      </span>
+                      <span className="text-[11px] text-gray-400 ml-1">nonfarm payroll YoY</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {feeRevenue && (
+                <div className="rounded-lg border p-3">
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Fee Revenue</div>
+                  <div className="mb-1">
+                    <span className="text-lg font-bold tabular-nums text-gray-900">{formatAmount(feeRevenue.total_sc_income)}</span>
+                  </div>
+                  <div className="text-[11px] text-gray-400">
+                    {feeRevenue.institution_count} institutions | avg {formatAmount(feeRevenue.avg_sc_income)}/inst
+                  </div>
+                </div>
+              )}
+              {complaints && (
+                <div className="rounded-lg border p-3">
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">CFPB Complaints</div>
+                  <div className="mb-1">
+                    <span className="text-lg font-bold tabular-nums text-gray-900">{typeof complaints === 'object' && 'total_complaints' in complaints ? (complaints as { total_complaints: number }).total_complaints.toLocaleString() : '—'}</span>
+                    <span className="text-[11px] text-gray-400 ml-1">total</span>
+                  </div>
+                  {typeof complaints === 'object' && 'fee_related_pct' in complaints && (
+                    <div className="text-[11px] text-gray-400">
+                      {((complaints as { fee_related_pct: number }).fee_related_pct * 100).toFixed(0)}% fee-related
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Beige Book Themes (Phase 24) */}
+        {districtThemes.length > 0 && (
+          <div className="rounded-lg border bg-white">
+            <div className="px-5 py-3 border-b bg-gray-50/80">
+              <h2 className="text-sm font-bold text-gray-800">
+                Beige Book Themes
+              </h2>
+            </div>
+            <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {districtThemes.map((theme: { theme_category: string; sentiment: string; summary: string }, i: number) => (
+                <div key={i} className="rounded-lg border p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{theme.theme_category.replace('_', ' ')}</span>
+                    <span className={`inline-block w-2 h-2 rounded-full ${
+                      theme.sentiment === 'positive' ? 'bg-emerald-400' :
+                      theme.sentiment === 'negative' ? 'bg-red-400' :
+                      theme.sentiment === 'mixed' ? 'bg-amber-400' : 'bg-gray-300'
+                    }`} />
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{theme.summary}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
