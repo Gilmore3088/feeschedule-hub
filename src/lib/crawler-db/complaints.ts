@@ -1,0 +1,146 @@
+import { getSql } from "./connection";
+
+export interface DistrictComplaintSummary {
+  fed_district: number;
+  total_complaints: number;
+  fee_related_complaints: number;
+  institution_count: number;
+  top_products: { product: string; count: number }[];
+}
+
+export interface InstitutionComplaintProfile {
+  crawl_target_id: number;
+  total_complaints: number;
+  by_product: { product: string; count: number }[];
+  by_issue: { issue: string; count: number }[];
+  fee_related_pct: number;
+}
+
+export async function getDistrictComplaintSummary(
+  district: number,
+  reportPeriod?: string
+): Promise<DistrictComplaintSummary> {
+  const sql = getSql();
+
+  // Total complaints for institutions in this district
+  const totalRows = await sql.unsafe(
+    `SELECT
+       COUNT(DISTINCT ic.crawl_target_id)::int AS institution_count,
+       COALESCE(SUM(ic.complaint_count), 0)::int AS total_complaints
+     FROM institution_complaints ic
+     JOIN crawl_targets ct ON ct.id = ic.crawl_target_id
+     WHERE ct.fed_district = $1
+       AND ic.issue = '_total'
+       ${reportPeriod ? "AND ic.report_period = $2" : ""}`,
+    reportPeriod ? [district, reportPeriod] : [district]
+  ) as { institution_count: string; total_complaints: string }[];
+
+  // Fee-related complaints (issues matching FEE_ISSUES categories)
+  const feeRows = await sql.unsafe(
+    `SELECT COALESCE(SUM(ic.complaint_count), 0)::int AS fee_complaints
+     FROM institution_complaints ic
+     JOIN crawl_targets ct ON ct.id = ic.crawl_target_id
+     WHERE ct.fed_district = $1
+       AND ic.issue != '_total'
+       AND ic.issue IN (
+         'Problem caused by your funds being low',
+         'Fees or interest',
+         'Managing an account'
+       )
+       ${reportPeriod ? "AND ic.report_period = $2" : ""}`,
+    reportPeriod ? [district, reportPeriod] : [district]
+  ) as { fee_complaints: string }[];
+
+  // Top products
+  const productRows = await sql.unsafe(
+    `SELECT ic.product, SUM(ic.complaint_count)::int AS count
+     FROM institution_complaints ic
+     JOIN crawl_targets ct ON ct.id = ic.crawl_target_id
+     WHERE ct.fed_district = $1 AND ic.issue = '_total'
+       ${reportPeriod ? "AND ic.report_period = $2" : ""}
+     GROUP BY ic.product
+     ORDER BY count DESC
+     LIMIT 5`,
+    reportPeriod ? [district, reportPeriod] : [district]
+  ) as { product: string; count: string }[];
+
+  const total = totalRows[0] ? Number(totalRows[0].total_complaints) : 0;
+  const instCount = totalRows[0] ? Number(totalRows[0].institution_count) : 0;
+  const feeRelated = feeRows[0] ? Number(feeRows[0].fee_complaints) : 0;
+
+  return {
+    fed_district: district,
+    total_complaints: total,
+    fee_related_complaints: feeRelated,
+    institution_count: instCount,
+    top_products: productRows.map((r) => ({
+      product: r.product,
+      count: Number(r.count),
+    })),
+  };
+}
+
+export async function getInstitutionComplaintProfile(
+  targetId: number
+): Promise<InstitutionComplaintProfile> {
+  const sql = getSql();
+
+  const [totalRow] = await sql`
+    SELECT COALESCE(SUM(complaint_count), 0)::int AS total
+    FROM institution_complaints
+    WHERE crawl_target_id = ${targetId} AND issue = '_total'
+  `;
+
+  const productRows = await sql`
+    SELECT product, SUM(complaint_count)::int AS count
+    FROM institution_complaints
+    WHERE crawl_target_id = ${targetId} AND issue = '_total'
+    GROUP BY product ORDER BY count DESC
+  `;
+
+  const issueRows = await sql`
+    SELECT issue, SUM(complaint_count)::int AS count
+    FROM institution_complaints
+    WHERE crawl_target_id = ${targetId} AND issue != '_total'
+    GROUP BY issue ORDER BY count DESC LIMIT 10
+  `;
+
+  const feeIssueRows = await sql`
+    SELECT COALESCE(SUM(complaint_count), 0)::int AS fee_count
+    FROM institution_complaints
+    WHERE crawl_target_id = ${targetId}
+      AND issue != '_total'
+      AND issue IN (
+        'Problem caused by your funds being low',
+        'Fees or interest',
+        'Managing an account'
+      )
+  `;
+
+  const total = Number((totalRow as unknown as { total: string }).total);
+
+  const allIssueRows = [...issueRows];
+  const allIssueTotal = allIssueRows.reduce(
+    (sum, r) => sum + Number((r as unknown as { count: string }).count),
+    0
+  );
+
+  const feeCount = Number(
+    (feeIssueRows[0] as unknown as { fee_count: string }).fee_count
+  );
+  const feeRelatedPct = allIssueTotal > 0 ? (feeCount / allIssueTotal) * 100 : 0;
+
+  return {
+    crawl_target_id: targetId,
+    total_complaints: total,
+    by_product: [...productRows].map((r) => ({
+      product: String((r as unknown as { product: string }).product),
+      count: Number((r as unknown as { count: string }).count),
+    })),
+    by_issue: allIssueRows.map((r) => ({
+      issue: String((r as unknown as { issue: string }).issue),
+      count: Number((r as unknown as { count: string }).count),
+    })),
+    fee_related_pct: Math.round(feeRelatedPct * 10) / 10,
+  };
+}

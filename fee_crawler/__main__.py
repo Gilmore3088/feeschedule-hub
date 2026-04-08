@@ -204,15 +204,15 @@ def cmd_ingest_ncua(args: argparse.Namespace) -> None:
 
 def cmd_ingest_cfpb(args: argparse.Namespace) -> None:
     """Ingest consumer complaint data from CFPB API."""
-    from fee_crawler.commands.ingest_cfpb import run
+    from fee_crawler.commands.ingest_cfpb import run, _connect
 
     years = args.years.split(",") if args.years else None
     config = load_config()
-    db = get_db(config)
+    conn = _connect()
     try:
-        run(db, config, years=years, limit=args.limit)
+        run(conn, config, years=years, limit=args.limit)
     finally:
-        db.close()
+        conn.close()
 
 
 def cmd_ingest_beige_book(args: argparse.Namespace) -> None:
