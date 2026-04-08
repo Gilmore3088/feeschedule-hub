@@ -50,14 +50,18 @@ const proOnlyInternalTools: ToolSet = Object.fromEntries(
   Object.entries(internalTools).filter(([name]) => !OPS_TOOL_NAMES.has(name))
 );
 
-// Toolset definitions
+// Toolset definitions — curated to stay under 200K token context limit
+// queryNationalData (11 sources) replaces most individual data tools
 const consumerTools: ToolSet = { ...publicTools };
-const { queryDistrictData: _pd, queryStateData: _ps, queryFeeRevenueCorrelation: _pf, ...coreProTools } = proOnlyInternalTools;
-const proTools: ToolSet = { ...publicTools, ...coreProTools };
-// Admin gets a curated subset — queryNationalData replaces several individual tools
-// to stay under the 200K token context limit with tool schemas
-const { queryDistrictData, queryStateData, queryFeeRevenueCorrelation, ...coreInternalTools } = internalTools;
-const adminTools: ToolSet = { ...publicTools, ...coreInternalTools };
+const chatInternalTools: ToolSet = {
+  queryNationalData: internalTools.queryNationalData,
+  queryRegulatoryRisk: internalTools.queryRegulatoryRisk,
+  queryOutliers: internalTools.queryOutliers,
+  searchInstitutionsByName: internalTools.searchInstitutionsByName,
+  rankInstitutions: internalTools.rankInstitutions,
+};
+const proTools: ToolSet = { ...publicTools, ...chatInternalTools };
+const adminTools: ToolSet = { ...publicTools, ...chatInternalTools };
 
 async function dataContext(): Promise<string> {
   const s = await getPublicStats();
