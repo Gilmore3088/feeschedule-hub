@@ -418,8 +418,10 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
+- [ ] 25-01-PLAN.md — Derived analytics queries: revenue concentration, fee dependency trend, revenue-per-institution trend (DERIVE-01, DERIVE-02, DERIVE-03)
+- [ ] 25-02-PLAN.md — Unified queryNationalData Hamilton tool wiring all data sources (ADMIN-05)
+
+
 
 ### Phase 26: National Data Admin Portal
 **Goal**: Admin users can view, verify, and explore all national data sources through dedicated portal pages before data flows into reports
