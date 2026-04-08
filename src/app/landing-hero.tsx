@@ -4,10 +4,12 @@ import Link from "next/link";
 import { InstitutionSearchBar } from "@/app/(public)/institutions/search-bar";
 import {
   ArrowRight,
+  BarChart2,
+  BookOpen,
   Brain,
-  Users,
   FileText,
-  TrendingUp,
+  Search,
+  Users,
 } from "lucide-react";
 
 interface LandingHeroProps {
@@ -16,118 +18,124 @@ interface LandingHeroProps {
 
 export function LandingHero({ totalInstitutions }: LandingHeroProps) {
   return (
-    <section className="relative overflow-hidden">
-      <div className="mx-auto max-w-6xl px-6 pt-12 pb-10 lg:pt-16 lg:pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Left: Consumer */}
-          <div className="flex flex-col">
-            <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-[#A09788]">
+    <section className="relative">
+      {/* Two-tone background */}
+      <div className="absolute inset-0 hidden lg:flex">
+        <div className="w-1/2 bg-[#FAF7F2]" />
+        <div className="w-1/2 bg-[#1A1815]" />
+      </div>
+      <div className="absolute inset-0 lg:hidden bg-[#FAF7F2]" />
+
+      <div className="relative mx-auto max-w-6xl px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2">
+
+          {/* ═══ Consumer Side ═══ */}
+          <div className="flex flex-col py-14 lg:py-16 lg:pr-12">
+            {/* Row 1: Label */}
+            <span className="text-[11px] font-normal uppercase tracking-[0.15em] text-[#A09788]">
               For Consumers
             </span>
+
+            {/* Row 2: Headline */}
             <h1
-              className="mt-3 text-[#1A1815] leading-[1.08] tracking-[-0.02em]"
+              className="mt-4 text-[#1A1815] leading-[1.05] tracking-[-0.02em]"
               style={{
                 fontFamily: "var(--font-newsreader), Georgia, serif",
-                fontSize: "clamp(24px, 4vw, 34px)",
+                fontSize: "clamp(30px, 4.5vw, 42px)",
                 fontWeight: 400,
               }}
             >
               What is your bank{" "}
-              <em style={{ fontStyle: "italic" }}>really</em> charging you?
+              <em style={{ fontStyle: "italic", color: "#C44B2E" }}>really</em>{" "}
+              charging you?
             </h1>
 
+            {/* Row 3: Description */}
             <p className="mt-3 text-[15px] leading-relaxed text-[#6B6355]">
               Look up any bank or credit union and see exactly what they charge
-              -- compared to {totalInstitutions.toLocaleString()}+ institutions
-              nationwide.
+              -- compared to {totalInstitutions.toLocaleString()}+ institutions nationwide.
             </p>
 
-            <div
-              className="mt-5"
-              aria-label="Search for a bank or credit union"
-            >
+            {/* Row 4: Action (search bar) */}
+            <div className="mt-6" aria-label="Search for a bank or credit union">
               <InstitutionSearchBar />
             </div>
+            <p className="mt-2 text-[12px] text-[#A09788]">
+              Free. No account required.
+            </p>
 
-            <div className="mt-4 flex flex-wrap gap-4 text-[13px] text-[#A09788]">
+            {/* Spacer pushes cards to bottom */}
+            <div className="flex-1 min-h-6" />
+
+            {/* Row 5: Cards (pinned to bottom) */}
+            <div className="grid grid-cols-3 gap-3">
+              <Link
+                href="/institutions"
+                className="group rounded-xl border border-[#E8DFD1] bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
+              >
+                <Search className="h-4 w-4 text-[#C44B2E] mb-2" />
+                <p className="text-[13px] font-bold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                  Fee Scout
+                </p>
+                <p className="text-[11px] text-[#8A8176] mt-0.5">
+                  Compare your bank&apos;s fees
+                </p>
+              </Link>
               <Link
                 href="/fees"
-                className="hover:text-[#C44B2E] transition-colors"
+                className="group rounded-xl border border-[#E8DFD1] bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
               >
-                Browse all fees
+                <BarChart2 className="h-4 w-4 text-[#C44B2E] mb-2" />
+                <p className="text-[13px] font-bold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                  Benchmarks
+                </p>
+                <p className="text-[11px] text-[#8A8176] mt-0.5">
+                  49 fee categories ranked
+                </p>
               </Link>
               <Link
                 href="/guides"
-                className="hover:text-[#C44B2E] transition-colors"
+                className="group rounded-xl border border-[#E8DFD1] bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
               >
-                Fee guides
-              </Link>
-              <Link
-                href="/research"
-                className="hover:text-[#C44B2E] transition-colors"
-              >
-                Research
+                <BookOpen className="h-4 w-4 text-[#C44B2E] mb-2" />
+                <p className="text-[13px] font-bold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                  Fee Guides
+                </p>
+                <p className="text-[11px] text-[#8A8176] mt-0.5">
+                  Plain-language explainers
+                </p>
               </Link>
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="hidden lg:block absolute left-1/2 top-12 bottom-10 w-px bg-[#E8DFD1]" />
-
-          {/* Right: Institutions */}
-          <div className="flex flex-col lg:pl-4">
-            <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-[#C44B2E]">
-              For Financial Institutions
+          {/* ═══ Institutional Side ═══ */}
+          <div className="flex flex-col py-14 lg:py-16 lg:pl-12 bg-[#1A1815] lg:bg-transparent -mx-6 px-6 lg:mx-0 lg:px-0">
+            {/* Row 1: Label */}
+            <span className="text-[11px] font-normal uppercase tracking-[0.15em] text-[#C44B2E]">
+              For Financial Industry Professionals
             </span>
+
+            {/* Row 2: Headline */}
             <h2
-              className="mt-3 text-[#1A1815] leading-[1.12] tracking-[-0.02em]"
+              className="mt-4 text-[#F5EFE6] leading-[1.05] tracking-[-0.02em]"
               style={{
                 fontFamily: "var(--font-newsreader), Georgia, serif",
-                fontSize: "clamp(22px, 3.5vw, 30px)",
+                fontSize: "clamp(30px, 4.5vw, 42px)",
                 fontWeight: 400,
               }}
             >
-              The fee intelligence platform that replaces your pricing study
+              Replace your $15K pricing study
             </h2>
 
-            <p className="mt-3 text-[15px] leading-relaxed text-[#6B6355]">
+            {/* Row 3: Description */}
+            <p className="mt-3 text-[15px] leading-relaxed text-[#8A8176]">
               Peer benchmarking, AI-powered research, and board-ready reports
               -- built on {totalInstitutions.toLocaleString()}+ institutions
               and 5 federal data sources.
             </p>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="flex items-start gap-2.5 rounded-lg border border-[#E8DFD1] bg-white/70 px-3 py-2.5">
-                <Brain className="h-4 w-4 text-[#C44B2E] mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-bold text-[#1A1815]">Hamilton AI</p>
-                  <p className="text-[11px] text-[#7A7062]">On-demand analyst</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5 rounded-lg border border-[#E8DFD1] bg-white/70 px-3 py-2.5">
-                <Users className="h-4 w-4 text-[#C44B2E] mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-bold text-[#1A1815]">Peer Groups</p>
-                  <p className="text-[11px] text-[#7A7062]">Custom benchmarks</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5 rounded-lg border border-[#E8DFD1] bg-white/70 px-3 py-2.5">
-                <FileText className="h-4 w-4 text-[#C44B2E] mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-bold text-[#1A1815]">Reports</p>
-                  <p className="text-[11px] text-[#7A7062]">Board-ready PDFs</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5 rounded-lg border border-[#E8DFD1] bg-white/70 px-3 py-2.5">
-                <TrendingUp className="h-4 w-4 text-[#C44B2E] mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-bold text-[#1A1815]">Federal Data</p>
-                  <p className="text-[11px] text-[#7A7062]">Call Reports & FRED</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5">
+            {/* Row 4: Action (CTA) */}
+            <div className="mt-6 flex items-center gap-4">
               <Link
                 href="/for-institutions"
                 className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-6 py-2.5 text-[14px] font-bold text-white hover:bg-[#A93D25] transition-colors"
@@ -135,6 +143,43 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
                 Learn More
                 <ArrowRight className="h-4 w-4" />
               </Link>
+              <Link
+                href="/subscribe"
+                className="text-[14px] text-[#8A8176] hover:text-[#F5EFE6] transition-colors"
+              >
+                View pricing
+              </Link>
+            </div>
+            <p className="mt-2 text-[12px] text-[#5A5347]">
+              Plans from $199/mo per seat.
+            </p>
+
+            {/* Spacer pushes cards to bottom */}
+            <div className="flex-1 min-h-6" />
+
+            {/* Row 5: Cards (pinned to bottom, aligned with consumer side) */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5">
+                <Brain className="h-4 w-4 text-[#C44B2E] mb-2" />
+                <p className="text-[13px] font-bold text-[#F5EFE6]">Hamilton AI</p>
+                <p className="text-[11px] text-[#7A7062] mt-0.5">
+                  AI-powered fee analyst
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5">
+                <Users className="h-4 w-4 text-[#C44B2E] mb-2" />
+                <p className="text-[13px] font-bold text-[#F5EFE6]">Peer Groups</p>
+                <p className="text-[11px] text-[#7A7062] mt-0.5">
+                  Custom peer benchmarks
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5">
+                <FileText className="h-4 w-4 text-[#C44B2E] mb-2" />
+                <p className="text-[13px] font-bold text-[#F5EFE6]">Reports & Data</p>
+                <p className="text-[11px] text-[#7A7062] mt-0.5">
+                  Board-ready, built for you
+                </p>
+              </div>
             </div>
           </div>
         </div>

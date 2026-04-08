@@ -3,11 +3,11 @@ import { EmailSignup } from "./public/email-signup";
 
 export function CustomerFooter() {
   return (
-    <footer className="border-t border-[#E8DFD1] mt-12 bg-white/40">
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="border-t border-[#E8DFD1] bg-white/40">
+      <div className="mx-auto max-w-6xl px-6 py-12 lg:py-14">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]  lg:gap-x-16">
           {/* Brand + email */}
-          <div className="lg:col-span-1">
+          <div className="lg:pr-8">
             <Link href="/" className="flex items-center gap-2 no-underline">
               <svg
                 viewBox="0 0 24 24"

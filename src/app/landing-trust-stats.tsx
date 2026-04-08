@@ -1,4 +1,3 @@
-import { timeAgo } from "@/lib/format";
 import type { PublicStats, DataFreshness } from "@/lib/crawler-db/core";
 
 interface LandingTrustStatsProps {
@@ -6,11 +5,7 @@ interface LandingTrustStatsProps {
   freshness: DataFreshness;
 }
 
-export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) {
-  const freshnessLabel = freshness.last_crawl_at
-    ? `Updated ${timeAgo(freshness.last_crawl_at)}`
-    : "Recently";
-
+export function LandingTrustStats({ stats }: LandingTrustStatsProps) {
   return (
     <section className="border-t border-[#E8DFD1] bg-[#F5EFE6]/60">
       <div className="mx-auto max-w-6xl px-6 py-10">
@@ -20,34 +15,34 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
               {stats.total_institutions.toLocaleString()}+
             </dd>
             <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
-              Banks &amp; Credit Unions
+              Institutions &amp; Growing
             </dt>
           </div>
 
           <div>
             <dd className="text-[28px] font-bold text-[#1A1815] tabular-nums">
-              {stats.total_observations.toLocaleString()}+
+              49
             </dd>
             <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
-              Fee Observations
-            </dt>
-          </div>
-
-          <div>
-            <dd className="text-[20px] font-bold text-[#1A1815]">
-              {freshnessLabel}
-            </dd>
-            <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
-              Data Freshness
+              Fee Categories
             </dt>
           </div>
 
           <div>
             <dd className="text-[28px] font-bold text-[#1A1815] tabular-nums">
-              FDIC &amp; NCUA
+              50
             </dd>
             <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
-              Verified Sources
+              States Covered
+            </dt>
+          </div>
+
+          <div>
+            <dd className="text-[28px] font-bold text-[#1A1815] tabular-nums">
+              5
+            </dd>
+            <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
+              Federal Data Sources
             </dt>
           </div>
         </dl>
