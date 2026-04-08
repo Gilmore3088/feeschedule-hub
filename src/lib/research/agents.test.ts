@@ -51,6 +51,7 @@ vi.mock("./tools-internal", () => ({
     queryDataQuality: { description: "queryDataQuality", inputSchema: {}, execute: vi.fn() },
     triggerPipelineJob: { description: "triggerPipelineJob", inputSchema: {}, execute: vi.fn() },
     queryNationalData: { description: "queryNationalData", inputSchema: {}, execute: vi.fn() },
+    queryRegulatoryRisk: { description: "queryRegulatoryRisk", inputSchema: {}, execute: vi.fn() },
   },
 }));
 

@@ -54,3 +54,15 @@ supabase/.temp/
 
 # worktrees
 .worktrees/
+.claude/worktrees/
+
+# reports (generated PDFs, not source)
+Reports/
+
+# run scripts and logs (local dev)
+_run_*.py
+_run_*.log
+run_*.py
+
+# superpowers brainstorm artifacts
+.superpowers/brainstorm/*/state/
