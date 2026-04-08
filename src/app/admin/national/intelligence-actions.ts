@@ -32,6 +32,17 @@ export async function addIntelligenceAction(
     return { ok: false, error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}.` };
   }
 
+  if (source_url) {
+    try {
+      const parsed = new URL(source_url);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        return { ok: false, error: "Source URL must use http or https." };
+      }
+    } catch {
+      return { ok: false, error: "Source URL is not a valid URL." };
+    }
+  }
+
   const tags = tagsRaw
     ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean)
     : [];
