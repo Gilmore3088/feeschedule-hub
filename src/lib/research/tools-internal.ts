@@ -12,6 +12,34 @@ import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
 import { sql } from "@/lib/crawler-db/connection";
 import { spawnJob } from "@/lib/job-runner";
 
+// queryNationalData imports -- Phase 23-25 query functions
+import {
+  getRevenueTrend,
+  getTopRevenueInstitutions,
+  getRevenueByTier,
+  getDistrictFeeRevenue,
+} from "@/lib/crawler-db/call-reports";
+import {
+  getNationalEconomicSummary,
+  getBeigeBookThemes,
+  getFredSummary,
+  getDistrictEconomicSummary,
+} from "@/lib/crawler-db/fed";
+import {
+  getIndustryHealthMetrics,
+  getHealthMetricsByCharter,
+  getDepositGrowthTrend,
+  getLoanGrowthTrend,
+  getInstitutionCountTrends,
+} from "@/lib/crawler-db/health";
+import { getDistrictComplaintSummary } from "@/lib/crawler-db/complaints";
+import { getIndexSnapshot, getPeerIndex } from "@/lib/crawler-db/fee-index";
+import {
+  getRevenueConcentration,
+  getFeeDependencyTrend,
+  getRevenuePerInstitutionTrend,
+} from "@/lib/crawler-db/derived-analytics";
+
 /**
  * Admin-only tools for Fee Analyst and Custom Query agents.
  * These access internal DB functions not exposed via the public API.
@@ -393,6 +421,174 @@ export const triggerPipelineJob = tool({
   },
 });
 
+// ── Unified National Data Tool ───────────────────────────────────────────────
+
+const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_index", "derived"] as const;
+
+export const queryNationalData = tool({
+  description:
+    "Query national summary data across all sources. Use 'source' to pick a data domain: call_reports (revenue trends, top institutions, tier/charter splits), economic (FRED rates, Beige Book themes, national summary), health (ROA, efficiency, deposits, loans, institution counts), complaints (CFPB district summaries), fee_index (national/peer fee medians and distributions), derived (revenue concentration, fee dependency trends, per-institution revenue trends). Use 'view' to narrow to a specific aspect within the source.",
+  parameters: z.object({
+    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived"])
+      .describe("Data source category to query"),
+    view: z.string().optional()
+      .describe("Specific view within the source (e.g., 'trend', 'by_tier', 'fred', 'concentration'). Omit for all data."),
+    limit: z.number().optional().default(10)
+      .describe("Limit results (for top_institutions, fee_index)"),
+    quarters: z.number().optional().default(8)
+      .describe("Number of quarters for trend data"),
+    district: z.number().min(1).max(12).optional()
+      .describe("Fed district number (for complaints, economic district view)"),
+    charter: z.enum(["bank", "credit_union"]).optional()
+      .describe("Charter type filter"),
+    tiers: z.array(z.string()).optional()
+      .describe("Asset size tier filter (for fee_index peer queries)"),
+    top_n: z.number().optional().default(5)
+      .describe("Top N for concentration analysis"),
+  }),
+  execute: async ({ source, view, limit, quarters, district, charter, tiers, top_n }) => {
+    switch (source) {
+      case "call_reports":
+        return handleCallReports(view, quarters, limit, district);
+      case "economic":
+        return handleEconomic(view, district);
+      case "health":
+        return handleHealth(view, quarters);
+      case "complaints":
+        return handleComplaints(district);
+      case "fee_index":
+        return handleFeeIndex(charter, tiers, limit);
+      case "derived":
+        return handleDerived(view, top_n, quarters);
+      default:
+        return { error: `Unknown source '${source}'. Valid sources: ${VALID_SOURCES.join(", ")}` };
+    }
+  },
+});
+
+async function handleCallReports(
+  view: string | undefined,
+  quarters: number,
+  limit: number,
+  district: number | undefined
+) {
+  if (!view || view === "all") {
+    const [trend, top_institutions, by_tier] = await Promise.all([
+      getRevenueTrend(quarters),
+      getTopRevenueInstitutions(limit),
+      getRevenueByTier(),
+    ]);
+    return { trend, top_institutions, by_tier };
+  }
+  switch (view) {
+    case "trend":
+      return { trend: await getRevenueTrend(quarters) };
+    case "top_institutions":
+      return { top_institutions: await getTopRevenueInstitutions(limit) };
+    case "by_tier":
+      return { by_tier: await getRevenueByTier() };
+    case "by_district":
+      return { district_revenue: await getDistrictFeeRevenue(district ?? 1) };
+    default:
+      return { error: `Unknown call_reports view '${view}'. Valid: trend, top_institutions, by_tier, by_district` };
+  }
+}
+
+async function handleEconomic(view: string | undefined, district: number | undefined) {
+  if (!view || view === "all") {
+    const [national_summary, beige_book_themes, fred_summary] = await Promise.all([
+      getNationalEconomicSummary(),
+      getBeigeBookThemes(),
+      getFredSummary(),
+    ]);
+    return { national_summary, beige_book_themes, fred_summary };
+  }
+  switch (view) {
+    case "fred":
+      return { fred_summary: await getFredSummary() };
+    case "beige_book":
+      return { beige_book_themes: await getBeigeBookThemes() };
+    case "national":
+      return { national_summary: await getNationalEconomicSummary() };
+    case "district":
+      if (!district) return { error: "district parameter required for economic district view" };
+      return { district_summary: await getDistrictEconomicSummary(district) };
+    default:
+      return { error: `Unknown economic view '${view}'. Valid: fred, beige_book, national, district` };
+  }
+}
+
+async function handleHealth(view: string | undefined, quarters: number) {
+  if (!view || view === "all") {
+    const [metrics, by_charter, deposits, loans, institution_counts] = await Promise.all([
+      getIndustryHealthMetrics(),
+      getHealthMetricsByCharter(),
+      getDepositGrowthTrend(quarters),
+      getLoanGrowthTrend(quarters),
+      getInstitutionCountTrends(quarters),
+    ]);
+    return { metrics, by_charter, deposits, loans, institution_counts };
+  }
+  switch (view) {
+    case "metrics":
+      return { metrics: await getIndustryHealthMetrics() };
+    case "by_charter":
+      return { by_charter: await getHealthMetricsByCharter() };
+    case "deposits":
+      return { deposits: await getDepositGrowthTrend(quarters) };
+    case "loans":
+      return { loans: await getLoanGrowthTrend(quarters) };
+    case "institution_counts":
+      return { institution_counts: await getInstitutionCountTrends(quarters) };
+    default:
+      return { error: `Unknown health view '${view}'. Valid: metrics, by_charter, deposits, loans, institution_counts` };
+  }
+}
+
+async function handleComplaints(district: number | undefined) {
+  if (!district) return { error: "district parameter required for complaints source" };
+  return { complaints: await getDistrictComplaintSummary(district) };
+}
+
+async function handleFeeIndex(
+  charter: string | undefined,
+  tiers: string[] | undefined,
+  limit: number
+) {
+  if (charter || tiers) {
+    const filters: { charter_type?: string; asset_tiers?: string[] } = {};
+    if (charter) filters.charter_type = charter;
+    if (tiers) filters.asset_tiers = tiers;
+    return { index: await getPeerIndex(filters) };
+  }
+  return { index: await getIndexSnapshot(undefined, limit) };
+}
+
+async function handleDerived(
+  view: string | undefined,
+  top_n: number,
+  quarters: number
+) {
+  if (!view || view === "all") {
+    const [concentration, dependency, revenue_per_institution] = await Promise.all([
+      getRevenueConcentration(top_n),
+      getFeeDependencyTrend(quarters),
+      getRevenuePerInstitutionTrend(quarters),
+    ]);
+    return { concentration, dependency, revenue_per_institution };
+  }
+  switch (view) {
+    case "concentration":
+      return { concentration: await getRevenueConcentration(top_n) };
+    case "dependency":
+      return { dependency: await getFeeDependencyTrend(quarters) };
+    case "revenue_per_institution":
+      return { revenue_per_institution: await getRevenuePerInstitutionTrend(quarters) };
+    default:
+      return { error: `Unknown derived view '${view}'. Valid: concentration, dependency, revenue_per_institution` };
+  }
+}
+
 /** All internal tools bundled for admin agent configs */
 export const internalTools = {
   queryDistrictData,
@@ -406,4 +602,5 @@ export const internalTools = {
   queryJobStatus,
   queryDataQuality,
   triggerPipelineJob,
+  queryNationalData,
 };
