@@ -14,6 +14,8 @@ vi.mock("@/lib/crawler-db/fed", () => ({
   getFredSummary: vi.fn().mockResolvedValue({}),
   getDistrictEconomicSummary: vi.fn().mockResolvedValue({}),
   getLatestBeigeBook: vi.fn().mockResolvedValue([]),
+  getDistrictContent: vi.fn().mockResolvedValue([]),
+  getRecentSpeeches: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/crawler-db/health", () => ({
@@ -26,6 +28,15 @@ vi.mock("@/lib/crawler-db/health", () => ({
 
 vi.mock("@/lib/crawler-db/complaints", () => ({
   getDistrictComplaintSummary: vi.fn().mockResolvedValue({}),
+  getNationalComplaintSummary: vi.fn().mockResolvedValue({ total_complaints: 0, fee_related_pct: 0, average_per_institution: 0 }),
+}));
+
+vi.mock("@/lib/crawler-db/financial", () => ({
+  getStateDemographics: vi.fn().mockResolvedValue({}),
+  getLatestIndicators: vi.fn().mockResolvedValue([]),
+  getSodMarketShare: vi.fn().mockResolvedValue([]),
+  getNyFedData: vi.fn().mockResolvedValue([]),
+  getOfrData: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/crawler-db/fee-index", () => ({
@@ -58,6 +69,11 @@ vi.mock("@/lib/crawler-db/core", () => ({
 vi.mock("@/lib/crawler-db/dashboard", () => ({
   getCrawlHealth: vi.fn().mockResolvedValue({}),
 }));
+vi.mock("@/lib/crawler-db/intelligence", () => ({
+  searchExternalIntelligence: vi.fn().mockResolvedValue([]),
+  listIntelligence: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+}));
+
 vi.mock("@/lib/crawler-db/connection", () => ({
   sql: vi.fn().mockResolvedValue([]),
 }));
@@ -74,6 +90,7 @@ import * as health from "@/lib/crawler-db/health";
 import * as complaints from "@/lib/crawler-db/complaints";
 import * as feeIndex from "@/lib/crawler-db/fee-index";
 import * as derivedAnalytics from "@/lib/crawler-db/derived-analytics";
+import * as intelligence from "@/lib/crawler-db/intelligence";
 
 describe("queryNationalData", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -260,6 +277,79 @@ describe("queryNationalData", () => {
       const result = await execute({ source: "derived", view: "revenue_per_institution", quarters: 4, limit: 10, top_n: 5 });
       expect(derivedAnalytics.getRevenuePerInstitutionTrend).toHaveBeenCalledWith(4);
       expect(result).toHaveProperty("revenue_per_institution");
+    });
+  });
+
+  // ── external source ─────────────────────────────────────────────────
+  describe("source: external", () => {
+    it("returns search results with citation when query provided", async () => {
+      vi.mocked(intelligence.searchExternalIntelligence).mockResolvedValueOnce([
+        {
+          id: 1,
+          source_name: "CFPB Overdraft Study",
+          source_date: "2025-12-01",
+          category: "research",
+          tags: ["overdraft", "cfpb"],
+          content_text: "Banks collected $7.7 billion in overdraft fees in 2024, down from $12.6 billion in 2019.",
+          source_url: "https://cfpb.gov/overdraft-2025",
+          created_at: "2026-01-15T10:00:00Z",
+          created_by: "admin",
+          headline: "Banks collected <b>$7.7 billion</b> in overdraft fees",
+          rank: 0.85,
+        },
+      ]);
+
+      const result = await execute({ source: "external", query: "overdraft", quarters: 8, limit: 10, top_n: 5 });
+      expect(intelligence.searchExternalIntelligence).toHaveBeenCalledWith("overdraft", undefined);
+      expect(result).toHaveProperty("query", "overdraft");
+      expect(result).toHaveProperty("total", 1);
+
+      const results = (result as { results: Array<{ citation: string; source_name: string; headline: string }> }).results;
+      expect(results[0].source_name).toBe("CFPB Overdraft Study");
+      expect(results[0].headline).toContain("$7.7 billion");
+      expect(results[0].citation).toBe("[Source: CFPB Overdraft Study, 2025-12-01]");
+    });
+
+    it("passes category filter when view param provided", async () => {
+      vi.mocked(intelligence.searchExternalIntelligence).mockResolvedValueOnce([]);
+
+      await execute({ source: "external", query: "fees", view: "regulation", quarters: 8, limit: 10, top_n: 5 });
+      expect(intelligence.searchExternalIntelligence).toHaveBeenCalledWith("fees", { category: "regulation" });
+    });
+
+    it("returns recent list when no query provided", async () => {
+      vi.mocked(intelligence.listIntelligence).mockResolvedValueOnce({
+        items: [
+          {
+            id: 2,
+            source_name: "ABA Fee Survey 2025",
+            source_date: "2025-11-15",
+            category: "survey",
+            tags: ["aba", "survey"],
+            content_text: "The American Bankers Association annual fee survey found median overdraft fees declined to $29.",
+            source_url: null,
+            created_at: "2026-01-20T12:00:00Z",
+            created_by: null,
+          },
+        ],
+        total: 1,
+      });
+
+      const result = await execute({ source: "external", quarters: 8, limit: 15, top_n: 5 });
+      expect(intelligence.listIntelligence).toHaveBeenCalledWith(15, 0);
+      expect(result).toHaveProperty("total", 1);
+
+      const items = (result as { items: Array<{ citation: string; source_name: string }> }).items;
+      expect(items[0].source_name).toBe("ABA Fee Survey 2025");
+      expect(items[0].citation).toBe("[Source: ABA Fee Survey 2025, 2025-11-15]");
+    });
+
+    it("returns empty results for no-match search", async () => {
+      vi.mocked(intelligence.searchExternalIntelligence).mockResolvedValueOnce([]);
+
+      const result = await execute({ source: "external", query: "zzznomatch", quarters: 8, limit: 10, top_n: 5 });
+      expect(result).toHaveProperty("total", 0);
+      expect((result as { results: unknown[] }).results).toHaveLength(0);
     });
   });
 

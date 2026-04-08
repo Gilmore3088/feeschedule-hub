@@ -48,6 +48,10 @@ import {
   getFeeDependencyTrend,
   getRevenuePerInstitutionTrend,
 } from "@/lib/crawler-db/derived-analytics";
+import {
+  searchExternalIntelligence,
+  listIntelligence,
+} from "@/lib/crawler-db/intelligence";
 
 /**
  * Admin-only tools for Fee Analyst and Custom Query agents.
@@ -432,16 +436,18 @@ export const triggerPipelineJob = tool({
 
 // ── Unified National Data Tool ───────────────────────────────────────────────
 
-const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits"] as const;
+const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"] as const;
 
 export const queryNationalData = tool({
   description:
-    "Query national summary data across all 11 source domains. Sources: call_reports (FDIC/NCUA revenue trends), economic (FRED rates, Beige Book themes), health (ROA, efficiency, deposits, loans), complaints (CFPB district summaries), fee_index (national/peer fee medians), derived (concentration, fee dependency), fed_content (Fed speeches/papers by district), labor (BLS unemployment, payroll, bank-fee CPI), demographics (Census ACS income/poverty by state), research (NY Fed + OFR financial stability data), deposits (FDIC SOD market share). When: any macroeconomic, regional, or financial context question. Combine with: district analysis → economic+complaints+fed_content; compliance question → complaints+fee_index+fed_content; consumer impact → demographics+labor+fee_index.",
+    "Query national summary data across all 12 source domains. Sources: call_reports (FDIC/NCUA revenue trends), economic (FRED rates, Beige Book themes), health (ROA, efficiency, deposits, loans), complaints (CFPB district summaries), fee_index (national/peer fee medians), derived (concentration, fee dependency), fed_content (Fed speeches/papers by district), labor (BLS unemployment, payroll, bank-fee CPI), demographics (Census ACS income/poverty by state), research (NY Fed + OFR financial stability data), deposits (FDIC SOD market share), external (admin-curated research, surveys, reports -- use 'query' param for full-text search). When: any macroeconomic, regional, or financial context question. Combine with: district analysis → economic+complaints+fed_content; compliance question → complaints+fee_index+fed_content; consumer impact → demographics+labor+fee_index; external context → external+fee_index for industry research alongside fee data.",
   inputSchema: z.object({
-    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits"])
+    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"])
       .describe("Data source category to query"),
     view: z.string().optional()
-      .describe("Specific view within the source (e.g., 'trend', 'by_tier', 'fred', 'concentration'). Omit for all data."),
+      .describe("Specific view within the source (e.g., 'trend', 'by_tier', 'fred', 'concentration'). For external source, doubles as category filter."),
+    query: z.string().optional()
+      .describe("Search query text (used for external source full-text search)"),
     limit: z.number().optional().default(10)
       .describe("Limit results (for top_institutions, fee_index)"),
     quarters: z.number().optional().default(8)
@@ -459,7 +465,7 @@ export const queryNationalData = tool({
     seriesIds: z.array(z.string()).optional()
       .describe("BLS series IDs for labor view (defaults to unemployment, payroll, bank fee CPI)"),
   }),
-  execute: async ({ source, view, limit, quarters, district, charter, tiers, top_n, stateFips, seriesIds }) => {
+  execute: async ({ source, view, query, limit, quarters, district, charter, tiers, top_n, stateFips, seriesIds }) => {
     switch (source) {
       case "call_reports":
         return handleCallReports(view, quarters, limit, district);
@@ -483,6 +489,8 @@ export const queryNationalData = tool({
         return handleResearch(limit ?? 20);
       case "deposits":
         return handleDeposits(stateFips, limit ?? 10);
+      case "external":
+        return handleExternal(query, view, limit);
       default:
         return { error: `Unknown source '${source}'. Valid sources: ${VALID_SOURCES.join(", ")}` };
     }
@@ -666,6 +674,45 @@ async function handleResearch(limit: number) {
 async function handleDeposits(stateFips: string | undefined, limit: number) {
   const data = await getSodMarketShare(stateFips);
   return { deposit_market_share: data.slice(0, limit) };
+}
+
+async function handleExternal(
+  query: string | undefined,
+  view: string | undefined,
+  limit: number
+) {
+  if (query) {
+    const category = view || undefined;
+    const results = await searchExternalIntelligence(query, category ? { category } : undefined);
+    return {
+      query,
+      results: results.map((r) => ({
+        source_name: r.source_name,
+        source_date: r.source_date,
+        category: r.category,
+        tags: r.tags,
+        headline: r.headline,
+        content_snippet: r.content_text.substring(0, 500),
+        source_url: r.source_url,
+        citation: `[Source: ${r.source_name}, ${r.source_date}]`,
+      })),
+      total: results.length,
+    };
+  }
+
+  const { items, total } = await listIntelligence(limit, 0);
+  return {
+    items: items.map((r) => ({
+      source_name: r.source_name,
+      source_date: r.source_date,
+      category: r.category,
+      tags: r.tags,
+      content_snippet: r.content_text.substring(0, 300),
+      source_url: r.source_url,
+      citation: `[Source: ${r.source_name}, ${r.source_date}]`,
+    })),
+    total,
+  };
 }
 
 // ── Regulatory Risk Tool ──────────────────────────────────────────────────────
