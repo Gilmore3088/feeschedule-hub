@@ -2,8 +2,11 @@ import { getRevenueTrend } from "@/lib/crawler-db/call-reports";
 import { getNationalEconomicSummary, type RichIndicator } from "@/lib/crawler-db/fed";
 import { getIndustryHealthMetrics } from "@/lib/crawler-db/health";
 import { getBeigeBookHeadlines } from "@/lib/crawler-db/fed";
+import { getRevenueConcentration, getFeeDependencyTrend, type RevenueConcentration, type FeeDependencyTrend } from "@/lib/crawler-db/derived-analytics";
 import { formatAmount } from "@/lib/format";
 import { Sparkline } from "@/components/sparkline";
+import { ConcentrationChart } from "./concentration-chart";
+import { DependencyChart } from "./dependency-chart";
 
 function FreshnessBadge({ dateStr }: { dateStr: string | null }) {
   if (!dateStr) {
@@ -67,11 +70,13 @@ function mostRecentAsOf(indicators: (RichIndicator | null)[]): string | null {
 }
 
 export async function OverviewPanel() {
-  const [revenueTrend, econSummary, healthMetrics, beigeBookMap] = await Promise.all([
+  const [revenueTrend, econSummary, healthMetrics, beigeBookMap, concentration, dependencyTrend] = await Promise.all([
     getRevenueTrend(2).catch(() => null),
     getNationalEconomicSummary().catch(() => ({ fed_funds_rate: null, unemployment_rate: null, cpi_yoy_pct: null, consumer_sentiment: null })),
     getIndustryHealthMetrics().catch(() => ({ roa: null, roe: null, efficiency_ratio: null })),
     getBeigeBookHeadlines().catch(() => new Map()),
+    getRevenueConcentration().catch(() => null),
+    getFeeDependencyTrend().catch(() => null),
   ]);
 
   const latestRevenue = revenueTrend?.latest ?? null;
@@ -89,7 +94,7 @@ export async function OverviewPanel() {
   const beigeBookCount = beigeBookMap.size;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
       {/* Card 1: Call Report Revenue */}
       <div className="admin-card p-5 space-y-3">
@@ -280,6 +285,54 @@ export async function OverviewPanel() {
           </div>
         ) : (
           <div className="text-sm text-gray-400">No data available</div>
+        )}
+      </div>
+
+      {/* Card 5: Revenue Concentration */}
+      <div className="admin-card p-5 space-y-3">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+          Revenue Concentration
+        </span>
+
+        {concentration && concentration.dollar_volume.length > 0 ? (
+          <>
+            <div>
+              <div className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                {concentration.summary.dollar_volume_pct.toFixed(1)}%
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">
+                Top {concentration.summary.top_n} categories of revenue
+              </div>
+            </div>
+
+            <ConcentrationChart data={concentration.dollar_volume.slice(0, 5)} />
+          </>
+        ) : (
+          <div className="text-sm text-gray-400">Revenue concentration data not available</div>
+        )}
+      </div>
+
+      {/* Card 6: Fee Dependency Trend */}
+      <div className="admin-card p-5 space-y-3">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+          Fee Dependency Ratio
+        </span>
+
+        {dependencyTrend && dependencyTrend.trend.length > 0 ? (
+          <>
+            <div>
+              <div className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                {dependencyTrend.trend[0].avg_fee_income_ratio.toFixed(1)}%
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">
+                % of revenue from service charges
+              </div>
+            </div>
+
+            <DependencyChart trend={dependencyTrend} />
+          </>
+        ) : (
+          <div className="text-sm text-gray-400">Trend data not available</div>
         )}
       </div>
 
