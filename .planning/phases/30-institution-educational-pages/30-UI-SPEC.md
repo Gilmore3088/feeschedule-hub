@@ -46,7 +46,6 @@ All values are multiples of 4. Matches existing institution page conventions.
 
 Exceptions:
 - Callout explainer blocks: 20px top margin (mt-5) — between fee row and its callout
-- PositionBar rows: 10px top/bottom (py-2.5) — matches existing fee table cell padding
 - Touch targets on percentile badge: minimum 28px height
 
 ---
@@ -60,8 +59,7 @@ Matches consumer brand established in Phase 29 and carried through Phase 30.
 | Display | 28–36px (1.75–2.25rem) | 400 regular | 1.12 | Newsreader serif | Institution name H1 |
 | Heading | 16px | 400 regular | 1.3 | Newsreader serif | Section titles (H2): "Fee Distribution", "Intelligence & Reports" |
 | Body | 13–14px | 400 regular | 1.5 | Geist Sans | Callout explainer text, section subtitles |
-| Label | 10–11px | 700 bold | 1.2 | Geist Sans, uppercase | Table headers, card labels, badge text |
-| Data | 11–15px | 500 medium | 1.0 | Geist Sans, tabular-nums | Fee amounts, percentile numbers, delta values |
+| Label | 10–12px | 500–700 | 1.0–1.2 | Geist Sans, tabular-nums or uppercase | Table headers (text-[10px] bold uppercase), badge text (text-[10px] medium), fee amounts (text-[12px] medium tabular-nums), percentile numbers, delta values, card labels |
 
 Source: institution/[id]/page.tsx patterns — pre-populated, not invented.
 
@@ -91,8 +89,9 @@ Consumer brand warm palette. All values extracted from globals.css and instituti
 - Report Card link pill border and text
 - UpgradeGate CTA button text
 - District link in institution subtitle
+- Institution position marker in Fee Distribution histograms (vertical ReferenceLine, strokeWidth: 2, strokeDasharray: "3 3")
 
-**Accent is NOT used for:** callout explainer blocks, histogram bars for this institution (use blue-500 for institution marker, per D-07), general text, or decorative elements.
+**Accent is NOT used for:** callout explainer blocks, histogram bars for the national distribution (use gray), general text, or decorative elements.
 
 ---
 
@@ -125,13 +124,15 @@ New components introduced by this phase and their visual contract.
 
 **Visual anatomy:**
 - Position: fifth column in PositionBar row, right-aligned, 60px wide
-- Text: `text-[10px] tabular-nums font-medium`
+- Text: `text-[10px] tabular-nums font-medium` (Label role)
 - Color: emerald-600 if below 50th percentile (below median = consumer-favorable), red-600 if above 50th percentile, #A09788 if exactly at 50th
 - Format: "top 28%" (means lower than 72% of peers, i.e., fee is lower = better for consumer)
 - Tooltip on hover (title attribute): "Higher than {N}% of {charter} institutions in the same asset tier"
 - "top X%" framing: "top" refers to best-for-consumer (lowest fee), not highest fee
   - If fee is at 30th percentile (below 70% of peers) → "top 30%" in emerald
   - If fee is at 80th percentile (above 80% of peers) → "bottom 20%" in red
+
+**PositionBar row cell padding:** `py-2` (8px) — multiples-of-4 grid.
 
 ### 3. FeeDistributionSection
 
@@ -147,8 +148,8 @@ New components introduced by this phase and their visual contract.
 - Section subtitle: `mt-1 text-[13px] text-[#7A7062]` — "Where {institution name}'s fees sit in the national distribution."
 - Chart grid: `mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3`
 - Each chart card: `rounded-xl border border-[#E8DFD1]/80 bg-white/70 px-4 py-4`
-- Chart card label: `text-[11px] font-bold uppercase tracking-[0.1em] text-[#A09788]` — category display name
-- Chart card institution marker label: `text-[10px] text-[#5A5347]` — "This bank: $35"
+- Chart card label: `text-[11px] font-bold uppercase tracking-[0.1em] text-[#A09788]` (Label role) — category display name
+- Chart card institution marker label: `text-[10px] text-[#5A5347]` (Label role) — "This bank: $35"
 
 **Institution position marker in histogram:**
 - A vertical ReferenceLine at institution's fee amount, color: `#C44B2E` (accent), strokeWidth: 2, strokeDasharray: "3 3"
@@ -174,16 +175,16 @@ New components introduced by this phase and their visual contract.
 - Two-column on desktop (`grid grid-cols-1 gap-4 sm:grid-cols-2`), stacked on mobile
 
 **Left column — Related Reports:**
-- Heading: `text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]` — "Related Reports"
-- Report links (if any): each is a Link styled as a pill matching existing report pill pattern — `rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors`
+- Heading: `text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]` (Label role) — "Related Reports"
+- Report links (if any): each is a Link styled as a pill matching existing report pill pattern — `rounded-full border border-[#E8DFD1] px-4 py-2 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors`
 - Empty state (no matching reports): `text-[13px] text-[#A09788]` — "No peer reports published yet for this segment."
 
 **Right column — Hamilton CTAs:**
-- Heading: `text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]` — "Ask Hamilton"
+- Heading: `text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]` (Label role) — "Ask Hamilton"
 - Two CTA links as rounded-full pills in accent style (D-09):
   - "Generate a competitive brief" — links to `/pro/research?prompt=competitive-brief&instId={id}`
   - "Ask about this institution" — links to `/pro/research?prompt=institution&instId={id}`
-- CTA pill style: `inline-flex items-center gap-1.5 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-1.5 text-[12px] font-semibold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors`
+- CTA pill style: `inline-flex items-center gap-2 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors`
 - Existing "Fee Report Card", state report, and district report pills move here (below Hamilton CTAs, styled as secondary pills)
 
 ---
@@ -292,4 +293,5 @@ Core categories requiring explainers (9 remaining):
 
 *Phase: 30-institution-educational-pages*
 *UI-SPEC generated: 2026-04-08*
+*Revised: 2026-04-07 — checker fixes: spacing (py-2.5→py-2, exception removed), color (accent reserved-for list expanded), typography (Data role collapsed into Label)*
 *Pre-populated from: CONTEXT.md (11 decisions), institution/[id]/page.tsx (all tokens), globals.css (color palette), components.json (shadcn config)*
