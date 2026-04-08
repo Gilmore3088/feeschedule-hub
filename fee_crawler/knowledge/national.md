@@ -569,3 +569,14 @@
 - Keyword-based discovery conflates related financial disclosure pages with actual fee schedules; need more specific page type detection
 - Institution reference data validation needed before discovery attempts - missing URLs waste processing cycles
 - Some institutions employ progressive access restrictions - initial page accessible but document retrieval blocked
+
+## Promoted — 2026-04-07
+- HTTP/2 errors may warrant retry logic with HTTP/1.1 fallback or increased timeouts before marking discovery as failed
+- PDF classification success does not predict extraction success; implement secondary validation that PDFs contain extractable text before attempting fee parsing
+- Improve discovery prompt to explicitly distinguish between account feature/comparison pages and actual fee schedule documents
+- Credit union fee data may be more commonly published in HTML format than PDF; adjust discovery strategy to prioritize HTML sources for FCUs
+- JS-rendered classification alone does not predict success; may need content quality checks post-rendering
+- Implement pre-discovery validation to skip records without URLs rather than attempting discovery
+
+## Promoted — 2026-04-08
+- Credit unions publishing fee schedules as PDFs show 100% extract success (5/5 in IL); banks using HTML or JS rendering show 40% extract success—consider platform-specific extraction templates by institution type

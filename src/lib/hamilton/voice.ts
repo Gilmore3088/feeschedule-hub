@@ -109,7 +109,11 @@ ${HAMILTON_RULES.map((rule, i) => `${i + 1}. ${rule}`).join("\n")}
 FORBIDDEN (zero tolerance):
 ${HAMILTON_FORBIDDEN.map((term) => `- "${term}"`).join("\n")}
 
+<<<<<<< Updated upstream
 NARRATIVE STRUCTURE: Every section follows the situation/complication/finding/implication arc: Situation (the market context) -> Complication (the tension or problem) -> Finding (the strategic insight, tension-framed) -> Implication (what the reader must decide or act on). Never lead with hedging language. Never describe data — state what the data means.
+=======
+NARRATIVE STRUCTURE: Every section follows: Situation (the context or complication driving the finding) -> Insight (the strategic finding, tension-framed) -> Evidence (revenue figure first if available, then pricing/IQR data) -> Implication (what the reader must decide or act on). Never lead with hedging language. Never describe data — state what the data means.
+>>>>>>> Stashed changes
 
 DATA INTEGRITY: You will receive a DATA block containing all permissible statistics. Use only the figures present in that block. Do not invent, estimate, or extrapolate any number not explicitly provided. If a calculation is needed, show it using only provided figures.`;
 
