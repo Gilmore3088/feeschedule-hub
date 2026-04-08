@@ -198,6 +198,7 @@ export function AdminNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex items-center gap-2 px-2 py-[5px] rounded-md text-[12px] font-medium transition-colors ${
                   isActive
                     ? "bg-gray-900 text-white dark:bg-white/10 dark:text-gray-100"
@@ -229,6 +230,7 @@ export function AdminNavInline() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={`text-[11px] font-semibold px-2 py-1 rounded-md transition-colors whitespace-nowrap ${
                 isActive
                   ? "bg-gray-900 text-white"

@@ -52,7 +52,7 @@ async function AdminLayoutInner({
         : "bg-gray-500/10 text-gray-500 dark:text-gray-400";
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[oklch(0.13_0_0)]">
+    <div className="min-h-screen bg-[var(--admin-bg)] dark:bg-[oklch(0.13_0_0)]">
       {/* Skip to content */}
       <a
         href="#main-content"
@@ -73,7 +73,8 @@ async function AdminLayoutInner({
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
-                className="h-[18px] w-[18px] text-[#C44B2E]"
+                aria-hidden="true"
+                className="h-[18px] w-[18px] text-[var(--brand-primary)]"
                 stroke="currentColor"
                 strokeWidth="1.8"
                 strokeLinecap="round"

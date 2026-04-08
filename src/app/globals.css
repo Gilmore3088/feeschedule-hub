@@ -48,6 +48,10 @@
 }
 
 :root {
+  /* Admin layout tokens */
+  --admin-bg: #f8f9fa;
+  --brand-primary: oklch(0.55 0.2 25); /* terracotta */
+
   /* Scout component color tokens */
   --scout-accent: #b91c1c;       /* red-700 */
   --scout-spinner-track: #fecaca; /* red-200 */
@@ -90,6 +94,12 @@
 }
 
 .dark {
+  /* Standardized dark background levels */
+  --dark-bg-base: oklch(0.13 0 0);
+  --dark-bg-card: oklch(0.15 0 0);
+  --dark-bg-elevated: oklch(0.18 0 0);
+  --dark-bg-hover: oklch(0.22 0 0);
+
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -421,6 +431,35 @@
 .tabular-nums {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/* ─── Admin input ─── */
+.admin-input {
+  @apply rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900
+    placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none;
+}
+.dark .admin-input,
+[data-theme="dark"] .admin-input {
+  background: var(--dark-bg-elevated);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--foreground);
+}
+
+/* ─── Admin select ─── */
+.admin-select {
+  @apply rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900
+    focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none;
+}
+.dark .admin-select,
+[data-theme="dark"] .admin-select {
+  background: var(--dark-bg-elevated);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--foreground);
+}
+
+/* ─── Admin badge interactive (44px touch target) ─── */
+.admin-badge-interactive {
+  @apply inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 py-2 rounded-md text-xs font-medium cursor-pointer;
 }
 
 /* ═══════════════════════════════════════════════

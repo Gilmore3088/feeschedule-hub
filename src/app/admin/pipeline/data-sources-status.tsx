@@ -82,18 +82,24 @@ export async function DataSourcesStatus() {
               <td className="px-4 py-2 text-right text-gray-400">{src.cadence}</td>
               <td className="px-4 py-2 text-center">
                 {src.rowCount === 0 ? (
-                  <span className="inline-block w-2 h-2 rounded-full bg-gray-300" title="No data" />
+                  <>
+                    <span className="inline-block w-2 h-2 rounded-full bg-gray-300" aria-hidden="true" title="No data" />
+                    <span className="sr-only">No data</span>
+                  </>
                 ) : src.overdue ? (
                   <Link
                     href={`/admin/ops`}
                     className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors"
                     title={`Overdue — use Quick Actions to run Refresh ${src.refreshCommand || "data"}`}
                   >
-                    <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-400" aria-hidden="true" />
                     overdue
                   </Link>
                 ) : (
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" title="Current" />
+                  <>
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" title="Current" />
+                    <span className="sr-only">Current</span>
+                  </>
                 )}
               </td>
             </tr>

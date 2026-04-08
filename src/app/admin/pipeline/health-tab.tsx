@@ -109,9 +109,13 @@ export function HealthTab({ stats, quality, lastCrawlAt, activeJobCount, pending
               className={`flex items-center justify-between px-3 py-2 rounded-lg border text-[12px] transition-colors hover:opacity-80 ${severityColors[p.severity]}`}
             >
               <div className="flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  p.severity === "red" ? "bg-red-500" : p.severity === "amber" ? "bg-amber-500" : "bg-gray-400"
-                }`} />
+                <span
+                  aria-hidden="true"
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    p.severity === "red" ? "bg-red-500" : p.severity === "amber" ? "bg-amber-500" : "bg-gray-400"
+                  }`}
+                />
+                <span className="sr-only">{p.severity === "red" ? "Critical" : p.severity === "amber" ? "Warning" : "Info"}</span>
                 <span className="font-semibold">{p.count.toLocaleString()}</span>
                 <span>{p.label}</span>
                 <span className="text-[10px] opacity-60">{p.desc}</span>
@@ -122,7 +126,7 @@ export function HealthTab({ stats, quality, lastCrawlAt, activeJobCount, pending
         </div>
       ) : (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[12px]">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           All systems healthy
         </div>
       )}

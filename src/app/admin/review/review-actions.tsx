@@ -29,6 +29,7 @@ export function ApproveButton({ feeId }: { feeId: number }) {
       data-action="approve"
       disabled={pending}
       onClick={handleClick}
+      aria-label={`Approve fee ${feeId}`}
       className="rounded px-2 py-1 text-xs font-medium bg-emerald-50 text-emerald-700
                  hover:bg-emerald-100 disabled:opacity-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30 transition-colors"
     >
@@ -59,6 +60,7 @@ export function RejectButton({ feeId }: { feeId: number }) {
       data-action="reject"
       disabled={pending}
       onClick={handleClick}
+      aria-label={`Reject fee ${feeId}`}
       className="rounded px-2 py-1 text-xs font-medium bg-red-50 text-red-700
                  hover:bg-red-100 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
     >

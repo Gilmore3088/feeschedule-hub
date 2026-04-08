@@ -23,7 +23,7 @@ export async function JobStatusBadge() {
           href="/admin/ops"
           className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
         >
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2 w-2" aria-hidden="true">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
           </span>
@@ -37,7 +37,7 @@ export async function JobStatusBadge() {
           href="/admin/ops"
           className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
         >
-          <span className="inline-flex rounded-full h-2 w-2 bg-red-500" />
+          <span className="inline-flex rounded-full h-2 w-2 bg-red-500" aria-hidden="true" />
           <span className="text-[11px] font-medium text-red-600 dark:text-red-400">
             {failed} failed (24h)
           </span>

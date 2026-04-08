@@ -127,12 +127,16 @@ export async function RecentJobs() {
               className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors no-underline group"
             >
               {/* Status dot */}
-              <span className={`mt-1 shrink-0 inline-block w-2 h-2 rounded-full ${
-                job.status === "completed" ? "bg-emerald-500" :
-                job.status === "failed" ? "bg-red-500" :
-                job.status === "running" ? "bg-blue-500 animate-pulse" :
-                "bg-gray-300"
-              }`} />
+              <span
+                aria-hidden="true"
+                className={`mt-1 shrink-0 inline-block w-2 h-2 rounded-full ${
+                  job.status === "completed" ? "bg-emerald-500" :
+                  job.status === "failed" ? "bg-red-500" :
+                  job.status === "running" ? "bg-blue-500 animate-pulse" :
+                  "bg-gray-300"
+                }`}
+              />
+              <span className="sr-only">{job.status}</span>
 
               {/* Content */}
               <div className="flex-1 min-w-0">

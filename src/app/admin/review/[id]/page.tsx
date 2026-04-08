@@ -6,6 +6,8 @@ import { ApproveButton, RejectButton } from "../review-actions";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAmount } from "@/lib/format";
 import { safeJsonb } from "@/lib/pg-helpers";
+import { FeeDetailEditor } from "./fee-detail-editor";
+import { getDisplayName } from "@/lib/fee-taxonomy";
 
 interface ValidationFlag {
   rule: string;
@@ -119,14 +121,12 @@ export default async function FeeDetailPage({
                   {fee.fee_name}
                 </dd>
               </div>
-              <div>
-                <dt className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Amount
-                </dt>
-                <dd className="mt-1 text-sm tabular-nums font-semibold text-gray-900">
-                  {formatAmount(fee.amount)}
-                </dd>
-              </div>
+              <FeeDetailEditor
+                feeId={fee.id}
+                currentAmount={fee.amount}
+                currentCategory={fee.fee_category ?? null}
+                reviewStatus={fee.review_status}
+              />
               <div>
                 <dt className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                   Frequency

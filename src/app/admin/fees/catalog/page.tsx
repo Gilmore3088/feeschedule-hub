@@ -453,13 +453,21 @@ function SortLink({
   params.set("sort", sortKey);
   params.set("dir", nextDir);
 
+  const dirLabel = isActive
+    ? currentDir === "desc"
+      ? "descending"
+      : "ascending"
+    : "unsorted";
+
   return (
     <Link
       href={`/admin/fees/catalog?${params.toString()}`}
       className="inline-flex items-center gap-1 group/sort"
+      aria-label={`Sort by ${label}, currently ${dirLabel}`}
     >
       {label}
       <span
+        aria-hidden="true"
         className={`text-[9px] ${
           isActive
             ? "text-gray-700 dark:text-gray-300"
