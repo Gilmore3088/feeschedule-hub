@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium, getResearchQueryLimit } from "@/lib/access";
-import { getAgent } from "@/lib/research/agents";
+import { getHamilton } from "@/lib/research/agents";
 import {
   ensureResearchTables,
   getUsageStats,
@@ -27,8 +27,7 @@ export default async function ProResearchPage() {
 
   await ensureResearchTables();
 
-  const agent = await getAgent("fee-analyst");
-  if (!agent) redirect("/account");
+  const agent = await getHamilton("pro");
 
   const usage = await getUsageStats(user.id);
   const dailyLimit = getResearchQueryLimit(user);

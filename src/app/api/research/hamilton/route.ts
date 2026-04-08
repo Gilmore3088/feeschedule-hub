@@ -1,6 +1,6 @@
 import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { getHamilton } from "@/lib/research/agents";
+import { getHamilton, type HamiltonRole } from "@/lib/research/agents";
 import { getCurrentUser, type User } from "@/lib/auth";
 import {
   checkPublicRateLimit,
@@ -14,6 +14,7 @@ import {
   isSkillOptIn,
   findOfferedSkill,
 } from "@/lib/research/skills";
+import { canAccessPremium } from "@/lib/access";
 
 export const maxDuration = 30;
 
@@ -44,20 +45,7 @@ function estimateCostCents(
   );
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ agentId: string }> }
-) {
-  const { agentId } = await params;
-  // Map legacy agentId values to the unified HamiltonRole
-  const role =
-    agentId === "custom-query" || agentId === "content-writer"
-      ? "admin"
-      : agentId === "fee-analyst"
-        ? "pro"
-        : "consumer";
-  const agent = await getHamilton(role);
-
+export async function POST(request: Request) {
   // Check API key
   if (!process.env.ANTHROPIC_API_KEY) {
     return Response.json(
@@ -79,32 +67,29 @@ export async function POST(
     // Tables may not exist yet — allow through
   }
 
+  // Resolve role from session
   let user: User | null = null;
   let ip = "unknown";
+  let role: HamiltonRole = "consumer";
 
-  // Auth check for admin agents
-  if (agent.requiresAuth) {
-    user = await getCurrentUser();
-    if (!user) {
-      return Response.json({ error: "Authentication required" }, { status: 401 });
-    }
+  user = await getCurrentUser();
 
-    // Check billing-aware access for premium-gated agents
-    const requiredRole = agent.requiredRole ?? "viewer";
-    if (requiredRole === "premium" || requiredRole === "analyst") {
-      const { canAccessPremium } = await import("@/lib/access");
-      if (!canAccessPremium(user)) {
-        return Response.json({ error: "Active subscription required" }, { status: 403 });
-      }
+  if (user) {
+    if (user.role === "admin" || user.role === "analyst") {
+      role = "admin";
+    } else if (user.role === "premium") {
+      role = "pro";
+    } else {
+      role = "consumer";
     }
-    if (requiredRole === "admin" && user.role !== "admin") {
-      return Response.json({ error: "Admin access required" }, { status: 403 });
-    }
+  }
 
-    // Rate limiting (premium gets lower limits than analyst/admin)
+  // Auth enforcement based on resolved role
+  if (role === "admin") {
+    // Admin/analyst — rate limit by user
     const rateResult = checkAdminRateLimit(
-      user.id,
-      user.role as "premium" | "analyst" | "admin"
+      user!.id,
+      user!.role as "premium" | "analyst" | "admin"
     );
     if (!rateResult.allowed) {
       return Response.json(
@@ -112,8 +97,20 @@ export async function POST(
         { status: 429 }
       );
     }
+  } else if (role === "pro") {
+    // Pro — check active subscription
+    if (!canAccessPremium(user)) {
+      return Response.json({ error: "Active subscription required" }, { status: 403 });
+    }
+    const rateResult = checkAdminRateLimit(user!.id, "premium");
+    if (!rateResult.allowed) {
+      return Response.json(
+        { error: "Rate limit exceeded", resetAt: rateResult.resetAt },
+        { status: 429 }
+      );
+    }
   } else {
-    // Public rate limiting by IP
+    // Consumer (unauthenticated or viewer) — rate limit by IP
     ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       request.headers.get("x-real-ip") ||
@@ -139,12 +136,15 @@ export async function POST(
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
+  const agent = await getHamilton(role);
+
   // Auto-detect and inject domain skill based on the user's latest message
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
-  const lastUserText = lastUserMessage?.parts
-    ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join(" ") || "";
+  const lastUserText =
+    lastUserMessage?.parts
+      ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .map((p) => p.text)
+      .join(" ") || "";
 
   let systemPrompt = agent.systemPrompt;
 
@@ -178,19 +178,14 @@ export async function POST(
       maxOutputTokens: agent.maxTokens,
       stopWhen: stepCountIs(agent.maxSteps),
       onFinish: async ({ usage }) => {
-        // Log usage for cost tracking
         try {
           const inputTokens = usage?.inputTokens ?? 0;
           const outputTokens = usage?.outputTokens ?? 0;
-          const costCents = estimateCostCents(
-            agent.model,
-            inputTokens,
-            outputTokens
-          );
+          const costCents = estimateCostCents(agent.model, inputTokens, outputTokens);
           await logUsage(
             user?.id ?? null,
             user ? null : ip,
-            agentId,
+            "hamilton",
             inputTokens,
             outputTokens,
             costCents
@@ -206,7 +201,6 @@ export async function POST(
     const message =
       err instanceof Error ? err.message : "An unexpected error occurred";
 
-    // Detect specific Anthropic errors
     if (message.includes("authentication") || message.includes("API key")) {
       return Response.json(
         { error: "AI service authentication failed. Check API key." },

@@ -5,7 +5,7 @@ import {
   ensureResearchTables,
   getUsageDashboard,
 } from "@/lib/research/history";
-import { getAgent } from "@/lib/research/agents";
+import { getHamilton } from "@/lib/research/agents";
 
 export default async function ResearchUsagePage() {
   await requireAuth("view");
@@ -13,11 +13,11 @@ export default async function ResearchUsagePage() {
 
   const dashboard = await getUsageDashboard();
 
-  // Pre-resolve agent configs for display
+  // Pre-resolve agent names for display — all agent_ids map to "Hamilton"
   const agentNames: Record<string, string> = {};
   for (const row of dashboard.by_agent) {
-    const config = await getAgent(row.agent_id);
-    agentNames[row.agent_id] = config?.name ?? row.agent_id;
+    // hamilton is the unified agent; legacy ids (ask, fee-analyst, etc.) also display as Hamilton
+    agentNames[row.agent_id] = row.agent_id === "hamilton" ? "Hamilton" : row.agent_id;
   }
 
   return (
