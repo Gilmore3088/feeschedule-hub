@@ -36,6 +36,37 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+async function getRelatedReports(inst: {
+  charter_type: string | null;
+  asset_size_tier: string | null;
+  fed_district: number | null;
+}): Promise<{ slug: string; title: string }[]> {
+  try {
+    const { getSql } = await import("@/lib/crawler-db/connection");
+    const db = getSql();
+    const rows = await db<{ slug: string; title: string }[]>`
+      SELECT slug, title
+      FROM published_reports
+      WHERE is_public = true
+      ORDER BY published_at DESC
+      LIMIT 20
+    `;
+    const keywords: string[] = [];
+    if (inst.charter_type)
+      keywords.push(inst.charter_type === "bank" ? "bank" : "credit union");
+    if (inst.fed_district) keywords.push(`district ${inst.fed_district}`);
+    if (inst.asset_size_tier) keywords.push(inst.asset_size_tier);
+
+    const matched = rows.filter((r) => {
+      const titleLower = r.title.toLowerCase();
+      return keywords.some((kw) => titleLower.includes(kw.toLowerCase()));
+    });
+    return matched.slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
 export async function generateStaticParams() {
   try {
     const ids = await getInstitutionIdsWithFees();
@@ -454,6 +485,8 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
       return { category: f.fee_name, institutionAmount: f.amount!, allFees };
     })
   );
+
+  const relatedReports = await getRelatedReports(inst);
 
   const nationalMedians = new Map(
     nationalIndex.map((e) => [e.fee_category, e.median_amount])
@@ -877,46 +910,102 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Report Card + Links */}
-      <div className="mt-8 flex flex-wrap gap-2">
-        <a
-          href={`/api/reports/institution/${instId}?format=html`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-1.5 text-[12px] font-semibold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors no-underline"
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
-          </svg>
-          Fee Report Card
-        </a>
-        {inst.state_code && (
-          <Link
-            href={`/research/state/${inst.state_code}`}
-            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+      {/* Intelligence & Reports */}
+      {isPro ? (
+        <section className="mt-10">
+          <h2
+            className="text-[16px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
-            {stateName} State Report
-          </Link>
-        )}
-        {inst.fed_district && (
-          <Link
-            href={`/research/district/${inst.fed_district}`}
-            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
-          >
-            District {inst.fed_district} Report
-          </Link>
-        )}
-        <Link
-          href="/fees"
-          className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
-        >
-          Fee Index
-        </Link>
-      </div>
+            Intelligence &amp; Reports
+          </h2>
+          <p className="mt-1 text-[13px] text-[#7A7062]">
+            Reports and analysis for this institution&apos;s peer group.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Left — Related Reports */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                Related Reports
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {relatedReports.length > 0 ? (
+                  relatedReports.map((r) => (
+                    <Link
+                      key={r.slug}
+                      href={`/reports/${r.slug}`}
+                      className="rounded-full border border-[#E8DFD1] px-4 py-2 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors"
+                    >
+                      {r.title}
+                    </Link>
+                  ))
+                ) : (
+                  <p className="text-[13px] text-[#A09788]">
+                    No peer reports published yet for this segment.
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Right — Hamilton CTAs */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                Ask Hamilton
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link
+                  href={`/pro/research?prompt=competitive-brief&instId=${instId}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors"
+                >
+                  Generate a competitive brief
+                </Link>
+                <Link
+                  href={`/pro/research?prompt=institution&instId=${instId}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors"
+                >
+                  Ask about this institution
+                </Link>
+              </div>
+              {/* Absorbed secondary links */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={`/api/reports/institution/${instId}?format=html`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+                >
+                  Fee Report Card
+                </a>
+                {inst.state_code && stateName && (
+                  <Link
+                    href={`/research/state/${inst.state_code}`}
+                    className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+                  >
+                    {stateName} State Report
+                  </Link>
+                )}
+                {inst.fed_district && (
+                  <Link
+                    href={`/research/district/${inst.fed_district}`}
+                    className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+                  >
+                    District {inst.fed_district} Report
+                  </Link>
+                )}
+                <Link
+                  href="/fees"
+                  className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+                >
+                  Fee Index
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <div className="mt-10">
+          <UpgradeGate message="Unlock competitive intelligence — see how your peer group compares." />
+        </div>
+      )}
 
       {/* Methodology */}
       <section className="mt-12 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-6 py-5">
