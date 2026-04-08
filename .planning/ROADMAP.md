@@ -505,9 +505,6 @@ Plans:
 Plans:
 - [x] 30-01-PLAN.md -- Fee callout explainers + PercentileBadge in PositionBar
 - [x] 30-02-PLAN.md -- Fee Distribution histograms + Intelligence section with B2B CTAs
-
-
-
 **UI hint**: yes
 
 ### Phase 30.1: Institution Page V2 -- Consumer Decision Page (INSERTED)
@@ -538,8 +535,8 @@ Plans:
   4. A Beige Book digest section shows a 2-3 sentence economic summary for the subscriber's Fed district sourced from the most recent Beige Book ingestion
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
-- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
+- [ ] 31-01-PLAN.md -- Four-door launchpad grid + peer snapshot sidebar
+- [ ] 31-02-PLAN.md -- Recent activity panel + Beige Book digest + visual checkpoint
 **UI hint**: yes
 
 ### Phase 32: Scoped Report Generation and PDF Export
