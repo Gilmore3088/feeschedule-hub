@@ -456,7 +456,7 @@ Plans:
 
 **Milestone Goal:** Create distinct, cohesive user experiences for consumers and B2B subscribers -- so each audience gets a tailored front door, clear value proposition, and purpose-built tools.
 
-- [ ] **Phase 28: Audience Shell Separation** - Distinct nav components per audience, centralized pro auth guard, personalization service
+- [x] **Phase 28: Audience Shell Separation** - Distinct nav components per audience, centralized pro auth guard, personalization service (completed 2026-04-08)
 - [x] **Phase 29: Consumer Landing Page** - Value-prop-first landing page replacing split-panel gateway, embedded Fee Scout, trust signals, consumer guide teasers, B2B door (completed 2026-04-08)
 - [ ] **Phase 30: Institution Educational Pages** - "Why does this matter?" callouts, peer percentile indicators, fee distribution charts, B2B report links per institution
 - [ ] **Phase 31: B2B Launchpad Dashboard** - Four-door pro dashboard (Hamilton, Peer Builder, Reports, Federal Data), peer snapshot, recent activity, Beige Book digest
@@ -472,8 +472,8 @@ Plans:
   3. `derivePersonalizationContext(user)` returns the user's institution name, Fed district label, asset tier, and peer group label from their account profile without a DB call
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
-- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
+- [x] 28-01-PLAN.md -- ConsumerNav + personalization service
+- [x] 28-02-PLAN.md -- ProNav + auth guard + visual verification
 **UI hint**: yes
 
 ### Phase 29: Consumer Landing Page
@@ -679,7 +679,7 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 25. Derived Analytics & Hamilton Tools | v5.0 | 2/2 | Complete | 2026-04-08 |
 | 26. National Data Admin Portal | v5.0 | 2/2 | Complete | 2026-04-08 |
 | 27. External Intelligence System | v5.0 | 2/0 | Complete | 2026-04-08 |
-| 28. Audience Shell Separation | v6.0 | 0/TBD | Not started | - |
+| 28. Audience Shell Separation | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 29. Consumer Landing Page | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 30. Institution Educational Pages | v6.0 | 0/TBD | Not started | - |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |

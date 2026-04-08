@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: National Coverage Push
 status: executing
-stopped_at: Phase 36 context gathered
-last_updated: "2026-04-08T19:21:36.245Z"
-last_activity: 2026-04-08 -- Phase 36 planning complete
+stopped_at: Completed 28-audience-shell-separation 28-01-PLAN.md
+last_updated: "2026-04-08T19:45:34.375Z"
+last_activity: 2026-04-08
 progress:
   total_phases: 4
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** The product is the data — the largest collection of bank fees anywhere. Hamilton is the gateway that turns national noise into actionable intelligence.
-**Current focus:** v7.0 Hamilton Reasoning Engine — Phase 33 ready to plan
+**Current focus:** Phase 36 — Tool & Regulation Intelligence
 
 ## Current Position
 
-Phase: 35
-Plan: Not started
+Phase: 36 (Tool & Regulation Intelligence) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-04-08 -- Phase 36 planning complete
+Last activity: 2026-04-08
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -61,6 +61,8 @@ Recent decisions affecting current work:
 - [v5.0]: Call Report service_charge_income stored in thousands -- multiply by 1000
 - [v4.2]: Report template design is locked -- do not redesign, just fill with data
 - [Phase 29-consumer-landing-page]: gateway-client.tsx deleted with zero broken references; landing page is fully server-rendered via page.tsx
+- [Phase 28-audience-shell-separation]: Personalization context is pure (no DB calls, synchronous) -- derivePersonalizationContext takes User, returns PersonalizationContext
+- [Phase 28-audience-shell-separation]: ConsumerNav is a dedicated server component with no pro/consumer branching -- each audience layout imports its own nav
 
 ### Pending Todos
 
@@ -80,9 +82,10 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260406-w3p | Move assembleAndRender into Modal worker | 2026-04-07 | 4881546 | [260406-w3p](./quick/260406-w3p-move-assembleandrender-into-modal-worker/) |
 | Phase 29-consumer-landing-page P02 | 5 | 1 tasks | 1 files |
+| Phase 28-audience-shell-separation P01 | 3 | 2 tasks | 5 files |
 
 ## Session Continuity
 
-Last session: 2026-04-08T19:15:23.274Z
-Stopped at: Phase 36 context gathered
-Resume file: .planning/phases/36-tool-regulation-intelligence/36-CONTEXT.md
+Last session: 2026-04-08T19:45:34.373Z
+Stopped at: Completed 28-audience-shell-separation 28-01-PLAN.md
+Resume file: None
