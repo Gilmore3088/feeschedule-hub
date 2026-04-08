@@ -14,7 +14,11 @@ vi.mock("./connection", () => {
 import {
   getNationalEconomicSummary,
   getDistrictEconomicSummary,
+  getDistrictBeigeBookSummaries,
+  getBeigeBookThemes,
   type DistrictEconomicSummary,
+  type BeigeBookTheme,
+  type DistrictBeigeBookSummary,
 } from "./fed";
 import { getSql } from "./connection";
 
@@ -199,5 +203,181 @@ describe("getDistrictEconomicSummary", () => {
 
     const result = await getDistrictEconomicSummary(11);
     expect(result.nonfarm_yoy_pct).toBeNull();
+  });
+});
+
+// ── getBeigeBookThemes ────────────────────────────────────────────────────────
+
+describe("getBeigeBookThemes", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns array of BeigeBookTheme objects with correct shape", async () => {
+    const mockThemeRows = [
+      {
+        release_code: "202601",
+        fed_district: 1,
+        theme_category: "growth",
+        sentiment: "positive",
+        summary: "Economic activity expanded modestly.",
+        confidence: 0.85,
+        extracted_at: "2026-01-15T00:00:00Z",
+      },
+      {
+        release_code: "202601",
+        fed_district: 1,
+        theme_category: "employment",
+        sentiment: "neutral",
+        summary: "Employment remained stable.",
+        confidence: 0.80,
+        extracted_at: "2026-01-15T00:00:00Z",
+      },
+    ];
+    // First call: fetch latest release_code; second call: fetch theme rows
+    getMock()
+      .mockResolvedValueOnce([{ release_code: "202601" }])
+      .mockResolvedValueOnce(mockThemeRows);
+
+    const result = await getBeigeBookThemes();
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(2);
+    const first = result[0] as BeigeBookTheme;
+    expect(first).toHaveProperty("release_code");
+    expect(first).toHaveProperty("fed_district");
+    expect(first).toHaveProperty("district_name");
+    expect(first).toHaveProperty("theme_category");
+    expect(first).toHaveProperty("sentiment");
+    expect(first).toHaveProperty("summary");
+    expect(first).toHaveProperty("confidence");
+    expect(first).toHaveProperty("extracted_at");
+  });
+
+  it("maps fed_district number to district_name string", async () => {
+    const mockThemeRows = [
+      {
+        release_code: "202601",
+        fed_district: 2,
+        theme_category: "growth",
+        sentiment: "positive",
+        summary: "New York activity picked up.",
+        confidence: 0.88,
+        extracted_at: "2026-01-15T00:00:00Z",
+      },
+    ];
+    getMock()
+      .mockResolvedValueOnce([{ release_code: "202601" }])
+      .mockResolvedValueOnce(mockThemeRows);
+
+    const result = await getBeigeBookThemes();
+
+    expect(result[0].district_name).toBe("New York");
+  });
+
+  it("returns empty array when no themes exist in DB", async () => {
+    getMock()
+      .mockResolvedValueOnce([]) // no latest release_code
+      .mockResolvedValueOnce([]);
+
+    const result = await getBeigeBookThemes();
+
+    expect(result).toEqual([]);
+  });
+
+  it("filters by release_code when parameter provided", async () => {
+    const mockThemeRows = [
+      {
+        release_code: "202503",
+        fed_district: 7,
+        theme_category: "prices",
+        sentiment: "negative",
+        summary: "Input costs elevated.",
+        confidence: 0.91,
+        extracted_at: "2025-03-20T00:00:00Z",
+      },
+    ];
+    getMock().mockResolvedValueOnce(mockThemeRows);
+
+    const result = await getBeigeBookThemes("202503");
+
+    expect(result.length).toBe(1);
+    expect(result[0].release_code).toBe("202503");
+  });
+
+  it("returns empty array on DB error", async () => {
+    getMock().mockRejectedValueOnce(new Error("DB connection failed"));
+
+    const result = await getBeigeBookThemes();
+
+    expect(result).toEqual([]);
+  });
+});
+
+// ── getDistrictBeigeBookSummaries audit (BEIGE-01) ────────────────────────────
+
+describe("getDistrictBeigeBookSummaries audit", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns array with district_number, district_name, summary, themes, release_date keys", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        fed_district: 1,
+        content_text: "Economic activity in Boston expanded modestly. Employment remained stable. Consumer spending increased. Prices rose.",
+        release_date: "2026-01-15",
+      },
+    ]);
+
+    const result = await getDistrictBeigeBookSummaries();
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(1);
+    const item = result[0] as DistrictBeigeBookSummary;
+    expect(item).toHaveProperty("district_number");
+    expect(item).toHaveProperty("district_name");
+    expect(item).toHaveProperty("summary");
+    expect(item).toHaveProperty("themes");
+    expect(item).toHaveProperty("release_date");
+  });
+
+  it("themes field is a string array from keyword-based extraction", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        fed_district: 3,
+        content_text: "Employment grew modestly. Inflation pressures eased. Consumer spending was flat.",
+        release_date: "2026-01-15",
+      },
+    ]);
+
+    const result = await getDistrictBeigeBookSummaries();
+
+    const themes = result[0].themes;
+    expect(Array.isArray(themes)).toBe(true);
+    themes.forEach((t: string) => expect(typeof t).toBe("string"));
+  });
+
+  it("returns empty array when DB returns no rows", async () => {
+    getMock().mockResolvedValueOnce([]);
+
+    const result = await getDistrictBeigeBookSummaries();
+
+    expect(result).toEqual([]);
+  });
+
+  it("maps district numbers to names correctly", async () => {
+    getMock().mockResolvedValueOnce([
+      {
+        fed_district: 7,
+        content_text: "Chicago district activity grew at a moderate pace.",
+        release_date: "2026-01-15",
+      },
+    ]);
+
+    const result = await getDistrictBeigeBookSummaries();
+
+    expect(result[0].district_number).toBe(7);
+    expect(result[0].district_name).toBe("Chicago");
   });
 });

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import time
 
@@ -198,7 +200,174 @@ def ingest_edition(
         print(f"    {len(sections)} sections")
 
     db.commit()
+
+    # Extract themes for each district (requires ANTHROPIC_API_KEY)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("  Warning: ANTHROPIC_API_KEY not set — skipping theme extraction")
+        return total_upserted
+
+    extraction_model = "claude-haiku-4-5-20251001"
+    print(f"  Extracting themes for edition {edition}...")
+
+    for district, slug in DISTRICT_SLUGS.items():
+        district_name = slug.replace("-", " ").title()
+        # Fetch the summary section text we just stored
+        row = db.fetchone(
+            """SELECT content_text FROM fed_beige_book
+               WHERE release_code = ? AND fed_district = ?
+                 AND section_name = 'Summary of Economic Activity'""",
+            (edition, district),
+        )
+        if not row:
+            continue
+
+        content_text = row["content_text"] if isinstance(row, dict) else row[0]
+        print(f"  Extracting themes for District {district} ({slug})...")
+
+        themes = extract_themes_for_district(content_text, district_name, model=extraction_model)
+        if themes:
+            stored = store_themes(db, edition, district, themes, extraction_model)
+            print(f"    Stored {stored} themes")
+        else:
+            print(f"    No themes extracted")
+
+        time.sleep(1)  # Rate limiting between API calls
+
+    db.commit()
     return total_upserted
+
+
+THEME_CATEGORIES = ["growth", "employment", "prices", "lending_conditions"]
+
+VALID_SENTIMENTS = {"positive", "negative", "neutral", "mixed"}
+
+
+def extract_themes_for_district(
+    content_text: str,
+    district_name: str,
+    model: str = "claude-haiku-4-5-20251001",
+) -> list[dict]:
+    """Extract structured themes from Beige Book district text using Claude Haiku.
+
+    Returns list of dicts: [{ category, sentiment, summary, confidence }]
+    Cost: ~$0.01 per district per extraction.
+    """
+    try:
+        import anthropic
+        client = anthropic.Anthropic()
+
+        system_prompt = (
+            "You are an economic analyst extracting themes from Federal Reserve "
+            "Beige Book reports. Extract exactly 4 themes as structured JSON."
+        )
+        user_prompt = (
+            f"Analyze this Beige Book district report for {district_name} and extract "
+            "exactly 4 economic themes as JSON.\n\n"
+            f"Report text:\n{content_text}\n\n"
+            "Return JSON in this exact format:\n"
+            "{\n"
+            '  "themes": [\n'
+            '    { "category": "growth", "sentiment": "positive|negative|neutral|mixed", '
+            '"summary": "1-2 sentence summary", "confidence": 0.9 },\n'
+            '    { "category": "employment", "sentiment": "...", "summary": "...", "confidence": 0.0 },\n'
+            '    { "category": "prices", "sentiment": "...", "summary": "...", "confidence": 0.0 },\n'
+            '    { "category": "lending_conditions", "sentiment": "...", "summary": "...", "confidence": 0.0 }\n'
+            "  ]\n"
+            "}\n\n"
+            "Categories must be exactly: growth, employment, prices, lending_conditions.\n"
+            "Sentiment must be exactly: positive, negative, neutral, or mixed.\n"
+            "Confidence is 0.0-1.0 reflecting how clearly the text supports this theme."
+        )
+
+        message = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": user_prompt}],
+            system=system_prompt,
+        )
+
+        response_text = message.content[0].text if message.content else ""
+
+        # Extract JSON from response (handle markdown code blocks)
+        json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+        if not json_match:
+            print(f"  Warning: No JSON found in theme extraction response for {district_name}")
+            return []
+
+        data = json.loads(json_match.group(0))
+        themes = data.get("themes", [])
+
+        # Validate and filter to known categories/sentiments
+        valid_themes = []
+        for theme in themes:
+            category = theme.get("category", "")
+            sentiment = theme.get("sentiment", "")
+            summary = theme.get("summary", "")
+            confidence = theme.get("confidence", 0.0)
+
+            if category not in THEME_CATEGORIES:
+                continue
+            if sentiment not in VALID_SENTIMENTS:
+                sentiment = "neutral"
+            if not isinstance(confidence, (int, float)):
+                confidence = 0.0
+            confidence = max(0.0, min(1.0, float(confidence)))
+
+            valid_themes.append({
+                "category": category,
+                "sentiment": sentiment,
+                "summary": str(summary),
+                "confidence": confidence,
+            })
+
+        return valid_themes
+
+    except json.JSONDecodeError as e:
+        print(f"  Warning: Failed to parse JSON from theme extraction for {district_name}: {e}")
+        return []
+    except Exception as e:
+        print(f"  Warning: Theme extraction failed for {district_name}: {e}")
+        return []
+
+
+def store_themes(
+    db: Database,
+    release_code: str,
+    fed_district: int,
+    themes: list[dict],
+    model: str,
+) -> int:
+    """Store extracted themes in beige_book_themes table.
+
+    Uses upsert to handle re-ingestion gracefully.
+    Returns count of rows upserted.
+    """
+    count = 0
+    for theme in themes:
+        db.execute(
+            """INSERT INTO beige_book_themes
+               (release_code, fed_district, theme_category, sentiment,
+                summary, confidence, model_used)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (release_code, fed_district, theme_category)
+               DO UPDATE SET
+                 sentiment = EXCLUDED.sentiment,
+                 summary = EXCLUDED.summary,
+                 confidence = EXCLUDED.confidence,
+                 extracted_at = NOW(),
+                 model_used = EXCLUDED.model_used""",
+            (
+                release_code,
+                fed_district,
+                theme["category"],
+                theme["sentiment"],
+                theme["summary"],
+                theme["confidence"],
+                model,
+            ),
+        )
+        count += 1
+    return count
 
 
 def run(

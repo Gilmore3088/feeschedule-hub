@@ -435,6 +435,65 @@ export interface FredSummary {
   as_of: string;
 }
 
+export interface BeigeBookTheme {
+  release_code: string;
+  fed_district: number;
+  district_name: string;
+  theme_category: 'growth' | 'employment' | 'prices' | 'lending_conditions';
+  sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
+  summary: string;
+  confidence: number;
+  extracted_at: string;
+}
+
+export async function getBeigeBookThemes(releaseCode?: string): Promise<BeigeBookTheme[]> {
+  try {
+    let code = releaseCode;
+
+    if (!code) {
+      const [latest] = await sql`
+        SELECT release_code FROM beige_book_themes
+        ORDER BY extracted_at DESC
+        LIMIT 1
+      ` as { release_code: string }[];
+
+      if (!latest) return [];
+      code = latest.release_code;
+    }
+
+    const rows = await sql`
+      SELECT release_code, fed_district, theme_category, sentiment,
+             summary, confidence, extracted_at
+      FROM beige_book_themes
+      WHERE release_code = ${code}
+      ORDER BY fed_district, theme_category
+    ` as {
+      release_code: string;
+      fed_district: number;
+      theme_category: string;
+      sentiment: string;
+      summary: string;
+      confidence: number;
+      extracted_at: string | Date;
+    }[];
+
+    return rows.map((row) => ({
+      release_code: row.release_code,
+      fed_district: Number(row.fed_district),
+      district_name: DISTRICT_NAMES[Number(row.fed_district)] ?? `District ${row.fed_district}`,
+      theme_category: row.theme_category as BeigeBookTheme['theme_category'],
+      sentiment: row.sentiment as BeigeBookTheme['sentiment'],
+      summary: row.summary,
+      confidence: Number(row.confidence),
+      extracted_at: row.extracted_at instanceof Date
+        ? row.extracted_at.toISOString()
+        : String(row.extracted_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getFredSummary(): Promise<FredSummary> {
   const empty: FredSummary = {
     fed_funds_rate: null,
