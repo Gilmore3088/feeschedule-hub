@@ -201,6 +201,50 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     hamiltonNarrativeBlock(narratives.executive_summary.narrative),
   ].join("\n");
 
+  // ── Economic Context: Federal Data ──────────────────────────────────────────
+  const econSections: string[] = [];
+
+  if (data.fred && (data.fred.fed_funds_rate !== null || data.fred.unemployment_rate !== null)) {
+    const econCards: Array<{ label: string; value: string; source?: string }> = [];
+    if (data.fred.fed_funds_rate !== null) {
+      econCards.push({ label: "Fed Funds Rate", value: `${data.fred.fed_funds_rate.toFixed(2)}%`, source: "Federal Reserve" });
+    }
+    if (data.fred.unemployment_rate !== null) {
+      econCards.push({ label: "Unemployment", value: `${data.fred.unemployment_rate.toFixed(1)}%`, source: "Bureau of Labor Statistics" });
+    }
+    if (data.fred.cpi_yoy_pct !== null) {
+      econCards.push({ label: "CPI YoY", value: `${data.fred.cpi_yoy_pct > 0 ? "+" : ""}${data.fred.cpi_yoy_pct.toFixed(1)}%`, source: "BLS Consumer Price Index" });
+    }
+    if (data.fred.consumer_sentiment !== null) {
+      econCards.push({ label: "Consumer Sentiment", value: data.fred.consumer_sentiment.toFixed(1), source: "Univ. of Michigan" });
+    }
+
+    econSections.push(
+      `<div style="margin: 32px 0; padding: 24px 28px; background: ${PALETTE.warmGray}; border-radius: 8px; border-left: 4px solid ${PALETTE.terracotta};">`,
+      `<h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: ${PALETTE.terracotta}; margin: 0 0 16px 0;">Economic Environment \u2014 ${data.fred.as_of || data.quarter}</h3>`,
+      statCardRow(econCards),
+      `</div>`,
+    );
+  }
+
+  if (data.district_headlines.length > 0) {
+    const headlines = data.district_headlines
+      .slice(0, 6)
+      .map((dh) => `<li style="margin-bottom: 6px;"><strong>District ${dh.district}:</strong> ${dh.headline}</li>`)
+      .join("\n");
+
+    econSections.push(
+      `<div style="margin: 24px 0; padding: 20px 28px; background: white; border: 1px solid #e5e7eb; border-radius: 8px;">`,
+      `<h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin: 0 0 12px 0;">Fed Beige Book \u2014 District Economic Narratives</h4>`,
+      `<ul style="font-size: 13px; line-height: 1.6; color: #374151; margin: 0; padding-left: 18px;">${headlines}</ul>`,
+      `</div>`,
+    );
+  }
+
+  const economicContext = econSections.length > 0
+    ? econSections.join("\n")
+    : "";
+
   // ── Ch1: The Illusion of Fee Differentiation ──────────────────────────────
   const tightestBars = d.tightest_spreads.slice(0, 10).map((s) => ({
     label: s.display_name,
