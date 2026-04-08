@@ -44,6 +44,25 @@ _SERVICE_CHARGE_CODES = {
 }
 
 
+def _apply_ffiec_scaling(
+    source: str,
+    service_charges: int | None,
+    other_noninterest: int | None,
+) -> tuple[int | None, int | None]:
+    """Apply x1000 multiplier for FFIEC source rows. NCUA rows unchanged.
+
+    FFIEC Call Report fields (RIAD4080, RIAD4107) are reported in thousands
+    of dollars. NCUA 5300 fields (ACCT_661, ACCT_131) are in whole dollars.
+    Zero values are not multiplied (they represent genuinely zero income).
+    """
+    if source == "ffiec":
+        if service_charges is not None and service_charges != 0:
+            service_charges = service_charges * 1000
+        if other_noninterest is not None and other_noninterest != 0:
+            other_noninterest = other_noninterest * 1000
+    return service_charges, other_noninterest
+
+
 def _ingest_from_csv(
     db: Database,
     csv_path: str,
@@ -94,9 +113,13 @@ def _ingest_from_csv(
             stats["matched"] += 1
             target_id = target["id"]
 
-            # Extract service charge income (in thousands for FDIC, whole dollars for NCUA)
+            # Extract service charge income (in thousands for FFIEC, whole dollars for NCUA)
             service_charges = _parse_amount(row.get("RIAD4080") or row.get("ACCT_661") or row.get("ACCT_131"))
             other_noninterest = _parse_amount(row.get("RIAD4107"))
+
+            service_charges, other_noninterest = _apply_ffiec_scaling(
+                source, service_charges, other_noninterest
+            )
 
             if service_charges is None and other_noninterest is None:
                 stats["skipped"] += 1
