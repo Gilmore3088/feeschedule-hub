@@ -52,8 +52,12 @@ const proOnlyInternalTools: ToolSet = Object.fromEntries(
 
 // Toolset definitions
 const consumerTools: ToolSet = { ...publicTools };
-const proTools: ToolSet = { ...publicTools, ...proOnlyInternalTools };
-const adminTools: ToolSet = { ...publicTools, ...internalTools };
+const { queryDistrictData: _pd, queryStateData: _ps, queryFeeRevenueCorrelation: _pf, ...coreProTools } = proOnlyInternalTools;
+const proTools: ToolSet = { ...publicTools, ...coreProTools };
+// Admin gets a curated subset — queryNationalData replaces several individual tools
+// to stay under the 200K token context limit with tool schemas
+const { queryDistrictData, queryStateData, queryFeeRevenueCorrelation, ...coreInternalTools } = internalTools;
+const adminTools: ToolSet = { ...publicTools, ...coreInternalTools };
 
 async function dataContext(): Promise<string> {
   const s = await getPublicStats();
