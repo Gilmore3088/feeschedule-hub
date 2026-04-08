@@ -26,65 +26,60 @@ export interface TopRevenueInstitution {
 export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
   const sql = getSql();
 
-  try {
-    // institution_financials has crawl_target_id, not cert_number/charter_type directly.
-    // JOIN to crawl_targets for charter_type and cert_number.
-    // report_date is TEXT (e.g. '2024-12-31') — cast to date for DATE_TRUNC.
-    const rows = await sql.unsafe(
-      `SELECT
-         TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
-         MIN(inf.report_date)                                     AS quarter_date,
-         SUM(inf.service_charge_income)                           AS total_service_charges,
-         COUNT(DISTINCT ct.cert_number)                           AS total_institutions,
-         SUM(CASE WHEN ct.charter_type = 'bank' THEN inf.service_charge_income ELSE 0 END)
-                                                                   AS bank_service_charges,
-         SUM(CASE WHEN ct.charter_type = 'credit_union' THEN inf.service_charge_income ELSE 0 END)
-                                                                   AS cu_service_charges
-       FROM institution_financials inf
-       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
-       WHERE inf.service_charge_income > 0
-       GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
-       ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
-       LIMIT $1`,
-      [quarterCount]
-    ) as {
-      quarter: string;
-      quarter_date: string;
-      total_service_charges: string;
-      total_institutions: string;
-      bank_service_charges: string;
-      cu_service_charges: string;
-    }[];
+  // institution_financials has crawl_target_id, not cert_number/charter_type directly.
+  // JOIN to crawl_targets for charter_type and cert_number.
+  // report_date is TEXT (e.g. '2024-12-31') — cast to date for DATE_TRUNC.
+  const rows = await sql.unsafe(
+    `SELECT
+       TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
+       MIN(inf.report_date)                                     AS quarter_date,
+       SUM(inf.service_charge_income)                           AS total_service_charges,
+       COUNT(DISTINCT ct.cert_number)                           AS total_institutions,
+       SUM(CASE WHEN ct.charter_type = 'bank' THEN inf.service_charge_income ELSE 0 END)
+                                                                 AS bank_service_charges,
+       SUM(CASE WHEN ct.charter_type = 'credit_union' THEN inf.service_charge_income ELSE 0 END)
+                                                                 AS cu_service_charges
+     FROM institution_financials inf
+     JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+     WHERE inf.service_charge_income > 0
+     GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
+     ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
+     LIMIT $1`,
+    [quarterCount]
+  ) as {
+    quarter: string;
+    quarter_date: string;
+    total_service_charges: string;
+    total_institutions: string;
+    bank_service_charges: string;
+    cu_service_charges: string;
+  }[];
 
-    const snapshots: RevenueSnapshot[] = rows.map((row, idx) => ({
-      quarter: row.quarter,
-      total_service_charges: Number(row.total_service_charges),
-      total_institutions: Number(row.total_institutions),
-      bank_service_charges: Number(row.bank_service_charges),
-      cu_service_charges: Number(row.cu_service_charges),
-      // YoY = compare to 4 quarters back (idx + 4); null if not available
-      yoy_change_pct: null,
-    }));
+  const snapshots: RevenueSnapshot[] = rows.map((row, idx) => ({
+    quarter: row.quarter,
+    total_service_charges: Number(row.total_service_charges),
+    total_institutions: Number(row.total_institutions),
+    bank_service_charges: Number(row.bank_service_charges),
+    cu_service_charges: Number(row.cu_service_charges),
+    // YoY = compare to 4 quarters back (idx + 4); null if not available
+    yoy_change_pct: null,
+  }));
 
-    // Attach YoY change: compare index i to index i+4 (same quarter, prior year)
-    for (let i = 0; i < snapshots.length; i++) {
-      const priorYearIdx = i + 4;
-      if (priorYearIdx < snapshots.length) {
-        const current = snapshots[i].total_service_charges;
-        const prior = snapshots[priorYearIdx].total_service_charges;
-        snapshots[i].yoy_change_pct =
-          prior > 0 ? ((current - prior) / prior) * 100 : null;
-      }
+  // Attach YoY change: compare index i to index i+4 (same quarter, prior year)
+  for (let i = 0; i < snapshots.length; i++) {
+    const priorYearIdx = i + 4;
+    if (priorYearIdx < snapshots.length) {
+      const current = snapshots[i].total_service_charges;
+      const prior = snapshots[priorYearIdx].total_service_charges;
+      snapshots[i].yoy_change_pct =
+        prior > 0 ? ((current - prior) / prior) * 100 : null;
     }
-
-    return {
-      quarters: snapshots,
-      latest: snapshots[0] ?? null,
-    };
-  } catch (e) {
-    console.warn('[getRevenueTrend]', e);
-    return { quarters: [], latest: null };
   }
+
+  return {
+    quarters: snapshots,
+    latest: snapshots[0] ?? null,
+  };
 }
 
 export async function getTopRevenueInstitutions(
