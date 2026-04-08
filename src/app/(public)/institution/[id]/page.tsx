@@ -682,8 +682,13 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         tierLabel={tierLabel ?? "Unknown"}
       />
 
-      {/* Financial Context — Call Report data (D-08, D-09, D-10) */}
-      {(revenueTrend.length > 0 || peerRanking) && (
+      {/* Financial Context — Call Report data (pro-gated) */}
+      {!isPro && (revenueTrend.length > 0 || peerRanking) && (
+        <div className="mt-8">
+          <UpgradeGate message="Call Report revenue trends and peer ranking" />
+        </div>
+      )}
+      {isPro && (revenueTrend.length > 0 || peerRanking) && (
         <section className="mt-10">
           <h2
             className="text-[16px] font-medium text-[#1A1815]"
