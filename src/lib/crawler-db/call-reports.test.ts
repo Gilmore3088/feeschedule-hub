@@ -11,8 +11,8 @@ vi.mock("./connection", () => {
   };
 });
 
-import { getRevenueTrend, getTopRevenueInstitutions, getDistrictFeeRevenue } from "./call-reports";
-import type { RevenueSnapshot, RevenueTrend, TopRevenueInstitution, DistrictFeeRevenue } from "./call-reports";
+import { getRevenueTrend, getTopRevenueInstitutions, getDistrictFeeRevenue, getRevenueByTier, getInstitutionRevenueTrend, getInstitutionPeerRanking } from "./call-reports";
+import type { RevenueSnapshot, RevenueTrend, TopRevenueInstitution, DistrictFeeRevenue, TierRevenue, InstitutionRevenueQuarter, PeerRanking } from "./call-reports";
 import { getSql } from "./connection";
 
 type MockSql = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
