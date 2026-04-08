@@ -350,8 +350,8 @@ Plans:
 
 - [ ] **Phase 23: Call Report & FRED Foundation** - Fix revenue scaling, build economic summaries, establish the data layer everything else depends on
 - [ ] **Phase 24: Industry Health & Beige Book** - Compute health metrics from institution financials, condense Beige Book narratives into usable summaries
-- [x] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer (completed 2026-04-07)
-- [x] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports (completed 2026-04-07)
+- [ ] **Phase 25: Derived Analytics & Hamilton Tools** - Cross-source analytics (concentration, dependency, per-institution) and wire all summaries into Hamilton's tool layer
+- [ ] **Phase 26: National Data Admin Portal** - Build `/admin/national` pages so all data sources are visible and verifiable before they hit reports
 - [ ] **Phase 27: External Intelligence System** - Ingest, store, and query external research/surveys alongside internal data
 
 ### Phase 23: Call Report & FRED Foundation
@@ -387,13 +387,7 @@ Plans:
   2. Fee dependency ratio (SC income / total revenue) is queryable by charter type and asset tier
   3. Revenue-per-institution averages are computed by asset tier and charter, enabling peer comparison
   4. Hamilton can call tools that return all national summary data (Call Report trends, FRED summary, Beige Book summaries, health metrics, derived analytics) and incorporate them into analysis
-**Plans**: 3 plans
-
-Plans:
-- [x] 25-01-PLAN.md — Derived analytics functions (concentration, dependency, per-institution)
-- [x] 25-02-PLAN.md — Hamilton queryNationalData tool + legacy agent consolidation
-- [ ] 25-03-PLAN.md — Gap closure: overdraft_revenue schema + FDIC ingestion + token guard
-
+**Plans**: TBD
 
 ### Phase 26: National Data Admin Portal
 **Goal**: Admin users can view, verify, and explore all national data sources through dedicated portal pages before data flows into reports
@@ -404,11 +398,7 @@ Plans:
   2. Call Report revenue dashboard displays trends over 8 quarters, top institutions by service charge income, and bank vs CU charter split
   3. Economic conditions panel shows FRED indicators (rates, unemployment, CPI YoY, sentiment) alongside Beige Book district summaries on a single view
   4. Industry health panel displays ROA, efficiency ratio, deposit/loan growth with charter segmentation
-**Plans**: 2 plans
-
-Plans:
-- [x] 26-01-PLAN.md — Page shell with tab nav, admin nav entry, overview panel with data source summary cards
-- [x] 26-02-PLAN.md — Call Reports panel (revenue trend chart, top institutions), Economic panel (FRED + Beige Book), Health panel (ROA/growth charts)
+**Plans**: TBD
 **UI hint**: yes
 
 ### Phase 27: External Intelligence System
@@ -419,12 +409,7 @@ Plans:
   1. Admin can upload or paste external reports/surveys with source attribution (source name, date, category, relevance tags)
   2. External intelligence is stored with structured metadata and is searchable by category and tags
   3. Hamilton can search external intelligence alongside internal data and cite external sources with proper attribution in analysis output
-**Plans**: 2 plans
-
-Plans:
-- [ ] 27-01-PLAN.md — Schema migration (external_intelligence table + tsvector), intelligence.ts query module, Hamilton searchIntelligence tool + citation prompt
-- [ ] 27-02-PLAN.md — Intelligence tab UI on /admin/national: ingestion form (text paste + URL fetch), document list, server actions
-**UI hint**: yes
+**Plans**: TBD
 
 ---
 
@@ -459,6 +444,6 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
 | 23. Call Report & FRED Foundation | v5.0 | 0/TBD | Not started | - |
 | 24. Industry Health & Beige Book | v5.0 | 0/TBD | Not started | - |
-| 25. Derived Analytics & Hamilton Tools | v5.0 | 1/3 | Complete    | 2026-04-07 |
-| 26. National Data Admin Portal | v5.0 | 2/2 | Complete    | 2026-04-07 |
-| 27. External Intelligence System | v5.0 | 0/2 | Not started | - |
+| 25. Derived Analytics & Hamilton Tools | v5.0 | 0/TBD | Not started | - |
+| 26. National Data Admin Portal | v5.0 | 0/TBD | Not started | - |
+| 27. External Intelligence System | v5.0 | 0/TBD | Not started | - |

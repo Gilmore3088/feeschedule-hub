@@ -722,3 +722,30 @@ INSERT INTO platform_registry (platform, fee_paths) VALUES
     ('fis',       ARRAY['/digitalbanking/fees', '/personal-banking/fees']),
     ('ncr',       ARRAY['/d3banking/fees', '/ncr/fee-schedule'])
 ON CONFLICT DO NOTHING;
+
+-- ── EXTERNAL INTELLIGENCE ──────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS external_intelligence (
+  id              BIGSERIAL PRIMARY KEY,
+  source_name     TEXT        NOT NULL,
+  source_date     DATE        NOT NULL,
+  category        TEXT        NOT NULL DEFAULT 'research',
+  tags            TEXT[]      NOT NULL DEFAULT '{}',
+  content_text    TEXT        NOT NULL,
+  source_url      TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by      TEXT,
+  search_vector   tsvector GENERATED ALWAYS AS (
+    setweight(to_tsvector('english', coalesce(source_name, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(content_text, '')), 'B')
+  ) STORED
+);
+
+CREATE INDEX IF NOT EXISTS idx_external_intelligence_search
+  ON external_intelligence USING GIN (search_vector);
+
+CREATE INDEX IF NOT EXISTS idx_external_intelligence_category
+  ON external_intelligence (category);
+
+CREATE INDEX IF NOT EXISTS idx_external_intelligence_tags
+  ON external_intelligence USING GIN (tags);
