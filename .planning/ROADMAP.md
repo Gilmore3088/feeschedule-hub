@@ -294,7 +294,7 @@ Plans:
 **Milestone Goal:** Systematic state-by-state crawl campaign to maximize fee database coverage across all 50 states, running waves of 5-10 states with 3-5 iterations each, largest states first.
 
 - [ ] **Phase 19: Wave Orchestrator** - Batch launch, auto-prioritization by institution count, CLI/Modal triggers, resume-from-failure
-- [ ] **Phase 20: Iterative Deepening** - Multi-pass per-state logic with strategy escalation and per-pass progress logging
+- [x] **Phase 20: Iterative Deepening** - Multi-pass per-state logic with strategy escalation and per-pass progress logging (completed 2026-04-08)
 - [ ] **Phase 21: Knowledge Automation** - Auto-logging learnings to state files, cross-state promotion to national.md, pruning at 50-state scale
 - [ ] **Phase 22: Wave Reporting** - Post-wave summary report: states improved, coverage delta, top discoveries
 
@@ -325,7 +325,7 @@ Plans:
 
 Plans:
 - [ ] 20-01-PLAN.md — Strategy tiers, DB schema, parameterized state agent and discover_url
-- [ ] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
+- [x] 20-02-PLAN.md — Orchestrator inner pass loop, early stop, resume, CLI --max-passes
 
 ### Phase 21: Knowledge Automation
 **Goal**: Learnings from every iteration are automatically persisted to the knowledge system without manual editing, and the knowledge base remains prompt-quality at 50-state scale
@@ -475,7 +475,7 @@ Phases execute in numeric order: 1 -> ... -> 22 -> 23 -> 24 -> 25 -> 26 -> 27
 | 17. Hamilton Chat | v2.0 | 3/3 | Complete | 2026-04-07 |
 | 18. Report Assembly Pipeline | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 19. Wave Orchestrator | v3.0 | 1/2 | In Progress | - |
-| 20. Iterative Deepening | v3.0 | 0/? | Not started | - |
+| 20. Iterative Deepening | v3.0 | 1/2 | Complete    | 2026-04-08 |
 | 21. Knowledge Automation | v3.0 | 0/? | Not started | - |
 | 22. Wave Reporting | v3.0 | 0/? | Not started | - |
 | 23. Call Report & FRED Foundation | v5.0 | 0/5 | Planned | - |
