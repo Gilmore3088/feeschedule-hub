@@ -129,7 +129,7 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
         tools: proTools,
         model: process.env.BFI_MODEL_PRO || "claude-sonnet-4-6",
         maxTokens: 4096,
-        maxSteps: 5,
+        maxSteps: 4,
         requiresAuth: true,
         requiredRole: "premium",
         exampleQuestions: [
@@ -143,7 +143,7 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
 
     case "admin": {
       const ops = await opsContext();
-      const systemPrompt = `${ADMIN_PREFIX}\n\n${dataStats}\n\n${REGULATION_INSTRUCTION}\n\n${EXTERNAL_INTELLIGENCE_INSTRUCTION}\n\n${HAMILTON_SYSTEM_PROMPT}${ops}`;
+      const systemPrompt = `${ADMIN_PREFIX}\n\n${dataStats}\n\n${REGULATION_INSTRUCTION}\n\n${EXTERNAL_INTELLIGENCE_INSTRUCTION}\n\nCRITICAL TOOL USAGE RULE: Make at most 2-3 tool calls total, then synthesize your findings into a complete response. Never call the same tool twice with the same parameters. If a tool returns empty or insufficient data, state what you found and what data was unavailable — do not retry.\n\n${HAMILTON_SYSTEM_PROMPT}${ops}`;
       return {
         id: "hamilton",
         name: "Hamilton",
@@ -153,7 +153,7 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
         tools: adminTools,
         model: process.env.BFI_MODEL_ADMIN || "claude-sonnet-4-6",
         maxTokens: 6000,
-        maxSteps: 8,
+        maxSteps: 4,
         requiresAuth: true,
         requiredRole: "admin",
         exampleQuestions: [
