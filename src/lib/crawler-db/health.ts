@@ -205,3 +205,69 @@ export async function getLoanGrowthTrend(
 ): Promise<GrowthTrend | null> {
   return buildGrowthTrend("total_loans", quarterCount);
 }
+
+export interface InstitutionCountTrend {
+  quarter: string;
+  bank_count: number;
+  cu_count: number;
+  total: number;
+  bank_change_pct: number | null;
+  cu_change_pct: number | null;
+}
+
+// Returns quarterly counts of active institutions by charter type with QoQ change percentages.
+// "Active" = at least one filing in institution_financials for that quarter.
+// Per D-02: "Count distinct institutions with filings per quarter. No filing = presumed inactive."
+export async function getInstitutionCountTrends(
+  quarterCount = 8
+): Promise<InstitutionCountTrend[]> {
+  try {
+    const rows = await sql.unsafe(
+      `SELECT
+         TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
+         COUNT(DISTINCT CASE WHEN ct.charter_type = 'bank' THEN inf.crawl_target_id END)         AS bank_count,
+         COUNT(DISTINCT CASE WHEN ct.charter_type = 'credit_union' THEN inf.crawl_target_id END) AS cu_count
+       FROM institution_financials inf
+       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
+       ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
+       LIMIT $1`,
+      [quarterCount]
+    ) as { quarter: string; bank_count: number | string; cu_count: number | string }[];
+
+    if (rows.length === 0) return [];
+
+    const parsed = rows.map((r) => ({
+      quarter: r.quarter,
+      bank_count: Number(r.bank_count),
+      cu_count: Number(r.cu_count),
+    }));
+
+    // Compute quarter-over-quarter change_pct for each row (compare index i to index i+1)
+    return parsed.map((row, i) => {
+      const prior = parsed[i + 1];
+      let bank_change_pct: number | null = null;
+      let cu_change_pct: number | null = null;
+
+      if (prior) {
+        if (prior.bank_count > 0) {
+          bank_change_pct = ((row.bank_count - prior.bank_count) / prior.bank_count) * 100;
+        }
+        if (prior.cu_count > 0) {
+          cu_change_pct = ((row.cu_count - prior.cu_count) / prior.cu_count) * 100;
+        }
+      }
+
+      return {
+        quarter: row.quarter,
+        bank_count: row.bank_count,
+        cu_count: row.cu_count,
+        total: row.bank_count + row.cu_count,
+        bank_change_pct,
+        cu_change_pct,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
