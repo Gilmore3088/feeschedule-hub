@@ -159,37 +159,37 @@ Requirements for Two-Sided Experience milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHELL-01 | Pending | Pending |
-| SHELL-02 | Pending | Pending |
-| SHELL-03 | Pending | Pending |
-| CLND-01 | Pending | Pending |
-| CLND-02 | Pending | Pending |
-| CLND-03 | Pending | Pending |
-| CLND-04 | Pending | Pending |
-| CLND-05 | Pending | Pending |
-| CLND-06 | Pending | Pending |
-| CLND-07 | Pending | Pending |
-| CLND-08 | Pending | Pending |
-| INST-01 | Pending | Pending |
-| INST-02 | Pending | Pending |
-| INST-03 | Pending | Pending |
-| INST-04 | Pending | Pending |
-| B2B-01 | Pending | Pending |
-| B2B-02 | Pending | Pending |
-| B2B-03 | Pending | Pending |
-| B2B-04 | Pending | Pending |
-| B2B-05 | Pending | Pending |
-| RPT-01 | Pending | Pending |
-| RPT-02 | Pending | Pending |
-| RPT-03 | Pending | Pending |
-| RPT-04 | Pending | Pending |
+| SHELL-01 | Phase 28 | Pending |
+| SHELL-02 | Phase 28 | Pending |
+| SHELL-03 | Phase 28 | Pending |
+| CLND-01 | Phase 29 | Pending |
+| CLND-02 | Phase 29 | Pending |
+| CLND-03 | Phase 29 | Pending |
+| CLND-04 | Phase 29 | Pending |
+| CLND-05 | Phase 29 | Pending |
+| CLND-06 | Phase 29 | Pending |
+| CLND-07 | Phase 29 | Pending |
+| CLND-08 | Phase 29 | Pending |
+| INST-01 | Phase 30 | Pending |
+| INST-02 | Phase 30 | Pending |
+| INST-03 | Phase 30 | Pending |
+| INST-04 | Phase 30 | Pending |
+| B2B-01 | Phase 31 | Pending |
+| B2B-02 | Phase 31 | Pending |
+| B2B-03 | Phase 31 | Pending |
+| B2B-04 | Phase 31 | Pending |
+| B2B-05 | Phase 31 | Pending |
+| RPT-01 | Phase 32 | Pending |
+| RPT-02 | Phase 32 | Pending |
+| RPT-03 | Phase 32 | Pending |
+| RPT-04 | Phase 32 | Pending |
 
 **Coverage:**
 - v5.0 requirements: 29 total (all complete)
 - v6.0 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24
+- Mapped to phases: 24
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-07*
-*Last updated: 2026-04-08 after v5.0 completion*
+*Last updated: 2026-04-07 after v6.0 roadmap creation*
