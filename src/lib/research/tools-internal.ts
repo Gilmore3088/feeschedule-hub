@@ -60,7 +60,7 @@ import {
 
 export const queryDistrictData = tool({
   description:
-    "Returns institution count, fee count, coverage stats, and Beige Book commentary for a Fed district. When: district-level analysis, regional benchmarking. Combine with: queryNationalData(fed_content, district:N) for recent speeches, queryNationalData(complaints, district:N) for CFPB signals, queryNationalData(economic, district:N) for FRED labor/inflation data.",
+    "Returns institution count, fee count, coverage stats, and Beige Book commentary for a Fed district. When: district-level analysis, regional benchmarking. Combine with: queryNationalData, queryNationalData(complaints, district:N) for CFPB signals, queryNationalData(economic, district:N) for FRED labor/inflation data.",
   inputSchema: z.object({
     districtId: z.number().min(1).max(12).describe("Fed district number (1-12)"),
   }),
@@ -81,7 +81,7 @@ export const queryDistrictData = tool({
 
 export const queryStateData = tool({
   description:
-    "Returns institution count, fee count, and coverage stats for a US state. When: state-level scoping, geography filters, state ranking. Combine with: queryNationalData(demographics, stateFips:XX) for Census income/poverty context, queryNationalData(deposits, stateFips:XX) for deposit market share.",
+    "Returns institution count, fee count, and coverage stats for a US state. When: state-level scoping, geography filters, state ranking. Combine with: queryNationalData, queryNationalData(deposits, stateFips:XX) for deposit market share.",
   inputSchema: z.object({
     stateCode: z.string().length(2).describe("Two-letter state code (e.g., CA, TX)"),
   }),
@@ -92,7 +92,7 @@ export const queryStateData = tool({
 
 export const queryFeeRevenueCorrelation = tool({
   description:
-    "Returns correlation between published fee schedules and FDIC/NCUA service charge income. Views: institutions (per-institution), by_tier (asset tier summary), by_charter (bank vs CU). When: revenue dependency questions, fee-to-income analysis. Combine with: queryNationalData(call_reports) for revenue trends, queryNationalData(health) for ROA/efficiency context.",
+    "Returns correlation between published fee schedules and FDIC/NCUA service charge income. Views: institutions (per-institution), by_tier (asset tier summary), by_charter (bank vs CU). When: revenue dependency questions, fee-to-income analysis. Combine with: queryNationalData, queryNationalData(health) for ROA/efficiency context.",
   inputSchema: z.object({
     view: z
       .enum(["institutions", "by_tier", "by_charter"])
