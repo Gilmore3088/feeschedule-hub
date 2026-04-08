@@ -446,3 +446,39 @@
 ## Promoted — 2026-04-07
 - Institutions publishing fees as structured HTML tables should be prioritized in discovery workflows - significantly higher success rate than other formats
 - When extraction succeeds in MA run, data quality is reliable - focus remediation on improving discovery/classification rather than validation
+
+## Promoted — 2026-04-07
+- JS-rendered financial pages may require additional wait time or interaction simulation beyond basic rendering for fee extraction.
+- PDF fee extraction success correlates with document structure/layout, not just format type.
+- HTML-formatted fee schedules are most consistently parseable across institutions.
+- Smaller financial institutions may not publish comprehensive fee schedules online; extraction limits may reflect actual content availability.
+
+## Promoted — 2026-04-07
+- Implement HTTP/2 error recovery or fallback to HTTP/1.1 for institutions with protocol negotiation issues
+- Investigate PDF extraction pipeline - classification success does not guarantee content extraction; may need separate validation for PDF content accessibility
+- Discover phase filtering is too conservative for partial fee disclosures; consider separating 'comprehensive fee schedule found' from 'fee information present' to capture pages with embedded or incomplete fee data
+- JS-rendered classification does not correlate with extraction success - may need post-render DOM validation to verify fee table structure presence
+- HTML-native fee schedules appear more reliable than JS-rendered or PDF formats for automated extraction
+- Pre-verified institution URLs significantly improve extraction outcomes; prioritize maintaining authoritative URL database over discovery for known institutions
+- Implement validation gate to prevent discover attempts on institutions without verified website_url
+
+## Promoted — 2026-04-07
+- Implement OCR preprocessing for PDF documents before extraction; current extraction fails silently on scanned fee schedules
+- Prioritize scraping HTML/js_rendered formats over PDFs; consider deprioritizing PDF extraction without OCR capability
+- js_rendered classification needs refinement to predict which pages will successfully extract after rendering
+- Implement retry logic with backoff for connection-reset errors; may recover data on retry
+- Discover filter is working as intended; these rejections are accurate
+- Credit unions may be more reliable sources for fee schedule discovery overall
+
+## Promoted — 2026-04-07
+- JS-rendered fee schedule pages may require dynamic content stabilization or additional wait time before extraction; classification success does not guarantee extractable structured data in JS contexts
+- PDF-formatted fee schedules are reliable extraction targets; prioritize PDF discovery paths
+- Low fee count may indicate simplified or summary schedules; verify these institutions actually publish complete schedules rather than extracts
+- Discovery skipping may be masking accessible fee schedules; implement keyword-based pre-filtering for financial institutions
+
+## Promoted — 2026-04-07
+- JS-rendered fee schedules require validation of actual DOM content after rendering; discovery success doesn't guarantee extractable structured data
+- PDF documents remain most reliable format for fee schedule extraction; prioritize PDF discovery paths
+- Implement redirect-following and URL validation before extraction attempt; 404s on classified PDFs indicate indexing/link decay
+- HTML extraction quality varies by bank's fee table markup; consider institution-specific parsing rules
+- Skipped discoveries need periodic re-validation; URLs may become stale or institutions may change publishing practices

@@ -1,441 +1,344 @@
-# Domain Pitfalls: B2B Financial Content & AI Report Engine
+# Pitfalls Research
 
-**Domain:** B2B financial intelligence platform — AI-generated research reports for banking executives
-**Project:** Bank Fee Index — v2.0 Hamilton content/report engine
-**Researched:** 2026-04-06
-**Confidence:** MEDIUM-HIGH (multiple sources; some claims verified with official docs, some WebSearch only)
+**Domain:** Audience-segmented UX split — adding distinct consumer and B2B experiences to an existing monolithic Next.js App Router app
+**Researched:** 2026-04-07
+**Confidence:** HIGH (based on direct codebase inspection + established Next.js App Router patterns)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, credibility loss with paying customers, or product-level failures.
+### Pitfall 1: SEO Regression From Route Restructuring
+
+**What goes wrong:**
+The existing public pages at `/(public)/fees/[category]`, `/(public)/institution/[id]`, `/(public)/research/state/[code]`, etc. are the SEO backbone — they already appear in `sitemap.ts` as `BASE_URL/fees/...`, `BASE_URL/institution/...`, etc. If these routes get moved, renamed, or wrapped inside audience-scoped prefixes (e.g., `/consumer/fees/...`) to serve a redesigned consumer experience, Google loses the existing index positions. The canonical URLs are public-facing, already structured without a `/consumer/` prefix, and any redirect chain introduces crawl lag.
+
+**Why it happens:**
+The impulse to "give consumers their own space" leads to creating `/consumer/fees/[category]` instead of redesigning `/(public)/fees/[category]` in place. The split-panel gateway at `/` and the existence of `/consumer/page.tsx` make it tempting to move all consumer content under `/consumer/*`.
+
+**How to avoid:**
+Never add an audience prefix to URLs that are already indexed. The consumer experience redesign must happen in-place: update `/(public)/fees/[category]/page.tsx` and `/(public)/institution/[id]/page.tsx` directly. The `/consumer/` route should redirect to `/` or serve only as the post-gateway landing — it should never become a parallel URL tree for existing content. The `/(public)` route group is a routing convenience (zero URL impact) that already isolates the consumer content correctly. Use it.
+
+If a page genuinely needs a consumer-only URL (e.g., a guided comparison tool), create it as a new route, not a shadow of an existing one.
+
+**Warning signs:**
+- Any new `src/app/consumer/fees/` or `src/app/consumer/institution/` directories
+- `sitemap.ts` growing new `consumer/` URL entries for content that already exists at bare paths
+- A 301 redirect map longer than 5 entries
+
+**Phase to address:**
+First phase that touches any `/(public)` page layout or routing. Establish a "no URL changes" contract before any consumer redesign work begins.
 
 ---
 
-### Pitfall 1: Hamilton Fabricates a Statistic (AI Hallucination in Published Reports)
+### Pitfall 2: The Split-Panel Gateway Is a Dead End for SEO and First Impressions
 
-**What goes wrong:** Hamilton produces a narrative like "Banks in Montana charge a median overdraft fee
-of $34 — 18% above the national average." The national median in the pipeline is $29, not the baseline
-Hamilton used. The 18% delta is fabricated. A bank compliance officer cites it in an internal memo.
-When the discrepancy surfaces, the credibility of every published report is called into question.
+**What goes wrong:**
+The current `GatewayClient` at `/` is a client component ("use client") that shows a split-panel "choose your experience" interaction. Google does not reliably execute client-side rendering for initial indexing. The root URL — the highest-authority page — renders no indexable content for search engines. It is also poor UX: first-time visitors have to identify themselves before seeing any value.
 
-**Why it happens:** LLMs (including Claude) synthesize plausible-sounding numbers when given partial
-context. If the prompt does not pin every numeric claim to a specific pipeline query result, the model
-will interpolate from training data — which for bank fees is stale, incomplete, and often wrong.
-Chatbots have been documented hallucinating as much as 27% of responses; financial figures are a
-high-risk category because the model has seen many financial statistics and will confidently produce
-variants of them.
+**Why it happens:**
+The split-panel feels like an elegant design solution that respects both audiences. It defers the audience-routing decision to the user. The problem is that search engines and users arriving from a direct link get nothing useful.
 
-**Consequences:**
-- A single verifiably wrong statistic in a published report destroys trust with B2B subscribers who
-  are paying $2,500/mo precisely because they need reliable data.
-- Regulatory exposure: banks citing wrong fee data in competitive analyses could face compliance
-  questions if the source is later discredited.
-- The "McKinsey-grade" positioning collapses — McKinsey reports are trusted because they are auditable.
+**How to avoid:**
+Replace the gateway with a value-first consumer landing page rendered by a Server Component. The root `/` should be the consumer-facing front door by default — it is where organic traffic lands. Pro/B2B entry should be a prominent but secondary action (nav link, sticky CTA, or dedicated `/pro` path). This is confirmed by the PROJECT.md principle "B2B primary, consumer secondary" — but "primary" refers to revenue, not traffic origin. Consumer organic traffic is the discovery engine.
 
-**Prevention:**
-- All numeric claims in Hamilton output must be injected via structured data from the pipeline — never
-  derived by the LLM from context. Use a data injection pattern: query the DB, format results as a
-  typed JSON object, pass to Hamilton, and prompt with "use only the figures provided below — do not
-  calculate or infer statistics."
-- Implement a post-generation validator that extracts all numeric values from Hamilton's output and
-  cross-checks them against the source data object. If a number appears in the report that was not
-  in the input data, flag the report as requiring human review before publication.
-- Never allow Hamilton to receive raw narrative context (e.g., previous reports) without a grounding
-  anchor of current pipeline data. RAG over past reports alone is a hallucination vector.
+Critically: the `GatewayClient` is currently the root `page.tsx`. Replacing it with a Server Component resolves the SSR gap in one move.
 
-**Detection (warning signs):**
-- Hamilton output contains percentages, ratios, or medians that differ from the pipeline values passed in.
-- Report mentions a fee category or institution count not present in the source data JSON.
-- Hamilton uses hedge phrases like "approximately" or "roughly" — a signal it is interpolating, not citing.
+**Warning signs:**
+- Root `/` page still has `"use client"` at the top
+- Google Search Console shows `/` with no impressions or "Crawled - not indexed" status
+- `metadata` on root page is generic/incomplete
+
+**Phase to address:**
+Phase 1 of the milestone — consumer landing page redesign. This is the highest-leverage first move.
 
 ---
 
-### Pitfall 2: Data Freshness Theater — Reports Look Current But Are Stale
+### Pitfall 3: Component Duplication Between Consumer and B2B Experiences
 
-**What goes wrong:** The National Fee Index report publishes quarterly. A bank executive reads the Q1
-report in late March. The underlying fee data was last updated in November. The report headline says
-"Q1 2026 Fee Intelligence" but 60% of the institutions in the national index have not been re-crawled
-since Q3 2025. The report feels current but is materially stale.
+**What goes wrong:**
+`/(public)/layout.tsx`, `/consumer/layout.tsx`, and `/pro/layout.tsx` all currently render `<CustomerNav />` and `<CustomerFooter />`. When the B2B experience gets distinct navigation (the milestone calls for "distinct navigation and layout"), the instinct is to create `ProNav` and `ProLayout` from scratch. Fee table components, index previews, and stat cards get duplicated with slight visual variations. After two or three phases, you have two separate component trees with the same business logic diverging.
 
-**Why it happens:** Stale peer groups and stale data are the most commonly cited failure modes in
-financial benchmarking products. The pipeline has coverage gaps — Wyoming is 91%, Montana is 47% — and
-re-crawl cadence is not uniform. Without explicit coverage metadata in reports, the data age is opaque.
+**Why it happens:**
+The consumer and B2B audiences have genuinely different needs, which makes diverging components feel justified in the moment. Each new page is built to look distinct, so the shared components get forked instead of parameterized.
 
-**Consequences:**
-- A subscriber discovers that a competitor's fee listed as $12 in the report actually changed to $8 in
-  January. They stop trusting the platform and churn at renewal.
-- The "timely" aspect of the value proposition — "accurate, complete, timely fee data" — is broken.
+**How to avoid:**
+Identify the abstraction boundary before writing the first new component: data/logic is shared, presentation is audience-specific. Components like `FeeIndexTable`, `InstitutionCard`, `PeerFilterPanel` should remain in `src/components/` and accept an optional `variant` prop or be composed differently at the layout level. Navigation (`ProNav`, `CustomerNav`) is legitimately distinct and should be separate files — but fee display components should not be duplicated.
 
-**Prevention:**
-- Every published report must include a "Data Coverage" section: total institutions in the index,
-  median crawl age (in days), percentage crawled within the last 90 days, and a per-state coverage map.
-- Do not publish a report if median crawl age exceeds a defined threshold (e.g., 120 days for national,
-  90 days for state reports). Surface this as a build-time gate in the report generation pipeline.
-- Differentiate between "in index" (we have a fee record) and "recently verified" (crawled within the
-  coverage window). Reports should only use "recently verified" data for headline statistics.
+Enforce a rule: if a component queries `crawler-db`, it lives in `src/components/` and is shared. If it only renders markup with a specific visual treatment, a variant prop or composition is correct.
 
-**Detection (warning signs):**
-- The pipeline `last_crawled_at` distribution is heavily bimodal — many institutions never re-crawled
-  after initial ingestion.
-- Reports omit a "last updated" or "coverage" section entirely.
+**Warning signs:**
+- A `src/components/pro/` directory mirroring `src/components/public/` with near-identical components
+- `ProFeeTable.tsx` and `PublicFeeTable.tsx` both calling `getNationalIndex()`
+- More than two different implementations of the fee amount/percentile display pattern
+
+**Phase to address:**
+Before any new component is built for either audience. Establish the component boundary policy as a planning artifact.
 
 ---
 
-### Pitfall 3: The Report Is a Dashboard in Disguise
+### Pitfall 4: Hamilton Agent Prompt Injection via Pro-Tier Access
 
-**What goes wrong:** The "Hamilton report" is actually a PDF dump of the admin dashboard tables —
-rows of fee categories, medians, and counts, with a brief AI-written paragraph at the top summarizing
-them. Bank executives open it, see 12 tables and 3 charts, and file it away unread. It does not feel
-like a McKinsey report; it feels like a data export.
+**What goes wrong:**
+The `fee-analyst` agent is gated at `requiredRole: "premium"`. A premium subscriber ($2,500/mo) can call `/api/research/fee-analyst` and inject prompts designed to extract admin-tier context (operations status, pending review counts, job queue state), since `fee-analyst` uses `{ ...publicTools, ...internalTools }` — the same tool set as `custom-query` which requires `admin`. The `opsContext()` function that injects operational data is only called in the analyst and custom-query system prompts, so the tools are scoped correctly, but `internalTools` likely expose DB access beyond what a paying subscriber should have visibility into.
 
-**Why it happens:** It is far easier to generate a report template by serializing DB query results
-into a document than it is to structure an argument around those results. Developers naturally produce
-table-first output because that is how they think about data.
+Additionally, the new "Expanded Hamilton for pro users" feature described in the milestone introduces a new surface: pro users generating peer briefs and competitive snapshots via the agent. If the new pro agent shares the same `agentId` namespace as admin agents, a pro user who discovers an admin `agentId` (e.g., `content-writer`) can call it directly against the API if only the UI is gated rather than the route.
 
-**Consequences:**
-- The $2,500/mo subscriber renews based on the peer benchmarking tool, not the reports. The reports
-  become a secondary afterthought, eliminating a major retention and upsell driver.
-- The report cannot be used as a marketing/SEO asset because it offers no shareable insights —
-  just data a competitor could get from public FDIC call report filings.
+**Why it happens:**
+Auth is implemented correctly at the role level for existing agents. The gap is that new pro-facing agents may be added without explicitly setting `requiredRole: "admin"` on admin-only agents that remain accessible by `agentId` through the API. UI-only gating is invisible to API callers.
 
-**Prevention:**
-- Structure every report around an executive narrative, not tables. The template must impose a
-  fixed structure: situation → complication → key finding → recommendation → supporting data. Tables
-  are appendices, not the body.
-- Every section of a Hamilton report must have an "insight title" following the McKinsey rule: the
-  title states the conclusion, not the topic. "Montana overdraft fees run 23% above the national median"
-  not "Overdraft Fee Analysis."
-- Enforce the rule: no section body may be purely tabular. Every table must be preceded by a
-  1-2 sentence interpretive sentence written by Hamilton.
+**How to avoid:**
+The API route already enforces `requiredRole` — this is the correct pattern. The risk is in the new agents: any new `agentId` added for pro users must have `requiresAuth: true` and `requiredRole: "premium"`. Admin agents (`content-writer`, `custom-query`) must be explicitly verified to have `requiredRole: "admin"` and tested that a session with `role: "premium"` returns 403.
 
-**Detection (warning signs):**
-- The report's table-of-contents reads like a list of fee categories rather than a list of findings.
-- A reader can extract all meaningful content by reading only the tables and ignoring the prose.
+Write one integration test per agent that verifies a premium user cannot access admin-only agents by `agentId`. This test should live in `src/lib/research/agents.test.ts` and run in CI.
+
+**Warning signs:**
+- A new pro agent added to `agents.ts` without `requiredRole` set
+- Pro dashboard UI that passes `agentId` from URL params without validation
+- No test coverage on agent access control boundaries
+
+**Phase to address:**
+Any phase that adds or exposes new Hamilton agents to pro users.
 
 ---
 
-### Pitfall 4: Hamilton Voice Drift Across Reports
+### Pitfall 5: Report Generation Cost Controls Missing Per-User Budget
 
-**What goes wrong:** The January national index report is formal and analytical. The March Montana
-state report is conversational. The April competitive brief sounds like a press release. Each report
-was generated with a slightly different system prompt because the persona definition was not locked.
-Subscribers who read multiple reports notice the inconsistency. The brand feels unpolished.
+**What goes wrong:**
+The current `/api/research/[agentId]/route.ts` has a $50/day global circuit breaker (`DAILY_COST_LIMIT_CENTS = 5000`). The `/api/reports/generate/route.ts` has a dual-auth path (session cookie or cron secret) but no visible per-user daily generation limit. When pro users can trigger report generation on demand (peer briefs, annual summaries, competitive snapshots), a single premium user can exhaust the daily budget before other users have a chance to run reports.
 
-**Why it happens:** AI persona drift happens when the system prompt for "Hamilton" evolves without
-versioning, or when different report types use subtly different prompt templates that each embed slightly
-different persona instructions. Over months, drift accumulates.
+The per-user query limit in `getResearchQueryLimit()` (50/day for premium) applies to the streaming agent endpoint but there is no confirmation this applies to the report generation path, which uses a separate route.
 
-**Consequences:**
-- "McKinsey-grade" positioning requires a consistent, authoritative voice. Inconsistency signals
-  that the reports are algorithmically generated rather than analyst-authored — which is true, but
-  should not be obvious.
-- If the persona is ever described as "Hamilton, Bank Fee Index's research analyst," inconsistent tone
-  undercuts the brand equity being built around that name.
+**Why it happens:**
+Report generation was originally admin-initiated (cron-triggered). Adding user-initiated report generation on the pro tier introduces a new cost surface that the existing admin-centric limits don't cover. The cost of a Claude-generated McKinsey-grade report is $5-10 per the PROJECT.md constraints — 10 premium users each triggering 5 reports in a day = $250-500 in API costs, well above the daily circuit breaker.
 
-**Prevention:**
-- Lock the Hamilton persona in a single canonical system prompt file (`prompts/hamilton-persona.md`),
-  versioned in git. All report generation scripts import from this one file — no inline persona definitions.
-- Define the persona with 5-7 concrete stylistic rules (active voice, no hedging language, lead with
-  insight not caveat, use "institution" not "bank" when including credit unions, etc.) rather than
-  vague adjectives like "professional" or "analytical."
-- Add a persona consistency review step: before publishing any report, run Hamilton's output through
-  a second prompt that checks adherence to the style rules and flags violations.
+**How to avoid:**
+Add per-user report generation limits tracked in the database. A `report_generation_events` table (user_id, generated_at, report_type, cost_cents) with a daily query against it at generation time. The limit should be separate from the streaming agent limit: suggest 3-5 reports/day per premium user, 20/day for admin/analyst.
 
-**Detection (warning signs):**
-- Different reports use different terms for the same concept ("financial institution" vs "bank" vs "lender").
-- The hedging density (count of "may," "might," "could," "approximately") varies significantly between reports.
+Also: the freshness gate in `checkFreshness()` is the existing guard against redundant generation — verify it also blocks per-user rapid re-generation, not just global data-freshness checks.
+
+**Warning signs:**
+- `/api/reports/generate` route does not query a per-user daily count before enqueuing
+- Premium users can call the generate endpoint in a loop without 429s
+- No per-user report count visible in the admin ops dashboard
+
+**Phase to address:**
+Phase that implements pro-user report generation (expanded Hamilton). Cannot ship to pro users without this.
 
 ---
 
-### Pitfall 5: PDF Generation Breaks in Serverless — The Puppeteer Trap
+### Pitfall 6: Dark Mode Breaks on Consumer Pages That Skip Admin CSS Classes
 
-**What goes wrong:** The report engine generates PDFs using Puppeteer (headless Chrome). This works
-perfectly in local development. On Vercel or Modal, it fails with a 504 timeout or `Error: Failed to
-launch the browser process` because serverless environments have no persistent writable filesystem, no
-Chromium binary, and insufficient memory for a full browser process.
+**What goes wrong:**
+The dark mode implementation uses a `.dark` class on the document root, with CSS overrides in `globals.css` targeting `.dark .admin-card`, `.dark .admin-table`, `.dark .admin-content .bg-white`, etc. The admin UI uses semantic CSS class names that are explicitly handled. Consumer pages use inline Tailwind with hardcoded color tokens (`bg-[#FAF7F2]`, `text-[#1A1815]`, `border-[#E8DFD1]`). These arbitrary values have no `.dark` override rules.
 
-**Why it happens:** This is the most widely documented PDF generation pitfall in Next.js deployments.
-Puppeteer requires a full OS, persistent writable filesystem, and 500MB+ of memory — all of which are
-absent in constrained serverless runtimes. Even with `@sparticuz/chromium` (the serverless-compatible
-Chromium build), cold start times exceed 10 seconds and Lambda-style memory limits cause crashes on
-multi-page reports.
+When the dark mode toggle (which reads from `localStorage: 'bfi-theme'`) is applied globally and a user navigates from admin to the consumer section, or when the new B2B launchpad dashboard uses the same dark mode toggle, consumer pages will not respond — they'll remain cream/warm-white (#FAF7F2) regardless of the toggle state.
 
-**Consequences:**
-- Report generation silently fails in production while working in development. The first production
-  subscriber to request a competitive brief PDF gets an error.
-- Migrating away from Puppeteer after the report template system is built around HTML-to-PDF conversion
-  requires a full template rewrite.
+**Why it happens:**
+Dark mode was implemented exclusively for the admin interface. Consumer pages were designed as light-only. The milestone creates a B2B dashboard that may want dark mode (or at minimum must coexist with the toggle), and consumer pages may receive dark mode as a new feature.
 
-**Prevention:**
-- Do not use Puppeteer for report PDF generation on serverless. Use `@react-pdf/renderer` (server-side
-  React component tree → PDF) or `pdfmake` for report templates. Both run in Node.js without a browser
-  dependency and work in serverless.
-- If the design system requires precise HTML/CSS fidelity in PDFs, use a dedicated PDF microservice
-  on a persistent compute environment (Modal or a long-running container), not the Next.js API route.
-- Decide the PDF rendering architecture before building the first report template — the choice of
-  library determines the component authoring model.
+**How to avoid:**
+Make an explicit decision at the start of the milestone: does dark mode apply to consumer pages or only admin? If consumer pages are intentionally light-only, the `DarkModeToggle` component must not be rendered in `CustomerNav` or any consumer layout. If dark mode is desired for consumer pages, all hardcoded `#FAF7F2`/`#1A1815` color values must be converted to CSS custom properties or Tailwind's `dark:` variant equivalents.
 
-**Detection (warning signs):**
-- Any `import puppeteer` or `import chromium from '@sparticuz/chromium'` in an API route or Server Action.
-- PDF generation works locally but returns 504 or 500 in the Vercel deploy logs.
+Do not silently inherit the admin dark mode toggle on layouts that have no dark mode support. The result is a partially-inverted page that looks broken.
+
+**Warning signs:**
+- `DarkModeToggle` appearing in `CustomerNav` or `ProNav` before dark mode CSS is implemented for consumer pages
+- Consumer pages showing white headers but cream-colored body sections after dark mode activation
+- `localStorage` key `bfi-theme` being read in consumer layout components
+
+**Phase to address:**
+Any phase that modifies `CustomerNav` or creates the new B2B layout. Decide and document the dark mode scope boundary before building.
 
 ---
 
-### Pitfall 6: Traceability Loss — No Audit Trail from Report Claim to Source Row
+### Pitfall 7: "While We're At It" Scope Creep From Parallel Redesign Impulses
 
-**What goes wrong:** Hamilton's Q1 national report states "The median monthly maintenance fee across
-3,847 institutions is $11.50." A subscriber asks: which 3,847 institutions? Were credit unions included?
-Were only approved fees used or also staged fees? The report cannot be answered because the query
-that generated the $11.50 figure was not preserved with the report artifact.
+**What goes wrong:**
+Adding audience segmentation requires touching nearly every shared component and layout. Each touch point creates an opportunity to "improve" the existing design while you're in there — upgrading the fee table, adding a chart, redesigning the institution card, cleaning up the nav. These improvements are each individually sensible but collectively blow the milestone scope. Three phases in, the consumer redesign is half-done, three unrelated components have been redesigned, and the B2B dashboard hasn't been started.
 
-**Why it happens:** Report generation scripts run a query, pass the result to a template, render the
-PDF, and discard the intermediate data. The final artifact has no lineage metadata.
+This project's history shows the pattern: v4.x "Report Design" grew to include v4.2 template deployment. Good impulses expand scope.
 
-**Consequences:**
-- Regulatory or compliance questions from subscribers cannot be answered with certainty.
-- Internal teams cannot reproduce a historical report's figures after the pipeline data changes
-  (re-crawls update medians; the original figure is gone).
-- The "accuracy" pillar of the value proposition — "all data traces to pipeline-verified fees" — is
-  meaningless if the trace is not stored.
+**Why it happens:**
+The redesign creates justified context for improvement. When a developer is modifying `CustomerNav` for the B2B layout, it's natural to also fix the mobile breakpoint, add the dark mode toggle, update the icon library, and swap out the font weight. Each change takes minutes; together they take days and introduce regressions.
 
-**Prevention:**
-- Every published report must store a "report manifest" alongside the PDF: the exact SQL queries run,
-  the data snapshot (as a JSON object), the pipeline version/commit hash, and the generation timestamp.
-  Store this in the database linked to the report record.
-- For on-demand Hamilton reports (competitive briefs), store the full input data object passed to
-  the LLM as a separate artifact. This allows exact report reproduction and answer to "where did
-  this number come from."
-- Implement a `--reproduce` flag in the report CLI that takes a report ID and re-generates the report
-  from the stored manifest, allowing diff comparison against the current pipeline data.
+**How to avoid:**
+Define each phase with a strict output contract: what files are allowed to change, what the deliverable looks like. A phase that changes `CustomerNav` for B2B routing should not also change the nav's visual design for consumer pages. Capture improvement ideas in a `BACKLOG.md` during execution to drain the "while we're at it" impulse without acting on it.
 
-**Detection (warning signs):**
-- The reports table has no `source_query` or `data_snapshot` column.
-- Two runs of the same report generation script on different days produce different figures with no
-  record of why.
+The test: if a change is not required for the phase's stated deliverable, it belongs in a future phase.
+
+**Warning signs:**
+- A PR modifying more than 5 files that were not named in the phase plan
+- Component changes that affect the consumer experience during a "B2B dashboard" phase
+- Admin pages being restyled during a consumer redesign phase
+
+**Phase to address:**
+Every phase. This is a process discipline, not a technical fix. The phase plan should name specific files that are in scope.
 
 ---
 
-### Pitfall 7: Underpricing Relative to the Consulting Alternative
+### Pitfall 8: Breaking Existing Admin Bookmarks and Deep Links
 
-**What goes wrong:** Bank Fee Index launches at $2,500/mo and the competitive brief feature (Hamilton
-deep analysis) is included in that subscription. A bank's strategy team uses it to replace a $15K
-consulting engagement. The platform has delivered $15K of value but captured $2,500 of it. When the
-bank renews, they negotiate to $1,500/mo because "we don't use all the features."
+**What goes wrong:**
+Admin users have bookmarked `/admin/hamilton/research/[agentId]`, `/admin/fees/catalog`, `/admin/market`, etc. The existing `/admin/*` structure is stable. If the B2B launchpad is implemented by moving or aliasing admin routes (e.g., pointing `/pro/research` at admin Hamilton, or redirecting `/pro/market` to `/admin/market`), the URL surfaces multiply and existing bookmarks risk breaking.
 
-**Why it happens:** B2B SaaS founders consistently underprice when they lack reference points for
-willingness to pay. The platform is new, there is no track record, and pricing feels like guessing.
-The instinct is to price low to acquire customers, but in B2B financial services this signals lower
-quality — banking executives have anchored expectations from McKinsey/Bain/Deloitte fee structures.
+The `/admin/hamilton/` subtree is the production Hamilton interface. The `/pro/research/page.tsx` and `/admin/research/[agentId]` are different surfaces. If pro users are given access to expanded Hamilton, the instinct may be to reuse admin routes — which exposes admin-only features to pro users if the auth check is missed.
 
-**Consequences:**
-- Gross revenue retention degrades because the product is not embedded in a workflow at a price that
-  justifies switching costs. Top-performing B2B SaaS achieves 90-92% gross revenue retention; under-
-  priced products that feel "nice to have" rather than "mission critical" fall below this threshold.
-- Competitive briefs priced as a subscription feature rather than a per-report product eliminates the
-  natural scarcity that drives urgency ("we need this before our board meeting").
+**Why it happens:**
+Code reuse is correct; the risk is in how reuse is implemented. Sharing a route between admin and pro users by checking `user.role` in the page component is easy to get wrong. A missed conditional or a server-side rendering shortcut can expose admin data to pro users.
 
-**Prevention:**
-- Separate subscription from on-demand. The $2,500/mo subscription covers the index access and monthly
-  pulse reports. Competitive briefs are sold per-report at $750-$2,000 each — framed as "replacing a
-  $15K consultant engagement."
-- Anchor pricing to the consulting alternative in sales conversations, not to competing SaaS platforms.
-  The relevant comparison is not "vs. VisbanKing" but "vs. what you'd pay a consultant to do this."
-- Before launch, conduct 5 pricing interviews with target buyers (bank strategy officers or CFOs).
-  Ask "what would you pay a consultant for this analysis" not "what would you pay for this software."
+**How to avoid:**
+Admin routes (`/admin/*`) must never be reachable by non-admin sessions. The `admin/layout.tsx` already enforces this with `getCurrentUser()` + role redirect. New pro-facing Hamilton pages must be implemented as new routes under `/pro/` that call the same underlying API endpoints with appropriate `agentId` values. The API layer (already correct) is the enforcement boundary — pages just need to not expose admin UI elements.
 
-**Detection (warning signs):**
-- Subscribers use competitive briefs frequently (> 2/month) without any per-unit pricing friction.
-- Sales conversations with new prospects focus on monthly cost comparisons to other SaaS tools.
+Never redirect pro users into `/admin/*`. Build distinct pro pages that call shared API endpoints.
+
+**Warning signs:**
+- `/pro/research/[agentId]` rendering admin UI elements (review queue, ops status, pipeline monitor)
+- Any `redirect('/admin/...')` in pro page code
+- A pro session that can navigate to `/admin/hamilton/` without being redirected
+
+**Phase to address:**
+Phase that builds the B2B launchpad and expanded Hamilton for pro users.
 
 ---
 
-### Pitfall 8: AI Disclosure Opacity Creates Compliance Risk for Subscribers
+### Pitfall 9: Over-Engineering Personalization Before Data Exists
 
-**What goes wrong:** A bank's BSA officer uses a Hamilton competitive brief in a board presentation
-on competitive fee strategy. The brief is polished and professionally formatted. The officer does not
-disclose to the board that the narrative analysis was AI-generated. When this surfaces later, the bank
-faces an internal governance question about AI use in board-level materials — and blames the vendor
-for not making the AI origin clear.
+**What goes wrong:**
+The milestone calls for "B2B personalization: institution-specific Call Reports, district Beige Book, competitive landscape on login." This is the most complex feature in the milestone and requires knowing the user's institution before showing personalized data. The current auth model (`getCurrentUser()`) returns role/subscription but no institution affiliation. Building the personalization infrastructure — user-to-institution linking, preference storage, personalized query paths — is a multi-phase effort that can consume the entire milestone if started too early.
 
-**Why it happens:** OCC, Federal Reserve, and CFPB guidance consistently requires explainability and
-transparency when AI systems influence financial institution decisions. While Hamilton reports are
-analytical (not credit decisions), banks have internal policies about AI in governance processes
-that are tightening in 2025-2026.
+**Why it happens:**
+Personalization is the highest-value B2B feature and gets prioritized accordingly. The problem is it has a dependency chain: user must have an institution affiliation → institution must be in the DB → personalized queries must be written → UI must display them. Each step takes longer than estimated.
 
-**Consequences:**
-- A subscriber blames the platform for an internal compliance issue, leading to churn and a
-  reputational reference problem.
-- If the platform eventually serves larger institutions, disclosure requirements may become a
-  contractual requirement.
+**How to avoid:**
+Decouple personalization from the B2B dashboard launch. The B2B launchpad can launch with non-personalized views (national index, peer builder, Hamilton, reports) — these are immediately valuable without personalization. Personalization (institution-scoped dashboard, district defaulting) should be a separate phase or a phase-2 enhancement.
 
-**Prevention:**
-- Every Hamilton-generated report must include a visible, non-apologetic AI disclosure footer:
-  "This report was generated by Hamilton, Bank Fee Index's AI research system. All statistics
-  are sourced from the Bank Fee Index pipeline. Human editorial review is available on request."
-- Frame AI authorship as a feature (speed, consistency, data access) not a caveat to hide.
-- Include in subscriber agreements a clause that the platform's reports are AI-generated and that
-  subscribers are responsible for their own use in regulated contexts.
+The minimum viable B2B dashboard does not require personalization. Ship the four doors (Hamilton, Peer Builder, Reports, Federal Data) without personalization first.
 
-**Detection (warning signs):**
-- Published reports contain no mention of AI generation methodology.
-- Subscribers ask "did a human write this?" without a clear answer in the report itself.
+**Warning signs:**
+- Database schema changes for user-institution linking in the same phase as B2B UI work
+- More than 2 new DB columns added to the `users` table for personalization preferences
+- A phase that cannot be considered "done" until personalization is working
+
+**Phase to address:**
+Address this as a planning constraint when defining the B2B dashboard phase. Personalization is a stretch goal, not a launch requirement.
 
 ---
 
-### Pitfall 9: Template Proliferation — Every Report Type Becomes a Custom Build
+## Technical Debt Patterns
 
-**What goes wrong:** The national index report is built as a bespoke Next.js page. The state report
-is built as a separate bespoke page. The competitive brief is built as a separate bespoke template.
-Three months in there are seven report types, each with its own layout, data-fetching logic, and
-PDF generation path. Adding a new data field requires touching seven files. A design change requires
-seven updates.
-
-**Why it happens:** Each report type is started by a developer who "just needs to add one more thing"
-to the previous template. There is no shared component layer because "the reports are all different
-anyway."
-
-**Consequences:**
-- Adding a new report type takes a week instead of a day because the pattern is not reusable.
-- Design inconsistencies accumulate (the "McKinsey-grade" visual language drifts across report types).
-- Bug fixes (wrong date format, wrong number formatting) must be applied to seven templates instead of one.
-
-**Prevention:**
-- Define the report component system before writing any report template. The system must include:
-  shared layout shell (cover page, section header, data table, chart container, footnote), shared
-  data formatters, and a Hamilton narrative block component.
-- All report types are composed from the shared component system. The template only defines which
-  components appear and what data feeds them — not the rendering logic of those components.
-- A "new report type" should require writing only: a data query function, a Hamilton prompt template,
-  and a composition config (which sections appear in which order).
-
-**Detection (warning signs):**
-- Each report type has its own `formatAmount()` function or its own chart styling.
-- A design change to the report header requires editing more than one file.
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Hardcoded hex colors in consumer pages (`#FAF7F2`, `#1A1815`) instead of CSS variables | Fast to write, no abstraction needed | Impossible to theme or dark-mode without a full search-and-replace | Only acceptable if consumer is permanently light-only and both team members know it |
+| Reusing `CustomerNav` for both consumer and B2B by adding conditionals | Avoids creating a second nav component | The nav grows conditionals for every audience difference; becomes unmaintainable after 3 additions | Never for more than 1-2 minor differences; create `ProNav` when B2B nav diverges meaningfully |
+| Checking `user.role` inside page components for feature gating | Quick to implement | Business logic leaks into presentation layer; access rules scattered across components | Acceptable for one-off page-level redirects; not acceptable for recurring feature access checks (use `access.ts` helpers) |
+| Sharing `/admin/hamilton/` URL with pro users via a shared layout | One implementation | Exposes admin UI to pro users; breaks the admin/pro separation contract | Never |
+| Skipping per-user rate limits on report generation at launch | Faster to ship | A single aggressive user can exhaust daily Claude budget | Acceptable only with a manually-enforced user whitelist during beta; must be automated before open enrollment |
+| Agent module caching (`_agents` singleton) persists across hot reloads | Faster agent resolution | Stale prompts survive dev server restarts; hard to debug prompt changes | Acceptable in production; must be cleared during development prompt iteration |
 
 ---
 
-### Pitfall 10: Peer Group Definition Mismatch Erodes Trust
+## Integration Gotchas
 
-**What goes wrong:** A $2B community bank in Wyoming subscribes to peer benchmarking. Hamilton's
-competitive brief compares them to "peers" — but the peer group includes $10B regional banks and
-$500M thrifts because the filter used asset tier broadly. The benchmark medians are meaningless for
-their competitive context, and the bank's strategy officer says "these aren't our peers."
-
-**Why it happens:** Peer group construction is the most commonly cited failure mode in financial
-benchmarking products. Dynamic, relevant peer groups require understanding that institutions self-
-define their competitive set by charter type, asset tier, geography, and business model — not just
-size band.
-
-**Consequences:**
-- The subscriber's primary use case (competitive intelligence) fails on its first use. This is the
-  most likely single-report churn trigger.
-- The peer group mismatch may not be obvious in the report output — the bank executive may just
-  find the benchmarks "off" without articulating why, leading to diffuse dissatisfaction rather than
-  a specific complaint to fix.
-
-**Prevention:**
-- Before generating any competitive brief, surface the peer group definition explicitly: "Your peer
-  group is defined as: community banks (charter: commercial), asset tier $1B-$3B, Fed District 10
-  (Kansas City), n=47 institutions." Require subscriber confirmation before generating.
-- Allow peer group customization at the institution level, not just at report generation time. The
-  saved peer set should persist and be reusable across reports.
-- Never use a single asset tier filter for peer groups. The effective peer group for fee benchmarking
-  requires at minimum charter type + asset band + geography (state or Fed district).
-
-**Detection (warning signs):**
-- Competitive briefs compare an institution against a peer set that includes institutions 5x+ their
-  asset size.
-- Peer group n is < 5 (too narrow, unstable medians) or > 200 (too broad, not comparable).
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| Stripe subscription + Hamilton access | Checking `subscription_status === 'active'` in page components directly instead of `canAccessPremium()` | Always use the `canAccessPremium(user)` helper from `src/lib/access.ts`; it handles `admin`/`analyst` roles correctly |
+| Vercel AI SDK streaming in new pro pages | Creating a new streaming endpoint per pro page instead of reusing `/api/research/[agentId]` | The agent API is parameterized by `agentId`; add new agent configs to `agents.ts` and reuse the existing route |
+| Next.js metadata in new audience layouts | Forgetting `template: "%s | Bank Fee Index"` in segment layout metadata | Copy the metadata export from `consumer/layout.tsx` as the template for all new audience layouts |
+| `searchParams` in consumer pages | Treating `searchParams` as synchronous (it is a Promise in Next.js 16 App Router) | Always `await searchParams` — this is already correct in the codebase but easy to miss in new pages |
+| Tailwind v4 in new components | Using Tailwind v3 `dark:` variant syntax that conflicts with the custom `@custom-variant dark` definition in `globals.css` | Use the `.dark` class override pattern in `globals.css` for admin pages; use `dark:` Tailwind variant only if explicitly supported in the consumer CSS setup |
+| Report generation freshness gate | Treating `checkFreshness()` as a per-user limit when it is a global data-freshness check | Freshness gate prevents redundant generation when data hasn't changed; it does not prevent the same user from generating multiple reports; add explicit per-user limits separately |
 
 ---
 
-## Moderate Pitfalls
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| `getNationalIndexCached()` called in multiple Server Components on the same page load | Multiple DB round-trips for the same data; slow TTFB on consumer pages | Fetch once at the page (Server Component) level and pass as props to child components | Day 1 if consumer home and B2B home both call it independently in the same layout |
+| `force-dynamic` on consumer pages that could be ISR | Every page request hits the DB; Vercel Edge gets no cache benefit | Remove `force-dynamic` from consumer pages and use `revalidate` with an appropriate interval; use `next/headers` only where needed | At scale; not visible in development |
+| Agent module singleton `_agents` not reset on env var changes | New agent configs or model overrides don't take effect until server restart | Clear `_agents = null` in development; document that `BFI_MODEL_*` env var changes require a server restart in production | Every time a model is changed in production without a redeploy |
+| Pro dashboard rendering all 49 fee categories server-side on every load | Slow initial page load for B2B users; large HTML payload | Fetch only featured (15) categories initially; use `?show=all` pattern already established elsewhere | If the pro dashboard shows more than 20 categories in the initial render |
 
 ---
 
-### Pitfall 11: Report Generation Cost Runaway
+## Security Mistakes
 
-**What goes wrong:** Each Hamilton competitive brief calls Claude Sonnet 3.5 with a 15K-token
-context window (peer data, national benchmarks, state context, Hamilton persona, formatting instructions).
-At $5-10 per report that is acceptable. But the template is iterated on rapidly, and each iteration
-generates 10-20 test reports during development. A two-week sprint burns $200-400 in API costs
-before a single subscriber sees a report.
-
-**Prevention:**
-- Use a development fixture mode: capture one real report generation call's input/output as a golden
-  fixture, then iterate on template design against the fixture without calling the API.
-- Set a per-report cost cap in the generation pipeline. If the prompt exceeds the token budget, fail
-  fast with a diagnostic message rather than silently truncating context.
-- Log cost per report to the reports table. Track cumulative monthly API spend against a budget alert.
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Adding a new pro agent to `agents.ts` with `requiresAuth: false` by mistake | Any unauthenticated user can call the pro-tier agent with internal tools exposed | Every agent with `internalTools` in its tool set must have `requiresAuth: true`; add a startup assertion that validates this invariant |
+| Pro page that reads `agentId` from URL query params without validating against the known agent list | User crafts URL to call `content-writer` or `custom-query` (admin-only agents) | Call `getAgent(agentId)` and check `agent.requiredRole` in the page component before rendering the chat UI; the API route already enforces this but the UI should not offer false hope |
+| Report generation endpoint accepting `user_id` in the request body | Attacker generates reports attributed to another user's quota | `user_id` must come from `getCurrentUser()` server-side only; never from the request body |
+| Cookie named `fsh_session` (legacy name) accepted alongside a new renamed cookie | Session fixation if both cookie names are valid simultaneously | Keep `fsh_session` as the sole cookie name per the MEMORY.md note; do not add a second auth cookie for the pro experience |
 
 ---
 
-### Pitfall 12: SEO-Driven Public Reports Conflict with Subscriber-Exclusive Value
+## UX Pitfalls
 
-**What goes wrong:** The platform publishes public state fee reports to drive SEO traffic. Subscribers
-who paid $2,500/mo for peer intelligence find that the core benchmark data (national medians, state
-medians) is freely available on the public site. The value proposition for subscription weakens.
-
-**Prevention:**
-- Public reports contain lagged data (previous quarter) and national/state averages only.
-- Subscriber reports contain current data, peer-group breakdowns, institution-level comparisons,
-  and Hamilton's interpretive analysis — none of which appears in the public version.
-- The public report explicitly notes what subscribers can access that the public report does not.
-  "Subscribers also receive peer-benchmarked comparisons for 12 specific fee categories filtered
-  to their charter type and asset tier."
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Split-panel gateway at `/` asks consumers to self-identify before seeing value | High bounce rate; users who arrived from search don't understand why they need to choose | Replace with a value-first consumer landing page; B2B entry is a secondary nav action |
+| Pro dashboard shows "Subscribe" CTA to a user who is already subscribed | Undermines trust in the platform; makes the user feel unrecognized | Check `canAccessPremium(user)` server-side and show the actual dashboard, not the marketing page; `pro/page.tsx` already does this correctly but must be maintained through the redesign |
+| Institution pages designed only for consumers show "premium" benchmarking features as blurred/locked | B2B users visiting institution pages from research workflows hit friction on features they've paid for | Access checks on institution pages must respect `canAccessPremium(user)`; blurring should only appear for truly unauthenticated visitors |
+| Consumer "Find Your Bank" flow deposits users in `/institutions` (unbranded list) instead of a guided experience | Drop-off after the CTA click; page doesn't feel like a continuation of the consumer promise | Institution search should be the consumer experience front door, not a raw list; at minimum, preserve consumer nav context on this page |
+| B2B launchpad "four doors" presented as equal options when Hamilton is the primary differentiator | Users don't know where to start; the most valuable feature is buried | Hamilton should be the hero action on the B2B dashboard, not one of four equal tiles |
 
 ---
 
-### Pitfall 13: Methodology Opacity Creates Sales Blockers
+## "Looks Done But Isn't" Checklist
 
-**What goes wrong:** A bank's procurement team asks "how is this data collected?" before approving
-the subscription. The sales answer is vague ("AI-powered crawling"). The procurement team cannot
-assess the reliability or compliance implications. The deal stalls.
-
-**Prevention:**
-- Publish a methodology paper before sales outreach begins. It should cover: institution sourcing
-  (FDIC/NCUA), URL discovery approach, extraction method (LLM + schema), confidence scoring,
-  validation pipeline, and re-crawl cadence. The paper does not need to disclose proprietary details —
-  it needs to answer "is this reliable?" for a compliance-minded buyer.
-- The methodology paper is a sales asset, not a technical document. Write it for a bank's Chief
-  Risk Officer, not a developer.
+- [ ] **Consumer landing page redesign:** Verify the root `/` renders as a Server Component (no `"use client"` at file top) and that `metadata.description` is consumer-specific and SEO-optimized.
+- [ ] **B2B launchpad:** Verify a session with `role: "premium"` and `subscription_status: "active"` sees the dashboard, not the marketing page. Verify `role: "viewer"` sees a paywall, not a 500.
+- [ ] **Hamilton pro access:** Verify that a premium user calling `/api/research/content-writer` gets a 403, not a 200. Verify that `fee-analyst` returns a 200 for premium users.
+- [ ] **Report generation limits:** Verify a premium user who calls `/api/reports/generate` 10 times in a row gets rate-limited before the 6th call (or whatever the daily limit is set to).
+- [ ] **Dark mode scope:** Verify that the `DarkModeToggle` is not present in `CustomerNav` or consumer layouts until dark mode CSS for those pages is implemented. Verify that toggling dark mode on an admin page and then navigating to a consumer page does not produce a broken visual state.
+- [ ] **Sitemap integrity:** Verify `sitemap.ts` contains no `/consumer/` or `/pro/` prefix on URLs that previously existed without those prefixes.
+- [ ] **No duplicate fee data routes:** Run `find src/app -name "page.tsx" | xargs grep -l "getNationalIndex\|getPeerIndex"` and verify consumer and B2B pages are not independently fetching the same data with no shared cache.
+- [ ] **Pro nav does not expose admin routes:** Verify that the B2B navigation contains no links to `/admin/*` routes.
 
 ---
 
-## Phase-Specific Warnings
+## Recovery Strategies
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|----------------|------------|
-| Hamilton persona setup | Voice drift across report types (Pitfall 4) | Lock system prompt in versioned file before writing any template |
-| Report template design | Dashboard-in-disguise (Pitfall 3) | Enforce narrative-first structure from day one |
-| PDF export | Puppeteer serverless failure (Pitfall 5) | Decide library before building first template |
-| Report generation scripts | Hallucinated statistics (Pitfall 1) | Data injection pattern + post-gen numeric validator |
-| National/state index reports | Stale data theater (Pitfall 2) | Crawl age gate + coverage section in every report |
-| Competitive briefs | Wrong peer group (Pitfall 10) | Confirm peer definition with subscriber before generating |
-| Competitive briefs | Audit trail loss (Pitfall 6) | Store manifest (query + data snapshot + commit hash) per report |
-| Pricing/packaging | Underpricing (Pitfall 7) | Separate subscription from per-report competitive briefs |
-| AI disclosure | Compliance exposure (Pitfall 8) | AI disclosure footer required on all reports |
-| Multi-report type expansion | Template proliferation (Pitfall 9) | Define shared component system first |
-| Development iteration | API cost runaway (Pitfall 11) | Golden fixture for development; budget cap per report |
-| Public SEO reports | Value cannibalization (Pitfall 12) | Lagged + aggregated public; current + peer-filtered subscriber |
-| Sales process | Methodology opacity (Pitfall 13) | Publish methodology paper before sales outreach |
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| SEO regression from URL restructuring | HIGH | Audit Google Search Console for 404s; set up 301 redirects from new URLs to canonical; resubmit sitemap; wait 4-8 weeks for reindex |
+| Component duplication discovered mid-milestone | MEDIUM | Identify the canonical component; merge logic; use a prop or composition to handle variant differences; update all callsites in one PR |
+| Hamilton agent security gap (wrong `requiredRole`) | MEDIUM | Hotfix: add `requiredRole: "admin"` to affected agents immediately; audit access logs for unauthorized calls; notify affected users if sensitive data was exposed |
+| Report generation cost overrun | LOW-MEDIUM | Disable user-triggered report generation temporarily; add per-user daily limit; monitor `report_jobs` table for volume; re-enable with limits in place |
+| Dark mode breaks consumer pages | LOW | Scope toggle to admin-only by removing `DarkModeToggle` from `CustomerNav`; restore consumer page visual integrity; dark mode for consumer is a future phase |
+| Scope creep has consumed the milestone | HIGH | Cut scope to the minimum: consumer landing + B2B launchpad only; defer personalization, expanded Hamilton, and consumer guide integration to the next milestone |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| SEO regression from route restructuring | Phase 1 (consumer landing redesign) — establish no-URL-changes contract | `sitemap.ts` output before and after phase must be identical for existing URLs |
+| Split-panel gateway | Phase 1 — replace with Server Component consumer landing | Root `/` responds to `curl` with indexable HTML content |
+| Component duplication | Pre-phase planning — define component boundary policy | No new components in `src/components/pro/` that mirror `src/components/public/` |
+| Hamilton pro agent security gap | Phase that adds pro Hamilton access | `npm test` includes agent access control tests covering premium vs admin boundaries |
+| Report generation cost overrun | Phase that enables pro-user report generation | Load test: 10 concurrent premium users cannot exceed configured daily per-user limit |
+| Dark mode scope confusion | Phase 1 or any phase touching `CustomerNav` | `DarkModeToggle` not present in consumer layout until dark mode CSS is implemented |
+| Scope creep | Every phase — enforced at planning time | Phase plan names specific files in scope; PR review checks for out-of-scope changes |
+| Admin bookmark breakage | B2B launchpad phase | Manual test: existing admin bookmarks (`/admin/hamilton/`, `/admin/market`, `/admin/fees/catalog`) resolve correctly after phase |
+| Personalization over-engineering | B2B launchpad phase — explicitly defer | B2B dashboard ships with no user-institution linking in DB schema |
 
 ---
 
 ## Sources
 
-- [AI Hallucinations in Financial Insights — Orbit](https://www.orbitfin.ai/news/the-hallucination-frustration) — Documented financial data hallucination cases (MEDIUM confidence — single vendor source)
-- [The impact of AI on your audit — Deloitte](https://www.deloitte.com/us/en/services/audit-assurance/blogs/accounting-finance/ai-finance-accounting-data-transparency-management.html) — AI output accuracy requirements in regulated contexts (HIGH confidence — Big 4 official)
-- [Artificial Intelligence in Financial Services — World Economic Forum 2025](https://reports.weforum.org/docs/WEF_Artificial_Intelligence_in_Financial_Services_2025.pdf) — Transparency and explainability as compliance requirements (HIGH confidence)
-- [What Is Financial Benchmarking? — Visbanking](https://visbanking.com/what-is-financial-benchmarking/) — Stale peer groups as primary benchmarking failure mode (MEDIUM confidence)
-- [Building a PDF generation service using Next.js and React PDF — Medium](https://03balogun.medium.com/building-a-pdf-generation-service-using-nextjs-and-react-pdf-78d5931a13c7) — Puppeteer serverless failure pattern (MEDIUM confidence)
-- [Solved: Anyone generating PDFs server-side in Next.js? — techresolve](https://techresolve.blog/2025/12/25/anyone-generating-pdfs-server-side-in-next-js/) — 504 timeout issue with Puppeteer in serverless (MEDIUM confidence — community source)
-- [How McKinsey Creates Clear And Insightful Charts — Analyst Academy](https://www.theanalystacademy.com/mckinsey-report-breakdown/) — Action title rule, executive audience design principles (HIGH confidence)
-- [The Three Biggest Problems Facing B2B SaaS in 2025 — Sturdy.ai](https://www.sturdy.ai/blog/the-three-biggest-problems-facing-b2b-saas-in-2025) — Churn drivers, value perception (MEDIUM confidence)
-- [Data Traceability — Sigma Computing](https://www.sigmacomputing.com/blog/data-traceability) — Lineage requirements for financial report credibility (MEDIUM confidence)
-- [Audit Trail and Traceability in Financial Data — NeoXam](https://www.neoxam.com/datahub/ensure-audit-lineage-data-quality/) — Audit trail for financial reporting artifacts (MEDIUM confidence)
-- [B2B SaaS Churn Rate Benchmarks — Vitally](https://www.vitally.io/post/saas-churn-benchmarks) — C-suite buyer churn vs. IC buyer churn differential (MEDIUM confidence)
-- [The State of B2B Monetization in 2025 — Growth Unhinged](https://www.growthunhinged.com/p/2025-state-of-b2b-monetization) — Per-seat vs. per-report pricing dynamics (MEDIUM confidence)
-- [U.S. GAO — Artificial Intelligence: Use and Oversight in Financial Services](https://www.gao.gov/products/gao-25-107197) — Regulatory context for AI in banking (HIGH confidence — official government source)
+- Direct inspection of `src/app/page.tsx`, `src/app/gateway-client.tsx`, `src/app/(public)/layout.tsx`, `src/app/consumer/layout.tsx`, `src/app/pro/layout.tsx`
+- `src/lib/research/agents.ts` — agent config, role requirements, tool sets
+- `src/app/api/research/[agentId]/route.ts` — auth enforcement, cost circuit breaker
+- `src/app/api/reports/generate/route.ts` — report generation auth paths
+- `src/lib/access.ts` — access control helpers
+- `src/app/sitemap.ts` — URL structure and canonical paths
+- `src/app/globals.css` — dark mode implementation scope
+- `CLAUDE.md` project constraints (content quality, cost, no overlap)
+- `.planning/PROJECT.md` — v6.0 milestone target features and constraints
+
+---
+*Pitfalls research for: audience-segmented UX split on existing Next.js App Router monolith*
+*Researched: 2026-04-07*

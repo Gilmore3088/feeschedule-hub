@@ -27,3 +27,27 @@ Discovered: 8 | Extracted: 13 | Failed: 16
 - Implement URL freshness validation between discovery and extraction phases, especially for PDF resources
 - Single-digit fee extractions from institutional pages warrant secondary verification; may signal extraction coverage gaps or institution-specific limited fee disclosures
 - Discovery algorithm should recognize indirect fee references ('service charges,' 'account fees,' 'pricing') as discovery signals, not just explicit 'fee schedule' links
+
+## Run #218 — 2026-04-07
+Discovered: 3 | Extracted: 13 | Failed: 16
+
+### New Patterns
+- JS-rendered pages with fee schedule content often fail extraction despite successful discovery and classification
+- PDF-based fee schedules show significantly higher extraction success rates
+- Broken/moved PDF links cause silent extraction failures with 404 errors
+- HTML pages yield variable results (1-39 fees); inconsistent structuring across institutions
+- Discovery skip pattern suggests pre-known working URLs, but extract failures indicate data staleness
+
+### Site Notes
+- Bank of New Hampshire and Lighthouse Federal Credit Union both classify as js_rendered with discovered fee content, but extraction returns zero fees. May indicate dynamic content loading issues or fee data in non-standard DOM structure.
+- Service Federal Credit Union (30 fees), St. Mary's Bank (43 fees), Franklin Savings Bank (37 fees), and Triangle Federal Credit Union (37 fees) all delivered substantial extractions from PDFs. Zero PDF extract failures in this run.
+- Granite State Federal Credit Union classified successfully as PDF but extract failed with 404 on URL ending in 'Consumer-' (likely truncated filename). URL structure problem rather than content issue.
+- Meredith Village (1 fee) and Merrimack County (1 fee) vs. Sugar River Bank (39 fees) and Claremont Savings (34 fees) suggest some banks publish minimal fee info in HTML while others provide comprehensive tables.
+- Multiple institutions skipped discovery (likely cached URLs) but New Hampshire Federal Credit Union has no further records—possible incomplete data or institution with no published online fees.
+
+### Promoted to National
+- JS-rendered fee schedules require validation of actual DOM content after rendering; discovery success doesn't guarantee extractable structured data
+- PDF documents remain most reliable format for fee schedule extraction; prioritize PDF discovery paths
+- Implement redirect-following and URL validation before extraction attempt; 404s on classified PDFs indicate indexing/link decay
+- HTML extraction quality varies by bank's fee table markup; consider institution-specific parsing rules
+- Skipped discoveries need periodic re-validation; URLs may become stale or institutions may change publishing practices

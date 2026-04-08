@@ -53,3 +53,30 @@ Discovered: 6 | Extracted: 165 | Failed: 231
 - JS rendering infrastructure is working; failures are content-specific rather than technical
 - HTML fee schedules are more reliably extractable than PDF—prioritize HTML discovery paths
 - Skipping discovery in favor of direct classification may bypass important link/structure validation—reconsider workflow ordering
+
+## Run #210 — 2026-04-07
+Discovered: 5 | Extracted: 169 | Failed: 227
+
+### New Patterns
+- PDF-classified documents with no fees extracted suggest OCR or parsing failures on scanned PDFs
+- HTML and js_rendered pages show higher extraction success rates than PDFs
+- JavaScript-rendered pages occasionally contain fee data despite complex rendering
+- Connection errors on PDF sources may indicate temporary hosting issues rather than missing data
+- Discover failures on investor relations and product-specific pages are correctly identified
+- Credit unions publishing fee schedules online show higher compliance than banks
+
+### Site Notes
+- First National Bank of PA, Fulton Bank, BNY Mellon, S&T Bank all classified as PDF but yielded zero fees — likely image-based PDFs requiring OCR
+- Customers Bank (HTML, 3 fees), Dollar Bank (HTML, 44 fees), Police & Fire FCU (js_rendered, 14 fees), and credit unions with js_rendered content succeeded where most PDFs failed
+- Police & Fire FCU and Members 1St FCU both classified as js_rendered; former extracted 14 fees, latter extracted none — suggests inconsistent JavaScript handling
+- First Commonwealth Bank: Connection reset by peer error during PDF extraction — suggests server instability, not missing content
+- TriState Capital (investor relations) and Northwest Bank (product page) both failed discover — system correctly rejected off-topic pages
+- Credit unions (Police & Fire, PA State Employees, Citadel, Mid Penn, American Heritage) all successfully extracted; more consistently publish schedules than large banks
+
+### Promoted to National
+- Implement OCR preprocessing for PDF documents before extraction; current extraction fails silently on scanned fee schedules
+- Prioritize scraping HTML/js_rendered formats over PDFs; consider deprioritizing PDF extraction without OCR capability
+- js_rendered classification needs refinement to predict which pages will successfully extract after rendering
+- Implement retry logic with backoff for connection-reset errors; may recover data on retry
+- Discover filter is working as intended; these rejections are accurate
+- Credit unions may be more reliable sources for fee schedule discovery overall

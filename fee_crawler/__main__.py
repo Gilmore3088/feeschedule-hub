@@ -1116,6 +1116,79 @@ def main() -> None:
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
     stats_parser.set_defaults(func=cmd_stats)
 
+    # ── Wave orchestrator ──────────────────────────────────────────────
+    wave_parser = subparsers.add_parser(
+        "wave",
+        help="Wave orchestrator: batch state agent runs across all states",
+    )
+    wave_sub = wave_parser.add_subparsers(dest="wave_command", required=True)
+
+    wave_run_parser = wave_sub.add_parser(
+        "run",
+        help="Launch wave campaign (all states by coverage gap, or --states override)",
+    )
+    wave_run_parser.add_argument(
+        "--states",
+        default=None,
+        help="Comma-separated state codes to run (e.g., WY,MT,TX). Omit for auto-selection by coverage gap.",
+    )
+    wave_run_parser.add_argument(
+        "--wave-size",
+        type=int,
+        default=8,
+        help="States per wave chunk (default: 8)",
+    )
+    wave_run_parser.add_argument(
+        "--max-passes",
+        type=int,
+        default=3,
+        dest="max_passes",
+        help="Number of discovery passes per state (default: 3). Each pass escalates strategy: tier1 -> tier2 -> tier3.",
+    )
+    wave_run_parser.set_defaults(
+        func=lambda args: __import__(
+            "fee_crawler.wave.cli", fromlist=["cmd_wave_run"]
+        ).cmd_wave_run(args)
+    )
+
+    wave_rec_parser = wave_sub.add_parser(
+        "recommend",
+        help="Show ranked state list by coverage gap (for operator review before running)",
+    )
+    wave_rec_parser.add_argument(
+        "--wave-size",
+        type=int,
+        default=8,
+        help="How many states to display per wave grouping (default: 8)",
+    )
+    wave_rec_parser.set_defaults(
+        func=lambda args: __import__(
+            "fee_crawler.wave.cli", fromlist=["cmd_wave_recommend"]
+        ).cmd_wave_recommend(args)
+    )
+
+    wave_resume_parser = wave_sub.add_parser(
+        "resume",
+        help="Resume an interrupted wave — skips already-complete states",
+    )
+    wave_resume_parser.add_argument(
+        "wave_id",
+        type=int,
+        help="Wave run ID to resume (from wave_runs.id)",
+    )
+    wave_resume_parser.add_argument(
+        "--max-passes",
+        type=int,
+        default=3,
+        dest="max_passes",
+        help="Number of discovery passes per state (default: 3). Each pass escalates strategy: tier1 -> tier2 -> tier3.",
+    )
+    wave_resume_parser.set_defaults(
+        func=lambda args: __import__(
+            "fee_crawler.wave.cli", fromlist=["cmd_wave_resume"]
+        ).cmd_wave_resume(args)
+    )
+
     args = parser.parse_args()
     args.func(args)
 

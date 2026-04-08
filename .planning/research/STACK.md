@@ -1,201 +1,389 @@
-# Technology Stack: Hamilton Report Engine + B2B Content Platform
+# Stack Research
 
-**Project:** Bank Fee Index — v2.0 Hamilton (Report & Content Engine)
-**Domain:** B2B financial intelligence — PDF/PPTX report generation, AI narrative analysis, subscription portal
-**Researched:** 2026-04-06
-**Overall confidence:** HIGH for core choices; MEDIUM for chart rendering path
+**Domain:** Two-sided B2B + Consumer experience — Bank Fee Index v6.0
+**Researched:** 2026-04-07
+**Confidence:** HIGH — existing stack verified from package.json; new additions verified via official docs and multi-source cross-check
 
 ---
 
 ## What This Stack Covers
 
-This document covers **only the additions** needed for the Hamilton milestone. The existing stack
-(Next.js 16 App Router, React 19, Tailwind v4, Python 3.12 on Modal, Claude Haiku, Supabase) is
-already in production and is not reconsidered here.
+This document covers **only the additions** needed for the v6.0 Two-Sided Experience milestone.
+The existing stack is already production-validated and is NOT reconsidered here.
 
-The additions span three distinct areas:
+The additions span four areas:
 
-1. **Report generation engine** — PDF and PPTX output from structured data + Hamilton narrative
-2. **Hamilton AI analyst** — Claude model selection, prompt architecture, cost management
-3. **B2B subscription portal** — Stripe billing, Supabase RLS gating, Next.js protected routes
-
----
-
-## Part 1: Report Generation Engine
-
-### Core Strategy: HTML-to-PDF via Playwright (Python, runs on Modal)
-
-The report pipeline lives in Python alongside the existing data pipeline. Generate reports
-server-side on Modal as background jobs. Store output in the existing Cloudflare R2 bucket.
-Expose download URLs to the Next.js frontend.
-
-**Why HTML-to-PDF rather than ReportLab or WeasyPrint:**
-ReportLab requires building layouts imperatively in Python — every chart position, font, and
-spacing is code. This is fast but produces rigid, programmer-aesthetic output. McKinsey-grade
-reports need precise typographic control, multi-column layouts, bleed, and CSS effects that are
-trivial to specify in HTML+CSS but extremely tedious in ReportLab's canvas API.
-
-Playwright (already a pipeline dependency at `playwright>=1.40`) renders Chromium headlessly
-and calls `page.pdf()`, capturing pixel-perfect CSS layout. You design the report in HTML+CSS
-once and generate it at scale. This is the same approach used by Notion, Linear, and financial
-SaaS companies for PDF exports. ReportLab is a fallback only if PDF file sizes become a
-performance problem.
-
-### PDF Generation
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Playwright (Python) | `>=1.40` (already installed) | HTML-to-PDF via headless Chromium | Already a pipeline dependency; `page.pdf()` supports `format`, `margin`, `print_background`; PDF generation works only in Chromium — confirmed. No extra install cost. |
-| Jinja2 | `>=3.1` | HTML template engine for report layout | Standard Python templating. Loops over data arrays, conditional sections, filter support for currency/percent formatting. Already likely a transitive dependency. |
-| WeasyPrint | `>=62.0` | Fallback for lightweight PDFs (no JS required) | If Playwright is too heavy for simple one-page pulse reports, WeasyPrint renders HTML+CSS without a browser. Slower at CSS rendering edge cases but no browser dependency. Reserve for monthly pulse reports only. |
-
-**Confidence:** HIGH — Playwright `page.pdf()` is official API, confirmed in docs. Jinja2 is
-the standard Python templating choice with no meaningful alternatives at this scope.
-
-### PPTX Generation
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| python-pptx | `>=1.0.0` | Programmatic PowerPoint generation | The only maintained Python library for `.pptx` output. v1.0.0 released 2024, stable API. Does not require PowerPoint to be installed; works on Modal Linux containers. Supports slide masters, custom layouts, tables, text runs, charts (via embedded OOXML), and image insertion. |
-| Matplotlib | `>=3.9` | Chart image generation (PNG) embedded in PPTX/PDF | Renders charts to `BytesIO` buffers server-side — no DOM required. Use `matplotlib.use("Agg")` backend on Modal (headless). Export charts as PNG, embed in Jinja2 HTML for PDF or insert via `python-pptx` for PPTX. The pipeline already uses pandas; Matplotlib integrates directly. |
-
-**Why not Recharts for chart generation?** Recharts is a React/D3 client-side library. Rendering
-it server-side for static image export would require spinning up a Node.js headless browser
-separately just to capture chart screenshots — two headless browsers instead of one, adding
-complexity and cost. Matplotlib runs in the same Python process as the data queries, eliminates
-a network hop, and produces publication-quality static figures.
-
-**Confidence:** HIGH — python-pptx 1.0.0 confirmed on PyPI/official docs. Matplotlib Agg
-backend for headless server rendering is well-established.
-
-### Chart Rendering Detail
-
-Use the `Agg` (non-interactive) backend: `matplotlib.use("Agg")` at module top. This is
-required on Modal containers (no display server). Render charts to `io.BytesIO`, then:
-- For PDF: encode to base64 and embed as `<img src="data:image/png;base64,...">` in Jinja2 HTML
-- For PPTX: pass the `BytesIO` buffer directly to `slide.shapes.add_picture()`
-
-Seaborn is acceptable as a Matplotlib wrapper for statistical charts (distributions, heatmaps)
-but add it only if needed — Matplotlib alone covers bar, line, scatter, waterfall, and box plots
-sufficient for fee benchmarking reports.
-
-### Report Storage
-
-Modal jobs generate the file, upload to the existing Cloudflare R2 bucket via the S3-compatible
-API, and write a record to the Supabase `reports` table with the R2 key and metadata. The
-Next.js frontend generates a signed R2 URL on-demand for download. No new storage infrastructure
-is required.
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `boto3` | `>=1.35` | R2 upload from Modal Python job | R2 is S3-compatible; boto3 with a custom `endpoint_url` is the standard approach. Already likely used for existing pipeline storage. |
+1. **PDF report generation** — pro user downloads (peer briefs, annual summaries, competitive snapshots)
+2. **SEO for consumer pages** — dynamic metadata, OG images, structured data for institution pages
+3. **Per-audience analytics** — tracking consumer vs B2B funnels in Plausible
+4. **No new routing infrastructure** — App Router route groups are already in place
 
 ---
 
-## Part 2: Hamilton AI Analyst
+## Existing Stack — Already Installed (Reference Only)
 
-### Model Selection
+| Package | Installed Version | Role |
+|---------|------------------|------|
+| next | 16.1.6 | Framework |
+| react / react-dom | 19.2.3 | UI |
+| tailwindcss | ^4 | CSS |
+| shadcn / radix-ui | ^3.8.4 / ^1.4.3 | Component primitives |
+| recharts | ^3.7.0 | Charts |
+| geist | ^1.7.0 | Font |
+| stripe | ^20.4.1 | Payments |
+| postgres | ^3.4.8 | DB client |
+| ai + @ai-sdk/anthropic | ^6.0.116 / ^3.0.58 | AI streaming |
+| @anthropic-ai/sdk | ^0.80.0 | Direct Anthropic client |
+| zod | ^4.3.6 | Validation |
+| lucide-react | ^0.564.0 | Icons |
+| class-variance-authority | ^0.7.1 | Component variants |
 
-Use **Claude Sonnet 4.6** (not Opus 4) for Hamilton report generation.
+---
 
-**Rationale:**
-- Sonnet 4.6: ~$3/M input, ~$15/M output — a 2,000-token output costs ~$0.03
-- Opus 4: ~$15/M input, ~$75/M output — same output costs ~$0.15, 5x more expensive
-- A complete Hamilton report (4-6 narrative sections) totals ~5,000-8,000 output tokens = $0.08-0.12 at Sonnet rates
-- Sonnet 4.6 is the current production Sonnet model (confirmed: this is the model powering the current session)
-- For Hamilton's use case — structured analysis with clear data inputs — Sonnet 4.6 quality is
-  indistinguishable from Opus for well-engineered prompts
+## Routing Architecture — Zero New Dependencies
 
-**Reserve Opus 4.6 for:** competitive peer briefs where a client is paying $500+ per report and
-document quality justifies the cost. Gate the model choice on report type in the job config.
+### Route Groups Already Exist
 
-**Prompt caching:** Enable prompt caching on the Hamilton system prompt and the fee taxonomy
-context block. These are large, stable, and reused across every report call. Caching reduces
-cost by up to 90% on the repeated context. Use `cache_control: {"type": "ephemeral"}` on the
-system prompt blocks in the messages API.
+Inspection of `src/app/` confirms the two-sided architecture is already structurally present:
 
-**Batch API:** For monthly automated reports (pulse, state index), use the Anthropic Batch API
-(~50% cost reduction) since these do not require real-time response.
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `anthropic` SDK | `>=0.40` (already installed) | Hamilton narrative generation | Already in production for Haiku extraction. Upgrade to structured outputs (`output_format` param) for section-by-section JSON responses that map cleanly to Jinja2 template slots. |
-
-### Structured Output Schema
-
-Use Anthropic's structured outputs (released November 2025) for Hamilton. Define a Pydantic
-schema for each report type:
-
-```python
-class HamiltonReportSection(BaseModel):
-    headline: str          # One-sentence insight title
-    body: str              # 2-3 paragraph narrative
-    key_stat: str          # Single pull-quote statistic
-    footnote: str | None   # Data caveat if needed
-
-class HamiltonReport(BaseModel):
-    executive_summary: str
-    sections: list[HamiltonReportSection]
-    methodology_note: str
+```
+src/app/
+  (auth)/          — login, register
+  (landing)/       — marketing / consumer entry; has its own layout.tsx
+  (public)/        — consumer-facing pages: institutions, fees, guides, districts
+  admin/           — internal ops (untouched by this milestone)
+  pro/             — B2B subscriber dashboard (launchpad, Hamilton, peers, reports)
+  consumer/        — consumer-specific flows
 ```
 
-This prevents malformed output from breaking report assembly and eliminates JSON parsing errors
-in the template pipeline.
+**Implication:** The milestone work is populating these route groups with purpose-built layouts, navigation, and page content — not restructuring. Route group boundaries are already drawn.
 
-**Confidence:** HIGH — Anthropic structured outputs confirmed in official docs (November 2025 GA).
+### Audience Separation Pattern
+
+Each audience gets an independent layout with no shared nav component:
+
+- `(public)/layout.tsx` — consumer nav (wordmark, Fee Scout search, free account CTA)
+- `pro/layout.tsx` — B2B nav (Hamilton, Peer Builder, Reports, Federal Data, account)
+
+Middleware reads the session role to decide which layout receives the user. No extra
+middleware package needed — Next.js built-in `middleware.ts` (already in use for auth)
+handles role checks and redirects.
 
 ---
 
-## Part 3: B2B Subscription Portal
+## New Dependencies Required
 
-### Authentication
+### 1. PDF Report Generation — `@react-pdf/renderer`
 
-Supabase Auth is already in production. No change. The subscription layer builds on top of it.
+**Why needed:** Pro users need downloadable peer briefs, annual summaries, and competitive
+snapshots. These must render as professional consulting deliverables — not browser print
+stylesheets.
 
-### Stripe Integration
+**Why `@react-pdf/renderer` over Puppeteer:**
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `stripe` (Python SDK) | `>=10.0` | Webhook handling in Python (on Modal or Vercel) | Stripe webhooks update subscription status in Supabase. Python SDK matches the existing pipeline language; process webhooks in a Modal web endpoint or Next.js API route. |
-| `@stripe/stripe-js` | `>=4.0` | Stripe.js + Elements on frontend | Official client-side Stripe library. Required for Stripe Checkout redirect and Customer Portal link generation. |
-| `stripe` (npm) | `>=16.0` | Server-side Stripe calls in Next.js | Customer Portal session creation, checkout session creation, webhook verification. Use in Next.js Server Actions. |
+Puppeteer on Vercel requires `@sparticuz/chromium` (50MB+ binary), risks hitting Vercel's
+250MB function bundle limit, runs 4-8x slower in serverless environments, and requires a
+Vercel Pro plan to raise the timeout above 10 seconds (PDF generation typically needs 30-60s
+on serverless Chromium). Community reports confirm this is a painful deployment path.
 
-**Subscription state pattern:** Mirror Stripe subscription status into a Supabase `subscriptions`
-table. Do NOT query Stripe on every request — cache locally. Listen to these webhook events:
-`customer.subscription.created`, `customer.subscription.updated`,
-`customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`.
+`@react-pdf/renderer` generates PDFs natively in Node.js using React component syntax. No
+headless browser, no binary, no serverless size constraint. Server-side rendering via
+`renderToBuffer()` in an API route is fast (under 5 seconds for a multi-page report).
 
-### Access Gating
+Supports: custom fonts, tables, SVG, multi-column layout, page breaks, headers/footers.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `@supabase/ssr` | `>=0.6` | Supabase auth in Next.js middleware | The current `@supabase/auth-helpers-nextjs` is deprecated; `@supabase/ssr` is the current package for App Router. Manages session cookies in middleware cleanly. |
-| Next.js Middleware | built-in | Route-level subscription gating | Check `subscriptions` table (via Supabase) in `middleware.ts` before serving `/reports/*` and `/portal/*` routes. Redirect unauthenticated or unpaid users to `/pricing`. |
+**React 19 support:** confirmed since v4.1.0. Current stable version: 4.3.3 (actively
+maintained, 860K+ weekly downloads as of April 2026, 15,900+ GitHub stars).
 
-**RLS policy for report access:**
-```sql
--- Users can only download reports they have an active subscription for
-create policy "report_access_by_subscription"
-on reports for select
-using (
-  exists (
-    select 1 from subscriptions
-    where subscriptions.user_id = auth.uid()
-    and subscriptions.status = 'active'
-    and subscriptions.tier >= reports.required_tier
+**Integration note:** PDF components use their own primitive system (`Document`, `Page`,
+`View`, `Text`, `Image`) — NOT Tailwind utilities. Build report layouts as standalone React
+components in `src/lib/reports/`. These components consume the same data functions used by
+the web UI but are styled independently. Recharts SVG charts cannot render inside
+`@react-pdf/renderer` directly — render charts to PNG server-side first, then embed as
+`<Image>` (see Pitfalls file).
+
+**Required config addition:**
+
+```typescript
+// next.config.ts — add to experimental block
+experimental: {
+  serverComponentsExternalPackages: ['@react-pdf/renderer'],
+}
+```
+
+**API route pattern:**
+
+```typescript
+// src/app/api/reports/generate/route.ts
+import { renderToBuffer } from '@react-pdf/renderer'
+import { PeerBriefDocument } from '@/lib/reports/peer-brief'
+
+export async function POST(req: Request) {
+  const data = await fetchReportData(req)
+  const buffer = await renderToBuffer(<PeerBriefDocument data={data} />)
+  return new Response(buffer, {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="peer-brief.pdf"',
+    },
+  })
+}
+```
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| @react-pdf/renderer | ^4.3.3 | Server-side PDF generation for pro report downloads |
+
+```bash
+npm install @react-pdf/renderer
+```
+
+---
+
+### 2. SEO for Consumer Pages — Built-in Next.js APIs (Zero New Packages)
+
+**Why no package needed:** Next.js 16 App Router ships first-class SEO APIs that replace
+libraries like `next-seo` and `react-helmet`. Adding either creates conflicts and technical
+debt.
+
+**`generateMetadata()` — per-page dynamic metadata:**
+
+Every consumer page (`/institution/[slug]`, `/fees/[category]`, `/guides/[slug]`) uses
+`generateMetadata({ params })` to produce title, description, and canonical URL from database
+data. This runs server-side at request time for dynamic routes.
+
+```typescript
+// src/app/(public)/institution/[slug]/page.tsx
+export async function generateMetadata({ params }: { params: { slug: string } }) {
+  const institution = await getInstitution(params.slug)
+  return {
+    title: `${institution.name} Fee Schedule — Bank Fee Index`,
+    description: `${institution.name} charges for checking, savings, overdraft, and wire transfers. Compare to ${institution.charter === 'bank' ? 'bank' : 'credit union'} peers.`,
+    openGraph: {
+      title: institution.name,
+      description: `Fee data for ${institution.name}`,
+      url: `https://bankfeeindex.com/institution/${params.slug}`,
+    },
+  }
+}
+```
+
+**`ImageResponse` from `next/og` — dynamic OG images:**
+
+Built into Next.js. Zero install. Generates institution-specific share preview images at
+the edge via JSX. Cached on CDN after first generation.
+
+```typescript
+// src/app/(public)/institution/[slug]/opengraph-image.tsx
+import { ImageResponse } from 'next/og'
+export default function OgImage({ params }) {
+  return new ImageResponse(
+    <div style={{ ... }}>{institution.name} — Fee Intelligence</div>,
+    { width: 1200, height: 630 }
   )
-);
+}
 ```
 
-**Confidence:** MEDIUM for RLS policy pattern — the `@supabase/ssr` package and middleware
-pattern are confirmed in current Supabase docs; the exact RLS policy above is derived from
-documented patterns but will need validation against actual schema.
+**JSON-LD structured data — inline `<script>` in Server Components:**
 
-### Consumer-Facing Pages
+No library needed. Add `FinancialService` schema to institution pages as an inline
+`application/ld+json` script rendered server-side. Create a typed helper:
 
-No new libraries required. Consumer fee lookup pages use the existing Next.js App Router +
-Tailwind v4 stack. Server Components fetch from Supabase directly. No client-side state
-management library is needed at this scale.
+```typescript
+// src/lib/seo.ts
+export function buildInstitutionSchema(institution: Institution) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FinancialService',
+    name: institution.name,
+    url: institution.website_url,
+    address: { '@type': 'PostalAddress', addressRegion: institution.state },
+    description: `Fee data and peer benchmarks for ${institution.name}`,
+  }
+}
+```
+
+**`schema-dts` (optional dev dependency):** Provides TypeScript types for Schema.org
+vocabulary. Zero runtime impact (types only). Recommended if structured data is applied
+to more than 3-4 schema types.
+
+```bash
+npm install -D schema-dts
+```
+
+| Package | Install | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| schema-dts | dev only | TypeScript types for JSON-LD Schema.org | Add if structured data grows beyond institution + article + breadcrumb schemas |
+
+---
+
+### 3. Per-Audience Analytics — `next-plausible`
+
+**What exists:** `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` env var is configured and `next.config.ts`
+already permits Plausible's CSP domains. Plausible is already the chosen analytics platform.
+
+**What's missing:** The `next-plausible` npm package. The current integration likely relies on
+a raw `<script>` tag. The package provides a `PlausibleProvider` component and a
+`usePlausible()` hook that enables custom property tracking — the mechanism for segmenting
+consumer vs B2B traffic in the Plausible dashboard.
+
+**Custom property pattern for audience segmentation:**
+
+Plausible supports up to 30 custom properties per event. Attach `audience` and `plan` to
+every pageview to enable dashboard filtering by segment.
+
+```typescript
+// src/app/(public)/layout.tsx — consumer layout
+import PlausibleProvider from 'next-plausible'
+export default function ConsumerLayout({ children }) {
+  return (
+    <PlausibleProvider domain="bankfeeindex.com" taggedEvents>
+      {children}
+    </PlausibleProvider>
+  )
+}
+
+// src/app/(public)/institution/[slug]/page.tsx — fire audience prop
+'use client'
+import { usePlausible } from 'next-plausible'
+const plausible = usePlausible()
+plausible('pageview', { props: { audience: 'consumer', page_type: 'institution' } })
+```
+
+For the B2B pro layout, fire `audience: 'b2b'` and `plan: user.role`. This allows the
+Plausible dashboard to be filtered to show funnel behavior per audience without any backend
+tracking infrastructure.
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| next-plausible | ^3.12.0 | Plausible integration with custom property support for audience segmentation |
+
+```bash
+npm install next-plausible
+```
+
+---
+
+## What NOT to Add
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `puppeteer` / `puppeteer-core` + `@sparticuz/chromium` | 250MB Vercel bundle risk, 4-8x slower in serverless, requires Pro plan for 60s timeout, complex deployment | `@react-pdf/renderer` server-side |
+| `jspdf` / `html2canvas` | Client-side PDF via canvas screenshots — poor quality, leaks sensitive fee data to browser memory, cannot be stored or emailed server-side | `@react-pdf/renderer` server-side API route |
+| `next-seo` | Deprecated pattern for App Router. Conflicts with built-in `generateMetadata()` API introduced in Next.js 13. | `generateMetadata()` built-in |
+| `react-helmet` | Client-side head management — incompatible with React 19 Server Components, App Router handles head server-side | `generateMetadata()` built-in |
+| `posthog-js` | Adds client bundle weight, session recording, and pricing overhead for a problem that Plausible + custom properties already solves | `next-plausible` with custom properties |
+| LaunchDarkly / Split.io | Enterprise feature-flag services starting at $500+/mo. Two fixed audience tiers controlled by session role don't need a flag service. | Middleware role check + session cookie |
+| `styled-components` / Emotion | CSS-in-JS runtime conflicts with Tailwind v4's PostCSS pipeline. Any new component styling uses Tailwind + CVA (already installed). | Tailwind v4 + CVA (already installed) |
+| Any headless CMS | Institution educational content is generated from pipeline-verified data (Call Reports, fee index, FDIC/NCUA). CMS adds editorial overhead with no data accuracy benefit. | Server components fetching from PostgreSQL |
+| `i18next` / `react-intl` | No internationalization requirement. Currency formatting uses existing `formatAmount()` in `src/lib/format.ts`. | Existing format utilities |
+
+---
+
+## Patterns by Feature Area
+
+### Consumer Landing Page Redesign
+
+No new packages.
+
+- `(landing)/layout.tsx` — consumer nav, no admin chrome
+- `generateMetadata()` on the landing page for Twitter/OG
+- `ImageResponse` from `next/og` for social share image at `(landing)/opengraph-image.tsx`
+- Recharts (existing) for any fee snapshot visualizations
+- A/B testing (see below): middleware cookie + two static page variants
+
+### Institution Educational Pages
+
+No new packages.
+
+- `(public)/institution/[slug]/page.tsx` — already exists as a route
+- `generateMetadata({ params })` — fetch institution name and charter for title/description
+- JSON-LD `FinancialService` schema in inline `<script>` within the server component
+- Existing `getNationalIndex()` + peer filter queries for fee context panels
+- Consumer guide cross-links via `src/lib/fee-taxonomy.ts` (category → guide mapping)
+
+### B2B Personalized Launchpad
+
+No new packages.
+
+- `pro/layout.tsx` — B2B nav with four doors: Hamilton, Peer Builder, Reports, Federal Data
+- `getCurrentUser()` (existing) in layout for session check and redirect
+- User's primary institution stored as `primary_institution_id` on `users` table — extend schema
+- Personalization data (Call Reports scoped to user's institution, district Beige Book) fetched
+  via existing DB query functions at server component render time
+
+### Scoped Report Generation (Pro)
+
+Requires `@react-pdf/renderer` only.
+
+- `POST /api/reports/generate` — API route, server-side, returns PDF buffer
+- Report component tree lives in `src/lib/reports/` — pure `@react-pdf/renderer` components
+- Data injected from existing `getNationalIndex()`, `getPeerIndex()`, Call Report queries
+- Client triggers via `<a href="/api/reports/generate?type=peer-brief&id=..." download>`
+- Three initial report types: peer-brief, annual-summary, competitive-snapshot
+
+### Distinct Navigation Per Audience
+
+No new packages.
+
+- Two independent layout files: `(public)/layout.tsx` (consumer) and `pro/layout.tsx` (B2B)
+- Replicate existing `AdminNav` pattern — `ConsumerNav` and `ProNav` as client components
+- Active state via `usePathname()` (already used in `AdminNav`)
+- Existing `DarkModeToggle` component included in both layouts
+
+### A/B Testing (Consumer Landing Page)
+
+No external A/B service. Middleware-native approach.
+
+The project already has `middleware.ts` for auth. Extend it:
+
+```typescript
+// Cookie-based variant assignment — flicker-free, edge-rendered
+const variant = request.cookies.get('landing_ab')?.value
+  ?? (Math.random() < 0.5 ? 'a' : 'b')
+
+response.cookies.set('landing_ab', variant, { maxAge: 60 * 60 * 24 * 30, path: '/' })
+// next.rewrite() to variant-specific page
+```
+
+Conversion tracking via Plausible custom event:
+```typescript
+plausible('landing_cta', { props: { variant: cookieValue, cta: 'free-trial' } })
+```
+
+This is sufficient for a two-variant test at current scale. Add an external service (PostHog,
+Statsig) only if the team needs multi-variate tests, statistical significance dashboards, or
+persistent cohort tracking.
+
+---
+
+## Version Compatibility
+
+| Package | Version | Compatible With | Notes |
+|---------|---------|-----------------|-------|
+| @react-pdf/renderer | ^4.3.3 | React 19 (since v4.1.0), Next.js 14.1.1+ | Requires `serverComponentsExternalPackages` in next.config.ts |
+| next-plausible | ^3.12.0 | Next.js 13+ App Router | `PlausibleProvider` goes in audience-specific layout.tsx |
+| schema-dts | ^1.1.2 | TypeScript 5, dev-only | Zero runtime impact; provides `FinancialService`, `Article`, `BreadcrumbList` types |
+
+---
+
+## Installation Summary
+
+```bash
+# Production additions
+npm install @react-pdf/renderer next-plausible
+
+# Dev additions (optional — for type-safe JSON-LD)
+npm install -D schema-dts
+```
+
+**next.config.ts addition:**
+
+```typescript
+experimental: {
+  serverComponentsExternalPackages: ['@react-pdf/renderer'],
+},
+```
 
 ---
 
@@ -203,59 +391,30 @@ management library is needed at this scale.
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| PDF generation | Playwright HTML-to-PDF | ReportLab | ReportLab requires imperative layout code — cannot match CSS-designed McKinsey templates without enormous boilerplate |
-| PDF generation | Playwright HTML-to-PDF | WeasyPrint (primary) | WeasyPrint's CSS support lags Chromium; flexbox/grid layouts and web fonts render inconsistently. Use WeasyPrint only as fallback for simple pages. |
-| Chart generation | Matplotlib (Python, server) | Recharts (React, client) | Recharts requires a DOM; rendering to static PNG for PDF embed requires a second headless Node.js process. Matplotlib runs in the same Python process as data queries. |
-| PPTX | python-pptx | Aspose.Slides | Aspose requires a commercial license; python-pptx is MIT and sufficient for all slide types needed |
-| AI model | Claude Sonnet 4.6 | Claude Opus 4.6 | Opus is 5x more expensive; quality difference is negligible for structured narrative tasks with well-engineered prompts. Use Opus only for on-demand premium competitive briefs. |
-| Subscription billing | Stripe | Paddle | Stripe is already confirmed in project memory (test keys present). No reason to switch. |
-| Auth | Supabase Auth | Clerk | Supabase Auth already in production; Clerk adds a new vendor with no benefit at this scale |
-| Frontend charts (web UI) | Recharts (existing) | Chart.js / ECharts | Recharts is already used in the existing admin dashboard. Consistency over marginal gains. |
-
----
-
-## Installation
-
-```bash
-# Python additions (fee_crawler/requirements.txt or requirements-report.txt)
-jinja2>=3.1
-python-pptx>=1.0.0
-matplotlib>=3.9
-boto3>=1.35
-# anthropic and playwright are already installed
-# stripe Python SDK (if webhook handling in Python)
-stripe>=10.0
-```
-
-```bash
-# Node additions (package.json)
-npm install stripe @stripe/stripe-js
-npm install @supabase/ssr
-# playwright, @anthropic-ai/sdk, recharts already installed
-```
-
----
-
-## Modal Configuration Notes
-
-- Playwright on Modal: use the `playwright` image with Chromium; it is already in use for
-  crawling — the same image and container can run `page.pdf()` for report generation
-- Matplotlib Agg: set `MPLBACKEND=Agg` as a Modal environment variable to guarantee headless
-  rendering without needing `matplotlib.use("Agg")` in every script
-- Report jobs: define a `@app.function(timeout=300)` for PDF generation — allow up to 5 minutes
-  for complex reports with many charts; typical simple reports will finish in 15-30 seconds
+| PDF generation | @react-pdf/renderer | Puppeteer + @sparticuz/chromium | Bundle size risk (250MB limit), 4-8x slower serverless, requires Vercel Pro for timeout; confirmed by multiple deployment reports |
+| PDF generation | @react-pdf/renderer | jsPDF + html2canvas | Client-side only, canvas screenshot quality is poor, exposes data to browser |
+| SEO metadata | generateMetadata() built-in | next-seo | Deprecated for App Router; conflicts with built-in API |
+| SEO metadata | generateMetadata() built-in | react-helmet | Incompatible with Server Components in React 19 |
+| Analytics segmentation | next-plausible + custom props | PostHog | Overkill for two audience segments; PostHog adds session recording bundle weight and pricing |
+| A/B testing | Middleware cookie + Plausible | Statsig / LaunchDarkly | Enterprise pricing, external dependency for a simple two-variant test |
+| Structured data types | schema-dts (dev dep, optional) | Inline typed helpers | schema-dts is cleaner if > 3 schema types; inline helpers fine for < 3 |
 
 ---
 
 ## Sources
 
-- Playwright `page.pdf()` official API: https://playwright.dev/python/docs/api/class-page#page-pdf (confirmed)
-- python-pptx 1.0.0 docs: https://python-pptx.readthedocs.io/ (confirmed)
-- Anthropic structured outputs (November 2025 GA): https://claude.com/blog/structured-outputs-on-the-claude-developer-platform (confirmed)
-- Anthropic pricing (Sonnet 4.6 vs Opus 4.6): https://platform.claude.com/docs/en/about-claude/pricing (confirmed)
-- Anthropic prompt caching: https://platform.claude.com/docs/en/build-with-claude/prompt-caching (official docs)
-- Modal cloud bucket mounts (R2 support): https://modal.com/docs/guide/cloud-bucket-mounts (confirmed)
-- @supabase/ssr package (replaces deprecated auth-helpers): https://supabase.com/docs/guides/auth/auth-helpers/nextjs (confirmed)
-- Stripe Next.js 2025 guide: https://www.pedroalonso.net/blog/stripe-nextjs-complete-guide-2025/ (MEDIUM — community source)
-- Matplotlib Agg backend (headless server rendering): https://matplotlib.org/stable/users/explain/backends.html (confirmed)
-- WeasyPrint vs Playwright comparison: https://dev.to/claudeprime/generate-pdfs-in-python-weasyprint-vs-reportlab-ifi (MEDIUM — community source)
+- npmjs.com/@react-pdf/renderer — v4.3.3 confirmed current, React 19 support confirmed since v4.1.0 (HIGH confidence)
+- github.com/diegomura/react-pdf/issues/2460 — `serverComponentsExternalPackages` requirement for Next.js App Router confirmed (HIGH confidence)
+- vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel — 250MB bundle limit, 10s hobby timeout, 4-8x slowdown confirmed (HIGH confidence — official Vercel KB)
+- nextjs.org/docs/app/getting-started/metadata-and-og-images — `generateMetadata()` and `ImageResponse` confirmed built-in to Next.js App Router (HIGH confidence)
+- nextjs.org/docs/app/api-reference/file-conventions/route-groups — route groups confirmed as zero-dependency App Router feature (HIGH confidence)
+- plausible.io/docs/custom-props/for-pageviews — custom property segmentation confirmed, up to 30 properties per event (HIGH confidence)
+- github.com/4lejandrito/next-plausible — next-plausible library, App Router compatible (MEDIUM confidence — community library, well-maintained)
+- dev.to/bean_bean/nextjs-middleware-in-2026 — edge middleware variant assignment pattern (MEDIUM confidence — community source, consistent with official Vercel A/B template)
+- vercel.com/templates/next.js/ab-testing-simple — Vercel's official A/B testing template using middleware cookies (HIGH confidence)
+- react-pdf.org/compatibility — Node.js and React compatibility matrix confirmed (HIGH confidence)
+
+---
+
+*Stack research for: Bank Fee Index v6.0 Two-Sided Experience*
+*Researched: 2026-04-07*
