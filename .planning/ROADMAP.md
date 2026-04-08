@@ -605,7 +605,11 @@ Plans:
   3. Hamilton can answer "how many institutions in our database have fee structures similar to those targeted by this CFPB enforcement action?" — the response cites both the regulatory source and an institution count from internal data
   4. A compliance risk query returns institutions with above-median fees AND above-average complaint rates for at least one fee category — both signals appear in the same response
   5. Hamilton can reference industry ROA, efficiency ratio, or deposit growth in an answer that starts from a fee question — the financial context enrichment is automatic, not prompt-dependent
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 36-01-PLAN.md — Wire 5 new sources into queryNationalData + create queryRegulatoryRisk tool + regulation-awareness instruction in Hamilton system prompts
+- [ ] 36-02-PLAN.md — Upgrade all 17 tool descriptions with Returns/When/Combine-with cross-reference guidance
 
 ### Phase 37: Editor v2 and Integration Testing
 **Goal**: The editor validates thesis alignment, revenue prioritization, and implication presence across all sections; a full integration run through a quarterly report confirms the V2 quality bar is met end-to-end
