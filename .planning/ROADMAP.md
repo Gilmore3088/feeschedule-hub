@@ -559,7 +559,11 @@ Plans:
   3. Hamilton's internal reasoning trace (if surfaced) contains 5-8 sentences; the final section output contains 2-3 sentences drawn from that reasoning — the compression is observable when verbose mode is enabled
   4. At least one insight in every generated section uses tension framing ("X while Y") rather than observation framing ("X is at level Z")
   5. When revenue data exists for the subject of a section, the section's first substantive statement concerns revenue implications, not pricing observations
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 33-01-PLAN.md -- Foundation: thesis types (ThesisInput/ThesisOutput/ThesisSummaryPayload) + Hamilton voice v3 with revenue-first and tension model rules
+- [ ] 33-02-PLAN.md -- Generator: buildThesisSummary() condensation + generateGlobalThesis() Claude call + MAX_TOKENS 1500 + remove 75-word limit
+- [ ] 33-03-PLAN.md -- Wiring: inject thesis into national_index orchestrator; narrative_summary passed to all 6 sections
 
 ### Phase 34: Voice v3 and Section Generator v2
 **Goal**: The Hamilton voice system prompt encodes revenue prioritization, tension model, and think-then-compress; every section receives the global thesis plus cross-source context (fees + revenue + economic + regulatory + complaints); section output reaches 150-200 words
