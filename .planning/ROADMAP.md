@@ -544,7 +544,7 @@ Plans:
 **Milestone Goal:** Upgrade Hamilton from a section-based report writer to a unified intelligence engine with global thesis generation, cross-source reasoning, and role-based delivery for admin, B2B, and consumers.
 
 - [x] **Phase 33: Global Thesis Engine** - Hamilton generates a quarterly thesis from full data payload; every section references it; think-then-compress reasoning and tension model replace descriptive observations (completed 2026-04-08)
-- [ ] **Phase 34: Voice v3 and Section Generator v2** - Voice system prompt upgraded with revenue prioritization and tension model; sections receive global thesis + cross-source context; word budget raised to 150-200 words
+- [x] **Phase 34: Voice v3 and Section Generator v2** - Voice system prompt upgraded with revenue prioritization and tension model; sections receive global thesis + cross-source context; word budget raised to 150-200 words (completed 2026-04-08)
 - [ ] **Phase 35: Unified Chat Persona** - Four chat agents consolidated into one role-based Hamilton that adjusts depth and language by audience (consumer, pro, admin) on a shared reasoning layer
 - [ ] **Phase 36: Tool and Regulation Intelligence** - All 16 tool descriptions upgraded with strategic cross-reference guidance; all 13 ingestion sources verified; CFPB/OCC/Fed regulatory signals connected to internal fee data
 - [ ] **Phase 37: Editor v2 and Integration Testing** - Editor validates thesis alignment, revenue prioritization order, and "so what?" presence across all sections; full integration test confirms V2 quality bar
@@ -621,7 +621,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 3/3 plans complete
+**Plans:** 0/1 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -677,7 +677,7 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
 | 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
 | 33. Global Thesis Engine | v7.0 | 3/3 | Complete    | 2026-04-08 |
-| 34. Voice v3 and Section Generator v2 | v7.0 | 0/TBD | Not started | - |
+| 34. Voice v3 and Section Generator v2 | v7.0 | 0/1 | Complete    | 2026-04-08 |
 | 35. Unified Chat Persona | v7.0 | 0/TBD | Not started | - |
 | 36. Tool and Regulation Intelligence | v7.0 | 0/TBD | Not started | - |
 | 37. Editor v2 and Integration Testing | v7.0 | 0/TBD | Not started | - |
