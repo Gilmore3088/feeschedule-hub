@@ -5,7 +5,7 @@
  */
 
 export { HAMILTON_VOICE, HAMILTON_VERSION, HAMILTON_RULES, HAMILTON_FORBIDDEN, HAMILTON_SYSTEM_PROMPT } from "./voice";
-export { generateSection } from "./generate";
+export { generateSection, generateGlobalThesis } from "./generate";
 export { validateNumerics, validateSection } from "./validate";
 export type {
   SectionType,
@@ -13,4 +13,9 @@ export type {
   SectionOutput,
   ValidationResult,
   ValidatedSection,
+  ThesisScope,
+  ThesisTension,
+  ThesisOutput,
+  ThesisInput,
+  ThesisSummaryPayload,
 } from "./types";

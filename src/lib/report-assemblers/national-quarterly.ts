@@ -16,6 +16,7 @@ import { getRevenueTrend } from "@/lib/crawler-db/call-reports";
 import { getBeigeBookHeadlines, getFredSummary } from "@/lib/crawler-db/fed";
 import { getDisplayName, FEE_TIERS } from "@/lib/fee-taxonomy";
 import type { DataManifest } from "@/lib/report-engine/types";
+import type { ThesisSummaryPayload } from "@/lib/hamilton/types";
 
 // ─── Payload Types ─────────────────────────────────────────────────────────────
 
@@ -355,5 +356,89 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
       data_hash,
       pipeline_commit,
     },
+  };
+}
+
+// ─── Thesis Summary Builder (Phase 33, D-02) ──────────────────────────────────
+
+/**
+ * Condense a full NationalQuarterlyPayload into a ~5KB ThesisSummaryPayload
+ * suitable for thesis generation. Pure function — no DB or API calls.
+ *
+ * Per D-01: thesis generator receives condensed summary, not full payload.
+ */
+export function buildThesisSummary(
+  payload: NationalQuarterlyPayload,
+): ThesisSummaryPayload {
+  const top_categories = [...payload.categories]
+    .sort((a, b) => b.institution_count - a.institution_count)
+    .slice(0, 10)
+    .map((c) => ({
+      fee_category: c.fee_category,
+      display_name: c.display_name,
+      median_amount: c.median_amount,
+      bank_median: c.bank_median,
+      cu_median: c.cu_median,
+      institution_count: c.institution_count,
+      maturity_tier: c.maturity_tier,
+    }));
+
+  const revenue_snapshot = payload.revenue
+    ? {
+        latest_quarter: payload.revenue.latest_quarter,
+        total_service_charges: payload.revenue.total_service_charges,
+        yoy_change_pct: payload.revenue.yoy_change_pct,
+        bank_service_charges: payload.revenue.bank_service_charges,
+        cu_service_charges: payload.revenue.cu_service_charges,
+        total_institutions: payload.revenue.total_institutions,
+      }
+    : null;
+
+  const fred_snapshot = payload.fred
+    ? {
+        fed_funds_rate: payload.fred.fed_funds_rate,
+        unemployment_rate: payload.fred.unemployment_rate,
+        cpi_yoy_pct: payload.fred.cpi_yoy_pct,
+        consumer_sentiment: payload.fred.consumer_sentiment,
+        as_of: payload.fred.as_of,
+      }
+    : null;
+
+  const beige_book_themes = payload.district_headlines.map((h) => h.headline);
+
+  const derived_tensions: string[] = [];
+  const {
+    bank_higher_count,
+    cu_higher_count,
+    commoditized_count,
+    total_priced_categories,
+    avg_iqr_spread_pct,
+    revenue_per_institution,
+  } = payload.derived;
+
+  if (bank_higher_count + cu_higher_count > 0) {
+    derived_tensions.push(
+      `Banks charge more than credit unions in ${bank_higher_count} of ${bank_higher_count + cu_higher_count} comparable categories`,
+    );
+  }
+  if (avg_iqr_spread_pct !== null) {
+    derived_tensions.push(
+      `${commoditized_count} of ${total_priced_categories} fee categories have IQR spread under 30% — functionally undifferentiated`,
+    );
+  }
+  if (revenue_per_institution !== null) {
+    derived_tensions.push(
+      `Average fee revenue per institution: $${Math.round(revenue_per_institution).toLocaleString()}`,
+    );
+  }
+
+  return {
+    quarter: payload.quarter,
+    total_institutions: payload.total_institutions,
+    top_categories,
+    revenue_snapshot,
+    fred_snapshot,
+    beige_book_themes,
+    derived_tensions,
   };
 }
