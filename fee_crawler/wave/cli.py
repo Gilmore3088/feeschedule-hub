@@ -106,3 +106,18 @@ def cmd_wave_resume(args: argparse.Namespace) -> None:
         print(f"Resume complete. wave_run_id={args.wave_id}")
     finally:
         conn.close()
+
+
+def cmd_wave_report(args: argparse.Namespace) -> None:
+    """Generate and print a Markdown summary report for a completed wave.
+
+    Prints to stdout. If --output is given, also writes to that file path.
+    Usable for any past wave: python -m fee_crawler wave report <wave_id>
+    """
+    conn = _connect()
+    try:
+        ensure_tables(conn)
+        from fee_crawler.wave.reporter import print_wave_report
+        print_wave_report(conn, args.wave_id, output_path=getattr(args, "output", None))
+    finally:
+        conn.close()

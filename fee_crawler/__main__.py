@@ -1260,6 +1260,27 @@ def main() -> None:
         ).cmd_wave_resume(args)
     )
 
+    wave_report_parser = wave_sub.add_parser(
+        "report",
+        help="Print a Markdown summary report for a completed wave",
+    )
+    wave_report_parser.add_argument(
+        "wave_id",
+        type=int,
+        help="Wave run ID to report on (from wave_runs.id)",
+    )
+    wave_report_parser.add_argument(
+        "--output",
+        default=None,
+        metavar="PATH",
+        help="Optional file path to write the report (default: stdout only)",
+    )
+    wave_report_parser.set_defaults(
+        func=lambda args: __import__(
+            "fee_crawler.wave.cli", fromlist=["cmd_wave_report"]
+        ).cmd_wave_report(args)
+    )
+
     # ── Knowledge management ───────────────────────────────────────────
     knowledge_parser = subparsers.add_parser(
         "knowledge",
