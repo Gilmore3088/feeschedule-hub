@@ -36,7 +36,7 @@ export default async function ProResearchPage() {
 
   let conversations: { id: number; title: string; updatedAt: string }[] = [];
   try {
-    const raw = await listConversations(user.id, "fee-analyst", 20);
+    const raw = await listConversations(user.id, "hamilton", 20);
     conversations = raw.map((c) => ({
       id: c.id,
       title: c.title ?? "Untitled",
@@ -88,7 +88,7 @@ export default async function ProResearchPage() {
 
       {/* Analyst Hub */}
       <AnalystHub
-        agentId="fee-analyst"
+        agentId="hamilton"
         agentName={agent.name}
         conversations={conversations}
         queriesToday={usage.today}

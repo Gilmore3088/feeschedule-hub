@@ -96,7 +96,7 @@ export function AnalystHub({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: `/api/research/${agentId}` }),
+    transport: new DefaultChatTransport({ api: "/api/research/hamilton" }),
     onError: (err) => {
       const msg = err?.message || "";
       if (msg.includes("429")) setError("Rate limit exceeded. Please wait.");
