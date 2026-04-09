@@ -613,7 +613,11 @@ Plans:
   1. Calling `ensureHamiltonProTables()` on a fresh database creates all 6 tables with correct schema -- calling it again on an existing database is a no-op with no errors
   2. A scenario row can be saved with a confidence tier of "strong", "provisional", or "insufficient" -- any other value is rejected by a DB constraint or application-level validation
   3. An analysis and a scenario can each be soft-deleted (archived) -- a soft-deleted row does not appear in default list queries but remains in the database and is recoverable
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 39-01-PLAN.md -- ensureHamiltonProTables() with 6 tables, indexes, constraints + confidence tier module
+- [ ] 39-02-PLAN.md -- Unit tests for confidence tiers and pro-tables structural validation
 
 ### Phase 40: Hamilton Shell
 **Goal**: All Hamilton screens share a single server-rendered layout shell with top nav, context bar, and left rail -- institutional context set in Settings flows to every screen without per-screen selection
