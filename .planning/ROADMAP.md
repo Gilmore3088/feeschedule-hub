@@ -710,7 +710,7 @@ Plans:
   5. The generated report contains no interactive elements -- there are no sliders, input fields, or exploratory prompts visible in the rendered report
 **Plans**: 1 plan
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 45-01-PLAN.md — TBD
 **UI hint**: yes
 
 ### Phase 46: Monitor
@@ -725,7 +725,7 @@ Plans:
   5. The floating chat overlay opens without navigating away from Monitor and accepts a question -- Hamilton's response appears in the overlay without disrupting the underlying signal feed
 **Plans**: 1 plan
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 46-01-PLAN.md — TBD
 **UI hint**: yes
 
 ## Backlog
@@ -854,7 +854,7 @@ Plans:
   4. After adjusting the proposed fee, Hamilton's interpretation streams a real API response surfacing peer complaint patterns, peer behavior signals, and revenue subcategory context — no concrete dollar predictions appear in the output
 **Plans**: 1 plan
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 52-01-PLAN.md — Family-grouped category selector, system prompt rewrite, URL param wiring
 **UI hint**: yes
 
 ### Phase 53: Reports Library + Generation
@@ -869,7 +869,7 @@ Plans:
   5. When a user arrives at Reports from Simulate after saving a scenario, the scenario parameters auto-populate the report configuration — no manual re-entry required
 **Plans**: 1 plan
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 53-01-PLAN.md — TBD
 **UI hint**: yes
 
 ### Phase 54: Integration Pass
@@ -883,7 +883,7 @@ Plans:
   4. The institution name, asset tier, Fed district, and peer group are identical on every Hamilton screen — changing them in Settings propagates to all screens within one page load
 **Plans**: 1 plan
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 54-01-PLAN.md — TBD
 **UI hint**: yes
 
 ## Progress
