@@ -2,13 +2,44 @@
  * Hamilton Home / Executive Briefing — Server Data Fetcher
  * Assembles thesis + positioning data for the Home screen.
  * Per D-09: page uses ISR 24h revalidation to avoid repeated API calls.
+ * Per D-11: signal/alert queries are NOT cached — fresh on every load.
  */
 
 import { getNationalIndexCached } from "@/lib/crawler-db/fee-index";
 import { getSpotlightCategories } from "@/lib/fee-taxonomy";
 import { DISPLAY_NAMES } from "@/lib/fee-taxonomy";
+import { sql } from "@/lib/crawler-db/connection";
 import { generateGlobalThesis } from "./generate";
 import type { ThesisOutput, ThesisSummaryPayload } from "./types";
+
+// ---------------------------------------------------------------------------
+// Signal/alert types (Plan 02 additions)
+// ---------------------------------------------------------------------------
+
+export interface SignalEntry {
+  id: string;
+  signalType: string;
+  severity: string;
+  title: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface AlertEntry {
+  id: string;
+  signalId: string;
+  severity: string;
+  title: string;
+  body: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface HomeBriefingSignals {
+  whatChanged: SignalEntry[];
+  priorityAlerts: AlertEntry[];
+  monitorFeed: SignalEntry[];
+}
 
 export interface PositioningEntry {
   feeCategory: string;
@@ -26,6 +57,7 @@ export interface HomeBriefingData {
   positioning: PositioningEntry[];
   spotlightCount: number;
   totalInstitutions: number;
+  recommendedCategory: string | null;
 }
 
 function getCurrentQuarter(): string {
@@ -120,11 +152,129 @@ export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
     thesis = null;
   }
 
+  // Derive recommendedCategory from thesis tensions (per D-07)
+  // Note: spotlightCategories is already declared at the top of this function.
+  let recommendedCategory: string | null = null;
+  if (thesis) {
+    const textToSearch = [
+      thesis.core_thesis,
+      ...(thesis.tensions ?? []).map((t) => `${t.implication ?? ""}`),
+    ]
+      .join(" ")
+      .toLowerCase();
+    for (const cat of spotlightCategories) {
+      if (textToSearch.includes(cat.replace(/_/g, " "))) {
+        recommendedCategory = cat;
+        break;
+      }
+    }
+  }
+  if (!recommendedCategory) {
+    recommendedCategory = "overdraft";
+  }
+
   return {
     thesis,
     confidence,
     positioning,
     spotlightCount: positioning.length,
     totalInstitutions,
+    recommendedCategory,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Signal/alert query functions (fresh every load — NOT ISR cached, per D-11)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch recent signals from hamilton_signals ordered by created_at DESC.
+ * Returns empty array on failure (table may not exist or have data per D-02).
+ */
+async function fetchRecentSignals(limit: number): Promise<SignalEntry[]> {
+  try {
+    const rows = await sql`
+      SELECT id, institution_id, signal_type, severity, title, body, created_at
+      FROM hamilton_signals
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+    return rows.map((r) => ({
+      id: String(r.id),
+      signalType: String(r.signal_type),
+      severity: String(r.severity),
+      title: String(r.title),
+      body: String(r.body),
+      createdAt: String(r.created_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch active priority alerts for a user, joined with signal data.
+ * Ordered by severity DESC then created_at DESC. Per T-42-04: user_id scoped.
+ * Returns empty array on failure per D-03.
+ */
+async function fetchPriorityAlerts(
+  userId: number,
+  limit = 3
+): Promise<AlertEntry[]> {
+  try {
+    const rows = await sql`
+      SELECT
+        pa.id,
+        pa.signal_id,
+        pa.status,
+        pa.created_at,
+        s.severity,
+        s.title,
+        s.body
+      FROM hamilton_priority_alerts pa
+      JOIN hamilton_signals s ON pa.signal_id = s.id
+      WHERE pa.user_id = ${userId}
+        AND pa.status = 'active'
+      ORDER BY
+        CASE s.severity
+          WHEN 'high' THEN 1
+          WHEN 'medium' THEN 2
+          WHEN 'low' THEN 3
+          ELSE 4
+        END ASC,
+        pa.created_at DESC
+      LIMIT ${limit}
+    `;
+    return rows.map((r) => ({
+      id: String(r.id),
+      signalId: String(r.signal_id),
+      severity: String(r.severity),
+      title: String(r.title),
+      body: String(r.body),
+      status: String(r.status),
+      createdAt: String(r.created_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch all signal/alert data for the Executive Briefing home screen.
+ * Called fresh on every page load (NOT ISR cached, per D-11).
+ * Parallel fetch for performance (T-42-06: LIMIT clauses prevent unbounded results).
+ */
+export async function fetchHomeBriefingSignals(
+  userId: number
+): Promise<HomeBriefingSignals> {
+  const [recentFive, alerts, recentThree] = await Promise.all([
+    fetchRecentSignals(5),
+    fetchPriorityAlerts(userId, 3),
+    fetchRecentSignals(3),
+  ]);
+  return {
+    whatChanged: recentFive,
+    priorityAlerts: alerts,
+    monitorFeed: recentThree,
   };
 }
