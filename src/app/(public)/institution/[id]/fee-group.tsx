@@ -48,15 +48,15 @@ export function FeeGroup({ groupName, fees, isPrimary, defaultOpen }: FeeGroupPr
   if (fees.length === 0) return null;
 
   const summaryClass = isPrimary
-    ? "relative pl-8 border-l-4 border-[#8a4c27] mb-6 flex items-center justify-between cursor-pointer list-none"
+    ? "relative pl-8 border-l-4 border-[#C44B2E] mb-6 flex items-center justify-between cursor-pointer list-none"
     : "relative pl-8 mb-6 flex items-center justify-between cursor-pointer list-none";
 
   const labelClass = isPrimary
-    ? "font-sans text-xs uppercase tracking-[0.2em] text-[#8a4c27]"
+    ? "font-sans text-xs uppercase tracking-[0.2em] text-[#C44B2E]"
     : "font-sans text-xs uppercase tracking-[0.2em] text-[#53443c]";
 
   const chevronClass = isPrimary
-    ? "material-symbols-outlined text-sm text-[#8a4c27]/40 transition-transform duration-300 expand-icon"
+    ? "material-symbols-outlined text-sm text-[#C44B2E]/40 transition-transform duration-300 expand-icon"
     : "material-symbols-outlined text-sm text-[#53443c]/40 transition-transform duration-300 expand-icon";
 
   return (
@@ -102,7 +102,7 @@ export function FeeGroup({ groupName, fees, isPrimary, defaultOpen }: FeeGroupPr
                       style={{ left: `${barPos.p25Left}%`, width: `${barPos.rangeWidth}%` }}
                     />
                     <div
-                      className="absolute w-2 h-2 bg-[#8a4c27] rounded-full shadow-sm ring-4 ring-[#8a4c27]/20"
+                      className="absolute w-2 h-2 bg-[#C44B2E] rounded-full shadow-sm ring-4 ring-[#C44B2E]/20"
                       style={{ left: `${barPos.dotLeft}%` }}
                     />
                   </div>
@@ -111,13 +111,13 @@ export function FeeGroup({ groupName, fees, isPrimary, defaultOpen }: FeeGroupPr
                 )}
               </div>
 
-              <div className="col-span-3 md:col-span-2 text-right font-serif text-lg text-[#1b1c19]"
+              <div className="col-span-3 md:col-span-2 text-right text-lg text-[#1b1c19]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
                 {fee.amount === null ? (
                   <span className="text-sm text-[#53443c]/50 italic">N/A</span>
                 ) : fee.amount === 0 ? (
-                  <span className="font-serif text-lg">$0.00</span>
+                  <span className="text-lg" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>$0.00</span>
                 ) : (
                   formatAmount(fee.amount)
                 )}

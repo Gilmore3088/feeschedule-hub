@@ -220,10 +220,10 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
   const fees = (await getFeesByInstitution(instId)).filter((f) => f.review_status !== "rejected");
   const [financials, nationalIndex, revenueTrend, peerRanking] = await Promise.all([
-    getFinancialsByInstitution(instId),
+    getFinancialsByInstitution(instId).catch(() => []),
     getNationalIndex(),
-    getInstitutionRevenueTrend(instId),
-    getInstitutionPeerRanking(instId),
+    getInstitutionRevenueTrend(instId).catch(() => []),
+    getInstitutionPeerRanking(instId).catch(() => null),
   ]);
 
   const indexMap = new Map(nationalIndex.map((e) => [e.fee_category, e]));
@@ -309,7 +309,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           <header className="mb-16">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
-                <span className="font-sans text-[11px] uppercase tracking-widest text-[#8a4c27] mb-2 block">
+                <span className="font-sans text-[11px] uppercase tracking-widest text-[#C44B2E] mb-2 block">
                   Institution Intelligence
                 </span>
                 <h1
@@ -344,7 +344,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     href={websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-[#8a4c27] font-medium hover:underline text-xs uppercase tracking-wider"
+                    className="flex items-center gap-2 text-[#C44B2E] font-medium hover:underline text-xs uppercase tracking-wider"
                   >
                     Website <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>open_in_new</span>
                   </a>
@@ -354,7 +354,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     href={disclosureUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-[#8a4c27] font-medium hover:underline text-xs uppercase tracking-wider"
+                    className="flex items-center gap-2 text-[#C44B2E] font-medium hover:underline text-xs uppercase tracking-wider"
                   >
                     Full Disclosure <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>picture_as_pdf</span>
                   </a>
@@ -477,7 +477,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
               {/* Mini CTA */}
               <div className="mt-8 p-6 bg-[#e4e2dd]/50 rounded-xl flex items-center gap-6">
-                <div className="text-[#8a4c27] flex-shrink-0">
+                <div className="text-[#C44B2E] flex-shrink-0">
                   <span
                     className="material-symbols-outlined"
                     style={{ fontSize: "36px", fontVariationSettings: '"FILL" 1' }}
@@ -489,7 +489,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   <p className="text-sm font-sans text-[#53443c] leading-relaxed">
                     <span className="font-bold text-[#1b1c19]">Financial professionals</span>{" "}
                     get access to peer benchmarking, competitive intelligence, and AI-powered research.{" "}
-                    <Link href="/pro" className="text-[#8a4c27] font-bold hover:underline">
+                    <Link href="/pro" className="text-[#C44B2E] font-bold hover:underline">
                       Learn More
                     </Link>
                   </p>
@@ -722,10 +722,10 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#86736b] mb-2">Ask Hamilton</p>
                     <div className="flex flex-wrap gap-2">
-                      <Link href={`/pro/research?prompt=competitive-brief&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#8a4c27]/10 px-4 py-2 text-[12px] font-bold text-[#8a4c27] hover:bg-[#8a4c27]/20 transition-colors">
+                      <Link href={`/pro/research?prompt=competitive-brief&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E]/10 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/20 transition-colors">
                         Generate a competitive brief
                       </Link>
-                      <Link href={`/pro/research?prompt=institution&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#8a4c27]/10 px-4 py-2 text-[12px] font-bold text-[#8a4c27] hover:bg-[#8a4c27]/20 transition-colors">
+                      <Link href={`/pro/research?prompt=institution&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E]/10 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/20 transition-colors">
                         Ask about this institution
                       </Link>
                     </div>
@@ -750,8 +750,8 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             </>
           )}
 
-          {/* ── Professional CTA Section ─────────────────────────── */}
-          <div className="mt-20 p-10 bg-[#f5f3ee] rounded-lg">
+          {/* ── Professional CTA Section (hidden for pro users) ──── */}
+          {!isPro && <div className="mt-20 p-10 bg-[#f5f3ee] rounded-lg">
             <div className="max-w-3xl mx-auto">
               <h3
                 className="text-3xl text-[#1b1c19] mb-4"
@@ -765,22 +765,22 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               </p>
               <ul className="space-y-4 mb-10">
                 <li className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#8a4c27]" style={{ fontSize: "20px" }}>analytics</span>
+                  <span className="material-symbols-outlined text-[#C44B2E]" style={{ fontSize: "20px" }}>analytics</span>
                   <span className="font-sans text-[#1b1c19]">Peer benchmarking &amp; percentile positioning</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#8a4c27]" style={{ fontSize: "20px" }}>simulation</span>
+                  <span className="material-symbols-outlined text-[#C44B2E]" style={{ fontSize: "20px" }}>tune</span>
                   <span className="font-sans text-[#1b1c19]">Scenario simulation &mdash; what-if fee modeling</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#8a4c27]" style={{ fontSize: "20px" }}>warning</span>
+                  <span className="material-symbols-outlined text-[#C44B2E]" style={{ fontSize: "20px" }}>warning</span>
                   <span className="font-sans text-[#1b1c19]">Complaint-aligned risk signals</span>
                 </li>
               </ul>
               <div className="flex flex-col sm:flex-row sm:items-center gap-6">
                 <Link
                   href="/pro"
-                  className="bg-gradient-to-br from-[#8a4c27] to-[#a7633c] text-white px-8 py-3 rounded font-medium transition-all inline-flex items-center gap-2 hover:opacity-90"
+                  className="bg-[#C44B2E] hover:bg-[#A83D25] text-white px-8 py-3 rounded font-medium transition-all inline-flex items-center gap-2"
                 >
                   View Professional Analysis
                   <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
@@ -790,7 +790,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 </p>
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* ── Methodology Footer ───────────────────────────────── */}
           <footer className="mt-32 pt-12 border-t border-[#d8c2b8]/20 opacity-60">
