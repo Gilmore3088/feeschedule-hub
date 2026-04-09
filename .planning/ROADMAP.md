@@ -761,7 +761,7 @@ Plans:
 - [x] **Phase 49: Monitor Live Data** - Strip demo signals, wire real hamilton_signals queries, CRUD watchlist, real Hamilton chat streaming (completed 2026-04-09)
 - [x] **Phase 50: Home / Briefing Live Data** - Wire real thesis generation, real index positioning, real alerts — no placeholder content (completed 2026-04-09)
 - [x] **Phase 51: Analyze Live Data** - Verify streaming with real Hamilton API, wire focus tab context, save/load analyses, PDF export (completed 2026-04-09)
-- [ ] **Phase 52: Simulate Live Data** - All 49 categories, real distribution data, confidence gating, Hamilton interpretation with real API
+- [x] **Phase 52: Simulate Live Data** - All 49 categories, real distribution data, confidence gating, Hamilton interpretation with real API (completed 2026-04-09)
 - [ ] **Phase 53: Reports Library + Generation** - Curated report library, real generateSection() pipeline, PDF export end-to-end, scenario-linked reports
 - [ ] **Phase 54: Integration Pass** - Screen-to-screen flows, Simulate to Report context, Analyze to PDF, cross-screen data consistency
 
@@ -854,7 +854,7 @@ Plans:
   4. After adjusting the proposed fee, Hamilton's interpretation streams a real API response surfacing peer complaint patterns, peer behavior signals, and revenue subcategory context — no concrete dollar predictions appear in the output
 **Plans**: 1 plan
 Plans:
-- [ ] 52-01-PLAN.md — Family-grouped category selector, system prompt rewrite, URL param wiring
+- [x] 52-01-PLAN.md — Family-grouped category selector, system prompt rewrite, URL param wiring
 **UI hint**: yes
 
 ### Phase 53: Reports Library + Generation
@@ -944,6 +944,6 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 49. Monitor Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 50. Home / Briefing Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 51. Analyze Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
-| 52. Simulate Live Data | v8.1 | 0/TBD | Not started | - |
+| 52. Simulate Live Data | v8.1 | 1/1 | Complete   | 2026-04-09 |
 | 53. Reports Library + Generation | v8.1 | 0/TBD | Not started | - |
 | 54. Integration Pass | v8.1 | 0/TBD | Not started | - |
