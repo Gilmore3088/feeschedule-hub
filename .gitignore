@@ -58,6 +58,9 @@ supabase/.temp/
 
 # reports (generated PDFs, not source)
 Reports/
+# allow source code in reports subdirectories
+!src/**/reports/
+!src/**/reports/**
 
 # run scripts and logs (local dev)
 _run_*.py

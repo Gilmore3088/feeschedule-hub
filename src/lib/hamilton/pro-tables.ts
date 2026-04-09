@@ -17,6 +17,7 @@
  */
 
 import { sql } from "@/lib/crawler-db/connection";
+import type { ReportSummaryResponse } from "@/lib/hamilton/types";
 
 /**
  * Create Hamilton Pro tables if they do not already exist.
@@ -180,4 +181,101 @@ export async function ensureHamiltonProTables(): Promise<void> {
   } catch (err) {
     console.error("[hamilton] ensureHamiltonProTables failed:", err);
   }
+}
+
+/**
+ * Save a generated report to hamilton_reports.
+ * Returns the new report's UUID.
+ */
+export async function saveHamiltonReport(params: {
+  userId: number;
+  institutionId: string;
+  reportType: string;
+  reportJson: ReportSummaryResponse;
+  scenarioId?: string | null;
+}): Promise<string> {
+  const rows = await sql`
+    INSERT INTO hamilton_reports (user_id, institution_id, report_type, report_json, scenario_id)
+    VALUES (${params.userId}, ${params.institutionId}, ${params.reportType}, ${JSON.stringify(params.reportJson)}, ${params.scenarioId ?? null})
+    RETURNING id
+  `;
+  return rows[0].id as string;
+}
+
+/**
+ * Get recent reports for a user (for left rail Report History).
+ * Returns newest first, limited to 10.
+ */
+export async function getRecentHamiltonReports(userId: number): Promise<Array<{
+  id: string;
+  report_type: string;
+  created_at: string;
+  title: string;
+}>> {
+  const rows = await sql`
+    SELECT id, report_type, created_at,
+           report_json->>'title' AS title
+    FROM hamilton_reports
+    WHERE user_id = ${userId}
+    ORDER BY created_at DESC
+    LIMIT 10
+  `;
+  return rows as unknown as Array<{ id: string; report_type: string; created_at: string; title: string; }>;
+}
+
+/**
+ * Get active scenarios for a user (for scenario selector in ConfigSidebar).
+ * Returns newest first, limited to 20.
+ */
+export async function getActiveScenarios(userId: number): Promise<Array<{
+  id: string;
+  fee_category: string;
+  current_value: number;
+  proposed_value: number;
+  confidence_tier: string;
+  created_at: string;
+}>> {
+  const rows = await sql`
+    SELECT id, fee_category, current_value, proposed_value, confidence_tier, created_at
+    FROM hamilton_scenarios
+    WHERE user_id = ${userId}
+      AND status = 'active'
+    ORDER BY created_at DESC
+    LIMIT 20
+  `;
+  return rows as unknown as Array<{
+    id: string;
+    fee_category: string;
+    current_value: number;
+    proposed_value: number;
+    confidence_tier: string;
+    created_at: string;
+  }>;
+}
+
+/**
+ * Get a single report by ID (for report output display after generation).
+ */
+export async function getHamiltonReportById(reportId: string, userId: number): Promise<{
+  id: string;
+  report_type: string;
+  report_json: ReportSummaryResponse;
+  scenario_id: string | null;
+  created_at: string;
+} | null> {
+  const rows = await sql`
+    SELECT id, report_type, report_json, scenario_id, created_at
+    FROM hamilton_reports
+    WHERE id = ${reportId}
+      AND user_id = ${userId}
+    LIMIT 1
+  `;
+  if (!rows[0]) return null;
+  return {
+    id: rows[0].id as string,
+    report_type: rows[0].report_type as string,
+    report_json: rows[0].report_json as ReportSummaryResponse,
+    scenario_id: rows[0].scenario_id as string | null,
+    created_at: rows[0].created_at as string,
+  };
 }
