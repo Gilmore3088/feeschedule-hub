@@ -695,7 +695,7 @@ Plans:
   5. Clicking "Generate Board Scenario Summary" produces a report-ready output that can be opened in the Report Builder screen
 **Plans**: 1 plan
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [x] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 45: Report Builder
@@ -931,7 +931,7 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 44. Simulate | v8.0 | 1/1 | Complete    | 2026-04-09 |
 | 45. Report Builder | v8.0 | 0/4 | Complete    | 2026-04-09 |
 | 46. Monitor | v8.0 | 1/1 | Complete    | 2026-04-09 |
-| 47. Settings DB Migration | v8.1 | 1/1 | Complete   | 2026-04-09 |
+| 47. Settings DB Migration | v8.1 | 1/1 | Complete    | 2026-04-09 |
 | 48. Pro Navigation + Full Canvas Width | v8.1 | 0/TBD | Not started | - |
 | 49. Monitor Live Data | v8.1 | 0/TBD | Not started | - |
 | 50. Home / Briefing Live Data | v8.1 | 0/TBD | Not started | - |
