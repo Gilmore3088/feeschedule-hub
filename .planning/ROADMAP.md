@@ -582,7 +582,7 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 - [x] **Phase 39: Data Layer** - 6 new PostgreSQL tables, ensureHamiltonProTables(), confidence tier field, soft-delete columns (completed 2026-04-09)
 - [x] **Phase 40: Hamilton Shell** - Route group layout, top nav, context bar, left rail workspace memory, institutional context flow (completed 2026-04-09)
 - [x] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel (completed 2026-04-09)
-- [ ] **Phase 42: Home / Executive Briefing** - Thesis card, What Changed, Priority Alerts, Recommended Action CTA, Positioning Evidence, Monitor Feed preview
+- [x] **Phase 42: Home / Executive Briefing** - Thesis card, What Changed, Priority Alerts, Recommended Action CTA, Positioning Evidence, Monitor Feed preview (completed 2026-04-09)
 - [ ] **Phase 43: Analyze Workspace** - Analysis workspace with tabs, Explore Further prompts, saved analyses, CTA hierarchy, screen boundary enforcement
 - [ ] **Phase 44: Simulate** - Fee slider, Current vs Proposed comparison, strategy interpretation, tradeoffs panel, Recommended Position, scenario archive, board summary CTA
 - [ ] **Phase 45: Report Builder** - Template gallery, configuration sidebar, executive summary generation, read-only enforcement, PDF export, scenario-linked reports, implementation notes
@@ -663,8 +663,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 42-01-PLAN.md -- Data layer + Hamilton's View card + Positioning Evidence (thesis, index queries, ISR caching)
-- [ ] 42-02-PLAN.md -- What Changed, Priority Alerts, Recommended Action CTA, Monitor Feed preview, full page wiring
+- [x] 42-01-PLAN.md -- Data layer + Hamilton's View card + Positioning Evidence (thesis, index queries, ISR caching)
+- [x] 42-02-PLAN.md -- What Changed, Priority Alerts, Recommended Action CTA, Monitor Feed preview, full page wiring
 **UI hint**: yes
 
 ### Phase 43: Analyze Workspace
@@ -789,7 +789,7 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 39. Data Layer | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 40. Hamilton Shell | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 41. Settings | v8.0 | 2/2 | Complete    | 2026-04-09 |
-| 42. Home / Executive Briefing | v8.0 | 0/TBD | Not started | - |
+| 42. Home / Executive Briefing | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 43. Analyze Workspace | v8.0 | 0/TBD | Not started | - |
 | 44. Simulate | v8.0 | 0/TBD | Not started | - |
 | 45. Report Builder | v8.0 | 0/TBD | Not started | - |
