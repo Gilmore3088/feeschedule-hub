@@ -1,5 +1,7 @@
 "use client";
 
+import { FEE_FAMILIES, DISPLAY_NAMES } from "@/lib/fee-taxonomy";
+
 export interface SimulationCategory {
   fee_category: string;
   display_name: string;
@@ -14,26 +16,15 @@ interface Props {
   onSelect: (feeCategory: string) => void;
 }
 
-const TIER_ORDER: SimulationCategory["confidence_tier"][] = [
-  "strong",
-  "provisional",
-  "insufficient",
-];
-
-const TIER_LABELS: Record<SimulationCategory["confidence_tier"], string> = {
-  strong: "Strong Data (20+ approved)",
-  provisional: "Provisional (10–19 approved)",
-  insufficient: "Insufficient (<10 approved)",
-};
-
 export function ScenarioCategorySelector({ categories, selected, loading, onSelect }: Props) {
-  const grouped = TIER_ORDER.reduce<Record<string, SimulationCategory[]>>(
-    (acc, tier) => {
-      acc[tier] = categories.filter((c) => c.confidence_tier === tier);
-      return acc;
-    },
-    { strong: [], provisional: [], insufficient: [] }
-  );
+  const grouped = Object.entries(FEE_FAMILIES)
+    .map(([family, members]) => ({
+      family,
+      items: members
+        .map((cat) => categories.find((c) => c.fee_category === cat))
+        .filter((c): c is SimulationCategory => c !== undefined),
+    }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <div className="flex flex-col gap-1">
@@ -62,19 +53,15 @@ export function ScenarioCategorySelector({ categories, selected, loading, onSele
         <option value="">
           {loading ? "Loading categories..." : "Select a fee category..."}
         </option>
-        {TIER_ORDER.map((tier) => {
-          const items = grouped[tier];
-          if (items.length === 0) return null;
-          return (
-            <optgroup key={tier} label={TIER_LABELS[tier]}>
-              {items.map((cat) => (
-                <option key={cat.fee_category} value={cat.fee_category}>
-                  {cat.display_name} ({cat.approved_count} approved)
-                </option>
-              ))}
-            </optgroup>
-          );
-        })}
+        {grouped.map(({ family, items }) => (
+          <optgroup key={family} label={family}>
+            {items.map((cat) => (
+              <option key={cat.fee_category} value={cat.fee_category}>
+                {DISPLAY_NAMES[cat.fee_category] ?? cat.display_name} ({cat.approved_count} approved)
+              </option>
+            ))}
+          </optgroup>
+        ))}
       </select>
     </div>
   );

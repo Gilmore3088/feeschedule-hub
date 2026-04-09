@@ -11,9 +11,16 @@ export const metadata: Metadata = { title: "Scenario Modeling" };
  * to ensure server-side redirect on direct navigation.
  * Passes userId and institutionContext to the client workspace shell.
  */
-export default async function SimulatePage() {
+export default async function SimulatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
+
+  const params = await searchParams;
+  const initialCategory = params.category || undefined;
 
   const institutionId =
     (user.institution_name ?? "").toLowerCase().replace(/\s+/g, "-") || null;
@@ -30,6 +37,7 @@ export default async function SimulatePage() {
       userId={user.id}
       institutionId={institutionId}
       institutionContext={institutionContext}
+      initialCategory={initialCategory}
     />
   );
 }

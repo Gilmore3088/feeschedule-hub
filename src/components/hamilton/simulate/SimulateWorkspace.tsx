@@ -38,6 +38,7 @@ interface Props {
   userId: number;
   institutionId: string | null;
   institutionContext: InstitutionContext;
+  initialCategory?: string;
 }
 
 function formatDollar(v: number): string {
@@ -48,7 +49,7 @@ function formatCategory(cat: string): string {
   return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function SimulateWorkspace({ userId: _userId, institutionId, institutionContext }: Props) {
+export function SimulateWorkspace({ userId: _userId, institutionId, institutionContext, initialCategory }: Props) {
   const router = useRouter();
 
   // ─── Category + Distribution ───────────────────────────────────────────────
@@ -99,14 +100,19 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
   useEffect(() => {
     setLoadingCategories(true);
     getSimulationCategories()
-      .then((cats) => setCategories(cats))
+      .then((cats) => {
+        setCategories(cats);
+        if (initialCategory && cats.some((c) => c.fee_category === initialCategory)) {
+          handleCategorySelect(initialCategory);
+        }
+      })
       .catch(() => setError("Failed to load fee categories"))
       .finally(() => setLoadingCategories(false));
 
     listScenarios()
       .then(setScenarios)
       .catch(() => {});
-  }, []);
+  }, [initialCategory, handleCategorySelect]);
 
   // ─── Category Selection ───────────────────────────────────────────────────
   const handleCategorySelect = useCallback(async (feeCategory: string) => {
@@ -264,7 +270,7 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
   );
 
   // ─── Derived display values ────────────────────────────────────────────────
-  const categoryLabel = selectedCategory ? formatCategory(selectedCategory) : "Overdraft Fees";
+  const categoryLabel = selectedCategory ? formatCategory(selectedCategory) : "Fee Simulation";
   const hasDistribution = distribution && confidenceTier && !loadingCategory;
   const hasSimulation = hasDistribution && !simulationBlocked && currentPosition && proposedPosition;
 
