@@ -581,7 +581,7 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 - [x] **Phase 38: Architecture Foundation** - CSS isolation boundary, TypeScript DTOs, mode enum, navigation source, and screen ownership rules (completed 2026-04-09)
 - [x] **Phase 39: Data Layer** - 6 new PostgreSQL tables, ensureHamiltonProTables(), confidence tier field, soft-delete columns (completed 2026-04-09)
 - [x] **Phase 40: Hamilton Shell** - Route group layout, top nav, context bar, left rail workspace memory, institutional context flow (completed 2026-04-09)
-- [ ] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel
+- [x] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel (completed 2026-04-09)
 - [ ] **Phase 42: Home / Executive Briefing** - Thesis card, What Changed, Priority Alerts, Recommended Action CTA, Positioning Evidence, Monitor Feed preview
 - [ ] **Phase 43: Analyze Workspace** - Analysis workspace with tabs, Explore Further prompts, saved analyses, CTA hierarchy, screen boundary enforcement
 - [ ] **Phase 44: Simulate** - Fee slider, Current vs Proposed comparison, strategy interpretation, tradeoffs panel, Recommended Position, scenario archive, board summary CTA
@@ -644,10 +644,10 @@ Plans:
   2. A user can create a named peer set by selecting charter, asset tiers, and districts -- the peer set is saved and available for selection in Simulate and Report screens
   3. The intelligence snapshot panel shows the user's account tier, feature access toggles, and a usage stat (e.g., reports generated this month)
   4. The billing panel displays the current subscription plan, renewal date, and a link to manage billing -- no billing logic is handled on this page (Stripe redirect)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 41-01-PLAN.md -- Server actions, avatar dropdown, institution profile form with Strategy Settings design
-- [ ] 41-02-PLAN.md -- Peer set management, intelligence snapshot, feature access, billing, quick actions
+- [x] 41-02-PLAN.md -- Peer set management, intelligence snapshot, feature access, billing, quick actions
 **UI hint**: yes
 
 ### Phase 42: Home / Executive Briefing
@@ -784,7 +784,7 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 38. Architecture Foundation | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 39. Data Layer | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 40. Hamilton Shell | v8.0 | 2/2 | Complete    | 2026-04-09 |
-| 41. Settings | v8.0 | 1/2 | In Progress|  |
+| 41. Settings | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 42. Home / Executive Briefing | v8.0 | 0/TBD | Not started | - |
 | 43. Analyze Workspace | v8.0 | 0/TBD | Not started | - |
 | 44. Simulate | v8.0 | 0/TBD | Not started | - |
