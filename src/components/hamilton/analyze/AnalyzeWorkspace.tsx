@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { ANALYSIS_FOCUS_TABS, type AnalysisFocus } from "@/lib/hamilton/navigation";
 import { saveAnalysis } from "@/app/pro/(hamilton)/analyze/actions";
@@ -30,13 +31,11 @@ interface ParsedResponse {
  * Falls back to raw content in hamiltonView if sections are not found.
  */
 function parseAnalyzeResponse(content: string): ParsedResponse {
-  // Split on ## headings
   const sections = content.split(/^##\s+/m);
 
   function getSection(name: string): string {
     const match = sections.find((s) => s.toLowerCase().startsWith(name.toLowerCase()));
     if (!match) return "";
-    // Strip the heading line, trim remaining content
     return match.replace(/^[^\n]+\n/, "").trim();
   }
 
@@ -51,20 +50,12 @@ function parseAnalyzeResponse(content: string): ParsedResponse {
     text: string
   ): Array<{ label: string; value: string; note?: string }> {
     const metrics: Array<{ label: string; value: string; note?: string }> = [];
-    const lines = text.split("\n").filter((l) => l.trim());
-
-    for (const line of lines) {
-      // Match "- **Label**: Value — note" or "- Label: Value"
+    for (const line of text.split("\n").filter((l) => l.trim())) {
       const bold = line.match(/^[-*]\s*\*\*(.+?)\*\*:\s*(.+?)(?:\s*[—–-]\s*(.+))?$/);
       if (bold) {
-        metrics.push({
-          label: bold[1].trim(),
-          value: bold[2].trim(),
-          note: bold[3]?.trim(),
-        });
+        metrics.push({ label: bold[1].trim(), value: bold[2].trim(), note: bold[3]?.trim() });
         continue;
       }
-      // Match "- Label: Value — note" or "Label | Value"
       const plain = line.match(/^[-*]?\s*(.+?):\s*(.+?)(?:\s*[—–]\s*(.+))?$/);
       if (plain) {
         metrics.push({
@@ -83,15 +74,8 @@ function parseAnalyzeResponse(content: string): ParsedResponse {
   const evidenceRaw = getSection("evidence");
   const exploreFurtherRaw = getSection("explore further");
 
-  // Fallback: if no sections found, put everything in hamiltonView
   if (!hamiltonViewRaw && !whatThisMeansRaw && !whyItMattersRaw) {
-    return {
-      hamiltonView: content.trim(),
-      whatThisMeans: "",
-      whyItMatters: [],
-      evidence: [],
-      exploreFurther: [],
-    };
+    return { hamiltonView: content.trim(), whatThisMeans: "", whyItMatters: [], evidence: [], exploreFurther: [] };
   }
 
   return {
@@ -101,6 +85,15 @@ function parseAnalyzeResponse(content: string): ParsedResponse {
     evidence: parseEvidenceMetrics(evidenceRaw),
     exploreFurther: parseBullets(exploreFurtherRaw),
   };
+}
+
+function extractTextFromMessage(message: { parts?: Array<{ type: string; text?: string }> }): string {
+  return (
+    message.parts
+      ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .map((p) => p.text)
+      .join("") ?? ""
+  );
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -115,56 +108,61 @@ interface AnalyzeWorkspaceProps {
  * Owns: analysis focus tab state, useChat streaming, section parsing,
  * explore-further navigation, and auto-save on completion.
  *
+ * Uses @ai-sdk/react v3 API: DefaultChatTransport, sendMessage, status.
  * Screen boundary rule enforced at two levels:
  * 1. System prompt via buildAnalyzeModeSuffix (API route)
- * 2. AnalyzeCTABar has no "Recommended Position" element
+ * 2. AnalyzeCTABar has no "Recommended Position" element (ARCH-05)
  */
 export function AnalyzeWorkspace({ userId, institutionId }: AnalyzeWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
   const [parsedResponse, setParsedResponse] = useState<ParsedResponse | null>(null);
   const [isSaved, setIsSaved] = useState(false);
-  // Track the last prompt submitted so it can be saved alongside the response
+  const [input, setInput] = useState("");
+
+  // Ref to always have latest activeTab inside async callbacks
+  const activeTabRef = useRef<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+
+  // Track the last prompt submitted for saving alongside the response
   const lastPromptRef = useRef<string>("");
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setInput, setMessages } =
-    useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
+    transport: new DefaultChatTransport({
       api: "/api/research/hamilton",
-      body: { mode: "analyze", analysisFocus: activeTab },
-      onFinish: async (message) => {
-        const content =
-          message.parts
-            ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
-            .map((p) => p.text)
-            .join("") ?? "";
+      body: () => ({
+        mode: "analyze",
+        analysisFocus: activeTabRef.current,
+      }),
+    }),
+    onFinish: async ({ message }) => {
+      const content = extractTextFromMessage(message);
+      const parsed = parseAnalyzeResponse(content);
+      setParsedResponse(parsed);
+      setIsSaved(false);
 
-        const parsed = parseAnalyzeResponse(content);
-        setParsedResponse(parsed);
-        setIsSaved(false);
+      // Auto-save if user context is available
+      if (userId) {
+        const result = await saveAnalysis({
+          institutionId: institutionId ?? "",
+          analysisFocus: activeTabRef.current,
+          prompt: lastPromptRef.current,
+          responseJson: {
+            title: parsed.hamiltonView.slice(0, 80),
+            confidence: { level: "medium", basis: [] },
+            hamiltonView: parsed.hamiltonView,
+            whatThisMeans: parsed.whatThisMeans,
+            whyItMatters: parsed.whyItMatters,
+            evidence: { metrics: parsed.evidence },
+            exploreFurther: parsed.exploreFurther,
+          } satisfies AnalyzeResponse,
+        });
+        if ("id" in result) setIsSaved(true);
+      }
+    },
+  });
 
-        // Auto-save if user context is available
-        if (userId && institutionId !== null) {
-          const result = await saveAnalysis({
-            institutionId: institutionId ?? "",
-            analysisFocus: activeTab,
-            prompt: lastPromptRef.current,
-            responseJson: {
-              title: parsed.hamiltonView.slice(0, 80),
-              confidence: { level: "medium", basis: [] },
-              hamiltonView: parsed.hamiltonView,
-              whatThisMeans: parsed.whatThisMeans,
-              whyItMatters: parsed.whyItMatters,
-              evidence: { metrics: parsed.evidence },
-              exploreFurther: parsed.exploreFurther,
-            } satisfies AnalyzeResponse,
-          });
-          if ("id" in result) {
-            setIsSaved(true);
-          }
-        }
-      },
-    });
+  const isLoading = status === "streaming" || status === "submitted";
 
-  // When tab changes, clear current analysis so the next submission uses the new focus
   function handleTabChange(tab: AnalysisFocus) {
     setActiveTab(tab);
     setParsedResponse(null);
@@ -172,59 +170,43 @@ export function AnalyzeWorkspace({ userId, institutionId }: AnalyzeWorkspaceProp
     setMessages([]);
   }
 
-  // Submit handler — wraps useChat's handleSubmit to capture prompt for saving
   const handleAnalysisSubmit = useCallback(() => {
-    lastPromptRef.current = input;
+    const trimmed = input.trim();
+    if (!trimmed || isLoading) return;
+    lastPromptRef.current = trimmed;
     setParsedResponse(null);
     setIsSaved(false);
-    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-    handleSubmit(fakeEvent);
-  }, [input, handleSubmit]);
+    sendMessage({ text: trimmed });
+    setInput("");
+  }, [input, isLoading, sendMessage]);
 
-  // Explore Further: clicking a pill pre-fills input and auto-submits
   const handleExploreFurther = useCallback(
     (prompt: string) => {
-      setInput(prompt);
       lastPromptRef.current = prompt;
       setParsedResponse(null);
       setIsSaved(false);
       setMessages([]);
-      // Submit after state update
-      setTimeout(() => {
-        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        handleSubmit(fakeEvent);
-      }, 0);
+      sendMessage({ text: prompt });
     },
-    [setInput, setMessages, handleSubmit]
+    [sendMessage, setMessages]
   );
 
   const analysisComplete = !isLoading && parsedResponse !== null;
-  const hasResponse = parsedResponse !== null;
 
-  // Determine last assistant message content for streaming display
+  // Live-parse streaming content for progressive rendering
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
-  const streamingContent =
-    lastAssistantMessage?.parts
-      ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
-      .map((p) => p.text)
-      .join("") ?? "";
-
-  // Live-parse sections during streaming for progressive rendering
+  const streamingContent = lastAssistantMessage ? extractTextFromMessage(lastAssistantMessage) : "";
   const liveParsed = isLoading && streamingContent ? parseAnalyzeResponse(streamingContent) : null;
-
-  const displayedResponse = hasResponse ? parsedResponse : liveParsed;
+  const displayedResponse = parsedResponse ?? liveParsed;
 
   return (
     <div className="flex flex-col gap-4 pb-32">
       {/* Analysis Focus Tabs */}
       <AnalysisFocusTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
-      {/* Empty state prompt */}
+      {/* Empty state */}
       {!displayedResponse && !isLoading && messages.length === 0 && (
-        <div
-          className="text-center py-16"
-          style={{ color: "var(--hamilton-text-secondary)" }}
-        >
+        <div className="text-center py-16" style={{ color: "var(--hamilton-text-secondary)" }}>
           <p className="text-base mb-1" style={{ fontFamily: "var(--hamilton-font-serif)" }}>
             Ask Hamilton to analyze a fee category or competitive position
           </p>
@@ -244,22 +226,13 @@ export function AnalyzeWorkspace({ userId, institutionId }: AnalyzeWorkspaceProp
             isStreaming={isLoading}
           />
           {(displayedResponse.whatThisMeans || isLoading) && (
-            <WhatThisMeansPanel
-              content={displayedResponse.whatThisMeans}
-              isStreaming={isLoading}
-            />
+            <WhatThisMeansPanel content={displayedResponse.whatThisMeans} isStreaming={isLoading} />
           )}
           {(displayedResponse.whyItMatters.length > 0 || isLoading) && (
-            <WhyItMattersPanel
-              items={displayedResponse.whyItMatters}
-              isStreaming={isLoading}
-            />
+            <WhyItMattersPanel items={displayedResponse.whyItMatters} isStreaming={isLoading} />
           )}
           {(displayedResponse.evidence.length > 0 || isLoading) && (
-            <EvidencePanel
-              metrics={displayedResponse.evidence}
-              isStreaming={isLoading}
-            />
+            <EvidencePanel metrics={displayedResponse.evidence} isStreaming={isLoading} />
           )}
         </div>
       )}
@@ -276,20 +249,17 @@ export function AnalyzeWorkspace({ userId, institutionId }: AnalyzeWorkspaceProp
 
       {/* Save confirmation */}
       {isSaved && (
-        <p
-          className="text-xs text-center"
-          style={{ color: "var(--hamilton-text-secondary)" }}
-        >
+        <p className="text-xs text-center" style={{ color: "var(--hamilton-text-secondary)" }}>
           Analysis saved to workspace
         </p>
       )}
 
-      {/* Input bar — always visible, sticky bottom via parent scroll */}
+      {/* Input bar — fixed bottom */}
       <div className="fixed bottom-6 left-0 right-0 px-6 z-20">
         <div className="max-w-3xl mx-auto">
           <AnalysisInputBar
             value={input}
-            onChange={(v) => handleInputChange({ target: { value: v } } as React.ChangeEvent<HTMLTextAreaElement>)}
+            onChange={setInput}
             onSubmit={handleAnalysisSubmit}
             isLoading={isLoading}
             placeholder={`Analyze from the ${activeTab} lens…`}
