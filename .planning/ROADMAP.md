@@ -944,6 +944,6 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 49. Monitor Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 50. Home / Briefing Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 51. Analyze Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
-| 52. Simulate Live Data | v8.1 | 1/1 | Complete   | 2026-04-09 |
+| 52. Simulate Live Data | v8.1 | 1/1 | Complete    | 2026-04-09 |
 | 53. Reports Library + Generation | v8.1 | 0/TBD | Not started | - |
 | 54. Integration Pass | v8.1 | 0/TBD | Not started | - |
