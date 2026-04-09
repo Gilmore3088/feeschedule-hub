@@ -586,7 +586,7 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 - [x] **Phase 43: Analyze Workspace** - Analysis workspace with tabs, Explore Further prompts, saved analyses, CTA hierarchy, screen boundary enforcement (completed 2026-04-09)
 - [ ] **Phase 44: Simulate** - Fee slider, Current vs Proposed comparison, strategy interpretation, tradeoffs panel, Recommended Position, scenario archive, board summary CTA
 - [ ] **Phase 45: Report Builder** - Template gallery, configuration sidebar, executive summary generation, read-only enforcement, PDF export, scenario-linked reports, implementation notes
-- [ ] **Phase 46: Monitor** - Status strip, Priority Alert card, Signal Feed timeline, Watchlist panel, floating chat overlay, Fee Movements panel
+- [x] **Phase 46: Monitor** - Status strip, Priority Alert card, Signal Feed timeline, Watchlist panel, floating chat overlay, Fee Movements panel (completed 2026-04-09)
 
 ### Phase 38: Architecture Foundation
 **Goal**: The type system, CSS isolation, mode behavior config, and navigation contract are in place so all Hamilton screens build on a shared, non-conflicting foundation
@@ -793,4 +793,4 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 43. Analyze Workspace | v8.0 | 1/1 | Complete    | 2026-04-09 |
 | 44. Simulate | v8.0 | 0/TBD | Not started | - |
 | 45. Report Builder | v8.0 | 0/TBD | Not started | - |
-| 46. Monitor | v8.0 | 0/TBD | Not started | - |
+| 46. Monitor | v8.0 | 1/1 | Complete    | 2026-04-09 |
