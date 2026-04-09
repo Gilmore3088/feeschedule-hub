@@ -74,7 +74,7 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 ## Current State
 
 **Latest shipped:** v8.0 Hamilton Pro Platform (2026-04-09) — screen shells + architecture
-**v8.1 progress:** Not started (defining requirements)
+**v8.1 progress:** Phase 47 complete (Settings DB migration — fed_district column + auth queries fixed)
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
@@ -132,4 +132,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-09 after v8.1 milestone start*
+*Last updated: 2026-04-09 after Phase 47 completion*
