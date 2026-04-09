@@ -678,7 +678,9 @@ Plans:
   3. The Explore Further section shows at least 3 context-relevant follow-up prompts -- clicking one triggers a new analysis scoped to that prompt
   4. A user can save a completed analysis and retrieve it from the left rail workspace memory in a subsequent session
   5. The Analyze screen contains no recommendation language and no "recommended position" card -- this boundary is visible in the rendered UI (no such element exists)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 44: Simulate
@@ -691,7 +693,9 @@ Plans:
   3. The Recommended Position card displays a confidence tier badge ("strong", "provisional", or "insufficient") derived from the data maturity of the underlying fee index
   4. A user can save a scenario and retrieve it from the scenario archive -- soft-deleted scenarios do not appear in the default archive view
   5. Clicking "Generate Board Scenario Summary" produces a report-ready output that can be opened in the Report Builder screen
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 45: Report Builder
@@ -704,7 +708,9 @@ Plans:
   3. A user can download the generated report as a PDF file that opens in a standard viewer with correct formatting and no broken layout
   4. A scenario saved in Simulate can be selected in the Report Builder and its data auto-populates the report -- no manual re-entry of scenario parameters
   5. The generated report contains no interactive elements -- there are no sliders, input fields, or exploratory prompts visible in the rendered report
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 46: Monitor
@@ -717,7 +723,9 @@ Plans:
   3. The Signal Feed timeline shows signals in reverse-chronological order -- each signal has a timestamp, institution or category label, and deviation description
   4. The Watchlist panel shows at least one tracked institution with a renewal or review status indicator -- the institution can be added and removed from the watchlist
   5. The floating chat overlay opens without navigating away from Monitor and accepts a question -- Hamilton's response appears in the overlay without disrupting the underlying signal feed
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ## Backlog
@@ -765,7 +773,9 @@ Plans:
   1. Running migration 041 on a fresh database adds fed_district to the users table without error
   2. Running migration 041 on a database that already has fed_district is a no-op — no duplicate column error
   3. A user who saves their Fed district in Settings sees that value persisted and visible in the Hamilton context bar on next page load
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 
 ### Phase 48: Pro Navigation + Full Canvas Width
 **Goal**: All existing Pro nav tabs show real fee data for the authenticated institution, and every Hamilton screen renders edge-to-edge with no wasted horizontal margins
@@ -776,7 +786,9 @@ Plans:
   2. The Peer tab shows real peer comparison data for the institution's configured peer group
   3. Every Hamilton screen (Home, Analyze, Simulate, Reports, Monitor, Settings) uses the full browser canvas width — a developer inspecting the layout finds no centered max-width container wasting horizontal space
   4. Full canvas width applies consistently across all screens without introducing horizontal scroll
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 49: Monitor Live Data
@@ -788,7 +800,9 @@ Plans:
   2. A user can add an institution or Fed agency to their watchlist and see it appear immediately; removing it from the UI deletes the corresponding row from hamilton_watchlists
   3. Opening the floating chat overlay and submitting a question returns a streaming Hamilton response — text appears token-by-token without a page reload
   4. No demo or hardcoded signal data appears anywhere on the Monitor screen
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 50: Home / Briefing Live Data
@@ -801,7 +815,9 @@ Plans:
   3. The What Changed and Priority Alerts cards pull from real signal and alert DB tables; when both tables are empty, designed empty states appear
   4. The Recommended Action card derives its suggested fee category from the thesis output and its link navigates to Simulate pre-loaded with that category
   5. A developer auditing the Home screen finds zero hardcoded fee amounts, placeholder thesis text, or fabricated recommendations
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 51: Analyze Live Data
@@ -814,7 +830,9 @@ Plans:
   3. A user can save a completed analysis and retrieve it from the left rail in a later session without re-running the query
   4. No hardcoded or demo analysis content is visible anywhere on the Analyze screen — all displayed content comes from real API responses or empty states
   5. A user can export the current analysis as a PDF — the downloaded file opens in a standard viewer with BFI branding and the full analysis content
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 52: Simulate Live Data
@@ -826,7 +844,9 @@ Plans:
   2. After selecting a category, the distribution panel shows real median, P25, P75, and institution count from getNationalIndex() for that category
   3. Selecting a category with fewer than the minimum required observations shows an "Insufficient data" state and simulation controls are disabled with a clear explanation
   4. After adjusting the proposed fee, Hamilton's interpretation streams a real API response surfacing peer complaint patterns, peer behavior signals, and revenue subcategory context — no concrete dollar predictions appear in the output
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 53: Reports Library + Generation
@@ -839,7 +859,9 @@ Plans:
   3. Triggering report generation calls the real generateSection() pipeline with the user's institution and peer context — the generated content references real index data points
   4. A user can download a generated report as a PDF that opens correctly in a standard viewer with BFI branding applied
   5. When a user arrives at Reports from Simulate after saving a scenario, the scenario parameters auto-populate the report configuration — no manual re-entry required
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 54: Integration Pass
@@ -851,7 +873,9 @@ Plans:
   2. Saving a scenario in Simulate and navigating to Reports shows the scenario available for selection; a report generated from it contains the scenario parameters without manual re-entry
   3. Completing an analysis in Analyze and clicking export produces a downloadable branded PDF containing the analysis content — the end-to-end flow completes without error
   4. The institution name, asset tier, Fed district, and peer group are identical on every Hamilton screen — changing them in Settings propagates to all screens within one page load
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ## Progress
