@@ -598,8 +598,12 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
   3. MODE_BEHAVIOR config correctly gates capabilities per screen: attempting to call `canRecommend` from Analyze returns false; calling it from Simulate returns true
   4. Navigation source file is the single source of truth -- removing an entry from the nav source removes it from the rendered top nav without additional code changes
   5. The TypeScript compiler rejects an attempt to invoke a recommendation from the Analyze screen (screen ownership enforced at type level)
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 38-01-PLAN.md -- CSS isolation boundary (.hamilton-shell scoping, design tokens, dark mode)
+- [ ] 38-02-PLAN.md -- TypeScript contracts (screen DTOs, modes, navigation source of truth)
 
 ### Phase 39: Data Layer
 **Goal**: All 6 Hamilton Pro tables exist in PostgreSQL, can be created idempotently on first access, and carry the fields needed for confidence tracking, archiving, and scenario management
