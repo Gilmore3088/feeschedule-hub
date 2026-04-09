@@ -463,17 +463,13 @@ redirect("/pro/monitor");
 
 **Note on A1:** [VERIFIED: src/lib/hamilton/navigation.ts line 13] `HAMILTON_NAV[0].href` is currently `${HAMILTON_BASE}/home` = `/pro/home`. But D-01 specifies the route as `/pro/hamilton`. This is a confirmed discrepancy that must be resolved in Wave 0.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `(hamilton)/layout.tsx` handle the `/pro` → `/pro/monitor` redirect, or does `/pro/page.tsx` handle it?**
-   - What we know: D-02 says `/pro` redirects to `/pro/monitor`. The current `pro/page.tsx` renders the Pro dashboard.
-   - What's unclear: Modifying `pro/page.tsx` to redirect would break the existing Pro dashboard. A middleware redirect or a separate route may be cleaner.
-   - Recommendation: Add the redirect inside `pro/page.tsx` as the first line of the server component function. The existing Pro dashboard content is no longer needed once Hamilton is the default experience. However, D-04 says existing pages stay as-is — this is a conflict the planner must resolve. Safest: leave `pro/page.tsx` unchanged and defer the redirect to when Monitor is fully built (Phase 46). For Phase 40, add a comment in the layout.
+   - RESOLVED: Plan 01 Task 3 adds redirect in `pro/page.tsx` for premium users. Non-premium users still see existing content.
 
 2. **Navigation.ts HAMILTON_NAV href correction: fix in this phase or Phase 38 cleanup?**
-   - What we know: `/pro/home` ≠ `/pro/hamilton`. The test file (`navigation.test.ts`) tests exact href values.
-   - What's unclear: Changing `HAMILTON_NAV[0].href` will break the existing navigation test that asserts `href: "/pro/home"`.
-   - Recommendation: Fix in this phase as Wave 0 task. Update `navigation.ts` href to `/pro/hamilton`, update the corresponding test assertion.
+   - RESOLVED: Plan 01 Task 1 fixes href to `/pro/hamilton` and updates the corresponding test assertion in this phase.
 
 ## Environment Availability
 
