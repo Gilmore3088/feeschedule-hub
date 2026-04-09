@@ -614,6 +614,29 @@
 .consumer-brand .from-blue-50\/60 { --tw-gradient-from: rgb(253 240 237 / 0.6); }
 .consumer-brand .to-blue-50\/30 { --tw-gradient-to: rgb(253 240 237 / 0.3); }
 
+/* ── Material Symbols (institution pages) ── */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Collapsible details/summary ── */
+details summary::-webkit-details-marker { display: none; }
+details summary { list-style: none; }
+details[open] summary .expand-icon { transform: rotate(180deg); }
+
 /* ── Scrollbar hide utility ── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

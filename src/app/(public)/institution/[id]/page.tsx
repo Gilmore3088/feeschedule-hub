@@ -55,7 +55,7 @@ const GROUP_ORDER: FeeGroupName[] = [
   "Other Fees",
 ];
 
-const PRIMARY_GROUPS = new Set<FeeGroupName>(["Overdraft & NSF"]);
+const PRIMARY_GROUPS = new Set<FeeGroupName>(["Overdraft & NSF", "Wire Transfers"]);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,9 +73,9 @@ function detectGroup(feeName: string): FeeGroupName {
 
 // Rating color config matching the mockup's color scheme
 const RATING_CONFIG = {
-  green:  { bg: "#f0f9f0", border: "#4caf50", badge: "#4caf50", labelColor: "#2e7d32", bulletIconOk: true },
-  yellow: { bg: "#fff9c4", border: "#fbc02d", badge: "#fbc02d", labelColor: "#a47e13", bulletIconOk: false },
-  red:    { bg: "#ffebee", border: "#f44336", badge: "#f44336", labelColor: "#c62828", bulletIconOk: false },
+  green:  { bg: "rgba(76,175,80,0.08)", border: "#4caf50", badge: "#4caf50", labelColor: "#2e7d32", bulletIconOk: true },
+  yellow: { bg: "rgba(251,192,45,0.15)", border: "#fbc02d", badge: "#fbc02d", labelColor: "#a47e13", bulletIconOk: false },
+  red:    { bg: "rgba(244,67,54,0.08)", border: "#f44336", badge: "#f44336", labelColor: "#c62828", bulletIconOk: false },
 };
 
 function getBulletIcon(bullet: string, color: "green" | "yellow" | "red"): string {
@@ -294,12 +294,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
   return (
     <>
-      {/* Material Symbols font */}
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      />
-
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
