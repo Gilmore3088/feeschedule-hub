@@ -551,7 +551,7 @@ Plans:
   4. A subscriber who hits the daily report limit (configurable, default 5/day for pro) sees a clear "daily limit reached" message and cannot trigger additional generations until the following day
 **Plans**: 2 plans
 Plans:
-- [ ] 32-01-PLAN.md -- Report type selector, scope forms, daily limits, generation flow
+- [x] 32-01-PLAN.md -- Report type selector, scope forms, daily limits, generation flow
 - [ ] 32-02-PLAN.md -- Report history page + visual verification
 **UI hint**: yes
 
@@ -775,7 +775,7 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 29. Consumer Landing Page | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 30. Institution Educational Pages | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
-| 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
+| 32. Scoped Report Generation and PDF Export | v6.0 | 1/2 | In Progress|  |
 | 33. Global Thesis Engine | v7.0 | 3/3 | Complete    | 2026-04-08 |
 | 34. Voice v3 and Section Generator v2 | v7.0 | 1/1 | Complete    | 2026-04-08 |
 | 35. Unified Chat Persona | v7.0 | 2/2 | Complete    | 2026-04-08 |
