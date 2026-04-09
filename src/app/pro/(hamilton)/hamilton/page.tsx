@@ -8,6 +8,7 @@ import { PositioningEvidence } from "@/components/hamilton/home/PositioningEvide
 import { WhatChangedCard } from "@/components/hamilton/home/WhatChangedCard";
 import { PriorityAlertsCard } from "@/components/hamilton/home/PriorityAlertsCard";
 import { MonitorFeedPreview } from "@/components/hamilton/home/MonitorFeedPreview";
+import { RecommendedActionCard } from "@/components/hamilton/home/RecommendedActionCard";
 import type { HomeBriefingSignals } from "@/lib/hamilton/home-data";
 
 export const revalidate = 86400; // Per D-09: 24h ISR for thesis generation cost control
@@ -103,43 +104,18 @@ export default async function HamiltonHomePage() {
           >
             Executive Briefing
           </h1>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <span
-              className="font-label"
-              style={{
-                fontSize: "0.625rem",
-                fontWeight: 600,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color: "var(--hamilton-on-surface-variant)",
-              }}
-            >
-              Updated 24m ago
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-              <span
-                style={{
-                  width: "0.375rem",
-                  height: "0.375rem",
-                  borderRadius: "50%",
-                  backgroundColor: "var(--hamilton-error)",
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                className="font-label"
-                style={{
-                  fontSize: "0.625rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--hamilton-error)",
-                }}
-              >
-                Trend: Worsening
-              </span>
-            </div>
-          </div>
+          <span
+            className="font-label"
+            style={{
+              fontSize: "0.625rem",
+              fontWeight: 600,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--hamilton-on-surface-variant)",
+            }}
+          >
+            {data.thesis ? "Analysis current" : "Analysis unavailable"}
+          </span>
         </div>
 
         <div style={{ display: "flex", gap: "1rem", flexShrink: 0 }}>
@@ -176,29 +152,19 @@ export default async function HamiltonHomePage() {
 
       {/* Content grid */}
       <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-        {/* First Row: Hamilton's View (8 col) + Priority Alerts sidebar (4 col) */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr",
-            gap: "2rem",
-            alignItems: "start",
-          }}
-        >
-          {/* Left: What Changed strip + Hamilton's View card */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-            <WhatChangedCard signals={[]} />
-            <HamiltonViewCard thesis={data.thesis} confidence={data.confidence} />
-          </div>
+        {/* Row 1: Hamilton's View — full width */}
+        <HamiltonViewCard thesis={data.thesis} confidence={data.confidence} />
 
-          {/* Right: Priority Alerts sidebar */}
-          <PriorityAlertsCard alerts={[]} />
-        </div>
-
-        {/* Second Row: Positioning Evidence (8 col) + Watchlist (4 col) */}
+        {/* Row 2: Positioning Evidence — full width */}
         <PositioningEvidence entries={data.positioning} />
 
-        {/* Fresh signal rows via Suspense */}
+        {/* Row 3: Recommended Action — full width */}
+        <RecommendedActionCard
+          recommendedCategory={data.recommendedCategory}
+          thesisExists={data.thesis !== null}
+        />
+
+        {/* Fresh signal rows via Suspense (WhatChanged + PriorityAlerts + MonitorFeed) */}
         <Suspense fallback={<SignalsSkeleton />}>
           <BriefingSignals />
         </Suspense>

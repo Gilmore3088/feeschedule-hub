@@ -147,8 +147,19 @@ export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
   let thesis: ThesisOutput | null = null;
   try {
     thesis = await generateGlobalThesis({ scope: "monthly_pulse", data: thesisSummary });
-  } catch {
-    // API unavailable or rate limited — return null for empty state
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    let errorType: "missing_key" | "rate_limit" | "api_error" = "api_error";
+    if (errorMessage.includes("API key") || errorMessage.includes("ANTHROPIC_API_KEY")) {
+      errorType = "missing_key";
+    } else if (errorMessage.includes("rate_limit") || errorMessage.includes("429")) {
+      errorType = "rate_limit";
+    }
+    console.warn("[Hamilton] Thesis generation failed", {
+      timestamp: new Date().toISOString(),
+      errorType,
+      scope: "monthly_pulse",
+    });
     thesis = null;
   }
 
