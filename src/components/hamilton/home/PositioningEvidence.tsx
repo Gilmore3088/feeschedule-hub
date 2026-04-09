@@ -1,6 +1,6 @@
 /**
- * PositioningEvidence — Fee positioning stat cards: Your Fee / Peer Median / Percentile.
- * Matches HTML prototype "Positioning Evidence" section exactly.
+ * PositioningEvidence — Fee positioning stat cards: Market Median / P25 / P75 / Maturity.
+ * Renders exclusively from the entries prop — no hardcoded defaults.
  * Server component — no "use client".
  */
 
@@ -11,77 +11,26 @@ interface PositioningEvidenceProps {
   entries: PositioningEntry[];
 }
 
-function EmptyState() {
-  return (
-    <div style={{ padding: "1.5rem 0", color: "var(--hamilton-on-surface-variant)", fontSize: "0.875rem" }}>
-      Configure your institution in Settings to see positioning data.
-    </div>
-  );
-}
+const MATURITY_LABELS: Record<string, string> = {
+  strong: "Strong Coverage",
+  provisional: "Provisional",
+  insufficient: "Insufficient Data",
+};
 
-function DefaultStats() {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "3rem" }}>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <span
-          className="font-label"
-          style={{ fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--hamilton-on-surface-variant)", marginBottom: "0.5rem" }}
-        >
-          Your Fee
-        </span>
-        <span
-          className="font-headline"
-          style={{ fontSize: "2.25rem", color: "var(--hamilton-on-surface)", letterSpacing: "-0.02em", lineHeight: 1 }}
-        >
-          $33.00
-        </span>
-        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--hamilton-primary)", marginTop: "0.5rem" }}>
-          High Outlier
-        </span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <span
-          className="font-label"
-          style={{ fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--hamilton-on-surface-variant)", marginBottom: "0.5rem" }}
-        >
-          Peer Median
-        </span>
-        <span
-          className="font-headline"
-          style={{ fontSize: "2.25rem", color: "var(--hamilton-on-surface)", letterSpacing: "-0.02em", lineHeight: 1 }}
-        >
-          $29.00
-        </span>
-        <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--hamilton-on-surface-variant)", marginTop: "0.5rem" }}>
-          Market Benchmark
-        </span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <span
-          className="font-label"
-          style={{ fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--hamilton-on-surface-variant)", marginBottom: "0.5rem" }}
-        >
-          Percentile
-        </span>
-        <span
-          className="font-headline"
-          style={{ fontSize: "2.25rem", color: "var(--hamilton-on-surface)", letterSpacing: "-0.02em", lineHeight: 1 }}
-        >
-          88th
-        </span>
-        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--hamilton-error)", marginTop: "0.5rem" }}>
-          Top Quartile Pricing (High Risk)
-        </span>
-      </div>
-    </div>
-  );
-}
+const MATURITY_COLORS: Record<string, string> = {
+  strong: "var(--hamilton-primary)",
+  provisional: "var(--hamilton-on-surface-variant)",
+  insufficient: "var(--hamilton-error)",
+};
 
 export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
   const first = entries[0] ?? null;
 
-  const yourFee = first?.medianAmount != null ? formatAmount(first.medianAmount) : null;
-  const peerMedian = first?.p25Amount != null ? formatAmount(first.p25Amount) : null;
+  const marketMedian = first?.medianAmount != null ? formatAmount(first.medianAmount) : null;
+  const p25 = first?.p25Amount != null ? formatAmount(first.p25Amount) : null;
+  const p75 = first?.p75Amount != null ? formatAmount(first.p75Amount) : null;
+  const maturityTier = first?.maturityTier ?? null;
+  const institutionCount = first?.institutionCount ?? null;
 
   return (
     <div
@@ -107,106 +56,167 @@ export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
       </h3>
 
       {entries.length === 0 ? (
-        <DefaultStats />
+        <p
+          style={{
+            fontSize: "0.875rem",
+            lineHeight: 1.6,
+            color: "var(--hamilton-on-surface-variant)",
+            padding: "2rem 0",
+            textAlign: "center",
+            margin: 0,
+          }}
+        >
+          Configure your institution in Settings to see positioning data
+        </p>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "3rem" }}>
+          {/* Market Median */}
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span
               className="font-label"
-              style={{ fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--hamilton-on-surface-variant)", marginBottom: "0.5rem" }}
+              style={{
+                fontSize: "0.625rem",
+                fontWeight: 600,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--hamilton-on-surface-variant)",
+                marginBottom: "0.5rem",
+              }}
             >
-              Your Fee
+              Market Median
             </span>
             <span
               className="font-headline"
-              style={{ fontSize: "2.25rem", color: "var(--hamilton-on-surface)", letterSpacing: "-0.02em", lineHeight: 1 }}
+              style={{
+                fontSize: "2.25rem",
+                color: "var(--hamilton-on-surface)",
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
             >
-              {yourFee ?? "—"}
+              {marketMedian ?? "—"}
             </span>
-            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--hamilton-primary)", marginTop: "0.5rem" }}>
-              High Outlier
-            </span>
+            {institutionCount != null && (
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 500,
+                  color: "var(--hamilton-on-surface-variant)",
+                  marginTop: "0.5rem",
+                }}
+              >
+                {institutionCount} institutions
+              </span>
+            )}
           </div>
+
+          {/* P25 / P75 Range */}
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span
               className="font-label"
-              style={{ fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--hamilton-on-surface-variant)", marginBottom: "0.5rem" }}
+              style={{
+                fontSize: "0.625rem",
+                fontWeight: 600,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--hamilton-on-surface-variant)",
+                marginBottom: "0.5rem",
+              }}
             >
-              Peer Median
+              P25 — P75 Range
             </span>
             <span
               className="font-headline"
-              style={{ fontSize: "2.25rem", color: "var(--hamilton-on-surface)", letterSpacing: "-0.02em", lineHeight: 1 }}
+              style={{
+                fontSize: "2.25rem",
+                color: "var(--hamilton-on-surface)",
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
             >
-              {peerMedian ?? "—"}
+              {p25 ?? "—"}
             </span>
-            <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--hamilton-on-surface-variant)", marginTop: "0.5rem" }}>
-              Market Benchmark
-            </span>
+            {p75 != null && (
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 500,
+                  color: "var(--hamilton-on-surface-variant)",
+                  marginTop: "0.5rem",
+                }}
+              >
+                to {p75}
+              </span>
+            )}
           </div>
+
+          {/* Coverage / Maturity */}
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span
               className="font-label"
-              style={{ fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--hamilton-on-surface-variant)", marginBottom: "0.5rem" }}
+              style={{
+                fontSize: "0.625rem",
+                fontWeight: 600,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--hamilton-on-surface-variant)",
+                marginBottom: "0.5rem",
+              }}
             >
-              Percentile
+              Coverage
             </span>
             <span
               className="font-headline"
-              style={{ fontSize: "2.25rem", color: "var(--hamilton-on-surface)", letterSpacing: "-0.02em", lineHeight: 1 }}
+              style={{
+                fontSize: "2.25rem",
+                color: "var(--hamilton-on-surface)",
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
             >
-              88th
+              {first?.displayName ?? "—"}
             </span>
-            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--hamilton-error)", marginTop: "0.5rem" }}>
-              Top Quartile Pricing (High Risk)
-            </span>
+            {maturityTier != null && (
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  color: MATURITY_COLORS[maturityTier] ?? "var(--hamilton-on-surface-variant)",
+                  marginTop: "0.5rem",
+                }}
+              >
+                {MATURITY_LABELS[maturityTier] ?? maturityTier}
+              </span>
+            )}
           </div>
         </div>
       )}
 
-      {/* Progress bar + distribution link */}
-      <div
-        style={{
-          marginTop: "2rem",
-          paddingTop: "1.5rem",
-          borderTop: "1px solid rgba(216, 194, 184, 0.2)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      {/* View full distribution link — only shown when real data is available */}
+      {entries.length > 0 && (
         <div
           style={{
-            flex: 1,
-            maxWidth: "28rem",
-            height: "0.375rem",
-            backgroundColor: "var(--hamilton-surface-container-high)",
-            borderRadius: "9999px",
-            overflow: "hidden",
+            marginTop: "2rem",
+            paddingTop: "1.5rem",
+            borderTop: "1px solid rgba(216, 194, 184, 0.2)",
+            display: "flex",
+            justifyContent: "flex-end",
           }}
         >
-          <div
+          <a
+            href="#"
             style={{
-              backgroundColor: "var(--hamilton-primary)",
-              height: "100%",
-              width: "88%",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              color: "var(--hamilton-primary)",
+              textDecoration: "none",
+              flexShrink: 0,
             }}
-          />
+          >
+            View full distribution &rarr;
+          </a>
         </div>
-        <a
-          href="#"
-          style={{
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            color: "var(--hamilton-primary)",
-            textDecoration: "none",
-            marginLeft: "1.5rem",
-            flexShrink: 0,
-          }}
-        >
-          View full distribution &rarr;
-        </a>
-      </div>
+      )}
     </div>
   );
 }
