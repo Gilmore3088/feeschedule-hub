@@ -132,6 +132,7 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
   // If restoring a saved analysis, mark it already saved to prevent duplicate auto-save
   const [isSaved, setIsSaved] = useState(!!initialAnalysis);
   const [input, setInput] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   // Ref to always have latest activeTab inside async callbacks
   const activeTabRef = useRef<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
@@ -205,6 +206,42 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
     [sendMessage, setMessages]
   );
 
+  const handleExportPdf = useCallback(async () => {
+    if (!parsedResponse || isExporting) return;
+    setIsExporting(true);
+    try {
+      const res = await fetch("/api/pro/report-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "analysis",
+          analysis: {
+            title: parsedResponse.hamiltonView.slice(0, 80),
+            confidence: { level: "medium", basis: [] },
+            hamiltonView: parsedResponse.hamiltonView,
+            whatThisMeans: parsedResponse.whatThisMeans,
+            whyItMatters: parsedResponse.whyItMatters,
+            evidence: { metrics: parsedResponse.evidence },
+            exploreFurther: parsedResponse.exploreFurther,
+          } satisfies AnalyzeResponse,
+          analysisFocus: activeTab,
+        }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hamilton-analysis-${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [parsedResponse, isExporting, activeTab]);
+
   const analysisComplete = !isLoading && parsedResponse !== null;
 
   // Live-parse streaming content for progressive rendering
@@ -273,7 +310,11 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
           </div>
 
           {/* CTA row — shown after stream completes */}
-          <AnalyzeCTABar isVisible={analysisComplete} />
+          <AnalyzeCTABar
+            isVisible={analysisComplete}
+            onExportPdf={handleExportPdf}
+            isExporting={isExporting}
+          />
 
           {/* Why It Matters */}
           {(displayedResponse.whyItMatters.length > 0 || isLoading) && (
