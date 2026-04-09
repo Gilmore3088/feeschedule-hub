@@ -443,18 +443,41 @@ function ComplaintRiskCard({ signal }: { signal: SignalEntry }) {
 
 function EmptyState() {
   return (
-    <p
+    <div
       style={{
-        fontFamily: "var(--hamilton-font-sans)",
-        fontSize: "0.875rem",
-        lineHeight: 1.6,
-        color: "var(--hamilton-text-secondary)",
-        padding: "2rem 0",
+        backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
+        padding: "2.5rem",
+        borderLeft: "4px solid var(--hamilton-outline-variant, #d8c2b8)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        borderRadius: "0.5rem",
       }}
     >
-      No signals yet. As Hamilton detects fee movements and regulatory changes,
-      they will appear here.
-    </p>
+      <h3
+        style={{
+          fontFamily: "var(--hamilton-font-serif)",
+          fontSize: "1.5rem",
+          fontWeight: 400,
+          color: "var(--hamilton-on-surface)",
+          margin: 0,
+        }}
+      >
+        No signals yet.
+      </h3>
+      <p
+        style={{
+          fontFamily: "var(--hamilton-font-sans)",
+          fontSize: "0.9375rem",
+          color: "var(--hamilton-text-secondary)",
+          lineHeight: 1.6,
+          margin: 0,
+        }}
+      >
+        Add institutions to your watchlist to begin monitoring fee movements and
+        competitive shifts.
+      </p>
+    </div>
   );
 }
 

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { seedMonitorData } from "@/lib/hamilton/seed-monitor-data";
 import { fetchMonitorPageData } from "@/lib/hamilton/monitor-data";
 import { StatusStrip } from "@/components/hamilton/monitor/StatusStrip";
 import { SignalFeed } from "@/components/hamilton/monitor/SignalFeed";
@@ -16,9 +15,6 @@ export const dynamic = "force-dynamic";
 export default async function MonitorPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-
-  // Ensure demo signal data exists
-  await seedMonitorData(user.id);
 
   const data = await fetchMonitorPageData(user.id);
 

@@ -74,33 +74,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-// ---------------------------------------------------------------------------
-// Static fee movements data (prototype-matched)
-// ---------------------------------------------------------------------------
-
-const FEE_MOVEMENTS = [
-  {
-    label: "Custodial Premium",
-    value: "+12.4%",
-    badge: "Bullish Drift",
-    badgeBg: "#f0fdf4",
-    badgeColor: "#15803d",
-  },
-  {
-    label: "Management Alpha",
-    value: "-3.1%",
-    badge: "Erosion Risk",
-    badgeBg: "#fffbeb",
-    badgeColor: "#b45309",
-  },
-  {
-    label: "Advisory Spread",
-    value: "STABLE",
-    badge: "Base Case",
-    badgeBg: "#f5f5f4",
-    badgeColor: "#57534e",
-  },
-];
+// TODO Phase 50: wire fee movements to real fee_change_events data
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -211,99 +185,6 @@ function WatchlistIntegrity({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function FeeMovements() {
-  return (
-    <div>
-      <h2
-        style={{
-          fontFamily: "var(--hamilton-font-sans)",
-          fontSize: "0.625rem",
-          textTransform: "uppercase",
-          letterSpacing: "0.2em",
-          color: "var(--hamilton-text-tertiary)",
-          fontWeight: 600,
-          marginBottom: "1.5rem",
-        }}
-      >
-        Fee Movements
-      </h2>
-
-      <div
-        style={{
-          backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
-          padding: "1.5rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.5rem",
-        }}
-      >
-        {FEE_MOVEMENTS.map((item, index) => {
-          const isLast = index === FEE_MOVEMENTS.length - 1;
-          return (
-            <div
-              key={item.label}
-              style={{
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: "space-between",
-                paddingBottom: isLast ? 0 : "1rem",
-                borderBottom: isLast
-                  ? "none"
-                  : "1px solid var(--hamilton-outline-variant, #d8c2b8)",
-              }}
-            >
-              <div>
-                <p
-                  className="font-label"
-                  style={{
-                    fontFamily: "var(--hamilton-font-sans)",
-                    fontSize: "0.625rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.12em",
-                    color: "var(--hamilton-text-tertiary)",
-                    marginBottom: "0.125rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  {item.label}
-                </p>
-                <p
-                  className="font-headline"
-                  style={{
-                    fontFamily: "var(--hamilton-font-serif)",
-                    fontSize: "1.875rem",
-                    color: "var(--hamilton-on-surface)",
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {item.value}
-                </p>
-              </div>
-
-              <span
-                style={{
-                  fontSize: "0.625rem",
-                  fontFamily: "var(--hamilton-font-sans)",
-                  padding: "0.25rem 0.5rem",
-                  backgroundColor: item.badgeBg,
-                  color: item.badgeColor,
-                  borderRadius: "9999px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  fontWeight: 600,
-                  flexShrink: 0,
-                }}
-              >
-                {item.badge}
-              </span>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -506,10 +387,7 @@ export function WatchlistPanel({ entries: initialEntries, userId }: WatchlistPan
         error={error}
       />
 
-      {/* 2. Fee Movements */}
-      <FeeMovements />
-
-      {/* 3. Branded card */}
+      {/* 2. Branded card */}
       <BrandedCard />
     </div>
   );
