@@ -38,13 +38,6 @@ export function WhatThisMeansPanel({ content, isStreaming }: WhatThisMeansPanelP
               {para}
             </p>
           ))}
-          {!content && (
-            <p className="text-lg leading-relaxed font-light"
-              style={{ color: "var(--hamilton-text-secondary)" }}>
-              This pricing position is increasingly difficult to defend and may lead to elevated
-              scrutiny if peer movement continues.
-            </p>
-          )}
         </div>
       )}
     </div>

@@ -153,8 +153,10 @@ export async function POST(request: Request) {
   let systemPrompt = agent.systemPrompt;
 
   // Analyze mode: override output structure with structured analysis sections (ARCH-05)
+  // VALID_FOCUS guards against prompt injection — only known tab values reach the system prompt.
   if (mode === "analyze") {
-    const focus = analysisFocus ?? "Pricing";
+    const VALID_FOCUS = new Set(["Pricing", "Risk", "Peer Position", "Trend"]);
+    const focus = VALID_FOCUS.has(analysisFocus ?? "") ? (analysisFocus as string) : "Pricing";
     systemPrompt += buildAnalyzeModeSuffix(focus);
   }
 
