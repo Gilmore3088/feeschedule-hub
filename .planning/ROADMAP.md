@@ -584,7 +584,7 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 - [x] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel (completed 2026-04-09)
 - [x] **Phase 42: Home / Executive Briefing** - Thesis card, What Changed, Priority Alerts, Recommended Action CTA, Positioning Evidence, Monitor Feed preview (completed 2026-04-09)
 - [x] **Phase 43: Analyze Workspace** - Analysis workspace with tabs, Explore Further prompts, saved analyses, CTA hierarchy, screen boundary enforcement (completed 2026-04-09)
-- [ ] **Phase 44: Simulate** - Fee slider, Current vs Proposed comparison, strategy interpretation, tradeoffs panel, Recommended Position, scenario archive, board summary CTA
+- [x] **Phase 44: Simulate** - Fee slider, Current vs Proposed comparison, strategy interpretation, tradeoffs panel, Recommended Position, scenario archive, board summary CTA (completed 2026-04-09)
 - [ ] **Phase 45: Report Builder** - Template gallery, configuration sidebar, executive summary generation, read-only enforcement, PDF export, scenario-linked reports, implementation notes
 - [x] **Phase 46: Monitor** - Status strip, Priority Alert card, Signal Feed timeline, Watchlist panel, floating chat overlay, Fee Movements panel (completed 2026-04-09)
 
@@ -791,6 +791,6 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 41. Settings | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 42. Home / Executive Briefing | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 43. Analyze Workspace | v8.0 | 1/1 | Complete    | 2026-04-09 |
-| 44. Simulate | v8.0 | 0/TBD | Not started | - |
-| 45. Report Builder | v8.0 | 0/TBD | Not started | - |
+| 44. Simulate | v8.0 | 1/1 | Complete    | 2026-04-09 |
+| 45. Report Builder | v8.0 | 0/4 | Planned    |  |
 | 46. Monitor | v8.0 | 1/1 | Complete    | 2026-04-09 |
