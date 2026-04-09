@@ -748,6 +748,51 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
+### Phase 999.3: FFIEC CDR production ingestion via Modal pooler (BACKLOG)
+
+**Goal:** The FFIEC CDR overdraft revenue ingestion (RIADH032) needs the Supabase transaction pooler URL to run on Modal's browser_image containers. Add `SUPABASE_POOLER_URL` to Modal secrets and update `ingest_ffiec_cdr()` to use it. Then run `--backfill` to populate all 8 quarters.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: NCUA 5300 overdraft revenue for credit unions (BACKLOG)
+
+**Goal:** RIADH032 only covers banks filing FFIEC 031/041 ($1B+ assets). Credit union overdraft data requires a separate NCUA 5300 Call Report ingestion path. Would extend overdraft coverage from 757 banks to include credit unions.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Premium role access audit (BACKLOG)
+
+**Goal:** Verify that `premium` role users cannot access `/admin` routes. Currently David Bressler (premium role) may be seeing admin content. Audit all admin layout guards and ensure role-based access is enforced correctly across consumer/pro/admin shells.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.6: Phase 28 visual verification and completion (BACKLOG)
+
+**Goal:** Phase 28 (Audience Shell Separation) Plan 28-02 is paused at a visual verification checkpoint. ProNav + auth guard are built but need visual confirmation that consumer and pro shells render correctly. Complete the checkpoint, run cleanup task, close Phase 28.
+**Requirements:** SHELL-01, SHELL-02, SHELL-03
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.7: Bcrypt migration for all legacy SHA-256 password hashes (BACKLOG)
+
+**Goal:** The `verifyPassword` function supports both bcrypt and legacy SHA-256 hashes, but legacy hashes cause hangs on Vercel serverless. Migrate all existing SHA-256 hashed passwords to bcrypt. Add a post-login rehash step that auto-upgrades on successful login.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ---
 
 ---
