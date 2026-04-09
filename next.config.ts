@@ -5,6 +5,21 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ['@react-pdf/renderer'],
 
+  async redirects() {
+    return [
+      { source: '/pro/categories', destination: '/pro/monitor', permanent: true },
+      { source: '/pro/peers', destination: '/pro/monitor', permanent: true },
+      { source: '/pro/market', destination: '/pro/analyze', permanent: true },
+      { source: '/pro/districts', destination: '/pro/analyze', permanent: true },
+      { source: '/pro/data', destination: '/pro/analyze', permanent: true },
+      { source: '/pro/news', destination: '/pro/monitor', permanent: true },
+      { source: '/pro/research', destination: '/pro/analyze', permanent: true },
+      { source: '/pro/reports-legacy', destination: '/pro/reports', permanent: true },
+      { source: '/pro/brief', destination: '/pro/monitor', permanent: true },
+      { source: '/pro/brief/:path*', destination: '/pro/monitor', permanent: true },
+    ];
+  },
+
   async headers() {
     return [
       {
