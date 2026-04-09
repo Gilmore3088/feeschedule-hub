@@ -255,7 +255,7 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
       scenarioId = await handleSave();
     }
     if (scenarioId) {
-      router.push(`/pro/report?scenario_id=${scenarioId}`);
+      router.push(`/pro/reports?scenario_id=${scenarioId}`);
     }
   }, [savedScenarioId, handleSave, router]);
 
