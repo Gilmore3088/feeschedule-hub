@@ -758,7 +758,7 @@ Plans:
 
 - [x] **Phase 47: Settings DB Migration** - Run migration 041, add fed_district column to users table in production (completed 2026-04-09)
 - [x] **Phase 48: Pro Navigation + Full Canvas Width** - Wire existing Pro nav tabs to real fee data; enforce full canvas width on all Hamilton screens (completed 2026-04-09)
-- [ ] **Phase 49: Monitor Live Data** - Strip demo signals, wire real hamilton_signals queries, CRUD watchlist, real Hamilton chat streaming
+- [x] **Phase 49: Monitor Live Data** - Strip demo signals, wire real hamilton_signals queries, CRUD watchlist, real Hamilton chat streaming (completed 2026-04-09)
 - [ ] **Phase 50: Home / Briefing Live Data** - Wire real thesis generation, real index positioning, real alerts — no placeholder content
 - [ ] **Phase 51: Analyze Live Data** - Verify streaming with real Hamilton API, wire focus tab context, save/load analyses, PDF export
 - [ ] **Phase 52: Simulate Live Data** - All 49 categories, real distribution data, confidence gating, Hamilton interpretation with real API
@@ -803,7 +803,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 49-01-PLAN.md — Strip demo data, design empty state, clean WatchlistPanel
-- [ ] 49-02-PLAN.md — Fix FloatingChatOverlay streaming, wire left rail to real data
+- [x] 49-02-PLAN.md — Fix FloatingChatOverlay streaming, wire left rail to real data
 **UI hint**: yes
 
 
@@ -937,7 +937,7 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 46. Monitor | v8.0 | 1/1 | Complete    | 2026-04-09 |
 | 47. Settings DB Migration | v8.1 | 1/1 | Complete    | 2026-04-09 |
 | 48. Pro Navigation + Full Canvas Width | v8.1 | 2/2 | Complete    | 2026-04-09 |
-| 49. Monitor Live Data | v8.1 | 1/2 | In Progress|  |
+| 49. Monitor Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 50. Home / Briefing Live Data | v8.1 | 0/TBD | Not started | - |
 | 51. Analyze Live Data | v8.1 | 0/TBD | Not started | - |
 | 52. Simulate Live Data | v8.1 | 0/TBD | Not started | - |
