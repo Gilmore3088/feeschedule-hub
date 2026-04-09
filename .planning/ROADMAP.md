@@ -551,8 +551,8 @@ Plans:
   4. A subscriber who hits the daily report limit (configurable, default 5/day for pro) sees a clear "daily limit reached" message and cannot trigger additional generations until the following day
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
-- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
+- [ ] 32-01-PLAN.md -- Report type selector, scope forms, daily limits, generation flow
+- [ ] 32-02-PLAN.md -- Report history page + visual verification
 **UI hint**: yes
 
 ---
@@ -644,9 +644,9 @@ Plans:
   2. A user can create a named peer set by selecting charter, asset tiers, and districts -- the peer set is saved and available for selection in Simulate and Report screens
   3. The intelligence snapshot panel shows the user's account tier, feature access toggles, and a usage stat (e.g., reports generated this month)
   4. The billing panel displays the current subscription plan, renewal date, and a link to manage billing -- no billing logic is handled on this page (Stripe redirect)
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 41-01-PLAN.md -- Server actions, avatar dropdown, institution profile form with Strategy Settings design
+- [x] 41-01-PLAN.md -- Server actions, avatar dropdown, institution profile form with Strategy Settings design
 - [ ] 41-02-PLAN.md -- Peer set management, intelligence snapshot, feature access, billing, quick actions
 **UI hint**: yes
 
@@ -784,7 +784,7 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 38. Architecture Foundation | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 39. Data Layer | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 40. Hamilton Shell | v8.0 | 2/2 | Complete    | 2026-04-09 |
-| 41. Settings | v8.0 | 0/TBD | Not started | - |
+| 41. Settings | v8.0 | 1/2 | In Progress|  |
 | 42. Home / Executive Briefing | v8.0 | 0/TBD | Not started | - |
 | 43. Analyze Workspace | v8.0 | 0/TBD | Not started | - |
 | 44. Simulate | v8.0 | 0/TBD | Not started | - |
