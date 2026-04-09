@@ -96,24 +96,6 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
 
   const canGenerateSummary = !isStreaming && completion.length > 0 && !simulationBlocked;
 
-  // ─── Initialization ───────────────────────────────────────────────────────
-  useEffect(() => {
-    setLoadingCategories(true);
-    getSimulationCategories()
-      .then((cats) => {
-        setCategories(cats);
-        if (initialCategory && cats.some((c) => c.fee_category === initialCategory)) {
-          handleCategorySelect(initialCategory);
-        }
-      })
-      .catch(() => setError("Failed to load fee categories"))
-      .finally(() => setLoadingCategories(false));
-
-    listScenarios()
-      .then(setScenarios)
-      .catch(() => {});
-  }, [initialCategory, handleCategorySelect]);
-
   // ─── Category Selection ───────────────────────────────────────────────────
   const handleCategorySelect = useCallback(async (feeCategory: string) => {
     setSelectedCategory(feeCategory);
@@ -136,6 +118,24 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
 
     setLoadingCategory(false);
   }, []);
+
+  // ─── Initialization ───────────────────────────────────────────────────────
+  useEffect(() => {
+    setLoadingCategories(true);
+    getSimulationCategories()
+      .then((cats) => {
+        setCategories(cats);
+        if (initialCategory && cats.some((c) => c.fee_category === initialCategory)) {
+          handleCategorySelect(initialCategory);
+        }
+      })
+      .catch(() => setError("Failed to load fee categories"))
+      .finally(() => setLoadingCategories(false));
+
+    listScenarios()
+      .then(setScenarios)
+      .catch(() => {});
+  }, [initialCategory, handleCategorySelect]);
 
   // ─── Slider Handlers ──────────────────────────────────────────────────────
   const handleSliderChange = useCallback((value: number[]) => {
