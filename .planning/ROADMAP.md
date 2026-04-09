@@ -8,6 +8,7 @@
 - [x] **v5.0 National Data Layer** - Phases 23-27 (shipped 2026-04-08)
 - [ ] **v6.0 Two-Sided Experience** - Phases 28-32 (in progress)
 - [x] **v7.0 Hamilton Reasoning Engine** - Phases 33-37 (shipped 2026-04-08)
+- [ ] **v8.0 Hamilton Pro Platform** - Phases 38-46 (in progress)
 
 ## Phases
 
@@ -571,6 +572,134 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 
 ---
 
+---
+
+## v8.0 Hamilton Pro Platform
+
+**Milestone Goal:** Transform Hamilton from a chat-based research agent into a 5-screen decision system for fee pricing, peer positioning, and regulatory-risk evaluation -- the paid Pro experience ($500/mo or $5,000/yr).
+
+- [ ] **Phase 38: Architecture Foundation** - CSS isolation boundary, TypeScript DTOs, mode enum, navigation source, and screen ownership rules
+- [ ] **Phase 39: Data Layer** - 6 new PostgreSQL tables, ensureHamiltonProTables(), confidence tier field, soft-delete columns
+- [ ] **Phase 40: Hamilton Shell** - Route group layout, top nav, context bar, left rail workspace memory, institutional context flow
+- [ ] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel
+- [ ] **Phase 42: Home / Executive Briefing** - Thesis card, What Changed, Priority Alerts, Recommended Action CTA, Positioning Evidence, Monitor Feed preview
+- [ ] **Phase 43: Analyze Workspace** - Analysis workspace with tabs, Explore Further prompts, saved analyses, CTA hierarchy, screen boundary enforcement
+- [ ] **Phase 44: Simulate** - Fee slider, Current vs Proposed comparison, strategy interpretation, tradeoffs panel, Recommended Position, scenario archive, board summary CTA
+- [ ] **Phase 45: Report Builder** - Template gallery, configuration sidebar, executive summary generation, read-only enforcement, PDF export, scenario-linked reports, implementation notes
+- [ ] **Phase 46: Monitor** - Status strip, Priority Alert card, Signal Feed timeline, Watchlist panel, floating chat overlay, Fee Movements panel
+
+### Phase 38: Architecture Foundation
+**Goal**: The type system, CSS isolation, mode behavior config, and navigation contract are in place so all Hamilton screens build on a shared, non-conflicting foundation
+**Depends on**: Phase 37
+**Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04, ARCH-05
+**Success Criteria** (what must be TRUE):
+  1. Styles applied inside `.hamilton-shell` do not bleed into or inherit from admin portal styles -- a developer can verify by inspecting both in the same browser session
+  2. The TypeScript compiler rejects any API response that does not conform to its declared DTO (AnalyzeResponse, SimulationResponse, ReportSummaryResponse, MonitorResponse)
+  3. MODE_BEHAVIOR config correctly gates capabilities per screen: attempting to call `canRecommend` from Analyze returns false; calling it from Simulate returns true
+  4. Navigation source file is the single source of truth -- removing an entry from the nav source removes it from the rendered top nav without additional code changes
+  5. The TypeScript compiler rejects an attempt to invoke a recommendation from the Analyze screen (screen ownership enforced at type level)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 39: Data Layer
+**Goal**: All 6 Hamilton Pro tables exist in PostgreSQL, can be created idempotently on first access, and carry the fields needed for confidence tracking, archiving, and scenario management
+**Depends on**: Phase 38
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04
+**Success Criteria** (what must be TRUE):
+  1. Calling `ensureHamiltonProTables()` on a fresh database creates all 6 tables with correct schema -- calling it again on an existing database is a no-op with no errors
+  2. A scenario row can be saved with a confidence tier of "strong", "provisional", or "insufficient" -- any other value is rejected by a DB constraint or application-level validation
+  3. An analysis and a scenario can each be soft-deleted (archived) -- a soft-deleted row does not appear in default list queries but remains in the database and is recoverable
+**Plans**: TBD
+
+### Phase 40: Hamilton Shell
+**Goal**: All Hamilton screens share a single server-rendered layout shell with top nav, context bar, and left rail -- institutional context set in Settings flows to every screen without per-screen selection
+**Depends on**: Phase 39
+**Requirements**: SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05
+**Success Criteria** (what must be TRUE):
+  1. Navigating between any two Hamilton screens preserves the active institution and horizon displayed in the context bar -- no re-selection prompt appears between screens
+  2. The top nav renders correct active state highlighting for the current screen without client-side JavaScript; the active link is visually distinct at page load
+  3. The left rail shows saved analyses, recent work, and pinned institutions from the Hamilton workspace memory -- items are clickable and navigate to the correct saved state
+  4. Accessing any Hamilton screen without a valid Pro subscription redirects to an upgrade page -- the auth check lives in the shell layout, not in individual screen components
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 41: Settings
+**Goal**: A Pro subscriber can configure their institution profile and peer sets in one place, and those settings propagate to all Hamilton screens as the persistent institutional context
+**Depends on**: Phase 40
+**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05
+**Success Criteria** (what must be TRUE):
+  1. A user can save an institution name, type, asset tier, and Fed district -- after saving, these values appear in the Hamilton context bar on the next page load
+  2. A user can create a named peer set by selecting charter, asset tiers, and districts -- the peer set is saved and available for selection in Simulate and Report screens
+  3. The intelligence snapshot panel shows the user's account tier, feature access toggles, and a usage stat (e.g., reports generated this month)
+  4. The billing panel displays the current subscription plan, renewal date, and a link to manage billing -- no billing logic is handled on this page (Stripe redirect)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 42: Home / Executive Briefing
+**Goal**: A Pro subscriber landing on the Hamilton Home screen gets a 30-second executive orientation -- one dominant thesis, recent movements, top 3 alerts, one recommended action, current fee positioning, and a Monitor feed preview
+**Depends on**: Phase 41
+**Requirements**: HOME-01, HOME-02, HOME-03, HOME-04, HOME-05, HOME-06
+**Success Criteria** (what must be TRUE):
+  1. The Hamilton's View card displays a single thesis statement with a confidence indicator -- the thesis is generated from live index data, not a placeholder
+  2. The What Changed section shows at least one recent fee movement or regulatory signal with a timestamp -- it is not empty on first load for an institution with index coverage
+  3. Priority Alerts shows exactly 3 alerts ranked by severity -- each alert has a severity label, one-sentence impact description, and a suggested next move
+  4. The Recommended Action card contains a single CTA that navigates directly to the Simulate screen pre-loaded with the recommended fee and proposed change
+  5. Positioning Evidence shows the institution's current fee amount, national percentile, and peer median for at least one spotlight fee category
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 43: Analyze Workspace
+**Goal**: A Pro subscriber can conduct deep fee analysis by focus area, explore follow-up angles, and save analyses to their workspace -- without the screen overstepping into recommendations (which belong to Simulate)
+**Depends on**: Phase 42
+**Requirements**: ANLZ-01, ANLZ-02, ANLZ-03, ANLZ-04, ANLZ-05, ANLZ-06
+**Success Criteria** (what must be TRUE):
+  1. The analysis workspace displays Hamilton's View, What This Means, Why It Matters, and an Evidence panel -- all four sections render for any supported analysis focus
+  2. Switching between Analysis Focus tabs (Pricing, Risk, Peer Position, Trend) changes the analysis lens and updates Hamilton's content without a full page reload
+  3. The Explore Further section shows at least 3 context-relevant follow-up prompts -- clicking one triggers a new analysis scoped to that prompt
+  4. A user can save a completed analysis and retrieve it from the left rail workspace memory in a subsequent session
+  5. The Analyze screen contains no recommendation language and no "recommended position" card -- this boundary is visible in the rendered UI (no such element exists)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 44: Simulate
+**Goal**: A Pro subscriber can model a proposed fee change, see the strategic tradeoffs with a confidence-tiered recommendation, save the scenario, and generate a board-ready summary with one click
+**Depends on**: Phase 43
+**Requirements**: SIM-01, SIM-02, SIM-03, SIM-04, SIM-05, SIM-06, SIM-07
+**Success Criteria** (what must be TRUE):
+  1. Dragging the fee slider updates the percentile indicator and peer gap in real time -- no page reload or explicit submit is required to see the updated position
+  2. The Current vs Proposed comparison shows side-by-side: current percentile, proposed percentile, distance from peer median, and risk profile label for each state
+  3. The Recommended Position card displays a confidence tier badge ("strong", "provisional", or "insufficient") derived from the data maturity of the underlying fee index
+  4. A user can save a scenario and retrieve it from the scenario archive -- soft-deleted scenarios do not appear in the default archive view
+  5. Clicking "Generate Board Scenario Summary" produces a report-ready output that can be opened in the Report Builder screen
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 45: Report Builder
+**Goal**: A Pro subscriber can select a report template, configure scope, generate an executive summary from Hamilton, download a McKinsey-grade PDF, and link a scenario directly into a report -- with reports enforced as read-only
+**Depends on**: Phase 44
+**Requirements**: RPT-01, RPT-02, RPT-03, RPT-04, RPT-05, RPT-06, RPT-07
+**Success Criteria** (what must be TRUE):
+  1. The template gallery shows at least 4 report types (Quarterly Strategy, Peer Brief, Monthly Pulse, State Index) -- each template has a distinct name, description, and preview
+  2. A generated report contains an executive summary written by Hamilton based on the configured peer set and date range -- the summary references at least one data point from the index
+  3. A user can download the generated report as a PDF file that opens in a standard viewer with correct formatting and no broken layout
+  4. A scenario saved in Simulate can be selected in the Report Builder and its data auto-populates the report -- no manual re-entry of scenario parameters
+  5. The generated report contains no interactive elements -- there are no sliders, input fields, or exploratory prompts visible in the rendered report
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 46: Monitor
+**Goal**: A Pro subscriber can continuously surveil their fee landscape through a signal feed, watchlist, and priority alert -- and ask Hamilton questions about what they're seeing without leaving the screen
+**Depends on**: Phase 45
+**Requirements**: MON-01, MON-02, MON-03, MON-04, MON-05, MON-06
+**Success Criteria** (what must be TRUE):
+  1. The status strip displays the current system state (stable/watch/worsening) and a signal count -- these values reflect seeded signal data, not hardcoded placeholders
+  2. The Priority Alert card shows the top alert with severity, a one-sentence impact description, and a "Recommended next move" action link
+  3. The Signal Feed timeline shows signals in reverse-chronological order -- each signal has a timestamp, institution or category label, and deviation description
+  4. The Watchlist panel shows at least one tracked institution with a renewal or review status indicator -- the institution can be added and removed from the watchlist
+  5. The floating chat overlay opens without navigating away from Monitor and accepts a question -- Hamilton's response appears in the overlay without disrupting the underlying signal feed
+**Plans**: TBD
+**UI hint**: yes
+
 ## Backlog
 
 ### Phase 999.1: Make all admin tables sortable (BACKLOG)
@@ -596,7 +725,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
+Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 -> 43 -> 44 -> 45 -> 46
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -637,3 +766,12 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 35. Unified Chat Persona | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 36. Tool and Regulation Intelligence | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 37. Editor v2 and Integration Testing | v7.0 | 1/1 | Complete    | 2026-04-08 |
+| 38. Architecture Foundation | v8.0 | 0/TBD | Not started | - |
+| 39. Data Layer | v8.0 | 0/TBD | Not started | - |
+| 40. Hamilton Shell | v8.0 | 0/TBD | Not started | - |
+| 41. Settings | v8.0 | 0/TBD | Not started | - |
+| 42. Home / Executive Briefing | v8.0 | 0/TBD | Not started | - |
+| 43. Analyze Workspace | v8.0 | 0/TBD | Not started | - |
+| 44. Simulate | v8.0 | 0/TBD | Not started | - |
+| 45. Report Builder | v8.0 | 0/TBD | Not started | - |
+| 46. Monitor | v8.0 | 0/TBD | Not started | - |

@@ -131,13 +131,63 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| ARCH-01 | Phase 38 | Pending |
+| ARCH-02 | Phase 38 | Pending |
+| ARCH-03 | Phase 38 | Pending |
+| ARCH-04 | Phase 38 | Pending |
+| ARCH-05 | Phase 38 | Pending |
+| DATA-01 | Phase 39 | Pending |
+| DATA-02 | Phase 39 | Pending |
+| DATA-03 | Phase 39 | Pending |
+| DATA-04 | Phase 39 | Pending |
+| SHELL-01 | Phase 40 | Pending |
+| SHELL-02 | Phase 40 | Pending |
+| SHELL-03 | Phase 40 | Pending |
+| SHELL-04 | Phase 40 | Pending |
+| SHELL-05 | Phase 40 | Pending |
+| SET-01 | Phase 41 | Pending |
+| SET-02 | Phase 41 | Pending |
+| SET-03 | Phase 41 | Pending |
+| SET-04 | Phase 41 | Pending |
+| SET-05 | Phase 41 | Pending |
+| HOME-01 | Phase 42 | Pending |
+| HOME-02 | Phase 42 | Pending |
+| HOME-03 | Phase 42 | Pending |
+| HOME-04 | Phase 42 | Pending |
+| HOME-05 | Phase 42 | Pending |
+| HOME-06 | Phase 42 | Pending |
+| ANLZ-01 | Phase 43 | Pending |
+| ANLZ-02 | Phase 43 | Pending |
+| ANLZ-03 | Phase 43 | Pending |
+| ANLZ-04 | Phase 43 | Pending |
+| ANLZ-05 | Phase 43 | Pending |
+| ANLZ-06 | Phase 43 | Pending |
+| SIM-01 | Phase 44 | Pending |
+| SIM-02 | Phase 44 | Pending |
+| SIM-03 | Phase 44 | Pending |
+| SIM-04 | Phase 44 | Pending |
+| SIM-05 | Phase 44 | Pending |
+| SIM-06 | Phase 44 | Pending |
+| SIM-07 | Phase 44 | Pending |
+| RPT-01 | Phase 45 | Pending |
+| RPT-02 | Phase 45 | Pending |
+| RPT-03 | Phase 45 | Pending |
+| RPT-04 | Phase 45 | Pending |
+| RPT-05 | Phase 45 | Pending |
+| RPT-06 | Phase 45 | Pending |
+| RPT-07 | Phase 45 | Pending |
+| MON-01 | Phase 46 | Pending |
+| MON-02 | Phase 46 | Pending |
+| MON-03 | Phase 46 | Pending |
+| MON-04 | Phase 46 | Pending |
+| MON-05 | Phase 46 | Pending |
+| MON-06 | Phase 46 | Pending |
 
 **Coverage:**
 - v8.0 requirements: 42 total
-- Mapped to phases: 0
-- Unmapped: 42
+- Mapped to phases: 42
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 after initial definition*
+*Last updated: 2026-04-08 after roadmap creation*
