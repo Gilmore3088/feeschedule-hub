@@ -31,6 +31,7 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - ✓ 12-source queryNationalData + queryRegulatoryRisk tool — v7.0
 - ✓ Editor v2 (thesis alignment, revenue prioritization, "so what?" checks) — v7.0
 - ✓ 17 tool descriptions with Returns/When/Combine-with guidance — v7.0
+- ✓ Hamilton Pro architecture foundation (CSS isolation, screen DTOs, mode behavior, navigation contract) — v8.0 Phase 38
 
 ### Active
 
@@ -70,6 +71,7 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 ## Current State
 
 **Latest shipped:** v7.0 Hamilton Reasoning Engine (2026-04-08)
+**v8.0 progress:** Phase 38 complete (Architecture Foundation — CSS isolation, TypeScript contracts, mode behavior, navigation)
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
