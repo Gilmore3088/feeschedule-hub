@@ -835,9 +835,12 @@ Plans:
   3. A user can save a completed analysis and retrieve it from the left rail in a later session without re-running the query
   4. No hardcoded or demo analysis content is visible anywhere on the Analyze screen — all displayed content comes from real API responses or empty states
   5. A user can export the current analysis as a PDF — the downloaded file opens in a standard viewer with BFI branding and the full analysis content
-**Plans**: 1 plan
+**Plans**: 2 plans
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 51-01-PLAN.md — Streaming verification, focus tab validation, save/load analyses, demo content audit
+- [ ] 51-02-PLAN.md — AnalysisPdfDocument component, PDF route dispatch, Export PDF button
+
+
 **UI hint**: yes
 
 ### Phase 52: Simulate Live Data
