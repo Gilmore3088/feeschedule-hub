@@ -660,7 +660,11 @@ Plans:
   3. Priority Alerts shows exactly 3 alerts ranked by severity -- each alert has a severity label, one-sentence impact description, and a suggested next move
   4. The Recommended Action card contains a single CTA that navigates directly to the Simulate screen pre-loaded with the recommended fee and proposed change
   5. Positioning Evidence shows the institution's current fee amount, national percentile, and peer median for at least one spotlight fee category
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 42-01-PLAN.md -- Data layer + Hamilton's View card + Positioning Evidence (thesis, index queries, ISR caching)
+- [ ] 42-02-PLAN.md -- What Changed, Priority Alerts, Recommended Action CTA, Monitor Feed preview, full page wiring
 **UI hint**: yes
 
 ### Phase 43: Analyze Workspace
