@@ -1,6 +1,6 @@
 import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { getHamilton, buildAnalyzeModeSuffix, type HamiltonRole } from "@/lib/research/agents";
+import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, type HamiltonRole } from "@/lib/research/agents";
 import { getCurrentUser, type User } from "@/lib/auth";
 import {
   checkPublicRateLimit,
@@ -156,6 +156,11 @@ export async function POST(request: Request) {
   if (mode === "analyze") {
     const focus = analysisFocus ?? "Pricing";
     systemPrompt += buildAnalyzeModeSuffix(focus);
+  }
+
+  // Monitor mode: concise surveillance-oriented responses (Phase 46)
+  if (mode === "monitor") {
+    systemPrompt += buildMonitorModeSuffix();
   }
 
   // Check if user is opting in to a previously offered skill deliverable
