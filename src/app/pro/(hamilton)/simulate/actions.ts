@@ -53,6 +53,41 @@ export async function getDistributionForCategory(
 }
 
 /**
+ * Look up the institution's actual fee for a category.
+ * Returns the fee amount if found, null if the institution has no fee in this category.
+ */
+export async function getInstitutionFee(
+  institutionId: string,
+  feeCategory: string
+): Promise<{ amount: number } | null> {
+  if (!institutionId) return null;
+
+  try {
+    const rows = await sql<{ amount: string }[]>`
+      SELECT ef.amount::text
+      FROM extracted_fees ef
+      JOIN crawl_results cr ON ef.crawl_result_id = cr.id
+      JOIN crawl_targets ct ON cr.crawl_target_id = ct.id
+      WHERE ct.institution_name ILIKE ${`%${institutionId.replace(/-/g, ' ')}%`}
+        AND ef.fee_category = ${feeCategory}
+        AND ef.review_status IN ('approved', 'staged', 'pending')
+        AND ef.amount IS NOT NULL
+      ORDER BY
+        CASE ef.review_status WHEN 'approved' THEN 1 WHEN 'staged' THEN 2 ELSE 3 END,
+        ef.created_at DESC
+      LIMIT 1
+    `;
+
+    if (rows.length > 0 && rows[0].amount) {
+      return { amount: parseFloat(rows[0].amount) };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Save a scenario to hamilton_scenarios.
  * Requires premium/admin role.
  * Returns the new scenario UUID on success.

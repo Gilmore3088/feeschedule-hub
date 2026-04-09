@@ -14,6 +14,7 @@ import { canSimulate, type ConfidenceTier } from "@/lib/hamilton/confidence";
 import {
   getSimulationCategories,
   getDistributionForCategory,
+  getInstitutionFee,
   saveScenario,
   listScenarios,
 } from "@/app/pro/(hamilton)/simulate/actions";
@@ -112,12 +113,16 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
     } else {
       setDistribution(result.distribution);
       setConfidenceTier(result.confidenceTier);
-      setCurrentFee(result.distribution.median_amount);
-      setProposedFee(result.distribution.median_amount);
+
+      // Use institution's actual fee if available, otherwise national median
+      const instFee = institutionId ? await getInstitutionFee(institutionId, feeCategory) : null;
+      const startingFee = instFee ? Math.round(instFee.amount) : result.distribution.median_amount;
+      setCurrentFee(startingFee);
+      setProposedFee(startingFee);
     }
 
     setLoadingCategory(false);
-  }, []);
+  }, [institutionId]);
 
   // ─── Initialization ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -369,7 +374,7 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
               <FeeSlider
                 min={distribution!.min_amount}
                 max={distribution!.max_amount}
-                step={0.5}
+                step={1}
                 currentFee={currentFee}
                 proposedFee={proposedFee}
                 median={distribution!.median_amount}
