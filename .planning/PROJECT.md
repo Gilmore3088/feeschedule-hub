@@ -32,16 +32,20 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - ✓ Editor v2 (thesis alignment, revenue prioritization, "so what?" checks) — v7.0
 - ✓ 17 tool descriptions with Returns/When/Combine-with guidance — v7.0
 - ✓ Hamilton Pro architecture foundation (CSS isolation, screen DTOs, mode behavior, navigation contract) — v8.0 Phase 38
+- ✓ Hamilton Pro DB schema (6 tables: analyses, scenarios, reports, watchlists, signals, alerts) — v8.0 Phase 39
+- ✓ Hamilton shell layout (route group, auth gating, TopNav, ContextBar, LeftRail, UpgradeGate) — v8.0 Phase 40
+- ✓ Settings page (institution profile, peer sets, intelligence snapshot, feature toggles, billing) — v8.0 Phase 41
+- ✓ 5 screen shells with component architecture (Home, Analyze, Simulate, Reports, Monitor) — v8.0 Phases 42-46
 
 ### Active
 
-- [ ] Hamilton Pro Platform: 5-screen decision system (Home, Analyze, Simulate, Report, Monitor)
-- [ ] Unified Hamilton shell with editorial design system and institutional context
-- [ ] Fee scenario simulation engine with tradeoff modeling
-- [ ] Screen-specific API contracts and agent behavior by mode
-- [ ] 6 new DB tables (analyses, scenarios, reports, watchlists, signals, alerts)
-- [ ] Settings page with institution profile and peer set configuration
-- [ ] Pro paywall gate ($500/mo or $5,000/yr)
+- [ ] Settings cleanup: DB migration for fed_district + Stripe billing portal wiring
+- [ ] Monitor: real signal queries, watchlist CRUD, empty states (strip demo data)
+- [ ] Home/Briefing: real thesis generation, real index data, real alerts
+- [ ] Analyze: verified streaming with Hamilton API, real focus tab context injection
+- [ ] Simulate: category-agnostic fee simulation (all 49 categories), real distribution data, confidence gating
+- [ ] Reports: client-oriented templates (Peer Benchmarking, Regional, Category Deep Dive, Competitive Positioning), real generation pipeline, PDF export
+- [ ] Integration pass: screen-to-screen flows (Home CTA -> Simulate -> Report)
 
 ### Out of Scope
 
@@ -51,27 +55,26 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - Wave orchestrator / iterative deepening — deferred from v3.0, pipeline work done in parallel by owner
 - A/B testing settings page variants — deferred to post-launch polish
 - v6.0 remaining work (B2B launchpad, PDF export) — subsumed by Report Builder screen
+- New UI components or screen redesigns — v8.0 built all shells, v8.1 is data wiring only
+- Signal pipeline automation — seeding signals is manual/dev-only for now, automation deferred post-v8.1
 
-## Current Milestone: v8.0 Hamilton Pro Platform
+## Current Milestone: v8.1 Hamilton Pro Live Data Wiring
 
-**Goal:** Transform Hamilton from a chat-based research agent into a 5-screen decision system for fee pricing, peer positioning, and regulatory-risk evaluation — the paid Pro experience ($500/mo or $5,000/yr).
+**Goal:** Wire every Hamilton Pro screen to real data, strip all hardcoded/demo content, and deliver a production-ready paid experience.
 
 **Target features:**
-- Unified Hamilton shell (locked nav, editorial design system, institutional context)
-- Executive Home / Briefing (orientation, thesis, recommended action)
-- Analyze workspace (deep analysis, replaces current /pro/research chat)
-- Simulate (fee scenario modeling, tradeoffs, recommendation engine)
-- Report Builder (template gallery, configuration, PDF export)
-- Monitor (continuous surveillance, signal feed, watchlists, floating chat)
-- Settings page (institution profile, peer sets, feature access, billing)
-- 6 new DB tables (analyses, scenarios, reports, watchlists, signals, alerts)
-- Screen-specific API contracts and agent behavior
-- Pro paywall gate (all Hamilton screens behind subscription)
+- Settings cleanup (DB migration for fed_district + Stripe billing portal wiring)
+- Monitor: real signal queries, watchlist CRUD, empty states (strip demo data)
+- Home/Briefing: real thesis generation, real index data, real alerts
+- Analyze: verified streaming with Hamilton API, real focus tab context injection
+- Simulate: category-agnostic fee simulation (all 49 categories), real distribution data, confidence gating
+- Reports: client-oriented templates (Peer Benchmarking, Regional, Category Deep Dive, Competitive Positioning), real generation pipeline, PDF export
+- Integration pass: screen-to-screen flows (Home CTA -> Simulate -> Report)
 
 ## Current State
 
-**Latest shipped:** v7.0 Hamilton Reasoning Engine (2026-04-08)
-**v8.0 progress:** Phase 38 complete (Architecture Foundation — CSS isolation, TypeScript contracts, mode behavior, navigation)
+**Latest shipped:** v8.0 Hamilton Pro Platform (2026-04-09) — screen shells + architecture
+**v8.1 progress:** Not started (defining requirements)
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
@@ -81,6 +84,7 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - v5.0 National Data Layer (completed 2026-04-08)
 - v6.0 Two-Sided Experience (Phases 28-32 partially shipped — consumer landing + institution pages done, B2B launchpad + PDF export deferred)
 - v7.0 Hamilton Reasoning Engine (shipped 2026-04-08)
+- v8.0 Hamilton Pro Platform (Phases 38-46 — architecture, DB tables, shell, settings, 5 screen shells with demo content)
 
 ## Context
 
@@ -128,4 +132,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-08 after v8.0 milestone start*
+*Last updated: 2026-04-09 after v8.1 milestone start*
