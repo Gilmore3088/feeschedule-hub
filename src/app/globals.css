@@ -787,6 +787,22 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
   box-shadow: var(--hamilton-shadow-elevated);
 }
 
+/* ── Monitor screen: signal card hover (translate-x per prototype) ── */
+.hamilton-shell .signal-card-hover:hover {
+  transform: translateX(2px);
+}
+
+/* ── Monitor screen: watchlist row hover ── */
+.hamilton-shell .watchlist-row-hover:hover {
+  background-color: var(--hamilton-surface-container-high, #eae8e3) !important;
+}
+
+/* ── Monitor screen: live pulse animation ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* ── Hamilton serif headings ── */
 .hamilton-shell h1,
 .hamilton-shell h2,

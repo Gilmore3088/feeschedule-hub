@@ -4,21 +4,20 @@ import { getCurrentUser } from "@/lib/auth";
 import { seedMonitorData } from "@/lib/hamilton/seed-monitor-data";
 import { fetchMonitorPageData } from "@/lib/hamilton/monitor-data";
 import { StatusStrip } from "@/components/hamilton/monitor/StatusStrip";
-import { PriorityAlertCard } from "@/components/hamilton/monitor/PriorityAlertCard";
 import { SignalFeed } from "@/components/hamilton/monitor/SignalFeed";
 import { WatchlistPanel } from "@/components/hamilton/monitor/WatchlistPanel";
 import { FloatingChatOverlay } from "@/components/hamilton/monitor/FloatingChatOverlay";
 
 export const metadata: Metadata = { title: "Institutional Monitor" };
 
-// No ISR — fresh signal data on every page load (per D-11 pattern from home screen)
+// No ISR — fresh signal data on every page load
 export const dynamic = "force-dynamic";
 
 export default async function MonitorPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  // Ensure demo signal data exists for v8.0
+  // Ensure demo signal data exists
   await seedMonitorData(user.id);
 
   const data = await fetchMonitorPageData(user.id);
@@ -28,30 +27,115 @@ export default async function MonitorPage() {
       {/* Status strip — full width above content */}
       <StatusStrip status={data.status} />
 
-      {/* Main content grid */}
-      <div
+      {/* Page content */}
+      <main
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 320px",
-          gap: "1.5rem",
-          padding: "1.5rem",
-          maxWidth: "1280px",
-          margin: "0 auto",
+          padding: "3rem",
+          backgroundColor: "var(--hamilton-surface)",
+          minHeight: "calc(100vh - 57px)",
         }}
       >
-        {/* Left column: Priority Alert + Signal Feed */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          <PriorityAlertCard alert={data.topAlert} />
-          <SignalFeed signals={data.signalFeed} />
+        {/* Page header */}
+        <header style={{ marginBottom: "3rem", maxWidth: "72rem", margin: "0 auto 3rem" }}>
+          <h1
+            className="font-headline"
+            style={{
+              fontFamily: "var(--hamilton-font-serif)",
+              fontSize: "3rem",
+              fontStyle: "italic",
+              fontWeight: 400,
+              letterSpacing: "-0.02em",
+              color: "var(--hamilton-on-surface)",
+              marginBottom: "0.5rem",
+              lineHeight: 1.1,
+            }}
+          >
+            Institutional Monitor
+          </h1>
+          <p
+            style={{
+              fontFamily: "var(--hamilton-font-sans)",
+              fontSize: "1.125rem",
+              color: "var(--hamilton-secondary, #5f5e5e)",
+              maxWidth: "42rem",
+              lineHeight: 1.5,
+            }}
+          >
+            Continuous surveillance of high-priority counterparts and fee
+            structures to preserve long-term recurring value.
+          </p>
+        </header>
+
+        {/* 12-col grid: feed (7) + sidebar (5) */}
+        <div
+          style={{
+            maxWidth: "72rem",
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns: "7fr 5fr",
+            gap: "3rem",
+          }}
+        >
+          {/* Center column: signal feed */}
+          <section>
+            {/* Feed header row */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "1rem",
+              }}
+            >
+              <h2
+                style={{
+                  fontFamily: "var(--hamilton-font-sans)",
+                  fontSize: "0.625rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.2em",
+                  color: "var(--hamilton-text-tertiary)",
+                  fontWeight: 600,
+                }}
+              >
+                Live Insight Timeline
+              </h2>
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  fontSize: "0.625rem",
+                  fontFamily: "var(--hamilton-font-sans)",
+                  color: "var(--hamilton-primary)",
+                  fontWeight: 600,
+                  letterSpacing: "0.05em",
+                }}
+              >
+                <span
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    backgroundColor: "var(--hamilton-primary)",
+                    display: "inline-block",
+                    animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                  }}
+                />
+                LIVE UPDATES
+              </span>
+            </div>
+
+            <SignalFeed signals={data.signalFeed} topAlert={data.topAlert} />
+          </section>
+
+          {/* Right sidebar */}
+          <aside>
+            <WatchlistPanel entries={data.watchlist} userId={user.id} />
+          </aside>
         </div>
+      </main>
 
-        {/* Right rail: Watchlist */}
-        <aside>
-          <WatchlistPanel entries={data.watchlist} userId={user.id} />
-        </aside>
-      </div>
-
-      {/* Floating chat overlay — fixed position, renders outside the grid */}
+      {/* Floating chat overlay — fixed position */}
       <FloatingChatOverlay userId={user.id} />
     </>
   );
