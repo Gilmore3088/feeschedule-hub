@@ -95,3 +95,29 @@ export async function listSavedAnalyses(limit = 10): Promise<
     return [];
   }
 }
+
+/**
+ * Load a single saved analysis by ID for the current user.
+ * Scoped by user_id — cannot load another user's analysis (T-51-02).
+ * UUID cast on id rejects malformed strings before they reach the DB (T-51-03).
+ * Returns the stored AnalyzeResponse or null if not found or unauthorized.
+ */
+export async function loadAnalysis(id: string): Promise<AnalyzeResponse | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  try {
+    const rows = await sql<Array<{ response_json: string }>>`
+      SELECT response_json::text
+      FROM hamilton_saved_analyses
+      WHERE id = ${id}::uuid
+        AND user_id = ${user.id}
+        AND status = 'active'
+      LIMIT 1
+    `;
+    if (!rows[0]) return null;
+    return JSON.parse(rows[0].response_json) as AnalyzeResponse;
+  } catch {
+    return null;
+  }
+}

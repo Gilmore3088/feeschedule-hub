@@ -100,6 +100,8 @@ function extractTextFromMessage(message: { parts?: Array<{ type: string; text?: 
 interface AnalyzeWorkspaceProps {
   userId: number;
   institutionId: string | null;
+  /** Pre-populated analysis loaded from hamilton_saved_analyses via ?analysis= searchParam */
+  initialAnalysis?: AnalyzeResponse | null;
 }
 
 /**
@@ -111,11 +113,24 @@ interface AnalyzeWorkspaceProps {
  * Screen boundary rule enforced at two levels:
  * 1. System prompt via buildAnalyzeModeSuffix (API route)
  * 2. AnalyzeCTABar has no "Recommended Position" element (ARCH-05)
+ *
+ * When initialAnalysis is provided (via ?analysis= searchParam), parsedResponse
+ * is pre-populated so the full analysis UI renders immediately on page load.
  */
-export function AnalyzeWorkspace({ userId, institutionId }: AnalyzeWorkspaceProps) {
+export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: AnalyzeWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
-  const [parsedResponse, setParsedResponse] = useState<ParsedResponse | null>(null);
-  const [isSaved, setIsSaved] = useState(false);
+  const [parsedResponse, setParsedResponse] = useState<ParsedResponse | null>(() => {
+    if (!initialAnalysis) return null;
+    return {
+      hamiltonView: initialAnalysis.hamiltonView,
+      whatThisMeans: initialAnalysis.whatThisMeans,
+      whyItMatters: initialAnalysis.whyItMatters,
+      evidence: initialAnalysis.evidence.metrics,
+      exploreFurther: initialAnalysis.exploreFurther,
+    };
+  });
+  // If restoring a saved analysis, mark it already saved to prevent duplicate auto-save
+  const [isSaved, setIsSaved] = useState(!!initialAnalysis);
   const [input, setInput] = useState("");
 
   // Ref to always have latest activeTab inside async callbacks
