@@ -786,11 +786,11 @@ Plans:
   2. The Peer tab shows real peer comparison data for the institution's configured peer group
   3. Every Hamilton screen (Home, Analyze, Simulate, Reports, Monitor, Settings) uses the full browser canvas width — a developer inspecting the layout finds no centered max-width container wasting horizontal space
   4. Full canvas width applies consistently across all screens without introducing horizontal scroll
-**Plans**: 1 plan
+**Plans**: 2 plans
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 48-01-PLAN.md — Delete old Pro tab routes, add permanent redirects in next.config.ts
+- [ ] 48-02-PLAN.md — Remove maxWidth constraints from Monitor, Settings, Home pages
 **UI hint**: yes
-
 ### Phase 49: Monitor Live Data
 **Goal**: The Monitor screen shows a live signal feed from real DB data, supports watchlist add/remove against the real hamilton_watchlists table, and streams real Hamilton responses from the floating chat overlay
 **Depends on**: Phase 48
