@@ -819,9 +819,10 @@ Plans:
   3. The What Changed and Priority Alerts cards pull from real signal and alert DB tables; when both tables are empty, designed empty states appear
   4. The Recommended Action card derives its suggested fee category from the thesis output and its link navigates to Simulate pre-loaded with that category
   5. A developer auditing the Home screen finds zero hardcoded fee amounts, placeholder thesis text, or fabricated recommendations
-**Plans**: 1 plan
+**Plans**: 2 plans
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 50-01-PLAN.md — Strip hardcoded defaults from WhatChangedCard, PriorityAlertsCard, MonitorFeedPreview, PositioningEvidence
+- [ ] 50-02-PLAN.md — Fix HamiltonViewCard thesis-null handling, rewire page.tsx, add RecommendedActionCard, thesis error logging
 **UI hint**: yes
 
 ### Phase 51: Analyze Live Data
