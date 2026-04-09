@@ -634,44 +634,126 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
    ═══════════════════════════════════════════════════════════════════════ */
 
 .hamilton-shell {
-  /* ── Surface tokens ── */
+  /* ═══ M3 Color Tokens — exact values from HTML prototypes ═══ */
+
+  /* ── Surface hierarchy (layered parchment) ── */
   --hamilton-surface: #fbf9f4;
-  --hamilton-surface-elevated: #f5f1e8;
-  --hamilton-surface-sunken: #f0ebe0;
-  --hamilton-surface-overlay: rgba(251, 249, 244, 0.95);
+  --hamilton-surface-bright: #fbf9f4;
+  --hamilton-surface-dim: #dbdad5;
+  --hamilton-surface-container-lowest: #ffffff;
+  --hamilton-surface-container-low: #f5f3ee;
+  --hamilton-surface-container: #f0eee9;
+  --hamilton-surface-container-high: #eae8e3;
+  --hamilton-surface-container-highest: #e4e2dd;
+  --hamilton-surface-variant: #e4e2dd;
+  --hamilton-surface-tint: #8d4e29;
+  --hamilton-background: #fbf9f4;
+  --hamilton-inverse-surface: #30312e;
+  --hamilton-inverse-on-surface: #f2f1ec;
 
-  /* ── Text tokens ── */
-  --hamilton-text-primary: #1c1917;
-  --hamilton-text-secondary: #78716c;
-  --hamilton-text-tertiary: #a8a29e;
-  --hamilton-text-accent: oklch(0.55 0.18 35);
+  /* ── Primary (burnished terracotta) ── */
+  --hamilton-primary: #8a4c27;
+  --hamilton-primary-container: #a7633c;
+  --hamilton-primary-fixed: #ffdbca;
+  --hamilton-primary-fixed-dim: #ffb68f;
+  --hamilton-on-primary: #ffffff;
+  --hamilton-on-primary-container: #fffbff;
+  --hamilton-on-primary-fixed: #331200;
+  --hamilton-on-primary-fixed-variant: #703714;
+  --hamilton-inverse-primary: #ffb68f;
 
-  /* ── Accent (burnished terracotta) ── */
-  --hamilton-accent: oklch(0.55 0.18 35);
-  --hamilton-accent-hover: oklch(0.50 0.20 35);
-  --hamilton-accent-subtle: oklch(0.55 0.18 35 / 0.08);
+  /* ── Secondary ── */
+  --hamilton-secondary: #5f5e5e;
+  --hamilton-secondary-container: #e4e2e1;
+  --hamilton-secondary-fixed: #e4e2e1;
+  --hamilton-secondary-fixed-dim: #c8c6c6;
+  --hamilton-on-secondary: #ffffff;
+  --hamilton-on-secondary-container: #656464;
+  --hamilton-on-secondary-fixed: #1b1c1c;
+  --hamilton-on-secondary-fixed-variant: #474747;
+
+  /* ── Tertiary ── */
+  --hamilton-tertiary: #6a594b;
+  --hamilton-tertiary-container: #837163;
+  --hamilton-tertiary-fixed: #f6decd;
+  --hamilton-tertiary-fixed-dim: #d9c2b2;
+  --hamilton-on-tertiary: #ffffff;
+  --hamilton-on-tertiary-container: #fffbff;
+  --hamilton-on-tertiary-fixed: #25190f;
+  --hamilton-on-tertiary-fixed-variant: #534437;
+
+  /* ── Text ── */
+  --hamilton-on-surface: #1b1c19;
+  --hamilton-on-surface-variant: #53443c;
+  --hamilton-on-background: #1b1c19;
+
+  /* ── Outline ── */
+  --hamilton-outline: #86736b;
+  --hamilton-outline-variant: #d8c2b8;
+
+  /* ── Error ── */
+  --hamilton-error: #ba1a1a;
+  --hamilton-error-container: #ffdad6;
+  --hamilton-on-error: #ffffff;
+  --hamilton-on-error-container: #93000a;
+
+  /* ═══ Convenience aliases (used in components) ═══ */
+  --hamilton-text-primary: #1b1c19;
+  --hamilton-text-secondary: #53443c;
+  --hamilton-text-tertiary: #86736b;
+  --hamilton-text-accent: #8a4c27;
+  --hamilton-accent: #8a4c27;
+  --hamilton-accent-hover: #703714;
+  --hamilton-accent-subtle: rgba(138, 76, 39, 0.08);
+  --hamilton-border: rgba(216, 194, 184, 0.2);
+  --hamilton-border-hover: rgba(134, 115, 107, 0.3);
 
   /* ── Burnished gradient for CTAs ── */
-  --hamilton-gradient-cta: linear-gradient(135deg, oklch(0.55 0.18 35), oklch(0.48 0.16 30));
+  --hamilton-gradient-cta: linear-gradient(135deg, #8a4c27 0%, #a7633c 100%);
 
   /* ── Typography ── */
-  --hamilton-font-serif: var(--font-newsreader), Georgia, serif;
-  --hamilton-font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --hamilton-font-serif: var(--font-newsreader), "Newsreader", Georgia, serif;
+  --hamilton-font-sans: "Inter", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 
-  /* ── Elevation (tonal layering, no hard borders) ── */
-  --hamilton-shadow-card: 0 1px 3px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.02);
-  --hamilton-shadow-elevated: 0 4px 12px rgba(28, 25, 23, 0.06), 0 1px 3px rgba(28, 25, 23, 0.03);
-  --hamilton-shadow-overlay: 0 8px 24px rgba(28, 25, 23, 0.08), 0 2px 6px rgba(28, 25, 23, 0.04);
+  /* ── Elevation (editorial shadow from prototypes) ── */
+  --hamilton-shadow-card: 0px 12px 32px rgba(27, 28, 25, 0.06);
+  --hamilton-shadow-elevated: 0px 12px 32px rgba(27, 28, 25, 0.06);
+  --hamilton-shadow-overlay: 0 8px 24px rgba(27, 28, 25, 0.08);
 
-  /* ── Border (subtle warm, used sparingly) ── */
-  --hamilton-border: rgba(28, 25, 23, 0.06);
-  --hamilton-border-hover: rgba(28, 25, 23, 0.12);
+  /* ── Border radius (from prototypes) ── */
+  --hamilton-radius-sm: 0.125rem;
+  --hamilton-radius-md: 0.25rem;
+  --hamilton-radius-lg: 0.5rem;
+  --hamilton-radius-full: 0.75rem;
 
   /* ── Base styles ── */
   background: var(--hamilton-surface);
-  color: var(--hamilton-text-primary);
+  color: var(--hamilton-on-surface);
   font-family: var(--hamilton-font-sans);
 }
+
+/* ── Utility classes from HTML prototypes ── */
+.hamilton-shell .editorial-shadow {
+  box-shadow: 0px 12px 32px rgba(27, 28, 25, 0.06);
+}
+.hamilton-shell .burnished-cta {
+  background: linear-gradient(135deg, #8a4c27 0%, #a7633c 100%);
+  color: #ffffff;
+}
+.hamilton-shell .font-headline {
+  font-family: var(--hamilton-font-serif);
+}
+.hamilton-shell .font-label {
+  font-family: var(--hamilton-font-sans);
+}
+.hamilton-shell .text-primary { color: var(--hamilton-primary); }
+.hamilton-shell .text-on-surface { color: var(--hamilton-on-surface); }
+.hamilton-shell .text-on-surface-variant { color: var(--hamilton-on-surface-variant); }
+.hamilton-shell .bg-surface { background-color: var(--hamilton-surface); }
+.hamilton-shell .bg-surface-container-low { background-color: var(--hamilton-surface-container-low); }
+.hamilton-shell .bg-surface-container { background-color: var(--hamilton-surface-container); }
+.hamilton-shell .bg-surface-container-high { background-color: var(--hamilton-surface-container-high); }
+.hamilton-shell .bg-surface-container-lowest { background-color: var(--hamilton-surface-container-lowest); }
 
 /* ── Dark mode overrides: warm dark parchment tones ── */
 .dark .hamilton-shell {
