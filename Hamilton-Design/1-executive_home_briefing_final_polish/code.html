@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,700;1,6..72,400;1,6..72,700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#eae8e3",
+                    "on-secondary": "#ffffff",
+                    "on-surface-variant": "#53443c",
+                    "error-container": "#ffdad6",
+                    "surface-bright": "#fbf9f4",
+                    "inverse-primary": "#ffb68f",
+                    "on-tertiary-fixed": "#25190f",
+                    "on-secondary-fixed-variant": "#474747",
+                    "primary-container": "#a7633c",
+                    "primary": "#8a4c27",
+                    "surface-tint": "#8d4e29",
+                    "error": "#ba1a1a",
+                    "on-background": "#1b1c19",
+                    "surface-container": "#f0eee9",
+                    "surface": "#fbf9f4",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f5f3ee",
+                    "primary-fixed-dim": "#ffb68f",
+                    "on-secondary-container": "#656464",
+                    "surface-dim": "#dbdad5",
+                    "secondary-fixed": "#e4e2e1",
+                    "on-error-container": "#93000a",
+                    "secondary-container": "#e4e2e1",
+                    "inverse-on-surface": "#f2f1ec",
+                    "outline-variant": "#d8c2b8",
+                    "on-primary-fixed": "#331200",
+                    "tertiary-fixed": "#f6decd",
+                    "surface-container-highest": "#e4e2dd",
+                    "on-surface": "#1b1c19",
+                    "primary-fixed": "#ffdbca",
+                    "tertiary": "#6a594b",
+                    "on-secondary-fixed": "#1b1c1c",
+                    "outline": "#86736b",
+                    "tertiary-fixed-dim": "#d9c2b2",
+                    "on-primary-container": "#fffbff",
+                    "on-tertiary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "surface-variant": "#e4e2dd",
+                    "on-primary-fixed-variant": "#703714",
+                    "secondary": "#5f5e5e",
+                    "on-tertiary-container": "#fffbff",
+                    "on-error": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-surface": "#30312e",
+                    "secondary-fixed-dim": "#c8c6c6",
+                    "on-tertiary-fixed-variant": "#534437",
+                    "background": "#fbf9f4",
+                    "tertiary-container": "#837163"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader", "serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        background-color: #fbf9f4;
+        color: #1b1c19;
+      }
+      .editorial-shadow {
+        box-shadow: 0px 12px 32px rgba(27, 28, 25, 0.06);
+      }
+      .burnished-cta {
+        background: linear-gradient(135deg, #8a4c27 0%, #a7633c 100%);
+      }
+    </style>
+</head>
+<body class="font-body selection:bg-primary-fixed">
+<!-- TopNavBar -->
+<nav class="flex justify-between items-center w-full px-12 py-6 max-w-full bg-[#fbf9f4] dark:bg-stone-950 fixed top-0 z-50">
+<div class="text-2xl font-serif tracking-tighter text-stone-900 dark:text-stone-100">Hamilton</div>
+<div class="hidden md:flex items-center space-x-8">
+<a class="text-stone-900 dark:text-white font-bold border-b-2 border-[#8a4c27] pb-1 hover:text-[#8a4c27] transition-colors duration-300" href="#">Home</a>
+<a class="text-stone-500 dark:text-stone-400 font-sans text-xs uppercase tracking-widest hover:text-[#8a4c27] transition-colors duration-300" href="#">Markets</a>
+<a class="text-stone-500 dark:text-stone-400 font-sans text-xs uppercase tracking-widest hover:text-[#8a4c27] transition-colors duration-300" href="#">Peers</a>
+<a class="text-stone-500 dark:text-stone-400 font-sans text-xs uppercase tracking-widest hover:text-[#8a4c27] transition-colors duration-300" href="#">Reports</a>
+<a class="text-stone-500 dark:text-stone-400 font-sans text-xs uppercase tracking-widest hover:text-[#8a4c27] transition-colors duration-300" href="#">Monitor</a>
+<a class="text-stone-500 dark:text-stone-400 font-sans text-xs uppercase tracking-widest hover:text-[#8a4c27] transition-colors duration-300" href="#">Admin</a>
+</div>
+<div class="flex items-center space-x-6">
+<button class="text-stone-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="professional headshot of an executive in a neutral grey suit with soft studio lighting and warm background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFnvss4citE7_VnLiWoiCW4tAysH46C_3ewIlMGGNBuv6_kZL5f_vGdpFI4YFJ_rG1NP0Isao5zhxCDwB_8WvYnPe6xHkh_3M1z8C_SuXRkLFhzyg5kQ9tR8GRkNVO3Z_YkPu0GamS4NzCVzZyGOzUWKPl8nBKuQAqAsQ0Q9_TG4rw8oSw6qM3UrsFuPGBlo7Ww271OcDhLGeGqwaqVxRhQOl8WNm4pRud9-MHgv1ZWfQvrfAQ8-l0hsW0RGcR8IR3TeEgJT1c0w0"/>
+</div>
+</div>
+</nav>
+<!-- Main Canvas -->
+<main class="pt-32 pb-24 px-12 max-w-[1600px] mx-auto">
+<!-- Header Section -->
+<header class="mb-12 flex justify-between items-end">
+<div>
+<h1 class="font-headline text-5xl italic tracking-tight text-on-background">Executive Briefing</h1>
+<div class="flex items-center space-x-4 mt-2">
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Updated 24m ago</p>
+<div class="flex items-center space-x-1">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+<p class="font-label text-[10px] uppercase tracking-widest text-error font-bold">Trend: Worsening</p>
+</div>
+</div>
+</div>
+<div class="flex space-x-4">
+<button class="px-4 py-2 bg-surface-container-high text-on-surface text-sm font-medium rounded-lg hover:bg-surface-container-highest transition-colors">Export PDF</button>
+<button class="px-4 py-2 burnished-cta text-on-primary text-sm font-medium rounded-lg editorial-shadow">Full Dashboard</button>
+</div>
+</header>
+<!-- Top Row: Hamilton's View & Priorities -->
+<div class="grid grid-cols-12 gap-8 mb-12">
+<!-- Main Briefing Content (8 Columns) -->
+<div class="col-span-8 space-y-8">
+<!-- What Changed Row -->
+<div class="grid grid-cols-3 gap-4">
+<div class="p-4 bg-[#f0f2f5] rounded-lg border border-outline-variant/20 flex flex-col">
+<div class="flex items-center space-x-2 mb-2">
+<span class="text-lg">📉</span>
+<p class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Market Move</p>
+</div>
+<p class="text-sm font-medium">Peer median decreased $1 this quarter</p>
+</div>
+<div class="p-4 bg-[#f5f0ee] rounded-lg border border-outline-variant/20 flex flex-col">
+<div class="flex items-center space-x-2 mb-2">
+<span class="text-lg">🏦</span>
+<p class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Peer Shift</p>
+</div>
+<p class="text-sm font-medium">3 institutions reduced NSF fees</p>
+</div>
+<div class="p-4 bg-[#eef5f2] rounded-lg border border-outline-variant/20 flex flex-col">
+<div class="flex items-center space-x-2 mb-2">
+<span class="text-lg">⚠️</span>
+<p class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Local Trend</p>
+</div>
+<p class="text-sm font-medium">Complaint alignment increased in your district</p>
+</div>
+</div>
+<!-- Hamilton's View Card -->
+<section class="bg-surface-container-lowest p-12 rounded-xl editorial-shadow relative overflow-hidden group">
+<div class="flex justify-between items-start mb-10">
+<h2 class="font-headline text-3xl text-primary">Hamilton’s View</h2>
+<span class="px-2 py-1 bg-error/10 text-error text-[10px] font-bold tracking-widest uppercase rounded flex items-center space-x-1">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+<span>High Priority</span>
+</span>
+</div>
+<div class="mb-10">
+<p class="font-headline text-4xl leading-[1.4] text-on-surface max-w-2xl">
+                        Pricing is stable while risk is rising. Your overdraft fee remains above <span class="underline decoration-primary/30 text-on-surface">peer median</span>, but the signal is that complaint-adjusted exposure is increasing faster than peer movement.
+                    </p>
+<p class="mt-6 text-xs text-on-surface-variant italic border-b border-outline-variant/20 pb-2 w-fit">
+                        High confidence — based on fee data, peer movement, and complaint trends
+                    </p>
+</div>
+<!-- Recommended Action Block -->
+<div class="mb-10 p-8 bg-primary/5 border-l-4 border-primary rounded-r-lg">
+<p class="text-[10px] font-label uppercase tracking-widest text-primary font-bold mb-2">Recommended Action</p>
+<p class="text-xl font-headline italic text-on-surface">Evaluate reducing overdraft to $30–$31 or prepare a defensible pricing narrative tied to service differentiation. This should be addressed within the next reporting cycle to avoid increased scrutiny.</p>
+</div>
+<!-- Quick Action Buttons: Hierarchy Swap -->
+<div class="flex flex-wrap gap-4 pt-8 border-t border-outline-variant/20">
+<button class="px-8 py-3 burnished-cta text-on-primary text-sm font-bold flex items-center space-x-2 rounded-lg editorial-shadow">
+<span>Simulate Change</span>
+</button>
+<button class="px-8 py-3 bg-surface-container-low text-on-surface text-sm font-bold rounded-lg hover:bg-surface-container-high transition-colors">
+                        Generate Board Brief
+                    </button>
+<button class="px-8 py-3 border-2 border-primary/20 text-primary text-sm font-bold flex items-center space-x-2 rounded-lg hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span>
+<span>Ask Hamilton</span>
+</button>
+</div>
+</section>
+</div>
+<!-- Right Side: Priority Alerts & Why It Matters -->
+<aside class="col-span-4 flex flex-col space-y-6">
+<!-- Why It Matters Section -->
+<div class="p-8 bg-surface-container-low rounded-xl">
+<h3 class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-6">Why It Matters</h3>
+<ul class="space-y-4">
+<li class="flex items-start space-x-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="error_outline">error_outline</span>
+<p class="text-sm font-medium leading-tight">Retention risk is rising in high-value segments</p>
+</li>
+<li class="flex items-start space-x-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="trending_down">trending_down</span>
+<p class="text-sm font-medium leading-tight">Peer pricing direction is shifting downward</p>
+</li>
+<li class="flex items-start space-x-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="security">security</span>
+<p class="text-sm font-medium leading-tight">Revenue exposure is increasing without defensive positioning</p>
+</li>
+</ul>
+</div>
+<!-- Priority Alerts -->
+<div class="p-8 bg-surface-container-low rounded-xl">
+<h3 class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-6 flex justify-between items-center">
+                    Priority Alerts
+                    <span class="w-2 h-2 rounded-full bg-primary"></span>
+</h3>
+<div class="space-y-6">
+<div class="flex items-start space-x-4 group cursor-pointer">
+<div class="p-2 rounded bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+</div>
+<div>
+<p class="text-sm font-medium text-on-surface">Overdraft fee is $4 above median</p>
+<p class="text-xs text-on-surface-variant mt-1">Impact: High Revenue Risk</p>
+</div>
+</div>
+<div class="flex items-start space-x-4 group cursor-pointer">
+<div class="p-2 rounded bg-error-container text-error">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span>
+</div>
+<div>
+<p class="text-sm font-medium text-on-surface">Complaint language worsening</p>
+<p class="text-xs text-on-surface-variant mt-1">Sentiment Alert: Consumer Friction</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Second Row: Evidence & Watchlist -->
+<div class="grid grid-cols-12 gap-8 mb-12">
+<!-- Positioning Evidence Section -->
+<div class="col-span-8 bg-surface-container-lowest p-8 rounded-xl editorial-shadow">
+<h3 class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-8">Positioning Evidence</h3>
+<div class="grid grid-cols-3 gap-12">
+<div class="flex flex-col">
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Your Fee</span>
+<span class="font-headline text-4xl text-on-surface tracking-tighter">$33.00</span>
+<span class="text-xs text-primary font-bold mt-2">High Outlier</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Peer Median</span>
+<span class="font-headline text-4xl text-on-surface tracking-tighter">$29.00</span>
+<span class="text-xs text-on-surface-variant font-medium mt-2">Market Benchmark</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Percentile</span>
+<span class="font-headline text-4xl text-on-surface tracking-tighter">88th</span>
+<span class="text-xs text-error font-bold mt-2">Top Quartile Pricing (High Risk)</span>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-outline-variant/20 flex justify-between items-center">
+<div class="flex-1 max-w-md h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[88%]"></div>
+</div>
+<a class="text-xs font-bold text-primary hover:underline underline-offset-4 ml-6" href="#">View full distribution →</a>
+</div>
+</div>
+<!-- Watchlist Movement -->
+<div class="col-span-4 bg-surface-container-low p-8 rounded-xl">
+<h3 class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-8">Watchlist Movement</h3>
+<div class="space-y-6">
+<div class="flex justify-between items-center">
+<span class="text-sm text-on-surface">Citadel Bank</span>
+<div class="text-right">
+<p class="text-xs font-bold text-error">-12bps</p>
+<p class="text-[10px] text-on-surface-variant uppercase">Pricing</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-on-surface">Union Trust</span>
+<div class="text-right">
+<p class="text-xs font-bold text-primary">+4.2%</p>
+<p class="text-[10px] text-on-surface-variant uppercase">Exposure</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-on-surface">Apex Financial</span>
+<div class="text-right">
+<p class="text-xs font-bold text-on-surface-variant">Neutral</p>
+<p class="text-[10px] text-on-surface-variant uppercase">Sentiment</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Third Row: Feed -->
+<div class="grid grid-cols-12 gap-8">
+<!-- Hamilton Monitor Feed -->
+<div class="col-span-12 bg-surface-container-lowest p-8 rounded-xl editorial-shadow">
+<h3 class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-8">Hamilton Monitor Feed</h3>
+<div class="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[1px] before:bg-outline-variant/30">
+<!-- Insight Feed Item 1 -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-white flex items-center justify-center border border-outline-variant/20 shadow-sm z-10">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-bold text-on-surface">Insight Generated — Regulatory Focus</p>
+<p class="text-sm text-on-surface-variant mt-1 leading-relaxed">CFPB release confirms focus on junk fees for institutions above $10B. Hamilton recommends an immediate audit of non-interest income streams to mitigate audit risk.</p>
+</div>
+<span class="text-[10px] font-label text-on-surface-variant uppercase">11:04 AM</span>
+</div>
+</div>
+<!-- Insight Feed Item 2 -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-white flex items-center justify-center border border-outline-variant/20 shadow-sm z-10">
+<span class="w-2 h-2 rounded-full bg-on-surface-variant"></span>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-bold text-on-surface">Market Shift — Pricing Pressure Increasing</p>
+<p class="text-sm text-on-surface-variant mt-1 leading-relaxed">Local peer "Heritage First" has dropped their overdraft cap by 25%. This signal suggests a competitive shift that may lead to customer churn in your primary retail segments.</p>
+</div>
+<span class="text-[10px] font-label text-on-surface-variant uppercase">09:15 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>
