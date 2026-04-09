@@ -644,7 +644,10 @@ Plans:
   2. A user can create a named peer set by selecting charter, asset tiers, and districts -- the peer set is saved and available for selection in Simulate and Report screens
   3. The intelligence snapshot panel shows the user's account tier, feature access toggles, and a usage stat (e.g., reports generated this month)
   4. The billing panel displays the current subscription plan, renewal date, and a link to manage billing -- no billing logic is handled on this page (Stripe redirect)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 41-01-PLAN.md -- Server actions, avatar dropdown, institution profile form with Strategy Settings design
+- [ ] 41-02-PLAN.md -- Peer set management, intelligence snapshot, feature access, billing, quick actions
 **UI hint**: yes
 
 ### Phase 42: Home / Executive Briefing
