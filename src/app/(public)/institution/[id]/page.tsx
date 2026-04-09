@@ -3,6 +3,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  TrendingUp,
+  CheckCircle,
+  Info,
+  ExternalLink,
+  FileText,
+  MapPin,
+  Building2,
+  Landmark,
+  BarChart2,
+  ArrowRight,
+  ChevronDown,
+  ShieldCheck,
+} from "lucide-react";
+import {
   getInstitutionById,
   getFeesByInstitution,
   getFinancialsByInstitution,
@@ -54,7 +68,7 @@ const GROUP_ORDER: FeeGroup[] = [
   "Other Fees",
 ];
 
-const KEY_GROUPS = new Set<FeeGroup>(["Overdraft & NSF", "Account Maintenance"]);
+const ACCENT_GROUPS = new Set<FeeGroup>(["Overdraft & NSF", "Wire Transfers"]);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,11 +84,13 @@ function detectGroup(feeName: string): FeeGroup {
   return "Other Fees";
 }
 
-const RATING_STYLES: Record<string, { bg: string; border: string; dot: string }> = {
-  green:  { bg: "bg-emerald-50/60", border: "border-l-emerald-500", dot: "bg-emerald-500" },
-  yellow: { bg: "bg-amber-50/50",   border: "border-l-amber-500",   dot: "bg-amber-500" },
-  red:    { bg: "bg-red-50/50",     border: "border-l-red-500",     dot: "bg-red-500" },
+const RATING_COLORS = {
+  green:  { bg: "rgba(5,150,105,0.08)", border: "#059669", pill: "#059669", pillText: "white", label: "#047857" },
+  yellow: { bg: "rgba(217,119,6,0.08)",  border: "#D97706", pill: "#D97706", pillText: "white", label: "#A47E13" },
+  red:    { bg: "rgba(220,38,38,0.08)",  border: "#DC2626", pill: "#DC2626", pillText: "white", label: "#B91C1C" },
 };
+
+const SERIF = "var(--font-newsreader), Georgia, serif";
 
 // ---------------------------------------------------------------------------
 // Static params + metadata
@@ -110,7 +126,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 // ---------------------------------------------------------------------------
-// Pro helpers (competitive scorecard, related reports)
+// Pro helpers
 // ---------------------------------------------------------------------------
 
 function computeScorecard(
@@ -181,6 +197,23 @@ async function getRelatedReports(inst: {
   }
 }
 
+/** Compute distribution bar position for a fee relative to national index. */
+function computeBarPosition(
+  amount: number,
+  entry: IndexEntry
+): { p25Pct: number; rangePct: number; dotPct: number } | null {
+  if (entry.median_amount === null) return null;
+  const min = entry.min_amount ?? 0;
+  const max = entry.max_amount ?? entry.median_amount * 2;
+  const span = max - min || 1;
+  const p25 = entry.p25_amount ?? entry.median_amount;
+  const p75 = entry.p75_amount ?? entry.median_amount;
+  const p25Pct = Math.max(0, Math.min(100, ((p25 - min) / span) * 100));
+  const p75Pct = Math.max(0, Math.min(100, ((p75 - min) / span) * 100));
+  const dotPct = Math.max(0, Math.min(100, ((amount - min) / span) * 100));
+  return { p25Pct, rangePct: Math.max(p75Pct - p25Pct, 2), dotPct };
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -204,7 +237,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     getInstitutionPeerRanking(instId),
   ]);
 
-  const nationalMedians = new Map(nationalIndex.map((e) => [e.fee_category, e.median_amount]));
+  const indexMap = new Map(nationalIndex.map((e) => [e.fee_category, e]));
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
   const tierLabel = inst.asset_size_tier ? FDIC_TIER_LABELS[inst.asset_size_tier] : null;
@@ -212,7 +245,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
   // Rating engine
   const rating = computeInstitutionRating(fees, nationalIndex);
-  const ratingStyle = RATING_STYLES[rating.color];
+  const rc = RATING_COLORS[rating.color];
   const strengthsWatch = deriveStrengthsAndWatch(fees, nationalIndex);
   const overdraftFee = fees.find((f) => f.fee_name.toLowerCase().includes("overdraft") && f.amount !== null);
   const interpretation = generateInterpretation({
@@ -222,12 +255,12 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     charterType: inst.charter_type,
   });
 
-  // Group fees for table
+  // Group fees for schedule
   const grouped = new Map<FeeGroup, typeof fees>();
   for (const g of GROUP_ORDER) grouped.set(g, []);
   for (const f of fees) grouped.get(detectGroup(f.fee_name))!.push(f);
 
-  // Pro-only data (lazy)
+  // Pro-only data
   const marketConcentration = isPro ? await getMarketConcentrationForInstitution(instId) : null;
   const relatedReports = isPro ? await getRelatedReports(inst) : [];
 
@@ -240,11 +273,25 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
       }))
     : [];
 
-  // Scorecard for pro
   const scorecardComparisons = isPro ? computeScorecard(fees, nationalIndex) : [];
 
+  // Build rating insight bullets with icons
+  const ratingBullets: { icon: "trending" | "check" | "info"; text: string }[] = [];
+  if (strengthsWatch.watch.length > 0) {
+    ratingBullets.push({ icon: "trending", text: strengthsWatch.watch[0] });
+  }
+  if (strengthsWatch.strengths.length > 0) {
+    ratingBullets.push({ icon: "check", text: strengthsWatch.strengths[0] });
+  }
+  for (const b of rating.bullets) {
+    if (ratingBullets.length >= 3) break;
+    if (!ratingBullets.some((r) => r.text === b)) {
+      ratingBullets.push({ icon: "info", text: b });
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-4xl px-5 py-12">
+    <main className="max-w-4xl mx-auto px-6 md:px-16 py-12">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
@@ -253,134 +300,308 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         ]}
       />
 
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-8">
-        <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
-        <span className="text-[#D4C9BA]">/</span>
-        <Link href="/fees" className="hover:text-[#1A1815] transition-colors">Fee Index</Link>
-        <span className="text-[#D4C9BA]">/</span>
-        <span className="text-[#5A5347] truncate max-w-[200px]">{inst.institution_name}</span>
-      </nav>
-
-      {/* ── Institution Name ──────────────────────────────────────────── */}
-      <h1
-        className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
-        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-      >
-        {inst.institution_name}
-      </h1>
-      <p className="mt-2 text-[14px] text-[#6B6355]">
-        {charterLabel}
-        {inst.city && <> in {inst.city}</>}
-        {stateName && <>, {stateName}</>}
-        {inst.fed_district && (
-          <> &middot; District {inst.fed_district} ({DISTRICT_NAMES[inst.fed_district]})</>
-        )}
-      </p>
-
-      {/* ── Rating Card ───────────────────────────────────────────────── */}
-      <div className={`mt-8 rounded-lg border-l-4 ${ratingStyle.border} ${ratingStyle.bg} px-5 py-4`}>
-        <div className="flex items-center gap-2 mb-3">
-          <span className={`inline-block w-2.5 h-2.5 rounded-full ${ratingStyle.dot}`} />
-          <span className="text-[18px] font-bold text-[#1A1815]">{rating.label}</span>
+      {/* ================================================================ */}
+      {/* HEADER                                                           */}
+      {/* ================================================================ */}
+      <header className="mb-16">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <span
+              className="text-xs uppercase tracking-widest font-semibold mb-2 block"
+              style={{ color: "#C44B2E" }}
+            >
+              Institution Intelligence
+            </span>
+            <h1
+              className="text-5xl md:text-6xl tracking-tighter text-[#1A1815] mb-4"
+              style={{ fontFamily: SERIF }}
+            >
+              {inst.institution_name}
+            </h1>
+            <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-[#6B6355] text-sm">
+              {(inst.city || stateName) && (
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4" />
+                  {inst.city}{stateName ? `, ${stateName}` : ""}
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Building2 className="w-4 h-4" />
+                Charter: {charterLabel}
+              </div>
+              {inst.fed_district && (
+                <div className="flex items-center gap-1.5">
+                  <Landmark className="w-4 h-4" />
+                  Fed District: {DISTRICT_NAMES[inst.fed_district]}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-4">
+            {inst.website_url && (
+              <a
+                href={inst.website_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 font-medium hover:underline text-sm uppercase tracking-wider"
+                style={{ color: "#C44B2E" }}
+              >
+                Website <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+            {inst.fee_schedule_url && (
+              <a
+                href={inst.fee_schedule_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 font-medium hover:underline text-sm uppercase tracking-wider"
+                style={{ color: "#C44B2E" }}
+              >
+                Full Disclosure <FileText className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
         </div>
-        <ul className="space-y-1.5">
-          {rating.bullets.map((b, i) => (
-            <li key={i} className="text-[14px] text-[#6B6355] leading-relaxed">
-              &bull; {b}
-            </li>
-          ))}
-        </ul>
-        {interpretation && (
-          <p className="mt-3 text-[13px] text-[#7A7062] leading-relaxed border-t border-black/5 pt-3">
-            {interpretation}
-          </p>
-        )}
+      </header>
+
+      {/* ================================================================ */}
+      {/* RATING + INTERPRETATION GRID                                     */}
+      {/* ================================================================ */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-16">
+
+        {/* Rating Card */}
+        <div
+          className="md:col-span-5 p-8 rounded-lg flex flex-col justify-between"
+          style={{
+            backgroundColor: rc.bg,
+            borderLeft: `4px solid ${rc.border}`,
+          }}
+        >
+          <div>
+            <div className="flex justify-between items-start mb-6">
+              <span
+                className="text-xs uppercase tracking-widest font-semibold"
+                style={{ color: rc.label }}
+              >
+                Fee Profile
+              </span>
+              <div
+                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tight"
+                style={{ backgroundColor: rc.pill, color: rc.pillText }}
+              >
+                {rating.color === "green" ? "Green" : rating.color === "yellow" ? "Yellow" : "Red"}
+              </div>
+            </div>
+
+            {overdraftFee?.amount !== undefined && overdraftFee?.amount !== null && (
+              <div className="mb-8">
+                <span className="text-xs text-[#6B6355] uppercase">Key Indicator</span>
+                <div
+                  className="text-5xl text-[#1A1815]"
+                  style={{ fontFamily: SERIF }}
+                >
+                  {formatAmount(overdraftFee.amount)}
+                </div>
+                <p className="text-sm text-[#6B6355] mt-1">Standard Overdraft Fee</p>
+              </div>
+            )}
+
+            <ul className="space-y-4">
+              {ratingBullets.slice(0, 3).map((bullet, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  {bullet.icon === "trending" && (
+                    <TrendingUp className="w-[18px] h-[18px] mt-0.5 shrink-0 text-red-600" />
+                  )}
+                  {bullet.icon === "check" && (
+                    <CheckCircle className="w-[18px] h-[18px] mt-0.5 shrink-0" style={{ color: "#C44B2E" }} />
+                  )}
+                  {bullet.icon === "info" && (
+                    <Info className="w-[18px] h-[18px] mt-0.5 shrink-0 text-[#6B6355]" />
+                  )}
+                  <span className="text-sm leading-relaxed">{bullet.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Interpretation + Stats */}
+        <div className="md:col-span-7 flex flex-col justify-between py-2">
+          <div className="space-y-6">
+            <h3
+              className="text-2xl italic text-[#1A1815]"
+              style={{ fontFamily: SERIF }}
+            >
+              &ldquo;{interpretation}&rdquo;
+            </h3>
+
+            <div className="grid grid-cols-3 gap-4 pt-8">
+              <div className="p-6 rounded-lg" style={{ backgroundColor: "#F5EFE6" }}>
+                <span className="text-[10px] uppercase tracking-widest text-[#6B6355] mb-1 block font-semibold">Charter</span>
+                <span className="text-xl text-[#1A1815]" style={{ fontFamily: SERIF }}>{charterLabel}</span>
+              </div>
+              <div className="p-6 rounded-lg" style={{ backgroundColor: "#F5EFE6" }}>
+                <span className="text-[10px] uppercase tracking-widest text-[#6B6355] mb-1 block font-semibold">Assets</span>
+                <span className="text-xl text-[#1A1815]" style={{ fontFamily: SERIF }}>
+                  {inst.asset_size ? formatAssets(inst.asset_size) : "N/A"}
+                </span>
+              </div>
+              <div className="p-6 rounded-lg" style={{ backgroundColor: "#F5EFE6" }}>
+                <span className="text-[10px] uppercase tracking-widest text-[#6B6355] mb-1 block font-semibold">Fees</span>
+                <span className="text-xl text-[#1A1815]" style={{ fontFamily: SERIF }}>{fees.length}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Inline Pro CTA */}
+          {!isPro && (
+            <div
+              className="mt-8 p-6 rounded-xl flex items-center gap-6"
+              style={{ backgroundColor: "rgba(232,223,209,0.5)", border: "1px solid rgba(232,223,209,0.2)" }}
+            >
+              <div style={{ color: "#C44B2E" }}>
+                <BarChart2 className="w-9 h-9" />
+              </div>
+              <div>
+                <p className="text-sm text-[#6B6355] leading-relaxed">
+                  <span className="font-bold text-[#1A1815]">Financial professionals</span> get access to peer benchmarking, competitive intelligence, and AI-powered research.
+                  <Link href="/pro" className="font-bold hover:underline ml-1" style={{ color: "#C44B2E" }}>
+                    Learn More
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── Quick Stats ───────────────────────────────────────────────── */}
-      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1 text-[13px] text-[#6B6355]">
-        <span>{charterLabel}</span>
-        {inst.asset_size && (
-          <>
-            <span className="text-[#D4C9BA]">&middot;</span>
-            <span>{formatAssets(inst.asset_size)} in assets</span>
-          </>
-        )}
-        <span className="text-[#D4C9BA]">&middot;</span>
-        <span>{fees.length} fees on record</span>
-        {tierLabel && (
-          <>
-            <span className="text-[#D4C9BA]">&middot;</span>
-            <span>{tierLabel}</span>
-          </>
-        )}
-      </div>
+      {/* ================================================================ */}
+      {/* FEE SCHEDULE                                                     */}
+      {/* ================================================================ */}
+      <section className="mt-20">
+        <h2
+          className="text-3xl mb-10 pb-4"
+          style={{
+            fontFamily: SERIF,
+            borderBottom: "1px solid rgba(232,223,209,0.3)",
+          }}
+        >
+          Schedule of Fees
+        </h2>
 
-      {/* ── Fee Table ─────────────────────────────────────────────────── */}
-      <section className="mt-10">
-        <h2 className="text-[15px] font-semibold text-[#1A1815]">Fee Schedule</h2>
-        <p className="mt-1 text-[13px] text-[#7A7062]">
-          {fees.length} fees extracted from the published fee schedule.
-        </p>
+        <div className="space-y-8">
+          {GROUP_ORDER.map((group, groupIdx) => {
+            const rows = grouped.get(group) ?? [];
+            if (rows.length === 0) return null;
+            const hasAccent = ACCENT_GROUPS.has(group);
+            const isFirst = groupIdx === 0;
 
-        <div className="mt-4 overflow-hidden rounded-lg border border-[#E8DFD1]">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
-                <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Fee</th>
-                <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Amount</th>
-                <th className="hidden sm:table-cell px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Frequency</th>
-              </tr>
-            </thead>
-            {GROUP_ORDER.map((group) => {
-                const rows = grouped.get(group) ?? [];
-                if (rows.length === 0) return null;
-                const isKey = KEY_GROUPS.has(group);
+            return (
+              <details key={group} open={isFirst ? true : undefined}>
+                <summary
+                  className="relative pl-8 mb-6 flex items-center justify-between cursor-pointer"
+                  style={hasAccent ? { borderLeft: "4px solid #C44B2E" } : undefined}
+                >
+                  <div className="flex items-center gap-3">
+                    <h3
+                      className="text-xs uppercase font-semibold"
+                      style={{
+                        letterSpacing: "0.2em",
+                        color: hasAccent ? "#C44B2E" : "#6B6355",
+                      }}
+                    >
+                      {group}
+                    </h3>
+                    <ChevronDown
+                      className="w-4 h-4 transition-transform duration-300"
+                      style={{ color: hasAccent ? "rgba(196,75,46,0.4)" : "rgba(107,99,85,0.4)" }}
+                    />
+                  </div>
+                  <div className="hidden md:flex gap-12 text-[10px] uppercase tracking-widest text-[#6B6355]/50 pr-4">
+                    <span className="w-32">Market Distribution</span>
+                    <span className="w-16 text-right">Amount</span>
+                    <span className="w-16 text-right">Freq.</span>
+                  </div>
+                </summary>
 
-                return (
-                  <tbody key={group}>
-                    <tr className="bg-[#FAF7F2]/50">
-                      <td colSpan={3} className="px-4 py-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A09788]">
-                          {group}
-                        </span>
-                      </td>
-                    </tr>
-                    {rows.map((fee) => (
-                      <tr
+                <div className="pl-8 pb-8 space-y-0.5">
+                  {rows.map((fee) => {
+                    const entry = indexMap.get(fee.fee_name);
+                    const bar = fee.amount !== null && entry
+                      ? computeBarPosition(fee.amount, entry)
+                      : null;
+
+                    return (
+                      <div
                         key={fee.id}
-                        className={`border-b border-[#E8DFD1]/40 hover:bg-[#FAF7F2]/40 transition-colors ${
-                          isKey ? "border-l-2 border-l-[#C44B2E]" : "border-l-2 border-l-transparent"
-                        }`}
+                        className="grid grid-cols-12 gap-4 py-4 items-center px-2 -mx-2 rounded transition-colors hover:bg-[#F5EFE6]/50"
+                        style={{ borderBottom: "1px solid rgba(232,223,209,0.05)" }}
                       >
-                        <td className="px-4 py-2.5">
-                          <span className="font-medium text-[#1A1815]">{getDisplayName(fee.fee_name)}</span>
+                        <div className="col-span-12 md:col-span-5 text-sm font-semibold text-[#1A1815]">
+                          {getDisplayName(fee.fee_name)}
                           {fee.conditions && (
-                            <span className="mt-0.5 block text-[11px] text-[#A09788] max-w-xs truncate">
+                            <span className="block text-[11px] text-[#A09788] mt-0.5 max-w-xs truncate font-normal">
                               {fee.conditions}
                             </span>
                           )}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                        </div>
+
+                        <div className="col-span-6 md:col-span-3">
+                          {bar ? (
+                            <div className="relative h-1 w-full rounded-full overflow-visible flex items-center" style={{ backgroundColor: "rgba(232,223,209,0.2)" }}>
+                              <div
+                                className="absolute h-1 rounded-full"
+                                style={{
+                                  left: `${bar.p25Pct}%`,
+                                  width: `${bar.rangePct}%`,
+                                  backgroundColor: "rgba(232,223,209,0.4)",
+                                }}
+                              />
+                              <div
+                                className="absolute w-2 h-2 rounded-full shadow-sm"
+                                style={{
+                                  left: `${bar.dotPct}%`,
+                                  backgroundColor: "#C44B2E",
+                                  boxShadow: "0 0 0 4px rgba(196,75,46,0.2)",
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-1" />
+                          )}
+                        </div>
+
+                        <div
+                          className="col-span-3 md:col-span-2 text-right text-lg text-[#1A1815]"
+                          style={{ fontFamily: SERIF }}
+                        >
                           {formatAmount(fee.amount)}
-                        </td>
-                        <td className="hidden sm:table-cell px-4 py-2.5 text-[#7A7062]">
-                          {fee.frequency ?? <span className="text-[#C4B9A8] text-[11px]">&mdash;</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                );
-              })}
-          </table>
+                        </div>
+
+                        <div className="col-span-3 md:col-span-2 text-right text-xs text-[#6B6355]">
+                          {fee.frequency ? (
+                            fee.frequency
+                          ) : fee.amount === 0 ? (
+                            <span className="italic">None</span>
+                          ) : (
+                            <span className="text-[#C4B9A8]">&mdash;</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            );
+          })}
         </div>
       </section>
 
-      {/* ── Pro Sections ──────────────────────────────────────────────── */}
+      {/* ================================================================ */}
+      {/* PRO SECTIONS (gated)                                             */}
+      {/* ================================================================ */}
       {isPro ? (
         <>
-          {/* Financial Snapshot */}
           {latestFinancial && (
             <ProSection title="Financial Snapshot" subtitle={`From ${latestFinancial.source.toUpperCase()} call report — ${latestFinancial.report_date}`}>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -394,7 +615,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             </ProSection>
           )}
 
-          {/* Market Context */}
           {marketConcentration && (
             <ProSection title="Market Context" subtitle={`Deposit market competition in ${marketConcentration.msa_name || "this metro area"}`}>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -406,7 +626,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             </ProSection>
           )}
 
-          {/* Competitive Scorecard */}
           {scorecardComparisons.length >= 2 && (
             <ProSection title="Competitive Position" subtitle={`${scorecardComparisons.length} fees benchmarked against national medians.`}>
               {(() => {
@@ -420,33 +639,28 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 return (
                   <>
                     <div className="grid grid-cols-4 gap-3 mb-5">
-                      <div className="rounded-lg border border-[#E8DFD1] bg-white/70 px-3 py-2 text-center">
+                      <div className="rounded-lg bg-[#F5EFE6]/80 px-3 py-2 text-center">
                         <p className={`text-[24px] font-bold tabular-nums ${scoreColor}`}>{score}</p>
                         <p className={`text-[10px] font-semibold uppercase ${scoreColor}`}>
                           {score >= 70 ? "Competitive" : score >= 40 ? "Mixed" : "Above Market"}
                         </p>
                       </div>
-                      <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/40 px-3 py-2 text-center">
+                      <div className="rounded-lg bg-emerald-50/40 px-3 py-2 text-center">
                         <p className="text-[20px] font-bold tabular-nums text-emerald-600">{below.length}</p>
                         <p className="text-[10px] text-emerald-600/70">Below median</p>
                       </div>
-                      <div className="rounded-lg border border-[#E8DFD1] bg-[#FAF7F2]/40 px-3 py-2 text-center">
+                      <div className="rounded-lg bg-[#F5EFE6]/40 px-3 py-2 text-center">
                         <p className="text-[20px] font-bold tabular-nums text-[#7A7062]">{atMedian.length}</p>
                         <p className="text-[10px] text-[#A09788]">At median</p>
                       </div>
-                      <div className="rounded-lg border border-red-200/80 bg-red-50/40 px-3 py-2 text-center">
+                      <div className="rounded-lg bg-red-50/40 px-3 py-2 text-center">
                         <p className="text-[20px] font-bold tabular-nums text-red-600">{above.length}</p>
                         <p className="text-[10px] text-red-600/70">Above median</p>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-[#E8DFD1] bg-white/70 px-4 py-3">
+                    <div className="rounded-lg bg-white/70 px-4 py-3">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Fee-by-Fee Positioning</p>
-                        <div className="flex items-center gap-3 text-[9px] text-[#A09788]">
-                          <span className="flex items-center gap-1"><span className="inline-block w-4 h-[4px] rounded-full bg-[#E8DFD1]" />P25-P75</span>
-                          <span className="flex items-center gap-1"><span className="inline-block w-[2px] h-2.5 bg-[#A09788] rounded-full" />Median</span>
-                          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[#7A7062]" />This institution</span>
-                        </div>
                       </div>
                       <div className="divide-y divide-[#E8DFD1]/30">
                         {sorted.map((comp) => {
@@ -487,7 +701,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             </ProSection>
           )}
 
-          {/* Financial Context (Call Reports) */}
           {(revenueTrend.length > 0 || peerRanking) && (
             <ProSection title="Financial Context" subtitle="Call Report data — service charge income, fee dependency, and peer benchmarking.">
               {peerRanking && (
@@ -499,10 +712,10 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 </div>
               )}
               {revenueTrend.length > 0 && (
-                <div className="overflow-x-auto rounded-lg border border-[#E8DFD1]">
+                <div className="overflow-x-auto rounded-lg" style={{ backgroundColor: "#F5EFE6" }}>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-[#FAF7F2] border-b border-[#E8DFD1]">
+                      <tr style={{ borderBottom: "1px solid rgba(232,223,209,0.3)" }}>
                         <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#A09788]">Quarter</th>
                         <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#A09788]">SC Income</th>
                         <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#A09788]">Fee Ratio</th>
@@ -511,7 +724,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     </thead>
                     <tbody>
                       {revenueTrend.map((q) => (
-                        <tr key={q.quarter} className="border-b border-[#E8DFD1]/30 hover:bg-[#FAF7F2]/50 transition-colors">
+                        <tr key={q.quarter} className="hover:bg-[#E8DFD1]/30 transition-colors" style={{ borderBottom: "1px solid rgba(232,223,209,0.15)" }}>
                           <td className="px-4 py-2 font-medium text-[#1A1815]">{q.quarter}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-[#1A1815]">{formatAmount(q.service_charge_income)}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-[#7A7062]">
@@ -533,7 +746,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             </ProSection>
           )}
 
-          {/* Fee Distribution */}
           {distributionData.length >= 2 && (
             <ProSection title="Fee Distribution" subtitle={`Where ${inst.institution_name}'s fees sit in the national distribution.`}>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -554,7 +766,6 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             </ProSection>
           )}
 
-          {/* Intelligence & Reports */}
           <ProSection title="Intelligence & Reports" subtitle="Reports and analysis for this institution's peer group.">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -562,7 +773,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 <div className="flex flex-wrap gap-2">
                   {relatedReports.length > 0 ? (
                     relatedReports.map((r) => (
-                      <Link key={r.slug} href={`/reports/${r.slug}`} className="rounded-full border border-[#E8DFD1] px-4 py-2 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors">
+                      <Link key={r.slug} href={`/reports/${r.slug}`} className="rounded-full px-4 py-2 text-[12px] font-medium text-[#5A5347] hover:text-[#C44B2E] transition-colors" style={{ backgroundColor: "#F5EFE6" }}>
                         {r.title}
                       </Link>
                     ))
@@ -574,24 +785,24 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-2">Ask Hamilton</p>
                 <div className="flex flex-wrap gap-2">
-                  <Link href={`/pro/research?prompt=competitive-brief&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors">
+                  <Link href={`/pro/research?prompt=competitive-brief&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E]/5 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors">
                     Generate a competitive brief
                   </Link>
-                  <Link href={`/pro/research?prompt=institution&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors">
+                  <Link href={`/pro/research?prompt=institution&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E]/5 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/10 transition-colors">
                     Ask about this institution
                   </Link>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <a href={`/api/reports/institution/${instId}?format=html`} target="_blank" rel="noopener noreferrer" className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline">
+                  <a href={`/api/reports/institution/${instId}?format=html`} target="_blank" rel="noopener noreferrer" className="rounded-full px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:text-[#C44B2E] transition-colors no-underline" style={{ backgroundColor: "#F5EFE6" }}>
                     Fee Report Card
                   </a>
                   {inst.state_code && stateName && (
-                    <Link href={`/research/state/${inst.state_code}`} className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline">
+                    <Link href={`/research/state/${inst.state_code}`} className="rounded-full px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:text-[#C44B2E] transition-colors no-underline" style={{ backgroundColor: "#F5EFE6" }}>
                       {stateName} State Report
                     </Link>
                   )}
                   {inst.fed_district && (
-                    <Link href={`/research/district/${inst.fed_district}`} className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline">
+                    <Link href={`/research/district/${inst.fed_district}`} className="rounded-full px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:text-[#C44B2E] transition-colors no-underline" style={{ backgroundColor: "#F5EFE6" }}>
                       District {inst.fed_district} Report
                     </Link>
                   )}
@@ -601,33 +812,79 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           </ProSection>
         </>
       ) : (
-        /* ── Consumer CTA ──────────────────────────────────────────── */
-        <section className="mt-12 border-t border-[#E8DFD1] pt-8">
-          <p className="text-[15px] font-medium text-[#1A1815]">Want to know more?</p>
-          <p className="mt-2 text-[13px] text-[#6B6355] leading-relaxed max-w-lg">
-            Financial professionals get access to peer benchmarking, competitive
-            intelligence, fee distribution analysis, and AI-powered research.
-          </p>
-          <Link
-            href="/pro"
-            className="mt-4 inline-block text-[13px] font-semibold text-[#C44B2E] hover:text-[#A03A24] transition-colors"
-          >
-            Learn about Pro &rarr;
-          </Link>
-        </section>
+        /* ================================================================ */
+        /* PROFESSIONAL CTA (public users)                                  */
+        /* ================================================================ */
+        <div
+          className="mt-20 p-10 rounded-lg"
+          style={{ backgroundColor: "#F5EFE6", border: "1px solid rgba(232,223,209,0.3)" }}
+        >
+          <div className="max-w-3xl mx-auto">
+            <h3
+              className="text-3xl text-[#1A1815] mb-4"
+              style={{ fontFamily: SERIF }}
+            >
+              For Financial Professionals
+            </h3>
+            <p className="text-[#6B6355] mb-8 text-lg leading-relaxed">
+              Go beyond fee listings and understand how this institution compares across peers, pricing strategy, and regulatory risk.
+            </p>
+            <ul className="space-y-4 mb-10">
+              <li className="flex items-center gap-3">
+                <BarChart2 className="w-5 h-5" style={{ color: "#C44B2E" }} />
+                <span className="text-[#1A1815]">Peer benchmarking and percentile positioning</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <TrendingUp className="w-5 h-5" style={{ color: "#C44B2E" }} />
+                <span className="text-[#1A1815]">Revenue trend analysis from Call Reports</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <ShieldCheck className="w-5 h-5" style={{ color: "#C44B2E" }} />
+                <span className="text-[#1A1815]">Complaint-aligned risk signals</span>
+              </li>
+            </ul>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+              <Link
+                href="/pro"
+                className="text-white px-8 py-3 rounded font-medium transition-all inline-flex items-center gap-2 hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #C44B2E, #A93D25)" }}
+              >
+                View Professional Analysis
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <p className="text-xs text-[#6B6355]/60 italic">
+                Built for banks, credit unions, and financial analysts
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* ── Data Sources ──────────────────────────────────────────────── */}
-      <section className="mt-12 border-t border-[#E8DFD1] pt-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">Data Sources</p>
-        <p className="mt-2 text-[12px] leading-relaxed text-[#7A7062]">
-          Fees extracted from the institution&apos;s published fee schedule using
-          automated extraction with manual review. Financial data from{" "}
-          {inst.charter_type === "bank" ? "FDIC Call Reports" : "NCUA 5300 Reports"}.
-          National medians computed across all tracked institutions in the same fee category.
-        </p>
-      </section>
+      {/* ================================================================ */}
+      {/* METHODOLOGY FOOTER                                               */}
+      {/* ================================================================ */}
+      <footer
+        className="mt-32 pt-12 opacity-60"
+        style={{ borderTop: "1px solid rgba(232,223,209,0.2)" }}
+      >
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-[18px] h-[18px]" />
+            <span className="text-[10px] uppercase tracking-widest font-bold">Data Methodology Disclosure</span>
+          </div>
+          <p className="text-xs leading-relaxed max-w-2xl">
+            Fee data is extracted from publicly available Deposit Account Agreements and Fee Schedules.
+            Rates are current as of the last filing period and may vary by specific account tier or regional
+            promotion. FeeInsight uses a proprietary normalization engine to compare disparate banking terms
+            against national benchmarks.
+          </p>
+          <p className="text-[10px] italic">
+            Source: Federal Reserve System Call Reports &amp; Institutional Disclosure Documents.
+          </p>
+        </div>
+      </footer>
 
+      {/* Structured data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -645,18 +902,23 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           }).replace(/</g, "\\u003c"),
         }}
       />
-    </div>
+    </main>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Shared tiny components (inlined to avoid extra files)
+// Inlined components
 // ---------------------------------------------------------------------------
 
 function ProSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <section className="mt-10">
-      <h2 className="text-[15px] font-semibold text-[#1A1815]">{title}</h2>
+      <h2
+        className="text-xl font-semibold text-[#1A1815]"
+        style={{ fontFamily: SERIF }}
+      >
+        {title}
+      </h2>
       {subtitle && <p className="mt-1 text-[13px] text-[#7A7062]">{subtitle}</p>}
       <div className="mt-4">{children}</div>
     </section>
@@ -665,7 +927,7 @@ function ProSection({ title, subtitle, children }: { title: string; subtitle?: s
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[#E8DFD1] bg-white/70 px-3 py-2.5">
+    <div className="rounded-lg px-3 py-2.5" style={{ backgroundColor: "#F5EFE6" }}>
       <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">{label}</p>
       <p className="mt-1 text-[14px] font-medium tabular-nums text-[#1A1815]">{value}</p>
     </div>
