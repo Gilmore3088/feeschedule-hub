@@ -34,33 +34,42 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 
 ### Active
 
-- [ ] Wave orchestrator for batched state crawl campaigns
-- [ ] Iterative deepening strategy (easy URLs → harder discovery → PDF sources)
-- [ ] Automated knowledge logging (learnings feed next iteration)
-- [ ] Per-state coverage tracking and progress reporting
-- [ ] State prioritization by institution count (largest first)
-- [ ] Coverage targets: 50%+ baseline, 75%+ gold
+- [ ] Hamilton Pro Platform: 5-screen decision system (Home, Analyze, Simulate, Report, Monitor)
+- [ ] Unified Hamilton shell with editorial design system and institutional context
+- [ ] Fee scenario simulation engine with tradeoff modeling
+- [ ] Screen-specific API contracts and agent behavior by mode
+- [ ] 6 new DB tables (analyses, scenarios, reports, watchlists, signals, alerts)
+- [ ] Settings page with institution profile and peer set configuration
+- [ ] Pro paywall gate ($500/mo or $5,000/yr)
 
 ### Out of Scope
 
 - Admin UI redesign — current admin works, focus on data coverage
 - Mobile app — web-first
 - Real-time fee monitoring — batch/quarterly cadence is sufficient
+- Wave orchestrator / iterative deepening — deferred from v3.0, pipeline work done in parallel by owner
+- A/B testing settings page variants — deferred to post-launch polish
+- v6.0 remaining work (B2B launchpad, PDF export) — subsumed by Report Builder screen
+
+## Current Milestone: v8.0 Hamilton Pro Platform
+
+**Goal:** Transform Hamilton from a chat-based research agent into a 5-screen decision system for fee pricing, peer positioning, and regulatory-risk evaluation — the paid Pro experience ($500/mo or $5,000/yr).
+
+**Target features:**
+- Unified Hamilton shell (locked nav, editorial design system, institutional context)
+- Executive Home / Briefing (orientation, thesis, recommended action)
+- Analyze workspace (deep analysis, replaces current /pro/research chat)
+- Simulate (fee scenario modeling, tradeoffs, recommendation engine)
+- Report Builder (template gallery, configuration, PDF export)
+- Monitor (continuous surveillance, signal feed, watchlists, floating chat)
+- Settings page (institution profile, peer sets, feature access, billing)
+- 6 new DB tables (analyses, scenarios, reports, watchlists, signals, alerts)
+- Screen-specific API contracts and agent behavior
+- Pro paywall gate (all Hamilton screens behind subscription)
 
 ## Current State
 
 **Latest shipped:** v7.0 Hamilton Reasoning Engine (2026-04-08)
-
-**What shipped in v7.0:**
-- Global thesis engine (quarterly thesis from full data payload, injected into all report sections)
-- Voice v3.1 (revenue-first, tension framing, 150-200 word budget, 10-rule system prompt)
-- Unified chat persona (single getHamilton(role) replacing 4 separate agents)
-- 12-source intelligence layer (queryNationalData expanded, queryRegulatoryRisk tool)
-- Editor v2 (thesis alignment, revenue prioritization, "so what?" enforcement)
-
-**In progress:** v6.0 Two-Sided Experience (Phases 28-32) — consumer landing page shipped, institution pages in progress, B2B launchpad and PDF export not started.
-
-**Next milestone:** v8.0 (TBD — signal detection, automated monitoring, morning briefs)
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
@@ -68,7 +77,7 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - v3.0 National Coverage Push (shipped 2026-04-08)
 - v4.x Report Design (completed 2026-04-07 -- template v4.2 deployed)
 - v5.0 National Data Layer (completed 2026-04-08)
-- v6.0 Two-Sided Experience (in progress)
+- v6.0 Two-Sided Experience (Phases 28-32 partially shipped — consumer landing + institution pages done, B2B launchpad + PDF export deferred)
 - v7.0 Hamilton Reasoning Engine (shipped 2026-04-08)
 
 ## Context
@@ -117,4 +126,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-08 after v7.0 milestone*
+*Last updated: 2026-04-08 after v8.0 milestone start*
