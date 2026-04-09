@@ -578,7 +578,7 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 
 **Milestone Goal:** Transform Hamilton from a chat-based research agent into a 5-screen decision system for fee pricing, peer positioning, and regulatory-risk evaluation -- the paid Pro experience ($500/mo or $5,000/yr).
 
-- [ ] **Phase 38: Architecture Foundation** - CSS isolation boundary, TypeScript DTOs, mode enum, navigation source, and screen ownership rules
+- [x] **Phase 38: Architecture Foundation** - CSS isolation boundary, TypeScript DTOs, mode enum, navigation source, and screen ownership rules (completed 2026-04-09)
 - [ ] **Phase 39: Data Layer** - 6 new PostgreSQL tables, ensureHamiltonProTables(), confidence tier field, soft-delete columns
 - [ ] **Phase 40: Hamilton Shell** - Route group layout, top nav, context bar, left rail workspace memory, institutional context flow
 - [ ] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel
@@ -602,8 +602,8 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 **UI hint**: yes
 
 Plans:
-- [ ] 38-01-PLAN.md -- CSS isolation boundary (.hamilton-shell scoping, design tokens, dark mode)
-- [ ] 38-02-PLAN.md -- TypeScript contracts (screen DTOs, modes, navigation source of truth)
+- [x] 38-01-PLAN.md -- CSS isolation boundary (.hamilton-shell scoping, design tokens, dark mode)
+- [x] 38-02-PLAN.md -- TypeScript contracts (screen DTOs, modes, navigation source of truth)
 
 ### Phase 39: Data Layer
 **Goal**: All 6 Hamilton Pro tables exist in PostgreSQL, can be created idempotently on first access, and carry the fields needed for confidence tracking, archiving, and scenario management
@@ -710,7 +710,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -770,7 +770,7 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 35. Unified Chat Persona | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 36. Tool and Regulation Intelligence | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 37. Editor v2 and Integration Testing | v7.0 | 1/1 | Complete    | 2026-04-08 |
-| 38. Architecture Foundation | v8.0 | 0/TBD | Not started | - |
+| 38. Architecture Foundation | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 39. Data Layer | v8.0 | 0/TBD | Not started | - |
 | 40. Hamilton Shell | v8.0 | 0/TBD | Not started | - |
 | 41. Settings | v8.0 | 0/TBD | Not started | - |
