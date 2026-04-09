@@ -65,6 +65,7 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
   // ─── Fee Values ───────────────────────────────────────────────────────────
   const [currentFee, setCurrentFee] = useState(0);
   const [proposedFee, setProposedFee] = useState(0);
+  const [usingInstitutionFee, setUsingInstitutionFee] = useState(false);
 
   // ─── Scenario Persistence ─────────────────────────────────────────────────
   const [savedScenarioId, setSavedScenarioId] = useState<string | null>(null);
@@ -116,7 +117,9 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
 
       // Use institution's actual fee if available, otherwise national median
       const instFee = institutionId ? await getInstitutionFee(institutionId, feeCategory) : null;
-      const startingFee = instFee ? Math.round(instFee.amount) : result.distribution.median_amount;
+      const hasInstFee = instFee !== null;
+      const startingFee = hasInstFee ? Math.round(instFee.amount) : result.distribution.median_amount;
+      setUsingInstitutionFee(hasInstFee);
       setCurrentFee(startingFee);
       setProposedFee(startingFee);
     }
@@ -355,7 +358,7 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
           {/* Current Point */}
           <div className="flex flex-col border-r pr-8" style={{ borderColor: "rgb(245 245 244)" }}>
             <label className="font-label text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--hamilton-on-surface-variant)" }}>
-              Current Point
+              {usingInstitutionFee ? "Your Current Fee" : "National Median"}
             </label>
             <div
               className="font-headline text-2xl"
