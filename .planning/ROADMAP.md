@@ -580,7 +580,7 @@ See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 
 - [x] **Phase 38: Architecture Foundation** - CSS isolation boundary, TypeScript DTOs, mode enum, navigation source, and screen ownership rules (completed 2026-04-09)
 - [x] **Phase 39: Data Layer** - 6 new PostgreSQL tables, ensureHamiltonProTables(), confidence tier field, soft-delete columns (completed 2026-04-09)
-- [ ] **Phase 40: Hamilton Shell** - Route group layout, top nav, context bar, left rail workspace memory, institutional context flow
+- [x] **Phase 40: Hamilton Shell** - Route group layout, top nav, context bar, left rail workspace memory, institutional context flow (completed 2026-04-09)
 - [ ] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel
 - [ ] **Phase 42: Home / Executive Briefing** - Thesis card, What Changed, Priority Alerts, Recommended Action CTA, Positioning Evidence, Monitor Feed preview
 - [ ] **Phase 43: Analyze Workspace** - Analysis workspace with tabs, Explore Further prompts, saved analyses, CTA hierarchy, screen boundary enforcement
@@ -631,8 +631,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 40-01-PLAN.md -- Fix HAMILTON_NAV href discrepancy + create (hamilton) route group with layout and 5 stub pages
-- [ ] 40-02-PLAN.md -- Build HamiltonShell, HamiltonTopNav, HamiltonContextBar, HamiltonLeftRail, HamiltonUpgradeGate and wire into layout
+- [x] 40-01-PLAN.md -- Fix HAMILTON_NAV href discrepancy + create (hamilton) route group with layout and 5 stub pages
+- [x] 40-02-PLAN.md -- Build HamiltonShell, HamiltonTopNav, HamiltonContextBar, HamiltonLeftRail, HamiltonUpgradeGate and wire into layout
 **UI hint**: yes
 
 ### Phase 41: Settings
@@ -780,7 +780,7 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 37. Editor v2 and Integration Testing | v7.0 | 1/1 | Complete    | 2026-04-08 |
 | 38. Architecture Foundation | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 39. Data Layer | v8.0 | 2/2 | Complete    | 2026-04-09 |
-| 40. Hamilton Shell | v8.0 | 0/TBD | Not started | - |
+| 40. Hamilton Shell | v8.0 | 2/2 | Complete    | 2026-04-09 |
 | 41. Settings | v8.0 | 0/TBD | Not started | - |
 | 42. Home / Executive Briefing | v8.0 | 0/TBD | Not started | - |
 | 43. Analyze Workspace | v8.0 | 0/TBD | Not started | - |
