@@ -22,6 +22,8 @@ interface RecentScenario {
 interface HamiltonLeftRailProps {
   savedAnalyses?: SavedAnalysis[];
   recentScenarios?: RecentScenario[];
+  pinnedInstitutions?: string[];
+  peerSets?: Array<{ id: number; name: string }>;
 }
 
 function deriveScreen(pathname: string): HamiltonScreen {
@@ -49,15 +51,6 @@ function relativeTime(dateStr: string): string {
   }
 }
 
-const PINNED_INSTITUTIONS = [
-  { initials: "GS", name: "Goldman Sachs" },
-  { initials: "MS", name: "Morgan Stanley" },
-];
-
-const PEER_SETS = [
-  { label: "Top 5 Global" },
-  { label: "Domestic Mid-Caps" },
-];
 
 /**
  * HamiltonLeftRail — Client component.
@@ -65,7 +58,7 @@ const PEER_SETS = [
  * Settings/Support at bottom. Collapsible below lg.
  * Per D-08: hidden below lg breakpoint.
  */
-export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [] }: HamiltonLeftRailProps) {
+export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [], pinnedInstitutions = [], peerSets = [] }: HamiltonLeftRailProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const currentScreen = deriveScreen(pathname);
@@ -237,30 +230,9 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [] }: H
                       ))}
                     </ul>
                   ) : (
-                    <ul className="space-y-3.5">
-                      <li>
-                        <span className="flex items-center gap-3 text-[11px]"
-                          style={{ color: "var(--hamilton-text-secondary)" }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                            style={{ opacity: 0.5 }} aria-hidden="true">
-                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                          </svg>
-                          Overdraft Yield Audit
-                        </span>
-                      </li>
-                      <li>
-                        <span className="flex items-center gap-3 text-[11px]"
-                          style={{ color: "var(--hamilton-text-secondary)" }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                            style={{ opacity: 0.5 }} aria-hidden="true">
-                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                          </svg>
-                          Tier 1 Exposure
-                        </span>
-                      </li>
-                    </ul>
+                    <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
+                      No saved analyses yet
+                    </p>
                   )}
                 </div>
 
@@ -291,39 +263,16 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [] }: H
                       ))}
                     </ul>
                   ) : (
-                    <ul className="space-y-3.5">
-                      <li>
-                        <span className="flex items-center gap-3 text-[11px]"
-                          style={{ color: "var(--hamilton-text-secondary)" }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                            style={{ opacity: 0.4 }} aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 6v6l4 2" />
-                          </svg>
-                          <span className="truncate">Q3 Liquidity stress tests...</span>
-                        </span>
-                      </li>
-                      <li>
-                        <span className="flex items-center gap-3 text-[11px]"
-                          style={{ color: "var(--hamilton-text-secondary)" }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                            style={{ opacity: 0.4 }} aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 6v6l4 2" />
-                          </svg>
-                          <span className="truncate">Mortgage sensitivity...</span>
-                        </span>
-                      </li>
-                    </ul>
+                    <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
+                      No recent work yet
+                    </p>
                   )}
                 </div>
               </div>
             </section>)}
 
-            {/* CONTEXT section — shown on Analyze screen */}
-            {isAnalyzeScreen && (
+            {/* CONTEXT section — shown on all non-simulate screens */}
+            {!isSimulateScreen && (
               <section>
                 <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold mb-5 flex items-center gap-2"
                   style={{ color: "var(--hamilton-text-tertiary)" }}>
@@ -343,24 +292,30 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [] }: H
                       style={{ color: "var(--hamilton-text-secondary)" }}>
                       Pinned Institutions
                     </span>
-                    <div className="space-y-3.5">
-                      {PINNED_INSTITUTIONS.map((inst) => (
-                        <div key={inst.initials} className="flex items-center gap-3 cursor-pointer group">
-                          <div
-                            className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0 transition-colors"
-                            style={{
-                              backgroundColor: "var(--hamilton-surface-container-high)",
-                              color: "var(--hamilton-text-primary)",
-                            }}
-                          >
-                            {inst.initials}
+                    {pinnedInstitutions.length > 0 ? (
+                      <div className="space-y-3.5">
+                        {pinnedInstitutions.map((instId) => (
+                          <div key={instId} className="flex items-center gap-3 cursor-pointer group">
+                            <div
+                              className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0 transition-colors"
+                              style={{
+                                backgroundColor: "var(--hamilton-surface-container-high)",
+                                color: "var(--hamilton-text-primary)",
+                              }}
+                            >
+                              {instId.substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-[11px] truncate" style={{ color: "var(--hamilton-text-secondary)" }}>
+                              {instId}
+                            </span>
                           </div>
-                          <span className="text-[11px]" style={{ color: "var(--hamilton-text-secondary)" }}>
-                            {inst.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
+                        No pinned institutions yet
+                      </p>
+                    )}
                   </div>
 
                   {/* Peer Sets */}
@@ -369,26 +324,31 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [] }: H
                       style={{ color: "var(--hamilton-text-secondary)" }}>
                       Peer Sets
                     </span>
-                    <ul className="space-y-3.5">
-                      {PEER_SETS.map((set) => (
-                        <li key={set.label}>
-                          <Link
-                            href="/pro/simulate"
-                            className="flex items-center gap-3 text-[11px] no-underline transition-colors"
-                            style={{ color: "var(--hamilton-text-secondary)" }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                              style={{ opacity: 0.5 }} aria-hidden="true">
-                              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                              <circle cx="9" cy="7" r="4" />
-                              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                            </svg>
-                            {set.label}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+                    {peerSets.length > 0 ? (
+                      <ul className="space-y-3.5">
+                        {peerSets.map((set) => (
+                          <li key={set.id}>
+                            <span
+                              className="flex items-center gap-3 text-[11px]"
+                              style={{ color: "var(--hamilton-text-secondary)" }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                style={{ opacity: 0.5 }} aria-hidden="true">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                              </svg>
+                              {set.name}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
+                        No peer sets configured
+                      </p>
+                    )}
                   </div>
                 </div>
               </section>

@@ -31,6 +31,8 @@ interface HamiltonShellProps {
   activeHref: string;
   savedAnalyses?: SavedAnalysis[];
   recentScenarios?: RecentScenario[];
+  pinnedInstitutions?: string[];
+  peerSets?: Array<{ id: number; name: string }>;
   children: React.ReactNode;
 }
 
@@ -48,6 +50,8 @@ export function HamiltonShell({
   activeHref,
   savedAnalyses,
   recentScenarios,
+  pinnedInstitutions,
+  peerSets,
   children,
 }: HamiltonShellProps) {
   return (
@@ -76,7 +80,7 @@ export function HamiltonShell({
 
       {/* Two-column layout: left rail + main content */}
       <div className="flex" style={{ minHeight: "calc(100vh - 120px)" }}>
-        <HamiltonLeftRail savedAnalyses={savedAnalyses} recentScenarios={recentScenarios} />
+        <HamiltonLeftRail savedAnalyses={savedAnalyses} recentScenarios={recentScenarios} pinnedInstitutions={pinnedInstitutions} peerSets={peerSets} />
         <main className="flex-1 min-w-0 p-6">{children}</main>
       </div>
     </div>

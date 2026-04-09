@@ -8,6 +8,7 @@ import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
 import { HamiltonShell } from "@/components/hamilton/layout/HamiltonShell";
 import { HamiltonUpgradeGate } from "@/components/hamilton/layout/HamiltonUpgradeGate";
 import { sql } from "@/lib/crawler-db/connection";
+import { getSavedPeerSets } from "@/lib/crawler-db/saved-peers";
 
 export const metadata: Metadata = {
   title: {
@@ -124,6 +125,29 @@ async function HamiltonLayoutInner({
     // Table may not have data yet — empty array is fine
   }
 
+  // Fetch pinned institutions (watchlist) for left rail (D-10)
+  let pinnedInstitutions: string[] = [];
+  try {
+    const rows = await sql`
+      SELECT institution_id
+      FROM hamilton_watchlists
+      WHERE user_id = ${user.id}
+      ORDER BY created_at DESC
+    `;
+    pinnedInstitutions = rows.map((r) => r.institution_id as string);
+  } catch {
+    // Table may not have data yet — empty array is fine
+  }
+
+  // Fetch saved peer sets for left rail (D-11)
+  let peerSets: Array<{ id: number; name: string }> = [];
+  try {
+    const sets = await getSavedPeerSets(String(user.id));
+    peerSets = sets.map((s) => ({ id: s.id, name: s.name }));
+  } catch {
+    // Empty is fine
+  }
+
   return (
     <HamiltonShell
       user={user}
@@ -132,6 +156,8 @@ async function HamiltonLayoutInner({
       activeHref={activeHref}
       savedAnalyses={savedAnalyses}
       recentScenarios={recentScenarios}
+      pinnedInstitutions={pinnedInstitutions}
+      peerSets={peerSets}
     >
       {children}
     </HamiltonShell>
