@@ -15,7 +15,8 @@ import { createElement } from "react";
 import type { ReactElement, JSXElementConstructor } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { PdfDocument } from "@/components/hamilton/reports/PdfDocument";
-import type { ReportSummaryResponse } from "@/lib/hamilton/types";
+import { AnalysisPdfDocument } from "@/components/hamilton/reports/AnalysisPdfDocument";
+import type { ReportSummaryResponse, AnalyzeResponse } from "@/lib/hamilton/types";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // Auth check
@@ -29,21 +30,63 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  // Parse body
-  let report: ReportSummaryResponse;
-  let reportType: string;
+  // Parse body and dispatch on type
+  let body: Record<string, unknown>;
   try {
-    const body = await req.json();
-    report = body.report as ReportSummaryResponse;
-    reportType = (body.reportType as string) || "report";
-    if (!report || !report.title) {
-      return NextResponse.json({ error: "Invalid report data" }, { status: 400 });
-    }
+    body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  // Render PDF
+  const pdfType = (body.type as string) || "report";
+
+  // ── Analysis branch ──────────────────────────────────────────────────────
+  if (pdfType === "analysis") {
+    const analysis = body.analysis as AnalyzeResponse;
+    const analysisFocus = (body.analysisFocus as string) || "Analysis";
+    const institutionName = (body.institutionName as string) || undefined;
+
+    if (!analysis || !analysis.hamiltonView) {
+      return NextResponse.json({ error: "Invalid analysis data" }, { status: 400 });
+    }
+
+    try {
+      const element = createElement(AnalysisPdfDocument, {
+        analysis,
+        analysisFocus,
+        institutionName,
+      }) as unknown as ReactElement<DocumentProps, string | JSXElementConstructor<unknown>>;
+      const buffer = await renderToBuffer(element);
+      const uint8 = new Uint8Array(buffer);
+
+      const date = new Date().toISOString().split("T")[0];
+      const filename = `hamilton-analysis-${date}.pdf`;
+
+      return new NextResponse(uint8, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Content-Length": uint8.byteLength.toString(),
+          "Cache-Control": "no-store",
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json(
+        { error: `PDF generation failed: ${message}` },
+        { status: 500 }
+      );
+    }
+  }
+
+  // ── Report branch (default) ──────────────────────────────────────────────
+  const report = body.report as ReportSummaryResponse;
+  const reportType = (body.reportType as string) || "report";
+  if (!report || !report.title) {
+    return NextResponse.json({ error: "Invalid report data" }, { status: 400 });
+  }
+
   try {
     const element = createElement(PdfDocument, { report, reportType }) as unknown as ReactElement<DocumentProps, string | JSXElementConstructor<unknown>>;
     const buffer = await renderToBuffer(element);
