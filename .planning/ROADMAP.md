@@ -760,7 +760,7 @@ Plans:
 - [x] **Phase 48: Pro Navigation + Full Canvas Width** - Wire existing Pro nav tabs to real fee data; enforce full canvas width on all Hamilton screens (completed 2026-04-09)
 - [x] **Phase 49: Monitor Live Data** - Strip demo signals, wire real hamilton_signals queries, CRUD watchlist, real Hamilton chat streaming (completed 2026-04-09)
 - [x] **Phase 50: Home / Briefing Live Data** - Wire real thesis generation, real index positioning, real alerts — no placeholder content (completed 2026-04-09)
-- [ ] **Phase 51: Analyze Live Data** - Verify streaming with real Hamilton API, wire focus tab context, save/load analyses, PDF export
+- [x] **Phase 51: Analyze Live Data** - Verify streaming with real Hamilton API, wire focus tab context, save/load analyses, PDF export (completed 2026-04-09)
 - [ ] **Phase 52: Simulate Live Data** - All 49 categories, real distribution data, confidence gating, Hamilton interpretation with real API
 - [ ] **Phase 53: Reports Library + Generation** - Curated report library, real generateSection() pipeline, PDF export end-to-end, scenario-linked reports
 - [ ] **Phase 54: Integration Pass** - Screen-to-screen flows, Simulate to Report context, Analyze to PDF, cross-screen data consistency
@@ -837,8 +837,8 @@ Plans:
   5. A user can export the current analysis as a PDF — the downloaded file opens in a standard viewer with BFI branding and the full analysis content
 **Plans**: 2 plans
 Plans:
-- [ ] 51-01-PLAN.md — Streaming verification, focus tab validation, save/load analyses, demo content audit
-- [ ] 51-02-PLAN.md — AnalysisPdfDocument component, PDF route dispatch, Export PDF button
+- [x] 51-01-PLAN.md — Streaming verification, focus tab validation, save/load analyses, demo content audit
+- [x] 51-02-PLAN.md — AnalysisPdfDocument component, PDF route dispatch, Export PDF button
 
 
 **UI hint**: yes
@@ -943,7 +943,7 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 48. Pro Navigation + Full Canvas Width | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 49. Monitor Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 50. Home / Briefing Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
-| 51. Analyze Live Data | v8.1 | 0/TBD | Not started | - |
+| 51. Analyze Live Data | v8.1 | 2/2 | Complete   | 2026-04-09 |
 | 52. Simulate Live Data | v8.1 | 0/TBD | Not started | - |
 | 53. Reports Library + Generation | v8.1 | 0/TBD | Not started | - |
 | 54. Integration Pass | v8.1 | 0/TBD | Not started | - |
