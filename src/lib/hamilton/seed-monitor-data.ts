@@ -1,8 +1,9 @@
 /**
  * seedMonitorData — Insert demo signals and alerts for v8.0.
  * Idempotent: checks for existing rows before inserting.
- * Called once from the Monitor page on first load.
  * Automated signal pipeline is deferred post-v8.0.
+ *
+ * @deprecated Dev-only utility. Not called from production pages.
  */
 
 import { sql } from "@/lib/crawler-db/connection";
@@ -51,6 +52,11 @@ const SEED_SIGNALS = [
 ];
 
 export async function seedMonitorData(userId: number): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    console.warn("seedMonitorData called in production — skipping");
+    return;
+  }
+
   try {
     const existingRows = await sql`SELECT COUNT(*)::int AS count FROM hamilton_signals`;
     const count = Number(existingRows[0]?.count ?? 0);
