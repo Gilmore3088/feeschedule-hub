@@ -4,13 +4,14 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { canAccessPremium } from '@/lib/access';
-import { PeerGroupSelector } from '@/components/pro/peer-group-selector';
+import { checkReportDailyLimit } from '@/lib/report-limits';
+import { ReportGenerationForm } from '@/components/pro/report-generation-form';
 
 export const metadata: Metadata = {
-  title: 'New Competitive Brief | Bank Fee Index',
+  title: 'Generate Report | Bank Fee Index',
 };
 
-export default async function NewBriefPage() {
+export default async function NewReportPage() {
   const user = await getCurrentUser();
   if (!user) {
     redirect('/login?from=/pro/reports/new');
@@ -18,6 +19,8 @@ export default async function NewBriefPage() {
   if (!canAccessPremium(user)) {
     redirect('/subscribe');
   }
+
+  const { allowed, used, limit } = await checkReportDailyLimit(user.id, user.role);
 
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
@@ -27,25 +30,27 @@ export default async function NewBriefPage() {
           <div className="flex items-center gap-2 mb-3">
             <div className="h-px w-6 bg-[#C44B2E]" />
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#C44B2E]">
-              Competitive Brief
+              Reports
             </span>
           </div>
           <h1
             className="text-3xl font-bold tracking-tight text-[#1A1815]"
             style={{ fontFamily: 'var(--font-newsreader), Georgia, serif' }}
           >
-            Configure Peer Group
+            Generate Report
           </h1>
           <p className="mt-2 text-sm text-[#7A7265] max-w-2xl">
-            Define your peer segment. Hamilton will analyze your institution vs.
-            this benchmark.
+            Select a report type and configure your scope. Hamilton will assemble a 3-5 page analysis.
           </p>
         </div>
       </div>
 
       {/* Content */}
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <PeerGroupSelector />
+        <ReportGenerationForm
+          limitReached={!allowed}
+          limitInfo={{ used, limit }}
+        />
       </div>
     </div>
   );
