@@ -285,7 +285,7 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
             className="font-headline text-4xl leading-tight tracking-tight mb-1"
             style={{ color: "var(--hamilton-on-surface)" }}
           >
-            Fee Simulation: {categoryLabel}
+            {selectedCategory ? `Fee Simulation: ${categoryLabel}` : "Fee Simulation"}
           </h1>
           <p className="font-label text-[10px] uppercase tracking-widest" style={{ color: "var(--hamilton-on-surface-variant)" }}>
             Reference: HAM-2024-OD-09 &bull; Last Live Sync: 12s ago
