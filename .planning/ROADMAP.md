@@ -759,7 +759,7 @@ Plans:
 - [x] **Phase 47: Settings DB Migration** - Run migration 041, add fed_district column to users table in production (completed 2026-04-09)
 - [x] **Phase 48: Pro Navigation + Full Canvas Width** - Wire existing Pro nav tabs to real fee data; enforce full canvas width on all Hamilton screens (completed 2026-04-09)
 - [x] **Phase 49: Monitor Live Data** - Strip demo signals, wire real hamilton_signals queries, CRUD watchlist, real Hamilton chat streaming (completed 2026-04-09)
-- [ ] **Phase 50: Home / Briefing Live Data** - Wire real thesis generation, real index positioning, real alerts — no placeholder content
+- [x] **Phase 50: Home / Briefing Live Data** - Wire real thesis generation, real index positioning, real alerts — no placeholder content (completed 2026-04-09)
 - [ ] **Phase 51: Analyze Live Data** - Verify streaming with real Hamilton API, wire focus tab context, save/load analyses, PDF export
 - [ ] **Phase 52: Simulate Live Data** - All 49 categories, real distribution data, confidence gating, Hamilton interpretation with real API
 - [ ] **Phase 53: Reports Library + Generation** - Curated report library, real generateSection() pipeline, PDF export end-to-end, scenario-linked reports
@@ -821,8 +821,8 @@ Plans:
   5. A developer auditing the Home screen finds zero hardcoded fee amounts, placeholder thesis text, or fabricated recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 50-01-PLAN.md — Strip hardcoded defaults from WhatChangedCard, PriorityAlertsCard, MonitorFeedPreview, PositioningEvidence
-- [ ] 50-02-PLAN.md — Fix HamiltonViewCard thesis-null handling, rewire page.tsx, add RecommendedActionCard, thesis error logging
+- [x] 50-01-PLAN.md — Strip hardcoded defaults from WhatChangedCard, PriorityAlertsCard, MonitorFeedPreview, PositioningEvidence
+- [x] 50-02-PLAN.md — Fix HamiltonViewCard thesis-null handling, rewire page.tsx, add RecommendedActionCard, thesis error logging
 **UI hint**: yes
 
 ### Phase 51: Analyze Live Data
@@ -939,7 +939,7 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 47. Settings DB Migration | v8.1 | 1/1 | Complete    | 2026-04-09 |
 | 48. Pro Navigation + Full Canvas Width | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 49. Monitor Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
-| 50. Home / Briefing Live Data | v8.1 | 0/TBD | Not started | - |
+| 50. Home / Briefing Live Data | v8.1 | 2/2 | Complete   | 2026-04-09 |
 | 51. Analyze Live Data | v8.1 | 0/TBD | Not started | - |
 | 52. Simulate Live Data | v8.1 | 0/TBD | Not started | - |
 | 53. Reports Library + Generation | v8.1 | 0/TBD | Not started | - |
