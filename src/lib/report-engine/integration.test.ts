@@ -26,9 +26,10 @@ import { validateNumerics } from '../hamilton/validate';
 import type { ValidatedSection } from '../hamilton/types';
 
 const hasKey = !!process.env.ANTHROPIC_API_KEY;
+const hasDb = !!process.env.DATABASE_URL;
 
 describe('national_index end-to-end quality gate', () => {
-  it.skipIf(!hasKey)(
+  it.skipIf(!hasKey || !hasDb)(
     'generates a non-empty thesis, word-counted section, and zero major editor flags',
     async () => {
       // Dynamic imports: assembler uses @/ path alias and DB connectivity.
