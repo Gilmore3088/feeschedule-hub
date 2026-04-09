@@ -800,10 +800,14 @@ Plans:
   2. A user can add an institution or Fed agency to their watchlist and see it appear immediately; removing it from the UI deletes the corresponding row from hamilton_watchlists
   3. Opening the floating chat overlay and submitting a question returns a streaming Hamilton response — text appears token-by-token without a page reload
   4. No demo or hardcoded signal data appears anywhere on the Monitor screen
-**Plans**: 1 plan
+**Plans**: 2 plans
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [ ] 49-01-PLAN.md — Strip demo data, design empty state, clean WatchlistPanel
+- [ ] 49-02-PLAN.md — Fix FloatingChatOverlay streaming, wire left rail to real data
 **UI hint**: yes
+
+
+
 
 ### Phase 50: Home / Briefing Live Data
 **Goal**: Every card on the Home screen is wired to pipeline-verified data — real thesis, real index positioning, real alerts — with zero hallucinated or hardcoded content
