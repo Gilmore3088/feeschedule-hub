@@ -1,25 +1,21 @@
 # Architecture Research
 
-**Domain:** Two-sided SaaS — Consumer + B2B audience separation in Next.js App Router
-**Researched:** 2026-04-07
-**Confidence:** HIGH — based on direct codebase inspection and App Router patterns
+**Domain:** Hamilton Pro Platform — 5-screen decision system on existing Next.js 16 App Router
+**Researched:** 2026-04-08
+**Confidence:** HIGH (based on direct codebase inspection, not inference)
 
 ---
 
 ## Current State Assessment
 
-The existing app has a functional but incomplete audience split. Key observations from the codebase:
+The existing Hamilton codebase has a solid foundation that v8.0 extends without replacing:
 
-- Route group `(public)/` exists with `CustomerNav` + `CustomerFooter` layout
-- `/pro/` is a flat route directory (not a route group), sharing the same `CustomerNav` as `(public)/`
-- `GatewayClient` at root renders a split-panel choice screen — the "choose your experience" pattern
-- `CustomerNav` does conditional nav rendering: consumer links vs. pro links based on `canAccessPremium(user)`
-- `ProDashboard` is a server component rendered inline from `/pro/page.tsx` when the user is premium
-- `/pro/layout.tsx` imports `CustomerNav` + `CustomerFooter` — identical to `(public)/layout.tsx`
-- No `middleware.ts` exists — all routing logic lives in page-level auth checks (`getCurrentUser` + `redirect`)
-- Account profile (`user.institution_name`, `user.asset_tier`, `user.state_code`, `user.job_role`) is stored on the User type but only used in `ProDashboard` for district derivation and `ProfileForm` for editing
-- Hamilton is admin-only (`analyst` or `admin` role). Pro users access a different agent stack via `/pro/research`
-- Report generation at `POST /api/reports/generate` uses an allow-listed `VALID_REPORT_TYPES` set; pro-specific types like `peer_brief` are already present but gated by `canAccessPremium`
+- `src/lib/hamilton/` has 7 files: `voice.ts`, `generate.ts`, `validate.ts`, `types.ts`, `hamilton-agent.ts`, `chat-memory.ts`, `index.ts`
+- `/api/hamilton/chat` exists — streaming endpoint with auth, rate-limit, cost circuit breaker, and conversation persistence
+- `hamilton_conversations` and `hamilton_messages` tables exist in Supabase
+- `src/app/pro/research/page.tsx` is the current Hamilton entry point — will be superseded by the new shell
+- The `(hamilton)` route group does **not** exist yet — it is purely additive
+- `User` type already carries `institution_name`, `institution_type`, `asset_tier`, `state_code` — these are the institution context fields needed by the Hamilton shell
 
 ---
 
@@ -28,317 +24,434 @@ The existing app has a functional but incomplete audience split. Key observation
 ### System Overview
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                         Root Layout                                 │
-│  (fonts, globals.css, Plausible script — no nav, no auth)          │
-├───────────────────────┬────────────────────────────────────────────┤
-│    (public)/          │    pro/                                     │
-│    Consumer Shell     │    B2B Shell                                │
-│  ┌─────────────────┐  │  ┌────────────────────────────────────┐    │
-│  │ ConsumerNav     │  │  │ ProNav (dark, data-dense)          │    │
-│  │ ConsumerFooter  │  │  │ PersonalizationBanner (district,   │    │
-│  │ SearchModal     │  │  │   institution, peer context)       │    │
-│  └────────┬────────┘  │  └────────────┬───────────────────────┘   │
-│           │            │               │                            │
-│  Institution pages    │  Four-door dashboard                       │
-│  Fee pages            │  Hamilton  Peer Builder  Reports  Fed Data │
-│  Guides               │  Report generation pipeline                │
-│  Research (public)    │  Pro-only research (scoped agents)         │
-│  FeeScout ask widget  │  Personalized data context                 │
-└───────────────────────┴────────────────────────────────────────────┘
-         │                               │
-         └─────────────┬─────────────────┘
-                       │
-         ┌─────────────▼──────────────────┐
-         │   Shared Data Layer             │
-         │   src/lib/crawler-db/           │
-         │   src/lib/auth.ts               │
-         │   src/lib/access.ts             │
-         │   src/lib/fee-taxonomy.ts       │
-         │   src/lib/hamilton/             │
-         │   src/lib/report-engine/        │
-         └────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      Browser (React 19 + Vercel AI SDK)                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │   Home   │  │ Analyze  │  │ Simulate │  │ Reports  │  │ Monitor  │  │
+│  │  page.tsx│  │ page.tsx │  │ page.tsx │  │ page.tsx │  │ page.tsx │  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
+│       │             │             │              │             │         │
+│  ┌────┴─────────────┴─────────────┴──────────────┴─────────────┴──────┐ │
+│  │  HamiltonShell  — (hamilton)/layout.tsx                             │ │
+│  │  HamiltonTopNav  |  HamiltonContextBar  |  HamiltonLeftRail         │ │
+│  └────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │  streaming SSE / fetch
+┌────────────────────────────────▼────────────────────────────────────────┐
+│                     Next.js App Router (Server)                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │
+│  │ /api/hamilton│  │ /api/hamilton│  │ /api/hamilton│  │/api/hamilton│  │
+│  │ /analyze     │  │ /simulate    │  │ /monitor     │  │/chat (exists)│ │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └─────┬──────┘  │
+│         │                 │                 │                 │         │
+│  ┌──────┴─────────────────┴─────────────────┴─────────────────┴──────┐  │
+│  │  src/lib/hamilton/                                                  │  │
+│  │  hamilton-agent.ts  modes.ts  simulation.ts  monitor.ts            │  │
+│  │  generate.ts  validate.ts  voice.ts  types.ts  report-summary.ts   │  │
+│  │  insights.ts  navigation.ts  db.ts                                 │  │
+│  └────────────────────────────┬───────────────────────────────────────┘  │
+│                               │                                          │
+│  ┌────────────────────────────▼───────────────────────────────────────┐  │
+│  │  PostgreSQL (Supabase) — raw sql via postgres package               │  │
+│  │  Existing: hamilton_conversations, hamilton_messages, users         │  │
+│  │  New: hamilton_saved_analyses, hamilton_scenarios,                  │  │
+│  │       hamilton_reports, hamilton_watchlists,                        │  │
+│  │       hamilton_signals, hamilton_priority_alerts                    │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | Lives At |
-|-----------|---------------|----------|
-| Root layout | Font injection, global CSS, analytics script | `src/app/layout.tsx` |
-| `(public)/layout.tsx` | Consumer shell: ConsumerNav + ConsumerFooter + SearchModal | `src/app/(public)/layout.tsx` |
-| `pro/layout.tsx` | B2B shell: ProNav + PersonalizationBanner (auth guard here) | `src/app/pro/layout.tsx` |
-| `GatewayClient` | Split-panel entry point for unauthenticated visitors | `src/app/gateway-client.tsx` |
-| `ConsumerNav` | Consumer nav with Find Institution, Benchmarks, Guides, Search | `src/components/consumer/nav.tsx` (rename from customer-nav) |
-| `ProNav` | B2B nav with dark palette: Dashboard, Market, Peers, Hamilton, Reports | `src/components/pro/nav.tsx` (new) |
-| `PersonalizationBanner` | Contextual header strip: district, institution tier, last-login quick stats | `src/components/pro/personalization-banner.tsx` (new) |
-| `ProDashboard` | Four-door launchpad server component | `src/app/pro/dashboard.tsx` (refactor) |
-| `HamiltonChat` | Pro-facing Hamilton UI (different from admin Hamilton) | `src/app/pro/research/analyst-hub.tsx` (exists, rename) |
-| Report generator UI | Scoped report trigger: peer brief, state index, monthly pulse | `src/app/pro/reports/new/page.tsx` (exists) |
-| `UpgradeGate` | Inline paywall component for consumer pages | `src/components/upgrade-gate.tsx` (exists) |
-| Shared data components | `DataFreshness`, `MaturityBadge`, `DeltaPill`, `Sparkline` | `src/components/` (audience-agnostic) |
+| Component | Responsibility | Implementation |
+|-----------|---------------|----------------|
+| `(hamilton)/layout.tsx` | Route group shell, auth guard, institution context fetch, passes props to HamiltonShell | Async server component |
+| `HamiltonShell` | Renders top nav + left rail + context bar, initializes InstitutionContext provider | Client component with `usePathname` for active state |
+| `HamiltonContextBar` | Displays locked institution name + tier badge pulled from layout props | Reads from context |
+| `HamiltonLeftRail` | Workspace memory: saved analyses, recent scenarios, pinned institutions, settings link | Client component, data fetched in parent page |
+| `modes.ts` | `HamiltonMode` enum + `SCREEN_CONSTRAINTS` map (allowed/forbidden behaviors per screen) | Pure TypeScript, no deps |
+| `navigation.ts` | `HAMILTON_NAV` constant: `{ label, href, mode }[]` consumed by TopNav and LeftRail | Consumed by both shell components |
+| `simulation.ts` | Scenario computation: current state → proposed state → deltas → interpretation contract | Pure computation + one DB read for percentile data |
+| `monitor.ts` | Status strip builder, signal prioritization, watchlist summaries | Reads from 3 new tables |
+| `insights.ts` | Reusable insight block generator for Home and Analyze | Called from `/api/hamilton/home` and `/api/hamilton/analyze` |
+| `report-summary.ts` | Executive summary artifact assembly from scenario + analysis refs | Called from `/api/hamilton/report-summary` |
+| `db.ts` | `ensureHamiltonProTables()` — creates all 6 new tables idempotently | Called once at layout cold start |
 
 ---
 
 ## Recommended Project Structure
 
-```
-src/app/
-├── layout.tsx                    # Root: fonts, globals.css only
-├── page.tsx                      # GatewayPage -> GatewayClient (keep)
-├── gateway-client.tsx            # Split-panel entry (keep, tweak pro CTA to /pro)
-│
-├── (public)/                     # Consumer experience (route group)
-│   ├── layout.tsx                # ConsumerNav + ConsumerFooter + SearchModal
-│   ├── page.tsx                  # Consumer landing (replace gateway link target)
-│   ├── fees/                     # Fee category pages
-│   ├── institution/[id]/         # Institution detail (educational tone)
-│   ├── guides/                   # Consumer guides
-│   ├── research/                 # Public research articles
-│   └── districts/                # Public district pages
-│
-├── pro/                          # B2B experience (flat dir, NOT route group)
-│   ├── layout.tsx                # ProNav + PersonalizationBanner (auth guard here)
-│   ├── page.tsx                  # Authenticated -> ProDashboard; unauthed -> ProLanding
-│   ├── dashboard.tsx             # Four-door launchpad server component
-│   ├── market/                   # Market explorer (exists)
-│   ├── peers/                    # Peer builder (exists)
-│   ├── reports/                  # Report center
-│   │   ├── new/                  # Scoped report generator (exists)
-│   │   └── [id]/                 # Report viewer
-│   ├── research/                 # Hamilton access for pro users
-│   ├── brief/                    # Competitive brief generator (exists)
-│   ├── districts/                # District views (Beige Book unlocked)
-│   ├── categories/               # 49-category access
-│   └── data/                     # API keys, CSV exports
-│
-├── admin/                        # Internal ops (unchanged)
-│   └── hamilton/                 # Admin-only Hamilton (full tool access)
-│
-├── (auth)/                       # Login, register (route group, no nav)
-│
-└── api/                          # API routes (unchanged structure)
-    ├── hamilton/chat/            # Admin Hamilton endpoint
-    ├── reports/generate/         # Report generation (add pro scope check)
-    ├── research/[agentId]/       # Agent streaming (public + pro agents)
-    └── v1/                       # Public API
-```
+The `(hamilton)` route group is the correct isolation mechanism. It parallels the existing `(auth)` and `(public)` groups: no URL segment added, isolated layout, and the wrong chrome (ProNav + CustomerFooter from `pro/layout.tsx`) stays out of Hamilton screens.
 
 ```
-src/components/
-├── consumer/                     # Consumer-only components
-│   ├── nav.tsx                   # Rename from customer-nav.tsx
-│   └── footer.tsx                # Rename from customer-footer.tsx
-│
-├── pro/                          # B2B-only components (partially exists)
-│   ├── nav.tsx                   # New: dark B2B nav
-│   ├── personalization-banner.tsx # New: district + institution context strip
-│   ├── four-door-launcher.tsx    # New: Hamilton / Peer Builder / Reports / Fed Data
-│   ├── peer-group-selector.tsx   # Exists
-│   └── brief-status-poller.tsx   # Exists
-│
-└── shared/                       # Audience-agnostic (promote from root flat list)
-    ├── data-freshness.tsx
-    ├── maturity-badge.tsx
-    ├── delta-pill.tsx
-    └── sparkline.tsx             # Exists
-```
-
-```
-src/lib/
-├── personalization.ts            # New: derive dashboard context from User profile
-├── hamilton/                     # Exists
-├── report-engine/                # Exists — add canAccessReportType() to access.ts
-└── access.ts                     # Exists — extend with canAccessReportType()
+src/
+├── app/
+│   ├── (hamilton)/
+│   │   ├── layout.tsx              # auth guard + institution context + HamiltonShell
+│   │   ├── home/page.tsx           # Executive Briefing
+│   │   ├── analyze/page.tsx        # Analysis workspace
+│   │   ├── simulate/page.tsx       # Scenario workspace
+│   │   ├── reports/page.tsx        # Report output + archive
+│   │   └── monitor/page.tsx        # Continuous intelligence
+│   └── api/
+│       └── hamilton/
+│           ├── chat/route.ts       # EXISTS — keep, add optional mode param
+│           ├── analyze/route.ts    # NEW — typed AnalyzeResponse, streaming
+│           ├── simulate/route.ts   # NEW — typed SimulationResponse, JSON
+│           ├── monitor/route.ts    # NEW — typed MonitorResponse, JSON
+│           └── report-summary/route.ts  # NEW — report assembly, JSON
+├── components/
+│   └── hamilton/
+│       ├── layout/                 # HamiltonShell, TopNav, ContextBar, LeftRail
+│       ├── shared/                 # HamiltonViewCard (used by Home + Analyze), ConfidencePill, ActionBar
+│       ├── home/                   # ExecutiveBriefingHeader, WhatChangedRow, RecommendedActionCard, etc.
+│       ├── analyze/                # AnalysisHeader, WhatThisMeansCard, EvidencePanel, ExploreFurtherPrompts
+│       ├── simulate/               # ScenarioSetupCard, FeeSliderInput, ComparativeModelingCard, etc.
+│       ├── reports/                # ReportHeader, ExecutiveSummaryBlock, SnapshotComparisonTable, etc.
+│       └── monitor/                # MonitorHeader, StatusStrip, PriorityAlertCard, SignalTimeline, WatchlistPanel
+└── lib/
+    └── hamilton/
+        ├── voice.ts                # EXISTS — add getScreenVoiceBoundaries(mode)
+        ├── generate.ts             # EXISTS — add generateUIInsightBlock, generateSimulationInterpretation, generateReportSummary
+        ├── validate.ts             # EXISTS — add validateScenarioOutput, validateMonitorSnippet
+        ├── types.ts                # EXISTS — add AnalyzeResponse, SimulationResponse, MonitorResponse, ReportSummaryResponse DTOs
+        ├── hamilton-agent.ts       # EXISTS — add buildScreenPrompt(mode: HamiltonMode)
+        ├── chat-memory.ts          # EXISTS — add saveAnalysis, saveScenario, pinConversation, listAnalyses, listScenarios
+        ├── index.ts                # EXISTS — re-export new modules as they ship
+        ├── modes.ts                # NEW
+        ├── simulation.ts           # NEW
+        ├── monitor.ts              # NEW
+        ├── insights.ts             # NEW
+        ├── report-summary.ts       # NEW
+        ├── navigation.ts           # NEW
+        └── db.ts                   # NEW — ensureHamiltonProTables()
 ```
 
 ### Structure Rationale
 
-- **`pro/` as flat directory (not route group):** Keeps `/pro/*` URLs visible in the browser. Route groups like `(pro)/` strip the segment from the URL, but we want `/pro/research` not `/research`. The tradeoff is that `pro/layout.tsx` must manage its own auth guard.
-- **`(public)/` stays a route group:** Consumer pages at `/fees`, `/institution`, `/guides` do not need a `/public/` prefix. The parenthetical group gives them a shared layout without polluting the URL.
-- **`src/components/consumer/` and `src/components/pro/`:** Prevents cross-contamination. Consumer components use warm palette (`#FAF7F2`, `#C44B2E`). Pro components use dark/data-dense styling.
-- **`src/components/shared/`:** Data display components (`DeltaPill`, `Sparkline`, `MaturityBadge`) are genuinely reused across both audiences and admin. Promoting them out of the root flat list into `shared/` makes the intent explicit.
+- `(hamilton)/layout.tsx` not `pro/hamilton/layout.tsx`: Hamilton is a distinct product shell, not a sub-section of the consumer pro experience. The route group keeps Hamilton URLs clean (`/home`, `/analyze`) and isolates its chrome from `ProNav` + `CustomerFooter`.
+- `components/hamilton/shared/`: `HamiltonViewCard` appears in both Home and Analyze specs — a shared subfolder prevents duplication while keeping screen-specific components isolated.
+- `lib/hamilton/db.ts` is new: centralizes all 6 table creation calls in one `ensureHamiltonProTables()` function rather than spreading `ensureXxx` calls across 4 API routes.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Layout-Level Audience Shell
+### Pattern 1: Route Group for Isolated Shell
 
-**What:** Each audience gets its own `layout.tsx` that owns the chrome (nav, footer, optional personalization bar). Pages within the audience are pure content — they do not import nav components directly.
+**What:** `(hamilton)` route group provides a layout wrapping all 5 screens without adding a URL segment. The layout runs once per navigation: one auth check, one DB read for institution context, passes typed props to `HamiltonShell`.
 
-**When to use:** Always, for this product. Consumer and B2B experiences diverge significantly in navigation, palette, and contextual tooling. A single conditional nav creates exponential branching as features are added.
+**When to use:** Any set of related routes needing shared chrome (nav, context bar) that must not inherit chrome from another layout.
 
-**Trade-offs:** Two layout files to maintain. Shared components like `SearchModal` may get imported in both layouts (acceptable duplication given the divergence).
+**Trade-offs:** Clean URL structure, isolated auth. Navigating between `/pro/...` and `/analyze` crosses layout boundaries (full unmount/remount). This is intentional — Hamilton is a distinct product experience.
 
 **Example:**
 ```typescript
-// src/app/pro/layout.tsx
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium } from "@/lib/access";
-import { ProNav } from "@/components/pro/nav";
-import { PersonalizationBanner } from "@/components/pro/personalization-banner";
-
-export default async function ProLayout({ children }: { children: React.ReactNode }) {
+// src/app/(hamilton)/layout.tsx
+export default async function HamiltonLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login?from=/pro");
-  if (!canAccessPremium(user)) redirect("/subscribe?from=pro");
+  if (!user) redirect("/login");
+  if (!canAccessPremium(user)) redirect("/subscribe");
+
+  // Single DB read — institution context used by all 5 screens
+  const institution = user.institution_name
+    ? { name: user.institution_name, type: user.institution_type, tier: user.asset_tier }
+    : null;
+
+  // ensureHamiltonProTables called here once at cold start
+  ensureHamiltonProTables().catch(() => {});
 
   return (
-    <div className="min-h-screen bg-[#0C0F1A]">
-      <ProNav user={user} />
-      <PersonalizationBanner user={user} />
-      <main>{children}</main>
-    </div>
+    <HamiltonShell institution={institution} user={{ id: user.id, displayName: user.display_name }}>
+      {children}
+    </HamiltonShell>
   );
 }
 ```
 
-### Pattern 2: Profile-Driven Personalization via Server Component Props
+### Pattern 2: Screen-Typed API Endpoints (not one generic endpoint)
 
-**What:** The `User` type already carries `institution_name`, `asset_tier`, `state_code`, `job_role`. Derive contextual display data in a thin `personalization.ts` service and pass it as typed props to dashboard components. Do not use client-side state or cookies for personalization context — derive it at render time from the session user.
+**What:** Each Hamilton screen gets its own API route returning a typed response shape. The existing `/api/hamilton/chat` handles conversational surfaces (Analyze chat panel, Monitor floating chat). Simulate, Monitor, and Home each get their own endpoint returning the typed interfaces from `06-api-and-agent-contracts.md`.
 
-**When to use:** Any component that customizes display based on the logged-in user's institution profile.
+**When to use:** When screens have meaningfully different response shapes. Forcing every Hamilton screen through the streaming chat endpoint makes typed responses impossible and prevents mode-level agent behavior constraints.
 
-**Trade-offs:** Personalization is render-time only. Acceptable for this product — fee data updates on a daily batch cadence anyway.
-
-**Example:**
-```typescript
-// src/lib/personalization.ts
-import { STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
-import { STATE_NAMES } from "@/lib/us-states";
-import type { User } from "@/lib/auth";
-
-export interface PersonalizationContext {
-  districtId: number | null;
-  districtName: string | null;
-  stateName: string | null;
-  assetTier: string | null;
-  institutionName: string | null;
-  jobRole: string | null;
-}
-
-export function derivePersonalizationContext(user: User): PersonalizationContext {
-  const districtId = user.state_code ? STATE_TO_DISTRICT[user.state_code] ?? null : null;
-  return {
-    districtId,
-    districtName: districtId ? DISTRICT_NAMES[districtId] ?? null : null,
-    stateName: user.state_code ? STATE_NAMES[user.state_code] ?? null : null,
-    assetTier: user.asset_tier,
-    institutionName: user.institution_name,
-    jobRole: user.job_role,
-  };
-}
-```
-
-### Pattern 3: Scoped Report Generation via Type Allow-List
-
-**What:** The report generation endpoint (`POST /api/reports/generate`) already uses a `VALID_REPORT_TYPES` allow-list. Extend `access.ts` with `canAccessReportType()` that gates by role. Pro users get `peer_brief`, `state_index`, `monthly_pulse`. Admin/analyst get all types including `national_index`.
-
-**When to use:** Exposing report generation to pro users without giving them access to all report types or template machinery.
-
-**Trade-offs:** Report templates remain server-side. Pro users trigger generation and receive presigned R2 URLs — they never see the template source. This is the correct boundary.
+**Trade-offs:** More route files, but each is thin (auth guards + call into `lib/hamilton/` modules). The `/api/hamilton/chat` already contains the auth + cost guard pattern — new routes copy the same guards.
 
 **Example:**
 ```typescript
-// src/lib/access.ts (addition)
-const PRO_REPORT_TYPES = new Set(["peer_brief", "state_index", "monthly_pulse"]);
-const ADMIN_REPORT_TYPES = new Set(["national_index", "peer_brief", "state_index", "monthly_pulse"]);
+// src/app/api/hamilton/simulate/route.ts
+export async function POST(request: Request) {
+  // Same auth + cost guard as /api/hamilton/chat
+  const user = await getCurrentUser();
+  if (!user || !canAccessPremium(user)) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-export function canAccessReportType(user: User | null, reportType: string): boolean {
-  if (!user) return false;
-  if (user.role === "admin" || user.role === "analyst") return ADMIN_REPORT_TYPES.has(reportType);
-  if (canAccessPremium(user)) return PRO_REPORT_TYPES.has(reportType);
-  return false;
+  const { feeCategory, currentValue, proposedValue, institutionId } = await request.json();
+
+  // Pure computation — no LLM needed for percentile math
+  const simulation = await buildSimulationResponse({ feeCategory, currentValue, proposedValue, institutionId });
+
+  // LLM only for the interpretation block
+  const interpretation = await generateSimulationInterpretation(simulation);
+
+  return Response.json({ ...simulation, interpretation });
 }
 ```
 
-### Pattern 4: Four-Door Launchpad Dashboard
+### Pattern 3: Institution Context via Layout + React Context, Not Per-Page Fetch
 
-**What:** The pro dashboard is restructured as a server component rendering four entry-point cards: Hamilton Chat, Peer Builder, Reports, and Federal Data. Each card shows a live data teaser from the session user and a lightweight DB query. Cards link to corresponding `/pro/*` routes.
+**What:** The institution context (name, type, asset tier) is fetched once in `(hamilton)/layout.tsx` from the `users` table and passed as props to `HamiltonShell`. `HamiltonShell` initializes an `InstitutionContext` React context provider. Screen-level components that need institution data call `useInstitution()` — no prop threading required.
 
-**When to use:** Replacing the current `ProDashboard` which mixes marketing content with functional tools in one long component.
+**When to use:** Data that does not change between page navigations within a session. The `User` object on the DB already has all required fields.
 
-**Trade-offs:** Four DB queries on dashboard load. Use `Promise.all()` to parallelize. If any query fails, its card degrades gracefully rather than blocking the entire page.
+**Trade-offs:** Institution context is stale until next page load. Acceptable for v8.0 — the Settings page (where a user changes institution context) redirects to `/home` after save, triggering a fresh layout render.
 
-### Pattern 5: Consumer Landing as Standalone Page
+### Pattern 4: ensureHamiltonProTables() Pattern for All 6 New Tables
 
-**What:** The root `/` stays as the GatewayClient split-panel (brand moment). The consumer entry from the left panel targets `(public)/page.tsx` — a full consumer landing page that is statically rendered (ISR, 1-hour revalidation), SEO-optimized, and does not call `getCurrentUser()`.
+**What:** The existing `chat-memory.ts` uses `ensureHamiltonTables()` — `CREATE TABLE IF NOT EXISTS` called at cold start, errors swallowed. Extend with `ensureHamiltonProTables()` in `src/lib/hamilton/db.ts` that creates all 6 new tables in a single function called once from `(hamilton)/layout.tsx`.
 
-**When to use:** Once a user picks an audience, their route should feel like a dedicated product. The gateway is appropriate only as a first-touch brand statement.
+**When to use:** All new Hamilton Pro DB tables. Avoids separate migration step on Vercel/Supabase deploys.
 
-**Trade-offs:** Two "home" pages to maintain. The gateway left panel must stay in sync with the consumer landing value proposition.
+**Trade-offs:** No migration history. Tables created on first request if absent. Acceptable for this project's deployment model. Do not split across individual API route handlers — racing `CREATE TABLE IF NOT EXISTS` calls across Vercel workers is harmless but wasteful.
 
 ---
 
 ## Data Flow
 
-### Personalization Data Flow
+### Analyze Screen
 
 ```
-HTTP Request -> pro/layout.tsx
+User submits analysis prompt in AnalysisWorkspace
     |
-getCurrentUser() -> session cookie -> SQL join sessions + users
+useChat({ api: "/api/hamilton/analyze" }) — Vercel AI SDK
     |
-User { institution_name, asset_tier, state_code, job_role, ... }
+POST /api/hamilton/analyze
+    auth guard + rate limit + cost circuit breaker
     |
-derivePersonalizationContext(user) -> PersonalizationContext
+buildScreenPrompt("analyze") — modes.ts constrains: synthesis, comparison, no final recommendation
     |
-ProNav receives { user, ctx }         PersonalizationBanner receives { ctx }
-    |                                         |
-Renders district chip             "Boston Fed | $300M-$1B | Treasury"
+streamText() -> Anthropic claude-sonnet streaming
     |
-ProDashboard receives { user }
+onFinish: logUsage() + saveAnalysis() -> hamilton_saved_analyses row
     |
-Promise.all([
-  getPeerIndex({ state_code: user.state_code }),
-  getRecentConversations(user.id),
-  getUsageStats(user.id),
-  getDataFreshness()
-])
+SSE stream -> client renders: AnalysisHeader + WhatThisMeansCard + EvidencePanel
     |
-Four-door launcher with live teasers
+ExploreFurtherPrompts offered from response.exploreFurther[]
 ```
 
-### Scoped Report Generation Flow
+### Simulate Screen
 
 ```
-Pro user fills PeerGroupSelector -> submits form
+User configures ScenarioSetupCard (fee category + current/proposed values)
     |
-POST /api/reports/generate { report_type: "peer_brief", params: { ... } }
+POST /api/hamilton/simulate (JSON, not streaming)
     |
-getCurrentUser() -> canAccessReportType(user, "peer_brief") -> true
+buildSimulationResponse() in simulation.ts
+    — getNationalIndex() for fee category percentile data
+    — compute percentile position + median gap + risk profile for current + proposed
+    — compute deltas
     |
-freshness gate -> DB insert report_jobs { user_id, report_type, params }
+generateSimulationInterpretation(result) in generate.ts
+    — Anthropic call (small, 150-200 words per voice rules)
     |
-after() -> fire-and-forget Modal trigger (Python pipeline)
+Response.json() -> client renders:
+    ComparativeModelingCard + HamiltonInterpretationCard + StrategicTradeoffsCard
     |
-Returns { jobId } immediately
-    |
-Client polls GET /api/reports/[id]/status
-    |
-BriefStatusPoller component updates UI
-    |
-On complete -> presigned R2 URL -> redirect to /pro/reports/[id]
+ScenarioActionsBar:
+    "Save"        -> hamilton_scenarios row
+    "Send to Report" -> navigate to /reports?scenario_id=X
 ```
 
-### Hamilton Agent Access Boundaries
+### Monitor Screen
 
 ```
-/admin/hamilton   -> /api/hamilton/chat
-  auth: role === "analyst" || "admin"
-  tools: publicTools + internalTools (pipeline tools, admin-only data)
-  model: claude-sonnet-4-5-20250929
-  daily limit: 200 (admin), 50 (analyst)
-
-/pro/research     -> /api/research/[agentId] (agentId = "fee-analyst")
-  auth: canAccessPremium(user)
-  tools: publicTools ONLY (no internal pipeline tools)
-  model: claude-haiku-4-5-20251001 (cost-controlled)
-  daily limit: 50 queries
+Page load: GET /api/hamilton/monitor (JSON, no streaming)
+    |
+buildMonitorResponse(userId) in monitor.ts
+    — reads hamilton_watchlists for user
+    — reads hamilton_signals (last 30 days, sorted severity DESC)
+    — reads hamilton_priority_alerts (unacknowledged)
+    |
+Client renders: StatusStrip + PriorityAlertCard + SignalTimeline + WatchlistPanel
+    |
+Floating chat overlay:
+    useChat({ api: "/api/hamilton/chat", body: { mode: "monitor" } })
+    hamilton-agent.ts constrains monitor mode: summarize changes, prioritize signals
+    No simulation triggers, no report generation from this surface
 ```
 
-The boundary already exists in the agent config — the architecture just needs the pro layout's auth guard to make it reliable rather than per-page.
+### Institution Context Flow
+
+```
+User navigates to any (hamilton) route
+    |
+(hamilton)/layout.tsx server component
+    getCurrentUser() — reads fsh_session cookie -> SQL join
+    canAccessPremium(user) check
+    ensureHamiltonProTables().catch(() => {})
+    |
+Passes { institution: { name, type, tier }, user: { id, displayName } } to HamiltonShell
+    |
+HamiltonShell (client component)
+    initializes InstitutionContext.Provider
+    HamiltonContextBar: renders "First National Bank | $300M-$1B"
+    HamiltonLeftRail: renders saved analyses / scenarios for this user
+    |
+Screen pages call useInstitution() — no per-page DB fetch needed
+```
+
+---
+
+## Integration Points
+
+### Existing Code: What to Keep, What to Extend
+
+| File | Status | Change |
+|------|--------|--------|
+| `src/lib/hamilton/voice.ts` | Keep | Add `getScreenVoiceBoundaries(mode: HamiltonMode)` returning allowed/forbidden per screen |
+| `src/lib/hamilton/generate.ts` | Keep | Add `generateUIInsightBlock()`, `generateSimulationInterpretation()`, `generateReportSummary()` |
+| `src/lib/hamilton/validate.ts` | Keep | Add `validateScenarioOutput()`, `validateMonitorSnippet()` |
+| `src/lib/hamilton/types.ts` | Keep | Add `AnalyzeResponse`, `SimulationResponse`, `MonitorResponse`, `ReportSummaryResponse` DTOs |
+| `src/lib/hamilton/hamilton-agent.ts` | Keep | Add `buildScreenPrompt(mode: HamiltonMode)` alongside existing `buildHamiltonSystemPrompt()` |
+| `src/lib/hamilton/chat-memory.ts` | Keep | Add `saveAnalysis()`, `saveScenario()`, `listAnalyses()`, `listScenarios()`, `pinConversation()` |
+| `src/app/api/hamilton/chat/route.ts` | Keep | Accept optional `mode` field in body, pass to `buildScreenPrompt()` |
+| `src/app/pro/research/page.tsx` | Redirect after (hamilton) ships | Add redirect to `/analyze` once shell is deployed |
+
+### New Backend Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/hamilton/modes.ts` | `HamiltonMode` enum + `SCREEN_CONSTRAINTS` map |
+| `src/lib/hamilton/simulation.ts` | `buildSimulationResponse(params)` — percentile computation + delta math |
+| `src/lib/hamilton/monitor.ts` | `buildMonitorResponse(userId)` — reads signals, alerts, watchlists |
+| `src/lib/hamilton/insights.ts` | `generateInsightBlock(focus, data)` — reusable for Home + Analyze |
+| `src/lib/hamilton/report-summary.ts` | `assembleReportSummary(scenarioId, analysisId)` — composes report artifact |
+| `src/lib/hamilton/navigation.ts` | `HAMILTON_NAV` constant consumed by TopNav + LeftRail |
+| `src/lib/hamilton/db.ts` | `ensureHamiltonProTables()` — creates all 6 new tables idempotently |
+
+### New API Routes
+
+| Route | Method | Auth | Response Shape |
+|-------|--------|------|----------------|
+| `/api/hamilton/analyze` | POST | premium | `AnalyzeResponse` (streaming SSE) |
+| `/api/hamilton/simulate` | POST | premium | `SimulationResponse` (JSON) |
+| `/api/hamilton/monitor` | GET | premium | `MonitorResponse` (JSON) |
+| `/api/hamilton/report-summary` | POST | premium | `ReportSummaryResponse` (JSON) |
+
+### New DB Tables (6)
+
+| Table | Owned By |
+|-------|----------|
+| `hamilton_saved_analyses` | Analyze screen — save conversation outputs |
+| `hamilton_scenarios` | Simulate screen — save fee scenarios |
+| `hamilton_reports` | Reports screen — save report artifacts |
+| `hamilton_watchlists` | Monitor screen — per-user watchlist config |
+| `hamilton_signals` | Monitor screen — normalized market signals |
+| `hamilton_priority_alerts` | Monitor screen — promoted signal subset per user |
+
+### External Services Integration
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Anthropic API | Existing — `@ai-sdk/anthropic` + `streamText` | New screen endpoints reuse same client + cost guards |
+| Supabase PostgreSQL | Existing — `sql` tagged template from `crawler-db/connection.ts` | 6 new tables follow same `ensureXxx()` pattern |
+| Stripe | No change | Premium gate already in `canAccessPremium()` — Hamilton layout inherits same check |
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `(hamilton)/layout.tsx` → HamiltonShell | Props (institution context) | Layout is server component; HamiltonShell is client — the props cross the boundary once |
+| HamiltonShell → screen pages | React context (`InstitutionContext`) | Do not thread institution props through 5 levels of screen components |
+| Screen pages → API routes | `useChat` (streaming) or `fetch` (JSON) | Analyze uses `useChat`; Simulate, Monitor, Home use plain `fetch` |
+| API routes → `lib/hamilton/` | Direct import | Routes stay thin; logic lives in lib modules |
+| `simulation.ts` → `crawler-db/` | Direct import of `getNationalIndex()` or equivalent | Simulation needs percentile data — read from existing index queries |
+| Monitor floating chat → `/api/hamilton/chat` | `useChat` with `body: { mode: "monitor" }` | Reuses existing endpoint; mode constrains system prompt behavior |
+| Daily cost counter | Shared across all Hamilton API routes | All new routes must call `getDailyCostCents()` + `logUsage()` from `research/history.ts` |
+
+---
+
+## Build Order
+
+Build in this sequence — each step unblocks the next.
+
+**Step 1 — Foundation (no new deps, pure TypeScript):**
+- `src/lib/hamilton/modes.ts` — `HamiltonMode` enum used by everything
+- `src/lib/hamilton/navigation.ts` — consumed by shell components
+- Extend `src/lib/hamilton/types.ts` — add 4 screen DTOs
+
+**Step 2 — DB tables (blocks any screen that reads/writes Pro data):**
+- `src/lib/hamilton/db.ts` — `ensureHamiltonProTables()` for all 6 tables
+
+**Step 3 — Shell layout (blocks all screen pages):**
+- `src/app/(hamilton)/layout.tsx`
+- `src/components/hamilton/layout/HamiltonShell.tsx`
+- `src/components/hamilton/layout/HamiltonTopNav.tsx`
+- `src/components/hamilton/layout/HamiltonContextBar.tsx`
+- `src/components/hamilton/layout/HamiltonLeftRail.tsx`
+
+**Step 4 — Backend modules + API routes (parallel, no inter-dependency):**
+- `simulation.ts` + `/api/hamilton/simulate`
+- `insights.ts` + `/api/hamilton/analyze`
+- `monitor.ts` + `/api/hamilton/monitor`
+- `report-summary.ts` + `/api/hamilton/report-summary`
+- Extend `generate.ts` with new generator functions
+- Extend `hamilton-agent.ts` with `buildScreenPrompt(mode)`
+- Extend `chat-memory.ts` with analysis + scenario persistence
+
+**Step 5 — Screen pages (each unblocked after shell + its API route):**
+- Home: `home/page.tsx` + `components/hamilton/home/`
+- Analyze: `analyze/page.tsx` + `components/hamilton/analyze/`
+- Simulate: `simulate/page.tsx` + `components/hamilton/simulate/`
+- Reports: `reports/page.tsx` + `components/hamilton/reports/`
+- Monitor: `monitor/page.tsx` + `components/hamilton/monitor/` + floating chat overlay
+
+**Step 6 — Migration (after all screens ship):**
+- Add redirect in `src/app/pro/research/page.tsx` → `/analyze`
+- Update any nav links across `pro/` routes pointing to old Hamilton entry points
+
+---
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Using the pro/ Layout for Hamilton Screens
+
+**What people do:** Add Hamilton screens as sub-routes under `/pro/` (e.g., `/pro/analyze`) to reuse the existing `pro/layout.tsx` auth guard.
+
+**Why it's wrong:** `pro/layout.tsx` renders `ProNav`, `ProMobileNav`, and `CustomerFooter` — the consumer-facing warm shell. Hamilton needs a locked top nav + left rail workspace. Fighting the existing chrome on every screen adds complexity with no benefit.
+
+**Do this instead:** `src/app/(hamilton)/layout.tsx` with its own `canAccessPremium` check and `HamiltonShell` as the root component.
+
+### Anti-Pattern 2: Routing All Screens Through /api/hamilton/chat
+
+**What people do:** Pass a `mode=simulate` body parameter to the existing chat endpoint and parse mode-specific behavior inside one route handler.
+
+**Why it's wrong:** The chat endpoint uses `streamText` with `UIMessage[]` input and SSE streaming. Simulate needs deterministic JSON (percentile math is not LLM output). Monitor needs a GET endpoint. Forcing these through the streaming chat endpoint requires client-side hacks to parse the stream as typed data.
+
+**Do this instead:** Dedicated typed routes per screen. Chat endpoint stays for conversational surfaces (Analyze chat panel, Monitor floating chat). Simulation and Monitor get separate routes returning typed JSON.
+
+### Anti-Pattern 3: Prop-Drilling Institution Context Through Screen Components
+
+**What people do:** Pass `institution` as a prop from layout → HamiltonShell → every screen page → every card component that needs institution data.
+
+**Why it's wrong:** `ScenarioSetupCard` needs the institution to pre-fill the institution field. `HamiltonViewCard` needs it for the context bar label. Threading props five levels deep is brittle and breaks when new components are added.
+
+**Do this instead:** `HamiltonShell` initializes `InstitutionContext.Provider` (it already receives `institution` as a prop from the layout). Components call `useInstitution()`. Context is initialized in the client shell component boundary — not in the server layout.
+
+### Anti-Pattern 4: Spreading ensureXxx() Across 4 API Route Handlers
+
+**What people do:** Add a separate `ensureXxxTables()` call inside each of the 4 new API route handlers, following the existing `ensureHamiltonTables()` pattern in `chat/route.ts`.
+
+**Why it's wrong:** 4 concurrent cold-start requests trigger 4 races to create 6 tables each. Harmless due to `IF NOT EXISTS`, but it's redundant DB round-trips and scatters table ownership across route files.
+
+**Do this instead:** Single `ensureHamiltonProTables()` in `src/lib/hamilton/db.ts`. Call it once in `(hamilton)/layout.tsx` with `.catch(() => {})` so the layout renders even if DB is flaky. All 6 tables are guaranteed to exist before any screen renders.
+
+### Anti-Pattern 5: Shared HamiltonViewCard Without a Shared Subfolder
+
+**What people do:** Duplicate `HamiltonViewCard.tsx` into both `components/hamilton/home/` and `components/hamilton/analyze/` since it appears in both screen specs.
+
+**Why it's wrong:** Two copies diverge. The design system call (confidence level coloring, citation footer pattern) must be consistent across both screens.
+
+**Do this instead:** `components/hamilton/shared/HamiltonViewCard.tsx`. Both screen component folders import from `../shared/`. Create `components/hamilton/shared/` for `HamiltonViewCard`, `ConfidencePill`, and `ActionBar` — all three are listed in the global component spec.
 
 ---
 
@@ -346,121 +459,21 @@ The boundary already exists in the agent config — the architecture just needs 
 
 | Scale | Architecture Adjustments |
 |-------|--------------------------|
-| Current (< 1K pro users) | Session-based auth in layout.tsx is sufficient. No middleware needed. |
-| 1K-10K pro users | Add `middleware.ts` for fast auth redirect on unauthenticated /pro/* hits (skip layout DB roundtrip) |
-| 10K+ pro users | Split ProDashboard queries into parallel Suspense boundaries with streaming UI |
+| 0-500 pro users | Current Supabase + Vercel monolith is fine. No queue needed. Direct DB writes from API routes are sufficient. |
+| 500-5,000 pro users | Monitor signal generation should move to Modal cron worker (same pattern as fee crawler). Read replicas for Hamilton signal queries. |
+| 5,000+ users | Separate Hamilton API into dedicated Vercel Fluid workers. Redis for watchlist fanout. |
 
-### Scaling Priorities
-
-1. **First bottleneck: `getCurrentUser()` on every pro page render.** The session join query hits Postgres on every request. Mitigation when needed: 60-second edge cache on session validation, or store role + id in a signed JWT claim.
-
-2. **Second bottleneck: Personalization queries in ProDashboard.** Four `Promise.all()` queries per dashboard render. Mitigation: ISR with `revalidate = 300` for peer index slices; only usage stats need `force-dynamic`.
-
----
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Conditional Nav in a Single Component
-
-**What people do:** Keep expanding `CustomerNav` with `if (isPro)` branches. The current `CustomerNav` already does this — 8 pro items vs. 4 consumer items, both in the same component.
-
-**Why it's wrong:** Nav logic becomes a maintenance burden. Pro nav references pro-specific routes and tooling consumers should never see. Dark-mode palette, keyboard shortcuts, and search behavior differ between audiences.
-
-**Do this instead:** Create `src/components/pro/nav.tsx`. Rename `customer-nav.tsx` to `src/components/consumer/nav.tsx`. Each layout imports its own nav. One-time migration, not ongoing complexity.
-
-### Anti-Pattern 2: Auth Guards in Every Page Component
-
-**What people do:** Add `getCurrentUser()` + `redirect()` at the top of every pro page. The current codebase does this — `/pro/research/page.tsx`, `/pro/reports/new/page.tsx`, and others each duplicate the guard.
-
-**Why it's wrong:** If the auth rule changes, every page must be updated. A missed page is a security gap.
-
-**Do this instead:** Move the `canAccessPremium` check into `pro/layout.tsx`. One guard at layout level protects all `/pro/*` routes. Individual pages may still check granular permissions (e.g., `canAccessReportType`) but the baseline access check lives in one place.
-
-### Anti-Pattern 3: Personalization Logic Scattered in Dashboard Components
-
-**What people do:** Call `STATE_TO_DISTRICT[user.state_code]`, `DISTRICT_NAMES[district]`, `STATE_NAMES[user.state_code]` directly inside `ProDashboard` — which is exactly what the current `dashboard.tsx` does.
-
-**Why it's wrong:** When `PersonalizationBanner` also needs district derivation, the logic gets copied. When a third component needs it, it gets copied again.
-
-**Do this instead:** Extract to `src/lib/personalization.ts`. `derivePersonalizationContext(user)` returns a typed `PersonalizationContext`. All pro components import this function.
-
-### Anti-Pattern 4: Exposing Report Template Machinery to Pro Users
-
-**What people do:** Give pro users access to the same report generation UI as admin, or return template source as part of the report job payload.
-
-**Why it's wrong:** The flagship report templates are a core competitive asset. Pro users should receive rendered output (presigned PDF URL), not the template machinery.
-
-**Do this instead:** The report generation pipeline runs server-side on Modal. The API returns a `jobId`. The client polls for status and receives a presigned R2 URL to the rendered PDF. The template HTML/Jinja never leaves the server.
-
----
-
-## Integration Points
-
-### New vs. Modified Components
-
-| Component | Status | Depends On |
-|-----------|--------|------------|
-| `src/lib/personalization.ts` | New | `User` type, `fed-districts.ts`, `us-states.ts` |
-| `src/lib/access.ts` — `canAccessReportType()` | Modified | `User` type |
-| `src/app/pro/layout.tsx` | Modified (add auth guard + new nav) | `personalization.ts`, `pro/nav.tsx` |
-| `src/components/pro/nav.tsx` | New | None |
-| `src/components/pro/personalization-banner.tsx` | New | `personalization.ts` |
-| `src/components/pro/four-door-launcher.tsx` | New | None |
-| `src/app/pro/dashboard.tsx` | Modified (four-door refactor) | `personalization.ts`, `four-door-launcher.tsx` |
-| `src/components/consumer/nav.tsx` | Rename + minor edit from `customer-nav.tsx` | None |
-| `src/app/(public)/layout.tsx` | Modified (import from new path) | `consumer/nav.tsx` |
-| `src/app/(public)/page.tsx` | New consumer landing page | Consumer nav layout |
-| `POST /api/reports/generate` | Modified (use `canAccessReportType`) | `access.ts` |
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| `pro/layout.tsx` -> pages | Layout handles auth redirect; pages call `getCurrentUser()` independently for User data as props | Coarse gate in layout, fine-grained checks in pages |
-| `personalization.ts` -> pro components | Pure function import, no DB calls | Zero extra DB query per request |
-| `access.ts` -> API routes and layouts | All access checks centralized | Do not duplicate `canAccessPremium` logic in route files |
-| `(public)/` pages -> consumer components | One-way: pages import from `src/components/consumer/` | Consumer components must not import from `src/components/pro/` |
-| `/api/hamilton/chat` vs `/api/research/[agentId]` | Two separate endpoints, different tool sets and models | Do not merge — different cost profiles and audit trails |
-
----
-
-## Build Order for v6.0
-
-Dependencies flow downward. Build in this sequence to avoid rework:
-
-1. **`src/lib/personalization.ts`** — pure function, no UI, no DB. All pro personalization components depend on it. Zero risk.
-
-2. **`src/lib/access.ts` — add `canAccessReportType()`** — pure function extension. Unblocks report scoping.
-
-3. **`pro/layout.tsx` — centralized auth guard** — replaces per-page guards. Validate all `/pro/*` routes still work.
-
-4. **`src/components/pro/nav.tsx`** — new component. Import in `pro/layout.tsx`. Remove pro branch from `customer-nav.tsx`.
-
-5. **`src/components/consumer/nav.tsx`** — rename + update import path in `(public)/layout.tsx` and `account/page.tsx`.
-
-6. **`src/components/pro/personalization-banner.tsx`** — new component. Import in `pro/layout.tsx`. Depends on `personalization.ts`.
-
-7. **`ProDashboard` refactor to four-door launchpad** — depends on stable nav and `personalization.ts`.
-
-8. **Consumer landing page at `(public)/page.tsx`** — standalone SEO page. Update gateway-client left panel href.
-
-9. **Report scoping for pro** — update generate route to use `canAccessReportType()`. Update pro reports UI to show allowed types only.
-
-10. **Institution page educational redesign** — add "why does this matter?" context panels. Depends on consumer layout being stable from step 8.
+The first bottleneck will be the Anthropic API cost ceiling ($5-10/report), not DB or server capacity. The daily circuit breaker at $50 in `/api/hamilton/chat` must be shared with all new endpoints — all Hamilton API routes must contribute to the same daily cost counter via the existing `getDailyCostCents()` + `logUsage()` calls in `src/lib/research/history.ts`.
 
 ---
 
 ## Sources
 
-- Direct codebase inspection: `src/app/`, `src/lib/`, `src/components/` (2026-04-07)
-- `src/app/(public)/layout.tsx` — existing consumer shell pattern
-- `src/app/pro/layout.tsx` — current state (shares CustomerNav with consumer)
-- `src/lib/auth.ts` — User type with profile fields (`institution_name`, `asset_tier`, `state_code`, `job_role`)
-- `src/lib/access.ts` — existing access control pattern to extend
-- `src/app/api/reports/generate/route.ts` — allow-list pattern for report type gating
-- `src/lib/hamilton/hamilton-agent.ts` — tool boundaries between admin Hamilton and pro research agents
-- Next.js App Router: route groups `(name)/` do not affect URL segments; flat dirs like `pro/` preserve the URL prefix
+- Direct codebase inspection: `src/app/pro/layout.tsx`, `src/lib/hamilton/hamilton-agent.ts`, `src/lib/hamilton/chat-memory.ts`, `src/app/api/hamilton/chat/route.ts`, `src/lib/auth.ts`, `src/lib/access.ts`, `src/lib/hamilton/voice.ts` (2026-04-08)
+- Design specs: `Hamilton-Design/hamilton_revamp_package/01` through `08-implementation-backlog.md`
+- Existing route group pattern: `src/app/(auth)/`, `src/app/(public)/`
+- Existing `ensureHamiltonTables()` pattern in `src/lib/hamilton/chat-memory.ts`
 
 ---
-*Architecture research for: Bank Fee Index v6.0 Two-Sided Experience*
-*Researched: 2026-04-07*
+*Architecture research for: Hamilton Pro Platform v8.0*
+*Researched: 2026-04-08*

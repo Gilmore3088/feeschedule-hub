@@ -1,227 +1,200 @@
 # Pitfalls Research
 
-**Domain:** Audience-segmented UX split — adding distinct consumer and B2B experiences to an existing monolithic Next.js App Router app
-**Researched:** 2026-04-07
-**Confidence:** HIGH (based on direct codebase inspection + established Next.js App Router patterns)
+**Domain:** Hamilton Pro Platform — adding a 5-screen decision system to an existing Next.js App Router app
+**Researched:** 2026-04-08
+**Confidence:** HIGH (based on direct codebase inspection of Hamilton v3.1 source, design package, and known sparse-data state)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: SEO Regression From Route Restructuring
+### Pitfall 1: Simulation Percentiles Are Meaningless With 0.3% Approval Rate
 
 **What goes wrong:**
-The existing public pages at `/(public)/fees/[category]`, `/(public)/institution/[id]`, `/(public)/research/state/[code]`, etc. are the SEO backbone — they already appear in `sitemap.ts` as `BASE_URL/fees/...`, `BASE_URL/institution/...`, etc. If these routes get moved, renamed, or wrapped inside audience-scoped prefixes (e.g., `/consumer/fees/...`) to serve a redesigned consumer experience, Google loses the existing index positions. The canonical URLs are public-facing, already structured without a `/consumer/` prefix, and any redirect chain introduces crawl lag.
+The SimulationResponse contract returns `currentPercentile` and `proposedPercentile` as the core output of the Simulate screen. These percentiles are computed against the fee index — but only 58 approved fees exist (0.3% of observations). The index currently includes staged and pending fees to reach usable counts (the national index already uses this mix with maturity badges). If the simulation engine computes percentiles only against approved fees, the distributions will be extremely sparse and the percentile output will be numerically meaningless — for many fee categories there will be fewer than 10 approved data points. A "current percentile: 67th" built on 8 data points is not a defensible analytical output.
 
 **Why it happens:**
-The impulse to "give consumers their own space" leads to creating `/consumer/fees/[category]` instead of redesigning `/(public)/fees/[category]` in place. The split-panel gateway at `/` and the existence of `/consumer/page.tsx` make it tempting to move all consumer content under `/consumer/*`.
+The simulation contract looks reasonable on paper. `currentPercentile` implies a well-populated distribution. Engineers implement the percentile calculation against `WHERE review_status = 'approved'` because that is the "clean" data, discover the distribution is empty, and then either (a) silently fall back to all data without documenting the confidence level, or (b) return a percentile against staged+pending data while the UI presents it as a fact.
 
 **How to avoid:**
-Never add an audience prefix to URLs that are already indexed. The consumer experience redesign must happen in-place: update `/(public)/fees/[category]/page.tsx` and `/(public)/institution/[id]/page.tsx` directly. The `/consumer/` route should redirect to `/` or serve only as the post-gateway landing — it should never become a parallel URL tree for existing content. The `/(public)` route group is a routing convenience (zero URL impact) that already isolates the consumer content correctly. Use it.
-
-If a page genuinely needs a consumer-only URL (e.g., a guided comparison tool), create it as a new route, not a shadow of an existing one.
+The index already handles this correctly with maturity badges — reproduce that pattern in the simulation engine. Define explicit confidence tiers for percentile output: "strong" (10+ approved observations), "provisional" (10+ total observations, staged+pending mix), "insufficient" (under 10 observations). Never return a raw percentile number without its confidence tier in the `SimulationResponse`. The UI must surface the maturity tier inline with the percentile — a "67th percentile (provisional, 23 observations)" is defensible; "67th percentile" alone is not. Add a `confidenceTier` field to `SimulationResponse.currentState` and `proposedState`.
 
 **Warning signs:**
-- Any new `src/app/consumer/fees/` or `src/app/consumer/institution/` directories
-- `sitemap.ts` growing new `consumer/` URL entries for content that already exists at bare paths
-- A 301 redirect map longer than 5 entries
+- `simulation.ts` queries `WHERE review_status = 'approved'` without a fallback or count check
+- The Simulate screen displays a percentile number with no accompanying confidence indicator
+- A fee category with fewer than 5 data points returns a non-null percentile
 
 **Phase to address:**
-First phase that touches any `/(public)` page layout or routing. Establish a "no URL changes" contract before any consumer redesign work begins.
+Phase 3 (backend types and persistence) — define the confidence tier contract before the simulation engine is built. Phase 4 (agent behavior) — simulation response builder must include confidence tier. Never ship Simulate screen without it.
 
 ---
 
-### Pitfall 2: The Split-Panel Gateway Is a Dead End for SEO and First Impressions
+### Pitfall 2: Agent Mode Splitting Breaks the Existing Pro Chat
 
 **What goes wrong:**
-The current `GatewayClient` at `/` is a client component ("use client") that shows a split-panel "choose your experience" interaction. Google does not reliably execute client-side rendering for initial indexing. The root URL — the highest-authority page — renders no indexable content for search engines. It is also poor UX: first-time visitors have to identify themselves before seeing any value.
+The current `getHamilton("pro")` in `src/lib/research/agents.ts` uses `PRO_PREFIX` + `HAMILTON_SYSTEM_PROMPT` + `REGULATION_INSTRUCTION` + `EXTERNAL_INTELLIGENCE_INSTRUCTION` as a combined system prompt. It is a single agent with one prompt. The revamp requires 5 screen-specific behaviors (home, analyze, simulate, report, monitor) with explicit `canRecommend`, `canExport`, `canSimulate` flags per mode.
+
+If the mode split is implemented by modifying the existing `getHamilton("pro")` call, the current `/pro/research` page (which uses `AnalystHub` and calls `agentId: "hamilton"`) will start receiving mode-scoped behavior it was not designed for. The `analyst-hub.tsx` component does not know about `HamiltonMode` — it streams undifferentiated chat responses. A mode-split system prompt injected into a plain chat UI produces confusing behavior: the agent may refuse to make recommendations in analyze mode, or silently apply simulate-mode response structure to a general question.
 
 **Why it happens:**
-The split-panel feels like an elegant design solution that respects both audiences. It defers the audience-routing decision to the user. The problem is that search engines and users arriving from a direct link get nothing useful.
+The cleanest implementation of mode-specific behavior is to modify the system prompt in `getHamilton()` based on a `mode` parameter. This is also the most dangerous modification because `getHamilton()` is called from the existing pro chat page. The refactor scope expands invisibly.
 
 **How to avoid:**
-Replace the gateway with a value-first consumer landing page rendered by a Server Component. The root `/` should be the consumer-facing front door by default — it is where organic traffic lands. Pro/B2B entry should be a prominent but secondary action (nav link, sticky CTA, or dedicated `/pro` path). This is confirmed by the PROJECT.md principle "B2B primary, consumer secondary" — but "primary" refers to revenue, not traffic origin. Consumer organic traffic is the discovery engine.
-
-Critically: the `GatewayClient` is currently the root `page.tsx`. Replacing it with a Server Component resolves the SSR gap in one move.
+Do not modify `getHamilton("pro")` to add mode-splitting until the existing `/pro/research` AnalystHub has been replaced or explicitly scoped to a mode. The implementation order must be: (1) define `HamiltonMode` and `MODE_BEHAVIOR` as a standalone `modes.ts` module (already stubbed), (2) create a new `getHamiltonForMode(mode: HamiltonMode)` function that is only called from the new 5-screen routes, (3) leave `getHamilton("pro")` untouched until the AnalystHub is superseded by the Analyze screen. Run the existing AnalystHub tests after any change to `agents.ts`.
 
 **Warning signs:**
-- Root `/` page still has `"use client"` at the top
-- Google Search Console shows `/` with no impressions or "Crawled - not indexed" status
-- `metadata` on root page is generic/incomplete
+- `getHamilton("pro")` signature changes to accept a mode parameter before new screen routes are built
+- `/pro/research/page.tsx` calling a mode-aware agent without passing a mode
+- Hamilton refusing to make a recommendation in the existing pro chat after a backend change
 
 **Phase to address:**
-Phase 1 of the milestone — consumer landing page redesign. This is the highest-leverage first move.
+Phase 4 (agent behavior) — create `getHamiltonForMode()` as a new function. Phase 5 (frontend) — wire it to new screen routes only. The existing `/pro/research` chat must continue working throughout.
 
 ---
 
-### Pitfall 3: Component Duplication Between Consumer and B2B Experiences
+### Pitfall 3: Monitor System Becomes a Log Viewer Instead of a Decision Surface
 
 **What goes wrong:**
-`/(public)/layout.tsx`, `/consumer/layout.tsx`, and `/pro/layout.tsx` all currently render `<CustomerNav />` and `<CustomerFooter />`. When the B2B experience gets distinct navigation (the milestone calls for "distinct navigation and layout"), the instinct is to create `ProNav` and `ProLayout` from scratch. Fee table components, index previews, and stat cards get duplicated with slight visual variations. After two or three phases, you have two separate component trees with the same business logic diverging.
+The `hamilton_signals` table stores normalized monitor events. The natural implementation stores every signal detected — fee changes, regulatory alerts, peer movements — as a raw row. The Monitor screen then renders a paginated feed of these rows. The result is a log viewer: chronological, undifferentiated, high volume, requiring the user to read and interpret every entry. This is exactly what the product architecture document calls out: "Remove or simplify — heavy trend widget, duplicate dashboard content, too many competing panels."
+
+Signal accumulation happens fast. If the monitor runs on 4,000+ institutions quarterly, a single cycle produces hundreds of signals. A feed of 200+ signals with no prioritization is noise, not intelligence.
 
 **Why it happens:**
-The consumer and B2B audiences have genuinely different needs, which makes diverging components feel justified in the moment. Each new page is built to look distinct, so the shared components get forked instead of parameterized.
+Storing all signals is the safe, complete approach. Displaying them in a feed is the obvious UI pattern. The work of prioritization — which signals actually matter to this user's institution, which override others, which should surface as a priority alert vs. a background signal — is ambiguous and gets deferred to "a future phase."
 
 **How to avoid:**
-Identify the abstraction boundary before writing the first new component: data/logic is shared, presentation is audience-specific. Components like `FeeIndexTable`, `InstitutionCard`, `PeerFilterPanel` should remain in `src/components/` and accept an optional `variant` prop or be composed differently at the layout level. Navigation (`ProNav`, `CustomerNav`) is legitimately distinct and should be separate files — but fee display components should not be duplicated.
+The prioritization logic is the product, not the storage. Build `hamilton_priority_alerts` as the primary display surface — only 1-3 alerts promoted to priority at any given time, with explicit `severity` and `status` fields. The signal feed is secondary and collapsible. Implement a simple scoring function in `monitor.ts` that takes institution context (the user's charter type, asset tier, fee categories they care about) and filters signals to the relevant ones before any are stored as priority alerts. A monitor screen with 3 high-priority alerts and a collapsed "12 background signals" is a decision surface. A feed of 200 rows is a log.
 
-Enforce a rule: if a component queries `crawler-db`, it lives in `src/components/` and is shared. If it only renders markup with a specific visual treatment, a variant prop or composition is correct.
+Cap the signal feed displayed to the 20 most recent by default with a "load more" control. Never render unbounded signal lists.
 
 **Warning signs:**
-- A `src/components/pro/` directory mirroring `src/components/public/` with near-identical components
-- `ProFeeTable.tsx` and `PublicFeeTable.tsx` both calling `getNationalIndex()`
-- More than two different implementations of the fee amount/percentile display pattern
+- `hamilton_signals` being queried with no LIMIT or severity filter on the Monitor page
+- Monitor screen showing more than 5 signals in the initial viewport without any prioritization indicator
+- `hamilton_priority_alerts` table exists but the Monitor screen displays `hamilton_signals` directly
 
 **Phase to address:**
-Before any new component is built for either audience. Establish the component boundary policy as a planning artifact.
+Phase 3 (data model) — `hamilton_priority_alerts` must have explicit status/severity fields and a FK to signals. Phase 5 (Monitor frontend) — build priority alert as the hero module; signal feed is secondary. The scoring/promotion logic should be defined before the Monitor screen is built.
 
 ---
 
-### Pitfall 4: Hamilton Agent Prompt Injection via Pro-Tier Access
+### Pitfall 4: Recharts SVGs Cannot Render Inside @react-pdf/renderer
 
 **What goes wrong:**
-The `fee-analyst` agent is gated at `requiredRole: "premium"`. A premium subscriber ($2,500/mo) can call `/api/research/fee-analyst` and inject prompts designed to extract admin-tier context (operations status, pending review counts, job queue state), since `fee-analyst` uses `{ ...publicTools, ...internalTools }` — the same tool set as `custom-query` which requires `admin`. The `opsContext()` function that injects operational data is only called in the analyst and custom-query system prompts, so the tools are scoped correctly, but `internalTools` likely expose DB access beyond what a paying subscriber should have visibility into.
+The Report screen requires charts in the PDF export (peer distribution histograms, scenario comparison visuals). Recharts renders SVG via React in the browser DOM. `@react-pdf/renderer` uses its own layout engine and cannot render React components that produce browser DOM SVGs — it renders a PDF document tree, not HTML. Attempting to pass a `<BarChart />` or `<ResponsiveContainer />` directly inside a `<Document>` or `<Page>` from `@react-pdf/renderer` will fail silently or throw at runtime.
 
-Additionally, the new "Expanded Hamilton for pro users" feature described in the milestone introduces a new surface: pro users generating peer briefs and competitive snapshots via the agent. If the new pro agent shares the same `agentId` namespace as admin agents, a pro user who discovers an admin `agentId` (e.g., `content-writer`) can call it directly against the API if only the UI is gated rather than the route.
+This is a known, documented limitation. The decision to use `@react-pdf/renderer` (not Puppeteer) was already made and is serverless-safe — but the chart rendering path was not resolved.
 
 **Why it happens:**
-Auth is implemented correctly at the role level for existing agents. The gap is that new pro-facing agents may be added without explicitly setting `requiredRole: "admin"` on admin-only agents that remain accessible by `agentId` through the API. UI-only gating is invisible to API callers.
+The Analyze screen and Simulate screen already use Recharts. The report builder naturally tries to embed the same charts in the PDF. The prop-passing API looks similar enough that the mistake isn't obvious until runtime.
 
 **How to avoid:**
-The API route already enforces `requiredRole` — this is the correct pattern. The risk is in the new agents: any new `agentId` added for pro users must have `requiresAuth: true` and `requiredRole: "premium"`. Admin agents (`content-writer`, `custom-query`) must be explicitly verified to have `requiredRole: "admin"` and tested that a session with `role: "premium"` returns 403.
+Charts in PDFs must be pre-rendered to PNG before PDF generation. Two viable paths:
+1. **Server-side: `canvas` + `chartjs-to-image` or a headless chart library** — generate a PNG buffer server-side from the chart data and embed it as `<Image src={pngBuffer} />` inside `@react-pdf/renderer`. This keeps the PDF generation entirely serverless.
+2. **Client-side: `html2canvas` on the Recharts container** — capture the rendered chart DOM as a PNG, upload or pass it to the PDF generation function. Requires the chart to be rendered in the browser first.
 
-Write one integration test per agent that verifies a premium user cannot access admin-only agents by `agentId`. This test should live in `src/lib/research/agents.test.ts` and run in CI.
+The server-side approach is cleaner for serverless. Use `@nivo/charts` or a Node-compatible chart-to-image library that doesn't require a DOM. Do not attempt to render Recharts inside the PDF renderer.
 
 **Warning signs:**
-- A new pro agent added to `agents.ts` without `requiredRole` set
-- Pro dashboard UI that passes `agentId` from URL params without validation
-- No test coverage on agent access control boundaries
+- A Recharts component imported inside a file that also imports `@react-pdf/renderer`
+- PDF generation failing silently and producing a blank chart area
+- Attempting to install `canvas` as a dependency in the Next.js project (it is a native module and will fail on Vercel's serverless edge unless explicitly configured)
 
 **Phase to address:**
-Any phase that adds or exposes new Hamilton agents to pro users.
+Phase 5 (Report frontend) — before any chart appears in the report design, establish and test the chart-to-PNG strategy. Do not start the PDF layout until this is resolved.
 
 ---
 
-### Pitfall 5: Report Generation Cost Controls Missing Per-User Budget
+### Pitfall 5: Editorial Design Migration Breaks Admin Pages via Shared CSS
 
 **What goes wrong:**
-The current `/api/research/[agentId]/route.ts` has a $50/day global circuit breaker (`DAILY_COST_LIMIT_CENTS = 5000`). The `/api/reports/generate/route.ts` has a dual-auth path (session cookie or cron secret) but no visible per-user daily generation limit. When pro users can trigger report generation on demand (peer briefs, annual summaries, competitive snapshots), a single premium user can exhaust the daily budget before other users have a chance to run reports.
+The new Hamilton Pro shell uses a warm parchment editorial aesthetic: Newsreader serif headings, no-border tonal layering, `#FAF7F2` background, `#C44B2E` terracotta accents. The admin design system uses Geist, gray cards with 1px borders, `bg-gray-50/80` table headers, and `.admin-card` CSS classes defined in `globals.css`.
 
-The per-user query limit in `getResearchQueryLimit()` (50/day for premium) applies to the streaming agent endpoint but there is no confirmation this applies to the report generation path, which uses a separate route.
+If the new Hamilton shell introduces new CSS custom properties or modifies existing `globals.css` variables to support the editorial design, those changes will leak into admin pages. The `globals.css` file is shared — a change to `--color-background` or the base `body` styles affects every page. The admin's `.admin-card`, `.skeleton`, and dark mode overrides are already fragile; they rely on cascading behavior that new base-level changes will disrupt.
 
 **Why it happens:**
-Report generation was originally admin-initiated (cron-triggered). Adding user-initiated report generation on the pro tier introduces a new cost surface that the existing admin-centric limits don't cover. The cost of a Claude-generated McKinsey-grade report is $5-10 per the PROJECT.md constraints — 10 premium users each triggering 5 reports in a day = $250-500 in API costs, well above the daily circuit breaker.
+The instinct is to define the editorial design system at the `:root` level in `globals.css` as CSS custom properties and then use them in Hamilton components. This feels clean but makes the new design global.
 
 **How to avoid:**
-Add per-user report generation limits tracked in the database. A `report_generation_events` table (user_id, generated_at, report_type, cost_cents) with a daily query against it at generation time. The limit should be separate from the streaming agent limit: suggest 3-5 reports/day per premium user, 20/day for admin/analyst.
+Scope all Hamilton Pro editorial CSS under a `.hamilton-shell` parent class or a route group layout that applies that class to the root div. Never modify `:root` CSS variables for Hamilton-specific colors. Newsreader font should be declared via a scoped `font-family` on the `HamiltonShell` component, not as a `body` override in `globals.css`. The warm color tokens (`--hamilton-bg`, `--hamilton-accent`, `--hamilton-text`) should be custom properties defined on `.hamilton-shell {}` — they will cascade to all Hamilton child components without polluting admin scope.
 
-Also: the freshness gate in `checkFreshness()` is the existing guard against redundant generation — verify it also blocks per-user rapid re-generation, not just global data-freshness checks.
+Test: toggle between `/admin/market` and `/hamilton/home` without a page reload; neither page should look visually broken.
 
 **Warning signs:**
-- `/api/reports/generate` route does not query a per-user daily count before enqueuing
-- Premium users can call the generate endpoint in a loop without 429s
-- No per-user report count visible in the admin ops dashboard
+- New `--color-*` variables added to `:root` in `globals.css` for Hamilton-specific colors
+- `body { font-family: var(--font-newsreader) }` added anywhere in `globals.css`
+- Admin table headers changing background color after Hamilton CSS is added
 
 **Phase to address:**
-Phase that implements pro-user report generation (expanded Hamilton). Cannot ship to pro users without this.
+Phase 1 (architecture cleanup) — establish `.hamilton-shell` as the CSS isolation boundary before any editorial styles are written. Phase 5 (frontend build) — verify admin pages in CI after Hamilton CSS additions.
 
 ---
 
-### Pitfall 6: Dark Mode Breaks on Consumer Pages That Skip Admin CSS Classes
+### Pitfall 6: Left Rail + Floating Chat Forces "use client" Up the Component Tree
 
 **What goes wrong:**
-The dark mode implementation uses a `.dark` class on the document root, with CSS overrides in `globals.css` targeting `.dark .admin-card`, `.dark .admin-table`, `.dark .admin-content .bg-white`, etc. The admin UI uses semantic CSS class names that are explicitly handled. Consumer pages use inline Tailwind with hardcoded color tokens (`bg-[#FAF7F2]`, `text-[#1A1815]`, `border-[#E8DFD1]`). These arbitrary values have no `.dark` override rules.
+The left rail requires `usePathname()` to highlight the active screen (the existing `AdminNav` and `ProNav` are already "use client" for this reason). The floating chat overlay requires state (`isOpen`, `messages`, streaming response) and hooks from `@ai-sdk/react`. If both are placed in the `HamiltonShell` layout component, the layout must be a client component. Making the layout a client component forces every child page that is currently a Server Component to either (a) lose server-rendering benefits, or (b) be passed as `{children}` to the client shell — which Next.js App Router supports, but only if the page itself is not also trying to be a client component.
 
-When the dark mode toggle (which reads from `localStorage: 'bfi-theme'`) is applied globally and a user navigates from admin to the consumer section, or when the new B2B launchpad dashboard uses the same dark mode toggle, consumer pages will not respond — they'll remain cream/warm-white (#FAF7F2) regardless of the toggle state.
+The existing pro layout (`src/app/pro/layout.tsx`) is a Server Component that wraps `ProNav` (client) via composition. This pattern works. The risk is abandoning it when the Hamilton shell feels "more interactive" and deserves to be fully client-side.
 
 **Why it happens:**
-Dark mode was implemented exclusively for the admin interface. Consumer pages were designed as light-only. The milestone creates a B2B dashboard that may want dark mode (or at minimum must coexist with the toggle), and consumer pages may receive dark mode as a new feature.
+The Hamilton shell has multiple interactive concerns (nav, chat, context bar). The path of least resistance is `"use client"` at the shell level. Once the shell is a client component, all data fetching for the initial page state must move to client-side `useEffect` calls or API fetches, losing server-rendering and increasing TTFB.
 
 **How to avoid:**
-Make an explicit decision at the start of the milestone: does dark mode apply to consumer pages or only admin? If consumer pages are intentionally light-only, the `DarkModeToggle` component must not be rendered in `CustomerNav` or any consumer layout. If dark mode is desired for consumer pages, all hardcoded `#FAF7F2`/`#1A1815` color values must be converted to CSS custom properties or Tailwind's `dark:` variant equivalents.
-
-Do not silently inherit the admin dark mode toggle on layouts that have no dark mode support. The result is a partially-inverted page that looks broken.
+Keep `HamiltonShell` as a Server Component. Isolate interactive sub-components: `HamiltonLeftRail` is a client component for `usePathname()`; `FloatingChatOverlay` is a client component for chat state. Both are passed as props or rendered as siblings inside the server shell — Next.js App Router explicitly supports this pattern ("passing client components as children of server components"). The screen-specific page content remains server-rendered. The server component passes static data (institution name, initial thesis, alert count) to the client overlay as props — no client-side data fetching for initial state.
 
 **Warning signs:**
-- `DarkModeToggle` appearing in `CustomerNav` or `ProNav` before dark mode CSS is implemented for consumer pages
-- Consumer pages showing white headers but cream-colored body sections after dark mode activation
-- `localStorage` key `bfi-theme` being read in consumer layout components
+- `HamiltonShell` or the route group layout has `"use client"` at the top
+- Hamilton screen pages calling `useEffect` to fetch data that could be server-side
+- TTFB increasing on Hamilton pages relative to existing pro pages after the shell is built
 
 **Phase to address:**
-Any phase that modifies `CustomerNav` or creates the new B2B layout. Decide and document the dark mode scope boundary before building.
+Phase 5 (frontend shell) — establish the server/client boundary in `HamiltonShell` before building any screen. Revisit the `ProLayout` server component pattern as the template.
 
 ---
 
-### Pitfall 7: "While We're At It" Scope Creep From Parallel Redesign Impulses
+### Pitfall 7: The "One API Response Per Screen" Contract Gets Abandoned Under Time Pressure
 
 **What goes wrong:**
-Adding audience segmentation requires touching nearly every shared component and layout. Each touch point creates an opportunity to "improve" the existing design while you're in there — upgrading the fee table, adding a chart, redesigning the institution card, cleaning up the nav. These improvements are each individually sensible but collectively blow the milestone scope. Three phases in, the consumer redesign is half-done, three unrelated components have been redesigned, and the B2B dashboard hasn't been started.
+The API and agent contracts document defines distinct response shapes per screen: `AnalyzeResponse`, `SimulationResponse`, `ReportSummaryResponse`, `MonitorResponse`. These are meaningfully different — Analyze has `confidence.level`, Simulate has `deltas`, Report has no inputs. Under implementation time pressure, the temptation is to route all five screens through the existing generic streaming chat endpoint (`/api/research/[agentId]`) and let the agent produce free-form markdown. This works for the Analyze screen (exploration, free-form is acceptable) but is wrong for Simulate (structured percentile/delta output), Report (export-ready artifact), and Monitor (status + signal feed).
 
-This project's history shows the pattern: v4.x "Report Design" grew to include v4.2 template deployment. Good impulses expand scope.
+The existing `AnalystHub` already demonstrates this failure mode: it uses streaming markdown and post-processes it with `extractMetrics()` and `extractChartData()` to recover structure from free-form text. This is brittle. A Report that relies on markdown parsing to find "Executive Summary" headings will break when Hamilton uses a slightly different heading format.
 
 **Why it happens:**
-The redesign creates justified context for improvement. When a developer is modifying `CustomerNav` for the B2B layout, it's natural to also fix the mobile breakpoint, add the dark mode toggle, update the icon library, and swap out the font weight. Each change takes minutes; together they take days and introduce regressions.
+The streaming chat endpoint already works. Building structured JSON endpoints for each screen is additional backend work. Teams ship the easy path first and intend to "add structure later" — but later never comes because the screens appear to work.
 
 **How to avoid:**
-Define each phase with a strict output contract: what files are allowed to change, what the deliverable looks like. A phase that changes `CustomerNav` for B2B routing should not also change the nav's visual design for consumer pages. Capture improvement ideas in a `BACKLOG.md` during execution to drain the "while we're at it" impulse without acting on it.
-
-The test: if a change is not required for the phase's stated deliverable, it belongs in a future phase.
+Define typed response interfaces in `src/lib/hamilton/types.ts` before any screen is built (already in the backlog as Phase 3). Simulate and Report endpoints must return JSON, not streaming markdown. Analyze can remain streaming (it is an exploration surface). Monitor can be a JSON snapshot endpoint. Create separate API routes: `/api/hamilton/simulate` (POST, returns `SimulationResponse`), `/api/hamilton/report-summary` (POST, returns `ReportSummaryResponse`), `/api/hamilton/monitor` (GET, returns `MonitorResponse`). The streaming endpoint stays for Analyze and the floating chat.
 
 **Warning signs:**
-- A PR modifying more than 5 files that were not named in the phase plan
-- Component changes that affect the consumer experience during a "B2B dashboard" phase
-- Admin pages being restyled during a consumer redesign phase
+- Simulate screen parsing `interpretation` out of streaming markdown text
+- Report summary generated by asking Hamilton to "write an executive summary" in chat format
+- `extractMetrics()` or `extractTableData()` being called on Simulate or Report responses
 
 **Phase to address:**
-Every phase. This is a process discipline, not a technical fix. The phase plan should name specific files that are in scope.
+Phase 3 (backend types) — define all response types. Phase 4 (agent behavior) — build screen-specific response builders, not markdown parsers. This must be established before any Phase 5 screen is built.
 
 ---
 
-### Pitfall 8: Breaking Existing Admin Bookmarks and Deep Links
+### Pitfall 8: Scenario Archive and Saved Analyses Grow Without Garbage Collection
 
 **What goes wrong:**
-Admin users have bookmarked `/admin/hamilton/research/[agentId]`, `/admin/fees/catalog`, `/admin/market`, etc. The existing `/admin/*` structure is stable. If the B2B launchpad is implemented by moving or aliasing admin routes (e.g., pointing `/pro/research` at admin Hamilton, or redirecting `/pro/market` to `/admin/market`), the URL surfaces multiply and existing bookmarks risk breaking.
+`hamilton_scenarios` and `hamilton_saved_analyses` are write-only tables in the current schema stub — there is no `deleted_at` column, no archive status, no TTL. A pro user running 10 simulations per session accumulates hundreds of rows quickly. The Simulate screen's scenario archive panel (Phase 6) loads "compare scenarios" from the DB. Without pagination or a row limit, the archive query becomes a full table scan against the user's entire scenario history. At 1,000 scenarios per active user this is still manageable, but the UI becomes unusable before the database becomes a bottleneck.
 
-The `/admin/hamilton/` subtree is the production Hamilton interface. The `/pro/research/page.tsx` and `/admin/research/[agentId]` are different surfaces. If pro users are given access to expanded Hamilton, the instinct may be to reuse admin routes — which exposes admin-only features to pro users if the auth check is missed.
-
-**Why it happens:**
-Code reuse is correct; the risk is in how reuse is implemented. Sharing a route between admin and pro users by checking `user.role` in the page component is easy to get wrong. A missed conditional or a server-side rendering shortcut can expose admin data to pro users.
-
-**How to avoid:**
-Admin routes (`/admin/*`) must never be reachable by non-admin sessions. The `admin/layout.tsx` already enforces this with `getCurrentUser()` + role redirect. New pro-facing Hamilton pages must be implemented as new routes under `/pro/` that call the same underlying API endpoints with appropriate `agentId` values. The API layer (already correct) is the enforcement boundary — pages just need to not expose admin UI elements.
-
-Never redirect pro users into `/admin/*`. Build distinct pro pages that call shared API endpoints.
-
-**Warning signs:**
-- `/pro/research/[agentId]` rendering admin UI elements (review queue, ops status, pipeline monitor)
-- Any `redirect('/admin/...')` in pro page code
-- A pro session that can navigate to `/admin/hamilton/` without being redirected
-
-**Phase to address:**
-Phase that builds the B2B launchpad and expanded Hamilton for pro users.
-
----
-
-### Pitfall 9: Over-Engineering Personalization Before Data Exists
-
-**What goes wrong:**
-The milestone calls for "B2B personalization: institution-specific Call Reports, district Beige Book, competitive landscape on login." This is the most complex feature in the milestone and requires knowing the user's institution before showing personalized data. The current auth model (`getCurrentUser()`) returns role/subscription but no institution affiliation. Building the personalization infrastructure — user-to-institution linking, preference storage, personalized query paths — is a multi-phase effort that can consume the entire milestone if started too early.
+More critically: the `hamilton_reports` table stores `report_json JSONB` which contains the full structured report content. A McKinsey-grade report with charts and data can be 50-100KB of JSON. At 20 reports per user, this is 1-2MB of JSONB per user in the reports table — again manageable individually, but a risk at scale and a performance issue if reports are fetched without column projection.
 
 **Why it happens:**
-Personalization is the highest-value B2B feature and gets prioritized accordingly. The problem is it has a dependency chain: user must have an institution affiliation → institution must be in the DB → personalized queries must be written → UI must display them. Each step takes longer than estimated.
+MVP data models omit soft-delete and pagination because they are not needed at zero users. Adding them retroactively requires a migration and query changes.
 
 **How to avoid:**
-Decouple personalization from the B2B dashboard launch. The B2B launchpad can launch with non-personalized views (national index, peer builder, Hamilton, reports) — these are immediately valuable without personalization. Personalization (institution-scoped dashboard, district defaulting) should be a separate phase or a phase-2 enhancement.
-
-The minimum viable B2B dashboard does not require personalization. Ship the four doors (Hamilton, Peer Builder, Reports, Federal Data) without personalization first.
+Add `status TEXT NOT NULL DEFAULT 'active'` and `deleted_at TIMESTAMPTZ` to `hamilton_scenarios` and `hamilton_saved_analyses` in the initial schema. Add a LIMIT to every archive query (default: 20, max: 100 via URL param). For `hamilton_reports`, never SELECT `report_json` in list queries — project only `id, title, report_type, created_at, exported_at`. Fetch `report_json` only when viewing a specific report.
 
 **Warning signs:**
-- Database schema changes for user-institution linking in the same phase as B2B UI work
-- More than 2 new DB columns added to the `users` table for personalization preferences
-- A phase that cannot be considered "done" until personalization is working
+- SQL schema missing `deleted_at` or `status` columns on scenario/analysis tables
+- Archive query with no `LIMIT` clause
+- Reports list query that includes `SELECT *` or `SELECT report_json`
 
 **Phase to address:**
-Address this as a planning constraint when defining the B2B dashboard phase. Personalization is a stretch goal, not a launch requirement.
+Phase 3 (data model) — add these fields to the schema stub before the tables are created. Do not ship `sql-schema.sql` to production without soft-delete and list-query projections.
 
 ---
 
@@ -229,12 +202,13 @@ Address this as a planning constraint when defining the B2B dashboard phase. Per
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Hardcoded hex colors in consumer pages (`#FAF7F2`, `#1A1815`) instead of CSS variables | Fast to write, no abstraction needed | Impossible to theme or dark-mode without a full search-and-replace | Only acceptable if consumer is permanently light-only and both team members know it |
-| Reusing `CustomerNav` for both consumer and B2B by adding conditionals | Avoids creating a second nav component | The nav grows conditionals for every audience difference; becomes unmaintainable after 3 additions | Never for more than 1-2 minor differences; create `ProNav` when B2B nav diverges meaningfully |
-| Checking `user.role` inside page components for feature gating | Quick to implement | Business logic leaks into presentation layer; access rules scattered across components | Acceptable for one-off page-level redirects; not acceptable for recurring feature access checks (use `access.ts` helpers) |
-| Sharing `/admin/hamilton/` URL with pro users via a shared layout | One implementation | Exposes admin UI to pro users; breaks the admin/pro separation contract | Never |
-| Skipping per-user rate limits on report generation at launch | Faster to ship | A single aggressive user can exhaust daily Claude budget | Acceptable only with a manually-enforced user whitelist during beta; must be automated before open enrollment |
-| Agent module caching (`_agents` singleton) persists across hot reloads | Faster agent resolution | Stale prompts survive dev server restarts; hard to debug prompt changes | Acceptable in production; must be cleared during development prompt iteration |
+| Computing percentiles against all fee data without a confidence tier | Simulation screen works with sparse data | User trusts a "73rd percentile" built on 6 data points; wrong pricing decision | Never — always expose the observation count and maturity tier |
+| Routing all Hamilton screens through the generic streaming chat endpoint | Fast to build — Analyze pattern already exists | Simulate and Report produce unparseable free-form text; no typed response contract | Only for Analyze (exploration) and the floating chat; never for Simulate, Report, or Monitor |
+| Putting `"use client"` on `HamiltonShell` layout to simplify interactive concerns | Simpler component model | All child pages lose server rendering; data fetching moves to client-side useEffect; TTFB degrades | Never for the layout; acceptable for isolated interactive children (rail, chat overlay) |
+| Skipping soft-delete on scenario tables at launch | Faster schema, no migration needed | Archive queries become unbounded; cannot undo accidental deletes | Only acceptable with a manual DELETE policy and a hard row-count ceiling per user |
+| Defining Hamilton Pro editorial colors in `:root` CSS variables | Clean global design system | Admin pages inherit wrong colors; dark mode behavior changes unexpectedly | Never — scope to `.hamilton-shell` |
+| Reusing `getHamilton("pro")` for mode-specific behavior via a `mode` parameter | One function, less code | Breaks existing AnalystHub chat; mode behavior leaks across screens | Never while AnalystHub is still in use |
+| Using `html2canvas` to capture Recharts for PDF | No new dependencies | Requires charts to be DOM-rendered first; unreliable on server; produces blurry captures at 1x resolution | Only acceptable as a client-side fallback; not for server-side PDF generation |
 
 ---
 
@@ -242,12 +216,12 @@ Address this as a planning constraint when defining the B2B dashboard phase. Per
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Stripe subscription + Hamilton access | Checking `subscription_status === 'active'` in page components directly instead of `canAccessPremium()` | Always use the `canAccessPremium(user)` helper from `src/lib/access.ts`; it handles `admin`/`analyst` roles correctly |
-| Vercel AI SDK streaming in new pro pages | Creating a new streaming endpoint per pro page instead of reusing `/api/research/[agentId]` | The agent API is parameterized by `agentId`; add new agent configs to `agents.ts` and reuse the existing route |
-| Next.js metadata in new audience layouts | Forgetting `template: "%s | Bank Fee Index"` in segment layout metadata | Copy the metadata export from `consumer/layout.tsx` as the template for all new audience layouts |
-| `searchParams` in consumer pages | Treating `searchParams` as synchronous (it is a Promise in Next.js 16 App Router) | Always `await searchParams` — this is already correct in the codebase but easy to miss in new pages |
-| Tailwind v4 in new components | Using Tailwind v3 `dark:` variant syntax that conflicts with the custom `@custom-variant dark` definition in `globals.css` | Use the `.dark` class override pattern in `globals.css` for admin pages; use `dark:` Tailwind variant only if explicitly supported in the consumer CSS setup |
-| Report generation freshness gate | Treating `checkFreshness()` as a per-user limit when it is a global data-freshness check | Freshness gate prevents redundant generation when data hasn't changed; it does not prevent the same user from generating multiple reports; add explicit per-user limits separately |
+| `@react-pdf/renderer` + Recharts | Passing a `<BarChart>` inside a `<Document>` | Pre-render charts to PNG server-side using a Node-compatible chart library; embed as `<Image>` in the PDF |
+| Vercel AI SDK streaming + mode-specific responses | Using `streamText` for all Hamilton responses including Simulate and Report | Use `streamText` for Analyze and floating chat; use a direct `anthropic.messages.create()` call with `response_format: json_object` for Simulate and Report endpoints |
+| Next.js App Router route groups + new Hamilton shell | Creating `src/app/(hamilton)/` route group that collides with existing `/pro/` routes | Confirm route group naming does not shadow existing `/pro/research` and `/pro/` paths; test that existing pro routes still resolve |
+| `hamilton_scenarios` UUID primary key + existing `users` table integer ID | Foreign key type mismatch — scenarios use `user_id INTEGER` but Postgres UUID tables expect UUID FK | Verify `users.id` is integer (it is, per MEMORY.md); `user_id INTEGER NOT NULL` is correct — do not add a UUID FK by mistake |
+| Monitor signals + quarterly crawl cadence | Building the signal detection logic assuming real-time data | Signals are batch-generated post-crawl; design the monitor as a snapshot view (last run) not a live feed; no WebSocket or polling needed |
+| @react-pdf/renderer on Vercel serverless | Installing `canvas` native module expecting it to work | Vercel serverless does not support arbitrary native modules; use `@vercel/og` image generation or a pure-JS PDF approach; test PDF generation in the Vercel build environment explicitly |
 
 ---
 
@@ -255,10 +229,11 @@ Address this as a planning constraint when defining the B2B dashboard phase. Per
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| `getNationalIndexCached()` called in multiple Server Components on the same page load | Multiple DB round-trips for the same data; slow TTFB on consumer pages | Fetch once at the page (Server Component) level and pass as props to child components | Day 1 if consumer home and B2B home both call it independently in the same layout |
-| `force-dynamic` on consumer pages that could be ISR | Every page request hits the DB; Vercel Edge gets no cache benefit | Remove `force-dynamic` from consumer pages and use `revalidate` with an appropriate interval; use `next/headers` only where needed | At scale; not visible in development |
-| Agent module singleton `_agents` not reset on env var changes | New agent configs or model overrides don't take effect until server restart | Clear `_agents = null` in development; document that `BFI_MODEL_*` env var changes require a server restart in production | Every time a model is changed in production without a redeploy |
-| Pro dashboard rendering all 49 fee categories server-side on every load | Slow initial page load for B2B users; large HTML payload | Fetch only featured (15) categories initially; use `?show=all` pattern already established elsewhere | If the pro dashboard shows more than 20 categories in the initial render |
+| Loading all 49 fee categories for every Simulate query | Slow response building the peer distribution for simulation | Scope simulation queries to the single `fee_category` being simulated; fetch the full 49-category index only on the Home screen initial load | First simulation request |
+| `hamilton_signals` queried without user scoping | Monitor page slow for all users because it queries the full signals table | Always filter by watchlist `institution_ids` and `fee_categories` from `hamilton_watchlists` for the current user | When signal count exceeds 1,000 rows |
+| Floating chat streaming during heavy Simulate computation | Page freezes while simulation endpoint and chat stream fire simultaneously | Disable the floating chat input while a Simulate API call is in-flight; streaming and JSON endpoints use separate fetch lifecycle | Immediately on first simultaneous use |
+| PDF generation blocking the API response | `/api/hamilton/report-summary` times out on Vercel's 10-second serverless function limit if PDF is generated inline | Generate the report JSON first (fast); trigger PDF rendering as a separate async step or client-side; do not block the API response on PDF generation | First large report with charts |
+| `response_json JSONB` in `hamilton_reports` selected in list queries | Reports list page loads full JSON payload for every report in the list | Always use `SELECT id, title, report_type, created_at, exported_at FROM hamilton_reports WHERE user_id = $1 LIMIT 20` for list views | When a user has 5+ reports |
 
 ---
 
@@ -266,10 +241,10 @@ Address this as a planning constraint when defining the B2B dashboard phase. Per
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Adding a new pro agent to `agents.ts` with `requiresAuth: false` by mistake | Any unauthenticated user can call the pro-tier agent with internal tools exposed | Every agent with `internalTools` in its tool set must have `requiresAuth: true`; add a startup assertion that validates this invariant |
-| Pro page that reads `agentId` from URL query params without validating against the known agent list | User crafts URL to call `content-writer` or `custom-query` (admin-only agents) | Call `getAgent(agentId)` and check `agent.requiredRole` in the page component before rendering the chat UI; the API route already enforces this but the UI should not offer false hope |
-| Report generation endpoint accepting `user_id` in the request body | Attacker generates reports attributed to another user's quota | `user_id` must come from `getCurrentUser()` server-side only; never from the request body |
-| Cookie named `fsh_session` (legacy name) accepted alongside a new renamed cookie | Session fixation if both cookie names are valid simultaneously | Keep `fsh_session` as the sole cookie name per the MEMORY.md note; do not add a second auth cookie for the pro experience |
+| `institution_id TEXT NOT NULL` in scenario tables taken from request body | User saves scenarios attributed to any institution, not their own | `institution_id` must come from `users.institution_name` or a verified user profile field server-side — never from the POST body |
+| Hamilton mode passed as a URL query param to the agent API | User crafts `?mode=simulate` to bypass the `canRecommend: false` constraint on analyze mode | Mode must be determined server-side from the route (the screen the API call originates from), not from a client-supplied parameter |
+| PDF export endpoint with no auth check | Unauthenticated requests trigger Claude API calls for report generation | `/api/hamilton/export-pdf` must call `getCurrentUser()` and verify `canAccessPremium()` before any PDF work begins |
+| `hamilton_saved_analyses` visible across users | User queries analyses saved by another institution | Every query against Hamilton tables must include `WHERE user_id = $1` with the ID from `getCurrentUser()` — never trust a `user_id` in the request body |
 
 ---
 
@@ -277,24 +252,25 @@ Address this as a planning constraint when defining the B2B dashboard phase. Per
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Split-panel gateway at `/` asks consumers to self-identify before seeing value | High bounce rate; users who arrived from search don't understand why they need to choose | Replace with a value-first consumer landing page; B2B entry is a secondary nav action |
-| Pro dashboard shows "Subscribe" CTA to a user who is already subscribed | Undermines trust in the platform; makes the user feel unrecognized | Check `canAccessPremium(user)` server-side and show the actual dashboard, not the marketing page; `pro/page.tsx` already does this correctly but must be maintained through the redesign |
-| Institution pages designed only for consumers show "premium" benchmarking features as blurred/locked | B2B users visiting institution pages from research workflows hit friction on features they've paid for | Access checks on institution pages must respect `canAccessPremium(user)`; blurring should only appear for truly unauthenticated visitors |
-| Consumer "Find Your Bank" flow deposits users in `/institutions` (unbranded list) instead of a guided experience | Drop-off after the CTA click; page doesn't feel like a continuation of the consumer promise | Institution search should be the consumer experience front door, not a raw list; at minimum, preserve consumer nav context on this page |
-| B2B launchpad "four doors" presented as equal options when Hamilton is the primary differentiator | Users don't know where to start; the most valuable feature is buried | Hamilton should be the hero action on the B2B dashboard, not one of four equal tiles |
+| Simulate screen shows a percentile with no confidence indicator | User treats a "72nd percentile" built on 9 provisional data points as authoritative; makes a pricing decision on bad data | Always show observation count and maturity tier inline: "72nd percentile — provisional (23 observations)" |
+| Report screen has an input or slider | Breaks the "Report is read-only and export-first" contract from the product architecture; user tries to re-run analysis from the report view | Report screen must have zero input controls; all configuration happens in Simulate or Analyze; Report is a static artifact |
+| Monitor feed shows 50+ signals on initial load | User scans a log, not an intelligence feed; signal value approaches zero | Maximum 3 priority alerts in the hero position; signal feed starts collapsed or capped at 5 visible rows; a "view all signals" expansion is secondary |
+| Floating chat visible on the Report screen | User tries to explore analysis via chat from within the export view; chat state is lost when the tab closes | Float chat should be dismissed or hidden on the Report screen; Report is a communication artifact, not an exploration surface |
+| Left rail navigation does not indicate which screen the user is on | User loses orientation in a multi-screen workflow | Active screen state in the left rail must be driven by the current route (`usePathname()`), not by client state; deep links must produce the correct active state |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Consumer landing page redesign:** Verify the root `/` renders as a Server Component (no `"use client"` at file top) and that `metadata.description` is consumer-specific and SEO-optimized.
-- [ ] **B2B launchpad:** Verify a session with `role: "premium"` and `subscription_status: "active"` sees the dashboard, not the marketing page. Verify `role: "viewer"` sees a paywall, not a 500.
-- [ ] **Hamilton pro access:** Verify that a premium user calling `/api/research/content-writer` gets a 403, not a 200. Verify that `fee-analyst` returns a 200 for premium users.
-- [ ] **Report generation limits:** Verify a premium user who calls `/api/reports/generate` 10 times in a row gets rate-limited before the 6th call (or whatever the daily limit is set to).
-- [ ] **Dark mode scope:** Verify that the `DarkModeToggle` is not present in `CustomerNav` or consumer layouts until dark mode CSS for those pages is implemented. Verify that toggling dark mode on an admin page and then navigating to a consumer page does not produce a broken visual state.
-- [ ] **Sitemap integrity:** Verify `sitemap.ts` contains no `/consumer/` or `/pro/` prefix on URLs that previously existed without those prefixes.
-- [ ] **No duplicate fee data routes:** Run `find src/app -name "page.tsx" | xargs grep -l "getNationalIndex\|getPeerIndex"` and verify consumer and B2B pages are not independently fetching the same data with no shared cache.
-- [ ] **Pro nav does not expose admin routes:** Verify that the B2B navigation contains no links to `/admin/*` routes.
+- [ ] **Simulation screen:** Verify `SimulationResponse` includes `confidenceTier` field and that the UI renders it. Verify a fee category with fewer than 10 total observations shows "insufficient" maturity, not a numeric percentile.
+- [ ] **Agent mode split:** Verify `/pro/research` (AnalystHub) still works after `getHamiltonForMode()` is added to `agents.ts`. Run the existing streaming chat test with `agentId: "hamilton"`.
+- [ ] **PDF export:** Verify PDF generation works in a Vercel-simulated environment (`vercel dev`), not just locally. Verify charts appear in the PDF as images, not blank spaces.
+- [ ] **Monitor screen:** Verify the signal feed is scoped to the user's watchlist institutions and fee categories — not the full `hamilton_signals` table. Verify `hamilton_priority_alerts` is the primary display surface with `hamilton_signals` secondary.
+- [ ] **Hamilton shell CSS isolation:** Toggle between `/admin/market` and a Hamilton screen; verify admin table styles are unchanged. Verify Newsreader font does not appear in admin pages.
+- [ ] **Left rail as server component:** Verify `HamiltonShell` does not have `"use client"` at the top. Verify Hamilton screen pages respond to `curl` with populated HTML (server-rendered).
+- [ ] **Structured endpoints:** Verify `/api/hamilton/simulate` returns typed JSON, not streaming markdown. Verify the response parses cleanly as `SimulationResponse`.
+- [ ] **Scenario soft-delete:** Verify `hamilton_scenarios` and `hamilton_saved_analyses` tables have `deleted_at` column before any data is written to production.
+- [ ] **Report list query:** Verify the reports list endpoint does NOT select `report_json`. Verify individual report fetch DOES select `report_json`.
 
 ---
 
@@ -302,12 +278,12 @@ Address this as a planning constraint when defining the B2B dashboard phase. Per
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| SEO regression from URL restructuring | HIGH | Audit Google Search Console for 404s; set up 301 redirects from new URLs to canonical; resubmit sitemap; wait 4-8 weeks for reindex |
-| Component duplication discovered mid-milestone | MEDIUM | Identify the canonical component; merge logic; use a prop or composition to handle variant differences; update all callsites in one PR |
-| Hamilton agent security gap (wrong `requiredRole`) | MEDIUM | Hotfix: add `requiredRole: "admin"` to affected agents immediately; audit access logs for unauthorized calls; notify affected users if sensitive data was exposed |
-| Report generation cost overrun | LOW-MEDIUM | Disable user-triggered report generation temporarily; add per-user daily limit; monitor `report_jobs` table for volume; re-enable with limits in place |
-| Dark mode breaks consumer pages | LOW | Scope toggle to admin-only by removing `DarkModeToggle` from `CustomerNav`; restore consumer page visual integrity; dark mode for consumer is a future phase |
-| Scope creep has consumed the milestone | HIGH | Cut scope to the minimum: consumer landing + B2B launchpad only; defer personalization, expanded Hamilton, and consumer guide integration to the next milestone |
+| Simulation percentiles shipped without confidence tier | MEDIUM | Add `confidenceTier` to `SimulationResponse` type; update simulation engine to return it; add UI indicator; existing saved scenarios will lack the field — handle with a default of "unknown" until re-run |
+| Agent mode split breaks existing AnalystHub | LOW | Revert `getHamilton("pro")` to its pre-change state; move mode-specific logic to `getHamiltonForMode()` only; the streaming endpoint is stateless so no data migration needed |
+| Monitor is a log viewer (100+ signals displayed) | MEDIUM | Add severity filter and LIMIT to signal query; implement priority alert promotion logic; retrospectively mark existing signals with severity scores; cap UI to 20 rows |
+| PDF charts are blank in production | MEDIUM | Identify if failure is native module (`canvas`) or renderer incompatibility; switch to a pure-JS chart-to-image library; if using client-side `html2canvas`, implement as a client-initiated download instead of server-generated file |
+| Hamilton CSS leaks into admin pages | LOW | Wrap all Hamilton-specific CSS under `.hamilton-shell` selector; test admin pages; a CSS scoping change is surgical and low-risk |
+| Structured endpoint contract abandoned mid-build | HIGH | Requires retrofitting Simulate and Report screens to consume typed JSON; free-form markdown parsers are brittle and must be replaced; the later this is caught, the more screen-level rework is needed |
 
 ---
 
@@ -315,30 +291,32 @@ Address this as a planning constraint when defining the B2B dashboard phase. Per
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| SEO regression from route restructuring | Phase 1 (consumer landing redesign) — establish no-URL-changes contract | `sitemap.ts` output before and after phase must be identical for existing URLs |
-| Split-panel gateway | Phase 1 — replace with Server Component consumer landing | Root `/` responds to `curl` with indexable HTML content |
-| Component duplication | Pre-phase planning — define component boundary policy | No new components in `src/components/pro/` that mirror `src/components/public/` |
-| Hamilton pro agent security gap | Phase that adds pro Hamilton access | `npm test` includes agent access control tests covering premium vs admin boundaries |
-| Report generation cost overrun | Phase that enables pro-user report generation | Load test: 10 concurrent premium users cannot exceed configured daily per-user limit |
-| Dark mode scope confusion | Phase 1 or any phase touching `CustomerNav` | `DarkModeToggle` not present in consumer layout until dark mode CSS is implemented |
-| Scope creep | Every phase — enforced at planning time | Phase plan names specific files in scope; PR review checks for out-of-scope changes |
-| Admin bookmark breakage | B2B launchpad phase | Manual test: existing admin bookmarks (`/admin/hamilton/`, `/admin/market`, `/admin/fees/catalog`) resolve correctly after phase |
-| Personalization over-engineering | B2B launchpad phase — explicitly defer | B2B dashboard ships with no user-institution linking in DB schema |
+| Simulation percentiles without confidence tier | Phase 3 (types) — add `confidenceTier` to `SimulationResponse` before engine is built | Simulate screen with a low-data fee category shows "insufficient" maturity label |
+| Agent mode split breaking existing chat | Phase 4 (agent behavior) — create `getHamiltonForMode()` as additive, not destructive | Existing `/pro/research` AnalystHub passes streaming chat test after Phase 4 |
+| Monitor complexity creep | Phase 3 (data model) + Phase 5 (Monitor frontend) — priority alerts as hero, signal feed secondary | Monitor screen initial load shows max 3 priority alerts; signal feed is collapsed by default |
+| Recharts in PDF renderer | Phase 5 (Report frontend) — chart-to-PNG strategy resolved before any chart in PDF layout | PDF export contains chart images (not blank) in a Vercel-simulated environment |
+| Editorial CSS leaking into admin | Phase 1 (architecture cleanup) — `.hamilton-shell` CSS isolation established | `/admin/market` table styles unchanged after Hamilton CSS is added |
+| Client component bloat in shell | Phase 5 (shell) — `HamiltonShell` stays server component | `curl` on Hamilton screen URLs returns populated HTML; `HamiltonShell` has no `"use client"` |
+| Generic streaming endpoint for all screens | Phase 3 (types) + Phase 4 (agent) — screen-specific response types and builders before frontend | `/api/hamilton/simulate` returns valid `SimulationResponse` JSON; no markdown parsing in Simulate screen |
+| Unbounded scenario/analysis tables | Phase 3 (data model) — soft-delete and LIMIT in schema from day one | `hamilton_scenarios` migration includes `deleted_at`; list queries have `LIMIT 20` |
 
 ---
 
 ## Sources
 
-- Direct inspection of `src/app/page.tsx`, `src/app/gateway-client.tsx`, `src/app/(public)/layout.tsx`, `src/app/consumer/layout.tsx`, `src/app/pro/layout.tsx`
-- `src/lib/research/agents.ts` — agent config, role requirements, tool sets
-- `src/app/api/research/[agentId]/route.ts` — auth enforcement, cost circuit breaker
-- `src/app/api/reports/generate/route.ts` — report generation auth paths
-- `src/lib/access.ts` — access control helpers
-- `src/app/sitemap.ts` — URL structure and canonical paths
-- `src/app/globals.css` — dark mode implementation scope
-- `CLAUDE.md` project constraints (content quality, cost, no overlap)
-- `.planning/PROJECT.md` — v6.0 milestone target features and constraints
+- Direct inspection: `src/lib/research/agents.ts` (PRO_PREFIX, existing agent config pattern)
+- Direct inspection: `src/lib/hamilton/voice.ts`, `generate.ts`, `types.ts` (existing Hamilton structure)
+- Direct inspection: `src/app/pro/research/analyst-hub.tsx` (streaming markdown pattern, extractMetrics usage)
+- Direct inspection: `src/app/pro/layout.tsx` (server/client boundary pattern for layouts)
+- Direct inspection: `src/app/pro/research/page.tsx` (how `getHamilton("pro")` is currently called)
+- Hamilton design package: `06-api-and-agent-contracts.md` (screen response contracts)
+- Hamilton design package: `05-data-model-and-persistence.md` (schema stub)
+- Hamilton design package: `01-product-architecture.md` (non-negotiable screen boundaries)
+- Hamilton design package: `stub/types-revamp.ts`, `stub/modes.ts`, `stub/sql-schema.sql`
+- `CLAUDE.md` project constraints: content quality, cost, accuracy, no overlap
+- `.planning/PROJECT.md` — current state: 58 approved fees (0.3%), data sparsity context
+- MEMORY.md: maturity badge system (strong/provisional/insufficient), fee tier system, design system tokens
 
 ---
-*Pitfalls research for: audience-segmented UX split on existing Next.js App Router monolith*
-*Researched: 2026-04-07*
+*Pitfalls research for: Hamilton Pro Platform — 5-screen decision system on existing Next.js App Router app*
+*Researched: 2026-04-08*

@@ -1,420 +1,350 @@
-# Stack Research
+# Technology Stack — Hamilton Pro Platform (v8.0)
 
-**Domain:** Two-sided B2B + Consumer experience — Bank Fee Index v6.0
-**Researched:** 2026-04-07
-**Confidence:** HIGH — existing stack verified from package.json; new additions verified via official docs and multi-source cross-check
-
----
-
-## What This Stack Covers
-
-This document covers **only the additions** needed for the v6.0 Two-Sided Experience milestone.
-The existing stack is already production-validated and is NOT reconsidered here.
-
-The additions span four areas:
-
-1. **PDF report generation** — pro user downloads (peer briefs, annual summaries, competitive snapshots)
-2. **SEO for consumer pages** — dynamic metadata, OG images, structured data for institution pages
-3. **Per-audience analytics** — tracking consumer vs B2B funnels in Plausible
-4. **No new routing infrastructure** — App Router route groups are already in place
+**Project:** Bank Fee Index — Hamilton Pro Platform
+**Researched:** 2026-04-08
+**Confidence:** HIGH — new dependencies verified via npm and official docs; integration patterns verified against existing codebase and tracked GitHub issues.
+**Scope:** NEW additions only. Existing stack (Next.js 16, React 19, Tailwind v4, `postgres` client, Anthropic SDK, Vercel AI SDK, Stripe, `radix-ui` umbrella, Recharts) is validated and not reconsidered.
 
 ---
 
-## Existing Stack — Already Installed (Reference Only)
+## Decision Summary
 
-| Package | Installed Version | Role |
-|---------|------------------|------|
-| next | 16.1.6 | Framework |
-| react / react-dom | 19.2.3 | UI |
-| tailwindcss | ^4 | CSS |
-| shadcn / radix-ui | ^3.8.4 / ^1.4.3 | Component primitives |
-| recharts | ^3.7.0 | Charts |
-| geist | ^1.7.0 | Font |
-| stripe | ^20.4.1 | Payments |
-| postgres | ^3.4.8 | DB client |
-| ai + @ai-sdk/anthropic | ^6.0.116 / ^3.0.58 | AI streaming |
-| @anthropic-ai/sdk | ^0.80.0 | Direct Anthropic client |
-| zod | ^4.3.6 | Validation |
-| lucide-react | ^0.564.0 | Icons |
-| class-variance-authority | ^0.7.1 | Component variants |
-
----
-
-## Routing Architecture — Zero New Dependencies
-
-### Route Groups Already Exist
-
-Inspection of `src/app/` confirms the two-sided architecture is already structurally present:
-
-```
-src/app/
-  (auth)/          — login, register
-  (landing)/       — marketing / consumer entry; has its own layout.tsx
-  (public)/        — consumer-facing pages: institutions, fees, guides, districts
-  admin/           — internal ops (untouched by this milestone)
-  pro/             — B2B subscriber dashboard (launchpad, Hamilton, peers, reports)
-  consumer/        — consumer-specific flows
-```
-
-**Implication:** The milestone work is populating these route groups with purpose-built layouts, navigation, and page content — not restructuring. Route group boundaries are already drawn.
-
-### Audience Separation Pattern
-
-Each audience gets an independent layout with no shared nav component:
-
-- `(public)/layout.tsx` — consumer nav (wordmark, Fee Scout search, free account CTA)
-- `pro/layout.tsx` — B2B nav (Hamilton, Peer Builder, Reports, Federal Data, account)
-
-Middleware reads the session role to decide which layout receives the user. No extra
-middleware package needed — Next.js built-in `middleware.ts` (already in use for auth)
-handles role checks and redirects.
+| Capability | Decision | Rationale |
+|---|---|---|
+| PDF export | `@react-pdf/renderer` v4.4 via API route | Declarative React PDF, React 19 support confirmed, no headless browser |
+| Simulation state | Zustand v5 (new dep) | 6 components share slider state; prop-drill / Context thrash is worse |
+| Simulation math | Inline functions in `src/lib/simulation.ts` | 3 functions, zero library needed |
+| Slider UX | Radix Slider already in `radix-ui` + `onValueCommit` | Zero new dependency; commit event is the natural debounce boundary |
+| Debounce library | None | `onValueCommit` fires on pointer release / keyboard commit — already debounced at interaction end |
+| Signal persistence | PostgreSQL JSONB (`postgres` client, existing) | Matches data model spec; batch-written by crawler pipeline, polled on read |
+| Floating chat overlay | React Portal into `#hamilton-chat-root` | Already available via `@radix-ui/react-portal` in `radix-ui` |
+| Screen-specific agents | Separate system prompts per route (existing Anthropic SDK) | Proven in v7.0 reasoning engine; four routes, four prompt templates |
 
 ---
 
 ## New Dependencies Required
 
-### 1. PDF Report Generation — `@react-pdf/renderer`
+Two new production packages. Everything else is already installed or zero-dependency.
 
-**Why needed:** Pro users need downloadable peer briefs, annual summaries, and competitive
-snapshots. These must render as professional consulting deliverables — not browser print
-stylesheets.
-
-**Why `@react-pdf/renderer` over Puppeteer:**
-
-Puppeteer on Vercel requires `@sparticuz/chromium` (50MB+ binary), risks hitting Vercel's
-250MB function bundle limit, runs 4-8x slower in serverless environments, and requires a
-Vercel Pro plan to raise the timeout above 10 seconds (PDF generation typically needs 30-60s
-on serverless Chromium). Community reports confirm this is a painful deployment path.
-
-`@react-pdf/renderer` generates PDFs natively in Node.js using React component syntax. No
-headless browser, no binary, no serverless size constraint. Server-side rendering via
-`renderToBuffer()` in an API route is fast (under 5 seconds for a multi-page report).
-
-Supports: custom fonts, tables, SVG, multi-column layout, page breaks, headers/footers.
-
-**React 19 support:** confirmed since v4.1.0. Current stable version: 4.3.3 (actively
-maintained, 860K+ weekly downloads as of April 2026, 15,900+ GitHub stars).
-
-**Integration note:** PDF components use their own primitive system (`Document`, `Page`,
-`View`, `Text`, `Image`) — NOT Tailwind utilities. Build report layouts as standalone React
-components in `src/lib/reports/`. These components consume the same data functions used by
-the web UI but are styled independently. Recharts SVG charts cannot render inside
-`@react-pdf/renderer` directly — render charts to PNG server-side first, then embed as
-`<Image>` (see Pitfalls file).
-
-**Required config addition:**
-
-```typescript
-// next.config.ts — add to experimental block
-experimental: {
-  serverComponentsExternalPackages: ['@react-pdf/renderer'],
-}
-```
-
-**API route pattern:**
-
-```typescript
-// src/app/api/reports/generate/route.ts
-import { renderToBuffer } from '@react-pdf/renderer'
-import { PeerBriefDocument } from '@/lib/reports/peer-brief'
-
-export async function POST(req: Request) {
-  const data = await fetchReportData(req)
-  const buffer = await renderToBuffer(<PeerBriefDocument data={data} />)
-  return new Response(buffer, {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename="peer-brief.pdf"',
-    },
-  })
-}
-```
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| @react-pdf/renderer | ^4.3.3 | Server-side PDF generation for pro report downloads |
+| Library | Version | Purpose | Why |
+|---|---|---|---|
+| `@react-pdf/renderer` | `^4.4.0` | PDF generation for Report Builder export | React 19 support confirmed (since v4.1.0). No headless browser. Vercel-compatible. |
+| `zustand` | `^5.0.12` | Client-side simulation state (slider values, computed deltas, ephemeral scenario) | 6 Simulate-screen components consume shared slider state. 1KB, React 19 confirmed. |
 
 ```bash
-npm install @react-pdf/renderer
+npm install @react-pdf/renderer zustand
 ```
 
 ---
 
-### 2. SEO for Consumer Pages — Built-in Next.js APIs (Zero New Packages)
+## Already Present — No New Install Needed
 
-**Why no package needed:** Next.js 16 App Router ships first-class SEO APIs that replace
-libraries like `next-seo` and `react-helmet`. Adding either creates conflicts and technical
-debt.
-
-**`generateMetadata()` — per-page dynamic metadata:**
-
-Every consumer page (`/institution/[slug]`, `/fees/[category]`, `/guides/[slug]`) uses
-`generateMetadata({ params })` to produce title, description, and canonical URL from database
-data. This runs server-side at request time for dynamic routes.
-
-```typescript
-// src/app/(public)/institution/[slug]/page.tsx
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const institution = await getInstitution(params.slug)
-  return {
-    title: `${institution.name} Fee Schedule — Bank Fee Index`,
-    description: `${institution.name} charges for checking, savings, overdraft, and wire transfers. Compare to ${institution.charter === 'bank' ? 'bank' : 'credit union'} peers.`,
-    openGraph: {
-      title: institution.name,
-      description: `Fee data for ${institution.name}`,
-      url: `https://bankfeeindex.com/institution/${params.slug}`,
-    },
-  }
-}
-```
-
-**`ImageResponse` from `next/og` — dynamic OG images:**
-
-Built into Next.js. Zero install. Generates institution-specific share preview images at
-the edge via JSX. Cached on CDN after first generation.
-
-```typescript
-// src/app/(public)/institution/[slug]/opengraph-image.tsx
-import { ImageResponse } from 'next/og'
-export default function OgImage({ params }) {
-  return new ImageResponse(
-    <div style={{ ... }}>{institution.name} — Fee Intelligence</div>,
-    { width: 1200, height: 630 }
-  )
-}
-```
-
-**JSON-LD structured data — inline `<script>` in Server Components:**
-
-No library needed. Add `FinancialService` schema to institution pages as an inline
-`application/ld+json` script rendered server-side. Create a typed helper:
-
-```typescript
-// src/lib/seo.ts
-export function buildInstitutionSchema(institution: Institution) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'FinancialService',
-    name: institution.name,
-    url: institution.website_url,
-    address: { '@type': 'PostalAddress', addressRegion: institution.state },
-    description: `Fee data and peer benchmarks for ${institution.name}`,
-  }
-}
-```
-
-**`schema-dts` (optional dev dependency):** Provides TypeScript types for Schema.org
-vocabulary. Zero runtime impact (types only). Recommended if structured data is applied
-to more than 3-4 schema types.
-
-```bash
-npm install -D schema-dts
-```
-
-| Package | Install | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| schema-dts | dev only | TypeScript types for JSON-LD Schema.org | Add if structured data grows beyond institution + article + breadcrumb schemas |
+| Library | In package.json? | Hamilton v8 Usage |
+|---|---|---|
+| `@radix-ui/react-slider` | Yes (via `radix-ui` umbrella) | `FeeSliderInput`, `ComparativeModelingCard` |
+| `@radix-ui/react-portal` | Yes (via `radix-ui` umbrella) | Floating chat overlay mount on Monitor screen |
+| `@radix-ui/react-dialog` | Yes (via `radix-ui` umbrella) | Floating chat overlay container |
+| `recharts` | Yes (`^3.7.0`) | Evidence charts in Analyze, distribution curves in Simulate |
+| `ai` + `@ai-sdk/anthropic` | Yes | Streaming agent responses, all four screen-specific routes |
+| `@anthropic-ai/sdk` | Yes | Direct Hamilton agent calls |
+| `zod` | Yes | Validate screen-specific API response shapes |
+| `postgres` | Yes | All 6 new DB tables (JSONB columns via existing template-literal pattern) |
+| `stripe` | Yes | Pro paywall gate (`$500/mo` subscription check in Hamilton shell layout) |
 
 ---
 
-### 3. Per-Audience Analytics — `next-plausible`
+## Explicitly NOT Adding
 
-**What exists:** `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` env var is configured and `next.config.ts`
-already permits Plausible's CSP domains. Plausible is already the chosen analytics platform.
+| Rejected Library | Reason |
+|---|---|
+| `use-debounce` / `react-debounce-input` | Radix `onValueCommit` fires once on interaction end (pointer release or keyboard commit). That is already the debounce. Adding a debounce hook for slider state adds ~4KB and complexity for zero benefit. |
+| `simple-statistics` | The simulation engine needs exactly three functions: percentile rank, median gap, risk profile classification. Implementing them inline in `src/lib/simulation.ts` is 15 lines. Importing a 50KB stats library for three trivial operations is wasteful. |
+| `puppeteer` / `@sparticuz/chromium` | Requires a Chrome process. Incompatible with Vercel serverless (250MB bundle limit, 10s timeout on Hobby). Memory-intensive, slow cold starts. `@react-pdf/renderer` generates without a browser. |
+| `html2canvas` + `jsPDF` | Produces raster image PDFs. Text is not searchable or selectable — unsuitable for executive reports that get printed and emailed. |
+| `@floating-ui/react` | The Hamilton floating chat is a fixed-position bottom-right panel. It does not need position calculation. React Portal into a known DOM node is sufficient. Floating UI is for tooltips and popovers with anchor-relative positioning. |
+| Drizzle ORM / Prisma | The codebase has 20+ existing query files using the `postgres` template-literal pattern. Introducing an ORM mid-project creates inconsistency and a migration burden with zero benefit for this milestone. |
+| Supabase Realtime / WebSockets | Monitor signals are written by the crawler batch pipeline (Modal workers), not in real time. The Monitor screen reads on mount and on manual refresh. No real-time subscription infrastructure is justified. |
+| `react-query` / `swr` | The app uses Server Components for data fetching with React 19's native async/await. Adding a client data-fetching cache layer would conflict with the RSC model and duplicate what already works. |
 
-**What's missing:** The `next-plausible` npm package. The current integration likely relies on
-a raw `<script>` tag. The package provides a `PlausibleProvider` component and a
-`usePlausible()` hook that enables custom property tracking — the mechanism for segmenting
-consumer vs B2B traffic in the Plausible dashboard.
+---
 
-**Custom property pattern for audience segmentation:**
+## Integration Details
 
-Plausible supports up to 30 custom properties per event. Attach `audience` and `plan` to
-every pageview to enable dashboard filtering by segment.
+### 1. PDF Generation — `@react-pdf/renderer` v4.4
+
+**Route:** `GET /api/hamilton/reports/[id]/pdf`
+
+API route using `renderToBuffer`. The client's "Export PDF" button in `ReportExportBar` hits this endpoint, which fetches the saved report JSON from `hamilton_reports`, renders the `ReportDocument` component, and streams the buffer back as `application/pdf`.
+
+**Required `next.config.ts` change:**
 
 ```typescript
-// src/app/(public)/layout.tsx — consumer layout
-import PlausibleProvider from 'next-plausible'
-export default function ConsumerLayout({ children }) {
+// next.config.ts
+const nextConfig: NextConfig = {
+  output: 'standalone',
+  serverExternalPackages: ['@react-pdf/renderer'],  // ADD THIS LINE
+  // ... existing headers config
+};
+```
+
+The `serverExternalPackages` key tells Next.js to treat `@react-pdf/renderer` as an external Node.js module rather than bundling it through the RSC transform pipeline. Without this, the App Router bundler produces a `PDFDocument is not a constructor` runtime error. This issue is tracked in diegomura/react-pdf#3074 (confirmed affecting Next.js 15 and 16) and the fix is confirmed.
+
+**Report component pattern:**
+
+`@react-pdf/renderer` uses its own primitive system (`Document`, `Page`, `View`, `Text`, `Image`) — not Tailwind utilities. Report layout components live in `src/components/hamilton/report/` and are styled with the library's `StyleSheet.create()` API. They receive plain data objects (not React state) — the report JSON from `hamilton_reports` is the input.
+
+Recharts SVG charts cannot render inside `@react-pdf/renderer` directly. Any chart in the Report screen must either be omitted from the PDF or pre-rendered to a PNG data URL via a canvas snapshot (using `html2canvas` on the client) before being passed to the route as a base64 string. For v8.0, omit charts from PDF and use stat callout boxes instead — consistent with the Salesforce Connected FINS report aesthetic.
+
+**Confidence:** MEDIUM-HIGH. `renderToBuffer` in an App Router API route works with the `serverExternalPackages` fix. Issue #3074 is open as of early 2025 but the workaround is confirmed by multiple community sources. Test this route in Phase 1.
+
+---
+
+### 2. Simulation Engine — Pure Functions, No Library
+
+File: `src/lib/simulation.ts`
+
+The `SimulationResponse` contract from `06-api-and-agent-contracts.md` requires three computed values per state (current and proposed):
+
+```typescript
+// src/lib/simulation.ts
+
+export function computePercentileRank(value: number, distribution: number[]): number {
+  if (distribution.length === 0) return 50;
+  const below = distribution.filter(v => v < value).length;
+  return Math.round((below / distribution.length) * 100);
+}
+
+export function computeMedianGap(value: number, median: number): number {
+  if (median === 0) return 0;
+  return Math.round(((value - median) / median) * 100);
+}
+
+export type RiskProfile = 'low' | 'moderate' | 'elevated' | 'high';
+
+export function classifyRiskProfile(percentile: number): RiskProfile {
+  if (percentile <= 25) return 'low';
+  if (percentile <= 50) return 'moderate';
+  if (percentile <= 75) return 'elevated';
+  return 'high';
+}
+```
+
+**Data load pattern:** When the Simulate screen mounts, one server action fetches `distribution: number[]` for the selected fee category and peer set from the fee index. This array drops into the Zustand store. All slider interactions compute synchronously in the browser — no server round-trip per tick.
+
+---
+
+### 3. Slider UX — Radix Slider + `onValueCommit`
+
+`@radix-ui/react-slider` (v1.3.6) is already installed via the `radix-ui` umbrella package. The canonical pattern for "instant visual feedback, deferred server write" uses two separate event handlers:
+
+```typescript
+// FeeSliderInput.tsx  ("use client")
+import * as Slider from '@radix-ui/react-slider';
+
+<Slider.Root
+  value={[proposedFee]}
+  min={feeMin}
+  max={feeMax}
+  step={0.50}
+  onValueChange={([v]) => setProposedFee(v)}        // instant: updates Zustand, re-renders delta badges
+  onValueCommit={([v]) => persistScenarioDraft(v)}  // deferred: server action on pointer release
+>
+```
+
+`onValueCommit` fires exactly once when the user finishes dragging (pointer up) or finishes a keyboard interaction. It is already the natural debounce boundary — no additional debounce hook is required.
+
+The `FeeSliderInput` also accepts a number input alongside the slider for keyboard entry. The number input uses a local `onChange` → `onBlur` to commit, bypassing the slider entirely for direct input.
+
+**Confidence:** HIGH — documented Radix Slider API, confirmed in radix-ui/primitives discussion #2169.
+
+---
+
+### 4. Simulation State — Zustand v5
+
+Store scope: client-only, scoped to `/pro/hamilton/simulate`. Not a global app store.
+
+```typescript
+// src/stores/simulation-store.ts
+import { create } from 'zustand';
+import { computePercentileRank, computeMedianGap, classifyRiskProfile } from '@/lib/simulation';
+
+interface SimulationStore {
+  feeCategory: string | null;
+  distribution: number[];
+  median: number;
+  currentFee: number;
+  proposedFee: number;
+  // Derived — recomputed on setProposedFee
+  currentState: { percentile: number; medianGap: number; riskProfile: string };
+  proposedState: { percentile: number; medianGap: number; riskProfile: string };
+  deltas: { percentileChange: number; medianGapChange: number; riskShift: string };
+  // Actions
+  loadScenario: (category: string, dist: number[], currentFee: number) => void;
+  setProposedFee: (v: number) => void;
+}
+```
+
+The store is created with `create<SimulationStore>()` in the `SimulateScreen` component's module scope. It is not wrapped in Context for SSR reasons — Zustand v5 recommends the context-provider pattern only when multiple independent instances are needed on the same page. A single simulation screen has one instance.
+
+The six Simulate-screen components that subscribe: `FeeSliderInput`, `ComparativeModelingCard`, `StateComparisonCard`, `ScenarioDeltaBadge`, `HamiltonInterpretationCard`, `StrategicTradeoffsCard`, `RecommendedPositionCard`. Each subscribes to only the slice it renders using selector functions — no component re-renders when an unrelated slice changes.
+
+**Confidence:** HIGH — Zustand 5.0.12 confirmed on npm, React 19 compatibility confirmed, Next.js App Router compatibility confirmed via multiple community sources.
+
+---
+
+### 5. Signal Persistence — PostgreSQL JSONB, Existing Client
+
+The six new tables defined in `05-data-model-and-persistence.md` use `jsonb` columns for flexible payloads. All queries use the existing `postgres` template-literal pattern in `src/lib/crawler-db/`.
+
+Create new query file: `src/lib/crawler-db/hamilton.ts`
+
+Key query pattern for the Monitor screen (signals filtered by watchlist):
+
+```sql
+SELECT s.*
+FROM hamilton_signals s
+WHERE s.institution_id = ANY(
+  SELECT (jsonb_array_elements_text(w.institution_ids))::int
+  FROM hamilton_watchlists w
+  WHERE w.user_id = $1
+)
+ORDER BY s.created_at DESC
+LIMIT 50;
+```
+
+For alert acknowledgement (status update from Monitor screen):
+
+```sql
+UPDATE hamilton_priority_alerts
+SET status = 'acknowledged', acknowledged_at = NOW()
+WHERE id = $1 AND user_id = $2;
+```
+
+No new infrastructure. Signals are written by the Python/Modal crawler workers. The Monitor screen polls on mount — not real-time. A `useEffect` with a 60-second interval is sufficient for the v8.0 release.
+
+---
+
+### 6. Floating Chat Overlay — React Portal
+
+The Monitor screen has a floating Hamilton chat panel that stays visible while the user scrolls the signal feed. Implementation uses `@radix-ui/react-portal` (already in `radix-ui`).
+
+Add the portal mount point to the Hamilton shell layout:
+
+```tsx
+// src/app/pro/hamilton/layout.tsx
+export default function HamiltonLayout({ children }) {
   return (
-    <PlausibleProvider domain="bankfeeindex.com" taggedEvents>
-      {children}
-    </PlausibleProvider>
-  )
+    <>
+      <HamiltonShell>{children}</HamiltonShell>
+      <div id="hamilton-chat-root" />   {/* portal mount */}
+    </>
+  );
 }
-
-// src/app/(public)/institution/[slug]/page.tsx — fire audience prop
-'use client'
-import { usePlausible } from 'next-plausible'
-const plausible = usePlausible()
-plausible('pageview', { props: { audience: 'consumer', page_type: 'institution' } })
 ```
 
-For the B2B pro layout, fire `audience: 'b2b'` and `plan: user.role`. This allows the
-Plausible dashboard to be filtered to show funnel behavior per audience without any backend
-tracking infrastructure.
+Render the overlay via portal:
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| next-plausible | ^3.12.0 | Plausible integration with custom property support for audience segmentation |
+```tsx
+// src/components/hamilton/HamiltonFloatingChat.tsx  ("use client")
+import { Portal } from '@radix-ui/react-portal';
 
-```bash
-npm install next-plausible
+export function HamiltonFloatingChat({ open }: { open: boolean }) {
+  if (!open) return null;
+  return (
+    <Portal container={document.getElementById('hamilton-chat-root')}>
+      <div className="fixed bottom-6 right-6 w-96 z-50 shadow-xl rounded-xl bg-white border border-stone-200">
+        {/* chat panel */}
+      </div>
+    </Portal>
+  );
+}
 ```
+
+**Confidence:** HIGH — standard React Portal pattern, `@radix-ui/react-portal` confirmed present in `radix-ui` umbrella.
 
 ---
 
-## What NOT to Add
+### 7. Screen-Specific Agent Behavior — Existing SDK, New Prompts
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `puppeteer` / `puppeteer-core` + `@sparticuz/chromium` | 250MB Vercel bundle risk, 4-8x slower in serverless, requires Pro plan for 60s timeout, complex deployment | `@react-pdf/renderer` server-side |
-| `jspdf` / `html2canvas` | Client-side PDF via canvas screenshots — poor quality, leaks sensitive fee data to browser memory, cannot be stored or emailed server-side | `@react-pdf/renderer` server-side API route |
-| `next-seo` | Deprecated pattern for App Router. Conflicts with built-in `generateMetadata()` API introduced in Next.js 13. | `generateMetadata()` built-in |
-| `react-helmet` | Client-side head management — incompatible with React 19 Server Components, App Router handles head server-side | `generateMetadata()` built-in |
-| `posthog-js` | Adds client bundle weight, session recording, and pricing overhead for a problem that Plausible + custom properties already solves | `next-plausible` with custom properties |
-| LaunchDarkly / Split.io | Enterprise feature-flag services starting at $500+/mo. Two fixed audience tiers controlled by session role don't need a flag service. | Middleware role check + session cookie |
-| `styled-components` / Emotion | CSS-in-JS runtime conflicts with Tailwind v4's PostCSS pipeline. Any new component styling uses Tailwind + CVA (already installed). | Tailwind v4 + CVA (already installed) |
-| Any headless CMS | Institution educational content is generated from pipeline-verified data (Call Reports, fee index, FDIC/NCUA). CMS adds editorial overhead with no data accuracy benefit. | Server components fetching from PostgreSQL |
-| `i18next` / `react-intl` | No internationalization requirement. Currency formatting uses existing `formatAmount()` in `src/lib/format.ts`. | Existing format utilities |
+No new AI packages. The four Hamilton screens each get a separate API route and system prompt:
+
+```
+POST /api/hamilton/analyze
+POST /api/hamilton/simulate
+POST /api/hamilton/report
+POST /api/hamilton/monitor
+```
+
+Each route follows the existing streaming pattern from `src/lib/hamilton/hamilton-agent.ts`:
+
+1. Build a screen-specific `systemPrompt` from a template in `src/lib/hamilton/prompts/`
+2. Call `streamText` from the `ai` SDK with the appropriate response schema
+3. Parse the response against the TypeScript interface via Zod (the four interfaces defined in `06-api-and-agent-contracts.md`)
+
+The existing daily cost circuit breaker in `src/lib/api-usage.ts` already gates all Hamilton routes. No new spend controls needed.
 
 ---
 
-## Patterns by Feature Area
+## Required Configuration Changes
 
-### Consumer Landing Page Redesign
-
-No new packages.
-
-- `(landing)/layout.tsx` — consumer nav, no admin chrome
-- `generateMetadata()` on the landing page for Twitter/OG
-- `ImageResponse` from `next/og` for social share image at `(landing)/opengraph-image.tsx`
-- Recharts (existing) for any fee snapshot visualizations
-- A/B testing (see below): middleware cookie + two static page variants
-
-### Institution Educational Pages
-
-No new packages.
-
-- `(public)/institution/[slug]/page.tsx` — already exists as a route
-- `generateMetadata({ params })` — fetch institution name and charter for title/description
-- JSON-LD `FinancialService` schema in inline `<script>` within the server component
-- Existing `getNationalIndex()` + peer filter queries for fee context panels
-- Consumer guide cross-links via `src/lib/fee-taxonomy.ts` (category → guide mapping)
-
-### B2B Personalized Launchpad
-
-No new packages.
-
-- `pro/layout.tsx` — B2B nav with four doors: Hamilton, Peer Builder, Reports, Federal Data
-- `getCurrentUser()` (existing) in layout for session check and redirect
-- User's primary institution stored as `primary_institution_id` on `users` table — extend schema
-- Personalization data (Call Reports scoped to user's institution, district Beige Book) fetched
-  via existing DB query functions at server component render time
-
-### Scoped Report Generation (Pro)
-
-Requires `@react-pdf/renderer` only.
-
-- `POST /api/reports/generate` — API route, server-side, returns PDF buffer
-- Report component tree lives in `src/lib/reports/` — pure `@react-pdf/renderer` components
-- Data injected from existing `getNationalIndex()`, `getPeerIndex()`, Call Report queries
-- Client triggers via `<a href="/api/reports/generate?type=peer-brief&id=..." download>`
-- Three initial report types: peer-brief, annual-summary, competitive-snapshot
-
-### Distinct Navigation Per Audience
-
-No new packages.
-
-- Two independent layout files: `(public)/layout.tsx` (consumer) and `pro/layout.tsx` (B2B)
-- Replicate existing `AdminNav` pattern — `ConsumerNav` and `ProNav` as client components
-- Active state via `usePathname()` (already used in `AdminNav`)
-- Existing `DarkModeToggle` component included in both layouts
-
-### A/B Testing (Consumer Landing Page)
-
-No external A/B service. Middleware-native approach.
-
-The project already has `middleware.ts` for auth. Extend it:
+### `next.config.ts`
 
 ```typescript
-// Cookie-based variant assignment — flicker-free, edge-rendered
-const variant = request.cookies.get('landing_ab')?.value
-  ?? (Math.random() < 0.5 ? 'a' : 'b')
-
-response.cookies.set('landing_ab', variant, { maxAge: 60 * 60 * 24 * 30, path: '/' })
-// next.rewrite() to variant-specific page
+const nextConfig: NextConfig = {
+  output: 'standalone',
+  serverExternalPackages: ['@react-pdf/renderer'],  // NEW — required for PDF API route
+  poweredByHeader: false,
+  // ... existing headers() config unchanged
+};
 ```
 
-Conversion tracking via Plausible custom event:
-```typescript
-plausible('landing_cta', { props: { variant: cookieValue, cta: 'free-trial' } })
-```
+### Database Migrations (SQL, no library changes)
 
-This is sufficient for a two-variant test at current scale. Add an external service (PostHog,
-Statsig) only if the team needs multi-variate tests, statistical significance dashboards, or
-persistent cohort tracking.
+Six new tables in Supabase PostgreSQL. Add as a migration file in `supabase/migrations/` or run directly:
 
----
+- `hamilton_saved_analyses` — `response_json jsonb`
+- `hamilton_scenarios` — `result_json jsonb`
+- `hamilton_reports` — `report_json jsonb`, `scenario_id uuid nullable`
+- `hamilton_watchlists` — `institution_ids jsonb`, `fee_categories jsonb`, `regions jsonb`, `peer_set_ids jsonb`
+- `hamilton_signals` — `source_json jsonb`
+- `hamilton_priority_alerts` — `status text`, `acknowledged_at timestamptz nullable`
 
-## Version Compatibility
+### Hamilton Shell Layout Addition
 
-| Package | Version | Compatible With | Notes |
-|---------|---------|-----------------|-------|
-| @react-pdf/renderer | ^4.3.3 | React 19 (since v4.1.0), Next.js 14.1.1+ | Requires `serverComponentsExternalPackages` in next.config.ts |
-| next-plausible | ^3.12.0 | Next.js 13+ App Router | `PlausibleProvider` goes in audience-specific layout.tsx |
-| schema-dts | ^1.1.2 | TypeScript 5, dev-only | Zero runtime impact; provides `FinancialService`, `Article`, `BreadcrumbList` types |
-
----
-
-## Installation Summary
-
-```bash
-# Production additions
-npm install @react-pdf/renderer next-plausible
-
-# Dev additions (optional — for type-safe JSON-LD)
-npm install -D schema-dts
-```
-
-**next.config.ts addition:**
-
-```typescript
-experimental: {
-  serverComponentsExternalPackages: ['@react-pdf/renderer'],
-},
-```
+Add `<div id="hamilton-chat-root" />` portal mount to `src/app/pro/hamilton/layout.tsx`.
 
 ---
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| PDF generation | @react-pdf/renderer | Puppeteer + @sparticuz/chromium | Bundle size risk (250MB limit), 4-8x slower serverless, requires Vercel Pro for timeout; confirmed by multiple deployment reports |
-| PDF generation | @react-pdf/renderer | jsPDF + html2canvas | Client-side only, canvas screenshot quality is poor, exposes data to browser |
-| SEO metadata | generateMetadata() built-in | next-seo | Deprecated for App Router; conflicts with built-in API |
-| SEO metadata | generateMetadata() built-in | react-helmet | Incompatible with Server Components in React 19 |
-| Analytics segmentation | next-plausible + custom props | PostHog | Overkill for two audience segments; PostHog adds session recording bundle weight and pricing |
-| A/B testing | Middleware cookie + Plausible | Statsig / LaunchDarkly | Enterprise pricing, external dependency for a simple two-variant test |
-| Structured data types | schema-dts (dev dep, optional) | Inline typed helpers | schema-dts is cleaner if > 3 schema types; inline helpers fine for < 3 |
+|---|---|---|---|
+| PDF generation | `@react-pdf/renderer` | Puppeteer | Vercel serverless 250MB bundle limit, 10s timeout on Hobby plan, memory-intensive cold starts |
+| PDF generation | `@react-pdf/renderer` | `jsPDF` + `html2canvas` | Raster image output — text not searchable, unsuitable for executive reports |
+| Simulation state | Zustand v5 | React Context | Context re-renders entire subtree on every slider tick. 6+ components consume simulation state — prop-drill or context wrapping is a worse pattern. |
+| Simulation state | Zustand v5 | `useState` in parent | Triggers prop drilling through 3+ levels across 6 components |
+| Simulation math | Inline `src/lib/simulation.ts` | `simple-statistics` npm | 50KB for 3 trivial functions. Quantile rank and median gap are 5 lines each. |
+| Slider | Radix Slider (already installed) | `rc-slider` | Radix already installed via `radix-ui` umbrella. Adding `rc-slider` is redundant. |
+| Floating chat | React Portal (Radix, already installed) | `@floating-ui/react` | Floating UI provides anchor-relative positioning for tooltips/popovers. A fixed bottom-right panel needs no position engine. |
+| Signal storage | PostgreSQL JSONB (existing client) | Redis / message queue | Signals are batch-written by crawler pipeline, polled on read. No real-time requirement exists. |
+| Debounce | `onValueCommit` (built-in) | `use-debounce` npm | `onValueCommit` is already the natural debounce for slider interactions. The npm package adds 4KB for a problem Radix already solves. |
 
 ---
 
 ## Sources
 
-- npmjs.com/@react-pdf/renderer — v4.3.3 confirmed current, React 19 support confirmed since v4.1.0 (HIGH confidence)
-- github.com/diegomura/react-pdf/issues/2460 — `serverComponentsExternalPackages` requirement for Next.js App Router confirmed (HIGH confidence)
-- vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel — 250MB bundle limit, 10s hobby timeout, 4-8x slowdown confirmed (HIGH confidence — official Vercel KB)
-- nextjs.org/docs/app/getting-started/metadata-and-og-images — `generateMetadata()` and `ImageResponse` confirmed built-in to Next.js App Router (HIGH confidence)
-- nextjs.org/docs/app/api-reference/file-conventions/route-groups — route groups confirmed as zero-dependency App Router feature (HIGH confidence)
-- plausible.io/docs/custom-props/for-pageviews — custom property segmentation confirmed, up to 30 properties per event (HIGH confidence)
-- github.com/4lejandrito/next-plausible — next-plausible library, App Router compatible (MEDIUM confidence — community library, well-maintained)
-- dev.to/bean_bean/nextjs-middleware-in-2026 — edge middleware variant assignment pattern (MEDIUM confidence — community source, consistent with official Vercel A/B template)
-- vercel.com/templates/next.js/ab-testing-simple — Vercel's official A/B testing template using middleware cookies (HIGH confidence)
-- react-pdf.org/compatibility — Node.js and React compatibility matrix confirmed (HIGH confidence)
+- `@react-pdf/renderer` npm: https://www.npmjs.com/package/@react-pdf/renderer — v4.4.0 current, React 19 support confirmed since v4.1.0 (HIGH)
+- Next.js 16 `renderToBuffer` issue: https://github.com/diegomura/react-pdf/issues/3074 — confirmed broken without `serverExternalPackages` (HIGH)
+- `serverExternalPackages` API docs: https://nextjs.org/docs/app/api-reference/config/next-config-js/serverExternalPackages (HIGH)
+- Radix Slider `onValueCommit` discussion: https://github.com/radix-ui/primitives/discussions/2169 (HIGH)
+- `@radix-ui/react-slider` v1.3.6: https://www.npmjs.com/package/@radix-ui/react-slider (HIGH)
+- Zustand v5.0.12 npm: https://www.npmjs.com/package/zustand (HIGH)
+- Zustand + Next.js App Router pattern: https://www.dimasroger.com/blog/how-to-use-zustand-with-next-js-15 (MEDIUM — community source consistent with official Zustand docs)
+- React 19 + Zustand compatibility: https://react.wiki/state-management/zustand-tutorial/ (MEDIUM)
+- PostgreSQL JSONB docs: https://www.postgresql.org/docs/current/datatype-json.html (HIGH)
+- Radix Portal: https://www.radix-ui.com/primitives/docs/utilities/portal (HIGH)
 
 ---
 
-*Stack research for: Bank Fee Index v6.0 Two-Sided Experience*
-*Researched: 2026-04-07*
+*Stack research for: Bank Fee Index v8.0 Hamilton Pro Platform*
+*Researched: 2026-04-08*
