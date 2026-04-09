@@ -1,6 +1,5 @@
 "use client";
 
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { FeePosition } from "@/lib/hamilton/simulation";
 
 interface Props {
@@ -11,28 +10,25 @@ interface Props {
   proposedPosition: FeePosition;
 }
 
-const RISK_STYLES: Record<"low" | "medium" | "high", { bg: string; text: string; label: string }> = {
-  low: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Low Risk" },
-  medium: { bg: "bg-amber-50", text: "text-amber-700", label: "Medium Risk" },
-  high: { bg: "bg-red-50", text: "text-red-700", label: "High Risk" },
-};
-
-function RiskBadge({ profile }: { profile: "low" | "medium" | "high" }) {
-  const s = RISK_STYLES[profile];
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${s.bg} ${s.text}`}>
-      {s.label}
-    </span>
-  );
-}
-
 function formatDollar(v: number): string {
   return `$${v.toFixed(2)}`;
 }
 
 function formatGap(gap: number): string {
   const sign = gap >= 0 ? "+" : "";
-  return `${sign}${formatDollar(gap)} vs median`;
+  return `${sign}${formatDollar(Math.abs(gap))}`;
+}
+
+function riskLabel(profile: "low" | "medium" | "high"): string {
+  if (profile === "low") return "Low Exposure";
+  if (profile === "medium") return "Moderate";
+  return "High Exposure";
+}
+
+function riskColor(profile: "low" | "medium" | "high"): string {
+  if (profile === "low") return "rgb(21 128 61)";   // green-700
+  if (profile === "medium") return "rgb(161 98 7)";  // amber-700
+  return "rgb(185 28 28)";                            // red-700
 }
 
 export function CurrentVsProposed({
@@ -42,107 +38,134 @@ export function CurrentVsProposed({
   currentPosition,
   proposedPosition,
 }: Props) {
+  const hasChange = proposedFee !== currentFee;
   const percentileDelta = proposedPosition.percentile - currentPosition.percentile;
   const gapDelta = proposedPosition.medianGap - currentPosition.medianGap;
-  const hasChange = proposedFee !== currentFee;
-
-  const DeltaIcon =
-    percentileDelta > 0 ? TrendingUp : percentileDelta < 0 ? TrendingDown : Minus;
-  const deltaColor =
-    percentileDelta < 0
-      ? "text-emerald-600"
-      : percentileDelta > 0
-      ? "text-red-500"
-      : "text-gray-400";
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-3">
-        {/* Current position card */}
-        <div
-          className="rounded-lg border p-4 flex flex-col gap-2"
-          style={{
-            background: "var(--hamilton-surface-elevated)",
-            borderColor: "var(--hamilton-border)",
-          }}
-        >
-          <span
-            className="text-xs font-semibold uppercase tracking-wider"
-            style={{ color: "var(--hamilton-text-tertiary)" }}
-          >
-            Current Position
-          </span>
-          <div
-            className="text-3xl font-bold tabular-nums"
-            style={{ color: "var(--hamilton-text-primary)" }}
-          >
-            {formatDollar(currentFee)}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Current State — faded */}
+      <div
+        className="bg-white p-6 border"
+        style={{ borderColor: "rgb(231 229 228)", opacity: 0.6 }}
+      >
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <span
+              className="font-label text-[10px] uppercase tracking-widest border px-2 py-0.5 rounded"
+              style={{
+                color: "rgb(120 113 108)",
+                borderColor: "rgb(214 211 208)",
+                background: "rgb(250 249 248)",
+              }}
+            >
+              Current
+            </span>
+            <h3 className="font-headline text-3xl mt-3" style={{ color: "rgb(41 37 36)" }}>
+              {formatDollar(currentFee)}
+            </h3>
           </div>
-          <div className="text-lg font-semibold text-slate-600">
-            P{currentPosition.percentile}
+          <div className="text-right">
+            <div className="font-headline text-2xl" style={{ color: "rgb(120 113 108)" }}>
+              {currentPosition.percentile}th
+            </div>
+            <div className="font-label text-[9px] uppercase tracking-widest" style={{ color: "rgb(168 162 158)" }}>
+              Market Percentile
+            </div>
           </div>
-          <div className="text-sm" style={{ color: "var(--hamilton-text-secondary)" }}>
-            {formatGap(currentPosition.medianGap)}
-          </div>
-          <RiskBadge profile={currentPosition.riskProfile} />
         </div>
 
-        {/* Proposed position card */}
-        <div
-          className="rounded-lg border p-4 flex flex-col gap-2 transition-all"
-          style={{
-            background: hasChange
-              ? "var(--hamilton-accent-subtle)"
-              : "var(--hamilton-surface-elevated)",
-            borderColor: hasChange ? "var(--hamilton-accent)" : "var(--hamilton-border)",
-          }}
-        >
-          <span
-            className="text-xs font-semibold uppercase tracking-wider"
-            style={{ color: "var(--hamilton-text-tertiary)" }}
-          >
-            Proposed Position
-          </span>
-          <div
-            className="text-3xl font-bold tabular-nums"
-            style={{ color: hasChange ? "var(--hamilton-accent)" : "var(--hamilton-text-primary)" }}
-          >
-            {formatDollar(proposedFee)}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="border-t pt-3" style={{ borderColor: "rgb(245 245 244)" }}>
+            <span className="font-label text-[9px] uppercase tracking-widest" style={{ color: "rgb(168 162 158)" }}>
+              Median Gap
+            </span>
+            <div className="font-headline text-lg mt-0.5" style={{ color: "rgb(87 83 78)" }}>
+              {formatGap(currentPosition.medianGap)}
+            </div>
           </div>
-          <div className="text-lg font-semibold" style={{ color: hasChange ? "var(--hamilton-accent)" : "var(--color-slate-600)" }}>
-            P{proposedPosition.percentile}
+          <div className="border-t pt-3" style={{ borderColor: "rgb(245 245 244)" }}>
+            <span className="font-label text-[9px] uppercase tracking-widest" style={{ color: "rgb(168 162 158)" }}>
+              Risk Index
+            </span>
+            <div
+              className="font-label text-[10px] uppercase tracking-widest mt-1 font-bold"
+              style={{ color: riskColor(currentPosition.riskProfile) }}
+            >
+              {riskLabel(currentPosition.riskProfile)}
+            </div>
           </div>
-          <div className="text-sm" style={{ color: "var(--hamilton-text-secondary)" }}>
-            {formatGap(proposedPosition.medianGap)}
-          </div>
-          <RiskBadge profile={proposedPosition.riskProfile} />
         </div>
       </div>
 
-      {/* Delta row */}
-      {hasChange && (
-        <div
-          className="flex items-center gap-3 rounded-md px-4 py-2.5"
-          style={{ background: "var(--hamilton-surface-sunken)" }}
-        >
-          <DeltaIcon className={`h-4 w-4 flex-shrink-0 ${deltaColor}`} />
-          <div className="flex gap-4 text-sm">
-            <span className={`font-semibold tabular-nums ${deltaColor}`}>
-              {percentileDelta > 0 ? "+" : ""}
-              {percentileDelta} percentile pts
+      {/* Proposed State — primary highlight */}
+      <div
+        className="bg-white p-6 border-2"
+        style={{
+          borderColor: "var(--hamilton-primary)",
+          boxShadow: "0 0 0 4px color-mix(in srgb, var(--hamilton-primary) 5%, transparent)",
+        }}
+      >
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <span
+              className="font-label text-[10px] uppercase tracking-widest border px-2 py-0.5 rounded"
+              style={{
+                color: "var(--hamilton-primary)",
+                background: "color-mix(in srgb, var(--hamilton-primary) 5%, transparent)",
+                borderColor: "color-mix(in srgb, var(--hamilton-primary) 20%, transparent)",
+              }}
+            >
+              Simulated
             </span>
-            <span style={{ color: "var(--hamilton-text-secondary)" }}>
-              {gapDelta >= 0 ? "+" : ""}
-              {formatDollar(gapDelta)} median gap
-            </span>
-            {proposedPosition.riskProfile !== currentPosition.riskProfile && (
-              <span style={{ color: "var(--hamilton-text-secondary)" }}>
-                {currentPosition.riskProfile} → {proposedPosition.riskProfile}
-              </span>
-            )}
+            <h3 className="font-headline text-4xl mt-3" style={{ color: "var(--hamilton-primary)" }}>
+              {formatDollar(proposedFee)}
+            </h3>
+          </div>
+          <div className="text-right">
+            <div className="font-headline text-2xl flex flex-col items-end leading-none" style={{ color: "var(--hamilton-primary)" }}>
+              {hasChange && (
+                <span className="font-label text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--hamilton-primary)" }}>
+                  {percentileDelta > 0 ? "+" : ""}{percentileDelta} PTS
+                </span>
+              )}
+              {proposedPosition.percentile}th
+            </div>
+            <div className="font-label text-[9px] uppercase tracking-widest mt-1" style={{ color: "rgb(168 162 158)" }}>
+              Market Percentile
+            </div>
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="border-t pt-3" style={{ borderColor: "rgb(231 229 228)" }}>
+            <span className="font-label text-[9px] uppercase tracking-widest" style={{ color: "rgb(120 113 108)" }}>
+              Simulated Gap
+            </span>
+            <div className="font-headline text-lg flex items-center gap-2 mt-0.5" style={{ color: "rgb(28 25 23)" }}>
+              {formatGap(proposedPosition.medianGap)}
+              {hasChange && (
+                <span className="font-label text-[10px] uppercase tracking-widest" style={{ color: "var(--hamilton-primary)" }}>
+                  {gapDelta >= 0 ? "+" : ""}{formatDollar(Math.abs(gapDelta))}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="border-t pt-3" style={{ borderColor: "rgb(231 229 228)" }}>
+            <span className="font-label text-[9px] uppercase tracking-widest" style={{ color: "rgb(120 113 108)" }}>
+              Risk Index
+            </span>
+            <div className="font-label text-[10px] uppercase tracking-widest mt-1 font-bold flex items-center gap-2" style={{ color: "rgb(28 25 23)" }}>
+              {riskLabel(proposedPosition.riskProfile)}
+              {hasChange && proposedPosition.riskProfile !== currentPosition.riskProfile && (
+                <span style={{ color: "var(--hamilton-primary)" }}>
+                  &darr; SIGNIFICANT
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

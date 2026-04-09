@@ -12,10 +12,12 @@ interface Props {
   p75: number;
   onValueChange: (value: number[]) => void;
   onValueCommit: (value: number[]) => void;
+  onInputChange?: (value: number) => void;
+  onInputCommit?: () => void;
 }
 
 function formatDollar(v: number): string {
-  return `$${v.toFixed(2)}`;
+  return `$${v.toFixed(0)}`;
 }
 
 /** Convert a fee amount to a percentage along the slider track [0, 100] */
@@ -28,38 +30,62 @@ export function FeeSlider({
   min,
   max,
   step,
-  currentFee,
+  currentFee: _currentFee,
   proposedFee,
   median,
-  p75,
+  p75: _p75,
   onValueChange,
   onValueCommit,
+  onInputChange,
+  onInputCommit,
 }: Props) {
   const medianPct = toPercent(median, min, max);
-  const p75Pct = toPercent(p75, min, max);
-  const currentPct = toPercent(currentFee, min, max);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span
-          className="text-xs font-semibold uppercase tracking-wider"
-          style={{ color: "var(--hamilton-text-tertiary)" }}
+    <div>
+      {/* Header: label + dollar input */}
+      <div className="flex justify-between items-center mb-3">
+        <label
+          className="font-label text-[10px] uppercase tracking-widest"
+          style={{ color: "var(--hamilton-primary)" }}
         >
-          Proposed fee
-        </span>
-        <span
-          className="text-lg font-bold tabular-nums"
-          style={{ color: "var(--hamilton-accent)" }}
+          Active Simulation Target
+        </label>
+        <div
+          className="flex items-center bg-white border px-3 py-1 rounded"
+          style={{ borderColor: "rgb(214 211 208)" }}
         >
-          {formatDollar(proposedFee)}
-        </span>
+          <span
+            className="font-headline text-xl mr-1"
+            style={{ color: "var(--hamilton-primary)" }}
+          >
+            $
+          </span>
+          <input
+            type="number"
+            value={Math.round(proposedFee)}
+            min={min}
+            max={max}
+            step={step}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (!isNaN(v) && onInputChange) onInputChange(v);
+            }}
+            onBlur={onInputCommit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && onInputCommit) onInputCommit();
+            }}
+            className="font-headline text-xl bg-transparent border-none focus:ring-0 w-12 p-0 font-bold"
+            style={{ color: "var(--hamilton-primary)" }}
+            aria-label="Simulation target fee"
+          />
+        </div>
       </div>
 
-      {/* Slider with custom track segments */}
-      <div className="relative py-3">
+      {/* Slider */}
+      <div className="px-2">
         <Slider.Root
-          className="relative flex w-full touch-none select-none items-center"
+          className="relative flex w-full touch-none select-none items-center h-4"
           value={[proposedFee]}
           min={min}
           max={max}
@@ -67,81 +93,51 @@ export function FeeSlider({
           onValueChange={onValueChange}
           onValueCommit={onValueCommit}
         >
-          <Slider.Track className="relative h-2 w-full grow overflow-hidden rounded-full" style={{ background: "var(--hamilton-surface-sunken)" }}>
-            {/* Color segments: emerald up to median, amber median to P75, red P75 to max */}
-            <div
-              className="absolute inset-y-0 left-0"
-              style={{
-                width: `${medianPct}%`,
-                background: "rgb(16 185 129)", // emerald-500
-                opacity: 0.5,
-              }}
+          <Slider.Track
+            className="relative h-1.5 w-full grow rounded-lg"
+            style={{ background: "rgb(214 211 208)" }}
+          >
+            <Slider.Range
+              className="absolute h-full rounded-lg"
+              style={{ background: "var(--hamilton-primary)", opacity: 0.4 }}
             />
-            <div
-              className="absolute inset-y-0"
-              style={{
-                left: `${medianPct}%`,
-                width: `${p75Pct - medianPct}%`,
-                background: "rgb(245 158 11)", // amber-500
-                opacity: 0.5,
-              }}
-            />
-            <div
-              className="absolute inset-y-0"
-              style={{
-                left: `${p75Pct}%`,
-                right: 0,
-                background: "rgb(239 68 68)", // red-500
-                opacity: 0.5,
-              }}
-            />
-            <Slider.Range className="absolute h-full" style={{ background: "var(--hamilton-accent)", opacity: 0.3 }} />
           </Slider.Track>
-
-          {/* Current fee marker (dashed vertical line) */}
-          <div
-            className="absolute top-1/2 h-5 w-0.5 -translate-y-1/2 border-l-2 border-dashed"
-            style={{
-              left: `${currentPct}%`,
-              borderColor: "var(--hamilton-text-secondary)",
-              zIndex: 10,
-            }}
-            title={`Current: ${formatDollar(currentFee)}`}
-          />
-
           <Slider.Thumb
-            className="block h-5 w-5 rounded-full border-2 shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 cursor-grab active:cursor-grabbing"
+            className="block h-4 w-4 rounded-full border-2 shadow focus-visible:outline-none cursor-grab active:cursor-grabbing"
             style={{
-              background: "var(--hamilton-accent)",
+              background: "var(--hamilton-primary)",
               borderColor: "white",
             }}
             aria-label="Proposed fee"
           />
         </Slider.Root>
-      </div>
 
-      {/* Track labels */}
-      <div className="flex justify-between">
-        <span className="text-xs tabular-nums" style={{ color: "var(--hamilton-text-tertiary)" }}>
-          {formatDollar(min)}
-        </span>
-        <span className="text-xs tabular-nums" style={{ color: "var(--hamilton-text-secondary)" }}>
-          Median {formatDollar(median)}
-        </span>
-        <span className="text-xs tabular-nums" style={{ color: "var(--hamilton-text-tertiary)" }}>
-          {formatDollar(max)}
-        </span>
-      </div>
-
-      {/* Current fee legend */}
-      <div className="flex items-center gap-1.5">
+        {/* Track labels */}
         <div
-          className="h-px w-4 border-t-2 border-dashed"
-          style={{ borderColor: "var(--hamilton-text-secondary)" }}
-        />
-        <span className="text-xs" style={{ color: "var(--hamilton-text-tertiary)" }}>
-          Current: {formatDollar(currentFee)}
-        </span>
+          className="flex justify-between mt-2 font-label"
+          style={{ fontSize: "0.55rem", letterSpacing: "0.07em", fontWeight: 600, textTransform: "uppercase" }}
+        >
+          <span style={{ color: "rgb(168 162 158)" }}>{formatDollar(min)} MIN</span>
+          <span
+            className="font-bold"
+            style={{ color: "var(--hamilton-primary)" }}
+          >
+            PEER MEDIAN: {formatDollar(median)}
+          </span>
+          <span style={{ color: "rgb(168 162 158)" }}>{formatDollar(max)} MAX</span>
+        </div>
+
+        {/* Median tick marker */}
+        <div className="relative h-2 mt-0.5 px-0">
+          <div
+            className="absolute top-0 w-px h-2"
+            style={{
+              left: `${medianPct}%`,
+              background: "var(--hamilton-primary)",
+              opacity: 0.4,
+            }}
+          />
+        </div>
       </div>
     </div>
   );

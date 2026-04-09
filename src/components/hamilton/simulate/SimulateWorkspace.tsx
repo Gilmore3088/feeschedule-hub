@@ -40,6 +40,14 @@ interface Props {
   institutionContext: InstitutionContext;
 }
 
+function formatDollar(v: number): string {
+  return `$${v.toFixed(2)}`;
+}
+
+function formatCategory(cat: string): string {
+  return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function SimulateWorkspace({ userId: _userId, institutionId, institutionContext }: Props) {
   const router = useRouter();
 
@@ -116,7 +124,6 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
     } else {
       setDistribution(result.distribution);
       setConfidenceTier(result.confidenceTier);
-      // Default: both current and proposed start at median
       setCurrentFee(result.distribution.median_amount);
       setProposedFee(result.distribution.median_amount);
     }
@@ -129,7 +136,7 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
     const newFee = value[0];
     if (newFee !== undefined) {
       setProposedFee(newFee);
-      setSavedScenarioId(null); // reset saved state on new value
+      setSavedScenarioId(null);
     }
   }, []);
 
@@ -153,6 +160,29 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
     },
     [distribution, selectedCategory, currentFee, institutionContext, complete]
   );
+
+  const handleInputChange = useCallback(
+    (value: number) => {
+      if (!distribution) return;
+      const clamped = Math.max(distribution.min_amount, Math.min(distribution.max_amount, value));
+      setProposedFee(clamped);
+      setSavedScenarioId(null);
+    },
+    [distribution]
+  );
+
+  const handleInputCommit = useCallback(async () => {
+    if (!distribution || !selectedCategory) return;
+    await complete("", {
+      body: {
+        feeCategory: selectedCategory,
+        currentFee,
+        proposedFee,
+        distributionData: distribution,
+        institutionContext,
+      },
+    });
+  }, [distribution, selectedCategory, currentFee, proposedFee, institutionContext, complete]);
 
   // ─── Save Scenario ────────────────────────────────────────────────────────
   const handleSave = useCallback(async (): Promise<string | null> => {
@@ -183,7 +213,6 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
     }
 
     setSavedScenarioId(result.id);
-    // Refresh archive
     listScenarios().then(setScenarios).catch(() => {});
     return result.id;
   }, [
@@ -198,6 +227,12 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
     currentPosition,
     completion,
   ]);
+
+  const handleReset = useCallback(() => {
+    if (!distribution) return;
+    setProposedFee(distribution.median_amount);
+    setSavedScenarioId(null);
+  }, [distribution]);
 
   // ─── Generate Board Summary ───────────────────────────────────────────────
   const handleGenerateSummary = useCallback(async () => {
@@ -216,7 +251,6 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
       setSelectedScenarioId(scenario.id);
       setSavedScenarioId(scenario.id);
 
-      // Re-load the category for this scenario
       if (scenario.fee_category !== selectedCategory) {
         await handleCategorySelect(scenario.fee_category);
       }
@@ -229,135 +263,264 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
     [selectedCategory, handleCategorySelect]
   );
 
+  // ─── Derived display values ────────────────────────────────────────────────
+  const categoryLabel = selectedCategory ? formatCategory(selectedCategory) : "Overdraft Fees";
+  const hasDistribution = distribution && confidenceTier && !loadingCategory;
+  const hasSimulation = hasDistribution && !simulationBlocked && currentPosition && proposedPosition;
+
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="flex gap-6 p-6 min-h-screen"
-      style={{ background: "var(--hamilton-surface)" }}
-    >
-      {/* Main workspace */}
-      <div className="flex-1 flex flex-col gap-5 min-w-0">
-        {/* Screen heading */}
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--hamilton-surface)" }}>
+
+      {/* Page Header ─────────────────────────────────────────────────────── */}
+      <div className="mb-8 flex justify-between items-end">
         <div>
           <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: "var(--hamilton-font-serif)", color: "var(--hamilton-text-primary)" }}
+            className="font-headline text-4xl leading-tight tracking-tight mb-1"
+            style={{ color: "var(--hamilton-on-surface)" }}
           >
-            Scenario Modeling
+            Fee Simulation: {categoryLabel}
           </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--hamilton-text-secondary)" }}>
-            Model a fee change to see strategic position, peer tradeoffs, and Hamilton&apos;s recommendation.
+          <p className="font-label text-[10px] uppercase tracking-widest" style={{ color: "var(--hamilton-on-surface-variant)" }}>
+            Reference: HAM-2024-OD-09 &bull; Last Live Sync: 12s ago
           </p>
         </div>
-
-        {/* Category selector */}
-        <ScenarioCategorySelector
-          categories={categories}
-          selected={selectedCategory}
-          loading={loadingCategories || loadingCategory}
-          onSelect={handleCategorySelect}
-        />
-
-        {error && (
-          <p className="text-sm" style={{ color: "rgb(220 38 38)" }}>
-            {error}
-          </p>
-        )}
-
-        {/* Main simulation UI — shown once a category is selected and data loaded */}
-        {distribution && confidenceTier && !loadingCategory && (
-          <>
-            {simulationBlocked ? (
-              <InsufficientConfidenceGate reason={blockedReason} />
-            ) : (
-              <>
-                {/* Slider */}
-                <div
-                  className="rounded-lg border p-4"
-                  style={{
-                    borderColor: "var(--hamilton-border)",
-                    background: "var(--hamilton-surface-elevated)",
-                  }}
-                >
-                  <FeeSlider
-                    min={distribution.min_amount}
-                    max={distribution.max_amount}
-                    step={0.5}
-                    currentFee={currentFee}
-                    proposedFee={proposedFee}
-                    median={distribution.median_amount}
-                    p75={distribution.p75_amount}
-                    onValueChange={handleSliderChange}
-                    onValueCommit={handleSliderCommit}
-                  />
-                </div>
-
-                {/* Current vs Proposed comparison */}
-                {currentPosition && proposedPosition && (
-                  <CurrentVsProposed
-                    feeCategory={selectedCategory!}
-                    currentFee={currentFee}
-                    proposedFee={proposedFee}
-                    currentPosition={currentPosition}
-                    proposedPosition={proposedPosition}
-                  />
-                )}
-
-                {/* Hamilton interpretation (streams after slider commit) */}
-                <HamiltonInterpretation
-                  interpretation={completion}
-                  isStreaming={isStreaming}
-                />
-
-                {/* Strategic tradeoffs */}
-                <StrategicTradeoffs tradeoffs={tradeoffs} />
-
-                {/* Recommended position */}
-                {proposedPosition && (
-                  <RecommendedPositionCard
-                    confidenceTier={confidenceTier}
-                    proposedFee={proposedFee}
-                    proposedPosition={proposedPosition}
-                    median={distribution.median_amount}
-                    p25={distribution.p25_amount}
-                  />
-                )}
-
-                {/* Save + Board Summary CTA */}
-                <div className="flex flex-col gap-2">
-                  {!savedScenarioId && completion && (
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="self-start text-sm px-4 py-2 rounded-md border transition-colors disabled:opacity-50"
-                      style={{
-                        borderColor: "var(--hamilton-border)",
-                        color: "var(--hamilton-text-secondary)",
-                        background: "var(--hamilton-surface-elevated)",
-                      }}
-                    >
-                      {isSaving ? "Saving..." : "Save Scenario"}
-                    </button>
-                  )}
-                  <GenerateBoardSummaryButton
-                    disabled={!canGenerateSummary}
-                    savedScenarioId={savedScenarioId}
-                    onGenerate={handleGenerateSummary}
-                  />
-                </div>
-              </>
-            )}
-          </>
-        )}
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
+          style={{
+            color: "var(--hamilton-primary)",
+            background: "color-mix(in srgb, var(--hamilton-primary) 5%, transparent)",
+            borderColor: "color-mix(in srgb, var(--hamilton-primary) 10%, transparent)",
+          }}
+        >
+          <span className="relative flex h-2 w-2">
+            <span
+              className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+              style={{ background: "var(--hamilton-primary)" }}
+            />
+            <span
+              className="relative inline-flex rounded-full h-2 w-2"
+              style={{ background: "var(--hamilton-primary)" }}
+            />
+          </span>
+          <span className="font-label text-[9px] font-bold uppercase tracking-widest">
+            Live Simulation Mode
+          </span>
+        </div>
       </div>
 
-      {/* Right rail: scenario archive */}
-      <div className="w-64 flex-shrink-0 hidden lg:block">
+      {error && (
+        <p className="mb-4 text-sm" style={{ color: "rgb(186 26 26)" }}>
+          {error}
+        </p>
+      )}
+
+      {/* Section 1: Scenario Setup ─────────────────────────────────────────── */}
+      <section
+        className="mb-8 bg-white p-6 rounded border editorial-shadow"
+        style={{
+          borderColor: "rgb(231 229 228)",
+          boxShadow: "0 0 15px rgba(138, 76, 39, 0.1)",
+        }}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-center">
+          {/* Category */}
+          <div className="flex flex-col border-r pr-8" style={{ borderColor: "rgb(245 245 244)" }}>
+            <label className="font-label text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--hamilton-on-surface-variant)" }}>
+              Category
+            </label>
+            {loadingCategories || loadingCategory ? (
+              <div className="skeleton h-6 w-32 rounded" />
+            ) : (
+              <ScenarioCategorySelector
+                categories={categories}
+                selected={selectedCategory}
+                loading={loadingCategories || loadingCategory}
+                onSelect={handleCategorySelect}
+              />
+            )}
+          </div>
+
+          {/* Current Point */}
+          <div className="flex flex-col border-r pr-8" style={{ borderColor: "rgb(245 245 244)" }}>
+            <label className="font-label text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--hamilton-on-surface-variant)" }}>
+              Current Point
+            </label>
+            <div
+              className="font-headline text-2xl"
+              style={{ color: "rgb(120 113 108)" }}
+            >
+              {formatDollar(currentFee)}
+            </div>
+          </div>
+
+          {/* Active Simulation Target */}
+          <div
+            className="md:col-span-2 flex flex-col p-4 rounded border"
+            style={{ background: "rgb(250 249 248)", borderColor: "rgb(231 229 228)" }}
+          >
+            {hasDistribution && !simulationBlocked ? (
+              <FeeSlider
+                min={distribution!.min_amount}
+                max={distribution!.max_amount}
+                step={0.5}
+                currentFee={currentFee}
+                proposedFee={proposedFee}
+                median={distribution!.median_amount}
+                p75={distribution!.p75_amount}
+                onValueChange={handleSliderChange}
+                onValueCommit={handleSliderCommit}
+                onInputChange={handleInputChange}
+                onInputCommit={handleInputCommit}
+              />
+            ) : (
+              <div>
+                <label className="font-label text-[10px] uppercase tracking-widest mb-3 block" style={{ color: "var(--hamilton-primary)" }}>
+                  Active Simulation Target
+                </label>
+                <p className="text-sm italic" style={{ color: "var(--hamilton-on-surface-variant)" }}>
+                  Select a fee category to begin simulation.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Insufficient confidence gate */}
+      {hasDistribution && simulationBlocked && (
+        <InsufficientConfidenceGate reason={blockedReason} />
+      )}
+
+      {/* Section 2 + 3: Comparison + Analysis ─────────────────────────────── */}
+      {hasSimulation && (
+        <>
+          {/* Side-by-side comparison */}
+          <section className="mb-8">
+            <CurrentVsProposed
+              feeCategory={selectedCategory!}
+              currentFee={currentFee}
+              proposedFee={proposedFee}
+              currentPosition={currentPosition!}
+              proposedPosition={proposedPosition!}
+            />
+          </section>
+
+          {/* Section 3+4: Interpretation + Operational Impact */}
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-24">
+            {/* Hamilton Strategy Interpretation — col-span-7 */}
+            <div className="lg:col-span-7 space-y-4">
+              <h2
+                className="font-label text-[10px] uppercase tracking-widest border-b pb-2"
+                style={{ color: "var(--hamilton-on-surface-variant)", borderColor: "rgb(231 229 228)" }}
+              >
+                Hamilton Strategy Interpretation
+              </h2>
+
+              <HamiltonInterpretation
+                interpretation={completion}
+                isStreaming={isStreaming}
+              />
+
+              {/* Finalize / Board Summary CTA */}
+              <div className="space-y-2">
+                <GenerateBoardSummaryButton
+                  disabled={!canGenerateSummary}
+                  savedScenarioId={savedScenarioId}
+                  onGenerate={handleGenerateSummary}
+                />
+                {proposedPosition && (
+                  <RecommendedPositionCard
+                    confidenceTier={confidenceTier!}
+                    proposedFee={proposedFee}
+                    proposedPosition={proposedPosition!}
+                    median={distribution!.median_amount}
+                    p25={distribution!.p25_amount}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Operational Impact — col-span-5 */}
+            <div className="lg:col-span-5 space-y-4">
+              <h2
+                className="font-label text-[10px] uppercase tracking-widest border-b pb-2"
+                style={{ color: "var(--hamilton-on-surface-variant)", borderColor: "rgb(231 229 228)" }}
+              >
+                Operational Impact
+              </h2>
+              <StrategicTradeoffs tradeoffs={tradeoffs} />
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* Scenario archive (collapsible, shown below main content on mobile) */}
+      <div className="block lg:hidden mt-4">
         <ScenarioArchive
           scenarios={scenarios}
           selectedId={selectedScenarioId}
           onSelect={handleScenarioSelect}
         />
+      </div>
+
+      {/* Fixed Action Bar ──────────────────────────────────────────────────── */}
+      <div
+        className="fixed bottom-0 left-0 right-0 bg-white border-t flex items-center justify-between z-40 px-12 py-4"
+        style={{ borderColor: "rgb(231 229 228)" }}
+      >
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleSave}
+            disabled={isSaving || !hasSimulation}
+            className="font-label text-[10px] uppercase tracking-widest px-4 py-2 rounded border transition-all hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              color: "rgb(87 83 78)",
+              background: "rgb(250 249 248)",
+              borderColor: "rgb(214 211 208)",
+            }}
+          >
+            {isSaving ? "Saving..." : "Save Draft"}
+          </button>
+          <button
+            onClick={handleReset}
+            disabled={!hasSimulation}
+            className="font-label text-[10px] uppercase tracking-widest px-4 py-2 rounded border transition-all hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              color: "rgb(87 83 78)",
+              background: "rgb(250 249 248)",
+              borderColor: "rgb(214 211 208)",
+            }}
+          >
+            Reset Simulation
+          </button>
+        </div>
+        <div className="flex items-center gap-6">
+          <button
+            className="flex items-center gap-2 font-label text-[10px] uppercase tracking-widest font-bold transition-all hover:opacity-80"
+            style={{ color: "var(--hamilton-primary)" }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export Data
+          </button>
+          <button
+            className="flex items-center gap-2 font-label text-[10px] uppercase tracking-widest font-bold transition-all hover:opacity-80"
+            style={{ color: "var(--hamilton-primary)" }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Collaborate
+          </button>
+        </div>
       </div>
     </div>
   );
