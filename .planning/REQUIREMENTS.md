@@ -1,129 +1,101 @@
-# Requirements: Bank Fee Index — Hamilton Pro Platform
+# Requirements: Bank Fee Index
 
-**Defined:** 2026-04-08
+**Defined:** 2026-04-09
 **Core Value:** Accurate, complete, timely fee data with rich analysis — the kind of insight a bank executive would pay a consulting firm $15K to produce, generated on demand from live pipeline data.
 
-## v8.0 Requirements
+## v8.1 Requirements
 
-Requirements for Hamilton Pro Platform. Each maps to roadmap phases.
-
-### Architecture & Foundation
-
-- [ ] **ARCH-01**: Hamilton shell CSS isolation boundary (`.hamilton-shell` scoping) prevents style contamination with admin portal
-- [ ] **ARCH-02**: Screen-specific TypeScript DTOs (AnalyzeResponse, SimulationResponse, ReportSummaryResponse, MonitorResponse) enforce typed API contracts
-- [ ] **ARCH-03**: Mode enum and MODE_BEHAVIOR config define per-screen capabilities (canRecommend, canExport, canSimulate)
-- [ ] **ARCH-04**: Navigation source file defines Hamilton top nav labels (Home, Analyze, Simulate, Reports, Monitor, Admin)
-- [ ] **ARCH-05**: Screen ownership rules are enforced at type level (Simulate owns recommendation, Report owns export, Analyze cannot recommend)
-
-### Data Layer
-
-- [ ] **DATA-01**: 6 new PostgreSQL tables created (hamilton_saved_analyses, hamilton_scenarios, hamilton_reports, hamilton_watchlists, hamilton_signals, hamilton_priority_alerts)
-- [ ] **DATA-02**: `ensureHamiltonProTables()` function creates all tables on first access (following existing `ensureHamiltonTables()` pattern)
-- [ ] **DATA-03**: Simulation confidence tier field in hamilton_scenarios tracks data quality ("strong"/"provisional"/"insufficient")
-- [ ] **DATA-04**: Soft-delete columns on scenarios and analyses for archive functionality
-
-### Hamilton Shell
-
-- [ ] **SHELL-01**: `(hamilton)` route group with shared server component layout wrapping all 5 screens
-- [ ] **SHELL-02**: HamiltonTopNav component with locked nav labels and active state
-- [ ] **SHELL-03**: HamiltonContextBar showing selected institution, horizon, and analysis focus
-- [ ] **SHELL-04**: HamiltonLeftRail workspace memory (saved analyses, recent work, pinned institutions, peer sets)
-- [ ] **SHELL-05**: Institutional context flows from Settings to layout to all child screens without per-screen selection
+Requirements for Hamilton Pro Live Data Wiring. Each maps to roadmap phases.
 
 ### Settings
 
-- [ ] **SET-01**: User can configure institution profile (name, type, asset tier, Fed district)
-- [ ] **SET-02**: User can create and manage peer set configurations (charter, tiers, districts)
-- [ ] **SET-03**: User can view and toggle feature access settings
-- [ ] **SET-04**: User can view billing status and subscription plan
-- [ ] **SET-05**: Intelligence snapshot panel shows account overview and usage stats
-
-### Home / Executive Briefing
-
-- [ ] **HOME-01**: Hamilton's View card displays one dominant thesis with confidence indicator
-- [ ] **HOME-02**: What Changed section surfaces recent fee movements and regulatory signals
-- [ ] **HOME-03**: Priority Alerts card shows top 3 actionable alerts
-- [ ] **HOME-04**: Recommended Action card provides one-click CTA to Simulate
-- [ ] **HOME-05**: Positioning Evidence section shows current fee positioning metrics (amount, percentile, peer median)
-- [ ] **HOME-06**: Monitor Feed preview shows latest 3 signals from Monitor
-
-### Analyze
-
-- [ ] **ANLZ-01**: Analysis workspace with Hamilton's View, What This Means, Why It Matters, and Evidence panel
-- [ ] **ANLZ-02**: Analysis Focus tabs (Pricing, Risk, Peer Position, Trend) filter analysis lens
-- [ ] **ANLZ-03**: Explore Further section shows suggested follow-up prompts
-- [ ] **ANLZ-04**: User can save analyses to hamilton_saved_analyses for workspace recall
-- [ ] **ANLZ-05**: CTA hierarchy: Simulate a Change > Show Peer Distribution > View Risk Drivers
-- [ ] **ANLZ-06**: Analysis does NOT contain final recommendations or board-ready language (screen boundary rule)
-
-### Simulate
-
-- [ ] **SIM-01**: Fee slider input allows user to set proposed fee with live percentile update
-- [ ] **SIM-02**: Current vs Proposed comparison shows percentile, median gap, and risk profile side-by-side
-- [ ] **SIM-03**: Hamilton Strategy Interpretation provides narrative analysis of the proposed change
-- [ ] **SIM-04**: Strategic Tradeoffs panel shows revenue impact, risk mitigation, and operational metrics
-- [ ] **SIM-05**: Recommended Position card with confidence tier based on data maturity
-- [ ] **SIM-06**: User can save scenarios to hamilton_scenarios and access scenario archive
-- [ ] **SIM-07**: Generate Board Scenario Summary CTA creates report-ready output
-
-### Report Builder
-
-- [x] **RPT-01**: Template gallery offers report types (Quarterly Strategy, Peer Brief, Monthly Pulse, State Index)
-- [x] **RPT-02**: Configuration sidebar allows peer set, institution, and date range selection
-- [ ] **RPT-03**: Executive summary block generated by Hamilton from scenario or analysis data
-- [x] **RPT-04**: Report is read-only — no sliders, inputs, or exploratory prompts (screen boundary rule)
-- [ ] **RPT-05**: PDF export produces McKinsey-grade document via @react-pdf/renderer
-- [ ] **RPT-06**: Scenario-linked reports auto-populate from Simulate output
-- [ ] **RPT-07**: Implementation notes section included in generated reports
+- [ ] **SET-01**: User's fed_district column exists in production DB (migration 041 runs)
 
 ### Monitor
 
-- [ ] **MON-01**: Status strip shows overall system state (stable/watch/worsening) with signal count
-- [ ] **MON-02**: Priority Alert card displays top alert with severity, impact, and recommended next move
-- [ ] **MON-03**: Signal Feed timeline shows chronological institutional deviations and regulatory signals
-- [ ] **MON-04**: Watchlist panel shows tracked institutions with renewal/review status indicators
-- [ ] **MON-05**: Floating chat overlay allows user to ask Hamilton questions without leaving Monitor
-- [ ] **MON-06**: Fee Movements panel shows custodial premium, management alpha, advisory spread metrics
+- [ ] **MON-01**: Signal feed queries real hamilton_signals table with empty state when no data
+- [ ] **MON-02**: User can add/remove watchlist items (institutions, Fed agencies) against real hamilton_watchlists table
+- [ ] **MON-03**: FloatingChatOverlay streams real Hamilton responses
+- [ ] **MON-04**: Monitor uses full canvas width (no wasted left/right margins)
+
+### Home / Briefing
+
+- [ ] **HOME-01**: HamiltonViewCard calls real generateGlobalThesis() with user's peer context
+- [ ] **HOME-02**: PositioningEvidence queries real getNationalIndex() for user's institution fee categories
+- [ ] **HOME-03**: WhatChangedCard + PriorityAlertsCard query real signal/alert tables
+- [ ] **HOME-04**: RecommendedActionCard derives from thesis, links to Simulate with suggested category
+- [ ] **HOME-05**: All data shown traces to pipeline-verified sources — no hallucinated data or fabricated recommendations
+
+### Analyze
+
+- [ ] **ANL-01**: AnalyzeWorkspace streaming works with real Hamilton API (mode: analyze)
+- [ ] **ANL-02**: Focus tabs (Pricing/Risk/Peer/Trend) inject correct context into system prompt
+- [ ] **ANL-03**: User can save/load analyses via hamilton_saved_analyses table
+- [ ] **ANL-04**: All hardcoded/demo analysis content stripped
+- [ ] **ANL-05**: User can export any analysis as a branded PDF report (client brand if uploaded, BFI brand default)
+
+### Simulate
+
+- [ ] **SIM-01**: Category selector works for all 49 fee categories (not just overdraft)
+- [ ] **SIM-02**: Fee distribution data fetched from real getNationalIndex() for selected category
+- [ ] **SIM-03**: canSimulate() blocks categories with insufficient data (confidence gating)
+- [ ] **SIM-04**: Hamilton interpretation streams real API with scenario context — surfaces complaints, peer behavior, revenue subcategories (no concrete dollar predictions)
+
+### Reports
+
+- [ ] **RPT-01**: Report library displays curated Hamilton publications (annual, quarterly, Fed, monthly pulse)
+- [ ] **RPT-02**: User can browse, read, and download published reports
+- [ ] **RPT-03**: Report generation uses real generateSection() with client-specific data context
+- [ ] **RPT-04**: PDF export via @react-pdf/renderer works end-to-end
+- [ ] **RPT-05**: Scenario-linked reports pull from hamilton_scenarios when user comes from Simulate
+
+### Pro Navigation
+
+- [ ] **NAV-01**: Existing Pro nav tabs (Pricing, Peer, etc.) wired to real fee data
+- [ ] **NAV-02**: All Pro screens use full canvas width — no wasted margins
+
+### Integration
+
+- [ ] **INT-01**: Home CTA links navigate correctly to target screens (Simulate, Analyze)
+- [ ] **INT-02**: Simulate -> Report flow passes scenario context
+- [ ] **INT-03**: Analyze -> branded PDF export flow works end-to-end
+- [ ] **INT-04**: Cross-screen data consistency (same institution/peer context everywhere)
 
 ## Future Requirements
 
-Deferred to post-v8.0 release. Tracked but not in current roadmap.
+Deferred beyond v8.1. Tracked but not in current roadmap.
 
-### A/B Testing
+### Automation
 
-- **ABT-01**: Settings page A/B test between editorial (Strategy Settings) and utilitarian variants
-- **ABT-02**: Analytics tracking for conversion between settings variants
+- **AUTO-01**: Signal pipeline automation (auto-generate signals from fee change events)
+- **AUTO-02**: Scheduled report generation (auto-publish quarterly/annual on cadence)
 
-### Pipeline Integration
+### Branding
 
-- **PIPE-01**: Automated signal generation from fee_change_events pipeline
-- **PIPE-02**: CFPB complaint data auto-ingestion into hamilton_signals
-- **PIPE-03**: Peer movement detection from re-crawl deltas
+- **BRAND-01**: Client brand asset upload (logo, colors) for white-labeled reports
+- **BRAND-02**: Brand preview before PDF export
+
+### Billing
+
+- **BILL-01**: Stripe billing portal wiring (manage subscription button)
+- **BILL-02**: Usage-based billing for Hamilton API calls
 
 ### Advanced Export
 
 - **EXP-01**: Charts rendered as PNG inside PDF reports (chart-to-PNG pipeline)
 - **EXP-02**: Word/PPTX export formats
-- **EXP-03**: Scheduled report generation and email delivery
-
-### Wave Orchestrator
-
-- **WAVE-01**: Wave orchestrator for batched state crawl campaigns
-- **WAVE-02**: Iterative deepening strategy (easy URLs to harder discovery to PDF sources)
-- **WAVE-03**: Per-state coverage tracking and progress reporting
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Real-time WebSocket signals | Batch/poll cadence is sufficient; no Supabase Realtime needed |
-| In-report editing/drag-and-drop | Destroys McKinsey-grade brand promise; reports are read-only |
-| Word/PPTX export | PDF-only for v8.0; clean constraint |
-| Charts in PDF | Recharts cannot render in react-pdf; omit for v8.0, use stat callout boxes |
-| Mobile app | Web-first |
-| OAuth/SSO login | Email/password sufficient for v8.0 |
-| Admin UI redesign | Current admin works; Hamilton is a separate experience |
-| Consumer access to Hamilton | All Hamilton screens behind Pro paywall |
+| New UI components or screen redesigns | v8.0 built all shells; v8.1 is data wiring only |
+| Signal pipeline automation | Manual/dev-only seeding for now; automation deferred post-v8.1 |
+| Concrete dollar predictions in Simulate | Risk of inaccuracy; use contextual intelligence (complaints, peer behavior, revenue subcategories) instead |
+| Admin Hamilton changes | Admin content engine is separate; v8.1 is Client Hamilton only |
+| A/B testing settings variants | Deferred to post-launch polish |
+| Real-time WebSocket signals | Batch/poll cadence sufficient |
+| Charts in PDF | Recharts cannot render in react-pdf; stat callout boxes instead |
 
 ## Traceability
 
@@ -131,63 +103,42 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | Phase 38 | Pending |
-| ARCH-02 | Phase 38 | Pending |
-| ARCH-03 | Phase 38 | Pending |
-| ARCH-04 | Phase 38 | Pending |
-| ARCH-05 | Phase 38 | Pending |
-| DATA-01 | Phase 39 | Pending |
-| DATA-02 | Phase 39 | Pending |
-| DATA-03 | Phase 39 | Pending |
-| DATA-04 | Phase 39 | Pending |
-| SHELL-01 | Phase 40 | Pending |
-| SHELL-02 | Phase 40 | Pending |
-| SHELL-03 | Phase 40 | Pending |
-| SHELL-04 | Phase 40 | Pending |
-| SHELL-05 | Phase 40 | Pending |
-| SET-01 | Phase 41 | Pending |
-| SET-02 | Phase 41 | Pending |
-| SET-03 | Phase 41 | Pending |
-| SET-04 | Phase 41 | Pending |
-| SET-05 | Phase 41 | Pending |
-| HOME-01 | Phase 42 | Pending |
-| HOME-02 | Phase 42 | Pending |
-| HOME-03 | Phase 42 | Pending |
-| HOME-04 | Phase 42 | Pending |
-| HOME-05 | Phase 42 | Pending |
-| HOME-06 | Phase 42 | Pending |
-| ANLZ-01 | Phase 43 | Pending |
-| ANLZ-02 | Phase 43 | Pending |
-| ANLZ-03 | Phase 43 | Pending |
-| ANLZ-04 | Phase 43 | Pending |
-| ANLZ-05 | Phase 43 | Pending |
-| ANLZ-06 | Phase 43 | Pending |
-| SIM-01 | Phase 44 | Pending |
-| SIM-02 | Phase 44 | Pending |
-| SIM-03 | Phase 44 | Pending |
-| SIM-04 | Phase 44 | Pending |
-| SIM-05 | Phase 44 | Pending |
-| SIM-06 | Phase 44 | Pending |
-| SIM-07 | Phase 44 | Pending |
-| RPT-01 | Phase 45 | Complete |
-| RPT-02 | Phase 45 | Complete |
-| RPT-03 | Phase 45 | Pending |
-| RPT-04 | Phase 45 | Complete |
-| RPT-05 | Phase 45 | Pending |
-| RPT-06 | Phase 45 | Pending |
-| RPT-07 | Phase 45 | Pending |
-| MON-01 | Phase 46 | Pending |
-| MON-02 | Phase 46 | Pending |
-| MON-03 | Phase 46 | Pending |
-| MON-04 | Phase 46 | Pending |
-| MON-05 | Phase 46 | Pending |
-| MON-06 | Phase 46 | Pending |
+| SET-01 | — | Pending |
+| MON-01 | — | Pending |
+| MON-02 | — | Pending |
+| MON-03 | — | Pending |
+| MON-04 | — | Pending |
+| HOME-01 | — | Pending |
+| HOME-02 | — | Pending |
+| HOME-03 | — | Pending |
+| HOME-04 | — | Pending |
+| HOME-05 | — | Pending |
+| ANL-01 | — | Pending |
+| ANL-02 | — | Pending |
+| ANL-03 | — | Pending |
+| ANL-04 | — | Pending |
+| ANL-05 | — | Pending |
+| SIM-01 | — | Pending |
+| SIM-02 | — | Pending |
+| SIM-03 | — | Pending |
+| SIM-04 | — | Pending |
+| RPT-01 | — | Pending |
+| RPT-02 | — | Pending |
+| RPT-03 | — | Pending |
+| RPT-04 | — | Pending |
+| RPT-05 | — | Pending |
+| NAV-01 | — | Pending |
+| NAV-02 | — | Pending |
+| INT-01 | — | Pending |
+| INT-02 | — | Pending |
+| INT-03 | — | Pending |
+| INT-04 | — | Pending |
 
 **Coverage:**
-- v8.0 requirements: 42 total
-- Mapped to phases: 42
-- Unmapped: 0
+- v8.1 requirements: 30 total
+- Mapped to phases: 0
+- Unmapped: 30
 
 ---
-*Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 after roadmap creation*
+*Requirements defined: 2026-04-09*
+*Last updated: 2026-04-09 after initial definition*
