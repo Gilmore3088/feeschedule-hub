@@ -22,9 +22,17 @@ export default function HamiltonLayout({
   children: React.ReactNode;
 }) {
   return (
-    <Suspense fallback={null}>
-      <HamiltonLayoutInner>{children}</HamiltonLayoutInner>
-    </Suspense>
+    <>
+      {/* Material Symbols for Hamilton editorial icons */}
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet"
+      />
+      <Suspense fallback={null}>
+        <HamiltonLayoutInner>{children}</HamiltonLayoutInner>
+      </Suspense>
+    </>
   );
 }
 
