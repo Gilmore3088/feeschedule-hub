@@ -120,7 +120,6 @@ const _inputLighter = {
 } satisfies ThesisInput;
 
 // Runtime test so vitest doesn't report "no test suite found"
-import { describe, it, expect } from "vitest";
 describe("thesis types", () => {
   it("compile-time contracts pass (satisfies checks above)", () => {
     expect(_outputFull.core_thesis).toBeTruthy();
