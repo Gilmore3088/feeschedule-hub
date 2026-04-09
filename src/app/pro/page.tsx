@@ -15,9 +15,9 @@ import {
   FEE_FAMILIES,
 } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { ProDashboard } from "./dashboard";
 
 const TICKER_CATEGORIES = [
   "monthly_maintenance",
@@ -40,7 +40,7 @@ export default async function ProHomePage() {
   }
 
   if (user && canAccessPremium(user)) {
-    return <ProDashboard user={user} />;
+    redirect("/pro/monitor");
   }
 
   // Non-pro users get marketing page

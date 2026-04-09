@@ -9,7 +9,7 @@
 export const HAMILTON_BASE = "/pro" as const;
 
 export const HAMILTON_NAV = [
-  { label: "Home",     href: `${HAMILTON_BASE}/home`     },
+  { label: "Home",     href: `${HAMILTON_BASE}/hamilton`  },
   { label: "Analyze",  href: `${HAMILTON_BASE}/analyze`  },
   { label: "Simulate", href: `${HAMILTON_BASE}/simulate` },
   { label: "Reports",  href: `${HAMILTON_BASE}/reports`  },
