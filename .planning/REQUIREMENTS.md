@@ -103,42 +103,42 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SET-01 | — | Pending |
-| MON-01 | — | Pending |
-| MON-02 | — | Pending |
-| MON-03 | — | Pending |
-| MON-04 | — | Pending |
-| HOME-01 | — | Pending |
-| HOME-02 | — | Pending |
-| HOME-03 | — | Pending |
-| HOME-04 | — | Pending |
-| HOME-05 | — | Pending |
-| ANL-01 | — | Pending |
-| ANL-02 | — | Pending |
-| ANL-03 | — | Pending |
-| ANL-04 | — | Pending |
-| ANL-05 | — | Pending |
-| SIM-01 | — | Pending |
-| SIM-02 | — | Pending |
-| SIM-03 | — | Pending |
-| SIM-04 | — | Pending |
-| RPT-01 | — | Pending |
-| RPT-02 | — | Pending |
-| RPT-03 | — | Pending |
-| RPT-04 | — | Pending |
-| RPT-05 | — | Pending |
-| NAV-01 | — | Pending |
-| NAV-02 | — | Pending |
-| INT-01 | — | Pending |
-| INT-02 | — | Pending |
-| INT-03 | — | Pending |
-| INT-04 | — | Pending |
+| SET-01 | Phase 47 | Pending |
+| NAV-01 | Phase 48 | Pending |
+| NAV-02 | Phase 48 | Pending |
+| MON-04 | Phase 48 | Pending |
+| MON-01 | Phase 49 | Pending |
+| MON-02 | Phase 49 | Pending |
+| MON-03 | Phase 49 | Pending |
+| HOME-01 | Phase 50 | Pending |
+| HOME-02 | Phase 50 | Pending |
+| HOME-03 | Phase 50 | Pending |
+| HOME-04 | Phase 50 | Pending |
+| HOME-05 | Phase 50 | Pending |
+| ANL-01 | Phase 51 | Pending |
+| ANL-02 | Phase 51 | Pending |
+| ANL-03 | Phase 51 | Pending |
+| ANL-04 | Phase 51 | Pending |
+| ANL-05 | Phase 51 | Pending |
+| SIM-01 | Phase 52 | Pending |
+| SIM-02 | Phase 52 | Pending |
+| SIM-03 | Phase 52 | Pending |
+| SIM-04 | Phase 52 | Pending |
+| RPT-01 | Phase 53 | Pending |
+| RPT-02 | Phase 53 | Pending |
+| RPT-03 | Phase 53 | Pending |
+| RPT-04 | Phase 53 | Pending |
+| RPT-05 | Phase 53 | Pending |
+| INT-01 | Phase 54 | Pending |
+| INT-02 | Phase 54 | Pending |
+| INT-03 | Phase 54 | Pending |
+| INT-04 | Phase 54 | Pending |
 
 **Coverage:**
 - v8.1 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30
+- Mapped to phases: 30
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after initial definition*
+*Last updated: 2026-04-09 after roadmap creation (v8.1 Phases 47-54)*
