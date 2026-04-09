@@ -1,0 +1,97 @@
+"use server";
+
+import { sql } from "@/lib/crawler-db/connection";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
+import type { AnalyzeResponse } from "@/lib/hamilton/types";
+
+/**
+ * Save a completed analysis to hamilton_saved_analyses.
+ * Only accessible to premium/admin users (enforced server-side).
+ * Auto-derives title from prompt if not provided.
+ * Returns the new analysis ID on success.
+ */
+export async function saveAnalysis(params: {
+  institutionId: string;
+  title?: string;
+  analysisFocus: string;
+  prompt: string;
+  responseJson: AnalyzeResponse;
+}): Promise<{ id: string } | { error: string }> {
+  const user = await getCurrentUser();
+  if (!user || !canAccessPremium(user)) {
+    return { error: "Active subscription required" };
+  }
+
+  // Derive title: use explicit title, or first 60 chars of the prompt
+  const title =
+    params.title?.trim() ||
+    params.responseJson.title ||
+    params.prompt.slice(0, 60).trim() + (params.prompt.length > 60 ? "…" : "");
+
+  try {
+    const rows = await sql<{ id: string }[]>`
+      INSERT INTO hamilton_saved_analyses (
+        user_id,
+        institution_id,
+        title,
+        analysis_focus,
+        prompt,
+        response_json,
+        status
+      ) VALUES (
+        ${user.id},
+        ${params.institutionId || ""},
+        ${title},
+        ${params.analysisFocus},
+        ${params.prompt},
+        ${JSON.stringify(params.responseJson)},
+        'active'
+      )
+      RETURNING id::text
+    `;
+
+    const id = rows[0]?.id;
+    if (!id) return { error: "Failed to save analysis" };
+    return { id };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Database error";
+    return { error: message };
+  }
+}
+
+/**
+ * List saved analyses for the current user.
+ * Used for left rail and in-page refresh after saving.
+ */
+export async function listSavedAnalyses(limit = 10): Promise<
+  Array<{
+    id: string;
+    title: string;
+    analysis_focus: string;
+    updated_at: string;
+  }>
+> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  try {
+    const rows = await sql<
+      Array<{
+        id: string;
+        title: string;
+        analysis_focus: string;
+        updated_at: string;
+      }>
+    >`
+      SELECT id::text, title, analysis_focus, updated_at::text
+      FROM hamilton_saved_analyses
+      WHERE user_id = ${user.id} AND status = 'active'
+      ORDER BY updated_at DESC
+      LIMIT ${limit}
+    `;
+    return rows;
+  } catch {
+    return [];
+  }
+}
