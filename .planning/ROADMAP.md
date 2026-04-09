@@ -616,7 +616,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 39-01-PLAN.md -- ensureHamiltonProTables() with 6 tables, indexes, constraints + confidence tier module
+- [x] 39-01-PLAN.md -- ensureHamiltonProTables() with 6 tables, indexes, constraints + confidence tier module
 - [ ] 39-02-PLAN.md -- Unit tests for confidence tiers and pro-tables structural validation
 
 ### Phase 40: Hamilton Shell
@@ -714,7 +714,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 2/2 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -775,7 +775,7 @@ Phases execute in numeric order: 1 -> ... -> 37 -> 38 -> 39 -> 40 -> 41 -> 42 ->
 | 36. Tool and Regulation Intelligence | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 37. Editor v2 and Integration Testing | v7.0 | 1/1 | Complete    | 2026-04-08 |
 | 38. Architecture Foundation | v8.0 | 2/2 | Complete    | 2026-04-09 |
-| 39. Data Layer | v8.0 | 0/TBD | Not started | - |
+| 39. Data Layer | v8.0 | 1/2 | In Progress|  |
 | 40. Hamilton Shell | v8.0 | 0/TBD | Not started | - |
 | 41. Settings | v8.0 | 0/TBD | Not started | - |
 | 42. Home / Executive Briefing | v8.0 | 0/TBD | Not started | - |
