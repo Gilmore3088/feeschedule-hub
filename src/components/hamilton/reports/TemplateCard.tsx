@@ -6,75 +6,64 @@ interface TemplateCardProps {
   type: ReportTemplateType;
   title: string;
   description: string;
-  estimatedTime: string;
+  tags: string[];
+  icon: string;
   isSelected: boolean;
   onClick: () => void;
 }
 
-const TYPE_LABELS: Record<ReportTemplateType, string> = {
-  quarterly_strategy: "Quarterly",
-  peer_brief: "Peer",
-  monthly_pulse: "Monthly",
-  state_index: "State",
-};
-
 export function TemplateCard({
-  type,
   title,
   description,
-  estimatedTime,
+  tags,
+  icon,
   isSelected,
   onClick,
 }: TemplateCardProps) {
   return (
     <button
       type="button"
-      role="radio"
-      aria-checked={isSelected}
       onClick={onClick}
-      className="hamilton-card text-left w-full p-4 cursor-pointer transition-all"
+      className="group relative bg-surface-container-lowest p-8 editorial-shadow cursor-pointer text-left w-full transition-all duration-300"
       style={{
+        border: isSelected
+          ? "1px solid var(--hamilton-primary)"
+          : "1px solid transparent",
         outline: "none",
-        boxShadow: isSelected
-          ? `0 0 0 2px var(--hamilton-accent), 0 0 0 4px var(--hamilton-surface)`
-          : "var(--hamilton-shadow-card)",
-        borderColor: isSelected ? "var(--hamilton-accent)" : "var(--hamilton-border)",
       }}
     >
-      {/* Type badge */}
-      <span
-        className="inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded mb-3"
-        style={{
-          backgroundColor: "var(--hamilton-accent-subtle)",
-          color: "var(--hamilton-text-accent)",
-        }}
-      >
-        {TYPE_LABELS[type]}
-      </span>
+      {/* Icon */}
+      <div className="mb-8">
+        <span
+          className="material-symbols-outlined text-4xl"
+          style={{ color: "var(--hamilton-primary)" }}
+        >
+          {icon}
+        </span>
+      </div>
 
       {/* Title */}
-      <h3
-        className="text-base font-semibold mb-1 leading-snug"
-        style={{ color: "var(--hamilton-text-primary)" }}
-      >
-        {title}
-      </h3>
+      <h3 className="font-headline text-2xl italic mb-3">{title}</h3>
 
       {/* Description */}
       <p
-        className="text-sm leading-relaxed mb-3"
-        style={{ color: "var(--hamilton-text-secondary)" }}
+        className="text-sm leading-relaxed mb-6"
+        style={{ color: "var(--hamilton-secondary)" }}
       >
         {description}
       </p>
 
-      {/* Estimated time */}
-      <span
-        className="text-[11px] font-medium"
-        style={{ color: "var(--hamilton-text-tertiary)" }}
-      >
-        {estimatedTime}
-      </span>
+      {/* Tag chips */}
+      <div className="flex items-center gap-4 mt-auto flex-wrap">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="text-[10px] uppercase tracking-widest px-2 py-1 bg-surface-container-high"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
     </button>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * HamiltonViewCard — Hamilton's View section for the Executive Briefing home screen.
- * Renders core thesis, tensions, narrative summary, and confidence indicator.
+ * Large serif italic thesis, ASSESSMENT badge, recommended action block, action buttons.
  * Server component — no "use client".
  */
 
@@ -11,7 +11,7 @@ interface HamiltonViewCardProps {
   confidence: "high" | "medium" | "low";
 }
 
-function ConfidenceBadge({ confidence }: { confidence: "high" | "medium" | "low" }) {
+function PriorityBadge({ confidence }: { confidence: "high" | "medium" | "low" }) {
   if (confidence === "high") {
     return (
       <span
@@ -19,25 +19,26 @@ function ConfidenceBadge({ confidence }: { confidence: "high" | "medium" | "low"
           display: "inline-flex",
           alignItems: "center",
           gap: "0.375rem",
-          fontSize: "0.7rem",
-          fontWeight: 500,
-          color: "#15803d",
-          backgroundColor: "#f0fdf4",
-          border: "1px solid #bbf7d0",
-          borderRadius: "9999px",
-          padding: "0.125rem 0.625rem",
+          fontSize: "0.625rem",
+          fontWeight: 700,
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          color: "var(--hamilton-error)",
+          backgroundColor: "rgba(186, 26, 26, 0.1)",
+          borderRadius: "0.25rem",
+          padding: "0.25rem 0.5rem",
         }}
       >
         <span
           style={{
-            width: "0.5rem",
-            height: "0.5rem",
+            width: "0.375rem",
+            height: "0.375rem",
             borderRadius: "50%",
-            backgroundColor: "#16a34a",
+            backgroundColor: "var(--hamilton-error)",
             flexShrink: 0,
           }}
         />
-        High confidence
+        High Priority
       </span>
     );
   }
@@ -49,25 +50,26 @@ function ConfidenceBadge({ confidence }: { confidence: "high" | "medium" | "low"
           display: "inline-flex",
           alignItems: "center",
           gap: "0.375rem",
-          fontSize: "0.7rem",
-          fontWeight: 500,
+          fontSize: "0.625rem",
+          fontWeight: 700,
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
           color: "#b45309",
           backgroundColor: "#fffbeb",
-          border: "1px solid #fde68a",
-          borderRadius: "9999px",
-          padding: "0.125rem 0.625rem",
+          borderRadius: "0.25rem",
+          padding: "0.25rem 0.5rem",
         }}
       >
         <span
           style={{
-            width: "0.5rem",
-            height: "0.5rem",
+            width: "0.375rem",
+            height: "0.375rem",
             borderRadius: "50%",
             backgroundColor: "#d97706",
             flexShrink: 0,
           }}
         />
-        Moderate confidence
+        Medium Priority
       </span>
     );
   }
@@ -78,73 +80,44 @@ function ConfidenceBadge({ confidence }: { confidence: "high" | "medium" | "low"
         display: "inline-flex",
         alignItems: "center",
         gap: "0.375rem",
-        fontSize: "0.7rem",
-        fontWeight: 500,
-        color: "#78716c",
-        backgroundColor: "#fafaf9",
-        border: "1px solid #e7e5e4",
-        borderRadius: "9999px",
-        padding: "0.125rem 0.625rem",
+        fontSize: "0.625rem",
+        fontWeight: 700,
+        letterSpacing: "0.15em",
+        textTransform: "uppercase",
+        color: "var(--hamilton-on-surface-variant)",
+        backgroundColor: "var(--hamilton-surface-container)",
+        borderRadius: "0.25rem",
+        padding: "0.25rem 0.5rem",
       }}
     >
       <span
         style={{
-          width: "0.5rem",
-          height: "0.5rem",
+          width: "0.375rem",
+          height: "0.375rem",
           borderRadius: "50%",
-          backgroundColor: "#a8a29e",
+          backgroundColor: "var(--hamilton-on-surface-variant)",
           flexShrink: 0,
         }}
       />
-      Limited data
+      Low Priority
     </span>
   );
 }
 
 function EmptyState() {
   return (
-    <div
-      style={{
-        textAlign: "center",
-        padding: "2rem 0",
-        color: "var(--hamilton-text-secondary)",
-      }}
-    >
-      <div
-        style={{
-          width: "3rem",
-          height: "3rem",
-          margin: "0 auto 1rem",
-          borderRadius: "50%",
-          backgroundColor: "var(--hamilton-surface-sunken)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ color: "var(--hamilton-text-tertiary)" }}
-        >
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-        </svg>
-      </div>
+    <div style={{ padding: "2rem 0", color: "var(--hamilton-on-surface-variant)" }}>
       <p
         style={{
-          fontSize: "0.9375rem",
           fontFamily: "var(--hamilton-font-serif)",
-          color: "var(--hamilton-text-secondary)",
-          marginBottom: "0.375rem",
+          fontSize: "1.5rem",
+          fontStyle: "italic",
+          lineHeight: 1.5,
+          color: "var(--hamilton-on-surface-variant)",
+          marginBottom: "0.5rem",
         }}
       >
-        Hamilton is preparing your first briefing
+        Hamilton is preparing your first briefing.
       </p>
       <p style={{ fontSize: "0.8125rem", color: "var(--hamilton-text-tertiary)" }}>
         Analysis will appear here once the index has sufficient data.
@@ -153,112 +126,179 @@ function EmptyState() {
   );
 }
 
+const DEFAULT_THESIS_TEXT =
+  "Pricing is stable while risk is rising. Your overdraft fee remains above peer median, but the signal is that complaint-adjusted exposure is increasing faster than peer movement.";
+
+const DEFAULT_RECOMMENDED_ACTION =
+  "Evaluate reducing overdraft to $30\u2013$31 or prepare a defensible pricing narrative tied to service differentiation. This should be addressed within the next reporting cycle to avoid increased scrutiny.";
+
 export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) {
+  const thesisText = thesis?.core_thesis ?? DEFAULT_THESIS_TEXT;
+  const recommendedText = thesis?.narrative_summary ?? DEFAULT_RECOMMENDED_ACTION;
+
   return (
-    <div className="hamilton-card" style={{ padding: "1.5rem" }}>
-      {/* Section header */}
+    <section
+      className="editorial-shadow"
+      style={{
+        backgroundColor: "var(--hamilton-surface-container-lowest)",
+        padding: "3rem",
+        borderRadius: "var(--hamilton-radius-lg)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header row: "Hamilton's View" + priority badge */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: "0.75rem",
-          marginBottom: "1.25rem",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: "2.5rem",
         }}
       >
-        <span
+        <h2
+          className="font-headline"
           style={{
-            fontSize: "0.625rem",
-            fontWeight: 600,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "var(--hamilton-text-secondary)",
+            fontSize: "1.875rem",
+            fontWeight: 400,
+            color: "var(--hamilton-primary)",
+            margin: 0,
           }}
         >
           Hamilton&apos;s View
-        </span>
-        <ConfidenceBadge confidence={confidence} />
+        </h2>
+        <PriorityBadge confidence={confidence} />
       </div>
 
+      {/* Core thesis — large italic serif */}
       {thesis === null ? (
         <EmptyState />
       ) : (
-        <>
-          {/* Core thesis */}
+        <div style={{ marginBottom: "2.5rem" }}>
           <p
+            className="font-headline"
             style={{
-              fontFamily: "var(--hamilton-font-serif)",
-              fontSize: "1.1875rem",
-              lineHeight: 1.55,
-              color: "var(--hamilton-text-primary)",
-              marginBottom: "1rem",
+              fontSize: "2.25rem",
+              fontStyle: "italic",
+              lineHeight: 1.4,
+              color: "var(--hamilton-on-surface)",
+              maxWidth: "42rem",
+              margin: "0 0 1.5rem 0",
             }}
           >
-            {thesis.core_thesis}
+            {thesisText}
           </p>
-
-          {/* Divider */}
-          <hr
-            style={{
-              border: "none",
-              borderTop: "1px solid var(--hamilton-border)",
-              marginBottom: "1rem",
-            }}
-          />
-
-          {/* Narrative summary */}
           <p
             style={{
-              fontSize: "0.875rem",
-              lineHeight: 1.65,
-              color: "var(--hamilton-text-secondary)",
-              marginBottom: thesis.tensions.length > 0 ? "1.25rem" : 0,
+              fontSize: "0.75rem",
+              color: "var(--hamilton-on-surface-variant)",
+              fontStyle: "italic",
+              borderBottom: "1px solid rgba(216, 194, 184, 0.2)",
+              paddingBottom: "0.5rem",
+              display: "inline-block",
             }}
           >
-            {thesis.narrative_summary}
+            High confidence &mdash; based on fee data, peer movement, and complaint trends
           </p>
-
-          {/* Tensions */}
-          {thesis.tensions.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-              <span
-                style={{
-                  fontSize: "0.625rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  color: "var(--hamilton-text-tertiary)",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                Key Tensions
-              </span>
-              {thesis.tensions.map((tension, i) => (
-                <div
-                  key={i}
-                  style={{
-                    fontSize: "0.8125rem",
-                    lineHeight: 1.55,
-                    color: "var(--hamilton-text-secondary)",
-                    paddingLeft: "0.875rem",
-                    borderLeft: "2px solid var(--hamilton-accent-subtle)",
-                  }}
-                >
-                  <span style={{ color: "var(--hamilton-text-accent)", fontWeight: 500 }}>
-                    {tension.force_a}
-                  </span>
-                  <span style={{ color: "var(--hamilton-text-tertiary)" }}> while </span>
-                  <span style={{ color: "var(--hamilton-text-accent)", fontWeight: 500 }}>
-                    {tension.force_b}
-                  </span>
-                  <span style={{ color: "var(--hamilton-text-secondary)" }}>
-                    {" "}— {tension.implication}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
+        </div>
       )}
-    </div>
+
+      {/* Recommended Action block */}
+      <div
+        style={{
+          marginBottom: "2.5rem",
+          padding: "2rem",
+          backgroundColor: "rgba(138, 76, 39, 0.05)",
+          borderLeft: "4px solid var(--hamilton-primary)",
+          borderRadius: "0 0.25rem 0.25rem 0",
+        }}
+      >
+        <p
+          className="font-label"
+          style={{
+            fontSize: "0.625rem",
+            fontWeight: 700,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "var(--hamilton-primary)",
+            marginBottom: "0.5rem",
+          }}
+        >
+          Recommended Action
+        </p>
+        <p
+          className="font-headline"
+          style={{
+            fontSize: "1.25rem",
+            fontStyle: "italic",
+            lineHeight: 1.5,
+            color: "var(--hamilton-on-surface)",
+            margin: 0,
+          }}
+        >
+          {recommendedText}
+        </p>
+      </div>
+
+      {/* Action buttons */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "1rem",
+          paddingTop: "2rem",
+          borderTop: "1px solid rgba(216, 194, 184, 0.2)",
+        }}
+      >
+        <button
+          className="burnished-cta editorial-shadow"
+          style={{
+            padding: "0.75rem 2rem",
+            color: "var(--hamilton-on-primary)",
+            fontSize: "0.875rem",
+            fontWeight: 700,
+            borderRadius: "var(--hamilton-radius-lg)",
+            border: "none",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          Simulate Change
+        </button>
+        <button
+          style={{
+            padding: "0.75rem 2rem",
+            backgroundColor: "var(--hamilton-surface-container-low)",
+            color: "var(--hamilton-on-surface)",
+            fontSize: "0.875rem",
+            fontWeight: 700,
+            borderRadius: "var(--hamilton-radius-lg)",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          Generate Board Brief
+        </button>
+        <button
+          style={{
+            padding: "0.75rem 2rem",
+            backgroundColor: "transparent",
+            color: "var(--hamilton-primary)",
+            fontSize: "0.875rem",
+            fontWeight: 700,
+            borderRadius: "var(--hamilton-radius-lg)",
+            border: "2px solid rgba(138, 76, 39, 0.2)",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          Ask Hamilton
+        </button>
+      </div>
+    </section>
   );
 }

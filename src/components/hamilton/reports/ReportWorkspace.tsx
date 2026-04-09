@@ -5,7 +5,6 @@ import { TemplateCard } from "./TemplateCard";
 import { ConfigSidebar } from "./ConfigSidebar";
 import { ReportOutput } from "./ReportOutput";
 import { GeneratingState } from "./GeneratingState";
-import { EmptyState } from "./EmptyState";
 import {
   generateReport,
   loadActiveScenarios,
@@ -13,48 +12,48 @@ import {
 } from "@/app/pro/(hamilton)/reports/actions";
 import type { ReportSummaryResponse } from "@/lib/hamilton/types";
 
+type NarrativeTone = "consulting" | "academic" | "executive" | "technical";
+
 const TEMPLATES: Array<{
   type: ReportTemplateType;
   title: string;
   description: string;
-  estimatedTime: string;
+  tags: string[];
+  icon: string;
 }> = [
   {
     type: "quarterly_strategy",
     title: "Quarterly Strategy Report",
     description:
-      "Comprehensive quarterly fee positioning analysis with peer benchmarks and strategic rationale.",
-    estimatedTime: "~30 seconds",
+      "A comprehensive look at capital allocation across core portfolios relative to benchmark drift.",
+    tags: ["Full Scale", "Institutional"],
+    icon: "history_edu",
   },
   {
     type: "peer_brief",
     title: "Peer Brief",
     description:
-      "Targeted peer comparison across your defined peer set with delta analysis.",
-    estimatedTime: "~20 seconds",
+      "Direct comparative analysis against established peer set metrics and strategic pivots.",
+    tags: ["Comparative", "Daily Ops"],
+    icon: "group_work",
   },
   {
     type: "monthly_pulse",
     title: "Monthly Pulse",
-    description: "Concise monthly fee movement summary with trend highlights.",
-    estimatedTime: "~15 seconds",
+    description:
+      "High-frequency indicators summarized for tactical executive decision-making.",
+    tags: ["Tactical", "Summary"],
+    icon: "timeline",
   },
   {
     type: "state_index",
     title: "State Index",
     description:
-      "State-level fee landscape with district context and regional benchmarks.",
-    estimatedTime: "~25 seconds",
+      "Geopolitical and regulatory risk mapping for cross-border institutional assets.",
+    tags: ["Risk Alpha", "Macro"],
+    icon: "map",
   },
 ];
-
-interface Scenario {
-  id: string;
-  fee_category: string;
-  current_value: number;
-  proposed_value: number;
-  confidence_tier: string;
-}
 
 interface ReportWorkspaceProps {
   userId: number;
@@ -63,33 +62,26 @@ interface ReportWorkspaceProps {
 export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
   const [selectedTemplate, setSelectedTemplate] =
     useState<ReportTemplateType | null>(null);
-  const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 3);
-    return d.toISOString().split("T")[0];
-  });
-  const [dateTo, setDateTo] = useState(() =>
-    new Date().toISOString().split("T")[0]
-  );
-  const [peerSetId, setPeerSetId] = useState("");
-  const [scenarioId, setScenarioId] = useState("");
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [institution, setInstitution] = useState("Hamilton Global Partners");
+  const [peerSet, setPeerSet] = useState("tier1");
+  const [focusArea, setFocusArea] = useState("Capital Allocation");
+  const [narrativeTone, setNarrativeTone] = useState<NarrativeTone>("consulting");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPdfExporting, setIsPdfExporting] = useState(false);
   const [generatedReport, setGeneratedReport] =
     useState<ReportSummaryResponse | null>(null);
   const [generatedReportType, setGeneratedReportType] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [activePreviewTab, setActivePreviewTab] = useState<
+    "preview" | "board" | "analyst" | "export"
+  >("preview");
 
-  // Load scenarios on mount
+  // Load scenarios on mount (kept for future scenario linking)
   useEffect(() => {
-    loadActiveScenarios()
-      .then((s) => setScenarios(s as Scenario[]))
-      .catch(() => {});
+    loadActiveScenarios().catch(() => {});
   }, [userId]);
 
   function handleTemplateClick(type: ReportTemplateType) {
-    // Radio behavior: clicking selected template deselects
     setSelectedTemplate((prev) => (prev === type ? null : type));
   }
 
@@ -99,12 +91,15 @@ export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
     setError(null);
     setGeneratedReport(null);
 
+    const today = new Date().toISOString().split("T")[0];
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const dateFrom = threeMonthsAgo.toISOString().split("T")[0];
+
     const result = await generateReport({
       templateType: selectedTemplate,
       dateFrom,
-      dateTo,
-      peerSetId: peerSetId || undefined,
-      scenarioId: scenarioId || undefined,
+      dateTo: today,
     });
 
     setIsGenerating(false);
@@ -141,113 +136,221 @@ export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      // Non-blocking — user sees the button return to normal state
+      // Non-blocking
     } finally {
       setIsPdfExporting(false);
     }
   }
 
   const reportGenerated = generatedReport !== null;
+  const previewTimestamp = new Date().toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
-    <div className="flex" style={{ minHeight: "calc(100vh - 180px)" }}>
-      {/* Config sidebar */}
-      <ConfigSidebar
-        selectedTemplate={selectedTemplate}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        peerSetId={peerSetId}
-        scenarioId={scenarioId}
-        scenarios={scenarios}
-        isGenerating={isGenerating}
-        reportGenerated={reportGenerated}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
-        onPeerSetChange={setPeerSetId}
-        onScenarioChange={setScenarioId}
-        onGenerate={handleGenerate}
-        onExportPdf={handleExportPdf}
-        isPdfExporting={isPdfExporting}
-      />
+    <div className="px-6 pb-20">
+      {/* Page header */}
+      <header className="mb-12">
+        <h1 className="font-headline text-6xl italic tracking-tighter text-on-surface mb-2">
+          Report Builder
+        </h1>
+        <p
+          className="font-body max-w-xl"
+          style={{ color: "var(--hamilton-secondary)" }}
+        >
+          Synthesize market intelligence into board-ready narratives. Select a
+          framework or create a custom inquiry from the institutional data lake.
+        </p>
+      </header>
 
-      {/* Main content panel */}
-      <main className="flex-1 min-w-0 overflow-auto">
-        {/* Error state */}
-        {error && (
-          <div
-            className="mx-4 mt-4 p-4 rounded border text-sm"
-            style={{
-              borderColor: "#dc2626",
-              color: "#dc2626",
-              backgroundColor: "rgba(220, 38, 38, 0.05)",
-            }}
-          >
-            {error}
+      {/* Error banner */}
+      {error && (
+        <div
+          className="mb-8 p-4 text-sm border"
+          style={{
+            borderColor: "#dc2626",
+            color: "#dc2626",
+            backgroundColor: "rgba(220,38,38,0.05)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-12 gap-12 items-start">
+        {/* Left: Framework Gallery + Preview */}
+        <section className="col-span-12 lg:col-span-8">
+          {/* Section label */}
+          <div className="mb-6 flex justify-between items-end">
+            <h2
+              className="font-sans text-[10px] uppercase tracking-[0.2em] text-primary"
+            >
+              Strategic Frameworks
+            </h2>
+            <span
+              className="text-xs font-sans underline cursor-pointer"
+              style={{ color: "var(--hamilton-secondary)" }}
+            >
+              View full archive
+            </span>
           </div>
-        )}
 
-        {/* Generating state */}
-        {isGenerating && <GeneratingState />}
+          {/* 2×2 template card grid */}
+          <div
+            role="radiogroup"
+            aria-label="Report template"
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          >
+            {TEMPLATES.map((t) => (
+              <TemplateCard
+                key={t.type}
+                type={t.type}
+                title={t.title}
+                description={t.description}
+                tags={t.tags}
+                icon={t.icon}
+                isSelected={selectedTemplate === t.type}
+                onClick={() => handleTemplateClick(t.type)}
+              />
+            ))}
+          </div>
 
-        {/* Report output — post generation */}
-        {!isGenerating && reportGenerated && generatedReport && (
-          <ReportOutput report={generatedReport} reportType={generatedReportType} />
-        )}
-
-        {/* Template gallery — pre-generation, no report yet */}
-        {!isGenerating && !reportGenerated && (
-          <div className="p-6">
-            {/* Page title */}
-            <h1
-              className="text-3xl font-bold mb-2 leading-tight"
-              style={{
-                fontFamily: "var(--hamilton-font-serif)",
-                color: "var(--hamilton-text-primary)",
-              }}
-            >
-              Report Builder
-            </h1>
-            <p
-              className="text-[15px] mb-8"
-              style={{ color: "var(--hamilton-text-secondary)" }}
-            >
-              Select a template to generate a McKinsey-grade executive report.
-            </p>
-
-            <div
-              className="text-[11px] font-semibold uppercase tracking-wider mb-4"
-              style={{ color: "var(--hamilton-text-tertiary)" }}
-            >
-              Select Template
-            </div>
-
-            <div
-              role="radiogroup"
-              aria-label="Report template"
-              className="grid grid-cols-2 gap-4"
-            >
-              {TEMPLATES.map((t) => (
-                <TemplateCard
-                  key={t.type}
-                  type={t.type}
-                  title={t.title}
-                  description={t.description}
-                  estimatedTime={t.estimatedTime}
-                  isSelected={selectedTemplate === t.type}
-                  onClick={() => handleTemplateClick(t.type)}
-                />
+          {/* Narrative Preview Section */}
+          <div
+            className="mt-16 pt-12"
+            style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
+          >
+            {/* Tab strip */}
+            <div className="flex gap-12 mb-8 overflow-x-auto pb-4">
+              {(
+                [
+                  { id: "preview", label: "Preview" },
+                  { id: "board", label: "Board Version" },
+                  { id: "analyst", label: "Analyst Version" },
+                  { id: "export", label: "Export" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActivePreviewTab(tab.id)}
+                  className="text-[10px] uppercase tracking-widest whitespace-nowrap pb-2 transition-colors"
+                  style={{
+                    fontWeight: activePreviewTab === tab.id ? 700 : 400,
+                    borderBottom:
+                      activePreviewTab === tab.id
+                        ? "2px solid var(--hamilton-primary)"
+                        : "2px solid transparent",
+                    color:
+                      activePreviewTab === tab.id
+                        ? "var(--hamilton-on-surface)"
+                        : "var(--hamilton-secondary)",
+                  }}
+                >
+                  {tab.label}
+                </button>
               ))}
             </div>
 
-            {/* Empty state — shown when no template selected */}
-            {selectedTemplate === null && (
-              <div className="mt-12">
-                <EmptyState />
+            {/* Generating overlay */}
+            {isGenerating && <GeneratingState />}
+
+            {/* Generated report output */}
+            {!isGenerating && reportGenerated && generatedReport && (
+              <ReportOutput
+                report={generatedReport}
+                reportType={generatedReportType}
+              />
+            )}
+
+            {/* Static preview / quote block */}
+            {!isGenerating && !reportGenerated && (
+              <div className="bg-surface-container-lowest p-12 editorial-shadow max-w-3xl">
+                <span
+                  className="text-[10px] uppercase tracking-[0.3em] block mb-6 text-primary"
+                >
+                  Strategic Outlook Fragment
+                </span>
+                <h4 className="font-headline text-4xl italic mb-8 leading-tight text-on-surface">
+                  &ldquo;The institution maintains a robust posture against
+                  inflationary headwinds, prioritizing liquid alts in the
+                  short-term window.&rdquo;
+                </h4>
+                <div
+                  className="space-y-6 text-sm leading-relaxed"
+                  style={{ color: "var(--hamilton-secondary)" }}
+                >
+                  <p>
+                    Current market dynamics suggest a deliberate migration
+                    toward fixed-income primitives as central bank signals
+                    remain hawkish. Our analysis indicates that while the
+                    broader sector remains exposed to volatility, the Hamilton
+                    Private pool is positioned with a 12% alpha buffer.
+                  </p>
+                  <p>
+                    Recommendation: Continued accumulation in emerging energy
+                    infrastructure, specifically targeted toward the Nordic
+                    region where regulatory tailwinds are most favorable.
+                  </p>
+                </div>
+                <div className="mt-12 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ color: "var(--hamilton-primary)" }}
+                    >
+                      verified_user
+                    </span>
+                    <span className="text-[10px] uppercase tracking-widest">
+                      Validated by Hamilton AI Terminal
+                    </span>
+                  </div>
+                  <span
+                    className="text-[10px] uppercase tracking-widest"
+                    style={{ color: "var(--hamilton-secondary)" }}
+                  >
+                    {previewTimestamp}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Export PDF — shown after generation */}
+            {reportGenerated && (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={handleExportPdf}
+                  disabled={isPdfExporting}
+                  className="burnished-cta text-white py-3 px-6 text-[10px] uppercase tracking-[0.3em] font-bold transition-transform active:scale-95"
+                  style={{ opacity: isPdfExporting ? 0.7 : 1 }}
+                >
+                  {isPdfExporting ? "Preparing PDF..." : "Export PDF"}
+                </button>
               </div>
             )}
           </div>
-        )}
-      </main>
+        </section>
+
+        {/* Right: Configuration sidebar */}
+        <ConfigSidebar
+          selectedTemplate={selectedTemplate}
+          institution={institution}
+          peerSet={peerSet}
+          focusArea={focusArea}
+          narrativeTone={narrativeTone}
+          isGenerating={isGenerating}
+          onInstitutionChange={setInstitution}
+          onPeerSetChange={setPeerSet}
+          onFocusAreaChange={setFocusArea}
+          onNarrativeToneChange={setNarrativeTone}
+          onGenerate={handleGenerate}
+        />
+      </div>
     </div>
   );
 }

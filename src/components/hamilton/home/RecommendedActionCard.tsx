@@ -26,108 +26,82 @@ export function RecommendedActionCard({
   const displayName = deriveDisplayName(category);
 
   return (
-    <div className="hamilton-card" style={{ padding: "1.5rem" }}>
-      {/* Section label */}
-      <span
+    <div
+      style={{
+        padding: "1.5rem 2rem",
+        backgroundColor: "var(--hamilton-surface-container-low)",
+        borderRadius: "var(--hamilton-radius-lg)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "1.5rem",
+        flexWrap: "wrap",
+      }}
+    >
+      <p
+        className="font-headline"
         style={{
-          display: "block",
-          fontSize: "0.625rem",
-          fontWeight: 600,
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: "var(--hamilton-text-secondary)",
-          marginBottom: "1rem",
+          fontSize: "1rem",
+          fontStyle: "italic",
+          lineHeight: 1.5,
+          color: "var(--hamilton-on-surface)",
+          flex: 1,
+          minWidth: "16rem",
+          margin: 0,
         }}
       >
-        Recommended Action
-      </span>
-
-      {thesisExists ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1.5rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "0.9375rem",
-              lineHeight: 1.55,
-              color: "var(--hamilton-text-primary)",
-              fontFamily: "var(--hamilton-font-serif)",
-              flex: 1,
-              minWidth: "16rem",
-            }}
-          >
+        {thesisExists ? (
+          <>
             Explore how adjusting your{" "}
             <strong style={{ fontWeight: 600 }}>{displayName}</strong> fee
             affects your competitive position.
-          </p>
-          <Link
-            href={`/pro/simulate?category=${category}`}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "var(--hamilton-gradient-cta)",
-              color: "#ffffff",
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              borderRadius: "0.5rem",
-              padding: "0.75rem 1.5rem",
-              textDecoration: "none",
-              flexShrink: 0,
-              letterSpacing: "0.01em",
-            }}
-          >
-            Simulate Change
-          </Link>
-        </div>
-      ) : (
-        <div
+          </>
+        ) : (
+          "Complete your institution setup in Settings to receive personalized recommendations."
+        )}
+      </p>
+
+      {thesisExists ? (
+        <Link
+          href={`/pro/simulate?category=${category}`}
           style={{
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1.5rem",
-            flexWrap: "wrap",
+            justifyContent: "center",
+            background: "var(--hamilton-gradient-cta)",
+            color: "#ffffff",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            borderRadius: "var(--hamilton-radius-lg)",
+            padding: "0.75rem 1.5rem",
+            textDecoration: "none",
+            flexShrink: 0,
+            letterSpacing: "0.01em",
+            boxShadow: "var(--hamilton-shadow-card)",
           }}
         >
-          <p
-            style={{
-              fontSize: "0.875rem",
-              lineHeight: 1.6,
-              color: "var(--hamilton-text-secondary)",
-              flex: 1,
-              minWidth: "16rem",
-            }}
-          >
-            Complete your institution setup in Settings to receive personalized
-            recommendations.
-          </p>
-          <Link
-            href="/pro/settings"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "var(--hamilton-surface-sunken)",
-              color: "var(--hamilton-text-accent)",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-              borderRadius: "0.5rem",
-              padding: "0.75rem 1.5rem",
-              textDecoration: "none",
-              flexShrink: 0,
-              border: "1px solid var(--hamilton-border)",
-            }}
-          >
-            Go to Settings
-          </Link>
-        </div>
+          Simulate Change
+        </Link>
+      ) : (
+        <Link
+          href="/pro/settings"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "var(--hamilton-surface-container)",
+            color: "var(--hamilton-primary)",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            borderRadius: "var(--hamilton-radius-lg)",
+            padding: "0.75rem 1.5rem",
+            textDecoration: "none",
+            flexShrink: 0,
+            border: "1px solid var(--hamilton-outline-variant)",
+          }}
+        >
+          Go to Settings
+        </Link>
       )}
     </div>
   );

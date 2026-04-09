@@ -1,206 +1,227 @@
 "use client";
 
-import { Download, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { ReportTemplateType } from "@/app/pro/(hamilton)/reports/actions";
 
-interface Scenario {
-  id: string;
-  fee_category: string;
-  current_value: number;
-  proposed_value: number;
-  confidence_tier: string;
-}
+type NarrativeTone = "consulting" | "academic" | "executive" | "technical";
 
 interface ConfigSidebarProps {
   selectedTemplate: ReportTemplateType | null;
-  dateFrom: string;
-  dateTo: string;
-  peerSetId: string;
-  scenarioId: string;
-  scenarios: Scenario[];
+  institution: string;
+  peerSet: string;
+  focusArea: string;
+  narrativeTone: NarrativeTone;
   isGenerating: boolean;
-  reportGenerated: boolean;
-  onDateFromChange: (v: string) => void;
-  onDateToChange: (v: string) => void;
+  onInstitutionChange: (v: string) => void;
   onPeerSetChange: (v: string) => void;
-  onScenarioChange: (v: string) => void;
+  onFocusAreaChange: (v: string) => void;
+  onNarrativeToneChange: (v: NarrativeTone) => void;
   onGenerate: () => void;
-  onExportPdf: () => void;
-  isPdfExporting: boolean;
 }
+
+const TONES: Array<{ value: NarrativeTone; label: string }> = [
+  { value: "consulting", label: "Consulting" },
+  { value: "academic", label: "Academic" },
+  { value: "executive", label: "Executive" },
+  { value: "technical", label: "Technical" },
+];
+
+const FOCUS_AREAS = [
+  "Capital Allocation",
+  "Risk Mitigation",
+  "Yield Optimization",
+  "Sustainable Growth",
+];
 
 export function ConfigSidebar({
   selectedTemplate,
-  dateFrom,
-  dateTo,
-  scenarios,
-  scenarioId,
+  institution,
+  peerSet,
+  focusArea,
+  narrativeTone,
   isGenerating,
-  reportGenerated,
-  onDateFromChange,
-  onDateToChange,
-  onScenarioChange,
+  onInstitutionChange,
+  onPeerSetChange,
+  onFocusAreaChange,
+  onNarrativeToneChange,
   onGenerate,
-  onExportPdf,
-  isPdfExporting,
 }: ConfigSidebarProps) {
   const canGenerate = selectedTemplate !== null && !isGenerating;
 
   return (
-    <aside
-      className="flex-shrink-0 flex flex-col border-r"
-      style={{
-        width: "280px",
-        borderColor: "var(--hamilton-border)",
-        backgroundColor: "var(--hamilton-surface)",
-        padding: "24px 16px",
-      }}
-    >
-      {/* Section heading */}
-      <div className="mb-6">
-        <h2
-          className="text-[11px] font-semibold uppercase tracking-wider"
-          style={{ color: "var(--hamilton-text-tertiary)" }}
-        >
-          Report Configuration
-        </h2>
-      </div>
-
-      {/* Analysis Period */}
-      <div className="mb-5">
-        <label
-          className="block text-[11px] font-semibold uppercase tracking-wider mb-2"
-          style={{ color: "var(--hamilton-text-secondary)" }}
-        >
-          Analysis Period
-        </label>
-        <div className="flex flex-col gap-2">
-          <div>
-            <span
-              className="block text-[11px] mb-1"
-              style={{ color: "var(--hamilton-text-tertiary)" }}
-            >
-              From
-            </span>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => onDateFromChange(e.target.value)}
-              className="w-full text-sm px-3 py-1.5 rounded border"
-              style={{
-                borderColor: "var(--hamilton-border)",
-                backgroundColor: "var(--hamilton-surface-elevated)",
-                color: "var(--hamilton-text-primary)",
-                outline: "none",
-              }}
-            />
-          </div>
-          <div>
-            <span
-              className="block text-[11px] mb-1"
-              style={{ color: "var(--hamilton-text-tertiary)" }}
-            >
-              To
-            </span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => onDateToChange(e.target.value)}
-              className="w-full text-sm px-3 py-1.5 rounded border"
-              style={{
-                borderColor: "var(--hamilton-border)",
-                backgroundColor: "var(--hamilton-surface-elevated)",
-                color: "var(--hamilton-text-primary)",
-                outline: "none",
-              }}
-            />
-          </div>
+    <aside className="col-span-12 lg:col-span-4 sticky top-32">
+      {/* Configuration panel */}
+      <div className="bg-surface-container-low p-8">
+        <div className="mb-10">
+          <h2 className="font-headline text-3xl italic mb-1">Configuration</h2>
+          <p
+            className="text-xs tracking-wide"
+            style={{ color: "var(--hamilton-secondary)" }}
+          >
+            Adjust parameters to refine narrative output.
+          </p>
         </div>
-      </div>
 
-      {/* Scenario Link (optional) */}
-      <div className="mb-6">
-        <label
-          className="block text-[11px] font-semibold uppercase tracking-wider mb-2"
-          style={{ color: "var(--hamilton-text-secondary)" }}
-        >
-          Link a Scenario (optional)
-        </label>
-        <select
-          value={scenarioId}
-          onChange={(e) => onScenarioChange(e.target.value)}
-          disabled={scenarios.length === 0}
-          className="w-full text-sm px-3 py-1.5 rounded border"
-          style={{
-            borderColor: "var(--hamilton-border)",
-            backgroundColor: "var(--hamilton-surface-elevated)",
-            color:
-              scenarios.length === 0
-                ? "var(--hamilton-text-tertiary)"
-                : "var(--hamilton-text-primary)",
-            outline: "none",
+        <form
+          className="space-y-8"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onGenerate();
           }}
         >
-          <option value="">
-            {scenarios.length === 0
-              ? "No scenarios saved yet"
-              : "Select a saved scenario..."}
-          </option>
-          {scenarios.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.fee_category.replace(/_/g, " ")} scenario
-            </option>
-          ))}
-        </select>
+          {/* Institution */}
+          <div>
+            <label
+              className="block text-[10px] uppercase tracking-[0.2em] mb-3"
+              style={{ color: "var(--hamilton-secondary)" }}
+            >
+              Institution
+            </label>
+            <select
+              value={institution}
+              onChange={(e) => onInstitutionChange(e.target.value)}
+              className="w-full bg-transparent border-0 focus:ring-0 text-sm py-2 appearance-none"
+              style={{
+                borderBottom: "1px solid rgba(134,115,107,0.4)",
+                color: "var(--hamilton-on-surface)",
+              }}
+            >
+              <option>Hamilton Global Partners</option>
+              <option>Standard Meridian</option>
+              <option>Axiom Wealth</option>
+            </select>
+          </div>
+
+          {/* Peer Set */}
+          <div>
+            <label
+              className="block text-[10px] uppercase tracking-[0.2em] mb-3"
+              style={{ color: "var(--hamilton-secondary)" }}
+            >
+              Peer Set
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <span
+                className="text-white text-[10px] uppercase tracking-widest px-3 py-1.5 flex items-center gap-2 cursor-pointer"
+                style={{ backgroundColor: "var(--hamilton-primary)" }}
+                onClick={() => onPeerSetChange("tier1")}
+              >
+                Tier 1 Banks
+                <span className="material-symbols-outlined text-xs">close</span>
+              </span>
+              <span
+                className="text-[10px] uppercase tracking-widest px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors bg-surface-container-high"
+                onClick={() => onPeerSetChange("emea")}
+              >
+                EMEA Private
+                <span className="material-symbols-outlined text-xs">add</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Focus Area */}
+          <div>
+            <label
+              className="block text-[10px] uppercase tracking-[0.2em] mb-3"
+              style={{ color: "var(--hamilton-secondary)" }}
+            >
+              Focus Area
+            </label>
+            <select
+              value={focusArea}
+              onChange={(e) => onFocusAreaChange(e.target.value)}
+              className="w-full bg-transparent border-0 focus:ring-0 text-sm py-2 appearance-none"
+              style={{
+                borderBottom: "1px solid rgba(134,115,107,0.4)",
+                color: "var(--hamilton-on-surface)",
+              }}
+            >
+              {FOCUS_AREAS.map((area) => (
+                <option key={area}>{area}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Narrative Tone */}
+          <div>
+            <label
+              className="block text-[10px] uppercase tracking-[0.2em] mb-3"
+              style={{ color: "var(--hamilton-secondary)" }}
+            >
+              Narrative Tone
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              {TONES.map((tone) => {
+                const isActive = narrativeTone === tone.value;
+                return (
+                  <button
+                    key={tone.value}
+                    type="button"
+                    onClick={() => onNarrativeToneChange(tone.value)}
+                    className="p-4 text-center cursor-pointer transition-colors"
+                    style={{
+                      border: isActive
+                        ? "1px solid var(--hamilton-primary)"
+                        : "1px solid transparent",
+                      backgroundColor: isActive
+                        ? "var(--hamilton-surface-container-lowest)"
+                        : "var(--hamilton-surface-container-high)",
+                    }}
+                  >
+                    <span
+                      className="text-[10px] uppercase tracking-widest block"
+                      style={{
+                        fontWeight: isActive ? 700 : 400,
+                        color: isActive
+                          ? "var(--hamilton-on-surface)"
+                          : "var(--hamilton-secondary)",
+                      }}
+                    >
+                      {tone.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="pt-8">
+            <button
+              type="submit"
+              disabled={!canGenerate}
+              className="w-full burnished-cta text-white py-5 px-8 flex items-center justify-center gap-3 transition-transform active:scale-95"
+              style={{ opacity: canGenerate ? 1 : 0.6, cursor: canGenerate ? "pointer" : "not-allowed" }}
+            >
+              {isGenerating ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <span className="material-symbols-outlined">auto_awesome</span>
+              )}
+              <span className="text-[10px] uppercase tracking-[0.3em] font-bold">
+                {isGenerating ? "Generating..." : "Generate Intelligence"}
+              </span>
+            </button>
+            <p
+              className="text-[9px] text-center mt-4 uppercase tracking-widest opacity-60"
+              style={{ color: "var(--hamilton-secondary)" }}
+            >
+              Estimated processing time: 4s
+            </p>
+          </div>
+        </form>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Generate button */}
-      <button
-        type="button"
-        onClick={onGenerate}
-        disabled={!canGenerate}
-        aria-busy={isGenerating}
-        className="w-full py-2.5 px-4 rounded font-semibold text-sm text-white mb-3 transition-opacity flex items-center justify-center gap-2"
+      {/* Pull quote */}
+      <div
+        className="mt-8 px-8 py-6 italic font-headline text-lg"
         style={{
-          background: canGenerate
-            ? "var(--hamilton-gradient-cta)"
-            : "var(--hamilton-surface-elevated)",
-          color: canGenerate ? "white" : "var(--hamilton-text-tertiary)",
-          cursor: canGenerate ? "pointer" : "not-allowed",
-          opacity: isGenerating ? 0.8 : 1,
+          borderLeft: "2px solid rgba(138,76,39,0.2)",
+          color: "var(--hamilton-secondary)",
         }}
       >
-        {isGenerating && <Loader2 size={14} className="animate-spin" />}
-        {isGenerating ? "Generating..." : "Generate Report"}
-      </button>
-
-      {/* Export PDF button — only shown after report generated */}
-      {reportGenerated && (
-        <button
-          type="button"
-          onClick={onExportPdf}
-          disabled={isPdfExporting}
-          aria-label="Export report as PDF"
-          className="w-full py-2 px-4 rounded font-medium text-sm flex items-center justify-center gap-2 border transition-opacity"
-          style={{
-            borderColor: "var(--hamilton-accent)",
-            color: "var(--hamilton-text-accent)",
-            backgroundColor: "transparent",
-            cursor: isPdfExporting ? "not-allowed" : "pointer",
-            opacity: isPdfExporting ? 0.7 : 1,
-          }}
-        >
-          {isPdfExporting ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Download size={14} />
-          )}
-          {isPdfExporting ? "Preparing PDF..." : "Export PDF"}
-        </button>
-      )}
+        &ldquo;Accuracy is the only currency that matters in private intelligence.&rdquo;
+      </div>
     </aside>
   );
 }

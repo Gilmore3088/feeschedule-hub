@@ -7,7 +7,6 @@ import { HamiltonViewCard } from "@/components/hamilton/home/HamiltonViewCard";
 import { PositioningEvidence } from "@/components/hamilton/home/PositioningEvidence";
 import { WhatChangedCard } from "@/components/hamilton/home/WhatChangedCard";
 import { PriorityAlertsCard } from "@/components/hamilton/home/PriorityAlertsCard";
-import { RecommendedActionCard } from "@/components/hamilton/home/RecommendedActionCard";
 import { MonitorFeedPreview } from "@/components/hamilton/home/MonitorFeedPreview";
 import type { HomeBriefingSignals } from "@/lib/hamilton/home-data";
 
@@ -21,33 +20,14 @@ export const metadata: Metadata = { title: "Executive Briefing" };
  */
 function SignalsSkeleton() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      {/* What Changed + Priority Alerts row */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "1rem",
-        }}
+        style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "2rem" }}
       >
-        <div
-          className="hamilton-card skeleton"
-          style={{ padding: "1.25rem", minHeight: "10rem" }}
-        />
-        <div
-          className="hamilton-card skeleton"
-          style={{ padding: "1.25rem", minHeight: "10rem" }}
-        />
+        <div className="hamilton-card skeleton" style={{ minHeight: "12rem" }} />
+        <div className="hamilton-card skeleton" style={{ minHeight: "12rem" }} />
       </div>
-      {/* Recommended Action + Monitor Feed */}
-      <div
-        className="hamilton-card skeleton"
-        style={{ padding: "1.5rem", minHeight: "5rem" }}
-      />
-      <div
-        className="hamilton-card skeleton"
-        style={{ padding: "1.25rem", minHeight: "8rem" }}
-      />
+      <div className="hamilton-card skeleton" style={{ minHeight: "5rem" }} />
     </div>
   );
 }
@@ -55,15 +35,8 @@ function SignalsSkeleton() {
 /**
  * BriefingSignals — fetches time-sensitive signal/alert data fresh on every load.
  * Per D-11: unstable_noStore() opts this async component out of ISR caching.
- * Per T-42-07: getCurrentUser() called here to scope alerts to current user.
  */
-async function BriefingSignals({
-  recommendedCategory,
-  thesisExists,
-}: {
-  recommendedCategory: string | null;
-  thesisExists: boolean;
-}) {
+async function BriefingSignals() {
   unstable_noStore();
 
   let signals: HomeBriefingSignals = {
@@ -83,26 +56,19 @@ async function BriefingSignals({
 
   return (
     <>
-      {/* What Changed + Priority Alerts — 2-column grid on lg */}
+      {/* Second Row: WhatChanged (8 col) + PriorityAlerts (4 col) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(1, 1fr)",
-          gap: "1rem",
+          gridTemplateColumns: "2fr 1fr",
+          gap: "2rem",
         }}
-        className="briefing-signal-row"
       >
         <WhatChangedCard signals={signals.whatChanged} />
         <PriorityAlertsCard alerts={signals.priorityAlerts} />
       </div>
 
-      {/* Recommended Action — full width prominent CTA */}
-      <RecommendedActionCard
-        recommendedCategory={recommendedCategory}
-        thesisExists={thesisExists}
-      />
-
-      {/* Monitor Feed Preview — full width compact timeline */}
+      {/* Monitor Feed — full-width timeline */}
       <MonitorFeedPreview signals={signals.monitorFeed} />
     </>
   );
@@ -111,54 +77,130 @@ async function BriefingSignals({
 export default async function HamiltonHomePage() {
   const data = await fetchHomeBriefingData();
 
-  const now = new Date();
-  const dateLabel = now.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
   return (
-    <div style={{ maxWidth: "56rem", margin: "0 auto", padding: "2rem 1.5rem" }}>
-      {/* Page header */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h1
+    <div style={{ padding: "2rem 3rem", maxWidth: "100rem", margin: "0 auto" }}>
+      {/* Page header — "Executive Briefing" + subtitle pills */}
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginBottom: "3rem",
+        }}
+      >
+        <div>
+          <h1
+            className="font-headline"
+            style={{
+              fontSize: "3rem",
+              fontStyle: "italic",
+              fontWeight: 400,
+              letterSpacing: "-0.02em",
+              color: "var(--hamilton-on-surface)",
+              lineHeight: 1.1,
+              marginBottom: "0.5rem",
+            }}
+          >
+            Executive Briefing
+          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span
+              className="font-label"
+              style={{
+                fontSize: "0.625rem",
+                fontWeight: 600,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--hamilton-on-surface-variant)",
+              }}
+            >
+              Updated 24m ago
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <span
+                style={{
+                  width: "0.375rem",
+                  height: "0.375rem",
+                  borderRadius: "50%",
+                  backgroundColor: "var(--hamilton-error)",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                className="font-label"
+                style={{
+                  fontSize: "0.625rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--hamilton-error)",
+                }}
+              >
+                Trend: Worsening
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "1rem", flexShrink: 0 }}>
+          <button
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "var(--hamilton-surface-container-high)",
+              color: "var(--hamilton-on-surface)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              borderRadius: "var(--hamilton-radius-lg)",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Export PDF
+          </button>
+          <button
+            className="burnished-cta editorial-shadow"
+            style={{
+              padding: "0.5rem 1rem",
+              color: "var(--hamilton-on-primary)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              borderRadius: "var(--hamilton-radius-lg)",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Full Dashboard
+          </button>
+        </div>
+      </header>
+
+      {/* Content grid */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+        {/* First Row: Hamilton's View (8 col) + Priority Alerts sidebar (4 col) */}
+        <div
           style={{
-            fontFamily: "var(--hamilton-font-serif)",
-            fontSize: "1.75rem",
-            fontWeight: 700,
-            color: "var(--hamilton-text-primary)",
-            marginBottom: "0.375rem",
-            lineHeight: 1.2,
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr",
+            gap: "2rem",
+            alignItems: "start",
           }}
         >
-          Executive Briefing
-        </h1>
-        <p
-          style={{
-            fontSize: "0.8125rem",
-            color: "var(--hamilton-text-tertiary)",
-          }}
-        >
-          {dateLabel} &mdash;{" "}
-          {data.totalInstitutions.toLocaleString()} institutions
-        </p>
-      </div>
+          {/* Left: What Changed strip + Hamilton's View card */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+            <WhatChangedCard signals={[]} />
+            <HamiltonViewCard thesis={data.thesis} confidence={data.confidence} />
+          </div>
 
-      {/* Content — ISR-cached thesis data renders immediately */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {/* Module 1: Hamilton's View — thesis + confidence (ISR-cached) */}
-        <HamiltonViewCard thesis={data.thesis} confidence={data.confidence} />
+          {/* Right: Priority Alerts sidebar */}
+          <PriorityAlertsCard alerts={[]} />
+        </div>
 
-        {/* Module 2: Positioning Evidence — spotlight fee metrics (ISR-cached) */}
+        {/* Second Row: Positioning Evidence (8 col) + Watchlist (4 col) */}
         <PositioningEvidence entries={data.positioning} />
 
-        {/* Modules 3-6: Signal-driven cards — fresh on every load via Suspense */}
+        {/* Fresh signal rows via Suspense */}
         <Suspense fallback={<SignalsSkeleton />}>
-          <BriefingSignals
-            recommendedCategory={data.recommendedCategory}
-            thesisExists={data.thesis !== null}
-          />
+          <BriefingSignals />
         </Suspense>
       </div>
     </div>
