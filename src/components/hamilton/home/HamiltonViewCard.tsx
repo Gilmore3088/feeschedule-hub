@@ -126,15 +126,16 @@ function EmptyState() {
   );
 }
 
-const DEFAULT_THESIS_TEXT =
-  "Pricing is stable while risk is rising. Your overdraft fee remains above peer median, but the signal is that complaint-adjusted exposure is increasing faster than peer movement.";
-
-const DEFAULT_RECOMMENDED_ACTION =
-  "Evaluate reducing overdraft to $30\u2013$31 or prepare a defensible pricing narrative tied to service differentiation. This should be addressed within the next reporting cycle to avoid increased scrutiny.";
-
 export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) {
-  const thesisText = thesis?.core_thesis ?? DEFAULT_THESIS_TEXT;
-  const recommendedText = thesis?.narrative_summary ?? DEFAULT_RECOMMENDED_ACTION;
+  const thesisText = thesis?.core_thesis ?? null;
+  const recommendedText = thesis?.narrative_summary ?? null;
+
+  const confidenceLabel =
+    confidence === "high"
+      ? "High confidence -- based on strong fee data coverage"
+      : confidence === "medium"
+        ? "Moderate confidence -- some fee categories have limited data"
+        : "Low confidence -- several fee categories have insufficient data";
 
   return (
     <section
@@ -172,7 +173,18 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
 
       {/* Core thesis — large italic serif */}
       {thesis === null ? (
-        <EmptyState />
+        <div style={{ padding: "2rem 0" }}>
+          <p
+            style={{
+              fontSize: "0.875rem",
+              fontStyle: "italic",
+              color: "var(--hamilton-on-surface-variant)",
+              lineHeight: 1.6,
+            }}
+          >
+            AI analysis temporarily unavailable. Positioning data below is current.
+          </p>
+        </div>
       ) : (
         <div style={{ marginBottom: "2.5rem" }}>
           <p
@@ -198,47 +210,49 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
               display: "inline-block",
             }}
           >
-            High confidence &mdash; based on fee data, peer movement, and complaint trends
+            {confidenceLabel}
           </p>
         </div>
       )}
 
-      {/* Recommended Action block */}
-      <div
-        style={{
-          marginBottom: "2.5rem",
-          padding: "2rem",
-          backgroundColor: "rgba(138, 76, 39, 0.05)",
-          borderLeft: "4px solid var(--hamilton-primary)",
-          borderRadius: "0 0.25rem 0.25rem 0",
-        }}
-      >
-        <p
-          className="font-label"
+      {/* Recommended Action block — only when thesis exists */}
+      {thesis !== null && recommendedText && (
+        <div
           style={{
-            fontSize: "0.625rem",
-            fontWeight: 700,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "var(--hamilton-primary)",
-            marginBottom: "0.5rem",
+            marginBottom: "2.5rem",
+            padding: "2rem",
+            backgroundColor: "rgba(138, 76, 39, 0.05)",
+            borderLeft: "4px solid var(--hamilton-primary)",
+            borderRadius: "0 0.25rem 0.25rem 0",
           }}
         >
-          Recommended Action
-        </p>
-        <p
-          className="font-headline"
-          style={{
-            fontSize: "1.25rem",
-            fontStyle: "italic",
-            lineHeight: 1.5,
-            color: "var(--hamilton-on-surface)",
-            margin: 0,
-          }}
-        >
-          {recommendedText}
-        </p>
-      </div>
+          <p
+            className="font-label"
+            style={{
+              fontSize: "0.625rem",
+              fontWeight: 700,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--hamilton-primary)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            Recommended Action
+          </p>
+          <p
+            className="font-headline"
+            style={{
+              fontSize: "1.25rem",
+              fontStyle: "italic",
+              lineHeight: 1.5,
+              color: "var(--hamilton-on-surface)",
+              margin: 0,
+            }}
+          >
+            {recommendedText}
+          </p>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div
