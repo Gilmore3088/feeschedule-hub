@@ -60,7 +60,7 @@ export default async function SettingsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto pb-16">
+    <div className="pb-16">
       {/* Page header */}
       <div className="mb-8">
         <p className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: "var(--hamilton-text-secondary)" }}>

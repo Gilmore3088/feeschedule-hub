@@ -36,7 +36,7 @@ export default async function MonitorPage() {
         }}
       >
         {/* Page header */}
-        <header style={{ marginBottom: "3rem", maxWidth: "72rem", margin: "0 auto 3rem" }}>
+        <header style={{ marginBottom: "3rem" }}>
           <h1
             className="font-headline"
             style={{
@@ -69,8 +69,6 @@ export default async function MonitorPage() {
         {/* 12-col grid: feed (7) + sidebar (5) */}
         <div
           style={{
-            maxWidth: "72rem",
-            margin: "0 auto",
             display: "grid",
             gridTemplateColumns: "7fr 5fr",
             gap: "3rem",
