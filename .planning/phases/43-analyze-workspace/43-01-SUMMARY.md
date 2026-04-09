@@ -27,3 +27,9 @@
 - [x] Explore Further prompts as clickable pills
 - [x] No recommendation language (screen boundary)
 - [x] CTA hierarchy: Simulate > Peer Distribution > Risk Drivers
+
+## Issues Resolved
+- Worktree base mismatch: EnterWorktree created branch from older commit missing (hamilton) route group — fixed via git reset --hard to correct main HEAD
+- @ai-sdk/react v3 API: useChat no longer exposes input/handleSubmit/isLoading — rewrote to use DefaultChatTransport, sendMessage({ text }), status === "streaming"
+- AnalyzeCTABar missing from main — recreated directly
+- TypeScript: 0 errors in production code after fixes
