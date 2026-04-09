@@ -619,3 +619,107 @@
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
 .consumer-brand .via-white { --tw-gradient-via: #FDFBF8; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Hamilton shell: editorial design system isolation boundary
+   Applied via .hamilton-shell wrapper on Hamilton Pro layout.
+   All --hamilton-* tokens are SCOPED HERE — never in @theme inline.
+   Phases 40-46 wrap content in .hamilton-shell to get the editorial aesthetic
+   without contaminating admin or consumer styles.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.hamilton-shell {
+  /* ── Surface tokens ── */
+  --hamilton-surface: #fbf9f4;
+  --hamilton-surface-elevated: #f5f1e8;
+  --hamilton-surface-sunken: #f0ebe0;
+  --hamilton-surface-overlay: rgba(251, 249, 244, 0.95);
+
+  /* ── Text tokens ── */
+  --hamilton-text-primary: #1c1917;
+  --hamilton-text-secondary: #78716c;
+  --hamilton-text-tertiary: #a8a29e;
+  --hamilton-text-accent: oklch(0.55 0.18 35);
+
+  /* ── Accent (burnished terracotta) ── */
+  --hamilton-accent: oklch(0.55 0.18 35);
+  --hamilton-accent-hover: oklch(0.50 0.20 35);
+  --hamilton-accent-subtle: oklch(0.55 0.18 35 / 0.08);
+
+  /* ── Burnished gradient for CTAs ── */
+  --hamilton-gradient-cta: linear-gradient(135deg, oklch(0.55 0.18 35), oklch(0.48 0.16 30));
+
+  /* ── Typography ── */
+  --hamilton-font-serif: var(--font-newsreader), Georgia, serif;
+  --hamilton-font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Elevation (tonal layering, no hard borders) ── */
+  --hamilton-shadow-card: 0 1px 3px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.02);
+  --hamilton-shadow-elevated: 0 4px 12px rgba(28, 25, 23, 0.06), 0 1px 3px rgba(28, 25, 23, 0.03);
+  --hamilton-shadow-overlay: 0 8px 24px rgba(28, 25, 23, 0.08), 0 2px 6px rgba(28, 25, 23, 0.04);
+
+  /* ── Border (subtle warm, used sparingly) ── */
+  --hamilton-border: rgba(28, 25, 23, 0.06);
+  --hamilton-border-hover: rgba(28, 25, 23, 0.12);
+
+  /* ── Base styles ── */
+  background: var(--hamilton-surface);
+  color: var(--hamilton-text-primary);
+  font-family: var(--hamilton-font-sans);
+}
+
+/* ── Dark mode overrides: warm dark parchment tones ── */
+.dark .hamilton-shell {
+  --hamilton-surface: #1c1917;
+  --hamilton-surface-elevated: #292524;
+  --hamilton-surface-sunken: #171412;
+  --hamilton-surface-overlay: rgba(28, 25, 23, 0.95);
+  --hamilton-text-primary: oklch(0.93 0.01 60);
+  --hamilton-text-secondary: oklch(0.65 0.01 60);
+  --hamilton-text-tertiary: oklch(0.50 0.01 60);
+  --hamilton-text-accent: oklch(0.70 0.15 35);
+  --hamilton-accent: oklch(0.70 0.15 35);
+  --hamilton-accent-hover: oklch(0.75 0.17 35);
+  --hamilton-accent-subtle: oklch(0.70 0.15 35 / 0.12);
+  --hamilton-gradient-cta: linear-gradient(135deg, oklch(0.65 0.15 35), oklch(0.55 0.13 30));
+  --hamilton-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --hamilton-shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --hamilton-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --hamilton-border: rgba(255, 255, 255, 0.06);
+  --hamilton-border-hover: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Hamilton card: tonal elevation, no hard borders ── */
+.hamilton-card {
+  background: var(--hamilton-surface-elevated);
+  border-radius: 0.75rem;
+  box-shadow: var(--hamilton-shadow-card);
+  transition: box-shadow 0.2s ease;
+}
+.hamilton-card:hover {
+  box-shadow: var(--hamilton-shadow-elevated);
+}
+
+/* ── Hamilton serif headings ── */
+.hamilton-shell h1,
+.hamilton-shell h2,
+.hamilton-shell h3 {
+  font-family: var(--hamilton-font-serif);
+}
+
+/* ── Hamilton staggered reveal (mirrors admin-content pattern) ── */
+.hamilton-shell > * {
+  animation: admin-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hamilton-shell > *:nth-child(1) { animation-delay: 0ms; }
+.hamilton-shell > *:nth-child(2) { animation-delay: 50ms; }
+.hamilton-shell > *:nth-child(3) { animation-delay: 60ms; }
+.hamilton-shell > *:nth-child(4) { animation-delay: 70ms; }
+.hamilton-shell > *:nth-child(5) { animation-delay: 80ms; }
+
+/* ── Reduce motion for Hamilton shell ── */
+@media (prefers-reduced-motion: reduce) {
+  .hamilton-shell > * {
+    animation: none !important;
+  }
+}
