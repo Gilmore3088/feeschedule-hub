@@ -628,7 +628,11 @@ Plans:
   2. The top nav renders correct active state highlighting for the current screen without client-side JavaScript; the active link is visually distinct at page load
   3. The left rail shows saved analyses, recent work, and pinned institutions from the Hamilton workspace memory -- items are clickable and navigate to the correct saved state
   4. Accessing any Hamilton screen without a valid Pro subscription redirects to an upgrade page -- the auth check lives in the shell layout, not in individual screen components
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 40-01-PLAN.md -- Fix HAMILTON_NAV href discrepancy + create (hamilton) route group with layout and 5 stub pages
+- [ ] 40-02-PLAN.md -- Build HamiltonShell, HamiltonTopNav, HamiltonContextBar, HamiltonLeftRail, HamiltonUpgradeGate and wire into layout
 **UI hint**: yes
 
 ### Phase 41: Settings
