@@ -1,9 +1,13 @@
 import { Suspense } from "react";
-import Link from "next/link";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { ensureHamiltonProTables } from "@/lib/hamilton/pro-tables";
+import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
+import { HamiltonShell } from "@/components/hamilton/layout/HamiltonShell";
+import { HamiltonUpgradeGate } from "@/components/hamilton/layout/HamiltonUpgradeGate";
+import { sql } from "@/lib/crawler-db/connection";
 
 export const metadata: Metadata = {
   title: {
@@ -37,11 +41,7 @@ async function HamiltonLayoutInner({
   }
 
   if (!user || !canAccessPremium(user)) {
-    return (
-      <div className="hamilton-shell min-h-screen">
-        <HamiltonUpgradeGate />
-      </div>
-    );
+    return <HamiltonUpgradeGate />;
   }
 
   // Fire-and-forget: ensure Hamilton Pro tables exist (non-blocking per D-15)
@@ -54,45 +54,77 @@ async function HamiltonLayoutInner({
     assetTier: user.asset_tier,
   };
 
-  return (
-    <div className="hamilton-shell min-h-screen" data-institution={institutionContext.name ?? undefined}>
-      {isAdmin && (
-        <div className="bg-gray-900 text-white text-xs px-4 py-1.5 flex items-center justify-between">
-          <span className="text-gray-400">Admin Mode — viewing Hamilton Pro</span>
-          <Link href="/admin" className="text-blue-400 hover:text-blue-300 font-medium">
-            Back to Admin
-          </Link>
-        </div>
-      )}
-      {/* HamiltonTopNav, HamiltonContextBar, HamiltonLeftRail — wired in Plan 02 */}
-      <main>{children}</main>
-    </div>
-  );
-}
+  // Derive activeHref server-side from request headers so the initial HTML
+  // contains the correct active nav state without waiting for client JS (SC-2).
+  const headersList = await headers();
+  const pathname =
+    headersList.get("x-invoke-path") ||
+    headersList.get("x-next-url") ||
+    headersList.get("x-pathname") ||
+    "/pro/monitor";
+  const activeHref =
+    HAMILTON_NAV.find(
+      (n) => pathname === n.href || pathname.startsWith(n.href + "/")
+    )?.href ?? "/pro/monitor";
 
-function HamiltonUpgradeGate() {
+  // Fetch saved analyses for left rail — user-scoped (T-40-04)
+  let savedAnalyses: Array<{
+    id: string;
+    title: string;
+    analysis_focus: string;
+    updated_at: string;
+  }> = [];
+  try {
+    const rows = await sql`
+      SELECT id, title, analysis_focus, updated_at
+      FROM hamilton_saved_analyses
+      WHERE user_id = ${user.id} AND status = 'active'
+      ORDER BY updated_at DESC
+      LIMIT 10
+    `;
+    savedAnalyses = rows.map((r) => ({
+      id: String(r.id),
+      title: r.title as string,
+      analysis_focus: r.analysis_focus as string,
+      updated_at: String(r.updated_at),
+    }));
+  } catch {
+    // Table may not have data yet — empty array is fine
+  }
+
+  // Fetch recent scenarios for left rail — user-scoped (T-40-04)
+  let recentScenarios: Array<{
+    id: string;
+    fee_category: string;
+    updated_at: string;
+  }> = [];
+  try {
+    const rows = await sql`
+      SELECT id, fee_category, updated_at
+      FROM hamilton_scenarios
+      WHERE user_id = ${user.id} AND status = 'active'
+      ORDER BY updated_at DESC
+      LIMIT 10
+    `;
+    recentScenarios = rows.map((r) => ({
+      id: String(r.id),
+      fee_category: r.fee_category as string,
+      updated_at: String(r.updated_at),
+    }));
+  } catch {
+    // Table may not have data yet — empty array is fine
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <div className="max-w-md text-center">
-        <h1
-          className="text-3xl font-bold text-[#1A1815]"
-          style={{ fontFamily: "var(--hamilton-font-serif)" }}
-        >
-          Hamilton
-        </h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-[#5A5347]">
-          Fee intelligence for financial executives.
-        </p>
-        <p className="mt-6 text-[13px] text-[#7A7062]">
-          $500/mo or $5,000/yr
-        </p>
-        <Link
-          href="/subscribe?plan=hamilton"
-          className="mt-8 inline-flex items-center rounded-md bg-[#1A1815] px-6 py-3 text-[13px] font-semibold text-white hover:bg-[#333] transition-colors no-underline"
-        >
-          Upgrade to Hamilton
-        </Link>
-      </div>
-    </div>
+    <HamiltonShell
+      user={user}
+      isAdmin={isAdmin}
+      institutionContext={institutionContext}
+      activeHref={activeHref}
+      savedAnalyses={savedAnalyses}
+      recentScenarios={recentScenarios}
+    >
+      {children}
+    </HamiltonShell>
   );
 }
