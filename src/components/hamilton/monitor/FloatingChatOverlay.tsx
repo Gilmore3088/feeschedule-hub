@@ -3,30 +3,24 @@
 /**
  * FloatingChatOverlay — Collapsible Hamilton chat in bottom-right corner.
  * Minimized by default. Expands on click. Does not disrupt the signal feed.
- * Uses raw fetch + ReadableStream to stay lightweight (no useChat hook dependency).
- * Parses Vercel AI SDK SSE format: lines starting with `0:"` contain text chunks.
+ * Uses useChat from @ai-sdk/react for streaming Hamilton responses.
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useChat } from "@ai-sdk/react";
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface FloatingChatOverlayProps {
-  userId: number;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
+export function FloatingChatOverlay() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+
+  const { messages, input, handleInputChange, handleSubmit, status, stop } =
+    useChat({
+      api: "/api/research/hamilton",
+      body: { mode: "monitor" },
+    });
+
+  const isStreaming = status === "streaming" || status === "submitted";
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -40,103 +34,8 @@ export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
     }
   }, [isOpen]);
 
-  function parseSSEChunk(line: string): string {
-    // Vercel AI SDK SSE format: `0:"text content"`
-    const match = line.match(/^0:"(.*)"$/);
-    if (!match) return "";
-    // Unescape common JSON escape sequences
-    return match[1]
-      .replace(/\\n/g, "\n")
-      .replace(/\\t/g, "\t")
-      .replace(/\\"/g, '"')
-      .replace(/\\\\/g, "\\");
-  }
-
-  const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim() || isStreaming) return;
-
-      const userMessage: Message = { role: "user", content: text };
-      const nextMessages = [...messages, userMessage];
-      setMessages(nextMessages);
-      setInputValue("");
-      setIsStreaming(true);
-
-      // Placeholder assistant message
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-      try {
-        abortRef.current = new AbortController();
-
-        const response = await fetch("/api/research/hamilton", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: abortRef.current.signal,
-          body: JSON.stringify({
-            messages: nextMessages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
-            mode: "monitor",
-          }),
-        });
-
-        if (!response.ok || !response.body) {
-          throw new Error(`Request failed: ${response.status}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            const chunk = parseSSEChunk(line.trim());
-            if (chunk) {
-              setMessages((prev) => {
-                const updated = [...prev];
-                const last = updated[updated.length - 1];
-                if (last?.role === "assistant") {
-                  updated[updated.length - 1] = {
-                    ...last,
-                    content: last.content + chunk,
-                  };
-                }
-                return updated;
-              });
-            }
-          }
-        }
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last?.role === "assistant" && !last.content) {
-            updated[updated.length - 1] = {
-              ...last,
-              content: "Hamilton is unavailable right now. Please try again.",
-            };
-          }
-          return updated;
-        });
-      } finally {
-        setIsStreaming(false);
-        abortRef.current = null;
-      }
-    },
-    [messages, isStreaming]
-  );
-
   function handleClose() {
-    abortRef.current?.abort();
+    if (isStreaming) stop();
     setIsOpen(false);
   }
 
@@ -252,9 +151,9 @@ export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
           </p>
         )}
 
-        {messages.map((msg, index) => (
+        {messages.map((msg) => (
           <div
-            key={index}
+            key={msg.id}
             style={{
               display: "flex",
               justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
@@ -282,11 +181,14 @@ export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
                 wordBreak: "break-word",
               }}
             >
-              {msg.content || (
-                <span style={{ opacity: 0.5 }}>
-                  {isStreaming ? "Thinking..." : ""}
-                </span>
-              )}
+              {msg.parts
+                ?.filter((p) => p.type === "text")
+                .map((p) => p.text)
+                .join("") ||
+                msg.content ||
+                (isStreaming ? (
+                  <span style={{ opacity: 0.5 }}>Thinking...</span>
+                ) : null)}
             </div>
           </div>
         ))}
@@ -294,7 +196,8 @@ export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
       </div>
 
       {/* Input row */}
-      <div
+      <form
+        onSubmit={handleSubmit}
         style={{
           display: "flex",
           gap: "0.5rem",
@@ -306,14 +209,8 @@ export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
         <input
           ref={inputRef}
           type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage(inputValue);
-            }
-          }}
+          value={input}
+          onChange={handleInputChange}
           placeholder="Ask Hamilton..."
           disabled={isStreaming}
           style={{
@@ -329,8 +226,8 @@ export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
           }}
         />
         <button
-          onClick={() => sendMessage(inputValue)}
-          disabled={isStreaming || !inputValue.trim()}
+          type="submit"
+          disabled={isStreaming || !input.trim()}
           style={{
             fontSize: "0.8125rem",
             fontWeight: 500,
@@ -340,14 +237,14 @@ export function FloatingChatOverlay({ userId }: FloatingChatOverlayProps) {
             border: "none",
             borderRadius: "0.375rem",
             cursor:
-              isStreaming || !inputValue.trim() ? "not-allowed" : "pointer",
-            opacity: isStreaming || !inputValue.trim() ? 0.6 : 1,
+              isStreaming || !input.trim() ? "not-allowed" : "pointer",
+            opacity: isStreaming || !input.trim() ? 0.6 : 1,
             flexShrink: 0,
           }}
         >
           Send
         </button>
-      </div>
+      </form>
     </div>
   );
 }

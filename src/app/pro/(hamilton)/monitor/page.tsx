@@ -134,7 +134,7 @@ export default async function MonitorPage() {
       </main>
 
       {/* Floating chat overlay — fixed position */}
-      <FloatingChatOverlay userId={user.id} />
+      <FloatingChatOverlay />
     </>
   );
 }
