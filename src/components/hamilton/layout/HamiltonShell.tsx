@@ -26,6 +26,7 @@ interface HamiltonShellProps {
     name: string | null;
     type: string | null;
     assetTier: string | null;
+    fedDistrict: number | null;
   };
   activeHref: string;
   savedAnalyses?: SavedAnalysis[];
@@ -41,6 +42,7 @@ interface HamiltonShellProps {
  * Per D-10: admin mode bar shown only to admin/analyst users.
  */
 export function HamiltonShell({
+  user,
   isAdmin,
   institutionContext,
   activeHref,
@@ -67,7 +69,7 @@ export function HamiltonShell({
       )}
 
       {/* Top navigation */}
-      <HamiltonTopNav isAdmin={isAdmin} activeHref={activeHref} />
+      <HamiltonTopNav isAdmin={isAdmin} activeHref={activeHref} user={user} />
 
       {/* Institution context bar */}
       <HamiltonContextBar institutionContext={institutionContext} />

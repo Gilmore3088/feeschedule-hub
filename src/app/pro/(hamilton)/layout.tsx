@@ -52,6 +52,7 @@ async function HamiltonLayoutInner({
     name: user.institution_name,
     type: user.institution_type,
     assetTier: user.asset_tier,
+    fedDistrict: user.fed_district ?? null,
   };
 
   // Derive activeHref server-side from request headers so the initial HTML

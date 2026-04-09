@@ -4,6 +4,7 @@ interface InstitutionContext {
   name: string | null;
   type: string | null;
   assetTier: string | null;
+  fedDistrict: number | null;
 }
 
 interface HamiltonContextBarProps {
@@ -17,7 +18,7 @@ interface HamiltonContextBarProps {
  * Per D-07 and D-14: institution context flows from user profile.
  */
 export function HamiltonContextBar({ institutionContext }: HamiltonContextBarProps) {
-  const { name, type, assetTier } = institutionContext;
+  const { name, type, assetTier, fedDistrict } = institutionContext;
   const hasInstitution = !!name;
 
   return (
@@ -57,6 +58,18 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
               }}
             >
               {assetTier}
+            </span>
+          )}
+
+          {fedDistrict && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded"
+              style={{
+                backgroundColor: "var(--hamilton-accent-subtle)",
+                color: "var(--hamilton-text-accent)",
+              }}
+            >
+              District {fedDistrict}
             </span>
           )}
         </div>
