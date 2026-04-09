@@ -2,6 +2,7 @@
 
 import { formatAmount } from "@/lib/format";
 import type { IndexEntry } from "@/lib/crawler-db/fee-index";
+import { ChevronDown } from "lucide-react";
 
 interface FeeRow {
   id: number;
@@ -56,15 +57,15 @@ export function FeeGroup({ groupName, fees, isPrimary, defaultOpen }: FeeGroupPr
     : "font-sans text-xs uppercase tracking-[0.2em] text-[#53443c]";
 
   const chevronClass = isPrimary
-    ? "material-symbols-outlined text-sm text-[#C44B2E]/40 transition-transform duration-300 expand-icon"
-    : "material-symbols-outlined text-sm text-[#53443c]/40 transition-transform duration-300 expand-icon";
+    ? "text-[#C44B2E]/40 transition-transform duration-300 expand-icon"
+    : "text-[#53443c]/40 transition-transform duration-300 expand-icon";
 
   return (
     <details className="group/section" open={defaultOpen || undefined}>
       <summary className={summaryClass}>
         <div className="flex items-center gap-3">
           <h3 className={labelClass}>{groupName}</h3>
-          <span className={chevronClass}>expand_more</span>
+          <ChevronDown className={`h-4 w-4 ${chevronClass}`} />
         </div>
         <div className="hidden md:flex gap-12 text-[10px] uppercase tracking-widest text-[#53443c]/50 pr-4">
           <span className="w-32">Market Distribution</span>

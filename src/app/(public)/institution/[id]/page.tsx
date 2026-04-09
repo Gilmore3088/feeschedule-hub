@@ -31,6 +31,21 @@ import {
 } from "@/lib/institution-rating";
 import type { IndexEntry } from "@/lib/crawler-db/fee-index";
 import { FeeGroup } from "./fee-group";
+import {
+  MapPin,
+  Building2,
+  Landmark,
+  ExternalLink,
+  FileText,
+  Info,
+  CheckCircle2,
+  TrendingUp,
+  BarChart2,
+  SlidersHorizontal,
+  AlertTriangle,
+  ArrowRight,
+  ShieldCheck,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,7 +93,7 @@ const RATING_CONFIG = {
   red:    { bg: "rgba(244,67,54,0.08)", border: "#f44336", badge: "#f44336", labelColor: "#c62828", bulletIconOk: false },
 };
 
-function getBulletIcon(bullet: string, color: "green" | "yellow" | "red"): string {
+function getBulletIcon(bullet: string, color: "green" | "yellow" | "red"): "check_circle" | "trending_up" | "info" {
   const lower = bullet.toLowerCase();
   if (color === "green") return "check_circle";
   if (lower.includes("above") || lower.includes("higher") || lower.includes("%")) {
@@ -88,6 +103,12 @@ function getBulletIcon(bullet: string, color: "green" | "yellow" | "red"): strin
   if (color === "red") return "trending_up";
   return "info";
 }
+
+const BULLET_ICON_MAP = {
+  check_circle: CheckCircle2,
+  trending_up: TrendingUp,
+  info: Info,
+} as const;
 
 function getBulletIconColor(bullet: string, color: "green" | "yellow" | "red"): string {
   if (color === "green") return "#4caf50";
@@ -321,17 +342,17 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-[#53443c] font-sans text-sm">
                   {(inst.city || stateName) && (
                     <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-base" style={{ fontSize: "18px" }}>location_on</span>
+                      <MapPin className="h-[18px] w-[18px]" />
                       {inst.city && stateName ? `${inst.city}, ${stateName}` : inst.city ?? stateName}
                     </div>
                   )}
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-base" style={{ fontSize: "18px" }}>account_balance</span>
+                    <Building2 className="h-[18px] w-[18px]" />
                     Charter: {charterLabel}
                   </div>
                   {districtName && (
                     <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-base" style={{ fontSize: "18px" }}>account_balance_wallet</span>
+                      <Landmark className="h-[18px] w-[18px]" />
                       Fed District: {districtName}
                     </div>
                   )}
@@ -346,7 +367,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-[#C44B2E] font-medium hover:underline text-xs uppercase tracking-wider"
                   >
-                    Website <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>open_in_new</span>
+                    Website <ExternalLink className="h-[14px] w-[14px]" />
                   </a>
                 )}
                 {disclosureUrl && (
@@ -356,7 +377,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-[#C44B2E] font-medium hover:underline text-xs uppercase tracking-wider"
                   >
-                    Full Disclosure <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>picture_as_pdf</span>
+                    Full Disclosure <FileText className="h-[14px] w-[14px]" />
                   </a>
                 )}
               </div>
@@ -406,24 +427,21 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 )}
 
                 <ul className="space-y-4">
-                  {rating.bullets.map((bullet, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <span
-                        className="material-symbols-outlined text-lg mt-0.5 flex-shrink-0"
-                        style={{
-                          fontSize: "18px",
-                          color: getBulletIconColor(bullet, rating.color),
-                          fontVariationSettings: getBulletIcon(bullet, rating.color) === "check_circle"
-                            ? '"FILL" 1' : '"FILL" 0',
-                        }}
-                      >
-                        {getBulletIcon(bullet, rating.color)}
-                      </span>
-                      <span className="text-sm font-sans leading-relaxed text-[#1b1c19]">
-                        {bullet}
-                      </span>
-                    </li>
-                  ))}
+                  {rating.bullets.map((bullet, i) => {
+                    const iconKey = getBulletIcon(bullet, rating.color);
+                    const IconComponent = BULLET_ICON_MAP[iconKey];
+                    return (
+                      <li key={i} className="flex items-start gap-3">
+                        <IconComponent
+                          className="h-[18px] w-[18px] mt-0.5 flex-shrink-0"
+                          style={{ color: getBulletIconColor(bullet, rating.color) }}
+                        />
+                        <span className="text-sm font-sans leading-relaxed text-[#1b1c19]">
+                          {bullet}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
@@ -478,12 +496,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               {/* Mini CTA */}
               <div className="mt-8 p-6 bg-[#e4e2dd]/50 rounded-xl flex items-center gap-6">
                 <div className="text-[#C44B2E] flex-shrink-0">
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: "36px", fontVariationSettings: '"FILL" 1' }}
-                  >
-                    analytics
-                  </span>
+                  <BarChart2 className="h-[36px] w-[36px]" />
                 </div>
                 <div>
                   <p className="text-sm font-sans text-[#53443c] leading-relaxed">
@@ -765,15 +778,15 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               </p>
               <ul className="space-y-4 mb-10">
                 <li className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#C44B2E]" style={{ fontSize: "20px" }}>analytics</span>
+                  <BarChart2 className="h-[20px] w-[20px] text-[#C44B2E]" />
                   <span className="font-sans text-[#1b1c19]">Peer benchmarking &amp; percentile positioning</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#C44B2E]" style={{ fontSize: "20px" }}>tune</span>
+                  <SlidersHorizontal className="h-[20px] w-[20px] text-[#C44B2E]" />
                   <span className="font-sans text-[#1b1c19]">Scenario simulation &mdash; what-if fee modeling</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#C44B2E]" style={{ fontSize: "20px" }}>warning</span>
+                  <AlertTriangle className="h-[20px] w-[20px] text-[#C44B2E]" />
                   <span className="font-sans text-[#1b1c19]">Complaint-aligned risk signals</span>
                 </li>
               </ul>
@@ -783,7 +796,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   className="bg-[#C44B2E] hover:bg-[#A83D25] text-white px-8 py-3 rounded font-medium transition-all inline-flex items-center gap-2"
                 >
                   View Professional Analysis
-                  <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
+                  <ArrowRight className="h-[18px] w-[18px]" />
                 </Link>
                 <p className="text-xs font-sans text-[#53443c]/60 italic">
                   Built for banks, credit unions, and financial analysts
@@ -796,7 +809,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           <footer className="mt-32 pt-12 border-t border-[#d8c2b8]/20 opacity-60">
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>verified_user</span>
+                <ShieldCheck className="h-[18px] w-[18px]" />
                 <span className="font-sans text-[10px] uppercase tracking-widest font-bold">
                   Data Methodology Disclosure
                 </span>
