@@ -9,12 +9,11 @@ interface AnalyzeCTABarProps {
 }
 
 /**
- * AnalyzeCTABar — CTA hierarchy footer for the Analyze screen.
- * Imports CTA hierarchy from navigation.ts (single source of truth).
- * Primary: "Simulate a Change" → /pro/simulate
- * Secondary: "Show Peer Distribution" | "View Risk Drivers"
- * No "Recommended Position" — this screen only analyzes, never recommends (ARCH-05).
- * Only visible when analysis has completed.
+ * AnalyzeCTABar — CTA hierarchy for the Analyze screen.
+ * Matches HTML prototype: burnished primary + outlined secondary buttons.
+ * Primary: "Simulate a Change" → /pro/simulate (burnished green)
+ * Secondary: "Show Peer Distribution" | "View Risk Drivers" (outlined, hover primary)
+ * No "Recommended Position" — analyze only (ARCH-05).
  */
 export function AnalyzeCTABar({ isVisible }: AnalyzeCTABarProps) {
   if (!isVisible) return null;
@@ -22,17 +21,11 @@ export function AnalyzeCTABar({ isVisible }: AnalyzeCTABarProps) {
   const { primary, secondary } = CTA_HIERARCHY["Analyze"];
 
   return (
-    <div
-      className="flex items-center gap-3 py-4 border-t mt-4"
-      style={{ borderColor: "var(--hamilton-border)" }}
-    >
+    <div className="flex flex-wrap items-center gap-3 pb-2">
       <Link
         href="/pro/simulate"
-        className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 no-underline"
-        style={{
-          backgroundColor: "var(--hamilton-accent)",
-          color: "var(--hamilton-accent-fg, #fff)",
-        }}
+        className="burnished-cta px-6 py-2.5 rounded text-[10px] uppercase tracking-widest font-bold no-underline transition-opacity hover:opacity-90"
+        style={{ boxShadow: "0 2px 8px rgba(138,76,39,0.25)" }}
       >
         {primary}
       </Link>
@@ -40,20 +33,23 @@ export function AnalyzeCTABar({ isVisible }: AnalyzeCTABarProps) {
       {secondary.map((label) => (
         <button
           key={label}
-          className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+          className="px-5 py-2.5 rounded text-[10px] uppercase tracking-widest font-bold border transition-all"
           style={{
-            borderColor: "var(--hamilton-border)",
+            borderColor: "var(--hamilton-outline-variant, #d8c2b8)",
+            backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
             color: "var(--hamilton-text-secondary)",
-            backgroundColor: "transparent",
             cursor: "pointer",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color =
-              "var(--hamilton-text-primary)";
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.borderColor = "var(--hamilton-primary)";
+            el.style.color = "var(--hamilton-primary)";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color =
-              "var(--hamilton-text-secondary)";
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.borderColor = "var(--hamilton-outline-variant, #d8c2b8)";
+            el.style.color = "var(--hamilton-text-secondary)";
           }}
         >
           {label}

@@ -5,7 +5,6 @@ import { DefaultChatTransport } from "ai";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { ANALYSIS_FOCUS_TABS, type AnalysisFocus } from "@/lib/hamilton/navigation";
 import { saveAnalysis } from "@/app/pro/(hamilton)/analyze/actions";
-import { AnalysisFocusTabs } from "./AnalysisFocusTabs";
 import { HamiltonViewPanel } from "./HamiltonViewPanel";
 import { WhatThisMeansPanel } from "./WhatThisMeansPanel";
 import { WhyItMattersPanel } from "./WhyItMattersPanel";
@@ -200,9 +199,26 @@ export function AnalyzeWorkspace({ userId, institutionId }: AnalyzeWorkspaceProp
   const displayedResponse = parsedResponse ?? liveParsed;
 
   return (
-    <div className="flex flex-col gap-4 pb-32">
-      {/* Analysis Focus Tabs */}
-      <AnalysisFocusTabs activeTab={activeTab} onTabChange={handleTabChange} />
+    <div className="flex flex-col gap-6 pb-40">
+      {/* Analysis prompt title when active */}
+      {displayedResponse && (
+        <div className="flex items-center gap-4 mb-2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: "var(--hamilton-primary)", opacity: 0.6 }} aria-hidden="true">
+            <path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <h1
+            className="text-3xl italic tracking-tight"
+            style={{
+              fontFamily: "var(--hamilton-font-serif)",
+              color: "var(--hamilton-text-primary)",
+            }}
+          >
+            {activeTab} Assessment
+          </h1>
+        </div>
+      )}
 
       {/* Empty state */}
       {!displayedResponse && !isLoading && messages.length === 0 && (
@@ -217,46 +233,66 @@ export function AnalyzeWorkspace({ userId, institutionId }: AnalyzeWorkspaceProp
         </div>
       )}
 
-      {/* Response sections */}
+      {/* Intelligence architecture */}
       {displayedResponse && (
-        <div className="flex flex-col gap-3">
-          <HamiltonViewPanel
-            content={displayedResponse.hamiltonView}
-            confidence={null}
-            isStreaming={isLoading}
-          />
-          {(displayedResponse.whatThisMeans || isLoading) && (
-            <WhatThisMeansPanel content={displayedResponse.whatThisMeans} isStreaming={isLoading} />
-          )}
+        <div className="space-y-6 max-w-5xl">
+          {/* Hamilton's View card — contains What This Means inline */}
+          <div
+            className="p-10 rounded-xl border-l-4"
+            style={{
+              backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
+              border: "1px solid rgba(216,194,184,0.3)",
+              borderLeftWidth: "4px",
+              borderLeftColor: "var(--hamilton-primary)",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.02)",
+            }}
+          >
+            <HamiltonViewPanel
+              content={displayedResponse.hamiltonView}
+              confidence={null}
+              isStreaming={isLoading}
+            />
+            {(displayedResponse.whatThisMeans || isLoading) && (
+              <WhatThisMeansPanel content={displayedResponse.whatThisMeans} isStreaming={isLoading} />
+            )}
+          </div>
+
+          {/* CTA row — shown after stream completes */}
+          <AnalyzeCTABar isVisible={analysisComplete} />
+
+          {/* Why It Matters */}
           {(displayedResponse.whyItMatters.length > 0 || isLoading) && (
             <WhyItMattersPanel items={displayedResponse.whyItMatters} isStreaming={isLoading} />
           )}
+
+          {/* Evidence */}
           {(displayedResponse.evidence.length > 0 || isLoading) && (
             <EvidencePanel metrics={displayedResponse.evidence} isStreaming={isLoading} />
+          )}
+
+          {/* Save confirmation */}
+          {isSaved && (
+            <p className="text-xs text-center" style={{ color: "var(--hamilton-text-secondary)" }}>
+              Analysis saved to workspace
+            </p>
           )}
         </div>
       )}
 
-      {/* Explore Further — only after stream completes */}
-      <ExploreFurtherPanel
-        prompts={parsedResponse?.exploreFurther ?? []}
-        onPromptSelect={handleExploreFurther}
-        isVisible={analysisComplete}
-      />
+      {/* Explore Further + floating input — always at bottom */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-20 px-12 py-10"
+        style={{
+          background: "linear-gradient(to top, var(--hamilton-surface) 60%, transparent)",
+        }}
+      >
+        <div className="max-w-4xl mx-auto flex flex-col gap-6">
+          <ExploreFurtherPanel
+            prompts={parsedResponse?.exploreFurther ?? []}
+            onPromptSelect={handleExploreFurther}
+            isVisible={analysisComplete}
+          />
 
-      {/* CTA Bar — only after stream completes (no Recommended Position element) */}
-      <AnalyzeCTABar isVisible={analysisComplete} />
-
-      {/* Save confirmation */}
-      {isSaved && (
-        <p className="text-xs text-center" style={{ color: "var(--hamilton-text-secondary)" }}>
-          Analysis saved to workspace
-        </p>
-      )}
-
-      {/* Input bar — fixed bottom */}
-      <div className="fixed bottom-6 left-0 right-0 px-6 z-20">
-        <div className="max-w-3xl mx-auto">
           <AnalysisInputBar
             value={input}
             onChange={setInput}

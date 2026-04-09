@@ -13,42 +13,108 @@ interface HamiltonContextBarProps {
 
 /**
  * HamiltonContextBar — Server component.
- * Displays the user's institutional context (name, type, asset tier).
- * If institution is not configured, prompts the user to set it up.
+ * Matches HTML prototype: Institution selector + Horizon dropdown + Analysis Focus pills.
  * Per D-07 and D-14: institution context flows from user profile.
  */
 export function HamiltonContextBar({ institutionContext }: HamiltonContextBarProps) {
   const { name, type, assetTier, fedDistrict } = institutionContext;
   const hasInstitution = !!name;
+  const institutionName = name ?? "Global Private Bank";
 
   return (
     <div
-      className="flex items-center justify-between px-6 py-2 text-sm border-b"
+      className="flex items-center gap-10 px-12 py-3 border-b"
       style={{
-        backgroundColor: "var(--hamilton-surface-elevated)",
-        borderColor: "var(--hamilton-border)",
-        minHeight: "40px",
+        backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
+        borderColor: "rgba(216,194,184,0.1)",
+        minHeight: "52px",
       }}
     >
-      {hasInstitution ? (
-        <div className="flex items-center gap-3">
+      {/* Institution selector */}
+      <div className="flex flex-col">
+        <label
+          className="text-[9px] uppercase tracking-[0.1em] font-bold mb-0.5"
+          style={{ color: "var(--hamilton-text-tertiary)" }}
+        >
+          Institution
+        </label>
+        {hasInstitution ? (
           <span
-            className="font-semibold"
-            style={{
-              fontFamily: "var(--hamilton-font-serif)",
-              color: "var(--hamilton-text-primary)",
-            }}
+            className="text-xs font-bold"
+            style={{ color: "var(--hamilton-text-primary)" }}
           >
-            {name}
+            {institutionName}
+            {type && (
+              <span className="font-normal ml-1.5" style={{ color: "var(--hamilton-text-secondary)" }}>
+                — {type}
+              </span>
+            )}
           </span>
+        ) : (
+          <Link
+            href="/pro/settings"
+            className="text-xs font-bold no-underline transition-colors hover:opacity-80"
+            style={{ color: "var(--hamilton-text-accent)" }}
+          >
+            Configure institution
+          </Link>
+        )}
+      </div>
 
-          {type && (
-            <>
-              <span style={{ color: "var(--hamilton-border-hover)" }}>|</span>
-              <span style={{ color: "var(--hamilton-text-secondary)" }}>{type}</span>
-            </>
-          )}
+      {/* Divider */}
+      <div className="h-6 w-px" style={{ backgroundColor: "rgba(216,194,184,0.3)" }} />
 
+      {/* Horizon selector */}
+      <div className="flex flex-col">
+        <label
+          className="text-[9px] uppercase tracking-[0.1em] font-bold mb-0.5"
+          style={{ color: "var(--hamilton-text-tertiary)" }}
+        >
+          Horizon
+        </label>
+        <span className="text-xs font-bold" style={{ color: "var(--hamilton-text-primary)" }}>
+          LTM
+        </span>
+      </div>
+
+      {/* Analysis Focus pills — pushed to right */}
+      <div className="ml-auto flex flex-col items-end gap-1.5">
+        <label
+          className="text-[9px] uppercase tracking-[0.15em] font-bold"
+          style={{ color: "var(--hamilton-text-tertiary)" }}
+        >
+          Analysis Focus
+        </label>
+        <div
+          className="flex items-center rounded-lg p-1 border"
+          style={{
+            backgroundColor: "var(--hamilton-surface-container-high)",
+            borderColor: "rgba(216,194,184,0.2)",
+          }}
+        >
+          {["Pricing", "Risk", "Peer Position", "Trend"].map((focus, i) => (
+            <span
+              key={focus}
+              className="px-4 py-1.5 rounded text-[10px] uppercase tracking-widest font-bold transition-colors"
+              style={
+                i === 0
+                  ? {
+                      backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
+                      color: "var(--hamilton-primary)",
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                    }
+                  : { color: "var(--hamilton-text-secondary)" }
+              }
+            >
+              {focus}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Asset tier / district chips */}
+      {(assetTier || fedDistrict) && (
+        <div className="flex items-center gap-2">
           {assetTier && (
             <span
               className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded"
@@ -60,7 +126,6 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
               {assetTier}
             </span>
           )}
-
           {fedDistrict && (
             <span
               className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded"
@@ -73,22 +138,7 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
             </span>
           )}
         </div>
-      ) : (
-        <Link
-          href="/pro/settings"
-          className="text-xs no-underline transition-colors hover:opacity-80"
-          style={{ color: "var(--hamilton-text-secondary)" }}
-        >
-          Configure your institution in Settings
-        </Link>
       )}
-
-      <span
-        className="text-[10px] font-semibold uppercase tracking-wider"
-        style={{ color: "var(--hamilton-text-tertiary)" }}
-      >
-        LTM
-      </span>
     </div>
   );
 }

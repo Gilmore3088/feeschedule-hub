@@ -7,37 +7,45 @@ interface WhatThisMeansPanelProps {
 
 /**
  * WhatThisMeansPanel — Shows the practical implications of Hamilton's analysis.
- * Renders the "What This Means" section from the analyze response.
- * Uses serif body font matching the Hamilton editorial design system.
- * Skeleton shimmer while streaming and content is empty.
+ * Matches HTML prototype: uppercase label, font-light body text at text-lg.
+ * Rendered inside the HamiltonViewPanel card's border-top section.
  */
 export function WhatThisMeansPanel({ content, isStreaming }: WhatThisMeansPanelProps) {
   const showSkeleton = isStreaming && !content;
 
   return (
-    <div
-      className="hamilton-card p-5"
-      style={{ fontFamily: "var(--hamilton-font-serif)" }}
-    >
-      <h3
-        className="text-xs font-semibold uppercase tracking-wider mb-3"
-        style={{ color: "var(--hamilton-text-secondary)" }}
+    <div className="pt-8 mt-8 border-t" style={{ borderColor: "rgba(216,194,184,0.2)" }}>
+      <label
+        className="text-[10px] uppercase tracking-[0.25em] font-bold block mb-4"
+        style={{ color: "var(--hamilton-text-tertiary)" }}
       >
         What This Means
-      </h3>
+      </label>
 
       {showSkeleton ? (
-        <div className="space-y-2">
-          <div className="skeleton h-4 rounded w-full" />
-          <div className="skeleton h-4 rounded w-5/6" />
+        <div className="space-y-3">
+          <div className="skeleton h-5 rounded w-full" />
+          <div className="skeleton h-5 rounded w-5/6" />
         </div>
       ) : (
-        <p
-          className="leading-relaxed text-base"
-          style={{ color: "var(--hamilton-text-primary)" }}
-        >
-          {content}
-        </p>
+        <div className="space-y-4">
+          {content.split("\n").filter(Boolean).map((para, i) => (
+            <p
+              key={i}
+              className="text-lg leading-relaxed font-light"
+              style={{ color: "var(--hamilton-text-secondary)" }}
+            >
+              {para}
+            </p>
+          ))}
+          {!content && (
+            <p className="text-lg leading-relaxed font-light"
+              style={{ color: "var(--hamilton-text-secondary)" }}>
+              This pricing position is increasingly difficult to defend and may lead to elevated
+              scrutiny if peer movement continues.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

@@ -53,13 +53,14 @@ export function AnalysisInputBar({
 
   return (
     <div
-      className="rounded-xl border shadow-sm"
+      className="rounded-xl border shadow-lg"
       style={{
-        backgroundColor: "var(--hamilton-surface)",
-        borderColor: "var(--hamilton-border)",
+        backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
+        borderColor: "rgba(216,194,184,0.4)",
+        boxShadow: "0 4px 24px rgba(27,28,25,0.08)",
       }}
     >
-      <form onSubmit={handleFormSubmit} className="flex items-end gap-2 p-3">
+      <form onSubmit={handleFormSubmit} className="flex items-end gap-3 p-4">
         <textarea
           ref={textareaRef}
           value={value}
@@ -68,7 +69,7 @@ export function AnalysisInputBar({
           placeholder={placeholder}
           disabled={isLoading}
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-gray-400"
+          className="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none"
           style={{
             color: "var(--hamilton-text-primary)",
             fontFamily: "var(--hamilton-font-sans)",
@@ -81,10 +82,10 @@ export function AnalysisInputBar({
         <button
           type="submit"
           disabled={isLoading || !value.trim()}
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-opacity disabled:opacity-40"
+          className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40"
           style={{
-            backgroundColor: "var(--hamilton-accent)",
-            color: "var(--hamilton-accent-fg, #fff)",
+            backgroundColor: "var(--hamilton-on-surface, #1b1c19)",
+            color: "#ffffff",
             cursor: isLoading || !value.trim() ? "not-allowed" : "pointer",
           }}
           aria-label="Send"
@@ -97,7 +98,7 @@ export function AnalysisInputBar({
         </button>
       </form>
 
-      <p className="px-3 pb-2 text-[11px]" style={{ color: "var(--hamilton-text-tertiary, #9ca3af)" }}>
+      <p className="px-4 pb-3 text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
         Shift+Enter for newline · Analyze only — for recommendations, use Simulate
       </p>
     </div>
