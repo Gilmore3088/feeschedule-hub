@@ -680,7 +680,7 @@ Plans:
   5. The Analyze screen contains no recommendation language and no "recommended position" card -- this boundary is visible in the rendered UI (no such element exists)
 **Plans**: 1 plan
 Plans:
-- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+- [x] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
 **UI hint**: yes
 
 ### Phase 44: Simulate
@@ -756,7 +756,7 @@ Plans:
 
 **Milestone Goal:** Wire every Hamilton Pro screen to real data, strip all hardcoded/demo content, and deliver a production-ready paid experience. Every screen must trace to pipeline-verified sources — no hallucinated data.
 
-- [ ] **Phase 47: Settings DB Migration** - Run migration 041, add fed_district column to users table in production
+- [x] **Phase 47: Settings DB Migration** - Run migration 041, add fed_district column to users table in production (completed 2026-04-09)
 - [ ] **Phase 48: Pro Navigation + Full Canvas Width** - Wire existing Pro nav tabs to real fee data; enforce full canvas width on all Hamilton screens
 - [ ] **Phase 49: Monitor Live Data** - Strip demo signals, wire real hamilton_signals queries, CRUD watchlist, real Hamilton chat streaming
 - [ ] **Phase 50: Home / Briefing Live Data** - Wire real thesis generation, real index positioning, real alerts — no placeholder content
@@ -931,7 +931,7 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 44. Simulate | v8.0 | 1/1 | Complete    | 2026-04-09 |
 | 45. Report Builder | v8.0 | 0/4 | Complete    | 2026-04-09 |
 | 46. Monitor | v8.0 | 1/1 | Complete    | 2026-04-09 |
-| 47. Settings DB Migration | v8.1 | 0/TBD | Not started | - |
+| 47. Settings DB Migration | v8.1 | 1/1 | Complete   | 2026-04-09 |
 | 48. Pro Navigation + Full Canvas Width | v8.1 | 0/TBD | Not started | - |
 | 49. Monitor Live Data | v8.1 | 0/TBD | Not started | - |
 | 50. Home / Briefing Live Data | v8.1 | 0/TBD | Not started | - |
