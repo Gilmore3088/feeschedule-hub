@@ -1024,3 +1024,15 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.10: Home Screen Buttons Not Functional (BACKLOG)
+
+**Goal:** Wire the "Export PDF", "Full Dashboard", "Simulate Change", "Generate Board Brief", and "Ask Hamilton" buttons on the Home / Executive Briefing screen to their correct destinations. Currently these are static buttons with no onClick handlers.
+
+**Context:** Screenshot shows Home screen with "Export PDF" and "Full Dashboard" buttons in header, plus "Simulate Change", "Generate Board Brief", and "Ask Hamilton" CTAs at the bottom of HamiltonViewCard. None of these navigate or trigger actions. They need to link to: Export PDF -> analysis PDF export, Full Dashboard -> TBD, Simulate Change -> /pro/simulate, Generate Board Brief -> /pro/reports, Ask Hamilton -> open FloatingChatOverlay or /pro/analyze.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
