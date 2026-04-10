@@ -77,44 +77,9 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
         </span>
       </div>
 
-      {/* Analysis Focus pills — pushed to right */}
-      <div className="ml-auto flex flex-col items-end gap-1.5">
-        <label
-          className="text-[9px] uppercase tracking-[0.15em] font-bold"
-          style={{ color: "var(--hamilton-text-tertiary)" }}
-        >
-          Analysis Focus
-        </label>
-        <div
-          className="flex items-center rounded-lg p-1 border"
-          style={{
-            backgroundColor: "var(--hamilton-surface-container-high)",
-            borderColor: "rgba(216,194,184,0.2)",
-          }}
-        >
-          {["Pricing", "Risk", "Peer Position", "Trend"].map((focus, i) => (
-            <span
-              key={focus}
-              className="px-4 py-1.5 rounded text-[10px] uppercase tracking-widest font-bold transition-colors"
-              style={
-                i === 0
-                  ? {
-                      backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
-                      color: "var(--hamilton-primary)",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-                    }
-                  : { color: "var(--hamilton-text-secondary)" }
-              }
-            >
-              {focus}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Asset tier / district chips */}
+      {/* Asset tier / district chips — pushed right */}
       {(assetTier || fedDistrict) && (
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {assetTier && (
             <span
               className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded"
