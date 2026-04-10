@@ -109,11 +109,12 @@ def run_browser_extraction():
     memory=1024,
 )
 def run_post_processing():
-    """Post-extraction: validate, categorize, auto-review, snapshot."""
+    """Post-extraction: classify-nulls, categorize, auto-review, snapshot, publish."""
     import os
     import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     commands = [
+        ["python3", "-m", "fee_crawler", "classify-nulls", "--fix"],
         ["python3", "-m", "fee_crawler", "categorize"],
         ["python3", "-m", "fee_crawler", "auto-review"],
         ["python3", "-m", "fee_crawler", "snapshot"],
@@ -123,6 +124,22 @@ def run_post_processing():
     for cmd in commands:
         r = subprocess.run(cmd, capture_output=True, text=True, env=env)
         results.append(f"{cmd[-1]}: {'OK' if r.returncode == 0 else 'FAIL'}")
+
+    # Run Roomba post-crawl sweeps (Stage 3 of 4-stage pipeline per D-06)
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL"])
+        try:
+            from fee_crawler.commands.roomba import run_post_crawl
+            roomba_result = run_post_crawl(conn)
+            results.append(
+                f"roomba: outliers={roomba_result['outliers_flagged']}, "
+                f"reassign={roomba_result['reassignments_made']}"
+            )
+        finally:
+            conn.close()
+    except Exception as e:
+        results.append(f"roomba: FAIL ({e})")
 
     # Run data integrity checks
     from fee_crawler.workers.data_integrity import run_checks, print_report
@@ -135,6 +152,61 @@ def run_post_processing():
     print(report)
 
     return f"Pipeline: {'; '.join(results)} | Integrity: {integrity['score']}% ({integrity['passed']}/{integrity['total']} passed)"
+
+
+@app.function(
+    schedule=modal.Cron("0 5 * * *"),
+    timeout=1800,
+    secrets=secrets,
+    memory=1024,
+)
+def run_nightly_roomba():
+    """Nightly Roomba sweep: cross-crawl drift detection (D-04 secondary tier).
+
+    Runs full-table sweeps independent of any specific crawl run.
+    Catches statistical outliers and stale canonical assignments.
+    """
+    import os
+    import psycopg2
+    from fee_crawler.commands.roomba import run_post_crawl
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        result = run_post_crawl(conn)
+        return (
+            f"Nightly Roomba: outliers={result['outliers_flagged']}, "
+            f"reassign={result['reassignments_made']}"
+        )
+    finally:
+        conn.close()
+
+
+@app.function(
+    timeout=1800,
+    secrets=secrets,
+    memory=1024,
+)
+def run_classify_nulls():
+    """On-demand: classify all extracted_fees with NULL canonical_fee_key.
+
+    Triggered manually or by webhook after large crawl runs.
+    """
+    import os
+    import psycopg2
+    from fee_crawler.commands.classify_nulls import run
+    from fee_crawler.commands.roomba import run_post_crawl
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        result = run(conn, fix=True)
+        roomba_result = run_post_crawl(conn)
+        return (
+            f"classified={result.get('llm_classified', 0)}, "
+            f"cache_hits={result.get('cache_hits', 0)}, "
+            f"outliers={roomba_result['outliers_flagged']}"
+        )
+    finally:
+        conn.close()
 
 
 @app.function(
