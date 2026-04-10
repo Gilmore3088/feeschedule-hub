@@ -61,12 +61,19 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 55 pre-planning]: categorize_fees.py uses SQLite ? placeholders — must confirm Postgres $1 syntax path before running any backfill on production Supabase
+- [RESOLVED] categorize_fees.py SQLite ? placeholders — audit-fees skill now points to Supabase Postgres
+- [Phase 55 audit]: 44 NSF misclassifications in production (IRA transfers, Unauthorized Transfer Liability) — need per-row fix via SQL UPDATE
 - [Phase 60 pre-planning]: react-pdf cannot render Recharts SVGs directly — spike SVG-to-data-URI chart embedding approach before writing any report chart component; do not plan chart work without a working proof-of-concept
 - [Phase 56 pre-planning]: LLM fallback async queue pattern in Modal (task queue vs. DB-backed queue vs. deferred post-crawl job) needs a decision before Phase 56 planning locks in approach
 
 ## Session Continuity
 
-Last session: 2026-04-09
-Stopped at: v9.0 roadmap created — phases 55-61 written to ROADMAP.md
+Last session: 2026-04-10
+Stopped at: Phase 55 audit complete — CANONICAL_KEY_MAP 181, FEE_NAME_ALIASES 901, audit-fees skill pointed to Postgres
 Resume file: None
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260410-a33 | Kill SQLite refs in skills, expand canonical key map, audit against Supabase | 2026-04-10 | pending | [260410-a33](./quick/260410-a33-kill-all-sqlite-references-point-everyth/) |
