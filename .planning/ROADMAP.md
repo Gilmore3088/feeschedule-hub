@@ -1070,3 +1070,13 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.13: /pro/settings Not Working/Loading (BACKLOG)
+
+**Goal:** Investigate and fix /pro/settings page not loading. May be a server component error, missing DB column, or auth issue. Needs debugging.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
