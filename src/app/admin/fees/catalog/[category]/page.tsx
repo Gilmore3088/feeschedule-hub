@@ -171,7 +171,7 @@ export default async function FeeCategoryDetailPage({
       </div>
 
       {/* Stat cards - always visible */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
         <StatCard label="Institutions" value={String(stats.count)} />
         <StatCard
           label="Median"

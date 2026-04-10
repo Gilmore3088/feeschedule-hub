@@ -93,30 +93,28 @@ export default async function PipelinePage() {
             </h2>
           </div>
           {queueStatus.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="admin-table w-full text-xs">
-                <thead>
-                  <tr className="text-left">
-                    <th>Command</th>
-                    <th>Status</th>
-                    <th className="text-right">Count</th>
+            <table className="admin-table w-full text-xs">
+              <thead>
+                <tr className="text-left">
+                  <th>Command</th>
+                  <th>Status</th>
+                  <th className="text-right">Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {queueStatus.map((q, i) => (
+                  <tr key={`${q.queue}-${q.status}-${i}`}>
+                    <td className="text-gray-700 dark:text-gray-300 font-medium">{q.queue}</td>
+                    <td>
+                      <JobStatusBadge status={q.status} />
+                    </td>
+                    <td className="text-right tabular-nums text-gray-600 dark:text-gray-300">
+                      {formatNumber(q.count)}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {queueStatus.map((q, i) => (
-                    <tr key={`${q.queue}-${q.status}-${i}`}>
-                      <td className="text-gray-700 dark:text-gray-300 font-medium">{q.queue}</td>
-                      <td>
-                        <JobStatusBadge status={q.status} />
-                      </td>
-                      <td className="text-right tabular-nums text-gray-600 dark:text-gray-300">
-                        {formatNumber(q.count)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <div className="p-6 text-xs text-gray-400 text-center">No queue data</div>
           )}
@@ -131,36 +129,34 @@ export default async function PipelinePage() {
           </h2>
         </div>
         {crawlRuns.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="admin-table w-full text-xs">
-              <thead>
-                <tr className="text-left">
-                  <th>ID</th>
-                  <th>Started</th>
-                  <th className="text-center">Status</th>
-                  <th className="text-right">Targets</th>
-                  <th className="text-right">Succeeded</th>
-                  <th className="text-right">Fees</th>
-                  <th className="text-right">Rate</th>
+          <table className="admin-table w-full text-xs">
+            <thead>
+              <tr className="text-left">
+                <th>ID</th>
+                <th>Started</th>
+                <th className="text-center">Status</th>
+                <th className="text-right">Targets</th>
+                <th className="text-right">Succeeded</th>
+                <th className="text-right">Fees</th>
+                <th className="text-right">Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {crawlRuns.map((run) => (
+                <tr key={run.id}>
+                  <td className="text-gray-500 tabular-nums">{run.id}</td>
+                  <td className="text-gray-700 dark:text-gray-300 tabular-nums">{run.started_at}</td>
+                  <td className="text-center">
+                    <CrawlStatusDot status={run.status} />
+                  </td>
+                  <td className="text-right tabular-nums text-gray-500">{run.targets_crawled}</td>
+                  <td className="text-right tabular-nums text-gray-500">{run.targets_succeeded}</td>
+                  <td className="text-right tabular-nums text-gray-600 font-medium">{run.fees_extracted}</td>
+                  <td className="text-right tabular-nums text-gray-600 font-medium">{run.success_rate}%</td>
                 </tr>
-              </thead>
-              <tbody>
-                {crawlRuns.map((run) => (
-                  <tr key={run.id}>
-                    <td className="text-gray-500 tabular-nums">{run.id}</td>
-                    <td className="text-gray-700 dark:text-gray-300 tabular-nums">{run.started_at}</td>
-                    <td className="text-center">
-                      <CrawlStatusDot status={run.status} />
-                    </td>
-                    <td className="text-right tabular-nums text-gray-500">{run.targets_crawled}</td>
-                    <td className="text-right tabular-nums text-gray-500">{run.targets_succeeded}</td>
-                    <td className="text-right tabular-nums text-gray-600 font-medium">{run.fees_extracted}</td>
-                    <td className="text-right tabular-nums text-gray-600 font-medium">{run.success_rate}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         ) : (
           <div className="p-6 text-xs text-gray-400 text-center">No crawl runs</div>
         )}

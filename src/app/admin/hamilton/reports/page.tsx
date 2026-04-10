@@ -1,8 +1,8 @@
 import { getSql } from "@/lib/crawler-db/connection";
-import type { ReportJob } from "@/lib/report-engine/types";
+import { timeAgo } from "@/lib/format";
+import type { ReportJob, ReportType } from "@/lib/report-engine/types";
 import { ReportControls } from "../report-controls";
 import { publishReport, retryReport, cancelReport, cancelAllPending } from "../actions";
-import { ReportsTable } from "./reports-table";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +12,30 @@ export const metadata = { title: "Hamilton — Reports — Bank Fee Index Admin"
 const VALID_STATUSES = new Set(["pending", "assembling", "rendering", "complete", "failed"]);
 const VALID_TYPES = new Set<string>(["national_index", "state_index", "peer_brief", "monthly_pulse"]);
 
-const REPORT_TYPE_LABELS: Record<string, string> = {
+const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   national_index: "National Index",
   state_index: "State Index",
   peer_brief: "Peer Brief",
   monthly_pulse: "Monthly Pulse",
 };
+
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  pending: "bg-amber-50 text-amber-600",
+  assembling: "bg-blue-50 text-blue-600",
+  rendering: "bg-blue-50 text-blue-600",
+  complete: "bg-emerald-50 text-emerald-600",
+  failed: "bg-red-50 text-red-600",
+};
+
+function getReportTitle(job: ReportJob): string {
+  const typeLabel = REPORT_TYPE_LABELS[job.report_type] ?? job.report_type;
+  if (job.report_type === "state_index" && job.params?.state_code) {
+    return `${typeLabel} — ${job.params.state_code}`;
+  }
+  const year = new Date(job.created_at).getFullYear();
+  const quarter = Math.ceil((new Date(job.created_at).getMonth() + 1) / 3);
+  return `${typeLabel} Q${quarter} ${year}`;
+}
 
 export default async function HamiltonReportsPage({
   searchParams,
@@ -50,12 +68,12 @@ export default async function HamiltonReportsPage({
 
   return (
     <div className="space-y-6">
-      {/* Generation controls -- client component */}
+      {/* Generation controls — client component */}
       <ReportControls publishedJobIds={publishedJobIds} />
 
       {/* Jobs table */}
-      <div>
-        <div className="px-4 py-3 flex items-center justify-between gap-4">
+      <div className="admin-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.05] flex items-center justify-between gap-4">
           <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 shrink-0">
             Report Jobs
           </h2>
@@ -82,7 +100,7 @@ export default async function HamiltonReportsPage({
               <option value="">All types</option>
               {Array.from(VALID_TYPES).map((t) => (
                 <option key={t} value={t}>
-                  {REPORT_TYPE_LABELS[t]}
+                  {REPORT_TYPE_LABELS[t as ReportType]}
                 </option>
               ))}
             </select>
@@ -116,78 +134,142 @@ export default async function HamiltonReportsPage({
           </form>
         </div>
 
-        <ReportsTable
-          jobs={jobs}
-          publishedSet={publishedSet}
-          renderActions={(job, title, isPublished) => (
-            <div className="flex items-center gap-2 flex-wrap">
-              {job.status === "complete" && (
-                <a
-                  href={`/api/reports/${job.id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-[12px] font-medium transition-colors"
-                >
-                  Preview PDF
-                </a>
-              )}
+        {jobs.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+            No report jobs yet. Use the controls above to generate a report.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50/80 dark:bg-white/[0.02]">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Completed
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Error
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-white/[0.04]">
+                {jobs.map((job) => {
+                  const title = getReportTitle(job);
+                  const isPublished = publishedSet.has(job.id);
+                  return (
+                    <tr key={job.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-2.5 text-gray-900 dark:text-gray-200 text-[12px] font-medium">
+                        {title}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${STATUS_BADGE_CLASSES[job.status] ?? "bg-gray-50 text-gray-500"}`}
+                        >
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-[12px] text-gray-500 dark:text-gray-400">
+                        {timeAgo(job.created_at)}
+                      </td>
+                      <td className="px-4 py-2.5 text-[12px] text-gray-500 dark:text-gray-400">
+                        {job.completed_at ? timeAgo(job.completed_at) : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 max-w-[200px]">
+                        {job.error && (
+                          <span
+                            className="text-red-500 text-[11px] line-clamp-2"
+                            title={job.error}
+                          >
+                            {job.error}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {job.status === "complete" && (
+                            <a
+                              href={`/api/reports/${job.id}/download`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-[12px] font-medium transition-colors"
+                            >
+                              Preview PDF
+                            </a>
+                          )}
 
-              {job.status === "complete" && !isPublished && (
-                <form
-                  action={async () => {
-                    "use server";
-                    await publishReport(job.id, title, job.report_type, true);
-                  }}
-                >
-                  <button
-                    type="submit"
-                    className="px-2.5 py-1 text-[11px] font-medium rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                  >
-                    Publish
-                  </button>
-                </form>
-              )}
+                          {job.status === "complete" && !isPublished && (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await publishReport(job.id, title, job.report_type, true);
+                              }}
+                            >
+                              <button
+                                type="submit"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                              >
+                                Publish
+                              </button>
+                            </form>
+                          )}
 
-              {job.status === "complete" && isPublished && (
-                <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
-                  Published
-                </span>
-              )}
+                          {job.status === "complete" && isPublished && (
+                            <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
+                              Published
+                            </span>
+                          )}
 
-              {["pending", "assembling", "rendering"].includes(job.status) && (
-                <form
-                  action={async () => {
-                    "use server";
-                    await cancelReport(job.id);
-                  }}
-                >
-                  <button
-                    type="submit"
-                    className="px-2.5 py-1 text-[11px] font-medium rounded bg-gray-500 text-white hover:bg-gray-600 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </form>
-              )}
+                          {["pending", "assembling", "rendering"].includes(job.status) && (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await cancelReport(job.id);
+                              }}
+                            >
+                              <button
+                                type="submit"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded bg-gray-500 text-white hover:bg-gray-600 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </form>
+                          )}
 
-              {job.status === "failed" && (
-                <form
-                  action={async () => {
-                    "use server";
-                    await retryReport(job.id);
-                  }}
-                >
-                  <button
-                    type="submit"
-                    className="px-2.5 py-1 text-[11px] font-medium rounded bg-red-600 text-white hover:bg-red-700 transition-colors ml-2"
-                  >
-                    Retry
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        />
+                          {job.status === "failed" && (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await retryReport(job.id);
+                              }}
+                            >
+                              <button
+                                type="submit"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded bg-red-600 text-white hover:bg-red-700 transition-colors ml-2"
+                              >
+                                Retry
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

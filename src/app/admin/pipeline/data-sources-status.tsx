@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { sql } from "@/lib/crawler-db/connection";
 import { timeAgo } from "@/lib/format";
-import { SortableTable, type Column } from "@/components/sortable-table";
 
 interface DataSource {
   name: string;
@@ -27,17 +25,8 @@ const DATA_SOURCES: DataSource[] = [
   { name: "Census Tracts", table: "census_tracts", dateColumn: "fetched_at", cadence: "Annual", cadenceDays: 365 },
 ];
 
-interface SourceRow extends Record<string, unknown> {
-  name: string;
-  rowCount: number;
-  lastRefresh: string | null;
-  cadence: string;
-  overdue: boolean;
-  refreshCommand?: string;
-}
-
-async function getRefreshTimestamps(): Promise<SourceRow[]> {
-  const results: SourceRow[] = [];
+async function getRefreshTimestamps(): Promise<{ name: string; lastRefresh: string | null; cadence: string; overdue: boolean; rowCount: number; refreshCommand?: string }[]> {
+  const results: { name: string; lastRefresh: string | null; cadence: string; overdue: boolean; rowCount: number; refreshCommand?: string }[] = [];
   for (const src of DATA_SOURCES) {
     try {
       const rows = await sql.unsafe(`SELECT MAX(${src.dateColumn}) as last_refresh, COUNT(*) as cnt FROM ${src.table}`);
@@ -56,82 +45,12 @@ async function getRefreshTimestamps(): Promise<SourceRow[]> {
   return results;
 }
 
-const columns: Column<SourceRow>[] = [
-  {
-    key: "name",
-    label: "Source",
-    sortable: true,
-    format: (_, row) => <span className="text-gray-700 dark:text-gray-300">{row.name as string}</span>,
-  },
-  {
-    key: "rowCount",
-    label: "Rows",
-    align: "right",
-    sortable: true,
-    format: (v) => <span className="tabular-nums text-gray-500">{(v as number).toLocaleString()}</span>,
-  },
-  {
-    key: "lastRefresh",
-    label: "Last Refresh",
-    align: "right",
-    sortable: true,
-    format: (v) => (
-      <span className="tabular-nums text-gray-500">
-        {v ? timeAgo(v as string) : "Never"}
-      </span>
-    ),
-  },
-  {
-    key: "cadence",
-    label: "Cadence",
-    align: "right",
-    sortable: true,
-    format: (v) => <span className="text-gray-400">{v as string}</span>,
-  },
-  {
-    key: "overdue",
-    label: "Status",
-    align: "center",
-    sortable: true,
-    format: (_, row) => {
-      const rowCount = row.rowCount as number;
-      const overdue = row.overdue as boolean;
-      if (rowCount === 0) {
-        return (
-          <>
-            <span className="inline-block w-2 h-2 rounded-full bg-gray-300" aria-hidden="true" title="No data" />
-            <span className="sr-only">No data</span>
-          </>
-        );
-      }
-      if (overdue) {
-        return (
-          <Link
-            href="/admin/ops"
-            className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors"
-            title={`Overdue — use Quick Actions to run Refresh ${(row.refreshCommand as string) || "data"}`}
-          >
-            <span className="inline-block w-2 h-2 rounded-full bg-amber-400" aria-hidden="true" />
-            overdue
-          </Link>
-        );
-      }
-      return (
-        <>
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" title="Current" />
-          <span className="sr-only">Current</span>
-        </>
-      );
-    },
-  },
-];
-
 export async function DataSourcesStatus() {
   const sources = await getRefreshTimestamps();
 
   return (
-    <div>
-      <div className="px-4 py-2.5 flex items-center justify-between">
+    <div className="admin-card overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-200 dark:border-white/[0.06] flex items-center justify-between">
         <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
           Data Sources
         </h3>
@@ -142,16 +61,51 @@ export async function DataSourcesStatus() {
           )}
         </div>
       </div>
-      <Suspense fallback={null}>
-        <SortableTable
-          columns={columns}
-          rows={sources}
-          rowKey={(r) => r.name as string}
-          defaultSort="name"
-          defaultDir="asc"
-          pageSize={20}
-        />
-      </Suspense>
+      <table className="w-full text-[12px]">
+        <thead>
+          <tr className="border-b border-gray-100 dark:border-white/[0.04]">
+            <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Source</th>
+            <th className="px-4 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Rows</th>
+            <th className="px-4 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Last Refresh</th>
+            <th className="px-4 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cadence</th>
+            <th className="px-4 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sources.map((src) => (
+            <tr key={src.name} className="border-b border-gray-50 dark:border-white/[0.03] last:border-0">
+              <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{src.name}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-gray-500">{src.rowCount.toLocaleString()}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-gray-500">
+                {src.lastRefresh ? timeAgo(src.lastRefresh) : "Never"}
+              </td>
+              <td className="px-4 py-2 text-right text-gray-400">{src.cadence}</td>
+              <td className="px-4 py-2 text-center">
+                {src.rowCount === 0 ? (
+                  <>
+                    <span className="inline-block w-2 h-2 rounded-full bg-gray-300" aria-hidden="true" title="No data" />
+                    <span className="sr-only">No data</span>
+                  </>
+                ) : src.overdue ? (
+                  <Link
+                    href={`/admin/ops`}
+                    className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors"
+                    title={`Overdue — use Quick Actions to run Refresh ${src.refreshCommand || "data"}`}
+                  >
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-400" aria-hidden="true" />
+                    overdue
+                  </Link>
+                ) : (
+                  <>
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" title="Current" />
+                    <span className="sr-only">Current</span>
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

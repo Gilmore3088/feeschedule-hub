@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useMemo } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 export interface Column<T> {
@@ -39,20 +38,15 @@ export function SortableTable<T extends Record<string, unknown>>({
   columns,
   rows,
   defaultSort,
-  defaultDir = "asc",
+  defaultDir = "desc",
   pageSize = 50,
   caption,
   onRowClick,
   rowKey,
 }: SortableTableProps<T>) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  const sortKey = searchParams.get("sort") ?? defaultSort ?? columns[0]?.key ?? "";
-  const sortDirParam = searchParams.get("dir");
-  const sortDir: "asc" | "desc" =
-    sortDirParam === "asc" ? "asc" : sortDirParam === "desc" ? "desc" : defaultDir;
-  const page = Math.max(0, Number(searchParams.get("page") ?? "0"));
+  const [sortKey, setSortKey] = useState(defaultSort ?? columns[0]?.key ?? "");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultDir);
+  const [page, setPage] = useState(0);
 
   const sorted = useMemo(() => {
     const col = columns.find((c) => c.key === sortKey);
@@ -65,25 +59,13 @@ export function SortableTable<T extends Record<string, unknown>>({
   const displayed = sorted.slice(page * pageSize, (page + 1) * pageSize);
 
   function handleSort(key: string) {
-    const params = new URLSearchParams(searchParams.toString());
     if (key === sortKey) {
-      params.set("dir", sortDir === "asc" ? "desc" : "asc");
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
     } else {
-      params.set("sort", key);
-      params.set("dir", "desc");
+      setSortKey(key);
+      setSortDir("desc");
     }
-    params.delete("page");
-    router.push(`?${params.toString()}`);
-  }
-
-  function goToPage(newPage: number) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (newPage > 0) {
-      params.set("page", String(newPage));
-    } else {
-      params.delete("page");
-    }
-    router.push(`?${params.toString()}`);
+    setPage(0);
   }
 
   return (
@@ -142,7 +124,7 @@ export function SortableTable<T extends Record<string, unknown>>({
                         col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""
                       }`}
                     >
-                      {col.format ? col.format(val, row) : val === null || val === undefined ? "\u2014" : String(val)}
+                      {col.format ? col.format(val, row) : val === null || val === undefined ? "—" : String(val)}
                     </td>
                   );
                 })}
@@ -156,11 +138,11 @@ export function SortableTable<T extends Record<string, unknown>>({
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-2.5 border-t bg-gray-50/50 dark:bg-white/[0.02] text-xs text-gray-500">
           <span>
-            Showing {page * pageSize + 1}&ndash;{Math.min((page + 1) * pageSize, sorted.length)} of {sorted.length}
+            Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, sorted.length)} of {sorted.length}
           </span>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => goToPage(Math.max(0, page - 1))}
+              onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page === 0}
               className="px-2 py-1 rounded border disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-white/[0.05]"
             >
@@ -170,7 +152,7 @@ export function SortableTable<T extends Record<string, unknown>>({
               {page + 1} / {totalPages}
             </span>
             <button
-              onClick={() => goToPage(Math.min(totalPages - 1, page + 1))}
+              onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
               className="px-2 py-1 rounded border disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-white/[0.05]"
             >

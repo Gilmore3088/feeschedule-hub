@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { getReviewFees, getReviewQueueCounts } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { ServerSortableTable, type ServerColumn } from "@/components/server-sortable-table";
+import { Pagination } from "@/components/pagination";
 import { formatAmount } from "@/lib/format";
 import { DISPLAY_NAMES } from "@/lib/fee-taxonomy";
 
@@ -17,7 +17,7 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
 };
 
-const VALID_PER = [25, 50, 100] as const;
+const PAGE_SIZE = 20;
 
 function confidenceBadge(conf: number) {
   const pct = Math.round(conf * 100);
@@ -37,7 +37,7 @@ function confidenceBadge(conf: number) {
 export default async function ReviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; page?: string; sort?: string; dir?: string; per?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string; sort?: string; dir?: string }>;
 }) {
   await requireAuth("view");
 
@@ -47,7 +47,6 @@ export default async function ReviewPage({
   const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
   const sortKey = params.sort || "date";
   const sortDir = params.dir || "desc";
-  const perPage = VALID_PER.includes(Number(params.per) as 25 | 50 | 100) ? Number(params.per) : 50;
 
   let fees: Awaited<ReturnType<typeof getReviewFees>>["fees"] = [];
   let total = 0;
@@ -57,84 +56,14 @@ export default async function ReviewPage({
 
   try {
     [{ fees, total }, counts] = await Promise.all([
-      getReviewFees(activeStatus, currentPage, perPage, searchQuery || undefined, sortKey, sortDir),
+      getReviewFees(activeStatus, currentPage, PAGE_SIZE, searchQuery || undefined, sortKey, sortDir),
       getReviewQueueCounts(),
     ]);
   } catch (e) {
     console.error("ReviewPage load failed:", e);
   }
 
-  type ReviewFee = (typeof fees)[number];
-
-  const reviewColumns: ServerColumn<ReviewFee>[] = [
-    {
-      key: "fee_name",
-      label: "Fee Name",
-      sortable: false,
-      render: (fee) => (
-        <Link
-          href={`/admin/review/${fee.id}`}
-          className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
-        >
-          {fee.fee_name}
-        </Link>
-      ),
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      sortable: true,
-      align: "right",
-      render: (fee) => (
-        <span className="tabular-nums text-gray-900">{formatAmount(fee.amount)}</span>
-      ),
-    },
-    {
-      key: "category",
-      label: "Category",
-      sortable: true,
-      render: (fee) => (
-        <span className="text-gray-600 text-xs">
-          {fee.fee_category
-            ? DISPLAY_NAMES[fee.fee_category] || fee.fee_category.replace(/_/g, " ")
-            : "-"}
-        </span>
-      ),
-    },
-    {
-      key: "institution",
-      label: "Institution",
-      sortable: true,
-      render: (fee) => (
-        <>
-          <Link
-            href={`/admin/peers/${fee.crawl_target_id}`}
-            className="text-gray-900 hover:text-blue-600 transition-colors text-xs"
-          >
-            {fee.institution_name}
-          </Link>
-          {fee.state_code && (
-            <span className="ml-1 text-[10px] text-gray-400">{fee.state_code}</span>
-          )}
-        </>
-      ),
-    },
-    {
-      key: "confidence",
-      label: "Confidence",
-      sortable: true,
-      align: "center",
-      render: (fee) => confidenceBadge(fee.confidence),
-    },
-    {
-      key: "date",
-      label: "Date",
-      sortable: true,
-      render: (fee) => (
-        <span className="text-xs text-gray-500 tabular-nums">{fee.created_at}</span>
-      ),
-    },
-  ];
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <>
@@ -229,21 +158,134 @@ export default async function ReviewPage({
         </div>
       ) : (
         <div className="admin-card overflow-hidden">
-          <ServerSortableTable
-            columns={reviewColumns}
-            rows={fees}
-            rowKey={(r) => String(r.id)}
-            basePath="/admin/review"
-            sort={sortKey}
-            dir={sortDir as "asc" | "desc"}
-            page={currentPage}
-            perPage={perPage}
-            totalItems={total}
-            params={{ status: activeStatus, ...(searchQuery && { q: searchQuery }) }}
-            caption="Fee review queue"
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Fee Name
+                  </th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">
+                    <ReviewSortLink label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
+                  </th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <ReviewSortLink label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
+                  </th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <ReviewSortLink label="Institution" sortKey="institution" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
+                  </th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-center">
+                    <ReviewSortLink label="Confidence" sortKey="confidence" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
+                  </th>
+                  <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <ReviewSortLink label="Date" sortKey="date" currentSort={sortKey} currentDir={sortDir} status={activeStatus} q={searchQuery} />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {fees.map((fee) => (
+                  <tr
+                    key={fee.id}
+                    className="border-b last:border-0 hover:bg-gray-50/50 transition-colors"
+                  >
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/admin/review/${fee.id}`}
+                        className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                      >
+                        {fee.fee_name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-900">
+                      {formatAmount(fee.amount)}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-600 text-xs">
+                      {fee.fee_category
+                        ? DISPLAY_NAMES[fee.fee_category] || fee.fee_category.replace(/_/g, " ")
+                        : "-"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/admin/peers/${fee.crawl_target_id}`}
+                        className="text-gray-900 hover:text-blue-600 transition-colors text-xs"
+                      >
+                        {fee.institution_name}
+                      </Link>
+                      {fee.state_code && (
+                        <span className="ml-1 text-[10px] text-gray-400">{fee.state_code}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {confidenceBadge(fee.confidence)}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500 tabular-nums">
+                      {fee.created_at}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 pb-3">
+            <Pagination
+              basePath="/admin/review"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={total}
+              pageSize={PAGE_SIZE}
+              params={{
+                status: activeStatus,
+                ...(searchQuery ? { q: searchQuery } : {}),
+              }}
+            />
+          </div>
         </div>
       )}
     </>
+  );
+}
+
+function ReviewSortLink({
+  label,
+  sortKey,
+  currentSort,
+  currentDir,
+  status,
+  q,
+}: {
+  label: string;
+  sortKey: string;
+  currentSort: string;
+  currentDir: string;
+  status: string;
+  q: string;
+}) {
+  const isActive = currentSort === sortKey;
+  const nextDir = isActive && currentDir === "desc" ? "asc" : "desc";
+
+  const params = new URLSearchParams();
+  params.set("status", status);
+  if (q) params.set("q", q);
+  params.set("sort", sortKey);
+  params.set("dir", nextDir);
+
+  return (
+    <Link
+      href={`/admin/review?${params.toString()}`}
+      className="inline-flex items-center gap-1 group/sort"
+      aria-label={`Sort by ${label}, currently ${isActive ? currentDir : "unsorted"}`}
+    >
+      {label}
+      <span
+        aria-hidden="true"
+        className={`text-[9px] ${
+          isActive
+            ? "text-gray-700 dark:text-gray-300"
+            : "text-gray-300 group-hover/sort:text-gray-400 dark:text-gray-600"
+        }`}
+      >
+        {isActive ? (currentDir === "desc" ? "\u25BC" : "\u25B2") : "\u25B2\u25BC"}
+      </span>
+    </Link>
   );
 }
