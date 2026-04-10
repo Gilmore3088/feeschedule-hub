@@ -1,101 +1,74 @@
 # Requirements: Bank Fee Index
 
 **Defined:** 2026-04-09
-**Core Value:** Accurate, complete, timely fee data with rich analysis — the kind of insight a bank executive would pay a consulting firm $15K to produce, generated on demand from live pipeline data.
+**Core Value:** Accurate, complete, timely fee data with rich analysis -- the kind of insight a bank executive would pay a consulting firm $15K to produce, generated on demand from live pipeline data.
 
-## v8.1 Requirements
+## v9.0 Requirements
 
-Requirements for Hamilton Pro Live Data Wiring. Each maps to roadmap phases.
+Requirements for v9.0 Data Foundation & Production Polish. Each maps to roadmap phases.
 
-### Settings
+### Taxonomy & Data Consolidation
 
-- [ ] **SET-01**: User's fed_district column exists in production DB (migration 041 runs)
+- [ ] **TAX-01**: DB schema adds canonical_fee_key and variant_type columns to extracted_fees (expand-and-contract migration)
+- [ ] **TAX-02**: Canonical key map authored with ~200 canonical keys and alias lists covering the 15K+ long-tail categories
+- [ ] **TAX-03**: Backfill classifies all existing extracted_fees rows with canonical_fee_key and fee_family
+- [ ] **TAX-04**: NEVER_MERGE guard tests enforce NSF/OD, domestic/intl wire, ATM/card replacement distinctions
+- [ ] **TAX-05**: Roomba data cleanup agent flags/rejects statistical outliers and long-tail noise in extracted fees
 
-### Monitor
+### Auto-Classification Pipeline
 
-- [ ] **MON-01**: Signal feed queries real hamilton_signals table with empty state when no data
-- [ ] **MON-02**: User can add/remove watchlist items (institutions, Fed agencies) against real hamilton_watchlists table
-- [ ] **MON-03**: FloatingChatOverlay streams real Hamilton responses
-- [ ] **MON-04**: Monitor uses full canvas width (no wasted left/right margins)
+- [ ] **CLS-01**: classify_fee() runs inline at INSERT time during extraction -- every new crawl auto-maps to canonical taxonomy
+- [ ] **CLS-02**: LLM fallback classification via Claude Haiku when fuzzy match score < 80, with classification_cache table to prevent repeat API calls
+- [ ] **CLS-03**: Roomba integration wired into post-extraction pipeline to flag/reject outliers automatically
 
-### Home / Briefing
+### Admin UX
 
-- [ ] **HOME-01**: HamiltonViewCard calls real generateGlobalThesis() with user's peer context
-- [ ] **HOME-02**: PositioningEvidence queries real getNationalIndex() for user's institution fee categories
-- [ ] **HOME-03**: WhatChangedCard + PriorityAlertsCard query real signal/alert tables
-- [ ] **HOME-04**: RecommendedActionCard derives from thesis, links to Simulate with suggested category
-- [ ] **HOME-05**: All data shown traces to pipeline-verified sources — no hallucinated data or fabricated recommendations
+- [ ] **ADM-01**: SortableTable component wired to all admin pages (currently only on /admin/index)
+- [ ] **ADM-02**: Server-side sort via URL params for unbounded tables (review queue, fees catalog) where in-memory sort fails at 15K+ rows
+- [ ] **ADM-03**: Districts pages consume Phase 23-24 district queries (Beige Book summaries, economic indicators, CFPB data)
+- [ ] **ADM-04**: All admin pages responsive on tablet/mobile breakpoints
+- [ ] **ADM-05**: Institution-specific pages display rich FFIEC Call Report financial data (assets, deposits, service charge revenue, ratios)
 
-### Analyze
+### Report Quality
 
-- [ ] **ANL-01**: AnalyzeWorkspace streaming works with real Hamilton API (mode: analyze)
-- [ ] **ANL-02**: Focus tabs (Pricing/Risk/Peer/Trend) inject correct context into system prompt
-- [ ] **ANL-03**: User can save/load analyses via hamilton_saved_analyses table
-- [ ] **ANL-04**: All hardcoded/demo analysis content stripped
-- [ ] **ANL-05**: User can export any analysis as a branded PDF report (client brand if uploaded, BFI brand default)
+- [ ] **RPT-01**: Call Report thousands-scaling bug fixed -- service charge revenue displays real numbers, not $0
+- [ ] **RPT-02**: FRED economic data and Beige Book commentary wired into report generation pipeline
+- [ ] **RPT-03**: PDF reports upgraded to Salesforce-grade layout: stat callout boxes, numbered chapters, editorial structure, professional typography
 
-### Simulate
+### Hamilton Pro Polish
 
-- [ ] **SIM-01**: Category selector works for all 49 fee categories (not just overdraft)
-- [ ] **SIM-02**: Fee distribution data fetched from real getNationalIndex() for selected category
-- [ ] **SIM-03**: canSimulate() blocks categories with insufficient data (confidence gating)
-- [ ] **SIM-04**: Hamilton interpretation streams real API with scenario context — surfaces complaints, peer behavior, revenue subcategories (no concrete dollar predictions)
+- [ ] **PRO-01**: All hardcoded/sample/demo text stripped from all 5 Pro screens (Home, Analyze, Simulate, Reports, Monitor)
+- [ ] **PRO-02**: Stripe ManageBillingButton wired into Pro settings page
+- [ ] **PRO-03**: Pro screens responsive via Tailwind v4 container queries
 
-### Reports
+### Pipeline Coverage
 
-- [ ] **RPT-01**: Report library displays curated Hamilton publications (annual, quarterly, Fed, monthly pulse)
-- [ ] **RPT-02**: User can browse, read, and download published reports
-- [ ] **RPT-03**: Report generation uses real generateSection() with client-specific data context
-- [ ] **RPT-04**: PDF export via @react-pdf/renderer works end-to-end
-- [ ] **RPT-05**: Scenario-linked reports pull from hamilton_scenarios when user comes from Simulate
-
-### Pro Navigation
-
-- [ ] **NAV-01**: Existing Pro nav tabs (Pricing, Peer, etc.) wired to real fee data
-- [ ] **NAV-02**: All Pro screens use full canvas width — no wasted margins
-
-### Integration
-
-- [ ] **INT-01**: Home CTA links navigate correctly to target screens (Simulate, Analyze)
-- [ ] **INT-02**: Simulate -> Report flow passes scenario context
-- [ ] **INT-03**: Analyze -> branded PDF export flow works end-to-end
-- [ ] **INT-04**: Cross-screen data consistency (same institution/peer context everywhere)
+- [ ] **COV-01**: PDF direct-link strategy for big bank fee schedules (target direct PDF URLs, higher ROI than stealth browsing)
+- [ ] **COV-02**: Playwright stealth upgrade to bypass bot detection on JS-rendered fee schedule pages
+- [ ] **COV-03**: FFIEC CDR (banks) and NCUA 5300 (credit unions) quarterly financial data ingestion pipeline
 
 ## Future Requirements
 
-Deferred beyond v8.1. Tracked but not in current roadmap.
+### Deferred from v9.0
 
-### Automation
-
-- **AUTO-01**: Signal pipeline automation (auto-generate signals from fee change events)
-- **AUTO-02**: Scheduled report generation (auto-publish quarterly/annual on cadence)
-
-### Branding
-
-- **BRAND-01**: Client brand asset upload (logo, colors) for white-labeled reports
-- **BRAND-02**: Brand preview before PDF export
-
-### Billing
-
-- **BILL-01**: Stripe billing portal wiring (manage subscription button)
-- **BILL-02**: Usage-based billing for Hamilton API calls
-
-### Advanced Export
-
-- **EXP-01**: Charts rendered as PNG inside PDF reports (chart-to-PNG pipeline)
-- **EXP-02**: Word/PPTX export formats
+- **API-01**: Public REST API for institution data and fee index (backlog 999.15)
+- **SIG-01**: Signal pipeline automation (currently manual/dev-only seeding)
+- **LEFT-01**: Screen-aware left rail with per-screen content slots (backlog 999.8/999.11)
+- **SEC-01**: bcrypt migration for legacy password hashes (backlog 999.7)
+- **CHART-01**: Charts rendered as PNG inside PDF reports (chart-to-PNG pipeline -- needs design spike)
+- **BRAND-01**: Client brand asset upload for white-labeled reports
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| New UI components or screen redesigns | v8.0 built all shells; v8.1 is data wiring only |
-| Signal pipeline automation | Manual/dev-only seeding for now; automation deferred post-v8.1 |
-| Concrete dollar predictions in Simulate | Risk of inaccuracy; use contextual intelligence (complaints, peer behavior, revenue subcategories) instead |
-| Admin Hamilton changes | Admin content engine is separate; v8.1 is Client Hamilton only |
-| A/B testing settings variants | Deferred to post-launch polish |
-| Real-time WebSocket signals | Batch/poll cadence sufficient |
-| Charts in PDF | Recharts cannot render in react-pdf; stat callout boxes instead |
+| Admin UI redesign | Existing admin works; polish only, no new screens |
+| Mobile native app | Web-first, responsive web covers mobile needs |
+| Real-time fee monitoring | Batch/quarterly cadence is sufficient for B2B clients |
+| Chart embedding in PDF | react-pdf can't render Recharts; defer to post-v9.0 design spike |
+| A/B testing | Premature before paying customer base established |
+| Concrete dollar predictions | Risk of inaccuracy; contextual intelligence only |
+| Signal pipeline automation | Manual seeding sufficient for now |
 
 ## Traceability
 
@@ -103,42 +76,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SET-01 | Phase 47 | Pending |
-| NAV-01 | Phase 48 | Pending |
-| NAV-02 | Phase 48 | Pending |
-| MON-04 | Phase 48 | Pending |
-| MON-01 | Phase 49 | Pending |
-| MON-02 | Phase 49 | Pending |
-| MON-03 | Phase 49 | Pending |
-| HOME-01 | Phase 50 | Pending |
-| HOME-02 | Phase 50 | Pending |
-| HOME-03 | Phase 50 | Pending |
-| HOME-04 | Phase 50 | Pending |
-| HOME-05 | Phase 50 | Pending |
-| ANL-01 | Phase 51 | Pending |
-| ANL-02 | Phase 51 | Pending |
-| ANL-03 | Phase 51 | Pending |
-| ANL-04 | Phase 51 | Pending |
-| ANL-05 | Phase 51 | Pending |
-| SIM-01 | Phase 52 | Pending |
-| SIM-02 | Phase 52 | Pending |
-| SIM-03 | Phase 52 | Pending |
-| SIM-04 | Phase 52 | Pending |
-| RPT-01 | Phase 53 | Pending |
-| RPT-02 | Phase 53 | Pending |
-| RPT-03 | Phase 53 | Pending |
-| RPT-04 | Phase 53 | Pending |
-| RPT-05 | Phase 53 | Pending |
-| INT-01 | Phase 54 | Pending |
-| INT-02 | Phase 54 | Pending |
-| INT-03 | Phase 54 | Pending |
-| INT-04 | Phase 54 | Pending |
+| TAX-01 | TBD | Pending |
+| TAX-02 | TBD | Pending |
+| TAX-03 | TBD | Pending |
+| TAX-04 | TBD | Pending |
+| TAX-05 | TBD | Pending |
+| CLS-01 | TBD | Pending |
+| CLS-02 | TBD | Pending |
+| CLS-03 | TBD | Pending |
+| ADM-01 | TBD | Pending |
+| ADM-02 | TBD | Pending |
+| ADM-03 | TBD | Pending |
+| ADM-04 | TBD | Pending |
+| ADM-05 | TBD | Pending |
+| RPT-01 | TBD | Pending |
+| RPT-02 | TBD | Pending |
+| RPT-03 | TBD | Pending |
+| PRO-01 | TBD | Pending |
+| PRO-02 | TBD | Pending |
+| PRO-03 | TBD | Pending |
+| COV-01 | TBD | Pending |
+| COV-02 | TBD | Pending |
+| COV-03 | TBD | Pending |
 
 **Coverage:**
-- v8.1 requirements: 30 total
-- Mapped to phases: 30
-- Unmapped: 0
+- v9.0 requirements: 22 total
+- Mapped to phases: 0
+- Unmapped: 22
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after roadmap creation (v8.1 Phases 47-54)*
+*Last updated: 2026-04-09 after initial definition*
