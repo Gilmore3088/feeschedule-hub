@@ -76,34 +76,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TAX-01 | TBD | Pending |
-| TAX-02 | TBD | Pending |
-| TAX-03 | TBD | Pending |
-| TAX-04 | TBD | Pending |
-| TAX-05 | TBD | Pending |
-| CLS-01 | TBD | Pending |
-| CLS-02 | TBD | Pending |
-| CLS-03 | TBD | Pending |
-| ADM-01 | TBD | Pending |
-| ADM-02 | TBD | Pending |
-| ADM-03 | TBD | Pending |
-| ADM-04 | TBD | Pending |
-| ADM-05 | TBD | Pending |
-| RPT-01 | TBD | Pending |
-| RPT-02 | TBD | Pending |
-| RPT-03 | TBD | Pending |
-| PRO-01 | TBD | Pending |
-| PRO-02 | TBD | Pending |
-| PRO-03 | TBD | Pending |
-| COV-01 | TBD | Pending |
-| COV-02 | TBD | Pending |
-| COV-03 | TBD | Pending |
+| TAX-01 | Phase 55 | Pending |
+| TAX-02 | Phase 55 | Pending |
+| TAX-03 | Phase 55 | Pending |
+| TAX-04 | Phase 55 | Pending |
+| TAX-05 | Phase 55 | Pending |
+| CLS-01 | Phase 56 | Pending |
+| CLS-02 | Phase 56 | Pending |
+| CLS-03 | Phase 56 | Pending |
+| ADM-01 | Phase 57 | Pending |
+| ADM-02 | Phase 57 | Pending |
+| ADM-03 | Phase 57 | Pending |
+| ADM-04 | Phase 57 | Pending |
+| ADM-05 | Phase 58 | Pending |
+| RPT-01 | Phase 60 | Pending |
+| RPT-02 | Phase 60 | Pending |
+| RPT-03 | Phase 60 | Pending |
+| PRO-01 | Phase 61 | Pending |
+| PRO-02 | Phase 61 | Pending |
+| PRO-03 | Phase 61 | Pending |
+| COV-01 | Phase 59 | Pending |
+| COV-02 | Phase 59 | Pending |
+| COV-03 | Phase 58 | Pending |
 
 **Coverage:**
 - v9.0 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22
+- Mapped to phases: 22
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after initial definition*
+*Last updated: 2026-04-09 after roadmap creation (phases 55-61 assigned)*

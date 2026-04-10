@@ -9,7 +9,8 @@
 - [ ] **v6.0 Two-Sided Experience** - Phases 28-32 (in progress)
 - [x] **v7.0 Hamilton Reasoning Engine** - Phases 33-37 (shipped 2026-04-08)
 - [x] **v8.0 Hamilton Pro Platform** - Phases 38-46 (shipped 2026-04-09)
-- [ ] **v8.1 Hamilton Pro Live Data Wiring** - Phases 47-54 (in progress)
+- [x] **v8.1 Hamilton Pro Live Data Wiring** - Phases 47-54 (shipped 2026-04-10)
+- [ ] **v9.0 Data Foundation & Production Polish** - Phases 55-61 (in progress)
 
 ## Phases
 
@@ -1107,3 +1108,110 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+
+---
+
+## v9.0 Data Foundation & Production Polish
+
+**Milestone Goal:** Build a living canonical fee layer that consolidates 15K+ fragmented fee categories and auto-classifies new crawl data as it arrives, then polish every surface (Pro, Admin, Reports) to production-ready quality.
+
+- [ ] **Phase 55: Canonical Taxonomy Foundation** - Add canonical_fee_key column, author 200-key map, backfill all existing fees, enforce NEVER_MERGE guard tests (not started)
+- [ ] **Phase 56: Auto-Classification Pipeline** - Wire classify_fee() inline at INSERT, LLM fallback with cache, Roomba outlier integration (not started)
+- [ ] **Phase 57: Admin UX — Sortable Tables & Districts** - SortableTable adoption across all admin pages, server-side sort for large tables, districts data wired to Phase 23-24 queries, responsive pass (not started)
+- [ ] **Phase 58: FFIEC Pipeline & Institution Data** - Ingest FFIEC CDR + NCUA 5300 quarterly data, wire Call Report data into institution-specific admin pages (not started)
+- [ ] **Phase 59: Pipeline Coverage Expansion** - PDF direct-link strategy for big bank fee schedules, Playwright stealth bypass for JS-rendered pages (not started)
+- [ ] **Phase 60: Report Quality Upgrade** - Fix Call Report thousands-scaling bug, wire FRED + Beige Book into assemblers, upgrade PDF layout to Salesforce-grade stat callouts (not started)
+- [ ] **Phase 61: Hamilton Pro Polish** - Strip all demo/sample text from 5 Pro screens, wire Stripe billing portal, responsive pass with Tailwind v4 container queries (not started)
+
+### Phase 55: Canonical Taxonomy Foundation
+**Goal**: Every existing extracted fee row has a stable canonical_fee_key, synonym clusters are consolidated, and NEVER_MERGE guard tests prevent false regulatory category merges from reaching the index
+**Depends on**: Phase 54
+**Requirements**: TAX-01, TAX-02, TAX-03, TAX-04, TAX-05
+**Success Criteria** (what must be TRUE):
+  1. The extracted_fees table has a canonical_fee_key column that accepts nullable values — running the migration twice is a no-op with no errors
+  2. A canonical key map covering ~200 keys and alias lists exists in fee_analysis.py and its category count is asserted equal to the count in fee-taxonomy.ts by a unit test
+  3. After the backfill runs, every existing extracted_fees row has a non-null canonical_fee_key and the national index row count for every category is identical pre- and post-backfill
+  4. A pytest test asserting NSF and overdraft canonical keys are never in the same alias list, and domestic and international wire keys are never in the same alias list, passes in CI before any alias expansion ships
+  5. The Roomba agent flags known statistical outliers (fees deviating 3+ standard deviations from category median) and sets review_status to a flagged state — a developer can inspect flagged rows in the admin review queue
+**Plans**: TBD
+
+### Phase 56: Auto-Classification Pipeline
+**Goal**: Every new fee inserted by the crawler is automatically assigned a canonical_fee_key at INSERT time — the canonical taxonomy is self-maintaining after this phase ships
+**Depends on**: Phase 55
+**Requirements**: CLS-01, CLS-02, CLS-03
+**Success Criteria** (what must be TRUE):
+  1. A new crawl run inserts fees with canonical_fee_key populated for every fee that matches the alias table — zero fees that match a known alias are stored with a null canonical_fee_key
+  2. A fee whose raw name does not match the alias table is classified via Claude Haiku LLM fallback; the result is cached in classification_cache so the same raw string never triggers a second LLM call
+  3. The LLM fallback does not block or delay fee storage — a fee with an unmatched raw name is stored immediately with canonical_fee_key = NULL and the LLM call runs asynchronously
+  4. After any crawl run, the Roomba integration automatically flags outlier fees in the newly inserted batch — a developer can see the flagged rows without running a manual audit script
+**Plans**: TBD
+
+### Phase 57: Admin UX — Sortable Tables & Districts
+**Goal**: Every admin table is sortable and the Districts pages display the full district intelligence that Phase 23-24 built — no wasted infrastructure
+**Depends on**: Phase 55
+**Requirements**: ADM-01, ADM-02, ADM-03, ADM-04
+**Success Criteria** (what must be TRUE):
+  1. Every admin table with a bounded row count (under 200 rows) has clickable column headers that sort ascending, descending, and reset — sort state is local to the page, no page reload required
+  2. The admin review queue and fees catalog use server-side ORDER BY triggered by URL params — a user can sort a 15K+ row table by fee name or amount without a client-side memory error
+  3. The /admin/districts/[id] page shows Beige Book themes, economic indicators, CFPB complaint data, and district median fees — all sourced from the Phase 23-24 DB queries that already exist
+  4. Every admin page renders without horizontal scroll overflow on a 768px tablet viewport
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 58: FFIEC Pipeline & Institution Data
+**Goal**: FFIEC CDR and NCUA 5300 quarterly Call Report data is ingested into the database and surfaced on institution-specific admin pages — institution financial profiles are visible without navigating to bankregdata.com
+**Depends on**: Phase 55
+**Requirements**: COV-03, ADM-05
+**Success Criteria** (what must be TRUE):
+  1. Running the FFIEC CDR ingestion pipeline populates quarterly financial data for FDIC-insured banks — a developer can query assets, deposits, and service charge revenue for any covered bank by institution ID and quarter
+  2. Running the NCUA 5300 ingestion pipeline populates equivalent quarterly financial data for credit unions — both bank and credit union institution pages can show real Call Report data
+  3. The institution-specific admin page for any covered bank shows assets, total deposits, service charge revenue, and key financial ratios sourced from the ingested Call Report data — no placeholder values appear for covered institutions
+**Plans**: TBD
+
+### Phase 59: Pipeline Coverage Expansion
+**Goal**: The crawler extracts fees from a meaningfully larger share of big bank and JS-rendered fee schedule pages — coverage gaps visible in the admin are reduced
+**Depends on**: Phase 56
+**Requirements**: COV-01, COV-02
+**Success Criteria** (what must be TRUE):
+  1. The crawler successfully extracts fees from at least one major bank fee schedule delivered as a direct PDF URL that was previously inaccessible — the extracted fees appear in the admin review queue
+  2. At least one fee schedule page that previously returned a bot-detection failure (403 or Cloudflare challenge) is successfully accessed and extracted via Playwright stealth — confirmed by a non-empty crawl_results row with status success for that institution
+**Plans**: TBD
+
+### Phase 60: Report Quality Upgrade
+**Goal**: Reports show real financial numbers, reference real economic context, and look like a McKinsey deliverable — not a formatted text file
+**Depends on**: Phase 58
+**Requirements**: RPT-01, RPT-02, RPT-03
+**Success Criteria** (what must be TRUE):
+  1. The service charge revenue figure in any report generated from Call Report data displays the correct dollar amount — a developer confirms the reported value matches the raw ingested data divided by the correct scaling factor (no $0 values for covered institutions)
+  2. A generated report includes FRED economic indicator context (e.g., current fed funds rate, CPI) and at least one Beige Book district quote — both sourced from the assembled report payload, not hardcoded
+  3. A downloaded PDF report contains at least one stat callout box (bold number, label, supporting text in a styled bordered box) and uses numbered chapter headers — the PDF passes visual inspection in Adobe Reader without broken layout or missing fonts
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 61: Hamilton Pro Polish
+**Goal**: The Hamilton Pro paid experience is production-ready — no demo text, no broken billing, no layout breakage on non-desktop viewports
+**Depends on**: Phase 56
+**Requirements**: PRO-01, PRO-02, PRO-03
+**Success Criteria** (what must be TRUE):
+  1. A developer auditing all 5 Pro screens (Home, Analyze, Simulate, Reports, Monitor) finds zero instances of hardcoded sample institution names, placeholder fee amounts, demo scenario data, or lorem ipsum text — all displayed content either comes from real API responses or shows a designed empty state
+  2. Clicking the billing management link in Pro Settings opens the Stripe customer portal for the authenticated user — the ManageBillingButton is wired and the portal loads without error
+  3. The Analyze and Monitor screens render without layout overflow or cut-off content at 768px viewport width using Tailwind v4 container queries — tested at 1280px and 768px
+**Plans**: TBD
+**UI hint**: yes
+
+## Progress (v9.0)
+
+**Execution Order:**
+Phases execute in numeric order: 55 -> 56 -> 57 -> 58 -> 59 -> 60 -> 61
+Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies).
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 55. Canonical Taxonomy Foundation | v9.0 | 0/TBD | Not started | - |
+| 56. Auto-Classification Pipeline | v9.0 | 0/TBD | Not started | - |
+| 57. Admin UX — Sortable Tables & Districts | v9.0 | 0/TBD | Not started | - |
+| 58. FFIEC Pipeline & Institution Data | v9.0 | 0/TBD | Not started | - |
+| 59. Pipeline Coverage Expansion | v9.0 | 0/TBD | Not started | - |
+| 60. Report Quality Upgrade | v9.0 | 0/TBD | Not started | - |
+| 61. Hamilton Pro Polish | v9.0 | 0/TBD | Not started | - |
