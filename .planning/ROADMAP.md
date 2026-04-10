@@ -1164,7 +1164,12 @@ Plans:
   2. The admin review queue and fees catalog use server-side ORDER BY triggered by URL params — a user can sort a 15K+ row table by fee name or amount without a client-side memory error
   3. The /admin/districts/[id] page shows Beige Book themes, economic indicators, CFPB complaint data, and district median fees — all sourced from the Phase 23-24 DB queries that already exist
   4. Every admin page renders without horizontal scroll overflow on a 768px tablet viewport
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 57-01-PLAN.md -- SortableTable URL persistence + rollout to all bounded admin tables
+- [ ] 57-02-PLAN.md -- Page-size selector (25/50/100) for review queue and fees catalog
+- [ ] 57-03-PLAN.md -- District detail tabbed layout + districts index sortable table + fee medians query
+- [ ] 57-04-PLAN.md -- Responsive audit: adaptive layouts for complex pages, overflow-x-auto for tables
 **UI hint**: yes
 
 ### Phase 58: FFIEC Pipeline & Institution Data
@@ -1175,7 +1180,12 @@ Plans:
   1. Running the FFIEC CDR ingestion pipeline populates quarterly financial data for FDIC-insured banks — a developer can query assets, deposits, and service charge revenue for any covered bank by institution ID and quarter
   2. Running the NCUA 5300 ingestion pipeline populates equivalent quarterly financial data for credit unions — both bank and credit union institution pages can show real Call Report data
   3. The institution-specific admin page for any covered bank shows assets, total deposits, service charge revenue, and key financial ratios sourced from the ingested Call Report data — no placeholder values appear for covered institutions
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 57-01-PLAN.md -- SortableTable URL persistence + rollout to all bounded admin tables
+- [ ] 57-02-PLAN.md -- Page-size selector (25/50/100) for review queue and fees catalog
+- [ ] 57-03-PLAN.md -- District detail tabbed layout + districts index sortable table + fee medians query
+- [ ] 57-04-PLAN.md -- Responsive audit: adaptive layouts for complex pages, overflow-x-auto for tables
 
 ### Phase 59: Pipeline Coverage Expansion
 **Goal**: The crawler extracts fees from a meaningfully larger share of big bank and JS-rendered fee schedule pages — coverage gaps visible in the admin are reduced
@@ -1184,7 +1194,12 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. The crawler successfully extracts fees from at least one major bank fee schedule delivered as a direct PDF URL that was previously inaccessible — the extracted fees appear in the admin review queue
   2. At least one fee schedule page that previously returned a bot-detection failure (403 or Cloudflare challenge) is successfully accessed and extracted via Playwright stealth — confirmed by a non-empty crawl_results row with status success for that institution
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 57-01-PLAN.md -- SortableTable URL persistence + rollout to all bounded admin tables
+- [ ] 57-02-PLAN.md -- Page-size selector (25/50/100) for review queue and fees catalog
+- [ ] 57-03-PLAN.md -- District detail tabbed layout + districts index sortable table + fee medians query
+- [ ] 57-04-PLAN.md -- Responsive audit: adaptive layouts for complex pages, overflow-x-auto for tables
 
 ### Phase 60: Report Quality Upgrade
 **Goal**: Reports show real financial numbers, reference real economic context, and look like a McKinsey deliverable — not a formatted text file
@@ -1194,7 +1209,12 @@ Plans:
   1. The service charge revenue figure in any report generated from Call Report data displays the correct dollar amount — a developer confirms the reported value matches the raw ingested data divided by the correct scaling factor (no $0 values for covered institutions)
   2. A generated report includes FRED economic indicator context (e.g., current fed funds rate, CPI) and at least one Beige Book district quote — both sourced from the assembled report payload, not hardcoded
   3. A downloaded PDF report contains at least one stat callout box (bold number, label, supporting text in a styled bordered box) and uses numbered chapter headers — the PDF passes visual inspection in Adobe Reader without broken layout or missing fonts
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 57-01-PLAN.md -- SortableTable URL persistence + rollout to all bounded admin tables
+- [ ] 57-02-PLAN.md -- Page-size selector (25/50/100) for review queue and fees catalog
+- [ ] 57-03-PLAN.md -- District detail tabbed layout + districts index sortable table + fee medians query
+- [ ] 57-04-PLAN.md -- Responsive audit: adaptive layouts for complex pages, overflow-x-auto for tables
 **UI hint**: yes
 
 ### Phase 61: Hamilton Pro Polish
@@ -1205,7 +1225,12 @@ Plans:
   1. A developer auditing all 5 Pro screens (Home, Analyze, Simulate, Reports, Monitor) finds zero instances of hardcoded sample institution names, placeholder fee amounts, demo scenario data, or lorem ipsum text — all displayed content either comes from real API responses or shows a designed empty state
   2. Clicking the billing management link in Pro Settings opens the Stripe customer portal for the authenticated user — the ManageBillingButton is wired and the portal loads without error
   3. The Analyze and Monitor screens render without layout overflow or cut-off content at 768px viewport width using Tailwind v4 container queries — tested at 1280px and 768px
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 57-01-PLAN.md -- SortableTable URL persistence + rollout to all bounded admin tables
+- [ ] 57-02-PLAN.md -- Page-size selector (25/50/100) for review queue and fees catalog
+- [ ] 57-03-PLAN.md -- District detail tabbed layout + districts index sortable table + fee medians query
+- [ ] 57-04-PLAN.md -- Responsive audit: adaptive layouts for complex pages, overflow-x-auto for tables
 **UI hint**: yes
 
 ## Progress (v9.0)
