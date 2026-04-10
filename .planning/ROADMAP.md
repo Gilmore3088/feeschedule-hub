@@ -1134,7 +1134,11 @@ Plans:
   3. After the backfill runs, every existing extracted_fees row has a non-null canonical_fee_key and the national index row count for every category is identical pre- and post-backfill
   4. A pytest test asserting NSF and overdraft canonical keys are never in the same alias list, and domestic and international wire keys are never in the same alias list, passes in CI before any alias expansion ships
   5. The Roomba agent flags known statistical outliers (fees deviating 3+ standard deviations from category median) and sets review_status to a flagged state — a developer can inspect flagged rows in the admin review queue
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 55-01-PLAN.md — Schema migration, CANONICAL_KEY_MAP, NEVER_MERGE guards, classify_fee(), TS mirror
+- [ ] 55-02-PLAN.md — Backfill existing rows with canonical_fee_key + variant_type, index count verification
+- [ ] 55-03-PLAN.md — Roomba canonical outlier detection and reassignment sweep
 
 ### Phase 56: Auto-Classification Pipeline
 **Goal**: Every new fee inserted by the crawler is automatically assigned a canonical_fee_key at INSERT time — the canonical taxonomy is self-maintaining after this phase ships
