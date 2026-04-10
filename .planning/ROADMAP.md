@@ -7,7 +7,10 @@
 - [x] **v3.0 National Coverage Push** - Phases 19-22 (shipped 2026-04-08)
 - [x] **v5.0 National Data Layer** - Phases 23-27 (shipped 2026-04-08)
 - [ ] **v6.0 Two-Sided Experience** - Phases 28-32 (in progress)
-- [ ] **v7.0 Hamilton Reasoning Engine** - Phases 33-37 (planned)
+- [x] **v7.0 Hamilton Reasoning Engine** - Phases 33-37 (shipped 2026-04-08)
+- [x] **v8.0 Hamilton Pro Platform** - Phases 38-46 (shipped 2026-04-09)
+- [x] **v8.1 Hamilton Pro Live Data Wiring** - Phases 47-54 (shipped 2026-04-10)
+- [ ] **v9.0 Data Foundation & Production Polish** - Phases 55-61 (in progress)
 
 ## Phases
 
@@ -458,7 +461,7 @@ Plans:
 
 - [x] **Phase 28: Audience Shell Separation** - Distinct nav components per audience, centralized pro auth guard, personalization service (completed 2026-04-08)
 - [x] **Phase 29: Consumer Landing Page** - Value-prop-first landing page replacing split-panel gateway, embedded Fee Scout, trust signals, consumer guide teasers, B2B door (completed 2026-04-08)
-- [ ] **Phase 30: Institution Educational Pages** - "Why does this matter?" callouts, peer percentile indicators, fee distribution charts, B2B report links per institution
+- [x] **Phase 30: Institution Educational Pages** - "Why does this matter?" callouts, peer percentile indicators, fee distribution charts, B2B report links per institution (completed 2026-04-08)
 - [ ] **Phase 31: B2B Launchpad Dashboard** - Four-door pro dashboard (Hamilton, Peer Builder, Reports, Federal Data), peer snapshot, recent activity, Beige Book digest
 - [ ] **Phase 32: Scoped Report Generation and PDF Export** - Structured report type selector, PDF download, report history, per-user daily limits
 
@@ -504,11 +507,25 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 30-01-PLAN.md -- Fee callout explainers + PercentileBadge in PositionBar
-- [ ] 30-02-PLAN.md -- Fee Distribution histograms + Intelligence section with B2B CTAs
-
-
-
+- [x] 30-02-PLAN.md -- Fee Distribution histograms + Intelligence section with B2B CTAs
 **UI hint**: yes
+
+### Phase 30.1: Institution Page V2 -- Consumer Decision Page (INSERTED)
+**Goal**: Transform the institution page from a static fee table into a consumer decision page with summary card, interpretation block, visual comparisons, fee count context, strengths/watch section, enhanced table indicators, comparison hooks, and clear pro CTAs
+**Depends on**: Phase 30
+**Requirements**: INST-01, INST-02, INST-03, INST-04
+**Success Criteria** (what must be TRUE):
+  1. A consumer can answer "Is this institution expensive or not?" within 5 seconds of landing on the page (summary card with green/yellow/red rating visible above the fold)
+  2. Visual comparison bars show the institution's key fees (overdraft, maintenance, wire, NSF) against national medians with normalized bar lengths
+  3. Fee table replaces "-" indicators with directional arrows (above/below/equal) with color coding
+  4. A single mid-page CTA and footer CTA provide clear upgrade paths without interrupting the consumer flow
+  5. "Strengths" and "Watch" bullets are derived from fee-vs-median comparisons, max 2 each
+**Plans**: 2 plans
+Plans:
+- [x] 30.1-01-PLAN.md -- Rating engine + V2 consumer components (FeeSummaryCard, InterpretationBlock, FeeComparisonBars, FeeCountCard, ProsConsBlock)
+- [x] 30.1-02-PLAN.md -- Page restructure, table indicators, MidPageCTA, CompareSection, footer CTA
+**UI hint**: yes
+**Spec**: `.planning/phases/30-institution-educational-pages/institution-v2-spec.md`
 
 ### Phase 31: B2B Launchpad Dashboard
 **Goal**: Pro subscribers land on a coherent starting point -- a four-door launchpad surfacing their most relevant tools, a peer snapshot against the national median, recent activity, and a personalized Beige Book digest for their district
@@ -521,8 +538,8 @@ Plans:
   4. A Beige Book digest section shows a 2-3 sentence economic summary for the subscriber's Fed district sourced from the most recent Beige Book ingestion
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
-- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
+- [ ] 31-01-PLAN.md -- Four-door launchpad grid + peer snapshot sidebar
+- [ ] 31-02-PLAN.md -- Recent activity panel + Beige Book digest + visual checkpoint
 **UI hint**: yes
 
 ### Phase 32: Scoped Report Generation and PDF Export
@@ -536,98 +553,181 @@ Plans:
   4. A subscriber who hits the daily report limit (configurable, default 5/day for pro) sees a clear "daily limit reached" message and cannot trigger additional generations until the following day
 **Plans**: 2 plans
 Plans:
-- [ ] 28-01-PLAN.md -- ConsumerNav + personalization service
-- [ ] 28-02-PLAN.md -- ProNav + auth guard + visual verification
+- [x] 32-01-PLAN.md -- Report type selector, scope forms, daily limits, generation flow
+- [ ] 32-02-PLAN.md -- Report history page + visual verification
 **UI hint**: yes
 
 ---
 
-## v7.0 Hamilton Reasoning Engine
+<details>
+<summary>v7.0 Hamilton Reasoning Engine (Phases 33-37) - SHIPPED 2026-04-08</summary>
 
-**Milestone Goal:** Upgrade Hamilton from a section-based report writer to a unified intelligence engine with global thesis generation, cross-source reasoning, and role-based delivery for admin, B2B, and consumers.
+- [x] Phase 33: Global Thesis Engine (3/3 plans) -- completed 2026-04-08
+- [x] Phase 34: Voice v3 and Section Generator v2 (1/1 plan) -- completed 2026-04-08
+- [x] Phase 35: Unified Chat Persona (2/2 plans) -- completed 2026-04-08
+- [x] Phase 36: Tool and Regulation Intelligence (2/2 plans) -- completed 2026-04-08
+- [x] Phase 37: Editor v2 and Integration Testing (1/1 plan) -- completed 2026-04-08
 
-- [x] **Phase 33: Global Thesis Engine** - Hamilton generates a quarterly thesis from full data payload; every section references it; think-then-compress reasoning and tension model replace descriptive observations (completed 2026-04-08)
-- [x] **Phase 34: Voice v3 and Section Generator v2** - Voice system prompt upgraded with revenue prioritization and tension model; sections receive global thesis + cross-source context; word budget raised to 150-200 words (completed 2026-04-08)
-- [x] **Phase 35: Unified Chat Persona** - Four chat agents consolidated into one role-based Hamilton that adjusts depth and language by audience (consumer, pro, admin) on a shared reasoning layer (completed 2026-04-08)
-- [x] **Phase 36: Tool and Regulation Intelligence** - All 16 tool descriptions upgraded with strategic cross-reference guidance; all 13 ingestion sources verified; CFPB/OCC/Fed regulatory signals connected to internal fee data (completed 2026-04-08)
-- [x] **Phase 37: Editor v2 and Integration Testing** - Editor validates thesis alignment, revenue prioritization order, and "so what?" presence across all sections; full integration test confirms V2 quality bar (completed 2026-04-08)
+See: `.planning/milestones/v7.0-ROADMAP.md` for full details.
 
-### Phase 33: Global Thesis Engine
-**Goal**: Hamilton analyzes the full quarterly data payload and produces a structured global thesis — core argument, key tensions, and revenue model — that every report section subsequently receives and argues from
-**Depends on**: Phase 32
-**Requirements**: THESIS-01, THESIS-02, THESIS-03, THESIS-04, THESIS-05
-**Success Criteria** (what must be TRUE):
-  1. Calling the thesis generator with a quarterly data payload returns a structured object containing: core thesis statement, 2-3 key tensions framed as competing forces, identified revenue model, and competitive dynamics summary
-  2. Generating any report section after thesis generation produces output that explicitly references the global thesis — a reader can identify the section as part of a single argument, not an isolated observation
-  3. Hamilton's internal reasoning trace (if surfaced) contains 5-8 sentences; the final section output contains 2-3 sentences drawn from that reasoning — the compression is observable when verbose mode is enabled
-  4. At least one insight in every generated section uses tension framing ("X while Y") rather than observation framing ("X is at level Z")
-  5. When revenue data exists for the subject of a section, the section's first substantive statement concerns revenue implications, not pricing observations
-**Plans**: 3 plans
-Plans:
-- [x] 33-01-PLAN.md -- Foundation: thesis types (ThesisInput/ThesisOutput/ThesisSummaryPayload) + Hamilton voice v3 with revenue-first and tension model rules
-- [x] 33-02-PLAN.md -- Generator: buildThesisSummary() condensation + generateGlobalThesis() Claude call + MAX_TOKENS 1500 + remove 75-word limit
-- [x] 33-03-PLAN.md -- Wiring: inject thesis into national_index orchestrator; narrative_summary passed to all 6 sections
-
-### Phase 34: Voice v3 and Section Generator v2
-**Goal**: The Hamilton voice system prompt encodes revenue prioritization, tension model, and think-then-compress; every section receives the global thesis plus cross-source context (fees + revenue + economic + regulatory + complaints); section output reaches 150-200 words
-**Depends on**: Phase 33
-**Requirements**: VOICE-01, SECTION-01, SECTION-02, SECTION-03
-**Success Criteria** (what must be TRUE):
-  1. The voice system prompt file contains explicit instructions for: revenue-before-pricing ordering, tension framing, and a think-then-compress directive — all three are present and expressed as rules, not guidelines
-  2. A section generated for a fee category that has Call Report revenue data includes at least one revenue figure alongside its fee data — the two sources appear in the same analytical paragraph
-  3. A section generated for a Fed district topic references at least one FRED indicator and one Beige Book theme from that district's most recent report
-  4. The word count of any generated section falls between 150 and 200 words — verified by automated character/word count assertion in the test suite
-**Plans**: 1 plan
-
-Plans:
-- [ ] 34-01-PLAN.md -- Fix voice Rule 6 conflict + enrich section data payloads (FRED/Beige Book) + cross-source context instructions + word-count range tests
-
-### Phase 35: Unified Chat Persona
-**Goal**: The four existing chat agents (Ask/Analyst/ContentWriter/CustomQuery) are replaced by a single Hamilton that routes depth and language by user role — consumer, pro, or admin — while sharing one reasoning layer
-**Depends on**: Phase 33 (unified persona inherits the voice and reasoning layer established by thesis engine)
-**Requirements**: UNIFY-01, UNIFY-02, UNIFY-03, UNIFY-04, UNIFY-05
-**Success Criteria** (what must be TRUE):
-  1. A single API route handles all chat requests; the agent behavior differs by role parameter (consumer/pro/admin) — no separate agent files or routes exist for the old four agents
-  2. Two responses to the same question, one as consumer role and one as admin role, are observably different in vocabulary and depth — consumer response avoids jargon; admin response includes operational flags or data quality signals
-  3. A consumer-role response to "explain my bank's overdraft fee" reads as plain language a non-banker can understand — no industry acronyms without explanation, no data dumps
-  4. A pro-role response to a competitive question includes peer context and revenue comparison — not just the queried institution's data in isolation
-  5. An admin-role response to a fee anomaly question includes a data quality signal or operational flag alongside the substantive analysis
-**Plans**: 2 plans
-
-Plans:
-- [x] 35-01-PLAN.md — Rewrite agents.ts: buildHamilton(role) with role prefixes, tool gating, model selection + create /api/research/hamilton/route.ts
-- [x] 35-02-PLAN.md — Update chat UI, delete old [agentId] route, update Research Hub and pro/research pages
-
-### Phase 36: Tool and Regulation Intelligence
-**Goal**: All 16 tool descriptions carry strategic cross-reference guidance; all 13 data sources are confirmed accessible via queryNationalData; CFPB, OCC, and Fed regulatory signals are connected to internal fee data with institution-level impact counts
-**Depends on**: Phase 33 (tool guidance should reference thesis-driven reasoning patterns)
-**Requirements**: TOOLS-01, TOOLS-02, TOOLS-03, REG-01, REG-02, REG-03
-**Success Criteria** (what must be TRUE):
-  1. Every tool description contains a "when to use" section specifying the question type that warrants pulling that tool's data — not just what the tool returns
-  2. Querying `queryNationalData` with a district-focused question triggers calls to at least three distinct sources (e.g., Beige Book + FRED + CFPB) — confirmed by tool call trace in verbose mode
-  3. Hamilton can answer "how many institutions in our database have fee structures similar to those targeted by this CFPB enforcement action?" — the response cites both the regulatory source and an institution count from internal data
-  4. A compliance risk query returns institutions with above-median fees AND above-average complaint rates for at least one fee category — both signals appear in the same response
-  5. Hamilton can reference industry ROA, efficiency ratio, or deposit growth in an answer that starts from a fee question — the financial context enrichment is automatic, not prompt-dependent
-**Plans**: 2 plans
-
-Plans:
-- [x] 36-01-PLAN.md — Wire 5 new sources into queryNationalData + create queryRegulatoryRisk tool + regulation-awareness instruction in Hamilton system prompts
-- [x] 36-02-PLAN.md — Upgrade all 17 tool descriptions with Returns/When/Combine-with cross-reference guidance
-
-### Phase 37: Editor v2 and Integration Testing
-**Goal**: The editor validates thesis alignment, revenue prioritization, and implication presence across all sections; a full integration run through a quarterly report confirms the V2 quality bar is met end-to-end
-**Depends on**: Phase 34, Phase 35, Phase 36 (editor validates output from all upgraded components)
-**Requirements**: VOICE-02, VOICE-03, VOICE-04
-**Success Criteria** (what must be TRUE):
-  1. Running the editor against a multi-section report draft flags any section whose argument contradicts the global thesis — the flag includes the specific contradiction, not a generic warning
-  2. Running the editor against a section that describes pricing data without mentioning revenue (when revenue data exists) flags that section with a "revenue prioritization" warning — the editor does not pass it silently
-  3. Running the editor against a section that ends with data description and no implication ("fees averaged $X") flags it with a "missing implication" warning — the editor enforces "so what?" presence
-**Plans**: 1 plan
-
-Plans:
-- [x] 37-01-PLAN.md — Editor v2: three new checks + thesis wiring + integration test
+</details>
 
 ---
+
+---
+
+## v8.0 Hamilton Pro Platform
+
+**Milestone Goal:** Transform Hamilton from a chat-based research agent into a 5-screen decision system for fee pricing, peer positioning, and regulatory-risk evaluation -- the paid Pro experience ($500/mo or $5,000/yr).
+
+- [x] **Phase 38: Architecture Foundation** - CSS isolation boundary, TypeScript DTOs, mode enum, navigation source, and screen ownership rules (completed 2026-04-09)
+- [x] **Phase 39: Data Layer** - 6 new PostgreSQL tables, ensureHamiltonProTables(), confidence tier field, soft-delete columns (completed 2026-04-09)
+- [x] **Phase 40: Hamilton Shell** - Route group layout, top nav, context bar, left rail workspace memory, institutional context flow (completed 2026-04-09)
+- [x] **Phase 41: Settings** - Institution profile, peer set configuration, feature access, billing status, intelligence snapshot panel (completed 2026-04-09)
+- [x] **Phase 42: Home / Executive Briefing** - Thesis card, What Changed, Priority Alerts, Recommended Action CTA, Positioning Evidence, Monitor Feed preview (completed 2026-04-09)
+- [x] **Phase 43: Analyze Workspace** - Analysis workspace with tabs, Explore Further prompts, saved analyses, CTA hierarchy, screen boundary enforcement (completed 2026-04-09)
+- [x] **Phase 44: Simulate** - Fee slider, Current vs Proposed comparison, strategy interpretation, tradeoffs panel, Recommended Position, scenario archive, board summary CTA (completed 2026-04-09)
+- [x] **Phase 45: Report Builder** - Template gallery, configuration sidebar, executive summary generation, read-only enforcement, PDF export, scenario-linked reports, implementation notes (completed 2026-04-09)
+- [x] **Phase 46: Monitor** - Status strip, Priority Alert card, Signal Feed timeline, Watchlist panel, floating chat overlay, Fee Movements panel (completed 2026-04-09)
+
+### Phase 38: Architecture Foundation
+**Goal**: The type system, CSS isolation, mode behavior config, and navigation contract are in place so all Hamilton screens build on a shared, non-conflicting foundation
+**Depends on**: Phase 37
+**Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04, ARCH-05
+**Success Criteria** (what must be TRUE):
+  1. Styles applied inside `.hamilton-shell` do not bleed into or inherit from admin portal styles -- a developer can verify by inspecting both in the same browser session
+  2. The TypeScript compiler rejects any API response that does not conform to its declared DTO (AnalyzeResponse, SimulationResponse, ReportSummaryResponse, MonitorResponse)
+  3. MODE_BEHAVIOR config correctly gates capabilities per screen: attempting to call `canRecommend` from Analyze returns false; calling it from Simulate returns true
+  4. Navigation source file is the single source of truth -- removing an entry from the nav source removes it from the rendered top nav without additional code changes
+  5. The TypeScript compiler rejects an attempt to invoke a recommendation from the Analyze screen (screen ownership enforced at type level)
+**Plans**: 2 plans
+**UI hint**: yes
+
+Plans:
+- [x] 38-01-PLAN.md -- CSS isolation boundary (.hamilton-shell scoping, design tokens, dark mode)
+- [x] 38-02-PLAN.md -- TypeScript contracts (screen DTOs, modes, navigation source of truth)
+
+### Phase 39: Data Layer
+**Goal**: All 6 Hamilton Pro tables exist in PostgreSQL, can be created idempotently on first access, and carry the fields needed for confidence tracking, archiving, and scenario management
+**Depends on**: Phase 38
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04
+**Success Criteria** (what must be TRUE):
+  1. Calling `ensureHamiltonProTables()` on a fresh database creates all 6 tables with correct schema -- calling it again on an existing database is a no-op with no errors
+  2. A scenario row can be saved with a confidence tier of "strong", "provisional", or "insufficient" -- any other value is rejected by a DB constraint or application-level validation
+  3. An analysis and a scenario can each be soft-deleted (archived) -- a soft-deleted row does not appear in default list queries but remains in the database and is recoverable
+**Plans**: 2 plans
+
+Plans:
+- [x] 39-01-PLAN.md -- ensureHamiltonProTables() with 6 tables, indexes, constraints + confidence tier module
+- [x] 39-02-PLAN.md -- Unit tests for confidence tiers and pro-tables structural validation
+
+### Phase 40: Hamilton Shell
+**Goal**: All Hamilton screens share a single server-rendered layout shell with top nav, context bar, and left rail -- institutional context set in Settings flows to every screen without per-screen selection
+**Depends on**: Phase 39
+**Requirements**: SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05
+**Success Criteria** (what must be TRUE):
+  1. Navigating between any two Hamilton screens preserves the active institution and horizon displayed in the context bar -- no re-selection prompt appears between screens
+  2. The top nav renders correct active state highlighting for the current screen without client-side JavaScript; the active link is visually distinct at page load
+  3. The left rail shows saved analyses, recent work, and pinned institutions from the Hamilton workspace memory -- items are clickable and navigate to the correct saved state
+  4. Accessing any Hamilton screen without a valid Pro subscription redirects to an upgrade page -- the auth check lives in the shell layout, not in individual screen components
+**Plans**: 2 plans
+
+Plans:
+- [x] 40-01-PLAN.md -- Fix HAMILTON_NAV href discrepancy + create (hamilton) route group with layout and 5 stub pages
+- [x] 40-02-PLAN.md -- Build HamiltonShell, HamiltonTopNav, HamiltonContextBar, HamiltonLeftRail, HamiltonUpgradeGate and wire into layout
+**UI hint**: yes
+
+### Phase 41: Settings
+**Goal**: A Pro subscriber can configure their institution profile and peer sets in one place, and those settings propagate to all Hamilton screens as the persistent institutional context
+**Depends on**: Phase 40
+**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05
+**Success Criteria** (what must be TRUE):
+  1. A user can save an institution name, type, asset tier, and Fed district -- after saving, these values appear in the Hamilton context bar on the next page load
+  2. A user can create a named peer set by selecting charter, asset tiers, and districts -- the peer set is saved and available for selection in Simulate and Report screens
+  3. The intelligence snapshot panel shows the user's account tier, feature access toggles, and a usage stat (e.g., reports generated this month)
+  4. The billing panel displays the current subscription plan, renewal date, and a link to manage billing -- no billing logic is handled on this page (Stripe redirect)
+**Plans:** 2/2 plans complete
+Plans:
+- [x] 41-01-PLAN.md -- Server actions, avatar dropdown, institution profile form with Strategy Settings design
+- [x] 41-02-PLAN.md -- Peer set management, intelligence snapshot, feature access, billing, quick actions
+**UI hint**: yes
+
+### Phase 42: Home / Executive Briefing
+**Goal**: A Pro subscriber landing on the Hamilton Home screen gets a 30-second executive orientation -- one dominant thesis, recent movements, top 3 alerts, one recommended action, current fee positioning, and a Monitor feed preview
+**Depends on**: Phase 41
+**Requirements**: HOME-01, HOME-02, HOME-03, HOME-04, HOME-05, HOME-06
+**Success Criteria** (what must be TRUE):
+  1. The Hamilton's View card displays a single thesis statement with a confidence indicator -- the thesis is generated from live index data, not a placeholder
+  2. The What Changed section shows at least one recent fee movement or regulatory signal with a timestamp -- it is not empty on first load for an institution with index coverage
+  3. Priority Alerts shows exactly 3 alerts ranked by severity -- each alert has a severity label, one-sentence impact description, and a suggested next move
+  4. The Recommended Action card contains a single CTA that navigates directly to the Simulate screen pre-loaded with the recommended fee and proposed change
+  5. Positioning Evidence shows the institution's current fee amount, national percentile, and peer median for at least one spotlight fee category
+**Plans**: 2 plans
+
+Plans:
+- [x] 42-01-PLAN.md -- Data layer + Hamilton's View card + Positioning Evidence (thesis, index queries, ISR caching)
+- [x] 42-02-PLAN.md -- What Changed, Priority Alerts, Recommended Action CTA, Monitor Feed preview, full page wiring
+**UI hint**: yes
+
+### Phase 43: Analyze Workspace
+**Goal**: A Pro subscriber can conduct deep fee analysis by focus area, explore follow-up angles, and save analyses to their workspace -- without the screen overstepping into recommendations (which belong to Simulate)
+**Depends on**: Phase 42
+**Requirements**: ANLZ-01, ANLZ-02, ANLZ-03, ANLZ-04, ANLZ-05, ANLZ-06
+**Success Criteria** (what must be TRUE):
+  1. The analysis workspace displays Hamilton's View, What This Means, Why It Matters, and an Evidence panel -- all four sections render for any supported analysis focus
+  2. Switching between Analysis Focus tabs (Pricing, Risk, Peer Position, Trend) changes the analysis lens and updates Hamilton's content without a full page reload
+  3. The Explore Further section shows at least 3 context-relevant follow-up prompts -- clicking one triggers a new analysis scoped to that prompt
+  4. A user can save a completed analysis and retrieve it from the left rail workspace memory in a subsequent session
+  5. The Analyze screen contains no recommendation language and no "recommended position" card -- this boundary is visible in the rendered UI (no such element exists)
+**Plans**: 1 plan
+Plans:
+- [x] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+**UI hint**: yes
+
+### Phase 44: Simulate
+**Goal**: A Pro subscriber can model a proposed fee change, see the strategic tradeoffs with a confidence-tiered recommendation, save the scenario, and generate a board-ready summary with one click
+**Depends on**: Phase 43
+**Requirements**: SIM-01, SIM-02, SIM-03, SIM-04, SIM-05, SIM-06, SIM-07
+**Success Criteria** (what must be TRUE):
+  1. Dragging the fee slider updates the percentile indicator and peer gap in real time -- no page reload or explicit submit is required to see the updated position
+  2. The Current vs Proposed comparison shows side-by-side: current percentile, proposed percentile, distance from peer median, and risk profile label for each state
+  3. The Recommended Position card displays a confidence tier badge ("strong", "provisional", or "insufficient") derived from the data maturity of the underlying fee index
+  4. A user can save a scenario and retrieve it from the scenario archive -- soft-deleted scenarios do not appear in the default archive view
+  5. Clicking "Generate Board Scenario Summary" produces a report-ready output that can be opened in the Report Builder screen
+**Plans**: 1 plan
+Plans:
+- [x] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+**UI hint**: yes
+
+### Phase 45: Report Builder
+**Goal**: A Pro subscriber can select a report template, configure scope, generate an executive summary from Hamilton, download a McKinsey-grade PDF, and link a scenario directly into a report -- with reports enforced as read-only
+**Depends on**: Phase 44
+**Requirements**: RPT-01, RPT-02, RPT-03, RPT-04, RPT-05, RPT-06, RPT-07
+**Success Criteria** (what must be TRUE):
+  1. The template gallery shows at least 4 report types (Quarterly Strategy, Peer Brief, Monthly Pulse, State Index) -- each template has a distinct name, description, and preview
+  2. A generated report contains an executive summary written by Hamilton based on the configured peer set and date range -- the summary references at least one data point from the index
+  3. A user can download the generated report as a PDF file that opens in a standard viewer with correct formatting and no broken layout
+  4. A scenario saved in Simulate can be selected in the Report Builder and its data auto-populates the report -- no manual re-entry of scenario parameters
+  5. The generated report contains no interactive elements -- there are no sliders, input fields, or exploratory prompts visible in the rendered report
+**Plans**: 1 plan
+Plans:
+- [ ] 45-01-PLAN.md — TBD
+**UI hint**: yes
+
+### Phase 46: Monitor
+**Goal**: A Pro subscriber can continuously surveil their fee landscape through a signal feed, watchlist, and priority alert -- and ask Hamilton questions about what they're seeing without leaving the screen
+**Depends on**: Phase 45
+**Requirements**: MON-01, MON-02, MON-03, MON-04, MON-05, MON-06
+**Success Criteria** (what must be TRUE):
+  1. The status strip displays the current system state (stable/watch/worsening) and a signal count -- these values reflect seeded signal data, not hardcoded placeholders
+  2. The Priority Alert card shows the top alert with severity, a one-sentence impact description, and a "Recommended next move" action link
+  3. The Signal Feed timeline shows signals in reverse-chronological order -- each signal has a timestamp, institution or category label, and deviation description
+  4. The Watchlist panel shows at least one tracked institution with a renewal or review status indicator -- the institution can be added and removed from the watchlist
+  5. The floating chat overlay opens without navigating away from Monitor and accepts a question -- Hamilton's response appears in the overlay without disrupting the underlying signal feed
+**Plans**: 1 plan
+Plans:
+- [ ] 46-01-PLAN.md — TBD
+**UI hint**: yes
 
 ## Backlog
 
@@ -635,7 +735,7 @@ Plans:
 
 **Goal:** Every table on /admin pages should have clickable column headers with sort state (asc/desc/none). Currently most tables are static. Priority pages: /admin/districts, /admin/national, /admin/index, /admin/fees, /admin/market.
 **Requirements:** TBD
-**Plans:** 1/2 plans executed
+**Plans:** 0/4 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
@@ -649,12 +749,193 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
+### Phase 999.3: FFIEC CDR production ingestion via Modal pooler (BACKLOG)
+
+**Goal:** The FFIEC CDR overdraft revenue ingestion (RIADH032) needs the Supabase transaction pooler URL to run on Modal's browser_image containers. Add `SUPABASE_POOLER_URL` to Modal secrets and update `ingest_ffiec_cdr()` to use it. Then run `--backfill` to populate all 8 quarters.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: NCUA 5300 overdraft revenue for credit unions (BACKLOG)
+
+**Goal:** RIADH032 only covers banks filing FFIEC 031/041 ($1B+ assets). Credit union overdraft data requires a separate NCUA 5300 Call Report ingestion path. Would extend overdraft coverage from 757 banks to include credit unions.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Premium role access audit (BACKLOG)
+
+**Goal:** Verify that `premium` role users cannot access `/admin` routes. Currently David Bressler (premium role) may be seeing admin content. Audit all admin layout guards and ensure role-based access is enforced correctly across consumer/pro/admin shells.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.6: Phase 28 visual verification and completion (BACKLOG)
+
+**Goal:** Phase 28 (Audience Shell Separation) Plan 28-02 is paused at a visual verification checkpoint. ProNav + auth guard are built but need visual confirmation that consumer and pro shells render correctly. Complete the checkpoint, run cleanup task, close Phase 28.
+**Requirements:** SHELL-01, SHELL-02, SHELL-03
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.7: Bcrypt migration for all legacy SHA-256 password hashes (BACKLOG)
+
+**Goal:** The `verifyPassword` function supports both bcrypt and legacy SHA-256 hashes, but legacy hashes cause hangs on Vercel serverless. Migrate all existing SHA-256 hashed passwords to bcrypt. Add a post-login rehash step that auto-upgrades on successful login.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ---
+
+---
+
+## v8.1 Hamilton Pro Live Data Wiring
+
+**Milestone Goal:** Wire every Hamilton Pro screen to real data, strip all hardcoded/demo content, and deliver a production-ready paid experience. Every screen must trace to pipeline-verified sources — no hallucinated data.
+
+- [x] **Phase 47: Settings DB Migration** - Run migration 041, add fed_district column to users table in production (completed 2026-04-09)
+- [x] **Phase 48: Pro Navigation + Full Canvas Width** - Wire existing Pro nav tabs to real fee data; enforce full canvas width on all Hamilton screens (completed 2026-04-09)
+- [x] **Phase 49: Monitor Live Data** - Strip demo signals, wire real hamilton_signals queries, CRUD watchlist, real Hamilton chat streaming (completed 2026-04-09)
+- [x] **Phase 50: Home / Briefing Live Data** - Wire real thesis generation, real index positioning, real alerts — no placeholder content (completed 2026-04-09)
+- [x] **Phase 51: Analyze Live Data** - Verify streaming with real Hamilton API, wire focus tab context, save/load analyses, PDF export (completed 2026-04-09)
+- [x] **Phase 52: Simulate Live Data** - All 49 categories, real distribution data, confidence gating, Hamilton interpretation with real API (completed 2026-04-09)
+- [x] **Phase 53: Reports Library + Generation** - Curated report library, real generateSection() pipeline, PDF export end-to-end, scenario-linked reports (completed 2026-04-10)
+- [x] **Phase 54: Integration Pass** - Screen-to-screen flows, Simulate to Report context, Analyze to PDF, cross-screen data consistency (completed 2026-04-10)
+
+### Phase 47: Settings DB Migration
+**Goal**: The production database has the fed_district column on the users table so institutional context flows correctly to all Hamilton screens
+**Depends on**: Phase 46
+**Requirements**: SET-01
+**Success Criteria** (what must be TRUE):
+  1. Running migration 041 on a fresh database adds fed_district to the users table without error
+  2. Running migration 041 on a database that already has fed_district is a no-op — no duplicate column error
+  3. A user who saves their Fed district in Settings sees that value persisted and visible in the Hamilton context bar on next page load
+**Plans**: 1 plan
+Plans:
+- [ ] 47-01-PLAN.md — Run migration 041 and restore fed_district in auth queries
+
+### Phase 48: Pro Navigation + Full Canvas Width
+**Goal**: All existing Pro nav tabs show real fee data for the authenticated institution, and every Hamilton screen renders edge-to-edge with no wasted horizontal margins
+**Depends on**: Phase 47
+**Requirements**: NAV-01, NAV-02, MON-04
+**Success Criteria** (what must be TRUE):
+  1. The Pricing tab in Pro navigation shows the authenticated institution's current fee amounts from the live fee index — no placeholder or hardcoded values
+  2. The Peer tab shows real peer comparison data for the institution's configured peer group
+  3. Every Hamilton screen (Home, Analyze, Simulate, Reports, Monitor, Settings) uses the full browser canvas width — a developer inspecting the layout finds no centered max-width container wasting horizontal space
+  4. Full canvas width applies consistently across all screens without introducing horizontal scroll
+**Plans**: 2 plans
+Plans:
+- [x] 48-01-PLAN.md — Delete old Pro tab routes, add permanent redirects in next.config.ts
+- [x] 48-02-PLAN.md — Remove maxWidth constraints from Monitor, Settings, Home pages
+**UI hint**: yes
+### Phase 49: Monitor Live Data
+**Goal**: The Monitor screen shows a live signal feed from real DB data, supports watchlist add/remove against the real hamilton_watchlists table, and streams real Hamilton responses from the floating chat overlay
+**Depends on**: Phase 48
+**Requirements**: MON-01, MON-02, MON-03
+**Success Criteria** (what must be TRUE):
+  1. The signal feed renders rows from the real hamilton_signals table; when the table is empty, a designed empty state appears rather than a broken layout or placeholder text
+  2. A user can add an institution or Fed agency to their watchlist and see it appear immediately; removing it from the UI deletes the corresponding row from hamilton_watchlists
+  3. Opening the floating chat overlay and submitting a question returns a streaming Hamilton response — text appears token-by-token without a page reload
+  4. No demo or hardcoded signal data appears anywhere on the Monitor screen
+**Plans**: 2 plans
+Plans:
+- [x] 49-01-PLAN.md — Strip demo data, design empty state, clean WatchlistPanel
+- [x] 49-02-PLAN.md — Fix FloatingChatOverlay streaming, wire left rail to real data
+**UI hint**: yes
+
+
+
+
+### Phase 50: Home / Briefing Live Data
+**Goal**: Every card on the Home screen is wired to pipeline-verified data — real thesis, real index positioning, real alerts — with zero hallucinated or hardcoded content
+**Depends on**: Phase 49
+**Requirements**: HOME-01, HOME-02, HOME-03, HOME-04, HOME-05
+**Success Criteria** (what must be TRUE):
+  1. The Hamilton's View card displays a thesis generated by calling real generateGlobalThesis() with the user's peer context — the thesis changes when peer context changes
+  2. The Positioning Evidence panel shows the institution's actual fee amounts and national percentile from getNationalIndex() for at least one spotlight fee category
+  3. The What Changed and Priority Alerts cards pull from real signal and alert DB tables; when both tables are empty, designed empty states appear
+  4. The Recommended Action card derives its suggested fee category from the thesis output and its link navigates to Simulate pre-loaded with that category
+  5. A developer auditing the Home screen finds zero hardcoded fee amounts, placeholder thesis text, or fabricated recommendations
+**Plans**: 2 plans
+Plans:
+- [x] 50-01-PLAN.md — Strip hardcoded defaults from WhatChangedCard, PriorityAlertsCard, MonitorFeedPreview, PositioningEvidence
+- [x] 50-02-PLAN.md — Fix HamiltonViewCard thesis-null handling, rewire page.tsx, add RecommendedActionCard, thesis error logging
+**UI hint**: yes
+
+### Phase 51: Analyze Live Data
+**Goal**: The Analyze workspace streams real Hamilton analysis, injects correct focus-tab context into the system prompt, supports saving and loading analyses, has all demo content stripped, and can export any analysis as a branded PDF
+**Depends on**: Phase 50
+**Requirements**: ANL-01, ANL-02, ANL-03, ANL-04, ANL-05
+**Success Criteria** (what must be TRUE):
+  1. Submitting a query in the Analyze workspace returns a streaming Hamilton response via the real Hamilton API with mode set to analyze — text appears token-by-token
+  2. Switching between focus tabs (Pricing, Risk, Peer, Trend) changes the context injected into the Hamilton system prompt — a developer can verify different context by inspecting the API request payload
+  3. A user can save a completed analysis and retrieve it from the left rail in a later session without re-running the query
+  4. No hardcoded or demo analysis content is visible anywhere on the Analyze screen — all displayed content comes from real API responses or empty states
+  5. A user can export the current analysis as a PDF — the downloaded file opens in a standard viewer with BFI branding and the full analysis content
+**Plans**: 2 plans
+Plans:
+- [x] 51-01-PLAN.md — Streaming verification, focus tab validation, save/load analyses, demo content audit
+- [x] 51-02-PLAN.md — AnalysisPdfDocument component, PDF route dispatch, Export PDF button
+
+
+**UI hint**: yes
+
+### Phase 52: Simulate Live Data
+**Goal**: The Simulate screen works for all 49 fee categories, shows real distribution data, gates categories with insufficient data, and streams real Hamilton interpretation focused on contextual intelligence rather than concrete dollar predictions
+**Depends on**: Phase 51
+**Requirements**: SIM-01, SIM-02, SIM-03, SIM-04
+**Success Criteria** (what must be TRUE):
+  1. The category selector lists all 49 fee categories organized by family — selecting any category updates the simulation context without error
+  2. After selecting a category, the distribution panel shows real median, P25, P75, and institution count from getNationalIndex() for that category
+  3. Selecting a category with fewer than the minimum required observations shows an "Insufficient data" state and simulation controls are disabled with a clear explanation
+  4. After adjusting the proposed fee, Hamilton's interpretation streams a real API response surfacing peer complaint patterns, peer behavior signals, and revenue subcategory context — no concrete dollar predictions appear in the output
+**Plans**: 1 plan
+Plans:
+- [x] 52-01-PLAN.md — Family-grouped category selector, system prompt rewrite, URL param wiring
+**UI hint**: yes
+
+### Phase 53: Reports Library + Generation
+**Goal**: The Reports screen is a curated library of published Hamilton publications that users can browse and download; report generation calls the real pipeline with client-specific context; PDF export works end-to-end; Simulate scenarios auto-populate linked reports
+**Depends on**: Phase 52
+**Requirements**: RPT-01, RPT-02, RPT-03, RPT-04, RPT-05
+**Success Criteria** (what must be TRUE):
+  1. The Reports screen displays a curated library of Hamilton publications (annual, quarterly, Fed district, monthly pulse) with title, date, and report type visible for each
+  2. A user can click any published report to read its content and download it — no generation step is required for already-published reports
+  3. Triggering report generation calls the real generateSection() pipeline with the user's institution and peer context — the generated content references real index data points
+  4. A user can download a generated report as a PDF that opens correctly in a standard viewer with BFI branding applied
+  5. When a user arrives at Reports from Simulate after saving a scenario, the scenario parameters auto-populate the report configuration — no manual re-entry required
+**Plans**: 2 plans
+Plans:
+- [ ] 53-01-PLAN.md — Data layer (status column, queries, seed) + Reports page restructure with library
+- [ ] 53-02-PLAN.md — Client-oriented template reframing + scenario-linked arrival**UI hint**: yes
+
+### Phase 54: Integration Pass
+**Goal**: All cross-screen flows work correctly end-to-end — CTAs navigate to the right screens with the right pre-loaded context, scenario handoffs are lossless, and institutional context is consistent across every screen
+**Depends on**: Phase 53
+**Requirements**: INT-01, INT-02, INT-03, INT-04
+**Success Criteria** (what must be TRUE):
+  1. Every Home screen CTA navigates to the correct target screen with the correct pre-loaded context — the Recommended Action CTA opens Simulate pre-loaded with the suggested fee category
+  2. Saving a scenario in Simulate and navigating to Reports shows the scenario available for selection; a report generated from it contains the scenario parameters without manual re-entry
+  3. Completing an analysis in Analyze and clicking export produces a downloadable branded PDF containing the analysis content — the end-to-end flow completes without error
+  4. The institution name, asset tier, Fed district, and peer group are identical on every Hamilton screen — changing them in Settings propagates to all screens within one page load
+**Plans**: 1 plan
+Plans:
+- [ ] 54-01-PLAN.md — Wire Home CTA buttons + verify all cross-screen integration flows
+**UI hint**: yes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
+Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -687,11 +968,250 @@ Phases execute in numeric order: 1 -> ... -> 32 -> 33 -> 34 -> 35 -> 36 -> 37
 | 27. External Intelligence System | v5.0 | 1/2 | In Progress|  |
 | 28. Audience Shell Separation | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 29. Consumer Landing Page | v6.0 | 2/2 | Complete   | 2026-04-08 |
-| 30. Institution Educational Pages | v6.0 | 1/2 | In Progress|  |
+| 30. Institution Educational Pages | v6.0 | 2/2 | Complete   | 2026-04-08 |
 | 31. B2B Launchpad Dashboard | v6.0 | 0/TBD | Not started | - |
-| 32. Scoped Report Generation and PDF Export | v6.0 | 0/TBD | Not started | - |
+| 32. Scoped Report Generation and PDF Export | v6.0 | 1/2 | In Progress|  |
 | 33. Global Thesis Engine | v7.0 | 3/3 | Complete    | 2026-04-08 |
-| 34. Voice v3 and Section Generator v2 | v7.0 | 0/1 | Complete    | 2026-04-08 |
+| 34. Voice v3 and Section Generator v2 | v7.0 | 1/1 | Complete    | 2026-04-08 |
 | 35. Unified Chat Persona | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 36. Tool and Regulation Intelligence | v7.0 | 2/2 | Complete    | 2026-04-08 |
 | 37. Editor v2 and Integration Testing | v7.0 | 1/1 | Complete    | 2026-04-08 |
+| 38. Architecture Foundation | v8.0 | 2/2 | Complete    | 2026-04-09 |
+| 39. Data Layer | v8.0 | 2/2 | Complete    | 2026-04-09 |
+| 40. Hamilton Shell | v8.0 | 2/2 | Complete    | 2026-04-09 |
+| 41. Settings | v8.0 | 2/2 | Complete    | 2026-04-09 |
+| 42. Home / Executive Briefing | v8.0 | 2/2 | Complete    | 2026-04-09 |
+| 43. Analyze Workspace | v8.0 | 1/1 | Complete    | 2026-04-09 |
+| 44. Simulate | v8.0 | 1/1 | Complete    | 2026-04-09 |
+| 45. Report Builder | v8.0 | 0/4 | Complete    | 2026-04-09 |
+| 46. Monitor | v8.0 | 1/1 | Complete    | 2026-04-09 |
+| 47. Settings DB Migration | v8.1 | 1/1 | Complete    | 2026-04-09 |
+| 48. Pro Navigation + Full Canvas Width | v8.1 | 2/2 | Complete    | 2026-04-09 |
+| 49. Monitor Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
+| 50. Home / Briefing Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
+| 51. Analyze Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
+| 52. Simulate Live Data | v8.1 | 1/1 | Complete    | 2026-04-09 |
+| 53. Reports Library + Generation | v8.1 | 0/2 | Complete    | 2026-04-10 |
+| 54. Integration Pass | v8.1 | 0/1 | Complete    | 2026-04-10 |
+
+## Backlog
+
+### Phase 999.8: Screen-Aware Left Rail with Config Sidebar Integration (BACKLOG)
+
+**Goal:** Make HamiltonLeftRail screen-aware so it shows different content per screen. On Reports, the left rail replaces the right-column ConfigSidebar with inline configuration (institution, peer set, focus area, narrative tone, generate button). On Monitor, it could show watchlist controls. On Analyze, workspace context.
+
+**Context:** Config sidebar was attempted as a left column in the content area but the user wants it in the expandable left rail. This requires the left rail to accept screen-specific content slots or conditional rendering based on the current route.
+
+**Requirements:** TBD
+**Plans:** 0/1 plans complete
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.9: FFIEC Call Report Data Pipeline (BACKLOG)
+
+**Goal:** Download and ingest FFIEC CDR (banks) and NCUA 5300 (credit unions) quarterly financial data since 2001. Powers the v8.2 Home institution profile, Hamilton's financial analysis, and competitive intelligence against bankregdata.com.
+
+**Context:**
+- FFIEC CDR has quarterly Call Report data for all FDIC-insured banks
+- NCUA 5300 has equivalent quarterly data for credit unions
+- Data goes back to 2001+ in bulk download format (CSV/SDF)
+- Hundreds of financial fields per institution per quarter (~10K institutions x 100 quarters)
+- This is exactly what bankregdata.com sells access to (1,200+ customers at ~$2,500/yr)
+- BFI unique angle: connect Service Charges line item to WHICH fees drive that revenue (we have fee schedules)
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.10: Home Screen Buttons Not Functional (BACKLOG)
+
+**Goal:** Wire the "Export PDF", "Full Dashboard", "Simulate Change", "Generate Board Brief", and "Ask Hamilton" buttons on the Home / Executive Briefing screen to their correct destinations. Currently these are static buttons with no onClick handlers.
+
+**Context:** Screenshot shows Home screen with "Export PDF" and "Full Dashboard" buttons in header, plus "Simulate Change", "Generate Board Brief", and "Ask Hamilton" CTAs at the bottom of HamiltonViewCard. None of these navigate or trigger actions. They need to link to: Export PDF -> analysis PDF export, Full Dashboard -> TBD, Simulate Change -> /pro/simulate, Generate Board Brief -> /pro/reports, Ask Hamilton -> open FloatingChatOverlay or /pro/analyze.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.11: Left Rail as Cross-Screen Context Hub (BACKLOG)
+
+**Goal:** The expandable left rail becomes a persistent context hub where peer sets, pinned institutions, and saved work travel across screens. Peer sets configured in the left rail feed into Monitor (filter signal feed by peer group), Analyze (1-click peer analysis), Simulate (pre-loaded peer context), and Reports (config auto-populated). The left rail is screen-aware: shows relevant controls per screen but shares the same institutional/peer context across all of them.
+
+**User insight:** "Those peer sets travel across pages. The feed would show them in the monitor, and the analyze could be 1-click analysis." The left rail isn't just navigation — it's the persistent context layer that makes Hamilton feel like one coherent workspace instead of 5 separate screens.
+
+**Key behaviors:**
+- Peer sets selected in left rail filter Monitor signal feed to show only peer institutions
+- Clicking a pinned institution in left rail on Analyze triggers immediate analysis
+- Reports screen config (institution, peer set, focus, tone) lives in the left rail
+- Context persists across screen navigation — switching from Monitor to Analyze keeps the same peer/institution selection
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.12: Analyze Delivers All Lenses by Default (BACKLOG)
+
+**Goal:** When a user asks Hamilton a question on Analyze, the response should include analysis through ALL four lenses (Pricing, Risk, Peer Position, Trend) automatically — not force the user to pick one lens first. Provide the full value upfront. The user can then drill into a specific lens if they want depth, but the default is comprehensive.
+
+**User insight:** "The lenses we had should always be in the report. The user should select which lens. We should give them the analysis through all. Provide value, don't make them chase it."
+
+**Current behavior:** User must select a lens tab (Pricing/Risk/Peer Position/Trend) before querying. Each query only gets one lens perspective. This makes users work harder for less value.
+
+**Target behavior:** Every analysis response is structured into 4 sections (Pricing | Risk | Peer Position | Trend). Each section has Hamilton's perspective through that lens. User gets the complete picture in one query. Lens tabs become section navigation within the response, not pre-query filters.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.13: /pro/settings Not Working/Loading (BACKLOG)
+
+**Goal:** Investigate and fix /pro/settings page not loading. May be a server component error, missing DB column, or auth issue. Needs debugging.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.14: Normalize Hamilton Design Tokens (BACKLOG)
+
+**Goal:** Replace 42+ hardcoded color values across Hamilton components with semantic CSS custom properties. Add missing tokens to .hamilton-shell block in globals.css, then replace all inline hex/rgb values.
+
+**Scope:**
+- 12 instances of rgba(216,194,184,...) border color -> --hamilton-border-subtle
+- 10 instances of rgb(120 113 108) -> --hamilton-text-secondary (already exists)
+- 20 instances of status colors (#b45309 amber, #b91c1c red, #16a34a green) -> --hamilton-status-warning, --hamilton-status-error, --hamilton-status-success
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.15: Public API for Institution Data and Bank Fee Index (BACKLOG)
+
+**Goal:** Create a public-facing REST API that exposes institution data and the Bank Fee Index database, enabling third-party integrations, data licensing, and programmatic access to fee intelligence.
+
+**Context:** Currently all data access is through the web UI or internal admin routes. A public API would open new revenue channels (API subscriptions, data licensing) and enable partner integrations. Needs rate limiting, API key auth, tiered access (free/pro), and comprehensive documentation.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+
+---
+
+## v9.0 Data Foundation & Production Polish
+
+**Milestone Goal:** Build a living canonical fee layer that consolidates 15K+ fragmented fee categories and auto-classifies new crawl data as it arrives, then polish every surface (Pro, Admin, Reports) to production-ready quality.
+
+- [ ] **Phase 55: Canonical Taxonomy Foundation** - Add canonical_fee_key column, author 200-key map, backfill all existing fees, enforce NEVER_MERGE guard tests (not started)
+- [x] **Phase 56: Auto-Classification Pipeline** - Wire classify_fee() inline at INSERT, LLM fallback with cache, Roomba outlier integration (completed 2026-04-10)
+- [x] **Phase 57: Admin UX — Sortable Tables & Districts** - SortableTable adoption across all admin pages, server-side sort, districts data wired, responsive pass (completed 2026-04-10)
+- [x] **Phase 58: FFIEC Pipeline & Institution Data** - Ingest FFIEC CDR + NCUA 5300 quarterly data, hero stat cards with sparklines and peer context (completed 2026-04-10)
+- [ ] **Phase 59: Pipeline Coverage Expansion** - PDF direct-link strategy for big bank fee schedules, Playwright stealth bypass for JS-rendered pages (not started)
+- [ ] **Phase 60: Report Quality Upgrade** - Fix Call Report thousands-scaling bug, wire FRED + Beige Book into assemblers, upgrade PDF layout to Salesforce-grade stat callouts (not started)
+- [ ] **Phase 61: Hamilton Pro Polish** - Strip all demo/sample text from 5 Pro screens, wire Stripe billing portal, responsive pass with Tailwind v4 container queries (not started)
+
+### Phase 55: Canonical Taxonomy Foundation
+**Goal**: Every existing extracted fee row has a stable canonical_fee_key, synonym clusters are consolidated, and NEVER_MERGE guard tests prevent false regulatory category merges from reaching the index
+**Depends on**: Phase 54
+**Requirements**: TAX-01, TAX-02, TAX-03, TAX-04, TAX-05
+**Success Criteria** (what must be TRUE):
+  1. The extracted_fees table has a canonical_fee_key column that accepts nullable values — running the migration twice is a no-op with no errors
+  2. A canonical key map covering ~200 keys and alias lists exists in fee_analysis.py and its category count is asserted equal to the count in fee-taxonomy.ts by a unit test
+  3. After the backfill runs, every existing extracted_fees row has a non-null canonical_fee_key and the national index row count for every category is identical pre- and post-backfill
+  4. A pytest test asserting NSF and overdraft canonical keys are never in the same alias list, and domestic and international wire keys are never in the same alias list, passes in CI before any alias expansion ships
+  5. The Roomba agent flags known statistical outliers (fees deviating 3+ standard deviations from category median) and sets review_status to a flagged state — a developer can inspect flagged rows in the admin review queue
+**Plans**: TBD
+
+### Phase 56: Auto-Classification Pipeline
+**Goal**: Every new fee inserted by the crawler is automatically assigned a canonical_fee_key at INSERT time — the canonical taxonomy is self-maintaining after this phase ships
+**Depends on**: Phase 55
+**Requirements**: CLS-01, CLS-02, CLS-03
+**Success Criteria** (what must be TRUE):
+  1. A new crawl run inserts fees with canonical_fee_key populated for every fee that matches the alias table — zero fees that match a known alias are stored with a null canonical_fee_key
+  2. A fee whose raw name does not match the alias table is classified via Claude Haiku LLM fallback; the result is cached in classification_cache so the same raw string never triggers a second LLM call
+  3. The LLM fallback does not block or delay fee storage — a fee with an unmatched raw name is stored immediately with canonical_fee_key = NULL and the LLM call runs asynchronously
+  4. After any crawl run, the Roomba integration automatically flags outlier fees in the newly inserted batch — a developer can see the flagged rows without running a manual audit script
+**Plans**: TBD
+
+### Phase 57: Admin UX — Sortable Tables & Districts
+**Goal**: Every admin table is sortable and the Districts pages display the full district intelligence that Phase 23-24 built — no wasted infrastructure
+**Depends on**: Phase 55
+**Requirements**: ADM-01, ADM-02, ADM-03, ADM-04
+**Success Criteria** (what must be TRUE):
+  1. Every admin table with a bounded row count (under 200 rows) has clickable column headers that sort ascending, descending, and reset — sort state is local to the page, no page reload required
+  2. The admin review queue and fees catalog use server-side ORDER BY triggered by URL params — a user can sort a 15K+ row table by fee name or amount without a client-side memory error
+  3. The /admin/districts/[id] page shows Beige Book themes, economic indicators, CFPB complaint data, and district median fees — all sourced from the Phase 23-24 DB queries that already exist
+  4. Every admin page renders without horizontal scroll overflow on a 768px tablet viewport
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 58: FFIEC Pipeline & Institution Data
+**Goal**: FFIEC CDR and NCUA 5300 quarterly Call Report data is ingested into the database and surfaced on institution-specific admin pages — institution financial profiles are visible without navigating to bankregdata.com
+**Depends on**: Phase 55
+**Requirements**: COV-03, ADM-05
+**Success Criteria** (what must be TRUE):
+  1. Running the FFIEC CDR ingestion pipeline populates quarterly financial data for FDIC-insured banks — a developer can query assets, deposits, and service charge revenue for any covered bank by institution ID and quarter
+  2. Running the NCUA 5300 ingestion pipeline populates equivalent quarterly financial data for credit unions — both bank and credit union institution pages can show real Call Report data
+  3. The institution-specific admin page for any covered bank shows assets, total deposits, service charge revenue, and key financial ratios sourced from the ingested Call Report data — no placeholder values appear for covered institutions
+**Plans**: TBD
+
+### Phase 59: Pipeline Coverage Expansion
+**Goal**: The crawler extracts fees from a meaningfully larger share of big bank and JS-rendered fee schedule pages — coverage gaps visible in the admin are reduced
+**Depends on**: Phase 56
+**Requirements**: COV-01, COV-02
+**Success Criteria** (what must be TRUE):
+  1. The crawler successfully extracts fees from at least one major bank fee schedule delivered as a direct PDF URL that was previously inaccessible — the extracted fees appear in the admin review queue
+  2. At least one fee schedule page that previously returned a bot-detection failure (403 or Cloudflare challenge) is successfully accessed and extracted via Playwright stealth — confirmed by a non-empty crawl_results row with status success for that institution
+**Plans**: TBD
+
+### Phase 60: Report Quality Upgrade
+**Goal**: Reports show real financial numbers, reference real economic context, and look like a McKinsey deliverable — not a formatted text file
+**Depends on**: Phase 58
+**Requirements**: RPT-01, RPT-02, RPT-03
+**Success Criteria** (what must be TRUE):
+  1. The service charge revenue figure in any report generated from Call Report data displays the correct dollar amount — a developer confirms the reported value matches the raw ingested data divided by the correct scaling factor (no $0 values for covered institutions)
+  2. A generated report includes FRED economic indicator context (e.g., current fed funds rate, CPI) and at least one Beige Book district quote — both sourced from the assembled report payload, not hardcoded
+  3. A downloaded PDF report contains at least one stat callout box (bold number, label, supporting text in a styled bordered box) and uses numbered chapter headers — the PDF passes visual inspection in Adobe Reader without broken layout or missing fonts
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 61: Hamilton Pro Polish
+**Goal**: The Hamilton Pro paid experience is production-ready — no demo text, no broken billing, no layout breakage on non-desktop viewports
+**Depends on**: Phase 56
+**Requirements**: PRO-01, PRO-02, PRO-03
+**Success Criteria** (what must be TRUE):
+  1. A developer auditing all 5 Pro screens (Home, Analyze, Simulate, Reports, Monitor) finds zero instances of hardcoded sample institution names, placeholder fee amounts, demo scenario data, or lorem ipsum text — all displayed content either comes from real API responses or shows a designed empty state
+  2. Clicking the billing management link in Pro Settings opens the Stripe customer portal for the authenticated user — the ManageBillingButton is wired and the portal loads without error
+  3. The Analyze and Monitor screens render without layout overflow or cut-off content at 768px viewport width using Tailwind v4 container queries — tested at 1280px and 768px
+**Plans**: TBD
+**UI hint**: yes
+
+## Progress (v9.0)
+
+**Execution Order:**
+Phases execute in numeric order: 55 -> 56 -> 57 -> 58 -> 59 -> 60 -> 61
+Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies).
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 55. Canonical Taxonomy Foundation | v9.0 | 0/TBD | Not started | - |
+| 56. Auto-Classification Pipeline | v9.0 | 0/TBD | Not started | - |
+| 57. Admin UX — Sortable Tables & Districts | v9.0 | 0/TBD | Not started | - |
+| 58. FFIEC Pipeline & Institution Data | v9.0 | 0/TBD | Not started | - |
+| 59. Pipeline Coverage Expansion | v9.0 | 0/TBD | Not started | - |
+| 60. Report Quality Upgrade | v9.0 | 0/TBD | Not started | - |
+| 61. Hamilton Pro Polish | v9.0 | 0/TBD | Not started | - |
