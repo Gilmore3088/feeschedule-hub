@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { SortableTable, type Column } from "@/components/sortable-table";
 import { formatAmount } from "@/lib/format";
@@ -116,13 +117,15 @@ const columns: Column<IndexRow>[] = [
 
 export function IndexTable({ entries }: { entries: IndexRow[] }) {
   return (
-    <SortableTable
-      columns={columns}
-      rows={entries as (IndexRow & Record<string, unknown>)[]}
-      rowKey={(r) => r.fee_category}
-      defaultSort="institution_count"
-      defaultDir="desc"
-      pageSize={100}
-    />
+    <Suspense fallback={null}>
+      <SortableTable
+        columns={columns}
+        rows={entries as (IndexRow & Record<string, unknown>)[]}
+        rowKey={(r) => r.fee_category}
+        defaultSort="display_name"
+        defaultDir="asc"
+        pageSize={100}
+      />
+    </Suspense>
   );
 }

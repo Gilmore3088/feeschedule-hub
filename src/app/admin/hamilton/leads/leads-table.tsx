@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { SortableTable, type Column } from "@/components/sortable-table";
 import type { LeadRow } from "@/lib/admin-queries";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -36,12 +37,56 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+type LeadRowExtended = LeadRow & Record<string, unknown>;
+
+function LeadDetail({ lead }: { lead: LeadRow }) {
+  return (
+    <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-white/[0.04] bg-gray-50/40 dark:bg-white/[0.01]">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+            Role
+          </p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {ROLE_LABELS[lead.role || ""] || lead.role || "\u2014"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+            Source
+          </p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {SOURCE_LABELS[lead.source || ""] || lead.source || "\u2014"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+            Email
+          </p>
+          <a
+            href={`mailto:${lead.email}`}
+            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            {lead.email}
+          </a>
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Message
+        </p>
+        <div className="rounded-lg border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-4 py-3">
+          <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+            {lead.use_case || "No message provided."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LeadsTable({ leads }: { leads: LeadRow[] }) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
-
-  function toggle(id: number) {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }
 
   if (leads.length === 0) {
     return (
@@ -51,117 +96,68 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
     );
   }
 
-  return (
-    <div className="admin-card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50/80 dark:bg-white/[0.02] border-b border-gray-200 dark:border-white/[0.06]">
-              <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Email
-              </th>
-              <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Company
-              </th>
-              <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Source
-              </th>
-              <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Date
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {leads.map((lead) => {
-              const isExpanded = expandedId === lead.id;
-              return (
-                <tr
-                  key={lead.id}
-                  className="border-b border-gray-100 dark:border-white/[0.04] group"
-                >
-                  <td colSpan={6} className="p-0">
-                    <button
-                      type="button"
-                      onClick={() => toggle(lead.id)}
-                      className="w-full text-left grid grid-cols-[1fr_1fr_1fr_auto_auto_auto] items-center hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors"
-                    >
-                      <span className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-200">
-                        {lead.name}
-                      </span>
-                      <span className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                        {lead.email}
-                      </span>
-                      <span className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                        {lead.company || "\u2014"}
-                      </span>
-                      <span className="px-4 py-2.5 text-gray-500 text-xs">
-                        {SOURCE_LABELS[lead.source || ""] || lead.source || "\u2014"}
-                      </span>
-                      <span className="px-4 py-2.5">
-                        <StatusBadge status={lead.status} />
-                      </span>
-                      <span className="px-4 py-2.5 text-gray-400 text-xs tabular-nums">
-                        {lead.created_at}
-                      </span>
-                    </button>
+  const columns: Column<LeadRowExtended>[] = [
+    {
+      key: "name",
+      label: "Name",
+      sortable: true,
+      format: (v) => <span className="font-medium text-gray-900 dark:text-gray-200">{v as string}</span>,
+    },
+    {
+      key: "email",
+      label: "Email",
+      sortable: true,
+      format: (v) => <span className="text-gray-600 dark:text-gray-400">{v as string}</span>,
+    },
+    {
+      key: "company",
+      label: "Company",
+      sortable: true,
+      format: (v) => <span className="text-gray-600 dark:text-gray-400">{(v as string) || "\u2014"}</span>,
+    },
+    {
+      key: "source",
+      label: "Source",
+      sortable: true,
+      format: (v) => (
+        <span className="text-gray-500 text-xs">
+          {SOURCE_LABELS[(v as string) || ""] || (v as string) || "\u2014"}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      format: (v) => <StatusBadge status={v as string} />,
+    },
+    {
+      key: "created_at",
+      label: "Date",
+      sortable: true,
+      format: (v) => <span className="text-gray-400 text-xs tabular-nums">{v as string}</span>,
+    },
+  ];
 
-                    {isExpanded && (
-                      <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-white/[0.04] bg-gray-50/40 dark:bg-white/[0.01]">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
-                          <div>
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                              Role
-                            </p>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                              {ROLE_LABELS[lead.role || ""] || lead.role || "\u2014"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                              Source
-                            </p>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                              {SOURCE_LABELS[lead.source || ""] || lead.source || "\u2014"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                              Email
-                            </p>
-                            <a
-                              href={`mailto:${lead.email}`}
-                              className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {lead.email}
-                            </a>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                            Message
-                          </p>
-                          <div className="rounded-lg border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-4 py-3">
-                            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                              {lead.use_case || "No message provided."}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+  return (
+    <div>
+      <Suspense fallback={null}>
+        <SortableTable
+          columns={columns}
+          rows={leads as LeadRowExtended[]}
+          rowKey={(r) => String(r.id)}
+          defaultSort="name"
+          defaultDir="asc"
+          pageSize={50}
+          onRowClick={(row) => {
+            const id = row.id as number;
+            setExpandedId((prev) => (prev === id ? null : id));
+          }}
+        />
+      </Suspense>
+      {expandedId !== null && (
+        <LeadDetail lead={leads.find((l) => l.id === expandedId)!} />
+      )}
     </div>
   );
 }

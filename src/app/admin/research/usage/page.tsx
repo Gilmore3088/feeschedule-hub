@@ -5,19 +5,13 @@ import {
   ensureResearchTables,
   getUsageDashboard,
 } from "@/lib/research/history";
-import { getHamilton } from "@/lib/research/agents";
+import { AgentUsageTable, UserUsageTable, DailyUsageTable } from "@/components/usage-tables";
 
 export default async function ResearchUsagePage() {
   await requireAuth("view");
   await ensureResearchTables();
 
   const dashboard = await getUsageDashboard();
-
-  // Pre-resolve agent names for display — all agent_ids map to "Hamilton"
-  const agentNames: Record<string, string> = {};
-  for (const row of dashboard.by_agent) {
-    agentNames[row.agent_id] = row.agent_id === "hamilton" ? "Hamilton" : row.agent_id;
-  }
 
   return (
     <div className="admin-content space-y-6">
@@ -104,131 +98,32 @@ export default async function ResearchUsagePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* By Agent */}
-        <div className="admin-card">
-          <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        <div>
+          <div className="px-4 py-3">
             <h2 className="text-sm font-bold text-gray-800">Usage by Agent</h2>
           </div>
-          <div className="px-4 py-3">
-            {dashboard.by_agent.length === 0 ? (
-              <p className="text-[12px] text-gray-400">No usage data yet</p>
-            ) : (
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                    <th className="pb-2">Agent</th>
-                    <th className="pb-2 text-right">Queries</th>
-                    <th className="pb-2 text-right">Est. Cost</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                  {dashboard.by_agent.map((row) => {
-                    return (
-                      <tr key={row.agent_id}>
-                        <td className="py-2 font-medium text-gray-700 dark:text-gray-300">
-                          {agentNames[row.agent_id] ?? row.agent_id}
-                        </td>
-                        <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                          {row.queries}
-                        </td>
-                        <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                          ${(row.cost_cents / 100).toFixed(2)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <AgentUsageTable agents={dashboard.by_agent} />
         </div>
 
         {/* Top Users */}
-        <div className="admin-card">
-          <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        <div>
+          <div className="px-4 py-3">
             <h2 className="text-sm font-bold text-gray-800">
               Top Users (This Month)
             </h2>
           </div>
-          <div className="px-4 py-3">
-            {dashboard.top_users.length === 0 ? (
-              <p className="text-[12px] text-gray-400">No usage data yet</p>
-            ) : (
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                    <th className="pb-2">User</th>
-                    <th className="pb-2 text-right">Queries</th>
-                    <th className="pb-2 text-right">Est. Cost</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                  {dashboard.top_users.map((row) => (
-                    <tr key={row.user_id ?? "public"}>
-                      <td className="py-2 font-medium text-gray-700 dark:text-gray-300">
-                        {row.username}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                        {row.queries}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                        ${(row.cost_cents / 100).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <UserUsageTable users={dashboard.top_users} />
         </div>
       </div>
 
       {/* Daily breakdown */}
-      <div className="admin-card">
-        <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+      <div>
+        <div className="px-4 py-3">
           <h2 className="text-sm font-bold text-gray-800">
             Daily Usage (Last 30 Days)
           </h2>
         </div>
-        <div className="px-4 py-3">
-          {dashboard.by_day.length === 0 ? (
-            <p className="text-[12px] text-gray-400">No usage data yet</p>
-          ) : (
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  <th className="pb-2">Date</th>
-                  <th className="pb-2 text-right">Queries</th>
-                  <th className="pb-2 text-right">Est. Cost</th>
-                  <th className="pb-2 text-right">Avg/Query</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                {dashboard.by_day.map((row) => (
-                  <tr key={row.date}>
-                    <td className="py-2 text-gray-700 dark:text-gray-300">
-                      {new Date(row.date + "T00:00:00").toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric" }
-                      )}
-                    </td>
-                    <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                      {row.queries}
-                    </td>
-                    <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                      ${(row.cost_cents / 100).toFixed(2)}
-                    </td>
-                    <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                      $
-                      {row.queries > 0
-                        ? (row.cost_cents / row.queries / 100).toFixed(3)
-                        : "0.000"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <DailyUsageTable days={dashboard.by_day} />
       </div>
     </div>
   );

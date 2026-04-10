@@ -4,21 +4,8 @@ import { requireAuth } from "@/lib/auth";
 import { getArticles } from "@/lib/crawler-db/articles";
 import { ensureResearchTables } from "@/lib/research/history";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { timeAgo } from "@/lib/format";
+import { ArticlesTable } from "@/components/articles-table";
 import { ArticleActions } from "./article-actions";
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400",
-  published: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
-  archived: "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  guide: "Guide",
-  analysis: "Analysis",
-  report: "Report",
-  brief: "Brief",
-};
 
 export default async function ArticlesPage({
   searchParams,
@@ -87,62 +74,10 @@ export default async function ArticlesPage({
         ))}
       </div>
 
-      {/* Articles table */}
-      <div className="admin-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Title</th>
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Category</th>
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Views</th>
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Updated</th>
-              <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {articles.map((article) => (
-              <tr key={article.id} className="border-b last:border-0 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                <td className="px-4 py-2.5">
-                  <div>
-                    <span className="font-medium text-gray-900 dark:text-gray-100 text-xs">
-                      {article.title}
-                    </span>
-                    {article.subtitle && (
-                      <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-xs">{article.subtitle}</p>
-                    )}
-                    <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-0.5">/{article.slug}</p>
-                  </div>
-                </td>
-                <td className="px-4 py-2.5">
-                  <span className="text-xs text-gray-500">{CATEGORY_LABELS[article.category] || article.category}</span>
-                </td>
-                <td className="px-4 py-2.5">
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[article.status] || STATUS_COLORS.draft}`}>
-                    {article.status}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-xs text-gray-500">
-                  {article.view_count}
-                </td>
-                <td className="px-4 py-2.5 text-xs text-gray-500">
-                  {timeAgo(article.updated_at instanceof Date ? article.updated_at.toISOString() : article.updated_at)}
-                </td>
-                <td className="px-4 py-2.5 text-right">
-                  <ArticleActions article={article} />
-                </td>
-              </tr>
-            ))}
-            {articles.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
-                  No articles yet. Use the Content Writer agent to generate your first article.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ArticlesTable
+        articles={articles}
+        renderActions={(article) => <ArticleActions article={article} />}
+      />
     </div>
   );
 }
