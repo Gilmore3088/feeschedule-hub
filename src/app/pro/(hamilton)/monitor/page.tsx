@@ -26,7 +26,6 @@ export default async function MonitorPage() {
       {/* Page content */}
       <main
         style={{
-          padding: "3rem",
           backgroundColor: "var(--hamilton-surface)",
           minHeight: "calc(100vh - 57px)",
         }}

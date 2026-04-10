@@ -81,7 +81,7 @@ export function HamiltonShell({
       {/* Two-column layout: left rail + main content */}
       <div className="flex" style={{ minHeight: "calc(100vh - 120px)" }}>
         <HamiltonLeftRail savedAnalyses={savedAnalyses} recentScenarios={recentScenarios} pinnedInstitutions={pinnedInstitutions} peerSets={peerSets} />
-        <main className="flex-1 min-w-0 p-6">{children}</main>
+        <main className="flex-1 min-w-0" style={{ padding: "2rem 2.5rem 3rem" }}>{children}</main>
       </div>
     </div>
   );

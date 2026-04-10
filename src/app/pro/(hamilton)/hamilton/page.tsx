@@ -79,7 +79,7 @@ export default async function HamiltonHomePage() {
   const data = await fetchHomeBriefingData();
 
   return (
-    <div style={{ padding: "2rem 3rem" }}>
+    <div>
       {/* Page header — "Executive Briefing" + subtitle pills */}
       <header
         style={{
