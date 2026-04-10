@@ -16,7 +16,6 @@ import time
 
 from fee_crawler.config import Config
 from fee_crawler.db import Database
-from fee_crawler.fee_analysis import classify_fee
 from fee_crawler.review_status import transition_fee_status, TransitionContext
 from fee_crawler.validation import flags_to_json
 
@@ -145,18 +144,17 @@ def merge_institution_fees(
         else:
             # New fee (first crawl or new category) — insert
             stats["new"] += 1
-            _, canonical_key, variant = classify_fee(fee.fee_name)
             db.execute(
                 """INSERT INTO extracted_fees
                    (crawl_result_id, crawl_target_id, fee_name, amount,
                     frequency, conditions, extraction_confidence,
                     review_status, validation_flags,
-                    fee_category, fee_family, canonical_fee_key, variant_type)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    fee_category, fee_family)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (result_id, target_id, fee.fee_name, fee.amount,
                  frequency, fee.conditions, fee.confidence,
                  review_status, flags_to_json(flags),
-                 fee_category, fee_family, canonical_key, variant),
+                 fee_category, fee_family),
             )
             if review_status == "approved":
                 stats["approved"] += 1

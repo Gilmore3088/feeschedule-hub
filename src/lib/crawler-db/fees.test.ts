@@ -81,9 +81,13 @@ describe("computeStats", () => {
     expect(stats.min).toBe(0.01);
     expect(stats.max).toBe(500);
 
-    // Avg is a straight mean (no winsorization)
+    // Avg should be pulled toward center by winsorization
     const rawAvg = values.reduce((s, v) => s + v, 0) / values.length;
-    expect(stats.avg).toBeCloseTo(rawAvg, 0);
+    // Winsorized avg should be less affected by outliers
+    expect(stats.avg).not.toBeCloseTo(rawAvg, 0);
+    // Should be closer to the median of the core data
+    expect(stats.avg!).toBeGreaterThan(10);
+    expect(stats.avg!).toBeLessThan(30);
   });
 
   it("winsorization has no effect when all values are identical", () => {
@@ -130,8 +134,9 @@ describe("computeStats", () => {
 
     const stats = computeStats(values);
 
-    // Straight average includes outliers: (sum of 15-24 repeating + 0 + 9999) / 100
-    const rawAvg = values.reduce((s, v) => s + v, 0) / values.length;
-    expect(stats.avg).toBeCloseTo(rawAvg, 0);
+    // Without winsorization, avg would be ~122
+    // With winsorization, avg should be close to ~19.5
+    expect(stats.avg!).toBeGreaterThan(15);
+    expect(stats.avg!).toBeLessThan(25);
   });
 });

@@ -23,6 +23,69 @@ const VALID_REPORT_TYPES = new Set([
   "monthly_pulse",
 ]);
 
+// Keywords that signal a complex analytical query requiring structured output
+const GEOGRAPHIC_ANALYSIS_KEYWORDS = [
+  "analyze",
+  "analysis",
+  "compare",
+  "comparison",
+  "benchmark",
+  "benchmarking",
+  "review",
+  "trend",
+  "trends",
+  "district",
+  "state",
+  "region",
+  "regional",
+];
+
+const REPORT_TYPE_KEYWORDS = [
+  "report",
+  "generate report",
+  "create report",
+  "produce report",
+  "national index",
+  "state index",
+  "peer brief",
+  "monthly pulse",
+];
+
+/**
+ * Classify a user query as streaming (conversational) or report (structured analysis).
+ *
+ * Returns "report" if the query contains:
+ * - Geographic scope + analysis verb (complex multi-entity analysis)
+ * - Explicit report type mention
+ * Returns "streaming" for all other queries.
+ */
+export function classifyQuery(text: string): "streaming" | "report" {
+  const lower = text.toLowerCase();
+
+  // Check for explicit report keywords
+  for (const keyword of REPORT_TYPE_KEYWORDS) {
+    if (lower.includes(keyword)) return "report";
+  }
+
+  // Check for geographic + analysis verb combo
+  const hasAnalysisVerb = GEOGRAPHIC_ANALYSIS_KEYWORDS.some((kw) =>
+    lower.includes(kw)
+  );
+  const hasGeographicScope =
+    lower.includes(" district") ||
+    lower.includes(" state") ||
+    lower.includes(" region") ||
+    lower.includes(" peer") ||
+    // Two or more institution names (rough heuristic: "compare X to Y")
+    (lower.includes(" to ") && hasAnalysisVerb) ||
+    lower.includes(" vs ") ||
+    lower.includes(" versus ");
+
+  if (hasAnalysisVerb && hasGeographicScope) return "report";
+
+  return "streaming";
+}
+
 /**
  * Build the Hamilton system prompt for chat context.
  *

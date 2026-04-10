@@ -1,20 +1,15 @@
 /**
- * Compile-time contract tests for thesis types (Phase 33) and screen DTOs (Phase 38).
+ * Compile-time contract tests for thesis types (Phase 33).
  * These tests use the `satisfies` operator to validate object literal shapes
  * against each interface — they are TypeScript type assertions, not runtime tests.
  */
 
-import { describe, it, expect } from "vitest";
 import type {
   ThesisScope,
   ThesisTension,
   ThesisOutput,
   ThesisInput,
   ThesisSummaryPayload,
-  AnalyzeResponse,
-  SimulationResponse,
-  ReportSummaryResponse,
-  MonitorResponse,
 } from "./types";
 
 // ─── ThesisScope ──────────────────────────────────────────────────────────────
@@ -119,14 +114,6 @@ const _inputLighter = {
   data: _payloadNullable,
 } satisfies ThesisInput;
 
-// Runtime test so vitest doesn't report "no test suite found"
-describe("thesis types", () => {
-  it("compile-time contracts pass (satisfies checks above)", () => {
-    expect(_outputFull.core_thesis).toBeTruthy();
-    expect(_payloadNullable.revenue_snapshot).toBeNull();
-  });
-});
-
 // Suppress unused variable warnings
 void _scope1;
 void _scope2;
@@ -136,111 +123,3 @@ void _outputFull;
 void _outputLighter;
 void _input;
 void _inputLighter;
-
-// ─── Screen DTOs (Phase 38) ──────────────────────────────────────────────────
-
-describe("AnalyzeResponse", () => {
-  it("satisfies all required fields", () => {
-    const response = {
-      title: "Overdraft Fee Analysis",
-      confidence: {
-        level: "high" as const,
-        basis: ["4,200 institutions", "12-month trend data"],
-      },
-      hamiltonView: "Banks pricing above median signal market disconnection risk.",
-      whatThisMeans: "Your overdraft fee sits at the 72nd percentile nationally.",
-      whyItMatters: ["Top-quartile pricing correlates with elevated CFPB complaint rates."],
-      evidence: {
-        metrics: [{ label: "National Median", value: "$30.00" }],
-      },
-      exploreFurther: ["How does this compare to credit unions?"],
-    } satisfies AnalyzeResponse;
-    expect(response.title).toBeDefined();
-  });
-
-  it("does not allow recommendedPosition — screen ownership rule (ARCH-05)", () => {
-    // @ts-expect-error AnalyzeResponse has no recommendedPosition field
-    const _bad: AnalyzeResponse = { recommendedPosition: "Lower to $25" } as AnalyzeResponse;
-    void _bad;
-    expect(true).toBe(true); // type check is the assertion
-  });
-
-  it("does not allow exportControls — screen ownership rule (ARCH-05)", () => {
-    // @ts-expect-error AnalyzeResponse has no exportControls field
-    const _bad: AnalyzeResponse = { exportControls: { pdfEnabled: true, shareEnabled: false } } as AnalyzeResponse;
-    void _bad;
-    expect(true).toBe(true);
-  });
-});
-
-describe("SimulationResponse", () => {
-  it("satisfies all required fields including recommendedPosition", () => {
-    const response = {
-      scenarioSetup: {
-        feeCategory: "overdraft",
-        currentFee: 35,
-        proposedFee: 28,
-        min: 0,
-        max: 39,
-      },
-      currentState: { percentile: 78, medianGap: 5, riskProfile: "Elevated" },
-      proposedState: { percentile: 45, medianGap: -2, riskProfile: "Moderate" },
-      deltas: { percentileChange: -33, medianGapChange: -7, riskShift: "Elevated → Moderate" },
-      interpretation: "Reducing to $28 moves you to median, lowering complaint exposure.",
-      tradeoffs: [{ label: "Revenue Impact", value: "-$420K annually", note: "Estimate" }],
-      recommendedPosition: "Reduce overdraft fee from $35 to $28 to align with national median.",
-    } satisfies SimulationResponse;
-    expect(response.recommendedPosition).toBeDefined();
-  });
-});
-
-describe("ReportSummaryResponse", () => {
-  it("satisfies all required fields including exportControls", () => {
-    const response = {
-      title: "Overdraft Fee Strategy: Q1 2026",
-      executiveSummary: ["Current pricing creates compliance exposure."],
-      snapshot: [{ label: "Overdraft Fee", current: "$35", proposed: "$28" }],
-      strategicRationale: "Align pricing with national median to reduce CFPB risk.",
-      tradeoffs: [{ label: "Revenue", value: "-$420K" }],
-      recommendation: "Reduce overdraft fee to $28 effective Q2 2026.",
-      implementationNotes: ["Communicate change to retail branch staff."],
-      exportControls: { pdfEnabled: true, shareEnabled: true },
-    } satisfies ReportSummaryResponse;
-    expect(response.exportControls.pdfEnabled).toBe(true);
-  });
-});
-
-describe("MonitorResponse", () => {
-  it("satisfies all required fields", () => {
-    const response = {
-      status: { overall: "watch" as const, newSignals: 3, highPriorityAlerts: 1 },
-      priorityAlert: {
-        title: "Overdraft Fee Outlier Detected",
-        severity: "high",
-        impact: "Potential CFPB exposure",
-        whyItMatters: "12 peer institutions reduced fees in past 30 days.",
-        actions: ["Review pricing", "Run simulation"],
-      },
-      signalFeed: [{
-        tsLabel: "2026-04-01",
-        signalType: "peer_movement",
-        title: "Chase reduces overdraft to $34",
-        implication: "Market anchor shifting downward.",
-        tags: ["overdraft", "big-bank"],
-      }],
-      watchlists: {
-        institutions: ["Chase", "Wells Fargo"],
-        feeCategories: ["overdraft", "nsf"],
-        regions: ["District 2"],
-      },
-    } satisfies MonitorResponse;
-    expect(response.status.overall).toBeDefined();
-  });
-
-  it("does not allow recommendedPosition — screen ownership rule (ARCH-05)", () => {
-    // @ts-expect-error MonitorResponse has no recommendedPosition field
-    const _bad: MonitorResponse = { recommendedPosition: "Lower fees" } as MonitorResponse;
-    void _bad;
-    expect(true).toBe(true);
-  });
-});

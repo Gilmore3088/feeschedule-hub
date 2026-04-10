@@ -1,0 +1,147 @@
+export const dynamic = "force-dynamic";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
+import {
+  getDistrictMetrics,
+  getBeigeBookHeadlines,
+  getPublicStats,
+} from "@/lib/crawler-db";
+import { DISTRICT_NAMES } from "@/lib/fed-districts";
+
+export const metadata: Metadata = {
+  title: "District Intelligence | Bank Fee Index",
+};
+
+export default async function ProDistrictsPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?from=/pro/districts");
+  if (!canAccessPremium(user)) redirect("/subscribe");
+
+  const metrics = await getDistrictMetrics();
+  const headlines = await getBeigeBookHeadlines();
+  const stats = await getPublicStats();
+
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-10">
+      {/* Terracotta label */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="h-px w-8 bg-[#C44B2E]/40" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+          District Intelligence
+        </span>
+      </div>
+
+      <h1
+        className="text-[2rem] leading-[1.1] tracking-[-0.02em] text-[#1A1815]"
+        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+      >
+        Federal Reserve Districts
+      </h1>
+      <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-[#7A7062]">
+        Fee benchmarks, institutional coverage, and economic commentary across
+        all 12 Federal Reserve districts. Data spans{" "}
+        {stats.total_institutions.toLocaleString()} institutions and{" "}
+        {stats.total_observations.toLocaleString()} fee observations.
+      </p>
+
+      {/* District grid */}
+      <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {metrics.map((m) => {
+          const name = DISTRICT_NAMES[m.district] ?? `District ${m.district}`;
+          const headline = headlines.get(m.district);
+          const coveragePct =
+            m.institution_count > 0
+              ? Math.round((m.with_fee_url / m.institution_count) * 100)
+              : 0;
+
+          return (
+            <Link
+              key={m.district}
+              href={`/pro/districts/${m.district}`}
+              className="group rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5 hover:shadow-md hover:border-[#D5CBBF] transition-all duration-200 no-underline"
+            >
+              {/* District header */}
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-[#FAF7F2] text-[12px] font-bold text-[#7A7062] tabular-nums">
+                  {m.district}
+                </span>
+                <h2
+                  className="text-[15px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors"
+                  style={{
+                    fontFamily: "var(--font-newsreader), Georgia, serif",
+                  }}
+                >
+                  {name}
+                </h2>
+              </div>
+
+              {/* Metrics row */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                    Institutions
+                  </p>
+                  <p
+                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-newsreader), Georgia, serif",
+                    }}
+                  >
+                    {m.institution_count.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                    Fees
+                  </p>
+                  <p
+                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-newsreader), Georgia, serif",
+                    }}
+                  >
+                    {m.total_fees.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                    Coverage
+                  </p>
+                  <p
+                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-newsreader), Georgia, serif",
+                    }}
+                  >
+                    {coveragePct}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Beige Book headline */}
+              {headline ? (
+                <div className="pt-3 border-t border-[#E8DFD1]/40">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-1">
+                    Beige Book
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-[#7A7062] line-clamp-2">
+                    {headline.text}
+                  </p>
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-[#E8DFD1]/40">
+                  <p className="text-[11px] text-[#A09788] italic">
+                    No Beige Book data available
+                  </p>
+                </div>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

@@ -46,7 +46,7 @@ Before modifying anything, scan the database:
 - Confirm no new NULLs or constraint violations introduced
 
 ## Key Files
-- Database: Supabase PostgreSQL (connect via `DATABASE_URL` in `.env`)
+- Database: `data/crawler.db` (SQLite)
 - Schema: `fee_crawler/db.py` (crawl_targets, extracted_fees, analysis_results)
 - Enrichment logic: `fee_crawler/peer.py`, `fee_crawler/fee_analysis.py`
 - Enrichment CLI: `fee_crawler/commands/enrich.py`

@@ -55,12 +55,11 @@ export function computeTrendSignals(
     result.qoq_change_pct = Math.round(((current - previous) / previous) * 10000) / 100;
   }
 
-  // YoY: match by quarter label, not positional offset (handles gaps)
-  const currentDate = values[0].date;
-  const yearAgoTarget = currentDate.replace(/^\d{4}/, (y) => String(Number(y) - 1));
-  const yearAgoEntry = values.find((v) => v.date === yearAgoTarget);
-  if (yearAgoEntry && yearAgoEntry.value !== 0) {
-    result.yoy_change_pct = Math.round(((current - yearAgoEntry.value) / yearAgoEntry.value) * 10000) / 100;
+  if (values.length >= 5) {
+    const yearAgo = values[4].value;
+    if (yearAgo !== 0) {
+      result.yoy_change_pct = Math.round(((current - yearAgo) / yearAgo) * 10000) / 100;
+    }
   }
 
   return result;
@@ -151,13 +150,8 @@ export async function getRevenueConcentration(
           ) / 100
         : 0;
 
-    // Average prevalence across top-N categories (institutions overlap, so summing > 100%)
     const prevalencePct =
-      topPrevalence.length > 0
-        ? Math.round(
-            (topPrevalence.reduce((s, e) => s + e.pct_of_total, 0) / topPrevalence.length) * 100
-          ) / 100
-        : 0;
+      topPrevalence.length > 0 ? topPrevalence[0].pct_of_total : 0;
 
     return {
       dollar_volume: topDollar,
@@ -170,8 +164,7 @@ export async function getRevenueConcentration(
         total_institutions: totalInstitutions,
       },
     };
-  } catch (e) {
-    console.error("[getRevenueConcentration]", e);
+  } catch {
     return { ...EMPTY_CONCENTRATION, summary: { ...EMPTY_CONCENTRATION.summary, top_n: topN } };
   }
 }
@@ -214,8 +207,7 @@ export async function getFeeDependencyTrend(
     );
 
     return { trend, signals };
-  } catch (e) {
-    console.error("[getFeeDependencyTrend]", e);
+  } catch {
     return EMPTY_DEPENDENCY;
   }
 }
@@ -304,8 +296,7 @@ export async function getRevenuePerInstitutionTrend(
       trend,
       signals,
     };
-  } catch (e) {
-    console.error("[getRevenuePerInstitutionTrend]", e);
+  } catch {
     return EMPTY_RPI;
   }
 }

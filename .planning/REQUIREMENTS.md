@@ -1,109 +1,102 @@
-# Requirements: Bank Fee Index
+# Requirements: Bank Fee Index v7.0 Hamilton Reasoning Engine
 
-**Defined:** 2026-04-09
-**Core Value:** Accurate, complete, timely fee data with rich analysis -- the kind of insight a bank executive would pay a consulting firm $15K to produce, generated on demand from live pipeline data.
+**Defined:** 2026-04-08
+**Core Value:** Upgrade Hamilton from section-based report writer to unified intelligence engine — the gateway that turns national noise into actionable, accessible intelligence across compliance, regulation, industry trends, performance, and fee strategy.
 
-## v9.0 Requirements
+## v7.0 Requirements
 
-Requirements for v9.0 Data Foundation & Production Polish. Each maps to roadmap phases.
+### Global Thesis (THESIS)
+- [ ] **THESIS-01**: Hamilton generates a global thesis per quarter from full data payload (core thesis, key tensions, revenue model, competitive dynamics)
+- [ ] **THESIS-02**: Each report section receives and references the global thesis — output reads as a single argument, not isolated observations
+- [ ] **THESIS-03**: Hamilton uses think-then-compress reasoning — reasons in 5-8 sentences internally, outputs 2-3 most important (150-200 word budget per section)
+- [ ] **THESIS-04**: Insights are framed as tensions between competing forces ("pricing converges while revenue diverges") not observations ("fees are clustered")
+- [ ] **THESIS-05**: Revenue implications are prioritized over pricing observations in every output — if revenue data exists, it leads
 
-### Taxonomy & Data Consolidation
+### Unified Hamilton (UNIFY)
+- [ ] **UNIFY-01**: Four chat agents (Ask/Analyst/ContentWriter/CustomQuery) consolidated into one Hamilton that adjusts depth and language based on user role (consumer/pro/admin)
+- [ ] **UNIFY-02**: Unified Hamilton shares one reasoning layer (voice rules, insight hierarchy, tension model, revenue prioritization) across chat and report modes
+- [ ] **UNIFY-03**: Consumer mode produces plain-language explanations of institutional position, fee structure, and financial health
+- [ ] **UNIFY-04**: Pro mode produces peer-focused competitive analysis with revenue context
+- [ ] **UNIFY-05**: Admin mode produces full-depth analysis with operational flags and data quality signals
 
-- [ ] **TAX-01**: DB schema adds canonical_fee_key and variant_type columns to extracted_fees (expand-and-contract migration)
-- [ ] **TAX-02**: Canonical key map authored with ~200 canonical keys and alias lists covering the 15K+ long-tail categories
-- [ ] **TAX-03**: Backfill classifies all existing extracted_fees rows with canonical_fee_key and fee_family
-- [ ] **TAX-04**: NEVER_MERGE guard tests enforce NSF/OD, domestic/intl wire, ATM/card replacement distinctions
-- [ ] **TAX-05**: Roomba data cleanup agent flags/rejects statistical outliers and long-tail noise in extracted fees
+### Section Generator (SECTION)
+- [ ] **SECTION-01**: Each report section receives global thesis + section data + macro context + revenue context + peer context (not just section-specific data)
+- [ ] **SECTION-02**: Sections reference FRED economic indicators, Beige Book themes, and CFPB complaint data when relevant to the analysis
+- [ ] **SECTION-03**: Section word budget is 150-200 words (up from 75) matching Salesforce Connected FINS depth
 
-### Auto-Classification Pipeline
+### Voice & Editor (VOICE)
+- [ ] **VOICE-01**: Hamilton voice v3 system prompt encodes revenue prioritization, tension model, and think-then-compress instruction
+- [ ] **VOICE-02**: Editor v2 validates global thesis alignment across all sections — no section contradicts the core thesis
+- [ ] **VOICE-03**: Editor v2 checks that revenue implications appear before pricing observations in every section where revenue data exists
+- [ ] **VOICE-04**: Editor v2 flags sections that describe data without stating implications ("so what?" check)
 
-- [ ] **CLS-01**: classify_fee() runs inline at INSERT time during extraction -- every new crawl auto-maps to canonical taxonomy
-- [ ] **CLS-02**: LLM fallback classification via Claude Haiku when fuzzy match score < 80, with classification_cache table to prevent repeat API calls
-- [ ] **CLS-03**: Roomba integration wired into post-extraction pipeline to flag/reject outliers automatically
+### Tool & Data Access (TOOLS)
+- [ ] **TOOLS-01**: All 16 tool descriptions upgraded with strategic guidance — when to pull what data for what type of question
+- [ ] **TOOLS-02**: Hamilton has access to all 13 ingestion sources through queryNationalData (verify BLS, Census, NY Fed, OFR, SOD are wired)
+- [ ] **TOOLS-03**: Tool descriptions guide Hamilton to cross-reference data sources (e.g., "when analyzing a district, always pull Beige Book themes + FRED indicators + CFPB complaints")
 
-### Admin UX
+### Regulation & Compliance Intelligence (REG)
+- [ ] **REG-01**: Hamilton connects regulatory signals (CFPB enforcement, OCC guidance, Fed policy) to internal fee data — "this enforcement action affects N institutions in our database with similar fee structures"
+- [ ] **REG-02**: Hamilton identifies compliance risk patterns from fee data + complaint data (institutions with above-median fees AND above-average complaint rates)
+- [ ] **REG-03**: Hamilton references industry performance metrics (ROA, efficiency, deposit growth) alongside fee analysis to provide full financial context
 
-- [ ] **ADM-01**: SortableTable component wired to all admin pages (currently only on /admin/index)
-- [ ] **ADM-02**: Server-side sort via URL params for unbounded tables (review queue, fees catalog) where in-memory sort fails at 15K+ rows
-- [ ] **ADM-03**: Districts pages consume Phase 23-24 district queries (Beige Book summaries, economic indicators, CFPB data)
-- [ ] **ADM-04**: All admin pages responsive on tablet/mobile breakpoints
-- [ ] **ADM-05**: Institution-specific pages display rich FFIEC Call Report financial data (assets, deposits, service charge revenue, ratios)
+## Future Requirements (v8.0+)
 
-### Report Quality
+### Signal Detection (v8.0)
+- **SIGNAL-01**: Automated change detection on ingested data — what's newsworthy
+- **SIGNAL-02**: Morning brief generator — 3-5 actionable bullets daily
+- **SIGNAL-03**: Intelligence feed — continuous, admin-first
+- **SIGNAL-04**: Monthly pulse v2 with global thesis + signals
 
-- [ ] **RPT-01**: Call Report thousands-scaling bug fixed -- service charge revenue displays real numbers, not $0
-- [ ] **RPT-02**: FRED economic data and Beige Book commentary wired into report generation pipeline
-- [ ] **RPT-03**: PDF reports upgraded to Salesforce-grade layout: stat callout boxes, numbered chapters, editorial structure, professional typography
-
-### Hamilton Pro Polish
-
-- [ ] **PRO-01**: All hardcoded/sample/demo text stripped from all 5 Pro screens (Home, Analyze, Simulate, Reports, Monitor)
-- [ ] **PRO-02**: Stripe ManageBillingButton wired into Pro settings page
-- [ ] **PRO-03**: Pro screens responsive via Tailwind v4 container queries
-
-### Pipeline Coverage
-
-- [ ] **COV-01**: PDF direct-link strategy for big bank fee schedules (target direct PDF URLs, higher ROI than stealth browsing)
-- [ ] **COV-02**: Playwright stealth upgrade to bypass bot detection on JS-rendered fee schedule pages
-- [ ] **COV-03**: FFIEC CDR (banks) and NCUA 5300 (credit unions) quarterly financial data ingestion pipeline
-
-## Future Requirements
-
-### Deferred from v9.0
-
-- **API-01**: Public REST API for institution data and fee index (backlog 999.15)
-- **SIG-01**: Signal pipeline automation (currently manual/dev-only seeding)
-- **LEFT-01**: Screen-aware left rail with per-screen content slots (backlog 999.8/999.11)
-- **SEC-01**: bcrypt migration for legacy password hashes (backlog 999.7)
-- **CHART-01**: Charts rendered as PNG inside PDF reports (chart-to-PNG pipeline -- needs design spike)
-- **BRAND-01**: Client brand asset upload for white-labeled reports
+### Consumer Delivery (v9.0)
+- **CONSUMER-01**: Per-institution consumer briefings in plain language
+- **CONSUMER-02**: Consumer-facing Hamilton chat
+- **CONSUMER-03**: Scheduled email delivery
+- **CONSUMER-04**: Event-triggered content (CFPB action → instant brief)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Admin UI redesign | Existing admin works; polish only, no new screens |
-| Mobile native app | Web-first, responsive web covers mobile needs |
-| Real-time fee monitoring | Batch/quarterly cadence is sufficient for B2B clients |
-| Chart embedding in PDF | react-pdf can't render Recharts; defer to post-v9.0 design spike |
-| A/B testing | Premature before paying customer base established |
-| Concrete dollar predictions | Risk of inaccuracy; contextual intelligence only |
-| Signal pipeline automation | Manual seeding sufficient for now |
+| Signal detection / automated monitoring | v8.0 — needs ingestion layer changes |
+| Scheduled report generation (cron) | v8.0 — needs signal layer first |
+| Consumer email delivery | v9.0 — needs consumer translator + delivery infra |
+| New data source ingestion | 13 sources already exist — this milestone uses them, doesn't add more |
+| Report template visual redesign | Existing template works — this milestone upgrades content quality, not layout |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TAX-01 | Phase 55 | Pending |
-| TAX-02 | Phase 55 | Pending |
-| TAX-03 | Phase 55 | Pending |
-| TAX-04 | Phase 55 | Pending |
-| TAX-05 | Phase 55 | Pending |
-| CLS-01 | Phase 56 | Pending |
-| CLS-02 | Phase 56 | Pending |
-| CLS-03 | Phase 56 | Pending |
-| ADM-01 | Phase 57 | Pending |
-| ADM-02 | Phase 57 | Pending |
-| ADM-03 | Phase 57 | Pending |
-| ADM-04 | Phase 57 | Pending |
-| ADM-05 | Phase 58 | Pending |
-| RPT-01 | Phase 60 | Pending |
-| RPT-02 | Phase 60 | Pending |
-| RPT-03 | Phase 60 | Pending |
-| PRO-01 | Phase 61 | Pending |
-| PRO-02 | Phase 61 | Pending |
-| PRO-03 | Phase 61 | Pending |
-| COV-01 | Phase 59 | Pending |
-| COV-02 | Phase 59 | Pending |
-| COV-03 | Phase 58 | Pending |
+| THESIS-01 | Phase 33 | Pending |
+| THESIS-02 | Phase 33 | Pending |
+| THESIS-03 | Phase 33 | Pending |
+| THESIS-04 | Phase 33 | Pending |
+| THESIS-05 | Phase 33 | Pending |
+| VOICE-01 | Phase 34 | Pending |
+| SECTION-01 | Phase 34 | Pending |
+| SECTION-02 | Phase 34 | Pending |
+| SECTION-03 | Phase 34 | Pending |
+| UNIFY-01 | Phase 35 | Pending |
+| UNIFY-02 | Phase 35 | Pending |
+| UNIFY-03 | Phase 35 | Pending |
+| UNIFY-04 | Phase 35 | Pending |
+| UNIFY-05 | Phase 35 | Pending |
+| TOOLS-01 | Phase 36 | Pending |
+| TOOLS-02 | Phase 36 | Pending |
+| TOOLS-03 | Phase 36 | Pending |
+| REG-01 | Phase 36 | Pending |
+| REG-02 | Phase 36 | Pending |
+| REG-03 | Phase 36 | Pending |
+| VOICE-02 | Phase 37 | Pending |
+| VOICE-03 | Phase 37 | Pending |
+| VOICE-04 | Phase 37 | Pending |
 
 **Coverage:**
-- v9.0 requirements: 22 total
-- Mapped to phases: 22
+- v7.0 requirements: 23 total
+- Mapped to phases: 23
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after roadmap creation (phases 55-61 assigned)*
+*Requirements defined: 2026-04-08*
+*Last updated: 2026-04-08 after milestone v7.0 roadmap creation*

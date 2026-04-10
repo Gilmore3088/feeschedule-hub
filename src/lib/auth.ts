@@ -53,7 +53,6 @@ export interface User {
   institution_type: string | null;
   asset_tier: string | null;
   state_code: string | null;
-  fed_district: number | null;
   job_role: string | null;
   interests: string | null;
 }
@@ -95,10 +94,8 @@ export async function login(
 ): Promise<User | null> {
   const rows = await sql`
     SELECT id, username, display_name, role, password_hash, email,
-           stripe_customer_id,
            COALESCE(subscription_status, 'none') as subscription_status,
-           institution_name, institution_type, asset_tier, state_code,
-           fed_district, job_role, interests
+           institution_name, institution_type, asset_tier, state_code, job_role, interests
     FROM users WHERE (username = ${username} OR email = ${username}) AND is_active = true
   `;
   const row = rows[0] as (User & { password_hash: string }) | undefined;
@@ -154,7 +151,7 @@ export async function getCurrentUser(): Promise<User | null> {
            u.email, u.stripe_customer_id,
            COALESCE(u.subscription_status, 'none') as subscription_status,
            u.institution_name, u.institution_type, u.asset_tier,
-           u.state_code, u.fed_district, u.job_role, u.interests
+           u.state_code, u.job_role, u.interests
     FROM sessions s
     JOIN users u ON s.user_id = u.id
     WHERE s.id = ${sessionId} AND s.expires_at > NOW() AND u.is_active = true

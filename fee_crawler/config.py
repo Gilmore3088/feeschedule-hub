@@ -41,7 +41,6 @@ class ClaudeConfig(BaseModel):
 class ExtractionConfig(BaseModel):
     confidence_auto_stage_threshold: float = 0.85
     confidence_approve_threshold: float = 0.90
-    confidence_classify_threshold: float = 0.90
     outlier_std_dev_threshold: float = 3.0
     document_storage_dir: str = "data/documents"
     model: str = "claude-haiku-4-5-20251001"

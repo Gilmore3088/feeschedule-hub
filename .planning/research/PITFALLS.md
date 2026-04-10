@@ -1,184 +1,227 @@
 # Pitfalls Research
 
-**Domain:** Canonical fee taxonomy consolidation, auto-classification pipeline, sortable tables, responsive design retrofit, PDF report generation — added to existing Next.js 16 + PostgreSQL + Python pipeline.
-**Researched:** 2026-04-09
-**Confidence:** HIGH (code-grounded; verified against existing codebase patterns)
+**Domain:** Audience-segmented UX split — adding distinct consumer and B2B experiences to an existing monolithic Next.js App Router app
+**Researched:** 2026-04-07
+**Confidence:** HIGH (based on direct codebase inspection + established Next.js App Router patterns)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Taxonomy Backfill Breaks the Live Index
+### Pitfall 1: SEO Regression From Route Restructuring
 
 **What goes wrong:**
-`getNationalIndex()` and `getPeerIndex()` filter on `ef.fee_category = ANY(ARRAY[...49 canonical keys...])`. When the canonical taxonomy backfill runs (adding a `canonical_fee_key` column and normalizing long-tail categories), any row whose `fee_category` gets reassigned to a new canonical key during migration will temporarily drop out of index queries until the code is also deployed. If the backfill runs before the code ships, the index silently loses coverage. If the code ships before the backfill, queries referencing the new column crash at runtime.
+The existing public pages at `/(public)/fees/[category]`, `/(public)/institution/[id]`, `/(public)/research/state/[code]`, etc. are the SEO backbone — they already appear in `sitemap.ts` as `BASE_URL/fees/...`, `BASE_URL/institution/...`, etc. If these routes get moved, renamed, or wrapped inside audience-scoped prefixes (e.g., `/consumer/fees/...`) to serve a redesigned consumer experience, Google loses the existing index positions. The canonical URLs are public-facing, already structured without a `/consumer/` prefix, and any redirect chain introduces crawl lag.
 
 **Why it happens:**
-The backfill is seen as a data operation and decoupled from the code deploy. The team updates `categorize_fees.py` logic, runs it on production, then deploys — but there is a window where the DB and the TypeScript code are misaligned.
+The impulse to "give consumers their own space" leads to creating `/consumer/fees/[category]` instead of redesigning `/(public)/fees/[category]` in place. The split-panel gateway at `/` and the existence of `/consumer/page.tsx` make it tempting to move all consumer content under `/consumer/*`.
 
 **How to avoid:**
-Add `canonical_fee_key` as a nullable column first. Keep the old `fee_category` column untouched and fully populated throughout the migration. All index queries continue to use `fee_category` until the backfill is verified complete and the new column is confirmed non-null for all 49 canonical keys. Only then flip query references. This is the expand-and-contract pattern: add column → backfill → verify → switch queries → (eventual) remove old column.
+Never add an audience prefix to URLs that are already indexed. The consumer experience redesign must happen in-place: update `/(public)/fees/[category]/page.tsx` and `/(public)/institution/[id]/page.tsx` directly. The `/consumer/` route should redirect to `/` or serve only as the post-gateway landing — it should never become a parallel URL tree for existing content. The `/(public)` route group is a routing convenience (zero URL impact) that already isolates the consumer content correctly. Use it.
+
+If a page genuinely needs a consumer-only URL (e.g., a guided comparison tool), create it as a new route, not a shadow of an existing one.
 
 **Warning signs:**
-- `institution_count` drops on any index category after a categorize-fees run
-- `maturity_tier` degrades from "strong" to "provisional" on previously stable categories
-- Admin `/index` page shows gaps in categories that previously had data
+- Any new `src/app/consumer/fees/` or `src/app/consumer/institution/` directories
+- `sitemap.ts` growing new `consumer/` URL entries for content that already exists at bare paths
+- A 301 redirect map longer than 5 entries
 
 **Phase to address:**
-Taxonomy consolidation phase. Start with `ALTER TABLE extracted_fees ADD COLUMN canonical_fee_key TEXT` (nullable, no default, no locks). Backfill in batches of 1,000. Verify row counts match before switching any query.
+First phase that touches any `/(public)` page layout or routing. Establish a "no URL changes" contract before any consumer redesign work begins.
 
 ---
 
-### Pitfall 2: False Merges in Synonym Consolidation — NSF vs Overdraft, Domestic vs International
+### Pitfall 2: The Split-Panel Gateway Is a Dead End for SEO and First Impressions
 
 **What goes wrong:**
-The milestone context explicitly calls out categories that must never be merged: NSF vs Overdraft vs OD Protection, Domestic vs International wires. The existing `FEE_NAME_ALIASES` already contains dangerous proximity: `"overdraft/courtesy pay"` maps to `overdraft` and `"nsf fee"` maps to `nsf`. When extending the alias table to cover 15K long-tail categories, a normalizer that strips the "non-sufficient" text might accidentally resolve "NSF/OD combo fee" to `overdraft` instead of keeping both or flagging for manual review.
+The current `GatewayClient` at `/` is a client component ("use client") that shows a split-panel "choose your experience" interaction. Google does not reliably execute client-side rendering for initial indexing. The root URL — the highest-authority page — renders no indexable content for search engines. It is also poor UX: first-time visitors have to identify themselves before seeing any value.
 
 **Why it happens:**
-Synonym expansion is done by a developer reading fee names at volume. The distinction between NSF (declined transaction, fee for bouncing) and Overdraft (paid transaction, fee for covering) is regulatory and behavioral — not obvious from string similarity alone. The NCUA changed its NSF/OD reporting policy in 2025, meaning institution-reported data is already less granular. Merging them in the canonical layer compounds this loss.
+The split-panel feels like an elegant design solution that respects both audiences. It defers the audience-routing decision to the user. The problem is that search engines and users arriving from a direct link get nothing useful.
 
 **How to avoid:**
-Maintain a hard-coded `NEVER_MERGE` list of category pairs enforced in the categorize script. Before any alias table commit, run a validation that checks: (a) no alias maps an NSF-family term to `overdraft` or vice versa; (b) no domestic wire alias maps to `wire_intl_*`; (c) no `atm_non_network` alias captures `card_replacement`. Add this as a pytest test in `fee_crawler/tests/` that runs in CI before any alias table change ships.
+Replace the gateway with a value-first consumer landing page rendered by a Server Component. The root `/` should be the consumer-facing front door by default — it is where organic traffic lands. Pro/B2B entry should be a prominent but secondary action (nav link, sticky CTA, or dedicated `/pro` path). This is confirmed by the PROJECT.md principle "B2B primary, consumer secondary" — but "primary" refers to revenue, not traffic origin. Consumer organic traffic is the discovery engine.
+
+Critically: the `GatewayClient` is currently the root `page.tsx`. Replacing it with a Server Component resolves the SSR gap in one move.
 
 **Warning signs:**
-- Overdraft `institution_count` spikes significantly after a categorize-fees run
-- NSF count drops by a similar magnitude at the same time
-- Market index delta between NSF and overdraft compresses toward zero across all segments
+- Root `/` page still has `"use client"` at the top
+- Google Search Console shows `/` with no impressions or "Crawled - not indexed" status
+- `metadata` on root page is generic/incomplete
 
 **Phase to address:**
-Taxonomy consolidation phase, before any alias table expansion. Write the guard tests first (TDD), then expand aliases.
+Phase 1 of the milestone — consumer landing page redesign. This is the highest-leverage first move.
 
 ---
 
-### Pitfall 3: Auto-Classification Pipeline Adds Latency to Extraction Hot Path
+### Pitfall 3: Component Duplication Between Consumer and B2B Experiences
 
 **What goes wrong:**
-Making taxonomy classification live (not one-time backfill) means each newly crawled fee must be classified before it can be staged for review. If classification uses an LLM call (Haiku) to resolve ambiguous fees, this adds 300-800ms per fee to the extraction pipeline. At scale across 4,000 institutions this makes scheduled runs miss their 2am-4am window. If classification is done in a separate post-processing step but the pipeline emits fees without `canonical_fee_key`, the review queue shows uncategorized fees which confuses maturity calculations.
+`/(public)/layout.tsx`, `/consumer/layout.tsx`, and `/pro/layout.tsx` all currently render `<CustomerNav />` and `<CustomerFooter />`. When the B2B experience gets distinct navigation (the milestone calls for "distinct navigation and layout"), the instinct is to create `ProNav` and `ProLayout` from scratch. Fee table components, index previews, and stat cards get duplicated with slight visual variations. After two or three phases, you have two separate component trees with the same business logic diverging.
 
 **Why it happens:**
-The classification logic is treated as a post-processing concern. The pipeline emits fees with raw `fee_name`, then a separate job runs `categorize_fees`. This creates a period where newly extracted fees have `fee_category = NULL`, which (per the current index query) causes them to not appear in the national index at all — silently reducing coverage.
+The consumer and B2B audiences have genuinely different needs, which makes diverging components feel justified in the moment. Each new page is built to look distinct, so the shared components get forked instead of parameterized.
 
 **How to avoid:**
-Classification must happen inline during extraction, not as a second job. The existing `crawl.py` already calls `normalize_fee_name()` and `get_fee_family()` synchronously for each extracted fee. The auto-classification pipeline should extend this same path: attempt alias lookup first (zero latency), fall back to LLM classification only for unmatched names, and write `canonical_fee_key` at insert time. Never ship a fee row to the DB without attempting canonical classification first.
+Identify the abstraction boundary before writing the first new component: data/logic is shared, presentation is audience-specific. Components like `FeeIndexTable`, `InstitutionCard`, `PeerFilterPanel` should remain in `src/components/` and accept an optional `variant` prop or be composed differently at the layout level. Navigation (`ProNav`, `CustomerNav`) is legitimately distinct and should be separate files — but fee display components should not be duplicated.
+
+Enforce a rule: if a component queries `crawler-db`, it lives in `src/components/` and is shared. If it only renders markup with a specific visual treatment, a variant prop or composition is correct.
 
 **Warning signs:**
-- `fee_category IS NULL` count climbs after pipeline runs
-- Dashboard maturity badges degrade after new crawl batches
-- `categorize_fees` reports high "unmatched" percentages on new batches
+- A `src/components/pro/` directory mirroring `src/components/public/` with near-identical components
+- `ProFeeTable.tsx` and `PublicFeeTable.tsx` both calling `getNationalIndex()`
+- More than two different implementations of the fee amount/percentile display pattern
 
 **Phase to address:**
-Auto-classification phase. Treat `canonical_fee_key` as a required field at insert, defaulting to `NULL` only when alias lookup genuinely fails (not as a deferred step).
+Before any new component is built for either audience. Establish the component boundary policy as a planning artifact.
 
 ---
 
-### Pitfall 4: Sortable Tables Load All Rows Into Client Memory
+### Pitfall 4: Hamilton Agent Prompt Injection via Pro-Tier Access
 
 **What goes wrong:**
-The existing `SortableTable` component (`src/components/sortable-table.tsx`) is a client-side component: it receives all rows as props, sorts in-memory with `useMemo`, and paginates client-side. This works for 49-category index pages. Applied to the fees review queue (potentially 15K+ rows), the Review page, or the Institution table, this pattern sends megabytes of JSON to the browser on each page load and sorts in the main thread.
+The `fee-analyst` agent is gated at `requiredRole: "premium"`. A premium subscriber ($2,500/mo) can call `/api/research/fee-analyst` and inject prompts designed to extract admin-tier context (operations status, pending review counts, job queue state), since `fee-analyst` uses `{ ...publicTools, ...internalTools }` — the same tool set as `custom-query` which requires `admin`. The `opsContext()` function that injects operational data is only called in the analyst and custom-query system prompts, so the tools are scoped correctly, but `internalTools` likely expose DB access beyond what a paying subscriber should have visibility into.
+
+Additionally, the new "Expanded Hamilton for pro users" feature described in the milestone introduces a new surface: pro users generating peer briefs and competitive snapshots via the agent. If the new pro agent shares the same `agentId` namespace as admin agents, a pro user who discovers an admin `agentId` (e.g., `content-writer`) can call it directly against the API if only the UI is gated rather than the route.
 
 **Why it happens:**
-The `SortableTable` was designed for bounded datasets (49 index categories, ~200 peers). When extended to all admin tables without a size audit, developers assume it scales because it worked before.
+Auth is implemented correctly at the role level for existing agents. The gap is that new pro-facing agents may be added without explicitly setting `requiredRole: "admin"` on admin-only agents that remain accessible by `agentId` through the API. UI-only gating is invisible to API callers.
 
 **How to avoid:**
-For tables with potentially unbounded row counts (fees, institutions, crawl runs, review queue), sort must move to the server. Use URL params (`?sort=amount&dir=desc`) parsed in the Server Component, passed to the DB query as `ORDER BY`. The `nuqs` library is the community standard for type-safe URL-based sort/filter state in Next.js, avoiding manual URLSearchParams sync bugs. Client-side `SortableTable` is acceptable only when the dataset is bounded at 200 rows or fewer.
+The API route already enforces `requiredRole` — this is the correct pattern. The risk is in the new agents: any new `agentId` added for pro users must have `requiresAuth: true` and `requiredRole: "premium"`. Admin agents (`content-writer`, `custom-query`) must be explicitly verified to have `requiredRole: "admin"` and tested that a session with `role: "premium"` returns 403.
+
+Write one integration test per agent that verifies a premium user cannot access admin-only agents by `agentId`. This test should live in `src/lib/research/agents.test.ts` and run in CI.
 
 **Warning signs:**
-- Page load time exceeds 2 seconds on any admin table
-- Browser tab memory climbs above 200MB on the fees or review pages
-- `?sort=` in the URL does not survive navigation (because sort is local state only)
+- A new pro agent added to `agents.ts` without `requiredRole` set
+- Pro dashboard UI that passes `agentId` from URL params without validation
+- No test coverage on agent access control boundaries
 
 **Phase to address:**
-Sortable tables phase. Audit each admin table's max row count before applying `SortableTable`. Flag any table that can exceed 200 rows for server-side sort instead.
+Any phase that adds or exposes new Hamilton agents to pro users.
 
 ---
 
-### Pitfall 5: Sort State Conflicts With Existing URL Filter Pattern
+### Pitfall 5: Report Generation Cost Controls Missing Per-User Budget
 
 **What goes wrong:**
-The existing system uses URL search params for all peer filters (`?charter=bank&tier=a,b&district=1,3,7`). Adding sort params (`?sort=median&dir=asc`) to the same URL can conflict: the filter bar components call `router.push()` with new URLSearchParams that may not preserve sort keys (or vice versa). The result is that changing a filter resets the sort to default, or changing the sort wipes the active filters.
+The current `/api/research/[agentId]/route.ts` has a $50/day global circuit breaker (`DAILY_COST_LIMIT_CENTS = 5000`). The `/api/reports/generate/route.ts` has a dual-auth path (session cookie or cron secret) but no visible per-user daily generation limit. When pro users can trigger report generation on demand (peer briefs, annual summaries, competitive snapshots), a single premium user can exhaust the daily budget before other users have a chance to run reports.
+
+The per-user query limit in `getResearchQueryLimit()` (50/day for premium) applies to the streaming agent endpoint but there is no confirmation this applies to the report generation path, which uses a separate route.
 
 **Why it happens:**
-Each filter and sort component constructs its own URLSearchParams from scratch rather than reading and mutating the current params. This is the most common URL state bug in Next.js App Router code.
+Report generation was originally admin-initiated (cron-triggered). Adding user-initiated report generation on the pro tier introduces a new cost surface that the existing admin-centric limits don't cover. The cost of a Claude-generated McKinsey-grade report is $5-10 per the PROJECT.md constraints — 10 premium users each triggering 5 reports in a day = $250-500 in API costs, well above the daily circuit breaker.
 
 **How to avoid:**
-All URL param writes must start from `new URLSearchParams(currentSearchParams)` — clone first, then set/delete the changed key, then push. If using `nuqs`, this is handled automatically. Before shipping sortable tables, audit every `router.push(...)` call in filter bar components to confirm they preserve existing params.
+Add per-user report generation limits tracked in the database. A `report_generation_events` table (user_id, generated_at, report_type, cost_cents) with a daily query against it at generation time. The limit should be separate from the streaming agent limit: suggest 3-5 reports/day per premium user, 20/day for admin/analyst.
+
+Also: the freshness gate in `checkFreshness()` is the existing guard against redundant generation — verify it also blocks per-user rapid re-generation, not just global data-freshness checks.
 
 **Warning signs:**
-- Selecting a sort direction clears the charter/tier/district filters
-- Applying a peer filter resets the table to default sort
-- Browser back button produces unexpected filter/sort combinations
+- `/api/reports/generate` route does not query a per-user daily count before enqueuing
+- Premium users can call the generate endpoint in a loop without 429s
+- No per-user report count visible in the admin ops dashboard
 
 **Phase to address:**
-Sortable tables phase. Fix the URL mutation pattern globally before adding any new params.
+Phase that implements pro-user report generation (expanded Hamilton). Cannot ship to pro users without this.
 
 ---
 
-### Pitfall 6: react-pdf Cannot Render Recharts SVGs Directly
+### Pitfall 6: Dark Mode Breaks on Consumer Pages That Skip Admin CSS Classes
 
 **What goes wrong:**
-The `@react-pdf/renderer` library does not render Recharts components natively. Recharts renders to DOM SVG elements which react-pdf cannot traverse. Attempting to embed a `<BarChart>` directly in a PDF `<Document>` produces either a blank area or a runtime error. This is a known open issue in the react-pdf repository.
+The dark mode implementation uses a `.dark` class on the document root, with CSS overrides in `globals.css` targeting `.dark .admin-card`, `.dark .admin-table`, `.dark .admin-content .bg-white`, etc. The admin UI uses semantic CSS class names that are explicitly handled. Consumer pages use inline Tailwind with hardcoded color tokens (`bg-[#FAF7F2]`, `text-[#1A1815]`, `border-[#E8DFD1]`). These arbitrary values have no `.dark` override rules.
+
+When the dark mode toggle (which reads from `localStorage: 'bfi-theme'`) is applied globally and a user navigates from admin to the consumer section, or when the new B2B launchpad dashboard uses the same dark mode toggle, consumer pages will not respond — they'll remain cream/warm-white (#FAF7F2) regardless of the toggle state.
 
 **Why it happens:**
-Developers assume react-pdf is a full React renderer (like react-dom) that handles any React component tree. It is not — it is a PDF-specific renderer with a limited set of primitives (`View`, `Text`, `Image`, `SVG`, etc.) and does not execute browser-only rendering paths.
+Dark mode was implemented exclusively for the admin interface. Consumer pages were designed as light-only. The milestone creates a B2B dashboard that may want dark mode (or at minimum must coexist with the toggle), and consumer pages may receive dark mode as a new feature.
 
 **How to avoid:**
-Three viable approaches, in order of increasing reliability:
+Make an explicit decision at the start of the milestone: does dark mode apply to consumer pages or only admin? If consumer pages are intentionally light-only, the `DarkModeToggle` component must not be rendered in `CustomerNav` or any consumer layout. If dark mode is desired for consumer pages, all hardcoded `#FAF7F2`/`#1A1815` color values must be converted to CSS custom properties or Tailwind's `dark:` variant equivalents.
 
-1. **Static images (recommended for this system):** Render charts server-side to PNG using a headless browser (Playwright, already in the stack) or `canvas` + `chart.js`, then embed as `<Image>` in react-pdf. Cleanest separation between web and PDF rendering.
-2. **react-pdf-charts wrapper:** The `react-pdf-charts` npm package converts SVG DOM output from Recharts into react-pdf-compatible SVG primitives. Works for bar/line charts; breaks for custom `ReferenceDot` components and nested SVG elements.
-3. **Pure react-pdf SVG:** Rebuild charts using react-pdf's native `<SVG>`, `<Rect>`, `<Line>` primitives. Full control, zero dependencies, but significant implementation time.
-
-If Recharts must be used, set `isAnimationActive={false}` on all chart components before rendering — animations prevent static capture.
+Do not silently inherit the admin dark mode toggle on layouts that have no dark mode support. The result is a partially-inverted page that looks broken.
 
 **Warning signs:**
-- PDF renders charts as blank white rectangles
-- `PDFDownloadLink` triggers a browser crash or hangs with complex chart trees
-- `renderToBuffer()` throws on SVG nesting
+- `DarkModeToggle` appearing in `CustomerNav` or `ProNav` before dark mode CSS is implemented for consumer pages
+- Consumer pages showing white headers but cream-colored body sections after dark mode activation
+- `localStorage` key `bfi-theme` being read in consumer layout components
 
 **Phase to address:**
-Report PDF generation phase. Spike chart rendering strategy before writing any report component — do not commit to an approach until a working chart in PDF is demonstrated.
+Any phase that modifies `CustomerNav` or creates the new B2B layout. Decide and document the dark mode scope boundary before building.
 
 ---
 
-### Pitfall 7: Responsive Retrofit Breaks Desktop-Optimized Data Density
+### Pitfall 7: "While We're At It" Scope Creep From Parallel Redesign Impulses
 
 **What goes wrong:**
-The admin design system is explicitly Bloomberg-grade data density. The `Market Index Explorer` uses a `col-span-8` / `col-span-4` two-column grid with a sticky `top-[57px] z-30` segment control bar. Adding responsive breakpoints naively (e.g., `md:grid-cols-1`) collapses this to a single column on tablet, destroying the side-by-side layout that is a core UX decision. Tight cell padding (`px-4 py-2.5`) that makes tables readable at desktop density becomes cramped at mobile widths.
+Adding audience segmentation requires touching nearly every shared component and layout. Each touch point creates an opportunity to "improve" the existing design while you're in there — upgrading the fee table, adding a chart, redesigning the institution card, cleaning up the nav. These improvements are each individually sensible but collectively blow the milestone scope. Three phases in, the consumer redesign is half-done, three unrelated components have been redesigned, and the B2B dashboard hasn't been started.
+
+This project's history shows the pattern: v4.x "Report Design" grew to include v4.2 template deployment. Good impulses expand scope.
 
 **Why it happens:**
-Responsive is added as a global pass after the fact ("just add `sm:` prefixes"). Mobile-first retrofit changes base styles that were never designed for mobile, requiring a full audit of every component's layout assumptions.
+The redesign creates justified context for improvement. When a developer is modifying `CustomerNav` for the B2B layout, it's natural to also fix the mobile breakpoint, add the dark mode toggle, update the icon library, and swap out the font weight. Each change takes minutes; together they take days and introduce regressions.
 
 **How to avoid:**
-Admin screens are B2B-only. The target devices are desktop and large tablets (1024px+). Responsive for admin means "graceful degradation to 1024px minimum" — not full mobile support. Set a `min-w-[1024px]` on the admin layout and use `overflow-x-auto` on tables rather than trying to reflow complex multi-column grids. Reserve true mobile-first responsive work for the consumer/public-facing screens. The Hamilton Pro screens are the primary responsive target for v9.0 based on the milestone scope.
+Define each phase with a strict output contract: what files are allowed to change, what the deliverable looks like. A phase that changes `CustomerNav` for B2B routing should not also change the nav's visual design for consumer pages. Capture improvement ideas in a `BACKLOG.md` during execution to drain the "while we're at it" impulse without acting on it.
+
+The test: if a change is not required for the phase's stated deliverable, it belongs in a future phase.
 
 **Warning signs:**
-- Desktop users see layout shifts after responsive changes ship
-- Sticky elements start overlapping at intermediate viewport widths
-- `col-span-8` grids collapse prematurely at 1280px
+- A PR modifying more than 5 files that were not named in the phase plan
+- Component changes that affect the consumer experience during a "B2B dashboard" phase
+- Admin pages being restyled during a consumer redesign phase
 
 **Phase to address:**
-Hamilton Pro polish phase. Scope responsive work to Pro screens only. Explicitly defer admin responsive to a future phase.
+Every phase. This is a process discipline, not a technical fix. The phase plan should name specific files that are in scope.
 
 ---
 
-### Pitfall 8: Playwright Stealth vs. Big Bank Bot Detection is an Arms Race with Legal Exposure
+### Pitfall 8: Breaking Existing Admin Bookmarks and Deep Links
 
 **What goes wrong:**
-Major banks (Chase, BofA, Wells Fargo) use Cloudflare, DataDome, or custom WAF configurations. Playwright stealth techniques (patching `navigator.webdriver`, spoofing user agent, randomizing mouse movements) fail against cryptographic proof-of-work challenges and timing-based behavioral analysis. Beyond technical failure, bank ToS typically prohibit automated access.
+Admin users have bookmarked `/admin/hamilton/research/[agentId]`, `/admin/fees/catalog`, `/admin/market`, etc. The existing `/admin/*` structure is stable. If the B2B launchpad is implemented by moving or aliasing admin routes (e.g., pointing `/pro/research` at admin Hamilton, or redirecting `/pro/market` to `/admin/market`), the URL surfaces multiply and existing bookmarks risk breaking.
+
+The `/admin/hamilton/` subtree is the production Hamilton interface. The `/pro/research/page.tsx` and `/admin/research/[agentId]` are different surfaces. If pro users are given access to expanded Hamilton, the instinct may be to reuse admin routes — which exposes admin-only features to pro users if the auth check is missed.
 
 **Why it happens:**
-Teams see scraping working on community banks and assume scaling to big banks is a technical problem (better stealth), not a legal one. The 116/250 big bank failure rate in the existing re-extraction run confirms this is already hitting the ceiling.
+Code reuse is correct; the risk is in how reuse is implemented. Sharing a route between admin and pro users by checking `user.role` in the page component is easy to get wrong. A missed conditional or a server-side rendering shortcut can expose admin data to pro users.
 
 **How to avoid:**
-Segment the strategy: (1) Public fee schedule pages posted for consumer access are defensible — automated access mimics a consumer reading a PDF. (2) Fee data behind login or behind CAPTCHA walls is higher risk — stop at CAPTCHA, flag for manual review. (3) For the 250 largest banks already failing, prioritize URL research to find direct PDF links rather than JS-rendered pages. Direct PDF download via `httpx` has no bot detection and is the highest-ROI path. Playwright stealth is acceptable for JS-rendered public pages but must hard-stop at any authentication wall.
+Admin routes (`/admin/*`) must never be reachable by non-admin sessions. The `admin/layout.tsx` already enforces this with `getCurrentUser()` + role redirect. New pro-facing Hamilton pages must be implemented as new routes under `/pro/` that call the same underlying API endpoints with appropriate `agentId` values. The API layer (already correct) is the enforcement boundary — pages just need to not expose admin UI elements.
+
+Never redirect pro users into `/admin/*`. Build distinct pro pages that call shared API endpoints.
 
 **Warning signs:**
-- Crawl success rate for Tier 1 banks does not improve with stealth changes
-- Modal workers return 403 errors from Cloudflare challenge pages
-- Extracted fee data shows pricing that looks like a logged-in account view (numbers too precise/granular)
+- `/pro/research/[agentId]` rendering admin UI elements (review queue, ops status, pipeline monitor)
+- Any `redirect('/admin/...')` in pro page code
+- A pro session that can navigate to `/admin/hamilton/` without being redirected
 
 **Phase to address:**
-Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright stealth. Document legal rationale for the scraping approach in a comment in `config.yaml` or a `LEGAL.md`.
+Phase that builds the B2B launchpad and expanded Hamilton for pro users.
+
+---
+
+### Pitfall 9: Over-Engineering Personalization Before Data Exists
+
+**What goes wrong:**
+The milestone calls for "B2B personalization: institution-specific Call Reports, district Beige Book, competitive landscape on login." This is the most complex feature in the milestone and requires knowing the user's institution before showing personalized data. The current auth model (`getCurrentUser()`) returns role/subscription but no institution affiliation. Building the personalization infrastructure — user-to-institution linking, preference storage, personalized query paths — is a multi-phase effort that can consume the entire milestone if started too early.
+
+**Why it happens:**
+Personalization is the highest-value B2B feature and gets prioritized accordingly. The problem is it has a dependency chain: user must have an institution affiliation → institution must be in the DB → personalized queries must be written → UI must display them. Each step takes longer than estimated.
+
+**How to avoid:**
+Decouple personalization from the B2B dashboard launch. The B2B launchpad can launch with non-personalized views (national index, peer builder, Hamilton, reports) — these are immediately valuable without personalization. Personalization (institution-scoped dashboard, district defaulting) should be a separate phase or a phase-2 enhancement.
+
+The minimum viable B2B dashboard does not require personalization. Ship the four doors (Hamilton, Peer Builder, Reports, Federal Data) without personalization first.
+
+**Warning signs:**
+- Database schema changes for user-institution linking in the same phase as B2B UI work
+- More than 2 new DB columns added to the `users` table for personalization preferences
+- A phase that cannot be considered "done" until personalization is working
+
+**Phase to address:**
+Address this as a planning constraint when defining the B2B dashboard phase. Personalization is a stretch goal, not a launch requirement.
 
 ---
 
@@ -186,12 +229,12 @@ Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright ste
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Client-side sort in SortableTable for all admin tables | Zero DB query changes needed | Memory blowup, slow TTI on large tables | Only when row count is bounded at ≤200 |
-| `force=True` in categorize_fees to re-classify everything | Clean slate after alias table changes | Clears valid categories temporarily, index drops during run | Never in production without a verified backup |
-| Nullable `canonical_fee_key` with no NOT NULL constraint | Easy to add later | Queries silently skip NULL rows, coverage gaps undetected | Acceptable during backfill phase only — add constraint after verification |
-| react-pdf-charts wrapper over raw SVG primitives | Fast to implement | Breaks on nested SVGs, custom chart components | Acceptable for simple bar/line charts only |
-| `overflow-x-auto` on admin tables instead of full responsive | Preserves desktop density | Horizontal scrolling is poor UX on tablet | Acceptable for admin (B2B desktop-only audience) |
-| Alias lookup only, no LLM fallback, for auto-classification | Zero added pipeline latency | 20-30% of long-tail fees remain `fee_category = NULL` | Acceptable in v9.0 — LLM fallback is a future phase |
+| Hardcoded hex colors in consumer pages (`#FAF7F2`, `#1A1815`) instead of CSS variables | Fast to write, no abstraction needed | Impossible to theme or dark-mode without a full search-and-replace | Only acceptable if consumer is permanently light-only and both team members know it |
+| Reusing `CustomerNav` for both consumer and B2B by adding conditionals | Avoids creating a second nav component | The nav grows conditionals for every audience difference; becomes unmaintainable after 3 additions | Never for more than 1-2 minor differences; create `ProNav` when B2B nav diverges meaningfully |
+| Checking `user.role` inside page components for feature gating | Quick to implement | Business logic leaks into presentation layer; access rules scattered across components | Acceptable for one-off page-level redirects; not acceptable for recurring feature access checks (use `access.ts` helpers) |
+| Sharing `/admin/hamilton/` URL with pro users via a shared layout | One implementation | Exposes admin UI to pro users; breaks the admin/pro separation contract | Never |
+| Skipping per-user rate limits on report generation at launch | Faster to ship | A single aggressive user can exhaust daily Claude budget | Acceptable only with a manually-enforced user whitelist during beta; must be automated before open enrollment |
+| Agent module caching (`_agents` singleton) persists across hot reloads | Faster agent resolution | Stale prompts survive dev server restarts; hard to debug prompt changes | Acceptable in production; must be cleared during development prompt iteration |
 
 ---
 
@@ -199,13 +242,12 @@ Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright ste
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Supabase transaction mode pooler (port 6543) | Running `ALTER TABLE ... SET NOT NULL` in a migration — holds ACCESS EXCLUSIVE lock, blocks all writes | Add column nullable first; add NOT NULL constraint with `NOT VALID`, then `VALIDATE CONSTRAINT` in a separate transaction |
-| `postgres` client (raw SQL, no ORM) | Building `canonical_fee_key` index with `CREATE INDEX` (blocking) on a live table | Use `CREATE INDEX CONCURRENTLY` — non-blocking, safe on live tables |
-| Vercel AI SDK streaming (`streamText`) | Generating PDF reports as streaming text — PDFs are binary, not SSE streams | PDF generation must be a non-streaming API route returning `application/pdf` content-type |
-| react-pdf server-side rendering in Next.js App Router | Using `<PDFViewer>` (browser-only component) in a Server Component | Use `renderToBuffer()` in a Route Handler (`/api/reports/[id]/pdf`); never import PDFViewer server-side |
-| Tailwind v4 container queries | Mixing `@container` with old `md:` breakpoints on the same element — double-fires at viewport boundaries | Choose one responsive strategy per component; use container queries for components that appear in multiple layout contexts |
-| Modal Python workers + Postgres transaction pooler | Long-running backfill transactions hold pooler connections beyond timeout | Batch in 1,000-row transactions; commit and reconnect between batches |
-| categorize_fees.py SQLite placeholder syntax | Uses `?` placeholders — works for legacy SQLite but will break if run directly against Postgres | Confirm the production backfill path goes through the Postgres-aware layer, not the legacy `db.py` SQLite path |
+| Stripe subscription + Hamilton access | Checking `subscription_status === 'active'` in page components directly instead of `canAccessPremium()` | Always use the `canAccessPremium(user)` helper from `src/lib/access.ts`; it handles `admin`/`analyst` roles correctly |
+| Vercel AI SDK streaming in new pro pages | Creating a new streaming endpoint per pro page instead of reusing `/api/research/[agentId]` | The agent API is parameterized by `agentId`; add new agent configs to `agents.ts` and reuse the existing route |
+| Next.js metadata in new audience layouts | Forgetting `template: "%s | Bank Fee Index"` in segment layout metadata | Copy the metadata export from `consumer/layout.tsx` as the template for all new audience layouts |
+| `searchParams` in consumer pages | Treating `searchParams` as synchronous (it is a Promise in Next.js 16 App Router) | Always `await searchParams` — this is already correct in the codebase but easy to miss in new pages |
+| Tailwind v4 in new components | Using Tailwind v3 `dark:` variant syntax that conflicts with the custom `@custom-variant dark` definition in `globals.css` | Use the `.dark` class override pattern in `globals.css` for admin pages; use `dark:` Tailwind variant only if explicitly supported in the consumer CSS setup |
+| Report generation freshness gate | Treating `checkFreshness()` as a per-user limit when it is a global data-freshness check | Freshness gate prevents redundant generation when data hasn't changed; it does not prevent the same user from generating multiple reports; add explicit per-user limits separately |
 
 ---
 
@@ -213,11 +255,10 @@ Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright ste
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Client-sort of fee review queue | Review page takes 3-5s to TTI; browser tab freezes briefly on sort click | Server-side sort via `ORDER BY` with URL param; paginate at DB level | Breaks at ~500 rows in client memory |
-| `categorize_fees --force` on 15K+ rows in single transaction | Postgres connection timeout; partial update with no rollback visibility | Batch 1,000 rows per transaction; commit between batches | Breaks at ~5,000 rows in a single transaction |
-| `buildIndexEntries()` in-memory grouping on all non-rejected fees | Index page load time grows with `extracted_fees` table size | Add DB-level aggregation (`GROUP BY fee_category`) as an alternative path when row count exceeds 50K | Slows noticeably at ~20K fee rows |
-| react-pdf `renderToBuffer()` in Vercel Edge Function | Edge function timeout (50ms CPU limit) | Use Node.js runtime (`export const runtime = 'nodejs'`) for PDF route handlers | Always — Edge runtime cannot run react-pdf |
-| LLM fallback classification inline in extraction hot path | Pipeline runs miss 2am-4am window; Modal worker timeout | Keep LLM fallback async/queued; alias lookup inline only | Breaks at ~50 LLM calls per extraction run |
+| `getNationalIndexCached()` called in multiple Server Components on the same page load | Multiple DB round-trips for the same data; slow TTFB on consumer pages | Fetch once at the page (Server Component) level and pass as props to child components | Day 1 if consumer home and B2B home both call it independently in the same layout |
+| `force-dynamic` on consumer pages that could be ISR | Every page request hits the DB; Vercel Edge gets no cache benefit | Remove `force-dynamic` from consumer pages and use `revalidate` with an appropriate interval; use `next/headers` only where needed | At scale; not visible in development |
+| Agent module singleton `_agents` not reset on env var changes | New agent configs or model overrides don't take effect until server restart | Clear `_agents = null` in development; document that `BFI_MODEL_*` env var changes require a server restart in production | Every time a model is changed in production without a redeploy |
+| Pro dashboard rendering all 49 fee categories server-side on every load | Slow initial page load for B2B users; large HTML payload | Fetch only featured (15) categories initially; use `?show=all` pattern already established elsewhere | If the pro dashboard shows more than 20 categories in the initial render |
 
 ---
 
@@ -225,10 +266,10 @@ Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright ste
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Exposing `canonical_fee_key` remapping logic in a public API endpoint | Competitors can reverse-engineer taxonomy decisions and synonym clusters | Taxonomy mapping lives only in Python crawler and server-side TS; never expose alias table via `/api/v1/` |
-| Using `sql.unsafe()` with string-interpolated canonical keys from user input | SQL injection if user-supplied key reaches raw query | Canonical keys are constants from `FEE_FAMILIES` — document this explicitly; never allow user-provided canonical key to reach `sql.unsafe()` |
-| PDF report download without auth check | Unauthorized user downloads premium benchmarking reports | PDF generation routes (`/api/reports/[id]/pdf`) must call `getCurrentUser()` and verify `premium` or `admin` role before `renderToBuffer()` |
-| Playwright stealth crawling with production DB credentials in Modal environment | Modal worker compromise exposes full Supabase credentials | Use a read-write limited DB user for crawl workers, separate from the admin app credentials |
+| Adding a new pro agent to `agents.ts` with `requiresAuth: false` by mistake | Any unauthenticated user can call the pro-tier agent with internal tools exposed | Every agent with `internalTools` in its tool set must have `requiresAuth: true`; add a startup assertion that validates this invariant |
+| Pro page that reads `agentId` from URL query params without validating against the known agent list | User crafts URL to call `content-writer` or `custom-query` (admin-only agents) | Call `getAgent(agentId)` and check `agent.requiredRole` in the page component before rendering the chat UI; the API route already enforces this but the UI should not offer false hope |
+| Report generation endpoint accepting `user_id` in the request body | Attacker generates reports attributed to another user's quota | `user_id` must come from `getCurrentUser()` server-side only; never from the request body |
+| Cookie named `fsh_session` (legacy name) accepted alongside a new renamed cookie | Session fixation if both cookie names are valid simultaneously | Keep `fsh_session` as the sole cookie name per the MEMORY.md note; do not add a second auth cookie for the pro experience |
 
 ---
 
@@ -236,25 +277,24 @@ Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright ste
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Sort state lives in local React state (not URL) | Bank executive shares a URL to a sorted fee table; recipient sees unsorted default | All sort state in URL params — `?sort=median_amount&dir=desc` persists across shares and refreshes |
-| Category explorer accordion collapses on filter change | User applies a family filter, accordion resets — loses context of which family was open | Persist accordion open state in URL (`?open=Overdraft+%26+NSF`) or use uncontrolled accordion that does not reset on filter changes |
-| PDF report fonts differ from web report fonts | Premium PDF looks like a different product from the web view | Embed Geist/Newsreader fonts explicitly in react-pdf using `Font.register()` before rendering any `<Text>` — react-pdf does not inherit system fonts |
-| Responsive breakpoint collapses multi-stat hero cards to single column on 13" laptop | Executives on MacBook Pro see one card per row instead of four | Test at 1280px viewport before shipping; set minimum grid breakpoint at `lg:` (1024px) not `md:` (768px) for Pro screens |
-| "Loading..." shown during sort on client-sorted table | Instant client sort shows a flash of loading state if incorrectly wrapped in Suspense | Client-side sort must not trigger any Suspense boundary; only server re-fetches need loading states |
+| Split-panel gateway at `/` asks consumers to self-identify before seeing value | High bounce rate; users who arrived from search don't understand why they need to choose | Replace with a value-first consumer landing page; B2B entry is a secondary nav action |
+| Pro dashboard shows "Subscribe" CTA to a user who is already subscribed | Undermines trust in the platform; makes the user feel unrecognized | Check `canAccessPremium(user)` server-side and show the actual dashboard, not the marketing page; `pro/page.tsx` already does this correctly but must be maintained through the redesign |
+| Institution pages designed only for consumers show "premium" benchmarking features as blurred/locked | B2B users visiting institution pages from research workflows hit friction on features they've paid for | Access checks on institution pages must respect `canAccessPremium(user)`; blurring should only appear for truly unauthenticated visitors |
+| Consumer "Find Your Bank" flow deposits users in `/institutions` (unbranded list) instead of a guided experience | Drop-off after the CTA click; page doesn't feel like a continuation of the consumer promise | Institution search should be the consumer experience front door, not a raw list; at minimum, preserve consumer nav context on this page |
+| B2B launchpad "four doors" presented as equal options when Hamilton is the primary differentiator | Users don't know where to start; the most valuable feature is buried | Hamilton should be the hero action on the B2B dashboard, not one of four equal tiles |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Taxonomy backfill:** Verify `canonical_fee_key IS NOT NULL` count matches total non-rejected fees before removing fallback — do not assume "matched: X" in categorize script output equals "all rows updated."
-- [ ] **Auto-classification live:** Confirm new fees inserted by `crawl.py` and `state_agent.py` actually write `canonical_fee_key` at insert time, not just `fee_category`. The column must be in the `INSERT` statement, not only in the `UPDATE` backfill.
-- [ ] **Sortable tables:** Verify sort persists through filter changes — apply a peer filter while sorted by median, then apply another filter; confirm both persist.
-- [ ] **PDF reports:** Open generated PDF in Adobe Reader or Preview (not Chrome PDF viewer) — Chrome renders some invalid PDFs that other readers reject.
-- [ ] **PDF fonts:** Download the PDF, email it to a device without Geist installed — confirm text renders with the embedded font, not a fallback serif.
-- [ ] **Responsive Pro screens:** Test at 1280px (13" MacBook at native resolution), not only at the 1920px development viewport.
-- [ ] **Report data piping:** After Call Report data changes, verify the PDF regenerates fresh data — confirm ISR or cache invalidation is wired, not serving a stale cached render.
-- [ ] **Stripe billing portal:** After wiring, test with a Stripe test subscription in `past_due` state — confirm the user is gated but not permanently locked out with no recovery path.
-- [ ] **categorize_fees.py DB path:** Confirm the production Postgres path uses `$1` placeholders, not the legacy SQLite `?` placeholders visible in the current `categorize_fees.py`.
+- [ ] **Consumer landing page redesign:** Verify the root `/` renders as a Server Component (no `"use client"` at file top) and that `metadata.description` is consumer-specific and SEO-optimized.
+- [ ] **B2B launchpad:** Verify a session with `role: "premium"` and `subscription_status: "active"` sees the dashboard, not the marketing page. Verify `role: "viewer"` sees a paywall, not a 500.
+- [ ] **Hamilton pro access:** Verify that a premium user calling `/api/research/content-writer` gets a 403, not a 200. Verify that `fee-analyst` returns a 200 for premium users.
+- [ ] **Report generation limits:** Verify a premium user who calls `/api/reports/generate` 10 times in a row gets rate-limited before the 6th call (or whatever the daily limit is set to).
+- [ ] **Dark mode scope:** Verify that the `DarkModeToggle` is not present in `CustomerNav` or consumer layouts until dark mode CSS for those pages is implemented. Verify that toggling dark mode on an admin page and then navigating to a consumer page does not produce a broken visual state.
+- [ ] **Sitemap integrity:** Verify `sitemap.ts` contains no `/consumer/` or `/pro/` prefix on URLs that previously existed without those prefixes.
+- [ ] **No duplicate fee data routes:** Run `find src/app -name "page.tsx" | xargs grep -l "getNationalIndex\|getPeerIndex"` and verify consumer and B2B pages are not independently fetching the same data with no shared cache.
+- [ ] **Pro nav does not expose admin routes:** Verify that the B2B navigation contains no links to `/admin/*` routes.
 
 ---
 
@@ -262,12 +302,12 @@ Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright ste
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Taxonomy backfill corrupts index counts | MEDIUM | Roll back by querying from `fee_category` (unchanged); `canonical_fee_key` is additive, so dropping the column restores prior state without data loss |
-| False merge of NSF into overdraft | HIGH | Manual review of all fees mapped to `overdraft` in affected crawl batches; re-run categorize with corrected alias table; re-stage affected fees |
-| Sort state breaks URL filter pattern | LOW | Fix URLSearchParams clone pattern in filter bar; no data impact; redeploy |
-| PDF render crashes in production | LOW | Disable PDF download link; serve web view with print CSS as fallback; fix react-pdf issue in a hotfix |
-| Big bank crawl triggers legal concern | HIGH | Immediately pause crawl for affected institutions in `config.yaml`; document what data was collected; do not re-crawl until ToS reviewed |
-| Auto-classification runs inline and adds >500ms to extraction | MEDIUM | Move LLM fallback to async post-processing queue; alias lookup stays inline; degraded coverage acceptable temporarily |
+| SEO regression from URL restructuring | HIGH | Audit Google Search Console for 404s; set up 301 redirects from new URLs to canonical; resubmit sitemap; wait 4-8 weeks for reindex |
+| Component duplication discovered mid-milestone | MEDIUM | Identify the canonical component; merge logic; use a prop or composition to handle variant differences; update all callsites in one PR |
+| Hamilton agent security gap (wrong `requiredRole`) | MEDIUM | Hotfix: add `requiredRole: "admin"` to affected agents immediately; audit access logs for unauthorized calls; notify affected users if sensitive data was exposed |
+| Report generation cost overrun | LOW-MEDIUM | Disable user-triggered report generation temporarily; add per-user daily limit; monitor `report_jobs` table for volume; re-enable with limits in place |
+| Dark mode breaks consumer pages | LOW | Scope toggle to admin-only by removing `DarkModeToggle` from `CustomerNav`; restore consumer page visual integrity; dark mode for consumer is a future phase |
+| Scope creep has consumed the milestone | HIGH | Cut scope to the minimum: consumer landing + B2B launchpad only; defer personalization, expanded Hamilton, and consumer guide integration to the next milestone |
 
 ---
 
@@ -275,31 +315,30 @@ Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright ste
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Taxonomy backfill breaks live index | Taxonomy consolidation (first phase) | Compare `institution_count` per category before and after backfill; delta must be zero |
-| False merge of NSF/Overdraft, Domestic/International | Taxonomy consolidation (before alias expansion) | Run `NEVER_MERGE` guard pytest before any categorize-fees production run |
-| Auto-classification adds pipeline latency | Auto-classification phase | Benchmark extraction time per fee with and without inline classification |
-| Sortable tables memory blowup | Sortable tables phase | Profile browser memory on review queue at 1,000+ rows |
-| Sort state conflicts with URL filters | Sortable tables phase | Manual QA: apply filter, change sort, apply filter again — verify both persist |
-| react-pdf cannot render Recharts | Report PDF generation phase | Spike PDF generation with a real Recharts chart before committing to the approach |
-| Responsive retrofit breaks desktop density | Hamilton Pro polish phase | Test all Pro screens at 1280px before and after responsive changes |
-| Playwright vs. big bank bot detection | Pipeline coverage phase | Track success rate by bank tier; document legal review of ToS for top 250 targets |
+| SEO regression from route restructuring | Phase 1 (consumer landing redesign) — establish no-URL-changes contract | `sitemap.ts` output before and after phase must be identical for existing URLs |
+| Split-panel gateway | Phase 1 — replace with Server Component consumer landing | Root `/` responds to `curl` with indexable HTML content |
+| Component duplication | Pre-phase planning — define component boundary policy | No new components in `src/components/pro/` that mirror `src/components/public/` |
+| Hamilton pro agent security gap | Phase that adds pro Hamilton access | `npm test` includes agent access control tests covering premium vs admin boundaries |
+| Report generation cost overrun | Phase that enables pro-user report generation | Load test: 10 concurrent premium users cannot exceed configured daily per-user limit |
+| Dark mode scope confusion | Phase 1 or any phase touching `CustomerNav` | `DarkModeToggle` not present in consumer layout until dark mode CSS is implemented |
+| Scope creep | Every phase — enforced at planning time | Phase plan names specific files in scope; PR review checks for out-of-scope changes |
+| Admin bookmark breakage | B2B launchpad phase | Manual test: existing admin bookmarks (`/admin/hamilton/`, `/admin/market`, `/admin/fees/catalog`) resolve correctly after phase |
+| Personalization over-engineering | B2B launchpad phase — explicitly defer | B2B dashboard ships with no user-institution linking in DB schema |
 
 ---
 
 ## Sources
 
-- Codebase: `src/lib/crawler-db/fee-index.ts` — `getNationalIndex()` filters on `CANONICAL_CATEGORIES` array; confirmed current behavior
-- Codebase: `src/components/sortable-table.tsx` — client-side sort and pagination confirmed in-memory via `useMemo`
-- Codebase: `fee_crawler/commands/categorize_fees.py` — batch update pattern confirmed; SQLite `?` placeholder noted vs. Postgres `$1` required
-- Codebase: `fee_crawler/fee_analysis.py` — `FEE_NAME_ALIASES` alias table; `get_fee_family()` lookup confirmed
-- Project memory: `project_reextraction_big_banks.md` — 116/250 big banks failed re-extraction, Playwright stealth already at ceiling
-- Project memory: `feedback_nsf_overdraft_distinction.md` — explicit never-infer rule for NSF vs Overdraft
-- [react-pdf GitHub issue #1050: Charts in PDF](https://github.com/diegomura/react-pdf/issues/1050) — SVG rendering limitation confirmed
-- [react-pdf-charts npm package](https://github.com/EvHaus/react-pdf-charts) — workaround library; MEDIUM confidence on coverage
-- [Zero-downtime PostgreSQL migrations (Lob Engineering)](https://www.lob.com/blog/meeting-expectations-running-database-changes-with-zero-downtime) — expand-and-contract pattern
-- [Playwright stealth limitations against Cloudflare (Scrapfly)](https://scrapfly.io/blog/posts/playwright-stealth-bypass-bot-detection) — advanced bot detection confirmed
-- [NCUA NSF/OD reporting policy change 2025](https://ncua.gov/newsroom/press-release/2025/hauptman-announces-changes-ncuas-overdraftnsf-fee-collection) — regulatory context for NSF/OD distinction importance
+- Direct inspection of `src/app/page.tsx`, `src/app/gateway-client.tsx`, `src/app/(public)/layout.tsx`, `src/app/consumer/layout.tsx`, `src/app/pro/layout.tsx`
+- `src/lib/research/agents.ts` — agent config, role requirements, tool sets
+- `src/app/api/research/[agentId]/route.ts` — auth enforcement, cost circuit breaker
+- `src/app/api/reports/generate/route.ts` — report generation auth paths
+- `src/lib/access.ts` — access control helpers
+- `src/app/sitemap.ts` — URL structure and canonical paths
+- `src/app/globals.css` — dark mode implementation scope
+- `CLAUDE.md` project constraints (content quality, cost, no overlap)
+- `.planning/PROJECT.md` — v6.0 milestone target features and constraints
 
 ---
-*Pitfalls research for: Bank Fee Index v9.0 — Data Foundation & Production Polish*
-*Researched: 2026-04-09*
+*Pitfalls research for: audience-segmented UX split on existing Next.js App Router monolith*
+*Researched: 2026-04-07*

@@ -26,7 +26,7 @@ from fee_crawler.agents.extract_js import extract_js
 from fee_crawler.agents.validate import validate_fees
 from fee_crawler.knowledge.loader import load_knowledge, write_learnings, get_known_failures
 from fee_crawler.knowledge.pruner import should_prune_state, prune_state
-from fee_crawler.fee_analysis import classify_fee, normalize_fee_name, get_fee_family
+from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
 
 log = logging.getLogger(__name__)
 
@@ -296,7 +296,7 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
 
         # Categorize using the existing taxonomy
         fee_name = fee.get("fee_name", "")
-        category, canonical_key, variant = classify_fee(fee_name)
+        category = normalize_fee_name(fee_name)
         family = get_fee_family(category)
 
         # Dedup: skip if we already have this exact (category, product, amount)
@@ -309,9 +309,8 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
             """INSERT INTO extracted_fees
                (crawl_target_id, fee_name, amount, frequency, conditions,
                 extraction_confidence, review_status, fee_category, fee_family,
-                account_product_type, is_fee_cap, extracted_by,
-                canonical_fee_key, variant_type)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'agent_v1', %s, %s)""",
+                account_product_type, is_fee_cap, extracted_by)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'agent_v1')""",
             (
                 crawl_target_id,
                 fee_name,
@@ -324,8 +323,6 @@ def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
                 family,
                 product,
                 fee.get("is_cap", False),
-                canonical_key,
-                variant,
             ),
         )
 

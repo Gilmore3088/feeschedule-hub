@@ -85,244 +85,6 @@ FEE_FAMILIES: dict[str, list[str]] = {
     ],
 }
 
-# ---------------------------------------------------------------------------
-# Canonical key map: stable aggregation keys for downstream queries.
-# For the 49 base categories, canonical_fee_key == fee_category (identity).
-# Synonym clusters map multiple fee_category slugs to a single canonical key.
-# ---------------------------------------------------------------------------
-CANONICAL_KEY_MAP: dict[str, str] = {
-    # Account Maintenance
-    "monthly_maintenance": "monthly_maintenance",
-    "minimum_balance": "minimum_balance",
-    "early_closure": "early_closure",
-    "dormant_account": "dormant_account",
-    "account_research": "account_research",
-    "paper_statement": "paper_statement",
-    "estatement_fee": "estatement_fee",
-    # Overdraft & NSF
-    "overdraft": "overdraft",
-    "nsf": "nsf",
-    "continuous_od": "continuous_od",
-    "od_protection_transfer": "od_protection_transfer",
-    "od_line_of_credit": "od_line_of_credit",
-    "od_daily_cap": "od_daily_cap",
-    "nsf_daily_cap": "nsf_daily_cap",
-    # ATM & Card
-    "atm_non_network": "atm_non_network",
-    "atm_international": "atm_international",
-    "card_replacement": "card_replacement",
-    "rush_card": "rush_card",
-    "card_foreign_txn": "card_foreign_txn",
-    "card_dispute": "card_dispute",
-    # Wire Transfers
-    "wire_domestic_outgoing": "wire_domestic_outgoing",
-    "wire_domestic_incoming": "wire_domestic_incoming",
-    "wire_intl_outgoing": "wire_intl_outgoing",
-    "wire_intl_incoming": "wire_intl_incoming",
-    # Check Services
-    "cashiers_check": "cashiers_check",
-    "money_order": "money_order",
-    "check_printing": "check_printing",
-    "stop_payment": "stop_payment",
-    "counter_check": "counter_check",
-    "check_cashing": "check_cashing",
-    "check_image": "check_image",
-    # Digital & Electronic
-    "ach_origination": "ach_origination",
-    "ach_return": "ach_return",
-    "bill_pay": "bill_pay",
-    "mobile_deposit": "mobile_deposit",
-    "zelle_fee": "zelle_fee",
-    # Cash & Deposit
-    "coin_counting": "coin_counting",
-    "cash_advance": "cash_advance",
-    "deposited_item_return": "deposited_item_return",
-    "night_deposit": "night_deposit",
-    # Account Services
-    "notary_fee": "notary_fee",
-    "safe_deposit_box": "safe_deposit_box",
-    "garnishment_levy": "garnishment_levy",
-    "legal_process": "legal_process",
-    "account_verification": "account_verification",
-    "balance_inquiry": "balance_inquiry",
-    # Lending Fees
-    "late_payment": "late_payment",
-    "loan_origination": "loan_origination",
-    "appraisal_fee": "appraisal_fee",
-    # Synonym clusters: production fee_category slugs -> canonical key
-    # These are actual slugs found in extracted_fees that normalize to a base category.
-    # --- Slug duplicates / abbreviations ---
-    "rush_card_delivery": "rush_card",
-    "estatement": "estatement_fee",
-    "check_image_charge": "check_image",
-    "safe_deposit": "safe_deposit_box",
-    "monthly_maintenance_charge": "monthly_maintenance",
-    "month_fee": "monthly_maintenance",
-    "premier_fee": "monthly_maintenance",
-    "savings_fee": "monthly_maintenance",
-    "money_market_fee": "monthly_maintenance",
-    # --- NSF / returned item variants ---
-    "nonsufficient_fee": "nsf",
-    "return_item_charge": "nsf",
-    # --- Overdraft variants ---
-    "overdraft_each_overdraft_paid": "overdraft",
-    "overdraft_privilege": "overdraft",
-    "over_fee": "overdraft",
-    "excessive_withdrawal_fee": "overdraft",
-    # --- Card / debit variants ---
-    "debit_fee": "card_replacement",
-    "debit_card_fee": "card_replacement",
-    "visa_debit_card_fee": "card_replacement",
-    "replacement_fee": "card_replacement",
-    "pin_fee": "card_replacement",
-    "pin_replacement": "card_replacement",
-    "pin_replacement_fee": "card_replacement",
-    "debit_card_rush_fee": "rush_card",
-    # --- Card foreign / gift ---
-    "international_fee": "card_foreign_txn",
-    "visa_gift_card": "account_research",
-    "visa_gift_cards": "account_research",
-    "gift_card": "account_research",
-    "gift_cards": "account_research",
-    "gift_pay": "account_research",
-    "reload_fee": "account_research",
-    # --- Wire / outgoing variants ---
-    "outgoing_fee": "wire_domestic_outgoing",
-    "outgoing_domestic": "wire_domestic_outgoing",
-    "returned_wire": "wire_domestic_outgoing",
-    "express_mail": "wire_domestic_outgoing",
-    # --- Transfer / ACH variants ---
-    "transfer_fee": "od_protection_transfer",
-    "transaction_fee": "account_research",
-    "transactions_fee": "account_research",
-    "per_transaction_fee": "account_research",
-    "ach_batch_fee": "ach_origination",
-    # --- Address / mail return variants ---
-    "returned_mail": "account_research",
-    "returned_mail_fee": "account_research",
-    "return_mail": "account_research",
-    "bad_address": "account_research",
-    "bad_address_fee": "account_research",
-    "incorrect_address": "account_research",
-    "incorrect_address_fee": "account_research",
-    "invalid_address_fee": "account_research",
-    "undeliverable_mail": "account_research",
-    # --- Dormant / escheatment variants ---
-    "inactive_fee": "dormant_account",
-    "dormant_fee": "dormant_account",
-    "escheatment": "dormant_account",
-    "escheat_processing_fee": "dormant_account",
-    "abandoned_property_fee": "dormant_account",
-    # --- Skip-a-pay / late payment variants ---
-    "skip_a_pay": "late_payment",
-    "skipapay": "late_payment",
-    "skipapayment": "late_payment",
-    "reinstatement": "late_payment",
-    # --- Fax / research / admin variants ---
-    "fax_fee": "account_research",
-    "account_balancing_assistance": "account_research",
-    "account_balancing_assistance_per_hour": "account_research",
-    "balancing_assistance_fee": "account_research",
-    "inquiries_fee": "account_research",
-    "document_copy": "account_research",
-    "more_fee": "account_research",
-    "less_fee": "account_research",
-    # --- Early closure / club variants ---
-    "club_account": "early_closure",
-    "christmas_club_early_withdrawal_fee": "early_closure",
-    "christmas_club_withdrawal": "early_closure",
-    "club_account_early_withdrawal": "early_closure",
-    "account_closed_within_90_days_of_opening": "early_closure",
-    "account_closed_within_90_days": "early_closure",
-    # --- Check variants ---
-    "check_fee": "check_printing",
-    "copy_of_paid_check": "check_image",
-    "check_by_phone": "check_cashing",
-    "corporate_check": "cashiers_check",
-    "cashed_fee": "check_cashing",
-    "foreign_check_collection": "check_cashing",
-    "items_sent_for_collection": "deposited_item_return",
-    # --- Safe deposit / key variants ---
-    "lost_key_fee": "safe_deposit_box",
-    "lost_key": "safe_deposit_box",
-    "lost_fee": "safe_deposit_box",
-    "key_replacement": "safe_deposit_box",
-    "replacement_key": "safe_deposit_box",
-    "drilling_fee": "safe_deposit_box",
-    "box_drilling": "safe_deposit_box",
-    "zipper_bag": "night_deposit",
-    # --- Safe deposit box size slugs ---
-    "3_x_5": "safe_deposit_box",
-    "3_x_5_box": "safe_deposit_box",
-    "3_x_10": "safe_deposit_box",
-    "5_x_5": "safe_deposit_box",
-    "5_x_10": "safe_deposit_box",
-    "5_x_10_box": "safe_deposit_box",
-    "10_x_10": "safe_deposit_box",
-    "10_x_10_box": "safe_deposit_box",
-    # --- Legal / subordination variants ---
-    "subordination_fee": "legal_process",
-    "subordination": "legal_process",
-    "mortgage_subordination": "legal_process",
-    "mortgage_subordination_fee": "legal_process",
-    "duplicate_lien_release": "legal_process",
-    "lien_fee": "legal_process",
-    # --- Lending variants ---
-    "loan_modification_fee": "loan_origination",
-    "credit_card_fee": "cash_advance",
-    "credit_fee": "cash_advance",
-    # --- Coin / deposit variants ---
-    "coin_deposited_fee": "coin_counting",
-    "deposited_fee": "deposited_item_return",
-    "collection_fee": "deposited_item_return",
-    # --- ATM variants ---
-    "all_other_atms": "atm_non_network",
-    "atm_deposit_adjustment": "deposited_item_return",
-    # --- Statement variants ---
-    "returned_statement": "paper_statement",
-    "mailed_paper_statement": "paper_statement",
-    # --- Balance inquiry variants ---
-    "shared_branch_fee": "balance_inquiry",
-    # --- Misc (fastpay = expedited payment) ---
-    "fastpay_fee": "ach_origination",
-    "withdrawal_fee": "account_research",
-    "silverbronze_rewards_fee": "monthly_maintenance",
-    "charitable_donation": "account_research",
-    "operate_fee": "account_research",
-    # --- Production Postgres audit (2026-04-10) ---
-    # High-frequency non-taxonomy slugs found in Supabase production data.
-    "fax": "account_research",
-    "fax_service": "account_research",
-    "fax_services": "account_research",
-    "christmas_club_early_withdrawal": "early_closure",
-    "christmas_club_withdrawal_fee": "early_closure",
-    "skipapayment_fee": "late_payment",
-    "skipapay_fee": "late_payment",
-    "undeliverable_mail": "account_research",
-    "zipper_bags": "night_deposit",
-    "membership_share": "monthly_maintenance",
-    "western_union": "wire_domestic_outgoing",
-    "outgoing_fee": "wire_domestic_outgoing",
-    "document_copy_fee": "account_research",
-    "visa_travel_card": "card_replacement",
-    "loan_extension": "loan_origination",
-    "excessive_transaction_fee": "account_research",
-    "reopen_account": "early_closure",
-    "loan_cancellation_fee": "loan_origination",
-}
-
-# Categories that must NEVER share aliases -- regulatory or semantic boundaries.
-# Guard test in tests/test_never_merge.py enforces this before any alias expansion.
-NEVER_MERGE_PAIRS: list[tuple[str, str]] = [
-    ("nsf", "overdraft"),
-    ("wire_domestic_outgoing", "wire_intl_outgoing"),
-    ("wire_domestic_incoming", "wire_intl_incoming"),
-    ("atm_non_network", "card_replacement"),
-    ("od_protection_transfer", "overdraft"),
-    ("od_daily_cap", "overdraft"),
-    ("nsf_daily_cap", "nsf"),
-]
-
 # Canonical fee categories and their known aliases
 FEE_NAME_ALIASES: dict[str, str] = {
     # --- Account Maintenance ---
@@ -490,6 +252,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "wire transfers outgoing": "wire_domestic_outgoing",
     "wire transfers  outgoing": "wire_domestic_outgoing",
     "wire transfer domestic incoming": "wire_domestic_incoming",
+    "wire transfer domestic outgoing": "wire_domestic_outgoing",
     "wire transfer domestic": "wire_domestic_outgoing",
     "domestic wire transfer": "wire_domestic_outgoing",
     "wire transfer": "wire_domestic_outgoing",
@@ -660,8 +423,8 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "bounced check fee": "nsf",
     "returned payment fee": "nsf",
     "returned transaction fee": "nsf",
-    "returned ach": "ach_return",
-    "returned ach item": "ach_return",
+    "returned ach": "nsf",
+    "returned ach item": "nsf",
     "unpaid item fee": "nsf",
     "unpaid nsf fee": "nsf",
     "nsf item fee": "nsf",
@@ -762,6 +525,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "outgoing ach": "ach_origination",
     "incoming ach": "ach_origination",
     "ach return": "ach_return",
+    "returned ach": "ach_return",
     "ach returned item fee": "ach_return",
     "online bill payment": "bill_pay",
     "online bill payment fee": "bill_pay",
@@ -779,6 +543,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "coin sorting fee": "coin_counting",
     "cash handling fee": "coin_counting",
     "cash advance": "cash_advance",
+    "deposited item returned": "deposited_item_return",
     "returned deposit": "deposited_item_return",
     "chargeback deposited item": "deposited_item_return",
     "foreign item collection": "deposited_item_return",
@@ -844,6 +609,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     # Foreign currency
     "foreign currency": "card_foreign_txn",
     "foreign currency exchange": "card_foreign_txn",
+    "foreign currency fee": "card_foreign_txn",
     # ATM international variants
     "international atm withdrawal": "atm_international",
     "international atm": "atm_international",
@@ -899,6 +665,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "od interest": "continuous_od",
     # Chargeback
     "chargeback": "card_dispute",
+    "chargeback fee": "card_dispute",
     "dispute fee": "card_dispute",
     # Cash management
     "cash management": "account_research",
@@ -914,7 +681,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "ira maintenance fee": "monthly_maintenance",
     # Teller transactions
     "teller transaction fee": "account_research",
-    "teller fee": "balance_inquiry",
+    "teller fee": "account_research",
     "excessive teller transaction": "account_research",
     "teller withdrawal fee": "account_research",
     # Excess withdrawal
@@ -927,6 +694,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "business checking fee": "monthly_maintenance",
     "business account fee": "monthly_maintenance",
     # Account closure
+    "account closure fee": "early_closure",
     # --- Aliases from pipeline refactor 2026-03 uncategorized analysis ---
     # Per-check / per-item fees
     "per check fee": "check_printing",
@@ -953,8 +721,8 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "atm deposit adjustment fee": "deposited_item_return",
     "empty envelope deposit": "deposited_item_return",
     # Key / safe deposit
-    "key deposit": "safe_deposit_box",
-    "key replacement": "safe_deposit_box",
+    "key deposit": "safe_deposit",
+    "key replacement": "safe_deposit",
     # Bond
     "indemnity bond": "account_research",
     "bond of indemnity": "account_research",
@@ -962,7 +730,7 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "minimum interest charge": "account_research",
     "minimum finance charge": "account_research",
     # Mailed receipt
-    "mailed receipt": "paper_statement",
+    "mailed receipt": "statement_copy",
     "mail return fee": "deposited_item_return",
     # Loan coupons
     "loan coupons": "account_research",
@@ -971,18 +739,24 @@ FEE_NAME_ALIASES: dict[str, str] = {
     # returned_mail / bad_address -> account_research
     "returned mail fee": "account_research",
     "returned mail": "account_research",
+    "return mail fee": "account_research",
     "undeliverable mail fee": "account_research",
     "bad address fee": "account_research",
     "bad address": "account_research",
     # debit_fee / debit_card_fee -> card_replacement (or atm_non_network contextual)
     "debit card fee": "card_replacement",
+    "debit card replacement fee": "card_replacement",
+    "debit card replacement": "card_replacement",
     # outgoing_fee -> wire_domestic_outgoing
     "outgoing wire fee": "wire_domestic_outgoing",
+    "outgoing wire": "wire_domestic_outgoing",
     "domestic wire fee": "wire_domestic_outgoing",
+    "wire fee": "wire_domestic_outgoing",
     # transfer_fee -> od_protection_transfer
     "transfer fee": "od_protection_transfer",
     # inactive_fee -> dormant_account
     "inactive fee": "dormant_account",
+    "inactive account": "dormant_account",
     # escheatment -> dormant_account
     "escheatment": "dormant_account",
     "escheat processing fee": "dormant_account",
@@ -995,8 +769,12 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "check fee": "check_printing",
     # replacement_fee -> card_replacement
     "replacement fee": "card_replacement",
+    "replacement card fee": "card_replacement",
     # copy_of_paid_check -> check_image
     "copy of paid check": "check_image",
+    "paid check copy": "check_image",
+    "check copy fee": "check_image",
+    "check copy": "check_image",
     # account_closed_within_90_days -> early_closure
     "account closed within 90 days": "early_closure",
     "account closed within 90 days of opening": "early_closure",
@@ -1005,20 +783,30 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "lost safe deposit key": "safe_deposit_box",
     "replacement key": "safe_deposit_box",
     # account_balancing_assistance -> account_research
+    "account balancing assistance": "account_research",
     "account balancing": "account_research",
     # Telephone/teller -> balance_inquiry
     "telephone banking fee": "balance_inquiry",
+    "teller fee": "balance_inquiry",
     "assisted transaction fee": "balance_inquiry",
     "live teller fee": "balance_inquiry",
     # Remote deposit -> mobile_deposit
+    "remote deposit fee": "mobile_deposit",
+    "remote deposit capture fee": "mobile_deposit",
+    "rdc fee": "mobile_deposit",
     # Signature guarantee -> account_verification
+    "signature guarantee": "account_verification",
     "medallion signature": "account_verification",
     "bank reference letter": "account_verification",
+    "verification of deposit": "account_verification",
     # Skip-a-pay -> late_payment
     "skip a payment": "late_payment",
     "skip a payment fee": "late_payment",
+    "skip payment fee": "late_payment",
     # --- Round 3: uncategorized audit (2026-03-22 night) ---
     "return item charge": "nsf",
+    "mailed receipt": "paper_statement",
+    "key deposit": "safe_deposit_box",
     "instant statement": "paper_statement",
     "additional statement": "paper_statement",
     "incorrect mailing address": "account_research",
@@ -1049,290 +837,10 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "fax incoming": "account_research",
     "fax outgoing": "account_research",
     "bank bag": "night_deposit",
+    "night deposit bag": "night_deposit",
     "security fee": "account_research",
     "bond coupon redemption": "account_research",
     "expedited check payment": "check_cashing",
-    # --- Synonym cluster expansion (Phase 55, 2026-04-09) ---
-    # skip-a-pay cluster -> late_payment
-    # Note: "skip a pay fee" is a loan deferral product, not a penalty, but maps
-    # to late_payment as the closest regulatory fee category available.
-    "skip-a-pay fee": "late_payment",
-    "skip-a-pay": "late_payment",
-    "skip a pay": "late_payment",
-    "loan skip payment": "late_payment",
-    "loan deferral fee": "late_payment",
-    "payment deferral fee": "late_payment",
-    # return_mail cluster -> account_research
-    "returned mail processing": "account_research",
-    "return mail processing": "account_research",
-    "mail return processing fee": "account_research",
-    "undeliverable address": "account_research",
-    "address change fee": "account_research",
-    "unclaimed mail fee": "account_research",
-    # club_account cluster -> early_closure (penalizes early withdrawal from club accounts)
-    "club account fee": "early_closure",
-    "christmas club fee": "early_closure",
-    "vacation club fee": "early_closure",
-    "holiday club fee": "early_closure",
-    "savings club fee": "early_closure",
-    "club withdrawal fee": "early_closure",
-    "club account early withdrawal": "early_closure",
-    "christmas club withdrawal": "early_closure",
-    # fax_fee cluster -> account_research (administrative service fee)
-    "fax service": "account_research",
-    "incoming fax fee": "account_research",
-    "outgoing fax fee": "account_research",
-    "fax transmission fee": "account_research",
-    "telefax fee": "account_research",
-    # --- Phase 55 audit expansion (2026-04-10) ---
-    # High-frequency unmatched fee names from production data.
-    # Overdraft / NSF additional patterns
-    "nsf item": "nsf",
-    "nsf charge": "nsf",
-    "nsf returned item": "nsf",
-    "insufficient funds charge": "nsf",
-    "returned draft fee": "nsf",
-    "returned share draft": "nsf",
-    "returned share draft fee": "nsf",
-    "nonsufficient funds fee": "nsf",
-    "non-sufficient funds": "nsf",
-    "nonsufficient": "nsf",
-    "courtesy pay overdraft": "overdraft",
-    "member privilege": "overdraft",
-    "privilege pay": "overdraft",
-    "privilege pay fee": "overdraft",
-    "overlimit fee": "overdraft",
-    "nsf overdraft fee": "overdraft",
-    "nsf item overdraft fee": "overdraft",
-    "overdraft returned": "nsf",
-    "nsfs overdrafts paid or returned": "overdraft",
-    "atm ach overdraft": "overdraft",
-    # Continuous OD patterns from audit
-    "continuing overdraft fee": "continuous_od",
-    "continuing overdraft fee per day": "continuous_od",
-    "sustained overdraft": "continuous_od",
-    "daily overdraft": "continuous_od",
-    "daily negative balance": "continuous_od",
-    "per day negative balance": "continuous_od",
-    # Monthly maintenance / account fee patterns
-    "service fee": "monthly_maintenance",
-    "annual fee": "monthly_maintenance",
-    "annual account fee": "monthly_maintenance",
-    "quarterly fee": "monthly_maintenance",
-    "analysis fee": "monthly_maintenance",
-    "account analysis fee": "monthly_maintenance",
-    "money service business fee": "monthly_maintenance",
-    "msb fee": "monthly_maintenance",
-    "escrow account fee": "monthly_maintenance",
-    "agency account fee": "monthly_maintenance",
-    # Stop payment additional
-    "stop payment order fee": "stop_payment",
-    "stop ach payment": "stop_payment",
-    "stop ach": "stop_payment",
-    "revoke stop payment order": "stop_payment",
-    # Wire transfer additional patterns
-    "wire recall fee": "wire_domestic_outgoing",
-    "wire amendment fee": "wire_domestic_outgoing",
-    "domestic wire": "wire_domestic_outgoing",
-    "fed wire outgoing": "wire_domestic_outgoing",
-    "fed wire incoming": "wire_domestic_incoming",
-    "fedwire outgoing": "wire_domestic_outgoing",
-    "fedwire incoming": "wire_domestic_incoming",
-    # ATM patterns
-    "non-member atm fee": "atm_non_network",
-    "atm fee other banks": "atm_non_network",
-    "out of network atm fee": "atm_non_network",
-    "point of sale fee": "atm_non_network",
-    "pos fee": "atm_non_network",
-    "pos transaction fee": "atm_non_network",
-    # Card patterns
-    "new debit card": "card_replacement",
-    "atm card replacement": "card_replacement",
-    "atm debit card replacement": "card_replacement",
-    "second card fee": "card_replacement",
-    "additional card fee": "card_replacement",
-    "card fee": "card_replacement",
-    "pin change fee": "card_replacement",
-    "pin reissue": "card_replacement",
-    "expedited card": "rush_card",
-    "rush card delivery": "rush_card",
-    "rush card replacement": "rush_card",
-    "rush card delivery fee": "rush_card",
-    "expedited card replacement": "rush_card",
-    # Foreign txn additional
-    "international service assessment": "card_foreign_txn",
-    "international transaction": "card_foreign_txn",
-    "foreign transaction": "card_foreign_txn",
-    "visa foreign transaction fee": "card_foreign_txn",
-    "mastercard foreign transaction fee": "card_foreign_txn",
-    # Check patterns
-    "cashier checks": "cashiers_check",
-    "demand draft": "cashiers_check",
-    "demand draft fee": "cashiers_check",
-    "corporate check fee": "cashiers_check",
-    "temporary checks fee": "counter_check",
-    "initial check order": "check_printing",
-    "standard check order": "check_printing",
-    "duplicate check": "check_image",
-    "copy of cancelled check": "check_image",
-    "copy of cleared check": "check_image",
-    "microfilm research": "check_image",
-    "microfilm research fee": "check_image",
-    "image statement": "check_image",
-    # ACH / electronic additional
-    "ach credit": "ach_origination",
-    "ach debit": "ach_origination",
-    "ach item fee": "ach_origination",
-    "ach processing fee": "ach_origination",
-    "electronic transfer fee": "ach_origination",
-    "external transfer fee": "ach_origination",
-    "ach return item": "ach_return",
-    "ach return item fee": "ach_return",
-    "returned ach item fee": "ach_return",
-    # Bill pay additional
-    "bill pay": "bill_pay",
-    "bill pay service fee": "bill_pay",
-    "online payment": "bill_pay",
-    "online payment fee": "bill_pay",
-    "expedited bill payment": "bill_pay",
-    # Remote / mobile deposit additional
-    "remote deposit": "mobile_deposit",
-    "mobile deposit": "mobile_deposit",
-    "mobile check deposit": "mobile_deposit",
-    "rdc service fee": "mobile_deposit",
-    "rdc monthly fee": "mobile_deposit",
-    "remote deposit scanner": "mobile_deposit",
-    # Coin / cash additional
-    "rolled coin fee": "coin_counting",
-    "coin rolling fee": "coin_counting",
-    "mixed coin deposit": "coin_counting",
-    "loose coin deposit": "coin_counting",
-    "bulk coin processing": "coin_counting",
-    "currency handling fee": "coin_counting",
-    "cash advance on credit card": "cash_advance",
-    "visa cash advance fee": "cash_advance",
-    # Deposited item return additional
-    "deposited item return": "deposited_item_return",
-    "cashed check returned": "deposited_item_return",
-    "deposited check return": "deposited_item_return",
-    "returned deposit item fee": "deposited_item_return",
-    "foreign item fee": "deposited_item_return",
-    "foreign item collection fee": "deposited_item_return",
-    "canadian item fee": "deposited_item_return",
-    "foreign check fee": "deposited_item_return",
-    # Night deposit additional
-    "night depository bag": "night_deposit",
-    "night deposit bag fee": "night_deposit",
-    "night drop bag": "night_deposit",
-    "zipper bag fee": "night_deposit",
-    "lock bag fee": "night_deposit",
-    "lock bag": "night_deposit",
-    "deposit bag": "night_deposit",
-    # Safe deposit additional
-    "safe deposit box drilling fee": "safe_deposit_box",
-    "safe deposit key replacement": "safe_deposit_box",
-    "safe deposit lost key": "safe_deposit_box",
-    "safety deposit box fee": "safe_deposit_box",
-    "safety deposit": "safe_deposit_box",
-    "safe deposit box rent": "safe_deposit_box",
-    # Garnishment / legal additional
-    "garnishment processing fee": "garnishment_levy",
-    "wage garnishment fee": "garnishment_levy",
-    "child support processing": "garnishment_levy",
-    "child support levy": "garnishment_levy",
-    "irs levy fee": "garnishment_levy",
-    "federal tax levy": "garnishment_levy",
-    "legal levy": "garnishment_levy",
-    "subpoena processing": "legal_process",
-    "summons processing": "legal_process",
-    "court order processing": "legal_process",
-    "lien release fee": "legal_process",
-    "lien release": "legal_process",
-    "subordination agreement fee": "legal_process",
-    # Account verification additional
-    "vod": "account_verification",
-    "verification of deposit letter": "account_verification",
-    "account verification letter": "account_verification",
-    "bank letter fee": "account_verification",
-    "credit reference fee": "account_verification",
-    "reference letter": "account_verification",
-    "audit confirmation": "account_verification",
-    "audit confirmation fee": "account_verification",
-    "positive pay monthly": "account_verification",
-    # Balance inquiry additional
-    "telephone banking": "balance_inquiry",
-    "phone banking fee": "balance_inquiry",
-    "audio response": "balance_inquiry",
-    "voice response fee": "balance_inquiry",
-    "shared branching fee": "balance_inquiry",
-    "shared branch transaction": "balance_inquiry",
-    # Dormant / escheatment additional
-    "dormant account charge": "dormant_account",
-    "abandoned account": "dormant_account",
-    "abandoned property": "dormant_account",
-    "unclaimed property": "dormant_account",
-    "escheat": "dormant_account",
-    "escheatment processing": "dormant_account",
-    # Early closure additional
-    "early account closing": "early_closure",
-    "account closed early": "early_closure",
-    "close account fee": "early_closure",
-    "account termination fee": "early_closure",
-    "early certificate withdrawal": "early_closure",
-    "cd early withdrawal fee": "early_closure",
-    "cd early withdrawal penalty": "early_closure",
-    "certificate early withdrawal": "early_closure",
-    "share certificate early withdrawal": "early_closure",
-    "share certificate early withdrawal fee": "early_closure",
-    "early withdrawal fee": "early_closure",
-    "ira early withdrawal": "early_closure",
-    "ira closing": "early_closure",
-    # Lending additional
-    "late loan payment": "late_payment",
-    "delinquent payment fee": "late_payment",
-    "past due fee": "late_payment",
-    "loan late fee": "late_payment",
-    "skip a loan payment": "late_payment",
-    "loan modification": "loan_origination",
-    "loan renewal fee": "loan_origination",
-    "loan renewal": "loan_origination",
-    "loan extension fee": "loan_origination",
-    "construction draw fee": "loan_origination",
-    "loan payoff fee": "loan_origination",
-    "property appraisal fee": "appraisal_fee",
-    "home appraisal fee": "appraisal_fee",
-    "real estate appraisal": "appraisal_fee",
-    # Paper statement additional
-    "statement mailing": "paper_statement",
-    "paper statement": "paper_statement",
-    "printed statement": "paper_statement",
-    "mailed statement": "paper_statement",
-    "statement request": "paper_statement",
-    "interim statement": "paper_statement",
-    "additional statement fee": "paper_statement",
-    "special statement request": "paper_statement",
-    # E-statement additional
-    "e statement fee": "estatement_fee",
-    "electronic statement": "estatement_fee",
-    # Account research additional (catch-all admin fees)
-    "research per hour fee": "account_research",
-    "account inquiry": "account_research",
-    "special handling fee": "account_research",
-    "special request fee": "account_research",
-    "clerical fee": "account_research",
-    "manual processing fee": "account_research",
-    "handling fee": "account_research",
-    "processing fee": "account_research",
-    "miscellaneous fee": "account_research",
-    "miscellaneous service fee": "account_research",
-    "miscellaneous service charge": "account_research",
-    "photocopy fee": "check_image",
-    "copy fee": "check_image",
-    "document copy fee": "account_research",
-    # Minimum balance additional
-    "minimum daily balance": "minimum_balance",
-    "minimum average balance fee": "minimum_balance",
-    "balance deficiency fee": "minimum_balance",
 }
 
 CANONICAL_DISPLAY_NAMES: dict[str, str] = {
@@ -1564,45 +1072,6 @@ def get_display_name(canonical: str) -> str:
     if canonical in CANONICAL_DISPLAY_NAMES:
         return CANONICAL_DISPLAY_NAMES[canonical]
     return canonical.replace("_", " ").title()
-
-
-# ---------------------------------------------------------------------------
-# Variant detection and classify_fee() wrapper
-# ---------------------------------------------------------------------------
-
-_VARIANT_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"\brush\b"), "rush"),
-    (re.compile(r"\bexpress\b"), "express"),
-    (re.compile(r"\bwaived?\b"), "waived"),
-    (re.compile(r"\bdaily[_ ]cap\b"), "daily_cap"),
-    (re.compile(r"\bper[_ ]item\b"), "per_item"),
-    (re.compile(r"\btemporary\b"), "temporary"),
-]
-
-
-def detect_variant_type(raw_name: str, fee_category: str | None) -> str | None:
-    """Detect fee variant from raw name. Returns variant slug or None for standard fees."""
-    if fee_category and fee_category.endswith("_daily_cap"):
-        return "daily_cap"
-    cleaned = raw_name.lower()
-    for pattern, variant in _VARIANT_PATTERNS:
-        if pattern.search(cleaned):
-            return variant
-    return None
-
-
-def classify_fee(raw_name: str) -> tuple[str | None, str | None, str | None]:
-    """Classify a raw fee name into (fee_category, canonical_fee_key, variant_type).
-
-    Returns:
-        fee_category: the normalized slug (same as normalize_fee_name output)
-        canonical_fee_key: the stable aggregation key, or None if unmatched
-        variant_type: rush/express/waived/daily_cap/per_item/temporary or None
-    """
-    fee_category = normalize_fee_name(raw_name)
-    canonical_fee_key = CANONICAL_KEY_MAP.get(fee_category)
-    variant_type = detect_variant_type(raw_name, fee_category)
-    return fee_category, canonical_fee_key, variant_type
 
 
 # ---------------------------------------------------------------------------

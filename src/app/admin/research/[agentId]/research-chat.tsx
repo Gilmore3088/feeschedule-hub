@@ -45,7 +45,7 @@ export function ResearchChat({
   const [savePending, startSaveTransition] = useTransition();
 
   const { messages, sendMessage, status, setMessages } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/research/hamilton" }),
+    transport: new DefaultChatTransport({ api: `/api/research/${agentId}` }),
     onError: (err) => {
       const msg = err?.message || "";
       if (msg.includes("429") || msg.includes("rate limit")) {

@@ -1,6 +1,6 @@
 import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, type HamiltonRole } from "@/lib/research/agents";
+import { getHamilton, type HamiltonRole } from "@/lib/research/agents";
 import { getCurrentUser, type User } from "@/lib/auth";
 import {
   checkPublicRateLimit,
@@ -126,13 +126,9 @@ export async function POST(request: Request) {
   }
 
   let messages: UIMessage[];
-  let mode: string | undefined;
-  let analysisFocus: string | undefined;
   try {
     const body = await request.json();
     messages = body.messages;
-    mode = body.mode;
-    analysisFocus = body.analysisFocus;
     if (!Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: "Messages required" }, { status: 400 });
     }
@@ -151,19 +147,6 @@ export async function POST(request: Request) {
       .join(" ") || "";
 
   let systemPrompt = agent.systemPrompt;
-
-  // Analyze mode: override output structure with structured analysis sections (ARCH-05)
-  // VALID_FOCUS guards against prompt injection — only known tab values reach the system prompt.
-  if (mode === "analyze") {
-    const VALID_FOCUS = new Set(["Pricing", "Risk", "Peer Position", "Trend"]);
-    const focus = VALID_FOCUS.has(analysisFocus ?? "") ? (analysisFocus as string) : "Pricing";
-    systemPrompt += buildAnalyzeModeSuffix(focus);
-  }
-
-  // Monitor mode: concise surveillance-oriented responses (Phase 46)
-  if (mode === "monitor") {
-    systemPrompt += buildMonitorModeSuffix();
-  }
 
   // Check if user is opting in to a previously offered skill deliverable
   if (lastUserText && isSkillOptIn(lastUserText)) {

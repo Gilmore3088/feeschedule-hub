@@ -1,232 +1,248 @@
-# Feature Research
+# Feature Landscape: Two-Sided Experience (v6.0)
 
-**Domain:** Data consolidation pipeline + production polish for a B2B bank fee intelligence platform
-**Researched:** 2026-04-09
-**Milestone context:** v9.0 — Canonical fee taxonomy layer, auto-classification pipeline, admin UX polish, consulting-grade PDF reports
-**Confidence:** HIGH for what's already built (direct code inspection); MEDIUM for taxonomy/classification design patterns; LOW for PDF design patterns (single source)
+**Domain:** Consumer bank fee education + B2B financial data intelligence (dual-audience UX)
+**Researched:** 2026-04-07
+**Milestone context:** v6.0 — Distinct consumer and B2B experiences for Bank Fee Index
+**Confidence:** MEDIUM (WebSearch + platform analysis; verified against NerdWallet, AlphaSense, Bloomberg, Bankrate patterns)
 
 ---
 
 ## Scope of This Research
 
-This file covers v9.0 feature surface only. It does not re-research Hamilton Pro screens (covered in prior FEATURES.md). The four problem areas are:
+This file covers four specific UX domains needed for v6.0, mapped to existing capabilities:
 
-1. **Canonical taxonomy consolidation** — 15,575 raw fee categories, 92% single-institution, 49 canonical. Bridge the gap.
-2. **Auto-classification pipeline** — New crawled fees must route to canonical taxonomy automatically, not manually.
-3. **Admin UX polish** — Sortable tables across all admin pages; districts page wired to real data; catalog toggle fix.
-4. **Report quality upgrade** — Call Reports, FRED, Beige Book data flowing into PDF output; Salesforce-grade layout.
+1. **Consumer value-prop landing** — front door for non-subscribers
+2. **Institution educational pages** — fee detail + "why does this matter?" context
+3. **B2B launchpad** — four-door dashboard for pro subscribers
+4. **Scoped report generation** — Hamilton reports, gated for pro tier
 
-Code inspection findings that constrain design:
-- `fee_analysis.py` `FEE_NAME_ALIASES` dict: ~300 hardcoded string → canonical key mappings. `categorize_fees.py` does exact-match only after `normalize_fee_name()`. Anything not in the alias table falls through as "unmatched."
-- `SortableTable` component exists at `src/components/sortable-table.tsx` (client-side sort + pagination). Only wired to `/admin/index`. Not used in market, peers, fees/catalog, districts, institutions, leads, ops, review pages.
-- PDF generation uses `@react-pdf/renderer` via `/api/pro/report-pdf`. No charts in PDF (deferred, per D-09 comment). HTML report engine (`assemble-and-render.ts`) is a separate path for public reports.
-- District DB tables exist (`fed_beige_book`, `fed_content`, `fed_economic_indicators`). The `/admin/districts` page and detail page exist but may not consume the Phase 23-24 district query functions.
+Existing features already built (not re-researched here): 26 public pages, 9 pro pages, admin portal,
+Hamilton agents, fee review pipeline, Call Reports, FRED, Beige Book data.
 
 ---
 
-## Feature Area 1: Canonical Fee Taxonomy Consolidation
+## Area 1: Consumer Value-Prop Landing Page
 
 ### Table Stakes
 
+Features every consumer fintech landing page must have. Missing any = untrustworthy or confusing.
+
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| `canonical_fee_key` column on `extracted_fees` | Every analytics layer downstream (peer index, market, Hamilton) requires a stable key for aggregation; raw `fee_name` is unanalyzable | MEDIUM | Column likely already exists (`fee_category`); the task is populating it for the 92% un-mapped long-tail |
-| `fee_family` column populated for all rows | Family-level aggregation ("Overdraft & NSF") is the first grouping level used in every Hamilton output and admin page | LOW | Column exists; already populated for the ~8% that matched. Backfill needed for remainder. |
-| Duplicate normalization: obvious synonyms merged | `rush_card` and `rush_card_delivery` appearing as separate categories confuses every downstream consumer; users expect consistency | MEDIUM | Alias table already handles many; the un-mapped 92% may contain duplicate-concept clusters not yet in aliases |
-| Variant normalization: suffix inflation collapsed | `fax`, `fax_fee`, `fax_service` are the same economic concept; they must map to one canonical key | MEDIUM | Pattern: strip common suffixes (`_fee`, `_charge`, `_service`) before alias lookup as a normalization step |
-| Synonym cluster consolidation | `skipapay`, `skip_a_pay`, `skip_a_payment`, `skip_payment` are institution-naming variants for the same product | HIGH | Requires either an expanded alias table or LLM-assisted grouping pass on the long-tail |
+| Clear one-liner value proposition above the fold | Consumers decide in 3–5 seconds whether to stay | LOW | "What do you pay in fees? Find out." or equivalent |
+| Search / lookup entry point on the hero | Primary action should be immediately actionable; NerdWallet, Bankrate do this | LOW | Fee Scout is already built; surface it on the landing |
+| Trust signals near CTA | Fintech pages with regulatory badges near CTA convert 10–20% higher (WebSearch, 2026) | LOW | "4,000+ institutions" count, FDIC/NCUA coverage claim |
+| Mobile-responsive layout | 53% abandon pages taking 3+ seconds on mobile; critical for consumer audience | LOW | Next.js + Tailwind already handles this |
+| How it works / simple 3-step explanation | Visitors who understand the flow pre-registration show 30–50% higher activation (WebSearch, 2026) | LOW | "Search → Compare → Save" pattern |
+| Transparent fee positioning | Consumer fintech converting best when they quantify savings ("see if you're paying too much") | LOW | Headlines must quantify, not just describe |
+| No account-wall on initial search | Consumer platforms that gate search see 40–60% higher bounce rates | LOW | Current gateway approach gates too early; must open the fee lookup |
 
 ### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| LLM-assisted canonical mapping for un-matched tail | The 92% long-tail cannot be covered by hand-written aliases alone; a Claude Haiku batch pass that maps each unique `fee_name` to the nearest canonical key (or proposes a new one) is the only scalable path | HIGH | Run once as a backfill batch; output reviewed and committed as alias expansions; not a runtime path |
-| Variant_type tagging (`standard`, `rush`, `waived`, `promotional`) | Within a canonical key, variant tagging adds a dimension that makes peer comparison more precise ("First National charges $35 for standard card replacement vs. $75 for rush") | MEDIUM | New column; enriches downstream analysis; not required for basic consolidation but high analytical value |
-| Confidence scoring on canonical mapping | Mappings produced by LLM or fuzzy match should carry a confidence field so analysts can triage questionable mappings differently from alias-exact mappings | LOW | Float 0-1 on `canonical_confidence`; parallels existing `extraction_confidence` pattern |
-| New canonical key proposal pipeline | When LLM can't map to an existing canonical, it proposes a new key with family assignment; admin reviews + approves to extend the taxonomy | HIGH | Extends the 49-category taxonomy over time as new fee types appear; makes the taxonomy a living asset not a frozen schema |
+| Live data freshness indicator | "Updated within last 90 days" builds trust vs. Bankrate's often-stale editorial content | LOW | Last-crawled date is already tracked; surface it |
+| Institution count as social proof | "4,000+ banks tracked" signals authority; consumers respond to coverage breadth | LOW | Static stat + auto-updating counter |
+| Sample fee comparison embedded in hero | Showing real data (e.g., "Chase: $12/mo maintenance vs. Ally: $0") before any interaction converts better than abstract promises | MEDIUM | Requires picking sample institutions; curated, not dynamic |
+| Fee Scout integrated directly (no redirect) | Search should happen on the landing page, not after navigation; Wise's calculator-first homepage is the model | MEDIUM | Fee Scout exists; embed vs. redirect is a UX choice |
+| Consumer guide teaser below search | Contextual education ("What is an overdraft fee? Find out") drives repeat visits and SEO | LOW | Consumer guide skill already exists; tease 2–3 guides |
 
 ### Anti-Features
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Map every unique fee_name to canonical in real-time during extraction | Seems cleaner than a backfill | LLM round-trip per fee during crawl doubles extraction cost and latency; errors during classification block fee storage | Batch LLM pass post-extraction; store raw fee_name always; classification is a secondary enrichment step |
-| Fully automated taxonomy with no human review | Saves analyst time | LLM classification errors accumulate silently; wrong canonical mapping produces wrong peer benchmarks (downstream trust damage) | LLM-proposed mappings with confidence < 0.8 route to a review queue; high-confidence mappings auto-commit |
-| Treat all 15,575 categories as potential canonical keys | Comprehensive | Creates an unusable taxonomy; the value of the canonical layer is compression, not completeness | Hard 49-category cap for v1 with a structured extension process; long-tail that doesn't fit is tagged `uncategorized` not fabricated |
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Split-panel gateway (consumer vs. B2B choice on load) | Forces a decision before establishing value; current implementation creates friction | Open consumer experience by default; surface B2B door in nav/footer |
+| Account creation as step 1 | Consumer lookup tools that require signup before showing data lose 60–80% of visitors | Let anonymous users search; gate only advanced features (comparison saves, alerts) |
+| "About Us" as primary CTA | Marketing reflex that fails; consumers want the tool, not the company story | Primary CTA = start searching; "About / Methodology" is secondary nav |
+| Fee rating stars / letter grades | Subjective, legally ambiguous, misleads consumers; NerdWallet uses these and faces credibility criticism | Use objective language: "above median," "lowest in peer group" |
+| Generic "financial wellness" messaging | Overused, vague, trusted by no one post-2022 | Be specific: "Find the exact overdraft fee at your bank in 30 seconds" |
 
 ---
 
-## Feature Area 2: Auto-Classification Pipeline
+## Area 2: Institution Educational Pages
+
+### Table Stakes
+
+Patterns established by NerdWallet, Bankrate, and CFPB BankFind — consumers expect these on any institution profile.
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Institution header: name, charter type, asset size, HQ state | Basic identification; consumers confirm they have the right institution | LOW | Already in DB from FDIC/NCUA seed |
+| Complete fee schedule (all extracted categories) | Primary content; must be comprehensive, not cherry-picked | LOW | 49 categories already classified per institution |
+| "National median" comparison per fee | NerdWallet's 30-subcategory evaluation sets this expectation; users want context, not raw numbers | MEDIUM | Index queries already built; wire per-institution |
+| Last-updated / data freshness | Consumers will question whether fee data is current; explicit date builds trust | LOW | last_crawled_at already tracked |
+| CFPB complaint count / link | CFPB complaint data is public; omitting it feels like hiding information | MEDIUM | Requires CFPB API integration; not currently built |
+| Source link (original fee schedule) | Consumers want to verify; fee schedule URL is the primary source | LOW | fee_schedule_urls already in DB |
+| Institution type disambiguation | "This is a credit union, not a bank — membership required" is critical context | LOW | charter field already tracked |
+
+### Differentiators
+
+The "why does this matter?" layer is what separates Bank Fee Index institution pages from FDIC BankFind or basic Bankrate listings. No competitor currently provides fee data at this depth with interpretive context.
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| "Why does this matter?" callout per fee category | Embeds financial education in context of the specific fee — not generic literacy content; inline explanation of overdraft vs. NSF distinction, for example | MEDIUM | Contextual callout component; content is curatable per category |
+| Peer percentile indicator ("this fee is higher than 72% of similar banks") | Actionable framing; consumers understand percentiles better than raw medians | MEDIUM | Index + charter/tier filter already supports this; needs display layer |
+| Visual fee distribution chart (where does this institution sit?) | Recharts histogram showing national distribution with institution marker — makes the data visceral, not academic | MEDIUM | Recharts already in stack; distribution data from getFeesForCategory() |
+| Fee history timeline (if re-crawl data exists) | Shows whether fees went up or down over time; creates "is this getting worse?" narrative | HIGH | Requires fee_change_events; partial data may exist |
+| "Banks near you charging less" contextual suggestion | Drives affiliate/ad value and consumer action; equivalent to NerdWallet's "best accounts" surfacing | HIGH | Requires geo-aware peer query + CTAs; affiliate link potential |
+| Consumer guide contextual links | "Overdraft fees: how to avoid them" linked from the overdraft fee row; Fintechs that teach contextually show 40–50% better activation (WebSearch, 2026) | LOW | Consumer guide skill already exists; link per category |
+| Financial health indicators from Call Reports | Tier 1 capital ratio, ROA, charge-off rate contextualized as "is this institution financially stable?" | HIGH | Call Report data already in DB (v5.0); needs consumer-facing framing |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Showing only featured (15) fee categories | Institution pages should be comprehensive; consumers looking up a specific fee (e.g., wire transfer) will be frustrated | Show all 49 extracted categories; use featured flags only for ordering/prominence |
+| Ratings / grades for institutions | Legally ambiguous, editorially unstable; NerdWallet's star ratings attract regulator scrutiny | Market-position language: "below national median," "top quartile for overdraft cost" |
+| Auto-playing video explainers | High production cost, poor mobile experience, rarely watched | Inline text callouts are lighter, faster, and more scannable |
+| Combining consumer and B2B data on same institution page | Confusing for consumers; Call Report depth is B2B territory | Consumer page = fee schedule + context; B2B page = full financial profile (separate route or section) |
+
+---
+
+## Area 3: B2B Launchpad Dashboard
+
+The B2B launchpad is the first screen after a pro subscriber logs in. It should function as a command center — not a dashboard of metrics, but a gateway to four distinct workflows. Pattern: Bloomberg's workspace panels, AlphaSense's "saved searches + watchlists + recent activity," Capital IQ's customizable module grid.
 
 ### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| New fees classified at extraction time | Every crawl after v9.0 must land in the canonical taxonomy without a manual backfill step; otherwise the index degrades on every run | MEDIUM | Wire `categorize_fees` logic into `pipeline/executor.py` post-extraction, before merge step |
-| Alias table as primary classifier | Fast, deterministic, zero-cost; must be the first classification step | LOW | Already exists; the gap is that it's run as a standalone command, not wired into the extraction pipeline automatically |
-| LLM fallback for alias misses | When alias table has no match, a Haiku prompt maps the fee to canonical; this is the "always succeeds" guarantee | MEDIUM | Adds cost (~$0.001/fee at haiku rates); acceptable given daily budget circuit breaker already in place |
-| Classification result written to `extracted_fees` at insert time | The merge step (`merge_fees.py`) already reads `fee_category` and `fee_family` from the categories/fee_families lists passed to it; the pipeline just needs to populate those correctly | LOW | `merge_institution_fees()` already accepts `categories` and `fee_families` params — this is wiring, not new code |
+| Personalized welcome with institution context | B2B platforms that greet users with their peer group or institution on login create "this is mine" ownership | LOW | Use institution name from subscriber profile if set |
+| Four primary action doors (Hamilton, Peers, Reports, Federal Data) | B2B SaaS dashboards that surface 3–5 primary affordances beat those with full menu navigation for task completion | LOW | Navigation + large CTA cards; no new data infra |
+| Recent activity / last session continuity | AlphaSense, Capital IQ both surface "where you left off" — subscribers expect state persistence | MEDIUM | Store last-viewed report, last peer filter in session/DB |
+| Quick stats panel (subscriber's peer group snapshot) | Gives immediate value on login without requiring navigation; "your peer group's median overdraft fee this quarter" | MEDIUM | Peer index query scoped to saved peer set |
+| Hamilton quick-start (recent conversation or new) | AI assistant should be one click away, not buried in nav; Generative Search accessibility is a key AlphaSense differentiator | LOW | Hamilton chat exists; surface from launchpad |
+| Report access (recent + generate new) | B2B subscribers expect their past reports to be retrievable; "my reports" pattern is universal in research platforms | LOW | Report history list; link to generator |
 
 ### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Incremental alias table expansion from LLM output | Each LLM classification that was validated by an analyst gets committed back to `FEE_NAME_ALIASES`; the alias table grows with each crawl cycle | MEDIUM | Compound knowledge pattern already established for the national.md knowledge system; same principle |
-| Classification audit trail per fee | Knowing whether a canonical mapping came from alias-match vs. LLM-fallback vs. manual override is valuable for data quality scoring | LOW | New `classification_method` column: `alias_exact`, `alias_fuzzy`, `llm_haiku`, `manual`; low cost |
-| Batch Haiku classification for long-tail backfill | 15K fees x ~100 per batch = ~150 Haiku API calls; at $0.25 per million input tokens this is under $5 total for the entire backfill | MEDIUM | Budget-safe; can run as a one-time Modal job |
+| Personalized Beige Book digest on login | "Federal Reserve commentary relevant to your district — this month" is a unique hook; no competitor surfaces this; uses existing FRED/Beige Book data | MEDIUM | District from subscriber profile → query fed_beige_book by district |
+| Competitive landscape snapshot (who moved in your market) | "3 institutions in your peer group changed fees since your last login" creates urgency to explore | HIGH | Requires fee_change_events scoped to peer group; high value, high complexity |
+| Peer group health summary (Call Report indicators) | Capital ratio, charge-off trends across your custom peer group; available through existing Call Report data | MEDIUM | Aggregate query across peer institutions; Call Report data in v5.0 |
+| Hamilton "morning briefing" format | A one-paragraph daily/weekly narrative from Hamilton synthesizing national index movements; builds habit and product dependency | HIGH | Requires scheduled generation; Claude cost manageable at weekly cadence |
+| Saved peer sets with one-click report trigger | "Run a peer brief on this saved group" is the natural B2B workflow; Capital IQ's screener-to-report is the model | MEDIUM | Peer builder exists; report trigger is new |
 
 ### Anti-Features
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Classification as a blocking step in the crawl pipeline | "Fail early" instinct | If classification fails (API timeout, model error), it blocks fee storage entirely; a failed classification should never prevent a fee from being stored | Store with `fee_category = NULL`; classification always runs as a best-effort enrichment step; merge handles NULL categories gracefully |
-| GPT-4-class model for classification | Higher accuracy instinct | 10-20x cost; classification is a pattern-matching task, not reasoning; Haiku is sufficient | Haiku for classification; Sonnet/Opus reserved for Hamilton analysis |
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Metrics-heavy dashboard with 20+ KPI tiles | Creates cognitive overload; B2B dashboards that prioritize task completion over data display retain better (UX Collective, 2025) | 4 action doors + 1 peer snapshot panel is sufficient; leave exploration to deeper pages |
+| Onboarding wizard on every login | Annoying after first session; kills power user velocity | Show onboarding once; replace with "quick actions" on return visits |
+| "Explore all data" as primary CTA | Vague; doesn't tell the user what to do | Each door has a specific action: "Ask Hamilton," "Build a peer group," "Generate a report," "Read district news" |
+| Real-time feed of all crawl activity | Admin-level noise; subscribers aren't interested in crawler ops | Surface only peer-relevant freshness indicators ("your 12 peer institutions: last updated 14 days ago") |
 
 ---
 
-## Feature Area 3: Admin UX Polish — Sortable Tables
+## Area 4: Scoped Report Generation (Pro Tier)
 
 ### Table Stakes
 
+Patterns from AlphaSense Generative Grid, Capital IQ tear sheets, Bloomberg's BQuant notebooks — what B2B subscribers expect from any AI-assisted report tool.
+
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| All admin list views sortable by key columns | Standard behavior for any data-dense admin panel; Bloomberg, Salesforce, every admin product sorts tables | LOW | `SortableTable` component already built and working; this is a wiring task, not engineering |
-| Institutions table (`/admin/institutions`) sortable | Analysts need to find institutions by asset size, name, fee count | LOW | `src/app/admin/institution-table.tsx` — convert to `SortableTable`; server-fetched rows passed as JSON props |
-| Leads table (`/admin/leads`) sortable | Operators triage leads by date, source, status | LOW | `src/app/admin/leads/leads-table.tsx` — already likely a simple table; convert |
-| Districts table (`/admin/districts`) sortable | Analysts compare districts by median fee, institution count | LOW | `src/app/admin/districts/page.tsx` — needs wiring |
-| Fees catalog (`/admin/fees`) sortable | Default view for fee categories; analysts sort by institution count, median | LOW | `src/app/admin/fees/page.tsx` — convert |
-| Market table (`/admin/market`) sortable | Core analytics page; delta column sort (largest divergence from national first) is the primary use case | MEDIUM | `src/app/admin/market/page.tsx` — already has category-explorer; sortable delta column is the priority |
-| Review queue (`/admin/review`) sortable by confidence, amount | Analysts prioritize high-confidence items first | LOW | `src/app/admin/review/review-table.tsx` — partially done per code inspection; verify sort column coverage |
-| Peers page (`/admin/peers`) sortable by name, institution count | Operator manages saved peer sets | LOW | `src/app/admin/peers/page.tsx` |
-| Ops table (`/admin/ops`) sortable by run date, status, duration | Operators monitor pipeline health | LOW | `src/app/admin/ops/ops-client.tsx` |
+| Report type selector (peer brief, competitive snapshot, district outlook, monthly pulse) | B2B report platforms always offer typed outputs; users need known deliverable formats, not blank canvas | LOW | Hamilton skills map to these exactly: fee-benchmarking, competitive-intelligence, district-economic-outlook, monthly-pulse |
+| Scope inputs (institution name, peer group, district, date range) | Scoped reports are the B2B standard; "generate a report about community banks in District 7" must be a form, not a free-text prompt | MEDIUM | Skill parameter injection pattern; build a scope form per report type |
+| Progress indicator during generation | AI generation takes 15–60 seconds; dead-wait with no progress = abandonment | LOW | Streaming SSE already implemented for Hamilton; reuse |
+| PDF / downloadable output | Bank executives share reports in PDF; web-only is not acceptable for B2B | MEDIUM | PDF export not yet built; critical gap |
+| Report history and retrieval | "Find the peer brief I generated last Tuesday" is a basic expectation | LOW | Reports table in DB; list view needed |
+| Clear cost / credit signal (if rate-limited) | Subscribers must know whether report generation is unlimited or metered | LOW | Display generation count or "unlimited for your plan" |
 
 ### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| URL-persisted sort state | Analysts who bookmark a sorted view expect the sort to survive a page reload; `/admin/institutions?sort=asset_size&dir=desc` | MEDIUM | Requires converting client-side sort state to URL params via `useRouter`; `SortableTable` currently uses local `useState` |
-| Column visibility toggle on wide tables | Market and institutions tables have many columns; hiding less-used columns reduces cognitive load | MEDIUM | Not in current `SortableTable`; add via column picker dropdown; v1.x not MVP |
+| Peer group pre-fill from saved set | Skip scope-entry step for power users with saved peer groups; AlphaSense "saved searches" model | LOW | Wire peer builder to report generator scope |
+| Call Report integration in competitive reports | "Include financial health indicators (capital ratio, charge-offs) alongside fee comparison" — no competitor delivers this combination | MEDIUM | Call Report data in v5.0; Hamilton skill injection pattern |
+| Beige Book district narrative auto-injected | District outlook reports automatically pull latest Beige Book commentary for the selected district | MEDIUM | Existing district-economic-outlook skill; Beige Book data in DB |
+| Report versioning ("regenerate with fresh data") | Quarterly report subscribers want to re-run the same scope as new data comes in; version history shows what changed | HIGH | Requires report parameter persistence + diff display |
+| Hamilton annotation layer (editable before export) | Allow pro users to add their own commentary to Hamilton's output before exporting; AlphaSense's clip + annotate model | HIGH | Complex editor; high differentiation vs. pure AI output |
+| Branded export with subscriber institution name | "Prepared for: First National Bank of Wyoming" on PDF cover; B2B buyers share internally, want institutional provenance | MEDIUM | PDF template variable; low data complexity, medium PDF generation complexity |
 
 ### Anti-Features
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Server-side sort for all tables | Correct for large datasets | 15K rows is large; but admin tables already fetch filtered data (LIMIT 200 on peers, etc.); client-side sort on the fetched set is fine and avoids refetch latency | Client-side sort via `SortableTable` for current data volumes; revisit if tables exceed 1K visible rows |
-| Drag-to-reorder columns | Power user request | High complexity, low usage frequency in an admin tool; Bloomberg-style customization is a v3+ concern | Fixed opinionated column order per page; sortable by click is the 80% use case |
-
----
-
-## Feature Area 4: Districts Data Consumption
-
-### Table Stakes
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| District median fees displayed on `/admin/districts` | The district pages exist and the data exists in `fed_beige_book`, `fed_content`, `fed_economic_indicators` tables; absence makes the page feel empty | MEDIUM | Phase 23-24 district queries were built; wire them into the district page server components |
-| District detail page (`/admin/districts/[id]`) with economic summary | Analysts expect each district to show economic context alongside fee data | MEDIUM | Fetch from `fed_economic_indicators` for the district; already have DB queries per `src/lib/crawler-db/fed.ts` |
-| CFPB complaint data per district | Risk intelligence per region; ties fee positioning to complaint exposure | MEDIUM | `src/lib/crawler-db/complaints.ts` exists; wire to district detail |
-| Beige Book themes per district | Regional economic narrative that contextualizes fee trends | LOW | `getBeigeBankThemes()` or equivalent already built; display on district detail |
-
----
-
-## Feature Area 5: Report Quality Upgrade
-
-### Table Stakes
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Call Report financial data in report body | A consulting-grade bank fee report that doesn't reference actual revenue figures ($0 bug) is not credible | HIGH | `src/lib/crawler-db/call-reports.ts` and `fee-revenue.ts` exist; the bug is thousands-scaling (reported in MEMORY.md); fix the scaling, wire to report assemblers |
-| FRED economic indicators in report context | Macro context (rate environment, CPI, deposit flows) is expected in any professional fee analysis | MEDIUM | `fed_economic_indicators` table has FRED data; `assemble-and-render.ts` dispatch chain needs FRED data piped through |
-| Beige Book commentary used in report narrative | Hamilton has `queryRegulatoryRisk` and Beige Book tables; the report assemblers currently don't inject this into PDF output | MEDIUM | Assembler-level change: include `fed_beige_book` themes in the data payload passed to Hamilton section generation |
-| Salesforce Connected FINS-style layout in PDF | The current `PdfDocument.tsx` uses Helvetica, no charts, minimal visual hierarchy; it looks like a formatted text file, not a consulting report | HIGH | Design tokens already defined in `PdfDocument.tsx`; the gap is visual hierarchy: numbered chapters, bold stat callout boxes, section dividers with labels |
-| Stat callout boxes in PDF | Consulting reports use large-number callouts ("$35 — median overdraft fee, 3rd quartile nationally") as visual anchors | MEDIUM | `@react-pdf/renderer` supports styled `View` boxes with large `Text`; no dependency gap, this is layout work |
-
-### Differentiators
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Charts in PDF via pre-rendered PNG | The D-09 decision deferred charts; this is the highest-impact design upgrade; peer distribution histograms in a board-ready PDF is a meaningful differentiator over any competitor | HIGH | Pattern: generate chart as PNG server-side (node-canvas or Recharts to SVG → sharp to PNG), then embed via `@react-pdf/renderer` Image component; significant work |
-| Coverage disclosure section | Reports that cite how many institutions the analysis is based on, and what coverage percentage that represents, build trust that competitors don't | LOW | Data already available; add a "Data Scope" footer section to every report template |
-| Report generation time under 30 seconds | Executives will close the tab if a report takes longer than 30s; fast generation is a trust signal | MEDIUM | Profile the current assembly pipeline; Hamilton section generation with Sonnet is the bottleneck; parallelize sections where possible |
-
-### Anti-Features
-
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| In-report editing before PDF export | Executives want to customize content | Report editing is a word processor, not a research product; degrades the authority of the output | Generate → PDF → if edit needed, user annotates in Acrobat; report must be good enough not to need editing |
-| Interactive charts in the PDF | Impressive in demos | PDFs are static; interactive chart libraries produce bitmap artifacts when rasterized; the D-09 decision was correct | Static SVG → PNG → embed for print; interactive charts stay in Analyze/Simulate screens only |
-| Unlimited report history (all-time archive) | User assumption about SaaS behavior | Storage and retrieval complexity adds operational burden before product proves value | 90-day report retention window; older reports reachable via Stripe billing log if needed |
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Free-form prompt only (no structured scope) | Power feature but risky; open prompts produce inconsistent, lower-quality output and confuse non-technical users | Offer structured scope form as primary; advanced free-form prompt as secondary |
+| Report generation without data traceability | "All data in reports must trace to pipeline-verified fees" — this is a hard constraint from PROJECT.md | Every metric in Hamilton reports cites its source category, institution count, and data date |
+| Per-report pricing for base plan | Creates anxiety and reduces usage; low usage = churn | Unlimited generation for subscribers; save variable cost for on-demand deep briefs (premium tier) |
+| "Download as Word doc" | .docx editing invites modifications that break formatting and remove Hamilton branding | PDF only for distribution; offer CSV for raw data |
+| Generating reports without coverage warnings | A report on "all banks in Alaska" with 30% coverage should warn — not silently produce incomplete output | Coverage indicator in scope step: "We have data on 847 of your 1,200 peer institutions" |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Canonical fee taxonomy (canonical_fee_key populated)
-    └──required by──> Auto-classification pipeline (needs the key set to map to)
-    └──required by──> Hamilton Pro peer index accuracy (all 5 screens use peer index)
-    └──required by──> Report quality (benchmarks must reference canonical keys)
-    └──enhances──> Admin market page delta column accuracy
+Consumer Landing
+  └── Fee Scout (already built)
+        └── Anonymous search (remove account gate)
+              └── Institution page link from search results
 
-Auto-classification pipeline (new fees classified at insert)
-    └──requires──> Canonical taxonomy (key set must exist first)
-    └──required by──> Ongoing index accuracy (without auto-classify, every crawl degrades coverage)
+Institution Educational Pages
+  └── Fee data per institution (done)
+        └── National index per category (done)
+              └── "Why does this matter?" callout (new content layer)
+                    └── Consumer guide contextual links (guides skill exists)
+        └── Fee distribution chart (getFeesForCategory exists)
+        └── CFPB complaint data (NOT built — requires new integration)
+        └── Call Report health indicators (done in v5.0)
 
-SortableTable wiring (admin UX)
-    └──independent of──> Taxonomy work
-    └──independent of──> Report work
-    └──requires──> Existing SortableTable component (already built)
+B2B Launchpad
+  └── Subscriber profile with institution + district (needed for personalization)
+        └── Saved peer sets (peer builder exists)
+              └── Peer snapshot panel (peer index queries exist)
+        └── Beige Book digest by district (fed_beige_book table exists)
+        └── Hamilton quick-start (Hamilton chat exists)
+        └── Report history list (new: requires report persistence table)
 
-Districts data wiring
-    └──requires──> Phase 23-24 DB queries (already built per MEMORY.md)
-    └──independent of──> Taxonomy work
-
-Report quality upgrade
-    └──requires──> Call Report scaling fix (data exists, bug must be fixed first)
-    └──requires──> FRED data piped through assembler chain
-    └──enhances by──> Canonical taxonomy (better benchmarks = better reports)
-    └──independent of──> SortableTable wiring
-
-Stripe billing portal wiring
-    └──independent of──> All technical feature areas
-    └──requires──> Existing Stripe subscription shell (already built per PROJECT.md)
+Scoped Report Generation
+  └── Hamilton skills (all 8 skills built)
+        └── Structured scope form (new: per report type)
+              └── Peer group pre-fill (from saved peer sets)
+              └── District pre-fill (from subscriber profile)
+        └── PDF export (NOT built — critical gap)
+        └── Report persistence + history (NOT built)
+        └── Coverage warning in scope step (new: needs coverage query)
 ```
 
-### Dependency Notes
+### Critical Missing Pieces (Not Yet Built)
 
-- **Taxonomy before auto-classify:** The classification pipeline cannot be wired until the canonical key set is finalized. Taxonomy consolidation and duplicate normalization must land first, then the auto-classify pipeline can be wired safely.
-- **Call Report scaling fix before report quality:** Stat callout boxes that show "$0 in service charge revenue" (the current bug) are worse than no stat callouts. Fix the thousands-scaling first, then add the stat callout design pattern.
-- **Sortable tables are independent:** No taxonomy or report dependency. Can run in parallel with any other work and provides high visible polish for low cost.
-- **Districts is independent:** The data and DB queries exist; this is a wiring task independent of other areas.
+- **PDF export** — Required for scoped reports; web-only output is insufficient for B2B deliverables. No PDF generation library is currently in the stack.
+- **Report persistence table** — Hamilton conversations exist but generated reports (typed, scoped outputs) need their own storage for history and retrieval.
+- **CFPB complaint data integration** — Expected on institution pages; requires CFPB public API integration.
+- **Subscriber profile with institution + district** — Personalization on the B2B launchpad depends on knowing which institution/district the subscriber represents. Currently not stored.
+- **Anonymous search (consumer)** — Fee Scout likely gates on auth; must confirm and remove gate for consumer landing.
 
 ---
 
-## MVP Definition for v9.0
+## MVP Recommendation for v6.0
 
-### Launch With (v9.0 core)
+### Launch With (v6.0 scope)
 
-- [ ] Backfill script: expand `FEE_NAME_ALIASES` with LLM-assisted mapping for top-N unmatched fee names (by institution count)
-- [ ] Duplicate normalization: merge at least the confirmed duplicate clusters (rush_card variants, fax variants, return_mail variants, skipapay variants)
-- [ ] Auto-classify wired into extraction pipeline: new crawls automatically run categorize step before merge
-- [ ] SortableTable wired to all 8 un-wired admin pages (institutions, leads, districts, fees, market, peers, ops, review full coverage)
-- [ ] Districts page wired to Phase 23-24 DB queries (district medians, economic indicators, Beige Book themes)
-- [ ] Call Report scaling bug fixed (thousands not units in service charge revenue)
-- [ ] FRED + Beige Book data piped into report assemblers
-- [ ] PDF stat callout boxes (design upgrade; no chart dependency)
-- [ ] Hamilton Pro demo text stripped from all 5 screens
+- [ ] Consumer landing redesign — value-prop hero + Fee Scout embedded (no auth gate) — Why essential: current split-panel gateway is the biggest acquisition blocker
+- [ ] Institution page educational layer — "why this matters" callouts + peer percentile indicator + fee distribution chart — Why essential: transforms existing data pages from raw output to consumer product
+- [ ] B2B launchpad with four doors — Hamilton, Peers, Reports, Federal Data — card navigation, peer snapshot, recent activity — Why essential: pro subscribers have no coherent starting point today
+- [ ] Subscriber profile: institution + district — Why essential: unlocks all personalization on the launchpad
+- [ ] Report history + retrieval — Why essential: generated reports disappear after session; B2B subscribers will not tolerate this
+- [ ] Distinct nav per audience (consumer vs. pro) — Why essential: nav bleed between audiences destroys both experiences
 
-### Add After Validation (v9.x)
+### Add After Validation (v6.1)
 
-- [ ] LLM-proposed new canonical key review queue — after backfill validates the process
-- [ ] Variant_type tagging (`standard`, `rush`, `waived`) — after canonical layer is stable
-- [ ] URL-persisted sort state in admin tables — after admin polish proves useful
-- [ ] Charts in PDF via pre-rendered PNG — significant effort; justify with report adoption data
-- [ ] Stripe billing portal fully wired — after subscription model validates
+- [ ] PDF export for Hamilton reports — Trigger: first B2B subscriber asks "how do I share this?"
+- [ ] Personalized Beige Book digest on B2B launchpad — Trigger: district data is rich enough to surface weekly
+- [ ] Structured scope form for report generation (per report type) — Trigger: Hamilton free-form prompts producing inconsistent output
 
-### Future Consideration (v10+)
+### Future Consideration (v7+)
 
-- [ ] Multi-category simulation in Hamilton Pro (depends on canonical layer being stable)
-- [ ] New canonical key proposal UI for analysts (taxonomy stewardship tooling)
-- [ ] Competitor fee data scan (separate product surface)
+- [ ] CFPB complaint integration on institution pages — Defer: requires new API integration; not core to fee data value prop
+- [ ] Fee history timeline on institution pages — Defer: fee_change_events data coverage needs to grow first
+- [ ] "Banks near you charging less" consumer suggestion — Defer: affiliate/geo logic is a separate product layer
+- [ ] Report versioning / re-run with fresh data — Defer: power feature for established subscriber base
+- [ ] Hamilton annotation / edit layer before export — Defer: complex editor; build after PDF export proves popular
 
 ---
 
@@ -234,34 +250,53 @@ Stripe billing portal wiring
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Taxonomy backfill (alias expansion + LLM pass) | HIGH — unblocks all downstream analytics | MEDIUM | P1 |
-| Auto-classify wired into pipeline | HIGH — prevents future degradation | MEDIUM | P1 |
-| Call Report scaling bug fix | HIGH — broken data in reports destroys trust | LOW | P1 |
-| SortableTable wiring (all admin pages) | MEDIUM — UX polish | LOW | P1 |
-| Districts page data wiring | MEDIUM — wasted infrastructure otherwise | MEDIUM | P1 |
-| Hamilton Pro demo text strip | HIGH — product looks unprofessional with sample data | LOW | P1 |
-| PDF stat callout boxes (design) | MEDIUM — visual upgrade, no data dependency | MEDIUM | P2 |
-| FRED + Beige Book in report assemblers | HIGH — consulting-grade credibility | MEDIUM | P2 |
-| Stripe billing portal wiring | MEDIUM — required for subscription revenue | MEDIUM | P2 |
-| Duplicate normalization (synonym clusters) | MEDIUM — improves index quality | HIGH | P2 |
-| Variant_type tagging | MEDIUM — analytical depth | MEDIUM | P3 |
-| Charts in PDF | HIGH — design differentiation | HIGH | P3 |
-| URL-persisted sort state | LOW — convenience only | MEDIUM | P3 |
+| Consumer landing (hero + embedded Fee Scout) | HIGH | LOW | P1 |
+| Remove auth gate from consumer search | HIGH | LOW | P1 |
+| Institution page: "why this matters" callouts | HIGH | LOW | P1 |
+| Institution page: peer percentile indicator | HIGH | MEDIUM | P1 |
+| B2B launchpad four-door layout | HIGH | LOW | P1 |
+| Subscriber profile (institution + district) | HIGH | LOW | P1 |
+| Report history table + list view | HIGH | LOW | P1 |
+| Distinct consumer vs. pro navigation | HIGH | MEDIUM | P1 |
+| Institution page: fee distribution chart | MEDIUM | MEDIUM | P2 |
+| B2B launchpad: peer snapshot panel | HIGH | MEDIUM | P2 |
+| B2B launchpad: Beige Book digest by district | MEDIUM | MEDIUM | P2 |
+| Structured scope form (report generation) | HIGH | MEDIUM | P2 |
+| PDF export for reports | HIGH | HIGH | P2 |
+| CFPB complaint data on institution pages | MEDIUM | HIGH | P3 |
+| Fee history timeline | MEDIUM | HIGH | P3 |
+| Report versioning | MEDIUM | HIGH | P3 |
+
+---
+
+## Competitor Feature Analysis
+
+| Feature | NerdWallet/Bankrate | Bloomberg/AlphaSense | Our Approach |
+|---------|---------------------|----------------------|--------------|
+| Consumer institution pages | Review + rating + pros/cons + best for | Not applicable | Fee-first profile with "why does this matter?" per category; deeper data, no ratings |
+| Search / lookup | Keyword + filter, editorial-curated results | Company search + watchlist | Fee Scout: search by institution name; 4,000+ institutions vs. curated 100 |
+| B2B dashboard | Not applicable | Watchlist + saved searches + recent docs | Four-door launchpad: Hamilton, Peers, Reports, Federal Data |
+| AI assistant | None (editorial only) | AlphaSense Generative Search (500M docs) | Hamilton: scoped to verified fee data only; citation = pipeline-verified fees |
+| Report generation | Editorial templates (human-written) | Generative Grid (comparative tables) | Hamilton skills: typed reports with structured scopes; PDF output |
+| Educational content | Standalone guide articles | None | Inline callouts per institution/fee; contextual not separate |
+| Data freshness | Rarely shown; typically months-stale | Real-time market data | Explicit last-crawled date per institution; honest about batch cadence |
+| Peer benchmarking | Not available | Peer screening (financials only) | Custom peer groups by charter/tier/district scoped to fee schedules |
 
 ---
 
 ## Sources
 
-- Direct code inspection of `fee_crawler/fee_analysis.py`, `fee_crawler/commands/categorize_fees.py`, `fee_crawler/commands/merge_fees.py` (HIGH confidence)
-- Direct code inspection of `src/components/sortable-table.tsx`, `src/app/admin/` page files (HIGH confidence)
-- Direct code inspection of `src/app/api/pro/report-pdf/route.ts`, `src/components/hamilton/reports/PdfDocument.tsx`, `src/lib/report-engine/assemble-and-render.ts` (HIGH confidence)
-- Project MEMORY.md — districts data gap, sortable tables feedback, report data piping, Call Report scaling bug (HIGH confidence — project owner recorded)
-- PROJECT.md v9.0 milestone requirements (HIGH confidence — authoritative project spec)
-- `@react-pdf/renderer` pattern for static chart embedding: standard practice documented in library; PNG embed via Image component (MEDIUM confidence)
-- LLM-assisted taxonomy classification pattern: established pattern in data enrichment pipelines; batch Haiku classification is cost-safe at current token pricing (MEDIUM confidence)
+- [NerdWallet Banking Reviews](https://www.nerdwallet.com/banking/reviews) — MEDIUM confidence; structure observed from search result descriptions; direct page access blocked (403)
+- [AlphaSense Platform Review](https://intuitionlabs.ai/articles/alphasense-platform-review) — HIGH confidence; full page content reviewed
+- [Eleken Fintech Design Guide](https://www.eleken.co/blog-posts/modern-fintech-design-guide) — HIGH confidence; full page content reviewed
+- [WSA Fintech Landing Page Guide](https://wsa.design/news/high-converting-landing-pages-for-fintech-websites-structure-copy-and-data-insights) — MEDIUM confidence; described in search summary; direct access failed
+- [Bloomberg vs Capital IQ vs Factset](https://www.wallstreetprep.com/knowledge/bloomberg-vs-capital-iq-vs-factset-vs-thomson-reuters-eikon/) — MEDIUM confidence; WebSearch summary
+- [AlphaSense 2025 Product Releases](https://www.alpha-sense.com/resources/product-articles/product-releases-2025/) — MEDIUM confidence; WebSearch summary
+- [B2B SaaS Dashboard Design Guide](https://www.orbix.studio/blogs/saas-dashboard-design-b2b-optimization-guide) — LOW confidence; WebSearch summary only
+- [Financial Health Network: Measuring What Matters](https://finhealthnetwork.org/measuring-what-matters-banks-and-consumer-financial-health/) — MEDIUM confidence; WebSearch summary
+- [ABA: Digital Innovations for Financial Education 2025](https://www.aba.com/news-research/analysis-guides/leveraging-digital-innovations-in-2025-for-financial-education-and-customer-engagement) — MEDIUM confidence; WebSearch summary
 
 ---
-
-*Feature research for: Bank Fee Index v9.0 — Data Foundation & Production Polish*
-*Researched: 2026-04-09*
-*Supersedes: Not applicable — this covers new milestone scope not addressed in prior FEATURES.md*
+*Feature research for: Bank Fee Index v6.0 Two-Sided Experience*
+*Researched: 2026-04-07*
+*Prior milestone FEATURES.md (v2.0 Hamilton, B2B only) has been superseded by this file.*

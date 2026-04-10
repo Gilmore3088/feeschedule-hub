@@ -4,40 +4,11 @@ You are auditing the fee categorization pipeline for the Bank Fee Index. Your jo
 
 ## Context
 
-- Database: Supabase PostgreSQL (connect via `DATABASE_URL` in `.env`)
-- ~150,000 extracted fees from ~4,000+ institutions
+- Database: `data/crawler.db` (SQLite)
+- ~60,000 extracted fees from ~1,500 institutions
+- ~30,000 have a `fee_category` assigned via `normalize_fee_name()` in `fee_crawler/fee_analysis.py`
 - Categories defined in `FEE_FAMILIES` (Python) and `src/lib/fee-taxonomy.ts` (TypeScript) — must stay in sync
 - The `categorize` CLI command: `python3 -m fee_crawler categorize [--force] [--dry-run]`
-
-## Running Queries
-
-Use the Node `postgres` client to query production Supabase. Create a helper script or use inline:
-
-```bash
-node --input-type=module << 'EOF'
-import postgres from 'postgres';
-import { readFileSync } from 'fs';
-const env = readFileSync('.env', 'utf8');
-const dbUrl = env.match(/DATABASE_URL=(.+)/)?.[1]?.trim();
-const sql = postgres(dbUrl, { ssl: 'require' });
-
-// YOUR QUERY HERE
-const results = await sql`
-  SELECT fee_category, COUNT(*)::int as n,
-         MIN(amount)::float as min_amt,
-         ROUND(AVG(amount)::numeric, 2)::float as avg_amt,
-         MAX(amount)::float as max_amt,
-         COUNT(DISTINCT crawl_target_id)::int as inst_count
-  FROM extracted_fees
-  WHERE fee_category IS NOT NULL AND amount > 0
-  GROUP BY fee_category ORDER BY n DESC
-`;
-console.table(results);
-await sql.end();
-EOF
-```
-
-**Important:** Always call `sql.end()` to close the connection pool cleanly.
 
 ## Audit Steps (run ALL of these)
 
@@ -46,14 +17,15 @@ EOF
 For each major category, find amounts that are statistical outliers. These are likely miscategorized entries (e.g., a daily cap stored as a per-item fee).
 
 ```sql
+-- Run for each category in: overdraft, nsf, continuous_od, monthly_maintenance,
+-- stop_payment, cashiers_check, wire_domestic_outgoing, wire_domestic_incoming,
+-- card_replacement, money_order, check_cashing, atm_non_network
 SELECT fee_category, fee_name, amount, crawl_target_id
 FROM extracted_fees
 WHERE fee_category = '{category}' AND amount > 0
 ORDER BY amount DESC
 LIMIT 10;
 ```
-
-Run for: overdraft, nsf, continuous_od, monthly_maintenance, stop_payment, cashiers_check, wire_domestic_outgoing, wire_domestic_incoming, card_replacement, money_order, check_cashing, atm_non_network
 
 **Red flags:**
 - Overdraft/NSF amounts above $45 (likely daily caps)
@@ -101,7 +73,7 @@ ORDER BY fee_name;
 Find the most common uncategorized fees — these are candidates for new aliases:
 
 ```sql
-SELECT fee_name, COUNT(*)::int as cnt
+SELECT fee_name, COUNT(*) as cnt
 FROM extracted_fees
 WHERE fee_category IS NULL AND fee_name IS NOT NULL
 GROUP BY LOWER(fee_name)
@@ -120,11 +92,11 @@ Verify that the same fee type has consistent amounts across institutions:
 
 ```sql
 SELECT fee_category,
-       COUNT(*)::int as n,
-       MIN(amount)::float as min_amt,
-       ROUND(AVG(amount)::numeric, 2)::float as avg_amt,
-       MAX(amount)::float as max_amt,
-       COUNT(DISTINCT crawl_target_id)::int as inst_count
+       COUNT(*) as n,
+       MIN(amount) as min_amt,
+       ROUND(AVG(amount), 2) as avg_amt,
+       MAX(amount) as max_amt,
+       COUNT(DISTINCT crawl_target_id) as inst_count
 FROM extracted_fees
 WHERE fee_category IS NOT NULL AND amount > 0
 GROUP BY fee_category
@@ -153,6 +125,14 @@ Remember:
 - Test with: `python3 -c "from fee_crawler.fee_analysis import normalize_fee_name; print(normalize_fee_name('Your Fee Name'))"`
 
 ### Fixing Misclassified Rows
+
+For individual rows, fix directly:
+
+```sql
+UPDATE extracted_fees
+SET fee_category = 'correct_category', fee_family = 'Correct Family'
+WHERE id = {row_id};
+```
 
 For systematic fixes, update the aliases/detection logic and re-run:
 
@@ -190,24 +170,12 @@ After all repairs:
 # Re-run categorization
 python3 -m fee_crawler categorize --force
 
-# Check distributions are clean (via Node postgres)
-node --input-type=module << 'VERIFY'
-import postgres from 'postgres';
-import { readFileSync } from 'fs';
-const env = readFileSync('.env', 'utf8');
-const dbUrl = env.match(/DATABASE_URL=(.+)/)?.[1]?.trim();
-const sql = postgres(dbUrl, { ssl: 'require' });
-const results = await sql`
-  SELECT fee_category, COUNT(*)::int as n,
-         MIN(amount)::float as min_amt,
-         ROUND(AVG(amount)::numeric, 0)::int as avg_amt,
-         MAX(amount)::float as max_amt
-  FROM extracted_fees WHERE fee_category IS NOT NULL AND amount > 0
-  GROUP BY fee_category ORDER BY fee_category
-`;
-console.table(results);
-await sql.end();
-VERIFY
+# Check distributions are clean
+sqlite3 data/crawler.db "
+SELECT fee_category, COUNT(*), MIN(amount), ROUND(AVG(amount),0), MAX(amount)
+FROM extracted_fees WHERE fee_category IS NOT NULL AND amount > 0
+GROUP BY fee_category ORDER BY fee_category;
+"
 
 # Build still passes
 npx next build
