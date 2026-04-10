@@ -454,29 +454,69 @@ function EmptyState() {
         borderRadius: "0.5rem",
       }}
     >
-      <h3
-        style={{
-          fontFamily: "var(--hamilton-font-serif)",
-          fontSize: "1.5rem",
-          fontWeight: 400,
-          color: "var(--hamilton-on-surface)",
-          margin: 0,
-        }}
-      >
-        No signals yet.
-      </h3>
-      <p
-        style={{
-          fontFamily: "var(--hamilton-font-sans)",
-          fontSize: "0.9375rem",
-          color: "var(--hamilton-text-secondary)",
-          lineHeight: 1.6,
-          margin: 0,
-        }}
-      >
-        Add institutions to your watchlist to begin monitoring fee movements and
-        competitive shifts.
-      </p>
+      <div style={{ textAlign: "center", maxWidth: "28rem", margin: "0 auto" }}>
+        <div style={{
+          width: "3rem",
+          height: "3rem",
+          borderRadius: "50%",
+          backgroundColor: "var(--hamilton-surface-container-high)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          margin: "0 auto 1.25rem",
+          fontSize: "1.25rem",
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--hamilton-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+        </div>
+        <h3
+          className="font-headline"
+          style={{
+            fontFamily: "var(--hamilton-font-serif)",
+            fontSize: "1.25rem",
+            fontStyle: "italic",
+            fontWeight: 400,
+            color: "var(--hamilton-on-surface)",
+            margin: "0 0 0.75rem",
+          }}
+        >
+          Your signal feed is ready.
+        </h3>
+        <p
+          style={{
+            fontFamily: "var(--hamilton-font-sans)",
+            fontSize: "0.875rem",
+            color: "var(--hamilton-text-secondary)",
+            lineHeight: 1.6,
+            margin: "0 0 1.5rem",
+          }}
+        >
+          Hamilton monitors fee movements, regulatory shifts, and competitive signals
+          across your watchlist. Add institutions to start receiving intelligence.
+        </p>
+        <a
+          href="/pro/settings"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.625rem 1.25rem",
+            fontSize: "0.8125rem",
+            fontWeight: 600,
+            color: "var(--hamilton-on-primary)",
+            borderRadius: "0.375rem",
+            textDecoration: "none",
+            letterSpacing: "0.05em",
+          }}
+          className="burnished-cta"
+        >
+          Configure Your Institution
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </a>
+      </div>
     </div>
   );
 }

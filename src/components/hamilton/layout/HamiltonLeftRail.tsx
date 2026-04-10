@@ -230,9 +230,9 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [], pin
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
-                      No saved analyses yet
-                    </p>
+                    <Link href="/pro/analyze" className="block text-[11px] no-underline transition-colors" style={{ color: "var(--hamilton-primary)" }}>
+                      Ask Hamilton a question to begin
+                    </Link>
                   )}
                 </div>
 
@@ -263,9 +263,9 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [], pin
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
-                      No recent work yet
-                    </p>
+                    <Link href="/pro/simulate" className="block text-[11px] no-underline transition-colors" style={{ color: "var(--hamilton-primary)" }}>
+                      Run a fee simulation to get started
+                    </Link>
                   )}
                 </div>
               </div>
@@ -312,9 +312,9 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [], pin
                         ))}
                       </div>
                     ) : (
-                      <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
-                        No pinned institutions yet
-                      </p>
+                      <Link href="/pro/settings" className="block text-[11px] no-underline transition-colors" style={{ color: "var(--hamilton-primary)" }}>
+                        Add institutions to watch
+                      </Link>
                     )}
                   </div>
 
@@ -345,9 +345,9 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [], pin
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-[11px]" style={{ color: "var(--hamilton-text-tertiary)" }}>
-                        No peer sets configured
-                      </p>
+                      <Link href="/pro/settings" className="block text-[11px] no-underline transition-colors" style={{ color: "var(--hamilton-primary)" }}>
+                        Configure peer comparison groups
+                      </Link>
                     )}
                   </div>
                 </div>

@@ -47,7 +47,7 @@ export function WhatChangedCard({ signals }: WhatChangedCardProps) {
               margin: 0,
             }}
           >
-            Configure your watchlist to see fee changes here
+            Hamilton tracks fee movements across your watchlist. <a href="/pro/settings" style={{ color: "var(--hamilton-primary)", textDecoration: "none", fontWeight: 500 }}>Add institutions</a> to see what changed.
           </p>
         </div>
       </div>
