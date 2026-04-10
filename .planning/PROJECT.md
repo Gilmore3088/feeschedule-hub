@@ -39,13 +39,18 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 
 ### Active
 
-- [ ] Settings cleanup: DB migration for fed_district + Stripe billing portal wiring
-- [ ] Monitor: real signal queries, watchlist CRUD, empty states (strip demo data)
-- [ ] Home/Briefing: real thesis generation, real index data, real alerts
-- [ ] Analyze: verified streaming with Hamilton API, real focus tab context injection
-- [ ] Simulate: category-agnostic fee simulation (all 49 categories), real distribution data, confidence gating
-- [ ] Reports: client-oriented templates (Peer Benchmarking, Regional, Category Deep Dive, Competitive Positioning), real generation pipeline, PDF export
-- [ ] Integration pass: screen-to-screen flows (Home CTA -> Simulate -> Report)
+- [ ] Canonical fee layer: canonical_fee_key + fee_family columns for all 15K+ fee categories
+- [ ] Duplicate normalization: merge obvious duplicates (rush_card/rush_card_delivery, fax/fax_fee/fax_service)
+- [ ] Synonym consolidation: unify synonym clusters (skipapay variants, return_mail variants, club account variants)
+- [ ] Auto-classification pipeline: new crawled fees automatically mapped to canonical taxonomy on extraction
+- [ ] Hamilton Pro polish: strip all sample/demo text, responsive design across all Pro screens
+- [ ] Stripe billing: billing portal wiring, subscription gating
+- [ ] Admin sortable tables: all admin pages get sortable columns
+- [ ] Districts data consumption: wire Phase 23-24 district queries into /admin/districts
+- [ ] Report data piping: Call Reports, FRED, Beige Book data flowing into report generation
+- [ ] Report design: Salesforce-grade layout with stat callouts, charts, editorial structure
+- [ ] Pipeline coverage: big bank re-extraction with Playwright stealth, URL research
+- [ ] Screen integration: connected Pro flows end-to-end with real data
 
 ### Out of Scope
 
@@ -55,26 +60,26 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - Wave orchestrator / iterative deepening — deferred from v3.0, pipeline work done in parallel by owner
 - A/B testing settings page variants — deferred to post-launch polish
 - v6.0 remaining work (B2B launchpad, PDF export) — subsumed by Report Builder screen
-- New UI components or screen redesigns — v8.0 built all shells, v8.1 is data wiring only
-- Signal pipeline automation — seeding signals is manual/dev-only for now, automation deferred post-v8.1
+- New UI components or screen redesigns — existing shells are sufficient, polish only
+- Signal pipeline automation — seeding signals is manual/dev-only for now, automation deferred post-v9.0
 
-## Current Milestone: v8.1 Hamilton Pro Live Data Wiring
+## Current Milestone: v9.0 Data Foundation & Production Polish
 
-**Goal:** Wire every Hamilton Pro screen to real data, strip all hardcoded/demo content, and deliver a production-ready paid experience.
+**Goal:** Build a living canonical fee layer that consolidates 15K+ fragmented fee categories AND auto-classifies new crawl data as it arrives, then polish every surface (Pro, Admin, Reports) to production-ready quality.
 
 **Target features:**
-- Settings cleanup (DB migration for fed_district + Stripe billing portal wiring)
-- Monitor: real signal queries, watchlist CRUD, empty states (strip demo data)
-- Home/Briefing: real thesis generation, real index data, real alerts
-- Analyze: verified streaming with Hamilton API, real focus tab context injection
-- Simulate: category-agnostic fee simulation (all 49 categories), real distribution data, confidence gating
-- Reports: client-oriented templates (Peer Benchmarking, Regional, Category Deep Dive, Competitive Positioning), real generation pipeline, PDF export
-- Integration pass: screen-to-screen flows (Home CTA -> Simulate -> Report)
+- Fee taxonomy consolidation: canonical_fee_key, fee_family assignment for long-tail categories, synonym/duplicate normalization
+- Auto-classification pipeline: new crawled fees automatically mapped to canonical layer (not one-time backfill)
+- Hamilton Pro production polish: strip all sample/demo text, responsive design, Stripe billing portal wiring
+- Admin UX improvements: sortable tables across all admin pages, districts data consumption, catalog toggle fix
+- Report quality upgrade: real Fed data piping, Call Report integration, Salesforce-grade layout
+- Pipeline coverage expansion: big bank re-extraction with Playwright stealth, URL research strategy
+- Screen integration: connected Pro screen flows, real data end-to-end
 
 ## Current State
 
-**Latest shipped:** v8.0 Hamilton Pro Platform (2026-04-09) — screen shells + architecture
-**v8.1 progress:** Phase 48 complete (Pro nav cleanup + full canvas width — old tabs eliminated, all Hamilton screens edge-to-edge)
+**Latest shipped:** v8.1 Hamilton Pro Live Data Wiring (2026-04-10) — real data wiring across all Pro screens
+**v9.0 progress:** Not started (defining requirements)
 
 **Previous milestones:**
 - v1.0 E2E Pipeline Test Suite (shipped 2026-04-06)
@@ -85,6 +90,7 @@ Accurate, complete, timely fee data with rich analysis — the kind of insight a
 - v6.0 Two-Sided Experience (Phases 28-32 partially shipped — consumer landing + institution pages done, B2B launchpad + PDF export deferred)
 - v7.0 Hamilton Reasoning Engine (shipped 2026-04-08)
 - v8.0 Hamilton Pro Platform (Phases 38-46 — architecture, DB tables, shell, settings, 5 screen shells with demo content)
+- v8.1 Hamilton Pro Live Data Wiring (Phases 47-54 — settings migration, monitor, home, analyze, simulate, reports, integration pass)
 
 ## Context
 
@@ -132,4 +138,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-09 after Phase 47 completion*
+*Last updated: 2026-04-09 after v9.0 milestone initialization*
