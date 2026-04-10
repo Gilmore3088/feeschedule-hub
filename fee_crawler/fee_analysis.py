@@ -85,6 +85,18 @@ FEE_FAMILIES: dict[str, list[str]] = {
     ],
 }
 
+# Categories that must NEVER share aliases -- regulatory or semantic boundaries.
+# Guard test in tests/test_never_merge.py enforces this before any alias expansion.
+NEVER_MERGE_PAIRS: list[tuple[str, str]] = [
+    ("nsf", "overdraft"),
+    ("wire_domestic_outgoing", "wire_intl_outgoing"),
+    ("wire_domestic_incoming", "wire_intl_incoming"),
+    ("atm_non_network", "card_replacement"),
+    ("od_protection_transfer", "overdraft"),
+    ("od_daily_cap", "overdraft"),
+    ("nsf_daily_cap", "nsf"),
+]
+
 # Canonical fee categories and their known aliases
 FEE_NAME_ALIASES: dict[str, str] = {
     # --- Account Maintenance ---
