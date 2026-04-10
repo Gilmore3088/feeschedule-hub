@@ -1149,7 +1149,11 @@ Plans:
   2. A fee whose raw name does not match the alias table is classified via Claude Haiku LLM fallback; the result is cached in classification_cache so the same raw string never triggers a second LLM call
   3. The LLM fallback does not block or delay fee storage — a fee with an unmatched raw name is stored immediately with canonical_fee_key = NULL and the LLM call runs asynchronously
   4. After any crawl run, the Roomba integration automatically flags outlier fees in the newly inserted batch — a developer can see the flagged rows without running a manual audit script
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 56-01-PLAN.md -- Wire classify_fee() into both INSERT paths + Wave 0 test scaffolds
+- [ ] 56-02-PLAN.md -- LLM batch classification command + classification_cache migration
+- [ ] 56-03-PLAN.md -- Roomba post-crawl entry point + snapshot tables + Modal orchestration
 
 ### Phase 57: Admin UX — Sortable Tables & Districts
 **Goal**: Every admin table is sortable and the Districts pages display the full district intelligence that Phase 23-24 built — no wasted infrastructure
