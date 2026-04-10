@@ -9,6 +9,7 @@ import { ReportLibrary } from "./ReportLibrary";
 import {
   generateReport,
   loadActiveScenarios,
+  loadScenarioById,
   type ReportTemplateType,
 } from "@/app/pro/(hamilton)/reports/actions";
 import type { ReportSummaryResponse } from "@/lib/hamilton/types";
@@ -23,36 +24,36 @@ const TEMPLATES: Array<{
   icon: string;
 }> = [
   {
-    type: "quarterly_strategy",
-    title: "Quarterly Strategy Report",
+    type: "peer_benchmarking",
+    title: "Peer Benchmarking Report",
     description:
-      "A comprehensive look at capital allocation across core portfolios relative to benchmark drift.",
-    tags: ["Full Scale", "Institutional"],
-    icon: "history_edu",
-  },
-  {
-    type: "peer_brief",
-    title: "Peer Brief",
-    description:
-      "Direct comparative analysis against established peer set metrics and strategic pivots.",
-    tags: ["Comparative", "Daily Ops"],
+      "Compare your institution's fee schedule against your configured peer set with category-by-category analysis.",
+    tags: ["Peer Analysis", "Comparative"],
     icon: "group_work",
   },
   {
-    type: "monthly_pulse",
-    title: "Monthly Pulse",
+    type: "regional_landscape",
+    title: "Regional Fee Landscape",
     description:
-      "High-frequency indicators summarized for tactical executive decision-making.",
-    tags: ["Tactical", "Summary"],
-    icon: "timeline",
+      "Fee patterns across Federal Reserve districts and state-level pricing trends in your market.",
+    tags: ["Geographic", "Market Intel"],
+    icon: "map",
   },
   {
-    type: "state_index",
-    title: "State Index",
+    type: "category_deep_dive",
+    title: "Category Deep Dive",
     description:
-      "Geopolitical and regulatory risk mapping for cross-border institutional assets.",
-    tags: ["Risk Alpha", "Macro"],
-    icon: "map",
+      "Single fee category analysis: distribution, percentile positioning, peer comparison, and trend context.",
+    tags: ["Focused", "Tactical"],
+    icon: "analytics",
+  },
+  {
+    type: "competitive_positioning",
+    title: "Competitive Positioning",
+    description:
+      "Identify pricing power and vulnerability across your fee schedule relative to direct competitors.",
+    tags: ["Strategy", "Competitive"],
+    icon: "leaderboard",
   },
 ];
 
@@ -75,9 +76,7 @@ export function ReportWorkspace({
 }: ReportWorkspaceProps) {
   const [selectedTemplate, setSelectedTemplate] =
     useState<ReportTemplateType | null>(null);
-  const [institution, setInstitution] = useState("Hamilton Global Partners");
-  const [peerSet, setPeerSet] = useState("tier1");
-  const [focusArea, setFocusArea] = useState("Capital Allocation");
+  const [focusArea, setFocusArea] = useState("Fee Benchmarking");
   const [narrativeTone, setNarrativeTone] = useState<NarrativeTone>("consulting");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPdfExporting, setIsPdfExporting] = useState(false);
@@ -94,8 +93,18 @@ export function ReportWorkspace({
     loadActiveScenarios().catch(() => {});
   }, [userId]);
 
-  // initialScenarioId is accepted for Plan 02 wiring — not implemented in this plan
-  void initialScenarioId;
+  // Scenario pre-fill: when arriving from /pro/simulate?scenario_id=X,
+  // auto-select Category Deep Dive and pre-fill the focus area from the scenario's fee_category.
+  useEffect(() => {
+    if (!initialScenarioId) return;
+    let cancelled = false;
+    loadScenarioById(initialScenarioId).then((scenario) => {
+      if (cancelled || !scenario) return;
+      setSelectedTemplate("category_deep_dive");
+      setFocusArea(scenario.fee_category.replace(/_/g, " "));
+    });
+    return () => { cancelled = true; };
+  }, [initialScenarioId]);
 
   function handleTemplateClick(type: ReportTemplateType) {
     setSelectedTemplate((prev) => (prev === type ? null : type));
@@ -137,6 +146,8 @@ export function ReportWorkspace({
       templateType: selectedTemplate,
       dateFrom,
       dateTo: today,
+      focusCategory: selectedTemplate === "category_deep_dive" ? focusArea.replace(/ /g, "_") : undefined,
+      scenarioId: initialScenarioId ?? undefined,
     });
 
     setIsGenerating(false);
@@ -323,28 +334,25 @@ export function ReportWorkspace({
                 <span
                   className="text-[10px] uppercase tracking-[0.3em] block mb-6 text-primary"
                 >
-                  Strategic Outlook Fragment
+                  Hamilton Intelligence
                 </span>
                 <h4 className="font-headline text-4xl italic mb-8 leading-tight text-on-surface">
-                  &ldquo;The institution maintains a robust posture against
-                  inflationary headwinds, prioritizing liquid alts in the
-                  short-term window.&rdquo;
+                  &ldquo;Every fee adjustment tells a story — Hamilton reads
+                  the data so you can write the strategy.&rdquo;
                 </h4>
                 <div
                   className="space-y-6 text-sm leading-relaxed"
                   style={{ color: "var(--hamilton-secondary)" }}
                 >
                   <p>
-                    Current market dynamics suggest a deliberate migration
-                    toward fixed-income primitives as central bank signals
-                    remain hawkish. Our analysis indicates that while the
-                    broader sector remains exposed to volatility, the Hamilton
-                    Private pool is positioned with a 12% alpha buffer.
+                    Select a report template above to generate Hamilton
+                    intelligence from your live fee data. Reports combine
+                    national index benchmarks, peer comparisons, and
+                    pipeline-verified fee schedules.
                   </p>
                   <p>
-                    Recommendation: Continued accumulation in emerging energy
-                    infrastructure, specifically targeted toward the Nordic
-                    region where regulatory tailwinds are most favorable.
+                    Each report is generated fresh from current data, ensuring
+                    your analysis reflects the latest market conditions.
                   </p>
                 </div>
                 <div className="mt-12 flex items-center justify-between">
@@ -356,7 +364,7 @@ export function ReportWorkspace({
                       verified_user
                     </span>
                     <span className="text-[10px] uppercase tracking-widest">
-                      Validated by Hamilton AI Terminal
+                      Powered by Hamilton AI Research Analyst
                     </span>
                   </div>
                   <span
@@ -389,13 +397,11 @@ export function ReportWorkspace({
         {/* Right: Configuration sidebar */}
         <ConfigSidebar
           selectedTemplate={selectedTemplate}
-          institution={institution}
-          peerSet={peerSet}
+          institutionName="Your Institution"
+          peerSetLabel="National Index"
           focusArea={focusArea}
           narrativeTone={narrativeTone}
           isGenerating={isGenerating}
-          onInstitutionChange={setInstitution}
-          onPeerSetChange={setPeerSet}
           onFocusAreaChange={setFocusArea}
           onNarrativeToneChange={setNarrativeTone}
           onGenerate={handleGenerate}
