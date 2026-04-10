@@ -912,10 +912,10 @@ Plans:
   3. Triggering report generation calls the real generateSection() pipeline with the user's institution and peer context — the generated content references real index data points
   4. A user can download a generated report as a PDF that opens correctly in a standard viewer with BFI branding applied
   5. When a user arrives at Reports from Simulate after saving a scenario, the scenario parameters auto-populate the report configuration — no manual re-entry required
-**Plans**: 1 plan
+**Plans**: 2 plans
 Plans:
-- [ ] 53-01-PLAN.md — TBD
-**UI hint**: yes
+- [ ] 53-01-PLAN.md — Data layer (status column, queries, seed) + Reports page restructure with library
+- [ ] 53-02-PLAN.md — Client-oriented template reframing + scenario-linked arrival**UI hint**: yes
 
 ### Phase 54: Integration Pass
 **Goal**: All cross-screen flows work correctly end-to-end — CTAs navigate to the right screens with the right pre-loaded context, scenario handoffs are lossless, and institutional context is consistent across every screen
