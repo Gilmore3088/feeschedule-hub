@@ -3,22 +3,25 @@
 /**
  * FloatingChatOverlay — Collapsible Hamilton chat in bottom-right corner.
  * Minimized by default. Expands on click. Does not disrupt the signal feed.
- * Uses useChat from @ai-sdk/react for streaming Hamilton responses.
+ * Uses useChat + DefaultChatTransport from @ai-sdk/react v3 for streaming.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 
 export function FloatingChatOverlay() {
   const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, input, handleInputChange, handleSubmit, status, stop } =
-    useChat({
+  const { messages, sendMessage, status, stop } = useChat({
+    transport: new DefaultChatTransport({
       api: "/api/research/hamilton",
       body: { mode: "monitor" },
-    });
+    }),
+  });
 
   const isStreaming = status === "streaming" || status === "submitted";
 
@@ -38,6 +41,13 @@ export function FloatingChatOverlay() {
     if (isStreaming) stop();
     setIsOpen(false);
   }
+
+  const handleSend = useCallback(() => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || isStreaming) return;
+    sendMessage({ text: trimmed });
+    setInputValue("");
+  }, [inputValue, isStreaming, sendMessage]);
 
   if (!isOpen) {
     return (
@@ -185,8 +195,7 @@ export function FloatingChatOverlay() {
                 ?.filter((p) => p.type === "text")
                 .map((p) => p.text)
                 .join("") ||
-                msg.content ||
-                (isStreaming ? (
+                (isStreaming && msg.role === "assistant" ? (
                   <span style={{ opacity: 0.5 }}>Thinking...</span>
                 ) : null)}
             </div>
@@ -196,8 +205,7 @@ export function FloatingChatOverlay() {
       </div>
 
       {/* Input row */}
-      <form
-        onSubmit={handleSubmit}
+      <div
         style={{
           display: "flex",
           gap: "0.5rem",
@@ -209,8 +217,14 @@ export function FloatingChatOverlay() {
         <input
           ref={inputRef}
           type="text"
-          value={input}
-          onChange={handleInputChange}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           placeholder="Ask Hamilton..."
           disabled={isStreaming}
           style={{
@@ -226,8 +240,8 @@ export function FloatingChatOverlay() {
           }}
         />
         <button
-          type="submit"
-          disabled={isStreaming || !input.trim()}
+          onClick={handleSend}
+          disabled={isStreaming || !inputValue.trim()}
           style={{
             fontSize: "0.8125rem",
             fontWeight: 500,
@@ -237,14 +251,14 @@ export function FloatingChatOverlay() {
             border: "none",
             borderRadius: "0.375rem",
             cursor:
-              isStreaming || !input.trim() ? "not-allowed" : "pointer",
-            opacity: isStreaming || !input.trim() ? 0.6 : 1,
+              isStreaming || !inputValue.trim() ? "not-allowed" : "pointer",
+            opacity: isStreaming || !inputValue.trim() ? 0.6 : 1,
             flexShrink: 0,
           }}
         >
           Send
         </button>
-      </form>
+      </div>
     </div>
   );
 }
