@@ -1,271 +1,232 @@
 # Feature Research
 
-**Domain:** Premium B2B Decision Intelligence Platform — Hamilton Pro 5-Screen Decision System
-**Researched:** 2026-04-08
-**Milestone context:** v8.0 — Transform Hamilton from chat agent into 5-screen decision system for fee pricing, peer positioning, and regulatory-risk evaluation
-**Confidence:** MEDIUM-HIGH — screen specs and product architecture from Hamilton-Design/ (HIGH); comparative platform analysis from Bloomberg Terminal, Palantir Foundry, Curinos Deposit Optimizer, Klue, Rogo AI (MEDIUM); general B2B SaaS UX patterns (LOW-MEDIUM)
+**Domain:** Data consolidation pipeline + production polish for a B2B bank fee intelligence platform
+**Researched:** 2026-04-09
+**Milestone context:** v9.0 — Canonical fee taxonomy layer, auto-classification pipeline, admin UX polish, consulting-grade PDF reports
+**Confidence:** HIGH for what's already built (direct code inspection); MEDIUM for taxonomy/classification design patterns; LOW for PDF design patterns (single source)
 
 ---
 
 ## Scope of This Research
 
-This file maps each of the 5 Hamilton Pro screens — Home, Analyze, Simulate, Report Builder, Monitor — plus Settings to table stakes, differentiators, and anti-features grounded in comparable premium B2B intelligence products. "Comparable products" means: Bloomberg Terminal (data density + workflow), Palantir Foundry/AIP (decision intelligence + scenario modeling), Curinos Deposit Optimizer (direct competitor for bank pricing intelligence), Klue/Crayon (competitive intelligence signal feeds), and Rogo AI (AI-native financial research workflow).
+This file covers v9.0 feature surface only. It does not re-research Hamilton Pro screens (covered in prior FEATURES.md). The four problem areas are:
 
-Existing features already built (not re-researched here): Hamilton unified persona, global thesis engine, Voice v3.1, 12-source queryNationalData + queryRegulatoryRisk tools, Editor v2, fee index (national + peer), streaming research chat, consumer/institution pages, admin portal.
+1. **Canonical taxonomy consolidation** — 15,575 raw fee categories, 92% single-institution, 49 canonical. Bridge the gap.
+2. **Auto-classification pipeline** — New crawled fees must route to canonical taxonomy automatically, not manually.
+3. **Admin UX polish** — Sortable tables across all admin pages; districts page wired to real data; catalog toggle fix.
+4. **Report quality upgrade** — Call Reports, FRED, Beige Book data flowing into PDF output; Salesforce-grade layout.
+
+Code inspection findings that constrain design:
+- `fee_analysis.py` `FEE_NAME_ALIASES` dict: ~300 hardcoded string → canonical key mappings. `categorize_fees.py` does exact-match only after `normalize_fee_name()`. Anything not in the alias table falls through as "unmatched."
+- `SortableTable` component exists at `src/components/sortable-table.tsx` (client-side sort + pagination). Only wired to `/admin/index`. Not used in market, peers, fees/catalog, districts, institutions, leads, ops, review pages.
+- PDF generation uses `@react-pdf/renderer` via `/api/pro/report-pdf`. No charts in PDF (deferred, per D-09 comment). HTML report engine (`assemble-and-render.ts`) is a separate path for public reports.
+- District DB tables exist (`fed_beige_book`, `fed_content`, `fed_economic_indicators`). The `/admin/districts` page and detail page exist but may not consume the Phase 23-24 district query functions.
 
 ---
 
-## Screen 1: Executive Home / Briefing
+## Feature Area 1: Canonical Fee Taxonomy Consolidation
 
 ### Table Stakes
 
-Features executives expect in any premium briefing product. Missing any = product feels generic or incomplete.
-
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Single dominant thesis statement | Every premium briefing (Klue digest, Bloomberg TOP function) leads with one clear point of view — not a list of observations | LOW | AI-generated from current index payload; not static copy; Hamilton Voice v3.1 already handles this |
-| "What Changed" module | Users open the screen to find out what is different since last visit — this is the primary engagement driver | MEDIUM | Delta since last session or last 7 days; requires comparing current snapshot to prior; drives repeat habit |
-| Priority alerts list above fold | Bloomberg, Palantir, and every monitoring product surfaces prioritized alerts before body content | LOW | Reads from `hamilton_priority_alerts`; severity-coded; max 3 visible at once |
-| Recommended action with one-click CTA | Executive products are judged on whether they tell you what to do, not just what happened | LOW | Primary CTA = "Simulate Change"; must pre-load Simulate with context |
-| Institutional context header | User must see their institution name, asset tier, and peer set immediately — confirms the briefing is for them | LOW | Reads institution profile from Settings; critical trust signal; no generic fallback state acceptable |
-| Data freshness timestamp | Any data-heavy product must communicate when data was last updated — absence creates distrust | LOW | "Based on index as of [date]" — prevents silent stale-data confusion |
+| `canonical_fee_key` column on `extracted_fees` | Every analytics layer downstream (peer index, market, Hamilton) requires a stable key for aggregation; raw `fee_name` is unanalyzable | MEDIUM | Column likely already exists (`fee_category`); the task is populating it for the 92% un-mapped long-tail |
+| `fee_family` column populated for all rows | Family-level aggregation ("Overdraft & NSF") is the first grouping level used in every Hamilton output and admin page | LOW | Column exists; already populated for the ~8% that matched. Backfill needed for remainder. |
+| Duplicate normalization: obvious synonyms merged | `rush_card` and `rush_card_delivery` appearing as separate categories confuses every downstream consumer; users expect consistency | MEDIUM | Alias table already handles many; the un-mapped 92% may contain duplicate-concept clusters not yet in aliases |
+| Variant normalization: suffix inflation collapsed | `fax`, `fax_fee`, `fax_service` are the same economic concept; they must map to one canonical key | MEDIUM | Pattern: strip common suffixes (`_fee`, `_charge`, `_service`) before alias lookup as a normalization step |
+| Synonym cluster consolidation | `skipapay`, `skip_a_pay`, `skip_a_payment`, `skip_payment` are institution-naming variants for the same product | HIGH | Requires either an expanded alias table or LLM-assisted grouping pass on the long-tail |
 
 ### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Thesis with tension framing | Curinos and Bloomberg surface data; Hamilton surfaces an argument with stakes — "You are pricing above your market at a moment when complaints are rising" | MEDIUM | Requires Hamilton Voice v3.1 tension model from v7.0; already built |
-| Positioning Evidence module | Translates thesis into peer percentile context ("You sit at 73rd percentile for overdraft, above 81% of your peer set") — a claim, not a table | MEDIUM | Draws from existing getNationalIndex + getPeerIndex queries; display only |
-| "Why It Matters" revenue narrative | Most platforms stop at what changed; explaining the revenue implication is the consulting-grade differentiator | MEDIUM | One paragraph max; Hamilton Editor v2 revenue-first ordering enforced |
-| Monitor Feed preview strip | Surfaces 2-3 live signals from Screen 5 on Home so users see surveillance value without navigating | LOW | Pulls top signals from `hamilton_signals`; no duplication of full Monitor screen; stub-able if Monitor ships later |
-| Conviction in zero/empty state | Competing products feel broken with empty states; Hamilton's empty state should say "We are still building your profile — here is what the national index says about your peer segment" — maintains authority even before setup | LOW | Design and copy only, not engineering; high leverage at low cost |
+| LLM-assisted canonical mapping for un-matched tail | The 92% long-tail cannot be covered by hand-written aliases alone; a Claude Haiku batch pass that maps each unique `fee_name` to the nearest canonical key (or proposes a new one) is the only scalable path | HIGH | Run once as a backfill batch; output reviewed and committed as alias expansions; not a runtime path |
+| Variant_type tagging (`standard`, `rush`, `waived`, `promotional`) | Within a canonical key, variant tagging adds a dimension that makes peer comparison more precise ("First National charges $35 for standard card replacement vs. $75 for rush") | MEDIUM | New column; enriches downstream analysis; not required for basic consolidation but high analytical value |
+| Confidence scoring on canonical mapping | Mappings produced by LLM or fuzzy match should carry a confidence field so analysts can triage questionable mappings differently from alias-exact mappings | LOW | Float 0-1 on `canonical_confidence`; parallels existing `extraction_confidence` pattern |
+| New canonical key proposal pipeline | When LLM can't map to an existing canonical, it proposes a new key with family assignment; admin reviews + approves to extend the taxonomy | HIGH | Extends the 49-category taxonomy over time as new fee types appear; makes the taxonomy a living asset not a frozen schema |
 
 ### Anti-Features
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Full fee index table on Home | Bank analysts want all data at a glance | Home becomes a dashboard, not a briefing — kills the authority signal; Gartner research shows executive dashboards fail when they show everything | Link from Home to Analyze; show one key stat in hero card only |
-| Chat input on Home | Users assume they can ask Hamilton anything anywhere | Blurs the screen boundary that makes each screen authoritative; Home's job is orientation not exploration | Floating chat belongs on Monitor (Screen 5); link from Home to Analyze for exploration |
-| Notification bell / unread-count inbox | Familiar from consumer SaaS | Creates anxiety-loop psychology rather than authority; banking executives do not engage with badge counts | Priority Alerts as an information section, not a notification inbox |
-| Auto-refresh / live data stream | Real-time feels premium | Fee data is batch/quarterly; live refresh of rarely-changing data creates false urgency and damages trust when nothing updates | "Last updated" timestamp; manual refresh on demand only |
+| Map every unique fee_name to canonical in real-time during extraction | Seems cleaner than a backfill | LLM round-trip per fee during crawl doubles extraction cost and latency; errors during classification block fee storage | Batch LLM pass post-extraction; store raw fee_name always; classification is a secondary enrichment step |
+| Fully automated taxonomy with no human review | Saves analyst time | LLM classification errors accumulate silently; wrong canonical mapping produces wrong peer benchmarks (downstream trust damage) | LLM-proposed mappings with confidence < 0.8 route to a review queue; high-confidence mappings auto-commit |
+| Treat all 15,575 categories as potential canonical keys | Comprehensive | Creates an unusable taxonomy; the value of the canonical layer is compression, not completeness | Hard 49-category cap for v1 with a structured extension process; long-tail that doesn't fit is tagged `uncategorized` not fabricated |
 
 ---
 
-## Screen 2: Analyze
+## Feature Area 2: Auto-Classification Pipeline
 
 ### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Analysis focus tabs (Pricing / Risk / Peer Position / Trend) | Every premium analytics product (Bloomberg functions, Palantir Workshop) organizes analysis by mode — free-form chat without focus modes produces inconsistent quality | MEDIUM | 4 tabs pre-load Hamilton with screen-appropriate context; tab selection must change the system prompt framing |
-| Hamilton's View verdict block at top | Consulting reports lead with the "so what" before evidence; this is the primary UX expectation in any AI-assisted research tool | LOW | Copy rule defined: "Hamilton's View" label; revenue-first; 150-200 words; already enforced by Voice v3.1 |
-| Evidence section with data references | Analysts need to trace claims to data; Bloomberg cites source functions, Rogo cites filings — any premium research product provides citation | MEDIUM | Pulls from queryNationalData tool; must cite specific fee categories and percentiles, not vague aggregates |
-| "Explore Further" suggested prompts | Rogo and Klue both use pre-built follow-on prompts to guide analysts deeper without requiring them to write queries | LOW | 3-4 suggestions per response; context-aware (changes based on analysis focus); reduces blank-cursor abandonment |
-| Saved analyses list | B2B intelligence products must persist work sessions; Klue battlecards, Palantir Vertex scenarios all save state | MEDIUM | Writes to `hamilton_saved_analyses`; list view in sidebar or accessible modal |
-| Analysis title / naming | Users returning to saved work need to find specific analyses; unnamed sessions are inaccessible history | LOW | Auto-generated title from first prompt; user can rename; visible in list view |
+| New fees classified at extraction time | Every crawl after v9.0 must land in the canonical taxonomy without a manual backfill step; otherwise the index degrades on every run | MEDIUM | Wire `categorize_fees` logic into `pipeline/executor.py` post-extraction, before merge step |
+| Alias table as primary classifier | Fast, deterministic, zero-cost; must be the first classification step | LOW | Already exists; the gap is that it's run as a standalone command, not wired into the extraction pipeline automatically |
+| LLM fallback for alias misses | When alias table has no match, a Haiku prompt maps the fee to canonical; this is the "always succeeds" guarantee | MEDIUM | Adds cost (~$0.001/fee at haiku rates); acceptable given daily budget circuit breaker already in place |
+| Classification result written to `extracted_fees` at insert time | The merge step (`merge_fees.py`) already reads `fee_category` and `fee_family` from the categories/fee_families lists passed to it; the pipeline just needs to populate those correctly | LOW | `merge_institution_fees()` already accepts `categories` and `fee_families` params — this is wiring, not new code |
 
 ### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Peer distribution histogram | Showing where the institution sits on the full distribution (not just vs. median) is more powerful than a number; Curinos surfaces this as its core value prop | HIGH | Recharts dual-overlay histogram (segment blue, national gray); already built in Market Explorer — component reuse |
-| "When did we become an outlier?" temporal framing | Most platforms show current state; pulling fee_change_events to show the drift over time is a differentiator no direct competitor offers | HIGH | Depends on fee_change_events data density; flag as needing data coverage validation before shipping |
-| Risk driver framing in Pricing analysis | Connects fee outlier position to CFPB complaint trends and Beige Book commentary — nobody else connects pricing analysis to regulatory risk in the same screen | HIGH | Requires queryRegulatoryRisk tool output woven into analysis text; already in v7.0 toolset |
-| Screen boundary enforcement | Analyze explores, does not decide — competing AI chat products blur this boundary and produce inconsistent outputs that undermine user trust | LOW | Enforced by system prompt rules in screen-specs; no recommendation language in Analyze responses |
+| Incremental alias table expansion from LLM output | Each LLM classification that was validated by an analyst gets committed back to `FEE_NAME_ALIASES`; the alias table grows with each crawl cycle | MEDIUM | Compound knowledge pattern already established for the national.md knowledge system; same principle |
+| Classification audit trail per fee | Knowing whether a canonical mapping came from alias-match vs. LLM-fallback vs. manual override is valuable for data quality scoring | LOW | New `classification_method` column: `alias_exact`, `alias_fuzzy`, `llm_haiku`, `manual`; low cost |
+| Batch Haiku classification for long-tail backfill | 15K fees x ~100 per batch = ~150 Haiku API calls; at $0.25 per million input tokens this is under $5 total for the entire backfill | MEDIUM | Budget-safe; can run as a one-time Modal job |
 
 ### Anti-Features
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Fee recommendation or "suggested price" in Analyze | Users ask "what should I charge?" | Analyze's job is understanding, not deciding — mixing recommendation here undermines Simulate's authority and the product's clear mental model | CTA: "Simulate a Change" sends them to Screen 3 with fee category pre-loaded |
-| Board-ready export from Analyze | Seems like a productivity win | Promotes shallow, unexplored analysis as output-ready; report quality requires the Simulate tradeoff step first | Report screen only exports; Analyze can save, not export to PDF |
-| Unlimited persistent chat history | More data = more value (user assumption) | Long chat logs increase cognitive load; analysts lose context of what was the "definitive" finding vs. exploration tangent | Save specific analyses as named artifacts; conversations are session-scoped |
-| Competitor fee data scan in Analyze | Interesting but adjacent | Diffuses focus; the job of Analyze is understanding the user's own position, not a competitive scan | Competitive intelligence is a separate Hamilton skill; separate entry point |
+| Classification as a blocking step in the crawl pipeline | "Fail early" instinct | If classification fails (API timeout, model error), it blocks fee storage entirely; a failed classification should never prevent a fee from being stored | Store with `fee_category = NULL`; classification always runs as a best-effort enrichment step; merge handles NULL categories gracefully |
+| GPT-4-class model for classification | Higher accuracy instinct | 10-20x cost; classification is a pattern-matching task, not reasoning; Haiku is sufficient | Haiku for classification; Sonnet/Opus reserved for Hamilton analysis |
 
 ---
 
-## Screen 3: Simulate
+## Feature Area 3: Admin UX Polish — Sortable Tables
 
 ### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Current vs. Proposed side-by-side | Every pricing decision tool (Curinos Optimizer, Simon-Kucher models) shows before/after state — no pricing tool ships without this | MEDIUM | Strong visual contrast required per screen-specs; percentile shifts must be immediately visible |
-| Fee input or slider | Tangible interaction is expected in any scenario tool; Palantir Vertex, financial planning tools all use it | LOW | Slider with discrete steps (e.g. $1 increments) + numeric input for precision; slider drives the real-time update |
-| Live percentile position update | Users expect immediate feedback as they move the slider; Palantir Vertex updates scenario outputs on interaction | MEDIUM | Client-side computation against pre-fetched peer distribution data; no round-trip to server per slider move |
-| Recommendation with rationale | Simulate is the only screen that "owns" a recommendation — the absence of a recommendation makes the screen a visualization, not a decision tool | MEDIUM | Hamilton generates recommendation based on percentile target, risk profile, and tradeoff state |
-| Strategic Tradeoffs section | McKinsey reports always surface "what you give up" — expected in any consulting-grade pricing analysis | MEDIUM | Tradeoff pairs: revenue lift vs. complaint risk; peer alignment vs. competitive differentiation |
-| Generate Board Scenario Summary CTA | Primary exit from Simulate must be shareable; bankers making pricing recommendations need a committee artifact | LOW | Triggers Report generation pre-filled with Simulate output; primary CTA per spec |
+| All admin list views sortable by key columns | Standard behavior for any data-dense admin panel; Bloomberg, Salesforce, every admin product sorts tables | LOW | `SortableTable` component already built and working; this is a wiring task, not engineering |
+| Institutions table (`/admin/institutions`) sortable | Analysts need to find institutions by asset size, name, fee count | LOW | `src/app/admin/institution-table.tsx` — convert to `SortableTable`; server-fetched rows passed as JSON props |
+| Leads table (`/admin/leads`) sortable | Operators triage leads by date, source, status | LOW | `src/app/admin/leads/leads-table.tsx` — already likely a simple table; convert |
+| Districts table (`/admin/districts`) sortable | Analysts compare districts by median fee, institution count | LOW | `src/app/admin/districts/page.tsx` — needs wiring |
+| Fees catalog (`/admin/fees`) sortable | Default view for fee categories; analysts sort by institution count, median | LOW | `src/app/admin/fees/page.tsx` — convert |
+| Market table (`/admin/market`) sortable | Core analytics page; delta column sort (largest divergence from national first) is the primary use case | MEDIUM | `src/app/admin/market/page.tsx` — already has category-explorer; sortable delta column is the priority |
+| Review queue (`/admin/review`) sortable by confidence, amount | Analysts prioritize high-confidence items first | LOW | `src/app/admin/review/review-table.tsx` — partially done per code inspection; verify sort column coverage |
+| Peers page (`/admin/peers`) sortable by name, institution count | Operator manages saved peer sets | LOW | `src/app/admin/peers/page.tsx` |
+| Ops table (`/admin/ops`) sortable by run date, status, duration | Operators monitor pipeline health | LOW | `src/app/admin/ops/ops-client.tsx` |
 
 ### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Recommended Position with defensible range | Not just "raise it" but "the defensible range is $X-$Y, with $Z as the strategic sweet spot" — specific, range-bounded, board-ready language | HIGH | Hamilton generates range based on peer distribution + regulatory risk context; draws on all 12 data sources from v7.0 |
-| Risk profile indicator for proposed fee | Shows composite regulatory + complaint risk posture for the proposed fee — unique because it connects pricing to regulatory surveillance in real time | HIGH | Feeds from queryRegulatoryRisk output; requires real signal data behind it; validate data coverage before shipping |
-| Horizon framing (12-month / 24-month impact) | Most tools show point-in-time; Hamilton can frame the simulation in a planning horizon — "at current trend, this position will become an outlier in 18 months" | MEDIUM | Changes framing of recommendation; v1.x addition after core simulation validates |
-| Scenario archive with compare | Saving multiple scenarios and comparing them is a pattern Palantir Foundry uses to build analytical discipline; shows how the institution's thinking evolved | HIGH | Writes to `hamilton_scenarios`; compare UI requires at least 3 scenarios to be meaningful; v1.x |
+| URL-persisted sort state | Analysts who bookmark a sorted view expect the sort to survive a page reload; `/admin/institutions?sort=asset_size&dir=desc` | MEDIUM | Requires converting client-side sort state to URL params via `useRouter`; `SortableTable` currently uses local `useState` |
+| Column visibility toggle on wide tables | Market and institutions tables have many columns; hiding less-used columns reduces cognitive load | MEDIUM | Not in current `SortableTable`; add via column picker dropdown; v1.x not MVP |
 
 ### Anti-Features
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Broad exploratory chat in Simulate | "Ask Hamilton anything about this fee" | Simulate's job is decision-making with specific inputs; open chat in Simulate creates scope creep and weakens the recommendation's authority | Analyze screen handles exploration; "Explore Further" links back to Analyze from Simulate |
-| Multiple fee categories simultaneously (v1) | Power users want to model a full repricing | Tradeoffs multiply non-linearly across categories; Hamilton cannot produce a reliable recommendation across 10 categories at once for v1 | Single-category simulation for v1; multi-category scenario bundle deferred to v2 |
-| External benchmark import (CSV upload) | CFOs want to use their own data | Scope explosion; data validation, normalization, and liability issues outweigh benefit | Pre-loaded peer set configuration in Settings provides the right benchmark context |
-| Real-time peer alerting during simulation | "Show me if a peer moves this week" | Simulation is a point-in-time model; real-time alerts during a decision session create distraction rather than clarity | Monitor screen handles ongoing surveillance; Simulate uses latest index snapshot |
+| Server-side sort for all tables | Correct for large datasets | 15K rows is large; but admin tables already fetch filtered data (LIMIT 200 on peers, etc.); client-side sort on the fetched set is fine and avoids refetch latency | Client-side sort via `SortableTable` for current data volumes; revisit if tables exceed 1K visible rows |
+| Drag-to-reorder columns | Power user request | High complexity, low usage frequency in an admin tool; Bloomberg-style customization is a v3+ concern | Fixed opinionated column order per page; sortable by click is the 80% use case |
 
 ---
 
-## Screen 4: Report Builder
+## Feature Area 4: Districts Data Consumption
 
 ### Table Stakes
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Template selection (Quarterly Strategy / Peer Brief / Monthly Pulse / State Index) | Every B2B report platform offers templates; no executive will build a report from scratch; Looker, Power BI, Klue all template-first | MEDIUM | 4 named templates matching existing Hamilton skills; each has a distinct section structure |
-| Read-only report view | Report is for communication, not exploration — screen boundary is hard and expected | LOW | No sliders, no chat input, no edit widgets on the report surface; clean reading layout |
-| PDF export | Table stakes for any board-facing product since v4.x; bank executives share in PDF | MEDIUM | Headless Chrome / Puppeteer via API route, or WeasyPrint in Python; static SVG charts for print fidelity; McKinsey editorial layout |
-| Executive Summary section (first) | First page of any consulting report is a summary; bank executives read this and nothing else unless compelled | LOW | Auto-generated from Simulate recommendation or latest Hamilton thesis; one page max |
-| Recommended Position section | Report is the "clean read" version of Simulate output — this section carries the recommendation forward | LOW | Pulled from linked scenario or current thesis; read-only; verbatim from Simulate if scenario-linked |
-| Implementation Notes | McKinsey reports include "how to operationalize this" — expected in any strategy-grade output | MEDIUM | Short bullets; Hamilton generates based on fee category and regulatory context |
-| Configuration sidebar before generation | Users need to scope the report (peer set, time range, fee categories) — "generate and pray" is not acceptable for board output | MEDIUM | Pre-flight config controls that set the context payload sent to Hamilton |
+| District median fees displayed on `/admin/districts` | The district pages exist and the data exists in `fed_beige_book`, `fed_content`, `fed_economic_indicators` tables; absence makes the page feel empty | MEDIUM | Phase 23-24 district queries were built; wire them into the district page server components |
+| District detail page (`/admin/districts/[id]`) with economic summary | Analysts expect each district to show economic context alongside fee data | MEDIUM | Fetch from `fed_economic_indicators` for the district; already have DB queries per `src/lib/crawler-db/fed.ts` |
+| CFPB complaint data per district | Risk intelligence per region; ties fee positioning to complaint exposure | MEDIUM | `src/lib/crawler-db/complaints.ts` exists; wire to district detail |
+| Beige Book themes per district | Regional economic narrative that contextualizes fee trends | LOW | `getBeigeBankThemes()` or equivalent already built; display on district detail |
+
+---
+
+## Feature Area 5: Report Quality Upgrade
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Call Report financial data in report body | A consulting-grade bank fee report that doesn't reference actual revenue figures ($0 bug) is not credible | HIGH | `src/lib/crawler-db/call-reports.ts` and `fee-revenue.ts` exist; the bug is thousands-scaling (reported in MEMORY.md); fix the scaling, wire to report assemblers |
+| FRED economic indicators in report context | Macro context (rate environment, CPI, deposit flows) is expected in any professional fee analysis | MEDIUM | `fed_economic_indicators` table has FRED data; `assemble-and-render.ts` dispatch chain needs FRED data piped through |
+| Beige Book commentary used in report narrative | Hamilton has `queryRegulatoryRisk` and Beige Book tables; the report assemblers currently don't inject this into PDF output | MEDIUM | Assembler-level change: include `fed_beige_book` themes in the data payload passed to Hamilton section generation |
+| Salesforce Connected FINS-style layout in PDF | The current `PdfDocument.tsx` uses Helvetica, no charts, minimal visual hierarchy; it looks like a formatted text file, not a consulting report | HIGH | Design tokens already defined in `PdfDocument.tsx`; the gap is visual hierarchy: numbered chapters, bold stat callout boxes, section dividers with labels |
+| Stat callout boxes in PDF | Consulting reports use large-number callouts ("$35 — median overdraft fee, 3rd quartile nationally") as visual anchors | MEDIUM | `@react-pdf/renderer` supports styled `View` boxes with large `Text`; no dependency gap, this is layout work |
 
 ### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Scenario-linked report | When a Report is generated from a Simulate run, it carries the scenario's tradeoff analysis and recommended range — creating a chain of evidence from data to recommendation | MEDIUM | `hamilton_reports.scenario_id` FK; reads `result_json` from linked scenario; the highest-value report path |
-| Salesforce Connected FINS-style visual hierarchy | Most B2B reports are data dumps with headers; the design differentiator is numbered chapter structure, bold stat callouts, generous whitespace | HIGH | CSS print stylesheet + page layout component; highest design investment of any screen; reference: Connected-FINS_Report_Final.pdf |
-| Export tracking with timestamp | `exported_at` timestamp lets users know when they last shared a report — signals accountability and follow-through for board cycles | LOW | Database field already in `hamilton_reports`; display only |
-| Coverage disclosure in report body | A report on "community banks in Montana" with 47% coverage should say so — builds trust through honesty rather than hiding data gaps | LOW | Surface institution count and coverage percentage in report scope section |
+| Charts in PDF via pre-rendered PNG | The D-09 decision deferred charts; this is the highest-impact design upgrade; peer distribution histograms in a board-ready PDF is a meaningful differentiator over any competitor | HIGH | Pattern: generate chart as PNG server-side (node-canvas or Recharts to SVG → sharp to PNG), then embed via `@react-pdf/renderer` Image component; significant work |
+| Coverage disclosure section | Reports that cite how many institutions the analysis is based on, and what coverage percentage that represents, build trust that competitors don't | LOW | Data already available; add a "Data Scope" footer section to every report template |
+| Report generation time under 30 seconds | Executives will close the tab if a report takes longer than 30s; fast generation is a trust signal | MEDIUM | Profile the current assembly pipeline; Hamilton section generation with Sonnet is the bottleneck; parallelize sections where possible |
 
 ### Anti-Features
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| In-report editing / rich text editor | Executives want to customize before sending | Turns a precision-generated report into a manual writing task; degrades the "McKinsey-grade output" brand promise | Generate → Export → Edit in Word if needed; report should be good enough to not need edits |
-| Drag-and-drop section reordering | Power users want layout control | Undermines editorial structure that makes reports feel authoritative; section order is a design decision not a user preference | 4 opinionated templates; not a blank canvas |
-| Unlimited custom templates | Enterprise users will ask for this | Template sprawl makes quality control impossible; each new template requires editorial review | 4 templates, each polished; add 5th only with full design review in a future milestone |
-| Interactive charts in PDF | Looks impressive in demos | PDF charts must be static; interactive chart libraries produce blurry rasters when printed — a known failure mode across BI tools | Static SVG or server-rendered chart images for PDF; interactive charts only in Analyze/Simulate screens |
-
----
-
-## Screen 5: Monitor
-
-### Table Stakes
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Signal Feed | Every intelligence product (Klue, 6sense, Bloomberg news alerts) has a feed of notable events; absence signals the product is not "watching" | MEDIUM | Reads from `hamilton_signals`; each signal has type, severity, title, body — not raw log lines |
-| Priority Alert (promoted signal hero) | The top signal must stand apart from the feed; Klue "Win/Loss alerts", Bloomberg "top stories" both have a hero alert pattern | LOW | Reads from `hamilton_priority_alerts`; single hero card above the feed; severity-coded |
-| Watchlist configuration | Users must be able to define what they are watching — competitors, regulatory changes, specific fee categories | MEDIUM | Reads/writes `hamilton_watchlists`; fee_categories and institution_ids as JSONB |
-| Status strip showing surveillance activity | A lightweight header showing "Hamilton is watching N institutions, N fee categories, last checked [date]" gives confidence the system is alive | LOW | Communicates freshness; prevents "is this even running?" doubt |
-| Review Pricing / Run Scenario CTA | Monitor's job is to surface signals that prompt action; the primary exit must be into the decision workflow | LOW | "Review Pricing" → Analyze; "Run Scenario" → Simulate; per copy rules spec |
-
-### Differentiators
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Institutional deviation detection | Signals when a competitor crosses a threshold relative to the user's position — not just "this institution changed a fee" but "this institution crossed the outlier line and now matches your rate" | HIGH | Requires comparing signal data to user's current position and peer percentiles; stateful computation; high product value |
-| Signal as mini insight, not raw event | The industry failure mode (Bloomberg raw news feed, Klue raw alerts) is log-line data. Hamilton turns a signal into a 2-sentence insight: "First National raised overdraft by $5. This puts them above the 75th percentile and narrows your pricing advantage." | MEDIUM | Hamilton processes raw signals into insight format before storing in `hamilton_signals.body`; pipeline step, not a UI decision |
-| Regulatory signal integration | Most competitive intelligence tools track competitor pricing; Hamilton uniquely connects pricing movements to CFPB complaint trends and Beige Book commentary | HIGH | Feeds from existing queryRegulatoryRisk and `fed_beige_book` tables; requires signal classification and severity scoring pipeline |
-| Floating chat entry to Analyze | Monitor is a surveillance screen, but users will want to dive deeper; a floating "Ask Hamilton" that opens Analyze with signal context pre-injected bridges Monitor → Analyze without losing context | LOW | Floating button; opens Analyze with signal as initial prompt injection; high UX leverage for low engineering cost |
-
-### Anti-Features
-
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Heavy trend widget or time-series chart | Data visualization looks impressive in demos | Duplicates what Analyze/Simulate already show; adds cognitive load to a screen whose job is triage, not analysis | Sparklines only in signal cards if needed; redirect to Analyze for chart exploration |
-| Real-time streaming feed | Feels like a live Bloomberg terminal | Fee data is batch/quarterly; streaming a rarely-updating feed creates false urgency and notification fatigue — the primary failure mode in B2B surveillance products | Batch refresh (daily); explicit "checked [time] ago" indicator; never pretend data is real-time |
-| Email / Slack notification system (v1) | Enterprise customers always ask for this | Significant infrastructure scope: webhook management, email deliverability, unsubscribe flows, suppression lists — adds 2+ weeks minimum and creates ongoing operational burden | Build in-app signal feed first; add outbound notifications in v1.x when usage patterns are understood |
-| Full dashboard duplication from Admin | Admin dashboard is thorough; why not reuse panels? | Monitor and Admin Dashboard serve different mental models (surveillance vs. operations); duplicating panels creates maintenance burden and confuses navigation | Monitor reads from `hamilton_signals`; Admin dashboard reads from crawler ops tables — separate data, separate purpose |
-
----
-
-## Settings Page
-
-### Table Stakes
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Institution profile (name, charter type, asset tier) | Every B2B platform requires institution context to personalize intelligence; without this, no screen is personalized | LOW | Single form; seeds the context payload for all Hamilton screens; hard dependency for launch |
-| Peer set configuration | The core B2B value proposition is peer benchmarking; users must define their peer universe | MEDIUM | Reads/writes peer_sets table; multi-select of tiers, districts, charter type |
-| Feature access / subscription status | Users need to know what they have access to and how to upgrade | LOW | Read-only subscription tier view with Stripe portal link for billing management |
-
-### Anti-Features
-
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Hamilton personality or tone configuration | Some platforms let users configure AI behavior | Undermines Hamilton brand voice consistency that makes reports authoritative; "customizable AI" cheapens the product | Fixed voice by role (consumer/pro/admin) already differentiated in v7.0 |
-| Raw data export / download in Settings | Analysts want the underlying data | Data commodity play undercuts the intelligence premium; giving raw data without analysis is not the product | Report export (PDF) is the data exit; raw API access is an Enterprise-tier feature, not a Settings toggle |
+| In-report editing before PDF export | Executives want to customize content | Report editing is a word processor, not a research product; degrades the authority of the output | Generate → PDF → if edit needed, user annotates in Acrobat; report must be good enough not to need editing |
+| Interactive charts in the PDF | Impressive in demos | PDFs are static; interactive chart libraries produce bitmap artifacts when rasterized; the D-09 decision was correct | Static SVG → PNG → embed for print; interactive charts stay in Analyze/Simulate screens only |
+| Unlimited report history (all-time archive) | User assumption about SaaS behavior | Storage and retrieval complexity adds operational burden before product proves value | 90-day report retention window; older reports reachable via Stripe billing log if needed |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Institution Profile (Settings)
-    └──required by──> Home briefing personalization
-    └──required by──> Analyze peer context injection
-    └──required by──> Simulate peer distribution + percentile
-    └──required by──> Report header / scope
-    └──required by──> Monitor watchlist defaults
+Canonical fee taxonomy (canonical_fee_key populated)
+    └──required by──> Auto-classification pipeline (needs the key set to map to)
+    └──required by──> Hamilton Pro peer index accuracy (all 5 screens use peer index)
+    └──required by──> Report quality (benchmarks must reference canonical keys)
+    └──enhances──> Admin market page delta column accuracy
 
-Peer Set (Settings)
-    └──required by──> All 5 screens for peer-filtered data
+Auto-classification pipeline (new fees classified at insert)
+    └──requires──> Canonical taxonomy (key set must exist first)
+    └──required by──> Ongoing index accuracy (without auto-classify, every crawl degrades coverage)
 
-hamilton_signals pipeline (Monitor data layer)
-    └──feeds──> Monitor Signal Feed
-    └──feeds──> Home Monitor Feed preview strip
-    └──feeds──> Priority Alert on Home and Monitor
+SortableTable wiring (admin UX)
+    └──independent of──> Taxonomy work
+    └──independent of──> Report work
+    └──requires──> Existing SortableTable component (already built)
 
-hamilton_scenarios (Simulate persistence)
-    └──required by──> Report Builder scenario-linked generation
-    └──enhances──> Monitor (show active scenario in context strip)
+Districts data wiring
+    └──requires──> Phase 23-24 DB queries (already built per MEMORY.md)
+    └──independent of──> Taxonomy work
 
-Analyze (exploration screen)
-    └──feeds context into──> Simulate (fee category pre-loaded via CTA)
+Report quality upgrade
+    └──requires──> Call Report scaling fix (data exists, bug must be fixed first)
+    └──requires──> FRED data piped through assembler chain
+    └──enhances by──> Canonical taxonomy (better benchmarks = better reports)
+    └──independent of──> SortableTable wiring
 
-Simulate (decision screen)
-    └──feeds into──> Report Builder (scenario-linked generation)
-
-hamilton_saved_analyses (Analyze persistence)
-    └──independent of──> Scenarios and Reports (separate artifact type)
+Stripe billing portal wiring
+    └──independent of──> All technical feature areas
+    └──requires──> Existing Stripe subscription shell (already built per PROJECT.md)
 ```
 
 ### Dependency Notes
 
-- **Settings must ship before any personalized screen is usable.** Institution profile and peer set are hard blockers for Home briefing, Simulate peer distribution, and Monitor watchlist baseline. Settings ships first or alongside Home.
-- **Simulate must exist before Report has its highest-value path.** A scenario-linked report is significantly more compelling than a thesis-only report. Home → Simulate → Report is the primary demo flow; this ordering must hold in the build sequence.
-- **Monitor signal pipeline must be seeded before Monitor screen has value.** An empty signal feed is the worst first impression for a surveillance product. Seed signals from existing queryRegulatoryRisk and fee change history before shipping Monitor.
-- **Home Monitor Feed preview is stub-able.** If Monitor ships in a later phase, the Home preview strip can show a placeholder ("Hamilton is monitoring your market — signals coming soon") without blocking Home launch.
+- **Taxonomy before auto-classify:** The classification pipeline cannot be wired until the canonical key set is finalized. Taxonomy consolidation and duplicate normalization must land first, then the auto-classify pipeline can be wired safely.
+- **Call Report scaling fix before report quality:** Stat callout boxes that show "$0 in service charge revenue" (the current bug) are worse than no stat callouts. Fix the thousands-scaling first, then add the stat callout design pattern.
+- **Sortable tables are independent:** No taxonomy or report dependency. Can run in parallel with any other work and provides high visible polish for low cost.
+- **Districts is independent:** The data and DB queries exist; this is a wiring task independent of other areas.
 
 ---
 
-## MVP Definition
+## MVP Definition for v9.0
 
-### Launch With (v1 — v8.0 milestone)
+### Launch With (v9.0 core)
 
-- [ ] Settings — institution profile + peer set configuration — hard dependency for all personalized screens
-- [ ] Home / Briefing — thesis, what changed, priority alerts, Simulate CTA — the primary demo hook and renewal driver
-- [ ] Analyze — 4 focus tabs, Hamilton's View, evidence, explore further, saved analyses — replaces current /pro/research chat
-- [ ] Simulate — current vs. proposed, percentile shift, tradeoffs, recommendation, Board Summary CTA
-- [ ] Report Builder — 4 templates, configuration sidebar, PDF export, Executive Summary + Recommendation
-- [ ] Monitor — signal feed, priority alert, watchlist configuration, status strip (signals seeded from existing data sources)
+- [ ] Backfill script: expand `FEE_NAME_ALIASES` with LLM-assisted mapping for top-N unmatched fee names (by institution count)
+- [ ] Duplicate normalization: merge at least the confirmed duplicate clusters (rush_card variants, fax variants, return_mail variants, skipapay variants)
+- [ ] Auto-classify wired into extraction pipeline: new crawls automatically run categorize step before merge
+- [ ] SortableTable wired to all 8 un-wired admin pages (institutions, leads, districts, fees, market, peers, ops, review full coverage)
+- [ ] Districts page wired to Phase 23-24 DB queries (district medians, economic indicators, Beige Book themes)
+- [ ] Call Report scaling bug fixed (thousands not units in service charge revenue)
+- [ ] FRED + Beige Book data piped into report assemblers
+- [ ] PDF stat callout boxes (design upgrade; no chart dependency)
+- [ ] Hamilton Pro demo text stripped from all 5 screens
 
-### Add After Validation (v1.x)
+### Add After Validation (v9.x)
 
-- [ ] Scenario archive with compare — add when users have run at least 3 scenarios; compare UI requires saved scenarios to be meaningful
-- [ ] Horizon selector in Simulate (12-month / 24-month) — add when users ask "what about the future?" in post-launch feedback
-- [ ] Outbound signals (email / Slack) — add once in-app feed proves signal quality warrants pushing
-- [ ] "When did we become an outlier?" temporal analysis — depends on fee_change_events data density; add when re-crawl history is sufficient
+- [ ] LLM-proposed new canonical key review queue — after backfill validates the process
+- [ ] Variant_type tagging (`standard`, `rush`, `waived`) — after canonical layer is stable
+- [ ] URL-persisted sort state in admin tables — after admin polish proves useful
+- [ ] Charts in PDF via pre-rendered PNG — significant effort; justify with report adoption data
+- [ ] Stripe billing portal fully wired — after subscription model validates
 
-### Future Consideration (v2+)
+### Future Consideration (v10+)
 
-- [ ] Multi-category simulation — wait for single-category simulation to be validated before multiplying complexity
-- [ ] Competitor trajectory intelligence (who moved first, competitor timelines) — adjacent product, not core decision support
-- [ ] External benchmark CSV import — significant validation and liability surface; justify with enterprise deal requirement
+- [ ] Multi-category simulation in Hamilton Pro (depends on canonical layer being stable)
+- [ ] New canonical key proposal UI for analysts (taxonomy stewardship tooling)
+- [ ] Competitor fee data scan (separate product surface)
 
 ---
 
@@ -273,56 +234,34 @@ hamilton_saved_analyses (Analyze persistence)
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Settings — institution profile + peer set | HIGH | LOW | P1 |
-| Home — thesis + what changed + priority alerts | HIGH | MEDIUM | P1 |
-| Home — Simulate Change CTA (pre-loaded) | HIGH | LOW | P1 |
-| Analyze — focus tabs + Hamilton's View | HIGH | MEDIUM | P1 |
-| Analyze — saved analyses | MEDIUM | MEDIUM | P1 |
-| Simulate — current vs. proposed + live percentile | HIGH | MEDIUM | P1 |
-| Simulate — tradeoffs + recommendation | HIGH | HIGH | P1 |
-| Report — 4 templates + PDF export | HIGH | HIGH | P1 |
-| Monitor — signal feed + priority alert | HIGH | MEDIUM | P1 |
-| Monitor — watchlist configuration | MEDIUM | MEDIUM | P1 |
-| Peer distribution histogram in Analyze | HIGH | MEDIUM | P2 |
-| Risk driver framing in Analyze | HIGH | HIGH | P2 |
-| Regulatory signal integration in Monitor | HIGH | HIGH | P2 |
-| Monitor — floating chat entry to Analyze | MEDIUM | LOW | P2 |
-| Scenario archive + compare in Simulate | MEDIUM | HIGH | P2 |
-| Horizon selector in Simulate | MEDIUM | MEDIUM | P2 |
-| Outbound signal notifications | MEDIUM | HIGH | P3 |
-| Multi-category simulation | HIGH | HIGH | P3 |
-| Temporal outlier trajectory analysis | MEDIUM | HIGH | P3 |
-
----
-
-## Competitor Feature Analysis
-
-| Feature | Curinos Deposit Optimizer | Klue / Competitive Intel | Rogo AI | Hamilton Pro Approach |
-|---------|--------------------------|--------------------------|---------|----------------------|
-| Daily briefing / digest | Not offered; analysis-first entry | Daily digest email; in-app feed | Not offered; chat-first | Single thesis screen with recommended action; no email digest in v1 |
-| Peer benchmarking | Core feature; percentile vs. $5T account dataset | Not applicable (sales intel) | Not applicable (financial research) | Peer set driven by user configuration; 4,000+ institution dataset |
-| Scenario / what-if modeling | Sensitivity analysis and what-if scenarios | Not offered | Not offered | Slider-driven with live percentile + risk profile update; recommendation engine |
-| Report export | Not prominently featured | Battlecard + newsletter export | Slide / PPT generation focus | PDF with Salesforce Connected FINS-style layout; scenario-linked |
-| Surveillance / monitoring | Rate change alerts | Competitor web change monitoring | Not offered | Signal feed with regulatory + fee movement correlation; insight-not-log-line format |
-| AI narrative voice | Data-focused; minimal narrative | AI curator for battlecards | Chat-first analyst; strong narrative | Hamilton persona with thesis, tension, revenue-first voice; screen-boundary rules prevent mode confusion |
-| Screen / mode boundaries | N/A — single-purpose tool | N/A — linear workflow | Chat blurs all modes into one surface | Explicit screen boundary rules: Analyze explores, Simulate decides, Report communicates |
+| Taxonomy backfill (alias expansion + LLM pass) | HIGH — unblocks all downstream analytics | MEDIUM | P1 |
+| Auto-classify wired into pipeline | HIGH — prevents future degradation | MEDIUM | P1 |
+| Call Report scaling bug fix | HIGH — broken data in reports destroys trust | LOW | P1 |
+| SortableTable wiring (all admin pages) | MEDIUM — UX polish | LOW | P1 |
+| Districts page data wiring | MEDIUM — wasted infrastructure otherwise | MEDIUM | P1 |
+| Hamilton Pro demo text strip | HIGH — product looks unprofessional with sample data | LOW | P1 |
+| PDF stat callout boxes (design) | MEDIUM — visual upgrade, no data dependency | MEDIUM | P2 |
+| FRED + Beige Book in report assemblers | HIGH — consulting-grade credibility | MEDIUM | P2 |
+| Stripe billing portal wiring | MEDIUM — required for subscription revenue | MEDIUM | P2 |
+| Duplicate normalization (synonym clusters) | MEDIUM — improves index quality | HIGH | P2 |
+| Variant_type tagging | MEDIUM — analytical depth | MEDIUM | P3 |
+| Charts in PDF | HIGH — design differentiation | HIGH | P3 |
+| URL-persisted sort state | LOW — convenience only | MEDIUM | P3 |
 
 ---
 
 ## Sources
 
-- Hamilton Design Package: `03-screen-specs.md`, `09-copy-and-ux-rules.md`, `10-demo-flow-and-pricing-notes.md`, `01-product-architecture.md`, `05-data-model-and-persistence.md` (HIGH confidence — authoritative project spec)
-- Curinos Deposit Optimizer: [Deposit Optimizer Essentials](https://curinos.com/deposit-optimizer-essentials/bank-pricing-strategy/) (MEDIUM confidence — feature descriptions from product page)
-- Bloomberg Terminal UX patterns: [How Bloomberg Terminal UX designers conceal complexity](https://www.bloomberg.com/company/stories/how-bloomberg-terminal-ux-designers-conceal-complexity/) (MEDIUM confidence)
-- Palantir Foundry scenario modeling: [Palantir Foundry Platform](https://www.palantir.com/platforms/foundry/) (MEDIUM confidence)
-- Klue competitive intelligence platform: [Klue Platform](https://klue.com/competitive-intelligence-platform) (MEDIUM confidence)
-- Rogo AI financial research workflow: [Rogo Product](https://rogo.ai/product), [OpenAI Rogo case study](https://openai.com/index/rogo/) (MEDIUM confidence)
-- B2B SaaS UX patterns 2025: [B2B SaaS UX Design 2026](https://www.onething.design/post/b2b-saas-ux-design) (LOW-MEDIUM confidence — general patterns, not product-specific)
-- Notification design: [Design Guidelines For Better Notifications UX — Smashing Magazine](https://www.smashingmagazine.com/2025/07/design-guidelines-better-notifications-ux/) (MEDIUM confidence)
-- Decision intelligence market context: [Domo — Decision Intelligence Platforms 2025](https://www.domo.com/learn/article/decision-intelligence-platforms) (LOW confidence — market sizing only)
-- B2B dashboard design: [6 steps to design thoughtful B2B SaaS dashboards](https://uxdesign.cc/design-thoughtful-dashboards-for-b2b-saas-ff484385960d) (MEDIUM confidence)
+- Direct code inspection of `fee_crawler/fee_analysis.py`, `fee_crawler/commands/categorize_fees.py`, `fee_crawler/commands/merge_fees.py` (HIGH confidence)
+- Direct code inspection of `src/components/sortable-table.tsx`, `src/app/admin/` page files (HIGH confidence)
+- Direct code inspection of `src/app/api/pro/report-pdf/route.ts`, `src/components/hamilton/reports/PdfDocument.tsx`, `src/lib/report-engine/assemble-and-render.ts` (HIGH confidence)
+- Project MEMORY.md — districts data gap, sortable tables feedback, report data piping, Call Report scaling bug (HIGH confidence — project owner recorded)
+- PROJECT.md v9.0 milestone requirements (HIGH confidence — authoritative project spec)
+- `@react-pdf/renderer` pattern for static chart embedding: standard practice documented in library; PNG embed via Image component (MEDIUM confidence)
+- LLM-assisted taxonomy classification pattern: established pattern in data enrichment pipelines; batch Haiku classification is cost-safe at current token pricing (MEDIUM confidence)
 
 ---
-*Feature research for: Hamilton Pro Platform — v8.0 5-screen decision system*
-*Researched: 2026-04-08*
-*Supersedes: prior FEATURES.md (v6.0 Two-Sided Experience)*
+
+*Feature research for: Bank Fee Index v9.0 — Data Foundation & Production Polish*
+*Researched: 2026-04-09*
+*Supersedes: Not applicable — this covers new milestone scope not addressed in prior FEATURES.md*

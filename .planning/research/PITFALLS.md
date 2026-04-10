@@ -1,200 +1,184 @@
 # Pitfalls Research
 
-**Domain:** Hamilton Pro Platform — adding a 5-screen decision system to an existing Next.js App Router app
-**Researched:** 2026-04-08
-**Confidence:** HIGH (based on direct codebase inspection of Hamilton v3.1 source, design package, and known sparse-data state)
+**Domain:** Canonical fee taxonomy consolidation, auto-classification pipeline, sortable tables, responsive design retrofit, PDF report generation — added to existing Next.js 16 + PostgreSQL + Python pipeline.
+**Researched:** 2026-04-09
+**Confidence:** HIGH (code-grounded; verified against existing codebase patterns)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Simulation Percentiles Are Meaningless With 0.3% Approval Rate
+### Pitfall 1: Taxonomy Backfill Breaks the Live Index
 
 **What goes wrong:**
-The SimulationResponse contract returns `currentPercentile` and `proposedPercentile` as the core output of the Simulate screen. These percentiles are computed against the fee index — but only 58 approved fees exist (0.3% of observations). The index currently includes staged and pending fees to reach usable counts (the national index already uses this mix with maturity badges). If the simulation engine computes percentiles only against approved fees, the distributions will be extremely sparse and the percentile output will be numerically meaningless — for many fee categories there will be fewer than 10 approved data points. A "current percentile: 67th" built on 8 data points is not a defensible analytical output.
+`getNationalIndex()` and `getPeerIndex()` filter on `ef.fee_category = ANY(ARRAY[...49 canonical keys...])`. When the canonical taxonomy backfill runs (adding a `canonical_fee_key` column and normalizing long-tail categories), any row whose `fee_category` gets reassigned to a new canonical key during migration will temporarily drop out of index queries until the code is also deployed. If the backfill runs before the code ships, the index silently loses coverage. If the code ships before the backfill, queries referencing the new column crash at runtime.
 
 **Why it happens:**
-The simulation contract looks reasonable on paper. `currentPercentile` implies a well-populated distribution. Engineers implement the percentile calculation against `WHERE review_status = 'approved'` because that is the "clean" data, discover the distribution is empty, and then either (a) silently fall back to all data without documenting the confidence level, or (b) return a percentile against staged+pending data while the UI presents it as a fact.
+The backfill is seen as a data operation and decoupled from the code deploy. The team updates `categorize_fees.py` logic, runs it on production, then deploys — but there is a window where the DB and the TypeScript code are misaligned.
 
 **How to avoid:**
-The index already handles this correctly with maturity badges — reproduce that pattern in the simulation engine. Define explicit confidence tiers for percentile output: "strong" (10+ approved observations), "provisional" (10+ total observations, staged+pending mix), "insufficient" (under 10 observations). Never return a raw percentile number without its confidence tier in the `SimulationResponse`. The UI must surface the maturity tier inline with the percentile — a "67th percentile (provisional, 23 observations)" is defensible; "67th percentile" alone is not. Add a `confidenceTier` field to `SimulationResponse.currentState` and `proposedState`.
+Add `canonical_fee_key` as a nullable column first. Keep the old `fee_category` column untouched and fully populated throughout the migration. All index queries continue to use `fee_category` until the backfill is verified complete and the new column is confirmed non-null for all 49 canonical keys. Only then flip query references. This is the expand-and-contract pattern: add column → backfill → verify → switch queries → (eventual) remove old column.
 
 **Warning signs:**
-- `simulation.ts` queries `WHERE review_status = 'approved'` without a fallback or count check
-- The Simulate screen displays a percentile number with no accompanying confidence indicator
-- A fee category with fewer than 5 data points returns a non-null percentile
+- `institution_count` drops on any index category after a categorize-fees run
+- `maturity_tier` degrades from "strong" to "provisional" on previously stable categories
+- Admin `/index` page shows gaps in categories that previously had data
 
 **Phase to address:**
-Phase 3 (backend types and persistence) — define the confidence tier contract before the simulation engine is built. Phase 4 (agent behavior) — simulation response builder must include confidence tier. Never ship Simulate screen without it.
+Taxonomy consolidation phase. Start with `ALTER TABLE extracted_fees ADD COLUMN canonical_fee_key TEXT` (nullable, no default, no locks). Backfill in batches of 1,000. Verify row counts match before switching any query.
 
 ---
 
-### Pitfall 2: Agent Mode Splitting Breaks the Existing Pro Chat
+### Pitfall 2: False Merges in Synonym Consolidation — NSF vs Overdraft, Domestic vs International
 
 **What goes wrong:**
-The current `getHamilton("pro")` in `src/lib/research/agents.ts` uses `PRO_PREFIX` + `HAMILTON_SYSTEM_PROMPT` + `REGULATION_INSTRUCTION` + `EXTERNAL_INTELLIGENCE_INSTRUCTION` as a combined system prompt. It is a single agent with one prompt. The revamp requires 5 screen-specific behaviors (home, analyze, simulate, report, monitor) with explicit `canRecommend`, `canExport`, `canSimulate` flags per mode.
-
-If the mode split is implemented by modifying the existing `getHamilton("pro")` call, the current `/pro/research` page (which uses `AnalystHub` and calls `agentId: "hamilton"`) will start receiving mode-scoped behavior it was not designed for. The `analyst-hub.tsx` component does not know about `HamiltonMode` — it streams undifferentiated chat responses. A mode-split system prompt injected into a plain chat UI produces confusing behavior: the agent may refuse to make recommendations in analyze mode, or silently apply simulate-mode response structure to a general question.
+The milestone context explicitly calls out categories that must never be merged: NSF vs Overdraft vs OD Protection, Domestic vs International wires. The existing `FEE_NAME_ALIASES` already contains dangerous proximity: `"overdraft/courtesy pay"` maps to `overdraft` and `"nsf fee"` maps to `nsf`. When extending the alias table to cover 15K long-tail categories, a normalizer that strips the "non-sufficient" text might accidentally resolve "NSF/OD combo fee" to `overdraft` instead of keeping both or flagging for manual review.
 
 **Why it happens:**
-The cleanest implementation of mode-specific behavior is to modify the system prompt in `getHamilton()` based on a `mode` parameter. This is also the most dangerous modification because `getHamilton()` is called from the existing pro chat page. The refactor scope expands invisibly.
+Synonym expansion is done by a developer reading fee names at volume. The distinction between NSF (declined transaction, fee for bouncing) and Overdraft (paid transaction, fee for covering) is regulatory and behavioral — not obvious from string similarity alone. The NCUA changed its NSF/OD reporting policy in 2025, meaning institution-reported data is already less granular. Merging them in the canonical layer compounds this loss.
 
 **How to avoid:**
-Do not modify `getHamilton("pro")` to add mode-splitting until the existing `/pro/research` AnalystHub has been replaced or explicitly scoped to a mode. The implementation order must be: (1) define `HamiltonMode` and `MODE_BEHAVIOR` as a standalone `modes.ts` module (already stubbed), (2) create a new `getHamiltonForMode(mode: HamiltonMode)` function that is only called from the new 5-screen routes, (3) leave `getHamilton("pro")` untouched until the AnalystHub is superseded by the Analyze screen. Run the existing AnalystHub tests after any change to `agents.ts`.
+Maintain a hard-coded `NEVER_MERGE` list of category pairs enforced in the categorize script. Before any alias table commit, run a validation that checks: (a) no alias maps an NSF-family term to `overdraft` or vice versa; (b) no domestic wire alias maps to `wire_intl_*`; (c) no `atm_non_network` alias captures `card_replacement`. Add this as a pytest test in `fee_crawler/tests/` that runs in CI before any alias table change ships.
 
 **Warning signs:**
-- `getHamilton("pro")` signature changes to accept a mode parameter before new screen routes are built
-- `/pro/research/page.tsx` calling a mode-aware agent without passing a mode
-- Hamilton refusing to make a recommendation in the existing pro chat after a backend change
+- Overdraft `institution_count` spikes significantly after a categorize-fees run
+- NSF count drops by a similar magnitude at the same time
+- Market index delta between NSF and overdraft compresses toward zero across all segments
 
 **Phase to address:**
-Phase 4 (agent behavior) — create `getHamiltonForMode()` as a new function. Phase 5 (frontend) — wire it to new screen routes only. The existing `/pro/research` chat must continue working throughout.
+Taxonomy consolidation phase, before any alias table expansion. Write the guard tests first (TDD), then expand aliases.
 
 ---
 
-### Pitfall 3: Monitor System Becomes a Log Viewer Instead of a Decision Surface
+### Pitfall 3: Auto-Classification Pipeline Adds Latency to Extraction Hot Path
 
 **What goes wrong:**
-The `hamilton_signals` table stores normalized monitor events. The natural implementation stores every signal detected — fee changes, regulatory alerts, peer movements — as a raw row. The Monitor screen then renders a paginated feed of these rows. The result is a log viewer: chronological, undifferentiated, high volume, requiring the user to read and interpret every entry. This is exactly what the product architecture document calls out: "Remove or simplify — heavy trend widget, duplicate dashboard content, too many competing panels."
-
-Signal accumulation happens fast. If the monitor runs on 4,000+ institutions quarterly, a single cycle produces hundreds of signals. A feed of 200+ signals with no prioritization is noise, not intelligence.
+Making taxonomy classification live (not one-time backfill) means each newly crawled fee must be classified before it can be staged for review. If classification uses an LLM call (Haiku) to resolve ambiguous fees, this adds 300-800ms per fee to the extraction pipeline. At scale across 4,000 institutions this makes scheduled runs miss their 2am-4am window. If classification is done in a separate post-processing step but the pipeline emits fees without `canonical_fee_key`, the review queue shows uncategorized fees which confuses maturity calculations.
 
 **Why it happens:**
-Storing all signals is the safe, complete approach. Displaying them in a feed is the obvious UI pattern. The work of prioritization — which signals actually matter to this user's institution, which override others, which should surface as a priority alert vs. a background signal — is ambiguous and gets deferred to "a future phase."
+The classification logic is treated as a post-processing concern. The pipeline emits fees with raw `fee_name`, then a separate job runs `categorize_fees`. This creates a period where newly extracted fees have `fee_category = NULL`, which (per the current index query) causes them to not appear in the national index at all — silently reducing coverage.
 
 **How to avoid:**
-The prioritization logic is the product, not the storage. Build `hamilton_priority_alerts` as the primary display surface — only 1-3 alerts promoted to priority at any given time, with explicit `severity` and `status` fields. The signal feed is secondary and collapsible. Implement a simple scoring function in `monitor.ts` that takes institution context (the user's charter type, asset tier, fee categories they care about) and filters signals to the relevant ones before any are stored as priority alerts. A monitor screen with 3 high-priority alerts and a collapsed "12 background signals" is a decision surface. A feed of 200 rows is a log.
-
-Cap the signal feed displayed to the 20 most recent by default with a "load more" control. Never render unbounded signal lists.
+Classification must happen inline during extraction, not as a second job. The existing `crawl.py` already calls `normalize_fee_name()` and `get_fee_family()` synchronously for each extracted fee. The auto-classification pipeline should extend this same path: attempt alias lookup first (zero latency), fall back to LLM classification only for unmatched names, and write `canonical_fee_key` at insert time. Never ship a fee row to the DB without attempting canonical classification first.
 
 **Warning signs:**
-- `hamilton_signals` being queried with no LIMIT or severity filter on the Monitor page
-- Monitor screen showing more than 5 signals in the initial viewport without any prioritization indicator
-- `hamilton_priority_alerts` table exists but the Monitor screen displays `hamilton_signals` directly
+- `fee_category IS NULL` count climbs after pipeline runs
+- Dashboard maturity badges degrade after new crawl batches
+- `categorize_fees` reports high "unmatched" percentages on new batches
 
 **Phase to address:**
-Phase 3 (data model) — `hamilton_priority_alerts` must have explicit status/severity fields and a FK to signals. Phase 5 (Monitor frontend) — build priority alert as the hero module; signal feed is secondary. The scoring/promotion logic should be defined before the Monitor screen is built.
+Auto-classification phase. Treat `canonical_fee_key` as a required field at insert, defaulting to `NULL` only when alias lookup genuinely fails (not as a deferred step).
 
 ---
 
-### Pitfall 4: Recharts SVGs Cannot Render Inside @react-pdf/renderer
+### Pitfall 4: Sortable Tables Load All Rows Into Client Memory
 
 **What goes wrong:**
-The Report screen requires charts in the PDF export (peer distribution histograms, scenario comparison visuals). Recharts renders SVG via React in the browser DOM. `@react-pdf/renderer` uses its own layout engine and cannot render React components that produce browser DOM SVGs — it renders a PDF document tree, not HTML. Attempting to pass a `<BarChart />` or `<ResponsiveContainer />` directly inside a `<Document>` or `<Page>` from `@react-pdf/renderer` will fail silently or throw at runtime.
-
-This is a known, documented limitation. The decision to use `@react-pdf/renderer` (not Puppeteer) was already made and is serverless-safe — but the chart rendering path was not resolved.
+The existing `SortableTable` component (`src/components/sortable-table.tsx`) is a client-side component: it receives all rows as props, sorts in-memory with `useMemo`, and paginates client-side. This works for 49-category index pages. Applied to the fees review queue (potentially 15K+ rows), the Review page, or the Institution table, this pattern sends megabytes of JSON to the browser on each page load and sorts in the main thread.
 
 **Why it happens:**
-The Analyze screen and Simulate screen already use Recharts. The report builder naturally tries to embed the same charts in the PDF. The prop-passing API looks similar enough that the mistake isn't obvious until runtime.
+The `SortableTable` was designed for bounded datasets (49 index categories, ~200 peers). When extended to all admin tables without a size audit, developers assume it scales because it worked before.
 
 **How to avoid:**
-Charts in PDFs must be pre-rendered to PNG before PDF generation. Two viable paths:
-1. **Server-side: `canvas` + `chartjs-to-image` or a headless chart library** — generate a PNG buffer server-side from the chart data and embed it as `<Image src={pngBuffer} />` inside `@react-pdf/renderer`. This keeps the PDF generation entirely serverless.
-2. **Client-side: `html2canvas` on the Recharts container** — capture the rendered chart DOM as a PNG, upload or pass it to the PDF generation function. Requires the chart to be rendered in the browser first.
-
-The server-side approach is cleaner for serverless. Use `@nivo/charts` or a Node-compatible chart-to-image library that doesn't require a DOM. Do not attempt to render Recharts inside the PDF renderer.
+For tables with potentially unbounded row counts (fees, institutions, crawl runs, review queue), sort must move to the server. Use URL params (`?sort=amount&dir=desc`) parsed in the Server Component, passed to the DB query as `ORDER BY`. The `nuqs` library is the community standard for type-safe URL-based sort/filter state in Next.js, avoiding manual URLSearchParams sync bugs. Client-side `SortableTable` is acceptable only when the dataset is bounded at 200 rows or fewer.
 
 **Warning signs:**
-- A Recharts component imported inside a file that also imports `@react-pdf/renderer`
-- PDF generation failing silently and producing a blank chart area
-- Attempting to install `canvas` as a dependency in the Next.js project (it is a native module and will fail on Vercel's serverless edge unless explicitly configured)
+- Page load time exceeds 2 seconds on any admin table
+- Browser tab memory climbs above 200MB on the fees or review pages
+- `?sort=` in the URL does not survive navigation (because sort is local state only)
 
 **Phase to address:**
-Phase 5 (Report frontend) — before any chart appears in the report design, establish and test the chart-to-PNG strategy. Do not start the PDF layout until this is resolved.
+Sortable tables phase. Audit each admin table's max row count before applying `SortableTable`. Flag any table that can exceed 200 rows for server-side sort instead.
 
 ---
 
-### Pitfall 5: Editorial Design Migration Breaks Admin Pages via Shared CSS
+### Pitfall 5: Sort State Conflicts With Existing URL Filter Pattern
 
 **What goes wrong:**
-The new Hamilton Pro shell uses a warm parchment editorial aesthetic: Newsreader serif headings, no-border tonal layering, `#FAF7F2` background, `#C44B2E` terracotta accents. The admin design system uses Geist, gray cards with 1px borders, `bg-gray-50/80` table headers, and `.admin-card` CSS classes defined in `globals.css`.
-
-If the new Hamilton shell introduces new CSS custom properties or modifies existing `globals.css` variables to support the editorial design, those changes will leak into admin pages. The `globals.css` file is shared — a change to `--color-background` or the base `body` styles affects every page. The admin's `.admin-card`, `.skeleton`, and dark mode overrides are already fragile; they rely on cascading behavior that new base-level changes will disrupt.
+The existing system uses URL search params for all peer filters (`?charter=bank&tier=a,b&district=1,3,7`). Adding sort params (`?sort=median&dir=asc`) to the same URL can conflict: the filter bar components call `router.push()` with new URLSearchParams that may not preserve sort keys (or vice versa). The result is that changing a filter resets the sort to default, or changing the sort wipes the active filters.
 
 **Why it happens:**
-The instinct is to define the editorial design system at the `:root` level in `globals.css` as CSS custom properties and then use them in Hamilton components. This feels clean but makes the new design global.
+Each filter and sort component constructs its own URLSearchParams from scratch rather than reading and mutating the current params. This is the most common URL state bug in Next.js App Router code.
 
 **How to avoid:**
-Scope all Hamilton Pro editorial CSS under a `.hamilton-shell` parent class or a route group layout that applies that class to the root div. Never modify `:root` CSS variables for Hamilton-specific colors. Newsreader font should be declared via a scoped `font-family` on the `HamiltonShell` component, not as a `body` override in `globals.css`. The warm color tokens (`--hamilton-bg`, `--hamilton-accent`, `--hamilton-text`) should be custom properties defined on `.hamilton-shell {}` — they will cascade to all Hamilton child components without polluting admin scope.
-
-Test: toggle between `/admin/market` and `/hamilton/home` without a page reload; neither page should look visually broken.
+All URL param writes must start from `new URLSearchParams(currentSearchParams)` — clone first, then set/delete the changed key, then push. If using `nuqs`, this is handled automatically. Before shipping sortable tables, audit every `router.push(...)` call in filter bar components to confirm they preserve existing params.
 
 **Warning signs:**
-- New `--color-*` variables added to `:root` in `globals.css` for Hamilton-specific colors
-- `body { font-family: var(--font-newsreader) }` added anywhere in `globals.css`
-- Admin table headers changing background color after Hamilton CSS is added
+- Selecting a sort direction clears the charter/tier/district filters
+- Applying a peer filter resets the table to default sort
+- Browser back button produces unexpected filter/sort combinations
 
 **Phase to address:**
-Phase 1 (architecture cleanup) — establish `.hamilton-shell` as the CSS isolation boundary before any editorial styles are written. Phase 5 (frontend build) — verify admin pages in CI after Hamilton CSS additions.
+Sortable tables phase. Fix the URL mutation pattern globally before adding any new params.
 
 ---
 
-### Pitfall 6: Left Rail + Floating Chat Forces "use client" Up the Component Tree
+### Pitfall 6: react-pdf Cannot Render Recharts SVGs Directly
 
 **What goes wrong:**
-The left rail requires `usePathname()` to highlight the active screen (the existing `AdminNav` and `ProNav` are already "use client" for this reason). The floating chat overlay requires state (`isOpen`, `messages`, streaming response) and hooks from `@ai-sdk/react`. If both are placed in the `HamiltonShell` layout component, the layout must be a client component. Making the layout a client component forces every child page that is currently a Server Component to either (a) lose server-rendering benefits, or (b) be passed as `{children}` to the client shell — which Next.js App Router supports, but only if the page itself is not also trying to be a client component.
-
-The existing pro layout (`src/app/pro/layout.tsx`) is a Server Component that wraps `ProNav` (client) via composition. This pattern works. The risk is abandoning it when the Hamilton shell feels "more interactive" and deserves to be fully client-side.
+The `@react-pdf/renderer` library does not render Recharts components natively. Recharts renders to DOM SVG elements which react-pdf cannot traverse. Attempting to embed a `<BarChart>` directly in a PDF `<Document>` produces either a blank area or a runtime error. This is a known open issue in the react-pdf repository.
 
 **Why it happens:**
-The Hamilton shell has multiple interactive concerns (nav, chat, context bar). The path of least resistance is `"use client"` at the shell level. Once the shell is a client component, all data fetching for the initial page state must move to client-side `useEffect` calls or API fetches, losing server-rendering and increasing TTFB.
+Developers assume react-pdf is a full React renderer (like react-dom) that handles any React component tree. It is not — it is a PDF-specific renderer with a limited set of primitives (`View`, `Text`, `Image`, `SVG`, etc.) and does not execute browser-only rendering paths.
 
 **How to avoid:**
-Keep `HamiltonShell` as a Server Component. Isolate interactive sub-components: `HamiltonLeftRail` is a client component for `usePathname()`; `FloatingChatOverlay` is a client component for chat state. Both are passed as props or rendered as siblings inside the server shell — Next.js App Router explicitly supports this pattern ("passing client components as children of server components"). The screen-specific page content remains server-rendered. The server component passes static data (institution name, initial thesis, alert count) to the client overlay as props — no client-side data fetching for initial state.
+Three viable approaches, in order of increasing reliability:
+
+1. **Static images (recommended for this system):** Render charts server-side to PNG using a headless browser (Playwright, already in the stack) or `canvas` + `chart.js`, then embed as `<Image>` in react-pdf. Cleanest separation between web and PDF rendering.
+2. **react-pdf-charts wrapper:** The `react-pdf-charts` npm package converts SVG DOM output from Recharts into react-pdf-compatible SVG primitives. Works for bar/line charts; breaks for custom `ReferenceDot` components and nested SVG elements.
+3. **Pure react-pdf SVG:** Rebuild charts using react-pdf's native `<SVG>`, `<Rect>`, `<Line>` primitives. Full control, zero dependencies, but significant implementation time.
+
+If Recharts must be used, set `isAnimationActive={false}` on all chart components before rendering — animations prevent static capture.
 
 **Warning signs:**
-- `HamiltonShell` or the route group layout has `"use client"` at the top
-- Hamilton screen pages calling `useEffect` to fetch data that could be server-side
-- TTFB increasing on Hamilton pages relative to existing pro pages after the shell is built
+- PDF renders charts as blank white rectangles
+- `PDFDownloadLink` triggers a browser crash or hangs with complex chart trees
+- `renderToBuffer()` throws on SVG nesting
 
 **Phase to address:**
-Phase 5 (frontend shell) — establish the server/client boundary in `HamiltonShell` before building any screen. Revisit the `ProLayout` server component pattern as the template.
+Report PDF generation phase. Spike chart rendering strategy before writing any report component — do not commit to an approach until a working chart in PDF is demonstrated.
 
 ---
 
-### Pitfall 7: The "One API Response Per Screen" Contract Gets Abandoned Under Time Pressure
+### Pitfall 7: Responsive Retrofit Breaks Desktop-Optimized Data Density
 
 **What goes wrong:**
-The API and agent contracts document defines distinct response shapes per screen: `AnalyzeResponse`, `SimulationResponse`, `ReportSummaryResponse`, `MonitorResponse`. These are meaningfully different — Analyze has `confidence.level`, Simulate has `deltas`, Report has no inputs. Under implementation time pressure, the temptation is to route all five screens through the existing generic streaming chat endpoint (`/api/research/[agentId]`) and let the agent produce free-form markdown. This works for the Analyze screen (exploration, free-form is acceptable) but is wrong for Simulate (structured percentile/delta output), Report (export-ready artifact), and Monitor (status + signal feed).
-
-The existing `AnalystHub` already demonstrates this failure mode: it uses streaming markdown and post-processes it with `extractMetrics()` and `extractChartData()` to recover structure from free-form text. This is brittle. A Report that relies on markdown parsing to find "Executive Summary" headings will break when Hamilton uses a slightly different heading format.
+The admin design system is explicitly Bloomberg-grade data density. The `Market Index Explorer` uses a `col-span-8` / `col-span-4` two-column grid with a sticky `top-[57px] z-30` segment control bar. Adding responsive breakpoints naively (e.g., `md:grid-cols-1`) collapses this to a single column on tablet, destroying the side-by-side layout that is a core UX decision. Tight cell padding (`px-4 py-2.5`) that makes tables readable at desktop density becomes cramped at mobile widths.
 
 **Why it happens:**
-The streaming chat endpoint already works. Building structured JSON endpoints for each screen is additional backend work. Teams ship the easy path first and intend to "add structure later" — but later never comes because the screens appear to work.
+Responsive is added as a global pass after the fact ("just add `sm:` prefixes"). Mobile-first retrofit changes base styles that were never designed for mobile, requiring a full audit of every component's layout assumptions.
 
 **How to avoid:**
-Define typed response interfaces in `src/lib/hamilton/types.ts` before any screen is built (already in the backlog as Phase 3). Simulate and Report endpoints must return JSON, not streaming markdown. Analyze can remain streaming (it is an exploration surface). Monitor can be a JSON snapshot endpoint. Create separate API routes: `/api/hamilton/simulate` (POST, returns `SimulationResponse`), `/api/hamilton/report-summary` (POST, returns `ReportSummaryResponse`), `/api/hamilton/monitor` (GET, returns `MonitorResponse`). The streaming endpoint stays for Analyze and the floating chat.
+Admin screens are B2B-only. The target devices are desktop and large tablets (1024px+). Responsive for admin means "graceful degradation to 1024px minimum" — not full mobile support. Set a `min-w-[1024px]` on the admin layout and use `overflow-x-auto` on tables rather than trying to reflow complex multi-column grids. Reserve true mobile-first responsive work for the consumer/public-facing screens. The Hamilton Pro screens are the primary responsive target for v9.0 based on the milestone scope.
 
 **Warning signs:**
-- Simulate screen parsing `interpretation` out of streaming markdown text
-- Report summary generated by asking Hamilton to "write an executive summary" in chat format
-- `extractMetrics()` or `extractTableData()` being called on Simulate or Report responses
+- Desktop users see layout shifts after responsive changes ship
+- Sticky elements start overlapping at intermediate viewport widths
+- `col-span-8` grids collapse prematurely at 1280px
 
 **Phase to address:**
-Phase 3 (backend types) — define all response types. Phase 4 (agent behavior) — build screen-specific response builders, not markdown parsers. This must be established before any Phase 5 screen is built.
+Hamilton Pro polish phase. Scope responsive work to Pro screens only. Explicitly defer admin responsive to a future phase.
 
 ---
 
-### Pitfall 8: Scenario Archive and Saved Analyses Grow Without Garbage Collection
+### Pitfall 8: Playwright Stealth vs. Big Bank Bot Detection is an Arms Race with Legal Exposure
 
 **What goes wrong:**
-`hamilton_scenarios` and `hamilton_saved_analyses` are write-only tables in the current schema stub — there is no `deleted_at` column, no archive status, no TTL. A pro user running 10 simulations per session accumulates hundreds of rows quickly. The Simulate screen's scenario archive panel (Phase 6) loads "compare scenarios" from the DB. Without pagination or a row limit, the archive query becomes a full table scan against the user's entire scenario history. At 1,000 scenarios per active user this is still manageable, but the UI becomes unusable before the database becomes a bottleneck.
-
-More critically: the `hamilton_reports` table stores `report_json JSONB` which contains the full structured report content. A McKinsey-grade report with charts and data can be 50-100KB of JSON. At 20 reports per user, this is 1-2MB of JSONB per user in the reports table — again manageable individually, but a risk at scale and a performance issue if reports are fetched without column projection.
+Major banks (Chase, BofA, Wells Fargo) use Cloudflare, DataDome, or custom WAF configurations. Playwright stealth techniques (patching `navigator.webdriver`, spoofing user agent, randomizing mouse movements) fail against cryptographic proof-of-work challenges and timing-based behavioral analysis. Beyond technical failure, bank ToS typically prohibit automated access.
 
 **Why it happens:**
-MVP data models omit soft-delete and pagination because they are not needed at zero users. Adding them retroactively requires a migration and query changes.
+Teams see scraping working on community banks and assume scaling to big banks is a technical problem (better stealth), not a legal one. The 116/250 big bank failure rate in the existing re-extraction run confirms this is already hitting the ceiling.
 
 **How to avoid:**
-Add `status TEXT NOT NULL DEFAULT 'active'` and `deleted_at TIMESTAMPTZ` to `hamilton_scenarios` and `hamilton_saved_analyses` in the initial schema. Add a LIMIT to every archive query (default: 20, max: 100 via URL param). For `hamilton_reports`, never SELECT `report_json` in list queries — project only `id, title, report_type, created_at, exported_at`. Fetch `report_json` only when viewing a specific report.
+Segment the strategy: (1) Public fee schedule pages posted for consumer access are defensible — automated access mimics a consumer reading a PDF. (2) Fee data behind login or behind CAPTCHA walls is higher risk — stop at CAPTCHA, flag for manual review. (3) For the 250 largest banks already failing, prioritize URL research to find direct PDF links rather than JS-rendered pages. Direct PDF download via `httpx` has no bot detection and is the highest-ROI path. Playwright stealth is acceptable for JS-rendered public pages but must hard-stop at any authentication wall.
 
 **Warning signs:**
-- SQL schema missing `deleted_at` or `status` columns on scenario/analysis tables
-- Archive query with no `LIMIT` clause
-- Reports list query that includes `SELECT *` or `SELECT report_json`
+- Crawl success rate for Tier 1 banks does not improve with stealth changes
+- Modal workers return 403 errors from Cloudflare challenge pages
+- Extracted fee data shows pricing that looks like a logged-in account view (numbers too precise/granular)
 
 **Phase to address:**
-Phase 3 (data model) — add these fields to the schema stub before the tables are created. Do not ship `sql-schema.sql` to production without soft-delete and list-query projections.
+Pipeline coverage phase. Prioritize PDF direct-link strategy over Playwright stealth. Document legal rationale for the scraping approach in a comment in `config.yaml` or a `LEGAL.md`.
 
 ---
 
@@ -202,13 +186,12 @@ Phase 3 (data model) — add these fields to the schema stub before the tables a
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Computing percentiles against all fee data without a confidence tier | Simulation screen works with sparse data | User trusts a "73rd percentile" built on 6 data points; wrong pricing decision | Never — always expose the observation count and maturity tier |
-| Routing all Hamilton screens through the generic streaming chat endpoint | Fast to build — Analyze pattern already exists | Simulate and Report produce unparseable free-form text; no typed response contract | Only for Analyze (exploration) and the floating chat; never for Simulate, Report, or Monitor |
-| Putting `"use client"` on `HamiltonShell` layout to simplify interactive concerns | Simpler component model | All child pages lose server rendering; data fetching moves to client-side useEffect; TTFB degrades | Never for the layout; acceptable for isolated interactive children (rail, chat overlay) |
-| Skipping soft-delete on scenario tables at launch | Faster schema, no migration needed | Archive queries become unbounded; cannot undo accidental deletes | Only acceptable with a manual DELETE policy and a hard row-count ceiling per user |
-| Defining Hamilton Pro editorial colors in `:root` CSS variables | Clean global design system | Admin pages inherit wrong colors; dark mode behavior changes unexpectedly | Never — scope to `.hamilton-shell` |
-| Reusing `getHamilton("pro")` for mode-specific behavior via a `mode` parameter | One function, less code | Breaks existing AnalystHub chat; mode behavior leaks across screens | Never while AnalystHub is still in use |
-| Using `html2canvas` to capture Recharts for PDF | No new dependencies | Requires charts to be DOM-rendered first; unreliable on server; produces blurry captures at 1x resolution | Only acceptable as a client-side fallback; not for server-side PDF generation |
+| Client-side sort in SortableTable for all admin tables | Zero DB query changes needed | Memory blowup, slow TTI on large tables | Only when row count is bounded at ≤200 |
+| `force=True` in categorize_fees to re-classify everything | Clean slate after alias table changes | Clears valid categories temporarily, index drops during run | Never in production without a verified backup |
+| Nullable `canonical_fee_key` with no NOT NULL constraint | Easy to add later | Queries silently skip NULL rows, coverage gaps undetected | Acceptable during backfill phase only — add constraint after verification |
+| react-pdf-charts wrapper over raw SVG primitives | Fast to implement | Breaks on nested SVGs, custom chart components | Acceptable for simple bar/line charts only |
+| `overflow-x-auto` on admin tables instead of full responsive | Preserves desktop density | Horizontal scrolling is poor UX on tablet | Acceptable for admin (B2B desktop-only audience) |
+| Alias lookup only, no LLM fallback, for auto-classification | Zero added pipeline latency | 20-30% of long-tail fees remain `fee_category = NULL` | Acceptable in v9.0 — LLM fallback is a future phase |
 
 ---
 
@@ -216,12 +199,13 @@ Phase 3 (data model) — add these fields to the schema stub before the tables a
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| `@react-pdf/renderer` + Recharts | Passing a `<BarChart>` inside a `<Document>` | Pre-render charts to PNG server-side using a Node-compatible chart library; embed as `<Image>` in the PDF |
-| Vercel AI SDK streaming + mode-specific responses | Using `streamText` for all Hamilton responses including Simulate and Report | Use `streamText` for Analyze and floating chat; use a direct `anthropic.messages.create()` call with `response_format: json_object` for Simulate and Report endpoints |
-| Next.js App Router route groups + new Hamilton shell | Creating `src/app/(hamilton)/` route group that collides with existing `/pro/` routes | Confirm route group naming does not shadow existing `/pro/research` and `/pro/` paths; test that existing pro routes still resolve |
-| `hamilton_scenarios` UUID primary key + existing `users` table integer ID | Foreign key type mismatch — scenarios use `user_id INTEGER` but Postgres UUID tables expect UUID FK | Verify `users.id` is integer (it is, per MEMORY.md); `user_id INTEGER NOT NULL` is correct — do not add a UUID FK by mistake |
-| Monitor signals + quarterly crawl cadence | Building the signal detection logic assuming real-time data | Signals are batch-generated post-crawl; design the monitor as a snapshot view (last run) not a live feed; no WebSocket or polling needed |
-| @react-pdf/renderer on Vercel serverless | Installing `canvas` native module expecting it to work | Vercel serverless does not support arbitrary native modules; use `@vercel/og` image generation or a pure-JS PDF approach; test PDF generation in the Vercel build environment explicitly |
+| Supabase transaction mode pooler (port 6543) | Running `ALTER TABLE ... SET NOT NULL` in a migration — holds ACCESS EXCLUSIVE lock, blocks all writes | Add column nullable first; add NOT NULL constraint with `NOT VALID`, then `VALIDATE CONSTRAINT` in a separate transaction |
+| `postgres` client (raw SQL, no ORM) | Building `canonical_fee_key` index with `CREATE INDEX` (blocking) on a live table | Use `CREATE INDEX CONCURRENTLY` — non-blocking, safe on live tables |
+| Vercel AI SDK streaming (`streamText`) | Generating PDF reports as streaming text — PDFs are binary, not SSE streams | PDF generation must be a non-streaming API route returning `application/pdf` content-type |
+| react-pdf server-side rendering in Next.js App Router | Using `<PDFViewer>` (browser-only component) in a Server Component | Use `renderToBuffer()` in a Route Handler (`/api/reports/[id]/pdf`); never import PDFViewer server-side |
+| Tailwind v4 container queries | Mixing `@container` with old `md:` breakpoints on the same element — double-fires at viewport boundaries | Choose one responsive strategy per component; use container queries for components that appear in multiple layout contexts |
+| Modal Python workers + Postgres transaction pooler | Long-running backfill transactions hold pooler connections beyond timeout | Batch in 1,000-row transactions; commit and reconnect between batches |
+| categorize_fees.py SQLite placeholder syntax | Uses `?` placeholders — works for legacy SQLite but will break if run directly against Postgres | Confirm the production backfill path goes through the Postgres-aware layer, not the legacy `db.py` SQLite path |
 
 ---
 
@@ -229,11 +213,11 @@ Phase 3 (data model) — add these fields to the schema stub before the tables a
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Loading all 49 fee categories for every Simulate query | Slow response building the peer distribution for simulation | Scope simulation queries to the single `fee_category` being simulated; fetch the full 49-category index only on the Home screen initial load | First simulation request |
-| `hamilton_signals` queried without user scoping | Monitor page slow for all users because it queries the full signals table | Always filter by watchlist `institution_ids` and `fee_categories` from `hamilton_watchlists` for the current user | When signal count exceeds 1,000 rows |
-| Floating chat streaming during heavy Simulate computation | Page freezes while simulation endpoint and chat stream fire simultaneously | Disable the floating chat input while a Simulate API call is in-flight; streaming and JSON endpoints use separate fetch lifecycle | Immediately on first simultaneous use |
-| PDF generation blocking the API response | `/api/hamilton/report-summary` times out on Vercel's 10-second serverless function limit if PDF is generated inline | Generate the report JSON first (fast); trigger PDF rendering as a separate async step or client-side; do not block the API response on PDF generation | First large report with charts |
-| `response_json JSONB` in `hamilton_reports` selected in list queries | Reports list page loads full JSON payload for every report in the list | Always use `SELECT id, title, report_type, created_at, exported_at FROM hamilton_reports WHERE user_id = $1 LIMIT 20` for list views | When a user has 5+ reports |
+| Client-sort of fee review queue | Review page takes 3-5s to TTI; browser tab freezes briefly on sort click | Server-side sort via `ORDER BY` with URL param; paginate at DB level | Breaks at ~500 rows in client memory |
+| `categorize_fees --force` on 15K+ rows in single transaction | Postgres connection timeout; partial update with no rollback visibility | Batch 1,000 rows per transaction; commit between batches | Breaks at ~5,000 rows in a single transaction |
+| `buildIndexEntries()` in-memory grouping on all non-rejected fees | Index page load time grows with `extracted_fees` table size | Add DB-level aggregation (`GROUP BY fee_category`) as an alternative path when row count exceeds 50K | Slows noticeably at ~20K fee rows |
+| react-pdf `renderToBuffer()` in Vercel Edge Function | Edge function timeout (50ms CPU limit) | Use Node.js runtime (`export const runtime = 'nodejs'`) for PDF route handlers | Always — Edge runtime cannot run react-pdf |
+| LLM fallback classification inline in extraction hot path | Pipeline runs miss 2am-4am window; Modal worker timeout | Keep LLM fallback async/queued; alias lookup inline only | Breaks at ~50 LLM calls per extraction run |
 
 ---
 
@@ -241,10 +225,10 @@ Phase 3 (data model) — add these fields to the schema stub before the tables a
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| `institution_id TEXT NOT NULL` in scenario tables taken from request body | User saves scenarios attributed to any institution, not their own | `institution_id` must come from `users.institution_name` or a verified user profile field server-side — never from the POST body |
-| Hamilton mode passed as a URL query param to the agent API | User crafts `?mode=simulate` to bypass the `canRecommend: false` constraint on analyze mode | Mode must be determined server-side from the route (the screen the API call originates from), not from a client-supplied parameter |
-| PDF export endpoint with no auth check | Unauthenticated requests trigger Claude API calls for report generation | `/api/hamilton/export-pdf` must call `getCurrentUser()` and verify `canAccessPremium()` before any PDF work begins |
-| `hamilton_saved_analyses` visible across users | User queries analyses saved by another institution | Every query against Hamilton tables must include `WHERE user_id = $1` with the ID from `getCurrentUser()` — never trust a `user_id` in the request body |
+| Exposing `canonical_fee_key` remapping logic in a public API endpoint | Competitors can reverse-engineer taxonomy decisions and synonym clusters | Taxonomy mapping lives only in Python crawler and server-side TS; never expose alias table via `/api/v1/` |
+| Using `sql.unsafe()` with string-interpolated canonical keys from user input | SQL injection if user-supplied key reaches raw query | Canonical keys are constants from `FEE_FAMILIES` — document this explicitly; never allow user-provided canonical key to reach `sql.unsafe()` |
+| PDF report download without auth check | Unauthorized user downloads premium benchmarking reports | PDF generation routes (`/api/reports/[id]/pdf`) must call `getCurrentUser()` and verify `premium` or `admin` role before `renderToBuffer()` |
+| Playwright stealth crawling with production DB credentials in Modal environment | Modal worker compromise exposes full Supabase credentials | Use a read-write limited DB user for crawl workers, separate from the admin app credentials |
 
 ---
 
@@ -252,25 +236,25 @@ Phase 3 (data model) — add these fields to the schema stub before the tables a
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Simulate screen shows a percentile with no confidence indicator | User treats a "72nd percentile" built on 9 provisional data points as authoritative; makes a pricing decision on bad data | Always show observation count and maturity tier inline: "72nd percentile — provisional (23 observations)" |
-| Report screen has an input or slider | Breaks the "Report is read-only and export-first" contract from the product architecture; user tries to re-run analysis from the report view | Report screen must have zero input controls; all configuration happens in Simulate or Analyze; Report is a static artifact |
-| Monitor feed shows 50+ signals on initial load | User scans a log, not an intelligence feed; signal value approaches zero | Maximum 3 priority alerts in the hero position; signal feed starts collapsed or capped at 5 visible rows; a "view all signals" expansion is secondary |
-| Floating chat visible on the Report screen | User tries to explore analysis via chat from within the export view; chat state is lost when the tab closes | Float chat should be dismissed or hidden on the Report screen; Report is a communication artifact, not an exploration surface |
-| Left rail navigation does not indicate which screen the user is on | User loses orientation in a multi-screen workflow | Active screen state in the left rail must be driven by the current route (`usePathname()`), not by client state; deep links must produce the correct active state |
+| Sort state lives in local React state (not URL) | Bank executive shares a URL to a sorted fee table; recipient sees unsorted default | All sort state in URL params — `?sort=median_amount&dir=desc` persists across shares and refreshes |
+| Category explorer accordion collapses on filter change | User applies a family filter, accordion resets — loses context of which family was open | Persist accordion open state in URL (`?open=Overdraft+%26+NSF`) or use uncontrolled accordion that does not reset on filter changes |
+| PDF report fonts differ from web report fonts | Premium PDF looks like a different product from the web view | Embed Geist/Newsreader fonts explicitly in react-pdf using `Font.register()` before rendering any `<Text>` — react-pdf does not inherit system fonts |
+| Responsive breakpoint collapses multi-stat hero cards to single column on 13" laptop | Executives on MacBook Pro see one card per row instead of four | Test at 1280px viewport before shipping; set minimum grid breakpoint at `lg:` (1024px) not `md:` (768px) for Pro screens |
+| "Loading..." shown during sort on client-sorted table | Instant client sort shows a flash of loading state if incorrectly wrapped in Suspense | Client-side sort must not trigger any Suspense boundary; only server re-fetches need loading states |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Simulation screen:** Verify `SimulationResponse` includes `confidenceTier` field and that the UI renders it. Verify a fee category with fewer than 10 total observations shows "insufficient" maturity, not a numeric percentile.
-- [ ] **Agent mode split:** Verify `/pro/research` (AnalystHub) still works after `getHamiltonForMode()` is added to `agents.ts`. Run the existing streaming chat test with `agentId: "hamilton"`.
-- [ ] **PDF export:** Verify PDF generation works in a Vercel-simulated environment (`vercel dev`), not just locally. Verify charts appear in the PDF as images, not blank spaces.
-- [ ] **Monitor screen:** Verify the signal feed is scoped to the user's watchlist institutions and fee categories — not the full `hamilton_signals` table. Verify `hamilton_priority_alerts` is the primary display surface with `hamilton_signals` secondary.
-- [ ] **Hamilton shell CSS isolation:** Toggle between `/admin/market` and a Hamilton screen; verify admin table styles are unchanged. Verify Newsreader font does not appear in admin pages.
-- [ ] **Left rail as server component:** Verify `HamiltonShell` does not have `"use client"` at the top. Verify Hamilton screen pages respond to `curl` with populated HTML (server-rendered).
-- [ ] **Structured endpoints:** Verify `/api/hamilton/simulate` returns typed JSON, not streaming markdown. Verify the response parses cleanly as `SimulationResponse`.
-- [ ] **Scenario soft-delete:** Verify `hamilton_scenarios` and `hamilton_saved_analyses` tables have `deleted_at` column before any data is written to production.
-- [ ] **Report list query:** Verify the reports list endpoint does NOT select `report_json`. Verify individual report fetch DOES select `report_json`.
+- [ ] **Taxonomy backfill:** Verify `canonical_fee_key IS NOT NULL` count matches total non-rejected fees before removing fallback — do not assume "matched: X" in categorize script output equals "all rows updated."
+- [ ] **Auto-classification live:** Confirm new fees inserted by `crawl.py` and `state_agent.py` actually write `canonical_fee_key` at insert time, not just `fee_category`. The column must be in the `INSERT` statement, not only in the `UPDATE` backfill.
+- [ ] **Sortable tables:** Verify sort persists through filter changes — apply a peer filter while sorted by median, then apply another filter; confirm both persist.
+- [ ] **PDF reports:** Open generated PDF in Adobe Reader or Preview (not Chrome PDF viewer) — Chrome renders some invalid PDFs that other readers reject.
+- [ ] **PDF fonts:** Download the PDF, email it to a device without Geist installed — confirm text renders with the embedded font, not a fallback serif.
+- [ ] **Responsive Pro screens:** Test at 1280px (13" MacBook at native resolution), not only at the 1920px development viewport.
+- [ ] **Report data piping:** After Call Report data changes, verify the PDF regenerates fresh data — confirm ISR or cache invalidation is wired, not serving a stale cached render.
+- [ ] **Stripe billing portal:** After wiring, test with a Stripe test subscription in `past_due` state — confirm the user is gated but not permanently locked out with no recovery path.
+- [ ] **categorize_fees.py DB path:** Confirm the production Postgres path uses `$1` placeholders, not the legacy SQLite `?` placeholders visible in the current `categorize_fees.py`.
 
 ---
 
@@ -278,12 +262,12 @@ Phase 3 (data model) — add these fields to the schema stub before the tables a
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Simulation percentiles shipped without confidence tier | MEDIUM | Add `confidenceTier` to `SimulationResponse` type; update simulation engine to return it; add UI indicator; existing saved scenarios will lack the field — handle with a default of "unknown" until re-run |
-| Agent mode split breaks existing AnalystHub | LOW | Revert `getHamilton("pro")` to its pre-change state; move mode-specific logic to `getHamiltonForMode()` only; the streaming endpoint is stateless so no data migration needed |
-| Monitor is a log viewer (100+ signals displayed) | MEDIUM | Add severity filter and LIMIT to signal query; implement priority alert promotion logic; retrospectively mark existing signals with severity scores; cap UI to 20 rows |
-| PDF charts are blank in production | MEDIUM | Identify if failure is native module (`canvas`) or renderer incompatibility; switch to a pure-JS chart-to-image library; if using client-side `html2canvas`, implement as a client-initiated download instead of server-generated file |
-| Hamilton CSS leaks into admin pages | LOW | Wrap all Hamilton-specific CSS under `.hamilton-shell` selector; test admin pages; a CSS scoping change is surgical and low-risk |
-| Structured endpoint contract abandoned mid-build | HIGH | Requires retrofitting Simulate and Report screens to consume typed JSON; free-form markdown parsers are brittle and must be replaced; the later this is caught, the more screen-level rework is needed |
+| Taxonomy backfill corrupts index counts | MEDIUM | Roll back by querying from `fee_category` (unchanged); `canonical_fee_key` is additive, so dropping the column restores prior state without data loss |
+| False merge of NSF into overdraft | HIGH | Manual review of all fees mapped to `overdraft` in affected crawl batches; re-run categorize with corrected alias table; re-stage affected fees |
+| Sort state breaks URL filter pattern | LOW | Fix URLSearchParams clone pattern in filter bar; no data impact; redeploy |
+| PDF render crashes in production | LOW | Disable PDF download link; serve web view with print CSS as fallback; fix react-pdf issue in a hotfix |
+| Big bank crawl triggers legal concern | HIGH | Immediately pause crawl for affected institutions in `config.yaml`; document what data was collected; do not re-crawl until ToS reviewed |
+| Auto-classification runs inline and adds >500ms to extraction | MEDIUM | Move LLM fallback to async post-processing queue; alias lookup stays inline; degraded coverage acceptable temporarily |
 
 ---
 
@@ -291,32 +275,31 @@ Phase 3 (data model) — add these fields to the schema stub before the tables a
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Simulation percentiles without confidence tier | Phase 3 (types) — add `confidenceTier` to `SimulationResponse` before engine is built | Simulate screen with a low-data fee category shows "insufficient" maturity label |
-| Agent mode split breaking existing chat | Phase 4 (agent behavior) — create `getHamiltonForMode()` as additive, not destructive | Existing `/pro/research` AnalystHub passes streaming chat test after Phase 4 |
-| Monitor complexity creep | Phase 3 (data model) + Phase 5 (Monitor frontend) — priority alerts as hero, signal feed secondary | Monitor screen initial load shows max 3 priority alerts; signal feed is collapsed by default |
-| Recharts in PDF renderer | Phase 5 (Report frontend) — chart-to-PNG strategy resolved before any chart in PDF layout | PDF export contains chart images (not blank) in a Vercel-simulated environment |
-| Editorial CSS leaking into admin | Phase 1 (architecture cleanup) — `.hamilton-shell` CSS isolation established | `/admin/market` table styles unchanged after Hamilton CSS is added |
-| Client component bloat in shell | Phase 5 (shell) — `HamiltonShell` stays server component | `curl` on Hamilton screen URLs returns populated HTML; `HamiltonShell` has no `"use client"` |
-| Generic streaming endpoint for all screens | Phase 3 (types) + Phase 4 (agent) — screen-specific response types and builders before frontend | `/api/hamilton/simulate` returns valid `SimulationResponse` JSON; no markdown parsing in Simulate screen |
-| Unbounded scenario/analysis tables | Phase 3 (data model) — soft-delete and LIMIT in schema from day one | `hamilton_scenarios` migration includes `deleted_at`; list queries have `LIMIT 20` |
+| Taxonomy backfill breaks live index | Taxonomy consolidation (first phase) | Compare `institution_count` per category before and after backfill; delta must be zero |
+| False merge of NSF/Overdraft, Domestic/International | Taxonomy consolidation (before alias expansion) | Run `NEVER_MERGE` guard pytest before any categorize-fees production run |
+| Auto-classification adds pipeline latency | Auto-classification phase | Benchmark extraction time per fee with and without inline classification |
+| Sortable tables memory blowup | Sortable tables phase | Profile browser memory on review queue at 1,000+ rows |
+| Sort state conflicts with URL filters | Sortable tables phase | Manual QA: apply filter, change sort, apply filter again — verify both persist |
+| react-pdf cannot render Recharts | Report PDF generation phase | Spike PDF generation with a real Recharts chart before committing to the approach |
+| Responsive retrofit breaks desktop density | Hamilton Pro polish phase | Test all Pro screens at 1280px before and after responsive changes |
+| Playwright vs. big bank bot detection | Pipeline coverage phase | Track success rate by bank tier; document legal review of ToS for top 250 targets |
 
 ---
 
 ## Sources
 
-- Direct inspection: `src/lib/research/agents.ts` (PRO_PREFIX, existing agent config pattern)
-- Direct inspection: `src/lib/hamilton/voice.ts`, `generate.ts`, `types.ts` (existing Hamilton structure)
-- Direct inspection: `src/app/pro/research/analyst-hub.tsx` (streaming markdown pattern, extractMetrics usage)
-- Direct inspection: `src/app/pro/layout.tsx` (server/client boundary pattern for layouts)
-- Direct inspection: `src/app/pro/research/page.tsx` (how `getHamilton("pro")` is currently called)
-- Hamilton design package: `06-api-and-agent-contracts.md` (screen response contracts)
-- Hamilton design package: `05-data-model-and-persistence.md` (schema stub)
-- Hamilton design package: `01-product-architecture.md` (non-negotiable screen boundaries)
-- Hamilton design package: `stub/types-revamp.ts`, `stub/modes.ts`, `stub/sql-schema.sql`
-- `CLAUDE.md` project constraints: content quality, cost, accuracy, no overlap
-- `.planning/PROJECT.md` — current state: 58 approved fees (0.3%), data sparsity context
-- MEMORY.md: maturity badge system (strong/provisional/insufficient), fee tier system, design system tokens
+- Codebase: `src/lib/crawler-db/fee-index.ts` — `getNationalIndex()` filters on `CANONICAL_CATEGORIES` array; confirmed current behavior
+- Codebase: `src/components/sortable-table.tsx` — client-side sort and pagination confirmed in-memory via `useMemo`
+- Codebase: `fee_crawler/commands/categorize_fees.py` — batch update pattern confirmed; SQLite `?` placeholder noted vs. Postgres `$1` required
+- Codebase: `fee_crawler/fee_analysis.py` — `FEE_NAME_ALIASES` alias table; `get_fee_family()` lookup confirmed
+- Project memory: `project_reextraction_big_banks.md` — 116/250 big banks failed re-extraction, Playwright stealth already at ceiling
+- Project memory: `feedback_nsf_overdraft_distinction.md` — explicit never-infer rule for NSF vs Overdraft
+- [react-pdf GitHub issue #1050: Charts in PDF](https://github.com/diegomura/react-pdf/issues/1050) — SVG rendering limitation confirmed
+- [react-pdf-charts npm package](https://github.com/EvHaus/react-pdf-charts) — workaround library; MEDIUM confidence on coverage
+- [Zero-downtime PostgreSQL migrations (Lob Engineering)](https://www.lob.com/blog/meeting-expectations-running-database-changes-with-zero-downtime) — expand-and-contract pattern
+- [Playwright stealth limitations against Cloudflare (Scrapfly)](https://scrapfly.io/blog/posts/playwright-stealth-bypass-bot-detection) — advanced bot detection confirmed
+- [NCUA NSF/OD reporting policy change 2025](https://ncua.gov/newsroom/press-release/2025/hauptman-announces-changes-ncuas-overdraftnsf-fee-collection) — regulatory context for NSF/OD distinction importance
 
 ---
-*Pitfalls research for: Hamilton Pro Platform — 5-screen decision system on existing Next.js App Router app*
-*Researched: 2026-04-08*
+*Pitfalls research for: Bank Fee Index v9.0 — Data Foundation & Production Polish*
+*Researched: 2026-04-09*
