@@ -7,13 +7,11 @@ type NarrativeTone = "consulting" | "academic" | "executive" | "technical";
 
 interface ConfigSidebarProps {
   selectedTemplate: ReportTemplateType | null;
-  institution: string;
-  peerSet: string;
+  institutionName: string;
+  peerSetLabel: string;
   focusArea: string;
   narrativeTone: NarrativeTone;
   isGenerating: boolean;
-  onInstitutionChange: (v: string) => void;
-  onPeerSetChange: (v: string) => void;
   onFocusAreaChange: (v: string) => void;
   onNarrativeToneChange: (v: NarrativeTone) => void;
   onGenerate: () => void;
@@ -27,21 +25,19 @@ const TONES: Array<{ value: NarrativeTone; label: string }> = [
 ];
 
 const FOCUS_AREAS = [
-  "Capital Allocation",
-  "Risk Mitigation",
-  "Yield Optimization",
-  "Sustainable Growth",
+  "Fee Benchmarking",
+  "Competitive Positioning",
+  "Revenue Optimization",
+  "Regulatory Compliance",
 ];
 
 export function ConfigSidebar({
   selectedTemplate,
-  institution,
-  peerSet,
+  institutionName,
+  peerSetLabel,
   focusArea,
   narrativeTone,
   isGenerating,
-  onInstitutionChange,
-  onPeerSetChange,
   onFocusAreaChange,
   onNarrativeToneChange,
   onGenerate,
@@ -69,7 +65,7 @@ export function ConfigSidebar({
             onGenerate();
           }}
         >
-          {/* Institution */}
+          {/* Institution (readonly — from user profile) */}
           <div>
             <label
               className="block text-[10px] uppercase tracking-[0.2em] mb-3"
@@ -77,22 +73,24 @@ export function ConfigSidebar({
             >
               Institution
             </label>
-            <select
-              value={institution}
-              onChange={(e) => onInstitutionChange(e.target.value)}
-              className="w-full bg-transparent border-0 focus:ring-0 text-sm py-2 appearance-none"
+            <div
+              className="text-sm py-2"
               style={{
                 borderBottom: "1px solid rgba(134,115,107,0.4)",
                 color: "var(--hamilton-on-surface)",
               }}
             >
-              <option>Hamilton Global Partners</option>
-              <option>Standard Meridian</option>
-              <option>Axiom Wealth</option>
-            </select>
+              {institutionName || "Not configured"}
+            </div>
+            <a
+              href="/pro/settings"
+              className="text-[9px] text-primary uppercase tracking-widest mt-1 block"
+            >
+              Configure in Settings
+            </a>
           </div>
 
-          {/* Peer Set */}
+          {/* Peer Set (readonly — from user profile) */}
           <div>
             <label
               className="block text-[10px] uppercase tracking-[0.2em] mb-3"
@@ -100,23 +98,21 @@ export function ConfigSidebar({
             >
               Peer Set
             </label>
-            <div className="flex flex-wrap gap-2">
-              <span
-                className="text-white text-[10px] uppercase tracking-widest px-3 py-1.5 flex items-center gap-2 cursor-pointer"
-                style={{ backgroundColor: "var(--hamilton-primary)" }}
-                onClick={() => onPeerSetChange("tier1")}
-              >
-                Tier 1 Banks
-                <span className="material-symbols-outlined text-xs">close</span>
-              </span>
-              <span
-                className="text-[10px] uppercase tracking-widest px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-surface-container-highest transition-colors bg-surface-container-high"
-                onClick={() => onPeerSetChange("emea")}
-              >
-                EMEA Private
-                <span className="material-symbols-outlined text-xs">add</span>
-              </span>
+            <div
+              className="text-sm py-2"
+              style={{
+                borderBottom: "1px solid rgba(134,115,107,0.4)",
+                color: "var(--hamilton-on-surface)",
+              }}
+            >
+              {peerSetLabel || "National (no peer filter)"}
             </div>
+            <a
+              href="/pro/settings"
+              className="text-[9px] text-primary uppercase tracking-widest mt-1 block"
+            >
+              Manage peer sets
+            </a>
           </div>
 
           {/* Focus Area */}
