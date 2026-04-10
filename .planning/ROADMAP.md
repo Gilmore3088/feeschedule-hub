@@ -1080,3 +1080,18 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.14: Normalize Hamilton Design Tokens (BACKLOG)
+
+**Goal:** Replace 42+ hardcoded color values across Hamilton components with semantic CSS custom properties. Add missing tokens to .hamilton-shell block in globals.css, then replace all inline hex/rgb values.
+
+**Scope:**
+- 12 instances of rgba(216,194,184,...) border color -> --hamilton-border-subtle
+- 10 instances of rgb(120 113 108) -> --hamilton-text-secondary (already exists)
+- 20 instances of status colors (#b45309 amber, #b91c1c red, #16a34a green) -> --hamilton-status-warning, --hamilton-status-error, --hamilton-status-success
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
