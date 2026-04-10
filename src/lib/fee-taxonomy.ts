@@ -134,6 +134,87 @@ export const DISPLAY_NAMES: Record<string, string> = {
   appraisal_fee: "Appraisal",
 };
 
+/**
+ * Canonical key map: stable aggregation keys mirroring Python CANONICAL_KEY_MAP.
+ * For the 49 base categories, canonical_fee_key === fee_category (identity mapping).
+ * Synonym clusters map long-tail slugs to a single canonical key.
+ *
+ * IMPORTANT: Keep in sync with fee_crawler/fee_analysis.py CANONICAL_KEY_MAP.
+ * Cross-language sync is enforced by fee-taxonomy.test.ts.
+ */
+export const CANONICAL_KEY_MAP: Record<string, string> = {
+  // Account Maintenance
+  monthly_maintenance: "monthly_maintenance",
+  minimum_balance: "minimum_balance",
+  early_closure: "early_closure",
+  dormant_account: "dormant_account",
+  account_research: "account_research",
+  paper_statement: "paper_statement",
+  estatement_fee: "estatement_fee",
+  // Overdraft & NSF
+  overdraft: "overdraft",
+  nsf: "nsf",
+  continuous_od: "continuous_od",
+  od_protection_transfer: "od_protection_transfer",
+  od_line_of_credit: "od_line_of_credit",
+  od_daily_cap: "od_daily_cap",
+  nsf_daily_cap: "nsf_daily_cap",
+  // ATM & Card
+  atm_non_network: "atm_non_network",
+  atm_international: "atm_international",
+  card_replacement: "card_replacement",
+  rush_card: "rush_card",
+  card_foreign_txn: "card_foreign_txn",
+  card_dispute: "card_dispute",
+  // Wire Transfers
+  wire_domestic_outgoing: "wire_domestic_outgoing",
+  wire_domestic_incoming: "wire_domestic_incoming",
+  wire_intl_outgoing: "wire_intl_outgoing",
+  wire_intl_incoming: "wire_intl_incoming",
+  // Check Services
+  cashiers_check: "cashiers_check",
+  money_order: "money_order",
+  check_printing: "check_printing",
+  stop_payment: "stop_payment",
+  counter_check: "counter_check",
+  check_cashing: "check_cashing",
+  check_image: "check_image",
+  // Digital & Electronic
+  ach_origination: "ach_origination",
+  ach_return: "ach_return",
+  bill_pay: "bill_pay",
+  mobile_deposit: "mobile_deposit",
+  zelle_fee: "zelle_fee",
+  // Cash & Deposit
+  coin_counting: "coin_counting",
+  cash_advance: "cash_advance",
+  deposited_item_return: "deposited_item_return",
+  night_deposit: "night_deposit",
+  // Account Services
+  notary_fee: "notary_fee",
+  safe_deposit_box: "safe_deposit_box",
+  garnishment_levy: "garnishment_levy",
+  legal_process: "legal_process",
+  account_verification: "account_verification",
+  balance_inquiry: "balance_inquiry",
+  // Lending Fees
+  late_payment: "late_payment",
+  loan_origination: "loan_origination",
+  appraisal_fee: "appraisal_fee",
+  // Synonym clusters: long-tail slugs -> canonical key
+  rush_card_delivery: "rush_card",
+  estatement: "estatement_fee",
+  check_image_charge: "check_image",
+  skip_a_pay: "late_payment",
+  return_mail: "account_research",
+  club_account: "early_closure",
+  fax_fee: "account_research",
+  safe_deposit: "safe_deposit_box",
+};
+
+/** Total number of entries in CANONICAL_KEY_MAP (for cross-language sync assertions). */
+export const CANONICAL_KEY_COUNT = Object.keys(CANONICAL_KEY_MAP).length;
+
 export const FAMILY_COLORS: Record<string, { border: string; bg: string; text: string }> = {
   "Account Maintenance": { border: "border-l-blue-500", bg: "bg-blue-50", text: "text-blue-700" },
   "Overdraft & NSF": { border: "border-l-red-500", bg: "bg-red-50", text: "text-red-700" },

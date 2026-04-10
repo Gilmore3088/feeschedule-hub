@@ -85,6 +85,82 @@ FEE_FAMILIES: dict[str, list[str]] = {
     ],
 }
 
+# ---------------------------------------------------------------------------
+# Canonical key map: stable aggregation keys for downstream queries.
+# For the 49 base categories, canonical_fee_key == fee_category (identity).
+# Synonym clusters map multiple fee_category slugs to a single canonical key.
+# ---------------------------------------------------------------------------
+CANONICAL_KEY_MAP: dict[str, str] = {
+    # Account Maintenance
+    "monthly_maintenance": "monthly_maintenance",
+    "minimum_balance": "minimum_balance",
+    "early_closure": "early_closure",
+    "dormant_account": "dormant_account",
+    "account_research": "account_research",
+    "paper_statement": "paper_statement",
+    "estatement_fee": "estatement_fee",
+    # Overdraft & NSF
+    "overdraft": "overdraft",
+    "nsf": "nsf",
+    "continuous_od": "continuous_od",
+    "od_protection_transfer": "od_protection_transfer",
+    "od_line_of_credit": "od_line_of_credit",
+    "od_daily_cap": "od_daily_cap",
+    "nsf_daily_cap": "nsf_daily_cap",
+    # ATM & Card
+    "atm_non_network": "atm_non_network",
+    "atm_international": "atm_international",
+    "card_replacement": "card_replacement",
+    "rush_card": "rush_card",
+    "card_foreign_txn": "card_foreign_txn",
+    "card_dispute": "card_dispute",
+    # Wire Transfers
+    "wire_domestic_outgoing": "wire_domestic_outgoing",
+    "wire_domestic_incoming": "wire_domestic_incoming",
+    "wire_intl_outgoing": "wire_intl_outgoing",
+    "wire_intl_incoming": "wire_intl_incoming",
+    # Check Services
+    "cashiers_check": "cashiers_check",
+    "money_order": "money_order",
+    "check_printing": "check_printing",
+    "stop_payment": "stop_payment",
+    "counter_check": "counter_check",
+    "check_cashing": "check_cashing",
+    "check_image": "check_image",
+    # Digital & Electronic
+    "ach_origination": "ach_origination",
+    "ach_return": "ach_return",
+    "bill_pay": "bill_pay",
+    "mobile_deposit": "mobile_deposit",
+    "zelle_fee": "zelle_fee",
+    # Cash & Deposit
+    "coin_counting": "coin_counting",
+    "cash_advance": "cash_advance",
+    "deposited_item_return": "deposited_item_return",
+    "night_deposit": "night_deposit",
+    # Account Services
+    "notary_fee": "notary_fee",
+    "safe_deposit_box": "safe_deposit_box",
+    "garnishment_levy": "garnishment_levy",
+    "legal_process": "legal_process",
+    "account_verification": "account_verification",
+    "balance_inquiry": "balance_inquiry",
+    # Lending Fees
+    "late_payment": "late_payment",
+    "loan_origination": "loan_origination",
+    "appraisal_fee": "appraisal_fee",
+    # Synonym clusters: duplicate fee_category slugs -> canonical key
+    # (long-tail slugs found in production that consolidate to a base category)
+    "rush_card_delivery": "rush_card",        # variant slug -> canonical
+    "estatement": "estatement_fee",           # duplicate slug
+    "check_image_charge": "check_image",      # duplicate slug
+    "skip_a_pay": "late_payment",             # synonym cluster
+    "return_mail": "account_research",        # synonym cluster
+    "club_account": "early_closure",          # christmas/vacation club withdrawal
+    "fax_fee": "account_research",            # fax service -> research/admin
+    "safe_deposit": "safe_deposit_box",       # short slug duplicate
+}
+
 # Categories that must NEVER share aliases -- regulatory or semantic boundaries.
 # Guard test in tests/test_never_merge.py enforces this before any alias expansion.
 NEVER_MERGE_PAIRS: list[tuple[str, str]] = [
@@ -853,6 +929,39 @@ FEE_NAME_ALIASES: dict[str, str] = {
     "security fee": "account_research",
     "bond coupon redemption": "account_research",
     "expedited check payment": "check_cashing",
+    # --- Synonym cluster expansion (Phase 55, 2026-04-09) ---
+    # skip-a-pay cluster -> late_payment
+    # Note: "skip a pay fee" is a loan deferral product, not a penalty, but maps
+    # to late_payment as the closest regulatory fee category available.
+    "skip-a-pay fee": "late_payment",
+    "skip-a-pay": "late_payment",
+    "skip a pay": "late_payment",
+    "skip a payment fee": "late_payment",
+    "loan skip payment": "late_payment",
+    "loan deferral fee": "late_payment",
+    "payment deferral fee": "late_payment",
+    # return_mail cluster -> account_research
+    "returned mail processing": "account_research",
+    "return mail processing": "account_research",
+    "mail return processing fee": "account_research",
+    "undeliverable address": "account_research",
+    "address change fee": "account_research",
+    "unclaimed mail fee": "account_research",
+    # club_account cluster -> early_closure (penalizes early withdrawal from club accounts)
+    "club account fee": "early_closure",
+    "christmas club fee": "early_closure",
+    "vacation club fee": "early_closure",
+    "holiday club fee": "early_closure",
+    "savings club fee": "early_closure",
+    "club withdrawal fee": "early_closure",
+    "club account early withdrawal": "early_closure",
+    "christmas club withdrawal": "early_closure",
+    # fax_fee cluster -> account_research (administrative service fee)
+    "fax service": "account_research",
+    "incoming fax fee": "account_research",
+    "outgoing fax fee": "account_research",
+    "fax transmission fee": "account_research",
+    "telefax fee": "account_research",
 }
 
 CANONICAL_DISPLAY_NAMES: dict[str, str] = {
@@ -1084,6 +1193,45 @@ def get_display_name(canonical: str) -> str:
     if canonical in CANONICAL_DISPLAY_NAMES:
         return CANONICAL_DISPLAY_NAMES[canonical]
     return canonical.replace("_", " ").title()
+
+
+# ---------------------------------------------------------------------------
+# Variant detection and classify_fee() wrapper
+# ---------------------------------------------------------------------------
+
+_VARIANT_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\brush\b"), "rush"),
+    (re.compile(r"\bexpress\b"), "express"),
+    (re.compile(r"\bwaived?\b"), "waived"),
+    (re.compile(r"\bdaily[_ ]cap\b"), "daily_cap"),
+    (re.compile(r"\bper[_ ]item\b"), "per_item"),
+    (re.compile(r"\btemporary\b"), "temporary"),
+]
+
+
+def detect_variant_type(raw_name: str, fee_category: str | None) -> str | None:
+    """Detect fee variant from raw name. Returns variant slug or None for standard fees."""
+    if fee_category and fee_category.endswith("_daily_cap"):
+        return "daily_cap"
+    cleaned = raw_name.lower()
+    for pattern, variant in _VARIANT_PATTERNS:
+        if pattern.search(cleaned):
+            return variant
+    return None
+
+
+def classify_fee(raw_name: str) -> tuple[str | None, str | None, str | None]:
+    """Classify a raw fee name into (fee_category, canonical_fee_key, variant_type).
+
+    Returns:
+        fee_category: the normalized slug (same as normalize_fee_name output)
+        canonical_fee_key: the stable aggregation key, or None if unmatched
+        variant_type: rush/express/waived/daily_cap/per_item/temporary or None
+    """
+    fee_category = normalize_fee_name(raw_name)
+    canonical_fee_key = CANONICAL_KEY_MAP.get(fee_category)
+    variant_type = detect_variant_type(raw_name, fee_category)
+    return fee_category, canonical_fee_key, variant_type
 
 
 # ---------------------------------------------------------------------------
