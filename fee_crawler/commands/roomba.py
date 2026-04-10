@@ -298,8 +298,6 @@ def sweep_recategorize(conn) -> tuple[int, int]:
     cur = conn.cursor()
 
     # Get canonical categories
-    import sys
-    sys.path.insert(0, ".")
     from fee_crawler.fee_analysis import FEE_FAMILIES
     canonical = set()
     for cats in FEE_FAMILIES.values():
@@ -578,8 +576,6 @@ def sweep_canonical_reassignments(conn, fix: bool = False) -> list[dict]:
     Returns:
         List of reassignment dicts with fee_id, fee_category, old_key, new_key
     """
-    import sys
-    sys.path.insert(0, ".")
     from fee_crawler.fee_analysis import CANONICAL_KEY_MAP
 
     cur = conn.cursor()

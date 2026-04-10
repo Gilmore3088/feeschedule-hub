@@ -76,8 +76,13 @@ def _snapshot_categories(conn, date: str) -> int:
         sorted_amounts = sorted(amounts)
         n = len(sorted_amounts)
         median_amount = statistics.median(sorted_amounts)
-        p25 = sorted_amounts[int(n * 0.25)]
-        p75 = sorted_amounts[int(n * 0.75)]
+        if n >= 2:
+            quantiles = statistics.quantiles(sorted_amounts, n=4)
+            p25 = quantiles[0]
+            p75 = quantiles[2]
+        else:
+            p25 = sorted_amounts[0]
+            p75 = sorted_amounts[0]
         institution_count = len(institution_sets[(fee_category, canonical_fee_key, charter)])
         fee_count = n
 

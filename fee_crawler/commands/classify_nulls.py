@@ -100,7 +100,7 @@ def classify_with_cache(
 
     if row is None:
         return None, 0.0
-    return row[1], row[2]
+    return row[0], row[1]
 
 
 def write_cache_entry(

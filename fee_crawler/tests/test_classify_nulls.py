@@ -45,8 +45,8 @@ def test_cache_hit_returns_cached_result():
     without making any LLM API call."""
     from fee_crawler.commands.classify_nulls import classify_with_cache
 
-    # Cache row: (normalized_name, canonical_fee_key, confidence, model, created_at)
-    cache_row = ("overdraft", "overdraft", 0.97, "claude-haiku-4-5-20251001", "2026-04-10")
+    # Cache row: SELECT returns (canonical_fee_key, confidence) only
+    cache_row = ("overdraft", 0.97)
     cursor = _make_cursor(fetchone_return=cache_row)
     conn = _make_conn(cursor=cursor)
 
