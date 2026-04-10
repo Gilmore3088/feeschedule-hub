@@ -5,6 +5,7 @@ import { TemplateCard } from "./TemplateCard";
 import { ConfigSidebar } from "./ConfigSidebar";
 import { ReportOutput } from "./ReportOutput";
 import { GeneratingState } from "./GeneratingState";
+import { ReportLibrary } from "./ReportLibrary";
 import {
   generateReport,
   loadActiveScenarios,
@@ -57,9 +58,21 @@ const TEMPLATES: Array<{
 
 interface ReportWorkspaceProps {
   userId: number;
+  publishedReports: Array<{
+    id: string;
+    report_type: string;
+    title: string;
+    created_at: string;
+    report_json: ReportSummaryResponse;
+  }>;
+  initialScenarioId: string | null;
 }
 
-export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
+export function ReportWorkspace({
+  userId,
+  publishedReports,
+  initialScenarioId,
+}: ReportWorkspaceProps) {
   const [selectedTemplate, setSelectedTemplate] =
     useState<ReportTemplateType | null>(null);
   const [institution, setInstitution] = useState("Hamilton Global Partners");
@@ -81,8 +94,32 @@ export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
     loadActiveScenarios().catch(() => {});
   }, [userId]);
 
+  // initialScenarioId is accepted for Plan 02 wiring — not implemented in this plan
+  void initialScenarioId;
+
   function handleTemplateClick(type: ReportTemplateType) {
     setSelectedTemplate((prev) => (prev === type ? null : type));
+  }
+
+  /**
+   * Show a published report inline by loading its pre-built report_json into state.
+   * No generation step required — reuses ReportOutput directly.
+   */
+  function handleViewPublishedReport(
+    report: ReportSummaryResponse,
+    reportType: string
+  ) {
+    setGeneratedReport(report);
+    setGeneratedReportType(reportType);
+    setError(null);
+    setIsGenerating(false);
+    // Scroll the preview area into view
+    setTimeout(() => {
+      const previewEl = document.getElementById("report-preview-section");
+      if (previewEl) {
+        previewEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
   }
 
   async function handleGenerate() {
@@ -167,6 +204,18 @@ export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
         </p>
       </header>
 
+      {/* Published Reports Library — PRIMARY view at top of page (D-01) */}
+      <ReportLibrary
+        reports={publishedReports}
+        onViewReport={handleViewPublishedReport}
+      />
+
+      {/* Visual separator between library and generator */}
+      <div
+        className="mt-16 mb-12"
+        style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
+      />
+
       {/* Error banner */}
       {error && (
         <div
@@ -182,14 +231,14 @@ export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
       )}
 
       <div className="grid grid-cols-12 gap-12 items-start">
-        {/* Left: Framework Gallery + Preview */}
+        {/* Left: Template Gallery + Preview */}
         <section className="col-span-12 lg:col-span-8">
-          {/* Section label */}
+          {/* Section label — "Generate New Report" per D-02 */}
           <div className="mb-6 flex justify-between items-end">
             <h2
               className="font-sans text-[10px] uppercase tracking-[0.2em] text-primary"
             >
-              Strategic Frameworks
+              Generate New Report
             </h2>
             <span
               className="text-xs font-sans underline cursor-pointer"
@@ -221,6 +270,7 @@ export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
 
           {/* Narrative Preview Section */}
           <div
+            id="report-preview-section"
             className="mt-16 pt-12"
             style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
           >
@@ -259,7 +309,7 @@ export function ReportWorkspace({ userId }: ReportWorkspaceProps) {
             {/* Generating overlay */}
             {isGenerating && <GeneratingState />}
 
-            {/* Generated report output */}
+            {/* Generated or published report output */}
             {!isGenerating && reportGenerated && generatedReport && (
               <ReportOutput
                 report={generatedReport}

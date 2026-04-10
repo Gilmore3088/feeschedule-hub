@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from "@/lib/auth";
 import { getNationalIndex } from "@/lib/crawler-db/fee-index";
+import { sql } from "@/lib/crawler-db/connection";
 import { generateSection } from "@/lib/hamilton/generate";
 import {
   saveHamiltonReport,
@@ -184,4 +185,23 @@ export async function loadReport(reportId: string) {
   const user = await getCurrentUser();
   if (!user) return null;
   return getHamiltonReportById(reportId, user.id);
+}
+
+/**
+ * Load a published BFI-authored report by ID.
+ * Published reports use sentinel user_id = 0 and are accessible to all authenticated pro users.
+ * Authentication is required — unauthenticated requests return null.
+ */
+export async function loadPublishedReport(reportId: string) {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const rows = await sql`
+    SELECT id, report_type, report_json, created_at
+    FROM hamilton_reports
+    WHERE id = ${reportId}
+      AND status = 'published'
+    LIMIT 1
+  `;
+  if (!rows[0]) return null;
+  return rows[0];
 }
