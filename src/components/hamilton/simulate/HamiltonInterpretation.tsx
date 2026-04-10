@@ -89,7 +89,7 @@ export function HamiltonInterpretation({ interpretation, isStreaming }: Props) {
           </svg>
           <span
             className="font-label uppercase tracking-widest"
-            style={{ fontSize: "0.55rem", letterSpacing: "0.07em", color: "rgb(120 113 108)" }}
+            style={{ fontSize: "0.6875rem", letterSpacing: "0.07em", color: "rgb(120 113 108)" }}
           >
             High confidence grounding: Fee benchmarks, competitive migration tracking, and CFPB complaint trends.
           </span>

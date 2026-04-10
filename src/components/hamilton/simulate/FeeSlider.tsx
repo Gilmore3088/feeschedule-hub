@@ -115,7 +115,7 @@ export function FeeSlider({
         {/* Track labels */}
         <div
           className="flex justify-between mt-2 font-label"
-          style={{ fontSize: "0.55rem", letterSpacing: "0.07em", fontWeight: 600, textTransform: "uppercase" }}
+          style={{ fontSize: "0.6875rem", letterSpacing: "0.07em", fontWeight: 600, textTransform: "uppercase" }}
         >
           <span style={{ color: "rgb(168 162 158)" }}>{formatDollar(min)} MIN</span>
           <span

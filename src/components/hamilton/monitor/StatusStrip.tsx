@@ -55,7 +55,7 @@ export function StatusStrip({ status }: StatusStripProps) {
           <span
             style={{
               fontFamily: "var(--hamilton-font-sans)",
-              fontSize: "0.5625rem",
+              fontSize: "0.6875rem",
               fontWeight: 700,
               letterSpacing: "0.2em",
               textTransform: "uppercase",
