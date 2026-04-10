@@ -1117,7 +1117,7 @@ Plans:
 **Milestone Goal:** Build a living canonical fee layer that consolidates 15K+ fragmented fee categories and auto-classifies new crawl data as it arrives, then polish every surface (Pro, Admin, Reports) to production-ready quality.
 
 - [ ] **Phase 55: Canonical Taxonomy Foundation** - Add canonical_fee_key column, author 200-key map, backfill all existing fees, enforce NEVER_MERGE guard tests (not started)
-- [ ] **Phase 56: Auto-Classification Pipeline** - Wire classify_fee() inline at INSERT, LLM fallback with cache, Roomba outlier integration (not started)
+- [x] **Phase 56: Auto-Classification Pipeline** - Wire classify_fee() inline at INSERT, LLM fallback with cache, Roomba outlier integration (not started) (completed 2026-04-10)
 - [ ] **Phase 57: Admin UX — Sortable Tables & Districts** - SortableTable adoption across all admin pages, server-side sort for large tables, districts data wired to Phase 23-24 queries, responsive pass (not started)
 - [ ] **Phase 58: FFIEC Pipeline & Institution Data** - Ingest FFIEC CDR + NCUA 5300 quarterly data, wire Call Report data into institution-specific admin pages (not started)
 - [ ] **Phase 59: Pipeline Coverage Expansion** - PDF direct-link strategy for big bank fee schedules, Playwright stealth bypass for JS-rendered pages (not started)
@@ -1151,9 +1151,9 @@ Plans:
   4. After any crawl run, the Roomba integration automatically flags outlier fees in the newly inserted batch — a developer can see the flagged rows without running a manual audit script
 **Plans**: 3 plans
 Plans:
-- [ ] 56-01-PLAN.md -- Wire classify_fee() into both INSERT paths + Wave 0 test scaffolds
-- [ ] 56-02-PLAN.md -- LLM batch classification command + classification_cache migration
-- [ ] 56-03-PLAN.md -- Roomba post-crawl entry point + snapshot tables + Modal orchestration
+- [x] 56-01-PLAN.md -- Wire classify_fee() into both INSERT paths + Wave 0 test scaffolds
+- [x] 56-02-PLAN.md -- LLM batch classification command + classification_cache migration
+- [x] 56-03-PLAN.md -- Roomba post-crawl entry point + snapshot tables + Modal orchestration
 
 ### Phase 57: Admin UX — Sortable Tables & Districts
 **Goal**: Every admin table is sortable and the Districts pages display the full district intelligence that Phase 23-24 built — no wasted infrastructure
@@ -1217,7 +1217,7 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 55. Canonical Taxonomy Foundation | v9.0 | 0/TBD | Not started | - |
-| 56. Auto-Classification Pipeline | v9.0 | 0/TBD | Not started | - |
+| 56. Auto-Classification Pipeline | v9.0 | 3/3 | Complete    | 2026-04-10 |
 | 57. Admin UX — Sortable Tables & Districts | v9.0 | 0/TBD | Not started | - |
 | 58. FFIEC Pipeline & Institution Data | v9.0 | 0/TBD | Not started | - |
 | 59. Pipeline Coverage Expansion | v9.0 | 0/TBD | Not started | - |
