@@ -28,6 +28,8 @@ export interface FeeInstance {
   asset_size: number | null;
   review_status: string;
   extraction_confidence: number;
+  canonical_fee_key: string | null;
+  variant_type: string | null;
 }
 
 export interface DimensionBreakdown {
@@ -148,7 +150,8 @@ export async function getFeeCategoryDetail(category: string): Promise<{
     SELECT ef.id, ct.institution_name, ef.crawl_target_id,
            ef.amount, ef.frequency, ef.conditions,
            ct.charter_type, ct.state_code, ct.asset_size_tier,
-           ct.asset_size, ef.review_status, ef.extraction_confidence
+           ct.asset_size, ef.review_status, ef.extraction_confidence,
+           ef.canonical_fee_key, ef.variant_type
     FROM extracted_fees ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ef.fee_category = ${category} AND ef.review_status != 'rejected'
