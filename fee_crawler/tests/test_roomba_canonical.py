@@ -114,8 +114,13 @@ def test_roomba_canonical_skips_insufficient_data():
 
 
 def test_roomba_canonical_stats_contract():
-    """compute_canonical_stats returns only non-zero, non-rejected fee amounts."""
-    rows = [
+    """compute_canonical_stats excludes $0 amounts and rejected fees from obs_count.
+
+    When >= 5 valid observations exist the key appears in the result.
+    When fewer than 5 valid observations exist the key is excluded (insufficient data).
+    """
+    # 6 rows: 1 excluded ($0), 1 excluded (rejected) → 4 valid, below threshold of 5
+    rows_insufficient = [
         {"amount": 35.0, "canonical_fee_key": "overdraft", "review_status": "pending"},
         {"amount": 0.0, "canonical_fee_key": "overdraft", "review_status": "pending"},   # excluded: $0
         {"amount": 30.0, "canonical_fee_key": "overdraft", "review_status": "rejected"},  # excluded: rejected
@@ -124,11 +129,19 @@ def test_roomba_canonical_stats_contract():
         {"amount": 33.0, "canonical_fee_key": "overdraft", "review_status": "pending"},
     ]
 
-    stats = compute_canonical_stats(rows)
+    stats_insufficient = compute_canonical_stats(rows_insufficient)
+    # 4 valid rows < 5 minimum → excluded from stats
+    assert "overdraft" not in stats_insufficient
 
-    assert "overdraft" in stats
-    assert stats["overdraft"]["obs_count"] == 4  # $0 and rejected excluded
-    assert stats["overdraft"]["median_amount"] > 0
+    # 7 rows: 1 excluded ($0), 1 excluded (rejected) → 5 valid, meets threshold
+    rows_sufficient = rows_insufficient + [
+        {"amount": 36.0, "canonical_fee_key": "overdraft", "review_status": "pending"},
+    ]
+
+    stats_sufficient = compute_canonical_stats(rows_sufficient)
+    assert "overdraft" in stats_sufficient
+    assert stats_sufficient["overdraft"]["obs_count"] == 5  # $0 and rejected excluded
+    assert stats_sufficient["overdraft"]["median_amount"] > 0
 
 
 # ---------------------------------------------------------------------------
