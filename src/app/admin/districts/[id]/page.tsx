@@ -455,7 +455,7 @@ async function DistrictDetailContent({ districtId }: { districtId: number }) {
                       Beige Book Themes
                     </h2>
                   </div>
-                  <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {districtThemes.map((theme: { theme_category: string; sentiment: string; summary: string }, i: number) => {
                       const sentimentStyles = {
                         positive: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800",

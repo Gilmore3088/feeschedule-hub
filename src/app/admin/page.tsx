@@ -147,38 +147,40 @@ async function DashboardContent() {
             </Link>
           </div>
           {crawlRuns.length > 0 ? (
-            <table className="admin-table w-full text-xs">
-              <thead>
-                <tr className="text-left">
-                  <th>Date</th>
-                  <th className="text-center">Status</th>
-                  <th className="text-right">Targets</th>
-                  <th className="text-right">Fees</th>
-                  <th className="text-right">Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {crawlRuns.map((run) => (
-                  <tr key={run.id}>
-                    <td className="text-gray-700 dark:text-gray-300 tabular-nums">
-                      {run.started_at}
-                    </td>
-                    <td className="text-center">
-                      <StatusDot status={run.status} />
-                    </td>
-                    <td className="text-right tabular-nums text-gray-500">
-                      {run.targets_crawled}
-                    </td>
-                    <td className="text-right tabular-nums text-gray-500">
-                      {run.fees_extracted}
-                    </td>
-                    <td className="text-right tabular-nums text-gray-600 font-medium">
-                      {run.success_rate}%
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="admin-table w-full text-xs">
+                <thead>
+                  <tr className="text-left">
+                    <th>Date</th>
+                    <th className="text-center">Status</th>
+                    <th className="text-right">Targets</th>
+                    <th className="text-right">Fees</th>
+                    <th className="text-right">Rate</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {crawlRuns.map((run) => (
+                    <tr key={run.id}>
+                      <td className="text-gray-700 dark:text-gray-300 tabular-nums">
+                        {run.started_at}
+                      </td>
+                      <td className="text-center">
+                        <StatusDot status={run.status} />
+                      </td>
+                      <td className="text-right tabular-nums text-gray-500">
+                        {run.targets_crawled}
+                      </td>
+                      <td className="text-right tabular-nums text-gray-500">
+                        {run.fees_extracted}
+                      </td>
+                      <td className="text-right tabular-nums text-gray-600 font-medium">
+                        {run.success_rate}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="p-6 text-xs text-gray-400 text-center">No recent crawl runs</div>
           )}
@@ -198,40 +200,42 @@ async function DashboardContent() {
             </Link>
           </div>
           {reviews.length > 0 ? (
-            <table className="admin-table w-full text-xs">
-              <thead>
-                <tr className="text-left">
-                  <th>Reviewer</th>
-                  <th>Action</th>
-                  <th>Fee</th>
-                  <th className="text-right">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reviews.map((rr, i) => (
-                  <tr key={`${rr.fee_id}-${i}`}>
-                    <td className="text-gray-600 dark:text-gray-400">
-                      {rr.username ?? "system"}
-                    </td>
-                    <td>
-                      <ActionBadge action={rr.action} />
-                    </td>
-                    <td>
-                      <Link
-                        href={`/admin/review/${rr.fee_id}`}
-                        className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors"
-                      >
-                        {rr.fee_category ?? rr.fee_name}
-                      </Link>
-                      <span className="text-gray-400 ml-1 hidden sm:inline">
-                        {rr.institution_name}
-                      </span>
-                    </td>
-                    <td className="text-right text-gray-400 tabular-nums">{rr.created_at}</td>
+            <div className="overflow-x-auto">
+              <table className="admin-table w-full text-xs">
+                <thead>
+                  <tr className="text-left">
+                    <th>Reviewer</th>
+                    <th>Action</th>
+                    <th>Fee</th>
+                    <th className="text-right">When</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {reviews.map((rr, i) => (
+                    <tr key={`${rr.fee_id}-${i}`}>
+                      <td className="text-gray-600 dark:text-gray-400">
+                        {rr.username ?? "system"}
+                      </td>
+                      <td>
+                        <ActionBadge action={rr.action} />
+                      </td>
+                      <td>
+                        <Link
+                          href={`/admin/review/${rr.fee_id}`}
+                          className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors"
+                        >
+                          {rr.fee_category ?? rr.fee_name}
+                        </Link>
+                        <span className="text-gray-400 ml-1 hidden sm:inline">
+                          {rr.institution_name}
+                        </span>
+                      </td>
+                      <td className="text-right text-gray-400 tabular-nums">{rr.created_at}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="p-6 text-xs text-gray-400 text-center">No recent reviews</div>
           )}
@@ -246,7 +250,7 @@ async function DashboardContent() {
               Coverage by State
             </h2>
           </div>
-          <div className="grid grid-cols-5 md:grid-cols-10 gap-1 p-3">
+          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-1 p-3">
             {stateCoverage.map((s) => (
               <Link
                 key={s.state_code}
