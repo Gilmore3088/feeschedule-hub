@@ -1006,3 +1006,21 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.9: FFIEC Call Report Data Pipeline (BACKLOG)
+
+**Goal:** Download and ingest FFIEC CDR (banks) and NCUA 5300 (credit unions) quarterly financial data since 2001. Powers the v8.2 Home institution profile, Hamilton's financial analysis, and competitive intelligence against bankregdata.com.
+
+**Context:**
+- FFIEC CDR has quarterly Call Report data for all FDIC-insured banks
+- NCUA 5300 has equivalent quarterly data for credit unions
+- Data goes back to 2001+ in bulk download format (CSV/SDF)
+- Hundreds of financial fields per institution per quarter (~10K institutions x 100 quarters)
+- This is exactly what bankregdata.com sells access to (1,200+ customers at ~$2,500/yr)
+- BFI unique angle: connect Service Charges line item to WHICH fees drive that revenue (we have fee schedules)
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
