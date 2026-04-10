@@ -808,7 +808,7 @@ Plans:
 - [x] **Phase 51: Analyze Live Data** - Verify streaming with real Hamilton API, wire focus tab context, save/load analyses, PDF export (completed 2026-04-09)
 - [x] **Phase 52: Simulate Live Data** - All 49 categories, real distribution data, confidence gating, Hamilton interpretation with real API (completed 2026-04-09)
 - [x] **Phase 53: Reports Library + Generation** - Curated report library, real generateSection() pipeline, PDF export end-to-end, scenario-linked reports (completed 2026-04-10)
-- [ ] **Phase 54: Integration Pass** - Screen-to-screen flows, Simulate to Report context, Analyze to PDF, cross-screen data consistency
+- [x] **Phase 54: Integration Pass** - Screen-to-screen flows, Simulate to Report context, Analyze to PDF, cross-screen data consistency (completed 2026-04-10)
 
 ### Phase 47: Settings DB Migration
 **Goal**: The production database has the fed_district column on the users table so institutional context flows correctly to all Hamilton screens
@@ -991,7 +991,7 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 51. Analyze Live Data | v8.1 | 2/2 | Complete    | 2026-04-09 |
 | 52. Simulate Live Data | v8.1 | 1/1 | Complete    | 2026-04-09 |
 | 53. Reports Library + Generation | v8.1 | 0/2 | Complete    | 2026-04-10 |
-| 54. Integration Pass | v8.1 | 0/TBD | Not started | - |
+| 54. Integration Pass | v8.1 | 0/1 | Complete    | 2026-04-10 |
 
 ## Backlog
 
@@ -1002,7 +1002,7 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 **Context:** Config sidebar was attempted as a left column in the content area but the user wants it in the expandable left rail. This requires the left rail to accept screen-specific content slots or conditional rendering based on the current route.
 
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 0/1 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
