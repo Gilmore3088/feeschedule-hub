@@ -241,9 +241,24 @@ export function ReportWorkspace({
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-12 items-start">
-        {/* Left: Template Gallery + Preview */}
-        <section className="col-span-12 lg:col-span-8">
+      <div className="grid grid-cols-12 gap-8 items-start">
+        {/* Left: Configuration sidebar */}
+        <aside className="col-span-12 lg:col-span-3 lg:sticky lg:top-4">
+          <ConfigSidebar
+            selectedTemplate={selectedTemplate}
+            institutionName="Your Institution"
+            peerSetLabel="National Index"
+            focusArea={focusArea}
+            narrativeTone={narrativeTone}
+            isGenerating={isGenerating}
+            onFocusAreaChange={setFocusArea}
+            onNarrativeToneChange={setNarrativeTone}
+            onGenerate={handleGenerate}
+          />
+        </aside>
+
+        {/* Right: Template Gallery + Preview */}
+        <section className="col-span-12 lg:col-span-9">
           {/* Section label — "Generate New Report" per D-02 */}
           <div className="mb-6 flex justify-between items-end">
             <h2
@@ -394,18 +409,7 @@ export function ReportWorkspace({
           </div>
         </section>
 
-        {/* Right: Configuration sidebar */}
-        <ConfigSidebar
-          selectedTemplate={selectedTemplate}
-          institutionName="Your Institution"
-          peerSetLabel="National Index"
-          focusArea={focusArea}
-          narrativeTone={narrativeTone}
-          isGenerating={isGenerating}
-          onFocusAreaChange={setFocusArea}
-          onNarrativeToneChange={setNarrativeTone}
-          onGenerate={handleGenerate}
-        />
+        {/* ConfigSidebar rendered in left aside above */}
       </div>
     </div>
   );
