@@ -4,6 +4,7 @@
  * Server component — no "use client".
  */
 
+import Link from "next/link";
 import type { ThesisOutput } from "@/lib/hamilton/types";
 
 interface HamiltonViewCardProps {
@@ -264,24 +265,25 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
           borderTop: "1px solid rgba(216, 194, 184, 0.2)",
         }}
       >
-        <button
-          className="burnished-cta editorial-shadow"
+        <Link
+          href="/pro/simulate"
+          className="burnished-cta editorial-shadow no-underline"
           style={{
             padding: "0.75rem 2rem",
             color: "var(--hamilton-on-primary)",
             fontSize: "0.875rem",
             fontWeight: 700,
             borderRadius: "var(--hamilton-radius-lg)",
-            border: "none",
-            cursor: "pointer",
             display: "inline-flex",
             alignItems: "center",
             gap: "0.5rem",
           }}
         >
           Simulate Change
-        </button>
-        <button
+        </Link>
+        <Link
+          href="/pro/reports"
+          className="no-underline"
           style={{
             padding: "0.75rem 2rem",
             backgroundColor: "var(--hamilton-surface-container-low)",
@@ -289,13 +291,13 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
             fontSize: "0.875rem",
             fontWeight: 700,
             borderRadius: "var(--hamilton-radius-lg)",
-            border: "none",
-            cursor: "pointer",
           }}
         >
           Generate Board Brief
-        </button>
-        <button
+        </Link>
+        <Link
+          href="/pro/analyze"
+          className="no-underline"
           style={{
             padding: "0.75rem 2rem",
             backgroundColor: "transparent",
@@ -304,14 +306,13 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
             fontWeight: 700,
             borderRadius: "var(--hamilton-radius-lg)",
             border: "2px solid rgba(138, 76, 39, 0.2)",
-            cursor: "pointer",
             display: "inline-flex",
             alignItems: "center",
             gap: "0.5rem",
           }}
         >
           Ask Hamilton
-        </button>
+        </Link>
       </div>
     </section>
   );
