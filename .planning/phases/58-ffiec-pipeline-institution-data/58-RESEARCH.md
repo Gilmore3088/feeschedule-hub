@@ -49,7 +49,7 @@ None — discussion stayed within phase scope
 
 | ID | Description | Research Support |
 |----|-------------|------------------|
-| COV-03 | Running the FFIEC CDR ingestion pipeline populates quarterly financial data for FDIC-insured banks | Existing `ingest_call_reports.py` with SQLite→Postgres port; `institution_financials` table already in Postgres schema |
+| COV-03 | Running the FFIEC CDR ingestion pipeline populates quarterly financial data for FDIC-insured banks | Existing `ingest_call_reports.py` with SQLite->Postgres port; `institution_financials` table already in Postgres schema |
 | ADM-05 | Institution-specific admin page shows assets, total deposits, service charge revenue, and key financial ratios | `getFinancialsByInstitution()` in `financial.ts` already exists; page needs new hero card layout on top of existing fee table |
 </phase_requirements>
 
@@ -63,7 +63,7 @@ The ingestion migration is low-risk. Both `ingest_call_reports.py` and `ingest_n
 
 The institution page upgrade is the more design-intensive part. The current page already imports `getInstitutionRevenueTrend` and `getInstitutionPeerRanking` from `call-reports.ts`, but renders them as a plain data table. The decision requires replacing this section with 4-6 hero stat cards each carrying a sparkline (reuse `src/components/sparkline.tsx`) and a peer percentile badge. The `getFinancialsByInstitution()` function in `financial.ts` provides the full column set needed for multi-quarter data to feed the sparklines.
 
-The historical backfill is the highest-volume operation: ~60 quarters × ~5,000 institutions = ~300K rows for FFIEC alone, plus ~5,000 rows per quarter for NCUA. The FFIEC CDR download URL requires a form POST (not a direct GET), which is a pitfall to navigate carefully.
+The historical backfill is the highest-volume operation: ~60 quarters x ~5,000 institutions = ~300K rows for FFIEC alone, plus ~5,000 rows per quarter for NCUA. The FFIEC CDR download URL requires a form POST (not a direct GET), which is a pitfall to navigate carefully.
 
 **Primary recommendation:** Write the Postgres-native ingestion scripts first (Wave 1), add the backfill loop second (Wave 2), then build the UI on top of confirmed live data (Wave 3).
 
@@ -87,7 +87,7 @@ No new dependencies are required for this phase.
 
 ## Architecture Patterns
 
-### SQLite → Postgres Migration Pattern (established in Phase 56)
+### SQLite -> Postgres Migration Pattern (established in Phase 56)
 
 The `db.py` module already provides `PostgresDatabase` as a drop-in replacement for `Database`. The conversion rules are encapsulated in `_sqlite_to_pg()`, but for new Postgres-native code the pattern is to write directly to psycopg2:
 
@@ -114,17 +114,17 @@ cur.execute(
 conn.commit()
 ```
 
-The existing `ingest_call_reports.py` uses `db.execute(sql, params)` and `db.commit()` — these map directly to `cur.execute(pg_sql, params)` and `conn.commit()` in psycopg2.
+The existing `ingest_call_reports.py` uses `db.execute(sql, params)` and `db.commit()` -- these map directly to `cur.execute(pg_sql, params)` and `conn.commit()` in psycopg2.
 
 ### FFIEC CDR Bulk Download Pattern
 
 The existing code documents the download URL but does NOT implement the HTTP request for bulk files. The FFIEC CDR bulk download requires a POST request to `https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx` with form fields, OR direct GET from FDIC BankFind API as an alternative.
 
-**IMPORTANT FINDING:** The existing `ingest_call_reports.py` contains the URL constant `_FFIEC_BULK_URL` but the `run()` function only reads from a local `csv_path` argument — it does NOT fetch from FFIEC automatically. The HTTP download for historical backfill must be implemented from scratch.
+**IMPORTANT FINDING:** The existing `ingest_call_reports.py` contains the URL constant `_FFIEC_BULK_URL` but the `run()` function only reads from a local `csv_path` argument -- it does NOT fetch from FFIEC automatically. The HTTP download for historical backfill must be implemented from scratch.
 
 Two reliable data sources for the backfill:
-1. **FDIC BankFind Suite API** — provides Call Report data per institution via REST API. URL pattern: `https://banks.data.fdic.gov/api/financials?fields=REPDTE,IDRSSD,RSSD9999,RIAD4080,RIAD4079,RIAD4107&limit=10000&offset=0&sort_by=REPDTE&sort_order=DESC&output=json` [ASSUMED — API URL structure based on training knowledge, needs verification]
-2. **FFIEC CDR Bulk ZIP** — quarterly ZIPs at `https://www.ffiec.gov/npw/FinancialReport/ReturnFinancialReport?rpt=BHC&selectedyear=YYYY` pattern (different from the `_FFIEC_BULK_URL` constant in the existing code). [ASSUMED — verify against actual FFIEC site]
+1. **FDIC BankFind Suite API** -- provides Call Report data per institution via REST API. URL pattern: `https://banks.data.fdic.gov/api/financials?fields=REPDTE,IDRSSD,RSSD9999,RIAD4080,RIAD4079,RIAD4107&limit=10000&offset=0&sort_by=REPDTE&sort_order=DESC&output=json` [ASSUMED -- API URL structure based on training knowledge, needs verification]
+2. **FFIEC CDR Bulk ZIP** -- quarterly ZIPs at `https://www.ffiec.gov/npw/FinancialReport/ReturnFinancialReport?rpt=BHC&selectedyear=YYYY` pattern (different from the `_FFIEC_BULK_URL` constant in the existing code). [ASSUMED -- verify against actual FFIEC site]
 
 **Recommended approach for backfill:** Use FDIC BankFind Suite API (REST, no auth needed, well-documented) rather than the FFIEC CDR direct download form. The existing `ingest_fdic.py` command already uses this API and can serve as the template.
 
@@ -134,7 +134,7 @@ Two reliable data sources for the backfill:
 ```
 https://ncua.gov/files/publications/analysis/call-report-data-{year}-{month:02d}.zip
 ```
-The default is `NCUA_DEFAULT_YEAR=2025, NCUA_DEFAULT_MONTH=12`. For backfill from 2010, the loop iterates quarterly months: 3, 6, 9, 12 for each year 2010–2025.
+The default is `NCUA_DEFAULT_YEAR=2025, NCUA_DEFAULT_MONTH=12`. For backfill from 2010, the loop iterates quarterly months: 3, 6, 9, 12 for each year 2010-2025.
 
 ### Hero Stat Card Pattern (from district page)
 
@@ -247,9 +247,11 @@ CREATE TABLE IF NOT EXISTS institution_financials (
 );
 ```
 
-**Schema is complete for Phase 58 needs.** No migration needed. The unique constraint `(crawl_target_id, report_date, source)` supports the ON CONFLICT upsert pattern already used in both ingestion scripts. The columns `total_revenue` and `fee_income_ratio` are present in Postgres but absent from the SQLite version — the NCUA ingestion already computes and writes these.
-
-**D-10 gap:** The current schema requires `crawl_target_id NOT NULL`, which conflicts with the decision to ingest unmatched institutions. The NCUA and FFIEC scripts currently skip rows not found in `crawl_targets`. To support D-10, a new separate table (e.g., `ffiec_raw_financials`) or a schema change to make `crawl_target_id` nullable would be needed. Since `getFinancialsByInstitution()` queries by `crawl_target_id`, the matched records are what power the UI. Unmatched records for aggregate/district use could go into a separate table or be added as nullable FK in a migration.
+**D-10 migration required:** The current schema requires `crawl_target_id NOT NULL`, which conflicts with D-10 (ingest all data regardless of crawl_target match). Phase 58 will add a migration to:
+1. `ALTER TABLE institution_financials ALTER COLUMN crawl_target_id DROP NOT NULL;`
+2. Add a `source_cert_number TEXT` column for deduplication of unmatched rows.
+3. Create a partial unique index for unmatched rows: `CREATE UNIQUE INDEX idx_financials_unmatched ON institution_financials(source_cert_number, report_date, source) WHERE crawl_target_id IS NULL;`
+4. The existing `UNIQUE(crawl_target_id, report_date, source)` constraint remains valid for matched rows (non-NULL crawl_target_id).
 
 ### Existing Query Layer (already built)
 
@@ -265,12 +267,12 @@ These three functions together provide everything needed for the hero cards. **N
 
 ```
 /admin/institution/[id]/page.tsx
-├── Header (breadcrumbs + institution name + metadata)
-├── Profile Card + Admin Actions (2-col grid)
-├── Financial Context (conditional, currently: 4 small stat cards + revenue trend table)
-├── Extracted Fees (FeeTable)
-├── Agent History
-└── Crawl History
++-- Header (breadcrumbs + institution name + metadata)
++-- Profile Card + Admin Actions (2-col grid)
++-- Financial Context (conditional, currently: 4 small stat cards + revenue trend table)
++-- Extracted Fees (FeeTable)
++-- Agent History
++-- Crawl History
 ```
 
 The "Financial Context" section (lines 165-273) uses small `.rounded border` cards. Phase 58 replaces this with a proper hero card section placed at the same position, above the fee table.
@@ -281,12 +283,12 @@ The "Financial Context" section (lines 165-273) uses small `.rounded border` car
 
 | Problem | Don't Build | Use Instead |
 |---------|-------------|-------------|
-| Sparkline charts | Custom SVG chart | `src/components/sparkline.tsx` — already handles min/max scaling, area fill, trending dot |
+| Sparkline charts | Custom SVG chart | `src/components/sparkline.tsx` -- already handles min/max scaling, area fill, trending dot |
 | Peer percentile calculation | Custom SQL percentile | `getInstitutionPeerRanking()` already computes rank, peer count, and medians |
-| SQLite→Postgres placeholder conversion | Custom regex | `_sqlite_to_pg()` in `fee_crawler/db.py` — or better, write Postgres-native SQL directly |
+| SQLite->Postgres placeholder conversion | Custom regex | `_sqlite_to_pg()` in `fee_crawler/db.py` -- or better, write Postgres-native SQL directly |
 | FFIEC CDR download HTTP form | Custom form parser | FDIC BankFind REST API is cleaner and already used in `ingest_fdic.py` |
 | CSV parsing | Custom parser | Python `csv.DictReader` already used in both ingestion scripts |
-| Quarterly date math | Custom date logic | Python `datetime` + `calendar` — or parse from FFIEC report_date field directly |
+| Quarterly date math | Custom date logic | Python `datetime` + `calendar` -- or parse from FFIEC report_date field directly |
 | Upsert conflict handling | Manual check-then-insert | Postgres `ON CONFLICT (crawl_target_id, report_date, source) DO UPDATE` |
 
 ---
@@ -299,7 +301,7 @@ The "Financial Context" section (lines 165-273) uses small `.rounded border` car
 **Warning sign:** Sparkline trending dot is red on a growing institution or green on a shrinking one.
 
 ### Pitfall 2: FFIEC amounts stored in thousands, NCUA in whole dollars
-**What goes wrong:** Mixing scaling. FFIEC RIAD fields are in thousands of dollars. NCUA ACCT fields are in whole dollars. The existing code applies `_apply_ffiec_scaling()` (×1000 for FFIEC) and `// 1000` for NCUA to normalize to thousands in the DB. If you bypass this, charts show wildly inconsistent numbers.
+**What goes wrong:** Mixing scaling. FFIEC RIAD fields are in thousands of dollars. NCUA ACCT fields are in whole dollars. The existing code applies `_apply_ffiec_scaling()` (x1000 for FFIEC) and `// 1000` for NCUA to normalize to thousands in the DB. If you bypass this, charts show wildly inconsistent numbers.
 **How to avoid:** Preserve `_apply_ffiec_scaling()` in the ported code. Verify: `service_charge_income` in the DB should be in the same unit (thousands) for both sources.
 **Warning sign:** NCUA institutions show ~1000x larger numbers than equivalent FDIC banks.
 
@@ -314,13 +316,13 @@ The "Financial Context" section (lines 165-273) uses small `.rounded border` car
 **Warning sign:** Download returns HTML or 405 error.
 
 ### Pitfall 5: 300K row backfill timeout on Modal
-**What goes wrong:** Downloading and inserting ~60 quarters × ~5K institutions in a single Modal function run exceeds the 7200-second timeout.
+**What goes wrong:** Downloading and inserting ~60 quarters x ~5K institutions in a single Modal function run exceeds the 7200-second timeout.
 **How to avoid:** The backfill should be a separate CLI command (`ingest-call-reports --backfill --from-year 2010`), run manually once (not via cron). Batch by year (12 quarter-months per year = 12 download/insert cycles), commit after each quarter.
 **Warning sign:** Modal function times out partway through 2015.
 
 ### Pitfall 6: institution_financials requires NOT NULL crawl_target_id
 **What goes wrong:** D-10 says "ingest all FFIEC data regardless of crawl_target match." But the current schema has `crawl_target_id BIGINT NOT NULL`. Inserting unmatched rows fails with constraint violation.
-**How to avoid:** For the primary institution page use case (D-04/D-05), only matched rows matter. For D-10 aggregate use, either: (a) skip unmatched in Phase 58 and defer D-10 aggregate use to later, or (b) add a migration to make `crawl_target_id` nullable. Recommend (a) as the simpler path — Phase 58 success criteria don't require unmatched rows to be surfaced anywhere.
+**How to avoid:** Run a migration BEFORE ingestion to `ALTER TABLE institution_financials ALTER COLUMN crawl_target_id DROP NOT NULL`. Add a `source_cert_number TEXT` column and a partial unique index for deduplication of unmatched rows. Then the ingestion scripts can insert with `crawl_target_id = NULL` for unmatched institutions.
 **Warning sign:** Insert errors for ~80% of FFIEC rows (most institutions aren't in crawl_targets yet).
 
 ### Pitfall 7: `getInstitutionPeerRanking` asset tier boundaries use raw asset values
@@ -355,11 +357,13 @@ for year, month in iter_quarters(2010, 2025):
 # Source: fee_crawler/db.py _sqlite_to_pg() + ingest_ncua.py pattern
 cur.execute(
     """INSERT INTO institution_financials
-       (crawl_target_id, report_date, source,
+       (crawl_target_id, source_cert_number, report_date, source,
         total_assets, total_deposits, service_charge_income,
         total_revenue, fee_income_ratio, raw_json)
-       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-       ON CONFLICT (crawl_target_id, report_date, source) DO UPDATE SET
+       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+       ON CONFLICT (crawl_target_id, report_date, source)
+         WHERE crawl_target_id IS NOT NULL
+         DO UPDATE SET
          total_assets = EXCLUDED.total_assets,
          total_deposits = EXCLUDED.total_deposits,
          service_charge_income = EXCLUDED.service_charge_income,
@@ -367,7 +371,7 @@ cur.execute(
          fee_income_ratio = EXCLUDED.fee_income_ratio,
          raw_json = EXCLUDED.raw_json,
          fetched_at = NOW()""",
-    (target_id, report_date, source,
+    (target_id, cert_number, report_date, source,
      total_assets, total_deposits, service_charge_income,
      total_revenue, fee_income_ratio, json.dumps(raw)),
 )
@@ -396,7 +400,7 @@ function getStalenessLabel(latestReportDate: string): string | null {
 ### Query to Derive Sparkline Data for Hero Cards
 
 ```typescript
-// Source: financial.ts getFinancialsByInstitution() — already returns all quarters
+// Source: financial.ts getFinancialsByInstitution() -- already returns all quarters
 // Extract sparkline data from the full history array:
 const financials = await getFinancialsByInstitution(institutionId);
 const assetSparkline = [...financials]
@@ -433,17 +437,16 @@ const scSparkline = [...financials]
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **FDIC BankFind vs FFIEC CDR for bank backfill**
-   - What we know: `ingest_fdic.py` already uses FDIC BankFind. The existing `ingest_call_reports.py` was designed for local CSV files, not API download.
-   - What's unclear: Does FDIC BankFind API return income statement fields (RIAD4080) or only balance sheet data? Or does it require FFIEC CDR bulk ZIPs?
-   - Recommendation: Read `ingest_fdic.py` to confirm which fields it fetches. If income fields are absent, implement FFIEC CDR bulk ZIP download using a `requests.Session()` POST form approach.
+1. **FDIC BankFind income field coverage** (RESOLVED)
+   - **Resolution:** FDIC BankFind API **does** provide income statement fields. Confirmed in `ingest_fdic.py` lines 14-33: `FDIC_FINANCIAL_FIELDS` includes `SC` (RIAD4080 service charges), `NONII` (non-interest income), `INTINC` (interest income), `EINTEXP` (interest expense), `NETINC` (net income), plus ratios (`NIMY`, `EEFFR`, `ROA`, `ROE`, `RBC1AAJ`) and counts (`NUMEMP`, `OFFDOM`).
+   - **Decision:** Use FDIC BankFind REST API for bank backfill. No need for FFIEC CDR bulk ZIP download. The `ingest_call_reports.py` script should use the FDIC BankFind API pattern from `ingest_fdic.py` for its `--backfill` mode.
+   - **Note:** `SC` (service charges) is returned in whole dollars by the FDIC API while all other fields are in thousands. `ingest_fdic.py` line 148 already handles this: `sc = sc_raw // 1000`.
 
-2. **Asset tier boundaries and stored unit convention**
-   - What we know: `getInstitutionPeerRanking()` uses hardcoded boundaries like `100_000_000` for micro tier. The NCUA ingestion converts whole dollars to thousands before insert. The FDIC `ingest_fdic.py` may or may not apply the same convention.
-   - What's unclear: Whether `total_assets` in the DB is in dollars or thousands.
-   - Recommendation: In Wave 1 testing, inspect actual DB values for a known institution (e.g., JPMorgan Chase with ~$3.9T in assets should show ~3,900,000,000 if in thousands or ~3,900,000 if in millions).
+2. **total_assets unit convention** (RESOLVED)
+   - **Resolution:** `total_assets` in the DB is stored in **thousands of dollars**. Confirmed in `ingest_fdic.py` line 15: `ASSET` field comment reads "total assets (in thousands)". The code inserts `_safe_int(d.get("ASSET"))` directly (line 201) without scaling, meaning the FDIC API returns thousands and the DB stores thousands. NCUA ingestion converts whole dollars to thousands before insert (existing code, confirmed in Pitfall 2).
+   - **Impact on Pitfall 7:** The tier boundaries in `getInstitutionPeerRanking()` using values like `100_000_000` represent $100B (since the stored value is in thousands: 100,000,000 thousands = $100B). This appears correct for the "mega" tier. The micro tier boundary needs verification against the actual threshold definition.
 
 ---
 
@@ -451,12 +454,12 @@ const scSparkline = [...financials]
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| psycopg2-binary | Python pipeline | Confirmed in requirements.txt | 2.9+ | — |
-| requests | Python pipeline | Confirmed in requirements.txt | 2.31+ | — |
-| DATABASE_URL env | Postgres connection | Set in Modal secrets + .env.local | — | — |
-| FFIEC CDR / FDIC BankFind | Historical backfill | Public internet | — | Local CSV files |
-| NCUA 5300 ZIP server | NCUA ingestion | Public internet, verified in existing code | — | Cached local ZIPs |
-| Modal | Quarterly cron | Deployed, working | — | Manual CLI run |
+| psycopg2-binary | Python pipeline | Confirmed in requirements.txt | 2.9+ | -- |
+| requests | Python pipeline | Confirmed in requirements.txt | 2.31+ | -- |
+| DATABASE_URL env | Postgres connection | Set in Modal secrets + .env.local | -- | -- |
+| FFIEC CDR / FDIC BankFind | Historical backfill | Public internet | -- | Local CSV files |
+| NCUA 5300 ZIP server | NCUA ingestion | Public internet, verified in existing code | -- | Cached local ZIPs |
+| Modal | Quarterly cron | Deployed, working | -- | Manual CLI run |
 
 ---
 
@@ -472,7 +475,7 @@ const scSparkline = [...financials]
 | Full suite command | `npx vitest run` |
 | Python tests | `python -m pytest fee_crawler/tests/ -x` |
 
-### Phase Requirements → Test Map
+### Phase Requirements -> Test Map
 
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
@@ -489,9 +492,9 @@ const scSparkline = [...financials]
 
 ### Wave 0 Gaps
 
-- [ ] `fee_crawler/tests/test_ingest_call_reports.py` — tests for Postgres port of FFIEC ingestion (mock psycopg2)
-- [ ] `fee_crawler/tests/test_ingest_ncua.py` — tests for Postgres port of NCUA ingestion (mock psycopg2)
-- [ ] `src/lib/crawler-db/financial.test.ts` — tests for `getFinancialsByInstitution` hero card data shape
+- [ ] `fee_crawler/tests/test_ingest_call_reports.py` -- tests for Postgres port of FFIEC ingestion (mock psycopg2)
+- [ ] `fee_crawler/tests/test_ingest_ncua.py` -- tests for Postgres port of NCUA ingestion (mock psycopg2)
+- [ ] `src/lib/crawler-db/financial.test.ts` -- tests for `getFinancialsByInstitution` hero card data shape
 
 ---
 
@@ -501,18 +504,18 @@ const scSparkline = [...financials]
 
 | ASVS Category | Applies | Standard Control |
 |---------------|---------|-----------------|
-| V2 Authentication | no | — |
-| V3 Session Management | no | — |
+| V2 Authentication | no | -- |
+| V3 Session Management | no | -- |
 | V4 Access Control | yes | `requireAuth("view")` already called in institution page |
 | V5 Input Validation | yes | `institutionId` validated with `isNaN()` before DB query; `targetId` typed as `number` in TypeScript |
-| V6 Cryptography | no | — |
+| V6 Cryptography | no | -- |
 
 ### Known Threat Patterns
 
 | Pattern | STRIDE | Standard Mitigation |
 |---------|--------|---------------------|
-| Path traversal via `report_date` or `cert_number` user input | Tampering | Not applicable — ingestion scripts run server-side, no user input |
-| SQL injection via `cert_number` in lookup | Tampering | Use `%s` parameterized queries in psycopg2 — never string interpolation |
+| Path traversal via `report_date` or `cert_number` user input | Tampering | Not applicable -- ingestion scripts run server-side, no user input |
+| SQL injection via `cert_number` in lookup | Tampering | Use `%s` parameterized queries in psycopg2 -- never string interpolation |
 | SSRF via configurable FFIEC URL | Elevation of Privilege | URL is hardcoded constant, not user-provided |
 
 ---
@@ -521,21 +524,22 @@ const scSparkline = [...financials]
 
 ### Primary (HIGH confidence)
 
-- `fee_crawler/commands/ingest_call_reports.py` — field mappings, scaling logic, CSV parse pattern
-- `fee_crawler/commands/ingest_ncua.py` — full FS220/FS220A field mapping, ZIP parse, upsert SQL
-- `fee_crawler/db.py` — `PostgresDatabase` class, `_sqlite_to_pg()`, migration pattern
-- `scripts/migrate-schema.sql` — full Postgres `institution_financials` schema with all columns
-- `src/lib/crawler-db/financial.ts` — all query functions including `getFinancialsByInstitution`
-- `src/lib/crawler-db/call-reports.ts` — `getInstitutionRevenueTrend`, `getInstitutionPeerRanking`
-- `src/app/admin/institution/[id]/page.tsx` — current page layout, existing imports
-- `src/components/sparkline.tsx` — component interface
-- `fee_crawler/modal_app.py` — cron patterns, 5-function limitation comment, `ingest_data` weekly gate
+- `fee_crawler/commands/ingest_call_reports.py` -- field mappings, scaling logic, CSV parse pattern
+- `fee_crawler/commands/ingest_ncua.py` -- full FS220/FS220A field mapping, ZIP parse, upsert SQL
+- `fee_crawler/commands/ingest_fdic.py` -- FDIC BankFind API fields (SC, NONII, INTINC, EINTEXP, NETINC, NIMY, EEFFR, ROA, ROE, RBC1AAJ), scaling conventions, cert matching pattern
+- `fee_crawler/db.py` -- `PostgresDatabase` class, `_sqlite_to_pg()`, migration pattern
+- `scripts/migrate-schema.sql` -- full Postgres `institution_financials` schema with all columns
+- `src/lib/crawler-db/financial.ts` -- all query functions including `getFinancialsByInstitution`
+- `src/lib/crawler-db/call-reports.ts` -- `getInstitutionRevenueTrend`, `getInstitutionPeerRanking`
+- `src/app/admin/institution/[id]/page.tsx` -- current page layout, existing imports
+- `src/components/sparkline.tsx` -- component interface
+- `fee_crawler/modal_app.py` -- cron patterns, 5-function limitation comment, `ingest_data` weekly gate
 
 ### Secondary (MEDIUM confidence)
 
-- `src/app/admin/districts/[id]/page.tsx` — card layout and design system reference for hero cards
+- `src/app/admin/districts/[id]/page.tsx` -- card layout and design system reference for hero cards
 
-### Tertiary (LOW confidence — marked ASSUMED)
+### Tertiary (LOW confidence -- marked ASSUMED)
 
 - FDIC BankFind Suite API field availability for RIAD codes back to 2010 [A1]
 - NCUA ZIP URL pattern availability for 2010 archives [A2]
@@ -545,10 +549,10 @@ const scSparkline = [...financials]
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH — all libraries verified in codebase
-- Architecture: HIGH — migration pattern verified in Phase 56 artifacts, query layer verified in source
+- Standard stack: HIGH -- all libraries verified in codebase
+- Architecture: HIGH -- migration pattern verified in Phase 56 artifacts, query layer verified in source
 - Pitfalls: HIGH for items verified in code (scaling, modal limit, sparkline order); MEDIUM for FFIEC download method
-- UI design pattern: HIGH — district page provides working reference
+- UI design pattern: HIGH -- district page provides working reference
 
 **Research date:** 2026-04-10
-**Valid until:** 2026-07-10 (stable domain — FFIEC/NCUA APIs change infrequently)
+**Valid until:** 2026-07-10 (stable domain -- FFIEC/NCUA APIs change infrequently)
