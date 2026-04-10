@@ -56,7 +56,7 @@ None — discussion stayed within phase scope.
 
 The admin UI has a solid foundation: `SortableTable<T>` component exists with Column config, pagination, and sort logic, but it uses `useState` for sort state (no URL persistence) and is only wired to `/admin/index`. Every other admin page uses raw `<table>` markup. The review queue and fee catalog already have server-side sort via URL params and `SortLink` components — they need a page-size selector (D-06) and the review queue's `PAGE_SIZE` constant needs to be made user-configurable.
 
-The district detail page already fetches all Phase 23-24 data (economic summary, Beige Book themes, CFPB complaints, fee revenue) and renders it — the gap is layout restructure (flat stack → tabbed panel per D-10) and adding district median fees (missing: no call to `getDistrictMedianByCategory` on this page). The districts index page is a grid of cards with no sort capability.
+The district detail page already fetches all Phase 23-24 data (economic summary, Beige Book themes, CFPB complaints, fee revenue) and renders it — the gap is layout restructure (flat stack -> tabbed panel per D-10) and adding district median fees (missing: no call to `getDistrictMedianByCategory` on this page). The districts index page is a grid of cards with no sort capability.
 
 The responsive situation is straightforward: the admin layout's sidebar collapses at `md:` already, and most table wrappers have `overflow-x-auto`. The remaining work is auditing which specific pages lack the wrapper and adding it.
 
@@ -93,19 +93,20 @@ All work uses existing stack. No new packages needed.
 New files this phase:
 ```
 src/components/
-├── sortable-table.tsx        # MODIFY: add URL param persistence (D-08)
-└── server-sortable-table.tsx # NEW: server component for unbounded tables (D-07)
+|- sortable-table.tsx        # MODIFY: add URL param persistence (D-08)
+|- server-sortable-table.tsx # NEW: server component for unbounded tables (D-07)
+|- page-size-selector.tsx    # NEW: reusable page-size Link buttons (D-06)
 
 src/app/admin/districts/
-├── [id]/page.tsx             # MODIFY: flat stack → tabbed layout (D-10) + district fee medians
-├── page.tsx                  # MODIFY: cards grid → sortable table (D-11)
-└── [id]/district-tabs.tsx    # NEW: client component for tab switching
+|- [id]/page.tsx             # MODIFY: flat stack -> tabbed layout (D-10) + district fee medians
+|- page.tsx                  # MODIFY: cards grid -> sortable table (D-11)
+|- [id]/district-tabs.tsx    # NEW: client component for tab switching
 
 src/app/admin/review/
-└── page.tsx                  # MODIFY: add page-size selector (D-06)
+|- page.tsx                  # MODIFY: wire ServerSortableTable + page-size selector (D-06)
 
 src/app/admin/fees/catalog/
-└── page.tsx                  # MODIFY: add page-size selector (D-06)
+|- page.tsx                  # MODIFY: wire ServerSortableTable + page-size selector (D-06)
 ```
 
 ### Pattern 1: SortableTable URL Param Persistence (D-08)
@@ -147,23 +148,13 @@ function handleSort(key: string) {
 
 ### Pattern 2: ServerSortableTable Component (D-07)
 
-**What:** A server component that receives `searchParams` from the page, renders table with sort links (using `Link` not `onClick`), and includes page-size selector.
+**What:** A server component that receives sort/dir/page/perPage as props from the page, renders table with sort links (using `Link` not `onClick`), and includes page-size selector and pagination.
 
 **When to use:** Review queue, fees catalog (unbounded row counts).
 
-**Key insight:** This is NOT a new `<table>` — it is a server-rendered wrapper that generates the same HTML structure as `SortableTable` but sources sort state from URL props, not React state. No `"use client"` needed.
+**Key insight:** This is NOT a new `<table>` — it is a server-rendered wrapper that generates the same HTML structure as `SortableTable` but sources sort state from props passed by the page (which reads searchParams), not React state. No `"use client"` needed.
 
-**Page-size selector implementation:**
-```typescript
-// In server page component:
-const perPage = [25, 50, 100].includes(Number(params.per)) ? Number(params.per) : 50;
-
-// Selector renders as links (not form submit):
-<select onChange={...} /> // Would need client component wrapper
-// OR: render as Link buttons: "25 | 50 | 100" — simpler, no client JS
-```
-
-**Recommendation:** Use a tiny `"use client"` wrapper for the per-page `<select>` only (or render as three `<Link>` buttons). The rest of ServerSortableTable stays server component. [ASSUMED — pattern choice, valid options exist]
+**Page-size selector implementation:** Render as three `<Link>` buttons ("25 | 50 | 100") — simpler, no client JS needed. Integrated into PageSizeSelector component.
 
 ### Pattern 3: District Detail Tab Layout (D-10)
 
@@ -410,17 +401,15 @@ The layout itself is correctly structured. Overflow issues are within page conte
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **District fee medians query**
-   - What we know: `getDistrictMedianByCategory` inverts the needed query (category → all districts)
-   - What's unclear: Whether a single SQL query can efficiently return per-category medians for one district in one round trip
-   - Recommendation: Write `getDistrictFeeMedians(district: number, categories?: string[])` in `fee-index.ts` — GROUP BY fee_category WHERE fed_district = $1
+1. **District fee medians query** (RESOLVED)
+   - What we know: `getDistrictMedianByCategory` inverts the needed query (category -> all districts)
+   - Resolution: Write `getDistrictFeeMedians(district: number)` in `fee-index.ts` — single query with GROUP BY fee_category WHERE fed_district = $1, PERCENTILE_CONT(0.5). Planned in 57-03 Task 1.
 
-2. **Scope of bounded-table adoption**
+2. **Scope of bounded-table adoption** (RESOLVED)
    - What we know: 40+ files have `<table>` markup; many are admin pages with bounded rows
-   - What's unclear: Which pages are genuinely bounded vs. potentially large (institutions, peers, leads)
-   - Recommendation: Pages with server-side pagination already (institutions, review) = ServerSortableTable. Pages with aggregated/grouped data (fees/page.tsx = 49 rows, districts = 12 rows, peers = aggregated index) = client SortableTable. Planner should enumerate each page explicitly.
+   - Resolution: Pages with server-side pagination (review, catalog) use ServerSortableTable (57-02). Pages with bounded data (index=49 rows, districts=12 rows, pipeline tables, research, leads) use client SortableTable (57-01). Institutions page stays server-side. Enumerated explicitly in plan files_modified lists.
 
 ---
 
@@ -440,7 +429,7 @@ Step 2.6 SKIPPED — purely UI/code changes, no new external dependencies.
 | Quick run command | `npx vitest run src/lib` |
 | Full suite command | `npx vitest run` |
 
-### Phase Requirements → Test Map
+### Phase Requirements -> Test Map
 
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
