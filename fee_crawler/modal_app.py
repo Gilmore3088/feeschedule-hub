@@ -164,6 +164,18 @@ def ingest_data():
                                capture_output=True, text=True, env=env)
             results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
 
+    # Quarterly (Feb 15, May 15, Aug 15, Nov 15): full FFIEC + NCUA ingestion
+    # Runs on approximate FFIEC release dates (~45 days after quarter end).
+    # No new cron added -- stays inside ingest_data to respect 5-cron limit.
+    now = datetime.now(timezone.utc)
+    is_quarterly = now.month in (2, 5, 8, 11) and now.day == 15
+    if is_quarterly:
+        for cmd in ["ingest-call-reports", "ingest-ncua"]:
+            r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
+                               capture_output=True, text=True, env=env,
+                               timeout=3600)
+            results.append(f"quarterly-{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
+
     return "; ".join(results)
 
 
