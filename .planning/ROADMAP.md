@@ -1036,3 +1036,21 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.11: Left Rail as Cross-Screen Context Hub (BACKLOG)
+
+**Goal:** The expandable left rail becomes a persistent context hub where peer sets, pinned institutions, and saved work travel across screens. Peer sets configured in the left rail feed into Monitor (filter signal feed by peer group), Analyze (1-click peer analysis), Simulate (pre-loaded peer context), and Reports (config auto-populated). The left rail is screen-aware: shows relevant controls per screen but shares the same institutional/peer context across all of them.
+
+**User insight:** "Those peer sets travel across pages. The feed would show them in the monitor, and the analyze could be 1-click analysis." The left rail isn't just navigation — it's the persistent context layer that makes Hamilton feel like one coherent workspace instead of 5 separate screens.
+
+**Key behaviors:**
+- Peer sets selected in left rail filter Monitor signal feed to show only peer institutions
+- Clicking a pinned institution in left rail on Analyze triggers immediate analysis
+- Reports screen config (institution, peer set, focus, tone) lives in the left rail
+- Context persists across screen navigation — switching from Monitor to Analyze keeps the same peer/institution selection
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
