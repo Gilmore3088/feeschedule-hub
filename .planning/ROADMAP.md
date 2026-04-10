@@ -1180,13 +1180,10 @@ Plans:
   1. Running the FFIEC CDR ingestion pipeline populates quarterly financial data for FDIC-insured banks — a developer can query assets, deposits, and service charge revenue for any covered bank by institution ID and quarter
   2. Running the NCUA 5300 ingestion pipeline populates equivalent quarterly financial data for credit unions — both bank and credit union institution pages can show real Call Report data
   3. The institution-specific admin page for any covered bank shows assets, total deposits, service charge revenue, and key financial ratios sourced from the ingested Call Report data — no placeholder values appear for covered institutions
-**Plans**: 4 plans
+**Plans**: 2 plans
 Plans:
-- [ ] 57-01-PLAN.md -- SortableTable URL persistence + rollout to all bounded admin tables
-- [ ] 57-02-PLAN.md -- Page-size selector (25/50/100) for review queue and fees catalog
-- [ ] 57-03-PLAN.md -- District detail tabbed layout + districts index sortable table + fee medians query
-- [ ] 57-04-PLAN.md -- Responsive audit: adaptive layouts for complex pages, overflow-x-auto for tables
-
+- [ ] 58-01-PLAN.md -- Port FFIEC CDR + NCUA 5300 ingestion to Postgres with backfill + quarterly Modal cron
+- [ ] 58-02-PLAN.md -- Hero stat cards with sparklines and peer context on institution admin page
 ### Phase 59: Pipeline Coverage Expansion
 **Goal**: The crawler extracts fees from a meaningfully larger share of big bank and JS-rendered fee schedule pages — coverage gaps visible in the admin are reduced
 **Depends on**: Phase 56
