@@ -653,6 +653,35 @@ def sweep_canonical_reassignments(conn, fix: bool = False) -> list[dict]:
     return reassignments
 
 
+def run_post_crawl(conn) -> dict:
+    """Run canonical sweeps as final step of post-crawl classification job.
+
+    Called by run_post_processing() in modal_app.py after classify-nulls completes.
+    Also used by the nightly 5am Modal cron for cross-crawl drift detection.
+
+    Returns dict with outliers_flagged and reassignments_made counts.
+    """
+    # Verify canonical_fee_key column exists (Phase 55 migration required)
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'extracted_fees' AND column_name = 'canonical_fee_key'
+        """)
+        if not cur.fetchone():
+            raise RuntimeError(
+                "canonical_fee_key column missing from extracted_fees. "
+                "Apply Phase 55 migration (20260409_canonical_fee_key.sql) first."
+            )
+
+    ensure_roomba_log(conn)
+    outliers = sweep_canonical_outliers(conn, fix=True)
+    reassignments = sweep_canonical_reassignments(conn, fix=True)
+    return {
+        "outliers_flagged": len(outliers),
+        "reassignments_made": len(reassignments),
+    }
+
+
 def apply_fixes(conn, findings: list[RoombaFinding], dry_run: bool = True) -> dict:
     """Apply auto-rejections and return stats."""
     cur = conn.cursor()

@@ -4,12 +4,14 @@ Uses pure-function helpers to avoid requiring a real DB connection.
 """
 
 import pytest
+from unittest.mock import MagicMock, patch
 
 # Import the pure logic helpers (these will be added to roomba.py)
 from fee_crawler.commands.roomba import (
     detect_canonical_outliers,
     compute_canonical_stats,
     sweep_canonical_reassignments,
+    run_post_crawl,
 )
 
 
@@ -204,3 +206,54 @@ def test_roomba_canonical_skips_already_flagged():
 def test_sweep_canonical_reassignments_importable():
     """Ensure the function is importable and callable (smoke test)."""
     assert callable(sweep_canonical_reassignments)
+
+
+# ---------------------------------------------------------------------------
+# Test 10: run_post_crawl() returns summary dict with expected keys
+# ---------------------------------------------------------------------------
+
+
+def test_run_post_crawl_returns_summary_dict():
+    """run_post_crawl() returns dict with outliers_flagged and reassignments_made keys."""
+    conn = MagicMock()
+
+    # Cursor returns canonical_fee_key column exists
+    cursor_mock = MagicMock()
+    cursor_mock.__enter__ = MagicMock(return_value=cursor_mock)
+    cursor_mock.__exit__ = MagicMock(return_value=False)
+    cursor_mock.fetchone.return_value = ("canonical_fee_key",)
+    conn.cursor.return_value = cursor_mock
+
+    with (
+        patch(
+            "fee_crawler.commands.roomba.ensure_roomba_log"
+        ) as mock_ensure,
+        patch(
+            "fee_crawler.commands.roomba.sweep_canonical_outliers",
+            return_value=[{"fee_id": 1}],
+        ) as mock_outliers,
+        patch(
+            "fee_crawler.commands.roomba.sweep_canonical_reassignments",
+            return_value=[],
+        ) as mock_reassign,
+    ):
+        result = run_post_crawl(conn)
+
+    mock_ensure.assert_called_once_with(conn)
+    mock_outliers.assert_called_once_with(conn, fix=True)
+    mock_reassign.assert_called_once_with(conn, fix=True)
+    assert result == {"outliers_flagged": 1, "reassignments_made": 0}
+
+
+def test_run_post_crawl_raises_when_column_missing():
+    """run_post_crawl() raises RuntimeError when canonical_fee_key column absent."""
+    conn = MagicMock()
+
+    cursor_mock = MagicMock()
+    cursor_mock.__enter__ = MagicMock(return_value=cursor_mock)
+    cursor_mock.__exit__ = MagicMock(return_value=False)
+    cursor_mock.fetchone.return_value = None  # column not found
+    conn.cursor.return_value = cursor_mock
+
+    with pytest.raises(RuntimeError, match="canonical_fee_key column missing"):
+        run_post_crawl(conn)

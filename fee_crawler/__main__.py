@@ -309,15 +309,31 @@ def cmd_refresh_data(args: argparse.Namespace) -> None:
 
 
 def cmd_snapshot(args: argparse.Namespace) -> None:
-    """Take a snapshot of current fees and detect changes."""
+    """Take a quarterly snapshot of current fees (Postgres-backed, D-08)."""
+    import os
+    import psycopg2
     from fee_crawler.commands.snapshot_fees import run
 
-    config = load_config()
-    db = get_db(config)
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
     try:
-        run(db, config, date=args.date)
+        result = run(conn, snapshot_date=args.date if hasattr(args, "date") else None)
+        print(f"Snapshot: {result}")
     finally:
-        db.close()
+        conn.close()
+
+
+def cmd_classify_nulls(args: argparse.Namespace) -> None:
+    """Classify extracted_fees rows with NULL canonical_fee_key via LLM batch."""
+    import os
+    import psycopg2
+    from fee_crawler.commands.classify_nulls import run
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        result = run(conn, fix=args.fix)
+        print(f"Classify nulls: {result}")
+    finally:
+        conn.close()
 
 
 def cmd_ingest_ofr(args: argparse.Namespace) -> None:
@@ -1132,6 +1148,18 @@ def main() -> None:
         help="Run a single source (e.g. fred, bls, ofr, sod)",
     )
     refresh_parser.set_defaults(func=cmd_refresh_data)
+
+    # classify-nulls command
+    classify_parser = subparsers.add_parser(
+        "classify-nulls",
+        help="LLM batch classification for extracted_fees rows with NULL canonical_fee_key",
+    )
+    classify_parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Apply classifications (default: dry-run)",
+    )
+    classify_parser.set_defaults(func=cmd_classify_nulls)
 
     # snapshot command
     snapshot_parser = subparsers.add_parser(
