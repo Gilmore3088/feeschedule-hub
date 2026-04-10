@@ -928,7 +928,7 @@ Plans:
   4. The institution name, asset tier, Fed district, and peer group are identical on every Hamilton screen — changing them in Settings propagates to all screens within one page load
 **Plans**: 1 plan
 Plans:
-- [ ] 54-01-PLAN.md — TBD
+- [ ] 54-01-PLAN.md — Wire Home CTA buttons + verify all cross-screen integration flows
 **UI hint**: yes
 
 ## Progress
