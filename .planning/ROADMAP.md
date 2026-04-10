@@ -1176,7 +1176,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. The crawler successfully extracts fees from at least one major bank fee schedule delivered as a direct PDF URL that was previously inaccessible — the extracted fees appear in the admin review queue
   2. At least one fee schedule page that previously returned a bot-detection failure (403 or Cloudflare challenge) is successfully accessed and extracted via Playwright stealth — confirmed by a non-empty crawl_results row with status success for that institution
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 59-01-PLAN.md -- Playwright stealth integration, Cloudflare detection, PDF URL probing, accessibe.com blacklist
+- [ ] 59-02-PLAN.md -- CLI flags (--stealth, --pdf-probe), crawl_strategy migration, PDF probe pre-step
 
 ### Phase 60: Report Quality Upgrade
 **Goal**: Reports show real financial numbers, reference real economic context, and look like a McKinsey deliverable — not a formatted text file
