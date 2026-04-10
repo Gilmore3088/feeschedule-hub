@@ -395,6 +395,13 @@ def cmd_run_pipeline(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_backfill_canonical(args: argparse.Namespace) -> None:
+    """Backfill canonical_fee_key and variant_type on all extracted_fees rows."""
+    from fee_crawler.commands.backfill_canonical import run
+
+    run(dry_run=args.dry_run)
+
+
 def cmd_merge_fees(args: argparse.Namespace) -> None:
     """Re-merge extracted fees with existing data."""
     from fee_crawler.commands.merge_fees import run
@@ -1154,6 +1161,18 @@ def main() -> None:
     pipeline_parser.add_argument("--skip-categorize", action="store_true", help="Skip categorization stage")
     pipeline_parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     pipeline_parser.set_defaults(func=cmd_run_pipeline)
+
+    # backfill-canonical command
+    backfill_can_parser = subparsers.add_parser(
+        "backfill-canonical",
+        help="Backfill canonical_fee_key and variant_type on extracted_fees rows",
+    )
+    backfill_can_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report what would be changed without writing to the database",
+    )
+    backfill_can_parser.set_defaults(func=cmd_backfill_canonical)
 
     # merge-fees command
     merge_parser = subparsers.add_parser(
