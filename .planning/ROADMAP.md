@@ -1095,3 +1095,15 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.15: Public API for Institution Data and Bank Fee Index (BACKLOG)
+
+**Goal:** Create a public-facing REST API that exposes institution data and the Bank Fee Index database, enabling third-party integrations, data licensing, and programmatic access to fee intelligence.
+
+**Context:** Currently all data access is through the web UI or internal admin routes. A public API would open new revenue channels (API subscriptions, data licensing) and enable partner integrations. Needs rate limiting, API key auth, tiered access (free/pro), and comprehensive documentation.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
