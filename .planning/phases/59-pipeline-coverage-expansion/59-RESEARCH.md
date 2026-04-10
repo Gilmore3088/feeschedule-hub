@@ -354,17 +354,19 @@ PDF_DIRECT_PROBE_PATHS = [
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does `crawl_strategy` need a DB migration?**
+1. **Does `crawl_strategy` need a DB migration?** (RESOLVED)
    - What we know: `crawl.py` writes `crawl_strategy` in UPDATE SET clauses. No ALTER TABLE migration exists in `db.py` for this column. [VERIFIED: searched all ALTER TABLE in db.py]
    - What's unclear: Whether the Postgres schema (Supabase) already has this column from a manual migration not tracked in `db.py`.
    - Recommendation: Wave 0 should add the migration defensively; SQLite will error on unknown SET column while Postgres will too.
+   - **Resolution:** Plan 59-02 Task 1 adds `ALTER TABLE crawl_targets ADD COLUMN crawl_strategy TEXT` to `_MIGRATE_CRAWL_TARGETS` in `db.py`. The existing `_try_migrate()` pattern wraps each ALTER in try/except so duplicate column errors are safely ignored.
 
-2. **What specific 116 institutions need re-targeting?**
+2. **What specific 116 institutions need re-targeting?** (RESOLVED)
    - What we know: CONTEXT.md says "116 previously failed institutions from prior batches." These are identified by asset size + zero extracted fees + failure history.
    - What's unclear: How the plan identifies this set — by query (institutions with `consecutive_failures >= N AND extracted_fees_count = 0 ORDER BY asset_size DESC LIMIT 116`) or by a stored list.
    - Recommendation: Use a query-based approach: `WHERE consecutive_failures >= 3 AND asset_size_tier IN ('regional', 'large_regional', 'super_regional')` ordered by asset_size DESC.
+   - **Resolution:** Plan 59-02 Task 1 uses a query-based approach in the PDF probe pre-step: `WHERE website_url IS NOT NULL AND (fee_schedule_url IS NULL OR failure_reason IN ('dead_url', 'cloudflare_blocked')) ORDER BY asset_size DESC NULLS LAST`. This captures the 116 failed institutions plus any others missing URLs, prioritized by asset size per D-05.
 
 ---
 
@@ -398,9 +400,9 @@ PDF_DIRECT_PROBE_PATHS = [
 ### Phase Requirements → Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| COV-01 | PDF URL probe discovers and downloads a direct PDF URL | unit | `pytest fee_crawler/tests/test_pdf_probe.py -x` | ❌ Wave 0 |
-| COV-02 | Stealth Playwright fetch succeeds where standard fetch returns 403 | unit | `pytest fee_crawler/tests/test_stealth_fetcher.py -x` | ❌ Wave 0 |
-| COV-02 | Cloudflare challenge page is detected and recorded as `cloudflare_blocked` | unit | `pytest fee_crawler/tests/test_cloudflare_detection.py -x` | ❌ Wave 0 |
+| COV-01 | PDF URL probe discovers and downloads a direct PDF URL | unit | `pytest fee_crawler/tests/test_pdf_probe.py -x` | Wave 0 |
+| COV-02 | Stealth Playwright fetch succeeds where standard fetch returns 403 | unit | `pytest fee_crawler/tests/test_stealth_fetcher.py -x` | Wave 0 |
+| COV-02 | Cloudflare challenge page is detected and recorded as `cloudflare_blocked` | unit | `pytest fee_crawler/tests/test_cloudflare_detection.py -x` | Wave 0 |
 
 ### Sampling Rate
 - **Per task commit:** `python -m pytest fee_crawler/tests/ -x -q`
