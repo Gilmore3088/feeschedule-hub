@@ -11,6 +11,7 @@ import {
   type TradeoffDeltas,
 } from "@/lib/hamilton/simulation";
 import { canSimulate, type ConfidenceTier } from "@/lib/hamilton/confidence";
+import { DISPLAY_NAMES } from "@/lib/fee-taxonomy";
 import {
   getSimulationCategories,
   getDistributionForCategory,
@@ -47,7 +48,7 @@ function formatDollar(v: number): string {
 }
 
 function formatCategory(cat: string): string {
-  return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return DISPLAY_NAMES[cat] ?? cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function SimulateWorkspace({ userId: _userId, institutionId, institutionContext, initialCategory }: Props) {
