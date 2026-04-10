@@ -787,20 +787,72 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
   box-shadow: var(--hamilton-shadow-elevated);
 }
 
-/* ── Monitor screen: signal card hover (translate-x per prototype) ── */
-.hamilton-shell .signal-card-hover:hover {
-  transform: translateX(2px);
+/* ── Hamilton: Easing tokens ── */
+.hamilton-shell {
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ── Monitor screen: watchlist row hover ── */
+/* ── Hamilton: Signal card interactions ── */
+.hamilton-shell .signal-card-hover {
+  transition: transform 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
+}
+.hamilton-shell .signal-card-hover:hover {
+  transform: translateX(3px);
+  box-shadow: -3px 0 12px rgba(141, 78, 41, 0.06);
+}
+
+/* ── Hamilton: Watchlist row hover ── */
+.hamilton-shell .watchlist-row-hover {
+  transition: background-color 0.15s ease;
+}
 .hamilton-shell .watchlist-row-hover:hover {
   background-color: var(--hamilton-surface-container-high, #eae8e3) !important;
 }
 
-/* ── Monitor screen: live pulse animation ── */
+/* ── Hamilton: Card lift on hover ── */
+.hamilton-shell .hamilton-card {
+  transition: box-shadow 0.25s var(--ease-out-quart), transform 0.25s var(--ease-out-quart);
+}
+.hamilton-shell .hamilton-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Hamilton: Burnished CTA button feedback ── */
+.hamilton-shell .burnished-cta {
+  transition: transform 0.15s var(--ease-out-quart), opacity 0.15s ease, box-shadow 0.2s ease;
+}
+.hamilton-shell .burnished-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(141, 78, 41, 0.2);
+}
+.hamilton-shell .burnished-cta:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ── Hamilton: Left rail link hover ── */
+.hamilton-shell aside a,
+.hamilton-shell aside button {
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+/* ── Hamilton: Live pulse animation ── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.35; }
+}
+
+/* ── Hamilton: Content entrance (staggered reveal) ── */
+@keyframes hamilton-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Hamilton serif headings ── */
@@ -810,19 +862,44 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
   font-family: var(--hamilton-font-serif);
 }
 
-/* ── Hamilton staggered reveal (mirrors admin-content pattern) ── */
+/* ── Hamilton: Staggered page reveal ── */
 .hamilton-shell > * {
-  animation: admin-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: hamilton-enter 0.5s var(--ease-out-expo) both;
 }
 .hamilton-shell > *:nth-child(1) { animation-delay: 0ms; }
-.hamilton-shell > *:nth-child(2) { animation-delay: 50ms; }
-.hamilton-shell > *:nth-child(3) { animation-delay: 60ms; }
-.hamilton-shell > *:nth-child(4) { animation-delay: 70ms; }
-.hamilton-shell > *:nth-child(5) { animation-delay: 80ms; }
+.hamilton-shell > *:nth-child(2) { animation-delay: 60ms; }
+.hamilton-shell > *:nth-child(3) { animation-delay: 100ms; }
+.hamilton-shell > *:nth-child(4) { animation-delay: 140ms; }
+.hamilton-shell > *:nth-child(5) { animation-delay: 180ms; }
+
+/* ── Hamilton: Content section stagger (within main area) ── */
+.hamilton-shell main > * {
+  animation: hamilton-enter 0.4s var(--ease-out-expo) both;
+}
+.hamilton-shell main > *:nth-child(1) { animation-delay: 80ms; }
+.hamilton-shell main > *:nth-child(2) { animation-delay: 140ms; }
+.hamilton-shell main > *:nth-child(3) { animation-delay: 200ms; }
+.hamilton-shell main > *:nth-child(4) { animation-delay: 260ms; }
+.hamilton-shell main > *:nth-child(5) { animation-delay: 320ms; }
+.hamilton-shell main > *:nth-child(6) { animation-delay: 380ms; }
+.hamilton-shell main > *:nth-child(n+7) { animation-delay: 400ms; }
+
+/* ── Hamilton: Focus ring for keyboard nav ── */
+.hamilton-shell *:focus-visible {
+  outline: 2px solid var(--hamilton-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 
 /* ── Reduce motion for Hamilton shell ── */
 @media (prefers-reduced-motion: reduce) {
-  .hamilton-shell > * {
+  .hamilton-shell > *,
+  .hamilton-shell main > * {
     animation: none !important;
+  }
+  .hamilton-shell .signal-card-hover,
+  .hamilton-shell .hamilton-card,
+  .hamilton-shell .burnished-cta {
+    transition: none !important;
   }
 }
