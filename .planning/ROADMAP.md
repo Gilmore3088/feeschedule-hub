@@ -1054,3 +1054,19 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.12: Analyze Delivers All Lenses by Default (BACKLOG)
+
+**Goal:** When a user asks Hamilton a question on Analyze, the response should include analysis through ALL four lenses (Pricing, Risk, Peer Position, Trend) automatically — not force the user to pick one lens first. Provide the full value upfront. The user can then drill into a specific lens if they want depth, but the default is comprehensive.
+
+**User insight:** "The lenses we had should always be in the report. The user should select which lens. We should give them the analysis through all. Provide value, don't make them chase it."
+
+**Current behavior:** User must select a lens tab (Pricing/Risk/Peer Position/Trend) before querying. Each query only gets one lens perspective. This makes users work harder for less value.
+
+**Target behavior:** Every analysis response is structured into 4 sections (Pricing | Risk | Peer Position | Trend). Each section has Hamilton's perspective through that lens. User gets the complete picture in one query. Lens tabs become section navigation within the response, not pre-query filters.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
