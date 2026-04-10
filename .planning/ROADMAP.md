@@ -992,3 +992,17 @@ Phases execute in numeric order: 1 -> ... -> 46 -> 47 -> 48 -> 49 -> 50 -> 51 ->
 | 52. Simulate Live Data | v8.1 | 1/1 | Complete    | 2026-04-09 |
 | 53. Reports Library + Generation | v8.1 | 0/2 | Complete    | 2026-04-10 |
 | 54. Integration Pass | v8.1 | 0/TBD | Not started | - |
+
+## Backlog
+
+### Phase 999.8: Screen-Aware Left Rail with Config Sidebar Integration (BACKLOG)
+
+**Goal:** Make HamiltonLeftRail screen-aware so it shows different content per screen. On Reports, the left rail replaces the right-column ConfigSidebar with inline configuration (institution, peer set, focus area, narrative tone, generate button). On Monitor, it could show watchlist controls. On Analyze, workspace context.
+
+**Context:** Config sidebar was attempted as a left column in the content area but the user wants it in the expandable left rail. This requires the left rail to accept screen-specific content slots or conditional rendering based on the current route.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
