@@ -4,9 +4,31 @@ Verifies that fetch_with_browser(stealth=True) applies playwright-stealth
 to the browser context and rotates user agents.
 """
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+def _make_mock_browser():
+    """Create a mock browser with page/context hierarchy."""
+    mock_page = MagicMock()
+    mock_page.content.return_value = "<html><body>Fee Schedule</body></html>" * 20
+    mock_page.goto = MagicMock()
+    mock_page.wait_for_load_state = MagicMock()
+    mock_page.wait_for_timeout = MagicMock()
+    mock_page.close = MagicMock()
+    mock_page.route = MagicMock()
+    mock_page.query_selector = MagicMock(return_value=None)
+
+    mock_context = MagicMock()
+    mock_context.new_page.return_value = mock_page
+    mock_context.close = MagicMock()
+
+    mock_browser = MagicMock()
+    mock_browser.new_context.return_value = mock_context
+    mock_browser.is_connected.return_value = True
+
+    return mock_browser, mock_context, mock_page
 
 
 def test_user_agent_list_has_minimum_entries():
@@ -20,27 +42,11 @@ def test_user_agent_list_has_minimum_entries():
 
 def test_stealth_true_calls_apply_stealth_sync():
     """When stealth=True, Stealth().apply_stealth_sync(context) must be called."""
-    mock_page = MagicMock()
-    mock_page.content.return_value = "<html><body>Fee Schedule</body></html>" * 20
-    mock_page.goto = MagicMock()
-    mock_page.wait_for_load_state = MagicMock()
-    mock_page.wait_for_timeout = MagicMock()
-    mock_page.close = MagicMock()
-    mock_page.route = MagicMock()
-    mock_page.query_selector = MagicMock(return_value=None)
-
-    mock_context = MagicMock()
-    mock_context.new_page.return_value = mock_page
-    mock_context.close = MagicMock()
-
-    mock_browser = MagicMock()
-    mock_browser.new_context.return_value = mock_context
-    mock_browser.is_connected.return_value = True
-
+    mock_browser, mock_context, _ = _make_mock_browser()
     mock_stealth_instance = MagicMock()
 
     with patch("fee_crawler.pipeline.playwright_fetcher._get_browser", return_value=mock_browser), \
-         patch("fee_crawler.pipeline.playwright_fetcher.Stealth", return_value=mock_stealth_instance) as mock_stealth_cls, \
+         patch("playwright_stealth.Stealth", return_value=mock_stealth_instance) as mock_stealth_cls, \
          patch("fee_crawler.pipeline.playwright_fetcher._is_safe_url", return_value=True), \
          patch("fee_crawler.pipeline.playwright_fetcher.is_playwright_available", return_value=True), \
          patch("time.sleep"):
@@ -54,61 +60,30 @@ def test_stealth_true_calls_apply_stealth_sync():
 
 def test_stealth_false_does_not_call_apply_stealth():
     """When stealth=False (default), Stealth should NOT be called."""
-    mock_page = MagicMock()
-    mock_page.content.return_value = "<html><body>Fee Schedule</body></html>" * 20
-    mock_page.goto = MagicMock()
-    mock_page.wait_for_load_state = MagicMock()
-    mock_page.wait_for_timeout = MagicMock()
-    mock_page.close = MagicMock()
-    mock_page.route = MagicMock()
-    mock_page.query_selector = MagicMock(return_value=None)
-
-    mock_context = MagicMock()
-    mock_context.new_page.return_value = mock_page
-    mock_context.close = MagicMock()
-
-    mock_browser = MagicMock()
-    mock_browser.new_context.return_value = mock_context
-    mock_browser.is_connected.return_value = True
+    mock_browser, mock_context, _ = _make_mock_browser()
+    mock_stealth_instance = MagicMock()
 
     with patch("fee_crawler.pipeline.playwright_fetcher._get_browser", return_value=mock_browser), \
+         patch("playwright_stealth.Stealth", return_value=mock_stealth_instance) as mock_stealth_cls, \
          patch("fee_crawler.pipeline.playwright_fetcher._is_safe_url", return_value=True), \
          patch("fee_crawler.pipeline.playwright_fetcher.is_playwright_available", return_value=True):
 
         from fee_crawler.pipeline.playwright_fetcher import fetch_with_browser
         result = fetch_with_browser("https://example.com/fees", stealth=False)
 
-    # Stealth should not have been imported/called at all in the default path
-    # The browser.new_context should NOT have user_agent from USER_AGENT_LIST
-    call_kwargs = mock_browser.new_context.call_args
-    # Default UA is hardcoded, not from USER_AGENT_LIST
-    assert "user_agent" in (call_kwargs.kwargs if call_kwargs.kwargs else {}) or \
-           len(call_kwargs.args) > 0 or call_kwargs.kwargs.get("user_agent", "").startswith("Mozilla/5.0 (Windows NT 10.0")
+    # Stealth should NOT have been called when stealth=False
+    mock_stealth_cls.assert_not_called()
+    mock_stealth_instance.apply_stealth_sync.assert_not_called()
 
 
 def test_stealth_true_passes_random_user_agent():
     """When stealth=True, a UA from USER_AGENT_LIST must be passed to new_context()."""
     from fee_crawler.pipeline.playwright_fetcher import USER_AGENT_LIST
 
-    mock_page = MagicMock()
-    mock_page.content.return_value = "<html><body>Fee Schedule</body></html>" * 20
-    mock_page.goto = MagicMock()
-    mock_page.wait_for_load_state = MagicMock()
-    mock_page.wait_for_timeout = MagicMock()
-    mock_page.close = MagicMock()
-    mock_page.route = MagicMock()
-    mock_page.query_selector = MagicMock(return_value=None)
-
-    mock_context = MagicMock()
-    mock_context.new_page.return_value = mock_page
-    mock_context.close = MagicMock()
-
-    mock_browser = MagicMock()
-    mock_browser.new_context.return_value = mock_context
-    mock_browser.is_connected.return_value = True
+    mock_browser, _, _ = _make_mock_browser()
 
     with patch("fee_crawler.pipeline.playwright_fetcher._get_browser", return_value=mock_browser), \
-         patch("fee_crawler.pipeline.playwright_fetcher.Stealth", return_value=MagicMock()), \
+         patch("playwright_stealth.Stealth", return_value=MagicMock()), \
          patch("fee_crawler.pipeline.playwright_fetcher._is_safe_url", return_value=True), \
          patch("fee_crawler.pipeline.playwright_fetcher.is_playwright_available", return_value=True), \
          patch("time.sleep"):
@@ -117,5 +92,5 @@ def test_stealth_true_passes_random_user_agent():
         result = fetch_with_browser("https://example.com/fees", stealth=True)
 
     call_kwargs = mock_browser.new_context.call_args
-    ua_passed = call_kwargs.kwargs.get("user_agent") or (call_kwargs.args[0] if call_kwargs.args else None)
+    ua_passed = call_kwargs.kwargs.get("user_agent")
     assert ua_passed in USER_AGENT_LIST, f"User agent '{ua_passed}' not in USER_AGENT_LIST"

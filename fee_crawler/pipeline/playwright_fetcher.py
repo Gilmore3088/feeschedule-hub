@@ -20,8 +20,10 @@ import atexit
 import hashlib
 import ipaddress
 import logging
+import random
 import socket
 import threading
+import time
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,37 @@ _CHALLENGE_MARKERS = [
 
 # Minimum HTML body length to consider the page successfully rendered
 _MIN_RENDERED_BYTES = 500
+
+# Realistic browser user agent strings for stealth rotation (D-03)
+USER_AGENT_LIST = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+]
+
+
+def _is_cloudflare_blocked(content: bytes) -> bool:
+    """Check if content is a Cloudflare challenge page.
+
+    Only inspects the first 4096 bytes to avoid scanning large documents.
+    """
+    if not content:
+        return False
+    try:
+        html = content.decode("utf-8", errors="replace").lower()
+    except Exception:
+        return False
+    cloudflare_markers = [
+        "cf-browser-verification",
+        "checking your browser",
+        "cloudflare",
+        "challenge-platform",
+    ]
+    return any(m in html[:4096] for m in cloudflare_markers)
 
 
 def is_playwright_available() -> bool:
@@ -267,7 +300,7 @@ def close_browser():
 atexit.register(close_browser)
 
 
-def fetch_with_browser(url: str, timeout: int = 30) -> dict:
+def fetch_with_browser(url: str, timeout: int = 30, stealth: bool = False) -> dict:
     """Fetch a URL using headless Chromium with full JS rendering.
 
     Returns a dict matching the format of download.py results:
@@ -276,6 +309,10 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
         content_type: str | None
         content_hash: str | None - SHA-256 of content
         error: str | None
+        browser_rendered: bool - True when content was fetched via browser
+
+    When stealth=True, applies playwright-stealth to the browser context
+    and uses a random user agent from USER_AGENT_LIST (D-03).
 
     Reuses a shared browser process; each call gets a fresh context
     (no cookie leakage). Blocks images/fonts/media for faster loads.
@@ -287,6 +324,7 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
         "content_type": None,
         "content_hash": None,
         "error": None,
+        "browser_rendered": False,
     }
 
     if not is_playwright_available():
@@ -304,16 +342,28 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
     try:
         browser = _get_browser()
 
-        context = browser.new_context(
-            user_agent=(
+        # Build context kwargs; stealth mode uses random UA from rotation list
+        ctx_kwargs: dict = {
+            "java_script_enabled": True,
+            "ignore_https_errors": True,
+            "viewport": {"width": 1280, "height": 800},
+        }
+        if stealth:
+            ctx_kwargs["user_agent"] = random.choice(USER_AGENT_LIST)
+        else:
+            ctx_kwargs["user_agent"] = (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/131.0.0.0 Safari/537.36"
-            ),
-            java_script_enabled=True,
-            ignore_https_errors=True,
-            viewport={"width": 1280, "height": 800},
-        )
+            )
+
+        context = browser.new_context(**ctx_kwargs)
+
+        # Apply stealth patches BEFORE creating page (D-03)
+        if stealth:
+            from playwright_stealth import Stealth
+            _stealth = Stealth()
+            _stealth.apply_stealth_sync(context)
 
         # Block heavy resource types for faster loads
         def _block_resources(route, request):
@@ -324,6 +374,10 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
 
         page = context.new_page()
         page.route("**/*", _block_resources)
+
+        # Random delay before navigation when in stealth mode (D-03)
+        if stealth:
+            time.sleep(random.uniform(2, 5))
 
         try:
             # Navigate and wait for initial load
@@ -368,10 +422,11 @@ def fetch_with_browser(url: str, timeout: int = 30) -> dict:
             result["content_hash"] = hashlib.sha256(
                 content_bytes
             ).hexdigest()
+            result["browser_rendered"] = True
 
             logger.info(
-                "Playwright fetched %s: %d bytes",
-                url, len(content_bytes),
+                "Playwright fetched %s: %d bytes (stealth=%s)",
+                url, len(content_bytes), stealth,
             )
             return result
 

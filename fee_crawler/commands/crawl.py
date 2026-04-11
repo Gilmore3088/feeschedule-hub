@@ -79,26 +79,60 @@ def _crawl_one(
 
         if not dl["success"]:
             error_msg = dl["error"] or ""
-            result["status"] = "failed"
-            result["message"] = f"DOWNLOAD FAILED: {error_msg}"
-            _save_result(db, run_id, target_id, "failed", url, error=error_msg)
 
-            # Auto-clear dead URLs so discover can retry
-            if "404" in error_msg or "403" in error_msg:
-                db.execute(
-                    """UPDATE crawl_targets
-                       SET fee_schedule_url = NULL, failure_reason = 'dead_url',
-                           consecutive_failures = consecutive_failures + 1
-                       WHERE id = ?""",
-                    (target_id,),
+            # Stealth retry on 403 BEFORE clearing URL (D-08, Pitfall 4)
+            from fee_crawler.pipeline.playwright_fetcher import is_playwright_available
+            if ("403" in error_msg or "Forbidden" in error_msg) and is_playwright_available():
+                from fee_crawler.pipeline.playwright_fetcher import (
+                    fetch_with_browser,
+                    _is_cloudflare_blocked,
                 )
-            else:
-                db.execute(
-                    "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
-                    (target_id,),
-                )
-            db.commit()
-            return result
+                print(f"    403 detected, retrying with stealth Playwright...")
+                stealth_result = fetch_with_browser(url, stealth=True)
+                if stealth_result["success"] and stealth_result["content"]:
+                    if _is_cloudflare_blocked(stealth_result["content"]):
+                        result["status"] = "failed"
+                        result["message"] = "CLOUDFLARE BLOCKED (stealth failed)"
+                        _save_result(db, run_id, target_id, "failed", url,
+                                     error="cloudflare_blocked")
+                        db.execute(
+                            """UPDATE crawl_targets
+                               SET failure_reason = 'cloudflare_blocked',
+                                   consecutive_failures = consecutive_failures + 1
+                               WHERE id = ?""",
+                            (target_id,),
+                        )
+                        db.commit()
+                        return result
+                    # Stealth succeeded -- continue with stealth content
+                    dl = stealth_result
+                    dl["browser_rendered"] = True
+                    dl["unchanged"] = False
+                    dl["path"] = None
+                    print(f"    Stealth succeeded: {len(dl['content']):,} bytes")
+
+            # If still failed after stealth attempt, record failure
+            if not dl["success"]:
+                result["status"] = "failed"
+                result["message"] = f"DOWNLOAD FAILED: {error_msg}"
+                _save_result(db, run_id, target_id, "failed", url, error=error_msg)
+
+                # Auto-clear dead URLs so discover can retry
+                if "404" in error_msg or "403" in error_msg:
+                    db.execute(
+                        """UPDATE crawl_targets
+                           SET fee_schedule_url = NULL, failure_reason = 'dead_url',
+                               consecutive_failures = consecutive_failures + 1
+                           WHERE id = ?""",
+                        (target_id,),
+                    )
+                else:
+                    db.execute(
+                        "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
+                        (target_id,),
+                    )
+                db.commit()
+                return result
 
         if dl["unchanged"]:
             result["status"] = "unchanged"

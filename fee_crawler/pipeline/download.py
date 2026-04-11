@@ -144,6 +144,7 @@ def download_document(
     *,
     last_hash: str | None = None,
     rate_limiter: DomainRateLimiter | None = None,
+    stealth: bool = False,
 ) -> dict:
     """Download a document and save locally.
 
@@ -194,7 +195,7 @@ def download_document(
     browser_rendered = False
     if needs_browser_fallback(content, content_type) and is_playwright_available():
         logger.info("Thin HTML detected for %s (%d bytes), trying Playwright", url, len(content))
-        browser_result = fetch_with_browser(url)
+        browser_result = fetch_with_browser(url, stealth=stealth)
         if browser_result["success"] and browser_result["content"]:
             content = browser_result["content"]
             content_type = browser_result["content_type"] or content_type
