@@ -204,6 +204,43 @@ NON_FEE_PDF_KEYWORDS = [
 ]
 
 
+# PDF-specific probe paths for direct fee schedule PDFs
+PDF_DIRECT_PROBE_PATHS = [
+    "/fees.pdf",
+    "/fee-schedule.pdf",
+    "/fee_schedule.pdf",
+    "/schedule-of-fees.pdf",
+    "/service-fees.pdf",
+    "/personal-fees.pdf",
+    "/personal/fees.pdf",
+    "/personal/fee-schedule.pdf",
+    "/checking/fees.pdf",
+    "/disclosure/fee-schedule.pdf",
+    "/pdfs/fee-schedule.pdf",
+    "/pdf/fee-schedule.pdf",
+    "/files/fee-schedule.pdf",
+    "/docs/fees.pdf",
+]
+
+# Domains known to produce false positive fee schedule matches
+_BLACKLISTED_DOMAINS = {
+    "accessibe.com",
+    "ada.com",
+    "levelaccess.com",
+    "userway.org",
+}
+
+
+def _is_blacklisted(url: str) -> bool:
+    """Check if URL belongs to a blacklisted domain (accessibility overlays etc.)."""
+    hostname = urlparse(url).hostname or ""
+    hostname = hostname.lower().rstrip(".")
+    for domain in _BLACKLISTED_DOMAINS:
+        if hostname == domain or hostname.endswith("." + domain):
+            return True
+    return False
+
+
 # Ordered list of discovery methods for the cascade
 DISCOVERY_METHODS = ["sitemap", "common_path", "link_scan", "deep_scan"]
 
@@ -479,6 +516,10 @@ class UrlDiscoverer:
 
     def _score_link(self, href: str, text: str) -> float:
         """Score a link based on how likely it is a fee schedule."""
+        # Reject blacklisted domains immediately
+        if _is_blacklisted(href):
+            return 0.0
+
         score = 0.0
         href_lower = href.lower()
         text_lower = text.lower().strip()
@@ -948,6 +989,82 @@ class UrlDiscoverer:
                         return result
 
         return result
+
+    def _google_search_pdf_fallback(self, institution_name: str, website_url: str) -> list[str]:
+        """Search Google for PDF fee schedules when pattern probing finds nothing.
+
+        Per D-01: Google search showed 33% conversion rate in prior batches.
+        Uses existing _search_google() from google_discover.py.
+        """
+        import httpx
+        from fee_crawler.commands.google_discover import _search_google
+
+        domain = urlparse(website_url).netloc
+        query = f"site:{domain} filetype:pdf fee schedule"
+
+        try:
+            with httpx.Client(
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=15,
+                follow_redirects=True,
+            ) as client:
+                results = _search_google(query, client)
+        except Exception:
+            return []
+
+        pdf_urls = []
+        for r in results:
+            url = r.get("url", "")
+            if not url:
+                continue
+            if _is_blacklisted(url):
+                continue
+            if url.lower().endswith(".pdf") or "application/pdf" in r.get("content_type", ""):
+                pdf_urls.append(url)
+        return pdf_urls
+
+    def probe_pdf_urls(
+        self,
+        base_url: str,
+        rate_limiter: "DomainRateLimiter | None" = None,
+        institution_name: str = "",
+    ) -> list[str]:
+        """Probe common PDF paths, then fall back to Google search if nothing found.
+
+        Per D-01: Both Google search AND pattern probing are required.
+        Pattern probing runs first (faster, no external API).
+        Google search is fallback when probing finds nothing (33% conversion rate).
+        Returns list of discovered PDF URLs (may be empty).
+        """
+        found: list[str] = []
+        parsed = urlparse(base_url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+
+        # Strategy A: Pattern probing (fast, no external dependency)
+        for path in PDF_DIRECT_PROBE_PATHS:
+            probe_url = origin + path
+            if _is_blacklisted(probe_url):
+                continue
+            try:
+                if rate_limiter:
+                    rate_limiter.wait(probe_url)
+                resp = self.session.head(
+                    probe_url, timeout=10, allow_redirects=True,
+                )
+                content_type = resp.headers.get("Content-Type", "").lower()
+                if resp.status_code == 200 and "application/pdf" in content_type:
+                    found.append(probe_url)
+                    break  # first PDF found is enough
+            except Exception:
+                continue
+
+        # Strategy B: Google search fallback (per D-01, when probing finds nothing)
+        if not found and institution_name:
+            google_results = self._google_search_pdf_fallback(institution_name, base_url)
+            if google_results:
+                found.extend(google_results[:1])  # take first result
+
+        return found
 
     def close(self) -> None:
         """Close the HTTP session."""
