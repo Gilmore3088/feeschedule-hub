@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { formatAssets } from "@/lib/format";
+import { formatAmount, formatAssets } from "@/lib/format";
 import { FeeTable } from "./fee-table";
 import {
   getInstitution,
@@ -13,9 +13,10 @@ import {
   getInstitutionAgentResults,
 } from "@/lib/crawler-db/institution";
 import { InstitutionActions } from "./institution-actions";
-import { getInstitutionPeerRanking } from "@/lib/crawler-db/call-reports";
-import { getFinancialsByInstitution } from "@/lib/crawler-db/financial";
-import { HeroCards } from "./hero-cards";
+import {
+  getInstitutionRevenueTrend,
+  getInstitutionPeerRanking,
+} from "@/lib/crawler-db/call-reports";
 
 // ---------------------------------------------------------------------------
 // Page
@@ -32,14 +33,14 @@ export default async function InstitutionDetailPage({
 
   if (isNaN(institutionId)) notFound();
 
-  const [institution, fees, crawlHistory, agentResults, peerRanking, financials] =
+  const [institution, fees, crawlHistory, agentResults, revenueTrend, peerRanking] =
     await Promise.all([
       getInstitution(institutionId),
       getInstitutionFees(institutionId),
       getInstitutionCrawlHistory(institutionId),
       getInstitutionAgentResults(institutionId),
+      getInstitutionRevenueTrend(institutionId),
       getInstitutionPeerRanking(institutionId),
-      getFinancialsByInstitution(institutionId),
     ]);
 
   if (!institution) notFound();
@@ -160,8 +161,116 @@ export default async function InstitutionDetailPage({
         />
       </div>
 
-      {/* Financial Profile — Hero Cards */}
-      <HeroCards financials={financials} peerRanking={peerRanking} />
+      {/* Financial Context — Call Report data */}
+      {(revenueTrend.length > 0 || peerRanking) && (
+        <div className="admin-card p-4 mb-8">
+          <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em] mb-3">
+            Financial Context
+          </h2>
+
+          {peerRanking && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="rounded border border-gray-100 dark:border-white/[0.06] bg-gray-50/50 dark:bg-white/[0.03] px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  SC Income
+                </p>
+                <p className="mt-1 text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                  {formatAmount(peerRanking.sc_income)}
+                </p>
+              </div>
+              <div className="rounded border border-gray-100 dark:border-white/[0.06] bg-gray-50/50 dark:bg-white/[0.03] px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Rank in {peerRanking.tier} Peers
+                </p>
+                <p className="mt-1 text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                  #{peerRanking.sc_rank} of {peerRanking.peer_count}
+                </p>
+              </div>
+              <div className="rounded border border-gray-100 dark:border-white/[0.06] bg-gray-50/50 dark:bg-white/[0.03] px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Peer Median SC
+                </p>
+                <p className="mt-1 text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                  {formatAmount(peerRanking.peer_median_sc)}
+                </p>
+              </div>
+              <div className="rounded border border-gray-100 dark:border-white/[0.06] bg-gray-50/50 dark:bg-white/[0.03] px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Fee Dependency
+                </p>
+                <p className="mt-1 text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                  {peerRanking.fee_income_ratio !== null
+                    ? `${peerRanking.fee_income_ratio.toFixed(1)}%${
+                        peerRanking.peer_median_fee_ratio !== null
+                          ? ` vs ${peerRanking.peer_median_fee_ratio.toFixed(1)}% median`
+                          : ""
+                      }`
+                    : "N/A"}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {revenueTrend.length > 0 && (
+            <div className="overflow-x-auto rounded border border-gray-100 dark:border-white/[0.06]">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50/80 dark:bg-white/[0.03] border-b border-gray-100 dark:border-white/[0.06]">
+                    <th className="text-left px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Quarter
+                    </th>
+                    <th className="text-right px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      SC Income
+                    </th>
+                    <th className="text-right px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Fee Ratio
+                    </th>
+                    <th className="text-right px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      YoY
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revenueTrend.map((q) => (
+                    <tr
+                      key={q.quarter}
+                      className="border-b border-gray-50 dark:border-white/[0.03] hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors"
+                    >
+                      <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">
+                        {q.quarter}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                        {formatAmount(q.service_charge_income)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-gray-500">
+                        {q.fee_income_ratio !== null
+                          ? `${q.fee_income_ratio.toFixed(1)}%`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {q.yoy_change_pct !== null ? (
+                          <span
+                            className={
+                              q.yoy_change_pct >= 0
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-emerald-600 dark:text-emerald-400"
+                            }
+                          >
+                            {q.yoy_change_pct >= 0 ? "+" : ""}
+                            {q.yoy_change_pct.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Extracted Fees */}
       <div className="admin-card overflow-hidden mb-8">

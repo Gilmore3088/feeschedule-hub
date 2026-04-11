@@ -136,8 +136,7 @@ CREATE TABLE IF NOT EXISTS analysis_results (
 
 CREATE TABLE IF NOT EXISTS institution_financials (
     id                      BIGSERIAL PRIMARY KEY,
-    crawl_target_id         BIGINT      REFERENCES crawl_targets(id),
-    source_cert_number      TEXT,
+    crawl_target_id         BIGINT      NOT NULL REFERENCES crawl_targets(id),
     report_date             TEXT        NOT NULL,
     source                  TEXT        NOT NULL,
     total_assets            BIGINT,
@@ -669,8 +668,6 @@ CREATE INDEX IF NOT EXISTS idx_analysis_target_type ON analysis_results(crawl_ta
 
 CREATE INDEX IF NOT EXISTS idx_financials_target_date ON institution_financials(crawl_target_id, report_date);
 CREATE INDEX IF NOT EXISTS idx_financials_date_source ON institution_financials(report_date, source);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_financials_unmatched ON institution_financials(source_cert_number, report_date, source) WHERE crawl_target_id IS NULL;
-CREATE INDEX IF NOT EXISTS idx_financials_cert ON institution_financials(source_cert_number);
 CREATE INDEX IF NOT EXISTS idx_complaints_target ON institution_complaints(crawl_target_id);
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_target_cat ON fee_snapshots(crawl_target_id, fee_category);

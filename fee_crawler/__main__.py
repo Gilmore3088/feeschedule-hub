@@ -161,13 +161,21 @@ def cmd_backfill_ncua_urls(args: argparse.Namespace) -> None:
 
 
 def cmd_ingest_call_reports(args: argparse.Namespace) -> None:
-    """Ingest Call Report service charge revenue data from FDIC BankFind API."""
+    """Ingest Call Report service charge revenue data."""
     from fee_crawler.commands.ingest_call_reports import run
 
-    run(
-        backfill=args.backfill,
-        from_year=args.from_year,
-    )
+    config = load_config()
+    db = get_db(config)
+    try:
+        run(
+            db, config,
+            csv_path=args.csv,
+            report_date=args.report_date,
+            source=args.source,
+            show_gaps=args.gaps,
+        )
+    finally:
+        db.close()
 
 
 def cmd_ingest_fdic(args: argparse.Namespace) -> None:
@@ -186,12 +194,12 @@ def cmd_ingest_ncua(args: argparse.Namespace) -> None:
     """Ingest financial data from NCUA 5300 Call Reports."""
     from fee_crawler.commands.ingest_ncua import run
 
-    run(
-        quarter=args.quarter,
-        limit=args.limit,
-        backfill=args.backfill,
-        from_year=args.from_year,
-    )
+    config = load_config()
+    db = get_db(config)
+    try:
+        run(db, config, quarter=args.quarter, limit=args.limit)
+    finally:
+        db.close()
 
 
 def cmd_ingest_cfpb(args: argparse.Namespace) -> None:
@@ -844,18 +852,30 @@ def main() -> None:
     # ingest-call-reports command
     call_report_parser = subparsers.add_parser(
         "ingest-call-reports",
-        help="Ingest FFIEC Call Report data from FDIC BankFind API",
+        help="Ingest Call Report service charge revenue data for coverage gap analysis",
     )
     call_report_parser.add_argument(
-        "--backfill",
+        "--csv",
+        type=str,
+        default=None,
+        help="Path to bulk Call Report CSV file",
+    )
+    call_report_parser.add_argument(
+        "--report-date",
+        type=str,
+        default=None,
+        help="Reporting period (e.g., 2024-12-31). Required with --csv",
+    )
+    call_report_parser.add_argument(
+        "--source",
+        type=str,
+        default="ffiec",
+        help="Data source identifier: ffiec or ncua_5300 (default: ffiec)",
+    )
+    call_report_parser.add_argument(
+        "--gaps",
         action="store_true",
-        help="Download all quarters from --from-year to present",
-    )
-    call_report_parser.add_argument(
-        "--from-year",
-        type=int,
-        default=2010,
-        help="Starting year for backfill (default: 2010)",
+        help="Show high-revenue institutions missing fee data",
     )
     call_report_parser.set_defaults(func=cmd_ingest_call_reports)
 
@@ -888,17 +908,6 @@ def main() -> None:
         type=int,
         default=None,
         help="Max records to process (for testing)",
-    )
-    ncua_fin_parser.add_argument(
-        "--backfill",
-        action="store_true",
-        help="Download all quarters from --from-year to present",
-    )
-    ncua_fin_parser.add_argument(
-        "--from-year",
-        type=int,
-        default=2010,
-        help="Starting year for backfill (default: 2010)",
     )
     ncua_fin_parser.set_defaults(func=cmd_ingest_ncua)
 

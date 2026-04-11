@@ -1,411 +1,264 @@
-"""Ingest fee-related revenue data from FFIEC Call Reports via FDIC BankFind API.
+"""Ingest fee-related revenue data from FFIEC Call Reports.
 
-Fetches service charge income and financial data for ALL FDIC-insured banks.
-Matched institutions get linked via crawl_target_id; unmatched institutions
-are stored with crawl_target_id=NULL and source_cert_number for later matching.
+Fetches service charge income from the FFIEC CDR (Central Data Repository)
+bulk download files. This data helps prioritize crawling: high-revenue
+institutions with no extracted fees represent the biggest coverage gaps.
 
-Data source: FDIC BankFind Suite API (banks.data.fdic.gov)
-  - Provides Call Report equivalent fields (SC=RIAD4080, NONII, INTINC, etc.)
-  - REST API with pagination, no authentication required
+Data source: FFIEC CDR Bulk Data
+  https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx
 
-Historical backfill: --backfill --from-year 2010 downloads quarterly data
-from 2010 to present (~60 quarters x ~5K institutions = ~300K rows).
+Key Call Report fields:
+  - RIAD4080: Total service charges on deposit accounts (income)
+  - RIAD4079: Service charges on deposit accounts - domestic offices
+  - RIAD4107: Other noninterest income
+
+For NCUA Credit Unions, equivalent data comes from 5300 Call Reports:
+  - Acct_661: Fee income
+  - Acct_131: Service charges, commissions, and fees
 """
 
 from __future__ import annotations
 
-import json
-import os
+import csv
+import io
 import time
-from datetime import datetime
+from pathlib import Path
 
-import psycopg2
-import psycopg2.extras
 import requests
 
-# FDIC BankFind API fields (same as ingest_fdic.py)
-FDIC_FINANCIAL_FIELDS = ",".join([
-    "CERT",
-    "REPDTE",
-    "NAMEFULL",
-    "STNAME",
-    "ASSET",
-    "DEP",
-    "LNLSNET",
-    "SC",
-    "NONII",
-    "INTINC",
-    "EINTEXP",
-    "NETINC",
-    "NIMY",
-    "EEFFR",
-    "ROA",
-    "ROE",
-    "RBC1AAJ",
-    "NUMEMP",
-    "OFFDOM",
-])
+from fee_crawler.config import Config
+from fee_crawler.db import Database
 
-FDIC_API_BASE = "https://banks.data.fdic.gov/api/financials"
-PAGE_SIZE = 10000
-MAX_RETRIES = 3
-RETRY_BACKOFF_BASE = 2
+# FFIEC CDR Bulk Data download URL template
+# Format: Schedule RC-I (Income Statement), reporting period MMDDYYYY
+_FFIEC_BULK_URL = "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+
+# NCUA 5300 Call Report quarterly data
+_NCUA_5300_URL = "https://ncua.gov/files/publications/analysis/call-report-data-{year}-{quarter}.zip"
+
+# Service charge MDRM codes from Call Reports
+_SERVICE_CHARGE_CODES = {
+    "RIAD4080",  # Total service charges on deposit accounts
+    "RIAD4079",  # Service charges - domestic offices
+    "RIAD4107",  # Other noninterest income
+}
 
 
-def _safe_int(val: object) -> int | None:
-    if val is None:
-        return None
-    try:
-        return int(float(val))
-    except (ValueError, TypeError):
-        return None
+def _apply_ffiec_scaling(
+    source: str,
+    service_charges: int | None,
+    other_noninterest: int | None,
+) -> tuple[int | None, int | None]:
+    """Apply x1000 multiplier for FFIEC source rows. NCUA rows unchanged.
 
-
-def _safe_float(val: object) -> float | None:
-    if val is None:
-        return None
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return None
-
-
-def _format_report_date(raw: str) -> str:
-    """Convert YYYYMMDD to YYYY-MM-DD."""
-    if len(raw) == 8:
-        return f"{raw[:4]}-{raw[4:6]}-{raw[6:]}"
-    return raw
-
-
-def _retry_get(url: str, params: dict, timeout: int = 60) -> requests.Response:
-    """GET with retry logic: 3 attempts, exponential backoff (2s, 4s, 8s)."""
-    session = requests.Session()
-    last_err = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = session.get(url, params=params, timeout=timeout)
-            resp.raise_for_status()
-            return resp
-        except (requests.RequestException, OSError) as e:
-            last_err = e
-            if attempt < MAX_RETRIES - 1:
-                wait = RETRY_BACKOFF_BASE ** (attempt + 1)
-                print(f"  Retry {attempt + 1}/{MAX_RETRIES} after {wait}s: {e}")
-                time.sleep(wait)
-    raise last_err  # type: ignore[misc]
-
-
-def _build_cert_map(cur) -> dict[str, int]:
-    """Build cert_number -> crawl_target_id lookup for FDIC banks."""
-    cur.execute(
-        "SELECT id, cert_number FROM crawl_targets WHERE source = 'fdic'"
-    )
-    cert_map: dict[str, int] = {}
-    for row in cur:
-        cert = row["cert_number"]
-        if cert:
-            cert_map[str(cert)] = row["id"]
-    return cert_map
-
-
-def _build_name_map(cur) -> dict[tuple[str, str], int]:
-    """Build (lower_name, state) -> crawl_target_id for fuzzy matching."""
-    cur.execute(
-        "SELECT id, institution_name, state_code FROM crawl_targets "
-        "WHERE source = 'fdic' AND institution_name IS NOT NULL AND state_code IS NOT NULL"
-    )
-    name_map: dict[tuple[str, str], int] = {}
-    for row in cur:
-        key = (row["institution_name"].lower(), row["state_code"].upper())
-        name_map[key] = row["id"]
-    return name_map
-
-
-def _iter_quarters(from_year: int) -> list[str]:
-    """Generate YYYYMMDD report dates for each quarter from from_year to now."""
-    now = datetime.now()
-    dates = []
-    for year in range(from_year, now.year + 1):
-        for month_end, day in [(3, 31), (6, 30), (9, 30), (12, 31)]:
-            if year == now.year and month_end > now.month:
-                break
-            dates.append(f"{year}{month_end:02d}{day:02d}")
-    return dates
-
-
-def _upsert_matched(cur, target_id: int, cert: str, report_date: str,
-                    data: dict, sc: int | None, nonii: int | None,
-                    total_revenue: int | None, fee_income_ratio: float | None) -> None:
-    """Upsert a row with a known crawl_target_id."""
-    cur.execute(
-        """INSERT INTO institution_financials
-           (crawl_target_id, source_cert_number, report_date, source,
-            total_assets, total_deposits, total_loans,
-            service_charge_income, other_noninterest_income,
-            net_interest_margin, efficiency_ratio,
-            roa, roe, tier1_capital_ratio,
-            branch_count, employee_count,
-            total_revenue, fee_income_ratio,
-            raw_json)
-           VALUES (%s, %s, %s, 'ffiec',
-                   %s, %s, %s,
-                   %s, %s,
-                   %s, %s,
-                   %s, %s, %s,
-                   %s, %s,
-                   %s, %s,
-                   %s)
-           ON CONFLICT (crawl_target_id, report_date, source)
-             DO UPDATE SET
-             total_assets = EXCLUDED.total_assets,
-             total_deposits = EXCLUDED.total_deposits,
-             total_loans = EXCLUDED.total_loans,
-             service_charge_income = EXCLUDED.service_charge_income,
-             other_noninterest_income = EXCLUDED.other_noninterest_income,
-             net_interest_margin = EXCLUDED.net_interest_margin,
-             efficiency_ratio = EXCLUDED.efficiency_ratio,
-             roa = EXCLUDED.roa,
-             roe = EXCLUDED.roe,
-             tier1_capital_ratio = EXCLUDED.tier1_capital_ratio,
-             branch_count = EXCLUDED.branch_count,
-             employee_count = EXCLUDED.employee_count,
-             total_revenue = EXCLUDED.total_revenue,
-             fee_income_ratio = EXCLUDED.fee_income_ratio,
-             raw_json = EXCLUDED.raw_json,
-             fetched_at = NOW()""",
-        (
-            target_id, cert, report_date,
-            _safe_int(data.get("ASSET")),
-            _safe_int(data.get("DEP")),
-            _safe_int(data.get("LNLSNET")),
-            sc, nonii,
-            _safe_float(data.get("NIMY")),
-            _safe_float(data.get("EEFFR")),
-            _safe_float(data.get("ROA")),
-            _safe_float(data.get("ROE")),
-            _safe_float(data.get("RBC1AAJ")),
-            _safe_int(data.get("OFFDOM")),
-            _safe_int(data.get("NUMEMP")),
-            total_revenue, fee_income_ratio,
-            json.dumps(data),
-        ),
-    )
-
-
-def _upsert_unmatched(cur, cert: str, report_date: str,
-                      data: dict, sc: int | None, nonii: int | None,
-                      total_revenue: int | None, fee_income_ratio: float | None) -> None:
-    """Upsert a row with crawl_target_id IS NULL using source_cert_number for dedup."""
-    cur.execute(
-        """INSERT INTO institution_financials
-           (crawl_target_id, source_cert_number, report_date, source,
-            total_assets, total_deposits, total_loans,
-            service_charge_income, other_noninterest_income,
-            net_interest_margin, efficiency_ratio,
-            roa, roe, tier1_capital_ratio,
-            branch_count, employee_count,
-            total_revenue, fee_income_ratio,
-            raw_json)
-           VALUES (NULL, %s, %s, 'ffiec',
-                   %s, %s, %s,
-                   %s, %s,
-                   %s, %s,
-                   %s, %s, %s,
-                   %s, %s,
-                   %s, %s,
-                   %s)
-           ON CONFLICT (source_cert_number, report_date, source)
-             WHERE crawl_target_id IS NULL
-             DO UPDATE SET
-             total_assets = EXCLUDED.total_assets,
-             total_deposits = EXCLUDED.total_deposits,
-             total_loans = EXCLUDED.total_loans,
-             service_charge_income = EXCLUDED.service_charge_income,
-             other_noninterest_income = EXCLUDED.other_noninterest_income,
-             net_interest_margin = EXCLUDED.net_interest_margin,
-             efficiency_ratio = EXCLUDED.efficiency_ratio,
-             roa = EXCLUDED.roa,
-             roe = EXCLUDED.roe,
-             tier1_capital_ratio = EXCLUDED.tier1_capital_ratio,
-             branch_count = EXCLUDED.branch_count,
-             employee_count = EXCLUDED.employee_count,
-             total_revenue = EXCLUDED.total_revenue,
-             fee_income_ratio = EXCLUDED.fee_income_ratio,
-             raw_json = EXCLUDED.raw_json,
-             fetched_at = NOW()""",
-        (
-            cert, report_date,
-            _safe_int(data.get("ASSET")),
-            _safe_int(data.get("DEP")),
-            _safe_int(data.get("LNLSNET")),
-            sc, nonii,
-            _safe_float(data.get("NIMY")),
-            _safe_float(data.get("EEFFR")),
-            _safe_float(data.get("ROA")),
-            _safe_float(data.get("ROE")),
-            _safe_float(data.get("RBC1AAJ")),
-            _safe_int(data.get("OFFDOM")),
-            _safe_int(data.get("NUMEMP")),
-            total_revenue, fee_income_ratio,
-            json.dumps(data),
-        ),
-    )
-
-
-def _ingest_quarter(cur, report_date_yyyymmdd: str,
-                    cert_map: dict[str, int],
-                    name_map: dict[tuple[str, str], int]) -> dict:
-    """Fetch and upsert one quarter of FDIC financial data.
-
-    Returns stats dict with matched, unmatched, errors counts.
+    FFIEC Call Report fields (RIAD4080, RIAD4107) are reported in thousands
+    of dollars. NCUA 5300 fields (ACCT_661, ACCT_131) are in whole dollars.
+    Zero values are not multiplied (they represent genuinely zero income).
     """
-    stats = {"matched": 0, "unmatched": 0, "errors": 0, "total_api": 0}
-    report_date = _format_report_date(report_date_yyyymmdd)
-    offset = 0
+    if source == "ffiec":
+        if service_charges is not None and service_charges != 0:
+            service_charges = service_charges * 1000
+        if other_noninterest is not None and other_noninterest != 0:
+            other_noninterest = other_noninterest * 1000
+    return service_charges, other_noninterest
 
-    while True:
-        params = {
-            "filters": f"REPDTE:{report_date_yyyymmdd}",
-            "fields": FDIC_FINANCIAL_FIELDS,
-            "limit": PAGE_SIZE,
-            "offset": offset,
-            "sort_by": "ASSET",
-            "sort_order": "DESC",
-        }
 
-        try:
-            resp = _retry_get(FDIC_API_BASE, params)
-        except Exception as e:
-            print(f"  Failed to fetch page at offset {offset}: {e}")
-            stats["errors"] += 1
-            break
+def _ingest_from_csv(
+    db: Database,
+    csv_path: str,
+    report_date: str,
+    source: str = "ffiec",
+) -> dict:
+    """Parse a Call Report CSV and store service charge income.
 
-        payload = resp.json()
-        records = payload.get("data", [])
-        stats["total_api"] = payload.get("meta", {}).get("total", 0)
+    Expected CSV columns: IDRSSD (or CU_NUMBER), RIAD4080, RIAD4107, etc.
 
-        if not records:
-            break
+    Returns stats dict.
+    """
+    stats = {"matched": 0, "updated": 0, "skipped": 0, "errors": 0}
 
-        for rec in records:
-            d = rec.get("data", {})
-            cert = str(d.get("CERT", "")).strip()
+    path = Path(csv_path)
+    if not path.exists():
+        print(f"File not found: {csv_path}")
+        return stats
+
+    with open(path, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+
+        # Normalize header names (FFIEC uses mixed case)
+        if reader.fieldnames:
+            reader.fieldnames = [h.strip().upper() for h in reader.fieldnames]
+
+        for row in reader:
+            # Identify institution by FDIC cert or NCUA charter
+            cert = row.get("IDRSSD") or row.get("CERT") or row.get("CU_NUMBER")
             if not cert:
+                stats["skipped"] += 1
                 continue
 
-            # SC (service charges) is in whole dollars; convert to thousands
-            sc_raw = _safe_int(d.get("SC"))
-            sc = sc_raw // 1000 if sc_raw is not None else None
-            nonii = _safe_int(d.get("NONII"))
-            intinc = _safe_int(d.get("INTINC"))
-            eintexp = _safe_int(d.get("EINTEXP"))
+            cert = str(cert).strip()
+            if not cert:
+                stats["skipped"] += 1
+                continue
 
-            # Derived: total_revenue = net interest income + noninterest income
-            total_revenue = None
-            if intinc is not None and eintexp is not None and nonii is not None:
-                total_revenue = intinc - eintexp + nonii
+            # Find matching institution in our database
+            target = db.fetchone(
+                "SELECT id FROM crawl_targets WHERE cert_number = ?",
+                (cert,),
+            )
+            if not target:
+                stats["skipped"] += 1
+                continue
 
-            # Derived: fee_income_ratio = service charges / total revenue
-            fee_income_ratio = None
-            if sc is not None and total_revenue and total_revenue > 0:
-                fee_income_ratio = round(sc / total_revenue, 4)
+            stats["matched"] += 1
+            target_id = target["id"]
 
-            # Match by cert_number first (D-09)
-            target_id = cert_map.get(cert)
+            # Extract service charge income (in thousands for FFIEC, whole dollars for NCUA)
+            service_charges = _parse_amount(row.get("RIAD4080") or row.get("ACCT_661") or row.get("ACCT_131"))
+            other_noninterest = _parse_amount(row.get("RIAD4107"))
 
-            # Fuzzy fallback: name + state (D-09)
-            if target_id is None:
-                name = (d.get("NAMEFULL") or "").strip().lower()
-                state = (d.get("STNAME") or "").strip().upper()
-                if name and state:
-                    target_id = name_map.get((name, state))
+            service_charges, other_noninterest = _apply_ffiec_scaling(
+                source, service_charges, other_noninterest
+            )
 
+            if service_charges is None and other_noninterest is None:
+                stats["skipped"] += 1
+                continue
+
+            # Upsert into institution_financials
             try:
-                if target_id is not None:
-                    _upsert_matched(cur, target_id, cert, report_date,
-                                    d, sc, nonii, total_revenue, fee_income_ratio)
-                    stats["matched"] += 1
-                else:
-                    _upsert_unmatched(cur, cert, report_date,
-                                      d, sc, nonii, total_revenue, fee_income_ratio)
-                    stats["unmatched"] += 1
+                db.execute(
+                    """INSERT INTO institution_financials
+                       (crawl_target_id, report_date, source,
+                        service_charge_income, other_noninterest_income)
+                       VALUES (?, ?, ?, ?, ?)
+                       ON CONFLICT(crawl_target_id, report_date, source) DO UPDATE SET
+                         service_charge_income = excluded.service_charge_income,
+                         other_noninterest_income = excluded.other_noninterest_income,
+                         fetched_at = datetime('now')""",
+                    (target_id, report_date, source,
+                     service_charges, other_noninterest),
+                )
+                stats["updated"] += 1
             except Exception as e:
                 stats["errors"] += 1
                 if stats["errors"] <= 5:
-                    print(f"  Error for CERT {cert}: {e}")
+                    print(f"  Error for cert {cert}: {e}")
 
-        offset += PAGE_SIZE
-        fetched = min(offset, stats["total_api"])
-        print(
-            f"  {report_date_yyyymmdd}: {fetched:,}/{stats['total_api']:,} fetched | "
-            f"{stats['matched']:,} matched, {stats['unmatched']:,} unmatched"
-        )
-
-        if offset >= stats["total_api"]:
-            break
-
-        time.sleep(0.3)
-
+    db.commit()
     return stats
 
 
+def _parse_amount(value: str | None) -> int | None:
+    """Parse a numeric string to integer, handling commas and empty values."""
+    if not value or not value.strip():
+        return None
+    try:
+        cleaned = value.strip().replace(",", "").replace('"', "")
+        if cleaned in ("", "0", "N/A", "n/a"):
+            return 0
+        return int(float(cleaned))
+    except (ValueError, TypeError):
+        return None
+
+
 def run(
+    db: Database,
+    config: Config,
     *,
-    backfill: bool = False,
-    from_year: int = 2010,
+    csv_path: str | None = None,
+    report_date: str | None = None,
+    source: str = "ffiec",
+    show_gaps: bool = False,
 ) -> None:
-    """Ingest FFIEC Call Report data from FDIC BankFind API into Postgres.
+    """Ingest Call Report service charge revenue data.
 
     Args:
-        backfill: If True, download all quarters from from_year to present.
-        from_year: Starting year for backfill (default 2010).
+        db: Database connection.
+        config: Application config.
+        csv_path: Path to bulk CSV file. If None, shows gap analysis only.
+        report_date: Reporting period (e.g., "2024-12-31"). Required with csv_path.
+        source: Data source identifier ("ffiec" or "ncua_5300").
+        show_gaps: Show high-revenue institutions with no extracted fees.
     """
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    conn.autocommit = False
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    if csv_path and report_date:
+        print(f"Ingesting Call Report data from {csv_path}")
+        print(f"  Report date: {report_date}")
+        print(f"  Source: {source}")
+        print()
 
-    try:
-        cert_map = _build_cert_map(cur)
-        name_map = _build_name_map(cur)
-        print(f"Found {len(cert_map):,} FDIC banks in crawl_targets")
+        stats = _ingest_from_csv(db, csv_path, report_date, source)
 
-        if backfill:
-            dates = _iter_quarters(from_year)
-            print(f"Backfill mode: {len(dates)} quarters from {from_year} to present")
+        print(f"\nIngestion complete:")
+        print(f"  Matched:  {stats['matched']:,}")
+        print(f"  Updated:  {stats['updated']:,}")
+        print(f"  Skipped:  {stats['skipped']:,}")
+        print(f"  Errors:   {stats['errors']:,}")
+
+    if show_gaps or not csv_path:
+        _show_coverage_gaps(db)
+
+
+def _show_coverage_gaps(db: Database) -> None:
+    """Show high-revenue institutions that lack extracted fee data."""
+    print("\n--- Coverage Gap Analysis (by Service Charge Revenue) ---\n")
+
+    # Institutions with financial data but no extracted fees
+    gaps = db.fetchall(
+        """SELECT
+            t.id, t.institution_name, t.state_code, t.charter_type,
+            t.asset_size, t.fee_schedule_url,
+            f.service_charge_income, f.report_date
+        FROM institution_financials f
+        JOIN crawl_targets t ON t.id = f.crawl_target_id
+        LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
+        WHERE f.service_charge_income > 0
+          AND e.id IS NULL
+        ORDER BY f.service_charge_income DESC
+        LIMIT 50"""
+    )
+
+    if not gaps:
+        # Check if we have any financial data at all
+        fin_count = db.fetchone(
+            "SELECT COUNT(*) as cnt FROM institution_financials WHERE service_charge_income > 0"
+        )
+        cnt = fin_count["cnt"] if fin_count else 0
+        if cnt == 0:
+            print("No service charge revenue data available.")
+            print("Ingest Call Report data first:")
+            print("  python -m fee_crawler ingest-call-reports --csv /path/to/data.csv --report-date 2024-12-31")
         else:
-            # Default: latest 4 quarters
-            now = datetime.now()
-            dates = _iter_quarters(now.year - 1)[-4:]
-            print(f"Standard mode: {len(dates)} recent quarters")
+            print("All institutions with revenue data have extracted fees.")
+        return
 
-        total_matched = 0
-        total_unmatched = 0
-        total_errors = 0
-        quarters_processed = 0
+    print(f"Top {len(gaps)} high-revenue institutions WITHOUT extracted fees:\n")
+    print(f"{'Rank':>4s}  {'Institution':45s}  {'St':2s}  {'Type':5s}  {'Revenue ($K)':>12s}  {'Has URL':>7s}")
+    print("-" * 85)
 
-        for report_date in dates:
-            print(f"\nFetching quarter {report_date}...")
-            try:
-                stats = _ingest_quarter(cur, report_date, cert_map, name_map)
-                conn.commit()
-                total_matched += stats["matched"]
-                total_unmatched += stats["unmatched"]
-                total_errors += stats["errors"]
-                quarters_processed += 1
-            except Exception as e:
-                print(f"  Quarter {report_date} failed: {e}")
-                conn.rollback()
-                total_errors += 1
+    for i, row in enumerate(gaps, 1):
+        name = row["institution_name"][:45]
+        state = row["state_code"] or "??"
+        charter = "CU" if row["charter_type"] == "credit_union" else "Bank"
+        revenue = row["service_charge_income"]
+        has_url = "Yes" if row["fee_schedule_url"] else "No"
+        revenue_str = f"${revenue:,.0f}" if revenue else "N/A"
+        print(f"{i:4d}  {name:45s}  {state:2s}  {charter:5s}  {revenue_str:>12s}  {has_url:>7s}")
 
-        print(f"\n{'='*60}")
-        print(f"FFIEC Call Report Ingestion Summary")
-        print(f"{'='*60}")
-        print(f"  Quarters processed:  {quarters_processed}")
-        print(f"  Rows matched:        {total_matched:,}")
-        print(f"  Rows unmatched:      {total_unmatched:,}")
-        print(f"  Total upserted:      {total_matched + total_unmatched:,}")
-        print(f"  Errors:              {total_errors:,}")
+    # Summary stats
+    total_with_revenue = db.fetchone(
+        "SELECT COUNT(*) as cnt FROM institution_financials WHERE service_charge_income > 0"
+    )
+    total_with_fees = db.fetchone(
+        """SELECT COUNT(DISTINCT f.crawl_target_id) as cnt
+           FROM institution_financials f
+           JOIN extracted_fees e ON e.crawl_target_id = f.crawl_target_id
+           WHERE f.service_charge_income > 0"""
+    )
+    rev_total = total_with_revenue["cnt"] if total_with_revenue else 0
+    fee_total = total_with_fees["cnt"] if total_with_fees else 0
+    pct = fee_total / rev_total * 100 if rev_total > 0 else 0
 
-    finally:
-        cur.close()
-        conn.close()
+    print(f"\nInstitutions with revenue data: {rev_total:,}")
+    print(f"  With extracted fees: {fee_total:,} ({pct:.0f}%)")
+    print(f"  Missing fees:       {rev_total - fee_total:,}")
