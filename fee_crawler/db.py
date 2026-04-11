@@ -320,6 +320,10 @@ _MIGRATE_CRAWL_TARGETS_V3 = [
     "ALTER TABLE crawl_targets ADD COLUMN cms_platform TEXT",
 ]
 
+_MIGRATE_CRAWL_TARGETS_V4 = [
+    "ALTER TABLE crawl_targets ADD COLUMN crawl_strategy TEXT",
+]
+
 _CREATE_OPS_JOBS = """
 CREATE TABLE IF NOT EXISTS ops_jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -607,6 +611,7 @@ class Database:
             + _MIGRATE_EXTRACTED_FEES
             + _MIGRATE_CRAWL_TARGETS_V2
             + _MIGRATE_CRAWL_TARGETS_V3
+            + _MIGRATE_CRAWL_TARGETS_V4
         )
         for sql in all_migrations:
             try:

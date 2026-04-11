@@ -47,6 +47,7 @@ def _crawl_one(
     run_id: int,
     dry_run: bool = False,
     rate_limiter: DomainRateLimiter | None = None,
+    stealth: bool = False,
 ) -> dict:
     """Worker function: crawl a single institution.
 
@@ -74,8 +75,8 @@ def _crawl_one(
     }
 
     try:
-        # Step 1: Download
-        dl = download_document(url, target_id, config, last_hash=last_hash, rate_limiter=rate_limiter)
+        # Step 1: Download (stealth=True forces Playwright stealth from the start)
+        dl = download_document(url, target_id, config, last_hash=last_hash, rate_limiter=rate_limiter, stealth=stealth)
 
         if not dl["success"]:
             error_msg = dl["error"] or ""
@@ -437,6 +438,8 @@ def run(
     include_failing: bool = False,
     skip_with_fees: bool = True,
     new_only: bool = False,
+    stealth: bool = False,
+    pdf_probe: bool = False,
 ) -> None:
     """Run the crawl pipeline on institutions with discovered fee schedule URLs.
 
@@ -452,6 +455,8 @@ def run(
         include_failing: Include institutions with 5+ consecutive failures (skipped by default).
         skip_with_fees: Skip institutions that already have extracted fees.
         new_only: Only crawl institutions whose fee_schedule_url was set in the last 24 hours.
+        stealth: Force stealth Playwright mode for all initial fetches.
+        pdf_probe: Run PDF URL probing pre-step before the main crawl.
     """
     # Create a crawl run record
     run_id = db.insert_returning_id(
@@ -459,6 +464,52 @@ def run(
         ("manual",),
     )
     db.commit()
+
+    # PDF probe pre-step: discover direct PDF URLs for institutions missing them
+    if pdf_probe:
+        from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
+
+        print("\n=== PDF URL Probe Pre-Step ===")
+        probe_rate_limiter = DomainRateLimiter(min_delay=1.0)
+
+        # Target institutions with no URL or previously failed
+        # Ordered by asset_size DESC (biggest banks first per D-05)
+        probe_query = """
+            SELECT id, institution_name, website_url, fee_schedule_url, asset_size
+            FROM crawl_targets
+            WHERE website_url IS NOT NULL
+              AND (fee_schedule_url IS NULL
+                   OR failure_reason IN ('dead_url', 'cloudflare_blocked'))
+            ORDER BY asset_size DESC NULLS LAST
+        """
+        probe_params: list = []
+        if limit:
+            probe_query += " LIMIT ?"
+            probe_params.append(limit)
+
+        probe_targets = db.fetchall(probe_query, tuple(probe_params))
+        print(f"  Probing {len(probe_targets)} institutions for PDF URLs...")
+
+        discoverer = UrlDiscoverer(config)
+        probe_found = 0
+        for pt in probe_targets:
+            base = pt["website_url"]
+            if not base:
+                continue
+            pdfs = discoverer.probe_pdf_urls(base, rate_limiter=probe_rate_limiter)
+            if pdfs:
+                pdf_url = pdfs[0]
+                db.execute(
+                    """UPDATE crawl_targets
+                       SET fee_schedule_url = ?, document_type = 'pdf',
+                           failure_reason = NULL, consecutive_failures = 0
+                       WHERE id = ?""",
+                    (pdf_url, pt["id"]),
+                )
+                probe_found += 1
+                print(f"    Found PDF: {pt['institution_name']}: {pdf_url[:80]}")
+        db.commit()
+        print(f"  PDF probe complete: {probe_found}/{len(probe_targets)} found\n")
 
     # Single institution mode -- force re-extraction by clearing content hash
     if target_id:
@@ -575,10 +626,12 @@ def run(
         print("  DRY RUN: will extract text but skip LLM fee extraction")
     print()
 
+    if stealth:
+        print("  STEALTH MODE: all fetches will use Playwright stealth")
     if workers <= 1:
-        _run_serial(targets, config, run_id, dry_run, total, db, limiter)
+        _run_serial(targets, config, run_id, dry_run, total, db, limiter, stealth=stealth)
     else:
-        _run_concurrent(targets, config, run_id, dry_run, total, workers, db, limiter)
+        _run_concurrent(targets, config, run_id, dry_run, total, workers, db, limiter, stealth=stealth)
 
 
 def _run_serial(
@@ -589,6 +642,7 @@ def _run_serial(
     total: int,
     db: Database,
     rate_limiter: DomainRateLimiter | None = None,
+    stealth: bool = False,
 ) -> None:
     """Original serial crawl loop."""
     stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0, "duration_s": 0}
@@ -603,7 +657,7 @@ def _run_serial(
             print(f"[{i}/{total}] {name[:45]:45s} ({state_code}) {doc_type:4s}", end="  ")
             stats["crawled"] += 1
 
-            result = _crawl_one(target, config, run_id, dry_run, rate_limiter=rate_limiter)
+            result = _crawl_one(target, config, run_id, dry_run, rate_limiter=rate_limiter, stealth=stealth)
 
             if result["status"] == "success":
                 stats["succeeded"] += 1
@@ -639,6 +693,7 @@ def _run_concurrent(
     workers: int,
     db: Database,
     rate_limiter: DomainRateLimiter | None = None,
+    stealth: bool = False,
 ) -> None:
     """Concurrent crawl using ThreadPoolExecutor."""
     stats = {"crawled": 0, "succeeded": 0, "failed": 0, "unchanged": 0, "total_fees": 0, "duration_s": 0}
@@ -648,7 +703,7 @@ def _run_concurrent(
     try:
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(_crawl_one, target, config, run_id, dry_run, rate_limiter=rate_limiter): target
+                executor.submit(_crawl_one, target, config, run_id, dry_run, rate_limiter=rate_limiter, stealth=stealth): target
                 for target in targets
             }
 

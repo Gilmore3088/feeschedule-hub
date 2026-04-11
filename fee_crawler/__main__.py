@@ -59,7 +59,9 @@ def cmd_crawl(args: argparse.Namespace) -> None:
             doc_type=getattr(args, 'doc_type', None),
             dry_run=args.dry_run, workers=args.workers, include_failing=args.include_failing,
             skip_with_fees=getattr(args, 'skip_with_fees', False),
-            new_only=getattr(args, 'new_only', False))
+            new_only=getattr(args, 'new_only', False),
+            stealth=getattr(args, 'stealth', False),
+            pdf_probe=getattr(args, 'pdf_probe', False))
     finally:
         db.close()
 
@@ -761,6 +763,16 @@ def main() -> None:
         choices=["pdf", "html"],
         dest="doc_type",
         help="Filter by document type (pdf or html)",
+    )
+    crawl_parser.add_argument(
+        "--stealth",
+        action="store_true",
+        help="Use Playwright stealth mode for all fetches (bypasses bot detection)",
+    )
+    crawl_parser.add_argument(
+        "--pdf-probe",
+        action="store_true",
+        help="Run PDF URL probing pre-step for institutions with no URL or failed URL",
     )
     crawl_parser.set_defaults(func=cmd_crawl)
 
