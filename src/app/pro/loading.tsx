@@ -1,6 +1,6 @@
 export default function ProLoading() {
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
+    <div className="px-6 py-16">
       <div className="space-y-4">
         <div className="h-8 w-64 rounded bg-white/[0.04] animate-pulse" />
         <div className="h-5 w-96 rounded bg-white/[0.03] animate-pulse" />

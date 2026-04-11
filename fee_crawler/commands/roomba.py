@@ -298,8 +298,6 @@ def sweep_recategorize(conn) -> tuple[int, int]:
     cur = conn.cursor()
 
     # Get canonical categories
-    import sys
-    sys.path.insert(0, ".")
     from fee_crawler.fee_analysis import FEE_FAMILIES
     canonical = set()
     for cats in FEE_FAMILIES.values():
@@ -361,6 +359,323 @@ def sweep_recategorize(conn) -> tuple[int, int]:
             print(f"    {cat:<50} {cnt:>5} fees")
 
     return remapped, unmatched
+
+
+def compute_canonical_stats(rows: list[dict]) -> dict[str, dict]:
+    """Compute per-canonical-key statistics from fee rows (pure function for testing).
+
+    Excludes $0 amounts (legitimate "no charge" entries) and rejected fees.
+    Only includes keys with >= 5 valid observations.
+
+    Args:
+        rows: List of dicts with keys: amount, canonical_fee_key, review_status
+
+    Returns:
+        Dict mapping canonical_fee_key -> stats dict with median_amount, stddev_amount, obs_count
+    """
+    import statistics as stats_mod
+
+    groups: dict[str, list[float]] = {}
+    for row in rows:
+        key = row.get("canonical_fee_key")
+        amount = row.get("amount")
+        status = row.get("review_status", "")
+
+        if not key:
+            continue
+        if not amount or amount <= 0:
+            continue
+        if status == "rejected":
+            continue
+
+        groups.setdefault(key, []).append(float(amount))
+
+    result = {}
+    for key, amounts in groups.items():
+        if len(amounts) < 5:
+            continue
+        median = stats_mod.median(amounts)
+        stddev = stats_mod.stdev(amounts) if len(amounts) > 1 else 0.0
+        result[key] = {
+            "canonical_fee_key": key,
+            "median_amount": median,
+            "stddev_amount": stddev,
+            "obs_count": len(amounts),
+        }
+
+    return result
+
+
+def detect_canonical_outliers(
+    stats: dict[str, dict],
+    fees: list[dict],
+) -> list[dict]:
+    """Identify fees whose amount deviates 3+ stddev from canonical category median.
+
+    Pure function — takes pre-computed stats and fee rows. No DB access.
+    Skips: $0 amounts, null canonical keys, already flagged/rejected fees,
+    categories with < 5 observations (obs_count check in stats).
+
+    Args:
+        stats: Dict from compute_canonical_stats() — maps canonical_fee_key -> stats
+        fees: List of fee dicts with id, fee_name, amount, canonical_fee_key, review_status
+
+    Returns:
+        List of outlier dicts with fee_id, fee_name, amount, canonical_key, median, stddev
+    """
+    flagged = []
+
+    for fee in fees:
+        key = fee.get("canonical_fee_key")
+        amount = fee.get("amount")
+        status = fee.get("review_status", "")
+
+        if not key:
+            continue
+        if not amount or amount <= 0:
+            continue
+        if status in ("rejected", "flagged"):
+            continue
+
+        s = stats.get(key)
+        if s is None:
+            continue
+        if s["obs_count"] < 5:
+            continue
+
+        stddev = s["stddev_amount"]
+        if not stddev or stddev == 0:
+            continue
+
+        median = s["median_amount"]
+        threshold_low = median - 3 * stddev
+        threshold_high = median + 3 * stddev
+
+        # Clamp low threshold to 0.01 (amounts are always positive)
+        effective_low = max(threshold_low, 0.01)
+
+        if amount < effective_low or amount > threshold_high:
+            flagged.append({
+                "fee_id": fee["id"],
+                "fee_name": fee.get("fee_name", ""),
+                "amount": amount,
+                "canonical_key": key,
+                "median": median,
+                "stddev": stddev,
+            })
+
+    return flagged
+
+
+def sweep_canonical_outliers(conn, fix: bool = False) -> list[dict]:
+    """Flag fees whose amount deviates 3+ stddev from canonical category median.
+
+    Groups by canonical_fee_key (not fee_category) to catch outliers that are
+    technically categorized correctly but have suspicious amounts. Skips categories
+    with < 5 observations (insufficient statistical basis). Skips $0 amounts
+    (legitimate "no charge" entries).
+
+    Gracefully skips if canonical_fee_key column does not exist yet.
+
+    Args:
+        conn: psycopg2 connection
+        fix: If True, updates review_status to 'flagged' and logs to roomba_log
+
+    Returns:
+        List of outlier dicts
+    """
+    cur = conn.cursor()
+
+    # Graceful skip if column not yet migrated
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'extracted_fees' AND column_name = 'canonical_fee_key'
+    """)
+    if not cur.fetchone():
+        log.info("Canonical outlier sweep: canonical_fee_key column not found — skipping")
+        return []
+
+    # Get per-canonical-key statistics (DB-side computation for efficiency)
+    cur.execute("""
+        SELECT canonical_fee_key,
+               AVG(amount) as mean_amount,
+               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) as median_amount,
+               STDDEV(amount) as stddev_amount,
+               COUNT(*) as obs_count
+        FROM extracted_fees
+        WHERE canonical_fee_key IS NOT NULL
+          AND amount IS NOT NULL
+          AND amount > 0
+          AND review_status != 'rejected'
+        GROUP BY canonical_fee_key
+        HAVING COUNT(*) >= 5
+    """)
+    stats = {row["canonical_fee_key"]: row for row in cur.fetchall()}
+
+    # Fetch candidate fees (excluding $0, null key, rejected/already-flagged)
+    cur.execute("""
+        SELECT id, fee_name, amount, canonical_fee_key, review_status
+        FROM extracted_fees
+        WHERE canonical_fee_key IS NOT NULL
+          AND amount IS NOT NULL
+          AND amount > 0
+          AND review_status NOT IN ('rejected', 'flagged')
+    """)
+    fees = [dict(row) for row in cur.fetchall()]
+
+    flagged = detect_canonical_outliers(stats, fees)
+
+    log.info(
+        "Canonical outlier sweep: %d outliers found across %d categories",
+        len(flagged),
+        len(stats),
+    )
+    for f in flagged:
+        log.info(
+            "  [%s] $%.2f -- median $%.2f, stddev $%.2f -- %s",
+            f["canonical_key"], f["amount"], f["median"], f["stddev"], f["fee_name"],
+        )
+
+    if fix and flagged:
+        ensure_roomba_log(conn)
+        for f in flagged:
+            cur.execute(
+                "UPDATE extracted_fees SET review_status = 'flagged' WHERE id = %s",
+                (f["fee_id"],),
+            )
+            log_change(
+                conn,
+                f["fee_id"],
+                "review_status",
+                "pending",
+                "flagged",
+                (
+                    f"canonical_outlier: ${f['amount']:.2f} is 3+ stddev from "
+                    f"{f['canonical_key']} median ${f['median']:.2f}"
+                ),
+            )
+        conn.commit()
+        log.info("Flagged %d outlier fees for review", len(flagged))
+
+    return flagged
+
+
+def sweep_canonical_reassignments(conn, fix: bool = False) -> list[dict]:
+    """Identify and fix stale canonical_fee_key assignments after alias table updates.
+
+    Compares each fee's canonical_fee_key against what CANONICAL_KEY_MAP would
+    assign for the fee's current fee_category. When they disagree the assignment
+    is stale and needs correction.
+
+    Gracefully skips if canonical_fee_key column does not exist yet.
+
+    Args:
+        conn: psycopg2 connection
+        fix: If True, updates canonical_fee_key and logs changes to roomba_log
+
+    Returns:
+        List of reassignment dicts with fee_id, fee_category, old_key, new_key
+    """
+    from fee_crawler.fee_analysis import CANONICAL_KEY_MAP
+
+    cur = conn.cursor()
+
+    # Graceful skip if column not yet migrated
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'extracted_fees' AND column_name = 'canonical_fee_key'
+    """)
+    if not cur.fetchone():
+        log.info("Canonical reassignment sweep: canonical_fee_key column not found — skipping")
+        return []
+
+    cur.execute("""
+        SELECT id, fee_name, fee_category, canonical_fee_key
+        FROM extracted_fees
+        WHERE canonical_fee_key IS NOT NULL
+          AND fee_category IS NOT NULL
+          AND review_status != 'rejected'
+    """)
+    fees = cur.fetchall()
+
+    reassignments = []
+    for row in fees:
+        fee_category = row["fee_category"]
+        current_key = row["canonical_fee_key"]
+        expected_key = CANONICAL_KEY_MAP.get(fee_category)
+
+        if expected_key is None:
+            # Category not in map — nothing to reassign
+            continue
+        if expected_key == current_key:
+            continue
+
+        reassignments.append({
+            "fee_id": row["id"],
+            "fee_name": row["fee_name"],
+            "fee_category": fee_category,
+            "old_key": current_key,
+            "new_key": expected_key,
+        })
+
+    log.info(
+        "Canonical reassignment sweep: %d stale assignments found",
+        len(reassignments),
+    )
+    for r in reassignments:
+        log.info(
+            "  [%s] canonical_fee_key %s -> %s -- %s",
+            r["fee_category"], r["old_key"], r["new_key"], r["fee_name"],
+        )
+
+    if fix and reassignments:
+        ensure_roomba_log(conn)
+        for r in reassignments:
+            cur.execute(
+                "UPDATE extracted_fees SET canonical_fee_key = %s WHERE id = %s",
+                (r["new_key"], r["fee_id"]),
+            )
+            log_change(
+                conn,
+                r["fee_id"],
+                "canonical_fee_key",
+                r["old_key"],
+                r["new_key"],
+                "canonical_reassignment: alias table updated",
+            )
+        conn.commit()
+        log.info("Reassigned %d fees to updated canonical keys", len(reassignments))
+
+    return reassignments
+
+
+def run_post_crawl(conn) -> dict:
+    """Run canonical sweeps as final step of post-crawl classification job.
+
+    Called by run_post_processing() in modal_app.py after classify-nulls completes.
+    Also used by the nightly 5am Modal cron for cross-crawl drift detection.
+
+    Returns dict with outliers_flagged and reassignments_made counts.
+    """
+    # Verify canonical_fee_key column exists (Phase 55 migration required)
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'extracted_fees' AND column_name = 'canonical_fee_key'
+        """)
+        if not cur.fetchone():
+            raise RuntimeError(
+                "canonical_fee_key column missing from extracted_fees. "
+                "Apply Phase 55 migration (20260409_canonical_fee_key.sql) first."
+            )
+
+    ensure_roomba_log(conn)
+    outliers = sweep_canonical_outliers(conn, fix=True)
+    reassignments = sweep_canonical_reassignments(conn, fix=True)
+    return {
+        "outliers_flagged": len(outliers),
+        "reassignments_made": len(reassignments),
+    }
 
 
 def apply_fixes(conn, findings: list[RoombaFinding], dry_run: bool = True) -> dict:
@@ -445,6 +760,16 @@ def run(fix: bool = False, check_urls: bool = False, recategorize_only: bool = F
     print("Sweep 3: Inferred NSF from overdraft...")
     inferred = sweep_inferred_fees(conn)
     print(f"  Found: {len(inferred)} possible inferred NSF fees")
+
+    # 4. Canonical reassignments (stale canonical_fee_key after alias table updates)
+    print("Sweep 4: Canonical key reassignment (stale alias check)...")
+    reassignments = sweep_canonical_reassignments(conn, fix=fix)
+    print(f"  Found: {len(reassignments)} stale canonical key assignments")
+
+    # 5. Canonical outliers (3+ stddev from category median)
+    print("Sweep 5: Canonical key outlier detection (3+ stddev)...")
+    canonical_outliers = sweep_canonical_outliers(conn, fix=fix)
+    print(f"  Found: {len(canonical_outliers)} canonical outlier fees flagged for review")
 
     all_findings = outliers + dupes + inferred
 

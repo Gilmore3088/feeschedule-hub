@@ -1,173 +1,140 @@
-"""Take a snapshot of current fees and detect changes since last snapshot."""
+"""Take a quarterly snapshot of current fees for QoQ delta detection (D-08).
+
+Writes to two Postgres tables:
+- fee_index_snapshots: category-level aggregates (median, P25, P75)
+- institution_fee_snapshots: per-institution fee state
+
+Both tables use ON CONFLICT DO UPDATE so re-running on the same date is idempotent.
+"""
 
 from __future__ import annotations
 
+import statistics
 from datetime import datetime
 
-from fee_crawler.config import Config
-from fee_crawler.db import Database
 
+def run(conn, *, snapshot_date: str | None = None) -> dict:
+    """Snapshot current approved+staged fees to Postgres snapshot tables.
 
-def snapshot_fees(
-    db: Database,
-    *,
-    snapshot_date: str | None = None,
-) -> dict:
-    """Copy current approved+staged fees to fee_snapshots and detect changes.
+    Args:
+        conn: psycopg2 connection
+        snapshot_date: ISO date string (YYYY-MM-DD). Defaults to today.
 
-    Returns dict with snapshot_count, changes_detected, increases, decreases.
+    Returns:
+        dict with category_snapshots, institution_snapshots, snapshot_date.
     """
     date = snapshot_date or datetime.now().strftime("%Y-%m-%d")
 
-    # Get the most recent previous snapshot date for change detection
-    prev = db.fetchone(
-        """SELECT MAX(snapshot_date) as d FROM fee_snapshots
-           WHERE snapshot_date < ?""",
-        (date,),
+    category_count = _snapshot_categories(conn, date)
+    institution_count = _snapshot_institutions(conn, date)
+    conn.commit()
+
+    print(
+        f"Snapshot {date}: {category_count} category rows, "
+        f"{institution_count} institution rows"
     )
-    prev_date = prev["d"] if prev else None
-
-    # Build map of previous snapshot amounts for change detection
-    prev_amounts: dict[tuple[int, str], float] = {}
-    if prev_date:
-        prev_rows = db.fetchall(
-            """SELECT crawl_target_id, fee_category, amount
-               FROM fee_snapshots
-               WHERE snapshot_date = ? AND fee_category IS NOT NULL AND amount IS NOT NULL""",
-            (prev_date,),
-        )
-        for row in prev_rows:
-            prev_amounts[(row["crawl_target_id"], row["fee_category"])] = row["amount"]
-
-    # Snapshot current approved + staged fees
-    fees = db.fetchall(
-        """SELECT crawl_target_id, id as crawl_result_id, fee_name,
-                  fee_category, amount, frequency, conditions,
-                  account_product_type, extraction_confidence
-           FROM extracted_fees
-           WHERE review_status IN ('approved', 'staged')
-             AND fee_category IS NOT NULL
-             AND amount IS NOT NULL"""
-    )
-
-    print(f"Snapshotting {len(fees):,} fees as of {date}...")
-
-    snapshot_count = 0
-    skipped = 0
-    for fee in fees:
-        try:
-            db.execute(
-                """INSERT INTO fee_snapshots
-                   (crawl_target_id, crawl_result_id, snapshot_date,
-                    fee_name, fee_category, amount, frequency,
-                    conditions, account_product_type, extraction_confidence)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(crawl_target_id, snapshot_date, fee_category) DO UPDATE SET
-                    fee_name = excluded.fee_name,
-                    amount = excluded.amount,
-                    frequency = excluded.frequency,
-                    conditions = excluded.conditions,
-                    account_product_type = excluded.account_product_type,
-                    extraction_confidence = excluded.extraction_confidence""",
-                (
-                    fee["crawl_target_id"],
-                    fee["crawl_result_id"],
-                    date,
-                    fee["fee_name"],
-                    fee["fee_category"],
-                    fee["amount"],
-                    fee["frequency"],
-                    fee["conditions"],
-                    fee["account_product_type"],
-                    fee["extraction_confidence"],
-                ),
-            )
-            snapshot_count += 1
-        except Exception as e:
-            skipped += 1
-            if skipped <= 3:
-                print(f"  Error: {e}")
-
-    db.commit()
-    print(f"  Snapshot: {snapshot_count:,} fees stored ({skipped} skipped)")
-
-    # Detect changes vs previous snapshot
-    increases = 0
-    decreases = 0
-    changes_detected = 0
-
-    if prev_date and prev_amounts:
-        print(f"\nDetecting changes since {prev_date}...")
-        current_rows = db.fetchall(
-            """SELECT crawl_target_id, fee_category, amount
-               FROM fee_snapshots
-               WHERE snapshot_date = ? AND fee_category IS NOT NULL AND amount IS NOT NULL""",
-            (date,),
-        )
-
-        for row in current_rows:
-            key = (row["crawl_target_id"], row["fee_category"])
-            if key not in prev_amounts:
-                continue
-
-            old_amount = prev_amounts[key]
-            new_amount = row["amount"]
-
-            if abs(new_amount - old_amount) < 0.01:
-                continue
-
-            change_type = "increase" if new_amount > old_amount else "decrease"
-            if change_type == "increase":
-                increases += 1
-            else:
-                decreases += 1
-            changes_detected += 1
-
-            db.execute(
-                """INSERT OR IGNORE INTO fee_change_events
-                   (crawl_target_id, fee_category, previous_amount, new_amount, change_type)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (
-                    row["crawl_target_id"],
-                    row["fee_category"],
-                    old_amount,
-                    new_amount,
-                    change_type,
-                ),
-            )
-
-        db.commit()
-        print(f"  Changes: {changes_detected} ({increases} increases, {decreases} decreases)")
-    else:
-        print("  No previous snapshot for change detection (first snapshot)")
-
     return {
         "snapshot_date": date,
-        "snapshot_count": snapshot_count,
-        "changes_detected": changes_detected,
-        "increases": increases,
-        "decreases": decreases,
+        "category_snapshots": category_count,
+        "institution_snapshots": institution_count,
     }
 
 
-def run(
-    db: Database,
-    config: Config,
-    *,
-    date: str | None = None,
-) -> None:
-    """Entry point for the CLI command."""
-    result = snapshot_fees(db, snapshot_date=date)
+def _snapshot_categories(conn, date: str) -> int:
+    """Write category-level aggregates to fee_index_snapshots."""
+    cur = conn.cursor()
 
-    # Summary
-    total = db.fetchone("SELECT COUNT(*) as cnt FROM fee_snapshots")
-    dates = db.fetchall(
-        "SELECT snapshot_date, COUNT(*) as cnt FROM fee_snapshots GROUP BY snapshot_date ORDER BY snapshot_date DESC"
-    )
-    events = db.fetchone("SELECT COUNT(*) as cnt FROM fee_change_events")
+    # Fetch all approved+staged fees with amount and category
+    cur.execute("""
+        SELECT fee_category, canonical_fee_key,
+               crawl_target_id, amount, charter
+        FROM extracted_fees
+        JOIN crawl_targets ON crawl_targets.id = extracted_fees.crawl_target_id
+        WHERE review_status IN ('approved', 'staged')
+          AND fee_category IS NOT NULL
+          AND amount IS NOT NULL
+    """)
+    rows = cur.fetchall()
 
-    print(f"\nTotal snapshots: {total['cnt']:,}")
-    print(f"Change events: {events['cnt']:,}")
-    print("Snapshot dates:")
-    for d in dates[:5]:
-        print(f"  {d['snapshot_date']}: {d['cnt']:,} fees")
+    # Group by (fee_category, canonical_fee_key, charter)
+    groups: dict[tuple, list[float]] = {}
+    institution_sets: dict[tuple, set[int]] = {}
+
+    for row in rows:
+        fee_category = row[0]
+        canonical_fee_key = row[1]
+        crawl_target_id = row[2]
+        amount = float(row[3])
+        charter = row[4] if len(row) > 4 else None
+
+        key = (fee_category, canonical_fee_key, charter)
+        groups.setdefault(key, []).append(amount)
+        institution_sets.setdefault(key, set()).add(crawl_target_id)
+
+    count = 0
+    for (fee_category, canonical_fee_key, charter), amounts in groups.items():
+        sorted_amounts = sorted(amounts)
+        n = len(sorted_amounts)
+        median_amount = statistics.median(sorted_amounts)
+        if n >= 2:
+            quantiles = statistics.quantiles(sorted_amounts, n=4)
+            p25 = quantiles[0]
+            p75 = quantiles[2]
+        else:
+            p25 = sorted_amounts[0]
+            p75 = sorted_amounts[0]
+        institution_count = len(institution_sets[(fee_category, canonical_fee_key, charter)])
+        fee_count = n
+
+        cur.execute("""
+            INSERT INTO fee_index_snapshots
+                (snapshot_date, fee_category, canonical_fee_key,
+                 median_amount, p25_amount, p75_amount,
+                 institution_count, fee_count, charter)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (snapshot_date, fee_category, COALESCE(charter, ''))
+            DO UPDATE SET
+                canonical_fee_key = EXCLUDED.canonical_fee_key,
+                median_amount = EXCLUDED.median_amount,
+                p25_amount = EXCLUDED.p25_amount,
+                p75_amount = EXCLUDED.p75_amount,
+                institution_count = EXCLUDED.institution_count,
+                fee_count = EXCLUDED.fee_count
+        """, (
+            date, fee_category, canonical_fee_key,
+            round(median_amount, 2), round(p25, 2), round(p75, 2),
+            institution_count, fee_count, charter,
+        ))
+        count += 1
+
+    return count
+
+
+def _snapshot_institutions(conn, date: str) -> int:
+    """Write per-institution fee state to institution_fee_snapshots."""
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT crawl_target_id, canonical_fee_key, amount, review_status
+        FROM extracted_fees
+        WHERE canonical_fee_key IS NOT NULL
+          AND review_status != 'rejected'
+    """)
+    rows = cur.fetchall()
+
+    count = 0
+    for row in rows:
+        crawl_target_id, canonical_fee_key, amount, review_status = row
+
+        cur.execute("""
+            INSERT INTO institution_fee_snapshots
+                (snapshot_date, crawl_target_id, canonical_fee_key, amount, review_status)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (snapshot_date, crawl_target_id, canonical_fee_key)
+            DO UPDATE SET
+                amount = EXCLUDED.amount,
+                review_status = EXCLUDED.review_status
+        """, (date, crawl_target_id, canonical_fee_key, amount, review_status))
+        count += 1
+
+    return count

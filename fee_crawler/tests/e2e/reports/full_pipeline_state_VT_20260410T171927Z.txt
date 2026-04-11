@@ -1,0 +1,22 @@
+FULL PIPELINE TEST REPORT
+======================================================================
+Geography : state=VT
+Run date  : 2026-04-10 17:18:09 UTC
+Total time: 1m17s
+
+Stage Timings:
+  1-seed               0.5s
+  2-discover           1m13s
+  3-extract            3.4s
+  4-categorize         0.0s
+  5-validate           0.0s
+
+Institutions seeded    : 4
+Institutions discovered : 3
+Institutions extracted  : 3
+
+Per-Institution Results:
+  Union Bank                          fees=0    status=extracted  reviews=[crawl_failed:1]
+  Northfield Savings Bank             fees=0    status=extracted  reviews=[crawl_failed:1]
+  Community National Bank             fees=0    status=seeded     reviews=[]
+  Ledyard National Bank               fees=0    status=extracted  reviews=[crawl_failed:1]

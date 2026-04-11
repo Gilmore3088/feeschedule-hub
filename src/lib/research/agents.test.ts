@@ -51,6 +51,7 @@ vi.mock("./tools-internal", () => ({
     queryDataQuality: { description: "queryDataQuality", inputSchema: {}, execute: vi.fn() },
     triggerPipelineJob: { description: "triggerPipelineJob", inputSchema: {}, execute: vi.fn() },
     queryNationalData: { description: "queryNationalData", inputSchema: {}, execute: vi.fn() },
+    queryRegulatoryRisk: { description: "queryRegulatoryRisk", inputSchema: {}, execute: vi.fn() },
   },
 }));
 
@@ -86,11 +87,11 @@ describe("getHamilton", () => {
     expect(toolNames).not.toContain("queryNationalData");
   });
 
-  it("pro: returns Sonnet model, public + non-ops internal tools, maxSteps=5", async () => {
+  it("pro: returns Sonnet model, public + non-ops internal tools, maxSteps=4", async () => {
     const config = await getHamilton("pro");
 
-    expect(config.model).toBe("claude-sonnet-4-5-20250929");
-    expect(config.maxSteps).toBe(5);
+    expect(config.model).toBe("claude-sonnet-4-6");
+    expect(config.maxSteps).toBe(4);
     expect(config.maxTokens).toBe(4096);
     expect(config.requiresAuth).toBe(true);
     expect(config.requiredRole).toBe("premium");
@@ -99,38 +100,29 @@ describe("getHamilton", () => {
 
     // Has public tools
     expect(toolNames).toContain("searchFees");
-    // Has non-ops internal tools
+    // Has consolidated internal tools
     expect(toolNames).toContain("queryNationalData");
-    expect(toolNames).toContain("queryDistrictData");
     expect(toolNames).toContain("searchInstitutionsByName");
-
-    // Does NOT have ops tools
-    expect(toolNames).not.toContain("triggerPipelineJob");
-    expect(toolNames).not.toContain("getCrawlStatus");
-    expect(toolNames).not.toContain("getReviewQueueStats");
-    expect(toolNames).not.toContain("queryJobStatus");
-    expect(toolNames).not.toContain("queryDataQuality");
+    expect(toolNames).toContain("rankInstitutions");
   });
 
-  it("admin: returns Sonnet model, all tools including triggerPipelineJob, maxSteps=8", async () => {
+  it("admin: returns Sonnet model, all tools, maxSteps=4", async () => {
     const config = await getHamilton("admin");
 
-    expect(config.model).toBe("claude-sonnet-4-5-20250929");
-    expect(config.maxSteps).toBe(8);
-    expect(config.maxTokens).toBe(6000);
+    expect(config.model).toBe("claude-sonnet-4-6");
+    expect(config.maxSteps).toBe(4);
+    expect(config.maxTokens).toBe(12000);
     expect(config.requiresAuth).toBe(true);
     expect(config.requiredRole).toBe("admin");
 
     const toolNames = Object.keys(config.tools);
 
     // Has all tools including ops
-    expect(toolNames).toContain("triggerPipelineJob");
-    expect(toolNames).toContain("getCrawlStatus");
-    expect(toolNames).toContain("getReviewQueueStats");
-    expect(toolNames).toContain("queryJobStatus");
-    expect(toolNames).toContain("queryDataQuality");
+    // Same consolidated tools as pro (Hamilton is single agent)
     expect(toolNames).toContain("queryNationalData");
     expect(toolNames).toContain("searchFees");
+    expect(toolNames).toContain("searchInstitutionsByName");
+    expect(toolNames).toContain("rankInstitutions");
   });
 
   it("consumer: systemPrompt contains HAMILTON_SYSTEM_PROMPT base text", async () => {

@@ -57,32 +57,6 @@ export const HAMILTON_FORBIDDEN: readonly string[] = [
   "landscape",
 ] as const;
 
-/**
- * Forbidden word/phrase patterns as regex (applied to narrative output).
- * Each pattern should match the forbidden term as a word boundary.
- */
-export const HAMILTON_FORBIDDEN_PATTERNS: readonly RegExp[] = [
-  /\bmight\b/i,
-  /\bcould potentially\b/i,
-  /\bperhaps\b/i,
-  /\binteresting(ly)?\b/i,
-  /\bvery\b/i,
-  /\breally\b/i,
-  /\bquite\b/i,
-  /\bI think\b/i,
-  /\bI believe\b/i,
-  /\bI would\b/i,
-  /\bin my opinion\b/i,
-  /\bit seems\b/i,
-  /\bit appears\b/i,
-  /!/,
-  /\bit is worth noting\b/i,
-  /\bit is important to\b/i,
-  /\bnotably\b/i,
-  /\bsignificantly\b/i,
-  /\blandscape\b/i,
-] as const;
-
 export const HAMILTON_TONE = {
   persona: "Senior partner at a top-tier management consulting firm",
   register: "decisive, implication-focused, brief",
@@ -123,6 +97,5 @@ export const HAMILTON_VOICE = {
   tone: HAMILTON_TONE,
   rules: HAMILTON_RULES,
   forbidden: HAMILTON_FORBIDDEN,
-  forbiddenPatterns: HAMILTON_FORBIDDEN_PATTERNS,
   systemPrompt: HAMILTON_SYSTEM_PROMPT,
 } as const;

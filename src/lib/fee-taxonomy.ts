@@ -134,6 +134,237 @@ export const DISPLAY_NAMES: Record<string, string> = {
   appraisal_fee: "Appraisal",
 };
 
+/**
+ * Canonical key map: stable aggregation keys mirroring Python CANONICAL_KEY_MAP.
+ * For the 49 base categories, canonical_fee_key === fee_category (identity mapping).
+ * Synonym clusters map long-tail slugs to a single canonical key.
+ *
+ * IMPORTANT: Keep in sync with fee_crawler/fee_analysis.py CANONICAL_KEY_MAP.
+ * Cross-language sync is enforced by fee-taxonomy.test.ts.
+ */
+export const CANONICAL_KEY_MAP: Record<string, string> = {
+  // Account Maintenance
+  monthly_maintenance: "monthly_maintenance",
+  minimum_balance: "minimum_balance",
+  early_closure: "early_closure",
+  dormant_account: "dormant_account",
+  account_research: "account_research",
+  paper_statement: "paper_statement",
+  estatement_fee: "estatement_fee",
+  // Overdraft & NSF
+  overdraft: "overdraft",
+  nsf: "nsf",
+  continuous_od: "continuous_od",
+  od_protection_transfer: "od_protection_transfer",
+  od_line_of_credit: "od_line_of_credit",
+  od_daily_cap: "od_daily_cap",
+  nsf_daily_cap: "nsf_daily_cap",
+  // ATM & Card
+  atm_non_network: "atm_non_network",
+  atm_international: "atm_international",
+  card_replacement: "card_replacement",
+  rush_card: "rush_card",
+  card_foreign_txn: "card_foreign_txn",
+  card_dispute: "card_dispute",
+  // Wire Transfers
+  wire_domestic_outgoing: "wire_domestic_outgoing",
+  wire_domestic_incoming: "wire_domestic_incoming",
+  wire_intl_outgoing: "wire_intl_outgoing",
+  wire_intl_incoming: "wire_intl_incoming",
+  // Check Services
+  cashiers_check: "cashiers_check",
+  money_order: "money_order",
+  check_printing: "check_printing",
+  stop_payment: "stop_payment",
+  counter_check: "counter_check",
+  check_cashing: "check_cashing",
+  check_image: "check_image",
+  // Digital & Electronic
+  ach_origination: "ach_origination",
+  ach_return: "ach_return",
+  bill_pay: "bill_pay",
+  mobile_deposit: "mobile_deposit",
+  zelle_fee: "zelle_fee",
+  // Cash & Deposit
+  coin_counting: "coin_counting",
+  cash_advance: "cash_advance",
+  deposited_item_return: "deposited_item_return",
+  night_deposit: "night_deposit",
+  // Account Services
+  notary_fee: "notary_fee",
+  safe_deposit_box: "safe_deposit_box",
+  garnishment_levy: "garnishment_levy",
+  legal_process: "legal_process",
+  account_verification: "account_verification",
+  balance_inquiry: "balance_inquiry",
+  // Lending Fees
+  late_payment: "late_payment",
+  loan_origination: "loan_origination",
+  appraisal_fee: "appraisal_fee",
+  // Synonym clusters: production fee_category slugs -> canonical key
+  // Keep in sync with fee_crawler/fee_analysis.py CANONICAL_KEY_MAP.
+  // --- Slug duplicates / abbreviations ---
+  rush_card_delivery: "rush_card",
+  estatement: "estatement_fee",
+  check_image_charge: "check_image",
+  safe_deposit: "safe_deposit_box",
+  monthly_maintenance_charge: "monthly_maintenance",
+  month_fee: "monthly_maintenance",
+  premier_fee: "monthly_maintenance",
+  savings_fee: "monthly_maintenance",
+  money_market_fee: "monthly_maintenance",
+  // --- NSF / returned item variants ---
+  nonsufficient_fee: "nsf",
+  return_item_charge: "nsf",
+  // --- Overdraft variants ---
+  overdraft_each_overdraft_paid: "overdraft",
+  overdraft_privilege: "overdraft",
+  over_fee: "overdraft",
+  excessive_withdrawal_fee: "overdraft",
+  // --- Card / debit variants ---
+  debit_fee: "card_replacement",
+  debit_card_fee: "card_replacement",
+  visa_debit_card_fee: "card_replacement",
+  replacement_fee: "card_replacement",
+  pin_fee: "card_replacement",
+  pin_replacement: "card_replacement",
+  pin_replacement_fee: "card_replacement",
+  debit_card_rush_fee: "rush_card",
+  // --- Card foreign / gift ---
+  international_fee: "card_foreign_txn",
+  visa_gift_card: "account_research",
+  visa_gift_cards: "account_research",
+  gift_card: "account_research",
+  gift_cards: "account_research",
+  gift_pay: "account_research",
+  reload_fee: "account_research",
+  // --- Wire / outgoing variants ---
+  outgoing_fee: "wire_domestic_outgoing",
+  outgoing_domestic: "wire_domestic_outgoing",
+  returned_wire: "wire_domestic_outgoing",
+  express_mail: "wire_domestic_outgoing",
+  // --- Transfer / ACH variants ---
+  transfer_fee: "od_protection_transfer",
+  transaction_fee: "account_research",
+  transactions_fee: "account_research",
+  per_transaction_fee: "account_research",
+  ach_batch_fee: "ach_origination",
+  // --- Address / mail return variants ---
+  returned_mail: "account_research",
+  returned_mail_fee: "account_research",
+  return_mail: "account_research",
+  bad_address: "account_research",
+  bad_address_fee: "account_research",
+  incorrect_address: "account_research",
+  incorrect_address_fee: "account_research",
+  invalid_address_fee: "account_research",
+  undeliverable_mail: "account_research",
+  // --- Dormant / escheatment variants ---
+  inactive_fee: "dormant_account",
+  dormant_fee: "dormant_account",
+  escheatment: "dormant_account",
+  escheat_processing_fee: "dormant_account",
+  abandoned_property_fee: "dormant_account",
+  // --- Skip-a-pay / late payment variants ---
+  skip_a_pay: "late_payment",
+  skipapay: "late_payment",
+  skipapayment: "late_payment",
+  reinstatement: "late_payment",
+  // --- Fax / research / admin variants ---
+  fax_fee: "account_research",
+  account_balancing_assistance: "account_research",
+  account_balancing_assistance_per_hour: "account_research",
+  balancing_assistance_fee: "account_research",
+  inquiries_fee: "account_research",
+  document_copy: "account_research",
+  more_fee: "account_research",
+  less_fee: "account_research",
+  // --- Early closure / club variants ---
+  club_account: "early_closure",
+  christmas_club_early_withdrawal_fee: "early_closure",
+  christmas_club_withdrawal: "early_closure",
+  club_account_early_withdrawal: "early_closure",
+  account_closed_within_90_days_of_opening: "early_closure",
+  account_closed_within_90_days: "early_closure",
+  // --- Check variants ---
+  check_fee: "check_printing",
+  copy_of_paid_check: "check_image",
+  check_by_phone: "check_cashing",
+  corporate_check: "cashiers_check",
+  cashed_fee: "check_cashing",
+  foreign_check_collection: "check_cashing",
+  items_sent_for_collection: "deposited_item_return",
+  // --- Safe deposit / key variants ---
+  lost_key_fee: "safe_deposit_box",
+  lost_key: "safe_deposit_box",
+  lost_fee: "safe_deposit_box",
+  key_replacement: "safe_deposit_box",
+  replacement_key: "safe_deposit_box",
+  drilling_fee: "safe_deposit_box",
+  box_drilling: "safe_deposit_box",
+  zipper_bag: "night_deposit",
+  // --- Safe deposit box size slugs ---
+  "3_x_5": "safe_deposit_box",
+  "3_x_5_box": "safe_deposit_box",
+  "3_x_10": "safe_deposit_box",
+  "5_x_5": "safe_deposit_box",
+  "5_x_10": "safe_deposit_box",
+  "5_x_10_box": "safe_deposit_box",
+  "10_x_10": "safe_deposit_box",
+  "10_x_10_box": "safe_deposit_box",
+  // --- Legal / subordination variants ---
+  subordination_fee: "legal_process",
+  subordination: "legal_process",
+  mortgage_subordination: "legal_process",
+  mortgage_subordination_fee: "legal_process",
+  duplicate_lien_release: "legal_process",
+  lien_fee: "legal_process",
+  // --- Lending variants ---
+  loan_modification_fee: "loan_origination",
+  credit_card_fee: "cash_advance",
+  credit_fee: "cash_advance",
+  // --- Coin / deposit variants ---
+  coin_deposited_fee: "coin_counting",
+  deposited_fee: "deposited_item_return",
+  collection_fee: "deposited_item_return",
+  // --- ATM variants ---
+  all_other_atms: "atm_non_network",
+  atm_deposit_adjustment: "deposited_item_return",
+  // --- Statement variants ---
+  returned_statement: "paper_statement",
+  mailed_paper_statement: "paper_statement",
+  // --- Balance inquiry variants ---
+  shared_branch_fee: "balance_inquiry",
+  // --- Misc ---
+  fastpay_fee: "ach_origination",
+  withdrawal_fee: "account_research",
+  silverbronze_rewards_fee: "monthly_maintenance",
+  charitable_donation: "account_research",
+  operate_fee: "account_research",
+  // --- Production Postgres audit (2026-04-10) ---
+  fax: "account_research",
+  fax_service: "account_research",
+  fax_services: "account_research",
+  christmas_club_early_withdrawal: "early_closure",
+  christmas_club_withdrawal_fee: "early_closure",
+  skipapayment_fee: "late_payment",
+  skipapay_fee: "late_payment",
+  undeliverable_mail: "account_research",
+  zipper_bags: "night_deposit",
+  membership_share: "monthly_maintenance",
+  western_union: "wire_domestic_outgoing",
+  outgoing_fee: "wire_domestic_outgoing",
+  document_copy_fee: "account_research",
+  visa_travel_card: "card_replacement",
+  loan_extension: "loan_origination",
+  excessive_transaction_fee: "account_research",
+  reopen_account: "early_closure",
+  loan_cancellation_fee: "loan_origination",
+};
+
+/** Total number of entries in CANONICAL_KEY_MAP (for cross-language sync assertions). */
+export const CANONICAL_KEY_COUNT = Object.keys(CANONICAL_KEY_MAP).length;
+
 export const FAMILY_COLORS: Record<string, { border: string; bg: string; text: string }> = {
   "Account Maintenance": { border: "border-l-blue-500", bg: "bg-blue-50", text: "text-blue-700" },
   "Overdraft & NSF": { border: "border-l-red-500", bg: "bg-red-50", text: "text-red-700" },

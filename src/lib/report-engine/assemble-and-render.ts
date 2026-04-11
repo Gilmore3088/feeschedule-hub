@@ -179,6 +179,8 @@ export async function assembleAndRender(
                 .slice(0, 5)
                 .map((d) => `District ${d.district}: ${d.headline}`),
             },
+            // Executive summary is exempt from the 150-200 word budget (SECTION-03).
+            // It uses a 75-word cap because it's a condensed overview, not a body section.
             context: `${thesisContext}Write 2-3 punchy sentences summarizing the 5 key insights. No preamble. Max 75 words.\n\nCROSS-SOURCE INSTRUCTION: Your DATA block contains fred_snapshot (FRED economic indicators) and beige_book_themes (Federal Reserve district reports). You MUST reference at least one FRED indicator and at least one Beige Book theme in your analysis. State the economic context before the fee observation — macro conditions frame the pricing story.`,
           }),
           generateSection({

@@ -73,16 +73,8 @@ describe("RevenueConcentration", () => {
     expect(result.summary.top_n).toBe(3);
     // Top 3 by dollar: 5000+3000+1500=9500, total=10000 => 95%
     expect(result.summary.dollar_volume_pct).toBeCloseTo(95, 1);
-    // Top 3 by prevalence: 90+80+70=240 but pct = max(90,80,70) -- no, it's top3 unique institutions
-    // Actually: top 3 institutions counts are 90,80,70 but pct_of_institutions for each uses total_institutions
-    // The summary prevalence_pct = sum of top 3 prevalence values? No -- it should be the institution prevalence of top 3 categories
-    // Let me re-read plan: "Top 5 charged by Y% of institutions"
-    // This should be: the max pct among top N categories (since institutions overlap)
-    // Actually simpler: top N prevalence pct = highest single category pct (since they overlap, can't sum)
-    // Let's say it's the pct of the Nth (least prevalent in topN) or the max
-    // Per plan: prevalence_pct should capture how widespread the top N are
-    // Simplest: pct of the most prevalent category in top N
-    expect(result.summary.prevalence_pct).toBeCloseTo(90, 1);
+    // Average prevalence of top 3 categories: avg(90%, 80%, 70%) = 80%
+    expect(result.summary.prevalence_pct).toBeCloseTo(80, 1);
     expect(result.summary.total_fee_dollars).toBe(10000);
     expect(result.summary.total_institutions).toBe(100);
   });

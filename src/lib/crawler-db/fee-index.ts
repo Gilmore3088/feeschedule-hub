@@ -194,6 +194,30 @@ export async function getDistrictMedianByCategory(
   return results;
 }
 
+export async function getDistrictFeeMedians(
+  district: number
+): Promise<{ fee_category: string; median_amount: number; institution_count: number }[]> {
+  const rows = await sql`
+    SELECT ef.fee_category,
+           PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) AS median_amount,
+           COUNT(DISTINCT ef.crawl_target_id) AS institution_count
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ct.fed_district = ${district}
+      AND ef.review_status != 'rejected'
+      AND ef.amount IS NOT NULL
+      AND ef.amount > 0
+    GROUP BY ef.fee_category
+    HAVING COUNT(DISTINCT ef.crawl_target_id) >= 3
+    ORDER BY COUNT(DISTINCT ef.crawl_target_id) DESC
+  `;
+  return rows.map(r => ({
+    fee_category: r.fee_category as string,
+    median_amount: Number(r.median_amount),
+    institution_count: Number(r.institution_count),
+  }));
+}
+
 function buildIndexEntries(
   rows: {
     fee_category: string;
