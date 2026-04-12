@@ -159,9 +159,13 @@ export function chartContainer(props: ChartContainerProps): string {
 /**
  * Large Newsreader italic text with terracotta left border.
  * Use for the single most important finding in a section.
+ * Optional attribution renders as a cite element below the quote.
  */
-export function pullQuote(text: string): string {
-  return `<blockquote class="report-pull-quote">${escapeHtml(text)}</blockquote>`;
+export function pullQuote(text: string, attribution?: string): string {
+  const attr = attribution
+    ? `<cite style="display: block; margin-top: 8px; font-size: 11px; font-style: normal; color: #6b7280;">\u2014 ${escapeHtml(attribution)}</cite>`
+    : "";
+  return `<blockquote class="report-pull-quote">${escapeHtml(text)}${attr}</blockquote>`;
 }
 
 // ─── Footnote ──────────────────────────────────────────────────────────────────

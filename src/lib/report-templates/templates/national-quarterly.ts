@@ -27,6 +27,7 @@ import {
   footnote,
   pageBreak,
   soWhatBox,
+  pullQuote,
   insightCardRow,
   comparisonChart,
   playbook,
@@ -218,6 +219,27 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     if (data.fred.consumer_sentiment !== null) {
       econCards.push({ label: "Consumer Sentiment", value: data.fred.consumer_sentiment.toFixed(1), source: "Univ. of Michigan" });
     }
+    if (data.fred.gdp_growth_yoy_pct !== null) {
+      econCards.push({
+        label: "GDP Growth YoY",
+        value: `${data.fred.gdp_growth_yoy_pct > 0 ? "+" : ""}${data.fred.gdp_growth_yoy_pct.toFixed(1)}%`,
+        source: "Bureau of Economic Analysis",
+      });
+    }
+    if (data.fred.personal_savings_rate !== null) {
+      econCards.push({
+        label: "Personal Savings Rate",
+        value: `${data.fred.personal_savings_rate.toFixed(1)}%`,
+        source: "Bureau of Economic Analysis",
+      });
+    }
+    if (data.fred.bank_lending_standards !== null) {
+      econCards.push({
+        label: "Bank Lending Standards",
+        value: `${data.fred.bank_lending_standards > 0 ? "+" : ""}${data.fred.bank_lending_standards.toFixed(1)}%`,
+        source: "Federal Reserve Sr. Loan Officer Survey",
+      });
+    }
 
     econSections.push(
       `<div style="margin: 32px 0; padding: 24px 28px; background: ${PALETTE.sectionBg}; border-radius: 8px; border-left: 4px solid ${PALETTE.accent};">`,
@@ -237,6 +259,22 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
       `<div style="margin: 24px 0; padding: 20px 28px; background: white; border: 1px solid #e5e7eb; border-radius: 8px;">`,
       `<h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin: 0 0 12px 0;">Fed Beige Book \u2014 District Economic Narratives</h4>`,
       `<ul style="font-size: 13px; line-height: 1.6; color: #374151; margin: 0; padding-left: 18px;">${headlines}</ul>`,
+      `</div>`,
+    );
+  }
+
+  if (data.beige_themes && data.beige_themes.length > 0) {
+    const themeQuotes = data.beige_themes
+      .map((t) => pullQuote(
+        t.summary.slice(0, 250) + (t.summary.length > 250 ? "..." : ""),
+        `Federal Reserve Beige Book \u2014 ${t.district_name} (${t.theme_category.replace(/_/g, " ")})`
+      ))
+      .join("\n");
+
+    econSections.push(
+      `<div style="margin: 24px 0;">`,
+      `<h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin: 0 0 16px 0;">Regional Economic Signals</h4>`,
+      themeQuotes,
       `</div>`,
     );
   }
