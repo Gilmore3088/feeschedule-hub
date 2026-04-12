@@ -16,9 +16,11 @@ import {
   getDistrictEconomicSummary,
   getDistrictBeigeBookSummaries,
   getBeigeBookThemes,
+  getFredSummary,
   type DistrictEconomicSummary,
   type BeigeBookTheme,
   type DistrictBeigeBookSummary,
+  type FredSummary,
 } from "./fed";
 import { getSql } from "./connection";
 
@@ -379,5 +381,115 @@ describe("getDistrictBeigeBookSummaries audit", () => {
 
     expect(result[0].district_number).toBe(7);
     expect(result[0].district_name).toBe("Chicago");
+  });
+});
+
+// ── getFredSummary — 7 indicator fields ─────────────────────────────────────
+
+describe("getFredSummary", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("returns all 7 indicator fields plus as_of (8 total fields)", async () => {
+    // Mock: DISTINCT ON query returns rows for all 7 series
+    getMock()
+      .mockResolvedValueOnce([
+        { series_id: "FEDFUNDS", value: 5.33, observation_date: "2025-01-01" },
+        { series_id: "UNRATE", value: 4.1, observation_date: "2025-01-01" },
+        { series_id: "CPIAUCSL", value: 315.6, observation_date: "2025-01-01" },
+        { series_id: "UMCSENT", value: 72.5, observation_date: "2025-01-01" },
+        { series_id: "GDPC1", value: 22000, observation_date: "2024-10-01" },
+        { series_id: "PSAVERT", value: 4.6, observation_date: "2025-01-01" },
+        { series_id: "DRCBLACBS", value: 14.5, observation_date: "2024-10-01" },
+      ])
+      // CPI YoY query (LIMIT 13) — not enough rows, cpiYoy stays null
+      .mockResolvedValueOnce([])
+      // GDP YoY query (LIMIT 5) — not enough rows, gdpYoy stays null
+      .mockResolvedValueOnce([]);
+
+    const result = await getFredSummary();
+
+    expect(result).toHaveProperty("fed_funds_rate");
+    expect(result).toHaveProperty("unemployment_rate");
+    expect(result).toHaveProperty("cpi_yoy_pct");
+    expect(result).toHaveProperty("consumer_sentiment");
+    expect(result).toHaveProperty("gdp_growth_yoy_pct");
+    expect(result).toHaveProperty("personal_savings_rate");
+    expect(result).toHaveProperty("bank_lending_standards");
+    expect(result).toHaveProperty("as_of");
+
+    // Direct value fields should be populated
+    expect(result.fed_funds_rate).toBe(5.33);
+    expect(result.personal_savings_rate).toBe(4.6);
+    expect(result.bank_lending_standards).toBe(14.5);
+  });
+
+  it("returns all null indicators when DB returns empty", async () => {
+    getMock()
+      .mockResolvedValueOnce([]) // DISTINCT ON query
+      .mockResolvedValueOnce([]) // CPI YoY
+      .mockResolvedValueOnce([]); // GDP YoY
+
+    const result = await getFredSummary();
+
+    expect(result.fed_funds_rate).toBeNull();
+    expect(result.unemployment_rate).toBeNull();
+    expect(result.cpi_yoy_pct).toBeNull();
+    expect(result.consumer_sentiment).toBeNull();
+    expect(result.gdp_growth_yoy_pct).toBeNull();
+    expect(result.personal_savings_rate).toBeNull();
+    expect(result.bank_lending_standards).toBeNull();
+  });
+
+  it("computes GDP YoY from 5 quarterly observations", async () => {
+    // GDP: latest=22000, 4 quarters ago=21000 -> YoY = (22000-21000)/21000*100 = 4.76..% -> rounded 4.8
+    getMock()
+      .mockResolvedValueOnce([
+        { series_id: "FEDFUNDS", value: 5.33, observation_date: "2025-01-01" },
+        { series_id: "GDPC1", value: 22000, observation_date: "2024-10-01" },
+      ])
+      .mockResolvedValueOnce([]) // CPI YoY — not enough rows
+      .mockResolvedValueOnce([
+        { value: 22000, observation_date: "2024-10-01" },
+        { value: 21750, observation_date: "2024-07-01" },
+        { value: 21500, observation_date: "2024-04-01" },
+        { value: 21250, observation_date: "2024-01-01" },
+        { value: 21000, observation_date: "2023-10-01" },
+      ]);
+
+    const result = await getFredSummary();
+
+    expect(result.gdp_growth_yoy_pct).not.toBeNull();
+    const expected = ((22000 - 21000) / 21000) * 100; // ~4.76%
+    expect(result.gdp_growth_yoy_pct).toBeCloseTo(Math.round(expected * 10) / 10, 1);
+  });
+
+  it("returns null gdp_growth_yoy_pct when fewer than 5 quarterly observations", async () => {
+    getMock()
+      .mockResolvedValueOnce([
+        { series_id: "FEDFUNDS", value: 5.33, observation_date: "2025-01-01" },
+      ])
+      .mockResolvedValueOnce([]) // CPI YoY
+      .mockResolvedValueOnce([
+        { value: 22000, observation_date: "2024-10-01" },
+        { value: 21750, observation_date: "2024-07-01" },
+      ]); // Only 2 GDP rows
+
+    const result = await getFredSummary();
+
+    expect(result.gdp_growth_yoy_pct).toBeNull();
+  });
+
+  it("returns empty FredSummary on DB error", async () => {
+    getMock().mockRejectedValueOnce(new Error("DB connection failed"));
+
+    const result = await getFredSummary();
+
+    expect(result.fed_funds_rate).toBeNull();
+    expect(result.gdp_growth_yoy_pct).toBeNull();
+    expect(result.personal_savings_rate).toBeNull();
+    expect(result.bank_lending_standards).toBeNull();
+    expect(result.as_of).toBeDefined();
   });
 });

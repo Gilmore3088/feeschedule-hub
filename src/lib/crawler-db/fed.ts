@@ -432,6 +432,9 @@ export interface FredSummary {
   unemployment_rate: number | null;
   cpi_yoy_pct: number | null;
   consumer_sentiment: number | null;
+  gdp_growth_yoy_pct: number | null;
+  personal_savings_rate: number | null;
+  bank_lending_standards: number | null;
   as_of: string;
 }
 
@@ -500,6 +503,9 @@ export async function getFredSummary(): Promise<FredSummary> {
     unemployment_rate: null,
     cpi_yoy_pct: null,
     consumer_sentiment: null,
+    gdp_growth_yoy_pct: null,
+    personal_savings_rate: null,
+    bank_lending_standards: null,
     as_of: new Date().toISOString().slice(0, 10),
   };
 
@@ -510,7 +516,7 @@ export async function getFredSummary(): Promise<FredSummary> {
         value,
         observation_date
       FROM fed_economic_indicators
-      WHERE series_id IN ('FEDFUNDS', 'UNRATE', 'CPIAUCSL', 'UMCSENT')
+      WHERE series_id IN ('FEDFUNDS', 'UNRATE', 'CPIAUCSL', 'UMCSENT', 'GDPC1', 'PSAVERT', 'DRCBLACBS')
       ORDER BY series_id, observation_date DESC
     ` as { series_id: string; value: number | null; observation_date: string | Date }[];
 
@@ -547,11 +553,37 @@ export async function getFredSummary(): Promise<FredSummary> {
       // CPI YoY computation failed — leave as null
     }
 
+    // Compute GDP YoY change: compare latest quarterly value to 4 quarters prior
+    let gdpYoy: number | null = null;
+    try {
+      const gdpRows = await sql`
+        SELECT value, observation_date
+        FROM fed_economic_indicators
+        WHERE series_id = 'GDPC1'
+        ORDER BY observation_date DESC
+        LIMIT 5
+      ` as { value: number | string | null; observation_date: string | Date }[];
+
+      // GDPC1 is quarterly — index 0 is latest, index 4 is ~1 year ago
+      if (gdpRows.length >= 5) {
+        const latest = Number(gdpRows[0].value);
+        const yearAgo = Number(gdpRows[4].value);
+        if (yearAgo > 0 && !isNaN(latest) && !isNaN(yearAgo)) {
+          gdpYoy = ((latest - yearAgo) / yearAgo) * 100;
+        }
+      }
+    } catch {
+      // GDP YoY computation failed — leave as null
+    }
+
     return {
       fed_funds_rate: byId.get("FEDFUNDS")?.value ?? null,
       unemployment_rate: byId.get("UNRATE")?.value ?? null,
       cpi_yoy_pct: cpiYoy,
       consumer_sentiment: byId.get("UMCSENT")?.value ?? null,
+      gdp_growth_yoy_pct: gdpYoy !== null ? Math.round(gdpYoy * 10) / 10 : null,
+      personal_savings_rate: byId.get("PSAVERT")?.value ?? null,
+      bank_lending_standards: byId.get("DRCBLACBS")?.value ?? null,
       as_of,
     };
   } catch {

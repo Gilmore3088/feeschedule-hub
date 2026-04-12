@@ -1,5 +1,19 @@
 import { sql } from "./connection";
 
+// FDIC/NCUA Call Reports store dollar amounts in thousands.
+// This constant converts them to actual dollars at the query layer.
+const THOUSANDS = 1000;
+
+const numOrNull = (v: unknown): number | null =>
+  v !== null && v !== undefined ? Number(v) : null;
+
+const dollarOrNull = (v: unknown): number | null => {
+  const n = numOrNull(v);
+  return n !== null ? n * THOUSANDS : null;
+};
+
+export { dollarOrNull as _dollarOrNull_FOR_TESTING };
+
 export interface InstitutionFinancial {
   crawl_target_id: number;
   report_date: string;
@@ -66,20 +80,17 @@ export async function getFinancialsByInstitution(
     WHERE crawl_target_id = ${targetId}
     ORDER BY report_date DESC`];
 
-  const numOrNull = (v: unknown): number | null =>
-    v !== null && v !== undefined ? Number(v) : null;
-
   return rows.map((r: Record<string, unknown>) => ({
     crawl_target_id: Number(r.crawl_target_id),
     report_date: r.report_date instanceof Date
       ? r.report_date.toISOString().slice(0, 10)
       : String(r.report_date),
     source: String(r.source),
-    total_assets: numOrNull(r.total_assets),
-    total_deposits: numOrNull(r.total_deposits),
-    total_loans: numOrNull(r.total_loans),
-    service_charge_income: numOrNull(r.service_charge_income),
-    other_noninterest_income: numOrNull(r.other_noninterest_income),
+    total_assets: dollarOrNull(r.total_assets),
+    total_deposits: dollarOrNull(r.total_deposits),
+    total_loans: dollarOrNull(r.total_loans),
+    service_charge_income: dollarOrNull(r.service_charge_income),
+    other_noninterest_income: dollarOrNull(r.other_noninterest_income),
     net_interest_margin: numOrNull(r.net_interest_margin),
     efficiency_ratio: numOrNull(r.efficiency_ratio),
     roa: numOrNull(r.roa),
@@ -88,9 +99,9 @@ export async function getFinancialsByInstitution(
     branch_count: numOrNull(r.branch_count),
     employee_count: numOrNull(r.employee_count),
     member_count: numOrNull(r.member_count),
-    total_revenue: numOrNull(r.total_revenue),
+    total_revenue: dollarOrNull(r.total_revenue),
     fee_income_ratio: numOrNull(r.fee_income_ratio),
-    overdraft_revenue: numOrNull(r.overdraft_revenue),
+    overdraft_revenue: dollarOrNull(r.overdraft_revenue),
   }));
 }
 
@@ -330,7 +341,7 @@ export async function getRevenueIndexByDate(reportDate?: string): Promise<Revenu
     .map((r) => r.service_charge_income)
     .filter((v): v is number => v !== null);
   const avgSvc = svcCharges.length > 0
-    ? Math.round(svcCharges.reduce((a, b) => a + b, 0) / svcCharges.length)
+    ? Math.round(svcCharges.reduce((a, b) => a + b, 0) / svcCharges.length) * THOUSANDS
     : null;
 
   let rd: string;

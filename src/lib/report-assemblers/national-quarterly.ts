@@ -13,7 +13,8 @@
 import { createHash } from "crypto";
 import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db/fee-index";
 import { getRevenueTrend } from "@/lib/crawler-db/call-reports";
-import { getBeigeBookHeadlines, getFredSummary } from "@/lib/crawler-db/fed";
+import { getBeigeBookHeadlines, getBeigeBookThemes, getFredSummary } from "@/lib/crawler-db/fed";
+import type { BeigeBookTheme } from "@/lib/crawler-db/fed";
 import { getDisplayName, FEE_TIERS } from "@/lib/fee-taxonomy";
 import type { DataManifest } from "@/lib/report-engine/types";
 import type { ThesisSummaryPayload } from "@/lib/hamilton/types";
@@ -83,6 +84,9 @@ export interface NationalQuarterlyPayload {
     unemployment_rate: number | null;
     cpi_yoy_pct: number | null;
     consumer_sentiment: number | null;
+    gdp_growth_yoy_pct: number | null;
+    personal_savings_rate: number | null;
+    bank_lending_standards: number | null;
     as_of: string;
   } | null;
   // Fed district context (NQR-04)
@@ -90,6 +94,14 @@ export interface NationalQuarterlyPayload {
     district: number;
     headline: string;
     release_date: string;
+  }>;
+  // Beige Book structured themes (fee-relevant, filtered)
+  beige_themes: Array<{
+    district: number;
+    district_name: string;
+    theme_category: string;
+    sentiment: string;
+    summary: string;
   }>;
   // V3 derived analytics
   derived: DerivedAnalytics;
@@ -174,6 +186,9 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
       unemployment_rate: fredData.unemployment_rate,
       cpi_yoy_pct: fredData.cpi_yoy_pct,
       consumer_sentiment: fredData.consumer_sentiment,
+      gdp_growth_yoy_pct: fredData.gdp_growth_yoy_pct,
+      personal_savings_rate: fredData.personal_savings_rate,
+      bank_lending_standards: fredData.bank_lending_standards,
       as_of: fredData.as_of,
     };
     manifestEntries.push({
@@ -207,6 +222,33 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
       executed_at: assembled_at,
     });
   }
+
+  // Query 7: Beige Book structured themes (graceful degradation, falls back to headlines)
+  let beigeThemes: BeigeBookTheme[] = [];
+  try {
+    beigeThemes = await getBeigeBookThemes();
+    manifestEntries.push({
+      sql: "getBeigeBookThemes()",
+      row_count: beigeThemes.length,
+      executed_at: assembled_at,
+    });
+  } catch (e) {
+    console.warn("[assembler] BeigeBookThemes query failed, skipping:", e);
+    manifestEntries.push({
+      sql: "getBeigeBookThemes()",
+      row_count: 0,
+      executed_at: assembled_at,
+    });
+  }
+
+  // Filter for fee-relevant themes per D-03: lending_conditions + prices categories,
+  // prefer negative/mixed sentiment for "tension" narrative framing
+  const feeRelevantThemes = beigeThemes
+    .filter(t => ['lending_conditions', 'prices'].includes(t.theme_category))
+    .filter(t => ['negative', 'mixed'].includes(t.sentiment))
+    .slice(0, 3);
+
+  // If no structured themes, we still have district_headlines from Query 6 as fallback
 
   // Build lookup maps by fee_category for O(1) charter lookups
   const bankByCategory = new Map(bankEntries.map((e) => [e.fee_category, e]));
@@ -335,7 +377,7 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
 
   // Compute data_hash over assembled payload content
   const data_hash = createHash("sha256")
-    .update(JSON.stringify({ categories, district_headlines, revenue, fred, derived }))
+    .update(JSON.stringify({ categories, district_headlines, beige_themes: feeRelevantThemes, revenue, fred, derived }))
     .digest("hex");
 
   const pipeline_commit = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
@@ -350,6 +392,13 @@ export async function assembleNationalQuarterly(): Promise<NationalQuarterlyPayl
     revenue,
     fred,
     district_headlines,
+    beige_themes: feeRelevantThemes.map(t => ({
+      district: t.fed_district,
+      district_name: t.district_name,
+      theme_category: t.theme_category,
+      sentiment: t.sentiment,
+      summary: t.summary,
+    })),
     derived,
     manifest: {
       queries: manifestEntries,

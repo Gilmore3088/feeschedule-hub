@@ -132,10 +132,10 @@ describe("getRevenueTrend", () => {
     const result = await getRevenueTrend(1);
     expect(result.quarters).toHaveLength(1);
     const snap = result.quarters[0];
-    expect(snap.total_service_charges).toBe(5_000_000);
+    expect(snap.total_service_charges).toBe(5_000_000 * 1000);
     expect(snap.total_institutions).toBe(8_000);
-    expect(snap.bank_service_charges).toBe(3_500_000);
-    expect(snap.cu_service_charges).toBe(1_500_000);
+    expect(snap.bank_service_charges).toBe(3_500_000 * 1000);
+    expect(snap.cu_service_charges).toBe(1_500_000 * 1000);
     expect(snap.yoy_change_pct).toBeNull();
   });
 
@@ -242,8 +242,8 @@ describe("getTopRevenueInstitutions", () => {
     const result = await getTopRevenueInstitutions(1);
     expect(result).toHaveLength(1);
     expect(result[0].cert_number).toBe("12345");
-    expect(result[0].service_charge_income).toBe(4_500_000);
-    expect(result[0].total_assets).toBe(2_000_000_000);
+    expect(result[0].service_charge_income).toBe(4_500_000 * 1000);
+    expect(result[0].total_assets).toBe(2_000_000_000 * 1000);
   });
 
   it("handles null institution_name from LEFT JOIN", async () => {
@@ -333,7 +333,7 @@ describe("getDistrictFeeRevenue", () => {
     const result = await getDistrictFeeRevenue(5, "2024-09-30");
     expect(result).not.toBeNull();
     expect(result!.fed_district).toBe(5);
-    expect(result!.avg_sc_income).toBe(1500000);
+    expect(result!.avg_sc_income).toBe(1500000 * 1000);
     // When reportDate provided, the tagged template (latest date query) should NOT be called
     expect(getMock().mock.calls.length).toBe(0);
   });
@@ -425,7 +425,7 @@ describe("getInstitutionRevenueTrend", () => {
     const result = await getInstitutionRevenueTrend(42);
     expect(result).toHaveLength(2);
     expect(result[0].quarter).toBe("2024-Q4");
-    expect(result[0].service_charge_income).toBe(450_000);
+    expect(result[0].service_charge_income).toBe(450_000 * 1000);
     expect(result[0].fee_income_ratio).toBe(13.5);
   });
 
@@ -648,5 +648,124 @@ describe("scaling verification", () => {
     const result = await getRevenueTrend(1);
     const snap = result.quarters[0];
     expect(snap.total_service_charges).toBeGreaterThan(1_000_000);
+  });
+});
+
+// ── THOUSANDS scaling: all dollar-denominated fields must be * 1000 ──────────
+
+describe("thousands scaling (FDIC/NCUA convention)", () => {
+  beforeEach(() => {
+    resetMock(getMock());
+  });
+
+  it("getRevenueTrend multiplies all service charge fields by 1000", async () => {
+    const dbRows = [
+      {
+        quarter: "2024-4Q",
+        quarter_date: "2024-10-01",
+        total_service_charges: "48200",   // DB stores in thousands
+        total_institutions: "100",
+        bank_service_charges: "35000",
+        cu_service_charges: "13200",
+      },
+    ];
+    getMock().unsafe = vi.fn().mockResolvedValue(dbRows);
+
+    const result = await getRevenueTrend(1);
+    const snap = result.quarters[0];
+    expect(snap.total_service_charges).toBe(48200 * 1000);
+    expect(snap.bank_service_charges).toBe(35000 * 1000);
+    expect(snap.cu_service_charges).toBe(13200 * 1000);
+  });
+
+  it("getTopRevenueInstitutions multiplies service_charge_income by 1000", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-09-30" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        cert_number: "12345",
+        institution_name: "Big Bank",
+        charter_type: "bank",
+        report_date: "2024-09-30",
+        service_charge_income: "4500",    // DB: thousands
+        total_assets: "2000000",
+      },
+    ]);
+
+    const result = await getTopRevenueInstitutions(1);
+    expect(result[0].service_charge_income).toBe(4500 * 1000);
+    expect(result[0].total_assets).toBe(2000000 * 1000);
+  });
+
+  it("getInstitutionRevenueTrend multiplies service_charge_income by 1000", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        quarter: "2024-Q4",
+        service_charge_income: "450",    // DB: thousands
+        fee_income_ratio: "13.5",
+      },
+    ]);
+
+    const result = await getInstitutionRevenueTrend(42);
+    expect(result[0].service_charge_income).toBe(450 * 1000);
+    // fee_income_ratio is a ratio, NOT multiplied
+    expect(result[0].fee_income_ratio).toBe(13.5);
+  });
+
+  it("getDistrictFeeRevenue multiplies total_sc_income and avg_sc_income by 1000", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-12-31" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      {
+        fed_district: "2",
+        institution_count: "150",
+        total_sc_income: "500000",       // DB: thousands
+        avg_sc_income: "3333",
+        total_other_noninterest: "200000",
+      },
+    ]);
+
+    const result = await getDistrictFeeRevenue(2);
+    expect(result).not.toBeNull();
+    expect(result!.total_sc_income).toBe(500000 * 1000);
+    expect(result!.avg_sc_income).toBe(3333 * 1000);
+    expect(result!.total_other_noninterest).toBe(200000 * 1000);
+  });
+
+  it("getRevenueByTier multiplies total_sc_income and avg_sc_income by 1000", async () => {
+    getMock().mockResolvedValue([{ latest_date: "2024-12-31" }]);
+    getMock().unsafe = vi.fn().mockResolvedValue([
+      { tier: "community", institution_count: "2000", total_sc_income: "800000", avg_sc_income: "400" },
+    ]);
+
+    const result = await getRevenueByTier();
+    expect(result).toHaveLength(1);
+    expect(result[0].total_sc_income).toBe(800000 * 1000);
+    expect(result[0].avg_sc_income).toBe(400 * 1000);
+  });
+
+  it("getRevenueTrend YoY calculation works correctly with scaled values", async () => {
+    const buildRow = (q: string, total: string) => ({
+      quarter: q,
+      quarter_date: "2024-01-01",
+      total_service_charges: total,
+      total_institutions: "1000",
+      bank_service_charges: total,
+      cu_service_charges: "0",
+    });
+
+    const dbRows = [
+      buildRow("2024-4Q", "11000"),
+      buildRow("2024-3Q", "10500"),
+      buildRow("2024-2Q", "10200"),
+      buildRow("2024-1Q", "10100"),
+      buildRow("2023-4Q", "10000"),
+    ];
+    getMock().unsafe = vi.fn().mockResolvedValue(dbRows);
+
+    const result = await getRevenueTrend(5);
+    // YoY should still be 10% regardless of scaling
+    expect(result.quarters[0].yoy_change_pct).toBeCloseTo(10, 1);
+    // But absolute values should be scaled
+    expect(result.quarters[0].total_service_charges).toBe(11000 * 1000);
+    expect(result.quarters[4].total_service_charges).toBe(10000 * 1000);
   });
 });

@@ -19,6 +19,7 @@ vi.mock("@/lib/crawler-db/call-reports", () => ({
 }));
 vi.mock("@/lib/crawler-db/fed", () => ({
   getBeigeBookHeadlines: vi.fn(),
+  getBeigeBookThemes: vi.fn(),
   getFredSummary: vi.fn(),
 }));
 vi.mock("@/lib/fee-taxonomy", () => ({
@@ -83,11 +84,23 @@ function makeMockPayload(
       unemployment_rate: 3.9,
       cpi_yoy_pct: 3.1,
       consumer_sentiment: 72.5,
+      gdp_growth_yoy_pct: 2.8,
+      personal_savings_rate: 4.6,
+      bank_lending_standards: 14.5,
       as_of: "2024-12-01",
     },
     district_headlines: [
       { district: 1, headline: "Boston district activity remains moderate.", release_date: "2024-10-01" },
       { district: 2, headline: "New York financial conditions tighten.", release_date: "2024-10-01" },
+    ],
+    beige_themes: [
+      {
+        district: 3,
+        district_name: "Philadelphia",
+        theme_category: "lending_conditions",
+        sentiment: "negative",
+        summary: "Banks tightened lending standards for commercial loans.",
+      },
     ],
     derived: {
       avg_iqr_spread_pct: 42.3,
@@ -264,5 +277,52 @@ describe("buildThesisSummary", () => {
     const afterOrder = payload.categories.map((c) => c.fee_category);
 
     expect(afterOrder).toEqual(originalOrder);
+  });
+});
+
+// ─── NationalQuarterlyPayload shape tests ─────────────────────────────────────
+
+describe("NationalQuarterlyPayload shape", () => {
+  it("payload includes beige_themes array", () => {
+    const payload = makeMockPayload();
+
+    expect(payload).toHaveProperty("beige_themes");
+    expect(Array.isArray(payload.beige_themes)).toBe(true);
+    expect(payload.beige_themes.length).toBeGreaterThan(0);
+    expect(payload.beige_themes[0]).toHaveProperty("district");
+    expect(payload.beige_themes[0]).toHaveProperty("district_name");
+    expect(payload.beige_themes[0]).toHaveProperty("theme_category");
+    expect(payload.beige_themes[0]).toHaveProperty("sentiment");
+    expect(payload.beige_themes[0]).toHaveProperty("summary");
+  });
+
+  it("fred payload includes all 7 indicators", () => {
+    const payload = makeMockPayload();
+
+    expect(payload.fred).not.toBeNull();
+    expect(payload.fred).toHaveProperty("fed_funds_rate", 5.25);
+    expect(payload.fred).toHaveProperty("unemployment_rate", 3.9);
+    expect(payload.fred).toHaveProperty("cpi_yoy_pct", 3.1);
+    expect(payload.fred).toHaveProperty("consumer_sentiment", 72.5);
+    expect(payload.fred).toHaveProperty("gdp_growth_yoy_pct", 2.8);
+    expect(payload.fred).toHaveProperty("personal_savings_rate", 4.6);
+    expect(payload.fred).toHaveProperty("bank_lending_standards", 14.5);
+    expect(payload.fred).toHaveProperty("as_of");
+  });
+
+  it("beige_themes contains only lending_conditions and prices categories", () => {
+    const payload = makeMockPayload();
+
+    for (const theme of payload.beige_themes) {
+      expect(["lending_conditions", "prices"]).toContain(theme.theme_category);
+    }
+  });
+
+  it("beige_themes can be empty when no fee-relevant themes exist", () => {
+    const payload = makeMockPayload({ beige_themes: [] });
+
+    expect(payload.beige_themes).toEqual([]);
+    // district_headlines still present as fallback
+    expect(payload.district_headlines.length).toBeGreaterThan(0);
   });
 });
