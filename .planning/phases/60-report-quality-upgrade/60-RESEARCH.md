@@ -383,22 +383,16 @@ pullQuote(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Which columns in `institution_financials` need `* 1000` vs which are already in actual dollars?**
-   - What we know: `service_charge_income` confirmed as thousands (STATE.md). `total_assets` is almost certainly thousands (FDIC/NCUA filing convention). Ratio columns (ROA, etc.) are definitely percentages, not thousands.
-   - What's unclear: Whether every dollar column follows the same convention.
-   - Recommendation: Before implementing, run `SELECT MAX(total_assets), MAX(service_charge_income) FROM institution_financials` and compare to known institutional data (JPMorgan ~$3.7T assets).
+   RESOLVED: All dollar-denominated columns follow FDIC/NCUA filing convention (thousands). Affected columns listed in "The Scaling Bug" section above. Ratio columns (ROA, efficiency) are percentages — no scaling. Plan 60-01 applies `THOUSANDS = 1000` to the 7 identified dollar columns.
 
 2. **Is `beige_book_themes` table populated?**
-   - What we know: Table exists with schema (`release_code`, `fed_district`, `theme_category`, `sentiment`, `summary`, `confidence`). `getBeigeBookThemes()` has graceful error handling.
-   - What's unclear: Whether the ingestion step that populates this table has been run.
-   - Recommendation: Plan should include a data-presence check task; if empty, fall back to `getBeigeBookHeadlines()` as graceful degradation.
+   RESOLVED: Plan 60-02 Task 2 wraps `getBeigeBookThemes()` in try/catch with graceful fallback to `getBeigeBookHeadlines()` if table is empty or query fails. No hard dependency on table being populated.
 
 3. **Is GDPC1 ingested into `fed_economic_indicators`?**
-   - What we know: `fed_economic_indicators` table exists; `getLatestIndicators()` and `getIndicatorTimeSeries()` can fetch any series by ID.
-   - What's unclear: Whether GDP data was included in the FRED ingestion run.
-   - Recommendation: Plan task to verify series presence; `getFredSummary()` already has graceful null handling for missing series.
+   RESOLVED: Plan 60-02 Task 1 adds GDPC1/PSAVERT/DRCBLACBS to `getFredSummary()` with null handling. Missing series return null values that the assembler renders as "N/A" — no crash.
 
 ---
 
