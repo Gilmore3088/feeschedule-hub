@@ -1121,7 +1121,7 @@ Plans:
 - [x] **Phase 57: Admin UX — Sortable Tables & Districts** - SortableTable adoption, server-side sort, districts data wired, responsive pass (completed 2026-04-10)
 - [x] **Phase 58: FFIEC Pipeline & Institution Data** - FFIEC CDR + NCUA 5300 ingestion, hero stat cards with sparklines and peer context (completed 2026-04-10)
 - [x] **Phase 59: Pipeline Coverage Expansion** - Playwright stealth, PDF probe with Google fallback, accessibe blacklist (completed 2026-04-11)
-- [ ] **Phase 60: Report Quality Upgrade** - Fix Call Report thousands-scaling bug, wire FRED + Beige Book into assemblers, upgrade PDF layout to Salesforce-grade stat callouts (not started)
+- [x] **Phase 60: Report Quality Upgrade** - Fix Call Report thousands-scaling bug, wire FRED + Beige Book into assemblers, upgrade PDF layout to Salesforce-grade stat callouts (not started) (completed 2026-04-12)
 - [ ] **Phase 61: Hamilton Pro Polish** - Strip all demo/sample text from 5 Pro screens, wire Stripe billing portal, responsive pass with Tailwind v4 container queries (not started)
 
 ### Phase 55: Canonical Taxonomy Foundation
@@ -1186,11 +1186,11 @@ Plans:
   1. The service charge revenue figure in any report generated from Call Report data displays the correct dollar amount — a developer confirms the reported value matches the raw ingested data divided by the correct scaling factor (no $0 values for covered institutions)
   2. A generated report includes FRED economic indicator context (e.g., current fed funds rate, CPI) and at least one Beige Book district quote — both sourced from the assembled report payload, not hardcoded
   3. A downloaded PDF report contains at least one stat callout box (bold number, label, supporting text in a styled bordered box) and uses numbered chapter headers — the PDF passes visual inspection in Adobe Reader without broken layout or missing fonts
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
-- [ ] 60-01-PLAN.md — Fix Call Report thousands-scaling bug in financial.ts and call-reports.ts (TDD)
-- [ ] 60-02-PLAN.md — Extend FRED to 7 indicators + wire Beige Book themes into assembler
-- [ ] 60-03-PLAN.md — Wire new data into HTML template + visual verification
+- [x] 60-01-PLAN.md — Fix Call Report thousands-scaling bug in financial.ts and call-reports.ts (TDD)
+- [x] 60-02-PLAN.md — Extend FRED to 7 indicators + wire Beige Book themes into assembler
+- [x] 60-03-PLAN.md — Wire new data into HTML template + visual verification
 **UI hint**: yes
 
 ### Phase 61: Hamilton Pro Polish
@@ -1217,5 +1217,5 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
 | 57. Admin UX — Sortable Tables & Districts | v9.0 | 0/TBD | Not started | - |
 | 58. FFIEC Pipeline & Institution Data | v9.0 | 0/TBD | Not started | - |
 | 59. Pipeline Coverage Expansion | v9.0 | 0/TBD | Not started | - |
-| 60. Report Quality Upgrade | v9.0 | 0/TBD | Not started | - |
+| 60. Report Quality Upgrade | v9.0 | 3/3 | Complete    | 2026-04-12 |
 | 61. Hamilton Pro Polish | v9.0 | 0/TBD | Not started | - |
