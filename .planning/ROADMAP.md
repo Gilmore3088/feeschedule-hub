@@ -1186,7 +1186,11 @@ Plans:
   1. The service charge revenue figure in any report generated from Call Report data displays the correct dollar amount — a developer confirms the reported value matches the raw ingested data divided by the correct scaling factor (no $0 values for covered institutions)
   2. A generated report includes FRED economic indicator context (e.g., current fed funds rate, CPI) and at least one Beige Book district quote — both sourced from the assembled report payload, not hardcoded
   3. A downloaded PDF report contains at least one stat callout box (bold number, label, supporting text in a styled bordered box) and uses numbered chapter headers — the PDF passes visual inspection in Adobe Reader without broken layout or missing fonts
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 60-01-PLAN.md — Fix Call Report thousands-scaling bug in financial.ts and call-reports.ts (TDD)
+- [ ] 60-02-PLAN.md — Extend FRED to 7 indicators + wire Beige Book themes into assembler
+- [ ] 60-03-PLAN.md — Wire new data into HTML template + visual verification
 **UI hint**: yes
 
 ### Phase 61: Hamilton Pro Polish
