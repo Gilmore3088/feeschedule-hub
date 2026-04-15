@@ -23,6 +23,8 @@ import psycopg2
 import psycopg2.extras
 import requests
 
+from fee_crawler.db import require_postgres
+
 # FDIC BankFind API fields (same as ingest_fdic.py)
 FDIC_FINANCIAL_FIELDS = ",".join([
     "CERT",
@@ -50,6 +52,11 @@ FDIC_API_BASE = "https://banks.data.fdic.gov/api/financials"
 PAGE_SIZE = 10000
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2
+
+
+def _scale_thousands(value: int | None) -> int | None:
+    """Multiply a thousands-denominated FDIC field up to whole dollars."""
+    return value * 1000 if value is not None else None
 
 
 def _apply_ffiec_scaling(
@@ -194,9 +201,11 @@ def _upsert_matched(cur, target_id: int, cert: str, report_date: str,
              fetched_at = NOW()""",
         (
             target_id, cert, report_date,
-            _safe_int(data.get("ASSET")),
-            _safe_int(data.get("DEP")),
-            _safe_int(data.get("LNLSNET")),
+            # ASSET/DEP/LNLSNET arrive in thousands; store as whole dollars
+            # so all balance-sheet and income fields share the same unit.
+            _scale_thousands(_safe_int(data.get("ASSET"))),
+            _scale_thousands(_safe_int(data.get("DEP"))),
+            _scale_thousands(_safe_int(data.get("LNLSNET"))),
             sc, nonii,
             _safe_float(data.get("NIMY")),
             _safe_float(data.get("EEFFR")),
@@ -254,9 +263,10 @@ def _upsert_unmatched(cur, cert: str, report_date: str,
              fetched_at = NOW()""",
         (
             cert, report_date,
-            _safe_int(data.get("ASSET")),
-            _safe_int(data.get("DEP")),
-            _safe_int(data.get("LNLSNET")),
+            # ASSET/DEP/LNLSNET arrive in thousands; store as whole dollars.
+            _scale_thousands(_safe_int(data.get("ASSET"))),
+            _scale_thousands(_safe_int(data.get("DEP"))),
+            _scale_thousands(_safe_int(data.get("LNLSNET"))),
             sc, nonii,
             _safe_float(data.get("NIMY")),
             _safe_float(data.get("EEFFR")),
@@ -383,6 +393,7 @@ def run(
         backfill: If True, download all quarters from from_year to present.
         from_year: Starting year for backfill (default 2010).
     """
+    require_postgres("ingest_call_reports writes to institution_financials")
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     conn.autocommit = False
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
