@@ -1,8 +1,19 @@
 """Modal pre-flight validation for Bank Fee Index pipeline.
 
-Runs the full 5-stage pipeline against an isolated SQLite DB in /tmp.
+Two validation modes:
+
+1. preflight_e2e — Isolated 5-stage pipeline smoke test using a fresh
+   SQLite DB in /tmp. Deliberately ignores DATABASE_URL so it can run
+   anywhere without touching production data.
+
+2. preflight_postgres — Structural probe that validates the Postgres
+   schema matches production assumptions (all six pipeline tables must
+   exist). Requires DATABASE_URL. Call this before deploying pipeline
+   workers against a new Supabase environment.
+
 Deploy: modal deploy fee_crawler/modal_preflight.py
-Run:    modal run fee_crawler/modal_preflight.py::preflight_e2e
+Run e2e:      modal run fee_crawler/modal_preflight.py::preflight_e2e
+Run pg check: modal run fee_crawler/modal_preflight.py::preflight_postgres
 """
 
 from __future__ import annotations
@@ -14,6 +25,8 @@ from typing import Any
 
 import modal
 from pydantic import BaseModel
+
+from fee_crawler.db import require_postgres
 
 PREFLIGHT_DB_PATH = "/tmp/preflight_test.db"
 PREFLIGHT_DOC_DIR = "/tmp/preflight_docs"
@@ -198,5 +211,52 @@ def preflight_e2e(item: PreflightRequest = PreflightRequest()) -> dict:
     }
 
 
+@app.function(secrets=secrets, timeout=60, image=preflight_image)
+@modal.fastapi_endpoint(method="GET")
+def preflight_postgres() -> dict:
+    """Validate that the Postgres schema matches pipeline production assumptions.
+
+    Connects to DATABASE_URL and probes all six pipeline-only tables via
+    to_regclass(). Returns a pass/fail dict listing any missing tables.
+
+    This guard ensures we never run pipeline workers against a Supabase
+    environment that is missing required migrations.
+    """
+    require_postgres("preflight_postgres validates pipeline table existence")
+
+    import psycopg2
+    import psycopg2.extras
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute("""
+        SELECT
+            to_regclass('public.jobs')                        AS jobs,
+            to_regclass('public.platform_registry')           AS platform_registry,
+            to_regclass('public.cms_confidence')              AS cms_confidence,
+            to_regclass('public.document_r2_key')             AS document_r2_key,
+            to_regclass('public.document_type_detected')      AS document_type_detected,
+            to_regclass('public.doc_classification_confidence') AS doc_classification_confidence
+    """)
+    row = cur.fetchone()
+    conn.close()
+
+    missing = [table for table, oid in row.items() if oid is None]
+
+    if missing:
+        raise RuntimeError(
+            f"Postgres schema missing pipeline tables: {missing}. "
+            "Run the outstanding Supabase migrations before deploying pipeline workers."
+        )
+
+    return {
+        "status": "pass",
+        "message": "All six pipeline tables exist in public schema.",
+        "tables": list(row.keys()),
+    }
+
+
 if __name__ == "__main__":
     print("Use: modal run fee_crawler/modal_preflight.py::preflight_e2e")
+    print("     modal run fee_crawler/modal_preflight.py::preflight_postgres")
