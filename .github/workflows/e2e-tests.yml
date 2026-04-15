@@ -43,7 +43,7 @@ jobs:
           cache: "pip"
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pytest pytest-timeout
+        run: pip install -r fee_crawler/requirements.txt pytest pytest-timeout
 
       - name: Install system dependencies for PDF extraction
         run: |
@@ -86,7 +86,7 @@ jobs:
           cache: "pip"
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pytest pytest-timeout
+        run: pip install -r fee_crawler/requirements.txt pytest pytest-timeout
 
       - name: Install system dependencies for PDF extraction
         run: |
