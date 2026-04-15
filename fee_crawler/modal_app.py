@@ -377,17 +377,27 @@ async def generate_report(request: dict) -> dict:
     secrets=secrets,
 )
 def run_monthly_pulse():
-    """Monthly pulse report: triggers generation on the 1st of each month at 08:00 UTC."""
+    """Manual-only trigger for the monthly pulse report.
+
+    NOT scheduled. Modal free tier is capped at 5 cron jobs and all five
+    slots are taken by run_discovery, run_pdf_extraction, run_browser_extraction,
+    run_post_processing, and ingest_data. Invoke this function manually:
+
+        modal run fee_crawler/modal_app.py::run_monthly_pulse
+
+    Or trigger from /admin/hamilton. Reads BFI_APP_URL (the same env var
+    used by the rest of the report stack — see src/app/api/reports/*).
+    """
     import os
     import json
     import urllib.request
     import urllib.error
     from datetime import datetime, timezone
 
-    app_url = os.environ.get("NEXT_PUBLIC_APP_URL", "")
+    app_url = os.environ.get("BFI_APP_URL", "")
     cron_secret = os.environ.get("REPORT_CRON_SECRET", "")
     if not app_url:
-        return {"triggered": False, "error": "NEXT_PUBLIC_APP_URL not set"}
+        return {"triggered": False, "error": "BFI_APP_URL not set"}
     if not cron_secret:
         return {"triggered": False, "error": "REPORT_CRON_SECRET not set"}
 
