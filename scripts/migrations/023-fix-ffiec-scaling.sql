@@ -5,6 +5,9 @@
 -- NOTE: Balance sheet columns (total_assets, total_deposits, total_loans,
 -- total_revenue) are NOT currently ingested by ingest_call_reports.py,
 -- so no balance sheet UPDATE is included here.
+--
+-- Phase 60.1 (2026-04-15): contract reaffirmed. Ingest helper restored.
+-- See fee_crawler/commands/ingest_call_reports.py::_apply_ffiec_scaling.
 
 BEGIN;
 
