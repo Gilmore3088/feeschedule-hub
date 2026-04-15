@@ -52,6 +52,25 @@ MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2
 
 
+def _apply_ffiec_scaling(
+    source: str,
+    sc: int | None,
+    oni: int | None,
+) -> tuple[int | None, int | None]:
+    """Scale FDIC BankFind income fields from thousands to whole dollars.
+
+    FDIC BankFind and FFIEC Call Report endpoints return income values in
+    thousands (migration 023). NCUA 5300 and other sources already report
+    whole dollars. Only source == 'ffiec' is multiplied.
+    """
+    if source != "ffiec":
+        return sc, oni
+    return (
+        sc * 1000 if sc is not None else None,
+        oni * 1000 if oni is not None else None,
+    )
+
+
 def _safe_int(val: object) -> int | None:
     if val is None:
         return None
@@ -293,12 +312,16 @@ def _ingest_quarter(cur, report_date_yyyymmdd: str,
             if not cert:
                 continue
 
-            # SC (service charges) is in whole dollars; convert to thousands
+            # FDIC BankFind returns income fields in thousands. Multiply up to
+            # whole dollars via _apply_ffiec_scaling so storage is consistent
+            # with migration 023 and test_call_report_scaling.
             sc_raw = _safe_int(d.get("SC"))
-            sc = sc_raw // 1000 if sc_raw is not None else None
-            nonii = _safe_int(d.get("NONII"))
-            intinc = _safe_int(d.get("INTINC"))
-            eintexp = _safe_int(d.get("EINTEXP"))
+            nonii_raw = _safe_int(d.get("NONII"))
+            sc, nonii = _apply_ffiec_scaling("ffiec", sc_raw, nonii_raw)
+            intinc_raw = _safe_int(d.get("INTINC"))
+            eintexp_raw = _safe_int(d.get("EINTEXP"))
+            intinc = intinc_raw * 1000 if intinc_raw is not None else None
+            eintexp = eintexp_raw * 1000 if eintexp_raw is not None else None
 
             # Derived: total_revenue = net interest income + noninterest income
             total_revenue = None
