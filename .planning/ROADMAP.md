@@ -1197,7 +1197,7 @@ Plans:
 ### Phase 60.1: Audit Remediation — Operational Reliability Pass (INSERTED)
 **Goal**: The repo audit findings (P0-P2) are resolved, Phase 59 test regressions are fixed, and the FFIEC scaling contradiction between TS query layer and Python ingest is reconciled — automated jobs fail loudly, schemas agree, and stuck report jobs transition to failed
 **Depends on**: Phase 60
-**Requirements**: OPS-01, OPS-02, OPS-03, OPS-04
+**Requirements**: OPS-01, OPS-02, OPS-03, OPS-04, OPS-05, OPS-06, OPS-07
 **Success Criteria** (what must be TRUE):
   1. Modal scheduled jobs fail loudly on subprocess errors — a developer can verify that `run_post_processing`, `run_daily_report`, and peers use a shared subprocess helper that raises on non-zero exit codes with stdout/stderr tails included
   2. One authoritative schema source exists for crawler pipeline tables — either SQLite bootstrap matches production Postgres schema OR SQLite execution is formally retired with a clear error for codepaths requiring Postgres-only tables
