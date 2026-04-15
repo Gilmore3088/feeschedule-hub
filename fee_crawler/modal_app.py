@@ -111,16 +111,14 @@ async def run_discovery():
 def run_pdf_extraction():
     """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
     import os
-    import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    r = subprocess.run(
+    result = run_checked(
         ["python3", "-m", "fee_crawler", "crawl",
          "--limit", "500", "--workers", "4", "--include-failing",
          "--doc-type", "pdf"],
-        capture_output=True, text=True, env=env, timeout=7200,
+        env=env, timeout=7200,
     )
-    output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]
-    return output
+    return result.stdout[-1000:] if result.stdout else ""
 
 
 @app.function(
@@ -133,15 +131,13 @@ def run_pdf_extraction():
 def run_browser_extraction():
     """Nightly browser extraction: Playwright for JS-rendered pages."""
     import os
-    import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    r = subprocess.run(
+    result = run_checked(
         ["python3", "-m", "fee_crawler", "crawl",
          "--limit", "500", "--workers", "2", "--include-failing"],
-        capture_output=True, text=True, env=env, timeout=10800,
+        env=env, timeout=10800,
     )
-    output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]
-    return output
+    return result.stdout[-1000:] if result.stdout else ""
 
 
 @app.function(
@@ -153,7 +149,6 @@ def run_browser_extraction():
 def run_post_processing():
     """Post-extraction: validate, categorize, auto-review, snapshot."""
     import os
-    import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     commands = [
         ["python3", "-m", "fee_crawler", "categorize"],
@@ -163,8 +158,8 @@ def run_post_processing():
     ]
     results = []
     for cmd in commands:
-        r = subprocess.run(cmd, capture_output=True, text=True, env=env)
-        results.append(f"{cmd[-1]}: {'OK' if r.returncode == 0 else 'FAIL'}")
+        run_checked(cmd, env=env)
+        results.append(f"{cmd[-1]}: OK")
 
     # Run data integrity checks
     from fee_crawler.workers.data_integrity import run_checks, print_report
@@ -187,24 +182,30 @@ def run_post_processing():
 def ingest_data():
     """Daily + weekly data refreshes. Weekly jobs run on Mondays."""
     import os
-    import subprocess
     from datetime import datetime, timezone
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     results = []
+    failures = []
 
     # Daily: FRED, NYFED, BLS, OFR
     for cmd in ["ingest-fred", "ingest-nyfed", "ingest-bls", "ingest-ofr"]:
-        r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
-                           capture_output=True, text=True, env=env)
-        results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
+        try:
+            run_checked(["python3", "-m", "fee_crawler", cmd], env=env)
+            results.append(f"{cmd}: OK")
+        except SubprocessFailed as exc:
+            results.append(f"{cmd}: FAIL ({exc.returncode})")
+            failures.append(cmd)
 
     # Weekly (Monday only): FDIC, NCUA, CFPB, SOD, Beige Book, Call Reports
     if datetime.now(timezone.utc).weekday() == 0:
         for cmd in ["ingest-fdic", "ingest-ncua", "ingest-cfpb", "ingest-sod",
                      "ingest-beige-book", "ingest-call-reports", "ingest-census-acs"]:
-            r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
-                               capture_output=True, text=True, env=env)
-            results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
+            try:
+                run_checked(["python3", "-m", "fee_crawler", cmd], env=env)
+                results.append(f"{cmd}: OK")
+            except SubprocessFailed as exc:
+                results.append(f"{cmd}: FAIL ({exc.returncode})")
+                failures.append(cmd)
 
     # Quarterly (Feb 15, May 15, Aug 15, Nov 15): full FFIEC + NCUA ingestion
     # Runs on approximate FFIEC release dates (~45 days after quarter end).
@@ -213,12 +214,22 @@ def ingest_data():
     is_quarterly = now.month in (2, 5, 8, 11) and now.day == 15
     if is_quarterly:
         for cmd in ["ingest-call-reports", "ingest-ncua"]:
-            r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
-                               capture_output=True, text=True, env=env,
-                               timeout=3600)
-            results.append(f"quarterly-{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
+            try:
+                run_checked(["python3", "-m", "fee_crawler", cmd], env=env, timeout=3600)
+                results.append(f"quarterly-{cmd}: OK")
+            except SubprocessFailed as exc:
+                results.append(f"quarterly-{cmd}: FAIL ({exc.returncode})")
+                failures.append(f"quarterly-{cmd}")
 
-    return "; ".join(results)
+    summary = "; ".join(results)
+    if failures:
+        raise SubprocessFailed(
+            failures,
+            returncode=1,
+            stdout_tail=summary,
+            stderr_tail=f"failed ingestors: {', '.join(failures)}",
+        )
+    return summary
 
 
 @app.function(timeout=300, secrets=secrets)
