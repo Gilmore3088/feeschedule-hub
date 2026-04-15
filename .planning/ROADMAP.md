@@ -1206,7 +1206,14 @@ Plans:
   5. FFIEC scaling contract is consistent across ingest, tests, and migration docs — `ingest_call_reports.py` and `test_call_report_scaling.py` agree on direction (multiply up vs divide down) and the shared helper is restored
   6. Phase 59 test regressions pass — `test_stealth_fetcher.py` patches the module-level `Stealth` symbol and `test_call_report_scaling.py` collects without error
   7. `run_monthly_pulse` is explicitly documented as manual-only OR given a cron schedule, and uses `BFI_APP_URL` consistent with the rest of the report stack
-**Plans**: TBD
+**Plans**: 7 plans
+- [ ] 60.1-01-PLAN.md — Modal subprocess hardening (run_checked helper + refactor)
+- [ ] 60.1-02-PLAN.md — Schema authority: retire SQLite for pipeline tables
+- [ ] 60.1-03-PLAN.md — Report jobs transition to failed on Modal trigger failure
+- [ ] 60.1-04-PLAN.md — Unify CI on fee_crawler/requirements.txt
+- [ ] 60.1-05-PLAN.md — Restore _apply_ffiec_scaling helper + fix ingest direction
+- [ ] 60.1-06-PLAN.md — Hoist Stealth import to module scope
+- [ ] 60.1-07-PLAN.md — run_monthly_pulse: BFI_APP_URL + manual-only docstring
 
 ### Phase 61: Hamilton Pro Polish
 **Goal**: The Hamilton Pro paid experience is production-ready — no demo text, no broken billing, no layout breakage on non-desktop viewports
