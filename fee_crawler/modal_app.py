@@ -8,7 +8,49 @@ Deploy: modal deploy fee_crawler/modal_app.py
 Test:   modal run fee_crawler/modal_app.py::test_connection
 """
 
+import subprocess as _subprocess
+
 import modal
+
+
+class SubprocessFailed(RuntimeError):
+    """Raised when a Modal scheduled subprocess exits non-zero.
+
+    The exception message embeds tails of stdout and stderr so the
+    Modal dashboard surfaces the root cause without requiring log dives.
+    """
+
+    def __init__(self, cmd, returncode, stdout_tail, stderr_tail):
+        self.cmd = cmd
+        self.returncode = returncode
+        self.stdout_tail = stdout_tail
+        self.stderr_tail = stderr_tail
+        super().__init__(
+            f"subprocess failed: {' '.join(cmd)} exited {returncode}\n"
+            f"--- stdout tail ---\n{stdout_tail}\n"
+            f"--- stderr tail ---\n{stderr_tail}"
+        )
+
+
+def run_checked(cmd, *, cwd=None, env=None, timeout=None, tail_lines=40):
+    """Run a subprocess and raise SubprocessFailed on non-zero exit.
+
+    Captures stdout/stderr, keeps the last `tail_lines` lines of each in
+    the raised exception. Returns the CompletedProcess on success.
+    """
+    result = _subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env=env,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        stdout_tail = "\n".join((result.stdout or "").splitlines()[-tail_lines:])
+        stderr_tail = "\n".join((result.stderr or "").splitlines()[-tail_lines:])
+        raise SubprocessFailed(list(cmd), result.returncode, stdout_tail, stderr_tail)
+    return result
 
 pdf_image = (
     modal.Image.debian_slim(python_version="3.12")
