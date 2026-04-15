@@ -15,8 +15,11 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 
+from fee_crawler.db import require_postgres
+
 
 def generate_report() -> str:
+    require_postgres("daily_report requires pipeline tables (jobs)")
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
