@@ -48,7 +48,9 @@ def require_postgres(reason: str) -> None:
     that running without DATABASE_URL fails fast with an actionable message
     instead of hitting a stale or missing schema.
     """
-    if not _DATABASE_URL:
+    # Read live at call time — Modal secrets are injected into os.environ
+    # after the module is imported, so a module-level snapshot would be stale.
+    if not os.environ.get("DATABASE_URL"):
         raise RuntimeError(
             "SQLite not supported for pipeline tables; set DATABASE_URL "
             f"to a Postgres connection string. Reason: {reason}. "

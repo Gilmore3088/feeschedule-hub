@@ -20,6 +20,13 @@ def run_checks() -> dict:
     """Run all integrity checks. Returns structured results."""
     require_postgres("data_integrity requires pipeline tables (jobs)")
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        return _run_checks_with_conn(conn)
+    finally:
+        conn.close()
+
+
+def _run_checks_with_conn(conn) -> dict:
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     results = []
@@ -215,8 +222,6 @@ def run_checks() -> dict:
            WHERE fee_category = 'wire_domestic_outgoing' AND review_status = 'approved'
            AND (amount < 0 OR amount > 75)""",
     )
-
-    conn.close()
 
     # Score
     passed = sum(1 for r in results if r["status"] == "PASS")

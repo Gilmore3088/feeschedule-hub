@@ -69,11 +69,12 @@ class TestRunCheckedFailure:
         )
         with pytest.raises(SubprocessFailed) as exc_info:
             run_checked([sys.executable, "-c", script], tail_lines=5)
-        # Last 5 lines should be present
-        assert "line 99" in exc_info.value.stdout_tail
-        assert "line 95" in exc_info.value.stdout_tail
-        # Earlier lines should NOT be present (bounded by tail_lines=5)
-        assert "line 90" not in exc_info.value.stdout_tail
+        # Exactly the last 5 lines (95-99) should be present
+        for kept in ("line 95", "line 96", "line 97", "line 98", "line 99"):
+            assert kept in exc_info.value.stdout_tail
+        # Every earlier line must be excluded — bound is strict, not "about 5"
+        for dropped in ("line 0", "line 90", "line 91", "line 92", "line 93", "line 94"):
+            assert dropped not in exc_info.value.stdout_tail
 
     def test_subprocess_failed_stores_cmd(self):
         cmd = [sys.executable, "-c", "import sys; sys.exit(3)"]

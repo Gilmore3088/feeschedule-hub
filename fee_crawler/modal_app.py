@@ -223,11 +223,9 @@ def ingest_data():
 
     summary = "; ".join(results)
     if failures:
-        raise SubprocessFailed(
-            failures,
-            returncode=1,
-            stdout_tail=summary,
-            stderr_tail=f"failed ingestors: {', '.join(failures)}",
+        raise RuntimeError(
+            f"ingest_data: {len(failures)} ingestor(s) failed: "
+            f"{', '.join(failures)}. Full summary: {summary}"
         )
     return summary
 
