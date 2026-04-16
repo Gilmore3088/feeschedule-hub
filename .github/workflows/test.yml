@@ -1,0 +1,40 @@
+# Phase 62a CI: Postgres service container + pytest run against real schema.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pg-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bfi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/bfi_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r fee_crawler/requirements.txt
+      - name: Run sqlite-kill guard
+        run: bash scripts/ci-guards.sh sqlite-kill
+        continue-on-error: true  # Wave 4 removes continue-on-error after SQLite elimination
+      - name: Run pytest
+        run: pytest fee_crawler/tests/ -v --no-header
