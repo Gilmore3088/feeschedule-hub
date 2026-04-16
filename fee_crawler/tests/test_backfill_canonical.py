@@ -108,6 +108,39 @@ def test_canonical_key_map_identity_for_base_categories():
         )
 
 
+# ---------------------------------------------------------------------------
+# Test 4: Python↔TS drift tripwire
+# If these numbers change, update src/lib/fee-taxonomy.test.ts to match.
+# ---------------------------------------------------------------------------
+
+# Expected counts — must match src/lib/fee-taxonomy.test.ts
+EXPECTED_BASE_CATEGORY_COUNT = 49
+EXPECTED_CANONICAL_KEY_COUNT = 181
+
+
+def test_fee_families_base_category_count_matches_ts():
+    """FEE_FAMILIES base-category count must match TS TAXONOMY_COUNT."""
+    from fee_crawler.fee_analysis import FEE_FAMILIES
+
+    all_base = [c for family in FEE_FAMILIES.values() for c in family]
+    assert len(all_base) == EXPECTED_BASE_CATEGORY_COUNT, (
+        f"Python FEE_FAMILIES has {len(all_base)} base categories; "
+        f"TS TAXONOMY_COUNT expects {EXPECTED_BASE_CATEGORY_COUNT}. "
+        f"Update src/lib/fee-taxonomy.test.ts if this change is intentional."
+    )
+
+
+def test_canonical_key_map_count_matches_ts():
+    """CANONICAL_KEY_MAP count must match TS CANONICAL_KEY_COUNT."""
+    from fee_crawler.fee_analysis import CANONICAL_KEY_MAP
+
+    assert len(CANONICAL_KEY_MAP) == EXPECTED_CANONICAL_KEY_COUNT, (
+        f"Python CANONICAL_KEY_MAP has {len(CANONICAL_KEY_MAP)} entries; "
+        f"TS CANONICAL_KEY_COUNT expects {EXPECTED_CANONICAL_KEY_COUNT}. "
+        f"Update src/lib/fee-taxonomy.test.ts if this change is intentional."
+    )
+
+
 def test_overdraft_maps_to_itself():
     """Explicit check: 'overdraft' fee_category -> 'overdraft' canonical_fee_key."""
     assert CANONICAL_KEY_MAP["overdraft"] == "overdraft"
