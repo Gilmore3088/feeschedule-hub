@@ -1054,23 +1054,37 @@ Each tool = 1 Python async function + 1 auto-generated TS wrapper + Pydantic inp
 
 ---
 
-## 4. Open Questions
+## 4. Open Questions (RESOLVED)
 
-These need a user decision OR a planner-level call during PLAN.md drafting. None block research.
+These needed a user decision OR a planner-level call during PLAN.md drafting. None blocked research. All seven are resolved below; the resolutions were locked during PLAN.md drafting (per revision Dimension 11 compliance).
 
 1. **Exact `cost_cents` granularity per tool call.** Per-call (one sum of LLM input+output token cost) or per-subcomponent (extraction LLM cost + verification LLM cost separately)? Recommend per-call for 62a; finer granularity is a 62b/66 concern when Hamilton exposes cost analytics.
 
+   RESOLVED: Plan 62A-05 `_calculate_cost_cents` helper captures cost per tool call from Anthropic `usage_metadata`; `cost_cents` is NULL for non-LLM tool calls. Finer subcomponent breakdown deferred to Phase 62b/66 Hamilton cost analytics.
+
 2. **`pg_cron` alternative for local/CI Postgres.** Production Supabase has pg_cron; GitHub Actions postgres:15 container does not. Options: (a) ship the maintenance function + pg_cron schedule in the migration, accept that CI tests call it manually; (b) use GitHub Actions' own `cron:` for a separate Modal function that calls `maintain_agent_events_partitions()` daily (belt-and-suspenders against pg_cron failures). Recommend (a) for 62a simplicity.
+
+   RESOLVED: Option (a). Plan 62A-02 ships the maintenance function + pg_cron schedule in production; CI and local tests invoke `SELECT maintain_agent_events_partitions()` manually via the `db_schema` fixture (Plan 62A-03).
 
 3. **MCP api-key rotation in 62a vs SEC-04 in Phase 68.** Ship MCP with a single Modal-secret-managed master key in 62a; full `mcp_api_keys` table + rotation runbook in Phase 68? Or ship the table now for structural completeness? Recommend: ship the table now (empty), key-check function exists, but rotation UX waits for 68.
 
+   RESOLVED: Deferred to Phase 68 SEC-04. In 62a, Plan 62A-12 uses a single Modal-secret-managed service-role key for the MCP server; the `mcp_api_keys` table + rotation runbook is explicitly out of scope. Reference: Plan 62A-12 threat_model entry for the service-role reuse decision.
+
 4. **Existing `agent_runs` + `agent_run_results` tables (from audit).** These predate v10.0 (wave orchestrator) and overlap conceptually with `agent_events`. Do we migrate data? Deprecate in place? Recommend: leave them alone; Phase 65 (Atlas) decides whether to subsume into agent_events.
+
+   RESOLVED: Deferred to Phase 65 (Atlas). CONTEXT.md §Deferred Ideas explicitly flags legacy `agent_runs` / `agent_run_results` as out of scope for 62a; Atlas decides the migration/subsume path.
 
 5. **Dual sync/async surface in `db.py`.** Fully rewriting 46 import sites to async is aggressive. Compromise: new `AgentDB` async class + existing sync `Database` becomes psycopg2-only (no SQLite). 46 sites unchanged; tool layer uses async. Confirm this "dual surface during transition" is acceptable or user wants a full async rewrite this phase.
 
+   RESOLVED: Plan 62A-11 accepts the dual-surface proposal. Sync psycopg2 `Database` is retained for legacy CLI call sites; new `AgentDB` async class (built on asyncpg pool) backs the tool layer. Full async rewrite of all 46 sites deferred out of 62a.
+
 6. **Enforce `fees_raw.document_url` NOT NULL at write time?** KNOX-09 says "pre-insert assertion blocks lineage-less fees" — but that's Phase 63. In 62a, `fees_raw` allows NULL document_url (for the one-shot backfill of 80.4% lineage-missing rows). Phase 63 adds the NOT NULL constraint via ALTER TABLE after Knox's first clean crawl cycle. Document this migration path.
 
+   RESOLVED: Plan 62A-06 makes `fees_raw.document_url` NULLABLE to enable the one-shot backfill of lineage-missing rows. Phase 63 Knox adds KNOX-09 (pre-insert assertion + ALTER TABLE ... SET NOT NULL) after the first clean crawl cycle. Migration path documented in Plan 62A-06 threat_model.
+
 7. **`agent_messages` intent enum finalization.** Research suggests `challenge|prove|accept|reject|escalate|coverage_request|clarify`. COMMS-01..05 confirms the first five; `coverage_request` is HAM-05 demand reflection; `clarify` is a discretion add. Accept or trim?
+
+   RESOLVED: Plan 62A-04 keeps all seven enum values — `challenge`, `prove`, `accept`, `reject`, `escalate`, `coverage_request`, `clarify`. COMMS-01..05 cover the first five; `coverage_request` ships for HAM-05 demand reflection; `clarify` remains as planner's-discretion add for inter-agent ambiguity resolution. Pruning is a Phase 62b concern once the protocol is wired.
 
 ---
 
