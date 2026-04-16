@@ -26,6 +26,11 @@ import threading
 import time
 from urllib.parse import urlparse
 
+try:
+    from playwright_stealth import Stealth  # noqa: F401  (used at runtime + patched in tests)
+except ImportError:  # pragma: no cover
+    Stealth = None
+
 logger = logging.getLogger(__name__)
 
 # Browser singleton for context reuse within a process/container.
@@ -361,7 +366,11 @@ def fetch_with_browser(url: str, timeout: int = 30, stealth: bool = False) -> di
 
         # Apply stealth patches BEFORE creating page (D-03)
         if stealth:
-            from playwright_stealth import Stealth
+            if Stealth is None:
+                raise RuntimeError(
+                    "playwright_stealth is not installed; install it via "
+                    "fee_crawler/requirements.txt to enable stealth fetching"
+                )
             _stealth = Stealth()
             _stealth.apply_stealth_sync(context)
 

@@ -2,6 +2,14 @@
 
 When DATABASE_URL is set, uses PostgreSQL via psycopg2.
 Otherwise, falls back to SQLite at the path in config.yaml.
+
+Schema authority (Phase 60.1):
+  SQLite supports only the legacy tables: crawl_targets, crawl_runs,
+  crawl_results, extracted_fees. Pipeline tables (jobs, platform_registry,
+  cms_confidence, document_r2_key, document_type_detected,
+  doc_classification_confidence) are Postgres-only — they are defined in
+  supabase/migrations/ and have no SQLite parity. Use require_postgres()
+  at every call site that touches pipeline tables.
 """
 
 import os
@@ -14,6 +22,41 @@ from fee_crawler.config import Config
 
 _thread_local = threading.local()
 _DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# Pipeline tables that exist only in Postgres (supabase/migrations/).
+# SQLite has no parity for these — see require_postgres().
+_PIPELINE_TABLES_REQUIRING_POSTGRES = (
+    "jobs",
+    "platform_registry",
+    "cms_confidence",
+    "document_r2_key",
+    "document_type_detected",
+    "doc_classification_confidence",
+)
+
+
+def require_postgres(reason: str) -> None:
+    """Raise if DATABASE_URL is not configured.
+
+    Pipeline tables (jobs, platform_registry, cms_confidence,
+    document_r2_key, document_type_detected, doc_classification_confidence)
+    are only created by supabase/migrations/* and have no SQLite parity.
+    Calling SQLite-only paths against pipeline code will silently use a
+    stale schema. Phase 60.1 retires that path.
+
+    Call this at the top of every function that touches pipeline tables so
+    that running without DATABASE_URL fails fast with an actionable message
+    instead of hitting a stale or missing schema.
+    """
+    # Read live at call time — Modal secrets are injected into os.environ
+    # after the module is imported, so a module-level snapshot would be stale.
+    if not os.environ.get("DATABASE_URL"):
+        raise RuntimeError(
+            "SQLite not supported for pipeline tables; set DATABASE_URL "
+            f"to a Postgres connection string. Reason: {reason}. "
+            "See .planning/phases/60.1-audit-remediation-operational-reliability/ "
+            "for the schema authority decision."
+        )
 
 _CREATE_CRAWL_TARGETS = """
 CREATE TABLE IF NOT EXISTS crawl_targets (
@@ -481,7 +524,15 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
 
 
 class Database:
-    """Thin wrapper around SQLite for local dev."""
+    """Thin wrapper around SQLite for local dev.
+
+    SQLite is supported only for the legacy tables: crawl_targets,
+    crawl_runs, crawl_results, and extracted_fees. Pipeline tables
+    (jobs, platform_registry, cms_confidence, document_r2_key,
+    document_type_detected, doc_classification_confidence) require
+    Postgres via DATABASE_URL. Use require_postgres(...) at every
+    call site that touches pipeline tables.
+    """
 
     def __init__(self, config: Config, *, init_tables: bool = True) -> None:
         db_path = Path(config.database.path)
@@ -520,6 +571,8 @@ class Database:
         self.conn.execute("PRAGMA temp_store=memory")
 
     def _init_tables(self) -> None:
+        # LEGACY: SQLite path covers crawl_targets/crawl_runs/crawl_results/extracted_fees only.
+        # Pipeline tables are Postgres-only — see require_postgres().
         self.conn.executescript(_CREATE_CRAWL_TARGETS)
         self.conn.executescript(_CREATE_CRAWL_RUNS)
         self.conn.executescript(_CREATE_CRAWL_RESULTS)
@@ -671,7 +724,7 @@ class PostgresDatabase:
     def __init__(self) -> None:
         import psycopg2
         import psycopg2.extras
-        self.conn = psycopg2.connect(_DATABASE_URL)
+        self.conn = psycopg2.connect(os.environ["DATABASE_URL"])
         self.conn.autocommit = False
         self._cursor_factory = psycopg2.extras.RealDictCursor
 
@@ -781,14 +834,14 @@ def _sqlite_to_pg(sql: str) -> str:
 
 def get_db(config: Config) -> Database | PostgresDatabase:
     """Get the appropriate database connection based on environment."""
-    if _DATABASE_URL:
+    if os.environ.get("DATABASE_URL"):
         return PostgresDatabase()
     return Database(config)
 
 
 def get_worker_db(config: Config) -> Database | PostgresDatabase:
     """Thread-local DB connection for worker threads. No migration overhead."""
-    if _DATABASE_URL:
+    if os.environ.get("DATABASE_URL"):
         if not hasattr(_thread_local, "db") or _thread_local.db is None:
             _thread_local.db = PostgresDatabase()
         return _thread_local.db

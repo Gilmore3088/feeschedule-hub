@@ -1,16 +1,12 @@
 import { sql } from "./connection";
 
-// FDIC/NCUA Call Reports store dollar amounts in thousands.
-// This constant converts them to actual dollars at the query layer.
-const THOUSANDS = 1000;
+// Dollar amounts are stored in whole dollars (migration 023 + Phase 60.1
+// ingest scaling). No query-layer multiplication needed.
 
 const numOrNull = (v: unknown): number | null =>
   v !== null && v !== undefined ? Number(v) : null;
 
-const dollarOrNull = (v: unknown): number | null => {
-  const n = numOrNull(v);
-  return n !== null ? n * THOUSANDS : null;
-};
+const dollarOrNull = numOrNull;
 
 export { dollarOrNull as _dollarOrNull_FOR_TESTING };
 
@@ -341,7 +337,7 @@ export async function getRevenueIndexByDate(reportDate?: string): Promise<Revenu
     .map((r) => r.service_charge_income)
     .filter((v): v is number => v !== null);
   const avgSvc = svcCharges.length > 0
-    ? Math.round(svcCharges.reduce((a, b) => a + b, 0) / svcCharges.length) * THOUSANDS
+    ? Math.round(svcCharges.reduce((a, b) => a + b, 0) / svcCharges.length)
     : null;
 
   let rd: string;
