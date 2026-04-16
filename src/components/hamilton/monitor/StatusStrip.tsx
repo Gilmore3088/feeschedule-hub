@@ -2,6 +2,7 @@
  * StatusStrip — Full-width system status banner for the Monitor screen.
  * Server component — no "use client".
  * Confident command-center display: status + metrics + timestamp.
+ * Responsive via container queries: metrics wrap to 2-column grid at narrow widths.
  */
 
 import type { MonitorPageData } from "@/lib/hamilton/monitor-data";
@@ -39,17 +40,17 @@ export function StatusStrip({ status }: StatusStripProps) {
 
   return (
     <div
+      className="@container"
       style={{
         width: "100%",
         backgroundColor: config.bg,
         borderBottom: `2px solid ${config.border}`,
         padding: "0.75rem 2rem",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "2.5rem" }}>
+      {/* Metrics grid: 2-col narrow, 3-col @xl, horizontal flex @2xl */}
+      <div className="grid grid-cols-2 gap-4 @xl:grid-cols-3 @2xl:flex @2xl:justify-between @2xl:items-center">
+
         {/* System status — bold state indicator */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <span
@@ -93,8 +94,9 @@ export function StatusStrip({ status }: StatusStripProps) {
           </span>
         </div>
 
-        {/* Divider */}
+        {/* Divider — hidden at narrow widths, visible in horizontal layout */}
         <span
+          className="hidden @2xl:block"
           style={{
             width: "1px",
             height: "1.25rem",
@@ -131,6 +133,7 @@ export function StatusStrip({ status }: StatusStripProps) {
         {status.highPriorityAlerts > 0 && (
           <>
             <span
+              className="hidden @2xl:block"
               style={{
                 width: "1px",
                 height: "1.25rem",
@@ -162,31 +165,31 @@ export function StatusStrip({ status }: StatusStripProps) {
             </div>
           </>
         )}
-      </div>
 
-      {/* Live indicator */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <span
-          style={{
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
-            backgroundColor: "#16a34a",
-            animation: "pulse 2s ease-in-out infinite",
-          }}
-        />
-        <span
-          style={{
-            fontFamily: "var(--hamilton-font-sans)",
-            fontSize: "0.625rem",
-            fontWeight: 600,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            color: "var(--hamilton-text-tertiary)",
-          }}
-        >
-          Live Updates
-        </span>
+        {/* Live indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span
+            style={{
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              backgroundColor: "#16a34a",
+              animation: "pulse 2s ease-in-out infinite",
+            }}
+          />
+          <span
+            style={{
+              fontFamily: "var(--hamilton-font-sans)",
+              fontSize: "0.625rem",
+              fontWeight: 600,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: "var(--hamilton-text-tertiary)",
+            }}
+          >
+            Live Updates
+          </span>
+        </div>
       </div>
     </div>
   );

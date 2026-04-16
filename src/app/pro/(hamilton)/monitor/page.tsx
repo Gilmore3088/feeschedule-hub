@@ -25,6 +25,7 @@ export default async function MonitorPage() {
 
       {/* Page content */}
       <main
+        className="@container"
         style={{
           backgroundColor: "var(--hamilton-surface)",
           minHeight: "calc(100vh - 57px)",
@@ -61,14 +62,8 @@ export default async function MonitorPage() {
           </p>
         </header>
 
-        {/* 12-col grid: feed (7) + sidebar (5) */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "7fr 5fr",
-            gap: "3rem",
-          }}
-        >
+        {/* 12-col grid: feed (7) + sidebar (5) — collapses to single column below @3xl */}
+        <div className="grid grid-cols-1 gap-8 @3xl:grid-cols-[7fr_5fr] @3xl:gap-12">
           {/* Center column: signal feed */}
           <section>
             {/* Feed header row */}
