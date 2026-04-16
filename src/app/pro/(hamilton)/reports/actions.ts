@@ -148,7 +148,7 @@ export async function generateReport(
             .slice(0, 10)
         : allCategories.slice(0, 15);
 
-    const institutionName = user.institution_name ?? "Your Institution";
+    const institutionName = user.institution_name ?? "";
     const reportTitle = `${TEMPLATE_TITLES[params.templateType]} — ${params.dateFrom} to ${params.dateTo}`;
     const period = `${params.dateFrom} to ${params.dateTo}`;
 

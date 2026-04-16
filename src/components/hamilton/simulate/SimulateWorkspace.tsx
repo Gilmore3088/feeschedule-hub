@@ -296,9 +296,6 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
           >
             {selectedCategory ? `Fee Simulation: ${categoryLabel}` : "Fee Simulation"}
           </h1>
-          <p className="font-label text-[10px] uppercase tracking-widest" style={{ color: "var(--hamilton-on-surface-variant)" }}>
-            Reference: HAM-2024-OD-09 &bull; Last Live Sync: 12s ago
-          </p>
         </div>
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-full border"

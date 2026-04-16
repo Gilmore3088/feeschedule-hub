@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedReports } from "@/lib/hamilton/pro-tables";
+import { getSavedPeerSets } from "@/lib/crawler-db/saved-peers";
 import { ReportWorkspace } from "@/components/hamilton/reports/ReportWorkspace";
 
 export const metadata: Metadata = { title: "Report Builder" };
@@ -23,11 +24,16 @@ export default async function ReportsPage({
   if (!user) redirect("/");
 
   const { scenario_id } = await searchParams;
-  const publishedReports = await getPublishedReports();
+  const [publishedReports, peerSets] = await Promise.all([
+    getPublishedReports(),
+    getSavedPeerSets(String(user.id)).catch(() => [] as Awaited<ReturnType<typeof getSavedPeerSets>>),
+  ]);
 
   return (
     <ReportWorkspace
       userId={user.id}
+      institutionName={user.institution_name ?? ""}
+      peerSetLabel={peerSets[0]?.name ?? "National Index"}
       publishedReports={publishedReports}
       initialScenarioId={scenario_id ?? null}
     />

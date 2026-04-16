@@ -117,9 +117,6 @@ export default async function SettingsPage() {
                 <span className="text-sm" style={{ color: "var(--hamilton-text-secondary)" }}>
                   {planLabel}
                 </span>
-                <span className="text-sm" style={{ color: "var(--hamilton-text-tertiary)" }}>
-                  Member since 2026
-                </span>
               </div>
             </div>
           </div>
