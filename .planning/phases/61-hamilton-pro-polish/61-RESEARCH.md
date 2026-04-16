@@ -768,21 +768,20 @@ None — no new test infrastructure needed.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should `createPortalSession()` return_url be updated?**
+1. **Should `createPortalSession()` return_url be updated?** RESOLVED
    - Current: `${origin}/account`
    - Better for this phase: `${origin}/pro/settings`
-   - Recommendation: Update inline in stripe-actions.ts or accept a param — low risk change
+   - Resolution: Plan 02 updates return_url to `/pro/settings`. Confirmed correct.
 
-2. **Are there two ManageBillingButton locations intentional or a design redundancy?**
+2. **Are there two ManageBillingButton locations intentional or a design redundancy?** RESOLVED
    - Account Overview card has one (line 129), Billing section card has another (line 303)
-   - Recommendation: Keep both — different contexts. Account Overview is for quick access, Billing section provides full subscription status context.
+   - Resolution: Both are intentional (Account Overview = quick access, Billing section = full context). Plan 02 replaces both with ManageBillingButton.
 
-3. **Empty state upgrade scope for Home screen components?**
-   - D-06 only mentions Analyze and Monitor for responsive. D-03 mentions "per screen" for empty states.
-   - Home screen empty states are functional but minimal (text-only). Are they in scope for D-03 upgrades?
-   - Recommendation: Treat Home screen as in-scope for PRO-01 empty state quality upgrades since D-03 says "per screen."
+3. **Empty state upgrade scope for Home screen components?** RESOLVED
+   - D-03 says "per screen." Home screen is in scope.
+   - Resolution: HamiltonViewCard empty state upgraded in Plan 01 Task 2. Other Home components (WhatChangedCard, PriorityAlertsCard, MonitorFeedPreview) already have acceptable empty states with text + inline links per research -- no upgrade needed.
 
 ---
 
