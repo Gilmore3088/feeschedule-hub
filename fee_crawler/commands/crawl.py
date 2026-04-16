@@ -597,7 +597,7 @@ def run(
         print("No institutions with fee schedule URLs to crawl.")
         return
 
-    # Convert sqlite3.Row objects to plain dicts (needed for thread safety)
+    # Convert RealDictRow rows to plain dicts (needed for thread safety)
     targets = [dict(t) for t in targets]
 
     # Update run with target count

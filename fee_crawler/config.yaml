@@ -2,9 +2,9 @@
 # Copy to config.local.yaml and edit for your environment
 
 database:
-  # Local SQLite for dev; swap to Supabase PostgreSQL for production
-  type: sqlite
-  path: data/crawler.db
+  # Postgres-only since Phase 62a (D-13). Connection is taken from the
+  # DATABASE_URL environment variable; no fields are read from YAML.
+  {}
 
 fdic_api:
   base_url: https://api.fdic.gov/banks

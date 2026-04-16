@@ -8,8 +8,19 @@ from pydantic import BaseModel
 
 
 class DatabaseConfig(BaseModel):
-    type: str = "sqlite"
-    path: str = "data/crawler.db"
+    """Postgres-only since Phase 62a (D-13).
+
+    DATABASE_URL is required in every environment; this class is intentionally
+    a parameterless shim so existing call sites (`DatabaseConfig()`) continue
+    to instantiate without the legacy `type`/`path` fields. Legacy call sites
+    that passed `DatabaseConfig(type='sqlite', path=...)` must be migrated to
+    the parameterless form.
+    """
+
+    # Legacy config.yaml files still carry `type:` and `path:` keys; ignore
+    # them silently so the transition doesn't require editing every checked-in
+    # config file. The model carries no fields of its own.
+    model_config = {"extra": "ignore"}
 
 
 class FDICConfig(BaseModel):

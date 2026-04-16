@@ -254,7 +254,7 @@ def run(
         print("No institutions to process (all have fee_schedule_url or no website_url).")
         return
 
-    # Convert sqlite3.Row objects to plain dicts (needed for pickling across threads)
+    # Convert RealDictRow rows to plain dicts (needed for pickling across threads)
     targets = [dict(t) for t in targets]
 
     scope = state.upper() if state else "All states"
