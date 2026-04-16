@@ -54,15 +54,6 @@
 - **CONSUMER-03**: Scheduled email delivery
 - **CONSUMER-04**: Event-triggered content (CFPB action → instant brief)
 
-### Operational Reliability (OPS) — Phase 60.1
-- [ ] **OPS-01**: Modal scheduled jobs fail loudly on subprocess errors via shared helper that raises on non-zero exit with stdout/stderr tails
-- [ ] **OPS-02**: One authoritative schema source for crawler pipeline tables — SQLite matches Postgres or SQLite execution is formally retired
-- [ ] **OPS-03**: Report jobs transition to `failed` when Modal trigger fails — no stuck `pending` jobs
-- [ ] **OPS-04**: CI and Modal install the same Python dependency set — unified requirements manifest
-- [ ] **OPS-05**: FFIEC scaling contract consistent across ingest, tests, and migrations — shared helper restored
-- [ ] **OPS-06**: Phase 59 test regressions resolved — `test_stealth_fetcher.py` and `test_call_report_scaling.py` pass
-- [ ] **OPS-07**: `run_monthly_pulse` explicitly manual-only or scheduled, using `BFI_APP_URL` consistent with report stack
-
 ## Out of Scope
 
 | Feature | Reason |

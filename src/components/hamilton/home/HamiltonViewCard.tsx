@@ -5,7 +5,6 @@
  */
 
 import Link from "next/link";
-import { BarChart3 } from "lucide-react";
 import type { ThesisOutput } from "@/lib/hamilton/types";
 
 interface HamiltonViewCardProps {
@@ -108,55 +107,22 @@ function PriorityBadge({ confidence }: { confidence: "high" | "medium" | "low" }
 
 function EmptyState() {
   return (
-    <div
-      style={{
-        backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
-        padding: "2.5rem",
-        borderLeft: "4px solid var(--hamilton-outline-variant, #d8c2b8)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1rem",
-        borderRadius: "0.5rem",
-      }}
-    >
-      <div style={{ textAlign: "center", maxWidth: "28rem", margin: "0 auto" }}>
-        <div style={{
-          width: "3rem",
-          height: "3rem",
-          borderRadius: "50%",
-          backgroundColor: "var(--hamilton-surface-container-high)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          margin: "0 auto 1.25rem",
-        }}>
-          <BarChart3 size={20} stroke="var(--hamilton-primary)" strokeWidth={1.5} />
-        </div>
-        <h3
-          style={{
-            fontFamily: "var(--hamilton-font-serif)",
-            fontSize: "1.25rem",
-            fontStyle: "italic",
-            fontWeight: 400,
-            color: "var(--hamilton-on-surface)",
-            margin: "0 0 0.75rem",
-          }}
-        >
-          Positioning Analysis Loading
-        </h3>
-        <p
-          style={{
-            fontFamily: "var(--hamilton-font-sans)",
-            fontSize: "0.875rem",
-            color: "var(--hamilton-text-secondary)",
-            lineHeight: 1.6,
-            margin: 0,
-          }}
-        >
-          Hamilton will display your institution&apos;s competitive positioning once analysis data is available.
-          Check <a href="/pro/settings" style={{ color: "var(--hamilton-primary)", textDecoration: "underline" }}>Settings</a> to ensure your institution is configured.
-        </p>
-      </div>
+    <div style={{ padding: "2rem 0", color: "var(--hamilton-on-surface-variant)" }}>
+      <p
+        style={{
+          fontFamily: "var(--hamilton-font-serif)",
+          fontSize: "1.5rem",
+          fontStyle: "italic",
+          lineHeight: 1.5,
+          color: "var(--hamilton-on-surface-variant)",
+          marginBottom: "0.5rem",
+        }}
+      >
+        Hamilton is preparing your first briefing.
+      </p>
+      <p style={{ fontSize: "0.8125rem", color: "var(--hamilton-text-tertiary)" }}>
+        Analysis will appear here once the index has sufficient data.
+      </p>
     </div>
   );
 }

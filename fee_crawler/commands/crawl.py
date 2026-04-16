@@ -15,7 +15,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fee_crawler.config import Config
-from fee_crawler.db import Database, get_worker_db, require_postgres
+from fee_crawler.db import Database, get_worker_db
 from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
 from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
@@ -458,10 +458,6 @@ def run(
         stealth: Force stealth Playwright mode for all initial fetches.
         pdf_probe: Run PDF URL probing pre-step before the main crawl.
     """
-    require_postgres(
-        "crawl command requires pipeline tables "
-        "(document_r2_key / document_type_detected / doc_classification_confidence / platform_registry)"
-    )
     # Create a crawl run record
     run_id = db.insert_returning_id(
         "INSERT INTO crawl_runs (trigger_type, targets_total) VALUES (?, 0)",

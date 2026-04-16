@@ -25,27 +25,6 @@ import type { ReportType } from '@/lib/report-engine/types';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-/**
- * Mark a report job as failed with a descriptive reason.
- * Called on every Modal trigger failure path so no job is left in 'pending' forever.
- * Uses the schema column `error` (not `error_message`) per migration 20260406_report_jobs.sql.
- * Sets completed_at to close the job lifecycle even for failed jobs.
- */
-async function markJobFailed(jobId: string, reason: string): Promise<void> {
-  try {
-    const sql = getSql();
-    await sql`
-      UPDATE report_jobs
-      SET status       = 'failed',
-          error        = ${'modal trigger failed: ' + reason.slice(0, 490)},
-          completed_at = now()
-      WHERE id = ${jobId}
-    `;
-  } catch (updateErr) {
-    console.error('[reports/generate] failed to mark job failed:', updateErr);
-  }
-}
-
 // Allowlist — T-13-13: explicit validation before DB insert
 const VALID_REPORT_TYPES: ReadonlySet<string> = new Set([
   'national_index',
@@ -153,38 +132,31 @@ export async function POST(request: Request) {
   // Modal endpoint is synchronous (runs full pipeline), so we can't await it before responding.
   const modalUrl = process.env.MODAL_REPORT_URL;
 
-  if (!modalUrl) {
-    // Terminal error: nothing will ever process this job. Fail it immediately so
-    // the row does not sit in 'pending' forever (audit Finding 3 ghost-queue fix).
-    await markJobFailed(jobId, 'MODAL_REPORT_URL not configured');
-    return NextResponse.json(
-      { error: 'Report worker not configured (MODAL_REPORT_URL missing)' },
-      { status: 503 },
-    );
-  }
-
-  after(async () => {
-    try {
-      const triggerRes = await fetch(modalUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: jobId,
-          report_type: validatedType,
-          params: validatedParams,
-        }),
-      });
-      if (!triggerRes.ok) {
-        const bodyText = await triggerRes.text().catch(() => '');
-        console.error('[reports/generate] Modal returned', triggerRes.status, bodyText.slice(0, 200));
-        await markJobFailed(jobId, `modal http ${triggerRes.status}`);
+  if (modalUrl) {
+    after(async () => {
+      try {
+        const triggerRes = await fetch(modalUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: jobId,
+            report_type: validatedType,
+            params: validatedParams,
+          }),
+        });
+        if (!triggerRes.ok) {
+          console.error('[reports/generate] Modal returned', triggerRes.status);
+        }
+      } catch (err: unknown) {
+        console.error(
+          '[reports/generate] Modal trigger failed:',
+          err instanceof Error ? err.message : String(err),
+        );
       }
-    } catch (err: unknown) {
-      const reason = err instanceof Error ? err.message : String(err);
-      console.error('[reports/generate] Modal trigger threw:', reason);
-      await markJobFailed(jobId, reason);
-    }
-  });
+    });
+  } else {
+    console.warn('[reports/generate] MODAL_REPORT_URL not configured — skipping Modal trigger');
+  }
 
   return NextResponse.json({ jobId }, { status: 202 });
 }

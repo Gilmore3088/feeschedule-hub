@@ -44,7 +44,7 @@ export async function createPortalSession(): Promise<void> {
 
   const session = await stripe.billingPortal.sessions.create({
     customer: user.stripe_customer_id,
-    return_url: `${origin}/account`,
+    return_url: `${origin}/pro/settings`,
   });
 
   redirect(session.url);

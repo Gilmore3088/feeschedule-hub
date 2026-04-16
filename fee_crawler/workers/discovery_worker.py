@@ -21,7 +21,6 @@ from urllib.parse import urlparse, urljoin
 import asyncpg
 import httpx
 
-from fee_crawler.db import require_postgres
 from fee_crawler.pipeline.cms_fingerprint import fingerprint, get_cms_paths
 from fee_crawler.pipeline.url_discoverer import (
     COMMON_PATHS,
@@ -324,7 +323,6 @@ async def run(concurrency: int = CONCURRENCY) -> str:
     Continuously claims and processes discovery jobs until the queue is empty.
     Returns a summary string.
     """
-    require_postgres("discovery_worker requires pipeline tables (jobs / platform_registry)")
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         raise RuntimeError("DATABASE_URL environment variable is required")

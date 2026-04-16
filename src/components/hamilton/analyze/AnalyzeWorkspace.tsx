@@ -3,7 +3,6 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState, useCallback, useRef, useEffect } from "react";
-import { MessageSquare, ArrowRight } from "lucide-react";
 import { ANALYSIS_FOCUS_TABS, type AnalysisFocus } from "@/lib/hamilton/navigation";
 import { saveAnalysis } from "@/app/pro/(hamilton)/analyze/actions";
 import { HamiltonViewPanel } from "./HamiltonViewPanel";
@@ -275,75 +274,14 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
 
       {/* Empty state */}
       {!displayedResponse && !isLoading && messages.length === 0 && (
-        <div
-          style={{
-            backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
-            padding: "2.5rem",
-            borderLeft: "4px solid var(--hamilton-outline-variant, #d8c2b8)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-            borderRadius: "0.5rem",
-          }}
-        >
-          <div style={{ textAlign: "center", maxWidth: "28rem", margin: "0 auto" }}>
-            <div style={{
-              width: "3rem",
-              height: "3rem",
-              borderRadius: "50%",
-              backgroundColor: "var(--hamilton-surface-container-high)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 1.25rem",
-            }}>
-              <MessageSquare size={20} stroke="var(--hamilton-primary)" strokeWidth={1.5} />
-            </div>
-            <h3
-              style={{
-                fontFamily: "var(--hamilton-font-serif)",
-                fontSize: "1.25rem",
-                fontStyle: "italic",
-                fontWeight: 400,
-                color: "var(--hamilton-on-surface)",
-                margin: "0 0 0.75rem",
-              }}
-            >
-              Begin Your Analysis
-            </h3>
-            <p
-              style={{
-                fontFamily: "var(--hamilton-font-sans)",
-                fontSize: "0.875rem",
-                color: "var(--hamilton-text-secondary)",
-                lineHeight: 1.6,
-                margin: "0 0 1.5rem",
-              }}
-            >
-              Ask Hamilton to analyze any fee category, competitive position, or market trend.
-              Select a focus area above to guide the conversation.
-            </p>
-            <button
-              type="button"
-              onClick={() => document.getElementById("analysis-input-bar")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.625rem 1.25rem",
-                fontSize: "0.8125rem",
-                fontWeight: 600,
-                borderRadius: "0.375rem",
-                letterSpacing: "0.05em",
-                border: "none",
-                cursor: "pointer",
-              }}
-              className="burnished-cta"
-            >
-              Start Analysis
-              <ArrowRight size={14} />
-            </button>
-          </div>
+        <div className="text-center py-16" style={{ color: "var(--hamilton-text-secondary)" }}>
+          <p className="text-base mb-1" style={{ fontFamily: "var(--hamilton-font-serif)" }}>
+            Ask Hamilton to analyze a fee category or competitive position
+          </p>
+          <p className="text-sm">
+            Currently viewing:{" "}
+            <span style={{ color: "var(--hamilton-accent)" }}>{activeTab}</span> analysis
+          </p>
         </div>
       )}
 

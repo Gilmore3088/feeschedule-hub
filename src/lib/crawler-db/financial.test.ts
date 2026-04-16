@@ -32,9 +32,9 @@ function resetMock(mock: MockSql) {
 
 // ── dollarOrNull helper ───────────────────────────────────────────────────────
 
-describe("dollarOrNull (passthrough — DB stores whole dollars since migration 023)", () => {
-  it("passes through non-null values unchanged", () => {
-    expect(dollarOrNull(48200000)).toBe(48200000);
+describe("dollarOrNull", () => {
+  it("multiplies non-null values by 1000", () => {
+    expect(dollarOrNull(48200)).toBe(48200000);
   });
 
   it("returns null for null input", () => {
@@ -50,7 +50,7 @@ describe("dollarOrNull (passthrough — DB stores whole dollars since migration 
   });
 
   it("handles string numbers (Postgres returns strings)", () => {
-    expect(dollarOrNull("48200000")).toBe(48200000);
+    expect(dollarOrNull("48200")).toBe(48200000);
   });
 });
 
@@ -90,14 +90,14 @@ describe("getFinancialsByInstitution - thousands scaling", () => {
     expect(result).toHaveLength(1);
     const r = result[0];
 
-    // Dollar columns pass through unchanged (DB stores whole dollars)
-    expect(r.total_assets).toBe(500000);
-    expect(r.total_deposits).toBe(400000);
-    expect(r.total_loans).toBe(300000);
-    expect(r.service_charge_income).toBe(1200);
-    expect(r.other_noninterest_income).toBe(800);
-    expect(r.total_revenue).toBe(25000);
-    expect(r.overdraft_revenue).toBe(500);
+    // Dollar columns should be multiplied by 1000
+    expect(r.total_assets).toBe(500000 * 1000);
+    expect(r.total_deposits).toBe(400000 * 1000);
+    expect(r.total_loans).toBe(300000 * 1000);
+    expect(r.service_charge_income).toBe(1200 * 1000);
+    expect(r.other_noninterest_income).toBe(800 * 1000);
+    expect(r.total_revenue).toBe(25000 * 1000);
+    expect(r.overdraft_revenue).toBe(500 * 1000);
   });
 
   it("leaves ratio columns unchanged", async () => {
@@ -226,8 +226,8 @@ describe("getRevenueIndexByDate - thousands scaling", () => {
 
     const result = await getRevenueIndexByDate();
     expect(result).not.toBeNull();
-    // Average of 1200 and 1800 = 1500 (DB stores whole dollars, no multiplication)
-    expect(result!.avg_service_charge).toBe(1500);
+    // Average of 1200 and 1800 = 1500, then * 1000 = 1500000
+    expect(result!.avg_service_charge).toBe(1500000);
   });
 
   it("returns null avg_service_charge when no service charges", async () => {

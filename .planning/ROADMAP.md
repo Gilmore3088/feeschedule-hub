@@ -1122,7 +1122,6 @@ Plans:
 - [x] **Phase 58: FFIEC Pipeline & Institution Data** - FFIEC CDR + NCUA 5300 ingestion, hero stat cards with sparklines and peer context (completed 2026-04-10)
 - [x] **Phase 59: Pipeline Coverage Expansion** - Playwright stealth, PDF probe with Google fallback, accessibe blacklist (completed 2026-04-11)
 - [x] **Phase 60: Report Quality Upgrade** - Fix Call Report thousands-scaling bug, wire FRED + Beige Book into assemblers, upgrade PDF layout to Salesforce-grade stat callouts (not started) (completed 2026-04-12)
-- [x] **Phase 60.1: Audit Remediation — Operational Reliability Pass** (INSERTED) - Fix Modal subprocess masking, SQLite bootstrap drift, stuck report jobs, CI/Modal dep drift, FFIEC scaling contradiction, Phase 59 test regressions, monthly_pulse config (not started) (completed 2026-04-15)
 - [ ] **Phase 61: Hamilton Pro Polish** - Strip all demo/sample text from 5 Pro screens, wire Stripe billing portal, responsive pass with Tailwind v4 container queries (not started)
 
 ### Phase 55: Canonical Taxonomy Foundation
@@ -1194,27 +1193,6 @@ Plans:
 - [x] 60-03-PLAN.md — Wire new data into HTML template + visual verification
 **UI hint**: yes
 
-### Phase 60.1: Audit Remediation — Operational Reliability Pass (INSERTED)
-**Goal**: The repo audit findings (P0-P2) are resolved, Phase 59 test regressions are fixed, and the FFIEC scaling contradiction between TS query layer and Python ingest is reconciled — automated jobs fail loudly, schemas agree, and stuck report jobs transition to failed
-**Depends on**: Phase 60
-**Requirements**: OPS-01, OPS-02, OPS-03, OPS-04, OPS-05, OPS-06, OPS-07
-**Success Criteria** (what must be TRUE):
-  1. Modal scheduled jobs fail loudly on subprocess errors — a developer can verify that `run_post_processing`, `run_daily_report`, and peers use a shared subprocess helper that raises on non-zero exit codes with stdout/stderr tails included
-  2. One authoritative schema source exists for crawler pipeline tables — either SQLite bootstrap matches production Postgres schema OR SQLite execution is formally retired with a clear error for codepaths requiring Postgres-only tables
-  3. Report jobs transition to `failed` status when Modal triggering fails — no job can remain in `pending` forever; missing `MODAL_REPORT_URL` produces a terminal error
-  4. CI and Modal install the same Python dependency set — a developer can confirm `requirements.txt` (used by CI) and `fee_crawler/requirements.txt` (used by Modal) are unified or CI is updated to use the Modal manifest
-  5. FFIEC scaling contract is consistent across ingest, tests, and migration docs — `ingest_call_reports.py` and `test_call_report_scaling.py` agree on direction (multiply up vs divide down) and the shared helper is restored
-  6. Phase 59 test regressions pass — `test_stealth_fetcher.py` patches the module-level `Stealth` symbol and `test_call_report_scaling.py` collects without error
-  7. `run_monthly_pulse` is explicitly documented as manual-only OR given a cron schedule, and uses `BFI_APP_URL` consistent with the rest of the report stack
-**Plans**: 7 plans
-- [x] 60.1-01-PLAN.md — Modal subprocess hardening (run_checked helper + refactor)
-- [x] 60.1-02-PLAN.md — Schema authority: retire SQLite for pipeline tables
-- [x] 60.1-03-PLAN.md — Report jobs transition to failed on Modal trigger failure
-- [x] 60.1-04-PLAN.md — Unify CI on fee_crawler/requirements.txt
-- [x] 60.1-05-PLAN.md — Restore _apply_ffiec_scaling helper + fix ingest direction
-- [x] 60.1-06-PLAN.md — Hoist Stealth import to module scope
-- [x] 60.1-07-PLAN.md — run_monthly_pulse: BFI_APP_URL + manual-only docstring
-
 ### Phase 61: Hamilton Pro Polish
 **Goal**: The Hamilton Pro paid experience is production-ready — no demo text, no broken billing, no layout breakage on non-desktop viewports
 **Depends on**: Phase 56
@@ -1223,10 +1201,7 @@ Plans:
   1. A developer auditing all 5 Pro screens (Home, Analyze, Simulate, Reports, Monitor) finds zero instances of hardcoded sample institution names, placeholder fee amounts, demo scenario data, or lorem ipsum text — all displayed content either comes from real API responses or shows a designed empty state
   2. Clicking the billing management link in Pro Settings opens the Stripe customer portal for the authenticated user — the ManageBillingButton is wired and the portal loads without error
   3. The Analyze and Monitor screens render without layout overflow or cut-off content at 768px viewport width using Tailwind v4 container queries — tested at 1280px and 768px
-**Plans**: 3 plans
-- [ ] 61-01-PLAN.md — Strip demo data + upgrade empty states (PRO-01)
-- [ ] 61-02-PLAN.md — ManageBillingButton + Stripe portal wiring (PRO-02)
-- [ ] 61-03-PLAN.md — Container query responsive pass on Monitor + Analyze (PRO-03)
+**Plans**: TBD
 **UI hint**: yes
 
 ## Progress (v9.0)

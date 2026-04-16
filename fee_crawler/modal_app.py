@@ -8,49 +8,7 @@ Deploy: modal deploy fee_crawler/modal_app.py
 Test:   modal run fee_crawler/modal_app.py::test_connection
 """
 
-import subprocess as _subprocess
-
 import modal
-
-
-class SubprocessFailed(RuntimeError):
-    """Raised when a Modal scheduled subprocess exits non-zero.
-
-    The exception message embeds tails of stdout and stderr so the
-    Modal dashboard surfaces the root cause without requiring log dives.
-    """
-
-    def __init__(self, cmd, returncode, stdout_tail, stderr_tail):
-        self.cmd = cmd
-        self.returncode = returncode
-        self.stdout_tail = stdout_tail
-        self.stderr_tail = stderr_tail
-        super().__init__(
-            f"subprocess failed: {' '.join(cmd)} exited {returncode}\n"
-            f"--- stdout tail ---\n{stdout_tail}\n"
-            f"--- stderr tail ---\n{stderr_tail}"
-        )
-
-
-def run_checked(cmd, *, cwd=None, env=None, timeout=None, tail_lines=40):
-    """Run a subprocess and raise SubprocessFailed on non-zero exit.
-
-    Captures stdout/stderr, keeps the last `tail_lines` lines of each in
-    the raised exception. Returns the CompletedProcess on success.
-    """
-    result = _subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-        env=env,
-        timeout=timeout,
-    )
-    if result.returncode != 0:
-        stdout_tail = "\n".join((result.stdout or "").splitlines()[-tail_lines:])
-        stderr_tail = "\n".join((result.stderr or "").splitlines()[-tail_lines:])
-        raise SubprocessFailed(list(cmd), result.returncode, stdout_tail, stderr_tail)
-    return result
 
 pdf_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -111,14 +69,16 @@ async def run_discovery():
 def run_pdf_extraction():
     """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
     import os
+    import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    result = run_checked(
+    r = subprocess.run(
         ["python3", "-m", "fee_crawler", "crawl",
          "--limit", "500", "--workers", "4", "--include-failing",
          "--doc-type", "pdf"],
-        env=env, timeout=7200,
+        capture_output=True, text=True, env=env, timeout=7200,
     )
-    return result.stdout[-1000:] if result.stdout else ""
+    output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]
+    return output
 
 
 @app.function(
@@ -131,13 +91,15 @@ def run_pdf_extraction():
 def run_browser_extraction():
     """Nightly browser extraction: Playwright for JS-rendered pages."""
     import os
+    import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    result = run_checked(
+    r = subprocess.run(
         ["python3", "-m", "fee_crawler", "crawl",
          "--limit", "500", "--workers", "2", "--include-failing"],
-        env=env, timeout=10800,
+        capture_output=True, text=True, env=env, timeout=10800,
     )
-    return result.stdout[-1000:] if result.stdout else ""
+    output = r.stdout[-1000:] if r.stdout else r.stderr[-500:]
+    return output
 
 
 @app.function(
@@ -149,6 +111,7 @@ def run_browser_extraction():
 def run_post_processing():
     """Post-extraction: validate, categorize, auto-review, snapshot."""
     import os
+    import subprocess
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     commands = [
         ["python3", "-m", "fee_crawler", "categorize"],
@@ -158,8 +121,8 @@ def run_post_processing():
     ]
     results = []
     for cmd in commands:
-        run_checked(cmd, env=env)
-        results.append(f"{cmd[-1]}: OK")
+        r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        results.append(f"{cmd[-1]}: {'OK' if r.returncode == 0 else 'FAIL'}")
 
     # Run data integrity checks
     from fee_crawler.workers.data_integrity import run_checks, print_report
@@ -182,30 +145,24 @@ def run_post_processing():
 def ingest_data():
     """Daily + weekly data refreshes. Weekly jobs run on Mondays."""
     import os
+    import subprocess
     from datetime import datetime, timezone
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     results = []
-    failures = []
 
     # Daily: FRED, NYFED, BLS, OFR
     for cmd in ["ingest-fred", "ingest-nyfed", "ingest-bls", "ingest-ofr"]:
-        try:
-            run_checked(["python3", "-m", "fee_crawler", cmd], env=env)
-            results.append(f"{cmd}: OK")
-        except SubprocessFailed as exc:
-            results.append(f"{cmd}: FAIL ({exc.returncode})")
-            failures.append(cmd)
+        r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
+                           capture_output=True, text=True, env=env)
+        results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
 
     # Weekly (Monday only): FDIC, NCUA, CFPB, SOD, Beige Book, Call Reports
     if datetime.now(timezone.utc).weekday() == 0:
         for cmd in ["ingest-fdic", "ingest-ncua", "ingest-cfpb", "ingest-sod",
                      "ingest-beige-book", "ingest-call-reports", "ingest-census-acs"]:
-            try:
-                run_checked(["python3", "-m", "fee_crawler", cmd], env=env)
-                results.append(f"{cmd}: OK")
-            except SubprocessFailed as exc:
-                results.append(f"{cmd}: FAIL ({exc.returncode})")
-                failures.append(cmd)
+            r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
+                               capture_output=True, text=True, env=env)
+            results.append(f"{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
 
     # Quarterly (Feb 15, May 15, Aug 15, Nov 15): full FFIEC + NCUA ingestion
     # Runs on approximate FFIEC release dates (~45 days after quarter end).
@@ -214,20 +171,12 @@ def ingest_data():
     is_quarterly = now.month in (2, 5, 8, 11) and now.day == 15
     if is_quarterly:
         for cmd in ["ingest-call-reports", "ingest-ncua"]:
-            try:
-                run_checked(["python3", "-m", "fee_crawler", cmd], env=env, timeout=3600)
-                results.append(f"quarterly-{cmd}: OK")
-            except SubprocessFailed as exc:
-                results.append(f"quarterly-{cmd}: FAIL ({exc.returncode})")
-                failures.append(f"quarterly-{cmd}")
+            r = subprocess.run(["python3", "-m", "fee_crawler", cmd],
+                               capture_output=True, text=True, env=env,
+                               timeout=3600)
+            results.append(f"quarterly-{cmd}: {'OK' if r.returncode == 0 else 'FAIL'}")
 
-    summary = "; ".join(results)
-    if failures:
-        raise RuntimeError(
-            f"ingest_data: {len(failures)} ingestor(s) failed: "
-            f"{', '.join(failures)}. Full summary: {summary}"
-        )
-    return summary
+    return "; ".join(results)
 
 
 @app.function(timeout=300, secrets=secrets)
@@ -440,27 +389,17 @@ async def generate_report(request: dict) -> dict:
     secrets=secrets,
 )
 def run_monthly_pulse():
-    """Manual-only trigger for the monthly pulse report.
-
-    NOT scheduled. Modal free tier is capped at 5 cron jobs and all five
-    slots are taken by run_discovery, run_pdf_extraction, run_browser_extraction,
-    run_post_processing, and ingest_data. Invoke this function manually:
-
-        modal run fee_crawler/modal_app.py::run_monthly_pulse
-
-    Or trigger from /admin/hamilton. Reads BFI_APP_URL (the same env var
-    used by the rest of the report stack — see src/app/api/reports/*).
-    """
+    """Monthly pulse report: triggers generation on the 1st of each month at 08:00 UTC."""
     import os
     import json
     import urllib.request
     import urllib.error
     from datetime import datetime, timezone
 
-    app_url = os.environ.get("BFI_APP_URL", "")
+    app_url = os.environ.get("NEXT_PUBLIC_APP_URL", "")
     cron_secret = os.environ.get("REPORT_CRON_SECRET", "")
     if not app_url:
-        return {"triggered": False, "error": "BFI_APP_URL not set"}
+        return {"triggered": False, "error": "NEXT_PUBLIC_APP_URL not set"}
     if not cron_secret:
         return {"triggered": False, "error": "REPORT_CRON_SECRET not set"}
 
