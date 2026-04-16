@@ -11,6 +11,7 @@
 - [x] **v8.0 Hamilton Pro Platform** - Phases 38-46 (shipped 2026-04-09)
 - [x] **v8.1 Hamilton Pro Live Data Wiring** - Phases 47-54 (shipped 2026-04-10)
 - [ ] **v9.0 Data Foundation & Production Polish** - Phases 55-61 (in progress)
+- [ ] **v10.0 Pipeline Integrity and Agent Team Foundation** — Phases 62a-68 (in progress)
 
 ## Phases
 
@@ -1243,3 +1244,146 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
 | 59. Pipeline Coverage Expansion | v9.0 | 0/TBD | Not started | - |
 | 60. Report Quality Upgrade | v9.0 | 3/3 | Complete    | 2026-04-12 |
 | 61. Hamilton Pro Polish | v9.0 | 2/1 | Complete   | 2026-04-16 |
+
+---
+
+## v10.0 Pipeline Integrity and Agent Team Foundation
+
+**Milestone Goal:** Transform the current collection of disconnected stages into a hierarchical agent team — Hamilton coordinating Knox, Darwin, and Atlas at the top, with Knox commanding a fleet of 51 state agents in the field — all operating under a 5-step self-improvement loop, with source lineage restored and a three-tier data architecture (Raw → Business → Presentation) that Hamilton consumes.
+
+**Agent team (locked 2026-04-16):** Hamilton (synthesis, Tier 3 only) · Knox (data command, supervises 51 state agents) · Darwin (classification/verification, adversarial) · Atlas (orchestration, cost budgets) · State agents ×51 (territorial, compounding per-state knowledge).
+
+**Operating contract:** every agent honors LOG → REVIEW → DISSECT → UNDERSTAND → IMPROVE as a first-class architectural requirement. Tier 3 numbers must trace back to originating crawl events.
+
+**Source audits:** `.planning/audits/2026-04-16-pipeline-audit/SYNTHESIS.md` (80.4% lineage loss, wave orchestrator unscheduled, no feedback loops) · `.planning/audits/2026-04-16-pipeline-audit/AGENT-NATIVE-SYNTHESIS.md` (~55% agent-native; CRUD 4%, Action Parity 23%, Context Injection 42% blocking).
+
+- [ ] **Phase 62a: Agent Foundation — Data Layer** - `agent_events` + `agent_auth_log` tables, three-tier schema (Raw/Business/Presentation), write-CRUD tool layer, per-agent cost quota infrastructure, SQLite elimination (not started)
+- [ ] **Phase 62b: Agent Foundation — Runtime Layer** - 5-step loop framework, inter-agent comms protocol (Darwin↔Knox handshakes), observability lineage, adversarial review gate, bootstrap protocol, testing pattern (not started)
+- [ ] **Phase 63: Knox + 51-State Agent Fleet** - Knox supervisor, state-agent framework on 5-step loop, per-institution dossiers, per-state knowledge compounding, cross-state promotion, source lineage restored (not started)
+- [ ] **Phase 64: Darwin — Classification + Verification** - Adversarial challenges against Knox, active learning from admin reviews, Tier 1 → Tier 2 promotion, miscategorization detection, prompt-driven rules (not started)
+- [ ] **Phase 65: Atlas — Orchestration** - Wave scheduler on Modal, per-agent cost budgets, remediation routing, escalation queue + daily digest, knowledge promotion cron, Modal cron slot reorganization (not started)
+- [ ] **Phase 66: Hamilton Refactor** - Hamilton reads only Tier 3, uses canonical_fee_key, surfaces data-quality signals, refuses un-traced publishing, reflects demand back to agent team (not started)
+- [ ] **Phase 67: Capability Discovery + UX + Tool Primitives** - Slash commands, help panel, silent-action fixes, workflow-mega-tools broken into primitives, context injection upgrade (not started)
+- [ ] **Phase 68: Security + Final Hardening** - RLS on 7 Hamilton tables, "Enabled No Policy" audit, function search_path pinning, agent identity system, secrets rotation runbook (not started)
+
+### Phase 62a: Agent Foundation — Data Layer
+**Goal**: The durable data layer that all v10.0 agents depend on exists in Postgres — event log, three-tier schema, scoped write-CRUD tools with identity audit, per-agent cost quota infrastructure — and SQLite is gone from every production path
+**Depends on**: Phase 61 (v9.0 complete)
+**Requirements**: AGENT-01, AGENT-02, AGENT-03, AGENT-04, AGENT-05, TIER-01, TIER-02, TIER-03, TIER-04, TIER-05, TIER-06
+**Success Criteria** (what must be TRUE):
+  1. An operator can query `SELECT COUNT(*) FROM agent_events WHERE agent_name='knox' AND created_at > now() - interval '1 hour'` and get a sub-second response — and the result is non-empty because every tool call from a v10.0 agent leaves a row
+  2. A developer can call any write-CRUD tool (e.g., `update_extracted_fee`, `approve_crawl_target`, `create_hamilton_scenario`) as an agent and see one row appear in `agent_auth_log` with the before value, the after value, the tool name, and the agent identity — across all 25+ user-manipulable entities
+  3. `SELECT * FROM fees_raw`, `fees_verified`, and `fees_published` all resolve — Tier 1/2/3 tables exist with the required lineage columns (source_url, document_path, extraction_confidence, agent_event_id on Tier 1; canonical_fee_key, variant_type, outlier_flags on Tier 2; lineage_ref pointing to Tier 2 on Tier 3)
+  4. `grep -r "better-sqlite3\|sqlite3\|DB_PATH" fee_crawler/ src/` returns zero production matches; running `pytest fee_crawler/tests/` with `DATABASE_URL` pointed at a Postgres test schema completes green; `fee_crawler/db.py` is deleted or rewritten as Postgres-only
+  5. Setting `ATLAS_AGENT_BUDGET_KNOX_CENTS=1000` causes Knox to halt its next cycle (with an `agent_events` row of action=`budget_halt`) the moment spend crosses threshold — the quota infrastructure responds to config, not just to code edits
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 62b: Agent Foundation — Runtime Layer
+**Goal**: The agent runtime contract — 5-step loop, inter-agent messaging, observability lineage, adversarial review gate, bootstrap protocol, and testing pattern — exists as reusable framework code that every v10.0 agent inherits
+**Depends on**: Phase 62a
+**Requirements**: LOOP-01, LOOP-02, LOOP-03, LOOP-04, LOOP-05, LOOP-06, LOOP-07, COMMS-01, COMMS-02, COMMS-03, COMMS-04, COMMS-05, OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, BOOT-01, BOOT-03
+**Success Criteria** (what must be TRUE):
+  1. A developer can subclass `AgentBase` in Python (or the TypeScript binding) and receive working LOG/REVIEW/DISSECT/UNDERSTAND/IMPROVE hooks for free — calling any framework tool writes to `agent_events` without the subclass needing to remember, and the periodic REVIEW job discovers unreviewed events within 15 minutes of landing
+  2. Given any published number, running `SELECT lineage_graph(<tier3_row_id>)` returns the full chain — Tier 3 row → Darwin verification event → Tier 2 row → Knox extraction event → state agent crawl event → R2 document — in one query; and an admin-only debug UI renders the same chain in under 3 clicks
+  3. Agent A can send a Postgres-backed message to Agent B with an intent (`challenge`, `prove`, `accept`, `reject`, `escalate`) and a correlation_id; B receives it via LISTEN/NOTIFY; after N unresolved rounds the exchange auto-routes to the daily digest queue James reviews — all four message types are visible end-to-end in a handshake fixture test
+  4. Running `make canary-corpus-run` executes contract tests (mock LLM with asserted tool-call sequence), fixture replay, and canary runs against the golden corpus for any registered agent; a regression of >0 on coverage, confidence, or extraction count fails CI; shadow mode can tee any agent's inputs to an old+new implementation in parallel on live data without double-writing
+  5. The bootstrap protocol is documented and executable: Q1 full human validation on a 10-20% sample, Q2 high-confidence auto with exception review, Q3+ autonomy with exception review; a developer can read the runbook and advance an agent from Q1 to Q2 by meeting a named, measurable graduation bar
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 63: Knox + 51-State Agent Fleet
+**Goal**: Knox is stood up as a supervisor, 51 state agents (50 + DC) are live on the new framework with per-institution dossiers, cross-state knowledge promotion is automatic, and source lineage is unbroken on every new fee entering Tier 1
+**Depends on**: Phase 62b
+**Requirements**: KNOX-01, KNOX-02, KNOX-03, KNOX-04, KNOX-05, KNOX-06, KNOX-07, KNOX-08, KNOX-09, KNOX-10, BOOT-02, BOOT-04
+**Success Criteria** (what must be TRUE):
+  1. After a Knox-coordinated quarterly wave, running `SELECT state, agent_name, last_run_at FROM agent_registry` returns 51 rows (50 states + DC) and every state agent has a last_run_at within the last 7 days; Knox itself has zero `crawl_event` rows attributable to it (it supervises, it doesn't crawl)
+  2. For any institution touched in the last wave, the `institution_dossiers` table has a row recording URL tried, document format discovered, strategy used, outcome, cost, and next-try recommendation; on the next run, a state agent reading "needs Playwright stealth" skips directly to stealth on pass 1 — confirmed by a log event of strategy=`stealth_pass_1`
+  3. Running `SELECT COUNT(*) FROM fees_raw WHERE created_at > '2026-04-16' AND (document_url IS NULL OR document_r2_key IS NULL)` returns 0 — the pre-insert assertion blocks lineage-less fees at the Tier 1 boundary; all new extraction has traceable source
+  4. A golden corpus of 100+ human-verified institution fees exists in `fee_crawler/fixtures/golden_corpus/`; no state agent ships without passing its canary run against the corpus with zero regression on coverage, confidence, or extraction count
+  5. When 3+ state agents independently learn the same extraction pattern (e.g., "Fiserv DNA platform fee-schedule tab lives at /rates"), Atlas promotes it to national knowledge automatically — a developer inspecting `national_knowledge` sees the promoted pattern with source_states and promoted_at fields populated, no manual CLI invocation
+  6. Wyoming (previously 91%) and Montana (previously 47%) both pass their canary runs on the new framework with coverage equal to or greater than pre-migration — no regression from framework adoption
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 64: Darwin — Classification + Verification
+**Goal**: Darwin is live as the verification layer between Tier 1 and Tier 2 — challenging Knox on miscategorizations, learning from admin reviews, promoting high-confidence data, and never silently rejecting orphans
+**Depends on**: Phase 63
+**Requirements**: DARWIN-01, DARWIN-02, DARWIN-03, DARWIN-04, DARWIN-05, DARWIN-06, DARWIN-07
+**Success Criteria** (what must be TRUE):
+  1. After a Darwin batch, every row in `fees_verified` has a corresponding `agent_events` row of action=`verify` with the source-document check result; the delta between Tier 1 input and Tier 2 output is attributable to a named Darwin rule or challenge
+  2. When Darwin's confidence on a fee is in the uncertain band (not just flagged-high), the fee appears in the admin review queue with a `darwin_uncertainty_reason` field populated; approving or rejecting the fee updates Darwin's confidence model — a follow-up batch on similar fees shifts its verdict in the right direction, measurable via a confidence-calibration report
+  3. An operator can rewrite Darwin's verification rule set by editing prompt files (not Python); redeploying picks up the new prompt and the next batch reflects the change — confirmed by a prompt-edit test that changes one rule and observes the downstream classification flip
+  4. When Darwin finds a miscategorized fee whose source document is missing (orphan), it routes the fee to Atlas's re-discovery queue with intent=`reextract` — zero orphaned fees are auto-rejected; `SELECT COUNT(*) FROM fee_reviews WHERE action='reject' AND darwin_orphan_reason IS NOT NULL` returns 0
+  5. Outlier thresholds (stddev bands, amount bands) are read from `fee_crawler/config.yaml` at runtime; changing `darwin.outlier.stddev_band: 2.5 -> 3.0` reshapes the next batch's flagging without a code deploy
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 65: Atlas — Orchestration
+**Goal**: Atlas is the scheduler and budget owner — runs the wave orchestrator on Modal, routes remediation work, manages the escalation queue, promotes knowledge after every wave, and keeps agent spend inside the per-agent budgets
+**Depends on**: Phase 64
+**Requirements**: ATLAS-01, ATLAS-02, ATLAS-03, ATLAS-04, ATLAS-05, ATLAS-06
+**Success Criteria** (what must be TRUE):
+  1. The Modal dashboard shows an active cron schedule for Atlas's wave orchestrator (quarterly, on a stable calendar) replacing the previous commodity-extraction nightly jobs; Modal's 5-slot cron limit is documented as resolved (either via consolidation or upgrade) and there is room for wave + Darwin + Atlas + one reserve
+  2. A Darwin rejection automatically appears in the re-extraction queue; a 404 URL automatically appears in the re-discovery queue; a coverage-drop signal from Hamilton automatically triggers a deepening pass — confirmed by end-to-end fixture tests for each of the three remediation routes
+  3. After every wave, Atlas runs knowledge promotion; a developer inspecting `national_knowledge` after wave N sees new patterns with `promoted_after_wave=N` populated; no manual CLI invocation was required
+  4. The admin dashboard shows current escalation queue depth as a live number; James receives exactly one daily digest email (not a real-time pager) summarizing unresolved handshakes and escalations from the last 24 hours
+  5. Setting each agent's per-cycle budget in config (Knox quarterly, Darwin per-batch, Hamilton per-report) and triggering a run that would overrun produces a clean halt with an `agent_events` row of action=`budget_halt`; the agent's next cycle does not start until an operator resumes it
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 66: Hamilton Refactor
+**Goal**: Hamilton is refactored to read only Tier 3, operates on canonical_fee_key, surfaces data-quality signals in every output, refuses to publish un-traced numbers, and reflects client demand back to the agent team
+**Depends on**: Phase 65
+**Requirements**: HAM-01, HAM-02, HAM-03, HAM-04, HAM-05
+**Success Criteria** (what must be TRUE):
+  1. A code audit of every Hamilton assembler, Pro screen, and research tool finds zero direct queries against `extracted_fees`, `crawl_results`, `fees_raw`, or `fees_verified` — all reads go through `fees_published`, `index_published`, `snapshots_published`, or their derived views
+  2. Every published report and every Pro screen surfaces the data-quality stripe — coverage %, source-verification %, outstanding-challenge count — visibly in the output (not hidden in a tooltip); generating a report with the quality metrics below a named threshold produces a watermark or explicit caveat
+  3. Hamilton's grouping and aggregation uses `canonical_fee_key` everywhere; `fee_category` no longer appears as the grouping axis in any production assembler — confirmed by grep plus a contract test that asserts every index query groups on canonical_fee_key
+  4. When Hamilton attempts to publish a number whose lineage chain to Tier 1 is broken, it throws a named error to the caller (not silently excludes or silently includes the number); the error is visible in the report UI as a "data unavailable" empty state, not a missing row
+  5. Repeated Pro queries on thin-coverage categories produce `agent_messages` rows with intent=`coverage_request` addressed to Atlas; operator can inspect a weekly summary of the top-5 categories by client demand vs. coverage maturity
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 67: Capability Discovery + UX + Tool Primitives
+**Goal**: The Pro research hub exposes its capabilities via slash commands, a persistent help panel, and streaming action feedback; the four workflow-mega-tools are decomposed into composable primitives; every agent prompt carries user + session + workspace context
+**Depends on**: Phase 66
+**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05
+**Success Criteria** (what must be TRUE):
+  1. A user typing `/` in any Pro research input sees a keyboard-discoverable menu of `/ask`, `/compare`, `/chart`, `/report`, `/help`; selecting one populates the prompt scaffolding and runs the intended tool — confirmed by end-to-end UI tests for each command
+  2. A persistent "What Hamilton can do" help panel is visible from every Pro screen and shows live agent-team status — Knox last-run timestamp, Darwin verification rate, national coverage %; the panel updates on navigation, not on hard refresh
+  3. The three silent-action anti-patterns are fixed: clicking `refreshFeeds` triggers visible revalidation with a loading state; `runExtract` streams per-stage status to the UI via SSE; report-job polling uses SSE (not a 3s interval) — verified by browser-devtools network inspection
+  4. `queryNationalData`, `rankInstitutions`, `queryRegulatoryRisk`, and `queryFeeRevenueCorrelation` are each broken into named primitive tools that agents compose; a developer reading the tool registry sees each workflow as a sequence of 3-7 primitives, and a test asserts the primitives can be called independently
+  5. Every agent invocation's system prompt includes user identity, role, subscription tier, recent activity summary, workspace state (current institution, current scenario), resource freshness timestamps, and session-history summary — verified by an integration test that inspects the system prompt on a live session
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 68: Security + Final Hardening
+**Goal**: RLS policies are in place on all exposed Hamilton tables, the "Enabled No Policy" audit is closed, function search_path is pinned, agents authenticate as agents (not as users), and the secrets rotation runbook is executable
+**Depends on**: Phase 67
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05
+**Success Criteria** (what must be TRUE):
+  1. Running the Supabase RLS advisor returns zero warnings on the 7 exposed Hamilton tables — each has a `user_id`-scoped policy that a test confirms by attempting a cross-user read and receiving a 0-row result
+  2. Every table flagged "RLS Enabled No Policy" by the Supabase linter is either locked to service-role only (with a named exception in a linter-allowlist file) or has an explicit permissive policy with a documented rationale; an operator running the linter gets a clean bill
+  3. `SELECT proname, proconfig FROM pg_proc WHERE proname='ext_intel_search_vector_update'` shows `search_path=public,pg_temp` pinned; a contract test asserts this and is run in CI
+  4. Every agent tool call authenticates via an agent-identity system (a dedicated Postgres role + JWT claim or equivalent) — inspecting `agent_auth_log` shows `actor_type='agent'` and `agent_name='knox'` on Knox's writes, distinct from user session writes; reusing a user session to impersonate an agent is rejected by the gateway
+  5. The secrets rotation runbook (`docs/runbooks/secrets-rotation.md`) is executable by a developer following it — covers DATABASE_URL, ANTHROPIC_API_KEY, Stripe keys, Modal secrets, and documents propagation to Vercel, Modal, and local `.env`; rotation is exercised as a dry run in a staging environment and the runbook is refined based on the dry run
+**Plans**: TBD
+**UI hint**: no
+
+## Progress (v10.0)
+
+**Execution Order:**
+Phases execute in numeric order: 62a -> 62b -> 63 -> 64 -> 65 -> 66 -> 67 -> 68
+Note: 62a is a hard prerequisite for 62b (data layer before runtime); 63-66 are a sequential agent-stand-up chain (Knox → Darwin → Atlas → Hamilton); 67 and 68 can be scoped in parallel after 66 if capacity allows.
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 62a. Agent Foundation — Data Layer | v10.0 | 0/TBD | Not started | - |
+| 62b. Agent Foundation — Runtime Layer | v10.0 | 0/TBD | Not started | - |
+| 63. Knox + 51-State Agent Fleet | v10.0 | 0/TBD | Not started | - |
+| 64. Darwin — Classification + Verification | v10.0 | 0/TBD | Not started | - |
+| 65. Atlas — Orchestration | v10.0 | 0/TBD | Not started | - |
+| 66. Hamilton Refactor | v10.0 | 0/TBD | Not started | - |
+| 67. Capability Discovery + UX + Tool Primitives | v10.0 | 0/TBD | Not started | - |
+| 68. Security + Final Hardening | v10.0 | 0/TBD | Not started | - |
