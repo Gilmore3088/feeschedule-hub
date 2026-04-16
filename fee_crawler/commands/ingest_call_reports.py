@@ -23,6 +23,8 @@ import psycopg2
 import psycopg2.extras
 import requests
 
+from fee_crawler.db import require_postgres
+
 # FDIC BankFind API fields (same as ingest_fdic.py)
 FDIC_FINANCIAL_FIELDS = ",".join([
     "CERT",
@@ -50,6 +52,30 @@ FDIC_API_BASE = "https://banks.data.fdic.gov/api/financials"
 PAGE_SIZE = 10000
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2
+
+
+def _scale_thousands(value: int | None) -> int | None:
+    """Multiply a thousands-denominated FDIC field up to whole dollars."""
+    return value * 1000 if value is not None else None
+
+
+def _apply_ffiec_scaling(
+    source: str,
+    sc: int | None,
+    oni: int | None,
+) -> tuple[int | None, int | None]:
+    """Scale FDIC BankFind income fields from thousands to whole dollars.
+
+    FDIC BankFind and FFIEC Call Report endpoints return income values in
+    thousands (migration 023). NCUA 5300 and other sources already report
+    whole dollars. Only source == 'ffiec' is multiplied.
+    """
+    if source != "ffiec":
+        return sc, oni
+    return (
+        sc * 1000 if sc is not None else None,
+        oni * 1000 if oni is not None else None,
+    )
 
 
 def _safe_int(val: object) -> int | None:
@@ -175,9 +201,11 @@ def _upsert_matched(cur, target_id: int, cert: str, report_date: str,
              fetched_at = NOW()""",
         (
             target_id, cert, report_date,
-            _safe_int(data.get("ASSET")),
-            _safe_int(data.get("DEP")),
-            _safe_int(data.get("LNLSNET")),
+            # ASSET/DEP/LNLSNET arrive in thousands; store as whole dollars
+            # so all balance-sheet and income fields share the same unit.
+            _scale_thousands(_safe_int(data.get("ASSET"))),
+            _scale_thousands(_safe_int(data.get("DEP"))),
+            _scale_thousands(_safe_int(data.get("LNLSNET"))),
             sc, nonii,
             _safe_float(data.get("NIMY")),
             _safe_float(data.get("EEFFR")),
@@ -235,9 +263,10 @@ def _upsert_unmatched(cur, cert: str, report_date: str,
              fetched_at = NOW()""",
         (
             cert, report_date,
-            _safe_int(data.get("ASSET")),
-            _safe_int(data.get("DEP")),
-            _safe_int(data.get("LNLSNET")),
+            # ASSET/DEP/LNLSNET arrive in thousands; store as whole dollars.
+            _scale_thousands(_safe_int(data.get("ASSET"))),
+            _scale_thousands(_safe_int(data.get("DEP"))),
+            _scale_thousands(_safe_int(data.get("LNLSNET"))),
             sc, nonii,
             _safe_float(data.get("NIMY")),
             _safe_float(data.get("EEFFR")),
@@ -293,12 +322,16 @@ def _ingest_quarter(cur, report_date_yyyymmdd: str,
             if not cert:
                 continue
 
-            # SC (service charges) is in whole dollars; convert to thousands
+            # FDIC BankFind returns income fields in thousands. Multiply up to
+            # whole dollars via _apply_ffiec_scaling so storage is consistent
+            # with migration 023 and test_call_report_scaling.
             sc_raw = _safe_int(d.get("SC"))
-            sc = sc_raw // 1000 if sc_raw is not None else None
-            nonii = _safe_int(d.get("NONII"))
-            intinc = _safe_int(d.get("INTINC"))
-            eintexp = _safe_int(d.get("EINTEXP"))
+            nonii_raw = _safe_int(d.get("NONII"))
+            sc, nonii = _apply_ffiec_scaling("ffiec", sc_raw, nonii_raw)
+            intinc_raw = _safe_int(d.get("INTINC"))
+            eintexp_raw = _safe_int(d.get("EINTEXP"))
+            intinc = intinc_raw * 1000 if intinc_raw is not None else None
+            eintexp = eintexp_raw * 1000 if eintexp_raw is not None else None
 
             # Derived: total_revenue = net interest income + noninterest income
             total_revenue = None
@@ -360,6 +393,7 @@ def run(
         backfill: If True, download all quarters from from_year to present.
         from_year: Starting year for backfill (default 2010).
     """
+    require_postgres("ingest_call_reports writes to institution_financials")
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     conn.autocommit = False
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)

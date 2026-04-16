@@ -53,7 +53,7 @@ export function AnalysisInputBar({
 
   return (
     <div
-      className="rounded-xl border shadow-lg"
+      className="@container rounded-xl border shadow-lg"
       style={{
         backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
         borderColor: "rgba(216,194,184,0.4)",

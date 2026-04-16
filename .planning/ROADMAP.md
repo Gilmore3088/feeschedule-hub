@@ -1122,7 +1122,7 @@ Plans:
 - [x] **Phase 58: FFIEC Pipeline & Institution Data** - FFIEC CDR + NCUA 5300 ingestion, hero stat cards with sparklines and peer context (completed 2026-04-10)
 - [x] **Phase 59: Pipeline Coverage Expansion** - Playwright stealth, PDF probe with Google fallback, accessibe blacklist (completed 2026-04-11)
 - [x] **Phase 60: Report Quality Upgrade** - Fix Call Report thousands-scaling bug, wire FRED + Beige Book into assemblers, upgrade PDF layout to Salesforce-grade stat callouts (not started) (completed 2026-04-12)
-- [ ] **Phase 61: Hamilton Pro Polish** - Strip all demo/sample text from 5 Pro screens, wire Stripe billing portal, responsive pass with Tailwind v4 container queries (not started)
+- [x] **Phase 61: Hamilton Pro Polish** - Strip all demo/sample text from 5 Pro screens, wire Stripe billing portal, responsive pass with Tailwind v4 container queries (not started) (completed 2026-04-16)
 
 ### Phase 55: Canonical Taxonomy Foundation
 **Goal**: Every existing extracted fee row has a stable canonical_fee_key, synonym clusters are consolidated, and NEVER_MERGE guard tests prevent false regulatory category merges from reaching the index
@@ -1218,4 +1218,4 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
 | 58. FFIEC Pipeline & Institution Data | v9.0 | 0/TBD | Not started | - |
 | 59. Pipeline Coverage Expansion | v9.0 | 0/TBD | Not started | - |
 | 60. Report Quality Upgrade | v9.0 | 3/3 | Complete    | 2026-04-12 |
-| 61. Hamilton Pro Polish | v9.0 | 0/TBD | Not started | - |
+| 61. Hamilton Pro Polish | v9.0 | 2/1 | Complete   | 2026-04-16 |
