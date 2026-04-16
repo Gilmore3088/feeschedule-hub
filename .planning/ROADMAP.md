@@ -1223,7 +1223,10 @@ Plans:
   1. A developer auditing all 5 Pro screens (Home, Analyze, Simulate, Reports, Monitor) finds zero instances of hardcoded sample institution names, placeholder fee amounts, demo scenario data, or lorem ipsum text — all displayed content either comes from real API responses or shows a designed empty state
   2. Clicking the billing management link in Pro Settings opens the Stripe customer portal for the authenticated user — the ManageBillingButton is wired and the portal loads without error
   3. The Analyze and Monitor screens render without layout overflow or cut-off content at 768px viewport width using Tailwind v4 container queries — tested at 1280px and 768px
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 61-01-PLAN.md — Strip demo data + upgrade empty states (PRO-01)
+- [ ] 61-02-PLAN.md — ManageBillingButton + Stripe portal wiring (PRO-02)
+- [ ] 61-03-PLAN.md — Container query responsive pass on Monitor + Analyze (PRO-03)
 **UI hint**: yes
 
 ## Progress (v9.0)
