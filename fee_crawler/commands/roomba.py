@@ -734,7 +734,7 @@ def run(fix: bool = False, check_urls: bool = False, recategorize_only: bool = F
             SELECT COUNT(*) FROM extracted_fees
             WHERE review_status != 'rejected' AND fee_category NOT IN ({placeholders})
         """, tuple(canonical))
-        freeform_count = cur.fetchone()[0]
+        freeform_count = cur.fetchone()["count"]
         print(f"  Would remap: ~{freeform_count} freeform fees (run with --fix to apply)")
 
     if recategorize_only:
