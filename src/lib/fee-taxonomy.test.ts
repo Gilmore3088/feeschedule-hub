@@ -1,5 +1,15 @@
 import { describe, test, expect } from "vitest";
-import { FEE_FAMILIES, CANONICAL_KEY_MAP } from "./fee-taxonomy";
+import {
+  FEE_FAMILIES,
+  CANONICAL_KEY_MAP,
+  CANONICAL_KEY_COUNT,
+  TAXONOMY_COUNT,
+} from "./fee-taxonomy";
+
+// Tripwire for Python↔TS drift. If you change these numbers, update the
+// matching assertion in fee_crawler/tests/test_backfill_canonical.py.
+const EXPECTED_TAXONOMY_COUNT = 49;
+const EXPECTED_CANONICAL_KEY_COUNT = 181;
 
 describe("fee-taxonomy sync", () => {
   test("every FEE_FAMILIES category is in CANONICAL_KEY_MAP", () => {
@@ -11,6 +21,14 @@ describe("fee-taxonomy sync", () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  test("TAXONOMY_COUNT matches the expected base-category count (Python↔TS parity)", () => {
+    expect(TAXONOMY_COUNT).toBe(EXPECTED_TAXONOMY_COUNT);
+  });
+
+  test("CANONICAL_KEY_COUNT matches the Python CANONICAL_KEY_MAP count (Python↔TS parity)", () => {
+    expect(CANONICAL_KEY_COUNT).toBe(EXPECTED_CANONICAL_KEY_COUNT);
   });
 
   test("CANONICAL_KEY_MAP has at least 49 entries (base categories)", () => {
