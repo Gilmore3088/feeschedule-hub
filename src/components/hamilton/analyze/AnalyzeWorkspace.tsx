@@ -251,7 +251,7 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
   const displayedResponse = parsedResponse ?? liveParsed;
 
   return (
-    <div className="flex flex-col gap-6 pb-40">
+    <div className="@container flex flex-col gap-6 pb-40">
       {/* Analysis prompt title when active */}
       {displayedResponse && (
         <div className="flex items-center gap-4 mb-2">
@@ -337,7 +337,7 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
 
       {/* Explore Further + floating input — always at bottom */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-20 px-12 py-10"
+        className="@container fixed bottom-0 left-0 right-0 z-20 px-4 @lg:px-8 @xl:px-12 py-10"
         style={{
           background: "linear-gradient(to top, var(--hamilton-surface) 60%, transparent)",
         }}
