@@ -1,264 +1,185 @@
-"""Modal pre-flight validation for Bank Fee Index pipeline.
+"""Modal pre-flight readiness check (Phase 62a, D-16).
 
-Two validation modes:
+Replaces the legacy filesystem-DB-in-/tmp smoke test. Instead of simulating the pipeline
+end-to-end, this preflight asserts the RUNTIME infrastructure is wired correctly
+before any worker function runs:
 
-1. preflight_e2e — Isolated 5-stage pipeline smoke test using a fresh
-   SQLite DB in /tmp. Deliberately ignores DATABASE_URL so it can run
-   anywhere without touching production data.
-
-2. preflight_postgres — Structural probe that validates the Postgres
-   schema matches production assumptions (all six pipeline tables must
-   exist). Requires DATABASE_URL. Call this before deploying pipeline
-   workers against a new Supabase environment.
+  1. DATABASE_URL is set and reachable.
+  2. All required Postgres tables exist (agent_events, agent_auth_log,
+     agent_messages, agent_registry, agent_budgets, institution_dossiers,
+     fees_raw, fees_verified, fees_published).
+  3. R2 bucket is reachable (head_bucket).
+  4. Synthetic agent_events write/delete round-trip — confirms the partitioned
+     write path + pg_cron maintenance leave the current partition writable.
 
 Deploy: modal deploy fee_crawler/modal_preflight.py
-Run e2e:      modal run fee_crawler/modal_preflight.py::preflight_e2e
-Run pg check: modal run fee_crawler/modal_preflight.py::preflight_postgres
+Invoke: modal run fee_crawler/modal_preflight.py::preflight
 """
 
 from __future__ import annotations
 
 import os
-import socket
-import time
-from typing import Any
+import re
+from typing import Any, List
 
 import modal
-from pydantic import BaseModel
 
-from fee_crawler.db import require_postgres
-
-PREFLIGHT_DB_PATH = "/tmp/preflight_test.db"
-PREFLIGHT_DOC_DIR = "/tmp/preflight_docs"
-SEED_LIMIT = 10
-TARGET_COUNT = 3
-DISCOVERY_TIMEOUT_S = 15
-EXTRACTION_TIMEOUT_S = 30
 
 preflight_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .apt_install("tesseract-ocr", "poppler-utils")
     .pip_install_from_requirements("fee_crawler/requirements.txt")
     .pip_install("fastapi[standard]")
     .add_local_dir("fee_crawler", remote_path="/root/fee_crawler")
 )
 
-app = modal.App("bank-fee-index-workers", image=preflight_image)
+app = modal.App("bank-fee-index-preflight", image=preflight_image)
 secrets = [modal.Secret.from_name("bfi-secrets")]
 
 
-class PreflightRequest(BaseModel):
-    state_code: str = "VT"
+REQUIRED_TABLES: List[str] = [
+    "agent_events",
+    "agent_auth_log",
+    "agent_messages",
+    "agent_registry",
+    "agent_budgets",
+    "institution_dossiers",
+    "fees_raw",
+    "fees_verified",
+    "fees_published",
+]
 
 
-def _run_preflight_stages(
-    db: Any, config: Any, state_code: str
-) -> tuple[int, int, list[str]]:
-    """Execute all 5 pipeline stages; return (seeded, fees_extracted, errors).
+def _scrub_dsn(msg: str) -> str:
+    """Redact password from any DATABASE_URL-looking string before logging."""
+    return re.sub(r"://([^:]+):[^@]+@", r"://\1:***@", msg)
 
-    Errors are formatted as "stage:institution:reason[:100 chars]".
-    Never raises — all stage exceptions are caught and recorded.
-    """
-    from fee_crawler.commands import backfill_validation, categorize_fees
-    from fee_crawler.commands.crawl import _crawl_one
-    from fee_crawler.commands.discover_urls import _discover_one
-    from fee_crawler.commands.seed_institutions import seed_fdic
 
-    errors: list[str] = []
+async def _check_postgres_connectivity() -> None:
+    """Open a connection using the shared asyncpg pool. Fail fast on any error."""
+    from fee_crawler.agent_tools.pool import get_pool
 
-    # Stage 1: Seed
     try:
-        institutions_seeded = seed_fdic(db, config, limit=SEED_LIMIT)
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            v = await conn.fetchval("SELECT 1")
+            assert v == 1, f"SELECT 1 returned {v!r}"
     except Exception as exc:
-        errors.append(f"seed:all:{str(exc)[:100]}")
-        return 0, 0, errors
-
-    if institutions_seeded == 0:
-        errors.append("seed:all:FDIC API returned 0 rows")
-        return 0, 0, errors
-
-    targets = db.fetchall(
-        "SELECT id, institution_name, website_url, state_code, asset_size "
-        "FROM crawl_targets "
-        "WHERE website_url IS NOT NULL AND state_code = ? "
-        "ORDER BY asset_size DESC LIMIT ?",
-        (state_code.upper(), TARGET_COUNT),
-    )
-    if not targets:
-        targets = db.fetchall(
-            "SELECT id, institution_name, website_url, state_code, asset_size "
-            "FROM crawl_targets WHERE website_url IS NOT NULL "
-            "ORDER BY asset_size DESC LIMIT ?",
-            (TARGET_COUNT,),
-        )
-    if not targets:
-        errors.append("seed:all:no institutions with website_url found")
-        return institutions_seeded, 0, errors
-
-    # Stage 2: Discover
-    old_timeout = socket.getdefaulttimeout()
-    socket.setdefaulttimeout(DISCOVERY_TIMEOUT_S)
-    try:
-        for target in targets:
-            try:
-                _discover_one(dict(target), config, False, False)
-            except Exception as exc:
-                errors.append(f"discover:{target['institution_name']}:{str(exc)[:100]}")
-    finally:
-        socket.setdefaulttimeout(old_timeout)
-    db.commit()
-
-    disc_targets = db.fetchall(
-        "SELECT id, institution_name, fee_schedule_url, document_type, "
-        "last_content_hash, state_code, charter_type, asset_size "
-        "FROM crawl_targets WHERE fee_schedule_url IS NOT NULL "
-        "ORDER BY asset_size DESC LIMIT ?",
-        (TARGET_COUNT,),
-    )
-    if not disc_targets:
-        errors.append("discover:all:no fee_schedule_url found for any institution")
-        return institutions_seeded, 0, errors
-
-    # Stage 3: Extract
-    run_id = db.insert_returning_id(
-        "INSERT INTO crawl_runs (trigger, targets_total) VALUES (?, ?)",
-        ("preflight", len(disc_targets)),
-    )
-    db.commit()
-
-    old_timeout = socket.getdefaulttimeout()
-    socket.setdefaulttimeout(EXTRACTION_TIMEOUT_S)
-    try:
-        for target in disc_targets:
-            target_dict = dict(target)
-            target_dict.setdefault("cms_platform", None)
-            inst = target_dict.get("institution_name", "unknown")
-            try:
-                _crawl_one(target_dict, config, run_id)
-            except Exception as exc:
-                errors.append(f"extract:{inst}:{str(exc)[:100]}")
-    finally:
-        socket.setdefaulttimeout(old_timeout)
-    db.commit()
-
-    # Stage 4: Categorize
-    try:
-        categorize_fees.run(db)
-    except Exception as exc:
-        errors.append(f"categorize:all:{str(exc)[:100]}")
-
-    # Stage 5: Validate
-    try:
-        backfill_validation.run(db, config)
-    except Exception as exc:
-        errors.append(f"validate:all:{str(exc)[:100]}")
-
-    rows = db.fetchall("SELECT COUNT(*) AS n FROM extracted_fees")
-    fees_extracted = rows[0]["n"] if rows else 0
-    return institutions_seeded, fees_extracted, errors
+        raise RuntimeError(f"preflight:postgres: {_scrub_dsn(str(exc))}") from None
 
 
-@app.function(secrets=secrets, timeout=600, image=preflight_image)
-@modal.fastapi_endpoint(method="POST")
-def preflight_e2e(item: PreflightRequest = PreflightRequest()) -> dict:
-    """Run the isolated 5-stage pre-flight and return a pass/fail result dict.
+async def _check_required_tables() -> None:
+    """Every required table resolves via to_regclass."""
+    from fee_crawler.agent_tools.pool import get_pool
 
-    Returns {"status", "institutions", "fees_extracted", "duration_s", "errors"}.
-    """
-    # ISOLATION: this function deliberately ignores DATABASE_URL
-    _saved = os.environ.pop("DATABASE_URL", None)
-
-    t_start = time.time()
-    institutions_seeded = 0
-    fees_extracted = 0
-    errors: list[str] = []
-
-    try:
-        from fee_crawler.config import (
-            Config,
-            CrawlConfig,
-            DatabaseConfig,
-            ExtractionConfig,
-        )
-        from fee_crawler.db import Database
-
-        config = Config(
-            database=DatabaseConfig(path=PREFLIGHT_DB_PATH),
-            crawl=CrawlConfig(delay_seconds=0.5, max_retries=2),
-            extraction=ExtractionConfig(
-                document_storage_dir=PREFLIGHT_DOC_DIR,
-                daily_budget_usd=1.0,
-            ),
-        )
-
-        with Database(config) as db:
-            institutions_seeded, fees_extracted, errors = _run_preflight_stages(
-                db, config, item.state_code
-            )
-
-    except Exception as exc:
-        errors.append(f"init:all:{str(exc)[:100]}")
-    finally:
-        if _saved is not None:
-            os.environ["DATABASE_URL"] = _saved
-
-    return {
-        "status": "pass" if fees_extracted >= 1 else "fail",
-        "institutions": institutions_seeded,
-        "fees_extracted": fees_extracted,
-        "duration_s": round(time.time() - t_start, 2),
-        "errors": errors,
-    }
-
-
-@app.function(secrets=secrets, timeout=60, image=preflight_image)
-@modal.fastapi_endpoint(method="GET")
-def preflight_postgres() -> dict:
-    """Validate that the Postgres schema matches pipeline production assumptions.
-
-    Connects to DATABASE_URL and probes all six pipeline-only tables via
-    to_regclass(). Returns a pass/fail dict listing any missing tables.
-
-    This guard ensures we never run pipeline workers against a Supabase
-    environment that is missing required migrations.
-    """
-    require_postgres("preflight_postgres validates pipeline table existence")
-
-    import psycopg2
-    import psycopg2.extras
-
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    try:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        cur.execute("""
-            SELECT
-                to_regclass('public.jobs')                        AS jobs,
-                to_regclass('public.platform_registry')           AS platform_registry,
-                to_regclass('public.cms_confidence')              AS cms_confidence,
-                to_regclass('public.document_r2_key')             AS document_r2_key,
-                to_regclass('public.document_type_detected')      AS document_type_detected,
-                to_regclass('public.doc_classification_confidence') AS doc_classification_confidence
-        """)
-        row = cur.fetchone()
-    finally:
-        conn.close()
-
-    missing = [table for table, oid in row.items() if oid is None]
-
+    pool = await get_pool()
+    missing: List[str] = []
+    async with pool.acquire() as conn:
+        for tbl in REQUIRED_TABLES:
+            r = await conn.fetchval("SELECT to_regclass($1)", tbl)
+            if r is None:
+                missing.append(tbl)
     if missing:
         raise RuntimeError(
-            f"Postgres schema missing pipeline tables: {missing}. "
-            "Run the outstanding Supabase migrations before deploying pipeline workers."
+            f"preflight:tables: required tables missing: {missing}. "
+            "Supabase migrations likely need to run."
         )
 
+
+def _check_r2_reachable() -> None:
+    """Confirm R2 credentials + bucket are wired."""
+    import boto3
+    from botocore.exceptions import ClientError, EndpointConnectionError
+
+    endpoint = os.environ.get("R2_ENDPOINT")
+    bucket = os.environ.get("R2_BUCKET")
+    if not endpoint or not bucket:
+        raise RuntimeError(
+            "preflight:r2: R2_ENDPOINT + R2_BUCKET must be set "
+            "(see CLAUDE.md Configuration section)"
+        )
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            aws_access_key_id=os.environ.get("R2_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.environ.get("R2_SECRET_ACCESS_KEY"),
+            region_name="auto",
+        )
+        s3.head_bucket(Bucket=bucket)
+    except (ClientError, EndpointConnectionError) as exc:
+        # Never leak the access key; report bucket + error code only.
+        err = getattr(exc, "response", {}) or {}
+        code = (err.get("Error") or {}).get("Code", "unknown")
+        raise RuntimeError(
+            f"preflight:r2: bucket={bucket} unreachable (code={code})"
+        ) from None
+
+
+async def _check_agent_events_writable() -> None:
+    """Synthetic write + delete in one transaction — net-zero row count.
+
+    Uses agent_name='_preflight' + action='preflight_check' so any leak into
+    production history is obviously a preflight artifact.
+    """
+    from fee_crawler.agent_tools.pool import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            event_id = await conn.fetchval(
+                """INSERT INTO agent_events
+                     (agent_name, action, tool_name, entity, status, cost_cents,
+                      input_payload)
+                   VALUES ('_preflight', 'preflight_check', '_preflight',
+                           '_preflight', 'success', 0, '{}'::JSONB)
+                   RETURNING event_id"""
+            )
+            assert event_id is not None, "agent_events INSERT returned NULL"
+            # Delete so the preflight leaves net-zero rows.
+            await conn.execute(
+                "DELETE FROM agent_events "
+                "WHERE event_id = $1::UUID AND agent_name = '_preflight'",
+                event_id,
+            )
+
+
+@app.function(secrets=secrets, timeout=120)
+async def preflight() -> dict[str, Any]:
+    """Top-level preflight invocation.
+
+    Returns {ok, checks_passed}; raises RuntimeError on any failure.
+    """
+    errors: list[str] = []
+
+    async def _run_async(name: str, coro) -> None:
+        try:
+            await coro
+        except Exception as exc:
+            errors.append(f"{name}: {_scrub_dsn(str(exc))}")
+
+    def _run_sync(name: str, fn) -> None:
+        try:
+            fn()
+        except Exception as exc:
+            errors.append(f"{name}: {_scrub_dsn(str(exc))}")
+
+    await _run_async("postgres", _check_postgres_connectivity())
+    await _run_async("tables", _check_required_tables())
+    _run_sync("r2", _check_r2_reachable)
+    await _run_async("agent_events_write", _check_agent_events_writable())
+
+    if errors:
+        raise RuntimeError("preflight failed:\n  - " + "\n  - ".join(errors))
+
     return {
-        "status": "pass",
-        "message": "All six pipeline tables exist in public schema.",
-        "tables": list(row.keys()),
+        "ok": True,
+        "checks_passed": ["postgres", "tables", "r2", "agent_events_write"],
     }
 
 
 if __name__ == "__main__":
-    print("Use: modal run fee_crawler/modal_preflight.py::preflight_e2e")
-    print("     modal run fee_crawler/modal_preflight.py::preflight_postgres")
+    # Local invocation smoke: `python -m fee_crawler.modal_preflight`
+    # (skips R2 check outside Modal if R2_ENDPOINT unset).
+    import asyncio
+
+    print(asyncio.run(preflight()))
