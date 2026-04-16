@@ -7,6 +7,7 @@ import { PeerSetManager } from "./PeerSetManager";
 import { getSavedPeerSets } from "@/lib/crawler-db/saved-peers";
 import { getIntelligenceSnapshot } from "./actions";
 import { FeatureToggles } from "./FeatureToggles";
+import { ManageBillingButton } from "@/components/hamilton/settings/ManageBillingButton";
 
 export const metadata: Metadata = {
   title: "Strategy Settings",
@@ -123,17 +124,11 @@ export default async function SettingsPage() {
 
           {!isAdmin && (
             <div className="flex items-center gap-3 mt-5">
-              <button
-                type="button"
+              <ManageBillingButton
+                hasStripeAccount={!!user.stripe_customer_id}
+                subscriptionStatus={user.subscription_status ?? "none"}
                 className="px-4 py-2 text-xs font-semibold rounded-md border transition-opacity hover:opacity-80"
-                style={{
-                  borderColor: "var(--hamilton-border)",
-                  color: "var(--hamilton-text-primary)",
-                  backgroundColor: "white",
-                }}
-              >
-                Manage Billing
-              </button>
+              />
               <button
                 type="button"
                 className="px-4 py-2 text-xs font-semibold rounded-md border transition-opacity hover:opacity-80"
@@ -298,16 +293,11 @@ export default async function SettingsPage() {
               <p className="text-xs" style={{ color: "var(--hamilton-text-tertiary)" }}>
                 Renews monthly
               </p>
-              <button
-                type="button"
+              <ManageBillingButton
+                hasStripeAccount={!!user.stripe_customer_id}
+                subscriptionStatus={user.subscription_status ?? "none"}
                 className="px-4 py-2 text-xs font-semibold rounded-md transition-opacity hover:opacity-80"
-                style={{
-                  background: "linear-gradient(135deg, var(--hamilton-primary), var(--hamilton-primary-container))",
-                  color: "white",
-                }}
-              >
-                Manage Billing
-              </button>
+              />
             </div>
           )}
         </div>
