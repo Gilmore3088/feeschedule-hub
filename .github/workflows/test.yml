@@ -35,6 +35,5 @@ jobs:
         run: pip install -r fee_crawler/requirements.txt
       - name: Run sqlite-kill guard
         run: bash scripts/ci-guards.sh sqlite-kill
-        continue-on-error: true  # Wave 4 removes continue-on-error after SQLite elimination
       - name: Run pytest
         run: pytest fee_crawler/tests/ -v --no-header
