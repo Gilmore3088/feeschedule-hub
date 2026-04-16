@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { SlidersHorizontal } from "lucide-react";
 import { useCompletion } from "@ai-sdk/react";
 import { useRouter } from "next/navigation";
 import {
@@ -386,13 +387,54 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
                 onInputCommit={handleInputCommit}
               />
             ) : (
-              <div>
-                <label className="font-label text-[10px] uppercase tracking-widest mb-3 block" style={{ color: "var(--hamilton-primary)" }}>
-                  Active Simulation Target
-                </label>
-                <p className="text-sm italic" style={{ color: "var(--hamilton-on-surface-variant)" }}>
-                  Select a fee category to begin simulation.
-                </p>
+              <div
+                style={{
+                  backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
+                  padding: "2.5rem",
+                  borderLeft: "4px solid var(--hamilton-outline-variant, #d8c2b8)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                  borderRadius: "0.5rem",
+                }}
+              >
+                <div style={{ textAlign: "center", maxWidth: "28rem", margin: "0 auto" }}>
+                  <div style={{
+                    width: "3rem",
+                    height: "3rem",
+                    borderRadius: "50%",
+                    backgroundColor: "var(--hamilton-surface-container-high)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 1.25rem",
+                  }}>
+                    <SlidersHorizontal size={20} stroke="var(--hamilton-primary)" strokeWidth={1.5} />
+                  </div>
+                  <h3
+                    style={{
+                      fontFamily: "var(--hamilton-font-serif)",
+                      fontSize: "1.25rem",
+                      fontStyle: "italic",
+                      fontWeight: 400,
+                      color: "var(--hamilton-on-surface)",
+                      margin: "0 0 0.75rem",
+                    }}
+                  >
+                    Configure Your Scenario
+                  </h3>
+                  <p
+                    style={{
+                      fontFamily: "var(--hamilton-font-sans)",
+                      fontSize: "0.875rem",
+                      color: "var(--hamilton-text-secondary)",
+                      lineHeight: 1.6,
+                      margin: 0,
+                    }}
+                  >
+                    Select a fee category from the sidebar to model pricing changes and see competitive positioning impacts.
+                  </p>
+                </div>
               </div>
             )}
           </div>
