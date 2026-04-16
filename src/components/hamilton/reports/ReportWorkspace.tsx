@@ -59,6 +59,8 @@ const TEMPLATES: Array<{
 
 interface ReportWorkspaceProps {
   userId: number;
+  institutionName: string;
+  peerSetLabel: string;
   publishedReports: Array<{
     id: string;
     report_type: string;
@@ -71,6 +73,8 @@ interface ReportWorkspaceProps {
 
 export function ReportWorkspace({
   userId,
+  institutionName,
+  peerSetLabel,
   publishedReports,
   initialScenarioId,
 }: ReportWorkspaceProps) {
@@ -397,8 +401,8 @@ export function ReportWorkspace({
         {/* Configuration sidebar — right side for now, moves to left rail in v8.2 */}
         <ConfigSidebar
           selectedTemplate={selectedTemplate}
-          institutionName="Your Institution"
-          peerSetLabel="National Index"
+          institutionName={institutionName}
+          peerSetLabel={peerSetLabel}
           focusArea={focusArea}
           narrativeTone={narrativeTone}
           isGenerating={isGenerating}
