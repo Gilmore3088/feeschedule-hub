@@ -55,3 +55,16 @@ After Tasks 2-6 complete:
 - D-13 preserves the `fee_crawler/db.py` module path — all existing `from fee_crawler import db` imports still succeed; the module is rewritten not renamed.
 - `fee_crawler/config.py` drops the sqlite-branch of DatabaseConfig. DATABASE_URL is required in every environment (local dev uses docker-compose postgres:5433 per Plan 62A-01).
 - This file is the auditor's record; keep it for the lifetime of the phase.
+
+## After-state verification
+
+Verified 2026-04-16:
+- `bash scripts/ci-guards.sh sqlite-kill` returns 0 (zero matches in fee_crawler/ or src/)
+- `git grep -nE "better-sqlite3|sqlite3|DB_PATH" -- fee_crawler/ src/ ':(exclude)fee_crawler/SQLITE_AUDIT.md'` returns 0 lines
+- `pytest fee_crawler/tests/ --ignore=fee_crawler/tests/e2e` green (250 passed, 48 skipped without DATABASE_URL_TEST, 1 xfailed)
+- `fee_crawler.db` imports succeed: `Database`, `PostgresDatabase` alias, `get_db`, `get_worker_db`, `close_worker_db`, `require_postgres`, `get_async_pool`, `close_async_pool`, `DatabaseConfig`
+- `fee_crawler.modal_preflight.preflight` symbol exists (modal.Function wrapper)
+- `.github/workflows/test.yml` sqlite-kill step runs without `continue-on-error`
+- 30 e2e test errors are pre-existing (missing `test_db`/`test_db_path`/`test_config` fixtures from deleted e2e conftest) — see `.planning/phases/62A-agent-foundation-data-layer/deferred-items.md`. Phase 63 rebuilds the e2e harness.
+
+TIER-06 acceptance: PASS.
