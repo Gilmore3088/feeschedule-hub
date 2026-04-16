@@ -1109,6 +1109,30 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
+### Phase 999.16: Categorization QA Refinement (BACKLOG — HIGH PRIORITY)
+
+**Goal:** Thousands of fees are mis-categorized — the fee_category column gets assigned incorrectly at extraction/classification time, polluting every downstream median, peer comparison, and report. Most common failure modes: investment/trust fees filed as monthly_maintenance, credit card annual fees filed as monthly_maintenance, membership/application fees filed as monthly_maintenance, and sub-$1 amounts that are actually percentage rates filed as flat overdraft fees.
+
+**Context:** Discovered 2026-04-16 during Phase 55 SC5 verification. Roomba's "amount outlier" sweep surfaced 10,476 findings — investigation showed most are NOT amount errors but categorization errors. Examples: $2,500 "Investment Management Accounts - Minimum Annual Fee" (Virginia National Bank) filed as monthly_maintenance; $1,750 AmEx Platinum Business Card annual fee also filed as monthly_maintenance. Six simple heuristics caught 592 obvious mismatches — real rate is much higher (likely 5-10% of all categorized fees). This is the most important unsolved issue for data credibility: without accurate categorization, none of the index medians, peer benchmarks, or Hamilton reports can be trusted.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.17: Smart Roomba with Source Verification and Work Routing (BACKLOG)
+
+**Goal:** Upgrade Roomba from a gate ("reject/flag/accept") to a router ("fix it, flag it, or push it to another bot"). When Roomba finds a suspicious fee, instead of auto-rejecting it should (a) re-verify against the source document when possible, (b) route orphaned fees (no document_url) to the URL-finder agent for rediscovery, (c) route ambiguous amounts to a re-extraction pass with an LLM reading the original PDF, and (d) flag only the residue that needs human review.
+
+**Context:** Discovered 2026-04-16. Current Roomba would auto-reject legitimate data (e.g., real $2,500 investment management fees get rejected because they look like amount outliers). Source verification is blocked today because 82,805 of 103,052 active fees (80.4%) have NULL `crawl_results.document_url` — we can't trace fees back to the originating PDF. This suggests a pipeline gap where extraction writes fees without preserving the source link. Fix the traceback first (populate document_url consistently, backfill where possible), then build the routing logic.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 
 ---
 
