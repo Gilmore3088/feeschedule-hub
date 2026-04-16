@@ -1,0 +1,23 @@
+# Local Postgres for pytest + agent_tools development.
+# Port 5433 to avoid conflicts with any host-level Postgres.
+# Set DATABASE_URL_TEST=postgres://postgres:postgres@localhost:5433/bfi_test for pytest.
+services:
+  postgres:
+    image: postgres:15
+    container_name: bfi-postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bfi_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - bfi_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bfi_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  bfi_postgres_data:
