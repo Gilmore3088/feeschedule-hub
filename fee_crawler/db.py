@@ -724,7 +724,7 @@ class PostgresDatabase:
     def __init__(self) -> None:
         import psycopg2
         import psycopg2.extras
-        self.conn = psycopg2.connect(_DATABASE_URL)
+        self.conn = psycopg2.connect(os.environ["DATABASE_URL"])
         self.conn.autocommit = False
         self._cursor_factory = psycopg2.extras.RealDictCursor
 
@@ -834,14 +834,14 @@ def _sqlite_to_pg(sql: str) -> str:
 
 def get_db(config: Config) -> Database | PostgresDatabase:
     """Get the appropriate database connection based on environment."""
-    if _DATABASE_URL:
+    if os.environ.get("DATABASE_URL"):
         return PostgresDatabase()
     return Database(config)
 
 
 def get_worker_db(config: Config) -> Database | PostgresDatabase:
     """Thread-local DB connection for worker threads. No migration overhead."""
-    if _DATABASE_URL:
+    if os.environ.get("DATABASE_URL"):
         if not hasattr(_thread_local, "db") or _thread_local.db is None:
             _thread_local.db = PostgresDatabase()
         return _thread_local.db

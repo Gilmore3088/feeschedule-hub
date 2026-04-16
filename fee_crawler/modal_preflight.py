@@ -228,19 +228,21 @@ def preflight_postgres() -> dict:
     import psycopg2.extras
 
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    cur.execute("""
-        SELECT
-            to_regclass('public.jobs')                        AS jobs,
-            to_regclass('public.platform_registry')           AS platform_registry,
-            to_regclass('public.cms_confidence')              AS cms_confidence,
-            to_regclass('public.document_r2_key')             AS document_r2_key,
-            to_regclass('public.document_type_detected')      AS document_type_detected,
-            to_regclass('public.doc_classification_confidence') AS doc_classification_confidence
-    """)
-    row = cur.fetchone()
-    conn.close()
+        cur.execute("""
+            SELECT
+                to_regclass('public.jobs')                        AS jobs,
+                to_regclass('public.platform_registry')           AS platform_registry,
+                to_regclass('public.cms_confidence')              AS cms_confidence,
+                to_regclass('public.document_r2_key')             AS document_r2_key,
+                to_regclass('public.document_type_detected')      AS document_type_detected,
+                to_regclass('public.doc_classification_confidence') AS doc_classification_confidence
+        """)
+        row = cur.fetchone()
+    finally:
+        conn.close()
 
     missing = [table for table, oid in row.items() if oid is None]
 

@@ -1,8 +1,7 @@
 import { getSql } from "./connection";
 
-// FDIC/NCUA Call Reports store dollar amounts in thousands.
-// This constant converts them to actual dollars at the query layer.
-const THOUSANDS = 1000;
+// Dollar amounts are stored in whole dollars (migration 023 + Phase 60.1
+// ingest scaling). No query-layer multiplication needed.
 
 export interface RevenueSnapshot {
   quarter: string;
@@ -62,10 +61,10 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
 
   const snapshots: RevenueSnapshot[] = rows.map((row, idx) => ({
     quarter: row.quarter,
-    total_service_charges: Number(row.total_service_charges) * THOUSANDS,
+    total_service_charges: Number(row.total_service_charges),
     total_institutions: Number(row.total_institutions),
-    bank_service_charges: Number(row.bank_service_charges) * THOUSANDS,
-    cu_service_charges: Number(row.cu_service_charges) * THOUSANDS,
+    bank_service_charges: Number(row.bank_service_charges),
+    cu_service_charges: Number(row.cu_service_charges),
     // YoY = compare to 4 quarters back (idx + 4); null if not available
     yoy_change_pct: null,
   }));
@@ -138,8 +137,8 @@ export async function getTopRevenueInstitutions(
       institution_name: row.institution_name,
       charter_type: row.charter_type,
       report_date: row.report_date,
-      service_charge_income: Number(row.service_charge_income) * THOUSANDS,
-      total_assets: row.total_assets !== null ? Number(row.total_assets) * THOUSANDS : null,
+      service_charge_income: Number(row.service_charge_income),
+      total_assets: row.total_assets !== null ? Number(row.total_assets) : null,
     }));
   } catch {
     return [];
@@ -174,13 +173,13 @@ export async function getInstitutionRevenueTrend(
     ) as { quarter: string; service_charge_income: string; fee_income_ratio: string | null }[];
 
     return rows.map((row, idx) => {
-      const sc = Number(row.service_charge_income) * THOUSANDS;
+      const sc = Number(row.service_charge_income);
       // Find same quarter suffix from prior year for YoY (e.g. "Q4" matches "Q4")
       const quarterSuffix = row.quarter.slice(5); // "Q4" from "2024-Q4"
       const priorIdx = rows.findIndex(
         (r, i) => i > idx && r.quarter.slice(5) === quarterSuffix
       );
-      const priorSc = priorIdx >= 0 ? Number(rows[priorIdx].service_charge_income) * THOUSANDS : null;
+      const priorSc = priorIdx >= 0 ? Number(rows[priorIdx].service_charge_income) : null;
       const yoy = priorSc !== null && priorSc > 0 ? ((sc - priorSc) / priorSc) * 100 : null;
 
       return {
@@ -346,9 +345,9 @@ export async function getDistrictFeeRevenue(
   return {
     fed_district: Number(r.fed_district),
     institution_count: Number(r.institution_count),
-    total_sc_income: Number(r.total_sc_income) * THOUSANDS,
-    avg_sc_income: Number(r.avg_sc_income) * THOUSANDS,
-    total_other_noninterest: Number(r.total_other_noninterest) * THOUSANDS,
+    total_sc_income: Number(r.total_sc_income),
+    avg_sc_income: Number(r.avg_sc_income),
+    total_other_noninterest: Number(r.total_other_noninterest),
   };
 }
 
@@ -403,7 +402,7 @@ export async function getRevenueByTier(
   return rows.map((r) => ({
     tier: r.tier,
     institution_count: Number(r.institution_count),
-    total_sc_income: Number(r.total_sc_income) * THOUSANDS,
-    avg_sc_income: Number(r.avg_sc_income) * THOUSANDS,
+    total_sc_income: Number(r.total_sc_income),
+    avg_sc_income: Number(r.avg_sc_income),
   }));
 }
