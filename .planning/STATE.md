@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 Phase: 60
 Plan: Not started
 Status: Executing Phase 60
-Last activity: 2026-04-16 - Completed quick task 260416-d9t: audit Phase 55 canonical taxonomy
+Last activity: 2026-04-16 - Completed quick task 260416-dhf: G1+G2 unit tests in CI + taxonomy parity tripwires
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -87,7 +87,8 @@ None yet.
 | 260406-w3p | Move assembleAndRender into Modal worker | 2026-04-07 | 4881546 | [260406-w3p](./quick/260406-w3p-move-assembleandrender-into-modal-worker/) |
 | Phase 29-consumer-landing-page P02 | 5 | 1 tasks | 1 files |
 | Phase 28-audience-shell-separation P01 | 3 | 2 tasks | 5 files |
-| 260416-d9t | Audit Phase 55 canonical taxonomy — gap list | 2026-04-16 | (pending) | [260416-d9t](./quick/260416-d9t-audit-phase-55-canonical-taxonomy-verify/) |
+| 260416-d9t | Audit Phase 55 canonical taxonomy — gap list | 2026-04-16 | 948044a | [260416-d9t](./quick/260416-d9t-audit-phase-55-canonical-taxonomy-verify/) |
+| 260416-dhf | G1+G2 — unit tests in CI + taxonomy parity tripwires | 2026-04-16 | fa4db81 | [260416-dhf](./quick/260416-dhf-g1-g2-run-unit-tests-in-ci-and-add-pytho/) |
 
 ## Session Continuity
 
