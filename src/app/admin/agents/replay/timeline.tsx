@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ReasoningTraceRow } from "@/lib/crawler-db/agent-console";
+import type { ReasoningTraceRow } from "@/lib/crawler-db/agent-console-types";
 
 type Props = {
   rows: ReasoningTraceRow[];

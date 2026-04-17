@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { MessageThread } from "@/lib/crawler-db/agent-console";
+import type { MessageThread } from "@/lib/crawler-db/agent-console-types";
 
 /**
  * Thread-view MVP stub (plan 62B-10 Task 1 File 8).

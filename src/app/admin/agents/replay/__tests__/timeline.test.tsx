@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { Timeline } from "../timeline";
-import type { ReasoningTraceRow } from "@/lib/crawler-db/agent-console";
+import type { ReasoningTraceRow } from "@/lib/crawler-db/agent-console-types";
 
 afterEach(() => {
   cleanup();

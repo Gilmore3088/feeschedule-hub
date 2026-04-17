@@ -6,7 +6,7 @@ import {
   HEALTH_METRIC_LABELS,
   type AgentHealthTile,
   type HealthMetric,
-} from "@/lib/crawler-db/agent-console";
+} from "@/lib/crawler-db/agent-console-types";
 
 type Props = {
   data: AgentHealthTile[];

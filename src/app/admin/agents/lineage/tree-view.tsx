@@ -7,7 +7,7 @@ import type {
   LineageTier1,
   LineageTier2,
   LineageTier3,
-} from "@/lib/crawler-db/agent-console";
+} from "@/lib/crawler-db/agent-console-types";
 
 type Props = {
   graph: LineageGraph;

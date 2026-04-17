@@ -1,7 +1,26 @@
 import { sql } from "./connection";
+import {
+  type AgentHealthTile,
+  type HealthMetric,
+  HEALTH_METRICS,
+  HEALTH_METRIC_LABELS,
+  type LineageTier1,
+  type LineageTier2,
+  type LineageTier3,
+  type LineageGraph,
+  type LineageError,
+  type LineageGraphResult,
+  type ReasoningTraceRow,
+  type MessageThread,
+} from "./agent-console-types";
 
 /**
  * Agent console queries (Plan 62B-10, tabs: Overview/Lineage/Messages/Replay).
+ *
+ * Types + constants live in `./agent-console-types` (no DB dependency — safe
+ * to import from client components). This module adds the server query
+ * functions that hit Postgres, and re-exports the types for callers that
+ * only need a single import.
  *
  * Backing DB objects:
  *   - `agent_health_rollup` (62B-09): 15-min bucket, 5 metrics per agent
@@ -10,39 +29,21 @@ import { sql } from "./connection";
  *   - `agent_messages` (62B-05): inter-agent message queue
  */
 
-export type AgentHealthTile = {
-  agent_name: string;
-  metrics: {
-    loop_completion_rate: number | null;
-    review_latency_seconds: number | null;
-    pattern_promotion_rate: number | null;
-    confidence_drift: number | null;
-    cost_to_value_ratio: number | null;
-  };
-  bucket_start: string | null;
+export {
+  HEALTH_METRICS,
+  HEALTH_METRIC_LABELS,
 };
-
-export type HealthMetric =
-  | "loop_completion_rate"
-  | "review_latency_seconds"
-  | "pattern_promotion_rate"
-  | "confidence_drift"
-  | "cost_to_value_ratio";
-
-export const HEALTH_METRICS: HealthMetric[] = [
-  "loop_completion_rate",
-  "review_latency_seconds",
-  "pattern_promotion_rate",
-  "confidence_drift",
-  "cost_to_value_ratio",
-];
-
-export const HEALTH_METRIC_LABELS: Record<HealthMetric, string> = {
-  loop_completion_rate: "Loop Completion",
-  review_latency_seconds: "Review Latency",
-  pattern_promotion_rate: "Pattern Promotion",
-  confidence_drift: "Confidence Drift",
-  cost_to_value_ratio: "Cost / Value",
+export type {
+  AgentHealthTile,
+  HealthMetric,
+  LineageTier1,
+  LineageTier2,
+  LineageTier3,
+  LineageGraph,
+  LineageError,
+  LineageGraphResult,
+  ReasoningTraceRow,
+  MessageThread,
 };
 
 function toIso(v: unknown): string | null {
@@ -127,33 +128,7 @@ export async function getAgentHealthSparkline(
 // Or (since WR-06 fix, migration 20260517): a discriminated error payload
 // when a lineage row is missing:
 //   { error: "fee_published_not_found" | "tier_2_missing" | "tier_1_missing", ... }
-export type LineageTier1 = {
-  row: Record<string, unknown>;
-  r2_key?: string | null;
-};
-export type LineageTier2 = {
-  row: Record<string, unknown>;
-  children?: Array<{ tier_1: LineageTier1 }>;
-};
-export type LineageTier3 = {
-  row: Record<string, unknown>;
-  children?: Array<{ tier_2: LineageTier2 }>;
-};
-export type LineageGraph = {
-  tier_3?: LineageTier3;
-} | null;
-
-export type LineageError = {
-  code:
-    | "fee_published_not_found"
-    | "tier_2_missing"
-    | "tier_1_missing";
-  details: Record<string, unknown>;
-};
-
-export type LineageGraphResult =
-  | { ok: true; graph: LineageGraph }
-  | { ok: false; error: LineageError };
+// Types live in `./agent-console-types` and are re-exported above.
 
 function isErrorPayload(
   g: unknown,
@@ -181,17 +156,6 @@ export async function getLineageGraph(
   return { ok: true, graph: (g as LineageGraph) ?? null };
 }
 
-export type ReasoningTraceRow = {
-  kind: "event" | "message";
-  created_at: string;
-  agent_name: string;
-  intent_or_action: string | null;
-  tool_name: string | null;
-  entity: string | null;
-  payload: unknown;
-  row_id: string;
-};
-
 export async function getReasoningTrace(
   correlationId: string,
   maxRows = 500,
@@ -214,15 +178,6 @@ export async function getReasoningTrace(
     row_id: String(r.row_id ?? ""),
   }));
 }
-
-export type MessageThread = {
-  correlation_id: string;
-  latest_state: string;
-  round_count: number;
-  latest_intent: string;
-  started_at: string;
-  participants: string[];
-};
 
 export async function listRecentThreads(
   sinceHours = 72,
