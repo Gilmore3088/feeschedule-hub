@@ -1258,7 +1258,7 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
 **Source audits:** `.planning/audits/2026-04-16-pipeline-audit/SYNTHESIS.md` (80.4% lineage loss, wave orchestrator unscheduled, no feedback loops) · `.planning/audits/2026-04-16-pipeline-audit/AGENT-NATIVE-SYNTHESIS.md` (~55% agent-native; CRUD 4%, Action Parity 23%, Context Injection 42% blocking).
 
 - [x] **Phase 62a: Agent Foundation — Data Layer** - `agent_events` + `agent_auth_log` tables, three-tier schema (Raw/Business/Presentation), write-CRUD tool layer, per-agent cost quota infrastructure, SQLite elimination (not started) (completed 2026-04-17)
-- [ ] **Phase 62b: Agent Foundation — Runtime Layer** - 5-step loop framework, inter-agent comms protocol (Darwin↔Knox handshakes), observability lineage, adversarial review gate, bootstrap protocol, testing pattern (not started)
+- [x] **Phase 62b: Agent Foundation — Runtime Layer** - 5-step loop framework, inter-agent comms protocol (Darwin↔Knox handshakes), observability lineage, adversarial review gate, bootstrap protocol, testing pattern (not started) (completed 2026-04-17)
 - [ ] **Phase 63: Knox + 51-State Agent Fleet** - Knox supervisor, state-agent framework on 5-step loop, per-institution dossiers, per-state knowledge compounding, cross-state promotion, source lineage restored (not started)
 - [ ] **Phase 64: Darwin — Classification + Verification** - Adversarial challenges against Knox, active learning from admin reviews, Tier 1 → Tier 2 promotion, miscategorization detection, prompt-driven rules (not started)
 - [ ] **Phase 65: Atlas — Orchestration** - Wave scheduler on Modal, per-agent cost budgets, remediation routing, escalation queue + daily digest, knowledge promotion cron, Modal cron slot reorganization (not started)
@@ -1300,8 +1300,8 @@ Plans:
 - [x] 62B-07-PLAN.md — Adversarial review gate wired into AgentBase.improve (LOOP-07)
 - [x] 62B-08-PLAN.md — pg_cron review_tick schedules + Modal dispatcher (D-05 pivot) (LOOP-03)
 - [x] 62B-09-PLAN.md — Agent health rollup helpers + Python tile queries (OBS-05)
-- [ ] 62B-10-PLAN.md — /admin/agents 4-tab console: Overview, Lineage, Messages, Replay (OBS-03, OBS-04)
-- [ ] 62B-11-PLAN.md — Bootstrap protocol: agent-graduate CLI + lifecycle branch + exception-digest + runbook (BOOT-01)
+- [x] 62B-10-PLAN.md — /admin/agents 4-tab console: Overview, Lineage, Messages, Replay (OBS-03, OBS-04)
+- [x] 62B-11-PLAN.md — Bootstrap protocol: agent-graduate CLI + lifecycle branch + exception-digest + runbook (BOOT-01)
 **UI hint**: no
 
 ### Phase 63: Knox + 51-State Agent Fleet
@@ -1392,7 +1392,7 @@ Note: 62a is a hard prerequisite for 62b (data layer before runtime); 63-66 are 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 62a. Agent Foundation — Data Layer | v10.0 | 13/13 | Complete    | 2026-04-17 |
-| 62b. Agent Foundation — Runtime Layer | v10.0 | 9/11 | In Progress|  |
+| 62b. Agent Foundation — Runtime Layer | v10.0 | 11/11 | Complete   | 2026-04-17 |
 | 63. Knox + 51-State Agent Fleet | v10.0 | 0/TBD | Not started | - |
 | 64. Darwin — Classification + Verification | v10.0 | 0/TBD | Not started | - |
 | 65. Atlas — Orchestration | v10.0 | 0/TBD | Not started | - |
