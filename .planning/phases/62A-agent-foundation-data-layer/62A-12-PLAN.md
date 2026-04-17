@@ -16,7 +16,13 @@ files_modified:
   - src/lib/agent-tools/.gitattributes
   - scripts/codegen.sh
   - .github/workflows/test.yml
-autonomous: true
+autonomous: false  # Flipped 2026-04-16 during Task 3 execution: supabase db push
+                   # failed on schema_migrations version collision (20260407 already
+                   # present with name=fix_report_jobs_user_id; new migration
+                   # 20260407_wave_runs.sql collides). Human decision required on
+                   # remediation path (supabase migration repair vs rename vs skip).
+                   # See 62A-12-SUMMARY.md "[BLOCKING] staging db push incident" for
+                   # full diagnostics.
 requirements: []
 must_haves:
   truths:
