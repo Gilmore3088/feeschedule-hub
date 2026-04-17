@@ -1,5 +1,6 @@
 import {
   getLineageGraph,
+  type LineageError,
   type LineageGraph,
 } from "@/lib/crawler-db/agent-console";
 import { TreeView } from "./tree-view";
@@ -7,6 +8,15 @@ import { TreeView } from "./tree-view";
 export const dynamic = "force-dynamic";
 
 type SearchParams = { fee?: string };
+
+const LINEAGE_ERROR_MESSAGES: Record<LineageError["code"], string> = {
+  fee_published_not_found:
+    "Fee not found. The fee_published_id does not exist in fees_published.",
+  tier_2_missing:
+    "Lineage broken: Tier-2 (fees_verified) row missing. Data integrity issue — check promote_to_tier3 handshake.",
+  tier_1_missing:
+    "Lineage broken: Tier-1 (fees_raw) row missing. Data integrity issue — the extraction source row was deleted or never written.",
+};
 
 export default async function AgentsLineagePage({
   searchParams,
@@ -23,10 +33,16 @@ export default async function AgentsLineagePage({
 
   let graph: LineageGraph = null;
   let loadError: string | null = null;
+  let lineageError: LineageError | null = null;
 
   if (validFeeId !== null) {
     try {
-      graph = await getLineageGraph(validFeeId);
+      const result = await getLineageGraph(validFeeId);
+      if (result.ok) {
+        graph = result.graph;
+      } else {
+        lineageError = result.error;
+      }
     } catch (err) {
       loadError = err instanceof Error ? err.message : String(err);
     }
@@ -74,8 +90,22 @@ export default async function AgentsLineagePage({
           Query failed: {loadError}
         </div>
       )}
+      {lineageError && (
+        <div className="admin-card p-4 text-[12px] text-red-600 dark:text-red-400">
+          <div className="font-semibold">
+            {LINEAGE_ERROR_MESSAGES[lineageError.code] ?? lineageError.code}
+          </div>
+          {Object.keys(lineageError.details).length > 0 && (
+            <pre className="mt-2 text-[10px] font-mono text-red-500/80 dark:text-red-300/70">
+              {JSON.stringify(lineageError.details, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
 
-      {validFeeId !== null && !loadError && <TreeView graph={graph} />}
+      {validFeeId !== null && !loadError && !lineageError && (
+        <TreeView graph={graph} />
+      )}
 
       {validFeeId === null && !feeParam && (
         <div className="admin-card p-6 text-center text-sm text-gray-500 dark:text-gray-400">

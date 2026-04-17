@@ -124,6 +124,9 @@ export async function getAgentHealthSparkline(
 // The lineage_graph() SQL function returns a nested JSONB document.
 // Shape (per 62B-01 lineage_graph function comment):
 //   { tier_3: { row, children: [{ tier_2: { row, children: [{ tier_1: { row, r2_key? } }] } }] } }
+// Or (since WR-06 fix, migration 20260517): a discriminated error payload
+// when a lineage row is missing:
+//   { error: "fee_published_not_found" | "tier_2_missing" | "tier_1_missing", ... }
 export type LineageTier1 = {
   row: Record<string, unknown>;
   r2_key?: string | null;
@@ -140,13 +143,42 @@ export type LineageGraph = {
   tier_3?: LineageTier3;
 } | null;
 
+export type LineageError = {
+  code:
+    | "fee_published_not_found"
+    | "tier_2_missing"
+    | "tier_1_missing";
+  details: Record<string, unknown>;
+};
+
+export type LineageGraphResult =
+  | { ok: true; graph: LineageGraph }
+  | { ok: false; error: LineageError };
+
+function isErrorPayload(
+  g: unknown,
+): g is { error: string } & Record<string, unknown> {
+  return (
+    typeof g === "object" &&
+    g !== null &&
+    "error" in g &&
+    typeof (g as { error: unknown }).error === "string"
+  );
+}
+
 export async function getLineageGraph(
   feePublishedId: number,
-): Promise<LineageGraph> {
+): Promise<LineageGraphResult> {
   const rows = (await sql`
     SELECT lineage_graph(${feePublishedId}::BIGINT) AS g
-  `) as unknown as { g: LineageGraph }[];
-  return rows[0]?.g ?? null;
+  `) as unknown as { g: unknown }[];
+  const g = rows[0]?.g ?? null;
+  if (isErrorPayload(g)) {
+    const { error, ...details } = g;
+    const code = error as LineageError["code"];
+    return { ok: false, error: { code, details } };
+  }
+  return { ok: true, graph: (g as LineageGraph) ?? null };
 }
 
 export type ReasoningTraceRow = {
