@@ -1289,7 +1289,19 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
   3. Agent A can send a Postgres-backed message to Agent B with an intent (`challenge`, `prove`, `accept`, `reject`, `escalate`) and a correlation_id; B receives it via LISTEN/NOTIFY; after N unresolved rounds the exchange auto-routes to the daily digest queue James reviews — all four message types are visible end-to-end in a handshake fixture test
   4. Running `make canary-corpus-run` executes contract tests (mock LLM with asserted tool-call sequence), fixture replay, and canary runs against the golden corpus for any registered agent; a regression of >0 on coverage, confidence, or extraction count fails CI; shadow mode can tee any agent's inputs to an old+new implementation in parallel on live data without double-writing
   5. The bootstrap protocol is documented and executable: Q1 full human validation on a 10-20% sample, Q2 high-confidence auto with exception review, Q3+ autonomy with exception review; a developer can read the runbook and advance an agent from Q1 to Q2 by meeting a named, measurable graduation bar
-**Plans**: TBD
+**Plans**: 11 plans
+Plans:
+- [ ] 62B-01-PLAN.md — Schema migrations + lineage_graph + supabase db push [BLOCKING] (OBS-01, OBS-02)
+- [ ] 62B-02-PLAN.md — DATABASE_URL_SESSION + get_session_pool helper
+- [ ] 62B-03-PLAN.md — AgentBase framework + auto-wrap + default loop helpers (LOOP-01, 02, 04, 05, 06)
+- [ ] 62B-04-PLAN.md — Testing harness + FakeAnthropicClient + canary runner + shadow-mode gateway branch (BOOT-03)
+- [ ] 62B-05-PLAN.md — Inter-agent messaging runtime (LISTEN/NOTIFY + handshakes + escalation) (COMMS-01..04)
+- [ ] 62B-06-PLAN.md — get_reasoning_trace read-only agent tool (COMMS-05)
+- [ ] 62B-07-PLAN.md — Adversarial review gate wired into AgentBase.improve (LOOP-07)
+- [ ] 62B-08-PLAN.md — pg_cron review_tick schedules + Modal dispatcher (D-05 pivot) (LOOP-03)
+- [ ] 62B-09-PLAN.md — Agent health rollup helpers + Python tile queries (OBS-05)
+- [ ] 62B-10-PLAN.md — /admin/agents 4-tab console: Overview, Lineage, Messages, Replay (OBS-03, OBS-04)
+- [ ] 62B-11-PLAN.md — Bootstrap protocol: agent-graduate CLI + lifecycle branch + exception-digest + runbook (BOOT-01)
 **UI hint**: no
 
 ### Phase 63: Knox + 51-State Agent Fleet
