@@ -1292,7 +1292,7 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
 **Plans**: 11 plans
 Plans:
 - [ ] 62B-01-PLAN.md — Schema migrations + lineage_graph + supabase db push [BLOCKING] (OBS-01, OBS-02)
-- [ ] 62B-02-PLAN.md — DATABASE_URL_SESSION + get_session_pool helper
+- [x] 62B-02-PLAN.md — DATABASE_URL_SESSION + get_session_pool helper
 - [ ] 62B-03-PLAN.md — AgentBase framework + auto-wrap + default loop helpers (LOOP-01, 02, 04, 05, 06)
 - [ ] 62B-04-PLAN.md — Testing harness + FakeAnthropicClient + canary runner + shadow-mode gateway branch (BOOT-03)
 - [ ] 62B-05-PLAN.md — Inter-agent messaging runtime (LISTEN/NOTIFY + handshakes + escalation) (COMMS-01..04)
@@ -1392,7 +1392,7 @@ Note: 62a is a hard prerequisite for 62b (data layer before runtime); 63-66 are 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 62a. Agent Foundation — Data Layer | v10.0 | 13/13 | Complete    | 2026-04-17 |
-| 62b. Agent Foundation — Runtime Layer | v10.0 | 0/TBD | Not started | - |
+| 62b. Agent Foundation — Runtime Layer | v10.0 | 1/11 | In Progress|  |
 | 63. Knox + 51-State Agent Fleet | v10.0 | 0/TBD | Not started | - |
 | 64. Darwin — Classification + Verification | v10.0 | 0/TBD | Not started | - |
 | 65. Atlas — Orchestration | v10.0 | 0/TBD | Not started | - |
