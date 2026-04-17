@@ -140,15 +140,38 @@ def run_browser_extraction():
     return result.stdout[-1000:] if result.stdout else ""
 
 
+# D-05 pivot (Phase 62b, Plan 62B-08): Modal Starter tier caps at 5 cron slots.
+# Rather than add a 6th slot for review_dispatcher, this function now ticks every
+# minute — calling dispatch_ticks() first (LOOP-03 agent review dispatch), then
+# running the original daily post-processing pipeline only at 06:00. See research
+# §Mechanics 3 / Pitfall 1 and 62B-08-SUMMARY.md for the decision rationale.
 @app.function(
-    schedule=modal.Cron("0 6 * * *"),
+    schedule=modal.Cron("* * * * *"),
     timeout=3600,
     secrets=secrets,
     memory=1024,
 )
-def run_post_processing():
-    """Post-extraction: validate, categorize, auto-review, snapshot."""
+async def run_post_processing():
+    """Every-minute dispatcher for agent review_ticks + once-daily post-processing pipeline."""
     import os
+    from datetime import datetime, timezone
+
+    # Every minute: dispatch pending agent review_ticks (LOOP-03 D-05 pivot).
+    try:
+        from fee_crawler.agent_base.dispatcher import dispatch_ticks
+        dispatched = await dispatch_ticks()
+        if dispatched:
+            print(f"dispatch_ticks: invoked {dispatched} agent review(s)")
+    except Exception as exc:
+        # Never let tick dispatch block the daily pipeline.
+        print(f"dispatch_ticks failed (non-fatal): {exc}")
+
+    now = datetime.now(timezone.utc)
+    if not (now.hour == 6 and now.minute < 2):
+        # Skip the daily pipeline except in the 06:00-06:01 UTC window (preserves
+        # original once-per-day cadence while sharing the cron slot with LOOP-03).
+        return "dispatch_only"
+
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     commands = [
         ["python3", "-m", "fee_crawler", "categorize"],
