@@ -56,7 +56,7 @@ export default async function AgentsReplayPage({
         />
         <button
           type="submit"
-          className="h-8 rounded-md bg-gray-900 dark:bg-white/10 text-white text-[12px] font-semibold px-3 hover:bg-gray-800 dark:hover:bg-white/20"
+          className="min-h-11 rounded-md bg-gray-900 dark:bg-white/10 text-white text-[12px] font-semibold px-3 py-2 hover:bg-gray-800 dark:hover:bg-white/20"
         >
           Replay
         </button>
