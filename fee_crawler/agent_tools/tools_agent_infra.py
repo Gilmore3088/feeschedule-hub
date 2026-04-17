@@ -187,9 +187,9 @@ async def upsert_agent_budget(
     ) as (conn, event_id):
         await conn.execute(
             """INSERT INTO agent_budgets
-                 (agent_name, window, limit_cents, spent_cents, window_started_at, updated_at)
+                 (agent_name, budget_window, limit_cents, spent_cents, window_started_at, updated_at)
                VALUES ($1, $2, $3, 0, NOW(), NOW())
-               ON CONFLICT (agent_name, window) DO UPDATE SET
+               ON CONFLICT (agent_name, budget_window) DO UPDATE SET
                  limit_cents = EXCLUDED.limit_cents,
                  updated_at = NOW()""",
             inp.agent_name, inp.window, inp.limit_cents,

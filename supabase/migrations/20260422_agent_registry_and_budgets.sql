@@ -31,7 +31,7 @@ COMMENT ON COLUMN agent_registry.role IS 'state_agent is the only role permitted
 -- ========================================================================
 CREATE TABLE IF NOT EXISTS agent_budgets (
     agent_name         TEXT NOT NULL REFERENCES agent_registry(agent_name) ON DELETE CASCADE,
-    window             TEXT NOT NULL CHECK (window IN (
+    budget_window      TEXT NOT NULL CHECK (budget_window IN (
                          'per_cycle','per_batch','per_report','per_day','per_month'
                        )),
     limit_cents        INTEGER NOT NULL CHECK (limit_cents >= 0),
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS agent_budgets (
     halted_at          TIMESTAMPTZ,
     halted_reason      TEXT,
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (agent_name, window)
+    PRIMARY KEY (agent_name, budget_window)
 );
 
 COMMENT ON TABLE agent_budgets IS 'Phase 62a AGENT-05: per-agent cost quota. Gateway reads limit_cents (env override > this row > config.yaml fallback); gateway writes spent_cents + halted_at. Direct UPDATE tools forbidden — only gateway internals.';
@@ -81,12 +81,12 @@ END $$;
 -- ========================================================================
 -- Seed default budgets (config.yaml fallback; operator can override via UPDATE).
 -- ========================================================================
-INSERT INTO agent_budgets (agent_name, window, limit_cents) VALUES
+INSERT INTO agent_budgets (agent_name, budget_window, limit_cents) VALUES
     ('knox',     'per_cycle',  50000),  -- $500 per quarterly cycle
     ('darwin',   'per_batch',  10000),  -- $100 per verification batch
     ('hamilton', 'per_report',  1000),  -- $10 per generated report
     ('atlas',    'per_month',  10000)   -- $100 per month of orchestration
-ON CONFLICT (agent_name, window) DO NOTHING;
+ON CONFLICT (agent_name, budget_window) DO NOTHING;
 
 -- Per-state-agent default budget: $50 per cycle, applied only if not already set.
 DO $$
@@ -94,7 +94,7 @@ DECLARE
     c TEXT;
 BEGIN
     FOR c IN SELECT agent_name FROM agent_registry WHERE role = 'state_agent' LOOP
-        INSERT INTO agent_budgets (agent_name, window, limit_cents) VALUES (c, 'per_cycle', 5000)
-        ON CONFLICT (agent_name, window) DO NOTHING;
+        INSERT INTO agent_budgets (agent_name, budget_window, limit_cents) VALUES (c, 'per_cycle', 5000)
+        ON CONFLICT (agent_name, budget_window) DO NOTHING;
     END LOOP;
 END $$;
