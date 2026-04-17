@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Awaitable, Callable, Optional
 
 from fee_crawler.agent_tools.pool import get_pool
@@ -59,7 +59,9 @@ async def run_canary(
         pool = await get_pool()
 
     run_id = str(uuid.uuid4())
-    started = datetime.utcnow()
+    # Timezone-aware UTC so asyncpg always sends a real TZ to TIMESTAMPTZ
+    # (datetime.utcnow() is naive + deprecated on Python 3.12).
+    started = datetime.now(timezone.utc)
 
     # Run the agent against every expectation in corpus-order.
     results: list[dict] = []
