@@ -18,6 +18,7 @@ from typing import Optional
 import asyncpg
 
 _pool: Optional[asyncpg.Pool] = None
+_session_pool: Optional[asyncpg.Pool] = None
 
 
 async def get_pool() -> asyncpg.Pool:
@@ -42,6 +43,58 @@ async def get_pool() -> asyncpg.Pool:
             init=_init_connection,
         )
     return _pool
+
+
+async def get_session_pool() -> asyncpg.Pool:
+    """Return a process-scoped asyncpg pool configured for SESSION-MODE Postgres.
+
+    Use ONLY for LISTEN/NOTIFY. Writes MUST continue to use get_pool() (transaction
+    mode). Supavisor transaction pooler (port 6543) multiplexes connections between
+    transactions -- LISTEN registrations do not survive. Session mode (port 5432)
+    preserves connection state for the lifetime of the listener.
+
+    Env var DATABASE_URL_SESSION MUST be set to a port-5432 DSN. Distinct from
+    DATABASE_URL. DATABASE_URL_SESSION_TEST is accepted as a fallback for tests,
+    matching the existing DATABASE_URL / DATABASE_URL_TEST convention.
+
+    Unlike get_pool(), this pool leaves statement_cache_size at asyncpg's default
+    because session mode supports prepared statements. Pool is deliberately small
+    (min=1, max=3) because listeners are long-lived and few.
+
+    Reference: Phase 62b research Mechanics #2 + Pitfall #2.
+    """
+    global _session_pool
+    if _session_pool is None:
+        dsn = os.environ.get("DATABASE_URL_SESSION") or os.environ.get(
+            "DATABASE_URL_SESSION_TEST"
+        )
+        if not dsn:
+            raise RuntimeError(
+                "DATABASE_URL_SESSION (or DATABASE_URL_SESSION_TEST for tests) "
+                "must be set before calling get_session_pool(). Required for "
+                "LISTEN/NOTIFY in Phase 62b agent messaging -- transaction-mode "
+                "pool does NOT support LISTEN registrations."
+            )
+        _session_pool = await asyncpg.create_pool(
+            dsn=dsn,
+            min_size=1,
+            max_size=3,
+            # Session mode supports prepared statements -- use asyncpg default
+            # cache (do NOT set statement_cache_size=0; that is a txn-pool workaround).
+            max_inactive_connection_lifetime=0,   # Listeners hold forever
+            command_timeout=None,
+            server_settings={"application_name": "bfi-agent-messaging"},
+            init=_init_connection,
+        )
+    return _session_pool
+
+
+async def close_session_pool() -> None:
+    """Close the session pool. Primarily for test teardown."""
+    global _session_pool
+    if _session_pool is not None:
+        await _session_pool.close()
+        _session_pool = None
 
 
 async def _init_connection(conn: asyncpg.Connection) -> None:
