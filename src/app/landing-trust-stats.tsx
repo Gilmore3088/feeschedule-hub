@@ -21,42 +21,45 @@ function formatRelativeRefresh(iso: string | null): string {
 
 export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) {
   const refreshedRelative = formatRelativeRefresh(freshness.last_crawl_at);
+  // Palette: text-slate-* / border-slate-* / text-amber-* are remapped by
+  // the .consumer-brand wrapper in globals.css to the warm consumer palette.
+  // Don't reach for raw hex here — keep the design system the source of truth.
   return (
-    <section className="border-t border-[#E8DFD1] bg-[#F5EFE6]/60">
+    <section className="border-t border-slate-200 bg-slate-50/60">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           <div>
-            <dd className="text-[28px] font-bold text-[#1A1815] tabular-nums">
+            <dd className="text-[28px] font-bold text-slate-900 tabular-nums">
               {stats.total_institutions.toLocaleString()}
             </dd>
-            <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
+            <dt className="text-[12px] font-normal text-slate-500 uppercase tracking-wide mt-1">
               Institutions tracked
             </dt>
           </div>
 
           <div>
-            <dd className="text-[28px] font-bold text-[#1A1815] tabular-nums">
+            <dd className="text-[28px] font-bold text-slate-900 tabular-nums">
               49
             </dd>
-            <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
+            <dt className="text-[12px] font-normal text-slate-500 uppercase tracking-wide mt-1">
               Fee categories
             </dt>
           </div>
 
           <div>
-            <dd className="text-[28px] font-bold text-[#1A1815] tabular-nums">
+            <dd className="text-[28px] font-bold text-slate-900 tabular-nums">
               50
             </dd>
-            <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
+            <dt className="text-[12px] font-normal text-slate-500 uppercase tracking-wide mt-1">
               U.S. states covered
             </dt>
           </div>
 
           <div>
-            <dd className="text-[28px] font-bold text-[#1A1815] tabular-nums">
+            <dd className="text-[28px] font-bold text-slate-900 tabular-nums">
               {stats.total_observations.toLocaleString()}
             </dd>
-            <dt className="text-[12px] font-normal text-[#7A7062] uppercase tracking-wide mt-1">
+            <dt className="text-[12px] font-normal text-slate-500 uppercase tracking-wide mt-1">
               Verified fee observations
             </dt>
           </div>
@@ -64,20 +67,20 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
 
         {/* Provenance row — concrete sources + freshness + methodology link.
             Bankers buy on provenance, not on testimonials. */}
-        <div className="mt-6 pt-6 border-t border-[#E8DFD1] flex flex-col lg:flex-row lg:items-baseline gap-3 lg:gap-6 text-[12px] text-[#7A7062]">
-          <span className="font-semibold uppercase tracking-wide text-[10px] text-[#A69D90] shrink-0">
+        <div className="mt-6 pt-6 border-t border-slate-200 flex flex-col lg:flex-row lg:items-baseline gap-3 lg:gap-6 text-[12px] text-slate-500">
+          <span className="font-semibold uppercase tracking-wide text-[10px] text-slate-400 shrink-0">
             Sources
           </span>
           <span className="leading-relaxed">
             FDIC Call Reports · NCUA 5300 · Federal Reserve FRED · Beige Book ·
             Published deposit account agreements
           </span>
-          <span className="lg:ml-auto shrink-0 text-[#5A5347]">
-            Last refresh: <span className="text-[#1A1815] font-medium">{refreshedRelative}</span>
+          <span className="lg:ml-auto shrink-0 text-slate-600">
+            Last refresh: <span className="text-slate-900 font-medium">{refreshedRelative}</span>
             {" · "}
             <Link
               href="/methodology"
-              className="text-[#C44B2E] hover:underline underline-offset-2"
+              className="text-amber-400 hover:underline underline-offset-2"
             >
               Methodology
             </Link>

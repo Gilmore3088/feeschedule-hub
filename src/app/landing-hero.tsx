@@ -16,9 +16,18 @@ interface LandingHeroProps {
 }
 
 export function LandingHero({ totalInstitutions }: LandingHeroProps) {
+  // Palette notes (per .consumer-brand wrapper in globals.css):
+  // - text-slate-* / border-slate-* / text-amber-* / bg-amber-* are remapped
+  //   to the warm consumer palette by the wrapper. Use these instead of raw hex.
+  // - The two-tone hero background hex (#FAF7F2 light + #1A1815 dark) is kept
+  //   raw — it's a structural brand decision (the literal split), not a token.
+  // - The institutional dark column's interior palette (#2D2A26 cards, #3D3830
+  //   borders, #F5EFE6/#8A8176/#7A7062 text on dark) stays raw because the
+  //   consumer-brand wrapper only covers the LIGHT contextual palette. A future
+  //   pass could add a parallel dark-context override set if needed.
   return (
     <section className="relative">
-      {/* Two-tone background */}
+      {/* Two-tone background — structural, not a token */}
       <div className="absolute inset-0 hidden lg:flex">
         <div className="w-1/2 bg-[#FAF7F2]" />
         <div className="w-1/2 bg-[#1A1815]" />
@@ -28,16 +37,16 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
       <div className="relative mx-auto max-w-6xl px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2">
 
-          {/* ═══ Consumer Side ═══ */}
+          {/* ═══ Consumer Side (light context — uses design-system tokens) ═══ */}
           <div className="flex flex-col py-14 lg:py-16 lg:pr-12">
             {/* Row 1: Label */}
-            <span className="text-[11px] font-normal uppercase tracking-[0.15em] text-[#A09788]">
+            <span className="text-[11px] font-normal uppercase tracking-[0.15em] text-slate-400">
               For Consumers
             </span>
 
             {/* Row 2: Headline */}
             <h1
-              className="mt-4 text-[#1A1815] leading-[1.05] tracking-[-0.02em]"
+              className="mt-4 text-slate-900 leading-[1.05] tracking-[-0.02em]"
               style={{
                 fontFamily: "var(--font-newsreader), Georgia, serif",
                 fontSize: "clamp(30px, 4.5vw, 42px)",
@@ -45,12 +54,12 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
               }}
             >
               What is your bank{" "}
-              <em style={{ fontStyle: "italic", color: "#C44B2E" }}>really</em>{" "}
+              <em className="text-amber-400">really</em>{" "}
               charging you?
             </h1>
 
             {/* Row 3: Description */}
-            <p className="mt-3 text-[15px] leading-relaxed text-[#6B6355]">
+            <p className="mt-3 text-[15px] leading-relaxed text-slate-600">
               Look up any bank or credit union and see exactly what they charge
               -- compared to {totalInstitutions.toLocaleString()}+ institutions nationwide.
             </p>
@@ -59,48 +68,51 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
             <div className="mt-6" aria-label="Search for a bank or credit union">
               <InstitutionSearchBar />
             </div>
-            <p className="mt-2 text-[12px] text-[#A09788]">
+            <p className="mt-2 text-[12px] text-slate-400">
               Free. No account required.
             </p>
 
             {/* Spacer pushes cards to bottom */}
             <div className="flex-1 min-h-6" />
 
-            {/* Row 5: Cards (pinned to bottom) */}
+            {/* Row 5: Cards (pinned to bottom).
+                Hover border opacity (/40) and group-hover state colors stay
+                raw because the .consumer-brand wrapper doesn't currently
+                remap those modifier variants. */}
             <div className="grid grid-cols-3 gap-3">
               <Link
                 href="/institutions"
-                className="group rounded-xl border border-[#E8DFD1] bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
+                className="group rounded-xl border border-slate-200 bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
               >
-                <Search className="h-4 w-4 text-[#C44B2E] mb-2" />
-                <p className="text-[13px] font-bold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                <Search className="h-4 w-4 text-amber-400 mb-2" />
+                <p className="text-[13px] font-bold text-slate-900 group-hover:text-[#C44B2E] transition-colors">
                   Fee Scout
                 </p>
-                <p className="text-[11px] text-[#8A8176] mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   Compare your bank&apos;s fees
                 </p>
               </Link>
               <Link
                 href="/fees"
-                className="group rounded-xl border border-[#E8DFD1] bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
+                className="group rounded-xl border border-slate-200 bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
               >
-                <BarChart2 className="h-4 w-4 text-[#C44B2E] mb-2" />
-                <p className="text-[13px] font-bold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                <BarChart2 className="h-4 w-4 text-amber-400 mb-2" />
+                <p className="text-[13px] font-bold text-slate-900 group-hover:text-[#C44B2E] transition-colors">
                   Benchmarks
                 </p>
-                <p className="text-[11px] text-[#8A8176] mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   49 fee categories ranked
                 </p>
               </Link>
               <Link
                 href="/guides"
-                className="group rounded-xl border border-[#E8DFD1] bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
+                className="group rounded-xl border border-slate-200 bg-white/80 px-3 py-3.5 hover:border-[#C44B2E]/40 hover:shadow-sm transition-all"
               >
-                <BookOpen className="h-4 w-4 text-[#C44B2E] mb-2" />
-                <p className="text-[13px] font-bold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                <BookOpen className="h-4 w-4 text-amber-400 mb-2" />
+                <p className="text-[13px] font-bold text-slate-900 group-hover:text-[#C44B2E] transition-colors">
                   Fee Guides
                 </p>
-                <p className="text-[11px] text-[#8A8176] mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   Plain-language explainers
                 </p>
               </Link>
