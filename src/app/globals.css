@@ -45,6 +45,42 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* ─── Bank Fee Index design system: warm consumer palette ───
+     Named tokens that produce Tailwind utilities that work everywhere
+     without depending on the .consumer-brand wrapper. Use these in any new
+     marketing/consumer surface (landing, /pro, /for-institutions, etc.).
+
+     Light context (warm-*): neutrals on the parchment side of the brand.
+     Dark context (warm-ink-*): the editorial dark column inside the
+     two-tone landing hero and any dark surfaces that ride alongside it.
+     Accent (terra): the terracotta 37signals-style brand red. */
+
+  /* light context — bg/border/text on the warm-parchment side */
+  --color-warm-50:  #FDFBF8;  /* near-white, panel bg */
+  --color-warm-100: #FAF7F2;  /* page bg */
+  --color-warm-150: #F5EFE6;  /* subtle panel bg */
+  --color-warm-200: #EDE5D8;  /* divider tint */
+  --color-warm-300: #E0D7C9;  /* border / muted bg */
+  --color-warm-400: #C4B89F;  /* mid neutral, rare */
+  --color-warm-500: #A09788;  /* eyebrow color, faint label */
+  --color-warm-600: #7A7062;  /* secondary text */
+  --color-warm-700: #5A5347;  /* body / dark label */
+  --color-warm-800: #3D3830;  /* heading */
+  --color-warm-900: #1A1815;  /* near-black headline */
+
+  /* dark context — for the institutional dark column */
+  --color-warm-ink-50:  #F5EFE6;  /* light text on dark */
+  --color-warm-ink-300: #A09788;  /* mid-muted text on dark */
+  --color-warm-ink-500: #7A7062;  /* secondary text on dark */
+  --color-warm-ink-700: #3D3830;  /* border on dark */
+  --color-warm-ink-800: #2D2A26;  /* card bg on dark */
+  --color-warm-ink-900: #1A1815;  /* page bg on dark */
+
+  /* terracotta accent */
+  --color-terra:    #C44B2E;     /* primary brand accent */
+  --color-terra-dark: #A93D25;   /* hover state */
+  --color-terra-soft: #FDF0ED;   /* tinted bg */
 }
 
 :root {
@@ -500,6 +536,21 @@
 /* ═══════════════════════════════════════════════
    Consumer brand: remap slate → warm palette
    Applied via .consumer-brand wrapper on (public) layout
+
+   ⚠ STATUS: legacy. New marketing/consumer surfaces should use the named
+   warm-* / warm-ink-* / terra tokens defined in the @theme block above.
+   Those tokens produce real Tailwind utilities (bg-warm-100, text-warm-900,
+   text-terra, hover:border-terra/40, etc.) that work in any route — no
+   wrapper required, no risk of forgetting to apply it.
+
+   This .consumer-brand override block stays for compatibility with surfaces
+   that still use raw Tailwind palette utilities (bg-white, text-slate-900,
+   text-amber-400) and depend on the wrapper to translate them. New code
+   should not depend on it.
+
+   Migration: when a file is being touched, prefer converting its
+   slate-*/amber-* utilities to warm-*/terra tokens directly. That
+   decouples the file from the wrapper.
    ═══════════════════════════════════════════════ */
 
 /* ── Backgrounds ── */

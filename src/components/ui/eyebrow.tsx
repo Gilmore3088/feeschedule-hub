@@ -8,11 +8,8 @@ import type { ElementType, ReactNode } from "react";
  * when the eyebrow IS the section's heading — so screen readers still get
  * proper landmarks, and the visible style stays the small editorial label.
  *
- * Color scope: hardcoded warm-palette hex internally. The project's
- * `.consumer-brand` wrapper isn't applied to /pro or /for-institutions yet,
- * so utility classes like `text-slate-400` would render as Tailwind's cool
- * default in those routes. Migrate to `text-[var(--eyebrow-color)]` if/when
- * the wrapper coverage is rationalized.
+ * Colors come from the warm-* design tokens defined in globals.css `@theme`.
+ * Works in any route — no `.consumer-brand` wrapper required.
  */
 
 type Tone = "default" | "subtle" | "accent" | "dark";
@@ -29,10 +26,10 @@ interface EyebrowProps {
 }
 
 const TONE: Record<Tone, string> = {
-  default: "text-[#A69D90]",
-  subtle: "text-[#7A7062]",
-  accent: "text-[#C44B2E]",
-  dark: "text-[#5A5347]",
+  default: "text-warm-500",
+  subtle: "text-warm-600",
+  accent: "text-terra",
+  dark: "text-warm-700",
 };
 
 const SIZE: Record<NonNullable<EyebrowProps["size"]>, string> = {
