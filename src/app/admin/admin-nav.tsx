@@ -171,6 +171,17 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        href: "/admin/agents",
+        label: "Agents",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <circle cx="8" cy="6" r="2.5" />
+            <path d="M3.5 13.5c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
+            <path d="M2 2.5l1.5 1.5M14 2.5l-1.5 1.5" />
+          </svg>
+        ),
+      },
     ],
   },
 ];
