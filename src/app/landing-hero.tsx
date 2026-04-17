@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { InstitutionSearchBar } from "@/app/(public)/institutions/search-bar";
 import {
-  ArrowRight,
   BarChart2,
   BookOpen,
   Brain,
@@ -134,24 +133,31 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
               and 5 federal data sources.
             </p>
 
-            {/* Row 4: Action (CTA) */}
-            <div className="mt-6 flex items-center gap-4">
+            {/* Row 4: Action (search-as-onboarding) */}
+            <div className="mt-6" aria-label="Search your institution to see its peer comparison">
+              <InstitutionSearchBar
+                variant="dark"
+                placeholder="Type your institution name..."
+              />
+            </div>
+            <p className="mt-2 text-[12px] text-[#8A8176]">
+              See your peer comparison instantly.{" "}
               <Link
                 href="/for-institutions"
-                className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-6 py-2.5 text-[14px] font-bold text-white hover:bg-[#A93D25] transition-colors"
+                className="text-[#F5EFE6] hover:text-[#C44B2E] underline-offset-2 hover:underline transition-colors"
               >
-                Learn More
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+                What you get with Pro
+              </Link>{" "}
+              ·{" "}
               <Link
                 href="/subscribe"
-                className="text-[14px] text-[#8A8176] hover:text-[#F5EFE6] transition-colors"
+                className="text-[#F5EFE6] hover:text-[#C44B2E] underline-offset-2 hover:underline transition-colors"
               >
-                View pricing
+                Plans from $199/mo
               </Link>
-            </div>
-            <p className="mt-2 text-[12px] text-[#5A5347]">
-              Plans from $199/mo per seat.
+            </p>
+            <p className="mt-1 text-[11px] text-[#5A5347] italic">
+              About what a single McKinsey associate-day costs — for an entire seat-month.
             </p>
 
             {/* Spacer pushes cards to bottom */}

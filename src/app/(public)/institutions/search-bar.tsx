@@ -12,7 +12,23 @@ interface Result {
   fee_count: number;
 }
 
-export function InstitutionSearchBar({ autoFocus = false }: { autoFocus?: boolean }) {
+type Variant = "light" | "dark";
+
+interface InstitutionSearchBarProps {
+  autoFocus?: boolean;
+  /**
+   * Visual variant. "light" (default) is the consumer/parchment background.
+   * "dark" is for the institutional landing's dark column.
+   */
+  variant?: Variant;
+  placeholder?: string;
+}
+
+export function InstitutionSearchBar({
+  autoFocus = false,
+  variant = "light",
+  placeholder = "Search your bank or credit union...",
+}: InstitutionSearchBarProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -20,6 +36,7 @@ export function InstitutionSearchBar({ autoFocus = false }: { autoFocus?: boolea
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const isDark = variant === "dark";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -67,7 +84,7 @@ export function InstitutionSearchBar({ autoFocus = false }: { autoFocus?: boolea
         <svg
           viewBox="0 0 24 24"
           fill="none"
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-[#A69D90]"
+          className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 ${isDark ? "text-[#7A7062]" : "text-[#A69D90]"}`}
           stroke="currentColor"
           strokeWidth="1.5"
         >
@@ -79,13 +96,19 @@ export function InstitutionSearchBar({ autoFocus = false }: { autoFocus?: boolea
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => results.length > 0 && setShowResults(true)}
-          placeholder="Search your bank or credit union..."
+          placeholder={placeholder}
           autoFocus={autoFocus}
-          className="w-full rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] pl-10 pr-4 py-3 text-sm text-[#1A1815] placeholder:text-[#A69D90] focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent"
+          className={
+            isDark
+              ? "w-full rounded-xl border border-[#3D3830] bg-[#2D2A26] pl-10 pr-4 py-3 text-sm text-[#F5EFE6] placeholder:text-[#7A7062] focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent"
+              : "w-full rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] pl-10 pr-4 py-3 text-sm text-[#1A1815] placeholder:text-[#A69D90] focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent"
+          }
         />
         {loading && (
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
-            <div className="h-4 w-4 border-2 border-[#E8DFD1] border-t-[#C44B2E] rounded-full animate-spin" />
+            <div
+              className={`h-4 w-4 border-2 ${isDark ? "border-[#3D3830]" : "border-[#E8DFD1]"} border-t-[#C44B2E] rounded-full animate-spin`}
+            />
           </div>
         )}
       </div>
