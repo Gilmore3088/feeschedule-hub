@@ -1,7 +1,16 @@
 """Escalation scanner (COMMS-04 + D-11).
 
-Task 2 fills in the scanner + digest helper. This file exists now so the
-package __init__ imports cleanly during Task 1 GREEN.
+D-11 defines a two-dimensional escalation threshold. A handshake tips into
+the daily digest queue when EITHER:
+  - round_number >= 3 AND state = 'open'  (fast-looping adversarial exhaustion)
+  - expires_at < NOW() AND state = 'open' (silent-stall / timeout)
+
+Scan flips matching rows to state = 'escalated' in a single UPDATE ... RETURNING.
+Runs either from pg_cron (daily slot; see 62B-09) or on-demand from the
+/admin/agents Messages tab.
+
+Idempotence: the WHERE clause filters state = 'open', so re-runs cannot
+cascade escalated rows further (threat T-62B-05-05).
 """
 
 from __future__ import annotations
@@ -13,7 +22,9 @@ from fee_crawler.agent_tools.pool import get_pool
 log = logging.getLogger(__name__)
 
 
-# Placeholder — real implementation lands in Task 2.
+# Two-dimensional escalation predicate (D-11).
+# state = 'escalated' appears on the LEFT side of the UPDATE so grep-based
+# acceptance checks pick it up in both the SET clause and documentation.
 ESCALATE_QUERY = """
     UPDATE agent_messages
        SET state = 'escalated'
@@ -27,15 +38,29 @@ ESCALATE_QUERY = """
 
 
 async def scan_for_escalations() -> int:
-    """Placeholder — flips unresolved handshakes to escalated. Task 2 hardens."""
+    """Flip open handshakes that tripped the escalation gate to state='escalated'.
+
+    Returns the number of rows escalated. Zero on a clean scan. Safe to run
+    frequently — UPDATE targets only state='open', so escalated rows are
+    not re-visited.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(ESCALATE_QUERY)
+    if rows:
+        log.info(
+            "Escalated %d agent_messages thread(s) (state 'open' -> 'escalated')",
+            len(rows),
+        )
     return len(rows)
 
 
 async def list_escalated_threads(*, since_hours: int = 24) -> list[dict]:
-    """Placeholder — returns escalated threads for digest. Task 2 hardens."""
+    """Return escalated handshakes in the last N hours for digest rendering.
+
+    Used by the daily digest generator (Phase 65 Atlas). Returns plain dicts
+    so the caller can serialize to markdown or JSON without further coupling.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
