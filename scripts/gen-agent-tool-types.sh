@@ -8,6 +8,11 @@
 
 set -euo pipefail
 
+# Repo root (resolve relative to this script) so the command works from any cwd.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 OUTPUT="src/lib/agent-tools/types.generated.ts"
 MODULE="fee_crawler.agent_tools.schemas"
 
@@ -15,6 +20,11 @@ command -v pydantic2ts >/dev/null 2>&1 || {
   echo "pydantic2ts not found. Install: pip install pydantic-to-typescript>=2.0" >&2
   exit 2
 }
+
+# pydantic2ts uses importlib to import MODULE; fee_crawler is a package at the
+# repo root, so PYTHONPATH must include the repo root for discovery to succeed
+# in environments where the package isn't pip-installed.
+export PYTHONPATH="${PYTHONPATH:-}${PYTHONPATH:+:}$REPO_ROOT"
 
 mkdir -p "$(dirname "$OUTPUT")"
 

@@ -2,25 +2,724 @@
 // Source of truth: fee_crawler/agent_tools/schemas/ (package)
 // Regenerate: bash scripts/gen-agent-tool-types.sh
 
-// NOTE: This file was generated with pydantic-to-typescript v2. If you edit
-// schemas/_base.py or any per-domain schema module (fees.py, crawl.py, etc.),
-// rerun the codegen script before committing.
-//
-// Plan 62A-05 ships only the shared base types below. Per-domain interfaces
-// (ApproveFeeRawInput, CreateHamiltonScenarioInput, ...) land here after
-// Plans 62A-07..10 add their per-domain Pydantic modules AND the codegen
-// script is rerun.
+/* tslint:disable */
+/* eslint-disable */
+/**
+/* This file was automatically generated from pydantic models by running pydantic2ts.
+/* Do not modify it by hand - just update the pydantic models and then re-run the script
+*/
 
-export interface BaseToolInput {}
-
-export interface BaseToolOutput {
-  success: boolean;
-  error?: string | null;
-}
-
+/**
+ * Reference to an agent_events row (returned by most write tools).
+ */
 export interface AgentEventRef {
   event_id: string;
   correlation_id: string;
 }
-
-export type AgentName = "hamilton" | "knox" | "darwin" | "atlas";
+/**
+ * Base class — tool inputs inherit for shared fields if needed.
+ */
+export interface BaseToolInput {}
+/**
+ * Base class — tool outputs inherit.
+ */
+export interface BaseToolOutput {
+  success: boolean;
+  error?: string | null;
+}
+export interface CancelReportJobInput {
+  job_id: string;
+  reason?: string | null;
+}
+export interface CancelReportJobOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateArticleInput {
+  slug: string;
+  title: string;
+  body: string;
+  author: string;
+  tags?: string[];
+}
+export interface CreateArticleOutput {
+  success: boolean;
+  error?: string | null;
+  article_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateBeigeBookThemeInput {
+  district: number;
+  period: string;
+  theme: string;
+  summary: string;
+  source_url?: string | null;
+}
+export interface CreateBeigeBookThemeOutput {
+  success: boolean;
+  error?: string | null;
+  theme_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateCrawlResultInput {
+  crawl_target_id: number;
+  crawl_run_id?: number | null;
+  document_url?: string | null;
+  document_path?: string | null;
+  status: string;
+  status_code?: number | null;
+  content_hash?: string | null;
+}
+export interface CreateCrawlResultOutput {
+  success: boolean;
+  error?: string | null;
+  crawl_result_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateCrawlRunInput {
+  trigger: string;
+  targets_total: number;
+}
+export interface CreateCrawlRunOutput {
+  success: boolean;
+  error?: string | null;
+  crawl_run_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateExternalIntelligenceInput {
+  source: "fred" | "bls" | "cfpb" | "census" | "ofr" | "nyfed" | "ffiec_cdr" | "manual";
+  series_id: string;
+  title?: string | null;
+  body?: string | null;
+  payload?: {
+    [k: string]: unknown;
+  };
+  observed_at?: string | null;
+}
+export interface CreateExternalIntelligenceOutput {
+  success: boolean;
+  error?: string | null;
+  external_intelligence_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateFeeChangeEventInput {
+  institution_id: number;
+  canonical_fee_key: string;
+  old_amount?: number | null;
+  new_amount?: number | null;
+  detected_at?: string | null;
+  change_type: string;
+}
+export interface CreateFeeChangeEventOutput {
+  success: boolean;
+  error?: string | null;
+  fee_change_event_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateFeeRawInput {
+  institution_id: number;
+  crawl_event_id?: number | null;
+  document_r2_key?: string | null;
+  source_url?: string | null;
+  extraction_confidence?: number | null;
+  fee_name: string;
+  amount?: number | null;
+  frequency?: string | null;
+  conditions?: string | null;
+  outlier_flags?: string[];
+}
+export interface CreateFeeRawOutput {
+  success: boolean;
+  error?: string | null;
+  fee_raw_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateFeeReviewInput {
+  fee_id: number;
+  action: string;
+  notes?: string | null;
+}
+export interface CreateFeeReviewOutput {
+  success: boolean;
+  error?: string | null;
+  fee_review_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonConversationInput {
+  user_id: string;
+  title: string;
+  metadata?: {
+    [k: string]: unknown;
+  };
+}
+export interface CreateHamiltonConversationOutput {
+  success: boolean;
+  error?: string | null;
+  conversation_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonMessageInput {
+  conversation_id: string;
+  user_id: string;
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  tool_calls?:
+    | {
+        [k: string]: unknown;
+      }[]
+    | null;
+}
+export interface CreateHamiltonMessageOutput {
+  success: boolean;
+  error?: string | null;
+  message_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonPriorityAlertInput {
+  user_id: string;
+  signal_id: string;
+  priority?: "low" | "medium" | "high";
+}
+export interface CreateHamiltonPriorityAlertOutput {
+  success: boolean;
+  error?: string | null;
+  alert_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonReportInput {
+  user_id: string;
+  scenario_id?: string | null;
+  title: string;
+  sections?: {
+    [k: string]: unknown;
+  }[];
+}
+export interface CreateHamiltonReportOutput {
+  success: boolean;
+  error?: string | null;
+  report_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonSavedAnalysisInput {
+  user_id: string;
+  institution_id: number;
+  question: string;
+  response: string;
+  model?: string | null;
+}
+export interface CreateHamiltonSavedAnalysisOutput {
+  success: boolean;
+  error?: string | null;
+  analysis_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonScenarioInput {
+  user_id: string;
+  institution_id: number;
+  name: string;
+  changes?: {
+    [k: string]: unknown;
+  };
+  confidence_tier?: "low" | "medium" | "high";
+}
+export interface CreateHamiltonScenarioOutput {
+  success: boolean;
+  error?: string | null;
+  scenario_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonSignalInput {
+  signal_type: "fee_change" | "coverage_gap" | "demand_reflection" | "peer_movement";
+  institution_id?: number | null;
+  canonical_fee_key?: string | null;
+  severity?: "info" | "warn" | "critical";
+  payload?: {
+    [k: string]: unknown;
+  };
+}
+export interface CreateHamiltonSignalOutput {
+  success: boolean;
+  error?: string | null;
+  signal_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateHamiltonWatchlistInput {
+  user_id: string;
+  name: string;
+  filters?: {
+    [k: string]: unknown;
+  };
+  notify_on_change?: boolean;
+}
+export interface CreateHamiltonWatchlistOutput {
+  success: boolean;
+  error?: string | null;
+  watchlist_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateJobInput {
+  job_type: string;
+  target_id?: number | null;
+  payload?: {
+    [k: string]: unknown;
+  };
+}
+export interface CreateJobOutput {
+  success: boolean;
+  error?: string | null;
+  job_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreatePublishedReportInput {
+  slug: string;
+  title: string;
+  summary?: string | null;
+  body: string;
+  published_by: string;
+}
+export interface CreatePublishedReportOutput {
+  success: boolean;
+  error?: string | null;
+  published_report_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateReportJobInput {
+  user_id: string;
+  report_type: string;
+  params?: {
+    [k: string]: unknown;
+  };
+}
+export interface CreateReportJobOutput {
+  success: boolean;
+  error?: string | null;
+  job_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateRoombaLogInput {
+  fee_id: number;
+  verdict: string;
+  reasoning?: string | null;
+}
+export interface CreateRoombaLogOutput {
+  success: boolean;
+  error?: string | null;
+  roomba_log_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateSavedPeerSetInput {
+  name: string;
+  filters?: {
+    [k: string]: unknown;
+  };
+}
+export interface CreateSavedPeerSetOutput {
+  success: boolean;
+  error?: string | null;
+  saved_peer_set_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateSavedSubscriberPeerGroupInput {
+  user_id: string;
+  name: string;
+  institution_ids?: number[];
+}
+export interface CreateSavedSubscriberPeerGroupOutput {
+  success: boolean;
+  error?: string | null;
+  group_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface CreateWaveRunInput {
+  wave_type: string;
+  state_codes?: string[];
+  planned_targets?: number;
+}
+export interface CreateWaveRunOutput {
+  success: boolean;
+  error?: string | null;
+  wave_run_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface DeleteArticleInput {
+  article_id: string;
+}
+export interface DeleteArticleOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface DeleteHamiltonReportInput {
+  report_id: string;
+  user_id: string;
+}
+export interface DeleteHamiltonReportOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface DeleteHamiltonSavedAnalysisInput {
+  analysis_id: string;
+  user_id: string;
+}
+export interface DeleteHamiltonSavedAnalysisOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface DeleteHamiltonScenarioInput {
+  scenario_id: string;
+  user_id: string;
+}
+export interface DeleteHamiltonScenarioOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface DeleteHamiltonWatchlistInput {
+  watchlist_id: string;
+  user_id: string;
+}
+export interface DeleteHamiltonWatchlistOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface DeleteSavedPeerSetInput {
+  saved_peer_set_id: string;
+}
+export interface DeleteSavedPeerSetOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface DeleteSavedSubscriberPeerGroupInput {
+  group_id: string;
+  user_id: string;
+}
+export interface DeleteSavedSubscriberPeerGroupOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface InsertAgentMessageInput {
+  recipient_agent: string;
+  intent: "challenge" | "prove" | "accept" | "reject" | "escalate" | "coverage_request" | "clarify";
+  correlation_id: string;
+  parent_message_id?: string | null;
+  parent_event_id?: string | null;
+  payload?: {
+    [k: string]: unknown;
+  };
+  round_number?: number;
+  expires_at?: string | null;
+}
+export interface InsertAgentMessageOutput {
+  success: boolean;
+  error?: string | null;
+  message_id?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface PromoteFeeToTier2Input {
+  fee_raw_id: number;
+  canonical_fee_key: string;
+  variant_type?: string | null;
+  outlier_flags?: string[];
+}
+export interface PromoteFeeToTier2Output {
+  success: boolean;
+  error?: string | null;
+  fee_verified_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface PromoteFeeToTier3Input {
+  fee_verified_id: number;
+}
+export interface PromoteFeeToTier3Output {
+  success: boolean;
+  error?: string | null;
+  fee_published_id?: number | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateAgentMessageIntentInput {
+  message_id: string;
+  state: "answered" | "resolved" | "escalated" | "expired";
+  resolved_by_event_id?: string | null;
+}
+export interface UpdateAgentMessageIntentOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateArticleInput {
+  article_id: string;
+  title?: string | null;
+  body?: string | null;
+  tags?: string[] | null;
+  status?: ("draft" | "published" | "archived") | null;
+}
+export interface UpdateArticleOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateBeigeBookThemeInput {
+  theme_id: string;
+  summary?: string | null;
+  source_url?: string | null;
+}
+export interface UpdateBeigeBookThemeOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateCrawlRunInput {
+  crawl_run_id: number;
+  status?: ("running" | "succeeded" | "failed" | "cancelled") | null;
+  targets_crawled?: number | null;
+  targets_succeeded?: number | null;
+  targets_failed?: number | null;
+}
+export interface UpdateCrawlRunOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateCrawlTargetInput {
+  crawl_target_id: number;
+  status?: ("active" | "paused" | "offline" | "archived") | null;
+  fee_schedule_url?: string | null;
+  last_content_hash?: string | null;
+  document_type?: string | null;
+}
+export interface UpdateCrawlTargetOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateExternalIntelligenceInput {
+  external_intelligence_id: string;
+  title?: string | null;
+  body?: string | null;
+  payload?: {
+    [k: string]: unknown;
+  } | null;
+}
+export interface UpdateExternalIntelligenceOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateFeeRawFlagsInput {
+  fee_raw_id: number;
+  outlier_flags: string[];
+}
+export interface UpdateFeeRawFlagsOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateHamiltonConversationInput {
+  conversation_id: string;
+  user_id: string;
+  title?: string | null;
+  metadata?: {
+    [k: string]: unknown;
+  } | null;
+}
+export interface UpdateHamiltonConversationOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateHamiltonPriorityAlertInput {
+  alert_id: string;
+  user_id: string;
+  status: "unread" | "read" | "acknowledged" | "resolved" | "dismissed";
+}
+export interface UpdateHamiltonPriorityAlertOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateHamiltonReportInput {
+  report_id: string;
+  user_id: string;
+  title?: string | null;
+  sections?:
+    | {
+        [k: string]: unknown;
+      }[]
+    | null;
+  status?: ("draft" | "published" | "archived") | null;
+}
+export interface UpdateHamiltonReportOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateHamiltonSavedAnalysisInput {
+  analysis_id: string;
+  user_id: string;
+  question?: string | null;
+  response?: string | null;
+}
+export interface UpdateHamiltonSavedAnalysisOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateHamiltonScenarioInput {
+  scenario_id: string;
+  user_id: string;
+  name?: string | null;
+  changes?: {
+    [k: string]: unknown;
+  } | null;
+  confidence_tier?: ("low" | "medium" | "high") | null;
+}
+export interface UpdateHamiltonScenarioOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateHamiltonWatchlistInput {
+  watchlist_id: string;
+  user_id: string;
+  name?: string | null;
+  filters?: {
+    [k: string]: unknown;
+  } | null;
+  notify_on_change?: boolean | null;
+}
+export interface UpdateHamiltonWatchlistOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateJobInput {
+  job_id: number;
+  status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  error?: string | null;
+  result?: {
+    [k: string]: unknown;
+  } | null;
+}
+export interface UpdateJobOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdatePublishedReportInput {
+  published_report_id: string;
+  title?: string | null;
+  summary?: string | null;
+  body?: string | null;
+  status?: ("draft" | "published" | "unpublished") | null;
+}
+export interface UpdatePublishedReportOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateReportJobInput {
+  job_id: string;
+  status: "pending" | "running" | "succeeded" | "failed";
+  progress_pct?: number | null;
+  result_url?: string | null;
+  error?: string | null;
+}
+export interface UpdateReportJobOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateSavedPeerSetInput {
+  saved_peer_set_id: string;
+  name?: string | null;
+  filters?: {
+    [k: string]: unknown;
+  } | null;
+}
+export interface UpdateSavedPeerSetOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateSavedSubscriberPeerGroupInput {
+  group_id: string;
+  user_id: string;
+  name?: string | null;
+  institution_ids?: number[] | null;
+}
+export interface UpdateSavedSubscriberPeerGroupOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateWaveStateRunInput {
+  wave_state_run_id: number;
+  status: "pending" | "running" | "succeeded" | "failed";
+  extracted_count?: number | null;
+  failure_reason?: string | null;
+}
+export interface UpdateWaveStateRunOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpsertAgentBudgetInput {
+  agent_name: string;
+  window: "per_cycle" | "per_batch" | "per_report" | "per_day" | "per_month";
+  limit_cents: number;
+}
+export interface UpsertAgentBudgetOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpsertAgentRegistryInput {
+  agent_name: string;
+  display_name: string;
+  role: "supervisor" | "data" | "classifier" | "orchestrator" | "analyst" | "state_agent";
+  parent_agent?: string | null;
+  state_code?: string | null;
+  is_active?: boolean;
+}
+export interface UpsertAgentRegistryOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpsertClassificationCacheInput {
+  cache_key: string;
+  canonical_fee_key: string;
+  confidence: number;
+  model?: string | null;
+  source?: "darwin" | "knox" | "manual";
+}
+export interface UpsertClassificationCacheOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpsertInstitutionDossierInput {
+  institution_id: number;
+  last_url_tried?: string | null;
+  last_document_format?: ("pdf" | "html" | "js_rendered" | "stealth_pass_1" | "stealth_pass_2" | "unknown") | null;
+  last_strategy?: string | null;
+  last_outcome?: ("success" | "blocked" | "404" | "no_fees" | "captcha" | "rate_limited" | "unknown") | null;
+  last_cost_cents?: number;
+  next_try_recommendation?:
+    | ("retry_same" | "stealth_pass_1" | "needs_playwright_stealth" | "skip" | "rediscover_url")
+    | null;
+  notes?: {
+    [k: string]: unknown;
+  };
+}
+export interface UpsertInstitutionDossierOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}

@@ -33,7 +33,13 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r fee_crawler/requirements.txt
+      - name: Install json2ts (required by pydantic2ts)
+        run: npm install -g json-schema-to-typescript
       - name: Run sqlite-kill guard
         run: bash scripts/ci-guards.sh sqlite-kill
+      - name: Check TS codegen is up to date (drift guard)
+        env:
+          CHECK_MODE: "1"
+        run: bash scripts/codegen.sh agent-tool-types
       - name: Run pytest
         run: pytest fee_crawler/tests/ -v --no-header

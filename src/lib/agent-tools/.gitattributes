@@ -1,0 +1,3 @@
+# Auto-generated from the fee_crawler.agent_tools.schemas package via scripts/codegen.sh.
+# Do not edit by hand; GitHub should collapse the diff on PR review.
+types.generated.ts linguist-generated=true
