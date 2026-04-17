@@ -325,7 +325,72 @@ export default async function ProHomePage() {
               </Link>
             </div>
             <div className="rounded-lg border border-[#E8DFD1] overflow-hidden">
-              <table className="w-full text-[12px]">
+              {/* Mobile: stacked cards (don't hide N columns; reformat).
+                  Below sm the table dropped peer N entirely — bankers were left
+                  guessing sample size. Cards keep every field visible. */}
+              <ul className="sm:hidden divide-y divide-[#E8DFD1]">
+                {charterComparison.map((row) => {
+                  const delta = row!.bank - row!.cu;
+                  const deltaPct =
+                    row!.cu > 0 ? ((delta / row!.cu) * 100).toFixed(0) : "0";
+                  return (
+                    <li key={row!.category} className="px-5 py-3">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="text-[13px] font-semibold text-[#1A1815]">
+                          {getDisplayName(row!.category)}
+                        </p>
+                        <span
+                          className={`text-[11px] font-semibold tabular-nums ${
+                            delta > 0
+                              ? "text-red-400"
+                              : delta < 0
+                                ? "text-emerald-400"
+                                : "text-[#7A7062]"
+                          }`}
+                        >
+                          {delta > 0 ? "+" : ""}
+                          {deltaPct}% Δ
+                        </span>
+                      </div>
+                      <dl className="mt-1.5 grid grid-cols-3 gap-x-3 text-[11px]">
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-wider text-[#A69D90]">
+                            National
+                          </dt>
+                          <dd className="text-[#5A5347] tabular-nums">
+                            {formatAmount(row!.national)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-wider text-[#A69D90]">
+                            Bank
+                            <span className="ml-1 text-[#D5CBBF] tabular-nums">
+                              n={row!.bankN.toLocaleString()}
+                            </span>
+                          </dt>
+                          <dd className="font-semibold text-[#1A1815] tabular-nums">
+                            {formatAmount(row!.bank)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-wider text-[#A69D90]">
+                            CU
+                            <span className="ml-1 text-[#D5CBBF] tabular-nums">
+                              n={row!.cuN.toLocaleString()}
+                            </span>
+                          </dt>
+                          <dd className="font-semibold text-[#1A1815] tabular-nums">
+                            {formatAmount(row!.cu)}
+                          </dd>
+                        </div>
+                      </dl>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* sm+: traditional table */}
+              <table className="hidden sm:table w-full text-[12px]">
                 <thead>
                   <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
                     <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
@@ -337,13 +402,13 @@ export default async function ProHomePage() {
                     <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Bank
                     </th>
-                    <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
                       N
                     </th>
                     <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                       Credit Union
                     </th>
-                    <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
                       N
                     </th>
                     <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
@@ -376,13 +441,13 @@ export default async function ProHomePage() {
                         <td className="px-3 py-2.5 text-right font-semibold text-[#1A1815] tabular-nums">
                           {formatAmount(row!.bank)}
                         </td>
-                        <td className="hidden sm:table-cell px-3 py-2.5 text-right text-[#D5CBBF] tabular-nums text-[11px]">
+                        <td className="px-3 py-2.5 text-right text-[#D5CBBF] tabular-nums text-[11px]">
                           {row!.bankN.toLocaleString()}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold text-[#1A1815] tabular-nums">
                           {formatAmount(row!.cu)}
                         </td>
-                        <td className="hidden sm:table-cell px-3 py-2.5 text-right text-[#D5CBBF] tabular-nums text-[11px]">
+                        <td className="px-3 py-2.5 text-right text-[#D5CBBF] tabular-nums text-[11px]">
                           {row!.cuN.toLocaleString()}
                         </td>
                         <td className="px-5 py-2.5 text-right tabular-nums">
@@ -559,7 +624,63 @@ export default async function ProHomePage() {
             </Link>
           </div>
           <div className="rounded-lg border border-[#E8DFD1] overflow-hidden">
-            <table className="w-full text-[12px]">
+            {/* Mobile: stacked cards (don't hide P25/P75/Min/Max; reformat).
+                The table previously dropped these columns at md/lg, so a
+                banker checking on a phone before a meeting lost the spread —
+                the data they need most for benchmarking. Cards keep all of
+                it visible. */}
+            <ul className="md:hidden divide-y divide-[#E8DFD1]">
+              {featuredEntries.map((entry) => {
+                const hasRange =
+                  entry!.p25_amount !== null && entry!.p75_amount !== null;
+                const hasMinMax =
+                  entry!.min_amount !== null && entry!.max_amount !== null;
+                return (
+                  <li key={entry!.fee_category} className="px-5 py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <Link
+                        href={`/fees/${entry!.fee_category}`}
+                        className="text-[13px] font-semibold text-[#1A1815] hover:text-[#C44B2E] transition-colors no-underline"
+                      >
+                        {getDisplayName(entry!.fee_category)}
+                      </Link>
+                      <span className="text-[15px] font-semibold text-[#1A1815] tabular-nums">
+                        {formatAmount(entry!.median_amount)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between gap-3 text-[11px]">
+                      <span className="text-[#7A7062]">
+                        {hasRange ? (
+                          <>
+                            <span className="uppercase tracking-wider text-[10px] text-[#A69D90]">
+                              P25–P75:
+                            </span>{" "}
+                            <span className="tabular-nums">
+                              {formatAmount(entry!.p25_amount!)}–
+                              {formatAmount(entry!.p75_amount!)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-[#A69D90]">no range</span>
+                        )}
+                      </span>
+                      <span className="text-[#A69D90] tabular-nums">
+                        n={entry!.institution_count.toLocaleString()}
+                      </span>
+                    </div>
+                    {hasMinMax && (
+                      <p className="mt-0.5 text-[10px] text-[#A69D90] tabular-nums">
+                        Range {formatAmount(entry!.min_amount!)}–
+                        {formatAmount(entry!.max_amount!)}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* md+: traditional table with progressive column reveal */}
+            <table className="hidden md:table w-full text-[12px]">
               <thead>
                 <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
                   <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
@@ -568,10 +689,10 @@ export default async function ProHomePage() {
                   <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     Median
                   </th>
-                  <th className="hidden md:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
+                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     P25
                   </th>
-                  <th className="hidden md:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
+                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
                     P75
                   </th>
                   <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#A69D90]">
@@ -606,12 +727,12 @@ export default async function ProHomePage() {
                     <td className="px-3 py-2.5 text-right font-semibold text-[#1A1815] tabular-nums">
                       {formatAmount(entry!.median_amount)}
                     </td>
-                    <td className="hidden md:table-cell px-3 py-2.5 text-right text-[#7A7062] tabular-nums">
+                    <td className="px-3 py-2.5 text-right text-[#7A7062] tabular-nums">
                       {entry!.p25_amount !== null
                         ? formatAmount(entry!.p25_amount)
                         : "-"}
                     </td>
-                    <td className="hidden md:table-cell px-3 py-2.5 text-right text-[#7A7062] tabular-nums">
+                    <td className="px-3 py-2.5 text-right text-[#7A7062] tabular-nums">
                       {entry!.p75_amount !== null
                         ? formatAmount(entry!.p75_amount)
                         : "-"}

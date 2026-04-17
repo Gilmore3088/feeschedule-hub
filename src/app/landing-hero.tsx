@@ -107,8 +107,12 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
             </div>
           </div>
 
-          {/* ═══ Institutional Side ═══ */}
-          <div className="flex flex-col py-14 lg:py-16 lg:pl-12 bg-[#1A1815] lg:bg-transparent -mx-6 px-6 lg:mx-0 lg:px-0">
+          {/* ═══ Institutional Side ═══
+              Below lg: bleeds edge-to-edge via -mx-6 (parent has px-6) and adds
+              its own px-6 back so content stays aligned. The 6-px top border
+              makes the consumer→institutional transition deliberate rather than
+              accidental on narrow viewports. */}
+          <div className="flex flex-col py-14 lg:py-16 lg:pl-12 bg-[#1A1815] lg:bg-transparent -mx-6 px-6 lg:mx-0 lg:px-0 border-t-[6px] border-[#C44B2E] lg:border-t-0">
             {/* Row 1: Label */}
             <span className="text-[11px] font-normal uppercase tracking-[0.15em] text-[#C44B2E]">
               For Financial Industry Professionals
