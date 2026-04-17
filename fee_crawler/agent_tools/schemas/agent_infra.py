@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from fee_crawler.agent_tools.schemas._base import (
     AgentEventRef,
@@ -79,9 +79,49 @@ class UpsertAgentBudgetOutput(BaseToolOutput):
     event_ref: Optional[AgentEventRef] = None
 
 
+# --- 62b COMMS-05: reasoning trace (read-only agent tool) ---
+
+class GetReasoningTraceIn(BaseToolInput):
+    """Input to the read-only get_reasoning_trace tool.
+
+    correlation_id: UUID string identifying the reasoning thread; empty string
+    short-circuits to an empty result without touching the DB.
+    max_rows:       LIMIT clause on the view query. Default 500; hard cap 5000
+                    guards against runaway traces (see 62B-06 threat model T-03).
+    """
+
+    correlation_id: str = Field(default="", max_length=64)
+    max_rows: int = Field(default=500, ge=1, le=5000)
+
+
+class ReasoningTraceRow(BaseModel):
+    """A single row from v_agent_reasoning_trace.
+
+    kind is the discriminator: 'event' rows come from agent_events,
+    'message' rows come from agent_messages. Optional columns are NULL
+    on the side that doesn't apply (e.g. tool_name is NULL for messages).
+    """
+
+    model_config = {"extra": "forbid"}
+
+    kind: str
+    created_at: str
+    agent_name: str
+    intent_or_action: Optional[str] = None
+    tool_name: Optional[str] = None
+    entity: Optional[str] = None
+    payload: Optional[Dict[str, Any]] = None
+    row_id: str
+
+
+class GetReasoningTraceOut(BaseToolOutput):
+    rows: list[ReasoningTraceRow] = Field(default_factory=list)
+
+
 __all__ = [
     "InsertAgentMessageInput", "InsertAgentMessageOutput",
     "UpdateAgentMessageIntentInput", "UpdateAgentMessageIntentOutput",
     "UpsertAgentRegistryInput", "UpsertAgentRegistryOutput",
     "UpsertAgentBudgetInput", "UpsertAgentBudgetOutput",
+    "GetReasoningTraceIn", "GetReasoningTraceOut", "ReasoningTraceRow",
 ]

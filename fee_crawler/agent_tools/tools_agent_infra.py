@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fee_crawler.agent_tools.gateway import with_agent_tool
+from fee_crawler.agent_tools.pool import get_pool
 from fee_crawler.agent_tools.registry import agent_tool
 from fee_crawler.agent_tools.schemas import (
     AgentEventRef,
@@ -21,6 +22,7 @@ from fee_crawler.agent_tools.schemas import (
     UpdateAgentMessageIntentInput, UpdateAgentMessageIntentOutput,
     UpsertAgentRegistryInput, UpsertAgentRegistryOutput,
     UpsertAgentBudgetInput, UpsertAgentBudgetOutput,
+    GetReasoningTraceIn, GetReasoningTraceOut,
 )
 
 
@@ -198,3 +200,89 @@ async def upsert_agent_budget(
     return UpsertAgentBudgetOutput(
         success=True, event_ref=AgentEventRef(event_id=event_id, correlation_id=corr),
     )
+
+
+# ========================================================================
+# agent_events + agent_messages — read-only reasoning trace (Plan 62B-06)
+# ========================================================================
+#
+# COMMS-05 + D-12 surface: Hamilton and the /admin/agents Replay tab (Plan
+# 62B-10) call this tool to answer "why this number?" for a given
+# correlation_id. The view v_agent_reasoning_trace (migration 20260507)
+# joins agent_events + agent_messages into a flat ordered timeline; this
+# tool is a thin SELECT-from-view pass-through with a max_rows clamp.
+#
+# Registered with action='read' so TOOL_REGISTRY exposes it to read-only
+# callers (MCP surface per tools_read.py convention). The underlying
+# function carries _bfi_read_only=True (set at module load below) so a
+# future MCP wrapper can lift it directly without additional auditing.
+
+
+@agent_tool(
+    name="get_reasoning_trace",
+    entity="agent_events",
+    action="read",
+    input_schema=GetReasoningTraceIn,
+    output_schema=GetReasoningTraceOut,
+    description=(
+        "Phase 62b COMMS-05: return the flat ordered timeline of "
+        "agent_events + agent_messages for a given correlation_id. "
+        "Read-only; queries v_agent_reasoning_trace."
+    ),
+)
+async def get_reasoning_trace(
+    *,
+    correlation_id: str,
+    max_rows: int = 500,
+) -> dict:
+    """Query v_agent_reasoning_trace for a correlation_id.
+
+    Returns {"rows": [...]} where each row has keys kind, created_at,
+    agent_name, intent_or_action, tool_name, entity, payload, row_id.
+    An empty correlation_id short-circuits to {"rows": []} without
+    touching the DB.
+    """
+    if not correlation_id:
+        return {"rows": []}
+
+    # Pydantic-validate the input so tests that call the tool directly still
+    # benefit from max_rows bounds (ge=1, le=5000). Keyword-call shape keeps
+    # the tool Anthropic-SDK-friendly.
+    params = GetReasoningTraceIn(
+        correlation_id=correlation_id, max_rows=max_rows,
+    )
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT kind, created_at, agent_name, intent_or_action,
+                      tool_name, entity, payload, row_id
+                 FROM v_agent_reasoning_trace
+                WHERE correlation_id = $1::UUID
+                ORDER BY created_at
+                LIMIT $2""",
+            params.correlation_id, params.max_rows,
+        )
+    return {
+        "rows": [
+            {
+                "kind": r["kind"],
+                "created_at": (
+                    r["created_at"].isoformat() if r["created_at"] else None
+                ),
+                "agent_name": r["agent_name"],
+                "intent_or_action": r["intent_or_action"],
+                "tool_name": r["tool_name"],
+                "entity": r["entity"],
+                "payload": r["payload"],
+                "row_id": r["row_id"],
+            }
+            for r in rows
+        ]
+    }
+
+
+# MCP read-surface marker (parallels fee_crawler/agent_mcp/tools_read.py's
+# @read_only_tool pattern). The MCP server's startup assertion scans for
+# this attribute before exposing a tool externally.
+get_reasoning_trace._bfi_read_only = True  # type: ignore[attr-defined]
