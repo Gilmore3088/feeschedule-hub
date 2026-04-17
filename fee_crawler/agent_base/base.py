@@ -77,10 +77,45 @@ class AgentBase:
         If an outer context is already active (nested agent-to-agent call),
         inherit its ``correlation_id`` and ``parent_event_id`` so the causal
         chain stays intact.
+
+        Plan 62B-11 (BOOT-01 / D-22): ``run_turn`` additionally reads
+        ``agent_registry.lifecycle_state`` at turn entry. If the row is
+        ``paused``, we log an ``agent_events action='paused_abort'`` row
+        (so /admin/agents Overview can see halted agents) and raise
+        :class:`fee_crawler.agent_base.bootstrap.AgentPaused` WITHOUT
+        executing the subclass body. Other AUTO_WRAP_METHODS skip the
+        lifecycle check — only the loop entry point gates on state.
         """
+        method_name = fn.__name__
 
         @functools.wraps(fn)
         async def wrapped(self, *args, **kwargs):
+            if method_name == "run_turn":
+                # Import lazily so bootstrap helpers don't run at class
+                # definition time (avoids pool acquisition on import).
+                from fee_crawler.agent_base.bootstrap import (
+                    AgentPaused,
+                    get_lifecycle_state,
+                    write_paused_abort,
+                )
+
+                # Tolerate DB unavailability (pure-python unit tests):
+                # if the pool cannot be created, there's no lifecycle_state
+                # to honor — skip the gate and let the turn run. This keeps
+                # the auto-wrap contract from 62B-03 intact for tests that
+                # never talk to Postgres. Any OTHER error (query failure,
+                # etc.) still surfaces so real regressions are visible.
+                try:
+                    state = await get_lifecycle_state(self.agent_name)
+                except RuntimeError:
+                    state = None
+
+                if state == "paused":
+                    await write_paused_abort(self.agent_name)
+                    raise AgentPaused(
+                        f"{self.agent_name} is paused; run_turn aborted"
+                    )
+
             ctx = get_agent_context() or {}
             inherited_correlation = ctx.get("correlation_id")
             inherited_parent = ctx.get("parent_event_id")

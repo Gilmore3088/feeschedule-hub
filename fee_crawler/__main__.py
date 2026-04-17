@@ -1328,6 +1328,31 @@ def main() -> None:
     )
     k_status_parser.set_defaults(func=cmd_knowledge_status)
 
+    # ── agent-graduate (Phase 62b BOOT-01 / D-22 + D-23) ──────────────
+    # Gated lifecycle_state advance via per-agent SQL predicates. Pausing
+    # is always allowed (D-25 rollback). See .planning/runbooks/agent-bootstrap.md.
+    graduate_parser = subparsers.add_parser(
+        "agent-graduate",
+        help="Advance an agent's lifecycle_state (q1/q2/q3/paused)",
+    )
+    graduate_parser.add_argument(
+        "agent_name",
+        help="agent_registry.agent_name (e.g. knox)",
+    )
+    graduate_parser.add_argument(
+        "--to",
+        required=True,
+        choices=["q1_validation", "q2_high_confidence", "q3_autonomy", "paused"],
+        help="target lifecycle_state",
+    )
+    graduate_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__(
+                "fee_crawler.commands.agent_graduate", fromlist=["graduate"]
+            ).main([args.agent_name, "--to", args.to])
+        )
+    )
+
     args = parser.parse_args()
     args.func(args)
 
