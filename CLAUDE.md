@@ -71,6 +71,7 @@ The national authority on bank and credit union fee data. A B2B platform that co
 - requests 2.31+ - Synchronous HTTP client
 ## Configuration
 - Database: `DATABASE_URL` (Postgres), `DB_PATH` (legacy SQLite)
+- Session-mode DB: `DATABASE_URL_SESSION` (Supabase session pooler, port 5432) — required for Phase 62b LISTEN/NOTIFY agent messaging. Transaction-mode pool (port 6543) does NOT support LISTEN registrations (research §Pitfall 2). In CI, set `DATABASE_URL_SESSION_TEST` to a staging-session DSN so LISTEN/NOTIFY integration tests (`test_listen_notify_roundtrip`, `test_session_pool.py`) DO NOT skip — they MUST FAIL loudly instead of silently green if the DSN is missing.
 - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - Storage: `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
 - Modal: `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`
