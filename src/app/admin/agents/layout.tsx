@@ -6,11 +6,11 @@ export const dynamic = "force-dynamic";
 /**
  * /admin/agents — fused agent console (D-13).
  *
- * Layout: breadcrumbs + sticky tab bar (Overview / Lineage / Messages / Replay)
- * that navigate between sibling routes. The tab bar is a client component in
- * `./agent-tabs` which uses Radix Tabs (`@radix-ui/react-tabs`) semantics for
- * aria-selected/role=tab while Next Link handles route navigation. Each tab's
- * own page.tsx remains a server component responsible for data fetching.
+ * Layout: breadcrumbs + sticky nav bar (Overview / Lineage / Messages / Replay)
+ * linking sibling routes. The nav is a client component in `./agent-tabs`
+ * implemented as a semantic <nav> with <Link> children + aria-current="page"
+ * (these are 4 routes, not single-page tab panels). Each route's own page.tsx
+ * remains a server component responsible for data fetching.
  */
 export default function AgentsLayout({
   children,
