@@ -37,6 +37,17 @@ from fee_crawler.agent_tools.pool import get_pool
 MAX_PAYLOAD_BYTES = 64 * 1024  # 64KB per D-12
 
 
+def is_shadow_active() -> bool:
+    """True when the current agent context has a non-empty ``shadow_run_id``.
+
+    Phase 62b D-21: per-tool code branches on this flag to route business-table
+    writes to ``shadow_outputs`` instead of the real entity. The gateway itself
+    rewrites the agent_events row below to ``status='shadow_diff'`` and sets
+    ``is_shadow=true`` for queryable auditability.
+    """
+    return bool(get_agent_context().get("shadow_run_id"))
+
+
 class AgentUnknown(RuntimeError):
     """Raised when agent_name is not in agent_registry or is not is_active."""
 
@@ -218,3 +229,30 @@ async def with_agent_tool(
             # 9. Account budget.
             if cost_cents > 0:
                 await account_budget(conn, agent_name, cost_cents)
+
+            # 10. Phase 62b D-21: shadow-mode override.
+            # If the outer with_agent_context set shadow_run_id, rewrite the
+            # agent_events row (status='shadow_diff', is_shadow=TRUE, embed the
+            # shadow_run_id in output_payload) and DELETE the agent_auth_log row
+            # we just wrote — no business-table write happened (per-tool code is
+            # responsible for routing to shadow_outputs), so no auth-log entry
+            # is warranted. See research §Mechanics 5 + Pitfall 5: suppression
+            # must live at the gateway, not per-tool.
+            shadow_rid = ctx.get("shadow_run_id")
+            if shadow_rid:
+                await conn.execute(
+                    """UPDATE agent_events
+                          SET status = 'shadow_diff',
+                              is_shadow = TRUE,
+                              output_payload = jsonb_set(
+                                  COALESCE(output_payload, '{}'::jsonb),
+                                  '{shadow_run_id}',
+                                  to_jsonb($2::TEXT)
+                              )
+                        WHERE event_id = $1""",
+                    event_id, shadow_rid,
+                )
+                await conn.execute(
+                    "DELETE FROM agent_auth_log WHERE agent_event_id = $1",
+                    event_id,
+                )
