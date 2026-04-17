@@ -231,7 +231,7 @@ This fixture can live at the top of the test file (not conftest.py) to avoid pol
 In `CLAUDE.md` under the Configuration section, insert a new bullet immediately after the existing `- Database: `DATABASE_URL` (Postgres), `DB_PATH` (legacy SQLite)` line:
 
 ```
-- Session-mode DB: `DATABASE_URL_SESSION` (Supabase session pooler, port 5432) — required for Phase 62b LISTEN/NOTIFY agent messaging. Transaction-mode pool (port 6543) does NOT support LISTEN registrations (research §Pitfall 2).
+- Session-mode DB: `DATABASE_URL_SESSION` (Supabase session pooler, port 5432) — required for Phase 62b LISTEN/NOTIFY agent messaging. Transaction-mode pool (port 6543) does NOT support LISTEN registrations (research §Pitfall 2). In CI, set `DATABASE_URL_SESSION_TEST` to a staging-session DSN so LISTEN/NOTIFY integration tests (`test_listen_notify_roundtrip`, `test_session_pool.py`) DO NOT skip — they MUST FAIL loudly instead of silently green if the DSN is missing.
 ```
 
 If that exact `- Database: ...` line is not found, add the new bullet at the end of the first bullet group under "## Configuration" heading within the Technology Stack section.
@@ -244,6 +244,7 @@ Do not modify any other line in CLAUDE.md.
   <acceptance_criteria>
     - `grep -c "DATABASE_URL_SESSION" CLAUDE.md` returns at least 1
     - The sentence mentions "port 5432" and "LISTEN/NOTIFY"
+    - CLAUDE.md documents the CI contract: `DATABASE_URL_SESSION_TEST` must be set in CI so listen/notify tests cannot silently skip
     - No other sections of CLAUDE.md modified (verify via `git diff CLAUDE.md` showing only additions)
   </acceptance_criteria>
   <done>CLAUDE.md documents the new env var in the Configuration section.</done>

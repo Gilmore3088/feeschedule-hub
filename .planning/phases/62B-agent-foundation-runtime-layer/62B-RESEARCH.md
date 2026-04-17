@@ -667,19 +667,19 @@ async def with_agent_tool(..., is_business_table: bool = True):  # NEW kwarg
 | A5 | Modal container Python process can hold a long-running asyncpg connection for 24h+ without termination | §Mechanics 2 | Modal functions have `timeout` parameter; listener needs a re-entry pattern (covered in §Risks) |
 | A6 | `FakeAnthropicClient` duck-types existing `anthropic.Anthropic()` call sites without SDK-version breakage | §Mechanics 6 | If anthropic SDK changes response shape, fake needs updating; pinned version in requirements.txt would help |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does pg_cron have sufficient precision for 15-minute Knox REVIEW?**
+1. **Does pg_cron have sufficient precision for 15-minute Knox REVIEW?** — RESOLVED: pg_cron OK with a 60s dispatcher-pickup budget (96% of the 15-min window). D-05 (pg_cron pivot, per Pitfall 1) adopts this; measurement hook lives in 62B Plan 08 (pg_cron review dispatcher).
    - What we know: pg_cron supports second-level schedules (per Supabase docs) and 15m is trivially supported.
    - What's unclear: whether dispatcher latency (pg_cron fires → Modal picks up the `review_tick` agent_events row → actually runs `review()`) stays under SC1's 15-min bar.
    - Recommendation: measure during 62b Plan 05 (messaging runtime) smoke test; budget ≤ 60s dispatcher pickup latency against a 15-min cron = 96% of window.
 
-2. **Should `agent_health_rollup` be a materialized view (refreshed on cron) or a plain table (updated incrementally by a trigger)?**
+2. **Should `agent_health_rollup` be a materialized view (refreshed on cron) or a plain table (updated incrementally by a trigger)?** — RESOLVED: plain table + pg_cron 15-minute refresh (no materialized view). Implemented by 62B-01 migration 20260509 `refresh_agent_health_rollup()` and 62B-09 seed.
    - What we know: D-15 wants 7-day sparklines; 15-min buckets × 7 days × 55 agents × 5 metrics = ~330K rows (manageable either way).
    - What's unclear: tradeoff between refresh-staleness and write-overhead.
    - Recommendation: plain table refreshed by a pg_cron job every 15 minutes. Simpler than materialized view refresh semantics; no `REFRESH MATERIALIZED VIEW CONCURRENTLY` dance.
 
-3. **Does the daily exception digest (COMMS-04) need an admin UI or is it just an email/markdown file?**
+3. **Does the daily exception digest (COMMS-04) need an admin UI or is it just an email/markdown file?** — RESOLVED: 62b ships JSONL (queryable via `agent_events status='improve_rejected'` + `agent_messages state='escalated'`) plus the `/admin/agents` Messages tab as the human-facing surface. Email/external delivery is deferred to Phase 65 (Atlas).
    - What we know: D-25 mentions "48-hour SLA for review." Existing admin surface has `/admin/leads`, `/admin/review`. No inbox pattern yet.
    - What's unclear: whether James wants digest delivered as markdown/JSONL/email or a new admin page.
    - Recommendation: Phase 62b ships JSONL written to `agent_events status='improve_rejected' + agent_messages state='escalated'` as the queryable source of truth. `/admin/agents` Messages tab already renders escalated threads. Daily email or external delivery is Claude's discretion → defer to Phase 65 (Atlas).

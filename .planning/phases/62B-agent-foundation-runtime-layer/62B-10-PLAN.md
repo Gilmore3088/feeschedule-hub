@@ -2,7 +2,7 @@
 phase: 62B
 plan: 10
 type: execute
-wave: 4
+wave: 5
 depends_on: [62B-01, 62B-06, 62B-09]
 files_modified:
   - src/app/admin/admin-nav.tsx
@@ -18,6 +18,7 @@ files_modified:
   - src/lib/crawler-db/agent-console.ts
   - src/app/admin/agents/__tests__/tiles.test.tsx
   - src/app/admin/agents/__tests__/tree-view.test.tsx
+  - src/app/admin/agents/replay/__tests__/timeline.test.tsx
 autonomous: false
 requirements: [OBS-03, OBS-04]
 must_haves:
@@ -30,6 +31,7 @@ must_haves:
     - "Messages tab lists recent agent_messages threads grouped by correlation_id, showing state, intent, round_number"
     - "Replay tab accepts a correlation_id and renders the timeline from v_agent_reasoning_trace (via get_reasoning_trace tool or direct query)"
     - "Replay is read-only — no re-execute button per D-16"
+    - "OBS-04 replay UI: vitest `src/app/admin/agents/replay/__tests__/timeline.test.tsx` mounts <Timeline rows={...}/> with a mixed events+messages fixture and asserts items render in created_at order with kind badges"
   artifacts:
     - path: src/app/admin/agents/layout.tsx
       provides: "4-tab shell using Radix Tabs"
@@ -100,7 +102,7 @@ Database (from 62B-01):
 
 <task type="auto" tdd="true">
   <name>Task 1: Server-side agent-console query module + Overview tiles + Lineage tree</name>
-  <files>src/lib/crawler-db/agent-console.ts, src/app/admin/agents/layout.tsx, src/app/admin/agents/page.tsx, src/app/admin/agents/overview/tiles.tsx, src/app/admin/agents/lineage/page.tsx, src/app/admin/agents/lineage/tree-view.tsx, src/app/admin/admin-nav.tsx, src/app/admin/agents/__tests__/tiles.test.tsx, src/app/admin/agents/__tests__/tree-view.test.tsx</files>
+  <files>src/lib/crawler-db/agent-console.ts, src/app/admin/agents/layout.tsx, src/app/admin/agents/page.tsx, src/app/admin/agents/overview/tiles.tsx, src/app/admin/agents/lineage/page.tsx, src/app/admin/agents/lineage/tree-view.tsx, src/app/admin/admin-nav.tsx, src/app/admin/agents/__tests__/tiles.test.tsx, src/app/admin/agents/__tests__/tree-view.test.tsx, src/app/admin/agents/replay/__tests__/timeline.test.tsx</files>
   <read_first>
     - src/app/admin/admin-nav.tsx (understand NAV_GROUPS shape + `usePathname()` active-state pattern)
     - src/app/admin/layout.tsx (sticky header + content grid conventions)
@@ -116,6 +118,7 @@ Database (from 62B-01):
     - Test 2 (tiles): Missing values render as em-dash (—) not NaN
     - Test 3 (tree): Rendered with a lineage JSON tree → 3 expansions reveal Tier 3 → Tier 2 → Tier 1 → R2 link
     - Test 4 (tree): Collapsible at Tier 3 is default-expanded; Tier 2 and Tier 1 default-collapsed
+    - Test 5 (timeline, OBS-04): Rendered with a mixed fixture (1 event + 1 message, different timestamps) → items render in created_at order; kind badge (event/message) visible on each row; no re-execute button present (D-16)
   </behavior>
   <action>
 **File 1: `src/lib/crawler-db/agent-console.ts`**
@@ -318,6 +321,13 @@ Vitest + React Testing Library. Render `<Tiles data={[{agent_name: 'knox', metri
 **Test file: `src/app/admin/agents/__tests__/tree-view.test.tsx`**
 Render `<TreeView graph={{...}} />` with 3-tier lineage graph. Simulate 2 clicks (Tier 2 then Tier 1) and assert the R2 link is visible. Verify OBS-03 3-click bar.
 
+**Test file: `src/app/admin/agents/replay/__tests__/timeline.test.tsx` (OBS-04)**
+Vitest + React Testing Library. Render `<Timeline rows={[{kind:"event", created_at:"2026-04-16T00:00:00Z", agent_name:"darwin", intent_or_action:"review", tool_name:"_agent_base", entity:"_review", payload:{}, row_id:"e1"}, {kind:"message", created_at:"2026-04-16T00:00:05Z", agent_name:"darwin", intent_or_action:"challenge", tool_name:null, entity:"agent_messages", payload:{question:"why?"}, row_id:"m1"}]} />`.
+- Assert both rows render in order (event first since its created_at is earlier).
+- Assert each row shows a kind badge with the exact string `event` or `message` (data-testid="kind-badge" or CSS class match).
+- Assert NO button with text matching `/re-execute/i` exists (D-16 read-only guarantee).
+This is the OBS-04 UI-side test — pairs with the Python `test_replay_by_hash` test in 62B-05 Task 2 which covers the SQL layer.
+
 Follow existing vitest patterns in the repo (`vitest.config.ts` uses vite-tsconfig-paths for @/ alias).
   </action>
   <verify>
@@ -330,9 +340,10 @@ Follow existing vitest patterns in the repo (`vitest.config.ts` uses vite-tsconf
     - `src/app/admin/admin-nav.tsx` contains the string `agents` (lowercase) in an href attribute
     - Tree-view vitest passes: R2 link becomes visible after ≤3 user click events
     - Tiles vitest: 5 tiles per agent + handles null values
+    - Timeline vitest passes (OBS-04): mixed-fixture render preserves created_at order, kind badges render, no re-execute button present
     - `npx tsc --noEmit` has no new errors (build-clean; if pre-existing errors, at minimum nothing introduced by this plan's files)
   </acceptance_criteria>
-  <done>10 UI files + 1 server module + 2 vitest files; all pass.</done>
+  <done>10 UI files + 1 server module + 3 vitest files (tiles, tree-view, timeline); all pass.</done>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">

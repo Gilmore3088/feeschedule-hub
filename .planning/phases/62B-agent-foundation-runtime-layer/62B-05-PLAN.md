@@ -13,7 +13,7 @@ files_modified:
   - fee_crawler/agent_tools/tools_agent_infra.py
   - fee_crawler/tests/test_agent_messaging.py
 autonomous: true
-requirements: [COMMS-01, COMMS-02, COMMS-03, COMMS-04]
+requirements: [COMMS-01, COMMS-02, COMMS-03, COMMS-04, OBS-04]
 must_haves:
   truths:
     - "Publisher sends an agent_messages INSERT (via existing tools_agent_infra.insert_agent_message tool) and the NOTIFY trigger fires on channel agent_msg_<recipient>"
@@ -23,6 +23,7 @@ must_haves:
     - "Knox-challenges-Darwin direction works symmetrically"
     - "Escalation logic: after 3 unresolved rounds OR expires_at < now(), state is flipped to 'escalated' and a digest query surfaces them"
     - "Pydantic schemas validate payload shapes per intent (challenge/prove/reject/escalate)"
+    - "OBS-04 replay-by-hash: SELECT FROM v_agent_reasoning_trace WHERE correlation_id = <hash_uuid> returns an ordered timeline of events+messages for replay"
   artifacts:
     - path: fee_crawler/agent_messaging/schemas.py
       provides: "Pydantic models — ChallengePayload, ProvePayload, RejectPayload, EscalatePayload; intent-specific fields validated"
@@ -33,7 +34,7 @@ must_haves:
     - path: fee_crawler/agent_messaging/escalation.py
       provides: "async def scan_for_escalations() -> int; finds unresolved handshakes with round_number>=3 OR expires_at<now() and flips state='escalated'"
     - path: fee_crawler/tests/test_agent_messaging.py
-      provides: "COMMS-01..04 integration tests using session pool"
+      provides: "COMMS-01..04 + OBS-04 integration tests using session pool (includes test_replay_by_hash)"
   key_links:
     - from: "publisher.send_message"
       to: "tools_agent_infra.insert_agent_message"
@@ -377,6 +378,7 @@ async def _dispatch(message_id: str, handler: MessageHandler) -> None:
     - test_escalation_three_rounds: 3 unresolved rounds (round_number=3 + state='open') → scan_for_escalations flips state='escalated'; row visible by SELECT WHERE state='escalated'
     - test_escalation_time_based: row with round_number=1 but expires_at<NOW() and state='open' → scan also escalates
     - test_payload_validation_challenge: send_message with intent='challenge' and empty payload raises pydantic ValidationError (before DB write)
+    - test_replay_by_hash (OBS-04): given an existing correlation_id with an event + a message, SELECT FROM v_agent_reasoning_trace WHERE correlation_id = $1 returns >= 2 ordered rows (kind, created_at, agent_name) sufficient to render a replay timeline
   </behavior>
   <action>
 **File 1: `fee_crawler/agent_messaging/escalation.py`**
@@ -624,6 +626,50 @@ async def test_listen_notify_roundtrip(db_schema):
     finally:
         stop.set()
         await asyncio.wait_for(task, timeout=10)
+
+
+@pytest.mark.asyncio
+async def test_replay_by_hash(db_schema):
+    """OBS-04: replay-by-hash. The reasoning-trace view returns an ordered timeline
+    of events + messages for a given correlation_id.
+
+    Seeds one agent_events row + one agent_messages row sharing the same correlation,
+    then asserts v_agent_reasoning_trace returns >= 2 rows in created_at order with
+    the kind discriminator populated.
+    """
+    schema, pool = db_schema
+    corr = str(uuid.uuid4())
+    ev = str(uuid.uuid4())
+    async with pool.acquire() as conn:
+        # Seed an agent_events row first (earlier timestamp)
+        await conn.execute(
+            """INSERT INTO agent_events
+                 (agent_name, action, tool_name, entity, status,
+                  correlation_id, input_payload, created_at)
+               VALUES ('darwin','review','_agent_base','_review','success',
+                       $1::UUID, '{"note":"seed event"}'::JSONB,
+                       NOW() - INTERVAL '10 seconds')""",
+            corr,
+        )
+    # Seed a messaging row (later timestamp)
+    await send_message(
+        sender="darwin", recipient="knox", intent="challenge",
+        payload={"subject_event_id": ev, "question": "replay?"},
+        correlation_id=corr,
+    )
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT kind, created_at, agent_name, intent_or_action, tool_name, entity
+                 FROM v_agent_reasoning_trace
+                WHERE correlation_id = $1::UUID
+                ORDER BY created_at""",
+            corr,
+        )
+    assert len(rows) >= 2, f"expected >=2 trace rows, got {len(rows)}"
+    kinds = {r["kind"] for r in rows}
+    assert "event" in kinds and "message" in kinds
+    # Ordering check: first row is the event (earlier timestamp)
+    assert rows[0]["kind"] == "event"
 ```
 
 NOTE: `test_listen_notify_roundtrip` registers an ephemeral agent in `agent_registry` to satisfy the FK on `agent_messages.recipient_agent` — but only if the FK exists. If it doesn't, the INSERT in agent_registry is still harmless. The test must skip cleanly when `DATABASE_URL_SESSION_TEST` is unset (via `_session_skip()` helper).
@@ -636,10 +682,11 @@ NOTE: `test_listen_notify_roundtrip` registers an ephemeral agent in `agent_regi
     - `grep -n "state = 'escalated'\|state='escalated'" fee_crawler/agent_messaging/escalation.py` returns at least 2 matches
     - `grep -n "round_number >= 3\|round_number>=3" fee_crawler/agent_messaging/escalation.py` returns at least 1 match
     - `grep -n "expires_at < NOW\|expires_at<NOW" fee_crawler/agent_messaging/escalation.py` returns at least 1 match (time-based branch)
-    - `pytest fee_crawler/tests/test_agent_messaging.py -x -v` exits 0 (test_listen_notify_roundtrip may skip cleanly when DATABASE_URL_SESSION_TEST not set)
-    - `pytest fee_crawler/tests/test_agent_messaging.py::test_darwin_knox_handshake fee_crawler/tests/test_agent_messaging.py::test_escalation_three_rounds -x -v` exits 0 (both must pass against docker Postgres)
+    - `pytest fee_crawler/tests/test_agent_messaging.py -x -v` exits 0 (test_listen_notify_roundtrip may skip cleanly when DATABASE_URL_SESSION_TEST not set in local dev)
+    - `pytest fee_crawler/tests/test_agent_messaging.py::test_darwin_knox_handshake fee_crawler/tests/test_agent_messaging.py::test_escalation_three_rounds fee_crawler/tests/test_agent_messaging.py::test_replay_by_hash -x -v` exits 0 (all three must pass against docker Postgres; test_replay_by_hash covers OBS-04 replay-by-hash)
+    - CI staging strictness: in CI the quick-suite MUST FAIL (not skip) when `DATABASE_URL_SESSION_TEST` is unset. Set this DSN in CI env (see runbook + 62B-02 Task 2) so `_session_skip()` never triggers in CI.
   </acceptance_criteria>
-  <done>Escalation scanner works + 6 integration tests pass (LISTEN/NOTIFY test runs when session DSN available).</done>
+  <done>Escalation scanner works + 7 integration tests pass including OBS-04 test_replay_by_hash (LISTEN/NOTIFY test runs when session DSN available).</done>
 </task>
 
 </tasks>

@@ -2,7 +2,7 @@
 phase: 62B
 plan: 07
 type: execute
-wave: 3
+wave: 4
 depends_on: [62B-03, 62B-04, 62B-05]
 files_modified:
   - fee_crawler/agent_base/adversarial_gate.py
@@ -154,6 +154,7 @@ async def run_gate(
     agent_runner: Callable[[int], Awaitable[dict]],          # per-institution runner
     send_message_fn: Optional[Callable[..., Awaitable[str]]] = None,
     peer_wait_seconds: int = 60,
+    correlation_id: Optional[str] = None,                    # seedable for deterministic tests
 ) -> GateVerdict:
     """Run the adversarial gate. Returns GateVerdict.
 
@@ -184,7 +185,7 @@ async def run_gate(
     # D-07 ceiling: optional peer challenge.
     peer = lesson.get("peer_challenge_recipient")
     if peer and send_message_fn:
-        corr = str(uuid.uuid4())
+        corr = correlation_id or str(uuid.uuid4())
         await send_message_fn(
             sender=agent_name,
             recipient=peer,
@@ -463,6 +464,7 @@ async def test_canary_regression_rejects(db_schema):
 
 @pytest.mark.asyncio
 async def test_peer_accept_commits(db_schema):
+    """Success path: peer pre-accepts on a known correlation_id → gate passes."""
     schema, pool = db_schema
     corpus_path = _write_corpus()
     corpus = default_corpus_loader(corpus_path)
@@ -470,22 +472,15 @@ async def test_peer_accept_commits(db_schema):
     from fee_crawler.testing.canary_runner import run_canary as rc
     await rc("knox", corpus, ok)
 
-    # Pre-seed a peer accept so poll finds it immediately
-    corr = "00000000-0000-0000-0000-000000000001"
+    # Pre-seed a peer accept row BEFORE calling run_gate; gate is passed the same correlation_id.
+    corr = str(uuid.uuid4())
     async with pool.acquire() as conn:
         await conn.execute(
             """INSERT INTO agent_messages (sender_agent, recipient_agent, intent, correlation_id, payload, round_number)
                VALUES ('darwin','knox','accept', $1::UUID, '{}'::JSONB, 2)""",
             corr,
         )
-    # Monkeypatch uuid.uuid4 to return the fixed correlation so the poll matches.
-    # Simplified: override run_gate behavior by directly testing a pre-accepted flow.
-    # Alternative: skip this test if monkeypatching uuid in adversarial_gate proves flaky.
-    # Keep this test relaxed — it asserts the commit path exists when peer accept is present.
-    a = _PassingAgent()
-    a.canary_corpus_path = corpus_path
-    # Accept already present with matching peer/originator but correlation_id differs → gate will time out waiting.
-    # Use short wait; then test the reject path instead.
+
     from fee_crawler.agent_base.adversarial_gate import run_gate
     from fee_crawler.agent_messaging.publisher import send_message
     lesson = {"name": "peer_test", "peer_challenge_recipient": "darwin"}
@@ -496,11 +491,11 @@ async def test_peer_accept_commits(db_schema):
         corpus_loader=default_corpus_loader,
         agent_runner=ok,
         send_message_fn=send_message,
-        peer_wait_seconds=2,
+        peer_wait_seconds=5,
+        correlation_id=corr,          # gate polls on the pre-seeded correlation
     )
-    # No matching accept (correlation mismatch) → should be False with peer_rejected_or_timeout
-    assert v.passed is False
-    assert v.reason == "peer_rejected_or_timeout"
+    assert v.passed is True, f"expected success, got reason={v.reason}"
+    assert v.reason == "ok"
 
 
 @pytest.mark.asyncio
