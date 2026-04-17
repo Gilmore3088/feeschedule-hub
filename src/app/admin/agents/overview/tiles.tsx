@@ -54,7 +54,7 @@ export function Tiles({ data, sparklines }: Props) {
             <h2 className="text-sm font-bold tracking-tight text-gray-900 dark:text-gray-100">
               {agent.agent_name}
             </h2>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               {agent.bucket_start
                 ? `Last bucket: ${agent.bucket_start.slice(0, 16).replace("T", " ")}`
                 : "No recent bucket"}
@@ -73,13 +73,13 @@ export function Tiles({ data, sparklines }: Props) {
                   data-agent={agent.agent_name}
                   className="rounded-md border border-black/[0.06] dark:border-white/[0.06] bg-gray-50/40 dark:bg-white/[0.02] p-3 flex flex-col gap-1"
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {HEALTH_METRIC_LABELS[metric]}
                   </span>
                   <span className="text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100">
                     {formatMetric(metric, value)}
                   </span>
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
                     {agent.agent_name}
                   </span>
                   <div className="mt-1 text-gray-500 dark:text-gray-400" data-testid="sparkline-slot">

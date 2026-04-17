@@ -25,12 +25,12 @@ function RowGrid({
   );
   return (
     <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-[11px] tabular-nums">
-      <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400 col-span-2 md:col-span-3">
+      <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 col-span-2 md:col-span-3">
         {tier}
       </dt>
       {entries.map(([k, v]) => (
         <div key={k} className="flex flex-col">
-          <dt className="text-[9px] uppercase tracking-wider text-gray-400">
+          <dt className="text-[9px] uppercase tracking-wider text-gray-500 dark:text-gray-400">
             {k}
           </dt>
           <dd className="text-gray-900 dark:text-gray-200 truncate">

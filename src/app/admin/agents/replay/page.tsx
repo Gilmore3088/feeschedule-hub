@@ -60,7 +60,7 @@ export default async function AgentsReplayPage({
         >
           Replay
         </button>
-        <span className="text-[11px] text-gray-400 ml-auto">
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-auto">
           Read-only trace — no re-execute (D-16)
         </span>
       </form>

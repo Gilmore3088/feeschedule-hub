@@ -16,7 +16,7 @@ export function ThreadView({ thread }: { thread: MessageThread }) {
   return (
     <div className="admin-card p-3 flex flex-col gap-1">
       <div className="flex items-center gap-2 text-[11px]">
-        <span className="font-mono text-gray-400">
+        <span className="font-mono text-gray-500 dark:text-gray-400">
           {thread.correlation_id.slice(0, 8)}…
         </span>
         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gray-100 dark:bg-white/[0.05] text-gray-700 dark:text-gray-200">
@@ -33,7 +33,7 @@ export function ThreadView({ thread }: { thread: MessageThread }) {
       <div className="text-[12px] text-gray-700 dark:text-gray-200">
         {thread.latest_intent}
       </div>
-      <div className="text-[11px] text-gray-400">
+      <div className="text-[11px] text-gray-500 dark:text-gray-400">
         {thread.participants.join(", ")}
       </div>
     </div>

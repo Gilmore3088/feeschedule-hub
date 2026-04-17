@@ -85,12 +85,12 @@ export function Timeline({ rows }: Props) {
               </span>
             )}
             {row.tool_name && (
-              <span className="text-[10px] text-gray-400 font-mono">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                 {row.tool_name}
               </span>
             )}
             {row.entity && (
-              <span className="ml-auto text-[10px] text-gray-400 font-mono">
+              <span className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                 {row.entity}
               </span>
             )}

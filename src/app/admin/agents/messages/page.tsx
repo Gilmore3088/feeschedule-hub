@@ -39,7 +39,7 @@ export default async function AgentsMessagesPage() {
         <div className="admin-card overflow-x-auto">
           <table className="w-full min-w-[640px] text-[12px]">
             <thead>
-              <tr className="bg-gray-50/80 dark:bg-white/[0.02] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              <tr className="bg-gray-50/80 dark:bg-white/[0.02] text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 <th className="text-left px-4 py-2.5">Started</th>
                 <th className="text-left px-4 py-2.5">Correlation</th>
                 <th className="text-left px-4 py-2.5">State</th>

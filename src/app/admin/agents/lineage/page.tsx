@@ -75,7 +75,7 @@ export default async function AgentsLineagePage({
         >
           Trace
         </button>
-        <span className="text-[11px] text-gray-400 ml-auto">
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-auto">
           3-click bar: Tier 3 default-expanded → Tier 2 → Tier 1 → R2 link
         </span>
       </form>
