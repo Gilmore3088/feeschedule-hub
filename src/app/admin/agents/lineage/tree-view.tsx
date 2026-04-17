@@ -48,6 +48,14 @@ function RowGrid({
   );
 }
 
+// Only render r2_key as a clickable link when it's an https:// URL.
+// Defends against javascript: / data: / file: scheme injection if a malformed
+// key ever lands in the JSONB column (Knox writes these in Phase 63).
+function isSafeR2Url(value: string | null): value is string {
+  if (!value) return false;
+  return /^https:\/\//i.test(value);
+}
+
 function Tier1Node({ node }: { node: LineageTier1 }) {
   const r2 = node.r2_key ?? null;
   const [open, setOpen] = useState(false);
@@ -66,16 +74,25 @@ function Tier1Node({ node }: { node: LineageTier1 }) {
               <span>TIER 1 · extraction</span>
             </button>
           </Collapsible.Trigger>
-          {r2 && (
+          {isSafeR2Url(r2) ? (
             <a
               href={r2}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`Open R2 source document ${r2} in a new tab`}
               className="text-[11px] font-mono text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[60%]"
             >
               {r2}
+              <span aria-hidden="true"> ↗</span>
             </a>
-          )}
+          ) : r2 ? (
+            <span
+              title="R2 key is not a safe https:// URL; rendered as plain text"
+              className="text-[11px] font-mono text-gray-500 dark:text-gray-400 truncate max-w-[60%]"
+            >
+              {r2}
+            </span>
+          ) : null}
         </div>
         <Collapsible.Content className="mt-2">
           <RowGrid tier="TIER 1" row={node.row} />
