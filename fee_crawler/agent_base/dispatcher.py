@@ -12,9 +12,12 @@ emit review_tick agent_events rows on the declared per-agent schedule, and one
 Modal function (bound into an existing slot) drains them every minute.
 
 Race / idempotency: we pre-claim rows inside a single transaction by flipping
-status 'pending' -> 'success' (or 'error') WHERE the tick is still pending.
-FOR UPDATE SKIP LOCKED in the SELECT ensures two concurrent dispatchers partition
-the tick set instead of double-firing.
+status 'pending' -> 'in_progress' under FOR UPDATE SKIP LOCKED, so two
+concurrent dispatchers partition the tick set instead of double-firing. The
+intermediate 'in_progress' status survives the transaction commit (unlike the
+row lock, which releases on commit); _mark_success / _mark_error then flip it
+to the terminal status after the dispatch loop. The in_progress status is
+allowed by agent_events_status_check as of migration 20260515.
 """
 from __future__ import annotations
 
@@ -40,18 +43,30 @@ async def dispatch_ticks(*, window_minutes: int = 10) -> dict:
     stats = {"dispatched": 0, "errors": 0, "skipped": 0}
 
     # Step 1: claim a batch of pending ticks atomically.
-    # The FOR UPDATE SKIP LOCKED in the SELECT ensures concurrent dispatchers
-    # do not claim the same rows. We flip the claimed rows' status within the
-    # same transaction so the claim survives after the transaction commits.
+    # FOR UPDATE SKIP LOCKED partitions contention across concurrent dispatchers,
+    # but the row lock releases on transaction commit -- so we also flip
+    # status 'pending' -> 'in_progress' inside the same transaction. The
+    # status flip survives commit and prevents a second dispatcher from
+    # re-selecting the same rows between the SELECT and the terminal
+    # _mark_success / _mark_error call. RETURNING hands the claimed rows back
+    # to Python in one round-trip.
     async with pool.acquire() as conn:
         async with conn.transaction():
             rows = await conn.fetch(
-                """SELECT event_id, created_at, agent_name
-                     FROM agent_events
-                    WHERE action = 'review_tick'
-                      AND status = 'pending'
-                      AND created_at > NOW() - make_interval(mins => $1)
-                    FOR UPDATE SKIP LOCKED""",
+                """WITH claimed AS (
+                       SELECT event_id, created_at, agent_name
+                         FROM agent_events
+                        WHERE action = 'review_tick'
+                          AND status = 'pending'
+                          AND created_at > NOW() - make_interval(mins => $1)
+                        FOR UPDATE SKIP LOCKED
+                   )
+                   UPDATE agent_events ae
+                      SET status = 'in_progress'
+                     FROM claimed c
+                    WHERE ae.event_id   = c.event_id
+                      AND ae.created_at = c.created_at
+                RETURNING ae.event_id, ae.created_at, ae.agent_name""",
                 window_minutes,
             )
 
@@ -86,7 +101,7 @@ async def dispatch_ticks(*, window_minutes: int = 10) -> dict:
 
 
 async def _mark_success(event_id, created_at) -> None:
-    """Flip tick row to status='success'. Gated on pending to keep idempotent."""
+    """Flip tick row to status='success'. Gated on in_progress to keep idempotent."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
@@ -94,7 +109,7 @@ async def _mark_success(event_id, created_at) -> None:
                   SET status = 'success'
                 WHERE event_id = $1
                   AND created_at = $2
-                  AND status = 'pending'""",
+                  AND status = 'in_progress'""",
             event_id,
             created_at,
         )
@@ -110,7 +125,7 @@ async def _mark_error(event_id, created_at, message: str) -> None:
                       output_payload = $3::JSONB
                 WHERE event_id = $1
                   AND created_at = $2
-                  AND status = 'pending'""",
+                  AND status = 'in_progress'""",
             event_id,
             created_at,
             json.dumps({"error": message}),
