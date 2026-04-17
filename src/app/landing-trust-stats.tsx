@@ -75,7 +75,17 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
             FDIC Call Reports · NCUA 5300 · Federal Reserve FRED · Beige Book ·
             Published deposit account agreements
           </span>
-          <span className="lg:ml-auto shrink-0 text-slate-600">
+          <span className="lg:ml-auto shrink-0 text-slate-600 inline-flex items-center gap-1.5">
+            {/* Pulse dot acknowledges live data without shouting. The pulse
+                ring is decorative; the inner dot conveys state. Hidden under
+                prefers-reduced-motion via the live-pulse utility. */}
+            <span
+              aria-hidden="true"
+              className="relative inline-flex h-1.5 w-1.5 shrink-0"
+            >
+              <span className="absolute inset-0 rounded-full bg-amber-400/40 live-pulse" />
+              <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+            </span>
             Last refresh: <span className="text-slate-900 font-medium">{refreshedRelative}</span>
             {" · "}
             <Link

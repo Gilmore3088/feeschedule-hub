@@ -179,26 +179,30 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
             {/* Spacer pushes cards to bottom */}
             <div className="flex-1 min-h-6" />
 
-            {/* Row 5: Cards (pinned to bottom, aligned with consumer side) */}
+            {/* Row 5: Capability cards (decorative — search bar above is the
+                primary CTA). Hover state acknowledges the cursor without
+                becoming competing nav. Subtle border-warm + bg-lift + icon
+                micro-shift, ~180ms ease — fast enough not to feel sluggish,
+                slow enough to register as polish. */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5">
-                <Brain className="h-4 w-4 text-[#C44B2E] mb-2" />
+              <div className="group rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5 transition-all duration-[180ms] hover:border-[#C44B2E]/60 hover:bg-[#332F2A]">
+                <Brain className="h-4 w-4 text-[#C44B2E] mb-2 transition-transform duration-[180ms] group-hover:translate-x-0.5" />
                 <p className="text-[13px] font-bold text-[#F5EFE6]">Hamilton AI</p>
-                <p className="text-[11px] text-[#7A7062] mt-0.5">
+                <p className="text-[11px] text-[#7A7062] mt-0.5 transition-colors duration-[180ms] group-hover:text-[#A09788]">
                   AI-powered fee analyst
                 </p>
               </div>
-              <div className="rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5">
-                <Users className="h-4 w-4 text-[#C44B2E] mb-2" />
+              <div className="group rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5 transition-all duration-[180ms] hover:border-[#C44B2E]/60 hover:bg-[#332F2A]">
+                <Users className="h-4 w-4 text-[#C44B2E] mb-2 transition-transform duration-[180ms] group-hover:translate-x-0.5" />
                 <p className="text-[13px] font-bold text-[#F5EFE6]">Peer Groups</p>
-                <p className="text-[11px] text-[#7A7062] mt-0.5">
+                <p className="text-[11px] text-[#7A7062] mt-0.5 transition-colors duration-[180ms] group-hover:text-[#A09788]">
                   Custom peer benchmarks
                 </p>
               </div>
-              <div className="rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5">
-                <FileText className="h-4 w-4 text-[#C44B2E] mb-2" />
+              <div className="group rounded-xl border border-[#3D3830] bg-[#2D2A26]/80 px-3 py-3.5 transition-all duration-[180ms] hover:border-[#C44B2E]/60 hover:bg-[#332F2A]">
+                <FileText className="h-4 w-4 text-[#C44B2E] mb-2 transition-transform duration-[180ms] group-hover:translate-x-0.5" />
                 <p className="text-[13px] font-bold text-[#F5EFE6]">Reports & Data</p>
-                <p className="text-[11px] text-[#7A7062] mt-0.5">
+                <p className="text-[11px] text-[#7A7062] mt-0.5 transition-colors duration-[180ms] group-hover:text-[#A09788]">
                   Board-ready, built for you
                 </p>
               </div>

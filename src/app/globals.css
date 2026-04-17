@@ -199,6 +199,22 @@
   .admin-content > * {
     animation: none !important;
   }
+  .live-pulse {
+    animation: none !important;
+  }
+}
+
+/* ─── Live-data pulse (used by the trust strip's freshness dot) ───
+   Calm 2.6s ease-out ring, low-contrast and infrequent so it acknowledges
+   recency without becoming a flicker. Disabled under prefers-reduced-motion. */
+@keyframes live-pulse {
+  0%   { transform: scale(0.8); opacity: 0.6; }
+  70%  { transform: scale(2.2); opacity: 0;   }
+  100% { transform: scale(2.2); opacity: 0;   }
+}
+.live-pulse {
+  animation: live-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  transform-origin: center;
 }
 
 /* ─── Admin card refinements ─── */

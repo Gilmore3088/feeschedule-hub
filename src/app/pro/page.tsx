@@ -18,6 +18,7 @@ import { formatAmount } from "@/lib/format";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 const TICKER_CATEGORIES = [
   "monthly_maintenance",
@@ -225,14 +226,9 @@ export default async function ProHomePage() {
             {/* Index preview card */}
             <div className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] overflow-hidden">
               <div className="px-5 py-3 border-b border-[#E8DFD1] flex items-center justify-between">
-                <span
-                  className="text-[12px] font-bold uppercase tracking-[0.1em] text-[#5A5347]"
-                  style={{
-                    fontFamily: "var(--font-newsreader), Georgia, serif",
-                  }}
-                >
+                <Eyebrow tone="dark" size="tight">
                   National Fee Index
-                </span>
+                </Eyebrow>
                 <span className="text-[10px] text-[#A69D90]">
                   {allEntries.length} categories
                 </span>
@@ -305,14 +301,7 @@ export default async function ProHomePage() {
           <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
             <div className="flex items-end justify-between mb-6">
               <div>
-                <h2
-                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90]"
-                  style={{
-                    fontFamily: "var(--font-newsreader), Georgia, serif",
-                  }}
-                >
-                  Peer Segmentation: Charter Type
-                </h2>
+                <Eyebrow as="h2">Peer Segmentation: Charter Type</Eyebrow>
                 <p className="mt-1 text-[13px] text-[#7A7062]">
                   National vs. Bank vs. Credit Union medians
                 </p>
@@ -486,14 +475,7 @@ export default async function ProHomePage() {
           <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
             <div className="flex items-end justify-between mb-6">
               <div>
-                <h2
-                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90]"
-                  style={{
-                    fontFamily: "var(--font-newsreader), Georgia, serif",
-                  }}
-                >
-                  Fee-to-Revenue Correlation
-                </h2>
+                <Eyebrow as="h2">Fee-to-Revenue Correlation</Eyebrow>
                 <p className="mt-1 text-[13px] text-[#7A7062]">
                   Average fee levels vs. service charge income by asset tier
                 </p>
@@ -511,14 +493,9 @@ export default async function ProHomePage() {
                   key={tier.asset_tier}
                   className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] p-5"
                 >
-                  <p
-                    className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062]"
-                    style={{
-                      fontFamily: "var(--font-newsreader), Georgia, serif",
-                    }}
-                  >
+                  <Eyebrow as="p" tone="subtle" size="tight">
                     {tier.asset_tier}
-                  </p>
+                  </Eyebrow>
                   <p className="mt-3 text-[20px] font-bold text-[#1A1815] tabular-nums">
                     {formatAmount(tier.avg_fee)}
                   </p>
@@ -544,12 +521,7 @@ export default async function ProHomePage() {
       {/* ── Platform Capabilities ── */}
       <section className="border-t border-[#E8DFD1]">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
-          <h2
-            className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90] mb-8"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            Platform Capabilities
-          </h2>
+          <Eyebrow as="h2" className="mb-8 block">Platform Capabilities</Eyebrow>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
@@ -604,14 +576,9 @@ export default async function ProHomePage() {
         <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
           <div className="flex items-end justify-between mb-6">
             <div>
-              <h2
-                className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90]"
-                style={{
-                  fontFamily: "var(--font-newsreader), Georgia, serif",
-                }}
-              >
+              <Eyebrow as="h2">
                 Featured Index
-              </h2>
+              </Eyebrow>
               <p className="mt-1 text-[13px] text-[#7A7062]">
                 {featuredEntries.length} core categories
               </p>
@@ -761,12 +728,7 @@ export default async function ProHomePage() {
       {/* ── Access Tiers ── */}
       <section className="border-t border-[#E8DFD1]">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:py-20">
-          <h2
-            className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A69D90] mb-8"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            Access
-          </h2>
+          <Eyebrow as="h2" className="mb-8 block">Access</Eyebrow>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
             <div className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] p-6">
               <p
