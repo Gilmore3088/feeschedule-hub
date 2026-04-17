@@ -15,6 +15,7 @@ sqlite_kill() {
   local exclude_paths=(
     ":(exclude)fee_crawler/**/__pycache__"
     ":(exclude)fee_crawler/SQLITE_AUDIT.md"
+    ":(exclude)fee_crawler/tests/test_sc4_no_sqlite.py"
     ":(exclude)src/app/api/_archive"
     ":(exclude)src/**/node_modules/**"
   )
@@ -30,6 +31,7 @@ sqlite_kill() {
       --include='*.py' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
       --exclude-dir=__pycache__ --exclude-dir=node_modules \
       --exclude='SQLITE_AUDIT.md' \
+      --exclude='test_sc4_no_sqlite.py' \
       "${include_dirs[@]}" 2>/dev/null || true)
   fi
 
