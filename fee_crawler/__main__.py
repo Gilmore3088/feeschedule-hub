@@ -1353,6 +1353,36 @@ def main() -> None:
         )
     )
 
+    # ── exception-digest (Phase 62b BOOT-01 / D-08 + D-11 + D-24) ──────
+    # Daily exception digest surfacing improve_rejected events, escalated
+    # handshakes, and Q2 exception samples. 48h review SLA per D-25.
+    digest_parser = subparsers.add_parser(
+        "exception-digest",
+        help="Render the daily agent exception digest (Markdown)",
+    )
+    digest_parser.add_argument(
+        "--hours",
+        type=int,
+        default=24,
+        help="time window in hours (default: 24)",
+    )
+    digest_parser.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help="optional output path; default stdout",
+    )
+    digest_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__(
+                "fee_crawler.commands.exception_digest", fromlist=["main"]
+            ).main(
+                ["--hours", str(args.hours)]
+                + (["--out", args.out] if args.out else [])
+            )
+        )
+    )
+
     args = parser.parse_args()
     args.func(args)
 
