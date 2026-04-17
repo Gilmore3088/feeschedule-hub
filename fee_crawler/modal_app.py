@@ -154,7 +154,8 @@ def run_browser_extraction():
 async def run_post_processing():
     """Every-minute dispatcher for agent review_ticks + once-daily post-processing pipeline."""
     import os
-    from datetime import datetime, timezone
+    import psycopg2
+    from datetime import datetime, timezone, timedelta
 
     # Every minute: dispatch pending agent review_ticks (LOOP-03 D-05 pivot).
     try:
@@ -166,13 +167,44 @@ async def run_post_processing():
         # Never let tick dispatch block the daily pipeline.
         print(f"dispatch_ticks failed (non-fatal): {exc}")
 
+    # WR-05 fix: widen the trigger window to 06:00-06:09 UTC to absorb Modal
+    # cron jitter, and gate actual work on a workers_last_run marker so we
+    # run at most once per UTC day (idempotent catch-up if we missed 06:00).
     now = datetime.now(timezone.utc)
-    if not (now.hour == 6 and now.minute < 2):
-        # Skip the daily pipeline except in the 06:00-06:01 UTC window (preserves
-        # original once-per-day cadence while sharing the cron slot with LOOP-03).
+    today_0600 = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now < today_0600 or now >= today_0600 + timedelta(minutes=10):
         return "dispatch_only"
 
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    db_url = os.environ["DATABASE_URL"]
+    try:
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT completed_at FROM workers_last_run WHERE job_name = %s",
+            ("daily_pipeline",),
+        )
+        row = cur.fetchone()
+        last_completed = row[0] if row else None
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        # If we can't read the marker, fall through rather than silently skipping.
+        print(f"workers_last_run read failed (proceeding anyway): {exc}")
+        last_completed = None
+
+    if last_completed is not None and last_completed >= today_0600:
+        return "dispatch_only"
+
+    # If we're past 06:01 and still about to run, log a WARNING so missed
+    # windows are observable in the Modal dashboard.
+    if now >= today_0600 + timedelta(minutes=2):
+        delay_s = int((now - today_0600).total_seconds())
+        print(
+            f"WARNING: daily_pipeline running {delay_s}s after 06:00 UTC "
+            "(cron jitter or catch-up)"
+        )
+
+    env = {**os.environ, "DATABASE_URL": db_url}
     commands = [
         ["python3", "-m", "fee_crawler", "categorize"],
         ["python3", "-m", "fee_crawler", "auto-review"],
@@ -193,6 +225,26 @@ async def run_post_processing():
     from fee_crawler.workers.daily_report import generate_report
     report = generate_report()
     print(report)
+
+    # Record completion so subsequent minute-ticks skip until tomorrow.
+    try:
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO workers_last_run (job_name, completed_at, status)
+               VALUES (%s, NOW(), %s)
+               ON CONFLICT (job_name) DO UPDATE
+                 SET completed_at = EXCLUDED.completed_at,
+                     status       = EXCLUDED.status""",
+            ("daily_pipeline", "ok"),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        # Marker write failures should not mask a successful pipeline, but
+        # leave a breadcrumb so operators notice recurring double-runs.
+        print(f"workers_last_run write failed (pipeline still succeeded): {exc}")
 
     return f"Pipeline: {'; '.join(results)} | Integrity: {integrity['score']}% ({integrity['passed']}/{integrity['total']} passed)"
 
