@@ -36,8 +36,8 @@ export default async function AgentsMessagesPage() {
       )}
 
       {threads.length > 0 && (
-        <div className="admin-card overflow-hidden">
-          <table className="w-full text-[12px]">
+        <div className="admin-card overflow-x-auto">
+          <table className="w-full min-w-[640px] text-[12px]">
             <thead>
               <tr className="bg-gray-50/80 dark:bg-white/[0.02] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                 <th className="text-left px-4 py-2.5">Started</th>
