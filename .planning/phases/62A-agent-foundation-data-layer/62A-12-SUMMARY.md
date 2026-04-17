@@ -292,3 +292,29 @@ None — all code paths are wired. The MCP server has no mock data; it queries r
 ---
 *Phase: 62A-agent-foundation-data-layer*
 *Completed: 2026-04-16 (code); Task 3 push pending operator remediation*
+
+---
+
+## [BLOCKING] staging db push — remediation outcome
+
+**Executed:** 2026-04-16T22:15Z (orchestrator, inline after Plan 12 agent halted)
+
+**Steps executed:**
+1. User updated `.env` to trim trailing whitespace on `DATABASE_URL`
+2. Renamed 3 colliding pre-62a migrations: 20260407_wave_runs → 20260413; 20260408_overdraft_revenue → 20260414; 20260410_classification_cache → 20260415
+3. Renumbered 8 colliding 62a migrations to unique version dates: 20260417-20260425 each with one file
+4. `supabase migration repair --status applied 20260408 20260409 20260410` (marks pre-62a manually-applied migrations as recorded in schema_migrations)
+5. `supabase db push --db-url "$DATABASE_URL" --yes` (first pass: applied 8/12, halted on `window` reserved keyword in agent_budgets)
+6. Fixed `window` → `budget_window` column rename in 20260422_agent_registry_and_budgets.sql + fee_crawler/agent_tools/tools_agent_infra.py SQL statements
+7. `supabase db push --db-url "$DATABASE_URL" --yes` (second pass: applied remaining 4)
+
+**Final state (verified via asyncpg against live DB):**
+- 9/9 new 62a tables present (agent_events, agent_auth_log, agent_messages, agent_registry, agent_budgets, institution_dossiers, fees_raw, fees_verified, fees_published)
+- 3/3 SQL functions present (promote_to_tier2, promote_to_tier3, maintain_agent_events_partitions)
+- 55 agent_registry rows (4 top-level + 51 state agents, matches AGENT-05 seed spec)
+- 55 agent_budgets rows
+- 102,965 fees backfilled into fees_raw
+- 82,805 flagged outlier_flag='lineage_missing' (80.4% — exact match to the audit's lineage-crisis number)
+- extracted_fees_freeze trigger installed (future writes to legacy table blocked)
+
+**SC3 (Tier 1/2/3 tables resolve with lineage columns): PASS**
