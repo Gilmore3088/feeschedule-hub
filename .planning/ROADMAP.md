@@ -1298,7 +1298,7 @@ Plans:
 - [x] 62B-05-PLAN.md — Inter-agent messaging runtime (LISTEN/NOTIFY + handshakes + escalation) (COMMS-01..04)
 - [x] 62B-06-PLAN.md — get_reasoning_trace read-only agent tool (COMMS-05)
 - [x] 62B-07-PLAN.md — Adversarial review gate wired into AgentBase.improve (LOOP-07)
-- [ ] 62B-08-PLAN.md — pg_cron review_tick schedules + Modal dispatcher (D-05 pivot) (LOOP-03)
+- [x] 62B-08-PLAN.md — pg_cron review_tick schedules + Modal dispatcher (D-05 pivot) (LOOP-03)
 - [x] 62B-09-PLAN.md — Agent health rollup helpers + Python tile queries (OBS-05)
 - [ ] 62B-10-PLAN.md — /admin/agents 4-tab console: Overview, Lineage, Messages, Replay (OBS-03, OBS-04)
 - [ ] 62B-11-PLAN.md — Bootstrap protocol: agent-graduate CLI + lifecycle branch + exception-digest + runbook (BOOT-01)
@@ -1392,7 +1392,7 @@ Note: 62a is a hard prerequisite for 62b (data layer before runtime); 63-66 are 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 62a. Agent Foundation — Data Layer | v10.0 | 13/13 | Complete    | 2026-04-17 |
-| 62b. Agent Foundation — Runtime Layer | v10.0 | 8/11 | In Progress|  |
+| 62b. Agent Foundation — Runtime Layer | v10.0 | 9/11 | In Progress|  |
 | 63. Knox + 51-State Agent Fleet | v10.0 | 0/TBD | Not started | - |
 | 64. Darwin — Classification + Verification | v10.0 | 0/TBD | Not started | - |
 | 65. Atlas — Orchestration | v10.0 | 0/TBD | Not started | - |
