@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { ReasoningTraceRow } from "@/lib/crawler-db/agent-console-types";
 
 type Props = {
@@ -9,20 +9,27 @@ type Props = {
 
 function PayloadPreview({ payload }: { payload: unknown }) {
   const [expanded, setExpanded] = useState(false);
+  const codeId = useId();
   if (payload === null || payload === undefined) {
     return <span className="text-gray-300">—</span>;
   }
   const str = typeof payload === "string" ? payload : JSON.stringify(payload);
-  const short = str.length > 200 ? `${str.slice(0, 200)}…` : str;
+  const truncated = str.length > 200;
+  const short = truncated ? `${str.slice(0, 200)}…` : str;
   return (
     <div className="flex flex-col gap-1">
-      <code className="text-[10px] font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all">
+      <code
+        id={codeId}
+        className="text-[10px] font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all"
+      >
         {expanded ? str : short}
       </code>
-      {str.length > 200 && (
+      {truncated && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls={codeId}
           className="self-start text-[10px] text-blue-600 hover:underline"
         >
           {expanded ? "Collapse" : "Expand"}
