@@ -21,7 +21,8 @@ interface HamiltonTopNavProps {
  * Uses usePathname() for live client-side active state; activeHref provides
  * the server-rendered initial active state so the correct item is highlighted
  * in the initial HTML without waiting for client JS (satisfies SC-2).
- * Per D-16: nav items locked to HAMILTON_NAV single source of truth.
+ * Nav items sourced from HAMILTON_NAV single source of truth (D-16, superseded
+ * 2026-04-17 by UX audit H-4 — labels updated, lookups via that constant).
  * Per D-02: Settings link only in avatar dropdown, not in main nav.
  */
 export function HamiltonTopNav({ isAdmin, activeHref, user }: HamiltonTopNavProps) {

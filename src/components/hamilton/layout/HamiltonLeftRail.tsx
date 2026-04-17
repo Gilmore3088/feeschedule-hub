@@ -32,7 +32,7 @@ function deriveScreen(pathname: string): HamiltonScreen {
       return item.label as HamiltonScreen;
     }
   }
-  return "Monitor";
+  return "Watchlist";
 }
 
 function relativeTime(dateStr: string): string {
@@ -64,8 +64,8 @@ export function HamiltonLeftRail({ savedAnalyses = [], recentScenarios = [], pin
   const currentScreen = deriveScreen(pathname);
   const config = LEFT_RAIL_CONFIG[currentScreen];
 
-  const isAnalyzeScreen = currentScreen === "Analyze";
-  const isSimulateScreen = currentScreen === "Simulate";
+  const isAnalyzeScreen = currentScreen === "Peer Compare";
+  const isSimulateScreen = currentScreen === "Scenarios";
 
   return (
     <aside

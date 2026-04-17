@@ -23,7 +23,7 @@ interface AnalyzeCTABarProps {
 export function AnalyzeCTABar({ isVisible, onExportPdf, isExporting }: AnalyzeCTABarProps) {
   if (!isVisible) return null;
 
-  const { primary, secondary } = CTA_HIERARCHY["Analyze"];
+  const { primary, secondary } = CTA_HIERARCHY["Peer Compare"];
 
   return (
     <div className="flex flex-wrap items-center gap-3 pb-2">

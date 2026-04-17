@@ -72,7 +72,7 @@ export function MonitorFeedPreview({ signals }: MonitorFeedPreviewProps) {
               margin: 0,
             }}
           >
-            Your signal feed will show competitive intelligence here. <a href="/pro/monitor" style={{ color: "var(--hamilton-primary)", textDecoration: "none", fontWeight: 500 }}>Visit Monitor</a> to configure your watchlist.
+            Your signal feed will show competitive intelligence here. <a href="/pro/monitor" style={{ color: "var(--hamilton-primary)", textDecoration: "none", fontWeight: 500 }}>Open Watchlist</a> to configure tracked institutions.
           </p>
         ) : (
           signals.map((signal, i) => (

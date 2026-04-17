@@ -154,7 +154,7 @@ export function buildHamiltonTools() {
         return {
           success: true,
           jobId: data.jobId,
-          message: `Report '${report_type}' is now generating. Job ID: ${data.jobId}. The report will be available in the Reports tab once complete.`,
+          message: `Report '${report_type}' is now generating. Job ID: ${data.jobId}. The report will be available in the Reports & Briefs tab once complete.`,
         };
       } catch (err) {
         return { error: `Failed to trigger report: ${String(err)}` };

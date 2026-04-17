@@ -25,9 +25,16 @@ describe("HAMILTON_NAV", () => {
     expect(HAMILTON_NAV).toHaveLength(6);
   });
 
-  it("has exact labels in order: Home, Analyze, Simulate, Reports, Monitor, Admin", () => {
+  it("has exact labels in order: My Bank, Peer Compare, Scenarios, Reports & Briefs, Watchlist, Admin", () => {
     const labels = HAMILTON_NAV.map((item) => item.label);
-    expect(labels).toEqual(["Home", "Analyze", "Simulate", "Reports", "Monitor", "Admin"]);
+    expect(labels).toEqual([
+      "My Bank",
+      "Peer Compare",
+      "Scenarios",
+      "Reports & Briefs",
+      "Watchlist",
+      "Admin",
+    ]);
   });
 
   it("all hrefs are unique (no duplicates)", () => {
@@ -69,24 +76,30 @@ describe("LEFT_RAIL_CONFIG", () => {
 });
 
 describe("CTA_HIERARCHY", () => {
-  it("has entries for Home, Analyze, Simulate, Reports, Monitor (not Admin)", () => {
-    const expectedKeys = ["Home", "Analyze", "Simulate", "Reports", "Monitor"];
+  it("has entries for non-Admin screens (My Bank, Peer Compare, Scenarios, Reports & Briefs, Watchlist)", () => {
+    const expectedKeys = [
+      "My Bank",
+      "Peer Compare",
+      "Scenarios",
+      "Reports & Briefs",
+      "Watchlist",
+    ];
     for (const key of expectedKeys) {
       expect(CTA_HIERARCHY).toHaveProperty(key);
     }
     expect(CTA_HIERARCHY).not.toHaveProperty("Admin");
   });
 
-  it("Analyze primary CTA is 'Simulate a Change'", () => {
-    expect(CTA_HIERARCHY.Analyze.primary).toBe("Simulate a Change");
+  it("Peer Compare primary CTA is 'Simulate a Change'", () => {
+    expect(CTA_HIERARCHY["Peer Compare"].primary).toBe("Simulate a Change");
   });
 
-  it("Simulate primary CTA is 'Generate Board Scenario Summary'", () => {
-    expect(CTA_HIERARCHY.Simulate.primary).toBe("Generate Board Scenario Summary");
+  it("Scenarios primary CTA is 'Generate Board Scenario Summary'", () => {
+    expect(CTA_HIERARCHY["Scenarios"].primary).toBe("Generate Board Scenario Summary");
   });
 
-  it("Report primary CTA is 'Export PDF'", () => {
-    expect(CTA_HIERARCHY.Reports.primary).toBe("Export PDF");
+  it("Reports & Briefs primary CTA is 'Export PDF'", () => {
+    expect(CTA_HIERARCHY["Reports & Briefs"].primary).toBe("Export PDF");
   });
 
   it("each entry has primary string and secondary array", () => {
