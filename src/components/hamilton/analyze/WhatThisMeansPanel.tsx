@@ -1,5 +1,7 @@
 "use client";
 
+import { renderInline } from "./markdown";
+
 interface WhatThisMeansPanelProps {
   content: string;
   isStreaming: boolean;
@@ -29,13 +31,13 @@ export function WhatThisMeansPanel({ content, isStreaming }: WhatThisMeansPanelP
         </div>
       ) : (
         <div className="space-y-4">
-          {content.split("\n").filter(Boolean).map((para, i) => (
+          {content.split("\n").map((p) => p.trim()).filter((p) => /\w/.test(p)).map((para, i) => (
             <p
               key={i}
               className="text-lg leading-relaxed font-light"
               style={{ color: "var(--hamilton-text-secondary)" }}
             >
-              {para}
+              {renderInline(para)}
             </p>
           ))}
         </div>

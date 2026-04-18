@@ -1,8 +1,15 @@
 "use client";
 
+import { renderInline } from "./markdown";
+
 interface WhyItMattersPanelProps {
   items: string[];
   isStreaming: boolean;
+}
+
+// Filter bullets that are blank or punctuation-only ("--", "—", "- -", etc.)
+function isContentful(item: string): boolean {
+  return /\w/.test(item);
 }
 
 /**
@@ -12,7 +19,8 @@ interface WhyItMattersPanelProps {
  * Skeleton shimmer while streaming and items are empty.
  */
 export function WhyItMattersPanel({ items, isStreaming }: WhyItMattersPanelProps) {
-  const showSkeleton = isStreaming && items.length === 0;
+  const cleanItems = items.filter(isContentful);
+  const showSkeleton = isStreaming && cleanItems.length === 0;
 
   return (
     <div className="hamilton-card p-5">
@@ -31,7 +39,7 @@ export function WhyItMattersPanel({ items, isStreaming }: WhyItMattersPanelProps
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((item, i) => (
+          {cleanItems.map((item, i) => (
             <li key={i} className="flex items-start gap-2.5">
               <span
                 className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0"
@@ -45,7 +53,7 @@ export function WhyItMattersPanel({ items, isStreaming }: WhyItMattersPanelProps
                   fontFamily: "var(--hamilton-font-serif)",
                 }}
               >
-                {item}
+                {renderInline(item)}
               </span>
             </li>
           ))}

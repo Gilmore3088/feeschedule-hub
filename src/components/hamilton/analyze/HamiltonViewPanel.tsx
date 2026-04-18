@@ -1,5 +1,7 @@
 "use client";
 
+import { renderInline } from "./markdown";
+
 interface HamiltonViewPanelProps {
   content: string;
   confidence: { level: string; basis: string[] } | null;
@@ -14,7 +16,7 @@ interface HamiltonViewPanelProps {
  */
 export function HamiltonViewPanel({ content, confidence, isStreaming }: HamiltonViewPanelProps) {
   const showSkeleton = isStreaming && !content;
-  const confidenceLevel = confidence?.level?.toLowerCase() ?? "high";
+  const confidenceLevel = confidence?.level?.toLowerCase();
 
   return (
     <div className="space-y-6">
@@ -27,33 +29,37 @@ export function HamiltonViewPanel({ content, confidence, isStreaming }: Hamilton
           Hamilton&apos;s View
         </label>
 
-        {/* Confidence badge with green dot */}
-        <div
-          className="flex items-center gap-2 px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-widest border"
-          style={{
-            backgroundColor: "var(--hamilton-surface-container-high)",
-            color: "var(--hamilton-text-secondary)",
-            borderColor: "rgba(216,194,184,0.3)",
-          }}
-        >
-          <span
-            className="w-3 h-3 rounded-full flex-shrink-0"
+        {/* Confidence badge — only rendered when a confidence level was actually
+            derived. Avoids a dishonest "high confidence" default on info-request
+            responses where no analytical confidence exists. */}
+        {confidenceLevel && (
+          <div
+            className="flex items-center gap-2 px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-widest border"
             style={{
-              backgroundColor:
-                confidenceLevel === "high"
-                  ? "#16a34a"
-                  : confidenceLevel === "medium"
-                  ? "#d97706"
-                  : "#dc2626",
+              backgroundColor: "var(--hamilton-surface-container-high)",
+              color: "var(--hamilton-text-secondary)",
+              borderColor: "rgba(216,194,184,0.3)",
             }}
-            aria-hidden="true"
-          />
-          {confidenceLevel === "high"
-            ? "High confidence — based on fee data, peer movement, and complaint trends"
-            : confidenceLevel === "medium"
-            ? "Medium confidence — limited peer data"
-            : "Low confidence — insufficient data"}
-        </div>
+          >
+            <span
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{
+                backgroundColor:
+                  confidenceLevel === "high"
+                    ? "#16a34a"
+                    : confidenceLevel === "medium"
+                    ? "#d97706"
+                    : "#dc2626",
+              }}
+              aria-hidden="true"
+            />
+            {confidenceLevel === "high"
+              ? "High confidence — based on fee data, peer movement, and complaint trends"
+              : confidenceLevel === "medium"
+              ? "Medium confidence — limited peer data"
+              : "Low confidence — insufficient data"}
+          </div>
+        )}
       </div>
 
       {/* Thesis — large serif */}
@@ -71,7 +77,7 @@ export function HamiltonViewPanel({ content, confidence, isStreaming }: Hamilton
             color: "var(--hamilton-text-primary)",
           }}
         >
-          {content}
+          {renderInline(content)}
         </h2>
       )}
     </div>

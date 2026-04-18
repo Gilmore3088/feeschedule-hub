@@ -41,8 +41,8 @@ function parseAnalyzeResponse(content: string): ParsedResponse {
   function parseBullets(text: string): string[] {
     return text
       .split("\n")
-      .map((l) => l.replace(/^[-*]\s*/, "").trim())
-      .filter(Boolean);
+      .map((l) => l.replace(/^[-*\s]+/, "").trim())
+      .filter((l) => /\w/.test(l));
   }
 
   function parseEvidenceMetrics(
