@@ -144,7 +144,10 @@ async def test_lineage_graph_missing_id_returns_error(db_schema):
     obj = json.loads(result) if isinstance(result, str) else result
     assert isinstance(obj, dict)
     assert "error" in obj
-    assert "fee_published_id not found" in obj["error"]
+    # The lineage_graph() function returns a discriminated union error shape
+    # (fee_published_not_found | tier_2_missing | tier_1_missing) since
+    # migration 20260517_lineage_graph_missing_tier_guards.sql.
+    assert obj["error"] == "fee_published_not_found"
 
 
 @pytest.mark.asyncio

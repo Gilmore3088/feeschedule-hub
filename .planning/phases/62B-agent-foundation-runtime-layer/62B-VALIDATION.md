@@ -61,7 +61,9 @@ last_run: 2026-04-17
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky/staging-gated*
 
-**Local run (2026-04-17):** 22 pass / 0 fail / 49 skip (Python) + 22 pass (vitest). Skips all read `DATABASE_URL_TEST not set`; they require a session-mode Postgres DSN (local Docker via `docker compose up -d postgres`, or staging). Integration contracts (COMMS-01..05, OBS-01..05, LOOP-03..07, BOOT-01) remain `⚠️ staging-gated` until that run completes. See `62B-VERIFICATION.md` for the honest summary.
+**Local run (2026-04-17, unit only):** 22 pass / 0 fail / 49 skip.
+
+**Local run (2026-04-17, with Colima Postgres 15 + `DATABASE_URL_SESSION_TEST`):** **55 pass / 16 fail / 0 skip.** The 49 previously-skipped integration rows now execute. 16 real failures surface pre-existing test↔implementation drift that the previous session couldn't see (baseline schema assumed by migrations not present in `supabase/migrations/`; test assertions stale vs. current `lineage_graph()` discriminated-union error shape; asyncpg jsonb codec not registered on test pool; type coercion bugs on `agent_registry.state_code`). These are **real bugs to fix**, not infra gaps. See `62B-VERIFICATION.md` for the full breakdown.
 
 ---
 
