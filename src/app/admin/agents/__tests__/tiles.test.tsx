@@ -85,4 +85,90 @@ describe("Tiles (OBS-05)", () => {
     render(<Tiles data={[]} sparklines={{}} />);
     expect(screen.getByText(/no agent health data/i)).toBeTruthy();
   });
+
+  it("renders tile root with title attribute from HEALTH_METRIC_DESCRIPTIONS (Gap 4 tooltip)", () => {
+    const data: AgentHealthTile[] = [
+      {
+        agent_name: "knox",
+        bucket_start: "2026-04-16T00:00:00Z",
+        metrics: {
+          loop_completion_rate: 0.95,
+          review_latency_seconds: 60,
+          pattern_promotion_rate: 0.5,
+          confidence_drift: 0.01,
+          cost_to_value_ratio: 2.5,
+        },
+      },
+    ];
+    render(<Tiles data={data} sparklines={{}} />);
+    const loopTile = screen
+      .getAllByTestId("agent-tile")
+      .find((el) => el.getAttribute("data-metric") === "loop_completion_rate");
+    expect(loopTile).toBeTruthy();
+    expect(loopTile!.getAttribute("title")).toMatch(/5 loop steps/i);
+  });
+
+  it("applies threshold band (healthy for 0.95, critical for 0.5) on loop_completion_rate", () => {
+    const healthy: AgentHealthTile[] = [
+      {
+        agent_name: "knox",
+        bucket_start: "2026-04-16T00:00:00Z",
+        metrics: {
+          loop_completion_rate: 0.95,
+          review_latency_seconds: 60,
+          pattern_promotion_rate: 0.5,
+          confidence_drift: 0.01,
+          cost_to_value_ratio: 2.5,
+        },
+      },
+    ];
+    const { unmount } = render(<Tiles data={healthy} sparklines={{}} />);
+    const healthyTile = screen
+      .getAllByTestId("agent-tile")
+      .find((el) => el.getAttribute("data-metric") === "loop_completion_rate");
+    expect(healthyTile!.getAttribute("data-band")).toBe("healthy");
+    unmount();
+
+    const critical: AgentHealthTile[] = [
+      {
+        agent_name: "knox",
+        bucket_start: "2026-04-16T00:00:00Z",
+        metrics: {
+          loop_completion_rate: 0.5,
+          review_latency_seconds: 60,
+          pattern_promotion_rate: 0.5,
+          confidence_drift: 0.01,
+          cost_to_value_ratio: 2.5,
+        },
+      },
+    ];
+    render(<Tiles data={critical} sparklines={{}} />);
+    const criticalTile = screen
+      .getAllByTestId("agent-tile")
+      .find((el) => el.getAttribute("data-metric") === "loop_completion_rate");
+    expect(criticalTile!.getAttribute("data-band")).toBe("critical");
+  });
+
+  it("renders the legend card with all 5 metric labels", () => {
+    const data: AgentHealthTile[] = [
+      {
+        agent_name: "knox",
+        bucket_start: "2026-04-16T00:00:00Z",
+        metrics: {
+          loop_completion_rate: 0.95,
+          review_latency_seconds: 60,
+          pattern_promotion_rate: 0.5,
+          confidence_drift: 0.01,
+          cost_to_value_ratio: 2.5,
+        },
+      },
+    ];
+    render(<Tiles data={data} sparklines={{}} />);
+    const legend = screen.getByTestId("health-legend");
+    expect(legend.textContent).toMatch(/Loop Completion/);
+    expect(legend.textContent).toMatch(/Review Latency/);
+    expect(legend.textContent).toMatch(/Pattern Promotion/);
+    expect(legend.textContent).toMatch(/Confidence Drift/);
+    expect(legend.textContent).toMatch(/Cost \/ Value/);
+  });
 });
