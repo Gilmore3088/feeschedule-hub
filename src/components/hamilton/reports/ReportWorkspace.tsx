@@ -13,6 +13,7 @@ import {
   type ReportTemplateType,
 } from "@/app/pro/(hamilton)/reports/actions";
 import type { ReportSummaryResponse } from "@/lib/hamilton/types";
+import { getSpotlightCategories, getDisplayName } from "@/lib/fee-taxonomy";
 
 type NarrativeTone = "consulting" | "academic" | "executive" | "technical";
 
@@ -77,9 +78,14 @@ export function ReportWorkspace({
   publishedReports,
   initialScenarioId,
 }: ReportWorkspaceProps) {
+  // Spotlight categories are the 6 most-used fees — the ones a banker is
+  // most likely to want to drill into for Category Deep Dive. The default
+  // is the first one (typically monthly_maintenance) so the focusArea is
+  // always a real fee_category key, not a generic placeholder.
+  const SPOTLIGHT = getSpotlightCategories();
   const [selectedTemplate, setSelectedTemplate] =
     useState<ReportTemplateType | null>(null);
-  const [focusArea, setFocusArea] = useState("Fee Benchmarking");
+  const [focusArea, setFocusArea] = useState<string>(SPOTLIGHT[0] ?? "monthly_maintenance");
   const [narrativeTone, setNarrativeTone] = useState<NarrativeTone>("consulting");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPdfExporting, setIsPdfExporting] = useState(false);
@@ -87,9 +93,6 @@ export function ReportWorkspace({
     useState<ReportSummaryResponse | null>(null);
   const [generatedReportType, setGeneratedReportType] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [activePreviewTab, setActivePreviewTab] = useState<
-    "preview" | "board" | "analyst" | "export"
-  >("preview");
 
   // Load scenarios on mount (kept for future scenario linking)
   useEffect(() => {
@@ -104,7 +107,10 @@ export function ReportWorkspace({
     loadScenarioById(initialScenarioId).then((scenario) => {
       if (cancelled || !scenario) return;
       setSelectedTemplate("category_deep_dive");
-      setFocusArea(scenario.fee_category.replace(/_/g, " "));
+      // focusArea is now a raw fee_category key (e.g. "monthly_maintenance")
+      // — pass it through directly without the underscore-to-space transform
+      // that the prior version did (which silently broke the lookup downstream).
+      setFocusArea(scenario.fee_category);
     });
     return () => { cancelled = true; };
   }, [initialScenarioId]);
@@ -149,7 +155,8 @@ export function ReportWorkspace({
       templateType: selectedTemplate,
       dateFrom,
       dateTo: today,
-      focusCategory: selectedTemplate === "category_deep_dive" ? focusArea.replace(/ /g, "_") : undefined,
+      // focusArea is already a real fee_category key — no transform needed
+      focusCategory: selectedTemplate === "category_deep_dive" ? focusArea : undefined,
       scenarioId: initialScenarioId ?? undefined,
     });
 
@@ -260,47 +267,60 @@ export function ReportWorkspace({
             ))}
           </div>
 
-          {/* Narrative Preview Section */}
+          {/* Category picker — only when Category Deep Dive is selected.
+              Without this, focusArea defaulted to a placeholder ('Fee
+              Benchmarking') that didn't match any real fee_category, so
+              the action picked the first 9 categories — appearing 'random'.
+              User now picks an actual fee. */}
+          {selectedTemplate === "category_deep_dive" && (
+            <div className="mt-6 p-5 rounded-md" style={{ backgroundColor: "var(--hamilton-surface-container-low)" }}>
+              <label
+                htmlFor="deep-dive-category"
+                className="block text-[10px] uppercase tracking-[0.2em] mb-3"
+                style={{ color: "var(--hamilton-secondary)" }}
+              >
+                Which fee category?
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {SPOTLIGHT.map((cat) => {
+                  const isActive = focusArea === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setFocusArea(cat)}
+                      className="px-4 py-2 rounded-full text-[12px] transition-colors"
+                      style={{
+                        border: isActive
+                          ? "1px solid var(--hamilton-primary)"
+                          : "1px solid var(--hamilton-outline-variant, rgba(216,194,184,0.5))",
+                        backgroundColor: isActive
+                          ? "var(--hamilton-surface-container-lowest)"
+                          : "transparent",
+                        color: isActive
+                          ? "var(--hamilton-on-surface)"
+                          : "var(--hamilton-secondary)",
+                        fontWeight: isActive ? 600 : 400,
+                      }}
+                    >
+                      {getDisplayName(cat)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Narrative Preview Section.
+              Removed PREVIEW/BOARD/ANALYST/EXPORT tab strip — ReportOutput
+              ignored activePreviewTab entirely so the tabs were cosmetic.
+              The audience picker (sidebar) now covers what those tabs were
+              trying to express; Export is its own button below the report. */}
           <div
             id="report-preview-section"
             className="mt-16 pt-12"
             style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
           >
-            {/* Tab strip — only render once a report exists (audit M-4 round 2).
-                Empty tabs for non-existent output were a premature affordance. */}
-            {(reportGenerated || isGenerating) && (
-              <div className="flex gap-12 mb-8 overflow-x-auto pb-4">
-                {(
-                  [
-                    { id: "preview", label: "Preview" },
-                    { id: "board", label: "Board Version" },
-                    { id: "analyst", label: "Analyst Version" },
-                    { id: "export", label: "Export" },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActivePreviewTab(tab.id)}
-                    className="text-[10px] uppercase tracking-widest whitespace-nowrap pb-2 transition-colors"
-                    style={{
-                      fontWeight: activePreviewTab === tab.id ? 700 : 400,
-                      borderBottom:
-                        activePreviewTab === tab.id
-                          ? "2px solid var(--hamilton-primary)"
-                          : "2px solid transparent",
-                      color:
-                        activePreviewTab === tab.id
-                          ? "var(--hamilton-on-surface)"
-                          : "var(--hamilton-secondary)",
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {/* Generating overlay */}
             {isGenerating && <GeneratingState />}
 
