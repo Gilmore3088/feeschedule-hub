@@ -375,10 +375,8 @@ export function ReportWorkspace({
           selectedTemplate={selectedTemplate}
           institutionName={institutionName}
           peerSetLabel="National Index"
-          focusArea={focusArea}
           narrativeTone={narrativeTone}
           isGenerating={isGenerating}
-          onFocusAreaChange={setFocusArea}
           onNarrativeToneChange={setNarrativeTone}
           onGenerate={handleGenerate}
         />

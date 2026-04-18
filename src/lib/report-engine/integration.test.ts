@@ -24,6 +24,8 @@ import { generateGlobalThesis, generateSection } from '../hamilton/generate';
 import { runEditorReview } from './editor';
 import { validateNumerics } from '../hamilton/validate';
 import type { ValidatedSection } from '../hamilton/types';
+import type { NationalQuarterlyPayload } from '../report-assemblers/national-quarterly';
+import type { ThesisSummaryPayload } from '../hamilton/types';
 
 const hasKey = !!process.env.ANTHROPIC_API_KEY;
 const hasDb = !!process.env.DATABASE_URL;
@@ -34,8 +36,8 @@ describe('national_index end-to-end quality gate', () => {
     async () => {
       // Dynamic imports: assembler uses @/ path alias and DB connectivity.
       // Loaded inside test body so module resolution errors don't break CI skip.
-      let assembleNationalQuarterly: () => Promise<Record<string, unknown>>;
-      let buildThesisSummary: (payload: Record<string, unknown>) => string;
+      let assembleNationalQuarterly: () => Promise<NationalQuarterlyPayload>;
+      let buildThesisSummary: (payload: NationalQuarterlyPayload) => ThesisSummaryPayload;
       try {
         const mod = await import('../report-assemblers/national-quarterly');
         assembleNationalQuarterly = mod.assembleNationalQuarterly;

@@ -16,6 +16,7 @@ describe("derivePersonalizationContext", () => {
     institution_type: null,
     asset_tier: null,
     state_code: null,
+    fed_district: null,
     job_role: null,
     interests: null,
     ...overrides,

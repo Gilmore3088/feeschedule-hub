@@ -13,11 +13,8 @@ interface ConfigSidebarProps {
    * surfaced as an editable field (manage at /pro/peers instead).
    */
   peerSetLabel: string;
-  focusArea: string;
   narrativeTone: NarrativeTone;
   isGenerating: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onFocusAreaChange: (v: string) => void;
   onNarrativeToneChange: (v: NarrativeTone) => void;
   onGenerate: () => void;
 }
