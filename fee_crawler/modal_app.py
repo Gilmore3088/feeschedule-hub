@@ -167,10 +167,18 @@ async def run_post_processing():
         # Never let tick dispatch block the daily pipeline.
         print(f"dispatch_ticks failed (non-fatal): {exc}")
 
+    now = datetime.now(timezone.utc)
+
+    # 05:00-05:09 UTC window: Magellan rescue + Knox review.
+    # Piggybacks on the every-minute dispatcher so we stay inside the 5-cron Modal
+    # Starter cap. Gated on workers_last_run markers so each runs once per day.
+    today_0500 = now.replace(hour=5, minute=0, second=0, microsecond=0)
+    if today_0500 <= now < today_0500 + timedelta(minutes=10):
+        await _run_0500_jobs(now, today_0500)
+
     # WR-05 fix: widen the trigger window to 06:00-06:09 UTC to absorb Modal
     # cron jitter, and gate actual work on a workers_last_run marker so we
     # run at most once per UTC day (idempotent catch-up if we missed 06:00).
-    now = datetime.now(timezone.utc)
     today_0600 = now.replace(hour=6, minute=0, second=0, microsecond=0)
     if now < today_0600 or now >= today_0600 + timedelta(minutes=10):
         return "dispatch_only"
@@ -250,6 +258,80 @@ async def run_post_processing():
         print(f"workers_last_run write failed (pipeline still succeeded): {exc}")
 
     return f"Pipeline: {'; '.join(results)} | Integrity: {integrity['score']}% ({integrity['passed']}/{integrity['total']} passed)"
+
+
+async def _run_0500_jobs(now, today_0500) -> None:
+    """05:00 UTC daily jobs: Magellan URL rescue + Knox adversarial review.
+
+    Piggybacks on run_post_processing's every-minute dispatcher so we don't
+    exceed Modal Starter's 5-cron cap. Each job is gated by its own
+    workers_last_run marker so it runs once per UTC day.
+    """
+    import os
+    import psycopg2
+    import asyncpg
+
+    db_url = os.environ["DATABASE_URL"]
+
+    def _already_ran(job_name: str) -> bool:
+        try:
+            conn = psycopg2.connect(db_url)
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT completed_at FROM workers_last_run WHERE job_name = %s",
+                (job_name,),
+            )
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            return row is not None and row[0] is not None and row[0] >= today_0500
+        except Exception as exc:
+            print(f"[{job_name}] marker read failed (running anyway): {exc}")
+            return False
+
+    def _mark_ran(job_name: str, status: str = "ok") -> None:
+        try:
+            conn = psycopg2.connect(db_url)
+            cur = conn.cursor()
+            cur.execute(
+                """INSERT INTO workers_last_run (job_name, completed_at, status)
+                   VALUES (%s, NOW(), %s)
+                   ON CONFLICT (job_name) DO UPDATE
+                     SET completed_at = EXCLUDED.completed_at,
+                         status       = EXCLUDED.status""",
+                (job_name, status),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as exc:
+            print(f"[{job_name}] marker write failed: {exc}")
+
+    # --- Magellan URL rescue ---
+    if not _already_ran("magellan_rescue"):
+        try:
+            from fee_crawler.agents.magellan.orchestrator import rescue_batch
+            conn = await asyncpg.connect(db_url)
+            try:
+                result = await rescue_batch(conn, size=200)
+                print(f"magellan_rescue: {result.to_dict() if hasattr(result, 'to_dict') else result}")
+            finally:
+                await conn.close()
+            _mark_ran("magellan_rescue", "ok")
+        except Exception as exc:
+            print(f"magellan_rescue failed (non-fatal): {exc}")
+            _mark_ran("magellan_rescue", "failed")
+
+    # --- Knox adversarial review ---
+    if not _already_ran("knox_review"):
+        try:
+            from fee_crawler.agents.knox.orchestrator import review_batch
+            result = await review_batch(limit=500)
+            print(f"knox_review: {result.to_dict()}")
+            _mark_ran("knox_review", "ok")
+        except Exception as exc:
+            print(f"knox_review failed (non-fatal): {exc}")
+            _mark_ran("knox_review", "failed")
 
 
 @app.function(
