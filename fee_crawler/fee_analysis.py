@@ -83,6 +83,32 @@ FEE_FAMILIES: dict[str, list[str]] = {
         "loan_origination",
         "appraisal_fee",
     ],
+    "Mortgage Servicing": [
+        "mortgage_modification",
+        "mortgage_payoff",
+        "mortgage_lien_release",
+        "refinance_fee",
+        "reconveyance",
+    ],
+    "Retirement & IRA": [
+        "ira_administration",
+        "ira_termination",
+        "ira_distribution",
+    ],
+    "Vehicle & Title": [
+        "vehicle_title",
+        "duplicate_title",
+        "dmv_filing",
+    ],
+    "Gift & Prepaid Cards": [
+        "gift_card_purchase",
+        "prepaid_card_reload",
+    ],
+    "Other Fees": [
+        "courier_delivery",
+        "document_reproduction",
+        "other_lending_fee",
+    ],
 }
 
 # ---------------------------------------------------------------------------
@@ -149,6 +175,27 @@ CANONICAL_KEY_MAP: dict[str, str] = {
     "late_payment": "late_payment",
     "loan_origination": "loan_origination",
     "appraisal_fee": "appraisal_fee",
+    # Mortgage Servicing (v2 taxonomy — rescues ~49 previously uncategorized fees)
+    "mortgage_modification": "mortgage_modification",
+    "mortgage_payoff": "mortgage_payoff",
+    "mortgage_lien_release": "mortgage_lien_release",
+    "refinance_fee": "refinance_fee",
+    "reconveyance": "reconveyance",
+    # Retirement & IRA (v2 taxonomy — rescues ~23 previously uncategorized fees)
+    "ira_administration": "ira_administration",
+    "ira_termination": "ira_termination",
+    "ira_distribution": "ira_distribution",
+    # Vehicle & Title (v2 taxonomy — rescues ~40 previously uncategorized fees)
+    "vehicle_title": "vehicle_title",
+    "duplicate_title": "duplicate_title",
+    "dmv_filing": "dmv_filing",
+    # Gift & Prepaid Cards (v2 taxonomy — fixes Darwin bug where these wrongly mapped to account_research)
+    "gift_card_purchase": "gift_card_purchase",
+    "prepaid_card_reload": "prepaid_card_reload",
+    # Other Fees (v2 taxonomy — overflow buckets)
+    "courier_delivery": "courier_delivery",
+    "document_reproduction": "document_reproduction",
+    "other_lending_fee": "other_lending_fee",
     # Synonym clusters: production fee_category slugs -> canonical key
     # These are actual slugs found in extracted_fees that normalize to a base category.
     # --- Slug duplicates / abbreviations ---
@@ -180,12 +227,14 @@ CANONICAL_KEY_MAP: dict[str, str] = {
     "debit_card_rush_fee": "rush_card",
     # --- Card foreign / gift ---
     "international_fee": "card_foreign_txn",
-    "visa_gift_card": "account_research",
-    "visa_gift_cards": "account_research",
-    "gift_card": "account_research",
-    "gift_cards": "account_research",
-    "gift_pay": "account_research",
-    "reload_fee": "account_research",
+    # v2 taxonomy fix: gift/prepaid cards incorrectly mapped to account_research previously.
+    # These are distinct financial products, not account lookups.
+    "visa_gift_card": "gift_card_purchase",
+    "visa_gift_cards": "gift_card_purchase",
+    "gift_card": "gift_card_purchase",
+    "gift_cards": "gift_card_purchase",
+    "gift_pay": "gift_card_purchase",
+    "reload_fee": "prepaid_card_reload",
     # --- Wire / outgoing variants ---
     "outgoing_fee": "wire_domestic_outgoing",
     "outgoing_domestic": "wire_domestic_outgoing",
