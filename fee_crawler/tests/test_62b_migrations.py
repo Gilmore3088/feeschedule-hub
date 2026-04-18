@@ -285,3 +285,22 @@ async def test_canary_runs_table(db_schema):
     assert "UNIQUE" in baseline_idx.upper()
     assert "is_baseline" in baseline_idx
     assert fk_count >= 1, "canary_runs FK to agent_registry(agent_name) missing"
+
+
+# ---------------------------------------------------------------------------
+# 20260417 — darwin lifecycle state q2
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_darwin_lifecycle_state_is_q2_high_confidence(db_schema):
+    """Darwin v1 auto-promote at confidence >= 0.90 requires q2_high_confidence lifecycle."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT lifecycle_state FROM agent_registry WHERE agent_name = 'darwin'"
+        )
+    assert row is not None, "darwin agent not found in agent_registry"
+    assert row["lifecycle_state"] == "q2_high_confidence", (
+        "Darwin v1 spec requires q2_high_confidence lifecycle to permit auto-promote >= 0.90"
+    )
