@@ -141,6 +141,16 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/admin/darwin",
+        label: "Darwin",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5l4.5 3v4.5L8 12l-4.5-3V4.5L8 1.5" />
+            <path d="M8 4.5v3M5.5 5.5l5 3M10.5 5.5l-5 3" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/review/categories",
         label: "By Category",
         icon: (
