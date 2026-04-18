@@ -41,3 +41,37 @@ def test_not_plausible_with_one_ambiguous_fee():
     fees = [{"name": "Delivery Fee", "amount": 5.99}]
     text = "Restaurant menu — delivery fee applies to orders under $20"
     assert is_plausible_fee_schedule(fees, text) is False
+
+
+from fee_crawler.agents.magellan.orchestrator import decide_next_state, RescueOutcome
+from fee_crawler.agents.magellan.rungs import RungResult
+
+
+def test_decide_retry_after_on_timeout():
+    r = RungResult(error="TimeoutError: connection timed out")
+    assert decide_next_state(r, plausible=False) == RescueOutcome.RETRY_AFTER
+
+
+def test_decide_retry_after_on_5xx():
+    r = RungResult(http_status=503)
+    assert decide_next_state(r, plausible=False) == RescueOutcome.RETRY_AFTER
+
+
+def test_decide_needs_human_when_fees_but_not_plausible():
+    r = RungResult(fees=[{"name": "x", "amount": 1}], http_status=200)
+    assert decide_next_state(r, plausible=False) == RescueOutcome.NEEDS_HUMAN
+
+
+def test_decide_dead_on_403():
+    r = RungResult(http_status=403)
+    assert decide_next_state(r, plausible=False) == RescueOutcome.DEAD
+
+
+def test_decide_dead_on_404():
+    r = RungResult(http_status=404)
+    assert decide_next_state(r, plausible=False) == RescueOutcome.DEAD
+
+
+def test_decide_dead_default():
+    r = RungResult()
+    assert decide_next_state(r, plausible=False) == RescueOutcome.DEAD
