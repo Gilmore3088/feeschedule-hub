@@ -267,6 +267,7 @@ async def classify_batch(
             await emit(
                 "row_complete",
                 fee_raw_id=c.fee_raw_id,
+                fee_name=c.fee_name,
                 outcome=outcome,
                 key=key,
                 confidence=conf,
@@ -277,6 +278,7 @@ async def classify_batch(
             await emit(
                 "row_complete",
                 fee_raw_id=c.fee_raw_id,
+                fee_name=c.fee_name,
                 outcome="failure",
                 error=str(e),
             )

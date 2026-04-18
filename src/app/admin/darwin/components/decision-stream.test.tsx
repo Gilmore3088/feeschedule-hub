@@ -11,12 +11,14 @@ describe("DecisionStream", () => {
   it("renders rows with colored outcomes", () => {
     const d = {
       fee_raw_id: 42,
+      fee_name: "Monthly Maintenance Fee",
       outcome: "promoted" as const,
       key: "monthly_maintenance",
       confidence: 0.95,
     };
     render(<DecisionStream decisions={[d]} />);
     expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("Monthly Maintenance Fee")).toBeInTheDocument();
     expect(screen.getByText("promoted")).toBeInTheDocument();
     expect(screen.getByText("monthly_maintenance")).toBeInTheDocument();
   });

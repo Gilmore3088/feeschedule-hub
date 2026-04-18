@@ -4,6 +4,7 @@ import type { BatchEvent } from "../types";
 
 type Decision = {
   fee_raw_id: number;
+  fee_name?: string;
   outcome: "promoted" | "cached_low_conf" | "rejected" | "failure";
   key?: string | null;
   confidence?: number;
@@ -14,6 +15,7 @@ function rowFromEvent(ev: BatchEvent): Decision | null {
   if (ev.type !== "row_complete") return null;
   return {
     fee_raw_id: ev.fee_raw_id,
+    fee_name: ev.fee_name,
     outcome: ev.outcome,
     key: ev.key ?? null,
     confidence: ev.confidence,
@@ -41,7 +43,7 @@ export function DecisionStream({ decisions }: { decisions: Decision[] }) {
       <table className="w-full">
         <thead className="bg-gray-50/80">
           <tr>
-            {["ID", "Outcome", "Canonical key", "Confidence", "Note"].map((h) => (
+            {["ID", "Fee name", "Outcome", "Canonical key", "Confidence", "Note"].map((h) => (
               <th
                 key={h}
                 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2 text-left"
@@ -55,6 +57,7 @@ export function DecisionStream({ decisions }: { decisions: Decision[] }) {
           {decisions.map((d) => (
             <tr key={d.fee_raw_id} className="hover:bg-gray-50/50 transition-colors">
               <td className="px-4 py-2.5 text-sm tabular-nums">{d.fee_raw_id}</td>
+              <td className="px-4 py-2.5 text-sm text-gray-700 max-w-[240px] truncate">{d.fee_name ?? "—"}</td>
               <td className="px-4 py-2.5">
                 <span
                   className={`text-[11px] font-semibold px-2 py-0.5 rounded ${outcomeColor[d.outcome]}`}
