@@ -57,12 +57,17 @@ const TEMPLATE_TITLES: Record<ReportTemplateType, string> = {
  * reach for consultancy-speak when it has nothing to say.
  */
 const NO_FLUFF_RULES = `
-HARD RULES — failing any means rewriting the section:
-1. Cite a specific dollar value, percentile, or fee category from the DATA payload at least twice. If the data is too thin to support that, write a SHORTER section that says what's actually known.
-2. NEVER cite a percentage, dollar amount, growth rate, or institution count not present in the DATA payload. No "industry studies show", "research indicates", "12-18%", or similar inventions.
-3. Banned phrases (corporate-speak with no specific meaning): "strategic void", "must establish leadership", "deploying systematic intelligence", "data-sophisticated rivals", "revenue leakage", "willingness-to-pay", "dual strategy", "create sustainable competitive advantage", "market intelligence superiority", "precision pricing", "competitive positioning superiority". Do not use these even ironically.
-4. Plain banker English. Short sentences. Active voice. When you name a number, say what it's a number OF.
-5. If you are tempted to write a sentence that could appear unchanged in any other bank's report, delete it.
+HARD RULES — fail any, rewrite the section:
+1. Cite a specific dollar value, percentile, or fee category from the DATA payload at least twice. If the data is thin, write a shorter section saying only what is known.
+2. NEVER cite a percentage, dollar amount, growth rate, or institution count absent from the DATA payload. Invented sources like "industry studies show", "research indicates", or phantom ranges like "12-18%" are forbidden.
+3. Banned phrases (corporate-speak with no specific meaning): "strategic void", "must establish leadership", "deploying systematic intelligence", "data-sophisticated rivals", "revenue leakage", "willingness-to-pay", "dual strategy", "create sustainable competitive advantage", "market intelligence superiority", "precision pricing", "competitive positioning superiority". Banned even ironically.
+4. Write in the active voice. Say who does what. "Regions Bank raised overdraft to \$35" — not "overdraft was raised to \$35".
+5. State claims in positive form. Prefer "X outpaces Y" over "X is not below Y". Prefer "declined" over "did not increase".
+6. Use definite, specific, concrete language. Say "\$35 overdraft fee at Regions Bank (Q4 2025)" — not "elevated fee structures at large regional banks recently".
+7. Cut needless words. "In order to" → "to". "Due to the fact that" → "because". "At this point in time" → "now". "A large number of" → "many". If a word adds nothing, delete it.
+8. Plain banker English. Short sentences. When you name a number, name what it is a number OF.
+9. Place the sharpest fact at the end of the sentence — the emphatic position. Not "Regions Bank raised overdraft to \$35, which is notable" but "Regions Bank raised overdraft to \$35".
+10. If a sentence could appear unchanged in any other bank's report, delete it.
 `.trim();
 
 function buildExecutiveSummaryContext(
