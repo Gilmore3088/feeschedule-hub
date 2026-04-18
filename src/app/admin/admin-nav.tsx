@@ -119,7 +119,43 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "Data",
+    label: "Agents",
+    items: [
+      {
+        href: "/admin/darwin",
+        label: "Darwin",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5l4.5 3v4.5L8 12l-4.5-3V4.5L8 1.5" />
+            <path d="M8 4.5v3M5.5 5.5l5 3M10.5 5.5l-5 3" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/coverage",
+        label: "Magellan",
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" className={ICON_CLASS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/agents",
+        label: "Agents",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <circle cx="8" cy="6" r="2.5" />
+            <path d="M3.5 13.5c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
+            <path d="M2 2.5l1.5 1.5M14 2.5l-1.5 1.5" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    label: "Workflows",
     items: [
       {
         href: "/admin/pipeline",
@@ -140,26 +176,11 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
-      {
-        href: "/admin/darwin",
-        label: "Darwin",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5l4.5 3v4.5L8 12l-4.5-3V4.5L8 1.5" />
-            <path d="M8 4.5v3M5.5 5.5l5 3M10.5 5.5l-5 3" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/coverage",
-        label: "Coverage",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5C4.5 1.5 1.5 4.5 1.5 8s3 6.5 6.5 6.5 6.5-3 6.5-6.5-3-6.5-6.5-6.5" />
-            <path d="M8 4v4l3 2" />
-          </svg>
-        ),
-      },
+    ],
+  },
+  {
+    label: "Explore",
+    items: [
       {
         href: "/admin/review/categories",
         label: "By Category",
@@ -181,6 +202,11 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+    ],
+  },
+  {
+    label: "Audit",
+    items: [
       {
         href: "/admin/data-quality",
         label: "Data Quality",
@@ -188,17 +214,6 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
             <path d="M8 1v14M1 8h14" />
             <circle cx="8" cy="8" r="6" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/agents",
-        label: "Agents",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="8" cy="6" r="2.5" />
-            <path d="M3.5 13.5c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
-            <path d="M2 2.5l1.5 1.5M14 2.5l-1.5 1.5" />
           </svg>
         ),
       },
