@@ -4,12 +4,14 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import {
   getPipelineOverview,
+  getPipelineMap,
   getRecentCrawlRuns,
   getRecentJobs,
   getJobQueueStatus,
   getDiscoveryStatus,
 } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { PipelineMap } from "./pipeline-map";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -19,14 +21,19 @@ export default async function PipelinePage() {
   await requireAuth("view");
 
   let overview = { total_institutions: 0, with_url: 0, with_fees: 0, crawl_runs: 0 };
+  let pipelineMap: Awaited<ReturnType<typeof getPipelineMap>> = {
+    stages: [],
+    generated_at: new Date().toISOString(),
+  };
   let crawlRuns: Awaited<ReturnType<typeof getRecentCrawlRuns>> = [];
   let jobs: Awaited<ReturnType<typeof getRecentJobs>> = [];
   let queueStatus: Awaited<ReturnType<typeof getJobQueueStatus>> = [];
   let discoveryStatus: Awaited<ReturnType<typeof getDiscoveryStatus>> = [];
 
   try {
-    [overview, crawlRuns, jobs, queueStatus, discoveryStatus] = await Promise.all([
+    [overview, pipelineMap, crawlRuns, jobs, queueStatus, discoveryStatus] = await Promise.all([
       getPipelineOverview(),
+      getPipelineMap(),
       getRecentCrawlRuns(15),
       getRecentJobs(20),
       getJobQueueStatus(),
@@ -48,8 +55,13 @@ export default async function PipelinePage() {
           Data Pipeline
         </h1>
         <p className="text-[11px] text-gray-400 mt-0.5">
-          Crawl operations, jobs, and discovery status
+          Scrape -&gt; Discovery -&gt; Extraction -&gt; Review -&gt; Publish, with the agents responsible at each stage
         </p>
+      </div>
+
+      {/* End-to-end pipeline map — primary mental model */}
+      <div className="mb-8">
+        <PipelineMap data={pipelineMap} />
       </div>
 
       {/* Pipeline Stats */}

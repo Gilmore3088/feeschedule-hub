@@ -71,6 +71,29 @@ export interface PipelineOverview {
   crawl_runs: number;
 }
 
+export type AgentStatus = "live" | "stubbed" | "missing";
+
+export interface PipelineStageAgent {
+  name: string;
+  status: AgentStatus;
+  note?: string;
+}
+
+export interface PipelineStageSummary {
+  id: "scrape" | "discovery" | "extraction" | "review" | "publish";
+  label: string;
+  one_liner: string;
+  current: number;
+  current_label: string;
+  throughput_24h: number;
+  agents: PipelineStageAgent[];
+}
+
+export interface PipelineMapData {
+  stages: PipelineStageSummary[];
+  generated_at: string;
+}
+
 export interface OpsJob {
   id: number;
   command: string;
@@ -360,6 +383,118 @@ export async function getDiscoveryStatus(): Promise<DiscoveryStatusRow[]> {
 // ---------------------------------------------------------------------------
 // Pipeline
 // ---------------------------------------------------------------------------
+
+export async function getPipelineMap(): Promise<PipelineMapData> {
+  const stages: PipelineStageSummary[] = [
+    {
+      id: "scrape",
+      label: "Scrape",
+      one_liner: "Fetch raw HTML/PDF from institution fee-schedule URLs.",
+      current: 0,
+      current_label: "crawl targets",
+      throughput_24h: 0,
+      agents: [
+        { name: "Modal crawler", status: "live", note: "runs at 02:00 / 03:00 / 04:00 UTC" },
+        { name: "state_xx (per-state)", status: "live", note: "50 state orchestrators" },
+      ],
+    },
+    {
+      id: "discovery",
+      label: "Discovery",
+      one_liner: "Find the correct fee_schedule_url for each institution.",
+      current: 0,
+      current_label: "urls known",
+      throughput_24h: 0,
+      agents: [
+        { name: "Magellan", status: "live", note: "5-rung ladder; shipped v1" },
+      ],
+    },
+    {
+      id: "extraction",
+      label: "Extraction",
+      one_liner: "Parse raw text/PDF into structured fee rows (fees_raw).",
+      current: 0,
+      current_label: "fees_raw rows",
+      throughput_24h: 0,
+      agents: [
+        { name: "extract_pdf / html / js", status: "live", note: "specialist subagents per doc type" },
+      ],
+    },
+    {
+      id: "review",
+      label: "Review",
+      one_liner: "Classify, score confidence, verify (fees_raw -> fees_verified).",
+      current: 0,
+      current_label: "fees_verified rows",
+      throughput_24h: 0,
+      agents: [
+        { name: "Darwin", status: "live", note: "classifier; auto-promote >=0.90" },
+        { name: "auto-review CLI", status: "live", note: "heuristic rules" },
+      ],
+    },
+    {
+      id: "publish",
+      label: "Publish",
+      one_liner: "Adversarial handshake + promote to fees_published.",
+      current: 0,
+      current_label: "fees_published rows",
+      throughput_24h: 0,
+      agents: [
+        { name: "Darwin accept", status: "live", note: "auto via publish-fees CLI" },
+        { name: "Knox accept", status: "stubbed", note: "publish-fees plays both sides until real Knox ships" },
+      ],
+    },
+  ];
+
+  try {
+    // Scrape: total crawl targets + crawl_runs in last 24h
+    const [scrapeNow] = await sql`SELECT COUNT(*)::int AS n FROM crawl_targets`;
+    const [scrape24h] = await sql`
+      SELECT COUNT(*)::int AS n FROM crawl_runs WHERE started_at > NOW() - INTERVAL '24 hours'
+    `;
+    stages[0].current = Number(scrapeNow?.n ?? 0);
+    stages[0].throughput_24h = Number(scrape24h?.n ?? 0);
+
+    // Discovery: targets with fee_schedule_url known
+    const [discoveryNow] = await sql`
+      SELECT COUNT(*)::int AS n FROM crawl_targets WHERE fee_schedule_url IS NOT NULL
+    `;
+    const [discovery24h] = await sql`
+      SELECT COUNT(*)::int AS n FROM crawl_targets
+       WHERE fee_schedule_url IS NOT NULL AND discovered_at > NOW() - INTERVAL '24 hours'
+    `;
+    stages[1].current = Number(discoveryNow?.n ?? 0);
+    stages[1].throughput_24h = Number(discovery24h?.n ?? 0);
+
+    // Extraction: fees_raw rows (cumulative) + last 24h
+    const [extractionNow] = await sql`SELECT COUNT(*)::int AS n FROM fees_raw`;
+    const [extraction24h] = await sql`
+      SELECT COUNT(*)::int AS n FROM fees_raw WHERE created_at > NOW() - INTERVAL '24 hours'
+    `;
+    stages[2].current = Number(extractionNow?.n ?? 0);
+    stages[2].throughput_24h = Number(extraction24h?.n ?? 0);
+
+    // Review: fees_verified rows + last 24h
+    const [reviewNow] = await sql`SELECT COUNT(*)::int AS n FROM fees_verified`;
+    const [review24h] = await sql`
+      SELECT COUNT(*)::int AS n FROM fees_verified WHERE created_at > NOW() - INTERVAL '24 hours'
+    `;
+    stages[3].current = Number(reviewNow?.n ?? 0);
+    stages[3].throughput_24h = Number(review24h?.n ?? 0);
+
+    // Publish: fees_published rows + last 24h
+    const [publishNow] = await sql`SELECT COUNT(*)::int AS n FROM fees_published`;
+    const [publish24h] = await sql`
+      SELECT COUNT(*)::int AS n FROM fees_published WHERE created_at > NOW() - INTERVAL '24 hours'
+    `;
+    stages[4].current = Number(publishNow?.n ?? 0);
+    stages[4].throughput_24h = Number(publish24h?.n ?? 0);
+  } catch (e) {
+    console.error("getPipelineMap failed:", e);
+  }
+
+  return { stages, generated_at: new Date().toISOString() };
+}
 
 export async function getPipelineOverview(): Promise<PipelineOverview> {
   try {
