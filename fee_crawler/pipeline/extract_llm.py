@@ -449,3 +449,77 @@ def extract_fees_with_llm(
         fees = fees[:_MAX_FEES_PER_INSTITUTION]
 
     return fees
+
+
+# Async shims for Magellan rungs
+import asyncio as _asyncio
+from dataclasses import asdict as _asdict
+
+
+def _fee_to_dict(fee) -> dict:
+    """Normalize ExtractedFee (or dict) to the simple dict shape rungs expect."""
+    if isinstance(fee, dict):
+        return {
+            "fee_name": fee.get("fee_name", ""),
+            "amount": float(fee.get("amount", 0.0)) if fee.get("amount") is not None else None,
+            "frequency": fee.get("frequency"),
+            "conditions": fee.get("conditions"),
+            "confidence": float(fee.get("confidence", 0.5)) if fee.get("confidence") is not None else 0.5,
+        }
+    try:
+        d = _asdict(fee)
+    except Exception:
+        d = {
+            "fee_name": getattr(fee, "fee_name", ""),
+            "amount": getattr(fee, "amount", None),
+            "frequency": getattr(fee, "frequency", None),
+            "conditions": getattr(fee, "conditions", None),
+            "confidence": getattr(fee, "confidence", 0.5),
+        }
+    return {
+        "fee_name": d.get("fee_name", ""),
+        "amount": float(d.get("amount", 0.0)) if d.get("amount") is not None else None,
+        "frequency": d.get("frequency"),
+        "conditions": d.get("conditions"),
+        "confidence": float(d.get("confidence", 0.5)) if d.get("confidence") is not None else 0.5,
+    }
+
+
+def _default_config() -> Config:
+    """Best-effort: load project config; fall back to minimal defaults."""
+    try:
+        from fee_crawler.config import load_config
+        return load_config()
+    except Exception:
+        pass
+    return Config()
+
+
+async def extract_fees_from_text(text: str) -> list[dict]:
+    """Async shim — run the sync extractor in a thread pool. Used by Magellan rungs."""
+    if not text or not text.strip():
+        return []
+    config = _default_config()
+    fees = await _asyncio.to_thread(
+        extract_fees_with_llm, text, config,
+        institution_name="Unknown", charter_type="bank", document_type="pdf",
+    )
+    return [_fee_to_dict(f) for f in fees]
+
+
+async def extract_fees_from_html(html: str) -> list[dict]:
+    """Async shim — strips HTML to text, then extracts via LLM."""
+    if not html or not html.strip():
+        return []
+    text = html
+    try:
+        from bs4 import BeautifulSoup
+        text = BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True)
+    except ImportError:
+        pass
+    config = _default_config()
+    fees = await _asyncio.to_thread(
+        extract_fees_with_llm, text, config,
+        institution_name="Unknown", charter_type="bank", document_type="html",
+    )
+    return [_fee_to_dict(f) for f in fees]
