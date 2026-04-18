@@ -32,7 +32,11 @@ async def test_agent_events_is_partitioned(db_schema):
             "WHERE c.relname = 'agent_events'"
         )
     assert row is not None, "agent_events must be partitioned"
-    assert row["partstrat"] == "r", "expected RANGE partitioning"
+    # partstrat is a Postgres "char" column; asyncpg returns it as bytes.
+    partstrat = row["partstrat"]
+    if isinstance(partstrat, bytes):
+        partstrat = partstrat.decode()
+    assert partstrat == "r", "expected RANGE partitioning"
 
 
 @pytest.mark.asyncio
