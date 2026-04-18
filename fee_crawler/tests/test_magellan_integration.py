@@ -73,3 +73,62 @@ async def test_rescue_batch_happy_path_first_rung_wins(magellan_seeded_conn):
 
     assert result.processed == 5
     assert result.rescued == 5
+
+
+@pytest.mark.asyncio
+async def test_rescue_batch_ladder_advances(magellan_seeded_conn):
+    """Rung 1 returns nothing, rung 2 wins."""
+    LADDER.clear()
+    LADDER.append(_FakeRung("rung-empty", RungResult(fees=[], http_status=200)))
+    LADDER.append(
+        _FakeRung(
+            "rung-ocr",
+            RungResult(
+                fees=[
+                    {"name": "NSF Fee", "amount": 35.0},
+                    {"name": "ATM Fee Non-Network", "amount": 3.0},
+                    {"name": "Wire Transfer Domestic", "amount": 25.0},
+                ],
+                text="",
+                http_status=200,
+            ),
+        )
+    )
+    try:
+        r = await rescue_batch(magellan_seeded_conn, size=5)
+    finally:
+        LADDER.clear()
+    assert r.rescued == 5
+
+
+@pytest.mark.asyncio
+async def test_rescue_batch_all_rungs_fail_marks_dead(magellan_seeded_conn):
+    """All rungs return nothing with http 404 → DEAD."""
+    LADDER.clear()
+    LADDER.append(_FakeRung("r1", RungResult(fees=[], http_status=404)))
+    LADDER.append(_FakeRung("r2", RungResult(fees=[], http_status=404)))
+    try:
+        r = await rescue_batch(magellan_seeded_conn, size=5)
+    finally:
+        LADDER.clear()
+    assert r.dead == 5
+    assert r.rescued == 0
+
+
+@pytest.mark.asyncio
+async def test_rescue_batch_retry_after_on_transient(magellan_seeded_conn):
+    """Rungs raise timeout → RETRY_AFTER."""
+
+    class _ErrRung:
+        name = "transient"
+
+        async def run(self, target, context):
+            raise TimeoutError("upstream timed out")
+
+    LADDER.clear()
+    LADDER.append(_ErrRung())
+    try:
+        r = await rescue_batch(magellan_seeded_conn, size=3)
+    finally:
+        LADDER.clear()
+    assert r.retry_after == 3
