@@ -99,7 +99,7 @@ async def _seed_lineage_chain(
                 ($1, '_adversarial', 'handshake', 'agent_messages', 'fees_verified',
                  $2::text, 'success', $3)
             """,
-            adversarial_event_id, fee_verified_id, uuid.uuid4(),
+            adversarial_event_id, str(fee_verified_id), uuid.uuid4(),
         )
 
         fee_published_id = await conn.fetchval(
@@ -339,7 +339,7 @@ async def test_promote_to_tier3_succeeds_when_both_accepts_present(db_schema):
                 ($1, '_adversarial', 'handshake', 'agent_messages', 'fees_verified',
                  $2::text, 'success', $3)
             """,
-            adversarial_event_id, seeded["fee_verified_id"], correlation,
+            adversarial_event_id, str(seeded["fee_verified_id"]), correlation,
         )
         for sender in ("darwin", "knox"):
             await conn.execute(

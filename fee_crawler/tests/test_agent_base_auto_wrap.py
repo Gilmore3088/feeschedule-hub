@@ -123,7 +123,7 @@ def test_auto_wrap_allowlist_exact():
 
 
 @pytest.mark.asyncio
-async def test_subclass_methods_are_context_wrapped():
+async def test_subclass_methods_are_context_wrapped(_pool_injected):
     """LOOP-01: calling any AUTO_WRAP_METHODS method enters with_agent_context."""
     _FakeKnox.seen_ctx = {}
     k = _FakeKnox()
@@ -133,7 +133,7 @@ async def test_subclass_methods_are_context_wrapped():
 
 
 @pytest.mark.asyncio
-async def test_nested_call_inherits_correlation_id():
+async def test_nested_call_inherits_correlation_id(_pool_injected):
     """LOOP-01: nested call (outer context active) inherits correlation_id.
 
     Simulates Atlas calling Knox: the Knox turn should carry Atlas's

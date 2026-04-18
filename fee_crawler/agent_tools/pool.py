@@ -97,6 +97,19 @@ async def close_session_pool() -> None:
         _session_pool = None
 
 
+def _encode_json(value: object) -> str:
+    """JSONB/JSON encoder tolerant of pre-serialized strings.
+
+    Callers inside the codebase follow two patterns: some pass a python dict
+    directly (codec must json.dumps), others pre-serialize with json.dumps
+    themselves and rely on ``::JSONB`` casts (codec must NOT double-encode).
+    Both patterns are live; detect strings and pass them through.
+    """
+    if isinstance(value, (str, bytes)):
+        return value if isinstance(value, str) else value.decode("utf-8")
+    return json.dumps(value)
+
+
 async def _init_connection(conn: asyncpg.Connection) -> None:
     """Register JSONB codec so JSONB round-trips via python dict.
 
@@ -105,13 +118,13 @@ async def _init_connection(conn: asyncpg.Connection) -> None:
     """
     await conn.set_type_codec(
         "jsonb",
-        encoder=json.dumps,
+        encoder=_encode_json,
         decoder=json.loads,
         schema="pg_catalog",
     )
     await conn.set_type_codec(
         "json",
-        encoder=json.dumps,
+        encoder=_encode_json,
         decoder=json.loads,
         schema="pg_catalog",
     )

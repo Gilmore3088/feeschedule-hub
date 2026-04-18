@@ -129,16 +129,51 @@ These are **pre-existing test↔implementation drift**, not infra gaps:
   - Cast `state_code` arguments as `str` in test fixtures.
   - Investigate the teardown race.
 
-`nyquist_compliant: true` still blocked until those 16 are green. They are **test-side fixes**, not code-under-test fixes — the 62B runtime layer ships. Budget estimate: ~2 hours to close.
+## 2026-04-17 (late same day) — All 15 Integration Failures Fixed
+
+Pushed through the remaining 15 failures. New baseline: **71 pass / 0 fail / 0 skip (22s).**
+
+### What actually broke down
+
+The failure clusters turned out to be three targeted test-suite bugs:
+
+1. **Missing jsonb codec on test pool (~8 failures).** `fee_crawler/agent_tools/pool._init_connection` registers a jsonb codec on the production pool. The test conftest created its pool directly via `asyncpg.create_pool(...)` without `init=_init_connection`, so dict→JSONB inserts crashed with `expected str, got dict`. Fix: import and pass `_init_connection` in conftest.
+2. **Codec double-encoded pre-serialized JSON (3 failures).** Code in `agent_base/loop.py` pre-serializes with `json.dumps(payload)` then casts via `::JSONB`. With the codec registered, `json.dumps(<string>)` quoted the already-serialized string, storing JSON-inside-JSON. Fix: made the codec tolerant — if the value is already a `str|bytes`, pass through; otherwise `json.dumps`. Same `_encode_json` helper now handles both call patterns.
+3. **`entity_id` TEXT column receiving int (4 failures).** Two seed calls in `test_lineage_graph.py` passed `fee_verified_id` (BIGINT from `RETURNING`) into the `agent_events.entity_id` TEXT column with a `$2::text` SQL cast. asyncpg's wire protocol still validates the Python type before the cast runs, so it rejected `1` (int) when expecting `str`. Fix: wrap `fee_verified_id` in `str(...)` at the two call sites.
+4. **Two `_pool_injected` fixtures missing (2 failures).** `test_subclass_methods_are_context_wrapped` and `test_nested_call_inherits_correlation_id` in `test_agent_base_auto_wrap.py` exercise `run_turn()` which writes to `agent_registry` via `get_pool()`. Without the `_pool_injected` fixture, those writes went to the production pool and failed on the missing table. Fix: add `_pool_injected` to both signatures.
+
+### Verified green
+
+```
+pytest fee_crawler/tests/test_agent_base_auto_wrap.py \
+       fee_crawler/tests/test_adversarial_gate.py \
+       fee_crawler/tests/test_agent_messaging.py \
+       fee_crawler/tests/test_lineage_graph.py \
+       fee_crawler/tests/test_agent_health_rollup.py \
+       fee_crawler/tests/test_agent_bootstrap.py \
+       fee_crawler/tests/test_fake_anthropic.py \
+       fee_crawler/tests/test_canary_runner.py \
+       fee_crawler/tests/test_shadow_helpers.py
+
+71 passed in 21.98s
+```
+
+Every contract in `62B-VALIDATION.md` now has a passing automated test row. `nyquist_compliant: true` flipped in the frontmatter.
+
+### Adjacent test files still red
+
+Running the *full* `fee_crawler/tests/` suite against the same local Postgres surfaces 22 failures + 30 errors in unrelated files (`e2e/*`, `test_backfill_and_freeze.py`, `test_tools_*.py`, etc.). These depend on the pre-migration-tracking baseline schema (tables like `extracted_fees`, `crawl_targets`, `institution_financials` that live outside `supabase/migrations/`). They were silent skips before `DATABASE_URL_TEST` was set; now they fail loudly.
+
+Those are **not 62B**. Fixing them is its own scope — either create a baseline dump to apply before migrations, or mark each test to skip gracefully when its required tables are absent.
 
 ## Manual UAT — Status
 
-See `62B-UAT.md`. 13 tests authored; 1 reported (Vercel deploy failure — now resolved by commit 129c255 restoring `@react-pdf/renderer` and `@vercel/analytics`). The other 12 still require user click-through.
+See `62B-UAT.md`. 13 tests authored; 1 reported (Vercel deploy failure — resolved by commit 129c255 restoring `@react-pdf/renderer` and `@vercel/analytics`). The other 12 still require user click-through.
 
-## Known Deferrals (carried out of scope)
+## Known Deferrals
 
-7 deferred audit items on `/admin/agents` tagged M-2 through L-3 in `62B-ADMIN-AGENTS-AUDIT.md` — tracked there, not blocking.
+7 audit items on `/admin/agents` (M-2 through L-3 in `62B-ADMIN-AGENTS-AUDIT.md`). M-2, M-4, M-5, L-1, L-2, L-3 closed in commits `58899e6` and `3a4985f`; M-3 (timeline virtualization) stays deferred per audit's own YAGNI rationale.
 
 ## Conclusion
 
-**62B ships as code-complete with green contract suite.** Integration + UAT verification pending. Ready for staging run + UAT pass in the next session.
+**62B ships green.** 71/71 integration tests pass against real Postgres, validation contract marked complete, 6 of 7 deferred audit items closed, and `nyquist_compliant: true` set in frontmatter. Remaining: user-side UAT click-throughs (12) and the unrelated e2e baseline-schema cleanup.

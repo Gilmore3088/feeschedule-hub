@@ -104,12 +104,18 @@ async def db_schema() -> AsyncGenerator[tuple[str, asyncpg.Pool], None]:
             print(f"  - {s}")
 
     # Create a pool for the test, pinned to the schema.
+    # Mirror production: register the jsonb/json codec on every new connection
+    # so tests can pass/receive python dicts for JSONB columns (same behavior
+    # as fee_crawler.agent_tools.pool._init_connection).
+    from fee_crawler.agent_tools.pool import _init_connection
+
     pool = await asyncpg.create_pool(
         dsn,
         min_size=1,
         max_size=3,
         statement_cache_size=0,
         server_settings={"search_path": f"{schema}, public"},
+        init=_init_connection,
     )
 
     try:

@@ -1279,8 +1279,8 @@ Note: Phases 57 and 61 can run in parallel with Phase 56 (no shared dependencies
 **Plans**: TBD
 **UI hint**: no
 
-### Phase 62b: Agent Foundation — Runtime Layer `[x] code-complete`
-**Status**: Code-complete 2026-04-17 (commit 129c255). Unit/contract tests green (22 Python + 22 vitest). Integration tests staging-gated on `DATABASE_URL_TEST`. See `62B-VERIFICATION.md`.
+### Phase 62b: Agent Foundation — Runtime Layer `[x] ✅ green`
+**Status**: Complete 2026-04-17. All 71 62B integration tests pass against real Postgres (Colima). `nyquist_compliant: true`. See `62B-VERIFICATION.md`.
 **Goal**: The agent runtime contract — 5-step loop, inter-agent messaging, observability lineage, adversarial review gate, bootstrap protocol, and testing pattern — exists as reusable framework code that every v10.0 agent inherits
 **Depends on**: Phase 62a
 **Requirements**: LOOP-01, LOOP-02, LOOP-03, LOOP-04, LOOP-05, LOOP-06, LOOP-07, COMMS-01, COMMS-02, COMMS-03, COMMS-04, COMMS-05, OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, BOOT-01, BOOT-03
