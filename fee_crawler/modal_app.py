@@ -561,3 +561,46 @@ def run_monthly_pulse():
         return {"triggered": False, "error": exc.read().decode()[:500], "status_code": exc.code}
     except Exception as exc:
         return {"triggered": False, "error": str(exc)[:500]}
+
+
+# ----------------------------------------------------------------------
+# Darwin v1 — nightly drain + sidecar web endpoint
+# ----------------------------------------------------------------------
+
+@app.function(
+    image=image,
+    schedule=modal.Cron("0 7 * * *"),  # 07:00 UTC = 03:00 ET
+    secrets=secrets,
+    timeout=3600,
+)
+async def darwin_nightly_drain():
+    """Drain up to 500 unpromoted fees_raw rows via Darwin classifier."""
+    import asyncpg
+    import os
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    log = logging.getLogger(__name__)
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        from fee_crawler.agents.darwin import classify_batch
+
+        result = await classify_batch(conn, size=500)
+        log.info("darwin nightly drain: %s", result.to_dict())
+    finally:
+        await conn.close()
+
+
+@app.function(
+    image=image,
+    secrets=secrets,
+    timeout=600,
+    min_containers=1,  # avoid cold-start on UI clicks
+)
+@modal.asgi_app()
+def darwin_api():
+    """Serve FastAPI sidecar as a Modal web endpoint."""
+    from fee_crawler.darwin_api import app as fastapi_app
+
+    return fastapi_app

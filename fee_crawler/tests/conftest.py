@@ -190,3 +190,99 @@ async def db_schema() -> AsyncGenerator[tuple[str, asyncpg.Pool], None]:
 def migrations_dir() -> Path:
     """Path to supabase/migrations/ for tests that inspect migration files."""
     return MIGRATIONS_DIR
+
+
+# ---------------------------------------------------------------------------
+# Darwin integration fixtures (task A-5)
+# ---------------------------------------------------------------------------
+
+import uuid as _uuid
+
+
+@pytest_asyncio.fixture
+async def seeded_conn():
+    """10 fees_raw rows; first 3 already promoted to fees_verified (7 unpromoted)."""
+    dsn = os.environ.get("DATABASE_URL_TEST")
+    if not dsn:
+        pytest.skip("DATABASE_URL_TEST not set")
+    conn = await asyncpg.connect(dsn, statement_cache_size=0)
+    try:
+        await conn.execute(
+            "TRUNCATE fees_raw, fees_verified, classification_cache CASCADE"
+        )
+        names = [
+            "monthly maintenance fee",
+            "overdraft fee",
+            "atm fee non-network",
+            "paper statement",
+            "check printing",
+            "wire transfer domestic",
+            "card replacement",
+            "legal process",
+            "account research",
+            "early closure",
+        ]
+        raw_ids: list[int] = []
+        for i, n in enumerate(names):
+            rid = await conn.fetchval(
+                """INSERT INTO fees_raw
+                     (institution_id, crawl_event_id, source_url,
+                      extraction_confidence, agent_event_id, fee_name, amount, source)
+                   VALUES ($1, $2, 'test://url', 0.95, $3::UUID, $4, $5, 'knox')
+                   RETURNING fee_raw_id""",
+                1 + i,
+                i,
+                str(_uuid.uuid4()),
+                n,
+                10.0 + i,
+            )
+            raw_ids.append(rid)
+
+        # Promote first 3 rows so select_candidates returns only 7
+        for rid in raw_ids[:3]:
+            row = await conn.fetchrow(
+                "SELECT institution_id, fee_name FROM fees_raw WHERE fee_raw_id = $1",
+                rid,
+            )
+            await conn.execute(
+                """INSERT INTO fees_verified
+                     (fee_raw_id, institution_id, fee_name,
+                      canonical_fee_key, verified_by_agent_event_id)
+                   VALUES ($1, $2, $3, 'monthly_maintenance', $4::UUID)""",
+                rid,
+                row["institution_id"],
+                row["fee_name"],
+                str(_uuid.uuid4()),
+            )
+        yield conn
+    finally:
+        await conn.execute(
+            "TRUNCATE fees_raw, fees_verified, classification_cache CASCADE"
+        )
+        await conn.close()
+
+
+@pytest_asyncio.fixture
+async def seeded_conn_nsf():
+    """Single fees_raw row with fee_name='nsf fee' — must never be classified as overdraft."""
+    dsn = os.environ.get("DATABASE_URL_TEST")
+    if not dsn:
+        pytest.skip("DATABASE_URL_TEST not set")
+    conn = await asyncpg.connect(dsn, statement_cache_size=0)
+    try:
+        await conn.execute(
+            "TRUNCATE fees_raw, fees_verified, classification_cache CASCADE"
+        )
+        await conn.execute(
+            """INSERT INTO fees_raw
+                 (institution_id, crawl_event_id, source_url,
+                  extraction_confidence, agent_event_id, fee_name, amount, source)
+               VALUES (1, 0, 'test://', 0.95, $1::UUID, 'nsf fee', 35.0, 'knox')""",
+            str(_uuid.uuid4()),
+        )
+        yield conn
+    finally:
+        await conn.execute(
+            "TRUNCATE fees_raw, fees_verified, classification_cache CASCADE"
+        )
+        await conn.close()
