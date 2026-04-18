@@ -151,6 +151,16 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/admin/coverage",
+        label: "Coverage",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M8 1.5C4.5 1.5 1.5 4.5 1.5 8s3 6.5 6.5 6.5 6.5-3 6.5-6.5-3-6.5-6.5-6.5" />
+            <path d="M8 4v4l3 2" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/review/categories",
         label: "By Category",
         icon: (
