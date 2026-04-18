@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { BATCH_SIZES, type BatchSize } from "../types";
+import { BATCH_SIZES, type BatchSizeOption } from "./types";
+
+export { BATCH_SIZES };
+export type { BatchSizeOption };
 
 export function BatchRunner({
-  onStart, disabled,
+  onStart,
+  disabled,
 }: {
-  onStart: (size: BatchSize, chain: number) => void;
+  onStart: (size: BatchSizeOption, chain: number) => void;
   disabled: boolean;
 }) {
-  const [size, setSize] = useState<BatchSize>(500);
+  const [size, setSize] = useState<BatchSizeOption>(500);
   const [chain, setChain] = useState(1);
 
   return (
@@ -20,11 +24,17 @@ export function BatchRunner({
         </label>
         <select
           value={size}
-          onChange={(e) => setSize(parseInt(e.target.value, 10) as BatchSize)}
+          onChange={(e) =>
+            setSize(parseInt(e.target.value, 10) as BatchSizeOption)
+          }
           disabled={disabled}
           className="mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
         >
-          {BATCH_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+          {BATCH_SIZES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
         </select>
       </div>
       <div>
@@ -33,8 +43,14 @@ export function BatchRunner({
         </label>
         <input
           type="number"
-          min={1} max={20} value={chain}
-          onChange={(e) => setChain(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
+          min={1}
+          max={20}
+          value={chain}
+          onChange={(e) =>
+            setChain(
+              Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1))
+            )
+          }
           disabled={disabled}
           className="mt-1 px-2 py-1 border border-gray-300 rounded text-sm w-16"
         />

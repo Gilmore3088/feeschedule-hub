@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { BatchRunner } from "./batch-runner";
+import {
+  BatchRunner,
+  type BatchSizeOption,
+} from "@/components/agent-console/batch-runner";
 import { DecisionStream, rowFromEvent } from "./decision-stream";
-import { CircuitBanner } from "./circuit-banner";
+import { CircuitBanner } from "@/components/agent-console/circuit-banner";
 import { BudgetGauge } from "./budget-gauge";
-import { fetchDarwinStatus } from "../actions";
-import type { BatchEvent, BatchResult, BatchSize, DarwinStatus } from "../types";
+import { fetchDarwinStatus, resetDarwinCircuit } from "../actions";
+import type { BatchEvent, BatchResult, DarwinStatus } from "../types";
 
 type Decision = NonNullable<ReturnType<typeof rowFromEvent>>;
 
@@ -20,7 +23,7 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
     try { setStatus(await fetchDarwinStatus()); } catch {}
   }, []);
 
-  const runOne = useCallback((size: BatchSize): Promise<void> => {
+  const runOne = useCallback((size: BatchSizeOption): Promise<void> => {
     return new Promise((resolve) => {
       const es = new EventSource(`/api/admin/darwin/stream?size=${size}`);
       const handle = (ev: MessageEvent, eventType: string) => {
@@ -48,7 +51,7 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
     });
   }, []);
 
-  const start = useCallback(async (size: BatchSize, chain: number) => {
+  const start = useCallback(async (size: BatchSizeOption, chain: number) => {
     setRunning(true);
     setDecisions([]);
     try {
@@ -68,9 +71,14 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
     return () => clearInterval(id);
   }, [refreshStatus]);
 
+  const handleReset = useCallback(async () => {
+    await resetDarwinCircuit("admin");
+    await refreshStatus();
+  }, [refreshStatus]);
+
   return (
     <div className="space-y-4">
-      <CircuitBanner status={status} onReset={refreshStatus} />
+      <CircuitBanner status={status} onReset={handleReset} />
       <BudgetGauge />
       <BatchRunner onStart={start} disabled={running || status.circuit.halted} />
       {lastResult && (

@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { resetDarwinCircuit } from "../actions";
-import type { DarwinStatus } from "../types";
+import type { AgentStatus } from "./types";
 
 export function CircuitBanner({
   status,
   onReset,
 }: {
-  status: DarwinStatus;
-  onReset: () => void;
+  status: AgentStatus;
+  onReset: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   if (!status.circuit.halted) return null;
@@ -17,8 +16,7 @@ export function CircuitBanner({
   async function reset() {
     setBusy(true);
     try {
-      await resetDarwinCircuit("admin");
-      onReset();
+      await onReset();
     } finally {
       setBusy(false);
     }
@@ -27,7 +25,7 @@ export function CircuitBanner({
   return (
     <div className="bg-red-50 border border-red-200 rounded-md px-4 py-3 flex items-center justify-between">
       <div>
-        <div className="text-sm font-bold text-red-700">Darwin halted</div>
+        <div className="text-sm font-bold text-red-700">Agent halted</div>
         <div className="text-[11px] text-red-600">
           Reason: {status.circuit.reason ?? "unknown"}
         </div>
