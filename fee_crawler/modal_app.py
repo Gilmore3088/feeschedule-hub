@@ -569,12 +569,14 @@ def run_monthly_pulse():
 
 @app.function(
     image=image,
-    schedule=modal.Cron("0 7 * * *"),  # 07:00 UTC = 03:00 ET
     secrets=secrets,
     timeout=3600,
 )
 async def darwin_nightly_drain():
-    """Drain up to 500 unpromoted fees_raw rows via Darwin classifier."""
+    """Drain up to 500 unpromoted fees_raw rows via Darwin classifier.
+
+    Manual only — `modal run fee_crawler/modal_app.py::darwin_nightly_drain`.
+    Not scheduled because the Modal free-plan cron limit (5) is saturated."""
     import asyncpg
     import os
     import logging
