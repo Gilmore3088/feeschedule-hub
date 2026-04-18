@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bank Fee Index — Architecture</title>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    themeVariables: {
+      fontFamily: "'Geist', ui-sans-serif, system-ui, sans-serif",
+      primaryColor: "#ffffff",
+      primaryTextColor: "#111827",
+      primaryBorderColor: "#1f2937",
+      lineColor: "#374151",
+      secondaryColor: "#f3f4f6",
+      tertiaryColor: "#fafaf9",
+      nodeTextColor: "#111827",
+    },
+    flowchart: { curve: "basis", padding: 16 },
+    sequence: { actorMargin: 70, messageMargin: 40 }
+  });
+</script>
+<style>
+  :root {
+    --ink: #111827;
+    --muted: #6b7280;
+    --soft: #9ca3af;
+    --bg: #fafaf9;
+    --card: #ffffff;
+    --line: rgba(17,24,39,0.08);
+    --accent: #2563eb;
+    --good: #047857;
+    --warn: #b45309;
+    --bad: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 32px 24px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+  header p {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0;
+    max-width: 720px;
+    line-height: 1.6;
+  }
+  .meta {
+    margin-top: 18px;
+    font-size: 11px;
+    color: var(--soft);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  nav.toc {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  nav.toc a {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12px;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  nav.toc a:hover { background: #eef2ff; border-color: #c7d2fe; }
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 32px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  section.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px 28px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  section.card h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    letter-spacing: -0.005em;
+  }
+  section.card p.lede {
+    margin: 0 0 18px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.55;
+    max-width: 820px;
+  }
+  .diagram-wrap {
+    width: 100%;
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+  .diagram-wrap .mermaid {
+    min-width: 600px;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .legend .dot.live   { background: var(--good); }
+  .legend .dot.stub   { background: var(--warn); }
+  .legend .dot.miss   { background: var(--bad); }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .kpi {
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fafaf9;
+  }
+  .kpi .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--soft);
+  }
+  .kpi .value {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
+  }
+  .kpi .sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  footer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 32px 64px;
+    font-size: 11px;
+    color: var(--soft);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bank Fee Index — System Architecture</h1>
+  <p>The five-stage pipeline, the agent team, the daily schedule, and the handshake. Every diagram here reflects what actually runs in production as of 2026-04-18 (not the aspirational v10 runbook).</p>
+  <div class="meta">live Mermaid diagrams · drag to scroll · rendered from docs/architecture/index.html</div>
+</header>
+
+<nav class="toc">
+  <a href="#pipeline">1. Pipeline</a>
+  <a href="#agents">2. Agent Team</a>
+  <a href="#handshake">3. Handshake</a>
+  <a href="#schedule">4. Daily Schedule</a>
+  <a href="#funnel">5. Data Funnel</a>
+  <a href="#tables">6. Data Tables</a>
+  <a href="#code">7. Code Topology</a>
+  <a href="#security">8. Security Boundaries</a>
+</nav>
+
+<main>
+
+  <!-- ============ 1. PIPELINE ============ -->
+  <section class="card" id="pipeline">
+    <h2>1. The Five-Stage Pipeline</h2>
+    <p class="lede">Every fee moves through five stages. Each stage has one or more agents responsible. Green = live agent. Amber = code exists but stubbed or simulated. Red = missing.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+flowchart LR
+  subgraph S1["Stage 1 — Scrape"]
+    M1["Modal crawler<br/>crawl.py"]:::live
+    SA["state_agent.py<br/>(manual, per state)"]:::live
+  end
+  subgraph S2["Stage 2 — Discovery"]
+    MG["Magellan<br/>magellan/orchestrator.py"]:::live
+    DC["discover.py<br/>(legacy)"]:::stub
+  end
+  subgraph S3["Stage 3 — Extraction"]
+    EP["extract_pdf.py"]:::live
+    EH["extract_html.py"]:::live
+    EJ["extract_js.py"]:::live
+  end
+  subgraph S4["Stage 4 — Review"]
+    DW["Darwin<br/>classifier + auto-promote≥0.90"]:::live
+    AR["auto-review<br/>(heuristic rules)"]:::live
+  end
+  subgraph S5["Stage 5 — Handshake"]
+    KN["Knox<br/>v1 rules (live today)"]:::live
+    PF["publish-fees<br/>(drains v2→v3)"]:::live
+  end
+  subgraph S6["Stage 6 — Synthesis"]
+    HM["Hamilton<br/>(on-demand only)"]:::stub
+    AT["Atlas<br/>(runbook only)"]:::miss
+  end
+
+  S1 --> S2 --> S3 --> S4 --> S5 --> S6
+
+  classDef live  fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b;
+  classDef stub  fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#78350f;
+  classDef miss  fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#7f1d1d;
+    </div></div>
+    <div class="legend">
+      <span><i class="dot live"></i>Live — running in production</span>
+      <span><i class="dot stub"></i>Stubbed — code exists, simulated or unscheduled</span>
+      <span><i class="dot miss"></i>Missing — named in runbook, no code</span>
+    </div>
+  </section>
+
+  <!-- ============ 2. AGENT TEAM ============ -->
+  <section class="card" id="agents">
+    <h2>2. Agent Team (Target vs Reality)</h2>
+    <p class="lede">The v10 runbook names Hamilton, Knox, Darwin, Atlas as a coordinated team. Today most of the team exists in some form but coordination is partial.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+flowchart TB
+  Atlas{{"Atlas<br/>orchestrator / scheduler<br/>— MISSING (runbook only)"}}:::miss
+
+  Atlas -.-> Darwin
+  Atlas -.-> Knox
+  Atlas -.-> Magellan
+  Atlas -.-> Hamilton
+
+  Darwin["Darwin<br/>classifier<br/>fee_name → canonical_fee_key<br/>auto-promote ≥0.90"]:::live
+  Knox["Knox v1<br/>adversarial review<br/>peer-median + waiver rules"]:::live
+  Magellan["Magellan<br/>URL discovery<br/>5-rung ladder"]:::live
+  Hamilton["Hamilton<br/>research synthesis<br/>(admin chat + Pro reports)"]:::stub
+
+  Darwin -- "intent=accept (fee_verified_id)" --> Knox
+  Knox -- "intent=accept / reject" --> Darwin
+
+  classDef live  fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b;
+  classDef stub  fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#78350f;
+  classDef miss  fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#7f1d1d;
+    </div></div>
+    <div class="legend">
+      <span><i class="dot live"></i>Darwin / Knox / Magellan run autonomously</span>
+      <span><i class="dot stub"></i>Hamilton runs only on human click</span>
+      <span><i class="dot miss"></i>Atlas is just a label — no running code</span>
+    </div>
+  </section>
+
+  <!-- ============ 3. HANDSHAKE SEQUENCE ============ -->
+  <section class="card" id="handshake">
+    <h2>3. The Adversarial Handshake</h2>
+    <p class="lede">The SQL gate <code>promote_to_tier3</code> requires BOTH a darwin-accept AND a knox-accept message in <code>agent_messages</code> before a fee can be published. publish-fees posts darwin's accept; Knox posts knox's. Either can reject and block publication.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant Crawl as Crawler
+  participant FR as fees_raw
+  participant Darwin as Darwin
+  participant FV as fees_verified
+  participant Knox as Knox
+  participant AM as agent_messages
+  participant SQL as promote_to_tier3()
+  participant FP as fees_published
+
+  Crawl->>FR: insert (source, amount, fee_name)
+  Darwin->>FR: fetch unverified
+  Darwin->>FV: promote_to_tier2 (canonical_fee_key, confidence)
+  Darwin->>AM: insert (darwin, intent=accept, fee_verified_id=N)
+  Knox->>FV: fetch rows with no knox message
+  alt peer_median check passes AND waiver rule passes
+    Knox->>AM: insert (knox, intent=accept, fee_verified_id=N)
+  else violates a rule
+    Knox->>AM: insert (knox, intent=reject, reasons=[…])
+  end
+  Note over SQL,AM: both darwin-accept AND knox-accept required
+  SQL->>AM: check (darwin_accept AND knox_accept)
+  alt both accepted
+    SQL->>FP: INSERT fee_published
+  else either missing / knox rejected
+    SQL-->>FP: RAISE EXCEPTION (stays in fees_verified)
+  end
+    </div></div>
+  </section>
+
+  <!-- ============ 4. DAILY SCHEDULE ============ -->
+  <section class="card" id="schedule">
+    <h2>4. Daily UTC Schedule</h2>
+    <p class="lede">Every 24 hours, Modal fires six windows. Times are UTC. Starting tomorrow (2026-04-19), the 05:00 window fires Magellan + Knox for the first time; before today the 03:00 and 04:00 crons had been silently failing since April 8.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+gantt
+  title Daily Schedule (UTC)
+  dateFormat HH:mm
+  axisFormat %H:%M
+
+  section Crawl
+  URL discovery (discovery_worker)      :a1, 02:00, 60m
+  PDF extraction (crawl.py pdf)         :a2, 03:00, 60m
+  Browser extraction (crawl.py js)      :a3, 04:00, 120m
+
+  section Agents
+  Magellan rescue (URL-less institutions) :b1, 05:00, 10m
+  Knox adversarial review                 :b2, 05:05, 10m
+
+  section Pipeline
+  Daily post-processing (categorize→auto-review→publish-fees→snapshot→publish-index) :c1, 06:00, 30m
+
+  section Ingest
+  FRED / NYFED / BLS / OFR (+ weekly jobs Mon) :d1, 10:00, 30m
+    </div></div>
+  </section>
+
+  <!-- ============ 5. DATA FUNNEL ============ -->
+  <section class="card" id="funnel">
+    <h2>5. Data Funnel (Live Counts)</h2>
+    <p class="lede">The funnel today, expressed as the rows that actually live in each table. Between tier 2 and tier 3, Knox now acts as a real filter — 34 fees were rejected just in this session.</p>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">crawl_targets</div><div class="value">8,750</div><div class="sub">institutions</div></div>
+      <div class="kpi"><div class="label">With fee URL</div><div class="value">4,734</div><div class="sub">54% coverage</div></div>
+      <div class="kpi"><div class="label">extracted_fees</div><div class="value">124,246</div><div class="sub">legacy table</div></div>
+      <div class="kpi"><div class="label">fees_raw</div><div class="value">102,965</div><div class="sub">tier 1 (immutable)</div></div>
+      <div class="kpi"><div class="label">fees_verified</div><div class="value">~650</div><div class="sub">tier 2 (Darwin-approved)</div></div>
+      <div class="kpi"><div class="label">fees_published</div><div class="value">~500</div><div class="sub">tier 3 (live today)</div></div>
+      <div class="kpi"><div class="label">agent_messages</div><div class="value">648+</div><div class="sub">614 accepts · 34 Knox rejects</div></div>
+    </div>
+    <div class="diagram-wrap" style="margin-top:24px;"><div class="mermaid">
+flowchart LR
+  A["crawl_targets<br/>8,750"] -->|"54% have URLs"| B["with URL<br/>4,734"]
+  B -->|"extract"| C["extracted_fees<br/>124,246"]
+  C -->|"v10 migration"| D["fees_raw<br/>102,965"]
+  D -->|"Darwin classify ≥0.90<br/>only 0.6% touched"| E["fees_verified<br/>~650"]
+  E -->|"Knox accept (AND gate)"| F["fees_published<br/>~500"]
+  F -->|"publish-index"| G["public site<br/>feeinsight.com"]
+
+  style A fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+  style B fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+  style C fill:#fef3c7,stroke:#b45309,color:#78350f
+  style D fill:#fef3c7,stroke:#b45309,color:#78350f
+  style E fill:#d1fae5,stroke:#047857,color:#064e3b
+  style F fill:#dcfce7,stroke:#166534,color:#14532d
+  style G fill:#e9d5ff,stroke:#7e22ce,color:#581c87
+    </div></div>
+  </section>
+
+  <!-- ============ 6. DATA TABLES ============ -->
+  <section class="card" id="tables">
+    <h2>6. Data Tables & Ownership</h2>
+    <p class="lede">Three tier tables plus an audit log. Writes are strictly agent-owned; users read via views and admin console.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+erDiagram
+  CRAWL_TARGETS ||--o{ FEES_RAW : "institution_id"
+  FEES_RAW ||--o| FEES_VERIFIED : "fee_raw_id (1:1 promotion)"
+  FEES_VERIFIED ||--o| FEES_PUBLISHED : "lineage_ref (1:1 promotion)"
+  AGENT_EVENTS }o..|| AGENT_MESSAGES : "correlation_id"
+  FEES_VERIFIED }o..|| AGENT_MESSAGES : "payload.fee_verified_id"
+  CRAWL_TARGETS {
+    bigint id PK
+    text institution_name
+    text fee_schedule_url
+    text asset_size_tier
+  }
+  FEES_RAW {
+    bigint fee_raw_id PK
+    int institution_id FK
+    text fee_name
+    numeric amount
+    numeric extraction_confidence
+    text source
+  }
+  FEES_VERIFIED {
+    bigint fee_verified_id PK
+    bigint fee_raw_id FK
+    text canonical_fee_key
+    numeric extraction_confidence
+  }
+  FEES_PUBLISHED {
+    bigint fee_published_id PK
+    bigint lineage_ref FK
+    text canonical_fee_key
+    numeric amount
+  }
+  AGENT_MESSAGES {
+    uuid message_id PK
+    text sender_agent
+    text intent
+    uuid correlation_id
+    jsonb payload
+  }
+  AGENT_EVENTS {
+    uuid event_id PK
+    text agent_name
+    text tool_name
+    text entity
+    uuid correlation_id
+  }
+    </div></div>
+  </section>
+
+  <!-- ============ 7. CODE TOPOLOGY ============ -->
+  <section class="card" id="code">
+    <h2>7. Code Topology</h2>
+    <p class="lede">Where every moving part lives in the repo.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+flowchart TB
+  subgraph Frontend["Next.js 16 (src/app/)"]
+    AU["/admin/agents (Workflows, Health, Lineage, Messages, Replay)"]
+    AP["/admin/pipeline"]
+    AD["/admin/darwin console (SSE)"]
+    AC["/admin/coverage Magellan console (SSE)"]
+    HL["/admin/hamilton + /pro/research"]
+  end
+
+  subgraph Next["Next.js API / Server Actions"]
+    SA["src/lib/fee-actions.ts<br/>admin review mutations"]
+    AQ["src/lib/admin-queries.ts<br/>+ crawler-db/*.ts"]
+    API["src/app/api/*"]
+  end
+
+  subgraph Python["fee_crawler/ (Python 3.12)"]
+    subgraph Agents
+      DW["agents/darwin/orchestrator.py"]
+      MG["agents/magellan/orchestrator.py"]
+      KN["agents/knox/orchestrator.py"]
+      SAg["agents/state_agent.py"]
+      EX["agents/extract_pdf.py / html.py / js.py"]
+    end
+    subgraph Tools
+      TF["agent_tools/tools_fees.py<br/>promote_to_tier2/3, create_fee_raw"]
+      TH["agent_tools/tools_agent_infra.py<br/>insert_agent_message"]
+      TC["agent_tools/tools_crawl.py"]
+    end
+    subgraph Commands
+      PF["commands/publish_fees.py"]
+      KR["commands/knox_review.py"]
+      CR["commands/crawl.py"]
+      AR["commands/auto_review.py"]
+      FA["fee_analysis.py (taxonomy + normalization)"]
+    end
+    subgraph Runtime
+      MA["modal_app.py (cron schedules)"]
+      DB["db.py (SQLite→PG translator)"]
+    end
+  end
+
+  subgraph Infra["Infra"]
+    PG[(Supabase Postgres<br/>fees_raw · fees_verified · fees_published<br/>agent_messages · agent_events)]
+    R2[(Cloudflare R2<br/>source docs + reports)]
+    MO["Modal serverless<br/>(cron + web endpoints)"]
+  end
+
+  Frontend --> Next
+  Next --> PG
+  MO --> Python
+  Python --> PG
+  Python --> R2
+  Commands --> Tools
+  Agents --> Tools
+  Tools --> PG
+    </div></div>
+  </section>
+
+  <!-- ============ 8. SECURITY BOUNDARIES ============ -->
+  <section class="card" id="security">
+    <h2>8. Security Boundaries & Auth Flow</h2>
+    <p class="lede">Who can touch what. Agent writes pass through a gateway that authenticates, enforces per-tool role checks, records every call to <code>agent_auth_log</code>, and checks <code>agent_budgets</code> before dispatch. User writes pass through Next.js server actions with session cookies.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+flowchart TB
+  subgraph Public["Public surface"]
+    Br["Browser / API client"]
+  end
+
+  subgraph NextAuth["Next.js auth layer"]
+    Cookie["Session cookie<br/>HMAC-SHA256 · 24h TTL"]
+    Role["Role check<br/>viewer / analyst / admin / premium"]
+    Rate["Rate limit<br/>in-memory per ip:path"]
+  end
+
+  subgraph ServerAction["Server actions (src/lib/fee-actions.ts, etc.)"]
+    SA["User mutation path<br/>SET LOCAL app.allow_legacy_writes='true'<br/>(killswitch for extracted_fees)"]
+  end
+
+  subgraph Gateway["Agent tool gateway (fee_crawler/agent_tools/gateway.py)"]
+    GW["with_agent_tool()<br/>— authenticates agent_name<br/>— emits agent_events row<br/>— records agent_auth_log row<br/>— checks agent_budgets.halted_at<br/>— wraps in pg txn + SAVEPOINT"]
+  end
+
+  subgraph DB[(Postgres)]
+    Freeze["extracted_fees (FROZEN)<br/>BEFORE INSERT/UPDATE/DELETE trigger"]
+    Tier["fees_raw / fees_verified / fees_published<br/>RLS: no PostgREST policies<br/>service_role bypass only"]
+    Msg["agent_messages<br/>gateway-written only"]
+    Audit["agent_auth_log · agent_events<br/>append-only forensic log"]
+    Budget["agent_budgets<br/>cost halt thresholds"]
+  end
+
+  Br --> Cookie --> Role --> Rate --> SA
+  SA --> Freeze
+  SA --> Tier
+
+  subgraph Agents["Python agents (Modal / CLI)"]
+    AG["Darwin / Knox / Magellan / state_agent<br/>+ publish-fees CLI"]
+  end
+
+  AG --> GW
+  GW --> Audit
+  GW --> Budget
+  GW --> Tier
+  GW --> Msg
+
+  classDef allow fill:#d1fae5,stroke:#047857,color:#064e3b;
+  classDef deny  fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d;
+  classDef neutral fill:#f3f4f6,stroke:#4b5563,color:#111827;
+
+  class GW,Audit,Budget allow
+  class Freeze deny
+  class Tier,Msg neutral
+    </div></div>
+
+    <div class="legend">
+      <span><strong>Key rules enforced</strong></span>
+      <span>• Agent name pattern — only <code>hamilton / knox / darwin / atlas / state_[a-z]{2}</code> accepted at tool boundary</span>
+      <span>• Budget halt — <code>upsert_agent_budget</code> restricted to <code>agent_name='atlas'</code></span>
+      <span>• Registry — <code>upsert_agent_registry</code> restricted to <code>agent_name='atlas'</code></span>
+      <span>• Tier 1–3 tables — <code>fees_raw/verified/published</code> have RLS enabled + zero PostgREST policies ⇒ service_role bypass only</span>
+      <span>• extracted_fees — BEFORE-INSERT/UPDATE/DELETE trigger blocks writes unless killswitch set in-session</span>
+      <span>• Every agent tool call writes an <code>agent_events</code> + <code>agent_auth_log</code> row (append-only forensic log)</span>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Rendered from <code>docs/architecture/index.html</code>. Serve locally with
+  <code>python3 -m http.server 8765 --directory docs/architecture</code>.
+  Diagrams use Mermaid 10 from JSDelivr. No data calls — snapshot values are as of 2026-04-18.
+</footer>
+
+</body>
+</html>
