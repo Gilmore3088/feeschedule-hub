@@ -56,4 +56,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from fee_crawler.agent_tools.schemas.crawl_targets import (
+        UpdateCrawlTargetRescueStateInput,
+        UpdateCrawlTargetRescueStateOutput,
+    )
+except ImportError:
+    pass
+
 __all__ = ["AgentEventRef", "AgentName", "BaseToolInput", "BaseToolOutput"]
