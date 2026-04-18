@@ -152,60 +152,61 @@ export async function generateReport(
     const reportTitle = `${TEMPLATE_TITLES[params.templateType]} — ${params.dateFrom} to ${params.dateTo}`;
     const period = `${params.dateFrom} to ${params.dateTo}`;
 
-    // 2. Generate executive summary section
-    const summarySection = await generateSection({
-      type: "executive_summary",
-      title: "Executive Summary",
-      data: {
-        report_type: params.templateType,
-        period,
-        institution_name: institutionName,
-        focus_category: params.focusCategory ?? null,
-        categories: topCategories.map((c) => ({
-          fee_category: c.fee_category,
-          median_amount: c.median_amount,
-          p25_amount: c.p25_amount,
-          p75_amount: c.p75_amount,
-          institution_count: c.institution_count,
-          maturity: c.maturity_tier,
-        })),
-      },
-      context: buildExecutiveSummaryContext(params, institutionName, period),
-    });
-
-    // 3. Generate strategic section (type varies by template)
+    // 2-4. Generate the three sections in parallel — they're independent
+    // (no shared state, no ordering constraint). Was sequential and took
+    // ~28s total; parallel cuts to ~10s (longest single call wins).
     const strategicSectionType = getStrategicSectionType(params.templateType);
-    const strategicSection = await generateSection({
-      type: strategicSectionType,
-      title: "Strategic Analysis",
-      data: {
-        report_type: params.templateType,
-        period,
-        focus_category: params.focusCategory ?? null,
-        top_fees: topCategories.slice(0, 5).map((c) => ({
-          fee_category: c.fee_category,
-          median_amount: c.median_amount,
-          p25_amount: c.p25_amount,
-          p75_amount: c.p75_amount,
-          institution_count: c.institution_count,
-        })),
-      },
-      context: buildStrategicContext(params, institutionName),
-    });
-
-    // 4. Generate recommendation section
-    const recommendationSection = await generateSection({
-      type: "recommendation",
-      title: "Recommended Position",
-      data: {
-        report_type: params.templateType,
-        institution_name: institutionName,
-        categories_analyzed: topCategories.length,
-        period,
-        focus_category: params.focusCategory ?? null,
-      },
-      context: buildRecommendationContext(params, institutionName),
-    });
+    const [summarySection, strategicSection, recommendationSection] =
+      await Promise.all([
+        generateSection({
+          type: "executive_summary",
+          title: "Executive Summary",
+          data: {
+            report_type: params.templateType,
+            period,
+            institution_name: institutionName,
+            focus_category: params.focusCategory ?? null,
+            categories: topCategories.map((c) => ({
+              fee_category: c.fee_category,
+              median_amount: c.median_amount,
+              p25_amount: c.p25_amount,
+              p75_amount: c.p75_amount,
+              institution_count: c.institution_count,
+              maturity: c.maturity_tier,
+            })),
+          },
+          context: buildExecutiveSummaryContext(params, institutionName, period),
+        }),
+        generateSection({
+          type: strategicSectionType,
+          title: "Strategic Analysis",
+          data: {
+            report_type: params.templateType,
+            period,
+            focus_category: params.focusCategory ?? null,
+            top_fees: topCategories.slice(0, 5).map((c) => ({
+              fee_category: c.fee_category,
+              median_amount: c.median_amount,
+              p25_amount: c.p25_amount,
+              p75_amount: c.p75_amount,
+              institution_count: c.institution_count,
+            })),
+          },
+          context: buildStrategicContext(params, institutionName),
+        }),
+        generateSection({
+          type: "recommendation",
+          title: "Recommended Position",
+          data: {
+            report_type: params.templateType,
+            institution_name: institutionName,
+            categories_analyzed: topCategories.length,
+            period,
+            focus_category: params.focusCategory ?? null,
+          },
+          context: buildRecommendationContext(params, institutionName),
+        }),
+      ]);
 
     // 5. Assemble ReportSummaryResponse
     const report: ReportSummaryResponse = {
