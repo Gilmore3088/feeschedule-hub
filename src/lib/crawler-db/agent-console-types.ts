@@ -40,6 +40,70 @@ export const HEALTH_METRIC_LABELS: Record<HealthMetric, string> = {
   cost_to_value_ratio: "Cost / Value",
 };
 
+/**
+ * One-sentence plain-English definition for each health metric.
+ * Surfaced as tooltip text on Overview tiles (UAT Gap 4).
+ * Source: .planning/runbooks/agent-bootstrap.md + D-15.
+ */
+export const HEALTH_METRIC_DESCRIPTIONS: Record<HealthMetric, string> = {
+  loop_completion_rate:
+    "Share of review cycles that finished all 5 loop steps (LOG \u2192 REVIEW \u2192 DISSECT \u2192 UNDERSTAND \u2192 IMPROVE) without error or timeout.",
+  review_latency_seconds:
+    "Time from an unreviewed agent_event being written to the agent's review() being invoked by the dispatcher.",
+  pattern_promotion_rate:
+    "Share of IMPROVE proposals that passed the adversarial canary gate and were committed as a new lesson.",
+  confidence_drift:
+    "Signed change in mean extraction/verification confidence vs. the rolling 7-day baseline. Positive = improving, negative = regressing.",
+  cost_to_value_ratio:
+    "Dollars of Anthropic API spend per validated output unit (e.g. per accepted fee, per resolved handshake). Lower is better.",
+};
+
+/**
+ * Unit suffix for each metric; shown next to the value in the Overview legend.
+ */
+export const HEALTH_METRIC_UNITS: Record<HealthMetric, string> = {
+  loop_completion_rate: "% (0-100)",
+  review_latency_seconds: "seconds (lower is better)",
+  pattern_promotion_rate: "% (0-100)",
+  confidence_drift: "signed ratio (target: \u2265 0)",
+  cost_to_value_ratio: "$ per validated unit (lower is better)",
+};
+
+/**
+ * Threshold bands for coloring metric values (UAT Gap 4).
+ * - `healthy`: value is in a good state -> emerald
+ * - `watch`: value is drifting but not critical -> amber
+ * - else: critical -> red
+ *
+ * Each band is a predicate; the first one that returns true wins.
+ * Anchored to runbook \u00a77 SLA table (REVIEW < 15min = 900s).
+ */
+export const HEALTH_METRIC_THRESHOLDS: Record<
+  HealthMetric,
+  { healthy: (v: number) => boolean; watch: (v: number) => boolean }
+> = {
+  loop_completion_rate: {
+    healthy: (v) => v >= 0.95,
+    watch: (v) => v >= 0.85,
+  },
+  review_latency_seconds: {
+    healthy: (v) => v <= 900,
+    watch: (v) => v <= 1800,
+  },
+  pattern_promotion_rate: {
+    healthy: (v) => v >= 0.5,
+    watch: (v) => v >= 0.2,
+  },
+  confidence_drift: {
+    healthy: (v) => v >= -0.01,
+    watch: (v) => v >= -0.05,
+  },
+  cost_to_value_ratio: {
+    healthy: (v) => v <= 2.0,
+    watch: (v) => v <= 5.0,
+  },
+};
+
 export type LineageTier1 = {
   row: Record<string, unknown>;
   r2_key?: string | null;
