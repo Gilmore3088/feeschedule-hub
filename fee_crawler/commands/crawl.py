@@ -20,7 +20,26 @@ from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
 from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
 from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
-from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf, PDFProtectedError
+from fee_crawler.pipeline import extract_kreuzberg
+from fee_crawler.pipeline.extract_pdf import (
+    extract_text_from_pdf as _legacy_extract_text_from_pdf,
+    PDFProtectedError,
+)
+
+
+def extract_text_from_pdf(content: bytes) -> str:
+    """PDF extraction with Kreuzberg when `USE_KREUZBERG=1`, else legacy.
+
+    Kreuzberg's Rust-core extractor covers PDF + OCR + tables in one call;
+    the legacy path is pdfplumber + shell-tesseract fallback. Swap is
+    transparent — both paths raise `PDFProtectedError` on encrypted files.
+    """
+    if extract_kreuzberg.USE_KREUZBERG and extract_kreuzberg.is_available():
+        try:
+            return extract_kreuzberg.extract_text_from_pdf(content)
+        except extract_kreuzberg.PDFProtectedError as exc:
+            raise PDFProtectedError(str(exc)) from exc
+    return _legacy_extract_text_from_pdf(content)
 from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
 from fee_crawler.validation import validate_and_classify_fees, flags_to_json
 

@@ -4,6 +4,9 @@ requests>=2.31
 beautifulsoup4>=4.12
 lxml>=5.0
 pdfplumber>=0.10
+# Kreuzberg: unified extractor (PDF/DOCX/XLSX/HTML/images with native
+# Tesseract OCR). Enabled per-call via USE_KREUZBERG=1.
+kreuzberg>=4.8
 anthropic>=0.40
 feedparser>=6.0
 psycopg2-binary>=2.9
