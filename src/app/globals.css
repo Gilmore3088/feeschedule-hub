@@ -549,8 +549,8 @@
    should not depend on it.
 
    Migration: when a file is being touched, prefer converting its
-   slate-*/amber-* utilities to warm-*/terra tokens directly. That
-   decouples the file from the wrapper.
+   slate-N or amber-N utilities to warm-N or terra tokens directly.
+   That decouples the file from the wrapper.
    ═══════════════════════════════════════════════ */
 
 /* ── Backgrounds ── */
