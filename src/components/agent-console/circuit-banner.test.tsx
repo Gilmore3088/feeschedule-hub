@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { CircuitBanner } from "@/components/agent-console/circuit-banner";
+import { CircuitBanner } from "./circuit-banner";
 import { describe, it, expect, vi } from "vitest";
 
 describe("CircuitBanner", () => {

@@ -606,3 +606,20 @@ def darwin_api():
     from fee_crawler.darwin_api import app as fastapi_app
 
     return fastapi_app
+
+
+# ----------------------------------------------------------------------
+# Magellan v1 — coverage rescue web endpoint
+# ----------------------------------------------------------------------
+
+@app.function(
+    image=image,
+    secrets=secrets,
+    timeout=600,
+    min_containers=1,
+)
+@modal.asgi_app()
+def magellan_api():
+    """Serve Magellan FastAPI sidecar as a Modal web endpoint."""
+    from fee_crawler.magellan_api import app as fastapi_app
+    return fastapi_app
