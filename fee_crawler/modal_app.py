@@ -623,3 +623,77 @@ def magellan_api():
     """Serve Magellan FastAPI sidecar as a Modal web endpoint."""
     from fee_crawler.magellan_api import app as fastapi_app
     return fastapi_app
+
+
+# ----------------------------------------------------------------------
+# Ops generic runner — invoked from Next.js /admin/ops buttons.
+# Replaces the old child_process.spawn path that can't run on Vercel.
+# ----------------------------------------------------------------------
+
+@app.function(
+    image=image,
+    secrets=secrets,
+    timeout=7200,  # 2h max for long crawls
+    memory=2048,
+)
+def ops_run_command(command: str, args: list[str], job_id: int) -> dict:
+    """Run `python -m fee_crawler <command> <args>` and update ops_jobs row.
+
+    Called via spawn from the web endpoint below. Not web-accessible directly.
+    """
+    import os
+    import json
+    import psycopg2
+
+    dsn = os.environ["DATABASE_URL"]
+
+    def _update(status: str, result: dict | None = None, error: str | None = None):
+        try:
+            conn = psycopg2.connect(dsn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """UPDATE ops_jobs
+                          SET status = %s,
+                              result_json = COALESCE(%s::JSONB, result_json),
+                              error = %s,
+                              updated_at = NOW()
+                        WHERE id = %s""",
+                    (status, json.dumps(result) if result else None, error, job_id),
+                )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"ops_jobs update failed job={job_id} status={status}: {e}")
+
+    _update("running")
+    try:
+        env = {**os.environ, "DATABASE_URL": dsn}
+        result = run_checked(
+            ["python3", "-m", "fee_crawler", command, *args],
+            env=env, timeout=7000,
+        )
+        stdout_tail = (result.stdout or "")[-2000:]
+        _update("completed", result={"stdout_tail": stdout_tail, "returncode": result.returncode})
+        return {"status": "completed", "returncode": result.returncode, "stdout_tail": stdout_tail}
+    except Exception as e:
+        _update("failed", error=str(e)[:500])
+        raise
+
+
+class RunCommandRequest(_BaseModel):
+    """Body of POST /ops/run_command."""
+    command: str
+    args: list[str] = []
+    job_id: int
+
+
+@app.function(
+    image=image,
+    secrets=secrets,
+    timeout=60,
+)
+@modal.fastapi_endpoint(method="POST")
+def ops_run(request: RunCommandRequest) -> dict:
+    """Web endpoint — fires ops_run_command in the background, returns immediately."""
+    call = ops_run_command.spawn(request.command, request.args, request.job_id)
+    return {"ok": True, "call_id": call.object_id, "job_id": request.job_id}
