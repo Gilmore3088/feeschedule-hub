@@ -76,8 +76,16 @@ def _translate_placeholders(sql: str) -> str:
       - strftime('%Y-%m-%d', col) -> DATE(col)
       - BEGIN IMMEDIATE -> BEGIN
       - PRAGMA statements -> SELECT 1 (no-op)
+
+    Important: psycopg2 interprets `%` in SQL as a format specifier, so literal
+    `%` (as in LIKE '%.pdf%') must be escaped to `%%` BEFORE we introduce any
+    `%s` placeholders from the `?` translation. Running the replacements in the
+    opposite order would corrupt the just-inserted `%s` markers.
     """
     s = sql
+    # Escape literal % in LIKE patterns etc. BEFORE we add %s placeholders
+    # so psycopg2's format parser does not confuse them.
+    s = s.replace("%", "%%")
     s = s.replace("?", "%s")
     s = re.sub(r"datetime\('now'\)", "NOW()", s)
     s = re.sub(
