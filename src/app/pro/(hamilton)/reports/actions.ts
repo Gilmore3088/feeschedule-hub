@@ -88,21 +88,42 @@ function buildStrategicContext(
 
 /**
  * Build context string for the recommendation section by template type.
+ *
+ * Hard rules across all templates — these prevent the consultancy-fluff
+ * default mode (the "Space Coast FCU faces a strategic void in fee
+ * benchmarking" failure case from 2026-04-17 user report).
  */
+const RECOMMENDATION_RULES = `
+HARD RULES — failing any of these means rewriting the section:
+1. Output AT MOST 3 recommendations. Each must name a specific fee category from the DATA payload (e.g. "monthly_maintenance", "overdraft", "nsf"). Generic advice about "establishing leadership" or "building frameworks" is forbidden.
+2. Each recommendation must include: (a) the fee category, (b) the peer median or P25/P75 anchor it should move toward, (c) one observable consequence (revenue direction, competitive percentile shift, or member-experience signal). If you cannot ground a recommendation in the DATA payload, omit it.
+3. NEVER cite a percentage, dollar amount, or growth rate that is not in the DATA payload. No "12-18% higher revenue" inventions. No "industry studies show" appeals.
+4. NEVER use these phrases: "strategic void", "must establish leadership", "deploying systematic intelligence", "data-sophisticated rivals", "revenue leakage", "willingness-to-pay", "dual strategy", "create sustainable competitive advantage". They are corporate-speak with no specific meaning.
+5. Use plain banker English. Short sentences. Active voice. Name the fee. Name the action.
+`.trim();
+
 function buildRecommendationContext(
   params: GenerateReportParams,
   institutionName: string
 ): string {
-  switch (params.templateType) {
-    case "peer_benchmarking":
-      return `Recommend specific fee categories where ${institutionName} should adjust pricing to align with peer positioning. Be specific and action-oriented.`;
-    case "regional_landscape":
-      return `Recommend regional strategy for ${institutionName} based on geographic fee data. Identify highest-opportunity markets and competitive pressure points.`;
-    case "category_deep_dive":
-      return `Recommend a positioning strategy for ${institutionName} in the ${params.focusCategory ? params.focusCategory.replace(/_/g, " ") : "focus"} category based on distribution analysis.`;
-    case "competitive_positioning":
-      return `Recommend competitive fee strategy for ${institutionName}. Prioritize categories where pricing adjustment would have the greatest competitive impact.`;
-  }
+  const head = (() => {
+    switch (params.templateType) {
+      case "peer_benchmarking":
+        return `Recommend up to 3 specific fee adjustments for ${institutionName}, each anchored to a peer-median or P75 figure from the DATA payload. Order by impact: largest variance from peer median first.`;
+      case "regional_landscape":
+        return `Recommend up to 3 regional moves for ${institutionName}, each tied to a specific market position visible in the DATA payload (e.g. "FL CU median is $X, ${institutionName} sits at $Y").`;
+      case "category_deep_dive": {
+        const cat = params.focusCategory
+          ? params.focusCategory.replace(/_/g, " ")
+          : "the focus category";
+        return `Recommend up to 3 specific actions for ${institutionName} in the ${cat} category. Each must name the current peer P25/median/P75 anchor and the directional move (raise, hold, lower, restructure).`;
+      }
+      case "competitive_positioning":
+        return `Recommend up to 3 specific repositioning moves for ${institutionName}, prioritizing the categories with the largest distance from peer median in the DATA payload.`;
+    }
+  })();
+
+  return `${head}\n\n${RECOMMENDATION_RULES}`;
 }
 
 /**
@@ -197,12 +218,23 @@ export async function generateReport(
         generateSection({
           type: "recommendation",
           title: "Recommended Position",
+          // Pass actual peer-anchored fee data so the model can write
+          // specific recommendations instead of consultancy fluff. The
+          // RECOMMENDATION_RULES context block forbids inventing figures
+          // not present in this payload.
           data: {
             report_type: params.templateType,
             institution_name: institutionName,
-            categories_analyzed: topCategories.length,
             period,
             focus_category: params.focusCategory ?? null,
+            peer_anchored_fees: topCategories.slice(0, 5).map((c) => ({
+              fee_category: c.fee_category,
+              peer_median: c.median_amount,
+              peer_p25: c.p25_amount,
+              peer_p75: c.p75_amount,
+              institution_count: c.institution_count,
+              maturity: c.maturity_tier,
+            })),
           },
           context: buildRecommendationContext(params, institutionName),
         }),
