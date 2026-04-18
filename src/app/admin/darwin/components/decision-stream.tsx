@@ -2,9 +2,10 @@
 
 import type { BatchEvent } from "../types";
 
-type Decision = {
+export type Decision = {
   fee_raw_id: number;
   fee_name?: string;
+  amount?: number | null;
   outcome: "promoted" | "cached_low_conf" | "rejected" | "failure";
   key?: string | null;
   confidence?: number;
@@ -16,6 +17,7 @@ function rowFromEvent(ev: BatchEvent): Decision | null {
   return {
     fee_raw_id: ev.fee_raw_id,
     fee_name: ev.fee_name,
+    amount: ev.amount,
     outcome: ev.outcome,
     key: ev.key ?? null,
     confidence: ev.confidence,
@@ -30,7 +32,13 @@ const outcomeColor: Record<Decision["outcome"], string> = {
   failure: "bg-red-50 text-red-700",
 };
 
-export function DecisionStream({ decisions }: { decisions: Decision[] }) {
+export function DecisionStream({
+  decisions,
+  onRowClick,
+}: {
+  decisions: Decision[];
+  onRowClick?: (decision: Decision) => void;
+}) {
   if (decisions.length === 0) {
     return (
       <div className="admin-card p-4 text-sm text-gray-500">
@@ -43,7 +51,7 @@ export function DecisionStream({ decisions }: { decisions: Decision[] }) {
       <table className="w-full">
         <thead className="bg-gray-50/80">
           <tr>
-            {["ID", "Fee name", "Outcome", "Canonical key", "Confidence", "Note"].map((h) => (
+            {["ID", "Fee name", "Amount", "Outcome", "Canonical key", "Confidence", "Note"].map((h) => (
               <th
                 key={h}
                 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2 text-left"
@@ -55,9 +63,16 @@ export function DecisionStream({ decisions }: { decisions: Decision[] }) {
         </thead>
         <tbody>
           {decisions.map((d) => (
-            <tr key={d.fee_raw_id} className="hover:bg-gray-50/50 transition-colors">
+            <tr
+              key={d.fee_raw_id}
+              className={`hover:bg-gray-50/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+              onClick={() => onRowClick?.(d)}
+            >
               <td className="px-4 py-2.5 text-sm tabular-nums">{d.fee_raw_id}</td>
               <td className="px-4 py-2.5 text-sm text-gray-700 max-w-[240px] truncate">{d.fee_name ?? "—"}</td>
+              <td className="px-4 py-2.5 text-sm tabular-nums">
+                {d.amount != null ? `$${d.amount.toFixed(2)}` : "—"}
+              </td>
               <td className="px-4 py-2.5">
                 <span
                   className={`text-[11px] font-semibold px-2 py-0.5 rounded ${outcomeColor[d.outcome]}`}

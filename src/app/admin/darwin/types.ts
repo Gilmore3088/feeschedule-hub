@@ -16,6 +16,7 @@ export type BatchEvent =
       type: "row_complete";
       fee_raw_id: number;
       fee_name?: string;
+      amount?: number | null;
       outcome: "promoted" | "cached_low_conf" | "rejected" | "failure";
       key?: string | null;
       confidence?: number;

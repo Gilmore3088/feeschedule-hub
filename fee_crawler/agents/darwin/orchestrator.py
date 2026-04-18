@@ -53,6 +53,7 @@ class BatchResult:
 class _Candidate:
     fee_raw_id: int
     fee_name: str
+    amount: Optional[float] = None
     normalized_name: str = field(init=False)
 
     def __post_init__(self):
@@ -63,7 +64,7 @@ async def select_candidates(conn: asyncpg.Connection, limit: int) -> list[_Candi
     """Select unpromoted fees_raw rows. FOR UPDATE SKIP LOCKED prevents races."""
     rows = await conn.fetch(
         """
-        SELECT fr.fee_raw_id, fr.fee_name
+        SELECT fr.fee_raw_id, fr.fee_name, fr.amount
           FROM fees_raw fr
           LEFT JOIN fees_verified fv ON fv.fee_raw_id = fr.fee_raw_id
          WHERE fv.fee_verified_id IS NULL
@@ -73,7 +74,14 @@ async def select_candidates(conn: asyncpg.Connection, limit: int) -> list[_Candi
         """,
         limit,
     )
-    return [_Candidate(fee_raw_id=r["fee_raw_id"], fee_name=r["fee_name"]) for r in rows]
+    return [
+        _Candidate(
+            fee_raw_id=r["fee_raw_id"],
+            fee_name=r["fee_name"],
+            amount=float(r["amount"]) if r["amount"] is not None else None,
+        )
+        for r in rows
+    ]
 
 
 async def _lookup_cache(
@@ -268,6 +276,7 @@ async def classify_batch(
                 "row_complete",
                 fee_raw_id=c.fee_raw_id,
                 fee_name=c.fee_name,
+                amount=c.amount,
                 outcome=outcome,
                 key=key,
                 confidence=conf,
@@ -279,6 +288,7 @@ async def classify_batch(
                 "row_complete",
                 fee_raw_id=c.fee_raw_id,
                 fee_name=c.fee_name,
+                amount=c.amount,
                 outcome="failure",
                 error=str(e),
             )
