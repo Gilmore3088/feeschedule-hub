@@ -65,19 +65,19 @@ export default async function ProCategoriesPage() {
     <div className="mx-auto max-w-7xl px-6 py-10">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="h-px w-8 bg-terra/40" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-terra/60">
           Fee Categories
         </span>
       </div>
 
       <h1
-        className="text-[2rem] leading-[1.1] tracking-[-0.02em] text-[#1A1815]"
+        className="text-[2rem] leading-[1.1] tracking-[-0.02em] text-warm-900"
         style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
       >
         Complete Fee Taxonomy
       </h1>
-      <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-[#7A7062]">
+      <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-warm-600">
         All {TAXONOMY_COUNT} fee categories across {familyNames.length} families,
         with statistical distributions and institutional coverage.
       </p>
@@ -105,7 +105,7 @@ export default async function ProCategoriesPage() {
           return (
             <div
               key={family}
-              className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5"
+              className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5"
             >
               {/* Family header */}
               <div className="flex items-center gap-3 mb-4">
@@ -119,7 +119,7 @@ export default async function ProCategoriesPage() {
                   />
                 </span>
                 <h2
-                  className="text-[15px] font-semibold text-[#1A1815]"
+                  className="text-[15px] font-semibold text-warm-900"
                   style={{
                     fontFamily: "var(--font-newsreader), Georgia, serif",
                   }}
@@ -131,11 +131,11 @@ export default async function ProCategoriesPage() {
               {/* Metrics row */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500">
                     Categories
                   </p>
                   <p
-                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    className="mt-0.5 text-lg font-light text-warm-900 tabular-nums"
                     style={{
                       fontFamily: "var(--font-newsreader), Georgia, serif",
                     }}
@@ -144,11 +144,11 @@ export default async function ProCategoriesPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500">
                     Observations
                   </p>
                   <p
-                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    className="mt-0.5 text-lg font-light text-warm-900 tabular-nums"
                     style={{
                       fontFamily: "var(--font-newsreader), Georgia, serif",
                     }}
@@ -157,11 +157,11 @@ export default async function ProCategoriesPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500">
                     Coverage
                   </p>
                   <p
-                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    className="mt-0.5 text-lg font-light text-warm-900 tabular-nums"
                     style={{
                       fontFamily: "var(--font-newsreader), Georgia, serif",
                     }}
@@ -172,7 +172,7 @@ export default async function ProCategoriesPage() {
               </div>
 
               {/* Category list */}
-              <div className="pt-3 border-t border-[#E8DFD1]/40 space-y-1">
+              <div className="pt-3 border-t border-warm-200/40 space-y-1">
                 {categories.map((cat) => {
                   const s = summaryMap.get(cat);
                   const tier = getFeeTier(cat);
@@ -182,10 +182,10 @@ export default async function ProCategoriesPage() {
                     <Link
                       key={cat}
                       href={`/fees/${cat}`}
-                      className="flex items-center justify-between rounded-lg px-2.5 py-1.5 -mx-1 hover:bg-[#FAF7F2]/80 transition-colors no-underline group"
+                      className="flex items-center justify-between rounded-lg px-2.5 py-1.5 -mx-1 hover:bg-warm-100/80 transition-colors no-underline group"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[12px] text-[#1A1815] group-hover:text-[#C44B2E] transition-colors truncate">
+                        <span className="text-[12px] text-warm-900 group-hover:text-terra transition-colors truncate">
                           {getDisplayName(cat)}
                         </span>
                         {tierInfo && (
@@ -196,7 +196,7 @@ export default async function ProCategoriesPage() {
                           </span>
                         )}
                       </div>
-                      <span className="shrink-0 ml-2 text-[11px] tabular-nums text-[#A09788]">
+                      <span className="shrink-0 ml-2 text-[11px] tabular-nums text-warm-500">
                         {s?.median_amount != null
                           ? formatAmount(s.median_amount)
                           : "--"}

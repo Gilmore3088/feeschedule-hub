@@ -38,7 +38,7 @@ export default async function AgentsReplayPage({
       <form
         method="GET"
         action="/admin/agents/replay"
-        className="admin-card p-3 flex items-center gap-2"
+        className="admin-card p-3 flex flex-wrap items-center gap-2"
       >
         <label
           htmlFor="correlation"
@@ -52,7 +52,7 @@ export default async function AgentsReplayPage({
           type="text"
           defaultValue={correlation}
           placeholder="00000000-0000-0000-0000-000000000000"
-          className="h-8 rounded-md border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-2 text-[12px] font-mono w-[340px]"
+          className="h-8 rounded-md border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-2 text-[12px] font-mono w-full max-w-[340px]"
         />
         <button
           type="submit"

@@ -80,17 +80,17 @@ export function SavedGroups({
       {groups.map((g) => (
         <div
           key={g.id}
-          className="group flex items-center gap-1 rounded-full border border-[#E8DFD1] bg-white pl-3 pr-1 py-1 text-[11px]"
+          className="group flex items-center gap-1 rounded-full border border-warm-200 bg-white pl-3 pr-1 py-1 text-[11px]"
         >
           <button
             onClick={() => loadGroup(g)}
-            className="font-medium text-[#5A5347] hover:text-[#C44B2E] transition-colors"
+            className="font-medium text-warm-700 hover:text-terra transition-colors"
           >
             {g.name}
           </button>
           <button
             onClick={() => handleDelete(g.id)}
-            className="flex items-center justify-center h-4 w-4 rounded-full text-[#D4C9BA] hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+            className="flex items-center justify-center h-4 w-4 rounded-full text-warm-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
             aria-label={`Delete ${g.name}`}
           >
             <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -105,7 +105,7 @@ export function SavedGroups({
       {hasFilters && !showSave && groups.length < 10 && (
         <button
           onClick={() => setShowSave(true)}
-          className="flex items-center gap-1 rounded-full border border-dashed border-[#D4C9BA] px-3 py-1 text-[11px] font-medium text-[#A09788] hover:border-[#C44B2E]/40 hover:text-[#C44B2E] transition-colors"
+          className="flex items-center gap-1 rounded-full border border-dashed border-warm-300 px-3 py-1 text-[11px] font-medium text-warm-500 hover:border-terra/40 hover:text-terra transition-colors"
         >
           <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -125,18 +125,18 @@ export function SavedGroups({
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
             placeholder="Group name..."
             autoFocus
-            className="rounded-full border border-[#E8DFD1] bg-white px-3 py-1 text-[11px] text-[#1A1815] placeholder:text-[#B0A89C] outline-none focus:ring-1 focus:ring-[#C44B2E]/30 w-[140px]"
+            className="rounded-full border border-warm-200 bg-white px-3 py-1 text-[11px] text-warm-900 placeholder:text-warm-500 outline-none focus:ring-1 focus:ring-terra/30 w-[140px]"
           />
           <button
             onClick={handleSave}
             disabled={saving || !name.trim()}
-            className="rounded-full bg-[#C44B2E] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[#A83D25] transition-colors disabled:opacity-40"
+            className="rounded-full bg-terra px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-terra-dark transition-colors disabled:opacity-40"
           >
             {saving ? "..." : "Save"}
           </button>
           <button
             onClick={() => { setShowSave(false); setName(""); }}
-            className="text-[#A09788] hover:text-[#5A5347] transition-colors text-[11px]"
+            className="text-warm-500 hover:text-warm-700 transition-colors text-[11px]"
           >
             Cancel
           </button>

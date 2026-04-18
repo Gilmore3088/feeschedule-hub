@@ -39,7 +39,7 @@ const TOPIC_COLORS: Record<string, string> = {
   mergers_acquisitions: "text-cyan-400",
   rulemaking_compliance: "text-violet-400",
   fees_pricing: "text-emerald-400",
-  general: "text-[#7A7062]",
+  general: "text-warm-600",
 };
 
 function timeAgo(dateStr: string | null): string {
@@ -108,15 +108,15 @@ export function NewsFeed({
       {/* Control bar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {/* Time range */}
-        <div className="flex items-center rounded-lg border border-[#E8DFD1] bg-white/70 overflow-hidden text-[11px]">
+        <div className="flex items-center rounded-lg border border-warm-200 bg-white/70 overflow-hidden text-[11px]">
           {(["today", "week", "month", "all"] as const).map((range) => (
             <button
               key={range}
               onClick={() => setFilter("range", range === "all" ? undefined : range)}
               className={`px-3 py-1.5 font-medium transition-colors ${
                 activeRange === range
-                  ? "bg-[#1A1815] text-white"
-                  : "text-[#7A7062] hover:text-[#1A1815] hover:bg-[#FAF7F2]"
+                  ? "bg-warm-900 text-white"
+                  : "text-warm-600 hover:text-warm-900 hover:bg-warm-100"
               }`}
             >
               {range === "today" ? "24h" : range === "week" ? "7d" : range === "month" ? "30d" : "All"}
@@ -128,7 +128,7 @@ export function NewsFeed({
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-1.5 rounded-lg border border-[#E8DFD1] bg-white/70 px-3 py-1.5 text-[11px] font-medium text-[#7A7062] hover:text-[#1A1815] hover:bg-[#FAF7F2] transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg border border-warm-200 bg-white/70 px-3 py-1.5 text-[11px] font-medium text-warm-600 hover:text-warm-900 hover:bg-warm-100 transition-colors disabled:opacity-50"
         >
           <svg
             className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}
@@ -147,7 +147,7 @@ export function NewsFeed({
         )}
 
         {/* Count */}
-        <span className="ml-auto text-[11px] tabular-nums text-[#A09788]">
+        <span className="ml-auto text-[11px] tabular-nums text-warm-500">
           {totalCount.toLocaleString()} articles
         </span>
       </div>
@@ -156,21 +156,21 @@ export function NewsFeed({
         {/* Article list */}
         <div className="min-w-0">
           {articles.length === 0 ? (
-            <div className="rounded-xl border border-[#E8DFD1] bg-white/70 px-6 py-12 text-center">
-              <p className="text-[14px] text-[#7A7062]">No articles found.</p>
-              <p className="mt-1 text-[12px] text-[#A09788]">
+            <div className="rounded-xl border border-warm-200 bg-white/70 px-6 py-12 text-center">
+              <p className="text-[14px] text-warm-600">No articles found.</p>
+              <p className="mt-1 text-[12px] text-warm-500">
                 Click Refresh to fetch the latest regulatory news.
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm overflow-hidden divide-y divide-[#E8DFD1]/50">
+            <div className="rounded-xl border border-warm-200 bg-white/70 backdrop-blur-sm overflow-hidden divide-y divide-warm-200/50">
               {articles.map((article) => (
                 <a
                   key={article.guid}
                   href={article.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[#FAF7F2]/80 no-underline"
+                  className="group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-warm-100/80 no-underline"
                 >
                   {/* Source badge */}
                   <span
@@ -183,15 +183,15 @@ export function NewsFeed({
 
                   {/* Content */}
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium leading-snug text-[#1A1815] group-hover:text-[#C44B2E] transition-colors line-clamp-2">
+                    <p className="text-[13px] font-medium leading-snug text-warm-900 group-hover:text-terra transition-colors line-clamp-2">
                       {article.title}
                     </p>
                     <div className="mt-1 flex items-center gap-2 text-[10px]">
-                      <span className={`font-semibold uppercase tracking-wider ${TOPIC_COLORS[article.topic] ?? "text-[#A09788]"}`}>
+                      <span className={`font-semibold uppercase tracking-wider ${TOPIC_COLORS[article.topic] ?? "text-warm-500"}`}>
                         {topicLabels[article.topic] ?? article.topic}
                       </span>
-                      <span className="text-[#D4C9BA]">&middot;</span>
-                      <span className="text-[#A09788] tabular-nums">
+                      <span className="text-warm-300">&middot;</span>
+                      <span className="text-warm-500 tabular-nums">
                         {timeAgo(article.published_at || article.created_at)}
                       </span>
                     </div>
@@ -199,7 +199,7 @@ export function NewsFeed({
 
                   {/* External link icon */}
                   <svg
-                    className="mt-1 h-3.5 w-3.5 shrink-0 text-[#D4C9BA] group-hover:text-[#C44B2E] transition-colors"
+                    className="mt-1 h-3.5 w-3.5 shrink-0 text-warm-300 group-hover:text-terra transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -216,15 +216,15 @@ export function NewsFeed({
         {/* Sidebar: filters */}
         <aside className="space-y-5">
           {/* Sources */}
-          <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-2.5">
+          <div className="rounded-xl border border-warm-200 bg-white/70 backdrop-blur-sm px-4 py-3.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500 mb-2.5">
               Sources
             </p>
             <div className="space-y-1">
               <button
                 onClick={() => setFilter("source", undefined)}
                 className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] transition-colors ${
-                  !activeSource ? "bg-[#1A1815] text-white font-medium" : "text-[#5A5347] hover:bg-[#FAF7F2]"
+                  !activeSource ? "bg-warm-900 text-white font-medium" : "text-warm-700 hover:bg-warm-100"
                 }`}
               >
                 <span>All Sources</span>
@@ -237,7 +237,7 @@ export function NewsFeed({
                   key={key}
                   onClick={() => setFilter("source", activeSource === key ? undefined : key)}
                   className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] transition-colors ${
-                    activeSource === key ? "bg-[#1A1815] text-white font-medium" : "text-[#5A5347] hover:bg-[#FAF7F2]"
+                    activeSource === key ? "bg-warm-900 text-white font-medium" : "text-warm-700 hover:bg-warm-100"
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -253,15 +253,15 @@ export function NewsFeed({
           </div>
 
           {/* Topics */}
-          <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-2.5">
+          <div className="rounded-xl border border-warm-200 bg-white/70 backdrop-blur-sm px-4 py-3.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500 mb-2.5">
               Topics
             </p>
             <div className="space-y-1">
               <button
                 onClick={() => setFilter("topic", undefined)}
                 className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] transition-colors ${
-                  !activeTopic ? "bg-[#1A1815] text-white font-medium" : "text-[#5A5347] hover:bg-[#FAF7F2]"
+                  !activeTopic ? "bg-warm-900 text-white font-medium" : "text-warm-700 hover:bg-warm-100"
                 }`}
               >
                 <span>All Topics</span>
@@ -277,7 +277,7 @@ export function NewsFeed({
                     key={key}
                     onClick={() => setFilter("topic", activeTopic === key ? undefined : key)}
                     className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] transition-colors ${
-                      activeTopic === key ? "bg-[#1A1815] text-white font-medium" : "text-[#5A5347] hover:bg-[#FAF7F2]"
+                      activeTopic === key ? "bg-warm-900 text-white font-medium" : "text-warm-700 hover:bg-warm-100"
                     }`}
                   >
                     <span className="flex items-center gap-2">
@@ -292,11 +292,11 @@ export function NewsFeed({
           </div>
 
           {/* About */}
-          <div className="rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-4 py-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-2">
+          <div className="rounded-xl border border-warm-200 bg-warm-100/50 px-4 py-3.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500 mb-2">
               About
             </p>
-            <p className="text-[11px] leading-relaxed text-[#7A7062]">
+            <p className="text-[11px] leading-relaxed text-warm-600">
               Aggregated from official RSS feeds of the Federal Reserve, FDIC,
               OCC, and CFPB. Articles are classified by topic using keyword
               analysis. Click Refresh to pull the latest updates.

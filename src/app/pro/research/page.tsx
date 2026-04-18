@@ -56,31 +56,31 @@ export default async function ProResearchPage() {
   return (
     <div>
       {/* Dataset info bar */}
-      <div className="border-b border-[#E8DFD1] bg-[#FFFDF9]">
+      <div className="border-b border-warm-200 bg-warm-50">
         <div className="mx-auto max-w-[1600px] px-4 py-2 flex items-center gap-4 text-[11px] overflow-x-auto scrollbar-none">
           <span
-            className="shrink-0 font-medium text-[#1A1815]"
+            className="shrink-0 font-medium text-warm-900"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
             Dataset: Bank Fee Index
           </span>
-          <span className="shrink-0 h-3 w-px bg-[#D4C9BA]" />
-          <span className="shrink-0 text-[#A09788]">
-            <span className="tabular-nums font-medium text-[#5A5347]">
+          <span className="shrink-0 h-3 w-px bg-warm-300" />
+          <span className="shrink-0 text-warm-500">
+            <span className="tabular-nums font-medium text-warm-700">
               {stats.total_observations.toLocaleString()}
             </span>{" "}
             observations
           </span>
-          <span className="shrink-0 text-[#A09788]">
-            <span className="tabular-nums font-medium text-[#5A5347]">
+          <span className="shrink-0 text-warm-500">
+            <span className="tabular-nums font-medium text-warm-700">
               {stats.total_institutions.toLocaleString()}
             </span>{" "}
             institutions
           </span>
-          <span className="shrink-0 text-[#A09788]">
+          <span className="shrink-0 text-warm-500">
             {TAXONOMY_COUNT} fee types
           </span>
-          <span className="shrink-0 ml-auto text-[#D4C9BA]">
+          <span className="shrink-0 ml-auto text-warm-300">
             Updated {lastUpdated}
           </span>
         </div>

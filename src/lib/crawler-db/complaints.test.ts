@@ -24,7 +24,7 @@ import { getSql } from "./connection";
 type MockSql = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
 
 function getMock(): MockSql {
-  return getSql() as MockSql;
+  return getSql() as unknown as MockSql;
 }
 
 function resetMock(mock: MockSql) {

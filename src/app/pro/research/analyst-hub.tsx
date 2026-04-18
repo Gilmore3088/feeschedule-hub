@@ -176,7 +176,7 @@ export function AnalystHub({
     <div className="flex h-[calc(100vh-57px)] overflow-hidden">
       {/* ── Left Sidebar ── */}
       <div
-        className={`shrink-0 border-r border-[#E8DFD1] bg-white/50 transition-all duration-300 overflow-y-auto ${
+        className={`shrink-0 border-r border-warm-200 bg-white/50 transition-all duration-300 overflow-y-auto ${
           sidebarOpen ? "w-56" : "w-0"
         }`}
       >
@@ -184,7 +184,7 @@ export function AnalystHub({
           <div className="p-4">
             {/* AI Actions */}
             <div className="mb-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-3">
                 AI Actions
               </p>
               <div className="space-y-1">
@@ -192,12 +192,12 @@ export function AnalystHub({
                   <button
                     key={action.label}
                     onClick={() => injectPrompt(action.prompt)}
-                    className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-left text-[13px] text-[#5A5347] hover:bg-[#FAF7F2] hover:text-[#1A1815] transition-colors"
+                    className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-left text-[13px] text-warm-700 hover:bg-warm-100 hover:text-warm-900 transition-colors"
                   >
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
-                      className="h-4 w-4 shrink-0 text-[#C44B2E]/60"
+                      className="h-4 w-4 shrink-0 text-terra/60"
                       stroke="currentColor"
                       strokeWidth="1.5"
                       strokeLinecap="round"
@@ -215,9 +215,9 @@ export function AnalystHub({
             {/* History toggle */}
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-left text-[13px] text-[#5A5347] hover:bg-[#FAF7F2] hover:text-[#1A1815] transition-colors"
+              className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-left text-[13px] text-warm-700 hover:bg-warm-100 hover:text-warm-900 transition-colors"
             >
-              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-[#A09788]" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-warm-500" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               View query history
@@ -226,13 +226,13 @@ export function AnalystHub({
             {/* Conversation history */}
             {showHistory && conversations.length > 0 && (
               <div className="mt-3 space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-2 px-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-2 px-3">
                   Recent
                 </p>
                 {conversations.slice(0, 15).map((c) => (
                   <div
                     key={c.id}
-                    className="px-3 py-1.5 rounded text-[11px] text-[#7A7062] truncate hover:bg-[#FAF7F2] cursor-default"
+                    className="px-3 py-1.5 rounded text-[11px] text-warm-600 truncate hover:bg-warm-100 cursor-default"
                     title={c.title}
                   >
                     {c.title}
@@ -242,18 +242,18 @@ export function AnalystHub({
             )}
 
             {/* Usage */}
-            <div className="mt-6 pt-4 border-t border-[#E8DFD1]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-2">
+            <div className="mt-6 pt-4 border-t border-warm-200">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-2">
                 Usage
               </p>
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex justify-between">
-                  <span className="text-[#7A7062]">Today</span>
-                  <span className="tabular-nums text-[#1A1815] font-medium">{queriesToday} / {dailyLimit}</span>
+                  <span className="text-warm-600">Today</span>
+                  <span className="tabular-nums text-warm-900 font-medium">{queriesToday} / {dailyLimit}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#7A7062]">This month</span>
-                  <span className="tabular-nums text-[#1A1815] font-medium">{queryMonth}</span>
+                  <span className="text-warm-600">This month</span>
+                  <span className="tabular-nums text-warm-900 font-medium">{queryMonth}</span>
                 </div>
               </div>
             </div>
@@ -264,10 +264,10 @@ export function AnalystHub({
       {/* ── Center: Chat ── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#E8DFD1] bg-[#FFFDF9]">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-warm-200 bg-warm-50">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#7A7062] hover:bg-[#E8DFD1]/40 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-warm-600 hover:bg-warm-200/40 transition-colors"
             aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.5">
@@ -275,13 +275,13 @@ export function AnalystHub({
             </svg>
           </button>
           <span
-            className="text-[13px] font-medium text-[#1A1815]"
+            className="text-[13px] font-medium text-warm-900"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
             {agentName}
           </span>
-          <span className="h-3 w-px bg-[#E8DFD1] mx-1" />
-          <span className="text-[11px] text-[#A09788]">
+          <span className="h-3 w-px bg-warm-200 mx-1" />
+          <span className="text-[11px] text-warm-500">
             {queriesToday}/{dailyLimit} queries today
           </span>
         </div>
@@ -290,7 +290,7 @@ export function AnalystHub({
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <p className="text-[14px] text-[#7A7062] mb-6">
+              <p className="text-[14px] text-warm-600 mb-6">
                 Ask a question to get started, or try one of these:
               </p>
               <div className="flex flex-col gap-2 max-w-xl">
@@ -301,7 +301,7 @@ export function AnalystHub({
                       setInput(s);
                       inputRef.current?.focus();
                     }}
-                    className="rounded-xl border border-[#E8DFD1] bg-white/70 px-4 py-2.5 text-[13px] text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#1A1815] transition-all text-left"
+                    className="rounded-xl border border-warm-200 bg-white/70 px-4 py-2.5 text-[13px] text-warm-700 hover:border-terra/30 hover:text-warm-900 transition-all text-left"
                   >
                     {s}
                   </button>
@@ -318,7 +318,7 @@ export function AnalystHub({
                     .join("") ?? "";
                   return (
                     <div key={msg.id} className="flex justify-end">
-                      <div className="rounded-xl bg-[#1A1815] px-4 py-2.5 text-[13px] text-white max-w-[80%]">
+                      <div className="rounded-xl bg-warm-900 px-4 py-2.5 text-[13px] text-white max-w-[80%]">
                         {text}
                       </div>
                     </div>
@@ -333,7 +333,7 @@ export function AnalystHub({
                           return (
                             <div
                               key={pi}
-                              className="prose-hub text-[13px] leading-relaxed text-[#1A1815]"
+                              className="prose-hub text-[13px] leading-relaxed text-warm-900"
                               dangerouslySetInnerHTML={{ __html: simpleMarkdown(part.text) }}
                             />
                           );
@@ -343,9 +343,9 @@ export function AnalystHub({
                           return (
                             <div
                               key={pi}
-                              className="rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/50 px-3 py-2 text-[11px] text-[#A09788]"
+                              className="rounded-lg border border-warm-200/60 bg-warm-100/50 px-3 py-2 text-[11px] text-warm-500"
                             >
-                              <span className="font-medium text-[#7A7062]">
+                              <span className="font-medium text-warm-600">
                                 {toolPart.toolName ?? "tool"}
                               </span>
                               {toolPart.state === "result" && (
@@ -363,8 +363,8 @@ export function AnalystHub({
               })}
 
               {isLoading && (
-                <div className="flex items-center gap-2 text-[12px] text-[#A09788]">
-                  <div className="h-4 w-4 border-2 border-[#E8DFD1] border-t-[#C44B2E] rounded-full animate-spin" />
+                <div className="flex items-center gap-2 text-[12px] text-warm-500">
+                  <div className="h-4 w-4 border-2 border-warm-200 border-t-terra rounded-full animate-spin" />
                   Analyzing...
                 </div>
               )}
@@ -379,7 +379,7 @@ export function AnalystHub({
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="border-t border-[#E8DFD1] bg-[#FFFDF9] px-4 py-3">
+        <form onSubmit={handleSubmit} className="border-t border-warm-200 bg-warm-50 px-4 py-3">
           <div className="flex items-center gap-2 max-w-3xl mx-auto">
             <input
               ref={inputRef}
@@ -388,12 +388,12 @@ export function AnalystHub({
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask a question..."
               disabled={isLoading}
-              className="flex-1 rounded-xl border border-[#E8DFD1] bg-white px-4 py-2.5 text-[13px] text-[#1A1815] placeholder:text-[#A09788] focus:outline-none focus:ring-2 focus:ring-[#C44B2E]/30 focus:border-transparent disabled:opacity-50"
+              className="flex-1 rounded-xl border border-warm-200 bg-white px-4 py-2.5 text-[13px] text-warm-900 placeholder:text-warm-500 focus:outline-none focus:ring-2 focus:ring-terra/30 focus:border-transparent disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="rounded-xl bg-[#C44B2E] px-5 py-2.5 text-[13px] font-semibold text-white hover:bg-[#A83D25] disabled:opacity-40 transition-colors"
+              className="rounded-xl bg-terra px-5 py-2.5 text-[13px] font-semibold text-white hover:bg-terra-dark disabled:opacity-40 transition-colors"
             >
               Send
             </button>
@@ -403,17 +403,17 @@ export function AnalystHub({
 
       {/* ── Right Panel: Results ── */}
       {hasResults && (
-        <div className="hidden lg:flex w-80 shrink-0 flex-col border-l border-[#E8DFD1] bg-white/50 overflow-hidden">
+        <div className="hidden lg:flex w-80 shrink-0 flex-col border-l border-warm-200 bg-white/50 overflow-hidden">
           {/* Output tabs */}
-          <div className="flex items-center border-b border-[#E8DFD1] bg-[#FFFDF9]">
+          <div className="flex items-center border-b border-warm-200 bg-warm-50">
             {(["chart", "report", "slides"] as OutputTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-2.5 text-[12px] font-medium capitalize transition-colors ${
                   activeTab === tab
-                    ? "border-b-2 border-[#C44B2E] text-[#1A1815]"
-                    : "text-[#A09788] hover:text-[#5A5347]"
+                    ? "border-b-2 border-terra text-warm-900"
+                    : "text-warm-500 hover:text-warm-700"
                 }`}
               >
                 {tab}
@@ -425,7 +425,7 @@ export function AnalystHub({
           <div className="flex-1 overflow-y-auto p-4">
             {activeTab === "chart" && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-3">
                   Result
                 </p>
 
@@ -433,10 +433,10 @@ export function AnalystHub({
                 {metrics.length > 0 && (
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {metrics.map((m, i) => (
-                      <div key={i} className="rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/50 px-3 py-2">
-                        <p className="text-[10px] text-[#A09788] truncate">{m.label}</p>
+                      <div key={i} className="rounded-lg border border-warm-200/60 bg-warm-100/50 px-3 py-2">
+                        <p className="text-[10px] text-warm-500 truncate">{m.label}</p>
                         <p
-                          className="text-[18px] font-light text-[#1A1815] tabular-nums"
+                          className="text-[18px] font-light text-warm-900 tabular-nums"
                           style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                         >
                           {m.value}
@@ -448,7 +448,7 @@ export function AnalystHub({
 
                 {/* Chart */}
                 {chartData && chartData.length > 0 && (
-                  <div className="rounded-xl border border-[#E8DFD1]/60 bg-[#FAF7F2]/30 p-3 mb-4">
+                  <div className="rounded-xl border border-warm-200/60 bg-warm-100/30 p-3 mb-4">
                     <ResponsiveContainer width="100%" height={Math.max(chartData.length * 28, 120)}>
                       <BarChart
                         data={chartData}
@@ -485,22 +485,22 @@ export function AnalystHub({
 
                 {/* Data table preview */}
                 {tableData.length > 0 && (
-                  <div className="rounded-xl border border-[#E8DFD1]/60 overflow-hidden mb-4">
+                  <div className="rounded-xl border border-warm-200/60 overflow-hidden mb-4">
                     <table className="w-full text-[11px]">
                       <thead>
-                        <tr className="bg-[#FAF7F2]/60 border-b border-[#E8DFD1]/40">
+                        <tr className="bg-warm-100/60 border-b border-warm-200/40">
                           {tableData[0].headers.slice(0, 3).map((h, i) => (
-                            <th key={i} className={`px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-[#A09788] ${i > 0 ? "text-right" : "text-left"}`}>
+                            <th key={i} className={`px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-warm-500 ${i > 0 ? "text-right" : "text-left"}`}>
                               {h}
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#E8DFD1]/30">
+                      <tbody className="divide-y divide-warm-200/30">
                         {tableData[0].rows.slice(0, 8).map((row, ri) => (
-                          <tr key={ri} className="hover:bg-[#FAF7F2]/40">
+                          <tr key={ri} className="hover:bg-warm-100/40">
                             {row.slice(0, 3).map((cell, ci) => (
-                              <td key={ci} className={`px-2.5 py-1.5 ${ci > 0 ? "text-right tabular-nums text-[#5A5347]" : "text-[#1A1815] font-medium"}`}>
+                              <td key={ci} className={`px-2.5 py-1.5 ${ci > 0 ? "text-right tabular-nums text-warm-700" : "text-warm-900 font-medium"}`}>
                                 {cell.replace(/\*\*/g, "")}
                               </td>
                             ))}
@@ -509,7 +509,7 @@ export function AnalystHub({
                       </tbody>
                     </table>
                     {tableData[0].rows.length > 8 && (
-                      <div className="px-2.5 py-1.5 text-[10px] text-[#A09788] bg-[#FAF7F2]/30 border-t border-[#E8DFD1]/30">
+                      <div className="px-2.5 py-1.5 text-[10px] text-warm-500 bg-warm-100/30 border-t border-warm-200/30">
                         +{tableData[0].rows.length - 8} more rows
                       </div>
                     )}
@@ -517,7 +517,7 @@ export function AnalystHub({
                 )}
 
                 {!chartData && tableData.length === 0 && metrics.length === 0 && (
-                  <p className="text-[12px] text-[#A09788] text-center py-8">
+                  <p className="text-[12px] text-warm-500 text-center py-8">
                     No structured data in this response. Try asking for a comparison or data table.
                   </p>
                 )}
@@ -526,11 +526,11 @@ export function AnalystHub({
 
             {activeTab === "report" && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-3">
                   Report Preview
                 </p>
                 <div
-                  className="prose-hub text-[12px] leading-relaxed text-[#1A1815]"
+                  className="prose-hub text-[12px] leading-relaxed text-warm-900"
                   dangerouslySetInnerHTML={{ __html: simpleMarkdown(lastAssistant) }}
                 />
               </div>
@@ -538,7 +538,7 @@ export function AnalystHub({
 
             {activeTab === "slides" && (
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-3">
                   Slide Cards
                 </p>
                 <div className="space-y-3">
@@ -548,15 +548,15 @@ export function AnalystHub({
                     const body = section.replace(/^#{1,3}\s+.+\n?/, "").trim();
                     if (!body) return null;
                     return (
-                      <div key={i} className="rounded-xl border border-[#E8DFD1]/60 bg-[#FAF7F2]/30 p-4">
+                      <div key={i} className="rounded-xl border border-warm-200/60 bg-warm-100/30 p-4">
                         <h3
-                          className="text-[13px] font-semibold text-[#1A1815] mb-2"
+                          className="text-[13px] font-semibold text-warm-900 mb-2"
                           style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                         >
                           {title}
                         </h3>
                         <div
-                          className="text-[11px] text-[#5A5347] leading-relaxed"
+                          className="text-[11px] text-warm-700 leading-relaxed"
                           dangerouslySetInnerHTML={{ __html: simpleMarkdown(body.substring(0, 300)) }}
                         />
                       </div>
@@ -568,24 +568,24 @@ export function AnalystHub({
           </div>
 
           {/* Export bar */}
-          <div className="border-t border-[#E8DFD1] bg-[#FFFDF9] px-4 py-2.5 flex items-center gap-2">
+          <div className="border-t border-warm-200 bg-warm-50 px-4 py-2.5 flex items-center gap-2">
             {hasTable && (
               <button
                 onClick={handleExportCsv}
-                className="rounded-lg border border-[#E8DFD1] px-3 py-1.5 text-[11px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors"
+                className="rounded-lg border border-warm-200 px-3 py-1.5 text-[11px] font-medium text-warm-700 hover:border-terra/30 hover:text-terra transition-colors"
               >
                 Download CSV
               </button>
             )}
             <button
               onClick={handleExportReport}
-              className="rounded-lg border border-[#E8DFD1] px-3 py-1.5 text-[11px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors"
+              className="rounded-lg border border-warm-200 px-3 py-1.5 text-[11px] font-medium text-warm-700 hover:border-terra/30 hover:text-terra transition-colors"
             >
               Export
             </button>
             <button
               onClick={handleCopy}
-              className="rounded-lg border border-[#E8DFD1] px-3 py-1.5 text-[11px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors ml-auto"
+              className="rounded-lg border border-warm-200 px-3 py-1.5 text-[11px] font-medium text-warm-700 hover:border-terra/30 hover:text-terra transition-colors ml-auto"
             >
               Copy
             </button>

@@ -28,19 +28,19 @@ export default async function ProDistrictsPage() {
     <div className="mx-auto max-w-7xl px-6 py-10">
       {/* Terracotta label */}
       <div className="flex items-center gap-2 mb-4">
-        <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="h-px w-8 bg-terra/40" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-terra/60">
           District Intelligence
         </span>
       </div>
 
       <h1
-        className="text-[2rem] leading-[1.1] tracking-[-0.02em] text-[#1A1815]"
+        className="text-[2rem] leading-[1.1] tracking-[-0.02em] text-warm-900"
         style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
       >
         Federal Reserve Districts
       </h1>
-      <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-[#7A7062]">
+      <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-warm-600">
         Fee benchmarks, institutional coverage, and economic commentary across
         all 12 Federal Reserve districts. Data spans{" "}
         {stats.total_institutions.toLocaleString()} institutions and{" "}
@@ -61,15 +61,15 @@ export default async function ProDistrictsPage() {
             <Link
               key={m.district}
               href={`/pro/districts/${m.district}`}
-              className="group rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5 hover:shadow-md hover:border-[#D5CBBF] transition-all duration-200 no-underline"
+              className="group rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5 hover:shadow-md hover:border-warm-300 transition-all duration-200 no-underline"
             >
               {/* District header */}
               <div className="flex items-center gap-3 mb-4">
-                <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-[#FAF7F2] text-[12px] font-bold text-[#7A7062] tabular-nums">
+                <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-warm-100 text-[12px] font-bold text-warm-600 tabular-nums">
                   {m.district}
                 </span>
                 <h2
-                  className="text-[15px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors"
+                  className="text-[15px] font-semibold text-warm-900 group-hover:text-terra transition-colors"
                   style={{
                     fontFamily: "var(--font-newsreader), Georgia, serif",
                   }}
@@ -81,11 +81,11 @@ export default async function ProDistrictsPage() {
               {/* Metrics row */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500">
                     Institutions
                   </p>
                   <p
-                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    className="mt-0.5 text-lg font-light text-warm-900 tabular-nums"
                     style={{
                       fontFamily: "var(--font-newsreader), Georgia, serif",
                     }}
@@ -94,11 +94,11 @@ export default async function ProDistrictsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500">
                     Fees
                   </p>
                   <p
-                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    className="mt-0.5 text-lg font-light text-warm-900 tabular-nums"
                     style={{
                       fontFamily: "var(--font-newsreader), Georgia, serif",
                     }}
@@ -107,11 +107,11 @@ export default async function ProDistrictsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500">
                     Coverage
                   </p>
                   <p
-                    className="mt-0.5 text-lg font-light text-[#1A1815] tabular-nums"
+                    className="mt-0.5 text-lg font-light text-warm-900 tabular-nums"
                     style={{
                       fontFamily: "var(--font-newsreader), Georgia, serif",
                     }}
@@ -123,17 +123,17 @@ export default async function ProDistrictsPage() {
 
               {/* Beige Book headline */}
               {headline ? (
-                <div className="pt-3 border-t border-[#E8DFD1]/40">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-1">
+                <div className="pt-3 border-t border-warm-200/40">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-warm-500 mb-1">
                     Beige Book
                   </p>
-                  <p className="text-[11px] leading-relaxed text-[#7A7062] line-clamp-2">
+                  <p className="text-[11px] leading-relaxed text-warm-600 line-clamp-2">
                     {headline.text}
                   </p>
                 </div>
               ) : (
-                <div className="pt-3 border-t border-[#E8DFD1]/40">
-                  <p className="text-[11px] text-[#A09788] italic">
+                <div className="pt-3 border-t border-warm-200/40">
+                  <p className="text-[11px] text-warm-500 italic">
                     No Beige Book data available
                   </p>
                 </div>

@@ -29,7 +29,7 @@ function formatMetric(metric: HealthMetric, value: number | null): string {
     case "confidence_drift":
       return value.toFixed(3);
     case "cost_to_value_ratio":
-      return value.toFixed(2);
+      return `${value.toFixed(2)} $/val`;
   }
 }
 

@@ -12,17 +12,17 @@ vi.mock("./connection", () => {
 import { getFeeChangeEvents } from "./fee-changes";
 import { getSql } from "./connection";
 
-function makeMockSql(rows: unknown[] | Error) {
-  const mockSql = getSql() as ReturnType<typeof vi.fn>;
+type MockSql = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
+
+function makeMockSql(rows: unknown[] | Error): MockSql {
+  const mockSql = getSql() as unknown as MockSql;
   mockSql.mockReset();
 
   if (rows instanceof Error) {
     // unsafe() throws
-    const unsafeFn = vi.fn().mockRejectedValue(rows);
-    mockSql.unsafe = unsafeFn;
+    mockSql.unsafe = vi.fn().mockRejectedValue(rows);
   } else {
-    const unsafeFn = vi.fn().mockResolvedValue(rows);
-    mockSql.unsafe = unsafeFn;
+    mockSql.unsafe = vi.fn().mockResolvedValue(rows);
   }
 
   return mockSql;
@@ -100,7 +100,7 @@ describe("getFeeChangeEvents", () => {
 
     await getFeeChangeEvents({ charter_type: "bank" });
 
-    const mockSql = getSql() as ReturnType<typeof vi.fn>;
+    const mockSql = getSql() as unknown as MockSql;
     const unsafeCall = mockSql.unsafe.mock.calls[0];
     const query: string = unsafeCall[0];
     const params: unknown[] = unsafeCall[1];
@@ -114,7 +114,7 @@ describe("getFeeChangeEvents", () => {
 
     await getFeeChangeEvents({ fed_districts: [1, 2] });
 
-    const mockSql = getSql() as ReturnType<typeof vi.fn>;
+    const mockSql = getSql() as unknown as MockSql;
     const unsafeCall = mockSql.unsafe.mock.calls[0];
     const query: string = unsafeCall[0];
     const params: unknown[] = unsafeCall[1];
@@ -129,7 +129,7 @@ describe("getFeeChangeEvents", () => {
 
     await getFeeChangeEvents({ asset_tiers: ["community"] });
 
-    const mockSql = getSql() as ReturnType<typeof vi.fn>;
+    const mockSql = getSql() as unknown as MockSql;
     const unsafeCall = mockSql.unsafe.mock.calls[0];
     const query: string = unsafeCall[0];
     const params: unknown[] = unsafeCall[1];
@@ -143,7 +143,7 @@ describe("getFeeChangeEvents", () => {
 
     await getFeeChangeEvents({});
 
-    const mockSql = getSql() as ReturnType<typeof vi.fn>;
+    const mockSql = getSql() as unknown as MockSql;
     const unsafeCall = mockSql.unsafe.mock.calls[0];
     const query: string = unsafeCall[0];
 
@@ -156,7 +156,7 @@ describe("getFeeChangeEvents", () => {
 
     await getFeeChangeEvents({ limit: 999 });
 
-    const mockSql = getSql() as ReturnType<typeof vi.fn>;
+    const mockSql = getSql() as unknown as MockSql;
     const unsafeCall = mockSql.unsafe.mock.calls[0];
     const query: string = unsafeCall[0];
 
@@ -168,7 +168,7 @@ describe("getFeeChangeEvents", () => {
 
     await getFeeChangeEvents({});
 
-    const mockSql = getSql() as ReturnType<typeof vi.fn>;
+    const mockSql = getSql() as unknown as MockSql;
     const unsafeCall = mockSql.unsafe.mock.calls[0];
     const query: string = unsafeCall[0];
 

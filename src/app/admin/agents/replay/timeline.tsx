@@ -48,14 +48,12 @@ export function Timeline({ rows }: Props) {
     );
   }
 
-  // rows are already sorted by created_at ASC from the query, but sort defensively here
-  const sorted = [...rows].sort((a, b) =>
-    a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0,
-  );
+  // Rows arrive pre-sorted by created_at ASC from get_reasoning_trace() (see
+  // src/lib/crawler-db/agent-console-server.ts). Trust the query.
 
   return (
     <ol className="flex flex-col gap-2">
-      {sorted.map((row, i) => (
+      {rows.map((row, i) => (
         <li
           key={`${row.kind}-${row.row_id}-${i}`}
           data-testid="timeline-row"

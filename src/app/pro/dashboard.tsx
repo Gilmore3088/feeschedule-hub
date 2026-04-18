@@ -81,23 +81,23 @@ export async function ProDashboard({ user }: DashboardProps) {
       {/* Welcome */}
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1A1815] text-[16px] font-bold text-white shrink-0">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-warm-900 text-[16px] font-bold text-white shrink-0">
             {userInitial}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="h-px w-6 bg-[#C44B2E]/40" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+              <span className="h-px w-6 bg-terra/40" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-terra/60">
                 Pro Dashboard
               </span>
             </div>
             <h1
-              className="mt-1 text-[1.5rem] sm:text-[1.75rem] leading-[1.15] tracking-[-0.02em] text-[#1A1815]"
+              className="mt-1 text-[1.5rem] sm:text-[1.75rem] leading-[1.15] tracking-[-0.02em] text-warm-900"
               style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
             >
               {user.institution_name || "Welcome back"}
             </h1>
-            <p className="mt-1 text-[13px] text-[#7A7062]">
+            <p className="mt-1 text-[13px] text-warm-600">
               {stats.total_institutions.toLocaleString()} institutions &middot; {TAXONOMY_COUNT} fee categories &middot; Updated {lastUpdated}
               {stateName && <> &middot; {stateName}</>}
             </p>
@@ -119,12 +119,12 @@ export async function ProDashboard({ user }: DashboardProps) {
           <Link
             key={action.label}
             href={action.href}
-            className="group rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-3 py-3 text-center transition-all duration-300 hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline"
+            className="group rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm px-3 py-3 text-center transition-all duration-300 hover:border-terra/20 hover:shadow-md hover:shadow-terra/5 no-underline"
           >
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 mx-auto text-[#C44B2E]/60 group-hover:text-[#C44B2E] transition-colors" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 mx-auto text-terra/60 group-hover:text-terra transition-colors" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d={action.icon} />
             </svg>
-            <span className="block mt-1.5 text-[11px] font-medium text-[#5A5347] group-hover:text-[#C44B2E] transition-colors">
+            <span className="block mt-1.5 text-[11px] font-medium text-warm-700 group-hover:text-terra transition-colors">
               {action.label}
             </span>
           </Link>
@@ -134,55 +134,55 @@ export async function ProDashboard({ user }: DashboardProps) {
       {/* Row 1: research usage + recent conversations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
         {/* Usage */}
-        <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-4">
+        <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-4">
             AI Research Usage
           </p>
           <div className="space-y-3">
             <div className="flex justify-between text-[13px]">
-              <span className="text-[#7A7062]">Queries today</span>
-              <span className="font-medium tabular-nums text-[#1A1815]">{usage.today} / {dailyLimit}</span>
+              <span className="text-warm-600">Queries today</span>
+              <span className="font-medium tabular-nums text-warm-900">{usage.today} / {dailyLimit}</span>
             </div>
             <div className="flex justify-between text-[13px]">
-              <span className="text-[#7A7062]">This month</span>
-              <span className="font-medium tabular-nums text-[#1A1815]">{usage.month}</span>
+              <span className="text-warm-600">This month</span>
+              <span className="font-medium tabular-nums text-warm-900">{usage.month}</span>
             </div>
           </div>
           <Link
             href="/pro/research"
-            className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-[#C44B2E]/70 hover:text-[#C44B2E] transition-colors no-underline"
+            className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-terra/70 hover:text-terra transition-colors no-underline"
           >
             Open Analyst Hub &rarr;
           </Link>
         </div>
 
         {/* Recent conversations */}
-        <div className="lg:col-span-2 rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
+        <div className="lg:col-span-2 rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500">
               Recent Research
             </p>
-            <Link href="/pro/research" className="text-[11px] font-medium text-[#C44B2E]/70 hover:text-[#C44B2E] transition-colors no-underline">
+            <Link href="/pro/research" className="text-[11px] font-medium text-terra/70 hover:text-terra transition-colors no-underline">
               View all &rarr;
             </Link>
           </div>
           {recentConversations.length > 0 ? (
             <div className="space-y-2">
               {recentConversations.map((c) => (
-                <div key={c.id} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-[#FAF7F2] transition-colors">
-                  <span className="text-[13px] text-[#1A1815] truncate mr-4">
+                <div key={c.id} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-warm-100 transition-colors">
+                  <span className="text-[13px] text-warm-900 truncate mr-4">
                     {c.title || "Untitled conversation"}
                   </span>
-                  <span className="text-[11px] text-[#A09788] shrink-0 tabular-nums">
+                  <span className="text-[11px] text-warm-500 shrink-0 tabular-nums">
                     {timeAgo(c.updated_at)}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-[13px] text-[#7A7062] py-4 text-center">
+            <p className="text-[13px] text-warm-600 py-4 text-center">
               No research conversations yet.{" "}
-              <Link href="/pro/research" className="text-[#C44B2E] hover:underline">Start one</Link>
+              <Link href="/pro/research" className="text-terra hover:underline">Start one</Link>
             </p>
           )}
         </div>
@@ -191,27 +191,27 @@ export async function ProDashboard({ user }: DashboardProps) {
       {/* Row 2: spotlight fees + state comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* National spotlight */}
-        <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+        <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-warm-200/60 bg-warm-100/60 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500">
               National Fee Medians
             </span>
-            <Link href="/pro/market" className="text-[11px] font-medium text-[#C44B2E]/70 hover:text-[#C44B2E] transition-colors no-underline">
+            <Link href="/pro/market" className="text-[11px] font-medium text-terra/70 hover:text-terra transition-colors no-underline">
               Market Explorer &rarr;
             </Link>
           </div>
-          <div className="divide-y divide-[#E8DFD1]/40">
+          <div className="divide-y divide-warm-200/40">
             {spotlightEntries.map((entry) => (
               <Link
                 key={entry!.fee_category}
                 href={`/fees/${entry!.fee_category}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-[#FAF7F2]/60 transition-colors no-underline"
+                className="flex items-center justify-between px-5 py-3 hover:bg-warm-100/60 transition-colors no-underline"
               >
-                <span className="text-[13px] text-[#1A1815] font-medium">
+                <span className="text-[13px] text-warm-900 font-medium">
                   {getDisplayName(entry!.fee_category)}
                 </span>
                 <span
-                  className="text-[16px] font-light tabular-nums text-[#1A1815]"
+                  className="text-[16px] font-light tabular-nums text-warm-900"
                   style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                 >
                   {formatAmount(entry!.median_amount)}
@@ -223,28 +223,28 @@ export async function ProDashboard({ user }: DashboardProps) {
 
         {/* State comparison */}
         {stateComparison.length > 0 ? (
-          <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+          <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-warm-200/60 bg-warm-100/60 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500">
                 {stateName} vs National
               </span>
-              <Link href={`/research/state/${user.state_code}`} className="text-[11px] font-medium text-[#C44B2E]/70 hover:text-[#C44B2E] transition-colors no-underline">
+              <Link href={`/research/state/${user.state_code}`} className="text-[11px] font-medium text-terra/70 hover:text-terra transition-colors no-underline">
                 State report &rarr;
               </Link>
             </div>
-            <div className="divide-y divide-[#E8DFD1]/40">
+            <div className="divide-y divide-warm-200/40">
               {stateComparison.map((row) => (
                 <div key={row.category} className="flex items-center justify-between px-5 py-3">
-                  <span className="text-[13px] text-[#1A1815]">
+                  <span className="text-[13px] text-warm-900">
                     {getDisplayName(row.category)}
                   </span>
                   <div className="flex items-center gap-3">
-                    <span className="text-[13px] tabular-nums text-[#5A5347]">
+                    <span className="text-[13px] tabular-nums text-warm-700">
                       {formatAmount(row.stateMedian)}
                     </span>
                     <span
                       className={`text-[11px] font-semibold tabular-nums ${
-                        row.delta > 2 ? "text-red-500" : row.delta < -2 ? "text-emerald-600" : "text-[#A09788]"
+                        row.delta > 2 ? "text-red-500" : row.delta < -2 ? "text-emerald-600" : "text-warm-500"
                       }`}
                     >
                       {row.delta > 0 ? "+" : ""}{row.delta.toFixed(0)}%
@@ -255,10 +255,10 @@ export async function ProDashboard({ user }: DashboardProps) {
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-6 flex flex-col items-center justify-center text-center">
-            <p className="text-[13px] text-[#7A7062]">
+          <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-6 flex flex-col items-center justify-center text-center">
+            <p className="text-[13px] text-warm-600">
               Add your state in{" "}
-              <Link href="/account" className="text-[#C44B2E] hover:underline">Account Settings</Link>{" "}
+              <Link href="/account" className="text-terra hover:underline">Account Settings</Link>{" "}
               to see state-level comparisons.
             </p>
           </div>

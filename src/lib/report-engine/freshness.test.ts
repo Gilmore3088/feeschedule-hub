@@ -39,7 +39,7 @@ function makeQueryResult(medianAge: number | null) {
 /** Re-import getSql after mocking. */
 async function getMockSql() {
   const { getSql } = await import('@/lib/crawler-db/connection');
-  return getSql() as ReturnType<typeof vi.fn>;
+  return getSql() as unknown as ReturnType<typeof vi.fn>;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────

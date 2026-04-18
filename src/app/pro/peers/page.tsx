@@ -159,23 +159,23 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
   );
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7]">
+    <div className="min-h-screen bg-warm-50">
       {/* Header */}
-      <div className="border-b border-[#E8DFD1] bg-[#FFFDF9]">
+      <div className="border-b border-warm-200 bg-warm-50">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 mb-3">
-            <div className="h-px w-6 bg-[#C44B2E]" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#C44B2E]">
+            <div className="h-px w-6 bg-terra" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-terra">
               Peer Builder
             </span>
           </div>
           <h1
-            className="text-3xl font-bold tracking-tight text-[#1A1815]"
+            className="text-3xl font-bold tracking-tight text-warm-900"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
             Peer Benchmarking
           </h1>
-          <p className="mt-2 text-sm text-[#7A7265] max-w-2xl">
+          <p className="mt-2 text-sm text-warm-600 max-w-2xl">
             Build custom peer groups by charter type, asset tier, and Federal
             Reserve district. Compare median fee levels against national
             benchmarks to identify competitive positioning.
@@ -185,7 +185,7 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
               href={`/pro/brief${filterSuffix}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-[#E8DFD1] bg-white px-4 py-2 text-[12px] font-semibold text-[#5A5347] hover:border-[#C44B2E]/40 hover:text-[#C44B2E] transition-colors no-underline"
+              className="inline-flex items-center gap-2 rounded-lg border border-warm-200 bg-white px-4 py-2 text-[12px] font-semibold text-warm-700 hover:border-terra/40 hover:text-terra transition-colors no-underline"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -199,27 +199,27 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
+          <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-warm-500">
               Peer Institutions
             </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-[#1A1815]">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-warm-900">
               {totalPeerInstitutions.toLocaleString()}
             </p>
           </div>
-          <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
+          <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-warm-500">
               Total Observations
             </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-[#1A1815]">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-warm-900">
               {totalPeerObservations.toLocaleString()}
             </p>
           </div>
-          <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
+          <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-warm-500">
               Active Filters
             </p>
-            <p className="mt-1 text-sm font-medium text-[#5A5347] leading-relaxed">
+            <p className="mt-1 text-sm font-medium text-warm-700 leading-relaxed">
               {filterDescription}
             </p>
           </div>
@@ -234,10 +234,10 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
         />
 
         {/* Filter Controls */}
-        <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5 space-y-4">
+        <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm p-5 space-y-4">
           {/* Charter */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-warm-500 mb-2">
               Charter Type
             </p>
             <div className="flex flex-wrap gap-2">
@@ -253,8 +253,8 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
                     href={buildUrl(opt.value, tiers, districts)}
                     className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                       active
-                        ? "bg-[#C44B2E] text-white border-[#C44B2E]"
-                        : "bg-white text-[#5A5347] border-[#E8DFD1] hover:border-[#C44B2E]/40 hover:text-[#C44B2E]"
+                        ? "bg-terra text-white border-terra"
+                        : "bg-white text-warm-700 border-warm-200 hover:border-terra/40 hover:text-terra"
                     }`}
                   >
                     {opt.label}
@@ -266,7 +266,7 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
 
           {/* Tier */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-warm-500 mb-2">
               Asset Tier
             </p>
             <div className="flex flex-wrap gap-2">
@@ -279,8 +279,8 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
                     href={buildUrl(charter, nextTiers, districts)}
                     className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                       active
-                        ? "bg-[#C44B2E] text-white border-[#C44B2E]"
-                        : "bg-white text-[#5A5347] border-[#E8DFD1] hover:border-[#C44B2E]/40 hover:text-[#C44B2E]"
+                        ? "bg-terra text-white border-terra"
+                        : "bg-white text-warm-700 border-warm-200 hover:border-terra/40 hover:text-terra"
                     }`}
                   >
                     {FDIC_TIER_LABELS[tierKey]}
@@ -292,7 +292,7 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
 
           {/* District */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-warm-500 mb-2">
               Fed District
             </p>
             <div className="flex flex-wrap gap-2">
@@ -307,8 +307,8 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
                     href={buildUrl(charter, tiers, nextDistricts)}
                     className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                       active
-                        ? "bg-[#C44B2E] text-white border-[#C44B2E]"
-                        : "bg-white text-[#5A5347] border-[#E8DFD1] hover:border-[#C44B2E]/40 hover:text-[#C44B2E]"
+                        ? "bg-terra text-white border-terra"
+                        : "bg-white text-warm-700 border-warm-200 hover:border-terra/40 hover:text-terra"
                     }`}
                   >
                     {d} - {DISTRICT_NAMES[d]}
@@ -323,7 +323,7 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
             <div className="pt-1">
               <Link
                 href="/pro/peers"
-                className="text-xs font-medium text-[#C44B2E] hover:text-[#A33D24] transition-colors"
+                className="text-xs font-medium text-terra hover:text-terra-dark transition-colors"
               >
                 Clear all filters
               </Link>
@@ -332,15 +332,15 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
         </div>
 
         {/* Peer Index Table */}
-        <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#E8DFD1]/60">
+        <div className="rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-warm-200/60">
             <h2
-              className="text-lg font-bold tracking-tight text-[#1A1815]"
+              className="text-lg font-bold tracking-tight text-warm-900"
               style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
             >
               {hasFilters ? "Peer Fee Index" : "National Fee Index"}
             </h2>
-            <p className="text-[11px] text-[#A09788] mt-0.5">
+            <p className="text-[11px] text-warm-500 mt-0.5">
               {tableRows.length} fee categories with data
             </p>
           </div>
@@ -348,20 +348,20 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/80">
-                  <th className="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+                <tr className="border-b border-warm-200/60 bg-warm-100/80">
+                  <th className="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-warm-500">
                     Fee Category
                   </th>
-                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-warm-500">
                     Peer Median
                   </th>
-                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-warm-500">
                     National Median
                   </th>
-                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-warm-500">
                     Delta
                   </th>
-                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+                  <th className="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-warm-500">
                     Peer Count
                   </th>
                 </tr>
@@ -374,31 +374,31 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
                   return (
                     <tr
                       key={row.category}
-                      className={`border-b border-[#E8DFD1]/30 hover:bg-[#FAF7F2]/60 transition-colors ${
-                        showDivider ? "border-t-2 border-t-[#E8DFD1]/60" : ""
+                      className={`border-b border-warm-200/30 hover:bg-warm-100/60 transition-colors ${
+                        showDivider ? "border-t-2 border-t-warm-200/60" : ""
                       }`}
                     >
                       <td className="px-5 py-2.5">
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/fees/${row.category}${filterSuffix}`}
-                            className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
+                            className="font-medium text-warm-900 hover:text-terra transition-colors"
                           >
                             {getDisplayName(row.category)}
                           </Link>
                           {!row.featured && (
-                            <span className="text-[9px] font-semibold uppercase tracking-wider text-[#C4B9A8]">
+                            <span className="text-[9px] font-semibold uppercase tracking-wider text-warm-400">
                               extended
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-5 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                      <td className="px-5 py-2.5 text-right tabular-nums font-medium text-warm-900">
                         {row.peerMedian !== null
                           ? formatAmount(row.peerMedian)
                           : "---"}
                       </td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-[#7A7265]">
+                      <td className="px-5 py-2.5 text-right tabular-nums text-warm-600">
                         {row.nationalMedian !== null
                           ? formatAmount(row.nationalMedian)
                           : "---"}
@@ -411,17 +411,17 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
                                 ? "bg-emerald-50 text-emerald-700"
                                 : row.deltaPct > 0.5
                                   ? "bg-red-50 text-red-700"
-                                  : "bg-[#F5F0E8] text-[#7A7265]"
+                                  : "bg-warm-150 text-warm-600"
                             }`}
                           >
                             {row.deltaPct > 0 ? "+" : ""}
                             {row.deltaPct.toFixed(1)}%
                           </span>
                         ) : (
-                          <span className="text-[#C4B9A8]">---</span>
+                          <span className="text-warm-400">---</span>
                         )}
                       </td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-[#7A7265]">
+                      <td className="px-5 py-2.5 text-right tabular-nums text-warm-600">
                         {row.peerCount.toLocaleString()}
                       </td>
                     </tr>
@@ -431,7 +431,7 @@ export default async function ProPeersPage({ searchParams }: PageProps) {
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-5 py-12 text-center text-[#A09788]"
+                      className="px-5 py-12 text-center text-warm-500"
                     >
                       No fee data available for the selected filters. Try
                       broadening your peer group criteria.
