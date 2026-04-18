@@ -36,6 +36,27 @@ function formatDate(isoString: string): string {
   });
 }
 
+function formatRelative(isoString: string): string {
+  const ms = Date.now() - new Date(isoString).getTime();
+  const days = Math.floor(ms / 86_400_000);
+  if (days < 1) return "today";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+/** Pull a 1-2 sentence preview from the report JSON for card display. */
+function getCardSnippet(json: ReportSummaryResponse): string {
+  if (json.executiveSummary?.length) {
+    return json.executiveSummary[0].replace(/\*\*/g, "").trim();
+  }
+  if (json.strategicRationale) {
+    return json.strategicRationale.replace(/\*\*/g, "").trim().split(". ")[0] + ".";
+  }
+  return "";
+}
+
 export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
@@ -96,17 +117,29 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
 
   return (
     <section className="mb-16">
-      {/* Section header */}
-      <div className="mb-8">
-        <h2 className="font-headline text-3xl italic text-on-surface mb-1">
-          Published Reports
-        </h2>
-        <p
-          className="text-xs"
-          style={{ color: "var(--hamilton-secondary)" }}
-        >
-          Curated Hamilton intelligence publications
-        </p>
+      {/* Section header — "View full archive" link moved here from the
+          generator section (audit M-1). It belongs with the library. */}
+      <div className="mb-8 flex items-end justify-between gap-4">
+        <div>
+          <h2 className="font-headline text-3xl italic text-on-surface mb-1">
+            Published Reports
+          </h2>
+          <p
+            className="text-xs"
+            style={{ color: "var(--hamilton-secondary)" }}
+          >
+            Curated Hamilton intelligence publications
+          </p>
+        </div>
+        {reports.length > 0 && (
+          <button
+            type="button"
+            className="text-xs underline cursor-pointer hover:opacity-70 transition-opacity shrink-0"
+            style={{ color: "var(--hamilton-secondary)" }}
+          >
+            View full archive
+          </button>
+        )}
       </div>
 
       {/* Report card grid */}
@@ -115,34 +148,61 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
           const typeLabel =
             REPORT_TYPE_LABELS[report.report_type] ?? report.report_type;
           const isDownloading = downloadingId === report.id;
+          const snippet = getCardSnippet(report.report_json);
+          const snapshotCount = report.report_json.snapshot?.length ?? 0;
 
           return (
             <article
               key={report.id}
-              className="bg-surface-container-lowest p-6 editorial-shadow hover:shadow-md transition-shadow"
+              className="bg-surface-container-lowest p-6 editorial-shadow hover:shadow-md transition-shadow flex flex-col"
             >
-              {/* Report type badge */}
-              <span
-                className="block text-[10px] uppercase tracking-[0.2em] mb-3 font-semibold text-primary"
-              >
-                {typeLabel}
-              </span>
+              {/* Top row: report type badge + relative time (audit H-2) */}
+              <div className="flex items-baseline justify-between mb-3 gap-3">
+                <span
+                  className="text-[10px] uppercase tracking-[0.2em] font-semibold text-primary"
+                >
+                  {typeLabel}
+                </span>
+                <span
+                  className="text-[10px] tabular-nums shrink-0"
+                  style={{ color: "var(--hamilton-secondary)" }}
+                  title={formatDate(report.created_at)}
+                >
+                  {formatRelative(report.created_at)}
+                </span>
+              </div>
 
               {/* Title */}
               <h3 className="font-headline text-xl italic text-on-surface mb-3 leading-tight">
                 {report.title}
               </h3>
 
-              {/* Date */}
-              <p
-                className="text-xs mb-6"
+              {/* Snippet (audit H-3) — first sentence of executive summary */}
+              {snippet && (
+                <p
+                  className="text-sm leading-relaxed mb-4 line-clamp-2"
+                  style={{ color: "var(--hamilton-secondary)" }}
+                >
+                  {snippet}
+                </p>
+              )}
+
+              {/* Metadata row — snapshot count (peer rows covered) + full date */}
+              <div
+                className="flex items-center gap-3 mb-5 text-[11px] tabular-nums"
                 style={{ color: "var(--hamilton-secondary)" }}
               >
-                {formatDate(report.created_at)}
-              </p>
+                {snapshotCount > 0 && (
+                  <span>
+                    {snapshotCount} fee {snapshotCount === 1 ? "category" : "categories"}
+                  </span>
+                )}
+                {snapshotCount > 0 && <span aria-hidden="true">·</span>}
+                <span>{formatDate(report.created_at)}</span>
+              </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-6">
+              {/* Action buttons — pinned to bottom for consistent card heights */}
+              <div className="flex items-center gap-6 mt-auto">
                 <button
                   type="button"
                   onClick={() => onViewReport(report.report_json, report.report_type)}
@@ -155,16 +215,17 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
                   type="button"
                   onClick={() => handleDownloadPdf(report)}
                   disabled={isDownloading}
-                  className="flex items-center gap-1 text-xs uppercase tracking-widest transition-opacity hover:opacity-70"
+                  className="flex items-center gap-1.5 text-xs uppercase tracking-widest transition-opacity hover:opacity-70"
                   style={{
                     color: "var(--hamilton-secondary)",
                     opacity: isDownloading ? 0.5 : 1,
                   }}
+                  aria-label={isDownloading ? "Preparing PDF" : "Download PDF"}
                 >
-                  <span className="material-symbols-outlined text-[14px]">
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                     download
                   </span>
-                  {isDownloading ? "Preparing..." : "Download PDF"}
+                  <span>{isDownloading ? "Preparing..." : "PDF"}</span>
                 </button>
               </div>
             </article>

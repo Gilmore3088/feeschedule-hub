@@ -32,18 +32,19 @@ export function TemplateCard({
         outline: "none",
       }}
     >
-      {/* Icon */}
-      <div className="mb-8">
-        <span
-          className="material-symbols-outlined text-4xl"
-          style={{ color: "var(--hamilton-primary)" }}
-        >
-          {icon}
-        </span>
-      </div>
+      {/* Icon — small, top-right corner. Title + description are the primary
+          scan layer (audit M-3). The icon is decorative; title is what bankers
+          read to choose a template. */}
+      <span
+        className="material-symbols-outlined text-[20px] absolute top-6 right-6 opacity-60"
+        style={{ color: "var(--hamilton-primary)" }}
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
 
       {/* Title */}
-      <h3 className="font-headline text-2xl italic mb-3">{title}</h3>
+      <h3 className="font-headline text-2xl italic mb-3 pr-10">{title}</h3>
 
       {/* Description */}
       <p
@@ -54,7 +55,7 @@ export function TemplateCard({
       </p>
 
       {/* Tag chips */}
-      <div className="flex items-center gap-4 mt-auto flex-wrap">
+      <div className="flex items-center gap-3 mt-auto flex-wrap">
         {tags.map((tag) => (
           <span
             key={tag}

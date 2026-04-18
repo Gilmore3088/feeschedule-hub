@@ -22,18 +22,13 @@ export default function HamiltonLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Material Symbols stylesheet hoisted to root app/layout.tsx (was here, but
+  // Next.js 16 streaming emitted it after the body painted, breaking icons on
+  // first render — see audit C-1 2026-04-17).
   return (
-    <>
-      {/* Material Symbols for Hamilton editorial icons */}
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-      <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet"
-      />
-      <Suspense fallback={null}>
-        <HamiltonLayoutInner>{children}</HamiltonLayoutInner>
-      </Suspense>
-    </>
+    <Suspense fallback={null}>
+      <HamiltonLayoutInner>{children}</HamiltonLayoutInner>
+    </Suspense>
   );
 }
 

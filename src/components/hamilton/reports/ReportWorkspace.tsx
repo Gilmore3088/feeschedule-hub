@@ -215,18 +215,6 @@ export function ReportWorkspace({
         </p>
       </header>
 
-      {/* Published Reports Library — PRIMARY view at top of page (D-01) */}
-      <ReportLibrary
-        reports={publishedReports}
-        onViewReport={handleViewPublishedReport}
-      />
-
-      {/* Visual separator between library and generator */}
-      <div
-        className="mt-16 mb-12"
-        style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
-      />
-
       {/* Error banner */}
       {error && (
         <div
@@ -241,22 +229,19 @@ export function ReportWorkspace({
         </div>
       )}
 
+      {/* Generate New Report — primary workflow above the fold (audit H-1).
+          Page is named "Report Builder" — the build affordance must be the
+          dominant action. Published library appears below as recent-history. */}
       <div className="grid grid-cols-12 gap-12 items-start">
         {/* Left: Template Gallery + Preview */}
         <section className="col-span-12 lg:col-span-8">
           {/* Section label — "Generate New Report" per D-02 */}
-          <div className="mb-6 flex justify-between items-end">
+          <div className="mb-6">
             <h2
               className="font-sans text-[10px] uppercase tracking-[0.2em] text-primary"
             >
               Generate New Report
             </h2>
-            <span
-              className="text-xs font-sans underline cursor-pointer"
-              style={{ color: "var(--hamilton-secondary)" }}
-            >
-              View full archive
-            </span>
           </div>
 
           {/* 2×2 template card grid */}
@@ -407,6 +392,19 @@ export function ReportWorkspace({
           onGenerate={handleGenerate}
         />
       </div>
+
+      {/* Visual separator between generator and library */}
+      <div
+        className="mt-20 mb-12"
+        style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
+      />
+
+      {/* Published Reports library — recent-history reference, below the
+          generator (audit H-1 reordering). */}
+      <ReportLibrary
+        reports={publishedReports}
+        onViewReport={handleViewPublishedReport}
+      />
     </div>
   );
 }

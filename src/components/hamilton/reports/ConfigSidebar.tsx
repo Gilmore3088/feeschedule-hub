@@ -51,10 +51,11 @@ export function ConfigSidebar({
         <div className="mb-10">
           <h2 className="font-headline text-3xl italic mb-1">Configuration</h2>
           <p
-            className="text-xs tracking-wide"
+            className="text-xs tracking-wide leading-relaxed"
             style={{ color: "var(--hamilton-secondary)" }}
           >
-            Adjust parameters to refine narrative output.
+            Tone, focus area, peer set, and time period. Defaults inherit from
+            your institution profile — change here to scope a single report.
           </p>
         </div>
 

@@ -383,12 +383,16 @@ export async function getPublishedReports(): Promise<Array<{
   created_at: string;
   report_json: ReportSummaryResponse;
 }>> {
+  // Filter rows whose title is empty/whitespace — these are seed fixtures
+  // with no real content (audit H-2 2026-04-17). Showing them produces 4
+  // identical-date cards with no titles, which destroys trust.
   const rows = await sql`
     SELECT id, report_type, created_at,
            report_json->>'title' AS title,
            report_json
     FROM hamilton_reports
     WHERE status = 'published'
+      AND coalesce(nullif(trim(report_json->>'title'), ''), '') != ''
     ORDER BY created_at DESC
     LIMIT 20
   `;
