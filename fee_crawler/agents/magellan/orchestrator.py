@@ -96,8 +96,7 @@ async def select_candidates(conn: asyncpg.Connection, limit: int) -> list[_Targe
           FROM crawl_targets ct
          WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url != ''
            AND (
-                ct.rescue_status IS NULL
-             OR ct.rescue_status = 'pending'
+                ct.rescue_status = 'pending'
              OR (ct.rescue_status = 'retry_after'
                  AND (ct.last_rescue_attempt_at IS NULL
                       OR ct.last_rescue_attempt_at < NOW() - INTERVAL '{cfg.retry_after_days} days'))

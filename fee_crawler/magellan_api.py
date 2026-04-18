@@ -91,7 +91,7 @@ async def _collect_status() -> dict:
     try:
         pending = await conn.fetchval(
             "SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL "
-            "AND fee_schedule_url != '' AND (rescue_status IN ('pending','retry_after') OR rescue_status IS NULL)"
+            "AND fee_schedule_url != '' AND rescue_status IN ('pending','retry_after')"
         ) or 0
         rescued = await conn.fetchval(
             "SELECT COUNT(*) FROM crawl_targets WHERE rescue_status = 'rescued'"
