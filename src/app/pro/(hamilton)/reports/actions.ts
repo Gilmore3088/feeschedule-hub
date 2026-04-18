@@ -50,21 +50,44 @@ const TEMPLATE_TITLES: Record<ReportTemplateType, string> = {
  * Build context string for the executive summary section by template type.
  * Each template type uses a different analytical lens.
  */
+/**
+ * Shared no-fluff rules. Same banned phrases + grounding requirements as
+ * RECOMMENDATION_RULES. The model can be funny in its choice of how to
+ * express things — but it cannot be vague, can't invent numbers, and can't
+ * reach for consultancy-speak when it has nothing to say.
+ */
+const NO_FLUFF_RULES = `
+HARD RULES — failing any means rewriting the section:
+1. Cite a specific dollar value, percentile, or fee category from the DATA payload at least twice. If the data is too thin to support that, write a SHORTER section that says what's actually known.
+2. NEVER cite a percentage, dollar amount, growth rate, or institution count not present in the DATA payload. No "industry studies show", "research indicates", "12-18%", or similar inventions.
+3. Banned phrases (corporate-speak with no specific meaning): "strategic void", "must establish leadership", "deploying systematic intelligence", "data-sophisticated rivals", "revenue leakage", "willingness-to-pay", "dual strategy", "create sustainable competitive advantage", "market intelligence superiority", "precision pricing", "competitive positioning superiority". Do not use these even ironically.
+4. Plain banker English. Short sentences. Active voice. When you name a number, say what it's a number OF.
+5. If you are tempted to write a sentence that could appear unchanged in any other bank's report, delete it.
+`.trim();
+
 function buildExecutiveSummaryContext(
   params: GenerateReportParams,
   institutionName: string,
   period: string
 ): string {
-  switch (params.templateType) {
-    case "peer_benchmarking":
-      return `Compare ${institutionName}'s fees to their configured peer set. Highlight categories where they are significantly above or below peer median. Use exact dollar figures from the data. Period: ${period}.`;
-    case "regional_landscape":
-      return `Analyze regional fee patterns across Federal Reserve districts for ${institutionName}. Identify geographic pricing trends and market positioning. Period: ${period}.`;
-    case "category_deep_dive":
-      return `Deep dive into ${params.focusCategory ? params.focusCategory.replace(/_/g, " ") : "key fee categories"} for ${institutionName}. Analyze current positioning, distribution across institutions, and competitive landscape. Include p25/p75 spread context. Period: ${period}.`;
-    case "competitive_positioning":
-      return `Assess competitive fee positioning across key categories for ${institutionName}. Identify where the institution has pricing power versus vulnerability relative to the market. Period: ${period}.`;
-  }
+  const head = (() => {
+    switch (params.templateType) {
+      case "peer_benchmarking":
+        return `Compare ${institutionName}'s fees to peers using the categories in the DATA payload. Lead with the 1–2 categories where the gap is largest (above or below peer median). Cite dollar figures from the payload. Period: ${period}.`;
+      case "regional_landscape":
+        return `Describe the regional fee pattern visible in the DATA payload. Lead with the single most striking geographic difference (e.g. "FL CU NSF median is \$28; national CU median is \$26"). Period: ${period}.`;
+      case "category_deep_dive": {
+        const cat = params.focusCategory
+          ? params.focusCategory.replace(/_/g, " ")
+          : "the focus category";
+        return `Summarize the ${cat} distribution at ${institutionName}'s peer set. Lead with the median, the P25–P75 spread, and the number of institutions observed. Period: ${period}.`;
+      }
+      case "competitive_positioning":
+        return `Assess competitive position across the categories in the DATA payload. Lead with the 1–2 categories where ${institutionName} is most exposed (highest variance from peer median). Period: ${period}.`;
+    }
+  })();
+
+  return `${head}\n\n${NO_FLUFF_RULES}`;
 }
 
 /**
@@ -74,32 +97,38 @@ function buildStrategicContext(
   params: GenerateReportParams,
   institutionName: string
 ): string {
-  switch (params.templateType) {
-    case "peer_benchmarking":
-      return `Peer comparison strategic rationale for ${institutionName}. Focus on categories where adjustment would align with peer positioning. Use the peer_comparison lens.`;
-    case "regional_landscape":
-      return `Regional analysis for ${institutionName}. Highlight which regions present opportunities or competitive pressure based on district-level fee data.`;
-    case "category_deep_dive":
-      return `Trend analysis for ${params.focusCategory ? params.focusCategory.replace(/_/g, " ") : "the focus category"} at ${institutionName}. Analyze distribution patterns and maturity of data coverage.`;
-    case "competitive_positioning":
-      return `Competitive intelligence for ${institutionName}. Map competitive advantages and blind spots across the fee schedule.`;
-  }
+  const head = (() => {
+    switch (params.templateType) {
+      case "peer_benchmarking":
+        return `Explain WHY the peer gaps in the DATA payload exist for ${institutionName}. For each category in top_fees, cite the peer median + spread, then offer one observation about the gap (e.g. "P25 cluster at \$20 suggests overdraft-fee compression among CUs under \$5B"). Stop after 3 such observations.`;
+      case "regional_landscape":
+        return `Explain WHY the regional pattern in the DATA payload looks the way it does. Anchor each observation to a specific region or fee category from the payload. Stop after 3 observations.`;
+      case "category_deep_dive": {
+        const cat = params.focusCategory
+          ? params.focusCategory.replace(/_/g, " ")
+          : "the focus category";
+        return `Explain WHY the ${cat} distribution looks the way it does for ${institutionName}'s peer set. Use the maturity field to flag where the sample is thin. Stop after 3 observations.`;
+      }
+      case "competitive_positioning":
+        return `Explain WHY ${institutionName} sits where it does on the categories in top_fees. For each, cite the peer P25/median/P75 and identify whether it has pricing power, parity, or vulnerability. Stop after 3 categories.`;
+    }
+  })();
+
+  return `${head}\n\n${NO_FLUFF_RULES}`;
 }
 
 /**
- * Build context string for the recommendation section by template type.
- *
- * Hard rules across all templates — these prevent the consultancy-fluff
- * default mode (the "Space Coast FCU faces a strategic void in fee
- * benchmarking" failure case from 2026-04-17 user report).
+ * Recommendation-specific rules (layered on top of NO_FLUFF_RULES).
+ * Recommendations have stricter shape requirements than the descriptive
+ * sections (Executive Summary, Strategic Analysis).
  */
 const RECOMMENDATION_RULES = `
-HARD RULES — failing any of these means rewriting the section:
-1. Output AT MOST 3 recommendations. Each must name a specific fee category from the DATA payload (e.g. "monthly_maintenance", "overdraft", "nsf"). Generic advice about "establishing leadership" or "building frameworks" is forbidden.
-2. Each recommendation must include: (a) the fee category, (b) the peer median or P25/P75 anchor it should move toward, (c) one observable consequence (revenue direction, competitive percentile shift, or member-experience signal). If you cannot ground a recommendation in the DATA payload, omit it.
-3. NEVER cite a percentage, dollar amount, or growth rate that is not in the DATA payload. No "12-18% higher revenue" inventions. No "industry studies show" appeals.
-4. NEVER use these phrases: "strategic void", "must establish leadership", "deploying systematic intelligence", "data-sophisticated rivals", "revenue leakage", "willingness-to-pay", "dual strategy", "create sustainable competitive advantage". They are corporate-speak with no specific meaning.
-5. Use plain banker English. Short sentences. Active voice. Name the fee. Name the action.
+${NO_FLUFF_RULES}
+
+RECOMMENDATION-SPECIFIC RULES:
+6. Output AT MOST 3 recommendations. Generic advice about "establishing leadership" or "building frameworks" is forbidden.
+7. Each recommendation must include: (a) the fee category, (b) the peer median or P25/P75 anchor it should move toward, (c) one observable consequence (revenue direction, competitive percentile shift, or member-experience signal). If you cannot ground a recommendation in the DATA payload, omit it.
+8. If you can ground 0 or 1 recommendations, return only that many. Better empty than meaningless.
 `.trim();
 
 function buildRecommendationContext(
