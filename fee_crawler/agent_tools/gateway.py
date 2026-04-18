@@ -18,8 +18,10 @@ SEC-04 (Phase 68) adds JWT-based agent_name verification without changing call s
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import logging
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
@@ -33,6 +35,47 @@ from fee_crawler.agent_tools.budget import (
 )
 from fee_crawler.agent_tools.context import get_agent_context
 from fee_crawler.agent_tools.pool import get_pool
+
+log = logging.getLogger(__name__)
+
+REASONING_INLINE_LIMIT = 8000  # bytes; payloads larger than this go to R2
+
+
+async def _upload_reasoning_to_r2(key: str, prompt: str, output: str) -> None:
+    """Upload reasoning payload to R2 as JSON. Wraps the sync boto3 client."""
+    from fee_crawler.pipeline.r2_store import _get_client as _r2_client
+
+    import os
+
+    payload = json.dumps({"prompt": prompt, "output": output}).encode("utf-8")
+    bucket = os.environ["R2_BUCKET"]
+
+    def _sync():
+        client = _r2_client()
+        client.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=payload,
+            ContentType="application/json",
+        )
+
+    await asyncio.to_thread(_sync)
+
+
+async def _fetch_reasoning_from_r2(key: str) -> dict:
+    """Download reasoning payload from R2. Wraps the sync boto3 client."""
+    from fee_crawler.pipeline.r2_store import _get_client as _r2_client
+
+    import os
+
+    bucket = os.environ["R2_BUCKET"]
+
+    def _sync():
+        client = _r2_client()
+        resp = client.get_object(Bucket=bucket, Key=key)
+        return json.loads(resp["Body"].read())
+
+    return await asyncio.to_thread(_sync)
 
 MAX_PAYLOAD_BYTES = 64 * 1024  # 64KB per D-12
 
@@ -168,19 +211,53 @@ async def with_agent_tool(
             # 2. Check budget (writes budget_halt event + raises on breach).
             await check_budget(conn, agent_name, projected_cost_cents)
 
+            # 2b. Determine inline vs R2 storage for reasoning text.
+            # We need the event_id first (from RETURNING) to build the R2 key,
+            # so we stage the values, insert with a placeholder event_id, then
+            # handle R2 after. To keep the transaction intact we instead pre-generate
+            # the event_id here and supply it as a literal in the INSERT.
+            pre_event_id = str(uuid.uuid4())
+            prompt_size = len(reasoning_prompt or "")
+            output_size = len(reasoning_output or "")
+            r2_key: Optional[str] = None
+            inline_prompt: Optional[str] = reasoning_prompt
+            inline_output: Optional[str] = reasoning_output
+
+            if prompt_size + output_size > REASONING_INLINE_LIMIT:
+                try:
+                    r2_key = f"reasoning/{pre_event_id}.json"
+                    await _upload_reasoning_to_r2(r2_key, reasoning_prompt or "", reasoning_output or "")
+                    inline_prompt = None
+                    inline_output = None
+                except Exception as exc:
+                    log.warning(
+                        "R2 upload failed for event %s — falling back to truncated inline: %s",
+                        pre_event_id, exc,
+                    )
+                    r2_key = None
+                    half = REASONING_INLINE_LIMIT // 2
+                    inline_prompt = (reasoning_prompt or "")[:half]
+                    inline_output = (reasoning_output or "")[:half]
+
             # 3. Insert pending agent_events row.
             event_id = await conn.fetchval(
                 """INSERT INTO agent_events
-                     (agent_name, action, tool_name, entity, entity_id, status,
-                      parent_event_id, correlation_id, reasoning_hash, input_payload)
-                   VALUES ($1, $2, $3, $4, $5, 'pending',
-                           $6::UUID, $7::UUID, $8, $9::JSONB)
+                     (event_id, agent_name, action, tool_name, entity, entity_id, status,
+                      parent_event_id, correlation_id, reasoning_hash, input_payload,
+                      reasoning_prompt_text, reasoning_output_text, reasoning_r2_key)
+                   VALUES ($1::UUID, $2, $3, $4, $5, $6, 'pending',
+                           $7::UUID, $8::UUID, $9, $10::JSONB,
+                           $11, $12, $13)
                    RETURNING event_id""",
+                pre_event_id,
                 agent_name, action, tool_name, entity,
                 str(entity_id) if entity_id is not None else None,
                 effective_parent_event_id, correlation_id,
                 reasoning_hash,
                 _dumps_or_none(truncated_input),
+                inline_prompt,
+                inline_output,
+                r2_key,
             )
 
             # 4. Snapshot before_value for UPDATE/DELETE.

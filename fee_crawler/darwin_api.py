@@ -139,3 +139,55 @@ async def _reset_circuit(actor: str) -> dict:
         return {"ok": True}
     finally:
         await conn.close()
+
+
+@app.get("/darwin/reasoning/{r2_key:path}")
+async def get_reasoning_endpoint(r2_key: str) -> dict:
+    """Fetch oversized reasoning payload stored in R2."""
+    from fee_crawler.agent_tools.gateway import _fetch_reasoning_from_r2
+
+    try:
+        data = await _fetch_reasoning_from_r2(r2_key)
+        return {"prompt": data.get("prompt"), "output": data.get("output")}
+    except Exception as e:
+        return {"prompt": None, "output": None, "error": str(e)}
+
+
+class ReclassifyRequest(BaseModel):
+    fee_raw_id: int
+
+
+@app.post("/darwin/reclassify")
+async def reclassify_endpoint(req: ReclassifyRequest) -> dict:
+    """Run Darwin's classifier live on a single fee_raw row and return the raw prompt + output.
+
+    Does NOT write to fees_verified or classification_cache — purely a debug/visibility tool.
+    """
+    from fee_crawler.agents.darwin.classifier import build_prompt, classify_names_with_retry
+    from fee_crawler.fee_analysis import normalize_fee_name
+
+    conn = await _get_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT fee_name FROM fees_raw WHERE fee_raw_id = $1", req.fee_raw_id
+        )
+        if not row:
+            return {"error": f"fee_raw_id {req.fee_raw_id} not found"}
+        fee_name = row["fee_name"]
+    finally:
+        await conn.close()
+
+    normalized = normalize_fee_name(fee_name)
+    sys_prompt, user_prompt = build_prompt([normalized])
+    try:
+        results = await classify_names_with_retry([normalized], config=DEFAULT)
+    except Exception as e:
+        return {"error": f"reclassify failed: {e}"}
+
+    return {
+        "fee_raw_id": req.fee_raw_id,
+        "fee_name": fee_name,
+        "normalized_name": normalized,
+        "prompt": f"{sys_prompt}\n---\n{user_prompt}",
+        "output": str(results),
+    }

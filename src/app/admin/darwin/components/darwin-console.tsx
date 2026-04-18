@@ -8,7 +8,7 @@ import {
 import { DecisionStream, rowFromEvent, type Decision } from "./decision-stream";
 import { CircuitBanner } from "@/components/agent-console/circuit-banner";
 import { BudgetGauge } from "./budget-gauge";
-import { fetchDarwinStatus, resetDarwinCircuit, fetchDarwinReasoning } from "../actions";
+import { fetchDarwinStatus, resetDarwinCircuit, fetchDarwinReasoning, fetchReasoningFromR2, reclassifyFee } from "../actions";
 import type { BatchEvent, BatchResult, DarwinStatus } from "../types";
 
 type RunningTotals = {
@@ -36,6 +36,7 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
   const [reasoning, setReasoning] = useState<{
     prompt: string | null;
     output: string | null;
+    r2_key: string | null;
     created_at: string | null;
   } | null>(null);
   const [reasoningLoading, setReasoningLoading] = useState(false);
@@ -112,9 +113,22 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
     setReasoningLoading(true);
     try {
       const result = await fetchDarwinReasoning(d.fee_raw_id);
+      let prompt = result.reasoning_prompt;
+      let output = result.reasoning_output;
+      // Auto-fetch from R2 if text is stored there instead of inline.
+      if (result.reasoning_r2_key && prompt == null && output == null) {
+        try {
+          const r2 = await fetchReasoningFromR2(result.reasoning_r2_key);
+          prompt = r2.prompt;
+          output = r2.output;
+        } catch {
+          // R2 fetch failed — leave null; UI will show "not stored"
+        }
+      }
       setReasoning({
-        prompt: result.reasoning_prompt,
-        output: result.reasoning_output,
+        prompt,
+        output,
+        r2_key: result.reasoning_r2_key,
         created_at: result.created_at,
       });
     } finally {
@@ -222,12 +236,34 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
                   {expanded.confidence?.toFixed(2) ?? "—"}
                 </div>
               </div>
-              <button
-                onClick={() => setExpanded(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    if (!expanded) return;
+                    setReasoningLoading(true);
+                    try {
+                      const r = await reclassifyFee(expanded.fee_raw_id);
+                      setReasoning({
+                        prompt: r.prompt,
+                        output: r.output,
+                        r2_key: null,
+                        created_at: "(live reclassify)",
+                      });
+                    } finally {
+                      setReasoningLoading(false);
+                    }
+                  }}
+                  className="text-[11px] px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  Re-classify
+                </button>
+                <button
+                  onClick={() => setExpanded(null)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             {reasoningLoading && (
