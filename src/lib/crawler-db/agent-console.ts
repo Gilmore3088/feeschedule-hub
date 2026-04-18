@@ -12,6 +12,7 @@ import {
   type LineageGraphResult,
   type ReasoningTraceRow,
   type MessageThread,
+  type RecentPublishedFee,
 } from "./agent-console-types";
 
 /**
@@ -44,6 +45,7 @@ export type {
   LineageGraphResult,
   ReasoningTraceRow,
   MessageThread,
+  RecentPublishedFee,
 };
 
 function toIso(v: unknown): string | null {
@@ -205,5 +207,31 @@ export async function listRecentThreads(
     participants: Array.isArray(r.participants)
       ? (r.participants as unknown[]).map(String)
       : [],
+  }));
+}
+
+/**
+ * Recent published fees for the Lineage tab picker (UAT Gap 6b).
+ */
+export async function listRecentPublishedFees(
+  limit = 10,
+): Promise<RecentPublishedFee[]> {
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 50);
+  const rows = (await sql`
+    SELECT fee_published_id,
+           canonical_fee_key,
+           institution_id,
+           fee_name,
+           published_at
+      FROM fees_published
+     ORDER BY published_at DESC
+     LIMIT ${safeLimit}
+  `) as unknown as Record<string, unknown>[];
+  return rows.map((r) => ({
+    fee_published_id: Number(r.fee_published_id),
+    canonical_fee_key: String(r.canonical_fee_key ?? ""),
+    institution_id: Number(r.institution_id ?? 0),
+    fee_name: String(r.fee_name ?? ""),
+    published_at: toIso(r.published_at) ?? "",
   }));
 }

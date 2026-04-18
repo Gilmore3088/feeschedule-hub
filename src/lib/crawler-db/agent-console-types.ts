@@ -151,3 +151,15 @@ export type MessageThread = {
   started_at: string;
   participants: string[];
 };
+
+/**
+ * Recent published fee for the Lineage picker (UAT Gap 6b).
+ * Sourced from fees_published ORDER BY published_at DESC LIMIT 10.
+ */
+export type RecentPublishedFee = {
+  fee_published_id: number;
+  canonical_fee_key: string;
+  institution_id: number;
+  fee_name: string;
+  published_at: string;
+};
