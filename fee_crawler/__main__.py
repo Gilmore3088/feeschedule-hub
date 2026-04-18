@@ -1353,6 +1353,42 @@ def main() -> None:
         )
     )
 
+    # ── publish-fees ──────────────────────────────────────────────────
+    # Drain fees_verified -> fees_published for high-confidence rows.
+    # Missing wire that kept fees_published at 0 rows. Darwin auto-promote.
+    publish_parser = subparsers.add_parser(
+        "publish-fees",
+        help="Publish high-confidence fees_verified rows to fees_published",
+    )
+    publish_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Actually publish (default: dry-run preview only)",
+    )
+    publish_parser.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.90,
+        help="extraction_confidence threshold (default: 0.90)",
+    )
+    publish_parser.add_argument(
+        "--limit",
+        type=int,
+        default=500,
+        help="max rows per run (default: 500)",
+    )
+    publish_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__(
+                "fee_crawler.commands.publish_fees", fromlist=["main"]
+            ).main(
+                (["--apply"] if args.apply else [])
+                + ["--min-confidence", str(args.min_confidence)]
+                + ["--limit", str(args.limit)]
+            )
+        )
+    )
+
     # ── exception-digest (Phase 62b BOOT-01 / D-08 + D-11 + D-24) ──────
     # Daily exception digest surfacing improve_rejected events, escalated
     # handshakes, and Q2 exception samples. 48h review SLA per D-25.
