@@ -85,7 +85,7 @@ class DeleteSavedSubscriberPeerGroupOutput(BaseToolOutput):
 
 class UpsertClassificationCacheInput(BaseToolInput):
     cache_key: str = Field(min_length=1, max_length=256)
-    canonical_fee_key: str = Field(min_length=1)
+    canonical_fee_key: Optional[str] = Field(default=None, min_length=1)
     confidence: float = Field(ge=0.0, le=1.0)
     model: Optional[str] = None
     source: Literal["darwin", "knox", "manual"] = "darwin"

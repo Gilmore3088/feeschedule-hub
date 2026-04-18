@@ -105,3 +105,15 @@ async def test_saved_subscriber_peer_group_cross_user_rejected(db_schema):
                 assert count == 1, "peer group must survive cross-user delete attempt"
     finally:
         pool_mod._pool = None
+
+
+def test_upsert_classification_cache_accepts_null_canonical_key():
+    """Null canonical_fee_key must validate — represents 'unclassifiable' per D-03."""
+    from fee_crawler.agent_tools.schemas import UpsertClassificationCacheInput
+    inp = UpsertClassificationCacheInput(
+        cache_key="unknown_fee_name",
+        canonical_fee_key=None,
+        confidence=0.55,
+        source="darwin",
+    )
+    assert inp.canonical_fee_key is None
