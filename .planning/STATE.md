@@ -69,7 +69,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+11 pending todos (see `.planning/todos/pending/`). Most recent:
+- [Finish Darwin v1 deployment](todos/pending/2026-04-18-finish-darwin-v1-deployment.md) — set `DARWIN_SIDECAR_URL` on Vercel, push main, smoke `/admin/darwin`
 
 ### Blockers/Concerns
 
