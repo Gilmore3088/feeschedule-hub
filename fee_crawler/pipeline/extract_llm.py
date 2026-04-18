@@ -77,7 +77,7 @@ _EXTRACT_FEES_TOOL = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "fee_name": {
+                        "name": {
                             "type": "string",
                             "description": "Exact name as shown in document (e.g., 'Monthly Maintenance Fee')",
                         },
@@ -101,7 +101,7 @@ _EXTRACT_FEES_TOOL = {
                             "description": "Confidence in this extraction (0.0 to 1.0)",
                         },
                     },
-                    "required": ["fee_name", "amount", "frequency", "confidence"],
+                    "required": ["name", "amount", "frequency", "confidence"],
                 },
             },
         },
@@ -240,7 +240,7 @@ def _raw_to_fees(fees_raw: list[dict]) -> list[ExtractedFee]:
     for item in fees_raw:
         if not isinstance(item, dict):
             continue
-        fee_name = str(item.get("fee_name", "")).strip()
+        fee_name = str(item.get("name", "")).strip()
         if not fee_name:
             continue
 
@@ -377,7 +377,7 @@ def _extract_chunked(
     # Deduplicate by fee_name (keep highest confidence)
     seen: dict[str, dict] = {}
     for fee in all_fees:
-        name = str(fee.get("fee_name", "")).strip().lower()
+        name = str(fee.get("name", "")).strip().lower()
         if not name:
             continue
         existing = seen.get(name)
@@ -457,31 +457,38 @@ from dataclasses import asdict as _asdict
 
 
 def _fee_to_dict(fee) -> dict:
-    """Normalize ExtractedFee (or dict) to the simple dict shape rungs expect."""
-    if isinstance(fee, dict):
-        return {
-            "fee_name": fee.get("fee_name", ""),
-            "amount": float(fee.get("amount", 0.0)) if fee.get("amount") is not None else None,
-            "frequency": fee.get("frequency"),
-            "conditions": fee.get("conditions"),
-            "confidence": float(fee.get("confidence", 0.5)) if fee.get("confidence") is not None else 0.5,
-        }
-    try:
-        d = _asdict(fee)
-    except Exception:
-        d = {
-            "fee_name": getattr(fee, "fee_name", ""),
-            "amount": getattr(fee, "amount", None),
-            "frequency": getattr(fee, "frequency", None),
-            "conditions": getattr(fee, "conditions", None),
-            "confidence": getattr(fee, "confidence", 0.5),
-        }
+    """Normalize ExtractedFee (or dict) to the simple dict shape Magellan rungs expect.
+
+    Reads from either `fee_name` (ExtractedFee dataclass attr) or `name`
+    (legacy dict) and outputs the rung-facing key `name`.
+    """
+    def _read(d, *keys, default=None):
+        for k in keys:
+            if isinstance(d, dict):
+                v = d.get(k)
+            else:
+                v = getattr(d, k, None)
+            if v is not None:
+                return v
+        return default
+
+    if not isinstance(fee, dict):
+        try:
+            fee = _asdict(fee)
+        except Exception:
+            pass
+
+    name = _read(fee, "fee_name", "name", default="")
+    amount = _read(fee, "amount")
+    frequency = _read(fee, "frequency")
+    conditions = _read(fee, "conditions")
+    confidence = _read(fee, "confidence", default=0.5)
     return {
-        "fee_name": d.get("fee_name", ""),
-        "amount": float(d.get("amount", 0.0)) if d.get("amount") is not None else None,
-        "frequency": d.get("frequency"),
-        "conditions": d.get("conditions"),
-        "confidence": float(d.get("confidence", 0.5)) if d.get("confidence") is not None else 0.5,
+        "name": str(name),
+        "amount": float(amount) if amount is not None else None,
+        "frequency": frequency,
+        "conditions": conditions,
+        "confidence": float(confidence),
     }
 
 
