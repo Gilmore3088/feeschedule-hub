@@ -39,7 +39,10 @@ class ResetRequest(BaseModel):
 
 
 async def _get_conn() -> asyncpg.Connection:
-    return await asyncpg.connect(os.environ["DATABASE_URL"])
+    return await asyncpg.connect(
+        os.environ["DATABASE_URL"],
+        statement_cache_size=0,  # required for pgbouncer transaction-mode pooler
+    )
 
 
 def _sse(event_type: str, payload: dict) -> str:
