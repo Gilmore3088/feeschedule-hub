@@ -1,4 +1,7 @@
 """Pure unit tests for Darwin — no DB, no network, no async."""
+import pytest
+from unittest.mock import AsyncMock, patch, MagicMock
+
 from fee_crawler.agents.darwin.circuit import CircuitBreaker, HaltReason
 from fee_crawler.agents.darwin.config import DarwinConfig
 
@@ -79,3 +82,54 @@ def test_estimate_zero_at_full_cache_hit():
         config=DarwinConfig(),
     )
     assert est == 0.0
+
+
+# ---------------------------------------------------------------------------
+# A-4: classifier tests
+# ---------------------------------------------------------------------------
+
+from fee_crawler.agents.darwin.classifier import (
+    validate_llm_result,
+    classify_names_with_retry,
+)
+
+
+def test_validate_rejects_unknown_key():
+    assert validate_llm_result("totally_fake_name_xyz", "not_a_real_key") is False
+
+
+def test_validate_rejects_never_merge_nsf_to_overdraft():
+    # Name contains "nsf" but suggestion is "overdraft" — NEVER_MERGE_PAIRS guard
+    assert validate_llm_result("nsf fee", "overdraft") is False
+
+
+def test_validate_accepts_valid_mapping():
+    from fee_crawler.fee_analysis import CANONICAL_KEY_MAP
+    known_key = next(iter(CANONICAL_KEY_MAP.keys()))
+    assert validate_llm_result("arbitrary name", known_key) is True
+
+
+@pytest.mark.asyncio
+async def test_classify_names_retries_on_rate_limit():
+    import anthropic
+    import httpx
+
+    def make_rate_limit_error():
+        req = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        resp = httpx.Response(429, request=req)
+        e = anthropic.RateLimitError("rate limited", response=resp, body=None)
+        e.retry_after = 0
+        return e
+
+    calls = {"n": 0}
+
+    async def fake_call(names):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise make_rate_limit_error()
+        return [{"fee_name": n, "canonical_fee_key": None, "confidence": 0.5} for n in names]
+
+    config = DarwinConfig(backoff_base_seconds=0.0, backoff_max_seconds=0.0)
+    result = await classify_names_with_retry(["foo"], _caller=fake_call, config=config)
+    assert len(result) == 1
+    assert calls["n"] == 3
