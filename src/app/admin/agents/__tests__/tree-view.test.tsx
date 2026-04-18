@@ -35,7 +35,7 @@ const LINEAGE_FIXTURE = {
                   extractor: "darwin",
                   confidence: 0.92,
                 },
-                r2_key: "raw/fees/2026/04/16/abc.pdf",
+                r2_key: "https://r2.example.com/raw/fees/2026/04/16/abc.pdf",
               },
             },
           ],
