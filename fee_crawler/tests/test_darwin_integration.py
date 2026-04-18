@@ -103,3 +103,36 @@ async def test_classify_batch_circuit_trips_on_consecutive_failures(seeded_conn)
     ):
         result = await classify_batch(seeded_conn, size=5, config=config)
     assert result.circuit_tripped is True
+
+
+@pytest.mark.asyncio
+async def test_classify_batch_skip_locked_concurrent(seeded_conn):
+    """Two concurrent classify_batch calls over 10 rows → zero double-promotion."""
+    import asyncpg
+    import os
+
+    dsn = os.environ.get("DATABASE_URL_TEST")
+    if not dsn:
+        pytest.skip("DATABASE_URL_TEST not set")
+
+    def all_high(names):
+        return [
+            {"fee_name": n, "canonical_fee_key": "monthly_maintenance", "confidence": 0.95}
+            for n in names
+        ]
+
+    with patch(
+        "fee_crawler.agents.darwin.classifier._call_anthropic",
+        new=AsyncMock(side_effect=lambda names, cfg: all_high(names)),
+    ):
+        conn2 = await asyncpg.connect(dsn, statement_cache_size=0)
+        try:
+            r1, r2 = await asyncio.gather(
+                classify_batch(seeded_conn, size=10),
+                classify_batch(conn2, size=10),
+            )
+        finally:
+            await conn2.close()
+
+    total_promoted = r1.promoted + r2.promoted
+    assert total_promoted <= 7  # seeded had 10, 3 pre-promoted, 7 classifiable
