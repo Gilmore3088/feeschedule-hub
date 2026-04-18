@@ -403,6 +403,42 @@ export interface DeleteSavedSubscriberPeerGroupOutput {
   error?: string | null;
   event_ref?: AgentEventRef | null;
 }
+/**
+ * Input to the read-only get_reasoning_trace tool.
+ *
+ * correlation_id: UUID string identifying the reasoning thread; empty string
+ * short-circuits to an empty result without touching the DB.
+ * max_rows:       LIMIT clause on the view query. Default 500; hard cap 5000
+ *                 guards against runaway traces (see 62B-06 threat model T-03).
+ */
+export interface GetReasoningTraceIn {
+  correlation_id?: string;
+  max_rows?: number;
+}
+export interface GetReasoningTraceOut {
+  success: boolean;
+  error?: string | null;
+  rows?: ReasoningTraceRow[];
+}
+/**
+ * A single row from v_agent_reasoning_trace.
+ *
+ * kind is the discriminator: 'event' rows come from agent_events,
+ * 'message' rows come from agent_messages. Optional columns are NULL
+ * on the side that doesn't apply (e.g. tool_name is NULL for messages).
+ */
+export interface ReasoningTraceRow {
+  kind: string;
+  created_at: string;
+  agent_name: string;
+  intent_or_action?: string | null;
+  tool_name?: string | null;
+  entity?: string | null;
+  payload?: {
+    [k: string]: unknown;
+  } | null;
+  row_id: string;
+}
 export interface InsertAgentMessageInput {
   recipient_agent: string;
   intent: "challenge" | "prove" | "accept" | "reject" | "escalate" | "coverage_request" | "clarify";
@@ -494,6 +530,16 @@ export interface UpdateCrawlTargetInput {
   document_type?: string | null;
 }
 export interface UpdateCrawlTargetOutput {
+  success: boolean;
+  error?: string | null;
+  event_ref?: AgentEventRef | null;
+}
+export interface UpdateCrawlTargetRescueStateInput {
+  crawl_target_id: number;
+  rescue_status: "pending" | "rescued" | "dead" | "needs_human" | "retry_after";
+  failure_reason?: string | null;
+}
+export interface UpdateCrawlTargetRescueStateOutput {
   success: boolean;
   error?: string | null;
   event_ref?: AgentEventRef | null;
@@ -694,7 +740,7 @@ export interface UpsertAgentRegistryOutput {
 }
 export interface UpsertClassificationCacheInput {
   cache_key: string;
-  canonical_fee_key: string;
+  canonical_fee_key?: string | null;
   confidence: number;
   model?: string | null;
   source?: "darwin" | "knox" | "manual";
