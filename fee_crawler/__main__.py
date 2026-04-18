@@ -1353,6 +1353,35 @@ def main() -> None:
         )
     )
 
+    # ── knox-review ────────────────────────────────────────────────────
+    # Knox adversarial review of fees_verified rows. Posts accept/reject
+    # decisions via agent_messages; replaces publish-fees' fake handshake.
+    knox_parser = subparsers.add_parser(
+        "knox-review",
+        help="Knox adversarial review of fees_verified rows (accept/reject)",
+    )
+    knox_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Actually post decisions (default: dry-run)",
+    )
+    knox_parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="max rows per run (default: 100)",
+    )
+    knox_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__(
+                "fee_crawler.commands.knox_review", fromlist=["main"]
+            ).main(
+                (["--apply"] if args.apply else [])
+                + ["--limit", str(args.limit)]
+            )
+        )
+    )
+
     # ── publish-fees ──────────────────────────────────────────────────
     # Drain fees_verified -> fees_published for high-confidence rows.
     # Missing wire that kept fees_published at 0 rows. Darwin auto-promote.
