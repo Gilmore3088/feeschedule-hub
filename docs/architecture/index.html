@@ -158,13 +158,20 @@
   .diagram-wrap .mermaid .node foreignObject > div,
   .diagram-wrap .mermaid .nodeLabel,
   .diagram-wrap .mermaid .label div {
-    min-width: 180px !important;
-    max-width: 360px !important;
+    min-width: 150px !important;
+    max-width: 420px !important;
     white-space: normal !important;
-    line-height: 1.45 !important;
-    padding: 10px 14px !important;
+    line-height: 1.5 !important;
+    padding: 12px 16px !important;
     text-align: center !important;
     box-sizing: border-box !important;
+  }
+  .diagram-wrap .mermaid .nodeLabel b,
+  .diagram-wrap .mermaid .label div b {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    display: block !important;
+    margin: 2px 0 4px !important;
   }
   .diagram-wrap .mermaid .edgeLabel {
     background: #ffffff !important;
@@ -269,45 +276,21 @@
     <h2>1. The Five-Stage Pipeline</h2>
     <p class="lede">Every fee moves through five stages. Each stage has one or more agents responsible. Green = live agent. Amber = code exists but stubbed or simulated. Red = missing.</p>
     <div class="diagram-wrap"><div class="mermaid">
-%%{init: {"flowchart": {"nodeSpacing": 40, "rankSpacing": 100}}}%%
-flowchart TB
-  subgraph S1["Stage 1: Scrape"]
-    direction LR
-    M1["Modal crawler"]:::live
-    SA["state_agent"]:::live
-  end
-  subgraph S2["Stage 2: Discovery"]
-    direction LR
-    MG["Magellan"]:::live
-    DC["discover.py (legacy)"]:::stub
-  end
-  subgraph S3["Stage 3: Extraction"]
-    direction LR
-    EP["extract_pdf"]:::live
-    EH["extract_html"]:::live
-    EJ["extract_js"]:::live
-  end
-  subgraph S4["Stage 4: Review"]
-    direction LR
-    DW["Darwin (auto-promote >= 0.90)"]:::live
-    AR["auto-review (heuristics)"]:::live
-  end
-  subgraph S5["Stage 5: Handshake"]
-    direction LR
-    KN["Knox v1 (adversarial)"]:::live
-    PF["publish-fees CLI"]:::live
-  end
-  subgraph S6["Stage 6: Synthesis"]
-    direction LR
-    HM["Hamilton (on-demand)"]:::stub
-    AT["Atlas<br/>(runbook only)"]:::miss
-  end
+%%{init: {"flowchart": {"nodeSpacing": 30, "rankSpacing": 60}}}%%
+flowchart LR
+  S1["Stage 1<br/><b>Scrape</b><br/>Modal crawler<br/>state_agent"]:::live
+  S2["Stage 2<br/><b>Discovery</b><br/>Magellan<br/>discover.py (legacy)"]:::mixed
+  S3["Stage 3<br/><b>Extraction</b><br/>extract_pdf<br/>extract_html<br/>extract_js"]:::live
+  S4["Stage 4<br/><b>Review</b><br/>Darwin >= 0.90<br/>auto-review"]:::live
+  S5["Stage 5<br/><b>Handshake</b><br/>Knox v1<br/>publish-fees"]:::live
+  S6["Stage 6<br/><b>Synthesis</b><br/>Hamilton<br/>(on-demand)"]:::stub
 
   S1 --> S2 --> S3 --> S4 --> S5 --> S6
 
-  classDef live  fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b;
-  classDef stub  fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#78350f;
-  classDef miss  fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#7f1d1d;
+  classDef live   fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b;
+  classDef mixed  fill:#ecfccb,stroke:#4d7c0f,stroke-width:2px,color:#365314;
+  classDef stub   fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#78350f;
+  classDef miss   fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#7f1d1d;
     </div></div>
     <div class="legend">
       <span><i class="dot live"></i>Live — running in production</span>
