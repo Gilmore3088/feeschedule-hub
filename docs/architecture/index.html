@@ -11,6 +11,7 @@
     theme: "base",
     themeVariables: {
       fontFamily: "'Geist', ui-sans-serif, system-ui, sans-serif",
+      fontSize: "14px",
       primaryColor: "#ffffff",
       primaryTextColor: "#111827",
       primaryBorderColor: "#1f2937",
@@ -19,8 +20,17 @@
       tertiaryColor: "#fafaf9",
       nodeTextColor: "#111827",
     },
-    flowchart: { curve: "basis", padding: 16 },
-    sequence: { actorMargin: 70, messageMargin: 40 }
+    flowchart: {
+      curve: "basis",
+      padding: 24,
+      nodeSpacing: 60,
+      rankSpacing: 80,
+      htmlLabels: true,
+      useMaxWidth: false
+    },
+    sequence: { actorMargin: 90, messageMargin: 50, mirrorActors: false, useMaxWidth: false },
+    gantt: { useMaxWidth: false, barHeight: 28, fontSize: 13 },
+    er: { useMaxWidth: false, fontSize: 13, entityPadding: 18 }
   });
 </script>
 <style>
@@ -120,10 +130,30 @@
   .diagram-wrap {
     width: 100%;
     overflow-x: auto;
-    padding: 8px 0;
+    padding: 16px 8px;
+    background: #fafaf9;
+    border: 1px solid var(--line);
+    border-radius: 8px;
   }
   .diagram-wrap .mermaid {
-    min-width: 600px;
+    min-width: 960px;
+    font-size: 14px;
+  }
+  .diagram-wrap .mermaid svg {
+    max-width: none !important;
+    height: auto !important;
+  }
+  .diagram-wrap .mermaid .node rect,
+  .diagram-wrap .mermaid .node polygon,
+  .diagram-wrap .mermaid .node circle,
+  .diagram-wrap .mermaid .node ellipse {
+    rx: 6;
+    ry: 6;
+  }
+  .diagram-wrap .mermaid .nodeLabel,
+  .diagram-wrap .mermaid .edgeLabel {
+    line-height: 1.5 !important;
+    padding: 4px 8px !important;
   }
   .legend {
     display: flex;
@@ -213,30 +243,37 @@
     <h2>1. The Five-Stage Pipeline</h2>
     <p class="lede">Every fee moves through five stages. Each stage has one or more agents responsible. Green = live agent. Amber = code exists but stubbed or simulated. Red = missing.</p>
     <div class="diagram-wrap"><div class="mermaid">
-flowchart LR
-  subgraph S1["Stage 1 — Scrape"]
-    M1["Modal crawler<br/>crawl.py"]:::live
-    SA["state_agent.py<br/>(manual, per state)"]:::live
+%%{init: {"flowchart": {"nodeSpacing": 40, "rankSpacing": 100}}}%%
+flowchart TB
+  subgraph S1["Stage 1: Scrape"]
+    direction LR
+    M1["Modal crawler"]:::live
+    SA["state_agent"]:::live
   end
-  subgraph S2["Stage 2 — Discovery"]
-    MG["Magellan<br/>magellan/orchestrator.py"]:::live
-    DC["discover.py<br/>(legacy)"]:::stub
+  subgraph S2["Stage 2: Discovery"]
+    direction LR
+    MG["Magellan"]:::live
+    DC["discover.py (legacy)"]:::stub
   end
-  subgraph S3["Stage 3 — Extraction"]
-    EP["extract_pdf.py"]:::live
-    EH["extract_html.py"]:::live
-    EJ["extract_js.py"]:::live
+  subgraph S3["Stage 3: Extraction"]
+    direction LR
+    EP["extract_pdf"]:::live
+    EH["extract_html"]:::live
+    EJ["extract_js"]:::live
   end
-  subgraph S4["Stage 4 — Review"]
-    DW["Darwin<br/>classifier + auto-promote≥0.90"]:::live
-    AR["auto-review<br/>(heuristic rules)"]:::live
+  subgraph S4["Stage 4: Review"]
+    direction LR
+    DW["Darwin (auto-promote >= 0.90)"]:::live
+    AR["auto-review (heuristics)"]:::live
   end
-  subgraph S5["Stage 5 — Handshake"]
-    KN["Knox<br/>v1 rules (live today)"]:::live
-    PF["publish-fees<br/>(drains v2→v3)"]:::live
+  subgraph S5["Stage 5: Handshake"]
+    direction LR
+    KN["Knox v1 (adversarial)"]:::live
+    PF["publish-fees CLI"]:::live
   end
-  subgraph S6["Stage 6 — Synthesis"]
-    HM["Hamilton<br/>(on-demand only)"]:::stub
+  subgraph S6["Stage 6: Synthesis"]
+    direction LR
+    HM["Hamilton (on-demand)"]:::stub
     AT["Atlas<br/>(runbook only)"]:::miss
   end
 
@@ -258,21 +295,22 @@ flowchart LR
     <h2>2. Agent Team (Target vs Reality)</h2>
     <p class="lede">The v10 runbook names Hamilton, Knox, Darwin, Atlas as a coordinated team. Today most of the team exists in some form but coordination is partial.</p>
     <div class="diagram-wrap"><div class="mermaid">
+%%{init: {"flowchart": {"nodeSpacing": 80, "rankSpacing": 120}}}%%
 flowchart TB
-  Atlas{{"Atlas<br/>orchestrator / scheduler<br/>— MISSING (runbook only)"}}:::miss
+  Atlas{{"Atlas (scheduler) — MISSING"}}:::miss
 
   Atlas -.-> Darwin
   Atlas -.-> Knox
   Atlas -.-> Magellan
   Atlas -.-> Hamilton
 
-  Darwin["Darwin<br/>classifier<br/>fee_name → canonical_fee_key<br/>auto-promote ≥0.90"]:::live
-  Knox["Knox v1<br/>adversarial review<br/>peer-median + waiver rules"]:::live
-  Magellan["Magellan<br/>URL discovery<br/>5-rung ladder"]:::live
-  Hamilton["Hamilton<br/>research synthesis<br/>(admin chat + Pro reports)"]:::stub
+  Darwin["Darwin: classifier"]:::live
+  Knox["Knox v1: adversarial review"]:::live
+  Magellan["Magellan: URL discovery"]:::live
+  Hamilton["Hamilton: research synthesis"]:::stub
 
-  Darwin -- "intent=accept (fee_verified_id)" --> Knox
-  Knox -- "intent=accept / reject" --> Darwin
+  Darwin -- "accept fee_verified_id" --> Knox
+  Knox -- "accept / reject" --> Darwin
 
   classDef live  fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b;
   classDef stub  fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#78350f;
@@ -362,13 +400,14 @@ gantt
       <div class="kpi"><div class="label">agent_messages</div><div class="value">648+</div><div class="sub">614 accepts · 34 Knox rejects</div></div>
     </div>
     <div class="diagram-wrap" style="margin-top:24px;"><div class="mermaid">
+%%{init: {"flowchart": {"nodeSpacing": 40, "rankSpacing": 60}}}%%
 flowchart LR
-  A["crawl_targets<br/>8,750"] -->|"54% have URLs"| B["with URL<br/>4,734"]
-  B -->|"extract"| C["extracted_fees<br/>124,246"]
-  C -->|"v10 migration"| D["fees_raw<br/>102,965"]
-  D -->|"Darwin classify ≥0.90<br/>only 0.6% touched"| E["fees_verified<br/>~650"]
-  E -->|"Knox accept (AND gate)"| F["fees_published<br/>~500"]
-  F -->|"publish-index"| G["public site<br/>feeinsight.com"]
+  A["crawl_targets: 8,750"] -->|"54% have URLs"| B["with URL: 4,734"]
+  B -->|"extract"| C["extracted_fees: 124,246"]
+  C -->|"v10 migration"| D["fees_raw: 102,965"]
+  D -->|"Darwin >= 0.90"| E["fees_verified: ~650"]
+  E -->|"Knox accept"| F["fees_published: ~500"]
+  F -->|"publish-index"| G["public site"]
 
   style A fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
   style B fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
@@ -439,51 +478,52 @@ erDiagram
     <h2>7. Code Topology</h2>
     <p class="lede">Where every moving part lives in the repo.</p>
     <div class="diagram-wrap"><div class="mermaid">
+%%{init: {"flowchart": {"nodeSpacing": 30, "rankSpacing": 70}}}%%
 flowchart TB
-  subgraph Frontend["Next.js 16 (src/app/)"]
-    AU["/admin/agents (Workflows, Health, Lineage, Messages, Replay)"]
+  subgraph Frontend["Next.js (src/app)"]
+    AU["/admin/agents"]
     AP["/admin/pipeline"]
-    AD["/admin/darwin console (SSE)"]
-    AC["/admin/coverage Magellan console (SSE)"]
-    HL["/admin/hamilton + /pro/research"]
+    AD["/admin/darwin"]
+    AC["/admin/coverage"]
+    HL["/admin/hamilton"]
   end
 
-  subgraph Next["Next.js API / Server Actions"]
-    SA["src/lib/fee-actions.ts<br/>admin review mutations"]
-    AQ["src/lib/admin-queries.ts<br/>+ crawler-db/*.ts"]
-    API["src/app/api/*"]
+  subgraph Next["Server Actions / API"]
+    SA["fee-actions.ts"]
+    AQ["admin-queries.ts"]
+    API["/api routes"]
   end
 
-  subgraph Python["fee_crawler/ (Python 3.12)"]
+  subgraph Python["fee_crawler"]
     subgraph Agents
-      DW["agents/darwin/orchestrator.py"]
-      MG["agents/magellan/orchestrator.py"]
-      KN["agents/knox/orchestrator.py"]
-      SAg["agents/state_agent.py"]
-      EX["agents/extract_pdf.py / html.py / js.py"]
+      DW["darwin/"]
+      MG["magellan/"]
+      KN["knox/"]
+      SAg["state_agent.py"]
+      EX["extract_pdf/html/js"]
     end
     subgraph Tools
-      TF["agent_tools/tools_fees.py<br/>promote_to_tier2/3, create_fee_raw"]
-      TH["agent_tools/tools_agent_infra.py<br/>insert_agent_message"]
-      TC["agent_tools/tools_crawl.py"]
+      TF["tools_fees.py"]
+      TH["tools_agent_infra.py"]
+      TC["tools_crawl.py"]
     end
     subgraph Commands
-      PF["commands/publish_fees.py"]
-      KR["commands/knox_review.py"]
-      CR["commands/crawl.py"]
-      AR["commands/auto_review.py"]
-      FA["fee_analysis.py (taxonomy + normalization)"]
+      PF["publish_fees.py"]
+      KR["knox_review.py"]
+      CR["crawl.py"]
+      AR["auto_review.py"]
+      FA["fee_analysis.py"]
     end
     subgraph Runtime
-      MA["modal_app.py (cron schedules)"]
-      DB["db.py (SQLite→PG translator)"]
+      MA["modal_app.py"]
+      DB["db.py"]
     end
   end
 
   subgraph Infra["Infra"]
-    PG[(Supabase Postgres<br/>fees_raw · fees_verified · fees_published<br/>agent_messages · agent_events)]
-    R2[(Cloudflare R2<br/>source docs + reports)]
-    MO["Modal serverless<br/>(cron + web endpoints)"]
+    PG[("Supabase PG")]
+    R2[("Cloudflare R2")]
+    MO["Modal"]
   end
 
   Frontend --> Next
@@ -502,39 +542,40 @@ flowchart TB
     <h2>8. Security Boundaries & Auth Flow</h2>
     <p class="lede">Who can touch what. Agent writes pass through a gateway that authenticates, enforces per-tool role checks, records every call to <code>agent_auth_log</code>, and checks <code>agent_budgets</code> before dispatch. User writes pass through Next.js server actions with session cookies.</p>
     <div class="diagram-wrap"><div class="mermaid">
+%%{init: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 80}}}%%
 flowchart TB
   subgraph Public["Public surface"]
     Br["Browser / API client"]
   end
 
   subgraph NextAuth["Next.js auth layer"]
-    Cookie["Session cookie<br/>HMAC-SHA256 · 24h TTL"]
-    Role["Role check<br/>viewer / analyst / admin / premium"]
-    Rate["Rate limit<br/>in-memory per ip:path"]
+    Cookie["Session cookie (24h)"]
+    Role["Role check"]
+    Rate["Rate limit"]
   end
 
-  subgraph ServerAction["Server actions (src/lib/fee-actions.ts, etc.)"]
-    SA["User mutation path<br/>SET LOCAL app.allow_legacy_writes='true'<br/>(killswitch for extracted_fees)"]
+  subgraph ServerAction["Server actions"]
+    SA["User mutations<br/>(killswitch for extracted_fees)"]
   end
 
-  subgraph Gateway["Agent tool gateway (fee_crawler/agent_tools/gateway.py)"]
-    GW["with_agent_tool()<br/>— authenticates agent_name<br/>— emits agent_events row<br/>— records agent_auth_log row<br/>— checks agent_budgets.halted_at<br/>— wraps in pg txn + SAVEPOINT"]
+  subgraph Gateway["Agent tool gateway"]
+    GW["with_agent_tool():<br/>auth + event log + budget check"]
   end
 
   subgraph DB[(Postgres)]
-    Freeze["extracted_fees (FROZEN)<br/>BEFORE INSERT/UPDATE/DELETE trigger"]
-    Tier["fees_raw / fees_verified / fees_published<br/>RLS: no PostgREST policies<br/>service_role bypass only"]
-    Msg["agent_messages<br/>gateway-written only"]
-    Audit["agent_auth_log · agent_events<br/>append-only forensic log"]
-    Budget["agent_budgets<br/>cost halt thresholds"]
+    Freeze["extracted_fees (FROZEN)"]
+    Tier["fees_raw / verified / published"]
+    Msg["agent_messages"]
+    Audit["agent_auth_log + events"]
+    Budget["agent_budgets"]
   end
 
   Br --> Cookie --> Role --> Rate --> SA
   SA --> Freeze
   SA --> Tier
 
-  subgraph Agents["Python agents (Modal / CLI)"]
-    AG["Darwin / Knox / Magellan / state_agent<br/>+ publish-fees CLI"]
+  subgraph Agents["Python agents"]
+    AG["Darwin / Knox / Magellan<br/>+ publish-fees CLI"]
   end
 
   AG --> GW
