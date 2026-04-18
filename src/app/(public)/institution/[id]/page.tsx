@@ -116,7 +116,7 @@ function getBulletIconColor(bullet: string, color: "green" | "yellow" | "red"): 
   const lower = bullet.toLowerCase();
   if (lower.includes("above") || lower.includes("higher")) return "#f44336";
   if (lower.includes("below") || lower.includes("lower")) return "#4caf50";
-  return "#53443c";
+  return "var(--hamilton-on-surface-variant)";
 }
 
 // ---------------------------------------------------------------------------
@@ -323,23 +323,23 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         ]}
       />
 
-      <div className="bg-[#fbf9f4] text-[#1b1c19] min-h-screen">
+      <div className="bg-[var(--hamilton-surface)] text-[var(--hamilton-on-surface)] min-h-screen">
         <main className="max-w-4xl mx-auto px-6 md:px-16 py-12">
 
           {/* ── Institution Header ───────────────────────────────── */}
           <header className="mb-16">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
-                <span className="font-sans text-[11px] uppercase tracking-widest text-[#C44B2E] mb-2 block">
+                <span className="font-sans text-[11px] uppercase tracking-widest text-terra mb-2 block">
                   Institution Intelligence
                 </span>
                 <h1
-                  className="text-5xl md:text-6xl tracking-tighter text-[#1b1c19] mb-4"
+                  className="text-5xl md:text-6xl tracking-tighter text-[var(--hamilton-on-surface)] mb-4"
                   style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                 >
                   {inst.institution_name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-[#53443c] font-sans text-sm">
+                <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-[var(--hamilton-on-surface-variant)] font-sans text-sm">
                   {(inst.city || stateName) && (
                     <div className="flex items-center gap-1.5">
                       <MapPin className="h-[18px] w-[18px]" />
@@ -365,7 +365,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     href={websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-[#C44B2E] font-medium hover:underline text-xs uppercase tracking-wider"
+                    className="flex items-center gap-2 text-terra font-medium hover:underline text-xs uppercase tracking-wider"
                   >
                     Website <ExternalLink className="h-[14px] w-[14px]" />
                   </a>
@@ -375,7 +375,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     href={disclosureUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-[#C44B2E] font-medium hover:underline text-xs uppercase tracking-wider"
+                    className="flex items-center gap-2 text-terra font-medium hover:underline text-xs uppercase tracking-wider"
                   >
                     Full Disclosure <FileText className="h-[14px] w-[14px]" />
                   </a>
@@ -413,14 +413,14 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
                 {overdraftFee && overdraftFee.amount !== null && (
                   <div className="mb-8">
-                    <span className="font-sans text-xs text-[#53443c] uppercase">Key Indicator</span>
+                    <span className="font-sans text-xs text-[var(--hamilton-on-surface-variant)] uppercase">Key Indicator</span>
                     <div
-                      className="text-5xl text-[#1b1c19]"
+                      className="text-5xl text-[var(--hamilton-on-surface)]"
                       style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                     >
                       {formatAmount(overdraftFee.amount)}
                     </div>
-                    <p className="text-sm text-[#53443c] mt-1 font-sans">
+                    <p className="text-sm text-[var(--hamilton-on-surface-variant)] mt-1 font-sans">
                       {getDisplayName(overdraftFee.fee_name)}
                     </p>
                   </div>
@@ -436,7 +436,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                           className="h-[18px] w-[18px] mt-0.5 flex-shrink-0"
                           style={{ color: getBulletIconColor(bullet, rating.color) }}
                         />
-                        <span className="text-sm font-sans leading-relaxed text-[#1b1c19]">
+                        <span className="text-sm font-sans leading-relaxed text-[var(--hamilton-on-surface)]">
                           {bullet}
                         </span>
                       </li>
@@ -450,41 +450,41 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             <div className="md:col-span-7 flex flex-col justify-between py-2">
               <div className="space-y-6">
                 <h3
-                  className="text-2xl italic text-[#1b1c19]"
+                  className="text-2xl italic text-[var(--hamilton-on-surface)]"
                   style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                 >
                   &ldquo;{interpretation}&rdquo;
                 </h3>
 
                 <div className="grid grid-cols-3 gap-4 pt-8">
-                  <div className="bg-[#f5f3ee] p-6 rounded-lg">
-                    <span className="font-sans text-[10px] uppercase tracking-widest text-[#53443c] mb-1 block">
+                  <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
+                    <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
                       Charter
                     </span>
                     <span
-                      className="text-xl text-[#1b1c19]"
+                      className="text-xl text-[var(--hamilton-on-surface)]"
                       style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                     >
                       {charterLabel}
                     </span>
                   </div>
-                  <div className="bg-[#f5f3ee] p-6 rounded-lg">
-                    <span className="font-sans text-[10px] uppercase tracking-widest text-[#53443c] mb-1 block">
+                  <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
+                    <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
                       Assets
                     </span>
                     <span
-                      className="text-xl text-[#1b1c19]"
+                      className="text-xl text-[var(--hamilton-on-surface)]"
                       style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                     >
                       {inst.asset_size ? formatAssets(inst.asset_size) : "N/A"}
                     </span>
                   </div>
-                  <div className="bg-[#f5f3ee] p-6 rounded-lg">
-                    <span className="font-sans text-[10px] uppercase tracking-widest text-[#53443c] mb-1 block">
+                  <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
+                    <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
                       Fees
                     </span>
                     <span
-                      className="text-xl text-[#1b1c19]"
+                      className="text-xl text-[var(--hamilton-on-surface)]"
                       style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                     >
                       {fees.length}
@@ -494,15 +494,15 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               </div>
 
               {/* Mini CTA */}
-              <div className="mt-8 p-6 bg-[#e4e2dd]/50 rounded-xl flex items-center gap-6">
-                <div className="text-[#C44B2E] flex-shrink-0">
+              <div className="mt-8 p-6 bg-[var(--hamilton-surface-container-highest)]/50 rounded-xl flex items-center gap-6">
+                <div className="text-terra flex-shrink-0">
                   <BarChart2 className="h-[36px] w-[36px]" />
                 </div>
                 <div>
-                  <p className="text-sm font-sans text-[#53443c] leading-relaxed">
-                    <span className="font-bold text-[#1b1c19]">Financial professionals</span>{" "}
+                  <p className="text-sm font-sans text-[var(--hamilton-on-surface-variant)] leading-relaxed">
+                    <span className="font-bold text-[var(--hamilton-on-surface)]">Financial professionals</span>{" "}
                     get access to peer benchmarking, competitive intelligence, and AI-powered research.{" "}
-                    <Link href="/pro" className="text-[#C44B2E] font-bold hover:underline">
+                    <Link href="/pro" className="text-terra font-bold hover:underline">
                       Learn More
                     </Link>
                   </p>
@@ -514,7 +514,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           {/* ── Fee Schedule ──────────────────────────────────────── */}
           <section className="mt-20">
             <h2
-              className="text-3xl mb-10 pb-4 border-b border-[#d8c2b8]/30"
+              className="text-3xl mb-10 pb-4 border-b border-[var(--hamilton-outline-variant)]/30"
               style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
             >
               Schedule of Fees
@@ -591,9 +591,9 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                             <p className="text-[20px] font-bold tabular-nums text-emerald-600">{below.length}</p>
                             <p className="text-[10px] text-emerald-600/70">Below median</p>
                           </div>
-                          <div className="rounded-lg bg-[#f5f3ee]/40 px-3 py-2 text-center">
-                            <p className="text-[20px] font-bold tabular-nums text-[#53443c]">{atMedian.length}</p>
-                            <p className="text-[10px] text-[#86736b]">At median</p>
+                          <div className="rounded-lg bg-[var(--hamilton-surface-container-low)]/40 px-3 py-2 text-center">
+                            <p className="text-[20px] font-bold tabular-nums text-[var(--hamilton-on-surface-variant)]">{atMedian.length}</p>
+                            <p className="text-[10px] text-[var(--hamilton-text-tertiary)]">At median</p>
                           </div>
                           <div className="rounded-lg bg-red-50/40 px-3 py-2 text-center">
                             <p className="text-[20px] font-bold tabular-nums text-red-600">{above.length}</p>
@@ -602,14 +602,14 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                         </div>
                         <div className="rounded-lg bg-white/70 px-4 py-3">
                           <div className="flex items-center justify-between mb-2">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#86736b]">Fee-by-Fee Positioning</p>
-                            <div className="flex items-center gap-3 text-[9px] text-[#86736b]">
-                              <span className="flex items-center gap-1"><span className="inline-block w-4 h-[4px] rounded-full bg-[#d8c2b8]" />P25-P75</span>
-                              <span className="flex items-center gap-1"><span className="inline-block w-[2px] h-2.5 bg-[#86736b] rounded-full" />Median</span>
-                              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[#53443c]" />This institution</span>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)]">Fee-by-Fee Positioning</p>
+                            <div className="flex items-center gap-3 text-[9px] text-[var(--hamilton-text-tertiary)]">
+                              <span className="flex items-center gap-1"><span className="inline-block w-4 h-[4px] rounded-full bg-[var(--hamilton-outline-variant)]" />P25-P75</span>
+                              <span className="flex items-center gap-1"><span className="inline-block w-[2px] h-2.5 bg-[var(--hamilton-text-tertiary)] rounded-full" />Median</span>
+                              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[var(--hamilton-on-surface-variant)]" />This institution</span>
                             </div>
                           </div>
-                          <div className="divide-y divide-[#d8c2b8]/30">
+                          <div className="divide-y divide-[var(--hamilton-outline-variant)]/30">
                             {sorted.map((comp) => {
                               const rangeMax = Math.max(comp.max, comp.amount);
                               const span = rangeMax - comp.min || 1;
@@ -621,19 +621,19 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                               const isAbove = comp.delta > 0.5;
                               const pct = estimatePercentile(comp.amount, comp.indexEntry);
                               const pctLabel = pct < 50 ? `top ${pct}%` : pct > 50 ? `bottom ${100 - pct}%` : "50th pct";
-                              const pctColor = pct < 50 ? "text-emerald-600" : pct > 50 ? "text-red-600" : "text-[#86736b]";
+                              const pctColor = pct < 50 ? "text-emerald-600" : pct > 50 ? "text-red-600" : "text-[var(--hamilton-text-tertiary)]";
 
                               return (
                                 <div key={comp.name} className="flex items-center gap-3 py-2">
-                                  <span className="w-[120px] sm:w-[140px] shrink-0 text-[12px] text-[#53443c] truncate">{getDisplayName(comp.name)}</span>
+                                  <span className="w-[120px] sm:w-[140px] shrink-0 text-[12px] text-[var(--hamilton-on-surface-variant)] truncate">{getDisplayName(comp.name)}</span>
                                   <div className="flex-1 relative h-5">
-                                    <div className="absolute inset-y-0 left-0 right-0 flex items-center"><div className="w-full h-[3px] rounded-full bg-[#d8c2b8]/60" /></div>
-                                    <div className="absolute top-1/2 -translate-y-1/2 h-[6px] rounded-full bg-[#d8c2b8]" style={{ left: `${pctP25}%`, width: `${Math.max(pctP75 - pctP25, 1)}%` }} />
-                                    <div className="absolute top-1/2 -translate-y-1/2 w-[2px] h-3 bg-[#86736b] rounded-full" style={{ left: `${pctMedian}%` }} />
-                                    <div className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${isBelow ? "bg-emerald-500" : isAbove ? "bg-red-500" : "bg-[#53443c]"}`} style={{ left: `${pctFee}%` }} />
+                                    <div className="absolute inset-y-0 left-0 right-0 flex items-center"><div className="w-full h-[3px] rounded-full bg-[var(--hamilton-outline-variant)]/60" /></div>
+                                    <div className="absolute top-1/2 -translate-y-1/2 h-[6px] rounded-full bg-[var(--hamilton-outline-variant)]" style={{ left: `${pctP25}%`, width: `${Math.max(pctP75 - pctP25, 1)}%` }} />
+                                    <div className="absolute top-1/2 -translate-y-1/2 w-[2px] h-3 bg-[var(--hamilton-text-tertiary)] rounded-full" style={{ left: `${pctMedian}%` }} />
+                                    <div className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${isBelow ? "bg-emerald-500" : isAbove ? "bg-red-500" : "bg-[var(--hamilton-on-surface-variant)]"}`} style={{ left: `${pctFee}%` }} />
                                   </div>
-                                  <span className="w-[52px] shrink-0 text-right text-[11px] tabular-nums font-medium text-[#1b1c19]">{formatAmount(comp.amount)}</span>
-                                  <span className={`w-[44px] shrink-0 text-right text-[10px] tabular-nums font-semibold ${isBelow ? "text-emerald-600" : isAbove ? "text-red-600" : "text-[#86736b]"}`}>
+                                  <span className="w-[52px] shrink-0 text-right text-[11px] tabular-nums font-medium text-[var(--hamilton-on-surface)]">{formatAmount(comp.amount)}</span>
+                                  <span className={`w-[44px] shrink-0 text-right text-[10px] tabular-nums font-semibold ${isBelow ? "text-emerald-600" : isAbove ? "text-red-600" : "text-[var(--hamilton-text-tertiary)]"}`}>
                                     {isAbove ? "+" : ""}{comp.delta.toFixed(0)}%
                                   </span>
                                   <span className={`w-[60px] shrink-0 text-right text-[10px] tabular-nums font-medium ${pctColor}`}>{pctLabel}</span>
@@ -663,27 +663,27 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     <div className="overflow-x-auto rounded-lg bg-white/60">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="bg-[#f5f3ee] border-b border-[#d8c2b8]/20">
-                            <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#86736b]">Quarter</th>
-                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#86736b]">SC Income</th>
-                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#86736b]">Fee Ratio</th>
-                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#86736b]">YoY</th>
+                          <tr className="bg-[var(--hamilton-surface-container-low)] border-b border-[var(--hamilton-outline-variant)]/20">
+                            <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">Quarter</th>
+                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">SC Income</th>
+                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">Fee Ratio</th>
+                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">YoY</th>
                           </tr>
                         </thead>
                         <tbody>
                           {revenueTrend.map((q) => (
-                            <tr key={q.quarter} className="border-b border-[#d8c2b8]/20 hover:bg-[#f5f3ee]/50 transition-colors">
-                              <td className="px-4 py-2 font-medium text-[#1b1c19]">{q.quarter}</td>
-                              <td className="px-4 py-2 text-right tabular-nums text-[#1b1c19]">{formatAmount(q.service_charge_income)}</td>
-                              <td className="px-4 py-2 text-right tabular-nums text-[#53443c]">
-                                {q.fee_income_ratio !== null ? `${q.fee_income_ratio.toFixed(1)}%` : <span className="text-[#86736b]">&mdash;</span>}
+                            <tr key={q.quarter} className="border-b border-[var(--hamilton-outline-variant)]/20 hover:bg-[var(--hamilton-surface-container-low)]/50 transition-colors">
+                              <td className="px-4 py-2 font-medium text-[var(--hamilton-on-surface)]">{q.quarter}</td>
+                              <td className="px-4 py-2 text-right tabular-nums text-[var(--hamilton-on-surface)]">{formatAmount(q.service_charge_income)}</td>
+                              <td className="px-4 py-2 text-right tabular-nums text-[var(--hamilton-on-surface-variant)]">
+                                {q.fee_income_ratio !== null ? `${q.fee_income_ratio.toFixed(1)}%` : <span className="text-[var(--hamilton-text-tertiary)]">&mdash;</span>}
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums">
                                 {q.yoy_change_pct !== null ? (
                                   <span className={q.yoy_change_pct >= 0 ? "text-red-600" : "text-emerald-600"}>
                                     {q.yoy_change_pct >= 0 ? "+" : ""}{q.yoy_change_pct.toFixed(1)}%
                                   </span>
-                                ) : <span className="text-[#86736b]">&mdash;</span>}
+                                ) : <span className="text-[var(--hamilton-text-tertiary)]">&mdash;</span>}
                               </td>
                             </tr>
                           ))}
@@ -719,40 +719,40 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               <ProSection title="Intelligence & Reports" subtitle="Reports and analysis for this institution's peer group.">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#86736b] mb-2">Related Reports</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)] mb-2">Related Reports</p>
                     <div className="flex flex-wrap gap-2">
                       {relatedReports.length > 0 ? (
                         relatedReports.map((r) => (
-                          <Link key={r.slug} href={`/reports/${r.slug}`} className="rounded-full px-4 py-2 text-[12px] font-medium text-[#53443c] bg-[#f0eee9] hover:bg-[#eae8e3] transition-colors">
+                          <Link key={r.slug} href={`/reports/${r.slug}`} className="rounded-full px-4 py-2 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] bg-[var(--hamilton-surface-container)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors">
                             {r.title}
                           </Link>
                         ))
                       ) : (
-                        <p className="text-[13px] text-[#86736b]">No peer reports published yet for this segment.</p>
+                        <p className="text-[13px] text-[var(--hamilton-text-tertiary)]">No peer reports published yet for this segment.</p>
                       )}
                     </div>
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#86736b] mb-2">Ask Hamilton</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)] mb-2">Ask Hamilton</p>
                     <div className="flex flex-wrap gap-2">
-                      <Link href={`/pro/research?prompt=competitive-brief&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E]/10 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/20 transition-colors">
+                      <Link href={`/pro/research?prompt=competitive-brief&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-terra/10 px-4 py-2 text-[12px] font-bold text-terra hover:bg-terra/20 transition-colors">
                         Generate a competitive brief
                       </Link>
-                      <Link href={`/pro/research?prompt=institution&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-[#C44B2E]/10 px-4 py-2 text-[12px] font-bold text-[#C44B2E] hover:bg-[#C44B2E]/20 transition-colors">
+                      <Link href={`/pro/research?prompt=institution&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-terra/10 px-4 py-2 text-[12px] font-bold text-terra hover:bg-terra/20 transition-colors">
                         Ask about this institution
                       </Link>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <a href={`/api/reports/institution/${instId}?format=html`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#f0eee9] px-4 py-1.5 text-[12px] font-medium text-[#53443c] hover:bg-[#eae8e3] transition-colors no-underline">
+                      <a href={`/api/reports/institution/${instId}?format=html`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[var(--hamilton-surface-container)] px-4 py-1.5 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors no-underline">
                         Fee Report Card
                       </a>
                       {inst.state_code && stateName && (
-                        <Link href={`/research/state/${inst.state_code}`} className="rounded-full bg-[#f0eee9] px-4 py-1.5 text-[12px] font-medium text-[#53443c] hover:bg-[#eae8e3] transition-colors no-underline">
+                        <Link href={`/research/state/${inst.state_code}`} className="rounded-full bg-[var(--hamilton-surface-container)] px-4 py-1.5 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors no-underline">
                           {stateName} State Report
                         </Link>
                       )}
                       {inst.fed_district && (
-                        <Link href={`/research/district/${inst.fed_district}`} className="rounded-full bg-[#f0eee9] px-4 py-1.5 text-[12px] font-medium text-[#53443c] hover:bg-[#eae8e3] transition-colors no-underline">
+                        <Link href={`/research/district/${inst.fed_district}`} className="rounded-full bg-[var(--hamilton-surface-container)] px-4 py-1.5 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors no-underline">
                           District {inst.fed_district} Report
                         </Link>
                       )}
@@ -764,41 +764,41 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           )}
 
           {/* ── Professional CTA Section (hidden for pro users) ──── */}
-          {!isPro && <div className="mt-20 p-10 bg-[#f5f3ee] rounded-lg">
+          {!isPro && <div className="mt-20 p-10 bg-[var(--hamilton-surface-container-low)] rounded-lg">
             <div className="max-w-3xl mx-auto">
               <h3
-                className="text-3xl text-[#1b1c19] mb-4"
+                className="text-3xl text-[var(--hamilton-on-surface)] mb-4"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
                 For Financial Professionals
               </h3>
-              <p className="font-sans text-[#53443c] mb-8 text-lg leading-relaxed">
+              <p className="font-sans text-[var(--hamilton-on-surface-variant)] mb-8 text-lg leading-relaxed">
                 Go beyond fee listings and understand how this institution compares across peers,
                 pricing strategy, and regulatory risk.
               </p>
               <ul className="space-y-4 mb-10">
                 <li className="flex items-center gap-3">
-                  <BarChart2 className="h-[20px] w-[20px] text-[#C44B2E]" />
-                  <span className="font-sans text-[#1b1c19]">Peer benchmarking &amp; percentile positioning</span>
+                  <BarChart2 className="h-[20px] w-[20px] text-terra" />
+                  <span className="font-sans text-[var(--hamilton-on-surface)]">Peer benchmarking &amp; percentile positioning</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <SlidersHorizontal className="h-[20px] w-[20px] text-[#C44B2E]" />
-                  <span className="font-sans text-[#1b1c19]">Scenario simulation &mdash; what-if fee modeling</span>
+                  <SlidersHorizontal className="h-[20px] w-[20px] text-terra" />
+                  <span className="font-sans text-[var(--hamilton-on-surface)]">Scenario simulation &mdash; what-if fee modeling</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <AlertTriangle className="h-[20px] w-[20px] text-[#C44B2E]" />
-                  <span className="font-sans text-[#1b1c19]">Complaint-aligned risk signals</span>
+                  <AlertTriangle className="h-[20px] w-[20px] text-terra" />
+                  <span className="font-sans text-[var(--hamilton-on-surface)]">Complaint-aligned risk signals</span>
                 </li>
               </ul>
               <div className="flex flex-col sm:flex-row sm:items-center gap-6">
                 <Link
                   href="/pro"
-                  className="bg-[#C44B2E] hover:bg-[#A83D25] text-white px-8 py-3 rounded font-medium transition-all inline-flex items-center gap-2"
+                  className="bg-terra hover:bg-terra-dark text-white px-8 py-3 rounded font-medium transition-all inline-flex items-center gap-2"
                 >
                   View Professional Analysis
                   <ArrowRight className="h-[18px] w-[18px]" />
                 </Link>
-                <p className="text-xs font-sans text-[#53443c]/60 italic">
+                <p className="text-xs font-sans text-[var(--hamilton-on-surface-variant)]/60 italic">
                   Built for banks, credit unions, and financial analysts
                 </p>
               </div>
@@ -806,7 +806,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           </div>}
 
           {/* ── Methodology Footer ───────────────────────────────── */}
-          <footer className="mt-32 pt-12 border-t border-[#d8c2b8]/20 opacity-60">
+          <footer className="mt-32 pt-12 border-t border-[var(--hamilton-outline-variant)]/20 opacity-60">
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-[18px] w-[18px]" />
@@ -859,12 +859,12 @@ function ProSection({ title, subtitle, children }: { title: string; subtitle?: s
   return (
     <section className="mt-10">
       <h2
-        className="text-2xl text-[#1b1c19]"
+        className="text-2xl text-[var(--hamilton-on-surface)]"
         style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
       >
         {title}
       </h2>
-      {subtitle && <p className="mt-1 text-[13px] text-[#53443c]">{subtitle}</p>}
+      {subtitle && <p className="mt-1 text-[13px] text-[var(--hamilton-on-surface-variant)]">{subtitle}</p>}
       <div className="mt-4">{children}</div>
     </section>
   );
@@ -872,9 +872,9 @@ function ProSection({ title, subtitle, children }: { title: string; subtitle?: s
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-[#f5f3ee] px-3 py-2.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#86736b]">{label}</p>
-      <p className="mt-1 text-[14px] font-medium tabular-nums text-[#1b1c19]">{value}</p>
+    <div className="rounded-lg bg-[var(--hamilton-surface-container-low)] px-3 py-2.5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)]">{label}</p>
+      <p className="mt-1 text-[14px] font-medium tabular-nums text-[var(--hamilton-on-surface)]">{value}</p>
     </div>
   );
 }
