@@ -208,6 +208,9 @@ async def run_post_processing():
     commands = [
         ["python3", "-m", "fee_crawler", "categorize"],
         ["python3", "-m", "fee_crawler", "auto-review"],
+        # Drain fees_verified -> fees_published before snapshot/publish-index
+        # so the index cache reflects newly-published rows in the same cycle.
+        ["python3", "-m", "fee_crawler", "publish-fees", "--apply", "--limit", "2000"],
         ["python3", "-m", "fee_crawler", "snapshot"],
         ["python3", "-m", "fee_crawler", "publish-index"],
     ]
