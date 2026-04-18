@@ -73,4 +73,20 @@ describe("TreeView (OBS-03)", () => {
     render(<TreeView graph={null} />);
     expect(screen.getByText(/no lineage found/i)).toBeTruthy();
   });
+
+  // M-2: Collapsible.Trigger + asChild must forward aria-expanded to the nested <button>.
+  // If it doesn't, screen readers can't announce the open/closed state even though the
+  // glyph flips. This is the canonical asChild regression.
+  it("forwards aria-expanded to the nested trigger button (M-2)", () => {
+    render(<TreeView graph={LINEAGE_FIXTURE} />);
+
+    const tier2Button = screen.getAllByRole("button", { name: /tier 2/i })[0];
+    expect(tier2Button.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(tier2Button);
+    expect(tier2Button.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(tier2Button);
+    expect(tier2Button.getAttribute("aria-expanded")).toBe("false");
+  });
 });

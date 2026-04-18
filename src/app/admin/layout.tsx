@@ -63,7 +63,7 @@ async function AdminLayoutInner({
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/90 dark:bg-[oklch(0.16_0_0)]/90 backdrop-blur-xl border-b border-black/[0.04] dark:border-white/[0.05]">
-        <div className="flex items-center justify-between h-11 px-4">
+        <div className="flex items-center justify-between h-[var(--admin-nav-h)] px-4">
           <div className="flex items-center gap-3">
             <Link
               href="/admin"
@@ -114,7 +114,7 @@ async function AdminLayoutInner({
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="hidden md:flex flex-col w-[180px] shrink-0 sticky top-11 h-[calc(100vh-2.75rem)] border-r border-black/[0.04] dark:border-white/[0.04] bg-white/60 dark:bg-[oklch(0.15_0_0)]/60 backdrop-blur-sm overflow-y-auto">
+        <aside className="hidden md:flex flex-col w-[180px] shrink-0 sticky top-[var(--admin-nav-h)] h-[calc(100vh-var(--admin-nav-h))] border-r border-black/[0.04] dark:border-white/[0.04] bg-white/60 dark:bg-[oklch(0.15_0_0)]/60 backdrop-blur-sm overflow-y-auto">
           <nav aria-label="Admin navigation" className="flex-1 py-2.5">
             <AdminNav />
             <Suspense fallback={null}>

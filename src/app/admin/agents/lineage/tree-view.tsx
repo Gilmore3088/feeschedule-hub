@@ -13,6 +13,32 @@ type Props = {
   graph: LineageGraph;
 };
 
+// Tier palette — single source of truth for the three-tier lineage tree.
+// Tier 3 (published, purple) sits on top; Tier 2 (verification, blue) middle;
+// Tier 1 (extraction, emerald) leaf-level.
+const TIER_STYLES = {
+  tier1: {
+    container:
+      "rounded-md border border-emerald-300/50 dark:border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/[0.04] p-3 my-2",
+    trigger:
+      "flex items-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:underline",
+  },
+  tier2: {
+    container:
+      "rounded-md border border-blue-300/50 dark:border-blue-500/20 bg-blue-50/40 dark:bg-blue-500/[0.04] p-3 my-2",
+    trigger:
+      "flex items-center gap-2 text-[11px] font-semibold text-blue-700 dark:text-blue-300 hover:underline",
+    childRail: "mt-3 pl-4 border-l border-blue-200/50 dark:border-blue-500/20",
+  },
+  tier3: {
+    container:
+      "rounded-md border border-purple-300/50 dark:border-purple-500/20 bg-purple-50/30 dark:bg-purple-500/[0.04] p-3",
+    trigger:
+      "flex items-center gap-2 text-[12px] font-bold text-purple-800 dark:text-purple-300 hover:underline",
+    childRail: "mt-3 pl-4 border-l border-purple-200/50 dark:border-purple-500/20",
+  },
+} as const;
+
 function RowGrid({
   tier,
   row,
@@ -62,12 +88,12 @@ function Tier1Node({ node }: { node: LineageTier1 }) {
 
   return (
     <Collapsible.Root open={open} onOpenChange={setOpen}>
-      <div className="rounded-md border border-emerald-300/50 dark:border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/[0.04] p-3 my-2">
+      <div className={TIER_STYLES.tier1.container}>
         <div className="flex items-center justify-between gap-2">
           <Collapsible.Trigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:underline"
+              className={TIER_STYLES.tier1.trigger}
               aria-label="Tier 1 extraction"
             >
               <span className="font-mono">{open ? "▼" : "▶"}</span>
@@ -108,11 +134,11 @@ function Tier2Node({ node }: { node: LineageTier2 }) {
 
   return (
     <Collapsible.Root open={open} onOpenChange={setOpen}>
-      <div className="rounded-md border border-blue-300/50 dark:border-blue-500/20 bg-blue-50/40 dark:bg-blue-500/[0.04] p-3 my-2">
+      <div className={TIER_STYLES.tier2.container}>
         <Collapsible.Trigger asChild>
           <button
             type="button"
-            className="flex items-center gap-2 text-[11px] font-semibold text-blue-700 dark:text-blue-300 hover:underline"
+            className={TIER_STYLES.tier2.trigger}
             aria-label="Tier 2 verification"
           >
             <span className="font-mono">{open ? "▼" : "▶"}</span>
@@ -121,7 +147,7 @@ function Tier2Node({ node }: { node: LineageTier2 }) {
         </Collapsible.Trigger>
         <Collapsible.Content className="mt-2">
           <RowGrid tier="TIER 2" row={node.row} />
-          <div className="mt-3 pl-4 border-l border-blue-200/50 dark:border-blue-500/20">
+          <div className={TIER_STYLES.tier2.childRail}>
             {children.map((c, i) => (
               <Tier1Node key={i} node={c.tier_1} />
             ))}
@@ -139,11 +165,11 @@ function Tier3Node({ node }: { node: LineageTier3 }) {
 
   return (
     <Collapsible.Root open={open} onOpenChange={setOpen}>
-      <div className="rounded-md border border-purple-300/50 dark:border-purple-500/20 bg-purple-50/30 dark:bg-purple-500/[0.04] p-3">
+      <div className={TIER_STYLES.tier3.container}>
         <Collapsible.Trigger asChild>
           <button
             type="button"
-            className="flex items-center gap-2 text-[12px] font-bold text-purple-800 dark:text-purple-300 hover:underline"
+            className={TIER_STYLES.tier3.trigger}
             aria-label="Tier 3 published"
           >
             <span className="font-mono">{open ? "▼" : "▶"}</span>
@@ -152,7 +178,7 @@ function Tier3Node({ node }: { node: LineageTier3 }) {
         </Collapsible.Trigger>
         <Collapsible.Content className="mt-2">
           <RowGrid tier="TIER 3" row={node.row} />
-          <div className="mt-3 pl-4 border-l border-purple-200/50 dark:border-purple-500/20">
+          <div className={TIER_STYLES.tier3.childRail}>
             {children.map((c, i) => (
               <Tier2Node key={i} node={c.tier_2} />
             ))}

@@ -86,6 +86,7 @@
 :root {
   /* Admin layout tokens */
   --admin-bg: #f8f9fa;
+  --admin-nav-h: 2.75rem; /* 44px — admin header height; also the sticky offset for tabs/rails */
   --brand-primary: oklch(0.55 0.2 25); /* terracotta */
 
   /* Scout component color tokens */

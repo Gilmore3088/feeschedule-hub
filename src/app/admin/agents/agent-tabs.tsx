@@ -20,7 +20,7 @@ export function AgentTabs() {
   return (
     <nav
       aria-label="Agent console sections"
-      className="sticky top-11 z-20 -mx-1 px-1 py-1.5 border-b border-black/[0.06] dark:border-white/[0.06] bg-[var(--admin-bg)]/80 dark:bg-[oklch(0.14_0_0)]/80 backdrop-blur"
+      className="sticky top-[var(--admin-nav-h)] z-20 -mx-1 px-1 py-1.5 border-b border-black/[0.06] dark:border-white/[0.06] bg-[var(--admin-bg)]/80 dark:bg-[oklch(0.14_0_0)]/80 backdrop-blur"
     >
       <ul className="flex items-center gap-1">
         {TABS.map((t) => {
