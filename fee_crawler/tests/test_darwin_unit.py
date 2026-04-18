@@ -50,3 +50,32 @@ def test_circuit_rate_limit_counter_resets_on_success():
     cb.record_success()
     cb.record_rate_limit_exhausted()
     assert cb.halt_reason() is None
+
+
+from fee_crawler.agents.darwin.estimate import estimate_batch_cost_usd
+
+
+def test_estimate_uses_bootstrap_when_no_history():
+    """First run has no history — use bootstrap default."""
+    est = estimate_batch_cost_usd(
+        size=1000, cache_hit_rate=None, avg_cost_per_miss_usd=None,
+        config=DarwinConfig(),
+    )
+    assert est == 1000 * 0.002  # bootstrap_cost_per_row_usd
+
+
+def test_estimate_discounts_cache_hits():
+    est = estimate_batch_cost_usd(
+        size=1000, cache_hit_rate=0.30, avg_cost_per_miss_usd=0.001,
+        config=DarwinConfig(),
+    )
+    # 1000 * (1 - 0.30) * 0.001 = 0.70
+    assert abs(est - 0.70) < 1e-6
+
+
+def test_estimate_zero_at_full_cache_hit():
+    est = estimate_batch_cost_usd(
+        size=100, cache_hit_rate=1.0, avg_cost_per_miss_usd=0.001,
+        config=DarwinConfig(),
+    )
+    assert est == 0.0
