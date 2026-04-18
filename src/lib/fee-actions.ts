@@ -33,6 +33,7 @@ export async function approveFee(
   try {
     const user = await requirePermission("approve");
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
       `;
@@ -60,6 +61,7 @@ export async function rejectFee(
   try {
     const user = await requirePermission("reject");
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
       `;
@@ -93,6 +95,7 @@ export async function editFee(
   try {
     const user = await requirePermission("edit");
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, fee_name, amount, frequency, conditions, review_status
         FROM extracted_fees WHERE id = ${feeId}
@@ -165,6 +168,7 @@ export async function updateFeeCategory(
   try {
     const user = await requirePermission("edit");
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ${feeId}
       `;
@@ -213,6 +217,7 @@ export async function editAndApproveFee(
     });
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const setClauses: string[] = [];
       const params: (string | number | null)[] = [];
 
@@ -270,6 +275,7 @@ export async function bulkApproveStagedFees(
     const bulkNote = notes || `Bulk approved ${staged.length} staged fees`;
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const fee of staged) {
         await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${fee.id}`;
         await tx`
@@ -299,6 +305,7 @@ export async function bulkRejectFees(
     let count = 0;
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const feeId of feeIds) {
         const [fee] = await tx`
           SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
@@ -334,6 +341,7 @@ export async function bulkEditAndApproveFees(
     let count = 0;
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const { feeId, amount } of updates) {
         const [fee] = await tx`
           SELECT id, fee_name, amount, review_status FROM extracted_fees WHERE id = ${feeId}
@@ -371,6 +379,7 @@ export async function bulkApproveFees(
     let count = 0;
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const feeId of feeIds) {
         const [fee] = await tx`
           SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
@@ -412,6 +421,7 @@ export async function bulkApproveByConfidence(
     const bulkNote = notes || `Confidence batch: approved ${staged.length} fees >= ${(minConfidence * 100).toFixed(0)}%`;
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const fee of staged) {
         await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${fee.id}`;
         await tx`
@@ -444,6 +454,7 @@ export async function bulkRejectByInstitution(
     const bulkNote = notes || `Rejected all ${fees.length} non-reviewed fees for institution #${institutionId}`;
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const fee of fees) {
         await tx`UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ${fee.id}`;
         await tx`
@@ -470,6 +481,7 @@ export async function unstageFee(
   try {
     const user = await requirePermission("edit");
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
       `;
@@ -506,6 +518,7 @@ export async function bulkUpdateFeeCategory(
     let count = 0;
 
     await sql.begin(async (tx: any) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const feeId of feeIds) {
         const [fee] = await tx`
           SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ${feeId}
