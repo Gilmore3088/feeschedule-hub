@@ -152,6 +152,23 @@ export async function POST(request: Request) {
 
   let systemPrompt = agent.systemPrompt;
 
+  // Inject the authenticated user's institution context so Hamilton doesn't
+  // ask "what's your institution?" for every analysis (the screenshot showed
+  // the user as Space Coast FCU in the left rail but Hamilton requesting
+  // identification in the response). Only injected when we actually have it
+  // — for anonymous/public users this block is omitted, preserving the
+  // model's current generic-mode behavior.
+  if (user && (user.institution_name || user.display_name)) {
+    const inst = user.institution_name?.trim() || user.display_name;
+    const tier = user.asset_tier ? ` (asset tier ${user.asset_tier})` : "";
+    const charter = user.institution_type ? `, ${user.institution_type.replace(/_/g, " ")}` : "";
+    const district = user.fed_district ? `, Fed district ${user.fed_district}` : "";
+    const state = user.state_code ? `, ${user.state_code}` : "";
+    systemPrompt += `\n\nUSER INSTITUTION CONTEXT (do not ask the user to identify themselves — already known):
+- Institution: ${inst}${charter}${tier}${district}${state}
+- Use this institution as the implicit subject of any benchmarking, peer comparison, or positioning analysis unless the user names a different one.\n`;
+  }
+
   // Analyze mode: override output structure with structured analysis sections (ARCH-05)
   // VALID_FOCUS guards against prompt injection — only known tab values reach the system prompt.
   if (mode === "analyze") {

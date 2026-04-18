@@ -242,7 +242,15 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
     }
   }, [parsedResponse, isExporting, activeTab]);
 
-  const analysisComplete = !isLoading && parsedResponse !== null;
+  // CTA bar should only show when Hamilton delivered an actual analysis,
+  // not an info-request like "I need to identify your institution." Use
+  // structured-section presence as the signal — info-requests have content
+  // in hamiltonView but no whyItMatters/evidence sections.
+  const hasAnalysisStructure =
+    parsedResponse !== null &&
+    (parsedResponse.whyItMatters.length > 0 ||
+      parsedResponse.evidence.length > 0);
+  const analysisComplete = !isLoading && hasAnalysisStructure;
 
   // Live-parse streaming content for progressive rendering
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
@@ -251,7 +259,7 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
   const displayedResponse = parsedResponse ?? liveParsed;
 
   return (
-    <div className="@container flex flex-col gap-6 pb-40">
+    <div className="@container flex flex-col gap-6 pb-56">
       {/* Analysis prompt title when active */}
       {displayedResponse && (
         <div className="flex items-center gap-4 mb-2">
