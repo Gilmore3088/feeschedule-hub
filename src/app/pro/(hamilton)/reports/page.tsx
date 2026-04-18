@@ -25,9 +25,15 @@ export default async function ReportsPage({
   const { scenario_id } = await searchParams;
   const publishedReports = await getPublishedReports();
 
+  // Pull the user's real institution name (audit H-4 round 2) so the
+  // Configuration sidebar shows it instead of the hardcoded "Your Institution".
+  const institutionName =
+    user.institution_name?.trim() || user.display_name || "Your institution";
+
   return (
     <ReportWorkspace
       userId={user.id}
+      institutionName={institutionName}
       publishedReports={publishedReports}
       initialScenarioId={scenario_id ?? null}
     />

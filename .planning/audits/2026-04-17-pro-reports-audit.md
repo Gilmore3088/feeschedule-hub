@@ -62,3 +62,39 @@ verdict: FAIL on icon rendering, MIXED on layout/content
 
 This audit is being shipped together with fixes for all 8 findings in commit batch
 2026-04-17. See subsequent commits prefixed `fix(reports):` for atomic resolution per finding.
+
+---
+
+## Round 2 (2026-04-17, post-deploy verification on screenshot)
+
+After the first round of fixes shipped, a fresh screenshot revealed C-1 had **not** actually resolved (icons still rendered as text) and several additional issues became visible.
+
+### Round 2 — Critical
+
+#### C-1 (revisited). Material Symbols still render as text — root cause is CSP, not link placement
+- **Real cause:** `next.config.ts` Content-Security-Policy has `font-src 'self'`. The Material Symbols stylesheet from `fonts.googleapis.com` loaded successfully (so the `.material-symbols-outlined` class definition exists), but the actual font file at `https://fonts.gstatic.com` was blocked by CSP. With no font, the browser falls back to system font and renders the literal ligature text ("group_work", "download", etc.).
+- **Fix:** Add `https://fonts.gstatic.com` to `font-src` and `https://fonts.googleapis.com` to `style-src` in next.config.ts. Requires dev-server restart.
+
+### Round 2 — High
+
+#### H-4. "Your Institution" hardcoded in Configuration sidebar
+- **Where:** `ReportWorkspace.tsx:385` — `institutionName="Your Institution"` hardcoded.
+- **Symptom:** Sidebar shows "INSTITUTION: Your Institution" + "CONFIGURE IN SETTINGS" prompt, even though the user is clearly Space Coast FCU (visible in left rail context bar).
+- **Impact:** Looks like a stub. Bankers see "Your Institution" and assume the platform has no idea who they are.
+- **Fix:** ReportsPage already calls `getCurrentUser()`. Pass `user.institution_name` (or display_name) to ReportWorkspace.
+
+### Round 2 — Medium
+
+#### M-4. Preview tabs (PREVIEW / BOARD / ANALYST / EXPORT) render before any report exists
+- **Where:** `ReportWorkspace.tsx:289-318`
+- **Symptom:** All 4 output tabs are visible (active "Preview" underlined) even with no report generated. Tabs are functional UI for output that doesn't exist.
+- **Fix:** Hide the tab strip until `reportGenerated === true`.
+
+#### M-5. Empty-state preview placeholder dominates the page
+- **Where:** `ReportWorkspace.tsx:332-378`
+- **Symptom:** A 12-padding card with a giant italic Hamilton quote, two placeholder paragraphs, "Powered by Hamilton AI Research Analyst" footer — takes ~400px of vertical real estate when no report exists. Bankers see this every time they land on the page.
+- **Fix:** Demote to a small inline hint (~80px) — "Pick a template above to begin." Reserve the dominant placeholder for actual generation states.
+
+### Round 2 — Resolutions
+
+All 4 round-2 findings shipped together — see commits `fix(reports):` 2026-04-17 v2 batch.

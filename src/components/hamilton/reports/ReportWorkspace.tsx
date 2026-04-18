@@ -59,6 +59,8 @@ const TEMPLATES: Array<{
 
 interface ReportWorkspaceProps {
   userId: number;
+  /** Real institution name from server (audit H-4 round 2). */
+  institutionName: string;
   publishedReports: Array<{
     id: string;
     report_type: string;
@@ -71,6 +73,7 @@ interface ReportWorkspaceProps {
 
 export function ReportWorkspace({
   userId,
+  institutionName,
   publishedReports,
   initialScenarioId,
 }: ReportWorkspaceProps) {
@@ -191,13 +194,6 @@ export function ReportWorkspace({
   }
 
   const reportGenerated = generatedReport !== null;
-  const previewTimestamp = new Date().toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
   return (
     <div className="px-6 pb-20">
@@ -270,37 +266,40 @@ export function ReportWorkspace({
             className="mt-16 pt-12"
             style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
           >
-            {/* Tab strip */}
-            <div className="flex gap-12 mb-8 overflow-x-auto pb-4">
-              {(
-                [
-                  { id: "preview", label: "Preview" },
-                  { id: "board", label: "Board Version" },
-                  { id: "analyst", label: "Analyst Version" },
-                  { id: "export", label: "Export" },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActivePreviewTab(tab.id)}
-                  className="text-[10px] uppercase tracking-widest whitespace-nowrap pb-2 transition-colors"
-                  style={{
-                    fontWeight: activePreviewTab === tab.id ? 700 : 400,
-                    borderBottom:
-                      activePreviewTab === tab.id
-                        ? "2px solid var(--hamilton-primary)"
-                        : "2px solid transparent",
-                    color:
-                      activePreviewTab === tab.id
-                        ? "var(--hamilton-on-surface)"
-                        : "var(--hamilton-secondary)",
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {/* Tab strip — only render once a report exists (audit M-4 round 2).
+                Empty tabs for non-existent output were a premature affordance. */}
+            {(reportGenerated || isGenerating) && (
+              <div className="flex gap-12 mb-8 overflow-x-auto pb-4">
+                {(
+                  [
+                    { id: "preview", label: "Preview" },
+                    { id: "board", label: "Board Version" },
+                    { id: "analyst", label: "Analyst Version" },
+                    { id: "export", label: "Export" },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActivePreviewTab(tab.id)}
+                    className="text-[10px] uppercase tracking-widest whitespace-nowrap pb-2 transition-colors"
+                    style={{
+                      fontWeight: activePreviewTab === tab.id ? 700 : 400,
+                      borderBottom:
+                        activePreviewTab === tab.id
+                          ? "2px solid var(--hamilton-primary)"
+                          : "2px solid transparent",
+                      color:
+                        activePreviewTab === tab.id
+                          ? "var(--hamilton-on-surface)"
+                          : "var(--hamilton-secondary)",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Generating overlay */}
             {isGenerating && <GeneratingState />}
@@ -313,52 +312,24 @@ export function ReportWorkspace({
               />
             )}
 
-            {/* Static preview / quote block */}
+            {/* Empty-state hint (audit M-5 round 2) — small inline cue.
+                Was a 12-padding card with quote + 2 paragraphs (~400px tall).
+                Now ~80px: tells the user what to do, doesn't dominate. */}
             {!isGenerating && !reportGenerated && (
-              <div className="bg-surface-container-lowest p-12 editorial-shadow max-w-3xl">
+              <div
+                className="flex items-center gap-3 text-sm py-3"
+                style={{ color: "var(--hamilton-secondary)" }}
+              >
                 <span
-                  className="text-[10px] uppercase tracking-[0.3em] block mb-6 text-primary"
+                  className="material-symbols-outlined text-[20px]"
+                  style={{ color: "var(--hamilton-primary)", opacity: 0.6 }}
+                  aria-hidden="true"
                 >
-                  Hamilton Intelligence
+                  arrow_upward
                 </span>
-                <h4 className="font-headline text-4xl italic mb-8 leading-tight text-on-surface">
-                  &ldquo;Every fee adjustment tells a story — Hamilton reads
-                  the data so you can write the strategy.&rdquo;
-                </h4>
-                <div
-                  className="space-y-6 text-sm leading-relaxed"
-                  style={{ color: "var(--hamilton-secondary)" }}
-                >
-                  <p>
-                    Select a report template above to generate Hamilton
-                    intelligence from your live fee data. Reports combine
-                    national index benchmarks, peer comparisons, and
-                    pipeline-verified fee schedules.
-                  </p>
-                  <p>
-                    Each report is generated fresh from current data, ensuring
-                    your analysis reflects the latest market conditions.
-                  </p>
-                </div>
-                <div className="mt-12 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ color: "var(--hamilton-primary)" }}
-                    >
-                      verified_user
-                    </span>
-                    <span className="text-[10px] uppercase tracking-widest">
-                      Powered by Hamilton AI Research Analyst
-                    </span>
-                  </div>
-                  <span
-                    className="text-[10px] uppercase tracking-widest"
-                    style={{ color: "var(--hamilton-secondary)" }}
-                  >
-                    {previewTimestamp}
-                  </span>
-                </div>
+                <span>
+                  Pick a template above and click <strong style={{ color: "var(--hamilton-on-surface)" }}>Generate Intelligence</strong> to draft a report from your live fee data.
+                </span>
               </div>
             )}
 
@@ -382,7 +353,7 @@ export function ReportWorkspace({
         {/* Configuration sidebar — right side for now, moves to left rail in v8.2 */}
         <ConfigSidebar
           selectedTemplate={selectedTemplate}
-          institutionName="Your Institution"
+          institutionName={institutionName}
           peerSetLabel="National Index"
           focusArea={focusArea}
           narrativeTone={narrativeTone}
