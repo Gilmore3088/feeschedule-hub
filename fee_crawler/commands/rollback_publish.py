@@ -132,7 +132,7 @@ def _print_summary(
                 f"inst={row['institution_id']:>5}  "
                 f"key={(row['canonical_fee_key'] or '<null>'):<28}  "
                 f"amt={amt_str:>8}  "
-                f"name={row['fee_name'][:40]!r}"
+                f"name={(row['fee_name'] or '')[:40]!r}"
             )
 
 

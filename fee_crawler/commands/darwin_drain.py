@@ -41,7 +41,15 @@ async def _drain(size: int, batches: int, dry_run: bool) -> int:
         log.info("darwin-drain dry-run: would run %d batch(es) of %d rows", batches, size)
         return 0
 
-    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        print(
+            "ERROR: DATABASE_URL is not set. Export it (or source .env) before running "
+            "darwin-drain. See CLAUDE.md for the Supabase transaction-pooler DSN.",
+            file=sys.stderr,
+        )
+        return 1
+    conn = await asyncpg.connect(db_url)
     try:
         total_classified = 0
         for i in range(batches):

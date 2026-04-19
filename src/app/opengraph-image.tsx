@@ -77,7 +77,7 @@ export default async function OGImage() {
               lineHeight: 1.3,
             }}
           >
-            Research-grade fee intelligence across 8,000+ banks and credit unions.
+            Research-grade fee intelligence across 4,000+ banks and credit unions.
           </div>
         </div>
 

@@ -1185,7 +1185,7 @@ def main() -> None:
         help="Re-probe all fee_schedule_urls with tightened rejection rules (dry-run default)",
     )
     reval_parser.add_argument("--fix", action="store_true",
-                              help="(BLOCKED) placeholder for future DB write path")
+                              help="Clear fee_schedule_url on hard-404 crawl_targets (default: dry-run only)")
     reval_parser.add_argument("--limit", type=int, default=0,
                               help="Max URLs to probe (0 = all active)")
     reval_parser.add_argument("--concurrency", type=int, default=16,

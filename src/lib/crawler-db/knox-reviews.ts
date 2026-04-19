@@ -156,21 +156,25 @@ export async function getKnoxReviewCounts(): Promise<KnoxReviewCounts> {
   }
 }
 
-function reviewStatusClause(filter: ReviewFilter): string {
+// Parameterized filter fragments (MINOR-3). Returning a postgres.js tagged
+// fragment instead of a raw string removes the `sql.unsafe()` footgun — a
+// future refactor that accepted user input for `filter` can't escape the
+// parser boundary. `all` returns a TRUE tautology so the WHERE stays valid.
+function reviewStatusFragment(filter: ReviewFilter) {
   switch (filter) {
     case "pending":
-      return "ko.id IS NULL";
+      return sql`ko.id IS NULL`;
     case "confirmed":
-      return "ko.decision = 'confirm'";
+      return sql`ko.decision = 'confirm'`;
     case "overridden":
-      return "ko.decision = 'override'";
+      return sql`ko.decision = 'override'`;
     case "all":
     default:
-      return "TRUE";
+      return sql`TRUE`;
   }
 }
 
-const PAGE_SIZE = 25;
+export const KNOX_REVIEWS_PAGE_SIZE = 25;
 
 export interface ListKnoxRejectionsArgs {
   filter?: ReviewFilter;
@@ -200,11 +204,11 @@ export async function listKnoxRejections(
   const filter = args.filter ?? "pending";
   const reasonCategory = args.reasonCategory ?? "all";
   const page = Math.max(1, args.page ?? 1);
-  const pageSize = Math.min(100, Math.max(5, args.pageSize ?? PAGE_SIZE));
+  const pageSize = Math.min(100, Math.max(5, args.pageSize ?? KNOX_REVIEWS_PAGE_SIZE));
   const offset = (page - 1) * pageSize;
 
   try {
-    const statusClause = reviewStatusClause(filter);
+    const statusFragment = reviewStatusFragment(filter);
 
     // Get total (cheap because of index on sender_agent/intent/state/created_at).
     const countRows = await sql<{ cnt: string }[]>`
@@ -213,7 +217,7 @@ export async function listKnoxRejections(
       LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
       WHERE am.sender_agent = 'knox'
         AND am.intent = 'reject'
-        AND ${sql.unsafe(statusClause)}
+        AND ${statusFragment}
     `;
     const total = Number(countRows[0]?.cnt ?? 0);
 
@@ -247,7 +251,7 @@ export async function listKnoxRejections(
       LEFT JOIN crawl_targets ct ON ct.id = fv.institution_id
       WHERE am.sender_agent = 'knox'
         AND am.intent = 'reject'
-        AND ${sql.unsafe(statusClause)}
+        AND ${statusFragment}
       ORDER BY am.created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `;

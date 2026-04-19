@@ -264,6 +264,10 @@ export function evaluateCitationDensity(
 
   const claims = claimSentences.length;
   const citations = citationSentences.length;
+  // When claims === 0 we report density: 0 rather than NaN. The caller's
+  // refuse logic also guards on claims === 0 (see meetsDensity below), so
+  // the zero here is a reporting choice, not a correctness short-circuit —
+  // the response shape stays numeric and serializable.
   const density = claims === 0 ? 0 : citations / claims;
 
   const metrics: CitationGateMetrics = {
