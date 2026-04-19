@@ -60,9 +60,16 @@ def ingest_sod(
     base = f"{config.fdic_api.base_url}/sod"
     page_size = config.fdic_api.page_size
 
-    # Build cert -> crawl_target_id lookup
+    # Build cert -> crawl_target_id lookup for banks.
+    #
+    # Matches by charter_type = 'bank' rather than source = 'fdic' so that
+    # FDIC Summary of Deposits (SOD) rows are joined to any bank-chartered
+    # target by cert_number, regardless of how the row was seeded. FDIC CERT
+    # is the bank-only namespace (disjoint from NCUA charter_number), so no
+    # cross-charter collisions are possible.
     rows = db.fetchall(
-        "SELECT id, cert_number FROM crawl_targets WHERE source = 'fdic'"
+        "SELECT id, cert_number FROM crawl_targets "
+        "WHERE charter_type = 'bank' AND cert_number IS NOT NULL"
     )
     cert_map: dict[str, int] = {}
     for row in rows:
@@ -70,7 +77,7 @@ def ingest_sod(
         if cert:
             cert_map[cert] = row["id"]
 
-    print(f"Found {len(cert_map):,} FDIC institutions")
+    print(f"Found {len(cert_map):,} bank institutions")
     print(f"Fetching SOD data for {year}...")
 
     offset = 0
