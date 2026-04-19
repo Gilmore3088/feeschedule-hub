@@ -69,8 +69,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-10 pending todos (see `.planning/todos/pending/`). Most recent:
+13 pending todos (see `.planning/todos/pending/`). Most recent:
 
+- [Phase 62 test suite has 38 failures](todos/pending/2026-04-19-phase-62-test-suite-has-38-failures.md) — jsonb codec, ID-type drift, NOT NULL fixture gaps, missing Knox override migration
+- [daily_pipeline silent miss](todos/pending/2026-04-19-daily-pipeline-no-catch-up-when-window-missed.md) — 10-min cron window with no catch-up; widen gate, add backup trigger
+- [Modal scrape crons leak running rows](todos/pending/2026-04-19-modal-scrape-crons-leak-running-rows-on-crash.md) — no try/finally, 18 stuck rows since 2026-03-17; add reaper
 - [Rewrite monthly orchestration agent as institution-first](todos/pending/2026-04-19-rewrite-monthly-orchestration-agent-as-institution-first.md) — flip Managed Agent from county-sweep to Tier 1/Tier 2 institution dispatch
 - [Finish Darwin v1 deployment](todos/pending/2026-04-18-finish-darwin-v1-deployment.md) — set `DARWIN_SIDECAR_URL` on Vercel, push main, smoke `/admin/darwin`
 
