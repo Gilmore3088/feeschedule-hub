@@ -29,8 +29,14 @@ from fee_crawler.agent_tools.pool import get_pool
 
 log = logging.getLogger(__name__)
 
-# agent_name -> (module_path, class_name). Phase 63+ extend as Knox/Darwin/Atlas ship.
-AGENT_CLASSES: dict[str, tuple[str, str]] = {}
+# agent_name -> (module_path, class_name). Loaded lazily via importlib in the
+# dispatch loop so the dispatcher itself does not pull in anthropic/asyncpg at
+# module import. Adapters live in fee_crawler.agent_base.agent_adapters.
+AGENT_CLASSES: dict[str, tuple[str, str]] = {
+    "darwin": ("fee_crawler.agent_base.agent_adapters", "DarwinAgent"),
+    "knox": ("fee_crawler.agent_base.agent_adapters", "KnoxAgent"),
+    "magellan": ("fee_crawler.agent_base.agent_adapters", "MagellanAgent"),
+}
 
 
 async def dispatch_ticks(*, window_minutes: int = 10) -> dict:
