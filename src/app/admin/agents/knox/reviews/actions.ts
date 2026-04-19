@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
 import { sql } from "@/lib/crawler-db/connection";
+import { clearKnoxReviewCountsCache } from "@/lib/crawler-db/knox-reviews";
 
 const idSchema = z.string().uuid();
 const noteSchema = z.string().trim().max(2000).optional();
@@ -66,6 +67,7 @@ export async function confirmRejection(
       `;
     });
 
+    clearKnoxReviewCountsCache();
     revalidatePath("/admin/agents/knox/reviews");
     revalidatePath(`/admin/agents/knox/reviews/${messageId}`);
     return { success: true };
@@ -210,6 +212,7 @@ export async function overrideRejection(
       }
     });
 
+    clearKnoxReviewCountsCache();
     revalidatePath("/admin/agents/knox/reviews");
     revalidatePath(`/admin/agents/knox/reviews/${messageId}`);
     return { success: true, promoted_fee_published_id: publishedId };

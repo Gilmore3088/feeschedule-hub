@@ -77,13 +77,32 @@ export function categorizeReason(reason: string | null): KnoxReasonCategory {
 
 export const KNOX_REASON_CATEGORIES: readonly KnoxReasonCategory[] = REASON_CATEGORIES;
 
+// Module-level cache for the layout-level badge query. Every admin page render
+// triggers a layout render, which called this on every request — wasteful at
+// scale. 30-second TTL keeps the badge fresh enough (reviewers act on the
+// minute, not the second) while dropping per-request DB hits to one per
+// cache window. Invalidate explicitly by calling clearKnoxReviewCountsCache()
+// from the confirm/override server actions to keep mutation→badge latency low.
+const CACHE_TTL_MS = 30_000;
+let _knoxCountsCache: { value: KnoxReviewCounts; expiresAt: number } | null = null;
+
+export function clearKnoxReviewCountsCache(): void {
+  _knoxCountsCache = null;
+}
+
 /**
  * Count Knox rejection messages grouped by human-review status.
  * - pending   : no knox_overrides row for this rejection_msg_id
  * - confirmed : knox_overrides.decision = 'confirm'
  * - overridden: knox_overrides.decision = 'override'
+ *
+ * Cached for 30s module-wide. See clearKnoxReviewCountsCache().
  */
 export async function getKnoxReviewCounts(): Promise<KnoxReviewCounts> {
+  const now = Date.now();
+  if (_knoxCountsCache && _knoxCountsCache.expiresAt > now) {
+    return _knoxCountsCache.value;
+  }
   try {
     const rows = await sql<{ bucket: string; cnt: string }[]>`
       SELECT
@@ -112,6 +131,7 @@ export async function getKnoxReviewCounts(): Promise<KnoxReviewCounts> {
       else if (r.bucket === "overridden") counts.overridden = n;
       counts.total += n;
     }
+    _knoxCountsCache = { value: counts, expiresAt: now + CACHE_TTL_MS };
     return counts;
   } catch (e) {
     console.error("getKnoxReviewCounts failed:", e);
