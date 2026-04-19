@@ -76,6 +76,36 @@ app = modal.App("bank-fee-index-workers", image=image)
 secrets = [modal.Secret.from_name("bfi-secrets")]
 
 
+def _mark_job_completion(job_name: str, status: str = "ok") -> None:
+    """Write a workers_last_run row so the /admin/pipeline health dashboard
+    can tell whether this scheduled job has actually completed recently.
+
+    Intentionally best-effort: if the marker write fails we log and return
+    rather than re-raising, so a marker-DB hiccup doesn't mask an otherwise
+    successful job run. The opposite (silent missing markers) produced the
+    '7 scheduled jobs never completed' red banner that was a misleading
+    report of crons that ARE running — they just weren't writing markers.
+    """
+    import os
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL"])
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO workers_last_run (job_name, completed_at, status)
+               VALUES (%s, NOW(), %s)
+               ON CONFLICT (job_name) DO UPDATE
+                 SET completed_at = EXCLUDED.completed_at,
+                     status       = EXCLUDED.status""",
+            (job_name, status),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        print(f"workers_last_run write failed for {job_name}: {exc}")
+
+
 @app.function(secrets=secrets, timeout=300)
 async def test_connection():
     """Verify Modal can connect to Supabase."""
@@ -98,7 +128,13 @@ async def test_connection():
 async def run_discovery():
     """Nightly URL discovery: sweep institutions with website but no fee URL."""
     from fee_crawler.workers.discovery_worker import run
-    return await run(concurrency=20)
+    try:
+        result = await run(concurrency=20)
+        _mark_job_completion("run_discovery", "ok")
+        return result
+    except Exception as exc:
+        _mark_job_completion("run_discovery", "failed")
+        raise
 
 
 @app.function(
@@ -112,13 +148,18 @@ def run_pdf_extraction():
     """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
     import os
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    result = run_checked(
-        ["python3", "-m", "fee_crawler", "crawl",
-         "--limit", "500", "--workers", "4", "--include-failing",
-         "--doc-type", "pdf"],
-        env=env, timeout=7200,
-    )
-    return result.stdout[-1000:] if result.stdout else ""
+    try:
+        result = run_checked(
+            ["python3", "-m", "fee_crawler", "crawl",
+             "--limit", "500", "--workers", "4", "--include-failing",
+             "--doc-type", "pdf"],
+            env=env, timeout=7200,
+        )
+        _mark_job_completion("run_pdf_extraction", "ok")
+        return result.stdout[-1000:] if result.stdout else ""
+    except Exception:
+        _mark_job_completion("run_pdf_extraction", "failed")
+        raise
 
 
 @app.function(
@@ -132,12 +173,17 @@ def run_browser_extraction():
     """Nightly browser extraction: Playwright for JS-rendered pages."""
     import os
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    result = run_checked(
-        ["python3", "-m", "fee_crawler", "crawl",
-         "--limit", "500", "--workers", "2", "--include-failing"],
-        env=env, timeout=10800,
-    )
-    return result.stdout[-1000:] if result.stdout else ""
+    try:
+        result = run_checked(
+            ["python3", "-m", "fee_crawler", "crawl",
+             "--limit", "500", "--workers", "2", "--include-failing"],
+            env=env, timeout=10800,
+        )
+        _mark_job_completion("run_browser_extraction", "ok")
+        return result.stdout[-1000:] if result.stdout else ""
+    except Exception:
+        _mark_job_completion("run_browser_extraction", "failed")
+        raise
 
 
 # D-05 pivot (Phase 62b, Plan 62B-08): Modal Starter tier caps at 5 cron slots.
@@ -464,6 +510,9 @@ def ingest_data():
                 failures.append(f"quarterly-{cmd}")
 
     summary = "; ".join(results)
+    # Mark BEFORE raising so the health dashboard sees partial-failure runs
+    # as 'failed' rather than 'never ran'. A fully-clean run writes 'ok'.
+    _mark_job_completion("ingest_data", "failed" if failures else "ok")
     if failures:
         raise RuntimeError(
             f"ingest_data: {len(failures)} ingestor(s) failed: "
