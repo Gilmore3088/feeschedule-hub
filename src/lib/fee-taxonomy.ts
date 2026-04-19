@@ -71,6 +71,32 @@ export const FEE_FAMILIES: Record<string, string[]> = {
     "loan_origination",
     "appraisal_fee",
   ],
+  "Mortgage Servicing": [
+    "mortgage_modification",
+    "mortgage_payoff",
+    "mortgage_lien_release",
+    "refinance_fee",
+    "reconveyance",
+  ],
+  "Retirement & IRA": [
+    "ira_administration",
+    "ira_termination",
+    "ira_distribution",
+  ],
+  "Vehicle & Title": [
+    "vehicle_title",
+    "duplicate_title",
+    "dmv_filing",
+  ],
+  "Gift & Prepaid Cards": [
+    "gift_card_purchase",
+    "prepaid_card_reload",
+  ],
+  "Other Fees": [
+    "courier_delivery",
+    "document_reproduction",
+    "other_lending_fee",
+  ],
 };
 
 export const DISPLAY_NAMES: Record<string, string> = {
@@ -132,6 +158,27 @@ export const DISPLAY_NAMES: Record<string, string> = {
   late_payment: "Late Payment",
   loan_origination: "Loan Origination",
   appraisal_fee: "Appraisal",
+  // Mortgage Servicing
+  mortgage_modification: "Mortgage Modification",
+  mortgage_payoff: "Mortgage Payoff",
+  mortgage_lien_release: "Mortgage Lien Release",
+  refinance_fee: "Refinance",
+  reconveyance: "Reconveyance",
+  // Retirement & IRA
+  ira_administration: "IRA Administration",
+  ira_termination: "IRA Termination",
+  ira_distribution: "IRA Distribution",
+  // Vehicle & Title
+  vehicle_title: "Vehicle Title",
+  duplicate_title: "Duplicate Title",
+  dmv_filing: "DMV Filing",
+  // Gift & Prepaid Cards
+  gift_card_purchase: "Gift Card Purchase",
+  prepaid_card_reload: "Prepaid Card Reload",
+  // Other Fees
+  courier_delivery: "Courier Delivery",
+  document_reproduction: "Document Reproduction",
+  other_lending_fee: "Other Lending Fee",
 };
 
 /**
@@ -201,6 +248,27 @@ export const CANONICAL_KEY_MAP: Record<string, string> = {
   late_payment: "late_payment",
   loan_origination: "loan_origination",
   appraisal_fee: "appraisal_fee",
+  // Mortgage Servicing
+  mortgage_modification: "mortgage_modification",
+  mortgage_payoff: "mortgage_payoff",
+  mortgage_lien_release: "mortgage_lien_release",
+  refinance_fee: "refinance_fee",
+  reconveyance: "reconveyance",
+  // Retirement & IRA
+  ira_administration: "ira_administration",
+  ira_termination: "ira_termination",
+  ira_distribution: "ira_distribution",
+  // Vehicle & Title
+  vehicle_title: "vehicle_title",
+  duplicate_title: "duplicate_title",
+  dmv_filing: "dmv_filing",
+  // Gift & Prepaid Cards
+  gift_card_purchase: "gift_card_purchase",
+  prepaid_card_reload: "prepaid_card_reload",
+  // Other Fees
+  courier_delivery: "courier_delivery",
+  document_reproduction: "document_reproduction",
+  other_lending_fee: "other_lending_fee",
   // Synonym clusters: production fee_category slugs -> canonical key
   // Keep in sync with fee_crawler/fee_analysis.py CANONICAL_KEY_MAP.
   // --- Slug duplicates / abbreviations ---
@@ -232,12 +300,12 @@ export const CANONICAL_KEY_MAP: Record<string, string> = {
   debit_card_rush_fee: "rush_card",
   // --- Card foreign / gift ---
   international_fee: "card_foreign_txn",
-  visa_gift_card: "account_research",
-  visa_gift_cards: "account_research",
-  gift_card: "account_research",
-  gift_cards: "account_research",
-  gift_pay: "account_research",
-  reload_fee: "account_research",
+  visa_gift_card: "gift_card_purchase",
+  visa_gift_cards: "gift_card_purchase",
+  gift_card: "gift_card_purchase",
+  gift_cards: "gift_card_purchase",
+  gift_pay: "gift_card_purchase",
+  reload_fee: "prepaid_card_reload",
   // --- Wire / outgoing variants ---
   outgoing_fee: "wire_domestic_outgoing",
   outgoing_domestic: "wire_domestic_outgoing",

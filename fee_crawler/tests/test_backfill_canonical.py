@@ -114,8 +114,8 @@ def test_canonical_key_map_identity_for_base_categories():
 # ---------------------------------------------------------------------------
 
 # Expected counts — must match src/lib/fee-taxonomy.test.ts
-EXPECTED_BASE_CATEGORY_COUNT = 49
-EXPECTED_CANONICAL_KEY_COUNT = 181
+EXPECTED_BASE_CATEGORY_COUNT = 65
+EXPECTED_CANONICAL_KEY_COUNT = 197
 
 
 def test_fee_families_base_category_count_matches_ts():

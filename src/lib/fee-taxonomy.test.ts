@@ -8,8 +8,8 @@ import {
 
 // Tripwire for Python↔TS drift. If you change these numbers, update the
 // matching assertion in fee_crawler/tests/test_backfill_canonical.py.
-const EXPECTED_TAXONOMY_COUNT = 49;
-const EXPECTED_CANONICAL_KEY_COUNT = 181;
+const EXPECTED_TAXONOMY_COUNT = 65;
+const EXPECTED_CANONICAL_KEY_COUNT = 197;
 
 describe("fee-taxonomy sync", () => {
   test("every FEE_FAMILIES category is in CANONICAL_KEY_MAP", () => {
