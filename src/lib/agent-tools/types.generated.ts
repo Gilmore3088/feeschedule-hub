@@ -471,6 +471,7 @@ export interface PromoteFeeToTier2Output {
 }
 export interface PromoteFeeToTier3Input {
   fee_verified_id: number;
+  batch_id?: string | null;
 }
 export interface PromoteFeeToTier3Output {
   success: boolean;
