@@ -1353,6 +1353,32 @@ def main() -> None:
         )
     )
 
+    # ── rollback-publish (Roadmap #6: fees_published rollback insurance) ─
+    rollback_parser = subparsers.add_parser(
+        "rollback-publish",
+        help="Soft-delete fees_published rows by batch_id (dry-run by default)",
+    )
+    rollback_parser.add_argument("--batch-id", required=True, help="batch_id to roll back")
+    rollback_parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Required to actually soft-delete (absent = dry-run)",
+    )
+    rollback_parser.add_argument("--reason", default=None, help="Audit-log reason")
+    rollback_parser.add_argument("--operator", default=None, help="Operator id; defaults to $USER")
+    rollback_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__(
+                "fee_crawler.commands.rollback_publish", fromlist=["main"]
+            ).main(
+                ["--batch-id", args.batch_id]
+                + (["--execute"] if args.execute else [])
+                + (["--reason", args.reason] if args.reason else [])
+                + (["--operator", args.operator] if args.operator else [])
+            )
+        )
+    )
+
     # ── exception-digest (Phase 62b BOOT-01 / D-08 + D-11 + D-24) ──────
     # Daily exception digest surfacing improve_rejected events, escalated
     # handshakes, and Q2 exception samples. 48h review SLA per D-25.
