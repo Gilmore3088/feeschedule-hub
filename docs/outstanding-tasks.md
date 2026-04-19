@@ -18,11 +18,11 @@
 | 7 | Wire Resend email notifications | After James signs up, add lead notification + welcome emails | High |
 | 8 | Configure Litestream with S3 | After James creates bucket, set env vars on Fly.io | High |
 | 9 | Production Stripe webhook | Create production webhook endpoint in Stripe Dashboard for feeinsight.com (not test) | High |
-| 10 | Mobile nav hamburger menu | No mobile menu exists -- B2B users are mostly desktop but it's unprofessional | Medium |
-| 11 | SEO meta images (OG/Twitter) | No social share images -- links shared on LinkedIn/Twitter look bare | Medium |
+| 10 | ~~Mobile nav hamburger menu~~ | **SHIPPED** (stale: already wired in CustomerNav + ConsumerNav via MobileNav / ConsumerMobileNav components) | — |
+| 11 | ~~SEO meta images (OG/Twitter)~~ | **SHIPPED 2026-04-19** — `src/app/opengraph-image.tsx` + `twitter-image.tsx` generate 1200×630 branded cards via Next `ImageResponse` | — |
 | 12 | Favicon update | Currently code-generated, should match brand (bar chart icon) | Low |
 | 13 | Consumer landing page search bar | Add inline institution search widget to /consumer hero | Medium |
-| 14 | Admin dashboard lead count widget | Show new leads count on admin dashboard home | Low |
+| 14 | ~~Admin dashboard lead count widget~~ | **SHIPPED 2026-04-19** — compact widget above Data Quality / Review Queue showing total / this week / today / latest, via `getLeadsSummary()` | — |
 
 ## Known Bugs
 
