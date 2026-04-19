@@ -334,33 +334,86 @@ async def _run_0500_jobs(now, today_0500) -> None:
             _mark_ran("knox_review", "failed")
 
     # --- Darwin drain (Roadmap #3) ---
-    # Classifies fees_raw → fees_verified in 5 consecutive 500-row batches
-    # (~2,500 rows/day), draining the ~102K backlog in ~41 days. Runs BEFORE
-    # the 06:00 daily_pipeline so newly-classified fees land in fees_verified
-    # in time for publish-fees to drain them through to fees_published in the
-    # same UTC day. Kept in the 05:00 window on purpose: no new cron slot.
+    # Classifies fees_raw → fees_verified in up to 5 consecutive 500-row
+    # batches (~2,500 rows/day), draining the ~102K backlog in ~41 days.
+    # Runs BEFORE the 06:00 daily_pipeline so newly-classified fees land in
+    # fees_verified in time for publish-fees to drain them through to
+    # fees_published in the same UTC day. Kept in the 05:00 window on
+    # purpose: no new cron slot.
+    #
+    # Circuit breakers (added per 2026-04-19 code review MAJOR-4):
+    # - Per-batch cost accumulator; halts if a single run crosses
+    #   DARWIN_DAILY_COST_LIMIT_USD (default $20).
+    # - Per-batch failure counter; halts after 2 consecutive errors rather
+    #   than marching through all 5 and burning budget on malformed output.
+    # - Failed runs record status='failed' AND halt_reason so ops can see
+    #   whether tomorrow's run should reset or hold.
+    DARWIN_DAILY_COST_LIMIT_USD = float(
+        os.environ.get("DARWIN_DAILY_COST_LIMIT_USD", "20")
+    )
+    DARWIN_MAX_CONSECUTIVE_FAILURES = 2
     if not _already_ran("darwin_drain"):
+        from fee_crawler.agents.darwin import classify_batch
+
+        total_classified = 0
+        total_cost_usd = 0.0
+        consecutive_failures = 0
+        halt_reason: str | None = None
+
+        conn = None
         try:
-            from fee_crawler.agents.darwin import classify_batch
             conn = await asyncpg.connect(db_url)
-            try:
-                total_classified = 0
-                for i in range(5):
+            for i in range(5):
+                try:
                     result = await classify_batch(conn, size=500)
-                    summary = result.to_dict()
-                    print(f"darwin_drain batch {i+1}/5: {summary}")
-                    classified = int(summary.get("classified", 0) or 0)
-                    total_classified += classified
-                    if classified == 0:
-                        print(f"darwin_drain: backlog exhausted after {i+1} batch(es)")
+                except Exception as batch_exc:
+                    consecutive_failures += 1
+                    print(
+                        f"darwin_drain batch {i+1}/5 FAILED (#{consecutive_failures}): "
+                        f"{batch_exc!r}"
+                    )
+                    if consecutive_failures >= DARWIN_MAX_CONSECUTIVE_FAILURES:
+                        halt_reason = (
+                            f"halt: {consecutive_failures} consecutive batch failures"
+                        )
+                        print(f"darwin_drain {halt_reason}")
                         break
-                print(f"darwin_drain total: {total_classified} rows classified")
-            finally:
-                await conn.close()
-            _mark_ran("darwin_drain", "ok")
+                    continue
+
+                consecutive_failures = 0
+                summary = result.to_dict()
+                print(f"darwin_drain batch {i+1}/5: {summary}")
+                classified = int(summary.get("classified", 0) or 0)
+                batch_cost = float(summary.get("cost_usd", 0) or 0)
+                total_classified += classified
+                total_cost_usd += batch_cost
+
+                if classified == 0:
+                    halt_reason = f"backlog exhausted after {i+1} batch(es)"
+                    print(f"darwin_drain: {halt_reason}")
+                    break
+                if total_cost_usd >= DARWIN_DAILY_COST_LIMIT_USD:
+                    halt_reason = (
+                        f"halt: cost ${total_cost_usd:.4f} crossed "
+                        f"${DARWIN_DAILY_COST_LIMIT_USD:.2f} daily limit"
+                    )
+                    print(f"darwin_drain {halt_reason}")
+                    break
+
+            print(
+                f"darwin_drain total: {total_classified} rows classified, "
+                f"${total_cost_usd:.4f} spent"
+            )
+            status = "failed" if consecutive_failures >= DARWIN_MAX_CONSECUTIVE_FAILURES else "ok"
+            _mark_ran("darwin_drain", status)
         except Exception as exc:
-            print(f"darwin_drain failed (non-fatal): {exc}")
+            # Fatal (outside the per-batch try). Re-raise is too disruptive
+            # for the shared dispatcher, but surface loudly and mark failed.
+            print(f"darwin_drain FATAL: {exc!r}")
             _mark_ran("darwin_drain", "failed")
+        finally:
+            if conn is not None:
+                await conn.close()
 
 
 @app.function(

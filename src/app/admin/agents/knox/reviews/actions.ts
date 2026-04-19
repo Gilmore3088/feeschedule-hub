@@ -122,7 +122,7 @@ export async function overrideRejection(
     if (msg.length === 0) {
       return { success: false, error: "rejection not found" };
     }
-    const correlationId = msg[0].correlation_id;
+    const rejectionCorrelationId = msg[0].correlation_id;
     const feeVerifiedRaw = msg[0].payload?.["fee_verified_id"];
     const feeVerifiedId =
       typeof feeVerifiedRaw === "string" || typeof feeVerifiedRaw === "number"
@@ -135,6 +135,24 @@ export async function overrideRejection(
         error: "rejection has no fee_verified_id; cannot override",
       };
     }
+
+    // Code-review MAJOR-2: if a darwin 'accept' already exists for this
+    // fee_verified_id, reuse its correlation_id so the tightened
+    // promote_to_tier3 preferred-path matches. Otherwise the grandfather
+    // branch fires on every override and the 2026-05-20 removal breaks us.
+    const darwinAccept = await sql<{ correlation_id: string }[]>`
+      SELECT correlation_id FROM agent_messages
+       WHERE sender_agent = 'darwin'
+         AND intent = 'accept'
+         AND (payload->>'fee_verified_id') = ${String(feeVerifiedId)}
+         AND created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY created_at DESC
+       LIMIT 1
+    `;
+    const correlationId =
+      darwinAccept.length > 0
+        ? darwinAccept[0].correlation_id
+        : rejectionCorrelationId;
 
     let publishedId: number | null = null;
 

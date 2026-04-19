@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-
-// Fallback URL matches the Modal deploy output for `extract_single`.
-// Override in prod via EXTRACT_SINGLE_URL if the endpoint name changes.
-const EXTRACT_SINGLE_URL =
-  process.env.EXTRACT_SINGLE_URL ??
-  "https://gilmore3088--bank-fee-index-workers-extract-single.modal.run";
+import { EXTRACT_SINGLE_URL } from "@/lib/modal-endpoints";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -19,7 +14,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(EXTRACT_SINGLE_URL, {
+    const res = await fetch(EXTRACT_SINGLE_URL(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ target_id: targetId }),

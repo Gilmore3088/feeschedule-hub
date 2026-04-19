@@ -77,14 +77,22 @@ export function categorizeReason(reason: string | null): KnoxReasonCategory {
 
 export const KNOX_REASON_CATEGORIES: readonly KnoxReasonCategory[] = REASON_CATEGORIES;
 
-// Module-level cache for the layout-level badge query. Every admin page render
-// triggers a layout render, which called this on every request — wasteful at
-// scale. 30-second TTL keeps the badge fresh enough (reviewers act on the
-// minute, not the second) while dropping per-request DB hits to one per
-// cache window. Invalidate explicitly by calling clearKnoxReviewCountsCache()
-// from the confirm/override server actions to keep mutation→badge latency low.
+// Per-instance TTL cache for the layout-level badge query.
+//
+// Every admin page render triggers a layout render, which called this on
+// every request — wasteful at scale. 30-second TTL drops per-request DB
+// hits to one per cache window per serverless instance.
+//
+// Caveats (documented per 2026-04-19 code-review MAJOR-3):
+// - clearKnoxReviewCountsCache() only clears the invoking instance. Other
+//   Vercel serverless instances surface stale badges until their own TTL
+//   expires. This is BEST-EFFORT invalidation — cross-instance staleness
+//   is bounded by the 30s TTL, not eliminated.
+// - Promise-dedupe (_inFlight) collapses concurrent cold-cache requests
+//   into a single DB call to avoid thundering-herd on first admin render.
 const CACHE_TTL_MS = 30_000;
 let _knoxCountsCache: { value: KnoxReviewCounts; expiresAt: number } | null = null;
+let _inFlight: Promise<KnoxReviewCounts> | null = null;
 
 export function clearKnoxReviewCountsCache(): void {
   _knoxCountsCache = null;
@@ -96,43 +104,52 @@ export function clearKnoxReviewCountsCache(): void {
  * - confirmed : knox_overrides.decision = 'confirm'
  * - overridden: knox_overrides.decision = 'override'
  *
- * Cached for 30s module-wide. See clearKnoxReviewCountsCache().
+ * Cached for 30s per instance (best-effort cross-instance invalidation).
+ * Concurrent cold-cache callers share a single in-flight promise.
  */
 export async function getKnoxReviewCounts(): Promise<KnoxReviewCounts> {
   const now = Date.now();
   if (_knoxCountsCache && _knoxCountsCache.expiresAt > now) {
     return _knoxCountsCache.value;
   }
-  try {
-    const rows = await sql<{ bucket: string; cnt: string }[]>`
-      SELECT
-        CASE
-          WHEN ko.decision IS NULL THEN 'pending'
-          WHEN ko.decision = 'confirm' THEN 'confirmed'
-          WHEN ko.decision = 'override' THEN 'overridden'
-          ELSE 'other'
-        END AS bucket,
-        COUNT(*) AS cnt
-      FROM agent_messages am
-      LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
-      WHERE am.sender_agent = 'knox' AND am.intent = 'reject'
-      GROUP BY 1
-    `;
-    const counts: KnoxReviewCounts = {
-      pending: 0,
-      confirmed: 0,
-      overridden: 0,
-      total: 0,
-    };
-    for (const r of rows) {
-      const n = Number(r.cnt);
-      if (r.bucket === "pending") counts.pending = n;
-      else if (r.bucket === "confirmed") counts.confirmed = n;
-      else if (r.bucket === "overridden") counts.overridden = n;
-      counts.total += n;
+  if (_inFlight) return _inFlight;
+  _inFlight = (async () => {
+    try {
+      const rows = await sql<{ bucket: string; cnt: string }[]>`
+        SELECT
+          CASE
+            WHEN ko.decision IS NULL THEN 'pending'
+            WHEN ko.decision = 'confirm' THEN 'confirmed'
+            WHEN ko.decision = 'override' THEN 'overridden'
+            ELSE 'other'
+          END AS bucket,
+          COUNT(*) AS cnt
+        FROM agent_messages am
+        LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
+        WHERE am.sender_agent = 'knox' AND am.intent = 'reject'
+        GROUP BY 1
+      `;
+      const counts: KnoxReviewCounts = {
+        pending: 0,
+        confirmed: 0,
+        overridden: 0,
+        total: 0,
+      };
+      for (const r of rows) {
+        const n = Number(r.cnt);
+        if (r.bucket === "pending") counts.pending = n;
+        else if (r.bucket === "confirmed") counts.confirmed = n;
+        else if (r.bucket === "overridden") counts.overridden = n;
+        counts.total += n;
+      }
+      _knoxCountsCache = { value: counts, expiresAt: Date.now() + CACHE_TTL_MS };
+      return counts;
+    } finally {
+      _inFlight = null;
     }
-    _knoxCountsCache = { value: counts, expiresAt: now + CACHE_TTL_MS };
-    return counts;
+  })();
+  try {
+    return await _inFlight;
   } catch (e) {
     console.error("getKnoxReviewCounts failed:", e);
     return { pending: 0, confirmed: 0, overridden: 0, total: 0 };

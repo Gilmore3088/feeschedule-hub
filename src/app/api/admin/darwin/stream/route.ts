@@ -1,12 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-
-// Fallback matches the Modal deploy output. Override via DARWIN_SIDECAR_URL.
-// Must not 500 on unset env — the admin Darwin console opens a long-lived SSE
-// connection here and a bare 500 causes the console to continuously reconnect.
-const SIDECAR =
-  process.env.DARWIN_SIDECAR_URL ??
-  "https://gilmore3088--bank-fee-index-workers-darwin-api.modal.run";
+import { DARWIN_SIDECAR_URL } from "@/lib/modal-endpoints";
 
 function degradedStream(reason: string): Response {
   const body = new ReadableStream({
@@ -34,7 +28,7 @@ export async function GET(req: NextRequest) {
   const size = parseInt(req.nextUrl.searchParams.get("size") ?? "100", 10);
 
   try {
-    const upstream = await fetch(`${SIDECAR}/darwin/classify-batch`, {
+    const upstream = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/classify-batch`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ size }),

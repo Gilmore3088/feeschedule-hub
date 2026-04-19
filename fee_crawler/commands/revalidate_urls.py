@@ -422,27 +422,41 @@ def run(
     }
 
 
+_APPLY_FIXES_CHUNK_SIZE = 100
+
+
 def _apply_fixes(candidates: list[ProbeResult]) -> int:
     """Clear crawl_targets.fee_schedule_url for each would-reject candidate.
 
     Writes are narrow: the URL returned hard 404, so we detach it from the
     target and let Magellan rediscover. extracted_fees rows are deliberately
     untouched (they are FROZEN and their content pre-dates the URL death).
+
+    Chunks to _APPLY_FIXES_CHUNK_SIZE rows per commit (code review MAJOR-5):
+    a single giant UPDATE holds row locks and conflicts with the nightly
+    crawl, plus it isn't restartable if killed halfway.
     """
     ids = [r.target_id for r in candidates]
     if not ids:
         return 0
     conn = _connect()
+    total_affected = 0
     try:
         cur = conn.cursor()
-        cur.execute(
-            "UPDATE crawl_targets SET fee_schedule_url = NULL "
-            "WHERE id = ANY(%s::bigint[]) AND fee_schedule_url IS NOT NULL",
-            (ids,),
-        )
-        affected = cur.rowcount
-        conn.commit()
-        return affected
+        for start in range(0, len(ids), _APPLY_FIXES_CHUNK_SIZE):
+            chunk = ids[start : start + _APPLY_FIXES_CHUNK_SIZE]
+            cur.execute(
+                "UPDATE crawl_targets SET fee_schedule_url = NULL "
+                "WHERE id = ANY(%s::bigint[]) AND fee_schedule_url IS NOT NULL",
+                (chunk,),
+            )
+            total_affected += cur.rowcount
+            conn.commit()
+            print(
+                f"  applied chunk {start // _APPLY_FIXES_CHUNK_SIZE + 1}: "
+                f"{cur.rowcount} cleared ({total_affected}/{len(ids)} total)"
+            )
+        return total_affected
     finally:
         conn.close()
 

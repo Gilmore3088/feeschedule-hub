@@ -1,14 +1,8 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { MAGELLAN_SIDECAR_URL } from "@/lib/modal-endpoints";
 import type { MagellanStatus } from "./types";
-
-// Fallback matches the Modal deploy output. Override via MAGELLAN_SIDECAR_URL
-// if the endpoint name changes. Unset envs must not throw — the admin pollers
-// hit these every 10s and each throw produced a Vercel 500.
-const SIDECAR =
-  process.env.MAGELLAN_SIDECAR_URL ??
-  "https://gilmore3088--bank-fee-index-workers-magellan-api.modal.run";
 
 async function assertAdmin() {
   const user = await getCurrentUser();
@@ -18,7 +12,7 @@ async function assertAdmin() {
 export async function fetchMagellanStatus(): Promise<MagellanStatus> {
   await assertAdmin();
   try {
-    const r = await fetch(`${SIDECAR}/magellan/status`, {
+    const r = await fetch(`${MAGELLAN_SIDECAR_URL()}/magellan/status`, {
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
     });
@@ -41,7 +35,7 @@ export async function fetchMagellanStatus(): Promise<MagellanStatus> {
 export async function resetMagellanCircuit(actor: string): Promise<{ ok: boolean }> {
   await assertAdmin();
   try {
-    const r = await fetch(`${SIDECAR}/magellan/reset`, {
+    const r = await fetch(`${MAGELLAN_SIDECAR_URL()}/magellan/reset`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ actor }),
