@@ -413,6 +413,28 @@ def cmd_rediscover_failed(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_revalidate_urls(args: argparse.Namespace) -> None:
+    """Re-validate fee_schedule_urls with tightened rejection logic (dry-run default)."""
+    from fee_crawler.commands.revalidate_urls import run
+
+    if getattr(args, "fix", False):
+        # --fix is intentionally not wired for roadmap item #11; dry-run only.
+        print(
+            "ERROR: --fix is blocked on revalidate-urls. "
+            "Produce the dry-run report and review it with a human before any writes.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    run(
+        fix=False,
+        limit=getattr(args, "limit", 0) or 0,
+        concurrency=getattr(args, "concurrency", 16) or 16,
+        report_path=getattr(args, "report", None),
+        state=getattr(args, "state", None),
+    )
+
+
 def cmd_recrawl(args: argparse.Namespace) -> None:
     """Reset content hashes to force re-download and R2 storage."""
     from fee_crawler.commands.recrawl import run
@@ -1159,6 +1181,23 @@ def main() -> None:
     rediscover_parser.add_argument("--limit", type=int, default=None, help="Max institutions to process")
     rediscover_parser.add_argument("--dry-run", action="store_true", help="Show what would be cleared")
     rediscover_parser.set_defaults(func=cmd_rediscover_failed)
+
+    # revalidate-urls command (roadmap #11)
+    reval_parser = subparsers.add_parser(
+        "revalidate-urls",
+        help="Re-probe all fee_schedule_urls with tightened rejection rules (dry-run default)",
+    )
+    reval_parser.add_argument("--fix", action="store_true",
+                              help="(BLOCKED) placeholder for future DB write path")
+    reval_parser.add_argument("--limit", type=int, default=0,
+                              help="Max URLs to probe (0 = all active)")
+    reval_parser.add_argument("--concurrency", type=int, default=16,
+                              help="Max concurrent probes (default: 16, bounded by config)")
+    reval_parser.add_argument("--report", type=str, default=None,
+                              help="Report output path (default: docs/reliability/url-dry-run-YYYYMMDD.md)")
+    reval_parser.add_argument("--state", type=str, default=None,
+                              help="Optional state filter (e.g. TX)")
+    reval_parser.set_defaults(func=cmd_revalidate_urls)
 
     # recrawl command
     recrawl_parser = subparsers.add_parser(
