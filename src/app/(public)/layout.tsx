@@ -10,9 +10,11 @@ export default async function PublicLayout({
   children: React.ReactNode;
 }) {
   let isAdmin = false;
+  let role: string | null = null;
   try {
     const user = await getCurrentUser();
     isAdmin = user?.role === "admin" || user?.role === "analyst";
+    role = user?.role ?? null;
   } catch {
     // Not logged in — show normal consumer layout
   }
@@ -21,7 +23,9 @@ export default async function PublicLayout({
     <div className="min-h-screen bg-[#FAF7F2]">
       {isAdmin && (
         <div className="bg-gray-900 text-white text-xs px-4 py-1.5 flex items-center justify-between">
-          <span className="text-gray-400">Viewing as admin — this is the public consumer view</span>
+          <span className="text-gray-400">
+            Viewing as {role ?? "admin"} — this is the public consumer view
+          </span>
           <Link href="/admin" className="text-blue-400 hover:text-blue-300 font-medium">
             Back to Admin
           </Link>

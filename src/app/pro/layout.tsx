@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
@@ -43,8 +44,27 @@ async function ProLayoutInner({
     redirect("/subscribe");
   }
 
-  // Auth verified — children render their own nav
-  // Hamilton routes: (hamilton)/layout.tsx handles HamiltonShell + TopNav
-  // Legacy routes: render with minimal wrapper
-  return <>{children}</>;
+  // Admins jumping from /admin → /pro lose their admin shell entirely.
+  // Surface a slim "Back to Admin" banner so context is preserved without
+  // overriding the Pro-tier nav that subscribers expect.
+  const isAdmin = user.role === "admin" || user.role === "analyst";
+
+  return (
+    <>
+      {isAdmin && (
+        <div className="bg-gray-900 text-white text-xs px-4 py-1.5 flex items-center justify-between">
+          <span className="text-gray-400">
+            Viewing as {user.role} — this is the Pro subscriber view
+          </span>
+          <Link
+            href="/admin"
+            className="text-blue-400 hover:text-blue-300 font-medium"
+          >
+            Back to Admin
+          </Link>
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
