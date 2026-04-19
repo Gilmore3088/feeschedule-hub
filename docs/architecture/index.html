@@ -381,7 +381,7 @@ sequenceDiagram
   <!-- ============ 4. DAILY SCHEDULE ============ -->
   <section class="card" id="schedule">
     <h2>4. Daily UTC Schedule</h2>
-    <p class="lede">Every 24 hours, Modal fires six windows. Times are UTC. Starting tomorrow (2026-04-19), the 05:00 window fires Magellan + Knox for the first time; before today the 03:00 and 04:00 crons had been silently failing since April 8.</p>
+    <p class="lede">Every 24 hours, Modal fires six windows. Times are UTC. As of 2026-04-19, the 05:00 window now also runs Darwin drain — piggybacking on the every-minute dispatcher via a <code>workers_last_run</code> marker so we stay inside the Modal Starter 5-cron cap. No plan upgrade needed.</p>
     <div class="diagram-wrap"><div class="mermaid">
 gantt
   title Daily Schedule (UTC)
@@ -396,6 +396,7 @@ gantt
   section Agents
   Magellan rescue (URL-less institutions) :b1, 05:00, 10m
   Knox adversarial review                 :b2, 05:05, 10m
+  Darwin drain (fees_raw → fees_verified, 5x500) :b3, 05:05, 10m
 
   section Pipeline
   Daily post-processing (categorize→auto-review→publish-fees→snapshot→publish-index) :c1, 06:00, 30m
@@ -756,12 +757,46 @@ flowchart TB
     </div>
   </section>
 
+  <!-- ============ 10. RELIABILITY BACKLOG (2026-04-19) ============ -->
+  <section class="card" id="reliability">
+    <h2>10. Reliability Backlog — Shipped 2026-04-19</h2>
+    <p class="lede">Eleven reliability items were dispatched as parallel worktree agents and merged in one wave. These tighten the Tier-3 publish gate, add insurance on <code>fees_published</code>, surface Knox rejections to humans, and gate Hamilton against thin reports. Every item below is live on <code>main</code> with tests green.</p>
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr style="background:#f3f4f6; text-align:left;">
+          <th style="padding:8px; border-bottom:1px solid #d1d5db;">#</th>
+          <th style="padding:8px; border-bottom:1px solid #d1d5db;">Item</th>
+          <th style="padding:8px; border-bottom:1px solid #d1d5db;">Where it lives</th>
+          <th style="padding:8px; border-bottom:1px solid #d1d5db;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:6px 8px;">2</td><td>Hamilton citation-density gate (refuse-to-render)</td><td><code>src/lib/hamilton/citation-gate.ts</code></td><td>✓ live, opt-in via <code>gate_citations: true</code></td></tr>
+        <tr><td style="padding:6px 8px;">3</td><td>Darwin drain</td><td><code>_run_0500_jobs</code> piggyback + <code>fee_crawler/commands/darwin_drain.py</code></td><td>✓ live, 5×500 rows/day at 05:00 UTC</td></tr>
+        <tr><td style="padding:6px 8px;">4</td><td>RLS blast-radius analysis</td><td><code>docs/reliability/rls-blast-radius.md</code></td><td>✓ report only; 3.5–4.5 day rollout queued</td></tr>
+        <tr><td style="padding:6px 8px;">6</td><td><code>fees_published</code> rollback primitive</td><td><code>fee_crawler/commands/rollback_publish.py</code> + <code>batch_id</code> / <code>rolled_back_at</code> cols</td><td>✓ live, dry-run default, <code>--execute</code> required</td></tr>
+        <tr><td style="padding:6px 8px;">7</td><td>Knox rejection review UI</td><td><code>/admin/agents/knox/reviews</code> + <code>knox_overrides</code> table</td><td>✓ live, j/k/o/c/s keyboard nav</td></tr>
+        <tr><td style="padding:6px 8px;">8</td><td><code>agent_messages</code> partitioning prep</td><td><code>docs/reliability/agent-messages-partitioning.md</code></td><td>✓ prep only; trigger at 1M rows (~4wk post-drain)</td></tr>
+        <tr><td style="padding:6px 8px;">8a</td><td>Partial expression index on accept lookup</td><td><code>agent_messages_accept_fee_verified_idx</code></td><td>✓ live (prevents 1M-row cliff)</td></tr>
+        <tr><td style="padding:6px 8px;">8b</td><td><code>promote_to_tier3</code> tightened: <code>correlation_id</code> + 30-day window</td><td><code>20260420_promote_to_tier3_tighten_search.sql</code></td><td>✓ live, grandfather branch with NOTICE</td></tr>
+        <tr><td style="padding:6px 8px;">8c</td><td><code>promote_to_tier3</code> threads <code>batch_id</code> end-to-end</td><td>SQL → tool wrapper → <code>publish_fees.py</code></td><td>✓ live, drain-scoped batch IDs now written</td></tr>
+        <tr><td style="padding:6px 8px;">10</td><td><code>cert_number</code> / <code>charter_type</code> call-site migration</td><td>5 ingest files: ncua, fdic, call_reports, sod, backfill_ncua_urls</td><td>✓ live, source literal preserved for provenance</td></tr>
+        <tr><td style="padding:6px 8px;">11</td><td>URL re-validation with tightened rejection logic</td><td><code>fee_crawler/commands/revalidate_urls.py</code></td><td>✓ live, 27 hard-404 candidates identified, <code>--fix</code> gated</td></tr>
+      </tbody>
+    </table>
+    <div class="legend">
+      <span><strong>Migration tracking reconciled</strong> — <code>schema_migrations</code> went from 3 rows to 46 (37 historical + 5 new + 1 reconciliation file)</span>
+      <span><strong>Modal deployed</strong> — <code>modal deploy fee_crawler/modal_app.py</code> landed the Darwin piggyback on the production every-minute dispatcher</span>
+      <span><strong>Test run</strong> — 1 manual Darwin batch: 500 processed, 138 promoted, 406 cache hits, <code>cost_usd: 0.0</code> in 54s</span>
+    </div>
+  </section>
+
 </main>
 
 <footer>
   Rendered from <code>docs/architecture/index.html</code>. Serve locally with
   <code>python3 -m http.server 8765 --directory docs/architecture</code>.
-  Diagrams use Mermaid 10 from JSDelivr. No data calls — snapshot values are as of 2026-04-18.
+  Diagrams use Mermaid 10 from JSDelivr. No data calls — snapshot values are as of 2026-04-19.
 </footer>
 
 </body>

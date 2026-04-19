@@ -13,6 +13,37 @@
 - [ ] **v9.0 Data Foundation & Production Polish** - Phases 55-61 (in progress)
 - [ ] **v10.0 Pipeline Integrity and Agent Team Foundation** — Phases 62a-68 (in progress)
 
+## Reliability Backlog (2026-04-19)
+
+Parallel worktree wave — 11 items dispatched, merged, tested, and deployed in one session. Not phase-numbered because each is a targeted hardening rather than a milestone feature.
+
+| # | Item | Status | Where |
+|---|------|--------|-------|
+| 1 | — | — | — |
+| 2 | Hamilton citation-density gate | ✓ shipped | `src/lib/hamilton/citation-gate.ts` |
+| 3 | Darwin drain scheduled (no Modal upgrade) | ✓ shipped | `modal_app.py::_run_0500_jobs` piggyback |
+| 4 | RLS blast-radius analysis | ✓ report only | `docs/reliability/rls-blast-radius.md` |
+| 5 | Modal tier upgrade | ✗ not needed — piggyback pattern used instead | — |
+| 6 | `fees_published` rollback primitive | ✓ shipped | `fee_crawler/commands/rollback_publish.py` |
+| 7 | Knox rejection review UI | ✓ shipped | `/admin/agents/knox/reviews` |
+| 8 | `agent_messages` partitioning prep | ✓ report + index | `docs/reliability/agent-messages-partitioning.md` |
+| 8a | Partial accept-lookup index | ✓ shipped | migration `20260420_agent_messages_accept_payload_idx` |
+| 8b | `promote_to_tier3` search tightened (`correlation_id` + 30d) | ✓ shipped | migration `20260420_promote_to_tier3_tighten_search` |
+| 8c | `promote_to_tier3` threads `batch_id` end-to-end | ✓ shipped | migration `20260420_promote_to_tier3_batch_id` |
+| 9 | — | — | — |
+| 10 | `cert_number` / `charter_type` call-site migration (5 files) | ✓ shipped | ingest_ncua/fdic/call_reports/sod/backfill_ncua_urls |
+| 11 | URL re-validation with tightened rejection logic | ✓ shipped | `fee_crawler/commands/revalidate_urls.py` |
+
+**Operational side-effects:**
+- `schema_migrations` tracking reconciled: 3 → 46 rows (37 historical + 5 new + 1 reconciliation file). `--pending` now returns zero.
+- Modal app deployed with Darwin piggyback — no free-tier upgrade required.
+- First Darwin drain test run: 500 processed, 138 promoted, 406 cache hits, `cost_usd: 0.0`, 54s wall-clock.
+
+**Follow-up queued** (low priority, not blocking):
+- Apply `--fix` to the 27 hard-404 URLs flagged by #11 after human review.
+- RLS rollout (~3.5–4.5 days) when public-API launch date is set.
+- `agent_messages` monthly RANGE partitioning when row count crosses 1M (~4 weeks after regular Darwin drains begin).
+
 ## Phases
 
 <details>
@@ -1393,7 +1424,7 @@ Note: 62a is a hard prerequisite for 62b (data layer before runtime); 63-66 are 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 62a. Agent Foundation — Data Layer | v10.0 | 13/13 | Complete    | 2026-04-17 |
-| 62b. Agent Foundation — Runtime Layer | v10.0 | 11/11 | Complete   | 2026-04-17 |
+| 62b. Agent Foundation — Runtime Layer | v10.0 | 14/15 | In Progress|  |
 | 63. Knox + 51-State Agent Fleet | v10.0 | 0/TBD | Not started | - |
 | 64. Darwin — Classification + Verification | v10.0 | 0/TBD | Not started | - |
 | 65. Atlas — Orchestration | v10.0 | 0/TBD | Not started | - |
