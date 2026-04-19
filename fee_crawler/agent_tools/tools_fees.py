@@ -213,9 +213,12 @@ async def promote_fee_to_tier3(
         pk_column="fee_published_id",
         parent_event_id=parent_event_id,
     ) as (conn, event_id):
+        # Third arg (batch_id) is optional; NULL matches pre-rollback behaviour.
+        # Supplied by publish_fees / knox-review / darwin drain orchestrators per
+        # run so rollback-publish can target a single batch.
         new_id = await conn.fetchval(
-            "SELECT promote_to_tier3($1, $2::UUID)",
-            inp.fee_verified_id, event_id,
+            "SELECT promote_to_tier3($1, $2::UUID, $3)",
+            inp.fee_verified_id, event_id, inp.batch_id,
         )
         corr = await _correlation_of(event_id, conn)
     return PromoteFeeToTier3Output(

@@ -18,7 +18,13 @@ Coverage:
     test_rejects_when_knox_accept_missing
     test_rejects_when_knox_rejects
     test_rejects_unknown_fee_verified_id
-    test_idempotency_currently_not_enforced  (known-weakness, xfail)
+    test_idempotency_currently_not_enforced  (known-weakness)
+    test_shared_correlation_id_matches_preferred_path  (20260420 tighten)
+    test_stale_accept_beyond_30d_fails                 (20260420 tighten)
+    test_cross_correlation_grandfather_path_still_publishes  (20260420 tighten)
+    test_batch_id_lands_on_fees_published_row                (20260420 batch_id)
+    test_batch_id_null_when_omitted                          (20260420 batch_id)
+    test_batch_id_threaded_via_tools_fees_wrapper            (20260420 batch_id)
 """
 from __future__ import annotations
 
@@ -83,27 +89,64 @@ async def _seed_verified_fee(conn, *, institution_id: int = 99001) -> int:
     return fee_verified_id
 
 
-async def _post_message(conn, *, sender: str, intent: str, fee_verified_id: int) -> None:
+async def _post_message(
+    conn,
+    *,
+    sender: str,
+    intent: str,
+    fee_verified_id: int,
+    correlation_id=None,
+    created_at_sql: str | None = None,
+):
     """Write a minimal agent_messages row for the handshake check.
 
     recipient_agent is NOT NULL on agent_messages — for the tier-3 gate we
     only check sender+intent, so pair darwin<->knox arbitrarily.
+
+    When `correlation_id` is omitted, a fresh UUID is generated (legacy
+    cross-correlation behaviour — grandfather path on the tightened gate).
+    When `created_at_sql` is provided, it's a SQL expression used to
+    override created_at (e.g. "now() - interval '60 days'" for the
+    stale-retention test).
+
+    Returns the correlation_id used so tests can reuse it for the partner.
     """
     recipient = "knox" if sender == "darwin" else "darwin"
-    await conn.execute(
-        """
-        INSERT INTO agent_messages
-            (message_id, sender_agent, recipient_agent, intent,
-             correlation_id, payload)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        """,
-        uuid.uuid4(), sender, recipient, intent, uuid.uuid4(),
-        f'{{"fee_verified_id": {fee_verified_id}}}',
-    )
+    corr = correlation_id if correlation_id is not None else uuid.uuid4()
+    if created_at_sql is None:
+        await conn.execute(
+            """
+            INSERT INTO agent_messages
+                (message_id, sender_agent, recipient_agent, intent,
+                 correlation_id, payload)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            uuid.uuid4(), sender, recipient, intent, corr,
+            f'{{"fee_verified_id": {fee_verified_id}}}',
+        )
+    else:
+        # Inline the created_at expression so PG evaluates it. Safe:
+        # created_at_sql is test-only and never user-derived.
+        await conn.execute(
+            f"""
+            INSERT INTO agent_messages
+                (message_id, sender_agent, recipient_agent, intent,
+                 correlation_id, payload, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, {created_at_sql})
+            """,
+            uuid.uuid4(), sender, recipient, intent, corr,
+            f'{{"fee_verified_id": {fee_verified_id}}}',
+        )
+    return corr
 
 
-async def _call_promote(conn, fee_verified_id: int) -> int:
-    """Invoke promote_to_tier3 with a fresh adversarial event id."""
+async def _call_promote(conn, fee_verified_id: int, batch_id: str | None = None) -> int:
+    """Invoke promote_to_tier3 with a fresh adversarial event id.
+
+    `batch_id` is optional; NULL matches pre-rollback behaviour. When supplied,
+    the 3-arg signature (20260420_promote_to_tier3_batch_id.sql) stamps the
+    value onto the resulting fees_published row.
+    """
     adversarial_event_id = uuid.uuid4()
     await conn.execute(
         """
@@ -115,9 +158,15 @@ async def _call_promote(conn, fee_verified_id: int) -> int:
         """,
         adversarial_event_id, uuid.uuid4(),
     )
+    if batch_id is None:
+        # Exercise the 2-arg default-parameter call shape (rollback-unaware callers).
+        return await conn.fetchval(
+            "SELECT promote_to_tier3($1, $2)",
+            fee_verified_id, adversarial_event_id,
+        )
     return await conn.fetchval(
-        "SELECT promote_to_tier3($1, $2)",
-        fee_verified_id, adversarial_event_id,
+        "SELECT promote_to_tier3($1, $2, $3)",
+        fee_verified_id, adversarial_event_id, batch_id,
     )
 
 
@@ -214,3 +263,194 @@ async def test_idempotency_currently_not_enforced(db_schema):
         # Both succeed — the function allows duplicates. When we fix this,
         # update the assertion to `assert second is None` or similar.
         assert first != second, "duplicate promotion currently creates two rows"
+
+
+# ---------------------------------------------------------------------------
+# Tightened-search tests (20260420_promote_to_tier3_tighten_search.sql)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_shared_correlation_id_matches_preferred_path(db_schema):
+    """When darwin+knox accepts share correlation_id, the preferred (non-grandfather) path matches."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        fvid = await _seed_verified_fee(conn)
+        shared = uuid.uuid4()
+        await _post_message(
+            conn, sender="darwin", intent="accept",
+            fee_verified_id=fvid, correlation_id=shared,
+        )
+        await _post_message(
+            conn, sender="knox", intent="accept",
+            fee_verified_id=fvid, correlation_id=shared,
+        )
+
+        published_id = await _call_promote(conn, fvid)
+        assert published_id is not None and published_id > 0
+
+        # The preferred (non-grandfather) path stamps the handshake_correlation_id
+        # into the audit event payload. Assert it matches the correlation we posted.
+        row = await conn.fetchrow(
+            """
+            SELECT input_payload->>'handshake_correlation_id' AS corr,
+                   input_payload->>'grandfathered'           AS gf
+              FROM agent_events
+             WHERE tool_name = 'promote_to_tier3'
+               AND entity_id = $1::TEXT
+            """,
+            published_id,
+        )
+        assert row is not None
+        assert row["corr"] == str(shared), f"expected shared corr {shared}, got {row['corr']!r}"
+        assert row["gf"] == "false", f"expected grandfathered=false, got {row['gf']!r}"
+
+
+@pytest.mark.asyncio
+async def test_stale_accept_beyond_30d_fails(db_schema):
+    """An accept whose created_at is older than 30 days no longer satisfies the gate."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        fvid = await _seed_verified_fee(conn)
+        # Both sides accept but with a created_at outside the 30d window.
+        await _post_message(
+            conn, sender="darwin", intent="accept", fee_verified_id=fvid,
+            created_at_sql="now() - interval '60 days'",
+        )
+        await _post_message(
+            conn, sender="knox", intent="accept", fee_verified_id=fvid,
+            created_at_sql="now() - interval '60 days'",
+        )
+
+        with pytest.raises(Exception, match="handshake incomplete"):
+            await _call_promote(conn, fvid)
+
+
+@pytest.mark.asyncio
+async def test_cross_correlation_grandfather_path_still_publishes(db_schema):
+    """Legacy pairs with DIFFERENT correlation_ids still publish via the grandfather branch."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        fvid = await _seed_verified_fee(conn)
+        # Two different correlation ids (this is the default helper behaviour).
+        await _post_message(conn, sender="darwin", intent="accept", fee_verified_id=fvid)
+        await _post_message(conn, sender="knox", intent="accept", fee_verified_id=fvid)
+
+        published_id = await _call_promote(conn, fvid)
+        assert published_id is not None and published_id > 0
+
+        row = await conn.fetchrow(
+            """
+            SELECT input_payload->>'grandfathered' AS gf
+              FROM agent_events
+             WHERE tool_name = 'promote_to_tier3'
+               AND entity_id = $1::TEXT
+            """,
+            published_id,
+        )
+        assert row is not None
+        assert row["gf"] == "true", f"expected grandfathered=true, got {row['gf']!r}"
+
+
+# ---------------------------------------------------------------------------
+# batch_id threading tests (20260420_promote_to_tier3_batch_id.sql + roadmap #6)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_batch_id_lands_on_fees_published_row(db_schema):
+    """When batch_id is supplied, it must persist on the fees_published row."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        fvid = await _seed_verified_fee(conn)
+        shared = uuid.uuid4()
+        await _post_message(
+            conn, sender="darwin", intent="accept",
+            fee_verified_id=fvid, correlation_id=shared,
+        )
+        await _post_message(
+            conn, sender="knox", intent="accept",
+            fee_verified_id=fvid, correlation_id=shared,
+        )
+
+        batch_id = "drain-2026-04-19-darwin-test01"
+        published_id = await _call_promote(conn, fvid, batch_id=batch_id)
+        assert published_id is not None and published_id > 0
+
+        row = await conn.fetchrow(
+            "SELECT batch_id FROM fees_published WHERE fee_published_id = $1",
+            published_id,
+        )
+        assert row is not None and row["batch_id"] == batch_id
+
+
+@pytest.mark.asyncio
+async def test_batch_id_null_when_omitted(db_schema):
+    """Backward-compat: 2-arg callers still get a row with batch_id NULL."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        fvid = await _seed_verified_fee(conn)
+        await _post_message(conn, sender="darwin", intent="accept", fee_verified_id=fvid)
+        await _post_message(conn, sender="knox", intent="accept", fee_verified_id=fvid)
+
+        published_id = await _call_promote(conn, fvid)  # no batch_id kwarg
+        assert published_id is not None and published_id > 0
+
+        row = await conn.fetchrow(
+            "SELECT batch_id FROM fees_published WHERE fee_published_id = $1",
+            published_id,
+        )
+        assert row is not None and row["batch_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_batch_id_threaded_via_tools_fees_wrapper(db_schema):
+    """Exercise the Python tools_fees.promote_fee_to_tier3 wrapper path.
+
+    Asserts that PromoteFeeToTier3Input(batch_id=...) survives pydantic
+    validation, reaches the SQL function, and lands on fees_published.
+    """
+    from fee_crawler.agent_tools import pool as pool_mod
+    from fee_crawler.agent_tools.context import with_agent_context
+    from fee_crawler.agent_tools.schemas import PromoteFeeToTier3Input
+    from fee_crawler.agent_tools.tools_fees import promote_fee_to_tier3
+
+    _, pool = db_schema
+    pool_mod._pool = pool
+    try:
+        async with pool.acquire() as conn:
+            fvid = await _seed_verified_fee(conn)
+            shared = uuid.uuid4()
+            await _post_message(
+                conn, sender="darwin", intent="accept",
+                fee_verified_id=fvid, correlation_id=shared,
+            )
+            await _post_message(
+                conn, sender="knox", intent="accept",
+                fee_verified_id=fvid, correlation_id=shared,
+            )
+
+        batch_id = "drain-2026-04-19-darwin-wrapper"
+        with with_agent_context(agent_name="darwin"):
+            out = await promote_fee_to_tier3(
+                inp=PromoteFeeToTier3Input(
+                    fee_verified_id=fvid,
+                    batch_id=batch_id,
+                ),
+                agent_name="darwin",
+                reasoning_prompt="publish-fees drain",
+                reasoning_output=f"auto-promote fvid={fvid}",
+            )
+        assert out.success is True
+        assert out.fee_published_id is not None
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT batch_id FROM fees_published WHERE fee_published_id = $1",
+                out.fee_published_id,
+            )
+        assert row is not None and row["batch_id"] == batch_id, (
+            f"expected batch_id={batch_id!r} on fees_published row, got {row['batch_id']!r}"
+        )
+    finally:
+        pool_mod._pool = None

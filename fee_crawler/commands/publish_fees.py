@@ -30,6 +30,7 @@ import argparse
 import asyncio
 import sys
 import uuid
+from datetime import date
 from typing import Optional
 
 import asyncpg
@@ -101,20 +102,23 @@ async def _insert_accept(
     )
 
 
-async def _publish_one(fee_verified_id: int) -> Optional[str]:
+async def _publish_one(fee_verified_id: int, batch_id: Optional[str] = None) -> Optional[str]:
     """Full handshake + promote for one fees_verified row.
 
-    The SQL gate in promote_to_tier3 (20260510_promote_to_tier3_tighten.sql)
+    The SQL gate in promote_to_tier3 (20260420_promote_to_tier3_batch_id.sql)
     requires an intent='accept' agent_messages row from BOTH darwin AND knox
-    referencing the fee_verified_id in payload. This helper posts both, then
-    promotes.
+    sharing a correlation_id and created within 30 days of the call. This helper
+    posts both, then promotes. When `batch_id` is provided it tags the
+    resulting fees_published row for rollback-publish grouping (roadmap #6).
     """
     correlation_id = str(uuid.uuid4())
-    # Both accept messages share a correlation_id so replay/lineage can link them.
+    # Both accept messages share a correlation_id so the tightened Tier-3 gate
+    # (20260420_promote_to_tier3_tighten_search.sql) matches the preferred path
+    # and replay/lineage can link them.
     await _insert_accept("darwin", "knox", correlation_id, fee_verified_id)
     await _insert_accept("knox", "darwin", correlation_id, fee_verified_id)
 
-    inp = PromoteFeeToTier3Input(fee_verified_id=fee_verified_id)
+    inp = PromoteFeeToTier3Input(fee_verified_id=fee_verified_id, batch_id=batch_id)
     out = await promote_fee_to_tier3(
         inp=inp,
         agent_name=AGENT_NAME,
@@ -132,6 +136,16 @@ async def _publish_one(fee_verified_id: int) -> Optional[str]:
     return str(out.fee_published_id) if out.fee_published_id is not None else None
 
 
+def _derive_batch_id() -> str:
+    """Stable per-run batch_id so rollback-publish can target a single drain.
+
+    Shape: `drain-YYYY-MM-DD-darwin-<8hex>`. Date first so `batch_id LIKE 'drain-2026-04-%'`
+    works for month-scoped rollbacks. Short random suffix disambiguates multiple
+    drains on the same day.
+    """
+    return f"drain-{date.today().isoformat()}-{AGENT_NAME}-{uuid.uuid4().hex[:8]}"
+
+
 async def _run(apply: bool, min_confidence: float, limit: int) -> int:
     pool = await get_pool()
     rows = await _fetch_eligible(pool, min_confidence, limit)
@@ -142,9 +156,10 @@ async def _run(apply: bool, min_confidence: float, limit: int) -> int:
         )
         return 0
 
+    batch_id = _derive_batch_id()
     print(
         f"publish-fees: {len(rows)} eligible row(s) "
-        f"(min_confidence={min_confidence}, limit={limit})"
+        f"(min_confidence={min_confidence}, limit={limit}, batch_id={batch_id})"
     )
     preview = rows[: min(5, len(rows))]
     for r in preview:
@@ -164,7 +179,7 @@ async def _run(apply: bool, min_confidence: float, limit: int) -> int:
     for r in rows:
         fv_id = r["fee_verified_id"]
         try:
-            published_id = await _publish_one(fv_id)
+            published_id = await _publish_one(fv_id, batch_id=batch_id)
             if published_id is not None:
                 published += 1
                 print(f"  published fee_verified_id={fv_id} -> fee_published_id={published_id}")
@@ -177,7 +192,7 @@ async def _run(apply: bool, min_confidence: float, limit: int) -> int:
 
     print(
         f"publish-fees: done. published={published} failed={failures} "
-        f"total_considered={len(rows)}"
+        f"total_considered={len(rows)} batch_id={batch_id}"
     )
     return 0
 
