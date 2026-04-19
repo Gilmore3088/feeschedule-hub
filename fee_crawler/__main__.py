@@ -1483,6 +1483,28 @@ def main() -> None:
         )
     )
 
+    # ── darwin-drain (Roadmap #3: drain fees_raw via Darwin classifier) ─
+    # Loops over classify_batch N times so the 06:00 UTC piggyback window in
+    # run_post_processing can clear ~2,500 rows/day (5×500) without burning a
+    # Modal cron slot. Honors a --dry-run flag for CI/smoke-testing.
+    darwin_drain_parser = subparsers.add_parser(
+        "darwin-drain",
+        help="Classify fees_raw rows via Darwin in N consecutive batches",
+    )
+    darwin_drain_parser.add_argument("--size", type=int, default=500, help="rows per batch")
+    darwin_drain_parser.add_argument("--batches", type=int, default=1, help="consecutive batches")
+    darwin_drain_parser.add_argument("--dry-run", action="store_true", help="resolve imports only")
+    darwin_drain_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__(
+                "fee_crawler.commands.darwin_drain", fromlist=["main"]
+            ).main(
+                ["--size", str(args.size), "--batches", str(args.batches)]
+                + (["--dry-run"] if args.dry_run else [])
+            )
+        )
+    )
+
     # ── exception-digest (Phase 62b BOOT-01 / D-08 + D-11 + D-24) ──────
     # Daily exception digest surfacing improve_rejected events, escalated
     # handshakes, and Q2 exception samples. 48h review SLA per D-25.

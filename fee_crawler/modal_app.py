@@ -333,6 +333,35 @@ async def _run_0500_jobs(now, today_0500) -> None:
             print(f"knox_review failed (non-fatal): {exc}")
             _mark_ran("knox_review", "failed")
 
+    # --- Darwin drain (Roadmap #3) ---
+    # Classifies fees_raw → fees_verified in 5 consecutive 500-row batches
+    # (~2,500 rows/day), draining the ~102K backlog in ~41 days. Runs BEFORE
+    # the 06:00 daily_pipeline so newly-classified fees land in fees_verified
+    # in time for publish-fees to drain them through to fees_published in the
+    # same UTC day. Kept in the 05:00 window on purpose: no new cron slot.
+    if not _already_ran("darwin_drain"):
+        try:
+            from fee_crawler.agents.darwin import classify_batch
+            conn = await asyncpg.connect(db_url)
+            try:
+                total_classified = 0
+                for i in range(5):
+                    result = await classify_batch(conn, size=500)
+                    summary = result.to_dict()
+                    print(f"darwin_drain batch {i+1}/5: {summary}")
+                    classified = int(summary.get("classified", 0) or 0)
+                    total_classified += classified
+                    if classified == 0:
+                        print(f"darwin_drain: backlog exhausted after {i+1} batch(es)")
+                        break
+                print(f"darwin_drain total: {total_classified} rows classified")
+            finally:
+                await conn.close()
+            _mark_ran("darwin_drain", "ok")
+        except Exception as exc:
+            print(f"darwin_drain failed (non-fatal): {exc}")
+            _mark_ran("darwin_drain", "failed")
+
 
 @app.function(
     schedule=modal.Cron("0 10 * * *"),
