@@ -59,6 +59,8 @@ def read_only_tool(**mcp_kwargs: Any) -> Callable[[Callable[..., Any]], Callable
 async def get_national_index(canonical_fee_key: Optional[str] = None) -> list[dict[str, Any]]:
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Hamilton must never cite rolled-back fees as live evidence
+        # (20260419_fees_published_rollback.sql contract).
         if canonical_fee_key:
             rows = await conn.fetch(
                 """
@@ -69,6 +71,7 @@ async def get_national_index(canonical_fee_key: Optional[str] = None) -> list[di
                        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY amount)       AS p75
                   FROM fees_published
                  WHERE canonical_fee_key = $1
+                   AND rolled_back_at IS NULL
                  GROUP BY canonical_fee_key
                 """,
                 canonical_fee_key,
@@ -82,6 +85,7 @@ async def get_national_index(canonical_fee_key: Optional[str] = None) -> list[di
                        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY amount)       AS p25,
                        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY amount)       AS p75
                   FROM fees_published
+                 WHERE rolled_back_at IS NULL
                  GROUP BY canonical_fee_key
                  ORDER BY canonical_fee_key
                 """,

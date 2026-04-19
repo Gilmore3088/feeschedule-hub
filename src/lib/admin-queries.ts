@@ -482,10 +482,15 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
     stages[3].current = Number(reviewNow?.n ?? 0);
     stages[3].throughput_24h = Number(review24h?.n ?? 0);
 
-    // Publish: fees_published rows + last 24h
-    const [publishNow] = await sql`SELECT COUNT(*)::int AS n FROM fees_published`;
+    // Publish: fees_published rows + last 24h. Filter out rolled-back rows
+    // per 20260419_fees_published_rollback.sql contract — rolled_back_at IS
+    // NULL is the "live" subset used by every downstream consumer.
+    const [publishNow] = await sql`
+      SELECT COUNT(*)::int AS n FROM fees_published WHERE rolled_back_at IS NULL
+    `;
     const [publish24h] = await sql`
-      SELECT COUNT(*)::int AS n FROM fees_published WHERE created_at > NOW() - INTERVAL '24 hours'
+      SELECT COUNT(*)::int AS n FROM fees_published
+       WHERE rolled_back_at IS NULL AND created_at > NOW() - INTERVAL '24 hours'
     `;
     stages[4].current = Number(publishNow?.n ?? 0);
     stages[4].throughput_24h = Number(publish24h?.n ?? 0);

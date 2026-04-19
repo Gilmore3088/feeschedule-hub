@@ -217,6 +217,8 @@ export async function listRecentPublishedFees(
   limit = 10,
 ): Promise<RecentPublishedFee[]> {
   const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 50);
+  // Filter out rolled-back rows — 20260419_fees_published_rollback.sql
+  // contract: every live-path query must scope to rolled_back_at IS NULL.
   const rows = (await sql`
     SELECT fee_published_id,
            canonical_fee_key,
@@ -224,6 +226,7 @@ export async function listRecentPublishedFees(
            fee_name,
            published_at
       FROM fees_published
+     WHERE rolled_back_at IS NULL
      ORDER BY published_at DESC
      LIMIT ${safeLimit}
   `) as unknown as Record<string, unknown>[];
