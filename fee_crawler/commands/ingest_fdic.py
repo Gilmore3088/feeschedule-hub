@@ -83,9 +83,16 @@ def ingest_fdic_financials(
     total_upserted = 0
     total_skipped = 0
 
-    # Build cert -> crawl_target_id lookup
+    # Build cert -> crawl_target_id lookup for banks.
+    #
+    # Matches by charter_type = 'bank' rather than source = 'fdic' so that any
+    # bank-chartered row (regardless of how it was seeded) can be joined to
+    # FDIC BankFind financial data by cert_number. FDIC CERT is the bank-only
+    # namespace, disjoint from NCUA charter_number, so there is no risk of
+    # cross-charter collisions.
     rows = db.fetchall(
-        "SELECT id, cert_number FROM crawl_targets WHERE source = 'fdic'"
+        "SELECT id, cert_number FROM crawl_targets "
+        "WHERE charter_type = 'bank' AND cert_number IS NOT NULL"
     )
     cert_map: dict[str, int] = {}
     for row in rows:
@@ -93,7 +100,7 @@ def ingest_fdic_financials(
         if cert:
             cert_map[cert] = row["id"]
 
-    print(f"Found {len(cert_map):,} FDIC institutions in database")
+    print(f"Found {len(cert_map):,} bank institutions in database")
 
     for date in dates:
         print(f"\nFetching financials for report date {date}...")
