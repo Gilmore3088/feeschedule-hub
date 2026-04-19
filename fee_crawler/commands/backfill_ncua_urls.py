@@ -106,10 +106,18 @@ def run(
         workers: Number of concurrent HTTP worker threads.
         limit: Max institutions to process (for testing).
     """
-    # Get all NCUA CUs without website URLs
+    # Get all credit unions without website URLs.
+    #
+    # Matches by charter_type = 'credit_union' rather than source = 'ncua' so
+    # that CU rows seeded from any source (NCUA bulk, manual imports, etc.)
+    # are eligible for website backfill via the NCUA mapping API. The NCUA
+    # mapping API is keyed on charter_number (stored in cert_number for CUs)
+    # which is the CU-only namespace, so there is no risk of matching banks.
     query = """SELECT id, cert_number
             FROM crawl_targets
-            WHERE source = 'ncua' AND website_url IS NULL
+            WHERE charter_type = 'credit_union'
+              AND cert_number IS NOT NULL
+              AND website_url IS NULL
             ORDER BY asset_size DESC NULLS LAST"""
     query_params: list = []
     if limit and limit > 0:
