@@ -1,6 +1,7 @@
-import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
+import { streamText, generateText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, type HamiltonRole } from "@/lib/research/agents";
+import { evaluateCitationDensity } from "@/lib/hamilton/citation-gate";
 import { getCurrentUser, type User } from "@/lib/auth";
 import {
   checkPublicRateLimit,
@@ -128,11 +129,17 @@ export async function POST(request: Request) {
   let messages: UIMessage[];
   let mode: string | undefined;
   let analysisFocus: string | undefined;
+  // Opt-in citation-density gate. Default false preserves the streaming chat
+  // UX (useChat); callers that need a vetted report (report runner, export)
+  // set `gate_citations: true` and receive a buffered JSON response that can
+  // be `{ status: "ok" }` or `{ status: "refused", reason: "insufficient_citations" }`.
+  let gateCitations = false;
   try {
     const body = await request.json();
     messages = body.messages;
     mode = body.mode;
     analysisFocus = body.analysisFocus;
+    gateCitations = body.gate_citations === true;
     if (!Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: "Messages required" }, { status: 400 });
     }
@@ -204,6 +211,58 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Buffered (gated) path: for report-generation callers. Trades off
+    // streaming UX for a deterministic post-generation citation check. If
+    // the gate refuses, we return the structured empty-state shape instead
+    // of a partial report. Tokens are still logged via logUsage so cost
+    // attribution is unchanged.
+    if (gateCitations) {
+      const result = await generateText({
+        model: anthropic(agent.model),
+        system: systemPrompt,
+        messages: await convertToModelMessages(messages),
+        tools: agent.tools,
+        maxOutputTokens: agent.maxTokens,
+        stopWhen: stepCountIs(agent.maxSteps),
+      });
+
+      const inputTokens = result.usage?.inputTokens ?? 0;
+      const outputTokens = result.usage?.outputTokens ?? 0;
+      const costCents = estimateCostCents(agent.model, inputTokens, outputTokens);
+      try {
+        await logUsage(
+          user?.id ?? null,
+          user ? null : ip,
+          "hamilton",
+          inputTokens,
+          outputTokens,
+          costCents,
+        );
+      } catch {
+        // Non-critical — don't fail the response
+      }
+
+      const gate = evaluateCitationDensity(result.text ?? "");
+      if (gate.status === "refused") {
+        return Response.json(
+          {
+            status: "refused",
+            reason: gate.reason,
+            metrics: gate.metrics,
+            suggestion: gate.suggestion,
+            claims_without_citations: gate.claims_without_citations,
+          },
+          { status: 200 },
+        );
+      }
+
+      return Response.json({
+        status: "ok",
+        text: result.text,
+        metrics: gate.metrics,
+      });
+    }
+
     const result = streamText({
       model: anthropic(agent.model),
       system: systemPrompt,
