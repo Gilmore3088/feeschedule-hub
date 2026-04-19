@@ -1,10 +1,18 @@
 export const dynamic = "force-dynamic";
+import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { searchInstitutions } from "@/lib/admin-queries";
-import Link from "next/link";
+import {
+  ServerSortableTable,
+  type ServerColumn,
+} from "@/components/server-sortable-table";
 
 const PAGE_SIZE = 50;
+
+type InstitutionRow = Awaited<
+  ReturnType<typeof searchInstitutions>
+>["institutions"][number];
 
 function formatAssetSize(val: number | null): string {
   if (val == null) return "-";
@@ -13,6 +21,80 @@ function formatAssetSize(val: number | null): string {
   if (val >= 1_000) return `$${(val / 1_000).toFixed(0)}K`;
   return `$${val}`;
 }
+
+const VALID_SORTS = new Set([
+  "institution_name",
+  "state_code",
+  "charter_type",
+  "asset_size",
+  "has_fee_url",
+  "fee_count",
+]);
+
+const COLUMNS: ServerColumn<InstitutionRow>[] = [
+  {
+    key: "institution_name",
+    label: "Name",
+    sortable: true,
+    render: (r) => (
+      <span className="font-medium text-gray-900 dark:text-gray-200">
+        {r.institution_name}
+      </span>
+    ),
+  },
+  {
+    key: "state_code",
+    label: "State",
+    sortable: true,
+    render: (r) => (
+      <span className="text-gray-500">{r.state_code || "-"}</span>
+    ),
+  },
+  {
+    key: "charter_type",
+    label: "Charter",
+    sortable: true,
+    render: (r) => (
+      <span className="text-gray-500 text-xs uppercase">
+        {r.charter_type || "-"}
+      </span>
+    ),
+  },
+  {
+    key: "asset_size",
+    label: "Assets",
+    sortable: true,
+    align: "right",
+    render: (r) => (
+      <span className="text-gray-600 dark:text-gray-400">
+        {formatAssetSize(r.asset_size)}
+      </span>
+    ),
+  },
+  {
+    key: "has_fee_url",
+    label: "Fee URL",
+    sortable: true,
+    align: "center",
+    render: (r) =>
+      r.has_fee_url ? (
+        <span className="text-emerald-600 text-xs font-semibold">Yes</span>
+      ) : (
+        <span className="text-gray-300 dark:text-gray-600 text-xs">No</span>
+      ),
+  },
+  {
+    key: "fee_count",
+    label: "Fees",
+    sortable: true,
+    align: "right",
+    render: (r) => (
+      <span className="text-gray-600 dark:text-gray-400">
+        {r.fee_count || "-"}
+      </span>
+    ),
+  },
+];
 
 export default async function InstitutionsPage({
   searchParams,
@@ -24,16 +106,25 @@ export default async function InstitutionsPage({
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : undefined;
   const page = Math.max(1, Number(params.page) || 1);
+  const sortParam = typeof params.sort === "string" ? params.sort : "";
+  const sort = VALID_SORTS.has(sortParam) ? sortParam : "asset_size";
+  const dir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
+  const perParam = Number(params.per);
+  const perPage = [25, 50, 100].includes(perParam) ? perParam : PAGE_SIZE;
 
-  let result = { institutions: [] as Awaited<ReturnType<typeof searchInstitutions>>["institutions"], total: 0 };
+  let result = {
+    institutions: [] as InstitutionRow[],
+    total: 0,
+  };
   try {
-    result = await searchInstitutions(query, page, PAGE_SIZE);
+    result = await searchInstitutions(query, page, perPage, sort, dir);
   } catch {
     // fallback already set
   }
 
   const { institutions, total } = result;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const baseParams: Record<string, string> = {};
+  if (query) baseParams.q = query;
 
   return (
     <div className="space-y-6">
@@ -78,100 +169,22 @@ export default async function InstitutionsPage({
         )}
       </form>
 
-      {/* Table */}
+      {/* Sortable table */}
       <div className="admin-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50/80 dark:bg-white/[0.02] border-b border-gray-200 dark:border-white/[0.06]">
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  State
-                </th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Charter
-                </th>
-                <th className="px-4 py-2 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Assets
-                </th>
-                <th className="px-4 py-2 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Fee URL
-                </th>
-                <th className="px-4 py-2 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Fees
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {institutions.map((inst) => (
-                <tr
-                  key={inst.id}
-                  className="border-b border-gray-100 dark:border-white/[0.04] hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors"
-                >
-                  <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-200">
-                    {inst.institution_name}
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-500">
-                    {inst.state_code || "-"}
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs uppercase">
-                    {inst.charter_type || "-"}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-gray-600 dark:text-gray-400 tabular-nums">
-                    {formatAssetSize(inst.asset_size)}
-                  </td>
-                  <td className="px-4 py-2.5 text-center">
-                    {inst.has_fee_url ? (
-                      <span className="text-emerald-600 text-xs font-semibold">Yes</span>
-                    ) : (
-                      <span className="text-gray-300 dark:text-gray-600 text-xs">No</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                    {inst.fee_count || "-"}
-                  </td>
-                </tr>
-              ))}
-              {institutions.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                    No institutions found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ServerSortableTable
+          columns={COLUMNS}
+          rows={institutions}
+          rowKey={(r) => String(r.id)}
+          basePath="/admin/institutions"
+          sort={sort}
+          dir={dir}
+          page={page}
+          perPage={perPage}
+          totalItems={total}
+          params={baseParams}
+          caption="Institutions sorted server-side; change columns or page size to refresh."
+        />
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400 text-xs">
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <Link
-                href={`/admin/institutions?${new URLSearchParams({ ...(query ? { q: query } : {}), page: String(page - 1) })}`}
-                className="rounded-md border border-gray-200 dark:border-white/[0.1] px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-              >
-                Previous
-              </Link>
-            )}
-            {page < totalPages && (
-              <Link
-                href={`/admin/institutions?${new URLSearchParams({ ...(query ? { q: query } : {}), page: String(page + 1) })}`}
-                className="rounded-md border border-gray-200 dark:border-white/[0.1] px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-              >
-                Next
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1270,13 +1270,33 @@ export interface SearchInstitutionsResult {
   total: number;
 }
 
+// Allowlist of sortable columns — SQL identifiers come straight off the URL
+// query string, so they MUST be gated here. Each entry maps to a safe ORDER BY
+// fragment already bound to the query's table aliases.
+const INSTITUTIONS_SORT_SQL: Record<string, string> = {
+  institution_name: "ct.institution_name",
+  state_code: "ct.state_code",
+  charter_type: "ct.charter_type",
+  asset_size: "ct.asset_size",
+  has_fee_url: "(ct.fee_schedule_url IS NOT NULL)",
+  fee_count: "COALESCE(fc.fee_count, 0)",
+};
+
 export async function searchInstitutions(
   query: string | undefined,
   page: number,
   limit: number,
+  sort?: string,
+  dir?: "asc" | "desc",
 ): Promise<SearchInstitutionsResult> {
   try {
     const offset = (page - 1) * limit;
+
+    const sortCol = sort && INSTITUTIONS_SORT_SQL[sort]
+      ? INSTITUTIONS_SORT_SQL[sort]
+      : "ct.asset_size";
+    const sortDir = dir === "asc" ? "ASC" : "DESC";
+    const orderBy = `${sortCol} ${sortDir} NULLS LAST`;
 
     if (query && query.trim()) {
       const pattern = `%${query.trim()}%`;
@@ -1286,7 +1306,8 @@ export async function searchInstitutions(
       `;
       const total = Number(countResult[0].cnt);
 
-      const rows = await sql`
+      const rows = await sql.unsafe(
+        `
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
                (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
                COALESCE(fc.fee_count, 0) as fee_count
@@ -1296,10 +1317,12 @@ export async function searchInstitutions(
           FROM extracted_fees WHERE review_status != 'rejected'
           GROUP BY crawl_target_id
         ) fc ON fc.crawl_target_id = ct.id
-        WHERE ct.institution_name ILIKE ${pattern}
-        ORDER BY ct.asset_size DESC NULLS LAST
-        LIMIT ${limit} OFFSET ${offset}
-      `;
+        WHERE ct.institution_name ILIKE $1
+        ORDER BY ${orderBy}
+        LIMIT $2 OFFSET $3
+        `,
+        [pattern, limit, offset],
+      );
 
       return {
         total,
@@ -1310,7 +1333,8 @@ export async function searchInstitutions(
     const countResult = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
     const total = Number(countResult[0].cnt);
 
-    const rows = await sql`
+    const rows = await sql.unsafe(
+      `
       SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
              (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
              COALESCE(fc.fee_count, 0) as fee_count
@@ -1320,9 +1344,11 @@ export async function searchInstitutions(
         FROM extracted_fees WHERE review_status != 'rejected'
         GROUP BY crawl_target_id
       ) fc ON fc.crawl_target_id = ct.id
-      ORDER BY ct.asset_size DESC NULLS LAST
-      LIMIT ${limit} OFFSET ${offset}
-    `;
+      ORDER BY ${orderBy}
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset],
+    );
 
     return {
       total,
