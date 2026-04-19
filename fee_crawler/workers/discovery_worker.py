@@ -327,12 +327,32 @@ async def run(concurrency: int = CONCURRENCY) -> str:
     if not db_url:
         raise RuntimeError("DATABASE_URL environment variable is required")
 
-    pool = await asyncpg.create_pool(
-        db_url, min_size=1, max_size=concurrency + 2, ssl="require",
-        statement_cache_size=0,  # Required for Supabase transaction mode pooler
-    )
+    # Retry pool creation on transient DNS failures. Modal scheduler fired
+    # this on 2026-04-19 with socket.gaierror [Errno -2] (Supabase pooler
+    # DNS blip), burning the whole 60-minute cron slot. 3 attempts with
+    # exponential backoff cover the 5-15s Supabase transient window
+    # without masking persistent outages.
+    pool = None
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            pool = await asyncpg.create_pool(
+                db_url, min_size=1, max_size=concurrency + 2, ssl="require",
+                statement_cache_size=0,  # Required for Supabase transaction mode pooler
+            )
+            break
+        except (OSError, asyncpg.PostgresError) as exc:
+            last_err = exc
+            backoff_s = 1.5 ** attempt * 1.5  # 1.5s, 2.25s, 3.4s
+            print(
+                f"discovery_worker pool-create attempt {attempt + 1}/3 failed "
+                f"({exc!r}); retrying in {backoff_s:.1f}s"
+            )
+            await asyncio.sleep(backoff_s)
     if pool is None:
-        raise RuntimeError("Failed to create database connection pool")
+        raise RuntimeError(
+            f"Failed to create database connection pool after 3 attempts: {last_err!r}"
+        )
 
     rate_limiter = DomainRateLimiter(min_interval=INTER_PROBE_DELAY)
     semaphore = asyncio.Semaphore(concurrency)
