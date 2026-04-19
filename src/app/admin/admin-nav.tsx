@@ -225,14 +225,14 @@ export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-col gap-0.5 px-2.5 py-1">
+    <nav className="admin-sidebar-nav flex flex-col gap-0.5 px-2.5 py-1">
       {NAV_GROUPS.map((group, gi) => (
         <div key={gi}>
           {gi > 0 && (
             <div className="mx-2 my-2 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
           )}
           {group.label && (
-            <span className="block px-2 mb-1 text-[9px] font-bold text-gray-400 dark:text-gray-600 uppercase tracking-[0.1em]">
+            <span className="block px-2 mb-1 text-[9px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-[0.1em]">
               {group.label}
             </span>
           )}
@@ -245,13 +245,15 @@ export function AdminNav() {
                 key={item.href}
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-2 px-2 py-[5px] rounded-md text-[12px] font-medium transition-colors ${
+                className={`relative flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
                   isActive
                     ? "bg-gray-900 text-white dark:bg-white/10 dark:text-gray-100"
-                    : "text-gray-500 hover:text-gray-800 hover:bg-black/[0.03] dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/[0.04]"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-black/[0.03] dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/[0.04]"
                 }`}
               >
-                {item.icon}
+                <span aria-hidden="true" className="flex items-center">
+                  {item.icon}
+                </span>
                 <span>{item.label}</span>
               </Link>
             );
@@ -266,7 +268,10 @@ export function AdminNavInline() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex md:hidden items-center gap-0.5 overflow-x-auto scrollbar-hide">
+    <nav
+      aria-label="Admin sections"
+      className="admin-nav-inline relative flex md:hidden items-center gap-0.5 overflow-x-auto scrollbar-hide"
+    >
       {NAV_GROUPS.flatMap((group) =>
         group.items.map((item) => {
           const isActive = item.exact
@@ -277,7 +282,7 @@ export function AdminNavInline() {
               key={item.href}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
-              className={`text-[11px] font-semibold px-2 py-1 rounded-md transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center min-h-9 text-[11px] font-semibold px-2.5 py-2 rounded-md transition-colors whitespace-nowrap ${
                 isActive
                   ? "bg-gray-900 text-white"
                   : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"

@@ -85,9 +85,11 @@
 
 :root {
   /* Admin layout tokens */
-  --admin-bg: #f8f9fa;
+  --admin-bg: oklch(0.976 0.003 70);        /* warm-tinted neutral — barely-there warmth that harmonizes with brand terracotta */
   --admin-nav-h: 2.75rem; /* 44px — admin header height; also the sticky offset for tabs/rails */
-  --brand-primary: oklch(0.55 0.2 25); /* terracotta */
+  --brand-primary: oklch(0.55 0.2 25);        /* terracotta */
+  --brand-primary-hover: oklch(0.48 0.2 25);  /* tighter, for text-link style hover */
+  --brand-primary-soft: oklch(0.95 0.03 30);  /* parchment bg for brand-tinted panels */
 
   /* Scout component color tokens */
   --scout-accent: #b91c1c;       /* red-700 */
@@ -131,11 +133,19 @@
 }
 
 .dark {
+  /* Admin page bg — warm-tinted dark neutral, mirrors the light warmth */
+  --admin-bg: oklch(0.135 0.005 70);
+
   /* Standardized dark background levels */
   --dark-bg-base: oklch(0.13 0 0);
   --dark-bg-card: oklch(0.15 0 0);
   --dark-bg-elevated: oklch(0.18 0 0);
   --dark-bg-hover: oklch(0.22 0 0);
+
+  /* Brand primary lifts in dark mode for contrast (3:1 on dark-bg-card) */
+  --brand-primary: oklch(0.72 0.17 28);
+  --brand-primary-hover: oklch(0.78 0.17 28);
+  --brand-primary-soft: oklch(0.28 0.08 25);
 
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -305,23 +315,221 @@
     0 0 0 4px rgb(96 165 250); /* blue-400 */
 }
 
-/* ─── Section headers ─── */
+/* ─── Admin typography tokens ───
+   Semantic utilities for the admin information architecture.
+   Colors lift from text-gray-400 (2.85:1 on white — fails WCAG AA)
+   to gray-500 (4.56:1 — passes AA) while preserving the visual rhythm.
+   Dark-mode variants use the standardized dark-bg-* palette. */
+
 .admin-section-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   margin-bottom: 1rem;
 }
+
+/* Panel / section eyebrow: "REVIEW QUEUE", "DATA QUALITY" */
 .admin-section-title {
-  font-size: 0.6875rem;
+  font-size: 0.6875rem;       /* 11px */
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgb(107 114 128);
+  color: rgb(107 114 128);    /* gray-500, 4.56:1 on admin-bg */
 }
 .dark .admin-section-title {
+  color: oklch(0.62 0 0);     /* ~4.5:1 on dark-bg-card */
+}
+
+/* Card KPI label: "TOTAL INSTITUTIONS", "COVERAGE" */
+.admin-label {
+  font-size: 0.625rem;        /* 10px */
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgb(107 114 128);    /* gray-500 */
+}
+.dark .admin-label {
+  color: oklch(0.62 0 0);
+}
+
+/* Helper copy under a value: "91% quality rate", "need re-extraction" */
+.admin-sublabel {
+  font-size: 0.6875rem;       /* 11px */
+  color: rgb(107 114 128);    /* gray-500 */
+}
+.dark .admin-sublabel {
+  color: oklch(0.62 0 0);
+}
+
+/* Tertiary meta (timestamps, secondary chrome) — 3:1 is acceptable for non-essential meta */
+.admin-meta {
+  font-size: 0.6875rem;
+  color: rgb(124 131 142);
+}
+.dark .admin-meta {
   color: oklch(0.55 0 0);
 }
+
+/* Primary value in a card: stat figure */
+.admin-value {
+  font-size: 1.125rem;         /* 18px */
+  font-weight: 700;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero", "ss01";
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: rgb(17 24 39);        /* gray-900 */
+}
+.dark .admin-value {
+  color: oklch(0.93 0 0);
+}
+
+/* Larger hero value — denser tracking for display numbers */
+.admin-value-xl {
+  font-size: 1.375rem;         /* 22px */
+  font-weight: 700;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero", "ss01";
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: rgb(17 24 39);
+}
+.dark .admin-value-xl {
+  color: oklch(0.95 0 0);
+}
+
+/* Page-level display title — editorial weight for the H1 that anchors a page */
+.admin-display-title {
+  font-size: 1.5rem;           /* 24px */
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: rgb(17 24 39);
+}
+.dark .admin-display-title {
+  color: oklch(0.96 0 0);
+}
+@media (min-width: 768px) {
+  .admin-display-title {
+    font-size: 1.625rem;       /* 26px */
+  }
+}
+
+/* ─── Brand-primary utilities ─── */
+.admin-text-brand {
+  color: var(--brand-primary);
+}
+.admin-text-brand:hover {
+  color: var(--brand-primary-hover);
+}
+.admin-bg-brand {
+  background-color: var(--brand-primary);
+  color: white;
+}
+.admin-bg-brand-soft {
+  background-color: var(--brand-primary-soft);
+  color: var(--brand-primary);
+}
+.admin-rule-brand {
+  border: 0;
+  height: 2px;
+  background-color: var(--brand-primary);
+  width: 2.25rem;
+  margin: 0;
+  transform-origin: left center;
+  animation: admin-rule-reveal 450ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+}
+@keyframes admin-rule-reveal {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-rule-brand {
+    animation: none;
+  }
+}
+
+/* ─── Hero figure — dashboard statement piece ───
+   Big terminal-style display number. Uses Geist Mono via tabular-nums
+   for the Bloomberg/FT data-confidence feel. Tight tracking reads dense. */
+.admin-hero-figure {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero", "ss01";
+  font-size: clamp(3.25rem, 8vw, 5rem);   /* 52px → 80px fluid */
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  color: var(--brand-primary);
+}
+.dark .admin-hero-figure {
+  color: var(--brand-primary);
+}
+
+/* Hero subordinate stat — for the 3 small supporting metrics in the dashboard hero */
+.admin-hero-sub-value {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero", "ss01";
+  font-size: 1.25rem;           /* 20px */
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  color: rgb(17 24 39);
+}
+.dark .admin-hero-sub-value {
+  color: oklch(0.93 0 0);
+}
+
+/* Page eyebrow — the tiny section label above a display-title */
+.admin-eyebrow {
+  font-size: 0.625rem;         /* 10px */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgb(107 114 128);     /* gray-500, AA */
+}
+.dark .admin-eyebrow {
+  color: oklch(0.62 0 0);
+}
+
+/* Page lede — subtitle body copy under a display-title */
+.admin-lede {
+  font-size: 0.875rem;         /* 14px */
+  line-height: 1.5;
+  color: rgb(107 114 128);
+  max-width: 60ch;
+}
+.dark .admin-lede {
+  color: oklch(0.62 0 0);
+}
+
+/* ─── Sidebar nav: active-state brand indicator ───
+   A 2px terracotta bar on the left of the active pill — signals brand
+   without disrupting the established black-pill active pattern. */
+.admin-sidebar-nav a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -0.375rem;             /* sits to the left of the pill, outside padding */
+  top: 25%;
+  bottom: 25%;
+  width: 2px;
+  border-radius: 1px;
+  background-color: var(--brand-primary);
+}
+
+/* Micro label — 9-10px caps for tight grids (state tiles, dense cells) */
+.admin-label-xs {
+  font-size: 0.5625rem;        /* 9px */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgb(107 114 128);
+}
+.dark .admin-label-xs {
+  color: oklch(0.62 0 0);
+}
+
 .admin-section-link {
   font-size: 0.6875rem;
   font-weight: 600;
@@ -330,6 +538,24 @@
 }
 .admin-section-link:hover {
   color: rgb(37 99 235);
+}
+.dark .admin-section-link {
+  color: oklch(0.72 0.14 260);
+}
+.dark .admin-section-link:hover {
+  color: oklch(0.82 0.14 260);
+}
+
+/* In-card header bar: border-bottom, eyebrow title, optional right-side link */
+.admin-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;      /* 10px 16px */
+  border-bottom: 1px solid rgb(0 0 0 / 0.05);
+}
+.dark .admin-panel-header {
+  border-color: oklch(1 0 0 / 6%);
 }
 
 /* ─── KPI card variant ─── */
@@ -502,7 +728,8 @@
 /* ─── Tabular nums get mono font ─── */
 .tabular-nums {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero", "ss01";
 }
 
 /* ─── Admin input ─── */
@@ -709,6 +936,12 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
 /* ── Scrollbar hide utility ── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Mobile admin nav: fade mask indicates horizontal overflow ── */
+.admin-nav-inline {
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+}
 
 .consumer-brand .via-white { --tw-gradient-via: #FDFBF8; }
 

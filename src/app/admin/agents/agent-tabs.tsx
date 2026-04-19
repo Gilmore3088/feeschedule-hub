@@ -11,9 +11,16 @@ const TABS: {
   description: string;
 }[] = [
   {
-    label: "Overview",
+    label: "Workflows",
     href: "/admin/agents",
     exact: true,
+    subtitle: "End-to-end pipeline + agent assignments",
+    description:
+      "The 5-stage pipeline (Scrape -> Discovery -> Extraction -> Review -> Publish) with live counts, 24h throughput, and the agents responsible at each stage. Start here.",
+  },
+  {
+    label: "Health",
+    href: "/admin/agents/health",
     subtitle: "Agent health at a glance",
     description:
       "5 health metrics x N agents (loop completion, review latency, pattern promotion, confidence drift, cost/value) with 7-day sparklines.",

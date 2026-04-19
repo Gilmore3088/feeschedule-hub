@@ -4,14 +4,13 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import {
   getPipelineOverview,
-  getPipelineMap,
   getRecentCrawlRuns,
   getRecentJobs,
   getJobQueueStatus,
   getDiscoveryStatus,
+  getJobFreshness,
 } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { PipelineMap } from "./pipeline-map";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -21,23 +20,26 @@ export default async function PipelinePage() {
   await requireAuth("view");
 
   let overview = { total_institutions: 0, with_url: 0, with_fees: 0, crawl_runs: 0 };
-  let pipelineMap: Awaited<ReturnType<typeof getPipelineMap>> = {
-    stages: [],
-    generated_at: new Date().toISOString(),
-  };
   let crawlRuns: Awaited<ReturnType<typeof getRecentCrawlRuns>> = [];
   let jobs: Awaited<ReturnType<typeof getRecentJobs>> = [];
   let queueStatus: Awaited<ReturnType<typeof getJobQueueStatus>> = [];
   let discoveryStatus: Awaited<ReturnType<typeof getDiscoveryStatus>> = [];
+  let health: Awaited<ReturnType<typeof getJobFreshness>> = {
+    generated_at: new Date().toISOString(),
+    stale_count: 0,
+    ok_count: 0,
+    never_ran_count: 0,
+    jobs: [],
+  };
 
   try {
-    [overview, pipelineMap, crawlRuns, jobs, queueStatus, discoveryStatus] = await Promise.all([
+    [overview, crawlRuns, jobs, queueStatus, discoveryStatus, health] = await Promise.all([
       getPipelineOverview(),
-      getPipelineMap(),
       getRecentCrawlRuns(15),
       getRecentJobs(20),
       getJobQueueStatus(),
       getDiscoveryStatus(),
+      getJobFreshness(),
     ]);
   } catch (e) {
     console.error("Pipeline data load failed:", e);
@@ -59,10 +61,7 @@ export default async function PipelinePage() {
         </p>
       </div>
 
-      {/* End-to-end pipeline map — primary mental model */}
-      <div className="mb-8">
-        <PipelineMap data={pipelineMap} />
-      </div>
+      <JobFreshnessBanner health={health} />
 
       {/* Pipeline Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-8">
@@ -227,6 +226,46 @@ export default async function PipelinePage() {
 // ---------------------------------------------------------------------------
 // Helper Components
 // ---------------------------------------------------------------------------
+
+function JobFreshnessBanner({
+  health,
+}: {
+  health: Awaited<ReturnType<typeof getJobFreshness>>;
+}) {
+  const stale = health.jobs.filter((j) => j.status === "stale" || j.status === "never_ran");
+  if (stale.length === 0) {
+    return (
+      <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/20 px-4 py-2.5 flex items-center gap-2.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+        <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+          All {health.ok_count} scheduled jobs ran within their expected window.
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-5 rounded-lg border border-red-200 bg-red-50/60 dark:border-red-900/40 dark:bg-red-900/20 px-4 py-3">
+      <div className="flex items-center gap-2.5 mb-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+        <span className="text-xs font-bold text-red-800 dark:text-red-300 uppercase tracking-wider">
+          {stale.length} scheduled {stale.length === 1 ? "job has" : "jobs have"} not completed in their expected window
+        </span>
+      </div>
+      <ul className="space-y-1 text-[11px] text-red-900 dark:text-red-200">
+        {stale.map((j) => (
+          <li key={j.job_name} className="flex items-center justify-between">
+            <span>{j.display_name}</span>
+            <span className="tabular-nums text-red-700 dark:text-red-300">
+              {j.last_completed_at
+                ? `${j.hours_since}h ago (expected ≤${j.expected_within_hours}h)`
+                : "never recorded a completion"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function PipelineStatCard({
   label,

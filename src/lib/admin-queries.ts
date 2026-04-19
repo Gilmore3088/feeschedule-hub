@@ -514,6 +514,234 @@ export async function getPipelineOverview(): Promise<PipelineOverview> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Job freshness / cron health (Reliability Roadmap #1)
+// ---------------------------------------------------------------------------
+
+export interface JobFreshness {
+  job_name: string;
+  display_name: string;
+  source: "workers_last_run" | "crawl_runs";
+  last_completed_at: string | null;
+  hours_since: number | null;
+  expected_within_hours: number;
+  status: "ok" | "stale" | "never_ran";
+}
+
+export interface JobHealthSummary {
+  generated_at: string;
+  stale_count: number;
+  ok_count: number;
+  never_ran_count: number;
+  jobs: JobFreshness[];
+}
+
+// Inventory of scheduled jobs we expect to run. Two sources of truth:
+// (a) workers_last_run markers written by modal_app.py post-processing
+// (b) crawl_runs rows for the three Modal scraping crons that don't yet
+//     write markers (run_discovery, run_pdf_extraction, run_browser_extraction).
+// Any stale entry here surfaces as a red banner on /admin/pipeline.
+const JOB_INVENTORY: Array<
+  Pick<JobFreshness, "job_name" | "display_name" | "source" | "expected_within_hours">
+> = [
+  { job_name: "daily_pipeline",     display_name: "Daily post-processing (06:00)",       source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "magellan_rescue",    display_name: "Magellan URL rescue (05:00)",         source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "knox_review",        display_name: "Knox adversarial review (05:00)",     source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "ingest_data",        display_name: "Federal data ingest (10:00)",         source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "run_discovery",      display_name: "URL discovery crawler (02:00)",       source: "crawl_runs",       expected_within_hours: 26 },
+  { job_name: "run_pdf_extraction", display_name: "PDF extraction crawler (03:00)",      source: "crawl_runs",       expected_within_hours: 26 },
+  { job_name: "run_browser_extraction", display_name: "Browser extraction crawler (04:00)", source: "crawl_runs",   expected_within_hours: 26 },
+];
+
+// Reliability Roadmap #11 — URL freshness surface.
+// Stale URLs are flagged by fee_crawler/commands/probe_urls.py::run_revalidate
+// by setting failure_reason='url_stale'. This helper counts them per state
+// so /admin/coverage can expose the pool that's silently not being recrawled.
+export interface UrlFreshnessStats {
+  total_with_url: number;
+  stale_count: number;
+  stale_pct: number;
+  last_revalidated_at: string | null;
+}
+
+export async function getUrlFreshnessStats(): Promise<UrlFreshnessStats> {
+  try {
+    const [row] = await sql`
+      SELECT
+        COUNT(*) FILTER (WHERE fee_schedule_url IS NOT NULL)::int AS total_with_url,
+        COUNT(*) FILTER (WHERE failure_reason = 'url_stale')::int AS stale_count,
+        MAX(failure_reason_updated_at) FILTER (WHERE failure_reason = 'url_stale') AS last_revalidated_at
+      FROM crawl_targets
+    `;
+    const total = Number(row?.total_with_url ?? 0);
+    const stale = Number(row?.stale_count ?? 0);
+    const lastAt = row?.last_revalidated_at as Date | null;
+    return {
+      total_with_url: total,
+      stale_count: stale,
+      stale_pct: total > 0 ? Math.round((stale / total) * 1000) / 10 : 0,
+      last_revalidated_at: lastAt ? toDateStr(lastAt) : null,
+    };
+  } catch (e) {
+    console.error("getUrlFreshnessStats failed:", e);
+    return { total_with_url: 0, stale_count: 0, stale_pct: 0, last_revalidated_at: null };
+  }
+}
+
+// Reliability Roadmap #13 — classification history read helper. The migration
+// at supabase/migrations/20260418_classification_history.sql installs an AFTER
+// UPDATE trigger on fees_verified that captures every canonical_fee_key or
+// variant_type transition. This helper pulls the log for a single fee; the
+// /admin/fees/[id]/history page renders it.
+export interface ClassificationChange {
+  id: number;
+  old_canonical_key: string | null;
+  new_canonical_key: string;
+  old_variant_type: string | null;
+  new_variant_type: string | null;
+  changed_at: string;
+  changed_by: string | null;
+}
+
+export async function getClassificationHistory(
+  feeVerifiedId: number,
+): Promise<ClassificationChange[]> {
+  try {
+    const rows = await sql`
+      SELECT id, old_canonical_key, new_canonical_key,
+             old_variant_type, new_variant_type, changed_at, changed_by
+      FROM classification_history
+      WHERE fee_verified_id = ${feeVerifiedId}
+      ORDER BY changed_at DESC
+      LIMIT 100
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      old_canonical_key: r.old_canonical_key ? String(r.old_canonical_key) : null,
+      new_canonical_key: String(r.new_canonical_key),
+      old_variant_type: r.old_variant_type ? String(r.old_variant_type) : null,
+      new_variant_type: r.new_variant_type ? String(r.new_variant_type) : null,
+      changed_at: toDateStr(r.changed_at as string | Date),
+      changed_by: r.changed_by ? String(r.changed_by) : null,
+    }));
+  } catch (e) {
+    console.error("getClassificationHistory failed:", e);
+    return [];
+  }
+}
+
+// Reliability Roadmap #14 — surface how many institutions are in each
+// backoff tier so humans can see where the crawler is choosing not to retry
+// (and why). Exposed on /admin/coverage so dormant URLs are visible, not
+// silently ignored.
+export interface CrawlHealthTiers {
+  healthy: number;
+  short_backoff: number;
+  long_backoff: number;
+  dormant: number;
+  total_active: number;
+}
+
+export async function getCrawlHealthTiers(): Promise<CrawlHealthTiers> {
+  try {
+    const [row] = await sql`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE status != 'dormant' AND consecutive_failures < 3
+        )::int AS healthy,
+        COUNT(*) FILTER (
+          WHERE status != 'dormant' AND consecutive_failures BETWEEN 3 AND 6
+        )::int AS short_backoff,
+        COUNT(*) FILTER (
+          WHERE status != 'dormant' AND consecutive_failures BETWEEN 7 AND 13
+        )::int AS long_backoff,
+        COUNT(*) FILTER (WHERE status = 'dormant')::int AS dormant,
+        COUNT(*)::int AS total_active
+      FROM crawl_targets
+      WHERE fee_schedule_url IS NOT NULL
+    `;
+    return {
+      healthy: Number(row?.healthy ?? 0),
+      short_backoff: Number(row?.short_backoff ?? 0),
+      long_backoff: Number(row?.long_backoff ?? 0),
+      dormant: Number(row?.dormant ?? 0),
+      total_active: Number(row?.total_active ?? 0),
+    };
+  } catch (e) {
+    console.error("getCrawlHealthTiers failed:", e);
+    return { healthy: 0, short_backoff: 0, long_backoff: 0, dormant: 0, total_active: 0 };
+  }
+}
+
+export async function getJobFreshness(): Promise<JobHealthSummary> {
+  const jobs: JobFreshness[] = [];
+
+  // Pull all workers_last_run rows at once, then index by job_name.
+  const markerRows: Record<string, Date | null> = {};
+  try {
+    const rows = await sql`SELECT job_name, completed_at FROM workers_last_run`;
+    for (const r of rows) {
+      markerRows[String(r.job_name)] = (r.completed_at as Date | null) ?? null;
+    }
+  } catch (e) {
+    console.error("getJobFreshness marker read failed:", e);
+  }
+
+  // For crawl_runs-backed jobs, find latest completed crawl_run per source label.
+  // run_discovery -> trigger_type='scheduled' AND source='discovery' (if discovery
+  // writes crawl_runs rows) else any scheduled run. Keep it simple: look at
+  // most-recent crawl_run completed_at as a blanket "crawler is alive" signal,
+  // since all three scraping Modal crons write to crawl_runs.
+  let latestCrawlRun: Date | null = null;
+  try {
+    const [row] = await sql`
+      SELECT MAX(completed_at) AS last FROM crawl_runs
+       WHERE trigger_type = 'scheduled' AND status = 'completed'
+    `;
+    latestCrawlRun = (row?.last as Date | null) ?? null;
+  } catch (e) {
+    console.error("getJobFreshness crawl_runs read failed:", e);
+  }
+
+  const now = Date.now();
+  for (const spec of JOB_INVENTORY) {
+    let lastCompleted: Date | null = null;
+    if (spec.source === "workers_last_run") {
+      lastCompleted = markerRows[spec.job_name] ?? null;
+    } else {
+      // crawl_runs: all three scraping jobs share the latest row for now,
+      // because we don't per-job-label them yet (#1 follow-up: emit markers
+      // per cron function in modal_app.py so we can tell WHICH crawler stalled).
+      lastCompleted = latestCrawlRun;
+    }
+
+    let hoursSince: number | null = null;
+    let status: JobFreshness["status"] = "never_ran";
+    if (lastCompleted) {
+      hoursSince = (now - lastCompleted.getTime()) / (1000 * 60 * 60);
+      status = hoursSince > spec.expected_within_hours ? "stale" : "ok";
+    }
+
+    jobs.push({
+      job_name: spec.job_name,
+      display_name: spec.display_name,
+      source: spec.source,
+      last_completed_at: lastCompleted ? toDateStr(lastCompleted) : null,
+      hours_since: hoursSince !== null ? Math.round(hoursSince * 10) / 10 : null,
+      expected_within_hours: spec.expected_within_hours,
+      status,
+    });
+  }
+
+  return {
+    generated_at: new Date().toISOString(),
+    stale_count: jobs.filter((j) => j.status === "stale").length,
+    ok_count: jobs.filter((j) => j.status === "ok").length,
+    never_ran_count: jobs.filter((j) => j.status === "never_ran").length,
+    jobs,
+  };
+}
+
 export async function getRecentJobs(limit = 20): Promise<OpsJob[]> {
   try {
     const rows = await sql`

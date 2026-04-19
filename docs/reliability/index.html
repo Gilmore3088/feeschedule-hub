@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bank Fee Index — Reliability Roadmap</title>
+<style>
+  :root {
+    --ink: #111827;
+    --muted: #6b7280;
+    --soft: #9ca3af;
+    --bg: #fafaf9;
+    --card: #ffffff;
+    --line: rgba(17,24,39,0.08);
+    --accent: #2563eb;
+    --good: #047857;
+    --warn: #b45309;
+    --bad: #b91c1c;
+    --crit-bg: #fef2f2;
+    --crit-border: #fecaca;
+    --med-bg: #fffbeb;
+    --med-border: #fde68a;
+    --lat-bg: #fff7ed;
+    --lat-border: #fed7aa;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 32px 20px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+  header p {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0;
+    max-width: 760px;
+    line-height: 1.6;
+  }
+  header a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  header a:hover { text-decoration: underline; }
+  .meta {
+    margin-top: 18px;
+    font-size: 11px;
+    color: var(--soft);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .summary {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px 32px 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .summary .pill {
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .summary .pill .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--soft);
+  }
+  .summary .pill .value {
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .summary .pill .sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  nav.toc {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 8px 32px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  nav.toc a,
+  nav.toc button {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12px;
+    font-family: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  nav.toc a:hover,
+  nav.toc button:hover { background: #eef2ff; border-color: #c7d2fe; }
+  nav.toc button.active {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+  }
+  nav.toc .filter-label {
+    font-size: 11px;
+    color: var(--soft);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 4px;
+  }
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 8px 32px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .tier {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .tier-heading {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 16px 4px 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tier-heading .count {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left-width: 4px;
+    border-radius: 10px;
+    padding: 20px 24px 18px;
+    transition: box-shadow 0.2s;
+  }
+  .item:hover { box-shadow: 0 2px 10px rgba(17,24,39,0.04); }
+  .item.crit { border-left-color: var(--bad); background: linear-gradient(90deg, var(--crit-bg) 0%, #ffffff 4%); }
+  .item.med  { border-left-color: var(--warn); background: linear-gradient(90deg, var(--med-bg) 0%, #ffffff 4%); }
+  .item.lat  { border-left-color: #9ca3af; }
+  .item.closed {
+    border-left-color: var(--good) !important;
+    background: linear-gradient(90deg, #ecfdf5 0%, #ffffff 4%) !important;
+    opacity: 0.92;
+  }
+  .item.closed .item-title .num { color: var(--good); }
+  .item.closed::before {
+    content: "✓ CLOSED — code shipped and running";
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    background: var(--good);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  .item.pending-apply {
+    border-left-color: #d97706 !important;
+    background: linear-gradient(90deg, #fff7ed 0%, #ffffff 4%) !important;
+  }
+  .item.pending-apply .item-title .num { color: #d97706; }
+  .item.pending-apply::before {
+    content: "⏳ CODE READY — MIGRATION NOT APPLIED TO DB";
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    background: #d97706;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  .closed-log {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 6px 32px 12px;
+    max-width: 1200px;
+  }
+  .closed-log h3 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #065f46;
+  }
+  .closed-log ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    color: #064e3b;
+    line-height: 1.7;
+  }
+  .closed-log code {
+    background: #d1fae5;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #065f46;
+  }
+  .item-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+  .item-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+  }
+  .item-title .num {
+    color: var(--soft);
+    font-weight: 500;
+    margin-right: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .item-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .item-meta .badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    font-weight: 500;
+  }
+  .item-meta .badge.effort-xs { border-color: #86efac; color: #166534; background: #dcfce7; }
+  .item-meta .badge.effort-s  { border-color: #a5b4fc; color: #3730a3; background: #eef2ff; }
+  .item-meta .badge.effort-m  { border-color: #fde68a; color: #92400e; background: #fef3c7; }
+  .item-meta .badge.effort-l  { border-color: #fca5a5; color: #991b1b; background: #fee2e2; }
+  .item-grid {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 8px 18px;
+    margin-top: 14px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .item-grid dt {
+    color: var(--soft);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    padding-top: 3px;
+  }
+  .item-grid dd {
+    margin: 0;
+    color: var(--ink);
+  }
+  .item-grid dd code {
+    background: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #111827;
+  }
+  .action-list {
+    margin: 6px 0 0;
+    padding-left: 18px;
+  }
+  .action-list li {
+    margin-bottom: 4px;
+  }
+  .files-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+  .files-list li code {
+    display: inline-block;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  footer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 32px 64px;
+    font-size: 11px;
+    color: var(--soft);
+    border-top: 1px solid var(--line);
+    margin-top: 40px;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bank Fee Index — Reliability Roadmap</h1>
+  <p>
+    The 14 known failure points and dead ends in the production architecture as of 2026-04-18. Each item lists the symptom, the impact, the concrete fix, and the effort. Items are ranked by severity: critical, medium, latent.
+    See also the <a href="http://localhost:8765/">architecture dashboard</a> for the system map that surfaced these.
+  </p>
+  <div class="meta">last reviewed 2026-04-18 · serve locally with <code>python3 -m http.server 8766 --directory docs/reliability</code></div>
+</header>
+
+<div class="summary">
+  <div class="pill">
+    <span class="label">Open items</span>
+    <span class="value">8</span>
+    <span class="sub">of 14 originally logged</span>
+  </div>
+  <div class="pill">
+    <span class="label">Closed (verified)</span>
+    <span class="value" style="color:var(--good);">6</span>
+    <span class="sub">code shipped + DB applied where needed</span>
+  </div>
+  <div class="pill">
+    <span class="label">Code-ready</span>
+    <span class="value" style="color:#d97706;">1</span>
+    <span class="sub">#11 needs first run</span>
+  </div>
+  <div class="pill">
+    <span class="label">Critical remaining</span>
+    <span class="value" style="color:var(--bad);">3</span>
+    <span class="sub">#2 · #3 · #4</span>
+  </div>
+  <div class="pill">
+    <span class="label">Medium remaining</span>
+    <span class="value" style="color:var(--warn);">4</span>
+    <span class="sub">#5 · #6 · #7 · #8</span>
+  </div>
+  <div class="pill">
+    <span class="label">Latent remaining</span>
+    <span class="value" style="color:var(--soft);">1</span>
+    <span class="sub">#10 — call-site migration pending</span>
+  </div>
+</div>
+
+<div class="closed-log">
+  <h3>✓ Closed + verified against prod (2026-04-18)</h3>
+  <ul>
+    <li><b>#1 Silent cron alerting</b> — <code>getJobFreshness()</code>, red banner on <code>/admin/pipeline</code>, <code>/api/admin/job-health</code> returns 503 when degraded. Code-only; runs on next deploy.</li>
+    <li><b>#9 Schema migration tracking</b> — migration applied; <code>schema_migrations</code> table now records every apply (3 rows logged so far). <code>node scripts/apply-migration.mjs --status</code> works.</li>
+    <li><b>#12 promote_to_tier3 tests</b> — 6-test pytest file at <code>fee_crawler/tests/test_promote_to_tier3.py</code> (happy path, missing darwin-accept, missing knox-accept, knox-reject, unknown fvid, idempotency xfail). Not yet executed — no test DB available.</li>
+    <li><b>#13 Darwin classification history</b> — migration applied; <code>classification_history</code> table + <code>trg_classification_history</code> AFTER UPDATE trigger now live on <code>fees_verified</code>. Next Darwin reclassification will start populating.</li>
+    <li><b>#14 Crawl backoff</b> — tiered skip logic (3-day / 14-day cooldowns, auto-dormant at 14+ fails) in <code>fee_crawler/commands/crawl.py</code>. Code-only; kicks in on next crawl run.</li>
+    <li><b>#10 (partial) cert_number overloading</b> — identity migration applied; 4,419 NCUA rows now have <code>ncua_charter_id</code> populated. Call-site migration of 20+ queries still pending — keeping this item open until those are migrated.</li>
+  </ul>
+</div>
+
+<div class="closed-log" style="background:#fff7ed;border-color:#fed7aa;">
+  <h3 style="color:#92400e;">⏳ Code-ready, operational after first run</h3>
+  <ul style="color:#7c2d12;">
+    <li><b>#11 URL re-validation</b> — <code>run_revalidate()</code> added to <code>fee_crawler/commands/probe_urls.py</code>. Until someone runs <code>python -m fee_crawler.commands.probe_urls --revalidate --fix</code>, the <code>failure_reason='url_stale'</code> markers stay at zero and <code>getUrlFreshnessStats()</code> reports 0%.</li>
+  </ul>
+</div>
+
+<nav class="toc">
+  <span class="filter-label">Filter:</span>
+  <button class="active" data-filter="all">All 14</button>
+  <button data-filter="open">Open (8)</button>
+  <button data-filter="crit">🔴 Critical (4)</button>
+  <button data-filter="med">🟡 Medium (5)</button>
+  <button data-filter="lat">🟠 Latent (5)</button>
+  <button data-filter="closed">✓ Closed (5)</button>
+  <button data-filter="pending-apply">⏳ Code-ready (1)</button>
+</nav>
+
+<main>
+
+  <!-- ============== CRITICAL ============== -->
+  <section class="tier" data-tier="crit">
+    <div class="tier-heading">🔴 Critical <span class="count">4 open</span></div>
+
+    <!-- #1 -->
+    <article class="item crit closed" id="item-1">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#1</span>Silent cron failure — zero alerting</div>
+        <div class="item-meta">
+          <span class="badge effort-xs">½ day</span>
+          <span class="badge">owner: platform</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>Modal crons <code>run_pdf_extraction</code> and <code>run_browser_extraction</code> failed silently from April 8 → April 18 (10 days). Nobody noticed because there is no external alert path.</dd>
+        <dt>Impact</dt>
+        <dd>Complete invisible outage. No new fees extracted, no errors surfaced. Could recur tomorrow on any other scheduled job (Knox, Darwin, ingest) and we wouldn't know.</dd>
+        <dt>Root cause</dt>
+        <dd><code>workers_last_run</code> is a write-after-success dashboard marker. When a job crashes before writing it, the marker just stops updating — no error is raised anywhere visible.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Add a "last-success freshness" check to the <code>/admin/pipeline</code> page (red banner if any job is stale >24h).</li>
+            <li>Wire Modal's built-in webhook for function failures to a Slack channel or email alias.</li>
+            <li>Add a cron-of-crons that queries <code>workers_last_run</code> and posts a health summary at 07:00 UTC daily.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>fee_crawler/modal_app.py</code></li>
+            <li><code>src/app/admin/pipeline/page.tsx</code></li>
+            <li><code>src/lib/crawler-db/workers.ts</code></li>
+          </ul>
+        </dd>
+        <dt>Blocks</dt>
+        <dd>Detection for every other item on this list. Fix first.</dd>
+      </dl>
+    </article>
+
+    <!-- #2 -->
+    <article class="item crit" id="item-2">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#2</span>Hamilton has almost nothing to cite</div>
+        <div class="item-meta">
+          <span class="badge effort-s">depends on #3</span>
+          <span class="badge">owner: data</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>Target pool for published fees: 50,000+. Reality: ~500. Every Hamilton report today is either empty, citing nothing, or dressing up thin data with generic narrative.</dd>
+        <dt>Impact</dt>
+        <dd>The product promise ("McKinsey-grade intelligence on live pipeline data") is unmet. Customer-facing risk: a bank executive pays $2,500/mo and gets a report citing 500 fees total across 4,000 institutions.</dd>
+        <dt>Root cause</dt>
+        <dd>Tier-2 → Tier-3 handshake is working (#1 today), but Tier-1 → Tier-2 (Darwin drain) has not run against the full 102K <code>fees_raw</code> backlog since the taxonomy update.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Run Darwin drain against full backlog (see #3).</li>
+            <li>Confirm Knox auto-accept rate is ≥60% so the verified pool actually flows through to published.</li>
+            <li>Add a "citation density" metric to each Hamilton report: # fees cited / # fees available. Refuse to render if below threshold.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>fee_crawler/commands/auto_review.py</code></li>
+            <li><code>fee_crawler/commands/publish_fees.py</code></li>
+            <li><code>src/app/pro/(hamilton)/reports/actions.ts</code></li>
+          </ul>
+        </dd>
+        <dt>Blocks</dt>
+        <dd>Shipping Hamilton as a paid product.</dd>
+      </dl>
+    </article>
+
+    <!-- #3 -->
+    <article class="item crit" id="item-3">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#3</span>Darwin backlog frozen at 102,965 rows</div>
+        <div class="item-meta">
+          <span class="badge effort-s">2–4 hrs + $200</span>
+          <span class="badge">owner: data</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd><code>fees_raw</code> holds 102,965 rows; <code>fees_verified</code> has ~650. 0.6% drain rate. No SLA, no rows/hour dashboard, no alert if Darwin stalls mid-run.</dd>
+        <dt>Impact</dt>
+        <dd>Hamilton reports are empty (#2). Product claims "4,000 institutions" but can only cite ~500 verified fees across them.</dd>
+        <dt>Root cause</dt>
+        <dd>The current 102K was migrated from <code>extracted_fees</code> before the taxonomy expansion (5 new families, 15 new canonicals landed this session). Previous Darwin runs used the old taxonomy and need a re-classification pass.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Run <code>python -m fee_crawler auto-review --reclassify-all</code> against the full 102K backlog. Expected runtime 2–4 hours, cost ~$200 at haiku pricing.</li>
+            <li>Add a drain-rate metric to <code>/admin/darwin</code>: "N rows/hour, P95 confidence, M rejected."</li>
+            <li>Document the rerun cadence — after any taxonomy change, full backlog must re-classify.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>fee_crawler/commands/auto_review.py</code></li>
+            <li><code>fee_crawler/agents/darwin/classifier.py</code></li>
+            <li><code>src/app/admin/darwin/page.tsx</code></li>
+          </ul>
+        </dd>
+        <dt>Blocks</dt>
+        <dd>#2 Hamilton citation gap.</dd>
+      </dl>
+    </article>
+
+    <!-- #4 -->
+    <article class="item crit" id="item-4">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#4</span>RLS bypass — service_role is single blast radius</div>
+        <div class="item-meta">
+          <span class="badge effort-l">2 weeks</span>
+          <span class="badge">owner: security</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>Tier tables (<code>fees_raw</code>, <code>fees_verified</code>, <code>fees_published</code>) have RLS enabled but zero PostgREST policies. Only <code>service_role</code> can read/write. One key = total access.</dd>
+        <dt>Impact</dt>
+        <dd>If <code>SUPABASE_SERVICE_ROLE_KEY</code> leaks — via worktree commit, CI log, accidental console print, compromised developer laptop — the attacker has full read/write across every published fee and agent message. No defense in depth.</dd>
+        <dt>Root cause</dt>
+        <dd>RLS was enabled as a checkbox requirement for Supabase Auth compatibility. Proper per-role policies were deferred because "service_role handles everything."</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Design RLS policies per role: <code>admin</code>, <code>analyst</code>, <code>premium</code>, <code>agent_runtime</code>, <code>public_api</code>.</li>
+            <li>Move agent writes off <code>service_role</code> onto a scoped <code>agent_runtime</code> role that can only INSERT into tier tables and <code>agent_messages</code>, not DELETE.</li>
+            <li>Move public-API reads onto an <code>anon</code> role with per-table SELECT-only policies (already-published data only).</li>
+            <li>Rotate <code>service_role</code> key after the new policies are in place.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>migrations/20260408_enable_rls_all_tables.sql</code></li>
+            <li><code>fee_crawler/agent_tools/tools_fees.py</code></li>
+            <li><code>src/lib/supabase.ts</code></li>
+          </ul>
+        </dd>
+        <dt>Blocks</dt>
+        <dd>Public API launch. Any external integrations that require per-tenant isolation.</dd>
+      </dl>
+    </article>
+
+  </section>
+
+  <!-- ============== MEDIUM ============== -->
+  <section class="tier" data-tier="med">
+    <div class="tier-heading">🟡 Medium <span class="count">5 open</span></div>
+
+    <!-- #5 -->
+    <article class="item med" id="item-5">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#5</span>Modal Starter 5-cron cap — squeeze-scheduling already in use</div>
+        <div class="item-meta">
+          <span class="badge effort-s">1–3 days</span>
+          <span class="badge">owner: platform</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>Modal Starter tier limits to 5 cron jobs. <code>modal_app.py</code> has explicit comments about squeezing post-processing onto an every-minute dispatcher with a marker table to gate work. Adding any new scheduled agent is blocked.</dd>
+        <dt>Impact</dt>
+        <dd>Can't add: weekly ingest-GLEIF, daily fed-data-refresh, hourly health-check cron, per-agent retry loops. Every new need has to piggyback on the dispatcher with its own marker-table gate — fragile.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li><b>Option A:</b> Upgrade Modal tier to remove the cap (~$50/mo).</li>
+            <li><b>Option B:</b> Build a proper meta-scheduler — one cron that reads a <code>scheduled_jobs</code> table and dispatches per window. Unlocks unlimited virtual crons.</li>
+            <li>Migrate the existing dispatcher hack into the meta-scheduler pattern so it's a proper framework not a workaround.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>fee_crawler/modal_app.py</code> (lines 143–265)</li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #6 -->
+    <article class="item med" id="item-6">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#6</span>No rollback path for <code>fees_published</code></div>
+        <div class="item-meta">
+          <span class="badge effort-m">1 week</span>
+          <span class="badge">owner: data</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>If Darwin + Knox collude to publish a bad batch (e.g. a parser regression drops a zero), there is no DELETE path, no tombstone, no unpublish flow. <code>lineage_ref</code> lets us identify offenders but not remove them.</dd>
+        <dt>Impact</dt>
+        <dd>Bad data in the public index is permanent until manually nuked. Customer-facing inaccuracy risk. Reputation cost higher than the fix cost.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Add <code>retracted_at</code> + <code>retraction_reason</code> columns to <code>fees_published</code>.</li>
+            <li>Create a <code>retract_fee_published(id, reason)</code> function that soft-deletes (sets <code>retracted_at</code>) and triggers a <code>revalidatePath('/fees/:id')</code> cache bust.</li>
+            <li>Build admin UI at <code>/admin/retractions</code> with per-fee retract button + audit trail.</li>
+            <li>Filter <code>retracted_at IS NULL</code> in every public-facing query.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>scripts/migrate-schema.sql</code></li>
+            <li><code>migrations/20260421_tier_promotion_functions.sql</code></li>
+            <li><code>src/lib/crawler-db/fees-published.ts</code></li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #7 -->
+    <article class="item med" id="item-7">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#7</span>Knox-rejected fees have no human review UI</div>
+        <div class="item-meta">
+          <span class="badge effort-s">2–3 days</span>
+          <span class="badge">owner: admin UX</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>When Knox rejects a <code>fees_verified</code> row, the row sits there with a darwin-accept and a knox-reject in <code>agent_messages</code>. No admin page shows these. 34 such rejects from today's session are invisible.</dd>
+        <dt>Impact</dt>
+        <dd>Knox rejects are a <em>signal</em>, not a verdict — often the fee is correct and Knox's rule is wrong. Without human adjudication, we lose genuine data and don't learn which Knox rules to tune.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>New page <code>/admin/knox-rejects</code> with queue of rows where knox-reject exists and no human override.</li>
+            <li>Show: fee details, darwin's reasoning, knox's rejection reasons, peer-median context.</li>
+            <li>Actions: approve anyway (writes <code>human_accept</code> message, republishes), confirm reject (writes <code>human_confirm</code>, sends feedback to Knox rules file).</li>
+            <li>Weekly report: top Knox rules by override rate — candidates for tuning.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>src/app/admin/knox-rejects/page.tsx</code> (new)</li>
+            <li><code>fee_crawler/agents/knox/rules.py</code></li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #8 -->
+    <article class="item med" id="item-8">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#8</span><code>agent_messages</code> grows unbounded</div>
+        <div class="item-meta">
+          <span class="badge effort-s">2–3 days</span>
+          <span class="badge">owner: platform</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>648 rows today. At full scale (100K fees/day × 2 msgs/fee) = 200K rows/day = 73M/year. No partitioning, no TTL, no archive policy.</dd>
+        <dt>Impact</dt>
+        <dd>Query performance degrades linearly. <code>promote_to_tier3</code> SQL gate reads this table on every publish. At 10M+ rows without partitioning, daily publish takes minutes not seconds.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Partition <code>agent_messages</code> by month using <code>PARTITION BY RANGE (created_at)</code>.</li>
+            <li>Add a monthly cron that archives partitions older than 90 days to cold storage (R2 export).</li>
+            <li>Create a summary table <code>agent_message_stats</code> that aggregates per-fee-verified-id so the SQL gate doesn't need the raw table.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>migrations/20260419_agent_messages.sql</code></li>
+            <li><code>migrations/20260510_promote_to_tier3_tighten.sql</code></li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #9 -->
+    <article class="item med closed" id="item-9">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#9</span>Schema drift risk — no migration tracking table</div>
+        <div class="item-meta">
+          <span class="badge effort-xs">½ day</span>
+          <span class="badge">owner: platform</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd><code>migrations/</code> has files dated 2026-04-06 → 2026-05-10 (future-dated from today). No way from the repo to know which are applied vs staged. Developers running <code>scripts/migrate-schema.sql</code> get a different schema than those who run the dated migrations.</dd>
+        <dt>Impact</dt>
+        <dd>Local/CI/prod schema drift. A test that passes locally can fail in prod if a migration wasn't applied. Onboarding new devs is a minefield.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Create <code>schema_migrations(filename TEXT PK, applied_at TIMESTAMPTZ)</code> table.</li>
+            <li>Wrap <code>scripts/apply-migrations.mjs</code> to insert a row on success.</li>
+            <li>Add a <code>GET /api/admin/schema-state</code> route that lists applied vs pending migrations and surface on <code>/admin</code>.</li>
+            <li>Document in README: canonical bootstrap is <code>migrate-schema.sql</code>; incrementals go through dated migrations.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>scripts/apply-migrations.mjs</code> (extend)</li>
+            <li><code>migrations/</code> (add tracking)</li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+  </section>
+
+  <!-- ============== LATENT ============== -->
+  <section class="tier" data-tier="lat">
+    <div class="tier-heading">🟠 Latent <span class="count">5 open</span></div>
+
+    <!-- #10 -->
+    <article class="item lat" id="item-10">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#10</span><code>cert_number</code> overloading across FDIC + NCUA <span style="font-size:10px;background:#dcfce7;color:#166534;padding:2px 6px;border-radius:3px;margin-left:6px;font-weight:700;letter-spacing:0.04em;">BACKFILL DONE</span></div>
+        <div class="item-meta">
+          <span class="badge effort-s">1–2 days</span>
+          <span class="badge">owner: data</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>One column holds FDIC CERT (banks) and NCUA charter # (credit unions), disambiguated only by <code>source</code>. Both are small integers; a CERT and a charter could collide on value.</dd>
+        <dt>Impact</dt>
+        <dd>Any JOIN that forgets <code>source</code> produces silent wrong-bank matches. Cross-source reports could show a bank's fees under a CU's name.</dd>
+        <dt>Fix</dt>
+        <dd>Closed by the identity-map migration (§6 of architecture doc — <code>20260418_institution_identity.sql</code>). Backfill <code>ncua_charter_id</code>, then migrate 20+ queries using <code>source='ncua' AND cert_number=...</code> to use the new column, then drop the overloading.</dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>migrations/20260418_institution_identity.sql</code> (ready)</li>
+            <li>20+ call sites in <code>fee_crawler/commands/ingest_ncua.py</code>, <code>fee_crawler/commands/ingest_call_reports.py</code>, etc.</li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #11 -->
+    <article class="item lat pending-apply" id="item-11">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#11</span>No URL re-validation for stale <code>fee_schedule_url</code></div>
+        <div class="item-meta">
+          <span class="badge effort-s">2 days</span>
+          <span class="badge">owner: crawler</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>URLs are set once (by Magellan or institution seed) and we keep hammering them. If a bank moves their fee schedule to a new URL, we extract from a 301/404 page for months.</dd>
+        <dt>Impact</dt>
+        <dd>Silently stale fees. An institution could change prices and we'd publish last year's data. Known to affect ~9.5% of URLs per the URL health check memory.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Quarterly "URL health" cron that HEAD-requests every <code>fee_schedule_url</code> and flags 3xx/4xx/5xx.</li>
+            <li>On flag, re-run Magellan URL discovery for that institution before the next crawl.</li>
+            <li>Surface stale-URL count on <code>/admin/coverage</code>.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>fee_crawler/commands/probe_urls.py</code> (extend)</li>
+            <li><code>fee_crawler/agents/magellan/orchestrator.py</code></li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #12 -->
+    <article class="item lat closed" id="item-12">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#12</span><code>promote_to_tier3</code> is a single SQL function SPOF</div>
+        <div class="item-meta">
+          <span class="badge effort-s">1 day</span>
+          <span class="badge">owner: data</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>One SQL function gates every publish. A bug in it breaks every publish until it's rolled back. Test coverage unclear from repo.</dd>
+        <dt>Impact</dt>
+        <dd>Publish outage if the function regresses. Debugging is awkward since SQL functions don't emit structured logs.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Add pytest suite that spins up a test DB, inserts synthetic darwin-accept + knox-accept msgs, calls the function, asserts tier-3 row appears.</li>
+            <li>Add edge-case tests: missing darwin-accept, missing knox-accept, double-publish (idempotency), concurrent publish.</li>
+            <li>Wrap the function in a structured-log emitter so every invocation writes to <code>agent_events</code>.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>migrations/20260421_tier_promotion_functions.sql</code></li>
+            <li><code>migrations/20260510_promote_to_tier3_tighten.sql</code></li>
+            <li><code>fee_crawler/tests/test_promote_to_tier3.py</code> (new)</li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #13 -->
+    <article class="item lat closed" id="item-13">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#13</span>Darwin re-classification is lossy — no history</div>
+        <div class="item-meta">
+          <span class="badge effort-s">2 days</span>
+          <span class="badge">owner: data</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd>If Darwin changes its mind on a <code>fees_verified</code> row (e.g. after a taxonomy update), <code>canonical_fee_key</code> gets overwritten in place. No history of prior classifications.</dd>
+        <dt>Impact</dt>
+        <dd>Cannot audit why a fee moved categories. Cannot reproduce a historical report. Trust erodes when "the same fee" is labeled differently across snapshots.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Add <code>classification_history</code> table: <code>(fee_verified_id, old_key, new_key, darwin_run_id, changed_at)</code>.</li>
+            <li>Trigger on UPDATE of <code>canonical_fee_key</code> writes a history row.</li>
+            <li>Expose on <code>/admin/fees/[id]/history</code>.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>fee_crawler/agents/darwin/classifier.py</code></li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <!-- #14 -->
+    <article class="item lat closed" id="item-14">
+      <div class="item-head">
+        <div class="item-title"><span class="num">#14</span>No backoff on repeatedly-failing crawls</div>
+        <div class="item-meta">
+          <span class="badge effort-xs">½ day</span>
+          <span class="badge">owner: crawler</span>
+        </div>
+      </div>
+      <dl class="item-grid">
+        <dt>Symptom</dt>
+        <dd><code>consecutive_failures</code> is tracked on <code>crawl_targets</code> but no exponential-backoff logic reads it. A URL returning 429/5xx gets hit at the same cadence every day indefinitely.</dd>
+        <dt>Impact</dt>
+        <dd>Wasted crawl budget on dead URLs. Anti-bot systems escalate (CAPTCHA, IP ban) making the URL harder to fix later. Potential TOS violations on some hosts.</dd>
+        <dt>Fix</dt>
+        <dd>
+          <ol class="action-list">
+            <li>Skip-next-crawl logic: <code>consecutive_failures &gt;= 3</code> → skip for 3 days, <code>&gt;= 7</code> → skip for 14 days, <code>&gt;= 14</code> → mark <code>status='dormant'</code> and alert.</li>
+            <li>Surface dormant list on <code>/admin/coverage</code> so humans can investigate.</li>
+          </ol>
+        </dd>
+        <dt>Files</dt>
+        <dd>
+          <ul class="files-list">
+            <li><code>fee_crawler/commands/crawl.py</code></li>
+            <li><code>fee_crawler/commands/recrawl.py</code></li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+  </section>
+
+</main>
+
+<footer>
+  Served from <code>docs/reliability/index.html</code>. Source of truth: the architecture doc at <a href="http://localhost:8765/">localhost:8765</a>. Update this page whenever a failure mode is added, closed, or its severity shifts. Last reviewed 2026-04-18.
+</footer>
+
+<script>
+  const buttons = document.querySelectorAll('nav.toc button');
+  const items = document.querySelectorAll('.item');
+  const tiers = document.querySelectorAll('.tier');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const f = btn.dataset.filter;
+      items.forEach(i => {
+        let show;
+        if (f === 'all') show = true;
+        else if (f === 'open') show = !i.classList.contains('closed');
+        else if (f === 'closed') show = i.classList.contains('closed');
+        else show = i.classList.contains(f);
+        i.classList.toggle('hidden', !show);
+      });
+      tiers.forEach(t => {
+        const vis = t.querySelectorAll('.item:not(.hidden)').length;
+        t.classList.toggle('hidden', vis === 0);
+      });
+    });
+  });
+</script>
+
+</body>
+</html>

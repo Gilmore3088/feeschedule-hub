@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { getFeeById, getAuditTrail } from "@/lib/crawler-db";
-import { ApproveButton, RejectButton } from "../review-actions";
+import { ApproveButton, RejectButton, UnstageButton } from "../review-actions";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAmount } from "@/lib/format";
 import { safeJsonb } from "@/lib/pg-helpers";
@@ -165,10 +165,21 @@ export default async function FeeDetailPage({
               )}
             </dl>
 
-            {canApprove && isActionable && (
-              <div className="mt-6 pt-4 border-t flex gap-2">
-                <ApproveButton feeId={fee.id} />
-                <RejectButton feeId={fee.id} />
+            {canApprove && (
+              <div className="mt-6 pt-4 border-t flex flex-wrap gap-2 items-center">
+                {isActionable ? (
+                  <>
+                    <ApproveButton feeId={fee.id} />
+                    <RejectButton feeId={fee.id} />
+                  </>
+                ) : (
+                  <>
+                    <UnstageButton feeId={fee.id} />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Reopens this fee for correction — status moves back to staged and amount becomes editable again.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>

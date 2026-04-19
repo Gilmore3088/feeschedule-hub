@@ -52,7 +52,7 @@ async function AdminLayoutInner({
         : "bg-gray-500/10 text-gray-500 dark:text-gray-400";
 
   return (
-    <div className="min-h-screen bg-[var(--admin-bg)] dark:bg-[oklch(0.13_0_0)]">
+    <div className="min-h-screen bg-[var(--admin-bg)]">
       {/* Skip to content */}
       <a
         href="#main-content"
@@ -95,19 +95,17 @@ async function AdminLayoutInner({
             <CommandPaletteTrigger />
             <DarkModeToggle />
             <div className="hidden sm:block h-3.5 w-px bg-gray-200/80 dark:bg-white/[0.06] mx-1" />
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="text-right">
-                <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 leading-none">
-                  {user.display_name}
-                </p>
-                <span
-                  className={`inline-block rounded-full px-1.5 py-px text-[9px] font-bold mt-0.5 ${roleBadgeColor}`}
-                >
-                  {user.role}
-                </span>
-              </div>
-              <LogoutButton />
+            <div className="hidden sm:block text-right">
+              <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 leading-none">
+                {user.display_name}
+              </p>
+              <span
+                className={`inline-block rounded-full px-1.5 py-px text-[9px] font-bold mt-0.5 ${roleBadgeColor}`}
+              >
+                {user.role}
+              </span>
             </div>
+            <LogoutButton />
           </div>
         </div>
       </header>

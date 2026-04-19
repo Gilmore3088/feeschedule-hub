@@ -9,6 +9,10 @@ Usage:
     python -m fee_crawler probe-urls --fix        # update DB with found URLs
     python -m fee_crawler probe-urls --limit 500  # limit institutions
     python -m fee_crawler probe-urls --extract    # also extract fees from found URLs
+    python -m fee_crawler probe-urls --revalidate # Reliability Roadmap #11 —
+                                                    HEAD-check every existing
+                                                    fee_schedule_url for stale
+                                                    4xx/5xx responses.
 """
 
 import os
@@ -196,3 +200,127 @@ def run(fix: bool = False, limit: int = 0, extract: bool = False):
 
     conn.close()
     return {"found": found, "checked": checked}
+
+
+# ---------------------------------------------------------------------------
+# Reliability Roadmap #11 — URL re-validation
+#
+# HEAD-checks every existing fee_schedule_url, marks stale ones, and surfaces
+# them for the crawler's backoff logic (#14) to skip. Run quarterly; an
+# institution that's moved its fee page to a new URL will appear as a 404
+# here before we waste a day of crawl budget extracting garbage from a
+# redirect.
+# ---------------------------------------------------------------------------
+
+
+def check_url(url: str, client: httpx.Client) -> tuple[int, bool]:
+    """HEAD-check a URL. Returns (status_code, is_ok).
+
+    is_ok means: 2xx response with html/pdf content-type. Anything else —
+    3xx chain to homepage, 4xx, 5xx, timeout — is considered stale.
+    """
+    try:
+        resp = client.head(url, follow_redirects=True, timeout=15)
+    except Exception:
+        return (0, False)
+
+    code = resp.status_code
+    if code != 200:
+        return (code, False)
+
+    content_type = resp.headers.get("content-type", "")
+    if "text/html" not in content_type and "application/pdf" not in content_type:
+        return (code, False)
+
+    # Defence against 200-OK-but-redirected-to-homepage
+    final_path = urlparse(str(resp.url)).path
+    if not final_path or final_path == "/" or len(final_path) <= 2:
+        return (code, False)
+
+    return (code, True)
+
+
+def run_revalidate(fix: bool = False, limit: int = 0) -> dict:
+    """Re-validate every known fee_schedule_url; flag stale ones.
+
+    Args:
+        fix: When True, persist findings by incrementing consecutive_failures
+             and setting failure_reason='url_stale' on stale URLs. When False
+             (default), only prints the report — safe to run any time.
+        limit: Cap number of institutions checked (0 = all).
+
+    Returns:
+        {"checked": n, "stale": n, "ok": n}
+    """
+    conn = _connect()
+    cur = conn.cursor()
+
+    query = """
+        SELECT ct.id, ct.institution_name, ct.state_code, ct.fee_schedule_url,
+               ct.consecutive_failures, ct.failure_reason
+          FROM crawl_targets ct
+         WHERE ct.status = 'active'
+           AND ct.fee_schedule_url IS NOT NULL
+         ORDER BY ct.asset_size DESC NULLS LAST
+    """
+    if limit:
+        query += f" LIMIT {limit}"
+
+    cur.execute(query)
+    targets = cur.fetchall()
+
+    print(f"Re-validating {len(targets)} existing fee_schedule_urls...")
+    print(f"Mode: {'FIX (will mark stale rows)' if fix else 'DRY RUN'}")
+    print()
+
+    stale = 0
+    ok = 0
+    checked = 0
+
+    with httpx.Client(headers=HEADERS, follow_redirects=True, timeout=15) as client:
+        for i, inst in enumerate(targets):
+            checked += 1
+            url = inst["fee_schedule_url"]
+            status, is_ok = check_url(url, client)
+
+            if is_ok:
+                ok += 1
+                continue
+
+            stale += 1
+            print(
+                f"  STALE [{status or 'timeout'}]: "
+                f"{inst['state_code']} {inst['institution_name'][:35]:<35} -> {url[:60]}"
+            )
+
+            if fix:
+                # Bump consecutive_failures; backoff logic (#14) will then skip
+                # the institution for 3+ days. Don't null the URL — a human
+                # should confirm the 404 before we drop the record.
+                cur.execute(
+                    """
+                    UPDATE crawl_targets
+                       SET consecutive_failures = consecutive_failures + 1,
+                           failure_reason = 'url_stale',
+                           failure_reason_note = %s,
+                           failure_reason_updated_at = NOW()
+                     WHERE id = %s
+                    """,
+                    (f"revalidate: HTTP {status}", inst["id"]),
+                )
+                conn.commit()
+
+            if (i + 1) % 100 == 0:
+                print(f"  [{i+1}/{len(targets)}] checked={checked} stale={stale} ok={ok}")
+
+    print()
+    print("=" * 60)
+    pct = round(100 * stale / checked) if checked else 0
+    print(f"RESULTS: {stale} stale URLs out of {checked} checked ({pct}%)")
+    if not fix:
+        print("Run with --revalidate --fix to mark stale rows in the DB.")
+    else:
+        print(f"Marked {stale} institutions with failure_reason='url_stale'.")
+
+    conn.close()
+    return {"checked": checked, "stale": stale, "ok": ok}

@@ -14,7 +14,8 @@ import {
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SkeletonPage } from "@/components/skeleton";
 
-function formatNumber(n: number): string {
+function formatNumber(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
   return n.toLocaleString("en-US");
 }
 
@@ -23,14 +24,10 @@ export default async function AdminDashboard() {
 
   return (
     <>
-      <div className="mb-5">
+      <div className="mb-6">
         <Breadcrumbs items={[{ label: "Dashboard" }]} />
-        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-          Dashboard
-        </h1>
-        <p className="text-[11px] text-gray-400 mt-0.5">
-          Bank Fee Index admin overview
-        </p>
+        <p className="admin-eyebrow mt-2">Admin · Overview</p>
+        <h1 className="admin-display-title mt-1">Operations</h1>
       </div>
 
       <Suspense fallback={<SkeletonPage />}>
@@ -47,6 +44,8 @@ async function DashboardContent() {
   let reviews: Awaited<ReturnType<typeof getRecentReviews>> = [];
   let stateCoverage: Awaited<ReturnType<typeof getCoverageByState>> = [];
   let quality = { total_with_fees: 0, good_6plus: 0, incomplete_1to5: 0, url_no_fees: 0, no_url: 0, freeform_fees: 0, rejected_fees: 0, quality_pct: 0 };
+  let loadFailed = false;
+  let loadError: string | null = null;
 
   try {
     [stats, queue, crawlRuns, reviews, stateCoverage, quality] = await Promise.all([
@@ -59,75 +58,121 @@ async function DashboardContent() {
     ]);
   } catch (e) {
     console.error("Dashboard data load failed:", e);
+    loadFailed = true;
+    loadError = e instanceof Error ? e.message : "Unknown error";
   }
 
   const totalReview = queue.staged + queue.flagged + queue.pending;
 
   return (
     <>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-8">
-        <StatCard label="Total Institutions" value={formatNumber(stats.total_institutions)} />
-        <StatCard label="With Fee URL" value={formatNumber(stats.with_urls)} />
-        <StatCard label="With Fees" value={formatNumber(stats.with_fees)} />
-        <StatCard label="Coverage" value={`${stats.coverage_pct}%`} highlight />
-      </div>
+      {loadFailed && (
+        <div
+          role="alert"
+          className="mb-5 rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-900/40 px-4 py-3"
+        >
+          <p className="text-[13px] font-semibold text-red-700 dark:text-red-300">
+            We couldn&rsquo;t load the dashboard.
+          </p>
+          <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
+            {loadError
+              ? `${loadError}. `
+              : ""}
+            Refresh to try again. Numbers below show zeros until the connection recovers.
+          </p>
+        </div>
+      )}
 
-      {/* Data Quality Panel */}
-      <div className="admin-card overflow-hidden mb-8">
-        <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
-          <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-            Data Quality
-          </h2>
+      {/* Dashboard Hero — single statement, asymmetric split */}
+      <section className="mb-12">
+        <hr className="admin-rule-brand mb-5" />
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-8 sm:gap-10 items-start">
+          <div className="sm:col-span-7">
+            <p className="admin-eyebrow">Fee schedule coverage</p>
+            <div className="mt-2 flex items-baseline gap-3 flex-wrap">
+              <span className="admin-hero-figure">
+                {Number.isFinite(stats.coverage_pct) ? stats.coverage_pct : 0}%
+              </span>
+              <span className="admin-meta">of {formatNumber(stats.total_institutions)} U.S. institutions</span>
+            </div>
+            <p className="admin-lede mt-3">
+              {totalReview > 0
+                ? `${formatNumber(totalReview)} fees are awaiting review.`
+                : "Review queue is clear."}
+            </p>
+          </div>
+          <div className="sm:col-span-5 sm:border-l sm:border-gray-200 dark:sm:border-white/[0.06] sm:pl-8 flex flex-col">
+            <HeroStat
+              label="Tracked institutions"
+              value={formatNumber(stats.total_institutions)}
+            />
+            <HeroStat
+              label="Fee URL found"
+              value={formatNumber(stats.with_urls)}
+              hint={
+                stats.total_institutions > 0
+                  ? `${Math.round((stats.with_urls / stats.total_institutions) * 100)}% of tracked`
+                  : undefined
+              }
+            />
+            <HeroStat
+              label="Verified fee schedules"
+              value={formatNumber(stats.with_fees)}
+              hint={`${stats.coverage_pct}% coverage`}
+            />
+          </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-100 dark:bg-white/[0.04]">
-          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Credible (6+ fees)</p>
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">{formatNumber(quality.good_6plus)}</p>
-            <p className="text-[11px] text-gray-400">{quality.quality_pct}% quality rate</p>
-          </div>
-          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Incomplete (1-5 fees)</p>
-            <p className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1 tabular-nums">{formatNumber(quality.incomplete_1to5)}</p>
-            <p className="text-[11px] text-gray-400">need re-extraction</p>
-          </div>
-          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">URL, No Fees</p>
-            <p className="text-lg font-bold text-red-600 dark:text-red-400 mt-1 tabular-nums">{formatNumber(quality.url_no_fees)}</p>
-            <p className="text-[11px] text-gray-400">extraction gap</p>
-          </div>
-          <div className="bg-white dark:bg-[var(--dark-bg-card,oklch(0.15_0_0))] px-4 py-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">No URL</p>
-            <p className="text-lg font-bold text-gray-600 dark:text-gray-400 mt-1 tabular-nums">{formatNumber(quality.no_url)}</p>
-            <p className="text-[11px] text-gray-400">discovery gap</p>
-          </div>
-        </div>
-        <div className="px-4 py-2 border-t border-gray-100 dark:border-white/[0.04] flex gap-4 text-[11px] text-gray-400">
-          <span>Freeform fees: {formatNumber(quality.freeform_fees)}</span>
-          <span>Rejected: {formatNumber(quality.rejected_fees)}</span>
-        </div>
-      </div>
+      </section>
 
-      {/* Review Queue */}
-      <div className="admin-card overflow-hidden mb-8">
-        <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04] flex items-center justify-between">
-          <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-            Review Queue
-          </h2>
-          <Link
-            href="/admin/review"
-            className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
-          >
-            Open Review &rarr;
-          </Link>
+      {/* Operational panels: Data Quality + Review Queue pair on xl */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
+        {/* Data Quality Panel */}
+        <div className="admin-card overflow-hidden">
+          <div className="admin-panel-header">
+            <h2 className="admin-section-title">Data Quality</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100 dark:divide-white/[0.06]">
+            <QualityCell
+              label="Credible (6+ fees)"
+              value={formatNumber(quality.good_6plus)}
+              tone="emerald"
+              hint={`${quality.quality_pct}% quality rate`}
+            />
+            <QualityCell
+              label="Incomplete (1-5 fees)"
+              value={formatNumber(quality.incomplete_1to5)}
+              tone="amber"
+              hint="need re-extraction"
+            />
+            <QualityCell
+              label="URL, No Fees"
+              value={formatNumber(quality.url_no_fees)}
+              tone="red"
+              hint="extraction gap"
+            />
+            <QualityCell
+              label="No URL"
+              value={formatNumber(quality.no_url)}
+              tone="neutral"
+              hint="discovery gap"
+            />
+          </div>
         </div>
-        <div className="grid grid-cols-3 md:grid-cols-6 divide-x divide-gray-100 dark:divide-white/[0.04]">
-          <QueueCell label="Needs Review" value={totalReview} highlight={totalReview > 0} />
-          <QueueCell label="Staged" value={queue.staged} />
-          <QueueCell label="Flagged" value={queue.flagged} warn={queue.flagged > 0} />
-          <QueueCell label="Pending" value={queue.pending} />
-          <QueueCell label="Approved" value={queue.approved} />
-          <QueueCell label="Rejected" value={queue.rejected} />
+
+        {/* Review Queue */}
+        <div className="admin-card overflow-hidden">
+          <div className="admin-panel-header">
+            <h2 className="admin-section-title">Review Queue</h2>
+            <Link href="/admin/review" className="admin-section-link">
+              Open review &rarr;
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100 dark:divide-white/[0.06]">
+            <QueueCell label="Needs Review" value={totalReview} highlight={totalReview > 0} />
+            <QueueCell label="Staged" value={queue.staged} />
+            <QueueCell label="Flagged" value={queue.flagged} warn={queue.flagged > 0} />
+            <QueueCell label="Pending" value={queue.pending} />
+          </div>
         </div>
       </div>
 
@@ -135,20 +180,18 @@ async function DashboardContent() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         {/* Recent Crawl Runs */}
         <div className="admin-card overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04] flex items-center justify-between">
-            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-              Recent Crawl Runs
-            </h2>
-            <Link
-              href="/admin/pipeline"
-              className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
-            >
-              Pipeline &rarr;
+          <div className="admin-panel-header">
+            <h2 className="admin-section-title">Recent Crawl Runs</h2>
+            <Link href="/admin/pipeline" className="admin-section-link">
+              Open pipeline &rarr;
             </Link>
           </div>
           {crawlRuns.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="admin-table w-full text-xs">
+              <table aria-label="Recent crawl runs" className="admin-table w-full text-xs">
+                <caption className="sr-only">
+                  Ten most recent crawl runs with status, targets crawled, fees extracted, and success rate.
+                </caption>
                 <thead>
                   <tr className="text-left">
                     <th>Date</th>
@@ -167,13 +210,13 @@ async function DashboardContent() {
                       <td className="text-center">
                         <StatusDot status={run.status} />
                       </td>
-                      <td className="text-right tabular-nums text-gray-500">
+                      <td className="text-right tabular-nums text-gray-600 dark:text-gray-400">
                         {run.targets_crawled}
                       </td>
-                      <td className="text-right tabular-nums text-gray-500">
+                      <td className="text-right tabular-nums text-gray-600 dark:text-gray-400">
                         {run.fees_extracted}
                       </td>
-                      <td className="text-right tabular-nums text-gray-600 font-medium">
+                      <td className="text-right tabular-nums text-gray-700 dark:text-gray-200 font-medium">
                         {run.success_rate}%
                       </td>
                     </tr>
@@ -182,62 +225,77 @@ async function DashboardContent() {
               </table>
             </div>
           ) : (
-            <div className="p-6 text-xs text-gray-400 text-center">No recent crawl runs</div>
+            <div className="p-6 admin-meta text-center">
+              No crawl runs yet.{" "}
+              <Link href="/admin/pipeline" className="admin-section-link">
+                Start one &rarr;
+              </Link>
+            </div>
           )}
         </div>
 
         {/* Recent Reviews */}
         <div className="admin-card overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04] flex items-center justify-between">
-            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-              Recent Reviews
-            </h2>
-            <Link
-              href="/admin/review"
-              className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
-            >
-              All Reviews &rarr;
-            </Link>
+          <div className="admin-panel-header">
+            <h2 className="admin-section-title">Recent Reviews</h2>
           </div>
           {reviews.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="admin-table w-full text-xs">
+              <table
+                aria-label="Recent reviews"
+                className="admin-table w-full text-xs table-fixed"
+              >
+                <caption className="sr-only">
+                  Fifteen most recent fee reviews with reviewer, action, fee and institution, and timestamp.
+                </caption>
                 <thead>
                   <tr className="text-left">
-                    <th>Reviewer</th>
-                    <th>Action</th>
+                    <th className="w-[18%]">Reviewer</th>
+                    <th className="w-[14%]">Action</th>
                     <th>Fee</th>
-                    <th className="text-right">When</th>
+                    <th className="w-[18%] text-right">When</th>
                   </tr>
                 </thead>
                 <tbody>
                   {reviews.map((rr, i) => (
                     <tr key={`${rr.fee_id}-${i}`}>
-                      <td className="text-gray-600 dark:text-gray-400">
+                      <td className="text-gray-600 dark:text-gray-400 truncate">
                         {rr.username ?? "system"}
                       </td>
                       <td>
                         <ActionBadge action={rr.action} />
                       </td>
-                      <td>
-                        <Link
-                          href={`/admin/review/${rr.fee_id}`}
-                          className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors"
-                        >
-                          {rr.fee_category ?? rr.fee_name}
-                        </Link>
-                        <span className="text-gray-400 ml-1 hidden sm:inline">
-                          {rr.institution_name}
-                        </span>
+                      <td className="min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1 min-w-0">
+                          <Link
+                            href={`/admin/review/${rr.fee_id}`}
+                            className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors truncate"
+                            title={rr.fee_category ?? rr.fee_name ?? undefined}
+                          >
+                            {rr.fee_category ?? rr.fee_name}
+                          </Link>
+                          {rr.institution_name && (
+                            <span
+                              className="admin-meta hidden sm:inline truncate"
+                              title={rr.institution_name}
+                            >
+                              {rr.institution_name}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="text-right text-gray-400 tabular-nums">{rr.created_at}</td>
+                      <td className="text-right admin-meta tabular-nums truncate">
+                        {rr.created_at}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className="p-6 text-xs text-gray-400 text-center">No recent reviews</div>
+            <div className="p-6 admin-meta text-center">
+              No reviews yet — decisions will appear here as the queue is worked.
+            </div>
           )}
         </div>
       </div>
@@ -245,34 +303,41 @@ async function DashboardContent() {
       {/* Coverage by State */}
       {stateCoverage.length > 0 && (
         <div className="admin-card overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
-            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-              Coverage by State
-            </h2>
+          <div className="admin-panel-header">
+            <h2 className="admin-section-title">Coverage by State</h2>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-1 p-3">
-            {stateCoverage.map((s) => (
-              <Link
-                key={s.state_code}
-                href={`/admin/states/${s.state_code}`}
-                className="text-center rounded p-1.5 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                title={`${s.state_code}: ${s.with_fees} of ${s.total} (${s.pct}%)`}
-              >
-                <span className="text-[10px] font-bold text-gray-500">{s.state_code}</span>
-                <div
-                  className={`text-[11px] font-bold tabular-nums ${
-                    s.pct >= 50
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : s.pct >= 20
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-gray-400"
-                  }`}
-                >
-                  {s.pct}%
-                </div>
-              </Link>
-            ))}
-          </div>
+          <ul
+            role="list"
+            className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-1 p-3"
+          >
+            {stateCoverage.map((s) => {
+              const pctColor =
+                s.pct >= 50
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : s.pct >= 20
+                    ? "text-amber-700 dark:text-amber-400"
+                    : "text-gray-500 dark:text-gray-400";
+              return (
+                <li key={s.state_code}>
+                  <Link
+                    href={`/admin/states/${s.state_code}`}
+                    aria-label={`${s.state_code}: ${s.with_fees} of ${s.total} institutions covered, ${s.pct} percent`}
+                    className="block text-center rounded p-1.5 min-h-11 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                  >
+                    <span className="admin-label-xs block text-gray-700 dark:text-gray-300">
+                      {s.state_code}
+                    </span>
+                    <span className={`block text-[11px] font-bold tabular-nums mt-0.5 ${pctColor}`}>
+                      {s.pct}%
+                    </span>
+                    <span className="admin-label-xs block tabular-nums mt-0.5 normal-case tracking-normal font-medium">
+                      {s.with_fees}/{s.total}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
     </>
@@ -283,21 +348,22 @@ async function DashboardContent() {
 // Helper Components
 // ---------------------------------------------------------------------------
 
-function StatCard({
+function HeroStat({
   label,
   value,
-  highlight,
+  hint,
 }: {
   label: string;
   value: string;
-  highlight?: boolean;
+  hint?: string;
 }) {
   return (
-    <div className={`admin-card p-4 ${highlight ? "ring-1 ring-blue-200/60 dark:ring-blue-800/40" : ""}`}>
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-        {label}
-      </p>
-      <p className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{value}</p>
+    <div className="flex items-baseline justify-between gap-4 py-3 border-b border-gray-200/70 dark:border-white/[0.06] first:pt-0 last:border-b-0 last:pb-0">
+      <div className="min-w-0">
+        <p className="admin-label">{label}</p>
+        {hint && <p className="admin-meta mt-0.5">{hint}</p>}
+      </div>
+      <p className="admin-hero-sub-value shrink-0">{value}</p>
     </div>
   );
 }
@@ -313,39 +379,94 @@ function QueueCell({
   highlight?: boolean;
   warn?: boolean;
 }) {
+  const valueColor = highlight
+    ? "admin-text-brand"
+    : warn
+      ? "text-amber-600 dark:text-amber-400"
+      : "text-gray-900 dark:text-gray-100";
   return (
     <div className="px-3 py-2.5 text-center">
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-        {label}
-      </p>
-      <p
-        className={`text-lg font-bold tabular-nums ${
-          highlight
-            ? "text-blue-600 dark:text-blue-400"
-            : warn
-              ? "text-amber-600 dark:text-amber-400"
-              : "text-gray-900 dark:text-gray-100"
-        }`}
-      >
-        {formatNumber(value)}
-      </p>
+      <p className="admin-label mb-0.5">{label}</p>
+      <p className={`admin-value ${valueColor}`}>{formatNumber(value)}</p>
+    </div>
+  );
+}
+
+function QualityCell({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  tone: "emerald" | "amber" | "red" | "neutral";
+}) {
+  const valueColor =
+    tone === "emerald"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : tone === "amber"
+        ? "text-amber-600 dark:text-amber-400"
+        : tone === "red"
+          ? "text-red-600 dark:text-red-400"
+          : "text-gray-700 dark:text-gray-300";
+  return (
+    <div className="px-4 py-3">
+      <p className="admin-label">{label}</p>
+      <p className={`admin-value mt-1 ${valueColor}`}>{value}</p>
+      <p className="admin-sublabel">{hint}</p>
     </div>
   );
 }
 
 function StatusDot({ status }: { status: string }) {
-  const color =
+  const config =
     status === "completed"
-      ? "bg-emerald-500"
+      ? {
+          dot: "bg-emerald-500",
+          text: "text-emerald-700 dark:text-emerald-400",
+          glyph: "✓",
+        }
       : status === "running"
-        ? "bg-blue-500"
+        ? {
+            dot: "bg-blue-500",
+            text: "text-blue-700 dark:text-blue-400",
+            glyph: "●",
+          }
         : status === "failed"
-          ? "bg-red-500"
-          : "bg-gray-400";
+          ? {
+              dot: "bg-red-500",
+              text: "text-red-700 dark:text-red-400",
+              glyph: "×",
+            }
+          : {
+              dot: "bg-gray-400",
+              text: "text-gray-600 dark:text-gray-400",
+              glyph: "–",
+            };
+  const isLive = status === "running";
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
-      <span className="text-[10px] text-gray-500">{status}</span>
+    <span
+      className="inline-flex items-center gap-1"
+      aria-label={`Status: ${status}`}
+    >
+      <span
+        aria-hidden="true"
+        className="relative inline-flex items-center justify-center w-3.5 h-3.5 shrink-0"
+      >
+        {isLive && (
+          <span
+            className={`absolute inset-0 rounded-full ${config.dot} live-pulse pointer-events-none`}
+          />
+        )}
+        <span
+          className={`relative z-10 inline-flex items-center justify-center w-full h-full rounded-full ${config.dot} text-white text-[9px] leading-none font-bold`}
+        >
+          {config.glyph}
+        </span>
+      </span>
+      <span className={`text-[10px] font-medium ${config.text}`}>{status}</span>
     </span>
   );
 }

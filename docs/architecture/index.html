@@ -254,7 +254,7 @@
 
 <header>
   <h1>Bank Fee Index — System Architecture</h1>
-  <p>The five-stage pipeline, the agent team, the daily schedule, and the handshake. Every diagram here reflects what actually runs in production as of 2026-04-18 (not the aspirational v10 runbook).</p>
+  <p>The four-stage pipeline, the agent team, the daily schedule, and the handshake. Every diagram here reflects what actually runs in production as of 2026-04-18 — not the aspirational v10 runbook.</p>
   <div class="meta">live Mermaid diagrams · drag to scroll · rendered from docs/architecture/index.html</div>
 </header>
 
@@ -264,71 +264,81 @@
   <a href="#handshake">3. Handshake</a>
   <a href="#schedule">4. Daily Schedule</a>
   <a href="#funnel">5. Data Funnel</a>
-  <a href="#tables">6. Data Tables</a>
-  <a href="#code">7. Code Topology</a>
-  <a href="#security">8. Security Boundaries</a>
+  <a href="#identity">6. Identity Map</a>
+  <a href="#tables">7. Data Tables</a>
+  <a href="#code">8. Code Topology</a>
+  <a href="#security">9. Security Boundaries</a>
 </nav>
 
 <main>
 
   <!-- ============ 1. PIPELINE ============ -->
   <section class="card" id="pipeline">
-    <h2>1. The Five-Stage Pipeline</h2>
-    <p class="lede">Every fee moves through five stages. Each stage has one or more agents responsible. Green = live agent. Amber = code exists but stubbed or simulated. Red = missing.</p>
+    <h2>1. The Four-Stage Pipeline</h2>
+    <p class="lede">Every fee moves through four sequential stages daily. Each box shows the agent, the cron window, and the table the stage produces. Hamilton sits outside the pipeline — it's synthesis on demand, not a scheduled stage.</p>
     <div class="diagram-wrap"><div class="mermaid">
-%%{init: {"flowchart": {"nodeSpacing": 30, "rankSpacing": 60}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 30, "rankSpacing": 55}}}%%
 flowchart LR
-  S1["Stage 1<br/><b>Scrape</b><br/>Modal crawler<br/>state_agent"]:::live
-  S2["Stage 2<br/><b>Discovery</b><br/>Magellan<br/>discover.py (legacy)"]:::mixed
-  S3["Stage 3<br/><b>Extraction</b><br/>extract_pdf<br/>extract_html<br/>extract_js"]:::live
-  S4["Stage 4<br/><b>Review</b><br/>Darwin >= 0.90<br/>auto-review"]:::live
-  S5["Stage 5<br/><b>Handshake</b><br/>Knox v1<br/>publish-fees"]:::live
-  S6["Stage 6<br/><b>Synthesis</b><br/>Hamilton<br/>(on-demand)"]:::stub
+  S1["<b>1 · Discovery</b><br/>Magellan<br/>02:00 UTC"]:::live
+  S2["<b>2 · Crawl + Extract</b><br/>crawl.py pdf/js<br/>03:00 + 04:00"]:::live
+  S3["<b>3 · Review</b><br/>Darwin ≥0.90<br/>06:00"]:::live
+  S4["<b>4 · Publish</b><br/>Knox + publish-fees<br/>06:00"]:::live
+  H["<b>Hamilton</b><br/>synthesis on demand<br/>(no cron)"]:::stub
 
-  S1 --> S2 --> S3 --> S4 --> S5 --> S6
+  S1 -- "crawl_targets" --> S2
+  S2 -- "fees_raw" --> S3
+  S3 -- "fees_verified" --> S4
+  S4 -- "fees_published" --> H
 
   classDef live   fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b;
-  classDef mixed  fill:#ecfccb,stroke:#4d7c0f,stroke-width:2px,color:#365314;
   classDef stub   fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#78350f;
-  classDef miss   fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#7f1d1d;
     </div></div>
     <div class="legend">
-      <span><i class="dot live"></i>Live — running in production</span>
-      <span><i class="dot stub"></i>Stubbed — code exists, simulated or unscheduled</span>
+      <span><i class="dot live"></i>Live — fires on Modal cron</span>
+      <span><i class="dot stub"></i>On-demand — runs only when a human clicks</span>
       <span><i class="dot miss"></i>Missing — named in runbook, no code</span>
     </div>
   </section>
 
   <!-- ============ 2. AGENT TEAM ============ -->
   <section class="card" id="agents">
-    <h2>2. Agent Team (Target vs Reality)</h2>
-    <p class="lede">The v10 runbook names Hamilton, Knox, Darwin, Atlas as a coordinated team. Today most of the team exists in some form but coordination is partial.</p>
+    <h2>2. Agent Team (Who Actually Runs)</h2>
+    <p class="lede">There is no central orchestrator. Modal cron triggers four autonomous agent loops; they communicate through the <code>agent_messages</code> table, not with each other. Hamilton is a user-facing synthesis tool, not a scheduled loop. "Atlas" is a permission label in DB auth checks — no process, no code.</p>
     <div class="diagram-wrap"><div class="mermaid">
-%%{init: {"flowchart": {"nodeSpacing": 80, "rankSpacing": 120}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 40, "rankSpacing": 70}}}%%
 flowchart TB
-  Atlas{{"Atlas (scheduler) — MISSING"}}:::miss
+  Cron["<b>Modal cron</b><br/>de facto scheduler"]:::sched
 
-  Atlas -.-> Darwin
-  Atlas -.-> Knox
-  Atlas -.-> Magellan
-  Atlas -.-> Hamilton
+  Cron --> Magellan
+  Cron --> Crawler
+  Cron --> Darwin
+  Cron --> Knox
 
-  Darwin["Darwin: classifier"]:::live
-  Knox["Knox v1: adversarial review"]:::live
-  Magellan["Magellan: URL discovery"]:::live
-  Hamilton["Hamilton: research synthesis"]:::stub
+  Magellan["<b>Magellan</b><br/>URL discovery<br/>02:00"]:::live
+  Crawler["<b>Crawlers</b><br/>state_agent + crawl.py<br/>03:00 · 04:00"]:::live
+  Darwin["<b>Darwin</b><br/>classifier · ≥0.90<br/>06:00"]:::live
+  Knox["<b>Knox</b><br/>adversarial review<br/>06:00"]:::live
 
-  Darwin -- "accept fee_verified_id" --> Knox
-  Knox -- "accept / reject" --> Darwin
+  AM[("<b>agent_messages</b><br/>shared bus")]:::bus
+
+  Darwin -- "accept" --> AM
+  Knox -- "accept / reject" --> AM
+
+  Human(["Analyst"]):::human
+  Hamilton["<b>Hamilton</b><br/>research synthesis<br/>on-demand"]:::stub
+  Human -- "clicks" --> Hamilton
 
   classDef live  fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b;
   classDef stub  fill:#fef3c7,stroke:#b45309,stroke-width:2px,color:#78350f;
-  classDef miss  fill:#fee2e2,stroke:#b91c1c,stroke-width:2px,color:#7f1d1d;
+  classDef sched fill:#e0f2fe,stroke:#0369a1,stroke-width:2px,color:#0c4a6e;
+  classDef bus   fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87;
+  classDef human fill:#ffffff,stroke:#6b7280,stroke-width:1px,color:#374151;
     </div></div>
     <div class="legend">
-      <span><i class="dot live"></i>Darwin / Knox / Magellan run autonomously</span>
-      <span><i class="dot stub"></i>Hamilton runs only on human click</span>
-      <span><i class="dot miss"></i>Atlas is just a label — no running code</span>
+      <span><i class="dot live"></i>Autonomous — Modal cron</span>
+      <span><i class="dot stub"></i>On-demand — user-triggered</span>
+      <span>• No agent calls another agent directly — coordination is through <code>agent_messages</code></span>
+      <span>• "Atlas" is only a permission label in DB auth checks; no process runs under that name</span>
     </div>
   </section>
 
@@ -408,6 +418,15 @@ gantt
       <div class="kpi"><div class="label">fees_published</div><div class="value">~500</div><div class="sub">tier 3 (live today)</div></div>
       <div class="kpi"><div class="label">agent_messages</div><div class="value">648+</div><div class="sub">614 accepts · 34 Knox rejects</div></div>
     </div>
+
+    <h3 style="font-size:12px;font-weight:600;color:var(--soft);letter-spacing:0.08em;text-transform:uppercase;margin:28px 0 10px;">Identity-match coverage (see §6)</h3>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">with cert_number</div><div class="value">~8,400</div><div class="sub">96% · FDIC + NCUA overloaded</div></div>
+      <div class="kpi"><div class="label">with rssd_id</div><div class="value">0</div><div class="sub">column not yet added</div></div>
+      <div class="kpi"><div class="label">with ncua_charter_id</div><div class="value">0</div><div class="sub">column not yet added</div></div>
+      <div class="kpi"><div class="label">with routing_number</div><div class="value">0</div><div class="sub">FedACH not ingested</div></div>
+      <div class="kpi"><div class="label">with LEI</div><div class="value">0</div><div class="sub">GLEIF not ingested</div></div>
+    </div>
     <div class="diagram-wrap" style="margin-top:24px;"><div class="mermaid">
 %%{init: {"flowchart": {"nodeSpacing": 40, "rankSpacing": 60}}}%%
 flowchart LR
@@ -428,10 +447,117 @@ flowchart LR
     </div></div>
   </section>
 
-  <!-- ============ 6. DATA TABLES ============ -->
+  <!-- ============ 6. IDENTITY MAP ============ -->
+  <section class="card" id="identity">
+    <h2>6. Institution Identity Map</h2>
+    <p class="lede">Every fee, crawl run, and analysis row joins through one internal canonical key: <code>crawl_targets.id</code>. Federal datasets each key off a different external identifier — we store all of them as side-columns on the same row so any source can join cleanly. Without this, matching a published fee back to a Call Report or a Fed supervisory record relies on fragile name-matching.</p>
+    <div class="diagram-wrap"><div class="mermaid">
+%%{init: {"flowchart": {"nodeSpacing": 35, "rankSpacing": 70}}}%%
+flowchart LR
+  CT["<b>crawl_targets.id</b><br/>BIGSERIAL · internal canonical PK"]:::core
+
+  CT --- RSSD["<b>rssd_id</b>"]:::ext
+  CT --- CERT["<b>cert_number</b>"]:::ext
+  CT --- NCUA["<b>ncua_charter_id</b>"]:::ext
+  CT --- RT["<b>routing_number</b>"]:::ext
+  CT --- LEI["<b>lei</b>"]:::ext
+
+  RSSD --> FFIEC[("FFIEC CDR<br/>NIC holding-cos")]:::src
+  CERT --> FDIC[("FDIC Call Reports<br/>Summary of Deposits")]:::src
+  NCUA --> NCUA5300[("NCUA 5300 filings")]:::src
+  RT --> ACH[("FedACH<br/>payment networks")]:::src
+  LEI --> GLEIF[("GLEIF · HMDA<br/>international")]:::src
+
+  classDef core fill:#1f2937,stroke:#111827,stroke-width:2px,color:#f9fafb;
+  classDef ext  fill:#ffffff,stroke:#374151,stroke-width:1.5px,color:#111827;
+  classDef src  fill:#eef2ff,stroke:#6366f1,stroke-width:1px,color:#312e81;
+    </div></div>
+
+    <div style="margin-top:22px;overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--line);text-align:left;color:var(--soft);text-transform:uppercase;letter-spacing:0.06em;font-size:10px;">
+          <th style="padding:8px 10px;">Key</th>
+          <th style="padding:8px 10px;">Type</th>
+          <th style="padding:8px 10px;">Unlocks</th>
+          <th style="padding:8px 10px;">Backfill source</th>
+          <th style="padding:8px 10px;">Status</th>
+        </tr>
+      </thead>
+      <tbody style="color:var(--ink);">
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:8px 10px;"><code>id</code></td>
+          <td style="padding:8px 10px;">BIGSERIAL</td>
+          <td style="padding:8px 10px;">Every internal FK (fees_*, crawl_runs, analysis_results, …)</td>
+          <td style="padding:8px 10px;">seeded on insert</td>
+          <td style="padding:8px 10px;color:var(--good);">✓ live</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:8px 10px;"><code>rssd_id</code></td>
+          <td style="padding:8px 10px;">TEXT</td>
+          <td style="padding:8px 10px;">FFIEC CDR, NIC holding-co parent, Fed supervisory data</td>
+          <td style="padding:8px 10px;">FFIEC CDR (parser already extracts, drops on floor)</td>
+          <td style="padding:8px 10px;color:var(--bad);">✗ column missing</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:8px 10px;"><code>cert_number</code></td>
+          <td style="padding:8px 10px;">TEXT (overloaded)</td>
+          <td style="padding:8px 10px;">FDIC Call Reports, Summary of Deposits, closed-bank list</td>
+          <td style="padding:8px 10px;">FDIC Institution Directory (seed data)</td>
+          <td style="padding:8px 10px;color:var(--good);">✓ ~96% populated (banks + CUs share column)</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:8px 10px;"><code>ncua_charter_id</code></td>
+          <td style="padding:8px 10px;">TEXT</td>
+          <td style="padding:8px 10px;">NCUA 5300 filings, CU merger history</td>
+          <td style="padding:8px 10px;">copy from <code>cert_number</code> where <code>source='ncua'</code></td>
+          <td style="padding:8px 10px;color:var(--bad);">✗ column missing</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:8px 10px;"><code>routing_number</code></td>
+          <td style="padding:8px 10px;">TEXT</td>
+          <td style="padding:8px 10px;">FedACH routing file, fraud DBs, Plaid/Yodlee</td>
+          <td style="padding:8px 10px;">FedACH public file (free)</td>
+          <td style="padding:8px 10px;color:var(--bad);">✗ column missing</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 10px;"><code>lei</code></td>
+          <td style="padding:8px 10px;">TEXT</td>
+          <td style="padding:8px 10px;">GLEIF, HMDA, SEC, any international/capital-markets data</td>
+          <td style="padding:8px 10px;">GLEIF bulk file (free)</td>
+          <td style="padding:8px 10px;color:var(--bad);">✗ column missing</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <details style="margin-top:22px;">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--ink);">Migration to close the gap (click to expand)</summary>
+      <pre style="margin-top:10px;padding:14px 16px;background:#f9fafb;border:1px solid var(--line);border-radius:6px;font-size:12px;line-height:1.6;overflow-x:auto;"><code>ALTER TABLE crawl_targets
+  ADD COLUMN rssd_id          TEXT,
+  ADD COLUMN ncua_charter_id  TEXT,
+  ADD COLUMN routing_number   TEXT,
+  ADD COLUMN lei              TEXT;
+
+UPDATE crawl_targets
+  SET ncua_charter_id = cert_number
+  WHERE source = 'ncua' AND ncua_charter_id IS NULL;
+
+CREATE UNIQUE INDEX idx_crawl_targets_rssd    ON crawl_targets(rssd_id)
+  WHERE rssd_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_crawl_targets_routing ON crawl_targets(routing_number)
+  WHERE routing_number IS NOT NULL;
+CREATE INDEX        idx_crawl_targets_lei     ON crawl_targets(lei)
+  WHERE lei IS NOT NULL;
+CREATE INDEX        idx_crawl_targets_ncua    ON crawl_targets(ncua_charter_id)
+  WHERE ncua_charter_id IS NOT NULL;</code></pre>
+    </details>
+  </section>
+
+  <!-- ============ 7. DATA TABLES ============ -->
   <section class="card" id="tables">
-    <h2>6. Data Tables & Ownership</h2>
-    <p class="lede">Three tier tables plus an audit log. Writes are strictly agent-owned; users read via views and admin console.</p>
+    <h2>7. Data Tables &amp; Ownership</h2>
+    <p class="lede">Three tier tables plus an audit log. Writes are strictly agent-owned; users read via views and admin console. The <code>crawl_targets</code> entity now exposes the full identity column set from §6.</p>
     <div class="diagram-wrap"><div class="mermaid">
 erDiagram
   CRAWL_TARGETS ||--o{ FEES_RAW : "institution_id"
@@ -439,10 +565,19 @@ erDiagram
   FEES_VERIFIED ||--o| FEES_PUBLISHED : "lineage_ref (1:1 promotion)"
   AGENT_EVENTS }o..|| AGENT_MESSAGES : "correlation_id"
   FEES_VERIFIED }o..|| AGENT_MESSAGES : "payload.fee_verified_id"
+  CRAWL_TARGETS ||--o{ INSTITUTION_FINANCIALS : "institution_id"
   CRAWL_TARGETS {
     bigint id PK
     text institution_name
     text fee_schedule_url
+    text document_type "pdf|html|offline"
+    text source "fdic|ncua"
+    text cert_number "FDIC CERT"
+    text rssd_id "Fed Reserve — NEW"
+    text ncua_charter_id "NCUA charter — NEW"
+    text routing_number "ABA — NEW"
+    text lei "GLEIF — NEW"
+    text charter_type
     text asset_size_tier
   }
   FEES_RAW {
@@ -465,6 +600,14 @@ erDiagram
     text canonical_fee_key
     numeric amount
   }
+  INSTITUTION_FINANCIALS {
+    bigint id PK
+    bigint crawl_target_id FK
+    text source_cert_number
+    text report_date
+    bigint total_assets
+    bigint service_charge_income
+  }
   AGENT_MESSAGES {
     uuid message_id PK
     text sender_agent
@@ -482,9 +625,9 @@ erDiagram
     </div></div>
   </section>
 
-  <!-- ============ 7. CODE TOPOLOGY ============ -->
+  <!-- ============ 8. CODE TOPOLOGY ============ -->
   <section class="card" id="code">
-    <h2>7. Code Topology</h2>
+    <h2>8. Code Topology</h2>
     <p class="lede">Where every moving part lives in the repo.</p>
     <div class="diagram-wrap"><div class="mermaid">
 %%{init: {"flowchart": {"nodeSpacing": 30, "rankSpacing": 70}}}%%
@@ -546,9 +689,9 @@ flowchart TB
     </div></div>
   </section>
 
-  <!-- ============ 8. SECURITY BOUNDARIES ============ -->
+  <!-- ============ 9. SECURITY BOUNDARIES ============ -->
   <section class="card" id="security">
-    <h2>8. Security Boundaries & Auth Flow</h2>
+    <h2>9. Security Boundaries &amp; Auth Flow</h2>
     <p class="lede">Who can touch what. Agent writes pass through a gateway that authenticates, enforces per-tool role checks, records every call to <code>agent_auth_log</code>, and checks <code>agent_budgets</code> before dispatch. User writes pass through Next.js server actions with session cookies.</p>
     <div class="diagram-wrap"><div class="mermaid">
 %%{init: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 80}}}%%

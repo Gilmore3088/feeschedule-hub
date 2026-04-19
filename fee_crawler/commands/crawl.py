@@ -435,6 +435,14 @@ def _crawl_one(
                 "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
                 (target_id,),
             )
+            # Reliability Roadmap #14: auto-mark dormant at 14+ consecutive
+            # failures so future scheduled runs skip entirely and humans can
+            # triage from /admin/coverage.
+            db.execute(
+                "UPDATE crawl_targets SET status = 'dormant' "
+                "WHERE id = ? AND consecutive_failures >= 14 AND status != 'dormant'",
+                (target_id,),
+            )
             db.commit()
         except Exception as db_err:
             print(f"  WARNING: Failed to record error for {name}: {db_err}")
@@ -555,9 +563,26 @@ def run(
         where_clauses = ["ct.id = ?"]
         params = [target_id]
 
-    # Circuit breaker: skip institutions with too many consecutive failures
+    # Reliability Roadmap #14 — tiered backoff on repeated failures.
+    # Skip institutions based on how many consecutive failures they have and
+    # when they were last crawled. Prevents hammering dead URLs every day and
+    # lets anti-bot systems cool off before we retry.
+    #   0-2 failures  → crawl normally (healthy tail)
+    #   3-6 failures  → crawl only if >=3 days since last attempt
+    #   7-13 failures → crawl only if >=14 days since last attempt
+    #   14+ failures  → never (marked status='dormant' by the error handler)
+    # Also: skip rows already marked dormant unless --include-failing.
     if not include_failing:
-        where_clauses.append("ct.consecutive_failures < 5")
+        where_clauses.append("ct.status != 'dormant'")
+        where_clauses.append(
+            "("
+            "ct.consecutive_failures < 3"
+            " OR (ct.consecutive_failures BETWEEN 3 AND 6"
+            "     AND (ct.last_crawl_at IS NULL OR ct.last_crawl_at < datetime('now', '-3 days')))"
+            " OR (ct.consecutive_failures BETWEEN 7 AND 13"
+            "     AND (ct.last_crawl_at IS NULL OR ct.last_crawl_at < datetime('now', '-14 days')))"
+            ")"
+        )
 
     if state:
         where_clauses.append("ct.state_code = ?")
