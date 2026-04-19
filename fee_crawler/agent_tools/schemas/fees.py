@@ -67,6 +67,10 @@ class PromoteFeeToTier2Output(BaseToolOutput):
 
 class PromoteFeeToTier3Input(BaseToolInput):
     fee_verified_id: int = Field(gt=0)
+    # Optional batch_id tags the resulting fees_published row for
+    # rollback-publish grouping (roadmap #6). NULL matches legacy behaviour;
+    # rows without a batch_id are not eligible for batch rollback.
+    batch_id: Optional[str] = Field(default=None, max_length=128)
 
 
 class PromoteFeeToTier3Output(BaseToolOutput):

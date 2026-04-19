@@ -22,6 +22,9 @@ Coverage:
     test_shared_correlation_id_matches_preferred_path  (20260420 tighten)
     test_stale_accept_beyond_30d_fails                 (20260420 tighten)
     test_cross_correlation_grandfather_path_still_publishes  (20260420 tighten)
+    test_batch_id_lands_on_fees_published_row                (20260420 batch_id)
+    test_batch_id_null_when_omitted                          (20260420 batch_id)
+    test_batch_id_threaded_via_tools_fees_wrapper            (20260420 batch_id)
 """
 from __future__ import annotations
 
@@ -137,8 +140,13 @@ async def _post_message(
     return corr
 
 
-async def _call_promote(conn, fee_verified_id: int) -> int:
-    """Invoke promote_to_tier3 with a fresh adversarial event id."""
+async def _call_promote(conn, fee_verified_id: int, batch_id: str | None = None) -> int:
+    """Invoke promote_to_tier3 with a fresh adversarial event id.
+
+    `batch_id` is optional; NULL matches pre-rollback behaviour. When supplied,
+    the 3-arg signature (20260420_promote_to_tier3_batch_id.sql) stamps the
+    value onto the resulting fees_published row.
+    """
     adversarial_event_id = uuid.uuid4()
     await conn.execute(
         """
@@ -150,9 +158,15 @@ async def _call_promote(conn, fee_verified_id: int) -> int:
         """,
         adversarial_event_id, uuid.uuid4(),
     )
+    if batch_id is None:
+        # Exercise the 2-arg default-parameter call shape (rollback-unaware callers).
+        return await conn.fetchval(
+            "SELECT promote_to_tier3($1, $2)",
+            fee_verified_id, adversarial_event_id,
+        )
     return await conn.fetchval(
-        "SELECT promote_to_tier3($1, $2)",
-        fee_verified_id, adversarial_event_id,
+        "SELECT promote_to_tier3($1, $2, $3)",
+        fee_verified_id, adversarial_event_id, batch_id,
     )
 
 
@@ -336,3 +350,107 @@ async def test_cross_correlation_grandfather_path_still_publishes(db_schema):
         )
         assert row is not None
         assert row["gf"] == "true", f"expected grandfathered=true, got {row['gf']!r}"
+
+
+# ---------------------------------------------------------------------------
+# batch_id threading tests (20260420_promote_to_tier3_batch_id.sql + roadmap #6)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_batch_id_lands_on_fees_published_row(db_schema):
+    """When batch_id is supplied, it must persist on the fees_published row."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        fvid = await _seed_verified_fee(conn)
+        shared = uuid.uuid4()
+        await _post_message(
+            conn, sender="darwin", intent="accept",
+            fee_verified_id=fvid, correlation_id=shared,
+        )
+        await _post_message(
+            conn, sender="knox", intent="accept",
+            fee_verified_id=fvid, correlation_id=shared,
+        )
+
+        batch_id = "drain-2026-04-19-darwin-test01"
+        published_id = await _call_promote(conn, fvid, batch_id=batch_id)
+        assert published_id is not None and published_id > 0
+
+        row = await conn.fetchrow(
+            "SELECT batch_id FROM fees_published WHERE fee_published_id = $1",
+            published_id,
+        )
+        assert row is not None and row["batch_id"] == batch_id
+
+
+@pytest.mark.asyncio
+async def test_batch_id_null_when_omitted(db_schema):
+    """Backward-compat: 2-arg callers still get a row with batch_id NULL."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        fvid = await _seed_verified_fee(conn)
+        await _post_message(conn, sender="darwin", intent="accept", fee_verified_id=fvid)
+        await _post_message(conn, sender="knox", intent="accept", fee_verified_id=fvid)
+
+        published_id = await _call_promote(conn, fvid)  # no batch_id kwarg
+        assert published_id is not None and published_id > 0
+
+        row = await conn.fetchrow(
+            "SELECT batch_id FROM fees_published WHERE fee_published_id = $1",
+            published_id,
+        )
+        assert row is not None and row["batch_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_batch_id_threaded_via_tools_fees_wrapper(db_schema):
+    """Exercise the Python tools_fees.promote_fee_to_tier3 wrapper path.
+
+    Asserts that PromoteFeeToTier3Input(batch_id=...) survives pydantic
+    validation, reaches the SQL function, and lands on fees_published.
+    """
+    from fee_crawler.agent_tools import pool as pool_mod
+    from fee_crawler.agent_tools.context import with_agent_context
+    from fee_crawler.agent_tools.schemas import PromoteFeeToTier3Input
+    from fee_crawler.agent_tools.tools_fees import promote_fee_to_tier3
+
+    _, pool = db_schema
+    pool_mod._pool = pool
+    try:
+        async with pool.acquire() as conn:
+            fvid = await _seed_verified_fee(conn)
+            shared = uuid.uuid4()
+            await _post_message(
+                conn, sender="darwin", intent="accept",
+                fee_verified_id=fvid, correlation_id=shared,
+            )
+            await _post_message(
+                conn, sender="knox", intent="accept",
+                fee_verified_id=fvid, correlation_id=shared,
+            )
+
+        batch_id = "drain-2026-04-19-darwin-wrapper"
+        with with_agent_context(agent_name="darwin"):
+            out = await promote_fee_to_tier3(
+                inp=PromoteFeeToTier3Input(
+                    fee_verified_id=fvid,
+                    batch_id=batch_id,
+                ),
+                agent_name="darwin",
+                reasoning_prompt="publish-fees drain",
+                reasoning_output=f"auto-promote fvid={fvid}",
+            )
+        assert out.success is True
+        assert out.fee_published_id is not None
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT batch_id FROM fees_published WHERE fee_published_id = $1",
+                out.fee_published_id,
+            )
+        assert row is not None and row["batch_id"] == batch_id, (
+            f"expected batch_id={batch_id!r} on fees_published row, got {row['batch_id']!r}"
+        )
+    finally:
+        pool_mod._pool = None
