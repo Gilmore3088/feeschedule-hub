@@ -10,6 +10,7 @@ import {
   getRecentReviews,
   getCoverageByState,
   getDataQualityStats,
+  getLeadsSummary,
 } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SkeletonPage } from "@/components/skeleton";
@@ -44,17 +45,19 @@ async function DashboardContent() {
   let reviews: Awaited<ReturnType<typeof getRecentReviews>> = [];
   let stateCoverage: Awaited<ReturnType<typeof getCoverageByState>> = [];
   let quality = { total_with_fees: 0, good_6plus: 0, incomplete_1to5: 0, url_no_fees: 0, no_url: 0, freeform_fees: 0, rejected_fees: 0, quality_pct: 0 };
+  let leads: Awaited<ReturnType<typeof getLeadsSummary>> = { total: 0, new_this_week: 0, new_today: 0, latest_at: null };
   let loadFailed = false;
   let loadError: string | null = null;
 
   try {
-    [stats, queue, crawlRuns, reviews, stateCoverage, quality] = await Promise.all([
+    [stats, queue, crawlRuns, reviews, stateCoverage, quality, leads] = await Promise.all([
       getDashboardStats(),
       getReviewQueueCounts(),
       getRecentCrawlRuns(10),
       getRecentReviews(15),
       getCoverageByState(),
       getDataQualityStats(),
+      getLeadsSummary(),
     ]);
   } catch (e) {
     console.error("Dashboard data load failed:", e);
@@ -122,6 +125,65 @@ async function DashboardContent() {
             />
           </div>
         </div>
+      </section>
+
+      {/* Leads snapshot — compact widget above operational panels */}
+      <section className="mb-6">
+        <Link
+          href="/admin/leads"
+          className="admin-card block p-4 hover:bg-gray-50/50 dark:hover:bg-white/[0.03] transition-colors"
+        >
+          <div className="flex items-baseline justify-between gap-4 flex-wrap">
+            <div className="flex items-baseline gap-6">
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Leads total
+                </p>
+                <p className="text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100 mt-0.5">
+                  {formatNumber(leads.total)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  This week
+                </p>
+                <p
+                  className={`text-lg font-bold tabular-nums mt-0.5 ${
+                    leads.new_this_week > 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
+                >
+                  {leads.new_this_week > 0 ? "+" : ""}
+                  {formatNumber(leads.new_this_week)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Today
+                </p>
+                <p
+                  className={`text-lg font-bold tabular-nums mt-0.5 ${
+                    leads.new_today > 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
+                >
+                  {leads.new_today > 0 ? "+" : ""}
+                  {formatNumber(leads.new_today)}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                Latest
+              </p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                {leads.latest_at ?? "No leads yet"}
+              </p>
+            </div>
+          </div>
+        </Link>
       </section>
 
       {/* Operational panels: Data Quality + Review Queue pair on xl */}

@@ -1362,6 +1362,42 @@ export interface LeadRow {
   created_at: string;
 }
 
+export interface LeadsSummary {
+  total: number;
+  new_this_week: number;
+  new_today: number;
+  latest_at: string | null;
+}
+
+export async function getLeadsSummary(): Promise<LeadsSummary> {
+  try {
+    const [row] = await sql<
+      {
+        total: string;
+        new_this_week: string;
+        new_today: string;
+        latest_at: string | Date | null;
+      }[]
+    >`
+      SELECT
+        COUNT(*)::text AS total,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::text AS new_this_week,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::text AS new_today,
+        MAX(created_at) AS latest_at
+      FROM leads
+    `;
+    return {
+      total: Number(row?.total ?? 0),
+      new_this_week: Number(row?.new_this_week ?? 0),
+      new_today: Number(row?.new_today ?? 0),
+      latest_at: row?.latest_at ? toDateStr(row.latest_at) : null,
+    };
+  } catch (e) {
+    console.error("getLeadsSummary failed:", e);
+    return { total: 0, new_this_week: 0, new_today: 0, latest_at: null };
+  }
+}
+
 export async function getLeads(limit = 200): Promise<LeadRow[]> {
   try {
     const rows = await sql`
