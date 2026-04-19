@@ -174,6 +174,30 @@ function reviewStatusFragment(filter: ReviewFilter) {
   }
 }
 
+// Reason-category classification moved INTO the SQL query (bug_007 from the
+// 2026-04-19 remote review). Previously categorizeReason() ran in JS over
+// rows that had already been paginated, producing wrong totals and sparse
+// pages when the user clicked a category chip. The CASE below mirrors the
+// JS regex branches in categorizeReason() exactly — keep the two in sync.
+// ~* is Postgres case-insensitive regex; payload is JSONB so ->> returns
+// TEXT or NULL (NULL naturally falls through to 'other').
+const REASON_CATEGORY_CASE = sql`
+  CASE
+    WHEN am.payload->>'reason' ~* '(outlier|extreme|out of range|implausible)' THEN 'outlier'
+    WHEN am.payload->>'reason' ~* '(duplicate|already|dedupe)' THEN 'duplicate'
+    WHEN am.payload->>'reason' ~* '(confidence|low[-_ ]confidence|uncertain)' THEN 'low_confidence'
+    WHEN am.payload->>'reason' ~* '(schema|shape|missing field|missing amount|malformed)' THEN 'schema_mismatch'
+    WHEN am.payload->>'reason' ~* '(canonical|fee[_ ]key|taxonomy)' THEN 'canonical_miss'
+    WHEN am.payload->>'reason' ~* '(policy|contract|governance|disallowed)' THEN 'policy_violation'
+    ELSE 'other'
+  END
+`;
+
+function reasonCategoryFragment(category: KnoxReasonCategory | "all") {
+  if (category === "all") return sql`TRUE`;
+  return sql`(${REASON_CATEGORY_CASE}) = ${category}`;
+}
+
 export const KNOX_REVIEWS_PAGE_SIZE = 25;
 
 export interface ListKnoxRejectionsArgs {
@@ -209,8 +233,11 @@ export async function listKnoxRejections(
 
   try {
     const statusFragment = reviewStatusFragment(filter);
+    const reasonFragment = reasonCategoryFragment(reasonCategory);
 
-    // Get total (cheap because of index on sender_agent/intent/state/created_at).
+    // Get total FIRST with the same filters applied so pagination
+    // matches reality. Previously the reason filter only ran post-LIMIT
+    // in JS, producing sparse pages and wrong totals (bug_007).
     const countRows = await sql<{ cnt: string }[]>`
       SELECT COUNT(*) AS cnt
       FROM agent_messages am
@@ -218,6 +245,7 @@ export async function listKnoxRejections(
       WHERE am.sender_agent = 'knox'
         AND am.intent = 'reject'
         AND ${statusFragment}
+        AND ${reasonFragment}
     `;
     const total = Number(countRows[0]?.cnt ?? 0);
 
@@ -242,7 +270,7 @@ export async function listKnoxRejections(
         ko.decision AS review_decision,
         ko.created_at AS reviewed_at,
         u.username AS reviewer_username,
-        NULL::text AS reason_category
+        (${REASON_CATEGORY_CASE})::text AS reason_category
       FROM agent_messages am
       LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
       LEFT JOIN users u ON u.id = ko.reviewer_id
@@ -252,19 +280,17 @@ export async function listKnoxRejections(
       WHERE am.sender_agent = 'knox'
         AND am.intent = 'reject'
         AND ${statusFragment}
+        AND ${reasonFragment}
       ORDER BY am.created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `;
 
-    // In-memory reason categorization + optional filter.
-    const enriched = rows.map((r) => ({
+    // Category comes from the SQL CASE now; fall back to JS categorizer
+    // only if a row somehow arrives with NULL (defensive).
+    const filtered = rows.map((r) => ({
       ...r,
-      reason_category: categorizeReason(r.reason),
+      reason_category: r.reason_category ?? categorizeReason(r.reason),
     }));
-    const filtered =
-      reasonCategory === "all"
-        ? enriched
-        : enriched.filter((r) => r.reason_category === reasonCategory);
 
     return { rows: filtered, total, page, pageSize };
   } catch (e) {

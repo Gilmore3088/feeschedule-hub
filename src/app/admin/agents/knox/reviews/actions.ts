@@ -207,22 +207,42 @@ export async function overrideRejection(
       `;
       const adversarialEventId = adv[0]?.event_id;
 
+      // Promote in a SAVEPOINT so a handshake-incomplete RAISE EXCEPTION
+      // rolls back ONLY the promote attempt. Without the savepoint the
+      // whole transaction enters the aborted state and postgres.js's COMMIT
+      // becomes a silent ROLLBACK — the human verdict + accept message +
+      // audit event all disappear, breaking the documented guarantee that
+      // "next darwin pass completes without re-review." See bug_004 /
+      // remote review for the full reproduction.
+      //
+      // Passing an explicit third arg (batch_id) also forces resolution to
+      // the 3-arg tight form of promote_to_tier3 regardless of what
+      // overloads might coexist in a fresh-bootstrap DB (bug_006).
+      const overrideBatchId = `knox-override-${user.id}-${new Date()
+        .toISOString()
+        .slice(0, 10)
+        .replace(/-/g, "")}`;
       try {
-        const res = await tx<{ published_id: string }[]>`
-          SELECT promote_to_tier3(${feeVerifiedId}::bigint, ${adversarialEventId}::uuid) AS published_id
-        `;
-        publishedId = res[0]?.published_id ? Number(res[0].published_id) : null;
-        if (publishedId !== null) {
-          await tx`
-            UPDATE knox_overrides
-               SET promoted_fee_published_id = ${publishedId}
-             WHERE rejection_msg_id = ${messageId}
+        await tx.savepoint(async (sp: any) => {
+          const res = await sp<{ published_id: string }[]>`
+            SELECT promote_to_tier3(
+              ${feeVerifiedId}::bigint,
+              ${adversarialEventId}::uuid,
+              ${overrideBatchId}::text
+            ) AS published_id
           `;
-        }
+          publishedId = res[0]?.published_id ? Number(res[0].published_id) : null;
+          if (publishedId !== null) {
+            await sp`
+              UPDATE knox_overrides
+                 SET promoted_fee_published_id = ${publishedId}
+               WHERE rejection_msg_id = ${messageId}
+            `;
+          }
+        });
       } catch (err) {
-        // Handshake still incomplete (typically: darwin has not posted 'accept').
-        // The knox_overrides row + the human-attested knox 'accept' remain so
-        // the next darwin pass can complete promotion without re-review.
+        // Savepoint rolled back the promote attempt. knox_overrides +
+        // knox 'accept' + audit event remain staged in the outer tx.
         console.warn(
           "overrideRejection: promote_to_tier3 blocked:",
           err instanceof Error ? err.message : String(err)

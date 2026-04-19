@@ -485,12 +485,16 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
     // Publish: fees_published rows + last 24h. Filter out rolled-back rows
     // per 20260419_fees_published_rollback.sql contract — rolled_back_at IS
     // NULL is the "live" subset used by every downstream consumer.
+    //
+    // Column is published_at (not created_at) — fees_published has no
+    // created_at. Prior typo swallowed by the surrounding try/catch so the
+    // Publish row silently rendered 0/0. See bug_001 / remote review.
     const [publishNow] = await sql`
       SELECT COUNT(*)::int AS n FROM fees_published WHERE rolled_back_at IS NULL
     `;
     const [publish24h] = await sql`
       SELECT COUNT(*)::int AS n FROM fees_published
-       WHERE rolled_back_at IS NULL AND created_at > NOW() - INTERVAL '24 hours'
+       WHERE rolled_back_at IS NULL AND published_at > NOW() - INTERVAL '24 hours'
     `;
     stages[4].current = Number(publishNow?.n ?? 0);
     stages[4].throughput_24h = Number(publish24h?.n ?? 0);
