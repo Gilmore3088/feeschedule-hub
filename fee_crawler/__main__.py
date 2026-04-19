@@ -414,20 +414,17 @@ def cmd_rediscover_failed(args: argparse.Namespace) -> None:
 
 
 def cmd_revalidate_urls(args: argparse.Namespace) -> None:
-    """Re-validate fee_schedule_urls with tightened rejection logic (dry-run default)."""
+    """Re-validate fee_schedule_urls with tightened rejection logic.
+
+    Default is dry-run (no DB writes). Pass --fix to clear
+    fee_schedule_url on crawl_targets whose URLs returned hard 404s.
+    extracted_fees rows are deliberately left untouched; Magellan will
+    rediscover replacements in the next 05:00 UTC window.
+    """
     from fee_crawler.commands.revalidate_urls import run
 
-    if getattr(args, "fix", False):
-        # --fix is intentionally not wired for roadmap item #11; dry-run only.
-        print(
-            "ERROR: --fix is blocked on revalidate-urls. "
-            "Produce the dry-run report and review it with a human before any writes.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-
     run(
-        fix=False,
+        fix=bool(getattr(args, "fix", False)),
         limit=getattr(args, "limit", 0) or 0,
         concurrency=getattr(args, "concurrency", 16) or 16,
         report_path=getattr(args, "report", None),

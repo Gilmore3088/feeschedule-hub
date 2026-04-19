@@ -1,12 +1,12 @@
 # URL Re-Validation Dry-Run Report
 
-- Generated: 2026-04-19 00:11:34 UTC
-- Mode: DRY-RUN (no DB writes)
-- Elapsed: 224.1s
+- Generated: 2026-04-19 01:13:39 UTC
+- Mode: FIX
+- Elapsed: 180.3s
 - URLs checked: 4726
 - Alive (<400): 4685
-- Soft-keep (403/429/401 — NOT rejected): 7
-- Transient (timeouts / DNS / reset — NOT rejected): 7
+- Soft-keep (403/429/401 — NOT rejected): 8
+- Transient (timeouts / DNS / reset — NOT rejected): 6
 - **Rejection candidates: 27**
 
 ## Tightened rejection rules applied
@@ -56,10 +56,11 @@ Yakima Federal Savings and Loan Association,WA,https://www.yakimafed.com/%3Fs%3D
 
 | Institution | State | Status | URL |
 |---|---|---:|---|
-| Beacon Bank and Trust | MA | 403 | https://www.beaconbank.com/disclosures/consumer-loan-servicing-fee-schedule |
-| Self-Help Federal Credit Union | NC | 403 | https://www.self-help.org/fees |
-| UBS Bank USA | UT | 403 | https://www.ubs.com/content/dam/assets/rc/services/payments/international-paymen |
 | The Fahey Banking Company | OH | 403 | https://irp.cdn-website.com/d465fd58/files/uploaded/ScheduleofFees_-_corrected_3 |
+| Great Meadow Federal Credit Union | NY | 403 | http://www.greatmeadowfcu.org/disclosures/ |
+| Birmingham City Federal Credit Union | AL | 403 | https://www.bhamcu.org/fees |
+| Oriental Bank | PR | 403 | https://cibng.ibanking-services.com/eAM/Credential/Index?orgId=878_221571415&FIF |
 | Cedar Rapids Bank and Trust Company | IA | 403 | https://www.lpl.com/content/dam/lpl-www/documents/disclosures/lpl-financial-rela |
+| UBS Bank USA | UT | 403 | https://www.ubs.com/content/dam/assets/rc/services/payments/international-paymen |
 | Selfreliance Federal Credit Union | IL | 403 | https://www.selfreliance.com/pdf/Fees_and_Charges.pdf%3F1 |
 | Envista Federal Credit Union | KS | 403 | https://www.lpl.com/content/dam/lpl-www/documents/disclosures/lpl-financial-rela |

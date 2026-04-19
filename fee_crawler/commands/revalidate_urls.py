@@ -403,16 +403,48 @@ def run(
     print(f"CANDIDATES: {len(candidates)}")
     for reason, count in sorted(by_reason.items(), key=lambda kv: -kv[1]):
         print(f"   - {reason}: {count}")
-    if not fix:
+
+    cleared = 0
+    if fix and candidates:
+        cleared = _apply_fixes(candidates)
+        print(f"\nFIX applied: cleared fee_schedule_url on {cleared} crawl_targets")
+        print("(extracted_fees rows untouched by design; Magellan will rediscover.)")
+    elif not fix:
         print("\nNO DB WRITES PERFORMED (dry-run). Re-run with --fix to apply.")
 
     return {
         "checked": len(results),
         "candidates": len(candidates),
+        "cleared": cleared,
         "by_reason": by_reason,
         "report": str(out),
         "elapsed_s": elapsed,
     }
+
+
+def _apply_fixes(candidates: list[ProbeResult]) -> int:
+    """Clear crawl_targets.fee_schedule_url for each would-reject candidate.
+
+    Writes are narrow: the URL returned hard 404, so we detach it from the
+    target and let Magellan rediscover. extracted_fees rows are deliberately
+    untouched (they are FROZEN and their content pre-dates the URL death).
+    """
+    ids = [r.target_id for r in candidates]
+    if not ids:
+        return 0
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE crawl_targets SET fee_schedule_url = NULL "
+            "WHERE id = ANY(%s::bigint[]) AND fee_schedule_url IS NOT NULL",
+            (ids,),
+        )
+        affected = cur.rowcount
+        conn.commit()
+        return affected
+    finally:
+        conn.close()
 
 
 def _cli() -> None:
@@ -436,14 +468,8 @@ def _cli() -> None:
                         help="Optional state-code filter (e.g. TX).")
     args = parser.parse_args()
 
-    if args.fix:
-        print("ERROR: --fix is intentionally not wired in this command yet. "
-              "Dry-run only. Human review the report, then apply writes via "
-              "a follow-up migration or rediscover-failed.", file=sys.stderr)
-        sys.exit(2)
-
     run(
-        fix=False,
+        fix=bool(args.fix),
         limit=args.limit,
         concurrency=args.concurrency,
         report_path=args.report,
