@@ -69,8 +69,9 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-11 pending todos (see `.planning/todos/pending/`). Most recent:
+10 pending todos (see `.planning/todos/pending/`). Most recent:
 
+- [Rewrite monthly orchestration agent as institution-first](todos/pending/2026-04-19-rewrite-monthly-orchestration-agent-as-institution-first.md) — flip Managed Agent from county-sweep to Tier 1/Tier 2 institution dispatch
 - [Finish Darwin v1 deployment](todos/pending/2026-04-18-finish-darwin-v1-deployment.md) — set `DARWIN_SIDECAR_URL` on Vercel, push main, smoke `/admin/darwin`
 
 ### Blockers/Concerns
