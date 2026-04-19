@@ -8,6 +8,7 @@ interface NavItem {
   label: string;
   exact?: boolean;
   icon: React.ReactNode;
+  badgeKey?: string;
 }
 
 const ICON_CLASS = "w-[14px] h-[14px] shrink-0";
@@ -152,6 +153,18 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        href: "/admin/agents/knox/reviews",
+        label: "Knox Reviews",
+        badgeKey: "knoxPending",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <path d="M4 8l2.5 2.5L12 4.5" />
+            <path d="M1.5 12.5h3M11.5 12.5h3" />
+            <circle cx="8" cy="8" r="6.5" />
+          </svg>
+        ),
+      },
     ],
   },
   {
@@ -221,7 +234,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   },
 ];
 
-export function AdminNav() {
+export function AdminNav({ badges }: { badges?: Record<string, number> }) {
   const pathname = usePathname();
 
   return (
@@ -240,6 +253,7 @@ export function AdminNav() {
             const isActive = item.exact
               ? pathname === item.href
               : pathname.startsWith(item.href);
+            const badgeCount = item.badgeKey ? badges?.[item.badgeKey] ?? 0 : 0;
             return (
               <Link
                 key={item.href}
@@ -254,7 +268,18 @@ export function AdminNav() {
                 <span aria-hidden="true" className="flex items-center">
                   {item.icon}
                 </span>
-                <span>{item.label}</span>
+                <span className="flex-1">{item.label}</span>
+                {badgeCount > 0 && (
+                  <span
+                    className={`inline-block rounded-full px-1.5 py-0 text-[10px] font-semibold tabular-nums ${
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    }`}
+                  >
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </span>
+                )}
               </Link>
             );
           })}

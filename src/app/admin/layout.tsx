@@ -4,6 +4,7 @@ import { getCurrentUser, type User } from "@/lib/auth";
 import { LogoutButton } from "./logout-button";
 import { AdminNav, AdminNavInline } from "./admin-nav";
 import { JobStatusBadge } from "./job-status-badge";
+import { getKnoxReviewCounts } from "@/lib/crawler-db/knox-reviews";
 import {
   CommandPalette,
   CommandPaletteTrigger,
@@ -50,6 +51,14 @@ async function AdminLayoutInner({
       : user.role === "analyst"
         ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
         : "bg-gray-500/10 text-gray-500 dark:text-gray-400";
+
+  let knoxPending = 0;
+  try {
+    const counts = await getKnoxReviewCounts();
+    knoxPending = counts.pending;
+  } catch {
+    // DB unavailable; drop the badge silently.
+  }
 
   return (
     <div className="min-h-screen bg-[var(--admin-bg)]">
@@ -114,7 +123,7 @@ async function AdminLayoutInner({
         {/* Sidebar */}
         <aside className="hidden md:flex flex-col w-[180px] shrink-0 sticky top-[var(--admin-nav-h)] h-[calc(100vh-var(--admin-nav-h))] border-r border-black/[0.04] dark:border-white/[0.04] bg-white/60 dark:bg-[oklch(0.15_0_0)]/60 backdrop-blur-sm overflow-y-auto">
           <nav aria-label="Admin navigation" className="flex-1 py-2.5">
-            <AdminNav />
+            <AdminNav badges={{ knoxPending }} />
             <Suspense fallback={null}>
               <JobStatusBadge />
             </Suspense>
