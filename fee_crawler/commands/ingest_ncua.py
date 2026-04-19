@@ -108,9 +108,16 @@ def _retry_download(url: str, timeout: int = 120) -> bytes:
 
 
 def _build_cu_map(cur) -> dict[str, int]:
-    """Build charter_number -> crawl_target_id lookup for NCUA credit unions."""
+    """Build charter_number -> crawl_target_id lookup for credit unions.
+
+    Matches by charter_type = 'credit_union' rather than source = 'ncua' so that
+    CU rows seeded from any source (NCUA bulk, manual imports, etc.) are joined
+    to NCUA 5300 financial data by cert_number. The cert_number namespace for
+    credit unions is distinct from FDIC CERT, so no cross-charter collisions.
+    """
     cur.execute(
-        "SELECT id, cert_number FROM crawl_targets WHERE source = 'ncua'"
+        "SELECT id, cert_number FROM crawl_targets "
+        "WHERE charter_type = 'credit_union' AND cert_number IS NOT NULL"
     )
     cu_map: dict[str, int] = {}
     for row in cur:
