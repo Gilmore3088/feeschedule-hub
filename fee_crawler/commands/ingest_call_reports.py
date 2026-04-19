@@ -122,9 +122,16 @@ def _retry_get(url: str, params: dict, timeout: int = 60) -> requests.Response:
 
 
 def _build_cert_map(cur) -> dict[str, int]:
-    """Build cert_number -> crawl_target_id lookup for FDIC banks."""
+    """Build cert_number -> crawl_target_id lookup for banks.
+
+    Matches by charter_type = 'bank' rather than source = 'fdic' so that Call
+    Report rows are joined to any bank-chartered target regardless of how the
+    row was seeded. FDIC CERT is the bank-only namespace (disjoint from NCUA
+    charter_number), so no cross-charter collisions are possible.
+    """
     cur.execute(
-        "SELECT id, cert_number FROM crawl_targets WHERE source = 'fdic'"
+        "SELECT id, cert_number FROM crawl_targets "
+        "WHERE charter_type = 'bank' AND cert_number IS NOT NULL"
     )
     cert_map: dict[str, int] = {}
     for row in cur:
@@ -135,10 +142,16 @@ def _build_cert_map(cur) -> dict[str, int]:
 
 
 def _build_name_map(cur) -> dict[tuple[str, str], int]:
-    """Build (lower_name, state) -> crawl_target_id for fuzzy matching."""
+    """Build (lower_name, state) -> crawl_target_id for fuzzy matching.
+
+    Matches by charter_type = 'bank' rather than source = 'fdic' so name-based
+    fallback matching reaches any bank-chartered target. This mirrors the
+    semantic shift in ``_build_cert_map`` above.
+    """
     cur.execute(
         "SELECT id, institution_name, state_code FROM crawl_targets "
-        "WHERE source = 'fdic' AND institution_name IS NOT NULL AND state_code IS NOT NULL"
+        "WHERE charter_type = 'bank' "
+        "AND institution_name IS NOT NULL AND state_code IS NOT NULL"
     )
     name_map: dict[tuple[str, str], int] = {}
     for row in cur:
