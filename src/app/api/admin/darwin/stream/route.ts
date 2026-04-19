@@ -1,7 +1,30 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 
-const SIDECAR = process.env.DARWIN_SIDECAR_URL;
+// Fallback matches the Modal deploy output. Override via DARWIN_SIDECAR_URL.
+// Must not 500 on unset env — the admin Darwin console opens a long-lived SSE
+// connection here and a bare 500 causes the console to continuously reconnect.
+const SIDECAR =
+  process.env.DARWIN_SIDECAR_URL ??
+  "https://gilmore3088--bank-fee-index-workers-darwin-api.modal.run";
+
+function degradedStream(reason: string): Response {
+  const body = new ReadableStream({
+    start(controller) {
+      const ev = `event: error\ndata: ${JSON.stringify({ type: "error", message: reason })}\n\n`;
+      controller.enqueue(new TextEncoder().encode(ev));
+      controller.close();
+    },
+  });
+  return new Response(body, {
+    headers: {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      connection: "keep-alive",
+    },
+    status: 200, // degraded stream, not a server error
+  });
+}
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -9,23 +32,28 @@ export async function GET(req: NextRequest) {
     return new Response("forbidden", { status: 403 });
   }
   const size = parseInt(req.nextUrl.searchParams.get("size") ?? "100", 10);
-  if (!SIDECAR) return new Response("sidecar not configured", { status: 500 });
 
-  const upstream = await fetch(`${SIDECAR}/darwin/classify-batch`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ size }),
-  });
+  try {
+    const upstream = await fetch(`${SIDECAR}/darwin/classify-batch`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ size }),
+      signal: AbortSignal.timeout(120_000),
+    });
 
-  if (!upstream.ok || !upstream.body) {
-    return new Response(`sidecar ${upstream.status}`, { status: 502 });
+    if (!upstream.ok || !upstream.body) {
+      return degradedStream(`sidecar ${upstream.status}`);
+    }
+
+    return new Response(upstream.body, {
+      headers: {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      },
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return degradedStream(`sidecar unreachable: ${msg}`);
   }
-
-  return new Response(upstream.body, {
-    headers: {
-      "content-type": "text/event-stream",
-      "cache-control": "no-cache",
-      connection: "keep-alive",
-    },
-  });
 }
