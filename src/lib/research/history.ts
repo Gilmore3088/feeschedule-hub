@@ -170,6 +170,20 @@ export async function logUsage(
     INSERT INTO research_usage (user_id, ip_address, agent_id, input_tokens, output_tokens, estimated_cost_cents)
     VALUES (${userId}, ${ipAddress}, ${agentId}, ${inputTokens}, ${outputTokens}, ${estimatedCostCents})
   `;
+
+  // Also debit agent_budgets so one query answers "today's total LLM spend"
+  // across Hamilton + every backend agent (eliminates WORKFLOW-MAP leak #8).
+  // Hamilton is the only TS-side LLM caller today; route through 'hamilton'
+  // identity in agent_registry. agentId distinguishes report templates but
+  // budgets are per-agent, not per-template.
+  if (estimatedCostCents > 0) {
+    await sql`
+      UPDATE agent_budgets
+         SET spent_cents = spent_cents + ${estimatedCostCents},
+             updated_at  = NOW()
+       WHERE agent_name = 'hamilton'
+    `;
+  }
 }
 
 export async function getUsageStats(userId: number): Promise<{

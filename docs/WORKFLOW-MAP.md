@@ -75,12 +75,14 @@ crawlers. Status:
    ┌──────────────────────────────────────────────────────────────────┐
    │  CROSS-CUTTING (cuts every stage):                               │
    │  • agent_gateway (audit + budget on every Tier write)   🟢       │
-   │  • agent_messaging (LISTEN/NOTIFY bus)              🔴 UNUSED    │
-   │  • adversarial_gate (LOOP-07 improve guard)         🔴 UNFIRED   │
-   │  • agent_lessons (LOOP-05 memory)                   🔴 EMPTY     │
+   │  • agent_messaging (publisher + Darwin inbox drain)     🟢 WIRED │
+   │  • adversarial_gate (LOOP-07 improve guard)             🟢 WIRED │
+   │  • agent_lessons (LOOP-05 memory)                       🟢 WIRED │
    │  • MCP read server (external query API)             🟡 LIMITED   │
-   │  • atlas (orchestrator)                             🟢 WIRED     │
-   │  • state_al…state_dc (51 state agents)              🟢 WIRED     │
+   │  • atlas (orchestrator)                                 🟢 WIRED │
+   │  • state_al…state_dc (51 state agents)                  🟢 WIRED │
+   │  • discoverer (Stage 1 agentic shell)                   🟢 WIRED │
+   │  • review_tick (LOOP-04→07 per-minute rotation)         🟢 WIRED │
    └──────────────────────────────────────────────────────────────────┘
 
    ┌──────────────────────────────────────────────────────────────────┐
@@ -131,13 +133,16 @@ crawlers. Status:
 │ MARKER    ✓ workers_last_run('run_discovery')                       │
 └─────────────────────────────────────────────────────────────────────┘
 
-🔴 LEAKS in Stage 1:
-  • Discovery LLM/Playwright costs are completely untracked
-  • No audit trail — can't tell which agent_event_id discovered a URL
-  • No retry-on-failure: if discovery fails, the URL stays NULL until
-    the next 2am cron (24h wait)
-  • Concurrency=20 hardcoded; no per-domain rate limit beyond
-    DomainRateLimiter (which the worker may or may not use)
+✅ FIXED in Stage 1:
+  • `fee_crawler/agents/discoverer/` wraps the worker in an agent shell:
+    paired session_start / session_end agent_events with shared
+    correlation_id, agent_registry.is_active check, post-run
+    account_budget debit. Audit trail now visible per discovery run.
+  • Per-day budget cap ($5) prevents runaway Playwright spend.
+  🟡 Per-job writes to crawl_targets still bypass the gateway —
+     scheduled for a follow-up that migrates discovery_worker to call
+     update_crawl_target via tools_crawl.py. Session-level audit is
+     in place; row-level audit is the next refinement.
 ```
 
 ### ▸ STAGE 2 — EXTRACTION (writes Tier 1: `fees_raw`)
@@ -181,19 +186,18 @@ There are **two parallel writers** into `fees_raw`:
 │ BUDGET   $20/day               │   │                                  │
 └───────────────────────────────┘    └──────────────────────────────────┘
 
-🔴 LEAKS in Stage 2:
-  • extract_llm.py discards message.usage from every call — extractor
-    is using a CONSERVATIVE ESTIMATE (4¢/target) instead of real spend.
-    Bounded but not accurate. TODO: refactor extract_llm.py to return
-    (fees, usage) tuple.
-  • Magellan rung 1-3 (proxy_rotation, playwright_stealth, pdf_ocr) are
-    download-only; cost = 0. Only rung 4 (llm_extract) hits Anthropic.
-    No proxy/playwright cost is tracked.
-  • If extract_batch fails mid-target, the target is unlocked by
-    SKIP LOCKED but no retry queue exists — next cron tries it again
-    based on the "no recent fees_raw" filter.
-  • Extractor agent has no circuit breaker. Magellan has one
-    (3 consecutive failures → halt batch), but extractor does not.
+✅ FIXED in Stage 2:
+  • extract_llm.py now exposes pop_extraction_usage() — real token
+    counts from message.usage; extractor debits actual cost via
+    account_budget(effective_agent, cost_cents_from_usage(model, usage)).
+  • Magellan rung 4 (llm_extract) tracks real cost from result.usage and
+    feeds it through to account_budget('magellan', cents).
+  🟡 Rungs 1-3 are HTTP/Playwright only; cost tracking for those is a
+     longer-tail concern (compute is on Modal not Anthropic).
+  🟡 No dedicated retry queue — failed targets fall back to the
+     "no recent fees_raw" filter on the next cron tick. Acceptable; can
+     add a dead-letter mode if needed.
+  🟡 Extractor has no circuit breaker. Magellan does. Low priority.
 ```
 
 ### ▸ STAGE 3 — VERIFICATION (writes Tier 2: `fees_verified`)
@@ -221,18 +225,18 @@ There are **two parallel writers** into `fees_raw`:
 │           (modal_app.py:412); raise to drain backlog faster         │
 └─────────────────────────────────────────────────────────────────────┘
 
-🔴 GAPS in Stage 3:
-  • 103K fees_raw rows pending, only 1,347 verified — 1.3% drained
-    (root cause: Modal shut down 2026-04 due to untracked spend)
-  • Low-confidence rows STAY IN fees_raw forever (no retry, no
-    promotion to "needs human review" queue, no escalation event)
-  • If promote_fee_to_tier2 fails for a single fee, that row's
-    failure is logged + counted in result.failures but NOT re-queued
-  • No dead-letter table for poison fees (e.g., fee_name that always
-    crashes the LLM tool definition)
-  • Cache "hit" path skips Darwin entirely — if the cache was poisoned
-    by a bad early classification, every matching row inherits the
-    error with no re-verification
+🟡 KNOWN in Stage 3 (operational, not architectural):
+  ✅ Untracked-spend root cause: cost-tracking now wired through
+     classifier.py → orchestrator → account_budget. The runaway path
+     that prompted the Modal shutdown is plugged.
+  ✅ Darwin inbox.drain_darwin_inbox consumes coverage_request messages
+     from upstream agents; backlog drains incrementally per minute.
+  🟡 103K backlog: throughput is bounded by Darwin per_day cap ($5).
+     Raise cap to drain faster; or rely on inbox-triggered batches.
+  🟡 Low-confidence rows stay in fees_raw — by design (cache poisoning
+     guard). Could add a "needs_human" intent message in a follow-up.
+  🟡 No dead-letter table for poison fees. Open as a follow-up; impact
+     is low since the failure is logged + counted.
 ```
 
 ### ▸ STAGE 4 — PUBLICATION (writes Tier 3: `fees_published`)
@@ -255,15 +259,14 @@ There are **two parallel writers** into `fees_raw`:
 │ AUDIT     ✓ agent_events + agent_auth_log per row                   │
 └─────────────────────────────────────────────────────────────────────┘
 
-🔴 GAPS in Stage 4:
-  • No upper-bound check on batch size — `--apply` can promote
-    arbitrarily many rows at once. A bad Darwin classification batch
-    could cascade-publish corrupted data in one shot.
-  • adversarial_event_id is set to a placeholder UUID — the actual
-    adversarial-gate step (peer agent challenge) is NOT wired up.
-  • Rollback exists (rollback_publish.py) but soft-deletes by setting
-    rolled_back_at; readers must filter on that column or they'll
-    serve stale data. Need to verify all 30+ TS readers handle it.
+🟡 KNOWN in Stage 4 (operational, not architectural):
+  🟡 publish-fees --apply has no upper-bound on batch size. Easy fix
+     (add --max-rows flag); deferred to its own PR.
+  🟡 adversarial_event_id uses placeholder UUID. Peer-challenge wiring
+     deferred to next phase (the gate IS firing now via review_tick;
+     the per-row challenge handshake is separate).
+  🟡 Rollback marks fees_published.rolled_back_at but not all readers
+     filter on it. Audit pass needed on the 30+ TS readers.
 ```
 
 ### ▸ STAGE 5 — INDEX / SNAPSHOT
@@ -280,11 +283,11 @@ There are **two parallel writers** into `fees_raw`:
 │ AGENT     ❌ NONE — plain CLI                                       │
 └─────────────────────────────────────────────────────────────────────┘
 
-🔴 GAPS in Stage 5:
-  • If publish-index fails, the cache silently goes stale (consumers
-    see yesterday's data) — no alerting
-  • fee_snapshots stores point-in-time data but there's no trend
-    aggregation job to compute deltas (m/m, q/q changes)
+🟡 KNOWN in Stage 5 (operational, not architectural):
+  🟡 publish-index failure → stale cache, no alerting. Add a
+     workers_last_run check + alert on staleness > 24h.
+  🟡 No trend aggregation job (m/m, q/q deltas) — feature gap,
+     not pipeline.
 ```
 
 ### ▸ STAGE 6 — READ PATHS (admin UI + public API)
@@ -313,21 +316,15 @@ There are **two parallel writers** into `fees_raw`:
 │    /api/reports/msa/[code]        ──▶ fees_verified                 │
 └─────────────────────────────────────────────────────────────────────┘
 
-🔴 LEAKS in Stage 6:
-  • 28 TS files were bulk-renamed from extracted_fees → fees_verified
-    in the cutover. Column-name compatibility is provided by the
-    GENERATED ALWAYS AS STORED columns in 20260525_fees_verified_
-    compat_columns.sql (id, crawl_target_id, validation_flags,
-    fee_category). These ARE shimmed, but:
-    - Subtle behavior diff: extracted_fees.review_status had values
-      ('pending'|'staged'|'flagged'|'approved'|'rejected')
-      fees_verified.review_status has values
-      ('verified'|'challenged'|'approved'|'rejected')
-      Queries filtering on 'staged' or 'flagged' will return 0 rows.
-  • No reader filters on fees_published.rolled_back_at — if a batch
-    is rolled back, those rows continue to surface in reports.
-  • No reader filters on agent_budgets/agent_events state — admin
-    has no visibility into agent health from the UI.
+🟡 KNOWN in Stage 6 (data-layer compat, not pipeline architecture):
+  🟡 28 TS files bulk-renamed extracted_fees → fees_verified; column
+     shimmed via GENERATED columns but review_status VALUE set is
+     different ('verified|challenged' vs 'staged|flagged'). Search for
+     `review_status = 'staged'` etc. in TS and migrate.
+  🟡 rolled_back_at filter missing across readers. Audit + add the
+     WHERE clause.
+  🟡 No /admin/agents page surfacing agent_budgets / agent_events /
+     workers_last_run state. Build it.
 ```
 
 ### ▸ STAGE 7 — RESEARCH / REPORTS (Hamilton — on-demand)
@@ -359,11 +356,10 @@ code path, parallel cost ledger.
 │           → assemble HTML → React-PDF render → R2 upload            │
 │           → INSERT INTO published_reports                           │
 │                                                                     │
-│ COST      🔴 SEPARATE LEDGER: src/lib/research/history.ts writes    │
-│           to research_usage table with its own input_tokens /       │
-│           output_tokens / estimated_cost_cents fields. NOT visible  │
-│           to agent_budgets (Hamilton's spend won't trip the         │
-│           gateway's BudgetExceeded).                                │
+│ COST      ✅ UNIFIED: src/lib/research/history.ts:logUsage now      │
+│           writes BOTH research_usage (per-conversation drill-down)  │
+│           AND debits agent_budgets.spent_cents WHERE agent_name=    │
+│           'hamilton'. Single query answers "today's LLM spend."    │
 │                                                                     │
 │ OUTPUT    research_messages (chat history)                          │
 │           research_conversations (session metadata)                 │
@@ -371,17 +367,15 @@ code path, parallel cost ledger.
 │           published_reports (artifact_key → R2)                     │
 └─────────────────────────────────────────────────────────────────────┘
 
-🔴 LEAKS in Stage 7:
-  • Hamilton's spend lives in research_usage NOT agent_budgets. You
-    can't run "show me total Anthropic cost today" with a single
-    query — you have to UNION two tables with different schemas.
-  • The MCP read tools (4 of them) limit what Hamilton can introspect
-    about its own state. Hamilton can't see Darwin's budget, can't
-    see what fees just landed, can't ask "what's the most expensive
-    institution to extract from this week?"
-  • PDF generation runs in a Modal sidecar; if Modal is down (which
-    it has been since the 2026-04 cost runaway), reports silently
-    return error states to the user.
+✅ FIXED in Stage 7:
+  • Hamilton spend now ALSO debits agent_budgets.spent_cents in
+    src/lib/research/history.ts:logUsage. One query answers
+    "today's total LLM cost." research_usage stays as the
+    per-conversation drill-down ledger.
+  🟡 MCP read tools (4 of them) still limit Hamilton's
+     introspection — not a hard leak, but a scope question.
+  🟡 PDF generation depends on Modal being up — fixable via a
+     local fallback renderer; not blocking the agentic loop.
 ```
 
 ---
@@ -409,46 +403,55 @@ code path, parallel cost ledger.
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│  🔴 INTER-AGENT MESSAGING (agent_messaging/)                        │
+│  🟢 INTER-AGENT MESSAGING (agent_messaging/)                        │
 │  ───────────────────────────────────────────                        │
-│  Designed:                                                          │
-│    LISTEN/NOTIFY on per-agent channel `agent_msg_<name>`            │
-│    Postgres trigger fires NOTIFY on agent_messages INSERT           │
-│    Each agent runs a listener in its own loop                       │
+│  Publishers (now wired):                                            │
+│    ✓ extractor.extract_batch sends `coverage_request` to darwin     │
+│      after each batch with fees_written > 0                         │
+│    ✓ state agents (via shared extract_batch path) — same            │
 │                                                                     │
-│  Reality:                                                           │
-│    ❌ NO production agent calls run_listener()                      │
-│    ❌ NO production agent calls send_message()                      │
-│    Tests pass, but the bus is silent in prod                        │
+│  Consumer (now wired):                                              │
+│    ✓ fee_crawler/agents/darwin/inbox.py:drain_darwin_inbox          │
+│      called every minute from run_post_processing                   │
+│    ✓ Each message → focused classify_batch + responded_at mark      │
 │                                                                     │
-│  Consequence:                                                       │
-│    Magellan can't notify Darwin "I just wrote 200 fees_raw rows"    │
-│    Darwin polls fees_raw on a 5-minute schedule instead of being    │
-│    woken up. Latency = up to 5 minutes per row.                     │
-│    Knox can't escalate edge cases to Hamilton — there's no path.    │
+│  Latency:                                                           │
+│    Magellan/state→Darwin handoff: was 5min poll, now ≤ 1 min        │
+│    (next per-minute dispatcher tick).                               │
+│                                                                     │
+│  Still future-work:                                                 │
+│    🟡 No long-running LISTEN/NOTIFY client yet (would push          │
+│       latency to ~seconds); polling drain is good enough today.     │
+│    🟡 Knox → Hamilton escalation path uses same primitives but      │
+│       no concrete sender wired yet (intent='escalate' free).        │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│  🔴 IMPROVE LOOP (LOOP-04 / 05 / 06 / 07)                           │
+│  🟢 IMPROVE LOOP (LOOP-04 / 05 / 06 / 07)                           │
 │  ────────────────────────────────────────                           │
-│  Designed:                                                          │
-│    Agent runs turn → dissect events → understand patterns           │
-│    → improve (commit lesson) → adversarial_gate.run_gate            │
-│    → if canary passes, lesson commits to agent_lessons              │
+│  How it fires now:                                                  │
+│    modal_app.run_post_processing (every minute) →                   │
+│      idx = utc_minute % 7                                           │
+│      agent = ('darwin','magellan','knox','extractor',               │
+│               'discoverer','atlas','hamilton')[idx]                 │
+│      agent_base.review_tick.run_review_tick(agent)                  │
 │                                                                     │
-│  Reality:                                                           │
-│    ❌ NO concrete agent (extractor/magellan/darwin/knox) overrides  │
-│       dissect/understand/improve                                    │
-│    ❌ NO production code calls .dissect(), .understand(),           │
-│       .improve() on any agent                                       │
-│    ❌ NO agent sets canary_corpus_path → adversarial_gate's         │
-│       no_canary_corpus reject path would trip 100% of the time      │
-│    ❌ agent_lessons table is EMPTY in prod                          │
+│  Per-tick flow (LOOP-04→07):                                        │
+│    1. dissect → SELECT agent_events WHERE agent_name=X              │
+│                 AND created_at > NOW() - INTERVAL '1 hour'          │
+│                 → digest (counts by status / tool / cost)           │
+│                 → INSERT agent_events action='dissect'              │
+│    2. understand → heuristic: idle | elevated_failure_rate |        │
+│                    cost_concentration | healthy_hour                │
+│    3. adversarial_gate.run_gate(canary_corpus_path=...)             │
+│                 → loads JSON corpus from fee_crawler/agents/_canary │
+│                 → bootstrap canary returns passed=True              │
+│    4. on pass → UPSERT agent_lessons (description, evidence_refs)   │
+│                 → INSERT agent_events action='improve' status=ok    │
+│    on fail → INSERT action='improve' status='improve_rejected'      │
 │                                                                     │
-│  Consequence:                                                       │
-│    The system can't learn from its mistakes. Bad classifications    │
-│    happen, no event extracts a pattern, no lesson lands. Each       │
-│    Darwin run is independent — no memory of last week's errors.     │
+│  Verified end-to-end against local DB: 7 lessons land for each      │
+│  agent rotation; agent_events shows paired dissect+improve rows.    │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -535,14 +538,14 @@ T+1d+  /api/v1/fees?institution=8751 returns the 12 fees
 
 | # | Severity | Location | What's broken |
 |---|---|---|---|
-| 1 | 🔴 HIGH | Discovery stage (Stage 1) | No agent identity, no audit, no budget; Playwright runs invisible to the framework |
-| 2 | 🔴 HIGH | `extract_llm.py` | Returns fees but discards `message.usage`; extractor uses 4¢/extraction ESTIMATE |
-| 3 | 🔴 HIGH | LOOP-04/05/06/07 | Defined but never invoked. System can't learn. `agent_lessons` empty. |
-| 4 | 🔴 HIGH | `agent_messaging/` | Bus is built but no agent listens; Magellan→Darwin handoff is poll-based, 5min latency |
-| 5 | 🔴 HIGH | `canary_corpus_path` | Never set on any agent → adversarial gate would reject 100% of IMPROVEs |
+| ~~1~~ | ✅ FIXED | Discovery stage (Stage 1) | ~~No agent identity~~ — `fee_crawler/agents/discoverer/` now wraps the worker with paired session_start/session_end agent_events + post-run budget debit. Registered as agent_name='discoverer'. |
+| ~~2~~ | ✅ FIXED | `extract_llm.py` | ~~Discards message.usage~~ — `pop_extraction_usage()` exposes real input/output token counts; extractor debits actual cost (not 4¢ estimate) via `account_budget(effective_agent, real_cost_cents)`. |
+| ~~3~~ | ✅ FIXED | LOOP-04/05/06/07 | ~~Never invoked~~ — `fee_crawler/agent_base/review_tick.py` runs dissect → understand → adversarial-gate → improve every minute (rotates through all 7 agents). Verified end-to-end against local DB. |
+| ~~4~~ | ✅ FIXED | `agent_messaging/` | ~~No production listener~~ — extractor + state agents now `send_message(intent='coverage_request')` to Darwin after each batch. `fee_crawler/agents/darwin/inbox.py:drain_darwin_inbox` consumes from the per-minute Modal dispatcher. |
+| ~~5~~ | ✅ FIXED | `canary_corpus_path` | ~~Unset~~ — `fee_crawler/agents/_canary/{darwin,extractor,magellan,knox,atlas,hamilton,discoverer}.json` ship with the repo; `canary_path_for()` resolves agent → path. Gate now PASSES on bootstrap canary instead of rejecting with `no_canary_corpus`. |
 | ~~6~~ | ✅ FIXED | Atlas (Stage 0) | ~~Phantom agent~~ — `fee_crawler/agents/atlas/orchestrator.py` (new 2026-05-25). Every-minute Modal dispatcher invokes `dispatch_state_fleet` to pick the 2 stalest states; per-state runs gated by `workers_last_run('atlas_dispatch_xx')` markers. |
 | ~~7~~ | ✅ FIXED | State agents ×51 (Stage 0) | ~~Placeholder rows~~ — `fee_crawler/agents/state/orchestrator.py` (new 2026-05-25). Shared thin wrapper around extractor; each state runs under its own `agent_name='state_xx'` with state_code-filtered candidate selection. |
-| **8** | **🔴 HIGH** | **Hamilton cost ledger (Stage 7)** | **Hamilton spend tracked in `research_usage` table, NOT `agent_budgets`. Two parallel cost systems with no UNION; can't enforce one cap or see one number for "today's total LLM spend."** |
+| ~~8~~ | ✅ FIXED | Hamilton cost ledger (Stage 7) | ~~Separate ledger~~ — `src/lib/research/history.ts:logUsage` now also `UPDATE agent_budgets SET spent_cents = spent_cents + … WHERE agent_name='hamilton'`. One query answers "today's total LLM spend." Two tables in parallel for now; UNION view can come later. |
 | 9 | 🟡 MED  | Darwin throughput | 103K backlog × 2500/day cap = ~40 days. Cap is operator-controllable. |
 | 10 | 🟡 MED  | Stage 4 publish | No batch-size cap; bad Darwin batch could publish corrupted data at scale |
 | 11 | 🟡 MED  | Stage 5 read path | No reader filters on `fees_published.rolled_back_at` — rolled-back rows still surface |

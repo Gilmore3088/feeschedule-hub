@@ -8,12 +8,81 @@ Retries with a more specific prompt on empty results.
 import json
 import logging
 from dataclasses import dataclass
+from threading import Lock
 
 import anthropic
 
 from fee_crawler.config import Config
 
 logger = logging.getLogger(__name__)
+
+
+# Per-process token accumulator. Modal containers are single-task at a
+# time (and asyncio-isolated), so a module-level dict is safe enough for
+# real-time spend attribution. For multi-tenant local testing, callers
+# should wrap each extraction in a fresh subprocess.
+#
+# Usage:
+#   reset_extraction_usage()
+#   fees = extract_fees_with_llm(...)
+#   usage = pop_extraction_usage()
+#   cost_cents = cost_cents_from_usage(model, usage)
+_USAGE_LOCK = Lock()
+_USAGE: dict[str, int] = {"input_tokens": 0, "output_tokens": 0, "calls": 0}
+
+
+def reset_extraction_usage() -> None:
+    """Zero the per-process LLM-call accumulator before a tracked extraction."""
+    with _USAGE_LOCK:
+        _USAGE["input_tokens"] = 0
+        _USAGE["output_tokens"] = 0
+        _USAGE["calls"] = 0
+
+
+def pop_extraction_usage() -> dict[str, int]:
+    """Return + reset the accumulator. Returns dict with input_tokens,
+    output_tokens, calls. Always returns ints (zero if no calls)."""
+    with _USAGE_LOCK:
+        out = dict(_USAGE)
+        _USAGE["input_tokens"] = 0
+        _USAGE["output_tokens"] = 0
+        _USAGE["calls"] = 0
+    return out
+
+
+def _record_usage(message: object) -> None:
+    """Internal: increment the accumulator from a message.usage object."""
+    usage = getattr(message, "usage", None)
+    if usage is None:
+        return
+    in_tok = int(getattr(usage, "input_tokens", 0) or 0)
+    out_tok = int(getattr(usage, "output_tokens", 0) or 0)
+    with _USAGE_LOCK:
+        _USAGE["input_tokens"] += in_tok
+        _USAGE["output_tokens"] += out_tok
+        _USAGE["calls"] += 1
+
+
+# Per-1M-token pricing (USD) for models the extractor might use.
+# Keep in sync with vendor pricing — mirrors the table in
+# fee_crawler/agents/darwin/classifier.py so the two paths agree.
+_PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-haiku-4-5-20251001":  (0.80,  4.00),
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-sonnet-4-6":          (3.00, 15.00),
+    "claude-opus-4-7":            (15.00, 75.00),
+}
+
+
+def cost_cents_from_usage(model: str, usage: dict[str, int]) -> int:
+    """Convert input_tokens/output_tokens to cents using model pricing.
+    Unknown models fall back to Sonnet rates so unaccounted spend is
+    over-reported, not under-reported."""
+    in_per, out_per = _PRICING_USD_PER_MTOK.get(model, (3.00, 15.00))
+    in_tok = int(usage.get("input_tokens", 0))
+    out_tok = int(usage.get("output_tokens", 0))
+    dollars = (in_tok / 1_000_000) * in_per + (out_tok / 1_000_000) * out_per
+    return int(round(dollars * 100))
 
 _SYSTEM_PROMPT = """\
 You are a financial data extraction specialist. You extract structured fee \
@@ -298,6 +367,7 @@ def _extract_single(
         tool_choice={"type": "tool", "name": "extract_fees"},
         messages=[{"role": "user", "content": user_content}],
     )
+    _record_usage(message)
 
     fees_raw = _parse_tool_response(message)
     if not fees_raw:
@@ -337,6 +407,7 @@ def _extract_single(
                 tool_choice={"type": "tool", "name": "extract_fees"},
                 messages=retry_messages,
             )
+            _record_usage(retry_message)
             fees_raw = _parse_tool_response(retry_message)
             if not fees_raw:
                 fees_raw = _parse_text_response(retry_message)

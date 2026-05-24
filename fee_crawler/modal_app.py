@@ -126,13 +126,21 @@ async def test_connection():
     memory=2048,
 )
 async def run_discovery():
-    """Nightly URL discovery: sweep institutions with website but no fee URL."""
-    from fee_crawler.workers.discovery_worker import run
+    """Nightly URL discovery via the `discoverer` agent shell.
+
+    Was a bare subprocess call to discovery_worker.run() — no agent
+    identity, no audit, no budget (Stage 1 leak #1 in WORKFLOW-MAP.md).
+    Now wrapped by fee_crawler.agents.discoverer which:
+      - validates agent_registry.is_active
+      - emits paired session_start / session_end agent_events
+      - debits agent_budgets after the run
+    """
+    from fee_crawler.agents.discoverer import run_discovery_session
     try:
-        result = await run(concurrency=20)
+        result = await run_discovery_session(concurrency=20)
         _mark_job_completion("run_discovery", "ok")
-        return result
-    except Exception as exc:
+        return result.to_dict()
+    except Exception:
         _mark_job_completion("run_discovery", "failed")
         raise
 
@@ -215,6 +223,34 @@ async def run_post_processing():
     except Exception as exc:
         # Never let tick dispatch block the daily pipeline.
         print(f"dispatch_ticks failed (non-fatal): {exc}")
+
+    # Every minute: drain Darwin's inbox so coverage_request messages
+    # from extractor / state agents wake up classification immediately
+    # instead of waiting 5min for the 05:00 cron. Bounded by max_messages
+    # and per_day budget so this can't blow the daily cap.
+    try:
+        from fee_crawler.agents.darwin.inbox import drain_darwin_inbox
+        inbox = await drain_darwin_inbox(max_messages=5, batch_size=100)
+        if inbox.messages_processed > 0:
+            print(f"darwin inbox: {inbox.to_dict()}")
+    except Exception as exc:
+        print(f"darwin inbox drain failed (non-fatal): {exc}")
+
+    # Every minute: run LOOP-04→07 review tick for one agent (rotate so
+    # the whole fleet gets reviewed once every ~7 minutes). This is the
+    # piece that populates agent_lessons and fires the adversarial gate.
+    # See fee_crawler/agent_base/review_tick.py.
+    try:
+        from fee_crawler.agent_base.review_tick import run_review_tick
+        # Rotation by UTC minute keeps it deterministic + stateless.
+        _AGENTS = ("darwin", "magellan", "knox", "extractor",
+                   "discoverer", "atlas", "hamilton")
+        idx = datetime.now(timezone.utc).minute % len(_AGENTS)
+        tick = await run_review_tick(_AGENTS[idx])
+        if tick.lesson_committed or tick.events_seen > 0:
+            print(f"review_tick {_AGENTS[idx]}: {tick.to_dict()}")
+    except Exception as exc:
+        print(f"review_tick failed (non-fatal): {exc}")
 
     # Every minute: Atlas orchestrator picks the stalest state and runs its
     # state agent. 2 states/min × 100 targets/state = ~3K extractions/day in

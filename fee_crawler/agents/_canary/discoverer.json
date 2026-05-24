@@ -1,0 +1,13 @@
+{
+  "agent": "discoverer",
+  "version": 1,
+  "description": "Discoverer canary: URL probing should return found=true for clear hits, found=false for 404s. Bootstrap.",
+  "expectations": [
+    {"url_kind": "explicit_fee_link",  "expected": "found"},
+    {"url_kind": "homepage_no_link",   "expected": "not_found"},
+    {"url_kind": "404",                "expected": "failed"}
+  ],
+  "thresholds": {
+    "min_pass_rate": 0.66
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "agent": "darwin",
+  "version": 1,
+  "description": "Minimal canary: fee names with known canonical mappings. Darwin must classify each correctly before any IMPROVE is committed.",
+  "expectations": [
+    {"input": "NSF Fee",                    "canonical_fee_key": "nsf"},
+    {"input": "Insufficient Funds Fee",     "canonical_fee_key": "nsf"},
+    {"input": "Overdraft Fee",              "canonical_fee_key": "overdraft"},
+    {"input": "Monthly Maintenance Fee",    "canonical_fee_key": "maintenance_monthly"},
+    {"input": "Stop Payment Fee",           "canonical_fee_key": "stop_payment"},
+    {"input": "Wire Transfer - Domestic",   "canonical_fee_key": "wire_domestic_outgoing"},
+    {"input": "Foreign Transaction Fee",    "canonical_fee_key": "card_foreign_txn"},
+    {"input": "ATM Fee (Non-Network)",      "canonical_fee_key": "atm_non_network"},
+    {"input": "Paper Statement Fee",        "canonical_fee_key": "paper_statement"},
+    {"input": "Cashier's Check",            "canonical_fee_key": "cashiers_check"}
+  ],
+  "thresholds": {
+    "min_pass_rate": 0.90,
+    "min_confidence": 0.85
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "agent": "magellan",
+  "version": 1,
+  "description": "Known-good URLs that Magellan should rescue successfully — minimum coverage so IMPROVE doesn't regress URL discovery.",
+  "expectations": [
+    {"url_pattern": "*/fee*",      "rung_should_succeed": "anchor_text"},
+    {"url_pattern": "*/pricing*",  "rung_should_succeed": "anchor_text"},
+    {"url_pattern": "*/schedule*", "rung_should_succeed": "anchor_text"}
+  ],
+  "thresholds": {
+    "min_pass_rate": 0.66
+  }
+}

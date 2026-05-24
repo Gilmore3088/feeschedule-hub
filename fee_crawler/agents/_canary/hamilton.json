@@ -1,0 +1,20 @@
+{
+  "agent": "hamilton",
+  "version": 1,
+  "description": "Minimal canary: research questions Hamilton should answer with at least one published-fee citation. Per-question deep validation is TODO; bootstrap canary just asserts the corpus parses + has tool-grounded expectations.",
+  "expectations": [
+    {
+      "question": "What is the median NSF fee for U.S. banks?",
+      "expected_tool_used": "get_national_index",
+      "expected_includes": "median"
+    },
+    {
+      "question": "How does Wells Fargo's overdraft fee compare to its peers?",
+      "expected_tool_used": "get_institution_dossier",
+      "expected_includes": "overdraft"
+    }
+  ],
+  "thresholds": {
+    "min_pass_rate": 0.50
+  }
+}

@@ -184,7 +184,12 @@ async def _extract_target(target: _Target, app_config) -> dict:
         PDFProtectedError,
         extract_text_from_pdf,
     )
-    from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
+    from fee_crawler.pipeline.extract_llm import (
+        cost_cents_from_usage,
+        extract_fees_with_llm,
+        pop_extraction_usage,
+        reset_extraction_usage,
+    )
 
     out: dict = {
         "fees": [],
@@ -192,6 +197,7 @@ async def _extract_target(target: _Target, app_config) -> dict:
         "content_hash": None,
         "unchanged": False,
         "error": None,
+        "cost_cents": 0,
     }
 
     try:
@@ -238,6 +244,10 @@ async def _extract_target(target: _Target, app_config) -> dict:
         out["error"] = "empty_text"
         return out
 
+    # Reset the module-level usage accumulator BEFORE the call, then pop
+    # it AFTER so we attribute exactly this target's tokens. The pop is
+    # idempotent — safe to call on the error path too (returns zeros).
+    reset_extraction_usage()
     try:
         extracted = await asyncio.to_thread(
             extract_fees_with_llm,
@@ -251,6 +261,9 @@ async def _extract_target(target: _Target, app_config) -> dict:
         out["error"] = f"llm_exception: {e}"
         return out
 
+    usage = pop_extraction_usage()
+    model = getattr(getattr(app_config, "claude", None), "model", None) or "claude-haiku-4-5-20251001"
+    out["cost_cents"] = cost_cents_from_usage(model, usage)
     out["fees"] = [_fee_to_dict(f) for f in extracted]
     return out
 
@@ -376,13 +389,11 @@ async def extract_batch(
         await emit("done", result=result.to_dict())
         return result
 
-    # Conservative per-extraction cost estimate at haiku-4.5 pricing:
-    # typical bank fee schedule ≈ 30K input tokens + 2K output ≈ $0.032 each.
-    # This is an ESTIMATE, not a real usage measurement (extract_llm.py
-    # doesn't propagate token counts from message.usage; tracked TODO).
-    # Still better than 0 — gives the budget enforcer something to work
-    # with so a runaway is bounded, not silent.
-    _COST_PER_EXTRACTION_CENTS = 4
+    # Per-extraction cost now comes from real message.usage via
+    # pipeline.extract_llm.pop_extraction_usage() — see _extract_target.
+    # Falls back to a conservative 4¢ estimate only if the extract_llm
+    # path returned no usage data (e.g., the LLM call short-circuited).
+    _COST_FALLBACK_CENTS = 4
 
     for target in targets:
         await emit("target_start", target_id=target.id, url=target.fee_schedule_url)
@@ -413,12 +424,13 @@ async def extract_batch(
             )
             result.extracted += 1
             result.fees_written += written
-            result.cost_usd += _COST_PER_EXTRACTION_CENTS / 100.0
-            # Debit estimated extraction cost so agent_budgets reflects
-            # spend even without real usage data. Same fix shape as
-            # Darwin/Magellan got in adjacent commits.
+            # Real cost from pipeline.extract_llm's usage accumulator
+            # (set by _extract_target). Falls back to the 4¢ estimate
+            # only if the LLM call short-circuited (no usage recorded).
+            real_cost_cents = int(outcome.get("cost_cents") or 0) or _COST_FALLBACK_CENTS
+            result.cost_usd += real_cost_cents / 100.0
             from fee_crawler.agent_tools.budget import account_budget
-            await account_budget(conn, effective_agent, _COST_PER_EXTRACTION_CENTS)
+            await account_budget(conn, effective_agent, real_cost_cents)
             await emit(
                 "target_done",
                 target_id=target.id,
@@ -428,6 +440,28 @@ async def extract_batch(
 
         if config.inter_target_delay_seconds > 0:
             await asyncio.sleep(config.inter_target_delay_seconds)
+
+    # Notify Darwin via the messaging bus so it can drain the new fees_raw
+    # rows without waiting for its 5-minute polling cycle. Best-effort:
+    # if send fails we don't want it to kill the extractor's result.
+    if result.fees_written > 0:
+        try:
+            from fee_crawler.agent_messaging.publisher import send_message
+            await send_message(
+                sender=effective_agent,
+                recipient="darwin",
+                intent="coverage_request",
+                payload={
+                    "reason": "new_fees_raw",
+                    "fee_count": result.fees_written,
+                    "extracted_institutions": result.extracted,
+                    "source_agent": effective_agent,
+                },
+            )
+        except Exception as exc:
+            log.warning(
+                "send_message to darwin failed (non-fatal): %s", exc,
+            )
 
     result.duration_s = time.time() - t0
     await emit("done", result=result.to_dict())
