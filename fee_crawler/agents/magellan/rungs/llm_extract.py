@@ -49,11 +49,18 @@ class LlmExtractRung:
             except Exception:
                 fees = []
 
+            # Real cost from usage, not the prior hardcoded 0.002.
+            # Same fix pattern as Darwin's classifier — discarding usage
+            # was the root cause of the 2026-04 untracked spend.
+            in_tokens = getattr(result.usage, "input_tokens", 0) or 0
+            out_tokens = getattr(result.usage, "output_tokens", 0) or 0
+            cost_usd = (in_tokens / 1_000_000) * 0.80 + (out_tokens / 1_000_000) * 4.00
+
             return RungResult(
                 fees=fees,
                 text=resp.text[:10_000],
                 http_status=status,
-                cost_usd=0.002,
+                cost_usd=cost_usd,
                 duration_s=time.time() - t0,
             )
         except Exception as e:
