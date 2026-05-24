@@ -84,14 +84,22 @@ async def select_candidates(
     limit: int,
     *,
     config: ExtractorConfig = DEFAULT,
+    target_ids: Optional[list[int]] = None,
+    state_code: Optional[str] = None,
 ) -> list[_Target]:
     """Pick targets that have a fee URL but no recent successful extraction.
 
-    A target qualifies when:
-      - fee_schedule_url is set, and
-      - either it has never been extracted, or its last extraction is older
-        than `recrawl_after_days`, and
-      - if document_type is restricted (pdf / html), it matches.
+    Default mode (no `target_ids`, no `state_code`): standard cron selection —
+    targets with `fee_schedule_url` set and either never extracted or last
+    extraction older than `recrawl_after_days`.
+
+    Explicit-target mode (`target_ids` set): skip the "needs extraction"
+    filter; the caller chose these explicitly (used by `extract_single`
+    HTTP endpoint).
+
+    State-cohort mode (`state_code` set): restrict to `crawl_targets` in that
+    state code; recrawl-window filter still applies (used by
+    `run_state_agent` HTTP endpoint).
 
     `FOR UPDATE … SKIP LOCKED` lets two workers run safely in parallel.
     """
@@ -100,10 +108,25 @@ async def select_candidates(
         "ct.fee_schedule_url != ''",
     ]
     params: list[Any] = [limit, config.recrawl_after_days]
+
+    if target_ids:
+        where.append(f"ct.id = ANY(${len(params) + 1}::int[])")
+        params.append(target_ids)
+        recrawl_clause = ""  # explicit selection bypasses recency filter
+    else:
+        recrawl_clause = (
+            "AND (recent.latest IS NULL "
+            "OR recent.latest < NOW() - ($2 || ' days')::interval)"
+        )
+
+    if state_code:
+        where.append(f"ct.state_code = ${len(params) + 1}")
+        params.append(state_code.upper())
+
     if config.document_type:
         where.append(f"ct.document_type = ${len(params) + 1}")
         params.append(config.document_type)
-    if not config.include_failing:
+    if not config.include_failing and not target_ids:
         where.append("COALESCE(ct.consecutive_failures, 0) < 3")
 
     where_sql = " AND ".join(where)
@@ -123,8 +146,7 @@ async def select_candidates(
              WHERE institution_id = ct.id
           ) recent ON TRUE
          WHERE {where_sql}
-           AND (recent.latest IS NULL
-                OR recent.latest < NOW() - ($2 || ' days')::interval)
+           {recrawl_clause}
          ORDER BY recent.latest NULLS FIRST, ct.id
          LIMIT $1
          FOR UPDATE OF ct SKIP LOCKED
@@ -308,6 +330,8 @@ async def extract_batch(
     size: int,
     *,
     config: ExtractorConfig = DEFAULT,
+    target_ids: Optional[list[int]] = None,
+    state_code: Optional[str] = None,
     on_event: Optional[Callable[[BatchEvent], Awaitable[None]]] = None,
 ) -> BatchResult:
     """Process up to `size` targets. Designed to be called from Modal crons.
@@ -315,6 +339,10 @@ async def extract_batch(
     The Modal entry point picks `size` based on its slot timeout. Each target
     is independent — failures don't cascade. Budget enforcement happens at
     the gateway layer (per-tool-call), not here.
+
+    Optional filters (mutually combinable):
+      target_ids: explicit row-id selection (HTTP "extract this one now").
+      state_code: 2-letter state filter (HTTP "extract all of TX").
     """
     from fee_crawler.config import load_config
 
@@ -326,7 +354,10 @@ async def extract_batch(
         if on_event:
             await on_event({"type": ev_type, **payload})
 
-    targets = await select_candidates(conn, size, config=config)
+    targets = await select_candidates(
+        conn, size, config=config,
+        target_ids=target_ids, state_code=state_code,
+    )
     result.processed = len(targets)
     await emit("candidates_selected", count=len(targets))
 

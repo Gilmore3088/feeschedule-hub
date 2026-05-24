@@ -65,7 +65,7 @@ export async function getInstitutionFee(
   try {
     const rows = await sql<{ amount: string }[]>`
       SELECT ef.amount::text
-      FROM extracted_fees ef
+      FROM fees_verified ef
       JOIN crawl_results cr ON ef.crawl_result_id = cr.id
       JOIN crawl_targets ct ON cr.crawl_target_id = ct.id
       WHERE ct.institution_name ILIKE ${`%${institutionId.replace(/-/g, ' ')}%`}

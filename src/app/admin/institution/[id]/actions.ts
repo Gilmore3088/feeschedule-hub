@@ -41,7 +41,7 @@ export async function approveFee(
 
   try {
     await sql`
-      UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${feeId}
+      UPDATE fees_verified SET review_status = 'approved' WHERE fee_verified_id = ${feeId}
     `;
     revalidatePath(`/admin/institution/${institutionId}`);
     return { ok: true };
@@ -59,7 +59,7 @@ export async function markDuplicate(
 
   try {
     await sql`
-      UPDATE extracted_fees SET review_status = 'rejected', validation_flags = jsonb_build_object('reason', 'duplicate') WHERE id = ${feeId}
+      UPDATE fees_verified SET review_status = 'rejected', outlier_flags = '["duplicate"]'::jsonb WHERE fee_verified_id = ${feeId}
     `;
     revalidatePath(`/admin/institution/${institutionId}`);
     return { ok: true };
@@ -77,7 +77,7 @@ export async function rejectFee(
 
   try {
     await sql`
-      UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ${feeId}
+      UPDATE fees_verified SET review_status = 'rejected' WHERE fee_verified_id = ${feeId}
     `;
     revalidatePath(`/admin/institution/${institutionId}`);
     return { ok: true };
@@ -94,8 +94,8 @@ export async function approveAllFees(
 
   try {
     const result = await sql`
-      UPDATE extracted_fees SET review_status = 'approved'
-      WHERE crawl_target_id = ${institutionId} AND review_status IN ('staged', 'pending')
+      UPDATE fees_verified SET review_status = 'approved'
+      WHERE institution_id = ${institutionId} AND review_status IN ('verified', 'challenged')
     `;
     revalidatePath(`/admin/institution/${institutionId}`);
     return { ok: true, count: result.count };
@@ -114,13 +114,13 @@ export async function updateFee(
 
   try {
     if (updates.amount !== undefined) {
-      await sql`UPDATE extracted_fees SET amount = ${updates.amount} WHERE id = ${feeId}`;
+      await sql`UPDATE fees_verified SET amount = ${updates.amount} WHERE fee_verified_id = ${feeId}`;
     }
     if (updates.fee_name !== undefined) {
-      await sql`UPDATE extracted_fees SET fee_name = ${updates.fee_name} WHERE id = ${feeId}`;
+      await sql`UPDATE fees_verified SET fee_name = ${updates.fee_name} WHERE fee_verified_id = ${feeId}`;
     }
     if (updates.conditions !== undefined) {
-      await sql`UPDATE extracted_fees SET conditions = ${updates.conditions} WHERE id = ${feeId}`;
+      await sql`UPDATE fees_verified SET conditions = ${updates.conditions} WHERE fee_verified_id = ${feeId}`;
     }
     revalidatePath(`/admin/institution/${institutionId}`);
     return { ok: true };

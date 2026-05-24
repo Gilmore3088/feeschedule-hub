@@ -588,58 +588,24 @@ async def extract_batch_endpoint(item: ExtractBatchRequest) -> dict:
 
 @app.function(secrets=secrets, timeout=180, memory=2048, image=browser_image)
 @modal.fastapi_endpoint(method="POST")
-def extract_single(item: ExtractRequest) -> dict:
+async def extract_single(item: ExtractRequest) -> dict:
     """HTTP endpoint to extract fees from a single institution by ID.
 
-    DEPRECATED (2026-05-24): this endpoint still routes through the legacy
-    `state_agent._write_fees` path, which writes to the frozen extracted_fees
-    table (blocked at the DB by 20260425_freeze_extracted_fees_writes.sql,
-    requires SET LOCAL app.allow_legacy_writes='true' to succeed). Migrate
-    callers to the new extract_batch_endpoint with size=1 + a per-target
-    selector once that selector exists, or to a future extract_single_agentic
-    HTTP wrapper around the extractor agent.
+    Routes through the extractor agent (writes fees_raw via gateway).
     """
     import os
-    import json
-    import psycopg2
-    import psycopg2.extras
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
 
-    conn = psycopg2.connect(
-        os.environ["DATABASE_URL"],
-        cursor_factory=psycopg2.extras.RealDictCursor,
-    )
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM crawl_targets WHERE id = %s", (item.target_id,))
-    inst = cur.fetchone()
-
-    if not inst:
-        conn.close()
-        return {"error": "Institution not found", "ok": False}
-    if not inst["fee_schedule_url"]:
-        conn.close()
-        return {"error": "No fee schedule URL set", "ok": False}
-
-    from fee_crawler.agents.classify import classify_document
-    from fee_crawler.agents.extract_pdf import extract_pdf
-    from fee_crawler.agents.extract_html import extract_html
-    from fee_crawler.agents.extract_js import extract_js
-    from fee_crawler.agents.state_agent import _write_fees
-
-    url = inst["fee_schedule_url"]
-    doc_type = classify_document(url)
-
-    if doc_type == "pdf":
-        fees = extract_pdf(url, inst)
-    elif doc_type == "js_rendered":
-        fees = extract_js(url, inst)
-    else:
-        fees = extract_html(url, inst)
-
-    if fees:
-        _write_fees(conn, inst["id"], fees)
-
-    conn.close()
-    return {"ok": True, "feeCount": len(fees), "docType": doc_type}
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        cfg = ExtractorConfig(include_failing=True)
+        result = await extract_batch(
+            conn, size=1, config=cfg, target_ids=[item.target_id],
+        )
+        return {"ok": True, "target_id": item.target_id, **result.to_dict()}
+    finally:
+        await conn.close()
 
 
 @app.function(secrets=secrets, timeout=120)
@@ -670,15 +636,28 @@ def discover_url(item: DiscoverRequest) -> dict:
 
 @app.function(secrets=secrets, timeout=7200, memory=2048, image=browser_image)
 @modal.fastapi_endpoint(method="POST")
-def run_state_agent(item: StateAgentRequest) -> dict:
-    """HTTP endpoint to run the full state agent."""
-    from fee_crawler.agents.state_agent import run_state_agent as _run
+async def run_state_agent(item: StateAgentRequest) -> dict:
+    """HTTP endpoint to extract every institution in a given state.
+
+    Routes through the extractor agent (writes fees_raw via gateway).
+    """
+    import os
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
 
     state_code = item.state_code.upper()
     if len(state_code) != 2:
         return {"error": "state_code must be a 2-letter code"}
 
-    return _run(state_code)
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        cfg = ExtractorConfig(include_failing=True)
+        result = await extract_batch(
+            conn, size=10_000, config=cfg, state_code=state_code,
+        )
+        return {"ok": True, "state_code": state_code, **result.to_dict()}
+    finally:
+        await conn.close()
 
 
 @app.function(secrets=secrets, timeout=600, image=browser_image, memory=2048)

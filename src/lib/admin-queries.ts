@@ -139,7 +139,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   try {
     const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
     const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
+    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM fees_verified`;
     const total = Number(totalRow.cnt);
     const withUrls = Number(urlRow.cnt);
     const withFees = Number(feeRow.cnt);
@@ -171,7 +171,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
     // Institutions with 6+ fees (credible)
     const [goodRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
-        SELECT crawl_target_id FROM extracted_fees
+        SELECT crawl_target_id FROM fees_verified
         WHERE review_status != 'rejected'
         GROUP BY crawl_target_id HAVING COUNT(*) >= 6
       ) sub`;
@@ -179,7 +179,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
     // Institutions with 1-5 fees (incomplete)
     const [incompleteRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
-        SELECT crawl_target_id FROM extracted_fees
+        SELECT crawl_target_id FROM fees_verified
         WHERE review_status != 'rejected'
         GROUP BY crawl_target_id HAVING COUNT(*) BETWEEN 1 AND 5
       ) sub`;
@@ -189,7 +189,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
       SELECT COUNT(*) as cnt FROM crawl_targets ct
       WHERE ct.fee_schedule_url IS NOT NULL AND ct.status = 'active'
         AND NOT EXISTS (
-          SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected'
+          SELECT 1 FROM fees_verified ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected'
         )`;
 
     // No URL at all (addressable)
@@ -201,7 +201,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
 
     // Freeform fees (not in 49-category taxonomy)
     const [freeformRow] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
+      SELECT COUNT(*) as cnt FROM fees_verified
       WHERE review_status != 'rejected'
         AND fee_category NOT IN (
           'overdraft','nsf','wire_domestic_outgoing','wire_domestic_incoming',
@@ -218,7 +218,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
           'account_verification','balance_inquiry','appraisal_fee','loan_origination'
         )`;
 
-    const [rejectedRow] = await sql`SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status = 'rejected'`;
+    const [rejectedRow] = await sql`SELECT COUNT(*) as cnt FROM fees_verified WHERE review_status = 'rejected'`;
 
     const good = Number(goodRow.cnt);
     const incomplete = Number(incompleteRow.cnt);
@@ -244,7 +244,7 @@ export async function getReviewQueueCounts(): Promise<ReviewQueueCounts> {
   try {
     const rows = await sql`
       SELECT review_status, COUNT(*) as cnt
-      FROM extracted_fees
+      FROM fees_verified
       GROUP BY review_status
     `;
     const counts: ReviewQueueCounts = {
@@ -309,7 +309,7 @@ export async function getRecentReviews(limit = 10): Promise<RecentReview[]> {
         u.username,
         rl.created_at
       FROM review_log rl
-      JOIN extracted_fees ef ON ef.id = rl.fee_id
+      JOIN fees_verified ef ON ef.id = rl.fee_id
       JOIN crawl_targets ct ON ct.id = ef.crawl_target_id
       LEFT JOIN users u ON u.id = rl.user_id
       ORDER BY rl.created_at DESC
@@ -339,7 +339,7 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
         COUNT(DISTINCT e.crawl_target_id) as with_fees,
         COUNT(DISTINCT CASE WHEN t.document_type = 'offline' OR t.website_url IS NULL THEN t.id END) as excluded
       FROM crawl_targets t
-      LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
+      LEFT JOIN fees_verified e ON e.crawl_target_id = t.id
       WHERE t.state_code IS NOT NULL
       GROUP BY t.state_code
       ORDER BY t.state_code
@@ -509,7 +509,7 @@ export async function getPipelineOverview(): Promise<PipelineOverview> {
   try {
     const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
     const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
+    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM fees_verified`;
     const [runRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_runs`;
     return {
       total_institutions: Number(totalRow.cnt),
@@ -809,7 +809,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   try {
     const [row] = await sql`
       SELECT COUNT(*) as cnt
-      FROM extracted_fees ef
+      FROM fees_verified ef
       LEFT JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
       WHERE ct.id IS NULL
     `;
@@ -827,7 +827,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 2. Negative amounts
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
+      SELECT COUNT(*) as cnt FROM fees_verified
       WHERE amount < 0 AND review_status != 'rejected'
     `;
     const cnt = Number(row.cnt);
@@ -844,7 +844,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 3. Extreme amounts (> $10,000)
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
+      SELECT COUNT(*) as cnt FROM fees_verified
       WHERE amount > 10000 AND review_status != 'rejected'
     `;
     const cnt = Number(row.cnt);
@@ -880,7 +880,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 5. Uncategorized fees
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
+      SELECT COUNT(*) as cnt FROM fees_verified
       WHERE fee_category IS NULL AND review_status != 'rejected'
     `;
     const cnt = Number(row.cnt);
@@ -897,7 +897,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 6. Null amounts
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
+      SELECT COUNT(*) as cnt FROM fees_verified
       WHERE amount IS NULL AND review_status != 'rejected'
         AND LOWER(fee_name) NOT LIKE '%free%'
         AND LOWER(fee_name) NOT LIKE '%waived%'
@@ -991,8 +991,8 @@ export async function getCoverageFunnelData(): Promise<CoverageFunnelData> {
     const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
     const [webRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
     const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
-    const [appRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees WHERE review_status = 'approved'`;
+    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM fees_verified`;
+    const [appRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM fees_verified WHERE review_status = 'approved'`;
     return {
       total_institutions: Number(totalRow.cnt),
       with_website: Number(webRow.cnt),
@@ -1010,7 +1010,7 @@ export async function getUncategorizedTopFees(limit = 20): Promise<Uncategorized
   try {
     const rows = await sql`
       SELECT fee_name, COUNT(*) as cnt
-      FROM extracted_fees
+      FROM fees_verified
       WHERE fee_category IS NULL AND review_status != 'rejected'
       GROUP BY fee_name
       ORDER BY cnt DESC
@@ -1108,7 +1108,7 @@ export async function getReviewFees(
 
     const countResult = await sql.unsafe<{ cnt: string }[]>(
       `SELECT COUNT(*) as cnt
-       FROM extracted_fees ef
+       FROM fees_verified ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        WHERE ${where}`,
       params,
@@ -1120,7 +1120,7 @@ export async function getReviewFees(
               ef.review_status, ct.institution_name, ef.crawl_target_id,
               ct.state_code, ct.charter_type, ef.extraction_confidence,
               ef.created_at
-       FROM extracted_fees ef
+       FROM fees_verified ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
        ORDER BY ${sort === "amount" ? "ef.amount" : sort === "category" ? "ef.fee_category" : sort === "institution" ? "ct.institution_name" : sort === "confidence" ? "ef.extraction_confidence" : "ef.created_at"} ${dir === "asc" ? "ASC" : "DESC"} NULLS LAST
@@ -1158,7 +1158,7 @@ export async function getFeeDetail(feeId: number): Promise<FeeDetailRow | null> 
              ct.institution_name, ef.crawl_target_id,
              ct.state_code, ct.charter_type,
              cr.document_url, ct.fee_schedule_url
-      FROM extracted_fees ef
+      FROM fees_verified ef
       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
       LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
       WHERE ef.id = ${feeId}
@@ -1323,7 +1323,7 @@ export async function searchInstitutions(
         FROM crawl_targets ct
         LEFT JOIN (
           SELECT crawl_target_id, COUNT(*) as fee_count
-          FROM extracted_fees WHERE review_status != 'rejected'
+          FROM fees_verified WHERE review_status != 'rejected'
           GROUP BY crawl_target_id
         ) fc ON fc.crawl_target_id = ct.id
         WHERE ct.institution_name ILIKE $1
@@ -1350,7 +1350,7 @@ export async function searchInstitutions(
       FROM crawl_targets ct
       LEFT JOIN (
         SELECT crawl_target_id, COUNT(*) as fee_count
-        FROM extracted_fees WHERE review_status != 'rejected'
+        FROM fees_verified WHERE review_status != 'rejected'
         GROUP BY crawl_target_id
       ) fc ON fc.crawl_target_id = ct.id
       ORDER BY ${orderBy}
@@ -1471,7 +1471,7 @@ export async function getFeeCatalogSummary(): Promise<FeeCatalogRow[]> {
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) as median,
         PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY amount) as p25,
         PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY amount) as p75
-      FROM extracted_fees
+      FROM fees_verified
       WHERE fee_category IS NOT NULL
         AND review_status != 'rejected'
         AND amount IS NOT NULL
@@ -1525,7 +1525,7 @@ export async function getDistrictOverview(): Promise<DistrictOverviewRow[]> {
         COUNT(*) as total,
         COUNT(DISTINCT ef.crawl_target_id) as with_fees
       FROM crawl_targets ct
-      LEFT JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
+      LEFT JOIN fees_verified ef ON ef.crawl_target_id = ct.id
         AND ef.review_status != 'rejected'
       WHERE ct.fed_district IS NOT NULL
       GROUP BY ct.fed_district
@@ -1688,7 +1688,7 @@ export async function getMarketData(filters: {
       `SELECT ef.fee_category,
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
-       FROM extracted_fees ef
+       FROM fees_verified ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
@@ -1794,7 +1794,7 @@ export async function getPeerIndexData(filters: {
       `SELECT ef.fee_category,
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
-       FROM extracted_fees ef
+       FROM fees_verified ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
@@ -1857,7 +1857,7 @@ export async function getGoldStandardCandidates(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM crawl_targets ct
-      JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
+      JOIN fees_verified ef ON ef.crawl_target_id = ct.id
       WHERE ef.review_status != 'rejected'
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
@@ -1892,7 +1892,7 @@ export async function getGoldStandardCandidate(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM crawl_targets ct
-      JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
+      JOIN fees_verified ef ON ef.crawl_target_id = ct.id
       WHERE ct.id = ${id} AND ef.review_status != 'rejected'
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
@@ -1929,7 +1929,7 @@ export async function getExtractedFeesForInstitution(
   try {
     const rows = await sql`
       SELECT id, fee_name, amount, fee_category, frequency, review_status
-      FROM extracted_fees
+      FROM fees_verified
       WHERE crawl_target_id = ${institutionId}
         AND review_status != 'rejected'
       ORDER BY fee_category NULLS LAST, fee_name

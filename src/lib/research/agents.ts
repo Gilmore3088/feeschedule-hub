@@ -165,7 +165,7 @@ async function opsContext(): Promise<string> {
       SELECT completed_at FROM crawl_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1
     `) as { completed_at: string }[];
     const [pendingReview] = (await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status IN ('pending', 'staged', 'flagged')
+      SELECT COUNT(*) as cnt FROM fees_verified WHERE review_status IN ('pending', 'staged', 'flagged')
     `) as { cnt: number }[];
     const [activeJobs] = (await sql`
       SELECT COUNT(*) as cnt FROM ops_jobs WHERE status IN ('running', 'queued')

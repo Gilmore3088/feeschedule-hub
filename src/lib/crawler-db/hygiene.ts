@@ -27,7 +27,7 @@ export async function getInvalidStateCodes(): Promise<{ state_code: string; inst
 export async function getUncategorizedFeeCount(): Promise<number> {
   const [row] = await sql`
     SELECT COUNT(*) as cnt
-    FROM extracted_fees
+    FROM fees_verified
     WHERE fee_category IS NULL
       AND review_status != 'rejected'
   `;
@@ -37,7 +37,7 @@ export async function getUncategorizedFeeCount(): Promise<number> {
 export async function getNullAmountCount(): Promise<number> {
   const [row] = await sql`
     SELECT COUNT(*) as cnt
-    FROM extracted_fees
+    FROM fees_verified
     WHERE amount IS NULL
       AND review_status != 'rejected'
       AND LOWER(fee_name) NOT LIKE '%free%'
@@ -60,7 +60,7 @@ export async function getStaleInstitutionCount(): Promise<number> {
 export async function getStatusDistribution(): Promise<{ review_status: string; count: number }[]> {
   return await sql`
     SELECT review_status, COUNT(*) as count
-    FROM extracted_fees
+    FROM fees_verified
     GROUP BY review_status
     ORDER BY count DESC
   ` as { review_status: string; count: number }[];
@@ -72,7 +72,7 @@ export async function getDuplicateFees(): Promise<{ institution_id: number; inst
            ct.institution_name,
            LOWER(TRIM(ef.fee_name)) as fee_name,
            COUNT(*) as count
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ef.review_status != 'rejected'
     GROUP BY ct.id, ct.institution_name, LOWER(TRIM(ef.fee_name))

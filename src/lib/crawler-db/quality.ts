@@ -62,8 +62,8 @@ export async function getCoverageFunnel(): Promise<CoverageFunnel> {
   const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
   const [withWebsiteRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
   const [withFeeUrlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-  const [withFeesRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
-  const [withApprovedRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees WHERE review_status = 'approved'`;
+  const [withFeesRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM fees_verified`;
+  const [withApprovedRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM fees_verified WHERE review_status = 'approved'`;
 
   return {
     total_institutions: Number(totalRow.cnt),
@@ -77,7 +77,7 @@ export async function getCoverageFunnel(): Promise<CoverageFunnel> {
 export async function getTopUncategorized(limit = 20): Promise<UncategorizedFee[]> {
   return await sql`
     SELECT fee_name, COUNT(*) as count
-    FROM extracted_fees
+    FROM fees_verified
     WHERE fee_category IS NULL
     GROUP BY fee_name
     ORDER BY count DESC
@@ -164,7 +164,7 @@ export async function getTierCoverage(): Promise<TierCoverage[]> {
       COUNT(DISTINCT e.crawl_target_id) as with_fees,
       ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(DISTINCT t.id), 1), 1) as coverage_pct
     FROM crawl_targets t
-    LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
+    LEFT JOIN fees_verified e ON e.crawl_target_id = t.id
     WHERE t.asset_size_tier IS NOT NULL
     GROUP BY t.asset_size_tier
     ORDER BY
@@ -226,7 +226,7 @@ export async function getRevenueDiscrepancies(limit = 20): Promise<RevenueDiscre
         crawl_target_id,
         SUM(CASE WHEN amount IS NOT NULL THEN amount * 12 ELSE 0 END) as total_amount,
         COUNT(*) as fee_count
-      FROM extracted_fees
+      FROM fees_verified
       WHERE review_status != 'rejected'
       GROUP BY crawl_target_id
     ) e ON e.crawl_target_id = t.id
@@ -249,7 +249,7 @@ export async function getDistrictCoverage(): Promise<DistrictCoverage[]> {
       COUNT(DISTINCT e.crawl_target_id) as with_fees,
       ROUND(COUNT(DISTINCT e.crawl_target_id) * 100.0 / GREATEST(COUNT(DISTINCT t.id), 1), 1) as coverage_pct
     FROM crawl_targets t
-    LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
+    LEFT JOIN fees_verified e ON e.crawl_target_id = t.id
     WHERE t.fed_district IS NOT NULL
     GROUP BY t.fed_district
     ORDER BY t.fed_district

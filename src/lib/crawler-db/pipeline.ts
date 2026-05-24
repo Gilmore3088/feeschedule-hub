@@ -61,12 +61,12 @@ export async function getPipelineStats(): Promise<PipelineStats> {
     [STALE_DAYS, FAILURE_THRESHOLD]
   ) as { total: number; with_website: number; with_fee_url: number; stale: number; failing: number }[];
 
-  // Consolidate extracted_fees counts into 1 query
+  // Consolidate fees_verified counts into 1 query
   const [ef] = await sql<{ with_fees: number; with_approved: number }[]>`
     SELECT
       COUNT(DISTINCT CASE WHEN review_status != 'rejected' THEN crawl_target_id END) as with_fees,
       COUNT(DISTINCT CASE WHEN review_status = 'approved' THEN crawl_target_id END) as with_approved
-    FROM extracted_fees`;
+    FROM fees_verified`;
 
   return {
     total_institutions: Number(ct.total),
@@ -106,7 +106,7 @@ export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
       SUM(CASE WHEN fee_schedule_url IS NOT NULL AND consecutive_failures >= 5 THEN 1 ELSE 0 END) as failed_crawl
     FROM crawl_targets`;
 
-  // 1 query for all extracted_fees counts
+  // 1 query for all fees_verified counts
   const [ef] = await sql<{ with_fees: number; total_fees: number; categorized: number; approved: number; staged: number; flagged: number; rejected: number }[]>`
     SELECT
       COUNT(DISTINCT CASE WHEN review_status != 'rejected' THEN crawl_target_id END) as with_fees,
@@ -116,20 +116,20 @@ export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
       SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
       SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
       SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected
-    FROM extracted_fees`;
+    FROM fees_verified`;
 
   // Need crawl count
   const [nc] = await sql<{ c: number }[]>`
     SELECT COUNT(*) as c FROM crawl_targets ct
     WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url != ''
-    AND NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
+    AND NOT EXISTS (SELECT 1 FROM fees_verified ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
     AND ct.consecutive_failures < 5`;
 
   // Top state gaps
   const stateGaps = await sql<{ state_code: string; count: number }[]>`
     SELECT ct.state_code, COUNT(*) as count FROM crawl_targets ct
     WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url != ''
-    AND NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
+    AND NOT EXISTS (SELECT 1 FROM fees_verified ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')
     AND ct.consecutive_failures < 5
     GROUP BY ct.state_code ORDER BY count DESC LIMIT 6`;
 
@@ -196,12 +196,12 @@ export async function getCoverageGaps(opts: {
     conditions.push("(ct.last_crawl_at < NOW() - INTERVAL '90 days' OR ct.last_crawl_at IS NULL)");
   } else if (opts.status === "no_fees") {
     conditions.push("ct.fee_schedule_url IS NOT NULL");
-    conditions.push("ct.id NOT IN (SELECT DISTINCT crawl_target_id FROM extracted_fees WHERE review_status != 'rejected')");
+    conditions.push("ct.id NOT IN (SELECT DISTINCT crawl_target_id FROM fees_verified WHERE review_status != 'rejected')");
   }
 
   // Default: exclude institutions that already have fees
   if (!opts.status) {
-    conditions.push("ct.id NOT IN (SELECT DISTINCT crawl_target_id FROM extracted_fees WHERE review_status != 'rejected')");
+    conditions.push("ct.id NOT IN (SELECT DISTINCT crawl_target_id FROM fees_verified WHERE review_status != 'rejected')");
   }
 
   if (opts.charter) {
@@ -237,7 +237,7 @@ export async function getCoverageGaps(opts: {
     FROM crawl_targets ct
     LEFT JOIN (
       SELECT crawl_target_id, COUNT(*) as fee_count
-      FROM extracted_fees WHERE review_status != 'rejected'
+      FROM fees_verified WHERE review_status != 'rejected'
       GROUP BY crawl_target_id
     ) fc ON ct.id = fc.crawl_target_id
     LEFT JOIN (

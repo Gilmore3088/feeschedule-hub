@@ -231,7 +231,7 @@ export const rankInstitutions = tool({
     if (metric === "above_p75" || metric === "below_p25") {
       const benchmarks = await sql`
         SELECT fee_category, amount
-        FROM extracted_fees
+        FROM fees_verified
         WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
         ORDER BY fee_category, amount
       ` as { fee_category: string; amount: number }[];
@@ -256,7 +256,7 @@ export const rankInstitutions = tool({
       const instFees = await sql`
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                ef.fee_category, ef.amount
-        FROM extracted_fees ef
+        FROM fees_verified ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
         WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
           ${charterClause}
@@ -302,7 +302,7 @@ export const rankInstitutions = tool({
       const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as fee_count
-        FROM extracted_fees ef
+        FROM fees_verified ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
         WHERE ef.review_status != 'rejected' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
@@ -317,7 +317,7 @@ export const rankInstitutions = tool({
       const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as flag_count
-        FROM extracted_fees ef
+        FROM fees_verified ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
         WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
           AND ef.review_status != 'rejected' ${charterClause}
@@ -375,19 +375,19 @@ export const queryDataQuality = tool({
         SELECT
           (SELECT COUNT(*) FROM crawl_targets) as total_institutions,
           (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status != 'rejected') as with_fees,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status = 'approved') as with_approved,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status != 'rejected') as total_fees,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'approved') as approved_fees
       `;
       return row;
     }
     if (view === "uncategorized") {
       const [count] = await sql`
-        SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'
+        SELECT COUNT(*) as cnt FROM fees_verified WHERE fee_category IS NULL AND review_status != 'rejected'
       ` as { cnt: number }[];
       const top = await sql`
-        SELECT fee_name, COUNT(*) as cnt FROM extracted_fees
+        SELECT fee_name, COUNT(*) as cnt FROM fees_verified
         WHERE fee_category IS NULL AND review_status != 'rejected'
         GROUP BY fee_name ORDER BY cnt DESC LIMIT 15
       `;
@@ -403,7 +403,7 @@ export const queryDataQuality = tool({
     }
     // review_status
     return await sql`
-      SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC
+      SELECT review_status, COUNT(*) as cnt FROM fees_verified GROUP BY review_status ORDER BY cnt DESC
     `;
   },
 });
@@ -763,7 +763,7 @@ export const queryRegulatoryRisk = tool({
       try {
         const fees = await sql`
           SELECT ef.fee_category, ef.amount, ct.institution_name, ct.state_code
-          FROM extracted_fees ef
+          FROM fees_verified ef
           JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
           WHERE ef.fee_category = ANY(${targetCategories}::text[])
             AND ef.amount > 0
