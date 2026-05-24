@@ -6,38 +6,82 @@ but degraded**, **🟢 = working**.
 
 ---
 
+## 0. Full Agent Roster
+
+`agent_registry` has **57 rows total**: 6 specialized agents + 51 per-state
+crawlers. Status:
+
+| Agent | Role | Code | Status |
+|---|---|---|---|
+| **hamilton** | `analyst` | `src/lib/hamilton/hamilton-agent.ts` + `fee_crawler/agent_tools/tools_hamilton.py` | 🟢 wired — B2B research/reports; on-demand from admin & pro UIs |
+| **darwin** | `classifier` | `fee_crawler/agents/darwin/` | 🟢 wired — 05:00 UTC, fees_raw → fees_verified |
+| **magellan** | `data` | `fee_crawler/agents/magellan/` | 🟢 wired — 05:00 UTC, URL rescue → fees_raw |
+| **knox** | `supervisor` | `fee_crawler/agents/knox/` | 🟢 wired — 05:00 UTC, adversarial review |
+| **extractor** | `data` | `fee_crawler/agents/extractor/` (new, 2026-05-24) | 🟢 wired — 03:00 + 04:00 UTC, bulk extraction → fees_raw |
+| **atlas** | `orchestrator` | `fee_crawler/agent_tools/tools_agent_infra.py:131,177` (privs only) | 🔴 **registered but no code** — concept agent; orchestrator role currently fulfilled by `run_post_processing` Modal cron |
+| **state_al, state_ak, … state_dc** (×51) | `state_agent` | `parent_agent = 'knox'` | 🔴 **placeholder rows only** — no concrete agent classes; pre-framework `agents/state_agent.py:run_state_agent(state_code)` was the closest thing and is now deprecated |
+
+**Wired** (5/6 specialized): hamilton, darwin, magellan, knox, extractor.
+**Phantom** (1/6 specialized): atlas.
+**Phantom** (51/51 state agents): registered, budgeted, never executed.
+
+---
+
 ## 1. The Big Picture
 
 ```
-                        ┌─────────────────────────────────────┐
-                        │  EXTERNAL TRIGGERS                  │
-                        │  • Modal crons (5 slots, all used)  │
-                        │  • Modal HTTP endpoints (POST)      │
-                        │  • CLI: python -m fee_crawler …     │
-                        │  • Admin UI buttons (Next.js)       │
-                        └──────────────┬──────────────────────┘
-                                       │
-                                       ▼
-   ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-   │ STAGE 1          │    │ STAGE 2          │    │ STAGE 3          │
-   │ DISCOVERY        │───▶│ EXTRACTION       │───▶│ VERIFICATION     │
-   │ (find fee URLs)  │    │ (URL → fees)     │    │ (raw → verified) │
-   └──────────────────┘    └──────────────────┘    └──────────────────┘
-                                                            │
-                                                            ▼
-   ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-   │ STAGE 6          │    │ STAGE 5          │    │ STAGE 4          │
-   │ READ (UI/API)    │◀───│ INDEX/SNAPSHOT   │◀───│ PUBLICATION      │
-   │ (consumers/admin)│    │ (cache + history)│    │ (verified→pub.)  │
-   └──────────────────┘    └──────────────────┘    └──────────────────┘
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  EXTERNAL TRIGGERS                                              │
+   │  • Modal crons (5 slots, all used)                              │
+   │  • Modal HTTP endpoints (POST)                                  │
+   │  • CLI: python -m fee_crawler …                                 │
+   │  • Admin UI buttons (Next.js)                                   │
+   │  • Pro UI "Generate Report" → Hamilton (on-demand)              │
+   └───────────────────────┬─────────────────────────────────────────┘
+                           │
+   ┌───────────────────────┴───────┐  ┌──────────────────────────────┐
+   │   NIGHTLY BATCH (02–06 UTC)   │  │   ON-DEMAND (any time)       │
+   └───────────────────────────────┘  └──────────────────────────────┘
+                           │                            │
+                           ▼                            ▼
+   ┌──────────────────┐    ┌──────────────────┐    ┌────────────────┐
+   │ STAGE 1          │    │ STAGE 2          │    │ STAGE 7        │
+   │ DISCOVERY        │───▶│ EXTRACTION       │    │ RESEARCH/REPORT│
+   │ (find fee URLs)  │    │ extractor +      │    │ hamilton agent │
+   │ ❌ no agent      │    │ magellan         │    │ on-demand B2B  │
+   └──────────────────┘    └────────┬─────────┘    └────────┬───────┘
+                                    │                       │
+                                    ▼                       │
+                          ┌──────────────────┐              │
+                          │ STAGE 3          │              │
+                          │ VERIFICATION     │              │
+                          │ darwin           │              │
+                          └────────┬─────────┘              │
+                                   ▼                        │
+                          ┌──────────────────┐              │
+                          │ STAGE 4          │              │
+                          │ PUBLICATION      │              │
+                          │ publish-fees     │              │
+                          └────────┬─────────┘              │
+                                   ▼                        │
+                          ┌──────────────────┐              │
+                          │ STAGE 5          │              │
+                          │ INDEX/SNAPSHOT   │              │
+                          └────────┬─────────┘              │
+                                   ▼                        ▼
+                          ┌──────────────────────────────────────────┐
+                          │ STAGE 6   READ (UI/API/consumers/admin)  │
+                          └──────────────────────────────────────────┘
 
    ┌──────────────────────────────────────────────────────────────────┐
-   │  CROSS-CUTTING:                                                  │
-   │  • agent_gateway (audit + budget on every Tier write)            │
-   │  • agent_messaging (LISTEN/NOTIFY bus)  🔴 BUILT BUT UNUSED      │
-   │  • adversarial_gate (LOOP-07 improve guard) 🔴 NEVER TRIGGERED   │
-   │  • agent_lessons (LOOP-05 memory) 🔴 EMPTY IN PROD               │
-   │  • MCP read server (external query API) 🟡 LIMITED SURFACE       │
+   │  CROSS-CUTTING (cuts every stage):                               │
+   │  • agent_gateway (audit + budget on every Tier write)   🟢       │
+   │  • agent_messaging (LISTEN/NOTIFY bus)              🔴 UNUSED    │
+   │  • adversarial_gate (LOOP-07 improve guard)         🔴 UNFIRED   │
+   │  • agent_lessons (LOOP-05 memory)                   🔴 EMPTY     │
+   │  • MCP read server (external query API)             🟡 LIMITED   │
+   │  • atlas (orchestrator)                             🔴 PHANTOM   │
+   │  • state_al…state_dc (51 state agents)              🔴 PHANTOM   │
    └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -260,6 +304,60 @@ There are **two parallel writers** into `fees_raw`:
     has no visibility into agent health from the UI.
 ```
 
+### ▸ STAGE 7 — RESEARCH / REPORTS (Hamilton — on-demand)
+
+The pipeline above runs nightly. Hamilton runs **whenever a user clicks
+"Generate Report"** in the admin/pro UI. Different trigger, different
+code path, parallel cost ledger.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ TRIGGER   User-driven: POST /api/research/[agentId] (Next.js)       │
+│           OR: POST /api/reports/generate (PDF assembly via Modal)   │
+│ INPUT     fees_published + fee_index_cache + institution_dossiers   │
+│ AGENT     ✓ "hamilton" (registered, role=analyst)                   │
+│ STACK     Frontend ──▶ src/lib/hamilton/hamilton-agent.ts           │
+│             • buildHamiltonSystemPrompt()                           │
+│             • buildHamiltonTools() (tool defs for Anthropic)        │
+│           Vercel AI SDK streamText() with @ai-sdk/anthropic         │
+│           Streams text + tool_use back to browser                   │
+│                                                                     │
+│ TOOLS     Python side (fee_crawler/agent_tools/tools_hamilton.py):  │
+│             • get_national_index                                    │
+│             • get_institution_dossier                               │
+│             • get_call_report_snapshot                              │
+│             • trace_published_fee                                   │
+│           All gateway-wrapped → agent_events + agent_auth_log       │
+│                                                                     │
+│ PDF PATH  /api/reports/generate → Modal generate_report endpoint    │
+│           → assemble HTML → React-PDF render → R2 upload            │
+│           → INSERT INTO published_reports                           │
+│                                                                     │
+│ COST      🔴 SEPARATE LEDGER: src/lib/research/history.ts writes    │
+│           to research_usage table with its own input_tokens /       │
+│           output_tokens / estimated_cost_cents fields. NOT visible  │
+│           to agent_budgets (Hamilton's spend won't trip the         │
+│           gateway's BudgetExceeded).                                │
+│                                                                     │
+│ OUTPUT    research_messages (chat history)                          │
+│           research_conversations (session metadata)                 │
+│           research_usage (cost ledger — parallel to agent_budgets)  │
+│           published_reports (artifact_key → R2)                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+🔴 LEAKS in Stage 7:
+  • Hamilton's spend lives in research_usage NOT agent_budgets. You
+    can't run "show me total Anthropic cost today" with a single
+    query — you have to UNION two tables with different schemas.
+  • The MCP read tools (4 of them) limit what Hamilton can introspect
+    about its own state. Hamilton can't see Darwin's budget, can't
+    see what fees just landed, can't ask "what's the most expensive
+    institution to extract from this week?"
+  • PDF generation runs in a Modal sidecar; if Modal is down (which
+    it has been since the 2026-04 cost runaway), reports silently
+    return error states to the user.
+```
+
 ---
 
 ## 3. Cross-Cutting Subsystems
@@ -411,19 +509,23 @@ T+1d+  /api/v1/fees?institution=8751 returns the 12 fees
 
 | # | Severity | Location | What's broken |
 |---|---|---|---|
-| 1 | 🔴 HIGH | Discovery stage (Stage 1) | No agent identity, no audit, no budget; ~$X of Playwright runs untracked |
+| 1 | 🔴 HIGH | Discovery stage (Stage 1) | No agent identity, no audit, no budget; Playwright runs invisible to the framework |
 | 2 | 🔴 HIGH | `extract_llm.py` | Returns fees but discards `message.usage`; extractor uses 4¢/extraction ESTIMATE |
 | 3 | 🔴 HIGH | LOOP-04/05/06/07 | Defined but never invoked. System can't learn. `agent_lessons` empty. |
 | 4 | 🔴 HIGH | `agent_messaging/` | Bus is built but no agent listens; Magellan→Darwin handoff is poll-based, 5min latency |
 | 5 | 🔴 HIGH | `canary_corpus_path` | Never set on any agent → adversarial gate would reject 100% of IMPROVEs |
-| 6 | 🟡 MED  | Darwin throughput | 103K backlog × 2500/day cap = ~40 days. Cap is operator-controllable. |
-| 7 | 🟡 MED  | Stage 4 publish | No batch-size cap; bad Darwin batch could publish corrupted data at scale |
-| 8 | 🟡 MED  | Stage 5 read path | No reader filters on `fees_published.rolled_back_at` — rolled-back rows still surface |
-| 9 | 🟡 MED  | Cache poisoning | Darwin's classification_cache: a bad early classification poisons every matching row |
-| 10 | 🟡 MED  | review_status mismatch | Old extracted_fees values (`staged`/`flagged`) replaced by `verified`/`challenged` — TS filters on old values return 0 |
-| 11 | 🟡 MED  | No dead-letter | Failed tool calls log + continue; no retry queue, no poison-pill detection |
-| 12 | 🟢 LOW  | Stage 2 extractor | No circuit breaker (Magellan has one; extractor doesn't) |
-| 13 | 🟢 LOW  | MCP surface | Only 4 read tools; Hamilton agent is limited |
+| **6** | **🔴 HIGH** | **Atlas (Stage 0)** | **Registered in agent_registry with exclusive privileges (`register_state_agent`, `seed_agent_budget`) but has NO implementation code. Orchestrator role is filled by `run_post_processing` Modal cron — a Python function, not an agent.** |
+| **7** | **🔴 HIGH** | **State agents ×51 (Stage 0)** | **All 51 state agents (`state_al…state_dc`) are placeholder rows in agent_registry with parent_agent=knox. No `class StateAgent_AL(AgentBase)` exists. The per-state fleet model from the design is unbuilt; extractor handles all 50 states in one batch instead.** |
+| **8** | **🔴 HIGH** | **Hamilton cost ledger (Stage 7)** | **Hamilton spend tracked in `research_usage` table, NOT `agent_budgets`. Two parallel cost systems with no UNION; can't enforce one cap or see one number for "today's total LLM spend."** |
+| 9 | 🟡 MED  | Darwin throughput | 103K backlog × 2500/day cap = ~40 days. Cap is operator-controllable. |
+| 10 | 🟡 MED  | Stage 4 publish | No batch-size cap; bad Darwin batch could publish corrupted data at scale |
+| 11 | 🟡 MED  | Stage 5 read path | No reader filters on `fees_published.rolled_back_at` — rolled-back rows still surface |
+| 12 | 🟡 MED  | Cache poisoning | Darwin's classification_cache: a bad early classification poisons every matching row |
+| 13 | 🟡 MED  | review_status mismatch | Old extracted_fees values (`staged`/`flagged`) replaced by `verified`/`challenged` — TS filters on old values return 0 |
+| 14 | 🟡 MED  | No dead-letter | Failed tool calls log + continue; no retry queue, no poison-pill detection |
+| 15 | 🟡 MED  | Hamilton/PDF reports | If Modal is down (currently is), report PDFs silently fail. No fallback. |
+| 16 | 🟢 LOW  | Stage 2 extractor | No circuit breaker (Magellan has one; extractor doesn't) |
+| 17 | 🟢 LOW  | MCP surface | Only 4 read tools; Hamilton can't introspect agent state, only published data |
 
 ---
 
