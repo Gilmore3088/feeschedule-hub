@@ -556,6 +556,8 @@ const JOB_INVENTORY: Array<
   { job_name: "daily_pipeline",     display_name: "Daily post-processing (06:00)",       source: "workers_last_run", expected_within_hours: 26 },
   { job_name: "magellan_rescue",    display_name: "Magellan URL rescue (05:00)",         source: "workers_last_run", expected_within_hours: 26 },
   { job_name: "knox_review",        display_name: "Knox adversarial review (05:00)",     source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "darwin_drain",       display_name: "Darwin classifier (05:00)",           source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "publish_index",      display_name: "Public index cache (06:00)",          source: "workers_last_run", expected_within_hours: 26 },
   { job_name: "ingest_data",        display_name: "Federal data ingest (10:00)",         source: "workers_last_run", expected_within_hours: 26 },
   { job_name: "run_discovery",      display_name: "URL discovery crawler (02:00)",       source: "crawl_runs",       expected_within_hours: 26 },
   { job_name: "run_pdf_extraction", display_name: "PDF extraction crawler (03:00)",      source: "crawl_runs",       expected_within_hours: 26 },

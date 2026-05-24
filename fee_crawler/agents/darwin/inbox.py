@@ -97,6 +97,8 @@ async def drain_darwin_inbox(
         if not pending:
             return result
 
+        from fee_crawler.agent_messaging.publisher import send_message
+
         for msg in pending:
             try:
                 payload = msg.get("payload") or {}
@@ -110,6 +112,36 @@ async def drain_darwin_inbox(
                 result.classifications += run.processed
                 result.promoted += run.promoted
                 result.cost_usd += run.cost_usd
+
+                # Dead-letter escalation: if Darwin halted on circuit-breaker
+                # (poison fees / consecutive failures), escalate to Hamilton
+                # for human review. Hamilton's UI surfaces escalations via
+                # the messaging bus listener once we wire it; today Hamilton's
+                # admin pages already poll agent_messages.
+                if run.circuit_tripped:
+                    try:
+                        await send_message(
+                            sender=AGENT_NAME,
+                            recipient="hamilton",
+                            intent="escalate",
+                            payload={
+                                "reason": "darwin_circuit_tripped",
+                                "halt_reason": run.halt_reason,
+                                "triggering_message_id": msg["message_id"],
+                                "triggering_sender": msg["sender_agent"],
+                                "failures": run.failures,
+                            },
+                            correlation_id=msg.get("correlation_id"),
+                        )
+                        log.warning(
+                            "darwin inbox: circuit tripped (reason=%s); "
+                            "escalated to hamilton",
+                            run.halt_reason,
+                        )
+                    except Exception as send_exc:
+                        log.warning(
+                            "darwin inbox: escalation send failed: %s", send_exc,
+                        )
 
                 log.info(
                     "darwin inbox: processed message %s from %s (intent=%s, "

@@ -279,15 +279,47 @@ async def process_institution(
                 break
 
         # -----------------------------------------------------------------
-        # Step 4: Update DB inside a transaction
+        # Step 4: Update DB — route the fee_schedule_url update through the
+        # agent gateway so every discovery write lands in agent_events +
+        # agent_auth_log under agent_name='discoverer'. Job-queue insert and
+        # last_crawl_at update remain direct (they're queue/state plumbing,
+        # not the discovery decision itself).
         # -----------------------------------------------------------------
         async with conn.transaction():
             if found_url:
-                await conn.execute("""
-                    UPDATE crawl_targets
-                    SET fee_schedule_url = $1, last_crawl_at = NOW()
-                    WHERE id = $2
-                """, found_url, int(inst_id))
+                # Gateway path: update_crawl_target audits the URL discovery.
+                try:
+                    from fee_crawler.agent_tools.tools_crawl import update_crawl_target
+                    from fee_crawler.agent_tools.schemas.crawl import UpdateCrawlTargetInput
+                    await update_crawl_target(
+                        inp=UpdateCrawlTargetInput(
+                            crawl_target_id=int(inst_id),
+                            fee_schedule_url=found_url,
+                        ),
+                        agent_name="discoverer",
+                        reasoning_prompt=f"discover:{website_url}",
+                        reasoning_output=found_url,
+                    )
+                except Exception as exc:
+                    # If the gateway path is unavailable (e.g., schema drift),
+                    # fall back to the direct UPDATE so discovery still
+                    # completes. The unaudited write is acceptable degradation;
+                    # silent NO-OP would not be.
+                    logger.warning(
+                        "update_crawl_target via gateway failed for %s: %s "
+                        "(falling back to direct UPDATE)",
+                        inst_id, exc,
+                    )
+                    await conn.execute(
+                        "UPDATE crawl_targets SET fee_schedule_url = $1 WHERE id = $2",
+                        found_url, int(inst_id),
+                    )
+
+                # last_crawl_at + jobs queue stay on the worker connection.
+                await conn.execute(
+                    "UPDATE crawl_targets SET last_crawl_at = NOW() WHERE id = $1",
+                    int(inst_id),
+                )
 
                 # Push to extraction queue
                 asset_size = inst.get("asset_size") or 0

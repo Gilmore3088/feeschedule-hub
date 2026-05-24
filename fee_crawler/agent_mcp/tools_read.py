@@ -183,3 +183,114 @@ async def trace_published_fee(fee_published_id: int) -> dict[str, Any] | None:
             fee_published_id,
         )
     return dict(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Agent introspection tools — added 2026-05-25 so Hamilton (and external MCP
+# clients) can see fleet state without leaving the read-only surface.
+# ---------------------------------------------------------------------------
+
+@read_only_tool(
+    name="get_agent_budgets",
+    description=(
+        "Return current budget state for every agent (or a single agent if "
+        "agent_name is provided). Includes spent_cents, limit_cents, "
+        "halted_at, budget_window. Useful for 'why isn't agent X running' "
+        "questions."
+    ),
+)
+async def get_agent_budgets(agent_name: Optional[str] = None) -> list[dict[str, Any]]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if agent_name:
+            rows = await conn.fetch(
+                """SELECT agent_name, budget_window, limit_cents, spent_cents,
+                          halted_at, halted_reason, window_started_at
+                     FROM agent_budgets
+                    WHERE agent_name = $1
+                    ORDER BY budget_window""",
+                agent_name,
+            )
+        else:
+            rows = await conn.fetch(
+                """SELECT agent_name, budget_window, limit_cents, spent_cents,
+                          halted_at, halted_reason, window_started_at
+                     FROM agent_budgets
+                    ORDER BY agent_name, budget_window""",
+            )
+    return [dict(r) for r in rows]
+
+
+@read_only_tool(
+    name="get_recent_agent_events",
+    description=(
+        "Recent agent_events for one agent. Returns counts by status + the "
+        "last N rows for inspection. Window: last `hours` hours (default 24)."
+    ),
+)
+async def get_recent_agent_events(
+    agent_name: str,
+    hours: int = 24,
+    limit: int = 20,
+) -> dict[str, Any]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        summary = await conn.fetch(
+            """SELECT status, COUNT(*) AS n
+                 FROM agent_events
+                WHERE agent_name = $1
+                  AND created_at > NOW() - ($2 || ' hours')::interval
+                GROUP BY status
+                ORDER BY n DESC""",
+            agent_name, str(hours),
+        )
+        recent = await conn.fetch(
+            """SELECT event_id, action, tool_name, entity, status, cost_cents, created_at
+                 FROM agent_events
+                WHERE agent_name = $1
+                  AND created_at > NOW() - ($2 || ' hours')::interval
+                ORDER BY created_at DESC
+                LIMIT $3""",
+            agent_name, str(hours), limit,
+        )
+    return {
+        "summary_by_status": [dict(r) for r in summary],
+        "recent_events": [dict(r) for r in recent],
+    }
+
+
+@read_only_tool(
+    name="get_agent_lessons",
+    description=(
+        "Latest committed lessons (LOOP-05 output) — optionally filtered "
+        "by agent. Useful for 'what has the system learned recently'."
+    ),
+)
+async def get_agent_lessons(
+    agent_name: Optional[str] = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if agent_name:
+            rows = await conn.fetch(
+                """SELECT lesson_id, agent_name, lesson_name, description,
+                          confidence, created_at, source_event_id
+                     FROM agent_lessons
+                    WHERE agent_name = $1
+                      AND superseded_by IS NULL
+                    ORDER BY created_at DESC
+                    LIMIT $2""",
+                agent_name, limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """SELECT lesson_id, agent_name, lesson_name, description,
+                          confidence, created_at, source_event_id
+                     FROM agent_lessons
+                    WHERE superseded_by IS NULL
+                    ORDER BY created_at DESC
+                    LIMIT $1""",
+                limit,
+            )
+    return [dict(r) for r in rows]

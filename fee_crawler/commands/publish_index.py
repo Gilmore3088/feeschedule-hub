@@ -171,6 +171,27 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
     else:
         print("[DRY RUN] Would run PRAGMA optimize + WAL checkpoint.")
 
+    # Marker write so the admin freshness UI ("Daily post-processing /
+    # Federal data ingest / …") can show publish-index as expected-within-
+    # 26h. Without this marker the consumers see yesterday's cache and have
+    # no signal it's stale. See src/lib/admin-queries.ts EXPECTED_JOBS.
+    if not dry_run:
+        try:
+            db.execute(
+                """INSERT INTO workers_last_run (job_name, completed_at, status)
+                   VALUES (%s, NOW(), %s)
+                   ON CONFLICT (job_name) DO UPDATE
+                     SET completed_at = EXCLUDED.completed_at,
+                         status       = EXCLUDED.status""",
+                ("publish_index", "ok"),
+            )
+            db.commit()
+        except Exception as exc:
+            # Postgres-only DDL; SQLite local dev silently skips.
+            # Best-effort: marker write failures must not mask a successful
+            # publish.
+            print(f"publish_index marker write skipped: {exc}")
+
     elapsed = time.time() - t0
     result = {
         "version": 1,
