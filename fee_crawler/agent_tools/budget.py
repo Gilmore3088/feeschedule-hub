@@ -54,14 +54,22 @@ async def check_budget(
 
     Writes a budget_halt agent_events row in the same transaction before raising.
     Hierarchy: env var override > agent_budgets row > no-check (implicit pass).
+
+    Reads `spent` from agent_budgets.spent_cents (authoritative source).
+    Earlier versions summed agent_events.cost_cents, which agreed only when
+    callers set cost_cents via with_agent_context — Darwin/Magellan never
+    did (root of the 2026-04 runaway). agent_budgets is updated by BOTH
+    the gateway's own debit (gateway.py:307) and orchestrators' direct
+    account_budget() calls, so this is the consistent source.
+
+    Picks the MAX spent across the agent's budget rows to be conservative
+    (per_day + per_batch windows both get debited; take the highest to
+    avoid race conditions across windows).
     """
-    # Sum spent across all windows for this agent (simple implementation; 62a does
-    # not slice by per_cycle/per_batch — Plan 65 Atlas tightens).
     spent_raw = await conn.fetchval(
-        """SELECT COALESCE(SUM(cost_cents), 0)::INTEGER
-             FROM agent_events
-            WHERE agent_name = $1
-              AND status = 'success'""",
+        """SELECT COALESCE(MAX(spent_cents), 0)::INTEGER
+             FROM agent_budgets
+            WHERE agent_name = $1""",
         agent_name,
     )
     spent = int(spent_raw or 0)

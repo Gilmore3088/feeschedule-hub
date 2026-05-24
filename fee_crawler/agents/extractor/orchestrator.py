@@ -366,6 +366,14 @@ async def extract_batch(
         await emit("done", result=result.to_dict())
         return result
 
+    # Conservative per-extraction cost estimate at haiku-4.5 pricing:
+    # typical bank fee schedule ≈ 30K input tokens + 2K output ≈ $0.032 each.
+    # This is an ESTIMATE, not a real usage measurement (extract_llm.py
+    # doesn't propagate token counts from message.usage; tracked TODO).
+    # Still better than 0 — gives the budget enforcer something to work
+    # with so a runaway is bounded, not silent.
+    _COST_PER_EXTRACTION_CENTS = 4
+
     for target in targets:
         await emit("target_start", target_id=target.id, url=target.fee_schedule_url)
 
@@ -394,6 +402,12 @@ async def extract_batch(
             )
             result.extracted += 1
             result.fees_written += written
+            result.cost_usd += _COST_PER_EXTRACTION_CENTS / 100.0
+            # Debit estimated extraction cost so agent_budgets reflects
+            # spend even without real usage data. Same fix shape as
+            # Darwin/Magellan got in adjacent commits.
+            from fee_crawler.agent_tools.budget import account_budget
+            await account_budget(conn, AGENT_NAME, _COST_PER_EXTRACTION_CENTS)
             await emit(
                 "target_done",
                 target_id=target.id,
