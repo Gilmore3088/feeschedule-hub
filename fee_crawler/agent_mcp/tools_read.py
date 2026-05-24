@@ -294,3 +294,95 @@ async def get_agent_lessons(
                 limit,
             )
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Trend aggregation — m/m and q/q deltas computed from fee_snapshots.
+# Replaces the "no trend aggregation job" 🟡 item with an on-demand query.
+# ---------------------------------------------------------------------------
+
+@read_only_tool(
+    name="get_fee_trend",
+    description=(
+        "Month-over-month and quarter-over-quarter deltas for a given "
+        "fee_category, computed live from fee_snapshots. Returns "
+        "current_median, mom_pct, qoq_pct, sample_size_current, "
+        "sample_size_prev_month, sample_size_prev_quarter. Defaults to the "
+        "most recent snapshot date when no date is provided."
+    ),
+)
+async def get_fee_trend(
+    fee_category: str,
+    as_of_date: Optional[str] = None,
+) -> dict[str, Any]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Resolve as_of to most recent snapshot for this category if not given.
+        if not as_of_date:
+            row = await conn.fetchrow(
+                """SELECT MAX(snapshot_date) AS d
+                     FROM fee_snapshots
+                    WHERE fee_category = $1""",
+                fee_category,
+            )
+            as_of_date = row["d"] if row else None
+
+        if not as_of_date:
+            return {
+                "fee_category": fee_category,
+                "as_of_date": None,
+                "current_median": None,
+                "mom_pct": None,
+                "qoq_pct": None,
+                "sample_size_current": 0,
+                "sample_size_prev_month": 0,
+                "sample_size_prev_quarter": 0,
+            }
+
+        # snapshot_date is TEXT (YYYY-MM-DD); use date arithmetic in PG.
+        row = await conn.fetchrow(
+            """
+            WITH
+              cur AS (
+                SELECT amount FROM fee_snapshots
+                 WHERE fee_category = $1 AND snapshot_date = $2
+                   AND amount IS NOT NULL
+              ),
+              mo AS (
+                SELECT amount FROM fee_snapshots
+                 WHERE fee_category = $1
+                   AND snapshot_date = (($2::date - INTERVAL '1 month')::date)::text
+                   AND amount IS NOT NULL
+              ),
+              qt AS (
+                SELECT amount FROM fee_snapshots
+                 WHERE fee_category = $1
+                   AND snapshot_date = (($2::date - INTERVAL '3 months')::date)::text
+                   AND amount IS NOT NULL
+              )
+            SELECT
+              (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) FROM cur)::float AS cur_med,
+              (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) FROM mo)::float  AS mo_med,
+              (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) FROM qt)::float  AS qt_med,
+              (SELECT count(*) FROM cur)::int AS cur_n,
+              (SELECT count(*) FROM mo)::int  AS mo_n,
+              (SELECT count(*) FROM qt)::int  AS qt_n
+            """,
+            fee_category, as_of_date,
+        )
+
+    def _pct(cur, prev):
+        if cur is None or prev is None or prev == 0:
+            return None
+        return round(((cur - prev) / prev) * 100, 2)
+
+    return {
+        "fee_category": fee_category,
+        "as_of_date": as_of_date,
+        "current_median": row["cur_med"],
+        "mom_pct": _pct(row["cur_med"], row["mo_med"]),
+        "qoq_pct": _pct(row["cur_med"], row["qt_med"]),
+        "sample_size_current": row["cur_n"],
+        "sample_size_prev_month": row["mo_n"],
+        "sample_size_prev_quarter": row["qt_n"],
+    }

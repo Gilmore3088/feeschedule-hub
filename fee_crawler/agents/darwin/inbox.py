@@ -65,6 +65,47 @@ async def _fetch_pending(conn: asyncpg.Connection, limit: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def _emit_paired_accept(
+    fee_verified_id: int,
+    correlation_id: str,
+    knox_message_id: str,
+) -> bool:
+    """When Knox accepts a fee_verified row addressed to Darwin, Darwin
+    posts its own paired accept with the SAME correlation_id. This is the
+    second half of the adversarial handshake — promote_to_tier3's SQL gate
+    looks for darwin AND knox accepts sharing one correlation_id within 30
+    days. Posting here means publish-fees no longer needs the self-accept
+    stub.
+
+    Returns True on success, False on any failure (caller logs)."""
+    try:
+        from fee_crawler.agent_messaging.publisher import send_message
+        await send_message(
+            sender=AGENT_NAME,
+            recipient="knox",                    # reciprocal recipient — symmetry
+            intent="accept",
+            payload={
+                "fee_verified_id": fee_verified_id,
+                "paired_with": knox_message_id,
+                "decision": "accept",
+            },
+            correlation_id=correlation_id,       # MUST share with Knox's accept
+            reasoning_prompt=f"darwin_pair_accept:{fee_verified_id}",
+            reasoning_output=(
+                f"Knox accepted fee_verified_id={fee_verified_id}; Darwin "
+                "ratifies with paired accept under same correlation_id so the "
+                "promote_to_tier3 SQL gate sees a complete handshake."
+            ),
+        )
+        return True
+    except Exception as exc:
+        log.warning(
+            "darwin paired-accept emit failed for fee_verified_id=%s: %s",
+            fee_verified_id, exc,
+        )
+        return False
+
+
 async def _mark_responded(conn: asyncpg.Connection, message_id: str) -> None:
     """Idempotent: subsequent drains skip this row."""
     await conn.execute(
@@ -105,6 +146,31 @@ async def drain_darwin_inbox(
                 if isinstance(payload, str):
                     import json as _json
                     payload = _json.loads(payload)
+
+                # Adversarial handshake: when Knox accepts a fee_verified
+                # row, Darwin pairs the accept with the SAME correlation_id.
+                # promote_to_tier3's SQL gate looks for both. This replaces
+                # the publish_fees.py self-accept stub with real peer
+                # agreement. Other intents (coverage_request, etc) fall
+                # through to classification.
+                if (
+                    msg["intent"] == "accept"
+                    and msg["sender_agent"] == "knox"
+                    and "fee_verified_id" in payload
+                ):
+                    ok = await _emit_paired_accept(
+                        fee_verified_id=int(payload["fee_verified_id"]),
+                        correlation_id=str(msg["correlation_id"]),
+                        knox_message_id=str(msg["message_id"]),
+                    )
+                    log.info(
+                        "darwin paired-accept for fee_verified_id=%s "
+                        "(success=%s)",
+                        payload["fee_verified_id"], ok,
+                    )
+                    await _mark_responded(conn, msg["message_id"])
+                    result.messages_processed += 1
+                    continue
 
                 # Cap the per-message batch so a flood of messages can't
                 # blow through the per_day budget in one Modal tick.

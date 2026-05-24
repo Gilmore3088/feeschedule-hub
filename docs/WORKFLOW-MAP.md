@@ -269,9 +269,13 @@ There are **two parallel writers** into `fees_raw`:
     Wired through __main__.py so the CLI dispatcher carries the flags.
     Bad Darwin batches can no longer cascade-publish at scale.
   • rolled_back_at filter audited; /api/health updated.
-  🟡 adversarial_event_id uses placeholder UUID. Peer-challenge wiring
-     deferred to next phase (the gate IS firing now via review_tick;
-     the per-row challenge handshake is separate).
+  ✅ Adversarial handshake wired: Darwin's inbox now emits a paired
+     `intent='accept'` message with the SAME correlation_id when Knox
+     accepts a fee_verified row. promote_to_tier3's SQL gate sees a
+     real two-party handshake instead of publish-fees self-accepting.
+     (publish-fees still has the self-accept fallback for legacy /
+     dev-DB rows; flip the operator switch to remove once the bus has
+     enough real accepts.)
 ```
 
 ### ▸ STAGE 5 — INDEX / SNAPSHOT
@@ -293,8 +297,9 @@ There are **two parallel writers** into `fees_raw`:
     success. /admin freshness UI's EXPECTED_JOBS table now includes
     publish_index + darwin_drain rows so staleness surfaces
     automatically (cell turns red if last run > 26h ago).
-  🟡 No trend aggregation job (m/m, q/q deltas) — feature gap,
-     not pipeline architecture. Deferred.
+  ✅ Trend aggregation: `get_fee_trend` MCP read tool computes m/m
+     and q/q median deltas live from fee_snapshots — Hamilton can
+     query without a separate batch job.
 ```
 
 ### ▸ STAGE 6 — READ PATHS (admin UI + public API)
