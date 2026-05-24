@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "node scripts/apply-migration.mjs --pending",
+    "db:migrate:status": "node scripts/apply-migration.mjs --status",
+    "db:seed": "python -m fee_crawler seed-users",
+    "setup": "bash scripts/dev-setup.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
