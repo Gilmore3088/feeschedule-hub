@@ -1284,6 +1284,17 @@ def main() -> None:
         default=500,
         help="max rows per run (default: 500)",
     )
+    publish_parser.add_argument(
+        "--override-max-rows",
+        action="store_true",
+        help="Bypass the 10,000-row safety ceiling. Requires --i-know-what-im-doing.",
+    )
+    publish_parser.add_argument(
+        "--i-know-what-im-doing",
+        dest="i_know_what_im_doing",
+        action="store_true",
+        help="Required when pairing with --override-max-rows.",
+    )
     publish_parser.set_defaults(
         func=lambda args: sys.exit(
             __import__(
@@ -1292,6 +1303,8 @@ def main() -> None:
                 (["--apply"] if args.apply else [])
                 + ["--min-confidence", str(args.min_confidence)]
                 + ["--limit", str(args.limit)]
+                + (["--override-max-rows"] if args.override_max_rows else [])
+                + (["--i-know-what-im-doing"] if args.i_know_what_im_doing else [])
             )
         )
     )

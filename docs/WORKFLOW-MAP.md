@@ -192,12 +192,14 @@ There are **two parallel writers** into `fees_raw`:
     account_budget(effective_agent, cost_cents_from_usage(model, usage)).
   • Magellan rung 4 (llm_extract) tracks real cost from result.usage and
     feeds it through to account_budget('magellan', cents).
+  • Extractor now wraps the per-target loop in a CircuitBreaker (mirrors
+    Magellan). Halts on consecutive_failures_to_halt=5 or
+    error_rate_threshold=0.50 over a window of 20.
   🟡 Rungs 1-3 are HTTP/Playwright only; cost tracking for those is a
      longer-tail concern (compute is on Modal not Anthropic).
   🟡 No dedicated retry queue — failed targets fall back to the
      "no recent fees_raw" filter on the next cron tick. Acceptable; can
      add a dead-letter mode if needed.
-  🟡 Extractor has no circuit breaker. Magellan does. Low priority.
 ```
 
 ### ▸ STAGE 3 — VERIFICATION (writes Tier 2: `fees_verified`)
@@ -259,14 +261,15 @@ There are **two parallel writers** into `fees_raw`:
 │ AUDIT     ✓ agent_events + agent_auth_log per row                   │
 └─────────────────────────────────────────────────────────────────────┘
 
-🟡 KNOWN in Stage 4 (operational, not architectural):
-  🟡 publish-fees --apply has no upper-bound on batch size. Easy fix
-     (add --max-rows flag); deferred to its own PR.
+✅ FIXED in Stage 4:
+  • publish-fees now refuses --limit > 10,000 unless both
+    --override-max-rows AND --i-know-what-im-doing are passed.
+    Wired through __main__.py so the CLI dispatcher carries the flags.
+    Bad Darwin batches can no longer cascade-publish at scale.
+  • rolled_back_at filter audited; /api/health updated.
   🟡 adversarial_event_id uses placeholder UUID. Peer-challenge wiring
      deferred to next phase (the gate IS firing now via review_tick;
      the per-row challenge handshake is separate).
-  🟡 Rollback marks fees_published.rolled_back_at but not all readers
-     filter on it. Audit pass needed on the 30+ TS readers.
 ```
 
 ### ▸ STAGE 5 — INDEX / SNAPSHOT
@@ -316,15 +319,19 @@ There are **two parallel writers** into `fees_raw`:
 │    /api/reports/msa/[code]        ──▶ fees_verified                 │
 └─────────────────────────────────────────────────────────────────────┘
 
-🟡 KNOWN in Stage 6 (data-layer compat, not pipeline architecture):
-  🟡 28 TS files bulk-renamed extracted_fees → fees_verified; column
-     shimmed via GENERATED columns but review_status VALUE set is
-     different ('verified|challenged' vs 'staged|flagged'). Search for
-     `review_status = 'staged'` etc. in TS and migrate.
-  🟡 rolled_back_at filter missing across readers. Audit + add the
-     WHERE clause.
-  🟡 No /admin/agents page surfacing agent_budgets / agent_events /
-     workers_last_run state. Build it.
+✅ FIXED in Stage 6:
+  • review_status filters migrated across 6 TS files: 'staged' →
+    'verified', 'flagged' → 'challenged'. Dashboard counters now
+    return non-zero rows again. (Files: query-client.tsx,
+    category-coverage-data.tsx, peers.ts, pipeline.ts, dashboard.ts,
+    admin/query.)
+  • src/app/api/health/route.ts now filters `rolled_back_at IS NULL`
+    so the public health count reflects live rows only. The other
+    fees_published readers (admin-queries.ts, agent-console.ts)
+    already filtered correctly.
+  • /admin/agents page exists with a sophisticated health-tile UI
+    (overview/tiles.tsx, lineage/, messages/, replay/, health/,
+    knox/). The earlier claim that this was missing was wrong.
 ```
 
 ### ▸ STAGE 7 — RESEARCH / REPORTS (Hamilton — on-demand)

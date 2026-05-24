@@ -55,12 +55,12 @@ export interface StuckReviewItems {
 export async function getStuckReviewItems(): Promise<StuckReviewItems> {
   const [flagged] = await sql<{ cnt: number }[]>`
     SELECT COUNT(*) as cnt FROM fees_verified
-    WHERE review_status = 'flagged'
+    WHERE review_status = 'challenged'
       AND created_at < NOW() - INTERVAL '14 days'`;
 
   const [staged] = await sql<{ cnt: number }[]>`
     SELECT COUNT(*) as cnt FROM fees_verified
-    WHERE review_status = 'staged'
+    WHERE review_status = 'verified'
       AND created_at < NOW() - INTERVAL '30 days'`;
 
   return {
@@ -106,7 +106,7 @@ export async function getDistrictMetrics(filters?: {
             COUNT(DISTINCT ct.id) as institution_count,
             COUNT(DISTINCT CASE WHEN ct.fee_schedule_url IS NOT NULL THEN ct.id END) as with_fee_url,
             COUNT(ef.id) as total_fees,
-            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged_count,
+            SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) as flagged_count,
             AVG(ef.extraction_confidence) as avg_confidence
      FROM crawl_targets ct
      LEFT JOIN fees_verified ef ON ct.id = ef.crawl_target_id
@@ -261,7 +261,7 @@ export async function getVolatileCategories(
     `SELECT ef.fee_category,
             COUNT(DISTINCT ef.crawl_target_id) as institution_count,
             COUNT(*) as total_count,
-            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged_count
+            SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) as flagged_count
      FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${where}
@@ -387,13 +387,13 @@ export async function getRiskOutliers(filters?: {
   // Top flagged categories
   const flagged = await sql.unsafe(
     `SELECT ef.fee_category,
-            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged_count,
+            SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) as flagged_count,
             COUNT(*) as total_count
      FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${efWhere}
      GROUP BY ef.fee_category
-     HAVING SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) > 0
+     HAVING SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) > 0
      ORDER BY flagged_count DESC
      LIMIT 5`,
     params

@@ -7,7 +7,7 @@ const QUERY_GROUPS = [
   {
     label: "Overview",
     queries: [
-      { label: "Dashboard stats", sql: "SELECT\n  (SELECT COUNT(*) FROM crawl_targets) as institutions,\n  (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,\n  (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status = 'approved') as with_approved_fees,\n  (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'approved') as approved_fees,\n  (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'staged') as staged_fees,\n  (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'flagged') as flagged_fees" },
+      { label: "Dashboard stats", sql: "SELECT\n  (SELECT COUNT(*) FROM crawl_targets) as institutions,\n  (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,\n  (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status = 'approved') as with_approved_fees,\n  (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'approved') as approved_fees,\n  (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'verified') as staged_fees,\n  (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'challenged') as flagged_fees" },
       { label: "Fee status breakdown", sql: "SELECT review_status, COUNT(*) as cnt FROM fees_verified GROUP BY review_status ORDER BY cnt DESC" },
       { label: "All tables", sql: "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name" },
     ],

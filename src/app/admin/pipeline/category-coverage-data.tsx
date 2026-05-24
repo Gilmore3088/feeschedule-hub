@@ -13,8 +13,8 @@ async function getCategoryCoverage() {
     SELECT fee_category,
            COUNT(*) as total,
            SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
-           SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
-           SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+           SUM(CASE WHEN review_status = 'verified' THEN 1 ELSE 0 END) as staged,
+           SUM(CASE WHEN review_status = 'challenged' THEN 1 ELSE 0 END) as flagged,
            SUM(CASE WHEN amount IS NOT NULL AND amount >= 0 THEN 1 ELSE 0 END) as has_amount,
            COUNT(DISTINCT crawl_target_id) as institutions
     FROM fees_verified

@@ -113,8 +113,8 @@ export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
       SUM(CASE WHEN review_status != 'rejected' THEN 1 ELSE 0 END) as total_fees,
       SUM(CASE WHEN fee_category IS NOT NULL AND fee_category != '' AND review_status != 'rejected' THEN 1 ELSE 0 END) as categorized,
       SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
-      SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
-      SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+      SUM(CASE WHEN review_status = 'verified' THEN 1 ELSE 0 END) as staged,
+      SUM(CASE WHEN review_status = 'challenged' THEN 1 ELSE 0 END) as flagged,
       SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected
     FROM fees_verified`;
 

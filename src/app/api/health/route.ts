@@ -3,7 +3,9 @@ import { sql } from "@/lib/crawler-db/connection";
 
 export async function GET() {
   try {
-    const [published] = await sql`SELECT COUNT(*)::int AS cnt FROM fees_published`;
+    // Live published count excludes soft-deleted rows (rollback contract).
+    const [published] = await sql`
+      SELECT COUNT(*)::int AS cnt FROM fees_published WHERE rolled_back_at IS NULL`;
     const [verified] = await sql`SELECT COUNT(*)::int AS cnt FROM fees_verified`;
     const [raw] = await sql`SELECT COUNT(*)::int AS cnt FROM fees_raw`;
 

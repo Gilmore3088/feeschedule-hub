@@ -23,5 +23,12 @@ class ExtractorConfig:
     # If True, retry previously-failed targets (consecutive_failures > 0).
     include_failing: bool = False
 
+    # Circuit breaker (duck-types fee_crawler.agents._common.circuit._HasCircuitConfig).
+    # Matches Magellan's defaults so behaviour is symmetric across agents.
+    consecutive_failures_to_halt: int = 5
+    error_rate_window: int = 20
+    error_rate_threshold: float = 0.50
+    consecutive_rate_limits_to_halt: int = 3
+
 
 DEFAULT = ExtractorConfig()

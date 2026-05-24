@@ -28,6 +28,7 @@ import asyncpg
 
 from fee_crawler.agent_tools.tools_fees import create_fee_raw
 from fee_crawler.agent_tools.schemas.fees import CreateFeeRawInput
+from fee_crawler.agents._common.circuit import CircuitBreaker
 
 from .config import DEFAULT, ExtractorConfig
 
@@ -59,6 +60,7 @@ class BatchResult:
     failed: int = 0
     cost_usd: float = 0.0
     duration_s: float = 0.0
+    halt_reason: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -69,6 +71,7 @@ class BatchResult:
             "failed": self.failed,
             "cost_usd": round(self.cost_usd, 4),
             "duration_s": round(self.duration_s, 2),
+            "halt_reason": self.halt_reason,
         }
 
 
@@ -395,16 +398,25 @@ async def extract_batch(
     # path returned no usage data (e.g., the LLM call short-circuited).
     _COST_FALLBACK_CENTS = 4
 
+    cb = CircuitBreaker(config)
+
     for target in targets:
+        if cb.halt_reason() is not None:
+            result.halt_reason = cb.halt_reason().value
+            await emit("halted", reason=result.halt_reason)
+            break
+
         await emit("target_start", target_id=target.id, url=target.fee_schedule_url)
 
         outcome = await _extract_target(target, app_config)
 
         if outcome["unchanged"]:
             result.unchanged += 1
+            cb.record_success()
             await emit("target_done", target_id=target.id, outcome="unchanged")
         elif outcome["error"]:
             result.failed += 1
+            cb.record_failure()
             await emit(
                 "target_done",
                 target_id=target.id,
@@ -413,6 +425,7 @@ async def extract_batch(
             )
         elif not outcome["fees"]:
             result.failed += 1
+            cb.record_failure()
             await emit("target_done", target_id=target.id, outcome="no_fees")
         else:
             written = await _write_via_gateway(
@@ -424,6 +437,7 @@ async def extract_batch(
             )
             result.extracted += 1
             result.fees_written += written
+            cb.record_success()
             # Real cost from pipeline.extract_llm's usage accumulator
             # (set by _extract_target). Falls back to the 4¢ estimate
             # only if the LLM call short-circuited (no usage recorded).
