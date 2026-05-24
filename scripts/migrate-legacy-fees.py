@@ -1,32 +1,39 @@
 #!/usr/bin/env python3
 """
-Migrate fee data from the legacy Supabase project (extracted_fees) into the
-new clean-canvas project (fees_raw → Darwin will promote to fees_verified).
+Clean-data export from legacy DB → clean canvas.
 
-Usage:
-    LEGACY_DATABASE_URL=postgres://...legacy... \
-    CLEAN_DATABASE_URL=postgres://...clean...   \
-    python3 scripts/migrate-legacy-fees.py [--dry-run] [--limit N]
+Reads from LEGACY_DATABASE_URL (the rmhwbbjjctzfaqjyhomu project), applies a
+strict quality bar, and writes the survivors to CLEAN_DATABASE_URL.fees_raw.
 
-Both URLs must use the session-mode pooler (port 5432) — pg_dump-style
-SELECT/INSERT volume hammers the transaction pooler.
+The default policy is opinionated and conservative: it drops low-confidence
+extractions, dropouts from un-categorizable canonical keys, "long-tail"
+spurious categories that appear only a handful of times across the corpus,
+institutions with implausibly few fees (likely incomplete crawls), and
+rows whose fee_name looks like junk (hours / phone numbers / addresses).
 
-What it does:
-    1. Ensure crawl_targets exists on clean DB (by row count). Aborts if
-       there are zero institutions to associate fees with.
-    2. Stream rows from legacy.extracted_fees in batches.
-    3. For each row, look up the matching crawl_target on the clean DB
-       by (source, cert_number) — that's the join key the FDIC/NCUA seeder
-       uses, so it's stable across deploys.
-    4. INSERT into clean.fees_raw with source='migration_v10' and a
-       sentinel agent_event_id (the gateway requires a UUID; we use the
-       FDIC v10 sentinel pattern documented at fees_raw.agent_event_id).
-    5. Skip fees with review_status='rejected' (no point migrating
-       garbage), and de-dup on (institution_id, fee_name, amount) within
-       the batch to avoid Tier-2 unique-index violations later.
+DEFAULTS (override via CLI flags):
+    --min-confidence       0.85       drop fees below this Anthropic confidence
+    --min-fees-per-inst    5          drop fees from institutions with fewer total kept fees
+    --min-category-count   3          drop fees whose canonical_fee_key appears <N times after other filters
+    --include-status       approved   one of: approved | approved,staged | approved,staged,verified
 
-Safe to re-run: rows already migrated are detected via a hash check on
-(legacy_id, fee_name, amount) stored in fees_raw.outlier_flags JSONB.
+USAGE
+    LEGACY_DATABASE_URL=postgres://...rmhwbbjjctzfaqjyhomu... \\
+    CLEAN_DATABASE_URL=postgres://...uuofrpmnxmriezawqcbr...   \\
+    python3 scripts/migrate-legacy-fees.py --dry-run
+
+    # Same again with --apply once the dry-run report looks right.
+
+Output: a report of what passed/failed each filter and (with --apply) the
+INSERT counts. Reads are streamed in 1000-row batches; idempotent on
+re-run via a fingerprint stored in fees_raw.outlier_flags.
+
+Pre-reqs on the CLEAN DB:
+  - Schema migrations applied (fees_raw, agent_registry, agent_budgets,
+    plus 20260525_extractor_agent_registry.sql to seed the 'extractor'
+    agent — or any other source agent_name in agent_registry).
+  - crawl_targets seeded (this script joins on cert_number/source to
+    map legacy institution_ids to clean ones).
 """
 
 from __future__ import annotations
@@ -35,9 +42,10 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import time
-from typing import Optional
+from collections import Counter
 
 import psycopg2
 import psycopg2.extras
@@ -45,119 +53,230 @@ import psycopg2.extras
 MIGRATION_SENTINEL_UUID = "00000000-0000-0000-0000-000000000000"
 BATCH_SIZE = 1000
 
+# Reject any fee_name that looks like junk extracted from a non-fee paragraph.
+_JUNK_NAME_RE = re.compile(
+    r"\b(hours?|phone|address|website|customer\s+service|monday|tuesday|wednesday|"
+    r"thursday|friday|saturday|sunday|business\s+day|holiday|branch|atm\s+location|"
+    r"deposit\s+slip|signature|disclosure|terms|agreement|fdic|ncua|copyright|"
+    r"privacy\s+policy)\b",
+    re.IGNORECASE,
+)
 
-def _hash_fee(legacy_id: int, fee_name: str, amount) -> str:
-    """Stable fingerprint stored in outlier_flags so reruns are idempotent."""
+# "Free" / "waived" patterns — these are legitimate fee schedule rows with
+# amount=NULL, so they must NOT be dropped by the NULL-amount filter.
+_FREE_NAME_RE = re.compile(
+    r"\b(free|waived|none|no\s+charge|n/?a|complimentary|included)\b",
+    re.IGNORECASE,
+)
+
+
+def _connect(env_var: str, readonly: bool = False) -> psycopg2.extensions.connection:
+    url = os.environ.get(env_var)
+    if not url:
+        sys.exit(f"{env_var} not set")
+    conn = psycopg2.connect(url)
+    if readonly:
+        conn.set_session(readonly=True)
+    return conn
+
+
+def _fingerprint(legacy_id: int, fee_name: str, amount) -> str:
     raw = f"{legacy_id}|{fee_name}|{amount}".encode("utf-8")
     return "legacy:" + hashlib.sha256(raw).hexdigest()[:16]
 
 
-def _connect(env_var: str) -> psycopg2.extensions.connection:
-    url = os.environ.get(env_var)
-    if not url:
-        sys.exit(f"{env_var} not set")
-    return psycopg2.connect(url)
+def _is_junk_name(name: str) -> bool:
+    if not name or not name.strip():
+        return True
+    return bool(_JUNK_NAME_RE.search(name))
 
 
-def _resolve_institution_id(clean_cur, legacy_row: dict) -> Optional[int]:
-    """Find the clean-DB institution_id for a legacy row.
-
-    Legacy stores `crawl_target_id` referencing legacy.crawl_targets. We
-    rely on the (source, cert_number) being stable between the two
-    projects since both were seeded from FDIC/NCUA the same way.
-    """
-    if not legacy_row.get("source") or not legacy_row.get("cert_number"):
-        return None
-    clean_cur.execute(
-        "SELECT id FROM crawl_targets WHERE source=%s AND cert_number=%s LIMIT 1",
-        (legacy_row["source"], legacy_row["cert_number"]),
-    )
-    row = clean_cur.fetchone()
-    return row[0] if row else None
-
-
-def _already_migrated(clean_cur, fingerprint: str) -> bool:
-    clean_cur.execute(
-        "SELECT 1 FROM fees_raw WHERE outlier_flags @> %s::jsonb LIMIT 1",
-        (json.dumps([fingerprint]),),
-    )
-    return clean_cur.fetchone() is not None
+def _allows_null_amount(name: str) -> bool:
+    return bool(_FREE_NAME_RE.search(name or ""))
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     ap.add_argument("--dry-run", action="store_true",
-                    help="Read legacy + match, but skip writes.")
+                    help="Read + filter + report. NO writes to clean DB.")
+    ap.add_argument("--apply", action="store_true",
+                    help="Required to actually INSERT. Mutually exclusive with --dry-run.")
+    ap.add_argument("--min-confidence", type=float, default=0.85)
+    ap.add_argument("--min-fees-per-inst", type=int, default=5)
+    ap.add_argument("--min-category-count", type=int, default=3)
+    ap.add_argument("--include-status", default="approved",
+                    help="Comma-separated review_status values to consider for export.")
     ap.add_argument("--limit", type=int, default=None,
-                    help="Cap on legacy rows to scan (for testing).")
+                    help="Cap on legacy rows scanned (for testing).")
     args = ap.parse_args()
 
-    legacy = _connect("LEGACY_DATABASE_URL")
-    clean = _connect("CLEAN_DATABASE_URL")
-    legacy.set_session(readonly=True)
+    if args.dry_run == args.apply:
+        sys.exit("Pass exactly one of --dry-run or --apply.")
 
+    allowed_statuses = [s.strip() for s in args.include_status.split(",") if s.strip()]
+
+    legacy = _connect("LEGACY_DATABASE_URL", readonly=True)
+    clean = _connect("CLEAN_DATABASE_URL", readonly=False)
+
+    # Sanity: clean DB has crawl_targets to map institutions to.
     with clean.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM crawl_targets")
-        n = cur.fetchone()[0]
-        if n == 0:
-            sys.exit("Clean DB has 0 crawl_targets — run `python -m fee_crawler seed` first.")
-        print(f"Clean DB has {n:,} crawl_targets — proceeding.")
+        n_clean = cur.fetchone()[0]
+    if n_clean == 0:
+        sys.exit(
+            "Clean DB has 0 crawl_targets. Seed institutions first: "
+            "`python -m fee_crawler seed`."
+        )
+    print(f"Clean DB has {n_clean:,} crawl_targets to map onto.")
 
+    # ──────────────────────────────────────────────────────────────────────
+    # Pass 1: stream legacy rows, apply per-row filters, build in-memory
+    # collection of survivors (capped by --limit for safety).
+    # ──────────────────────────────────────────────────────────────────────
     legacy_cur = legacy.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    clean_cur = clean.cursor()
 
+    status_in = ",".join(f"'{s}'" for s in allowed_statuses)
     limit_clause = f"LIMIT {int(args.limit)}" if args.limit else ""
     legacy_cur.execute(
         f"""
         SELECT
-            ef.id        AS legacy_id,
+            ef.id                       AS legacy_id,
             ef.fee_name,
             ef.amount,
             ef.frequency,
             ef.conditions,
             ef.extraction_confidence,
-            ef.fee_category,
+            ef.canonical_fee_key,
             ef.review_status,
             ct.source,
             ct.cert_number,
-            ct.fee_schedule_url
+            ct.fee_schedule_url,
+            ct.id                       AS legacy_target_id
         FROM extracted_fees ef
-        JOIN crawl_targets   ct ON ct.id = ef.crawl_target_id
-        WHERE ef.review_status <> 'rejected'
+        JOIN crawl_targets ct ON ct.id = ef.crawl_target_id
+        WHERE ef.review_status IN ({status_in})
+          AND ct.fee_schedule_url IS NOT NULL
+          AND ct.fee_schedule_url <> ''
         ORDER BY ef.id
         {limit_clause}
         """
     )
 
-    inserted = 0
-    skipped_dup = 0
-    skipped_no_match = 0
-    rows_scanned = 0
-    t0 = time.time()
+    survivors: list[dict] = []
+    per_inst_count: Counter[tuple[str, str]] = Counter()
+    per_key_count: Counter[str] = Counter()
+    reasons: Counter[str] = Counter()
+    total = 0
 
     while True:
         batch = legacy_cur.fetchmany(BATCH_SIZE)
         if not batch:
             break
-
         for row in batch:
-            rows_scanned += 1
-            fingerprint = _hash_fee(row["legacy_id"], row["fee_name"], row["amount"])
+            total += 1
 
-            if _already_migrated(clean_cur, fingerprint):
+            name = (row["fee_name"] or "").strip()
+            amount = row["amount"]
+            conf = row["extraction_confidence"]
+            key = row["canonical_fee_key"]
+
+            if not row["source"] or not row["cert_number"]:
+                reasons["no_inst_lookup_key"] += 1
+                continue
+            if not key:
+                reasons["no_canonical_key"] += 1
+                continue
+            if conf is None or float(conf) < args.min_confidence:
+                reasons["low_confidence"] += 1
+                continue
+            if _is_junk_name(name):
+                reasons["junk_name"] += 1
+                continue
+            if amount is None and not _allows_null_amount(name):
+                reasons["null_amount_non_free"] += 1
+                continue
+
+            survivors.append(row)
+            per_inst_count[(row["source"], row["cert_number"])] += 1
+            per_key_count[key] += 1
+
+    legacy_cur.close()
+    legacy.close()
+
+    print(f"\n── Pass 1 complete: scanned {total:,} legacy rows ──")
+    for k, v in sorted(reasons.items(), key=lambda kv: -kv[1]):
+        print(f"  filtered ({v:>7,})  {k}")
+    print(f"  survivors_pass1 ({len(survivors):>7,})")
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Pass 2: apply corpus-level filters (long-tail + thin institutions).
+    # These can only run after Pass 1 because they need totals.
+    # ──────────────────────────────────────────────────────────────────────
+    keep_keys = {
+        k for k, c in per_key_count.items() if c >= args.min_category_count
+    }
+    keep_insts = {
+        (src, cert) for (src, cert), c in per_inst_count.items()
+        if c >= args.min_fees_per_inst
+    }
+    dropped_keys = len(per_key_count) - len(keep_keys)
+    dropped_insts = len(per_inst_count) - len(keep_insts)
+
+    final: list[dict] = []
+    p2_reasons: Counter[str] = Counter()
+    for row in survivors:
+        if row["canonical_fee_key"] not in keep_keys:
+            p2_reasons["long_tail_category"] += 1
+            continue
+        if (row["source"], row["cert_number"]) not in keep_insts:
+            p2_reasons["thin_institution"] += 1
+            continue
+        final.append(row)
+
+    print(f"\n── Pass 2 complete (corpus-level) ──")
+    print(f"  dropped {dropped_keys:,} long-tail canonical keys (< {args.min_category_count} occurrences)")
+    print(f"  dropped {dropped_insts:,} thin institutions (< {args.min_fees_per_inst} kept fees)")
+    for k, v in sorted(p2_reasons.items(), key=lambda kv: -kv[1]):
+        print(f"  filtered ({v:>7,})  {k}")
+    print(f"  CLEAN export count: {len(final):>7,}  (from {total:,} legacy rows)")
+
+    if args.dry_run:
+        print("\n--dry-run: no writes performed. Re-run with --apply to insert.")
+        return 0
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Pass 3: insert into clean DB. Resolve institution_id by (source, cert_number),
+    # skip if fingerprint already present.
+    # ──────────────────────────────────────────────────────────────────────
+    inserted = 0
+    skipped_dup = 0
+    skipped_no_match = 0
+    t0 = time.time()
+
+    with clean.cursor() as map_cur, clean.cursor() as ins_cur:
+        for row in final:
+            map_cur.execute(
+                "SELECT id FROM crawl_targets WHERE source=%s AND cert_number=%s LIMIT 1",
+                (row["source"], row["cert_number"]),
+            )
+            r = map_cur.fetchone()
+            if r is None:
+                skipped_no_match += 1
+                continue
+            inst_id = r[0]
+
+            fp = _fingerprint(row["legacy_id"], row["fee_name"], row["amount"])
+            map_cur.execute(
+                "SELECT 1 FROM fees_raw WHERE outlier_flags @> %s::jsonb LIMIT 1",
+                (json.dumps([fp]),),
+            )
+            if map_cur.fetchone() is not None:
                 skipped_dup += 1
                 continue
 
-            inst_id = _resolve_institution_id(clean_cur, row)
-            if inst_id is None:
-                skipped_no_match += 1
-                continue
-
-            if args.dry_run:
-                inserted += 1
-                continue
-
-            clean_cur.execute(
+            ins_cur.execute(
                 """
                 INSERT INTO fees_raw (
                     institution_id, crawl_event_id, source_url,
@@ -180,35 +299,27 @@ def main() -> int:
                     row["amount"],
                     row["frequency"],
                     row["conditions"],
-                    json.dumps([fingerprint]),
+                    json.dumps([fp]),
                 ),
             )
             inserted += 1
 
-        if not args.dry_run:
-            clean.commit()
-        if rows_scanned % 10_000 == 0:
-            elapsed = time.time() - t0
-            print(
-                f"  scanned={rows_scanned:>7,}  inserted={inserted:>7,}  "
-                f"dup={skipped_dup:>5,}  no_match={skipped_no_match:>5,}  "
-                f"{elapsed:>5.0f}s"
-            )
+            if inserted % 5000 == 0:
+                clean.commit()
+                print(f"  inserted={inserted:>7,}  ({time.time() - t0:.0f}s)")
 
-    if not args.dry_run:
-        clean.commit()
+    clean.commit()
     elapsed = time.time() - t0
-
     print()
-    print(f"Done in {elapsed:.0f}s.")
-    print(f"  scanned    : {rows_scanned:,}")
-    print(f"  inserted   : {inserted:,}  ({'dry-run' if args.dry_run else 'committed'})")
-    print(f"  skipped dup: {skipped_dup:,}  (already migrated)")
-    print(f"  no match   : {skipped_no_match:,}  (no crawl_targets row on clean DB)")
+    print(f"── Apply complete in {elapsed:.0f}s ──")
+    print(f"  inserted        : {inserted:,}")
+    print(f"  skipped (dup)   : {skipped_dup:,}")
+    print(f"  skipped (no_map): {skipped_no_match:,}")
     print()
-    print("Next: run Darwin to classify fees_raw → fees_verified:")
-    print("  modal run fee_crawler/modal_app.py::run_post_processing")
-    print("Or wait for the next 05:00 UTC cron tick.")
+    print("Next steps:")
+    print("  1. Verify counts: SELECT count(*) FROM fees_raw WHERE source='migration_v10';")
+    print("  2. Run Darwin against the clean canvas to promote fees_raw -> fees_verified.")
+    print("     (Cost tracking is now wired correctly per classifier.py refactor.)")
     return 0
 
 

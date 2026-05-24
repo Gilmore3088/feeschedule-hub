@@ -86,8 +86,36 @@ def build_prompt(names: list[str]) -> tuple[str, str]:
     return _SYSTEM_PROMPT, user
 
 
-async def _call_anthropic(names: list[str], config: DarwinConfig) -> list[dict]:
-    """Single Anthropic call — no retry."""
+# Per-1M-token pricing (USD) by model — keep in sync with vendor pricing.
+# Source: https://www.anthropic.com/pricing#anthropic-api as of 2026-05.
+_PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    # model_id: (input_per_mtok, output_per_mtok)
+    "claude-haiku-4-5-20251001":  (0.80,  4.00),
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-sonnet-4-6":          (3.00, 15.00),
+    "claude-opus-4-7":            (15.00, 75.00),
+}
+
+
+def _cost_cents_from_usage(model: str, in_tokens: int, out_tokens: int) -> int:
+    """Convert token counts to cents using model pricing. Unknown models fall
+    back to a conservative Sonnet-class estimate so unaccounted spend is
+    over-reported, not under-reported."""
+    in_per, out_per = _PRICING_USD_PER_MTOK.get(model, (3.00, 15.00))
+    dollars = (in_tokens / 1_000_000) * in_per + (out_tokens / 1_000_000) * out_per
+    return int(round(dollars * 100))
+
+
+async def _call_anthropic(
+    names: list[str], config: DarwinConfig,
+) -> tuple[list[dict], int]:
+    """Single Anthropic call. Returns (classifications, cost_cents).
+
+    Token usage from `resp.usage` is converted to cents using _PRICING table.
+    The cost is propagated up to `classify_batch` which debits it against
+    `agent_budgets`. This was the gap that allowed the 2026-04 runaway:
+    cost_cents was always 0 in the gateway so spent_cents never moved.
+    """
     system, user = build_prompt(names)
     client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
     resp = await client.messages.create(
@@ -98,19 +126,30 @@ async def _call_anthropic(names: list[str], config: DarwinConfig) -> list[dict]:
         tool_choice={"type": "tool", "name": "classify_fees"},
         messages=[{"role": "user", "content": user}],
     )
+
+    in_tokens = getattr(resp.usage, "input_tokens", 0) or 0
+    out_tokens = getattr(resp.usage, "output_tokens", 0) or 0
+    cost_cents = _cost_cents_from_usage(config.model, in_tokens, out_tokens)
+
+    classifications: list[dict] = []
     for block in resp.content:
         if block.type == "tool_use" and block.name == "classify_fees":
-            return block.input.get("classifications", [])
-    return []
+            classifications = block.input.get("classifications", [])
+            break
+    return classifications, cost_cents
 
 
 async def classify_names_with_retry(
     names: list[str],
     *,
     config: DarwinConfig,
-    _caller: Optional[Callable[[list[str]], Awaitable[list[dict]]]] = None,
-) -> list[dict]:
+    _caller: Optional[Callable[[list[str]], Awaitable[tuple[list[dict], int]]]] = None,
+) -> tuple[list[dict], int]:
     """Wraps one LLM call with exp-backoff retry on rate limits.
+
+    Returns (classifications, cost_cents). cost_cents reflects only the
+    successful call; failed attempts before the success aren't billed
+    (Anthropic doesn't charge for failed/retried requests).
 
     Args:
         names: batch of normalized fee names (len <= config.llm_batch_size).

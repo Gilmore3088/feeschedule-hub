@@ -216,8 +216,17 @@ async def classify_batch(
         chunk_names = [c.normalized_name for c in chunk]
         await emit("llm_call_start", size=len(chunk))
         try:
-            llm_results = await classify_names_with_retry(chunk_names, config=config)
+            llm_results, chunk_cost_cents = await classify_names_with_retry(
+                chunk_names, config=config,
+            )
             result.llm_calls += 1
+            result.cost_usd += chunk_cost_cents / 100.0
+            # Debit real spend. Prior to 2026-05-24 this was always 0
+            # (caller never passed cost_cents through context); that
+            # silent gap is what allowed the $1000 runaway. Now every
+            # LLM call updates agent_budgets.spent_cents synchronously.
+            from fee_crawler.agent_tools.budget import account_budget
+            await account_budget(conn, AGENT_NAME, chunk_cost_cents)
         except anthropic.RateLimitError:
             cb.record_rate_limit_exhausted()
             result.failures += len(chunk)
