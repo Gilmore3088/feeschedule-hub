@@ -31,6 +31,12 @@ def merge_institution_fees(
 ) -> dict:
     """Merge new fees for one institution against existing data.
 
+    DEPRECATED (2026-05-24): writes to the frozen `extracted_fees` table.
+    Replaced by fee_crawler.agents.extractor.extract_batch, which writes
+    fees_raw via the agent gateway. The 3am/4am Modal crons no longer call
+    this code path. CLI `fee_crawler crawl` is the remaining caller; it
+    will hit the DB freeze trigger and fail without the kill-switch.
+
     Args:
         db: Database connection (caller manages transaction).
         target_id: The crawl_target_id.
@@ -42,6 +48,13 @@ def merge_institution_fees(
     Returns:
         Stats dict with counts of new, changed, unchanged, approved, staged, flagged.
     """
+    import warnings
+    warnings.warn(
+        "merge_institution_fees writes to the frozen extracted_fees table. "
+        "Use fee_crawler.agents.extractor.extract_batch instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # Get existing non-rejected fees keyed by category
     existing_fees = db.fetchall(
         """SELECT id, fee_name, amount, frequency, conditions, fee_category,

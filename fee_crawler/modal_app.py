@@ -137,6 +137,34 @@ async def run_discovery():
         raise
 
 
+async def _run_extractor(job_name: str, doc_type: str | None, size: int) -> str:
+    """Shared body for the agentic PDF / browser extraction crons.
+
+    Calls extract_batch(...) directly via asyncpg — no subprocess, no legacy
+    `python -m fee_crawler crawl` (which writes the frozen extracted_fees
+    table). Every fee write goes through create_fee_raw → agent gateway →
+    fees_raw, with audit + budget enforcement applied per-call.
+    """
+    import os
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        config = ExtractorConfig(
+            document_type=doc_type,
+            include_failing=True,
+        )
+        result = await extract_batch(conn, size=size, config=config)
+        _mark_job_completion(job_name, "ok")
+        return f"{job_name}: {result.to_dict()}"
+    except Exception:
+        _mark_job_completion(job_name, "failed")
+        raise
+    finally:
+        await conn.close()
+
+
 @app.function(
     schedule=modal.Cron("0 3 * * *"),
     timeout=10800,
@@ -144,22 +172,9 @@ async def run_discovery():
     memory=1024,
     image=pdf_image,
 )
-def run_pdf_extraction():
-    """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
-    import os
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    try:
-        result = run_checked(
-            ["python3", "-m", "fee_crawler", "crawl",
-             "--limit", "500", "--workers", "4", "--include-failing",
-             "--doc-type", "pdf"],
-            env=env, timeout=7200,
-        )
-        _mark_job_completion("run_pdf_extraction", "ok")
-        return result.stdout[-1000:] if result.stdout else ""
-    except Exception:
-        _mark_job_completion("run_pdf_extraction", "failed")
-        raise
+async def run_pdf_extraction():
+    """Nightly PDF extraction via the extractor agent → fees_raw."""
+    return await _run_extractor("run_pdf_extraction", doc_type="pdf", size=500)
 
 
 @app.function(
@@ -169,21 +184,9 @@ def run_pdf_extraction():
     memory=2048,
     image=browser_image,
 )
-def run_browser_extraction():
-    """Nightly browser extraction: Playwright for JS-rendered pages."""
-    import os
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    try:
-        result = run_checked(
-            ["python3", "-m", "fee_crawler", "crawl",
-             "--limit", "500", "--workers", "2", "--include-failing"],
-            env=env, timeout=10800,
-        )
-        _mark_job_completion("run_browser_extraction", "ok")
-        return result.stdout[-1000:] if result.stdout else ""
-    except Exception:
-        _mark_job_completion("run_browser_extraction", "failed")
-        raise
+async def run_browser_extraction():
+    """Nightly browser extraction via the extractor agent → fees_raw."""
+    return await _run_extractor("run_browser_extraction", doc_type=None, size=500)
 
 
 # D-05 pivot (Phase 62b, Plan 62B-08): Modal Starter tier caps at 5 cron slots.
@@ -547,10 +550,55 @@ class ExtractRequest(_BaseModel):
     target_id: int
 
 
+class ExtractBatchRequest(_BaseModel):
+    size: int = 100
+    document_type: str | None = None  # "pdf" / "html" / None=both
+    include_failing: bool = False
+
+
+@app.function(
+    secrets=secrets,
+    timeout=14400,
+    memory=2048,
+    image=browser_image,
+)
+@modal.fastapi_endpoint(method="POST")
+async def extract_batch_endpoint(item: ExtractBatchRequest) -> dict:
+    """Manual trigger for the extractor agent (mirrors the nightly cron path).
+
+    Use cases: re-run after a discovery sweep, smoke-test a fresh deploy,
+    one-shot recrawl of a known-broken cohort. The body is the same code
+    path as run_pdf_extraction / run_browser_extraction.
+    """
+    import os
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        cfg = ExtractorConfig(
+            document_type=item.document_type,
+            include_failing=item.include_failing,
+        )
+        result = await extract_batch(conn, size=item.size, config=cfg)
+        return {"ok": True, **result.to_dict()}
+    finally:
+        await conn.close()
+
+
 @app.function(secrets=secrets, timeout=180, memory=2048, image=browser_image)
 @modal.fastapi_endpoint(method="POST")
 def extract_single(item: ExtractRequest) -> dict:
-    """HTTP endpoint to extract fees from a single institution by ID."""
+    """HTTP endpoint to extract fees from a single institution by ID.
+
+    DEPRECATED (2026-05-24): this endpoint still routes through the legacy
+    `state_agent._write_fees` path, which writes to the frozen extracted_fees
+    table (blocked at the DB by 20260425_freeze_extracted_fees_writes.sql,
+    requires SET LOCAL app.allow_legacy_writes='true' to succeed). Migrate
+    callers to the new extract_batch_endpoint with size=1 + a per-target
+    selector once that selector exists, or to a future extract_single_agentic
+    HTTP wrapper around the extractor agent.
+    """
     import os
     import json
     import psycopg2

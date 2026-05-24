@@ -267,7 +267,25 @@ def run_state_agent(
 
 
 def _write_fees(conn, crawl_target_id: int, fees: list[dict]):
-    """Write extracted fees to the database."""
+    """Write extracted fees to the database.
+
+    DEPRECATED (2026-05-24): writes to the frozen `extracted_fees` table.
+    Blocked at the DB layer by 20260425_freeze_extracted_fees_writes.sql
+    unless the transaction has explicitly set `app.allow_legacy_writes='true'`.
+    New code MUST go through fee_crawler.agents.extractor.extract_batch
+    (writes fees_raw via the agent gateway). This function is kept temporarily
+    for the modal_app.py::extract_single endpoint and a few one-shot scripts
+    until those callers migrate.
+    """
+    import warnings
+    warnings.warn(
+        "fee_crawler.agents.state_agent._write_fees is deprecated; "
+        "use fee_crawler.agents.extractor.extract_batch (writes fees_raw "
+        "via the agent gateway). This path writes to the frozen "
+        "extracted_fees table and will fail without the legacy kill-switch.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     cur = conn.cursor()
 
     # Remove reviews for non-approved fees first (FK constraint)
