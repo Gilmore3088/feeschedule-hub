@@ -302,6 +302,46 @@ async def get_agent_lessons(
 # ---------------------------------------------------------------------------
 
 @read_only_tool(
+    name="get_fee_change_events",
+    description=(
+        "Recent fee_change_events: amount changes detected by the crawler, "
+        "with previous + new amounts and change_type. Optional filters: "
+        "fee_category, days (default 30, max 365), institution_id. "
+        "Returns up to `limit` events most-recent-first. Lets Hamilton "
+        "answer 'what changed recently?' without lineage trace."
+    ),
+)
+async def get_fee_change_events(
+    fee_category: Optional[str] = None,
+    institution_id: Optional[int] = None,
+    days: int = 30,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    days = max(1, min(int(days or 30), 365))
+    limit = max(1, min(int(limit or 50), 200))
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        where = ["detected_at > NOW() - ($1 || ' days')::interval"]
+        params: list[Any] = [str(days)]
+        if fee_category:
+            where.append(f"fee_category = ${len(params) + 1}")
+            params.append(fee_category)
+        if institution_id is not None:
+            where.append(f"crawl_target_id = ${len(params) + 1}")
+            params.append(int(institution_id))
+        params.append(limit)
+        sql = (
+            "SELECT id, crawl_target_id, fee_category, previous_amount, "
+            "       new_amount, change_type, detected_at "
+            "  FROM fee_change_events "
+            " WHERE " + " AND ".join(where) +
+            f" ORDER BY detected_at DESC LIMIT ${len(params)}"
+        )
+        rows = await conn.fetch(sql, *params)
+    return [dict(r) for r in rows]
+
+
+@read_only_tool(
     name="get_fee_trend",
     description=(
         "Month-over-month and quarter-over-quarter deltas for a given "

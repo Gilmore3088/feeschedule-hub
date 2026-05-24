@@ -88,15 +88,32 @@ async def _lookup_cache(
     conn: asyncpg.Connection,
     normalized_names: list[str],
 ) -> dict[str, tuple[Optional[str], float]]:
-    """Bulk cache lookup by cache_key. Returns {cache_key: (canonical_key, confidence)}."""
+    """Bulk cache lookup by cache_key. Returns {cache_key: (canonical_key, confidence)}.
+
+    Q-03 (product-focus round): only return entries created within the
+    last CACHE_TTL_DAYS days. Older entries fall through to LLM, which
+    refreshes the cache row (ON CONFLICT DO UPDATE in upsert path).
+    Stops a bad early classification from poisoning every matching row
+    forever — at the cost of one LLM call per affected row per month.
+    """
     if not normalized_names:
         return {}
     rows = await conn.fetch(
         "SELECT cache_key, canonical_fee_key, confidence "
-        "FROM classification_cache WHERE cache_key = ANY($1::TEXT[])",
+        "FROM classification_cache "
+        " WHERE cache_key = ANY($1::TEXT[]) "
+        "   AND created_at > NOW() - ($2 || ' days')::interval",
         normalized_names,
+        str(CACHE_TTL_DAYS),
     )
     return {r["cache_key"]: (r["canonical_fee_key"], float(r["confidence"])) for r in rows}
+
+
+# Days a classification_cache entry is treated as authoritative. After
+# this window the lookup misses and Darwin re-asks the LLM. Set high
+# enough to keep cache useful (90%+ hit rate) and low enough that bad
+# answers age out within a quarter.
+CACHE_TTL_DAYS = 30
 
 
 async def _promote_or_cache(
