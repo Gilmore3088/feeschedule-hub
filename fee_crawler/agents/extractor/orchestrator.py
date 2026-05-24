@@ -273,8 +273,13 @@ async def _write_via_gateway(
     fees: list[dict],
     doc_type: str,
     content_hash: Optional[str],
+    agent_name: str = AGENT_NAME,
 ) -> int:
-    """Insert each fee through create_fee_raw. Returns count successfully written."""
+    """Insert each fee through create_fee_raw under `agent_name`.
+
+    State agents pass their own name ('state_tx', 'state_ca', etc.) so the
+    audit trail and per-state budgets reflect the real actor.
+    """
     written = 0
     for fee in fees:
         name = (fee.get("fee_name") or "").strip()
@@ -311,8 +316,8 @@ async def _write_via_gateway(
                     conditions=fee.get("conditions"),
                     outlier_flags=[],
                 ),
-                agent_name=AGENT_NAME,
-                reasoning_prompt=f"extractor:{doc_type}",
+                agent_name=agent_name,
+                reasoning_prompt=f"{agent_name}:{doc_type}",
                 reasoning_output=reasoning_output,
             )
             written += 1
@@ -332,6 +337,7 @@ async def extract_batch(
     config: ExtractorConfig = DEFAULT,
     target_ids: Optional[list[int]] = None,
     state_code: Optional[str] = None,
+    agent_name: Optional[str] = None,
     on_event: Optional[Callable[[BatchEvent], Awaitable[None]]] = None,
 ) -> BatchResult:
     """Process up to `size` targets. Designed to be called from Modal crons.
@@ -343,12 +349,16 @@ async def extract_batch(
     Optional filters (mutually combinable):
       target_ids: explicit row-id selection (HTTP "extract this one now").
       state_code: 2-letter state filter (HTTP "extract all of TX").
+      agent_name: identity to bill writes against. Default 'extractor'.
+                  State agents pass 'state_xx' so audits/budgets bucket
+                  by state. The agent_name MUST be in agent_registry.
     """
     from fee_crawler.config import load_config
 
     t0 = time.time()
     result = BatchResult()
     app_config = load_config()
+    effective_agent = agent_name or AGENT_NAME
 
     async def emit(ev_type: str, **payload: Any) -> None:
         if on_event:
@@ -399,6 +409,7 @@ async def extract_batch(
                 outcome["fees"],
                 outcome["document_type"],
                 outcome["content_hash"],
+                agent_name=effective_agent,
             )
             result.extracted += 1
             result.fees_written += written
@@ -407,7 +418,7 @@ async def extract_batch(
             # spend even without real usage data. Same fix shape as
             # Darwin/Magellan got in adjacent commits.
             from fee_crawler.agent_tools.budget import account_budget
-            await account_budget(conn, AGENT_NAME, _COST_PER_EXTRACTION_CENTS)
+            await account_budget(conn, effective_agent, _COST_PER_EXTRACTION_CENTS)
             await emit(
                 "target_done",
                 target_id=target.id,

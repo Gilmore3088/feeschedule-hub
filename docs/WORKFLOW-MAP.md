@@ -18,12 +18,11 @@ crawlers. Status:
 | **magellan** | `data` | `fee_crawler/agents/magellan/` | 🟢 wired — 05:00 UTC, URL rescue → fees_raw |
 | **knox** | `supervisor` | `fee_crawler/agents/knox/` | 🟢 wired — 05:00 UTC, adversarial review |
 | **extractor** | `data` | `fee_crawler/agents/extractor/` (new, 2026-05-24) | 🟢 wired — 03:00 + 04:00 UTC, bulk extraction → fees_raw |
-| **atlas** | `orchestrator` | `fee_crawler/agent_tools/tools_agent_infra.py:131,177` (privs only) | 🔴 **registered but no code** — concept agent; orchestrator role currently fulfilled by `run_post_processing` Modal cron |
-| **state_al, state_ak, … state_dc** (×51) | `state_agent` | `parent_agent = 'knox'` | 🔴 **placeholder rows only** — no concrete agent classes; pre-framework `agents/state_agent.py:run_state_agent(state_code)` was the closest thing and is now deprecated |
+| **atlas** | `orchestrator` | `fee_crawler/agents/atlas/orchestrator.py` (new, 2026-05-25) | 🟢 **wired** — every-minute Modal dispatcher invokes `dispatch_state_fleet`; picks stalest 2 states per tick; per_day $2 budget |
+| **state_al, state_ak, … state_dc** (×51) | `state_agent` | `fee_crawler/agents/state/orchestrator.py` (new, 2026-05-25) — shared thin wrapper around extractor with per-state filter + identity override | 🟢 **wired** — invoked by Atlas; each runs under its own `agent_name='state_xx'`; per_cycle $50 + per_day $2 budgets |
 
-**Wired** (5/6 specialized): hamilton, darwin, magellan, knox, extractor.
-**Phantom** (1/6 specialized): atlas.
-**Phantom** (51/51 state agents): registered, budgeted, never executed.
+**Wired** (7/7 specialized): hamilton, darwin, magellan, knox, extractor, atlas, state-fleet shared wrapper.
+**Wired** (51/51 state agents): all dispatched by Atlas based on staleness ranking; each runs under its own identity.
 
 ---
 
@@ -80,8 +79,35 @@ crawlers. Status:
    │  • adversarial_gate (LOOP-07 improve guard)         🔴 UNFIRED   │
    │  • agent_lessons (LOOP-05 memory)                   🔴 EMPTY     │
    │  • MCP read server (external query API)             🟡 LIMITED   │
-   │  • atlas (orchestrator)                             🔴 PHANTOM   │
-   │  • state_al…state_dc (51 state agents)              🔴 PHANTOM   │
+   │  • atlas (orchestrator)                             🟢 WIRED     │
+   │  • state_al…state_dc (51 state agents)              🟢 WIRED     │
+   └──────────────────────────────────────────────────────────────────┘
+
+   ┌──────────────────────────────────────────────────────────────────┐
+   │  ATLAS DISPATCH FLOW (new — runs every minute):                  │
+   │                                                                  │
+   │  modal_app.run_post_processing (every minute)                    │
+   │    │                                                             │
+   │    ▼                                                             │
+   │  atlas.dispatch_state_fleet(states_per_tick=2)                   │
+   │    │                                                             │
+   │    ├─▶ select_next_states  → sort by (never_run, stale_at)       │
+   │    │                         from crawl_targets LEFT JOIN        │
+   │    │                         fees_raw                            │
+   │    │                                                             │
+   │    ├─▶ for each plan:                                            │
+   │    │    ├─ check workers_last_run('atlas_dispatch_<state>')      │
+   │    │    │   → if recent: skip                                    │
+   │    │    └─ run_state_agent(state_code)                           │
+   │    │         └─▶ extract_batch(state_code=X, agent_name='state_x')│
+   │    │              ├─▶ download → extract → create_fee_raw         │
+   │    │              │   (all audited under state_xx identity)       │
+   │    │              └─▶ account_budget('state_xx', cents)           │
+   │    │                                                             │
+   │    └─▶ mark workers_last_run('atlas_dispatch_<state>', 'ok')     │
+   │                                                                  │
+   │  2 states × 100 targets/min × 60 min/hr × 24hr = ~288K/day      │
+   │  (capacity; actual rate depends on per_day budget caps)          │
    └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -514,8 +540,8 @@ T+1d+  /api/v1/fees?institution=8751 returns the 12 fees
 | 3 | 🔴 HIGH | LOOP-04/05/06/07 | Defined but never invoked. System can't learn. `agent_lessons` empty. |
 | 4 | 🔴 HIGH | `agent_messaging/` | Bus is built but no agent listens; Magellan→Darwin handoff is poll-based, 5min latency |
 | 5 | 🔴 HIGH | `canary_corpus_path` | Never set on any agent → adversarial gate would reject 100% of IMPROVEs |
-| **6** | **🔴 HIGH** | **Atlas (Stage 0)** | **Registered in agent_registry with exclusive privileges (`register_state_agent`, `seed_agent_budget`) but has NO implementation code. Orchestrator role is filled by `run_post_processing` Modal cron — a Python function, not an agent.** |
-| **7** | **🔴 HIGH** | **State agents ×51 (Stage 0)** | **All 51 state agents (`state_al…state_dc`) are placeholder rows in agent_registry with parent_agent=knox. No `class StateAgent_AL(AgentBase)` exists. The per-state fleet model from the design is unbuilt; extractor handles all 50 states in one batch instead.** |
+| ~~6~~ | ✅ FIXED | Atlas (Stage 0) | ~~Phantom agent~~ — `fee_crawler/agents/atlas/orchestrator.py` (new 2026-05-25). Every-minute Modal dispatcher invokes `dispatch_state_fleet` to pick the 2 stalest states; per-state runs gated by `workers_last_run('atlas_dispatch_xx')` markers. |
+| ~~7~~ | ✅ FIXED | State agents ×51 (Stage 0) | ~~Placeholder rows~~ — `fee_crawler/agents/state/orchestrator.py` (new 2026-05-25). Shared thin wrapper around extractor; each state runs under its own `agent_name='state_xx'` with state_code-filtered candidate selection. |
 | **8** | **🔴 HIGH** | **Hamilton cost ledger (Stage 7)** | **Hamilton spend tracked in `research_usage` table, NOT `agent_budgets`. Two parallel cost systems with no UNION; can't enforce one cap or see one number for "today's total LLM spend."** |
 | 9 | 🟡 MED  | Darwin throughput | 103K backlog × 2500/day cap = ~40 days. Cap is operator-controllable. |
 | 10 | 🟡 MED  | Stage 4 publish | No batch-size cap; bad Darwin batch could publish corrupted data at scale |

@@ -216,6 +216,29 @@ async def run_post_processing():
         # Never let tick dispatch block the daily pipeline.
         print(f"dispatch_ticks failed (non-fatal): {exc}")
 
+    # Every minute: Atlas orchestrator picks the stalest state and runs its
+    # state agent. 2 states/min × 100 targets/state = ~3K extractions/day in
+    # the background — without touching a Modal cron slot. Each state runs
+    # under its own agent_name so audit + budget bucket per-state.
+    # Idempotent: workers_last_run('atlas_dispatch_<state>') gates per-state
+    # so we don't double-run within a 23h window.
+    try:
+        import asyncpg
+        from fee_crawler.agents.atlas import dispatch_state_fleet
+        atlas_conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            atlas_result = await dispatch_state_fleet(
+                atlas_conn, states_per_tick=2, size_per_state=100,
+            )
+            if atlas_result.runs:
+                print(f"atlas: dispatched {len(atlas_result.runs)} state(s), "
+                      f"{sum(r.fees_written for r in atlas_result.runs)} fees, "
+                      f"${sum(r.cost_usd for r in atlas_result.runs):.4f}")
+        finally:
+            await atlas_conn.close()
+    except Exception as exc:
+        print(f"atlas dispatch failed (non-fatal): {exc}")
+
     now = datetime.now(timezone.utc)
 
     # 05:00-05:09 UTC window: Magellan rescue + Knox review.
@@ -554,6 +577,71 @@ class ExtractBatchRequest(_BaseModel):
     size: int = 100
     document_type: str | None = None  # "pdf" / "html" / None=both
     include_failing: bool = False
+
+
+class AtlasDispatchRequest(_BaseModel):
+    states_per_tick: int = 2
+    size_per_state: int = 100
+    only_states: list[str] | None = None  # restrict to subset, e.g. ["TX","CA"]
+    force: bool = False                    # bypass once-per-day marker
+
+
+class StateRunRequest(_BaseModel):
+    state_code: str           # 2-letter, case-insensitive
+    size: int = 100
+
+
+@app.function(
+    secrets=secrets,
+    timeout=14400,
+    memory=2048,
+    image=browser_image,
+)
+@modal.fastapi_endpoint(method="POST")
+async def atlas_dispatch(item: AtlasDispatchRequest) -> dict:
+    """Manual Atlas tick — same code path as the per-minute dispatcher.
+
+    Use when: you want to force-extract a specific state, drain a backlog
+    faster than the per-minute pace, or smoke-test after deploy. force=true
+    bypasses the once-per-day marker.
+    """
+    import os
+    import asyncpg
+    from fee_crawler.agents.atlas import dispatch_state_fleet
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        result = await dispatch_state_fleet(
+            conn,
+            states_per_tick=item.states_per_tick,
+            size_per_state=item.size_per_state,
+            only_states=item.only_states,
+            force=item.force,
+        )
+        return {"ok": True, **result.to_dict()}
+    finally:
+        await conn.close()
+
+
+@app.function(
+    secrets=secrets,
+    timeout=14400,
+    memory=2048,
+    image=browser_image,
+)
+@modal.fastapi_endpoint(method="POST")
+async def state_run(item: StateRunRequest) -> dict:
+    """Run extraction for one specific state under its state agent identity."""
+    import os
+    import asyncpg
+    from fee_crawler.agents.state import run_state_agent
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        result = await run_state_agent(conn, item.state_code, size=item.size)
+        return {"ok": True, **result.to_dict()}
+    finally:
+        await conn.close()
 
 
 @app.function(
