@@ -250,7 +250,7 @@ export async function getSegmentOutliers(
 
   const flaggedConditions = [
     ...conditions.filter((c) => c !== "ef.amount IS NOT NULL" && c !== "ef.amount > 0"),
-    "ef.review_status = 'flagged'",
+    "ef.review_status = 'challenged'",
   ];
 
   const flagged = await sql.unsafe(

@@ -281,18 +281,33 @@ The team has adopted these as the bar for "done." They are non-negotiable.
 
 ---
 
-## What ships THIS WEEK (no further approvals)
+## What shipped in commits 1b03494 + (this commit)
 
-Implementing in this session, then committing:
+| ID | Status |
+|---|---|
+| Q-02 per-state coverage | ✅ `src/lib/crawler-db/coverage.ts` + `/admin/agents/coverage` page |
+| Q-03 classification_cache TTL | ✅ `_lookup_cache` filters `created_at > NOW() - 30 days` |
+| Q-04 review_status migration | ✅ all `'staged'`/`'flagged'`/`'pending'` references in TS migrated |
+| Q-05 rolled_back_at filter | ✅ audit shows every `fees_published` reader filters correctly |
+| Q-06 Knox rejection summary | ✅ `summarize_recent_rejections` + per-minute weekly gate + MCP read tool |
+| R-04 unit-test floor | ✅ darwin cache + knox rejections both have unit tests |
+| C-04 `get_fee_change_events` MCP tool | ✅ |
 
-1. **Q-02 coverage-by-state query** — new `getCoverageByState()` for `/admin/agents/overview`
-2. **Q-03 classification_cache TTL** — schema column + filter in lookup
-3. **R-04 unit-test floor for state agent module** — adds the missing test file
-4. **C-04 `get_fee_change_events` MCP tool** — exposes change-history to Hamilton
+**34 unit tests across 5 test files, all green in 2.4s.**
 
-Each of these is bounded scope (< 1 hour) and ships under the quality
-bars above. Everything else is captured in the issue table for future
-sessions.
+## Still open (Q-* + R-* + S-* + C-* + W-*)
+
+- **Q-01 Drain Darwin backlog** — operator action, raise env var
+- **Q-07 CU coverage audit** — needs NCUA list comparison; operator data
+- **Q-08 Migrate 13 TS write paths to gateway tools** — multi-day refactor
+- **R-01 Cron failure alerting** — partially shipped; alert routing TBD
+- **R-02 Local CLI for any cron** — design work
+- **R-03 Migration order test** — quick fix; deferred
+- **S-01/02/03** — parallelization + slot audit + historical backfill
+- **C-01/02/03** — historical depth, scheduled digest, what-if simulation
+- **W-01..W-06** — UX refinements (lower priority than data)
+
+All tracked at the top of this doc.
 
 ---
 

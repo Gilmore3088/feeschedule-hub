@@ -252,6 +252,23 @@ async def run_post_processing():
     except Exception as exc:
         print(f"review_tick failed (non-fatal): {exc}")
 
+    # Every minute (gated): Knox rejection summary — runs once per 23h
+    # via workers_last_run marker. Writes a 'rejection_themes' lesson to
+    # agent_lessons so operators + Hamilton see the top reasons Knox is
+    # rejecting fees. Q-06 from docs/team/05-product-focus.md.
+    try:
+        import asyncpg
+        from fee_crawler.agents.knox.rejections import maybe_run_weekly_summary
+        rs_conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            rs = await maybe_run_weekly_summary(rs_conn)
+            if rs:
+                print(f"knox rejection summary: {rs.to_dict()}")
+        finally:
+            await rs_conn.close()
+    except Exception as exc:
+        print(f"knox rejection summary failed (non-fatal): {exc}")
+
     # Every minute: Atlas orchestrator picks the stalest state and runs its
     # state agent. 2 states/min × 100 targets/state = ~3K extractions/day in
     # the background — without touching a Modal cron slot. Each state runs

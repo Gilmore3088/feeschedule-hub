@@ -302,6 +302,31 @@ async def get_agent_lessons(
 # ---------------------------------------------------------------------------
 
 @read_only_tool(
+    name="get_knox_rejection_summary",
+    description=(
+        "Top reasons Knox is rejecting fees over a recent window. "
+        "Optional: days (default 7), top_n (default 10). Returns "
+        "total_rejections, distinct_institutions, and top_reasons[] "
+        "sorted by frequency. Backed by the same data the weekly "
+        "summarizer writes to agent_lessons; this tool computes live "
+        "so Hamilton can ask 'what's Knox been rejecting today?' "
+        "without waiting for the next batch."
+    ),
+)
+async def get_knox_rejection_summary(
+    days: int = 7,
+    top_n: int = 10,
+) -> dict[str, Any]:
+    from fee_crawler.agents.knox.rejections import summarize_recent_rejections
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        s = await summarize_recent_rejections(
+            conn, days=days, top_n=top_n, write_lesson=False,
+        )
+    return s.to_dict()
+
+
+@read_only_tool(
     name="get_fee_change_events",
     description=(
         "Recent fee_change_events: amount changes detected by the crawler, "

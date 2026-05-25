@@ -358,15 +358,15 @@ export async function getCategoryReviewStats(): Promise<CategoryReviewStats[]> {
   const rows = await sql`
     SELECT
       fee_category,
-      SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
-      SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
-      SUM(CASE WHEN review_status = 'pending' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN review_status = 'verified' THEN 1 ELSE 0 END) as staged,
+      SUM(CASE WHEN review_status = 'challenged' THEN 1 ELSE 0 END) as flagged,
+      SUM(CASE WHEN review_status = 'verified' THEN 1 ELSE 0 END) as pending,
       SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
       SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected,
       COUNT(*) as total,
       ROUND(AVG(extraction_confidence)::numeric, 2) as avg_confidence,
       SUM(CASE
-        WHEN review_status IN ('staged', 'pending')
+        WHEN review_status = 'verified'
           AND extraction_confidence >= 0.9
           AND (validation_flags IS NULL OR validation_flags = '[]'::jsonb)
         THEN 1 ELSE 0
