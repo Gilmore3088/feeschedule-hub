@@ -209,106 +209,121 @@ async def run_browser_extraction():
     memory=1024,
 )
 async def run_post_processing():
-    """Every-minute dispatcher for agent review_ticks + once-daily post-processing pipeline."""
+    """Every-minute dispatcher.
+
+    S-02 (product-focus round): the 7 independent agent tasks below now
+    run concurrently via asyncio.gather(return_exceptions=True). Each
+    opens its own asyncpg connection, so no shared state. Order of
+    execution doesn't matter — atlas creating new fees_raw and darwin
+    consuming its inbox can race; worst case is the message processes
+    on the next minute-tick.
+
+    Includes R-01: pipeline_health check emits health_alert agent_events
+    for any cron that's stale beyond its threshold.
+    """
+    import asyncio
     import os
-    import psycopg2
     from datetime import datetime, timezone, timedelta
 
-    # Every minute: dispatch pending agent review_ticks (LOOP-03 D-05 pivot).
-    try:
+    # ── 7 concurrent tasks ────────────────────────────────────────────
+    async def _safe(name: str, coro):
+        """Run a task; never raise; return ('name', result|exception)."""
+        try:
+            return (name, await coro)
+        except Exception as exc:
+            print(f"{name} failed (non-fatal): {exc!r}")
+            return (name, exc)
+
+    async def _t_dispatch_ticks():
         from fee_crawler.agent_base.dispatcher import dispatch_ticks
-        dispatched = await dispatch_ticks()
-        if dispatched:
-            print(f"dispatch_ticks: invoked {dispatched} agent review(s)")
-    except Exception as exc:
-        # Never let tick dispatch block the daily pipeline.
-        print(f"dispatch_ticks failed (non-fatal): {exc}")
+        n = await dispatch_ticks()
+        if n:
+            print(f"dispatch_ticks: invoked {n} agent review(s)")
+        return n
 
-    # Every minute: drain Darwin's inbox so coverage_request messages
-    # from extractor / state agents wake up classification immediately
-    # instead of waiting 5min for the 05:00 cron. Bounded by max_messages
-    # and per_day budget so this can't blow the daily cap.
-    try:
+    async def _t_darwin_inbox():
         from fee_crawler.agents.darwin.inbox import drain_darwin_inbox
-        inbox = await drain_darwin_inbox(max_messages=5, batch_size=100)
-        if inbox.messages_processed > 0:
-            print(f"darwin inbox: {inbox.to_dict()}")
-    except Exception as exc:
-        print(f"darwin inbox drain failed (non-fatal): {exc}")
+        r = await drain_darwin_inbox(max_messages=5, batch_size=100)
+        if r.messages_processed > 0:
+            print(f"darwin inbox: {r.to_dict()}")
+        return r
 
-    # Every minute: run LOOP-04→07 review tick for one agent (rotate so
-    # the whole fleet gets reviewed once every ~7 minutes). This is the
-    # piece that populates agent_lessons and fires the adversarial gate.
-    # See fee_crawler/agent_base/review_tick.py.
-    try:
+    async def _t_review_tick():
         from fee_crawler.agent_base.review_tick import run_review_tick
-        # Rotation by UTC minute keeps it deterministic + stateless.
-        _AGENTS = ("darwin", "magellan", "knox", "extractor",
-                   "discoverer", "atlas", "hamilton")
-        idx = datetime.now(timezone.utc).minute % len(_AGENTS)
-        tick = await run_review_tick(_AGENTS[idx])
-        if tick.lesson_committed or tick.events_seen > 0:
-            print(f"review_tick {_AGENTS[idx]}: {tick.to_dict()}")
-    except Exception as exc:
-        print(f"review_tick failed (non-fatal): {exc}")
+        agents = ("darwin", "magellan", "knox", "extractor",
+                  "discoverer", "atlas", "hamilton")
+        idx = datetime.now(timezone.utc).minute % len(agents)
+        r = await run_review_tick(agents[idx])
+        if r.lesson_committed or r.events_seen > 0:
+            print(f"review_tick {agents[idx]}: {r.to_dict()}")
+        return r
 
-    # Every minute (gated): Knox rejection summary — runs once per 23h
-    # via workers_last_run marker. Writes a 'rejection_themes' lesson to
-    # agent_lessons so operators + Hamilton see the top reasons Knox is
-    # rejecting fees. Q-06 from docs/team/05-product-focus.md.
-    try:
+    async def _t_knox_summary():
         import asyncpg
         from fee_crawler.agents.knox.rejections import maybe_run_weekly_summary
-        rs_conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
         try:
-            rs = await maybe_run_weekly_summary(rs_conn)
-            if rs:
-                print(f"knox rejection summary: {rs.to_dict()}")
+            r = await maybe_run_weekly_summary(conn)
+            if r:
+                print(f"knox rejection summary: {r.to_dict()}")
+            return r
         finally:
-            await rs_conn.close()
-    except Exception as exc:
-        print(f"knox rejection summary failed (non-fatal): {exc}")
+            await conn.close()
 
-    # Every minute: process due Hamilton digest subscriptions (C-02).
-    # Each subscription has a cadence (daily/weekly/monthly); the runner
-    # picks any with next_due_at <= NOW() and records a digest_run.
-    # max_runs=5/tick caps blast radius — a queue of 1000 subs drains
-    # in ~3.3h at the cap, which is fine for daily / weekly cadences.
-    try:
+    async def _t_hamilton_digests():
         import asyncpg
         from fee_crawler.agents.hamilton import process_due_digests
-        hd_conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
         try:
-            hd_results = await process_due_digests(hd_conn, max_runs=5)
-            if hd_results:
-                print(f"hamilton digests: {[r.to_dict() for r in hd_results]}")
+            r = await process_due_digests(conn, max_runs=5)
+            if r:
+                print(f"hamilton digests: {[x.to_dict() for x in r]}")
+            return r
         finally:
-            await hd_conn.close()
-    except Exception as exc:
-        print(f"hamilton digest runner failed (non-fatal): {exc}")
+            await conn.close()
 
-    # Every minute: Atlas orchestrator picks the stalest state and runs its
-    # state agent. 2 states/min × 100 targets/state = ~3K extractions/day in
-    # the background — without touching a Modal cron slot. Each state runs
-    # under its own agent_name so audit + budget bucket per-state.
-    # Idempotent: workers_last_run('atlas_dispatch_<state>') gates per-state
-    # so we don't double-run within a 23h window.
-    try:
+    async def _t_atlas_dispatch():
         import asyncpg
         from fee_crawler.agents.atlas import dispatch_state_fleet
-        atlas_conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
         try:
-            atlas_result = await dispatch_state_fleet(
-                atlas_conn, states_per_tick=2, size_per_state=100,
+            r = await dispatch_state_fleet(
+                conn, states_per_tick=2, size_per_state=100,
             )
-            if atlas_result.runs:
-                print(f"atlas: dispatched {len(atlas_result.runs)} state(s), "
-                      f"{sum(r.fees_written for r in atlas_result.runs)} fees, "
-                      f"${sum(r.cost_usd for r in atlas_result.runs):.4f}")
+            if r.runs:
+                print(f"atlas: dispatched {len(r.runs)} state(s), "
+                      f"{sum(x.fees_written for x in r.runs)} fees, "
+                      f"${sum(x.cost_usd for x in r.runs):.4f}")
+            return r
         finally:
-            await atlas_conn.close()
-    except Exception as exc:
-        print(f"atlas dispatch failed (non-fatal): {exc}")
+            await conn.close()
+
+    async def _t_pipeline_health():
+        # R-01: emit health_alert agent_events for stale crons.
+        import asyncpg
+        from fee_crawler.agent_base.pipeline_health import check_pipeline_health
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            r = await check_pipeline_health(conn)
+            if r.alerts_emitted > 0:
+                print(f"pipeline_health: {r.to_dict()}")
+            return r
+        finally:
+            await conn.close()
+
+    # asyncio.gather runs all 7 concurrently. return_exceptions=True so
+    # one failure doesn't cancel the others — _safe also catches +
+    # logs, defense-in-depth.
+    await asyncio.gather(
+        _safe("dispatch_ticks",   _t_dispatch_ticks()),
+        _safe("darwin_inbox",     _t_darwin_inbox()),
+        _safe("review_tick",      _t_review_tick()),
+        _safe("knox_summary",     _t_knox_summary()),
+        _safe("hamilton_digests", _t_hamilton_digests()),
+        _safe("atlas_dispatch",   _t_atlas_dispatch()),
+        _safe("pipeline_health",  _t_pipeline_health()),
+        return_exceptions=False,
+    )
 
     now = datetime.now(timezone.utc)
 

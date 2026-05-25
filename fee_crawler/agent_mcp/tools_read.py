@@ -302,6 +302,125 @@ async def get_agent_lessons(
 # ---------------------------------------------------------------------------
 
 @read_only_tool(
+    name="simulate_fee_change",
+    description=(
+        "C-03 what-if simulator. Given (institution_id, canonical_fee_key, "
+        "proposed_amount), return where the proposed amount sits in the peer "
+        "distribution: current_percentile vs proposed_percentile, plus the "
+        "peer cohort's p25/p50/p75/p90/p100 to give the asker context. "
+        "Cohort filter: same charter_type + same state by default; override "
+        "with cohort='national' for a US-wide comparison."
+    ),
+)
+async def simulate_fee_change(
+    institution_id: int,
+    canonical_fee_key: str,
+    proposed_amount: float,
+    cohort: str = "state",   # 'state' | 'national'
+) -> dict[str, Any]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Step 1: this institution's current posture for the fee.
+        cur_row = await conn.fetchrow(
+            """SELECT fp.amount,
+                      ct.state_code, ct.charter_type, ct.institution_name
+                 FROM fees_published fp
+                 JOIN crawl_targets ct ON ct.id = fp.institution_id
+                WHERE fp.institution_id = $1
+                  AND fp.canonical_fee_key = $2
+                  AND fp.rolled_back_at IS NULL
+                ORDER BY fp.published_at DESC
+                LIMIT 1""",
+            institution_id, canonical_fee_key,
+        )
+        if cur_row is None:
+            return {
+                "error": "institution_or_fee_not_found",
+                "institution_id": institution_id,
+                "canonical_fee_key": canonical_fee_key,
+            }
+
+        cur_amount = float(cur_row["amount"]) if cur_row["amount"] is not None else None
+        state = cur_row["state_code"]
+        charter = cur_row["charter_type"]
+        inst_name = cur_row["institution_name"]
+
+        # Step 2: peer cohort amounts. Same charter_type; same state
+        # (default) or national.
+        peer_where = [
+            "fp.canonical_fee_key = $1",
+            "fp.rolled_back_at IS NULL",
+            "ct.charter_type = $2",
+            "fp.amount IS NOT NULL",
+            "fp.institution_id <> $3",
+        ]
+        params: list[Any] = [canonical_fee_key, charter, institution_id]
+        if cohort == "state":
+            peer_where.append(f"ct.state_code = ${len(params) + 1}")
+            params.append(state)
+
+        peers = await conn.fetch(
+            f"""SELECT fp.amount::float AS amt
+                  FROM fees_published fp
+                  JOIN crawl_targets ct ON ct.id = fp.institution_id
+                 WHERE {' AND '.join(peer_where)}""",
+            *params,
+        )
+        peer_amounts = sorted([float(r["amt"]) for r in peers])
+
+        if not peer_amounts:
+            return {
+                "error": "no_peer_cohort_data",
+                "institution_id": institution_id,
+                "canonical_fee_key": canonical_fee_key,
+                "cohort": cohort,
+                "current_amount": cur_amount,
+            }
+
+        # Step 3: percentile helpers
+        def _pct_at(values: list[float], target: float) -> float:
+            """Returns the percentile rank (0-100) of `target` in `values`.
+            Linear interpolation between neighboring entries."""
+            n = len(values)
+            below = sum(1 for v in values if v < target)
+            equal = sum(1 for v in values if v == target)
+            # Standard "average percentile" definition; same one
+            # scipy.stats.percentileofscore uses with kind='mean'.
+            return round(((below + equal / 2) / n) * 100, 1)
+
+        def _percentile(values: list[float], p: float) -> float:
+            if not values:
+                return 0.0
+            k = (len(values) - 1) * (p / 100.0)
+            f, c = int(k), min(int(k) + 1, len(values) - 1)
+            if f == c:
+                return values[f]
+            return values[f] + (values[c] - values[f]) * (k - f)
+
+        return {
+            "institution_id": institution_id,
+            "institution_name": inst_name,
+            "canonical_fee_key": canonical_fee_key,
+            "cohort": cohort,
+            "cohort_state": state if cohort == "state" else None,
+            "cohort_charter": charter,
+            "cohort_size": len(peer_amounts),
+            "current_amount": cur_amount,
+            "proposed_amount": float(proposed_amount),
+            "current_percentile": (
+                _pct_at(peer_amounts, cur_amount) if cur_amount is not None else None
+            ),
+            "proposed_percentile": _pct_at(peer_amounts, float(proposed_amount)),
+            "peer_p25": round(_percentile(peer_amounts, 25), 2),
+            "peer_p50": round(_percentile(peer_amounts, 50), 2),
+            "peer_p75": round(_percentile(peer_amounts, 75), 2),
+            "peer_p90": round(_percentile(peer_amounts, 90), 2),
+            "peer_min": peer_amounts[0],
+            "peer_max": peer_amounts[-1],
+        }
+
+
+@read_only_tool(
     name="get_my_digest_subscriptions",
     description=(
         "Active Hamilton digest subscriptions for a user. Returns each "

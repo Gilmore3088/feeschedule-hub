@@ -460,6 +460,61 @@ def cmd_pipeline_v2(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_run_cron(args: argparse.Namespace) -> None:
+    """R-02: locally invoke any Modal cron entry point.
+
+    Modal's @app.function-decorated crons are async functions inside
+    fee_crawler.modal_app. This command lets an operator run any of
+    them locally for debugging or emergency operation — useful when
+    Modal is down, when iterating on a cron body, or to verify a
+    deploy without waiting for the scheduled time.
+
+    DATABASE_URL must be set; the cron body itself reads everything
+    else from .env.local / Modal secrets.
+    """
+    import asyncio
+    import os
+
+    if not os.environ.get("DATABASE_URL"):
+        print("run-cron: DATABASE_URL not set; aborting.", file=sys.stderr)
+        sys.exit(2)
+
+    target = args.cron_name
+    available = {
+        "run_discovery":          "fee_crawler.modal_app:run_discovery",
+        "run_pdf_extraction":     "fee_crawler.modal_app:run_pdf_extraction",
+        "run_browser_extraction": "fee_crawler.modal_app:run_browser_extraction",
+        "run_post_processing":    "fee_crawler.modal_app:run_post_processing",
+        "ingest_data":            "fee_crawler.modal_app:ingest_data",
+        "test_connection":        "fee_crawler.modal_app:test_connection",
+    }
+    if target not in available:
+        print(
+            f"run-cron: unknown cron '{target}'. Available: "
+            + ", ".join(sorted(available)),
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    print(f"run-cron: invoking {available[target]} locally...")
+
+    # Import the underlying coroutine. Modal's @app.function wraps the
+    # original function; the .local() attribute (Modal SDK convention)
+    # returns the unwrapped callable. Falls back to plain attribute
+    # access if local() isn't present (test stubs, future Modal versions).
+    from fee_crawler import modal_app as _ma
+    fn = getattr(_ma, target)
+    runnable = getattr(fn, "local", None)
+    coro = (runnable() if runnable else fn())
+
+    result = asyncio.run(coro) if asyncio.iscoroutine(coro) else coro
+    print(f"run-cron: {target} completed.")
+    if result is not None:
+        # Most crons return a dict or summary string; print a brief preview.
+        preview = repr(result)
+        print(preview[:500] + ("..." if len(preview) > 500 else ""))
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     """Show database statistics."""
     config = load_config()
@@ -1169,6 +1224,18 @@ def main() -> None:
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
     stats_parser.set_defaults(func=cmd_stats)
+
+    # R-02: run-cron — locally invoke any Modal cron entry point.
+    run_cron_parser = subparsers.add_parser(
+        "run-cron",
+        help="Locally run a Modal cron (debug / Modal-down operator path)",
+    )
+    run_cron_parser.add_argument(
+        "cron_name",
+        help="One of: run_discovery, run_pdf_extraction, run_browser_extraction, "
+             "run_post_processing, ingest_data, test_connection",
+    )
+    run_cron_parser.set_defaults(func=cmd_run_cron)
 
     # ── Wave orchestrator ──────────────────────────────────────────────
     # ── Knowledge management ───────────────────────────────────────────
