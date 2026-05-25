@@ -373,8 +373,20 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Hamilton a question..."
+              placeholder={
+                // W-03: contextual placeholder so the empty conversation
+                // doesn't read as "cursor stuck at the bottom of an empty
+                // pane." The sample-prompts above show what's possible;
+                // the input prompts the user to type.
+                messages.length === 0
+                  ? "Type a question, or click one of the suggestions above…"
+                  : "Ask Hamilton a follow-up…"
+              }
               disabled={isLoading}
+              // W-03: autofocus on the input when the conversation is empty
+              // so the user's cursor lands in the right place on page open.
+              autoFocus={messages.length === 0}
+              aria-label="Hamilton chat input"
               className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
             />
             <button

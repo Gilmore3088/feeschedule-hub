@@ -233,12 +233,29 @@ function JobFreshnessBanner({
   health: Awaited<ReturnType<typeof getJobFreshness>>;
 }) {
   const stale = health.jobs.filter((j) => j.status === "stale" || j.status === "never_ran");
+  const everRan = health.jobs.filter((j) => j.last_completed_at).length;
+
+  // W-04: a fresh DB shouldn't trigger an alarming red banner just
+  // because no cron has ever fired here. Distinguish "deployment in
+  // progress" (no job has ever run → neutral) from "real outage"
+  // (some jobs have run before, some are now stale → red).
   if (stale.length === 0) {
     return (
       <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/20 px-4 py-2.5 flex items-center gap-2.5">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
         <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
           All {health.ok_count} scheduled jobs ran within their expected window.
+        </span>
+      </div>
+    );
+  }
+  if (everRan === 0) {
+    // Brand-new deploy / fresh DB — nobody's ever fired. Neutral.
+    return (
+      <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-900/20 px-4 py-2.5 flex items-center gap-2.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+        <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
+          Setup in progress — {stale.length} cron jobs scheduled, none have run yet. Deploy + apply migrations to start the pipeline.
         </span>
       </div>
     );

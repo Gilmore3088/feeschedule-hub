@@ -337,6 +337,13 @@ export function CommandPaletteTrigger() {
   return (
     <button
       onClick={handleClick}
+      type="button"
+      // W-01: explicit aria + title so the keyboard shortcut isn't the
+      // only hint that this opens a search palette (versus, e.g., a
+      // page-search filter).
+      aria-label="Open search palette — click or press Command-K"
+      aria-keyshortcuts="Meta+K Control+K"
+      title="Search institutions, fee categories, and fees (⌘K)"
       className="hidden md:flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500
                  hover:bg-gray-100 transition-colors dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08]"
     >
@@ -345,6 +352,7 @@ export function CommandPaletteTrigger() {
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
+        aria-hidden="true"
       >
         <path
           strokeLinecap="round"
@@ -353,7 +361,7 @@ export function CommandPaletteTrigger() {
           d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
         />
       </svg>
-      Search...
+      <span>Search</span>
       <kbd className="ml-1 px-1 py-0.5 rounded bg-gray-200 text-[10px] font-mono text-gray-500 dark:bg-white/[0.1] dark:text-gray-400">
         ⌘K
       </kbd>

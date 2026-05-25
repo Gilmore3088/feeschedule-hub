@@ -1237,6 +1237,24 @@ def main() -> None:
     )
     run_cron_parser.set_defaults(func=cmd_run_cron)
 
+    # S-03 / C-01: historical-backfill — ingest archived fee snapshots
+    hb_parser = subparsers.add_parser(
+        "historical-backfill",
+        help="Ingest archived fee snapshots from FDIC SDP / Wayback (S-03)",
+    )
+    hb_parser.add_argument("--source", required=True, choices=["fdic_sdp", "wayback_machine"])
+    hb_parser.add_argument("--years", type=int, default=5)
+    hb_parser.add_argument("--apply", action="store_true",
+                           help="Default is dry-run — re-run with --apply to actually fetch")
+    hb_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__("fee_crawler.commands.historical_backfill", fromlist=["main"]).main(
+                ["--source", args.source, "--years", str(args.years)]
+                + (["--apply"] if args.apply else [])
+            )
+        )
+    )
+
     # ── Wave orchestrator ──────────────────────────────────────────────
     # ── Knowledge management ───────────────────────────────────────────
     knowledge_parser = subparsers.add_parser(
