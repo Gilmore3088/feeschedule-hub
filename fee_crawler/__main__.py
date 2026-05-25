@@ -1237,6 +1237,22 @@ def main() -> None:
     )
     run_cron_parser.set_defaults(func=cmd_run_cron)
 
+    # Demo data — populate every Command Center surface so a fresh
+    # install can SEE what "live" looks like without Modal/Anthropic.
+    demo_parser = subparsers.add_parser(
+        "seed-demo",
+        help="Populate synthetic data so /admin/command looks alive",
+    )
+    demo_parser.add_argument("--clear", action="store_true",
+                              help="Remove demo rows instead of inserting")
+    demo_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__("fee_crawler.commands.seed_demo", fromlist=["main"]).main(
+                (["--clear"] if args.clear else [])
+            )
+        )
+    )
+
     # S-03 / C-01: historical-backfill — ingest archived fee snapshots
     hb_parser = subparsers.add_parser(
         "historical-backfill",
