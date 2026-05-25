@@ -281,7 +281,7 @@ The team has adopted these as the bar for "done." They are non-negotiable.
 
 ---
 
-## What shipped in commits 1b03494 + (this commit)
+## What shipped across commits 1b03494 / 5a13f05 / (this commit)
 
 | ID | Status |
 |---|---|
@@ -290,21 +290,23 @@ The team has adopted these as the bar for "done." They are non-negotiable.
 | Q-04 review_status migration | ✅ all `'staged'`/`'flagged'`/`'pending'` references in TS migrated |
 | Q-05 rolled_back_at filter | ✅ audit shows every `fees_published` reader filters correctly |
 | Q-06 Knox rejection summary | ✅ `summarize_recent_rejections` + per-minute weekly gate + MCP read tool |
-| R-04 unit-test floor | ✅ darwin cache + knox rejections both have unit tests |
+| **Q-08** legacy kill-switch removal | ✅ already done in 2026-05-24 cutover; verified zero `allow_legacy_writes` references in src/ |
+| **R-03** migration applier `--dry-run` | ✅ `node scripts/apply-migration.mjs --dry-run` lists pending + checksum + first stmt |
+| R-04 unit-test floor | ✅ darwin cache + knox rejections + hamilton digest all have unit tests |
 | C-04 `get_fee_change_events` MCP tool | ✅ |
+| **C-02** scheduled Hamilton digest | ✅ schema migration + runner module + per-minute dispatcher hook + MCP tool + 6 unit tests |
 
-**34 unit tests across 5 test files, all green in 2.4s.**
+**41 unit tests across 6 test files, all green in 2.4s.**
 
 ## Still open (Q-* + R-* + S-* + C-* + W-*)
 
-- **Q-01 Drain Darwin backlog** — operator action, raise env var
+- **Q-01 Drain Darwin backlog** — operator action, raise `DARWIN_DAILY_COST_LIMIT_USD`
 - **Q-07 CU coverage audit** — needs NCUA list comparison; operator data
-- **Q-08 Migrate 13 TS write paths to gateway tools** — multi-day refactor
 - **R-01 Cron failure alerting** — partially shipped; alert routing TBD
 - **R-02 Local CLI for any cron** — design work
-- **R-03 Migration order test** — quick fix; deferred
 - **S-01/02/03** — parallelization + slot audit + historical backfill
-- **C-01/02/03** — historical depth, scheduled digest, what-if simulation
+- **C-01** historical depth (5-year) — needs Wayback Machine / FDIC SDP archive ingest
+- **C-03** what-if scenario modeling — design work
 - **W-01..W-06** — UX refinements (lower priority than data)
 
 All tracked at the top of this doc.

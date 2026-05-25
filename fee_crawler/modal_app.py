@@ -269,6 +269,24 @@ async def run_post_processing():
     except Exception as exc:
         print(f"knox rejection summary failed (non-fatal): {exc}")
 
+    # Every minute: process due Hamilton digest subscriptions (C-02).
+    # Each subscription has a cadence (daily/weekly/monthly); the runner
+    # picks any with next_due_at <= NOW() and records a digest_run.
+    # max_runs=5/tick caps blast radius — a queue of 1000 subs drains
+    # in ~3.3h at the cap, which is fine for daily / weekly cadences.
+    try:
+        import asyncpg
+        from fee_crawler.agents.hamilton import process_due_digests
+        hd_conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            hd_results = await process_due_digests(hd_conn, max_runs=5)
+            if hd_results:
+                print(f"hamilton digests: {[r.to_dict() for r in hd_results]}")
+        finally:
+            await hd_conn.close()
+    except Exception as exc:
+        print(f"hamilton digest runner failed (non-fatal): {exc}")
+
     # Every minute: Atlas orchestrator picks the stalest state and runs its
     # state agent. 2 states/min × 100 targets/state = ~3K extractions/day in
     # the background — without touching a Modal cron slot. Each state runs

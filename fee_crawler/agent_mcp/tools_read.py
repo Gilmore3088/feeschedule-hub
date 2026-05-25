@@ -302,6 +302,40 @@ async def get_agent_lessons(
 # ---------------------------------------------------------------------------
 
 @read_only_tool(
+    name="get_my_digest_subscriptions",
+    description=(
+        "Active Hamilton digest subscriptions for a user. Returns each "
+        "subscription's label, cadence, next_due_at, last_run_at, and "
+        "the most recent run's status. C-02 surface for the admin UI."
+    ),
+)
+async def get_my_digest_subscriptions(user_id: int) -> list[dict[str, Any]]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT s.subscription_id, s.label, s.cadence, s.delivery,
+                   s.next_due_at, s.last_run_at, s.active,
+                   r.status   AS last_run_status,
+                   r.started_at AS last_run_started_at,
+                   r.cost_cents AS last_run_cost_cents
+              FROM hamilton_digest_subscriptions s
+              LEFT JOIN LATERAL (
+                SELECT status, started_at, cost_cents
+                  FROM hamilton_digest_runs
+                 WHERE subscription_id = s.subscription_id
+                 ORDER BY started_at DESC
+                 LIMIT 1
+              ) r ON TRUE
+             WHERE s.user_id = $1
+             ORDER BY s.next_due_at ASC
+            """,
+            user_id,
+        )
+    return [dict(r) for r in rows]
+
+
+@read_only_tool(
     name="get_knox_rejection_summary",
     description=(
         "Top reasons Knox is rejecting fees over a recent window. "

@@ -9,7 +9,7 @@
 //   node scripts/apply-migration.mjs --pending         # apply every un-applied file
 //   node scripts/apply-migration.mjs --status          # list applied vs pending
 //
-// DATABASE_URL must be set in env (.env is loaded automatically).
+// DATABASE_URL must be set in env (.env.local then .env are loaded automatically).
 
 import fs from "fs";
 import path from "path";
@@ -17,6 +17,7 @@ import crypto from "crypto";
 import postgres from "postgres";
 import { config } from "dotenv";
 
+config({ path: ".env.local" });
 config();
 
 const MIGRATIONS_DIR = "supabase/migrations";
@@ -112,17 +113,51 @@ async function applyPending() {
   }
 }
 
+async function dryRun() {
+  // R-03: list pending migrations with their checksums + size + the
+  // first few lines of each. Doesn't open a transaction. Lets an
+  // operator audit what `--pending` would do before pulling the trigger.
+  const applied = await listAppliedFilenames();
+  const files = allFilesOnDisk();
+  const pending = files.filter((f) => !applied.has(f));
+
+  if (pending.length === 0) {
+    console.log("No pending migrations. --pending would be a no-op.");
+    return;
+  }
+
+  console.log(`DRY RUN — ${pending.length} migration(s) would be applied:\n`);
+  for (const f of pending) {
+    const body = fs.readFileSync(path.join(MIGRATIONS_DIR, f), "utf8");
+    const cs = checksum(body);
+    const lines = body.split(/\r?\n/);
+    const lineCount = lines.length;
+    // First non-empty, non-comment line: usually the migration's purpose.
+    const summary =
+      lines.find((l) => l.trim() && !l.trim().startsWith("--")) ||
+      "(no body — empty file?)";
+    console.log(`  ${f}`);
+    console.log(`    checksum: ${cs}  ${lineCount} lines`);
+    console.log(`    first stmt: ${summary.trim().slice(0, 100)}`);
+  }
+  console.log("\nNo writes made. Re-run with --pending to apply.");
+}
+
 async function main() {
   await ensureTrackingTable();
   const arg = process.argv[2];
   if (!arg) {
-    console.error("Usage: apply-migration.mjs <filename> | --pending | --status");
+    console.error(
+      "Usage: apply-migration.mjs <filename> | --pending | --status | --dry-run",
+    );
     process.exit(2);
   }
   if (arg === "--status") {
     await status();
   } else if (arg === "--pending") {
     await applyPending();
+  } else if (arg === "--dry-run") {
+    await dryRun();
   } else {
     await applyOne(arg);
   }
