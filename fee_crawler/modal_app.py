@@ -341,6 +341,8 @@ async def run_post_processing():
     if now < today_0600 or now >= today_0600 + timedelta(minutes=10):
         return "dispatch_only"
 
+    import psycopg2  # function-local, matching this module's connection pattern
+
     db_url = os.environ["DATABASE_URL"]
     try:
         conn = psycopg2.connect(db_url)

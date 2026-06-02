@@ -105,9 +105,10 @@ async def _collect_status() -> dict:
         retry_after = await conn.fetchval(
             "SELECT COUNT(*) FROM crawl_targets WHERE rescue_status = 'retry_after'"
         ) or 0
+        # today_cost_usd reflects the day's spend -> read the per_day window.
         budget = await conn.fetchrow(
             "SELECT spent_cents, halted_at, halted_reason FROM agent_budgets "
-            "WHERE agent_name='magellan' AND budget_window='per_batch'"
+            "WHERE agent_name='magellan' AND budget_window='per_day'"
         )
         halted = bool(budget and budget["halted_at"])
         return {
@@ -133,7 +134,7 @@ async def _reset_circuit(actor: str) -> dict:
         async with conn.transaction():
             await conn.execute(
                 "UPDATE agent_budgets SET halted_at = NULL, halted_reason = NULL "
-                "WHERE agent_name='magellan' AND budget_window='per_batch'"
+                "WHERE agent_name='magellan'"
             )
             await conn.execute(
                 """INSERT INTO agent_events
