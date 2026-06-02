@@ -92,6 +92,7 @@ export async function editFee(
     amount?: number | null;
     frequency?: string | null;
   },
+  _notes?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requirePermission("edit");
@@ -145,14 +146,16 @@ export async function editAndApproveFee(
     amount?: number | null;
     frequency?: string | null;
   },
+  notes?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const edit = await editFee(feeId, updates);
+  const edit = await editFee(feeId, updates, notes);
   if (!edit.success) return edit;
-  return approveFee(feeId);
+  return approveFee(feeId, notes);
 }
 
 export async function unstageFee(
   feeId: number,
+  _notes?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requirePermission("approve");
@@ -170,17 +173,23 @@ export async function unstageFee(
 // ─── Bulk actions ─────────────────────────────────────────────────────────
 
 export async function bulkApproveStagedFees(
-  feeIds: number[],
+  feeIds?: number[],
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
     await requirePermission("approve");
-    if (feeIds.length === 0) return { success: true, count: 0 };
-    const rows = await sql`
-      UPDATE fees_verified SET review_status = 'approved'
-      WHERE fee_verified_id = ANY(${feeIds}::bigint[])
-        AND review_status IN ('verified', 'challenged')
-      RETURNING fee_verified_id
-    `;
+    if (feeIds && feeIds.length === 0) return { success: true, count: 0 };
+    const rows = feeIds
+      ? await sql`
+          UPDATE fees_verified SET review_status = 'approved'
+          WHERE fee_verified_id = ANY(${feeIds}::bigint[])
+            AND review_status IN ('verified', 'challenged')
+          RETURNING fee_verified_id
+        `
+      : await sql`
+          UPDATE fees_verified SET review_status = 'approved'
+          WHERE review_status IN ('verified', 'challenged')
+          RETURNING fee_verified_id
+        `;
     revalidatePath("/admin/review");
     return { success: true, count: rows.length };
   } catch (e) {
@@ -190,6 +199,7 @@ export async function bulkApproveStagedFees(
 
 export async function bulkRejectFees(
   feeIds: number[],
+  _notes?: string,
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
     await requirePermission("reject");
@@ -211,6 +221,7 @@ export async function bulkEditAndApproveFees(
     feeId: number;
     updates: { fee_name?: string; amount?: number | null; frequency?: string | null };
   }[],
+  _notes?: string,
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
     await requirePermission("edit");
@@ -228,6 +239,7 @@ export async function bulkEditAndApproveFees(
 
 export async function bulkApproveFees(
   feeIds: number[],
+  _notes?: string,
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   return bulkApproveStagedFees(feeIds);
 }

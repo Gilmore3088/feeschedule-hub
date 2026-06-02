@@ -44,7 +44,7 @@ export interface CommandResult {
 // ─── LOCAL: python subprocess ───────────────────────────────────────
 
 export async function runLocalCommand(cmd: string): Promise<CommandResult> {
-  await requireAuth("admin");
+  await requireAuth("trigger_jobs");
 
   if (!ALLOWED_LOCAL_CMDS.has(cmd)) {
     return {
@@ -103,7 +103,7 @@ export async function callModalEndpoint(
   endpointName: string,
   payload: unknown,
 ): Promise<CommandResult> {
-  await requireAuth("admin");
+  await requireAuth("trigger_jobs");
 
   if (!ALLOWED_MODAL_ENDPOINTS.has(endpointName)) {
     return {
