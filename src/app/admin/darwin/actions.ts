@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import type { DarwinStatus } from "./types";
 
@@ -29,7 +30,9 @@ export async function resetDarwinCircuit(actor: string): Promise<{ ok: boolean }
     body: JSON.stringify({ actor }),
   });
   if (!r.ok) throw new Error(`sidecar reset ${r.status}`);
-  return r.json();
+  const result = await r.json();
+  revalidatePath("/admin/darwin");
+  return result;
 }
 
 export async function classifyBatchStreamUrl(size: number): Promise<string> {
@@ -104,5 +107,7 @@ export async function reclassifyFee(feeRawId: number): Promise<{
     body: JSON.stringify({ fee_raw_id: feeRawId }),
   });
   if (!r.ok) throw new Error(`reclassify ${r.status}`);
-  return r.json();
+  const result = await r.json();
+  revalidatePath("/admin/darwin");
+  return result;
 }
