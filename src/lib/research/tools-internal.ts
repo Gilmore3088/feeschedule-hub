@@ -438,32 +438,148 @@ export const triggerPipelineJob = tool({
 
 const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"] as const;
 
+// ── Atomic National Data Tools (one per source) ──────────────────────────────
+
+export const queryCallReportData = tool({
+  description:
+    "FDIC/NCUA service charge revenue: trends, top institutions, by asset tier, by district. Views: trend, top_institutions, by_tier, by_district, all.",
+  inputSchema: z.object({
+    view: z.enum(["trend", "top_institutions", "by_tier", "by_district", "all"]).optional().default("all"),
+    quarters: z.number().optional().default(8),
+    limit: z.number().optional().default(10),
+    district: z.number().min(1).max(12).optional(),
+  }),
+  execute: async ({ view, quarters, limit, district }) =>
+    handleCallReports(view, quarters, limit, district),
+});
+
+export const queryEconomicData = tool({
+  description:
+    "FRED rates, Beige Book themes, national/district economic summaries. Views: fred, beige_book, national, district, all.",
+  inputSchema: z.object({
+    view: z.enum(["fred", "beige_book", "national", "district", "all"]).optional().default("all"),
+    district: z.number().min(1).max(12).optional(),
+  }),
+  execute: async ({ view, district }) => handleEconomic(view, district),
+});
+
+export const queryNationalHealth = tool({
+  description:
+    "Industry health: ROA, efficiency, deposit/loan growth, institution counts. Views: metrics, by_charter, deposits, loans, institution_counts, all.",
+  inputSchema: z.object({
+    view: z.enum(["metrics", "by_charter", "deposits", "loans", "institution_counts", "all"]).optional().default("all"),
+    quarters: z.number().optional().default(8),
+  }),
+  execute: async ({ view, quarters }) => handleHealth(view, quarters),
+});
+
+export const queryCfpbComplaints = tool({
+  description: "CFPB consumer complaint summary for a Fed district.",
+  inputSchema: z.object({
+    district: z.number().min(1).max(12).describe("Fed district number (1-12)"),
+  }),
+  execute: async ({ district }) => handleComplaints(district),
+});
+
+export const queryFeeIndexData = tool({
+  description:
+    "National or peer-filtered fee medians by category. Optional charter/tiers filters switch to peer index.",
+  inputSchema: z.object({
+    charter: z.enum(["bank", "credit_union"]).optional(),
+    tiers: z.array(z.string()).optional(),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ charter, tiers, limit }) => handleFeeIndex(charter, tiers, limit),
+});
+
+export const queryDerivedMetrics = tool({
+  description:
+    "Derived analytics: revenue concentration, fee dependency, revenue per institution trends. Views: concentration, dependency, revenue_per_institution, all.",
+  inputSchema: z.object({
+    view: z.enum(["concentration", "dependency", "revenue_per_institution", "all"]).optional().default("all"),
+    top_n: z.number().optional().default(5),
+    quarters: z.number().optional().default(8),
+  }),
+  execute: async ({ view, top_n, quarters }) => handleDerived(view, top_n, quarters),
+});
+
+export const queryFedContent = tool({
+  description:
+    "Recent Fed speeches/papers, optionally filtered to a single Fed district.",
+  inputSchema: z.object({
+    district: z.number().min(1).max(12).optional(),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ district, limit }) => handleFedContent(district, limit),
+});
+
+export const queryLaborData = tool({
+  description:
+    "BLS labor indicators (defaults to unemployment, payroll, bank-fee CPI). Pass seriesIds to override.",
+  inputSchema: z.object({
+    seriesIds: z.array(z.string()).optional(),
+  }),
+  execute: async ({ seriesIds }) => handleLabor(seriesIds),
+});
+
+export const queryDemographics = tool({
+  description: "Census ACS state demographics (income, poverty) by state FIPS code.",
+  inputSchema: z.object({
+    stateFips: z.string().describe("State FIPS code (e.g., '06' for CA, '36' for NY)"),
+  }),
+  execute: async ({ stateFips }) => handleDemographics(stateFips),
+});
+
+export const queryResearchData = tool({
+  description: "NY Fed + OFR financial stability research data.",
+  inputSchema: z.object({
+    limit: z.number().optional().default(20),
+  }),
+  execute: async ({ limit }) => handleResearch(limit),
+});
+
+export const queryDepositsData = tool({
+  description: "FDIC Summary of Deposits market share, optionally filtered by state FIPS.",
+  inputSchema: z.object({
+    stateFips: z.string().optional(),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ stateFips, limit }) => handleDeposits(stateFips, limit),
+});
+
+export const queryExternalIntel = tool({
+  description:
+    "Admin-curated external intelligence: research, surveys, regulatory reports. Pass query for full-text search; view filters by category.",
+  inputSchema: z.object({
+    query: z.string().optional(),
+    view: z.string().optional().describe("Category filter when query is set"),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ query, view, limit }) => handleExternal(query, view, limit),
+});
+
+/**
+ * @deprecated Use the atomic per-source tools instead:
+ * queryCallReportData, queryEconomicData, queryNationalHealth, queryCfpbComplaints,
+ * queryFeeIndexData, queryDerivedMetrics, queryFedContent, queryLaborData,
+ * queryDemographics, queryResearchData, queryDepositsData, queryExternalIntel.
+ * Kept as a backward-compat shim that delegates to the atomic handlers.
+ */
 export const queryNationalData = tool({
   description:
-    "Query national summary data across all 12 source domains. Sources: call_reports (FDIC/NCUA revenue trends), economic (FRED rates, Beige Book themes), health (ROA, efficiency, deposits, loans), complaints (CFPB district summaries), fee_index (national/peer fee medians), derived (concentration, fee dependency), fed_content (Fed speeches/papers by district), labor (BLS unemployment, payroll, bank-fee CPI), demographics (Census ACS income/poverty by state), research (NY Fed + OFR financial stability data), deposits (FDIC SOD market share), external (admin-curated research, surveys, reports -- use 'query' param for full-text search). When: any macroeconomic, regional, or financial context question. Combine with: district analysis → economic+complaints+fed_content; compliance question → complaints+fee_index+fed_content; consumer impact → demographics+labor+fee_index; external context → external+fee_index for industry research alongside fee data.",
+    "DEPRECATED: use the atomic per-source tools (queryCallReportData, queryEconomicData, queryNationalHealth, queryCfpbComplaints, queryFeeIndexData, queryDerivedMetrics, queryFedContent, queryLaborData, queryDemographics, queryResearchData, queryDepositsData, queryExternalIntel). Kept as a thin shim for backward compatibility.",
   inputSchema: z.object({
-    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"])
-      .describe("Data source category to query"),
-    view: z.string().optional()
-      .describe("Specific view within the source (e.g., 'trend', 'by_tier', 'fred', 'concentration'). For external source, doubles as category filter."),
-    query: z.string().optional()
-      .describe("Search query text (used for external source full-text search)"),
-    limit: z.number().optional().default(10)
-      .describe("Limit results (for top_institutions, fee_index)"),
-    quarters: z.number().optional().default(8)
-      .describe("Number of quarters for trend data"),
-    district: z.number().min(1).max(12).optional()
-      .describe("Fed district number (for complaints, economic district view, fed_content)"),
-    charter: z.enum(["bank", "credit_union"]).optional()
-      .describe("Charter type filter"),
-    tiers: z.array(z.string()).optional()
-      .describe("Asset size tier filter (for fee_index peer queries)"),
-    top_n: z.number().optional().default(5)
-      .describe("Top N for concentration analysis"),
-    stateFips: z.string().optional()
-      .describe("State FIPS code for demographics/deposits (e.g., '06' for California, '36' for New York)"),
-    seriesIds: z.array(z.string()).optional()
-      .describe("BLS series IDs for labor view (defaults to unemployment, payroll, bank fee CPI)"),
+    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"]),
+    view: z.string().optional(),
+    query: z.string().optional(),
+    limit: z.number().optional().default(10),
+    quarters: z.number().optional().default(8),
+    district: z.number().min(1).max(12).optional(),
+    charter: z.enum(["bank", "credit_union"]).optional(),
+    tiers: z.array(z.string()).optional(),
+    top_n: z.number().optional().default(5),
+    stateFips: z.string().optional(),
+    seriesIds: z.array(z.string()).optional(),
   }),
   execute: async ({ source, view, query, limit, quarters, district, charter, tiers, top_n, stateFips, seriesIds }) => {
     switch (source) {
@@ -874,6 +990,20 @@ export const internalTools = {
   queryJobStatus,
   queryDataQuality,
   triggerPipelineJob,
+  // Atomic national-data tools (one per source)
+  queryCallReportData,
+  queryEconomicData,
+  queryNationalHealth,
+  queryCfpbComplaints,
+  queryFeeIndexData,
+  queryDerivedMetrics,
+  queryFedContent,
+  queryLaborData,
+  queryDemographics,
+  queryResearchData,
+  queryDepositsData,
+  queryExternalIntel,
+  // Backward-compat shim (deprecated)
   queryNationalData,
   queryRegulatoryRisk,
 };
