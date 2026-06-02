@@ -47,6 +47,9 @@ vi.mock("./tools-internal", () => ({
     getReviewQueueStats: { description: "getReviewQueueStats", inputSchema: {}, execute: vi.fn() },
     searchInstitutionsByName: { description: "searchInstitutionsByName", inputSchema: {}, execute: vi.fn() },
     rankInstitutions: { description: "rankInstitutions", inputSchema: {}, execute: vi.fn() },
+    rankByPercentile: { description: "rankByPercentile", inputSchema: {}, execute: vi.fn() },
+    rankByFeeCount: { description: "rankByFeeCount", inputSchema: {}, execute: vi.fn() },
+    rankByOutlierFlags: { description: "rankByOutlierFlags", inputSchema: {}, execute: vi.fn() },
     queryJobStatus: { description: "queryJobStatus", inputSchema: {}, execute: vi.fn() },
     queryDataQuality: { description: "queryDataQuality", inputSchema: {}, execute: vi.fn() },
     triggerPipelineJob: { description: "triggerPipelineJob", inputSchema: {}, execute: vi.fn() },
@@ -147,6 +150,10 @@ describe("getHamilton", () => {
     expect(toolNames).toContain("queryNationalData");
     expect(toolNames).toContain("searchInstitutionsByName");
     expect(toolNames).toContain("rankInstitutions");
+    // New ranking primitives registered alongside the backward-compat shim
+    expect(toolNames).toContain("rankByPercentile");
+    expect(toolNames).toContain("rankByFeeCount");
+    expect(toolNames).toContain("rankByOutlierFlags");
   });
 
   it("admin: returns Sonnet model, all tools, maxSteps=4", async () => {
@@ -166,6 +173,9 @@ describe("getHamilton", () => {
     expect(toolNames).toContain("searchFees");
     expect(toolNames).toContain("searchInstitutionsByName");
     expect(toolNames).toContain("rankInstitutions");
+    expect(toolNames).toContain("rankByPercentile");
+    expect(toolNames).toContain("rankByFeeCount");
+    expect(toolNames).toContain("rankByOutlierFlags");
   });
 
   it("consumer: systemPrompt contains HAMILTON_SYSTEM_PROMPT base text", async () => {

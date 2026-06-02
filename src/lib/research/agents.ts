@@ -190,6 +190,9 @@ const chatInternalTools: ToolSet = {
   queryOutliers: internalTools.queryOutliers,
   searchInstitutionsByName: internalTools.searchInstitutionsByName,
   rankInstitutions: internalTools.rankInstitutions,
+  rankByPercentile: internalTools.rankByPercentile,
+  rankByFeeCount: internalTools.rankByFeeCount,
+  rankByOutlierFlags: internalTools.rankByOutlierFlags,
 };
 // Admin-only write tools (Wave 1 action parity). NOT exposed to pro role.
 const adminWriteTools: ToolSet = {
