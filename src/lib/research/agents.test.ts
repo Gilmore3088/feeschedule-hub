@@ -56,7 +56,50 @@ vi.mock("./tools-internal", () => ({
 }));
 
 // Import after mocks
-import { getHamilton } from "./agents";
+import { getHamilton, buildSegmentContextLine } from "./agents";
+
+describe("buildSegmentContextLine", () => {
+  it("returns empty string when filters is undefined", () => {
+    expect(buildSegmentContextLine(undefined)).toBe("");
+  });
+
+  it("returns empty string when filters has no meaningful values", () => {
+    expect(buildSegmentContextLine({})).toBe("");
+    expect(buildSegmentContextLine({ range: "30d" })).toBe("");
+  });
+
+  it("returns empty string when only empty arrays provided", () => {
+    expect(buildSegmentContextLine({ tiers: [], districts: [] })).toBe("");
+  });
+
+  it("includes segment description when charter filter is set", () => {
+    const out = buildSegmentContextLine({ charter: "bank" });
+    expect(out).toContain("Active segment:");
+    expect(out).toContain("Banks");
+  });
+
+  it("includes tiers and districts in the segment line", () => {
+    const out = buildSegmentContextLine({
+      charter: "bank",
+      tiers: ["community"],
+      districts: [7],
+    });
+    expect(out).toContain("Active segment:");
+    expect(out).toContain("District 7");
+    expect(out).toContain("Banks");
+  });
+
+  it("the appended line stays under 200 chars for typical filters", () => {
+    const out = buildSegmentContextLine({
+      charter: "credit_union",
+      tiers: ["midsize"],
+      districts: [3],
+    });
+    // First line (the actual added content) should be reasonably short
+    const firstLine = out.trim().split("\n")[0];
+    expect(firstLine.length).toBeLessThan(200);
+  });
+});
 
 describe("getHamilton", () => {
   beforeEach(() => {

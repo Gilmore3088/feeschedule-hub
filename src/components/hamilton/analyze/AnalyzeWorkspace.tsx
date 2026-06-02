@@ -2,8 +2,10 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { ANALYSIS_FOCUS_TABS, type AnalysisFocus } from "@/lib/hamilton/navigation";
+import { parsePeerFilters, type PeerFilters } from "@/lib/fed-districts";
 import { saveAnalysis } from "@/app/pro/(hamilton)/analyze/actions";
 import { HamiltonViewPanel } from "./HamiltonViewPanel";
 import { WhatThisMeansPanel } from "./WhatThisMeansPanel";
@@ -138,6 +140,21 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
   const activeTabRef = useRef<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
   useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
 
+  // Active segment context from URL searchParams (charter, tier, district, range).
+  // Forwarded to the Analyze-mode system prompt so Hamilton scopes answers
+  // to the user's active peer segment instead of defaulting to national.
+  const searchParams = useSearchParams();
+  const segmentContext = useMemo<PeerFilters>(() => {
+    return parsePeerFilters({
+      charter: searchParams.get("charter") ?? undefined,
+      tier: searchParams.get("tier") ?? undefined,
+      district: searchParams.get("district") ?? undefined,
+      range: searchParams.get("range") ?? undefined,
+    });
+  }, [searchParams]);
+  const segmentContextRef = useRef<PeerFilters>(segmentContext);
+  useEffect(() => { segmentContextRef.current = segmentContext; }, [segmentContext]);
+
   // Track the last prompt submitted for saving alongside the response
   const lastPromptRef = useRef<string>("");
 
@@ -147,6 +164,7 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
       body: () => ({
         mode: "analyze",
         analysisFocus: activeTabRef.current,
+        segment_context: segmentContextRef.current,
       }),
     }),
     onFinish: async ({ message }) => {
