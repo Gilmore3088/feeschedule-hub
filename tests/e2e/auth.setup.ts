@@ -24,14 +24,18 @@ setup("authenticate as admin", async ({ page }) => {
   await page
     .waitForURL(/\/admin(?!\/login)/, { timeout: 30_000 })
     .catch(async () => {
-      const err = await page
-        .getByText(/invalid username or password|required/i)
+      const finalUrl = page.url();
+      const errText = await page
+        .locator(".bg-red-50, [role=alert]")
         .first()
-        .textContent()
+        .textContent({ timeout: 2_000 })
         .catch(() => null);
       throw new Error(
-        `Admin login did not reach /admin${err ? ` — UI error: "${err}"` : ""}. ` +
-          "Check BFI_E2E_USERNAME / BFI_E2E_PASSWORD against the target deploy.",
+        `Admin login did not reach /admin (still at ${finalUrl})` +
+          (errText && errText.trim()
+            ? ` — UI message: "${errText.trim()}"`
+            : " — no visible error message on the page") +
+          ". Check BFI_E2E_USERNAME / BFI_E2E_PASSWORD against the target deploy.",
       );
     });
 

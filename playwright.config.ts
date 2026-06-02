@@ -12,6 +12,10 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: BASE_URL,
+    // Bound individual actions/navigations so a failed step reports in seconds
+    // instead of hanging until the (long) per-test timeout.
+    actionTimeout: 20_000,
+    navigationTimeout: 30_000,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
