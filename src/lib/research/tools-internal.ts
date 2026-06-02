@@ -11,6 +11,41 @@ import { getOutlierFlaggedFees, getReviewStats, getStats } from "@/lib/crawler-d
 import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
 import { sql } from "@/lib/crawler-db/connection";
 import { spawnJob } from "@/lib/job-runner";
+import { revalidatePath } from "next/cache";
+import { approveFee as approveFeeAction, rejectFee as rejectFeeAction } from "@/lib/fee-actions";
+import { updateFeeScheduleUrl as updateFeeScheduleUrlAction } from "@/app/admin/peers/actions";
+import { publishReport as publishReportAction, cancelReport as cancelReportAction } from "@/app/admin/hamilton/actions";
+import type { ReportType } from "@/lib/report-engine/types";
+
+const AGENT_ACTOR_NAME = "hamilton_admin";
+
+type JsonPayload = Parameters<typeof sql.json>[0];
+
+async function logAgentEvent(params: {
+  action: string;
+  tool: string;
+  entity: string;
+  entityId: string;
+  status: "success" | "error";
+  input: JsonPayload;
+  output?: JsonPayload;
+}): Promise<string | null> {
+  try {
+    const rows = await sql<{ event_id: string }[]>`
+      INSERT INTO agent_events
+        (agent_name, action, tool_name, entity, entity_id, status, input_payload, output_payload)
+      VALUES
+        (${AGENT_ACTOR_NAME}, ${params.action}, ${params.tool}, ${params.entity},
+         ${params.entityId}, ${params.status},
+         ${sql.json(params.input)},
+         ${params.output ? sql.json(params.output) : null})
+      RETURNING event_id
+    `;
+    return rows[0]?.event_id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 // queryNationalData imports -- Phase 23-25 query functions
 import {
@@ -861,6 +896,129 @@ export const queryRegulatoryRisk = tool({
   },
 });
 
+// ── Admin write tools (Wave 1 action parity) ─────────────────────────────────
+// Each wraps an existing server action, logs to agent_events for audit, and
+// revalidates affected admin pages. Underlying actions enforce role/permission.
+
+export const approveFee = tool({
+  description:
+    "Approves a pending or staged fee in the review queue. Use only when the operator explicitly asks to approve a specific fee by ID. Logs to agent_events.",
+  inputSchema: z.object({
+    feeId: z.number().int().positive().describe("extracted_fees.id"),
+    notes: z.string().optional().describe("Reviewer note for audit trail"),
+  }),
+  execute: async ({ feeId, notes }) => {
+    const result = await approveFeeAction(feeId, notes);
+    const eventId = await logAgentEvent({
+      action: "approve_fee",
+      tool: "approveFee",
+      entity: "extracted_fees",
+      entityId: String(feeId),
+      status: result.success ? "success" : "error",
+      input: { feeId, notes: notes ?? null },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath("/admin/review");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const rejectFee = tool({
+  description:
+    "Rejects a pending or staged fee in the review queue. Use only when the operator explicitly asks to reject a specific fee by ID. Logs to agent_events.",
+  inputSchema: z.object({
+    feeId: z.number().int().positive().describe("extracted_fees.id"),
+    rationale: z.string().optional().describe("Reason for rejection (recorded in fee_reviews.notes)"),
+  }),
+  execute: async ({ feeId, rationale }) => {
+    const result = await rejectFeeAction(feeId, rationale);
+    const eventId = await logAgentEvent({
+      action: "reject_fee",
+      tool: "rejectFee",
+      entity: "extracted_fees",
+      entityId: String(feeId),
+      status: result.success ? "success" : "error",
+      input: { feeId, rationale: rationale ?? null },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath("/admin/review");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const updateFeeScheduleUrl = tool({
+  description:
+    "Sets the fee_schedule_url for an institution. Use when a verified URL has been discovered and the operator asks to record it. Logs to agent_events.",
+  inputSchema: z.object({
+    institutionId: z.number().int().positive().describe("crawl_targets.id"),
+    url: z.string().url().describe("Fully qualified URL to the fee schedule"),
+    discoveredBy: z.string().optional().describe("Source/agent that surfaced the URL"),
+  }),
+  execute: async ({ institutionId, url, discoveredBy }) => {
+    const result = await updateFeeScheduleUrlAction(institutionId, url);
+    const eventId = await logAgentEvent({
+      action: "update_fee_schedule_url",
+      tool: "updateFeeScheduleUrl",
+      entity: "crawl_targets",
+      entityId: String(institutionId),
+      status: result.success ? "success" : "error",
+      input: { institutionId, url, discoveredBy: discoveredBy ?? null },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath(`/admin/peers/${institutionId}`);
+    revalidatePath("/admin/coverage");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const publishReport = tool({
+  description:
+    "Publishes a completed report job to the public catalog with a slug. Use only when the operator asks to publish a specific completed report. Logs to agent_events.",
+  inputSchema: z.object({
+    jobId: z.string().describe("report_jobs.id (UUID)"),
+    title: z.string().min(3).describe("Display title; used for slug generation"),
+    reportType: z.string().describe("ReportType enum value (e.g., 'monthly_pulse')"),
+    isPublic: z.boolean().optional().default(true).describe("Whether the report is publicly visible"),
+  }),
+  execute: async ({ jobId, title, reportType, isPublic }) => {
+    const result = await publishReportAction(jobId, title, reportType as ReportType, isPublic ?? true);
+    const eventId = await logAgentEvent({
+      action: "publish_report",
+      tool: "publishReport",
+      entity: "report_jobs",
+      entityId: jobId,
+      status: result.success ? "success" : "error",
+      input: { jobId, title, reportType, isPublic: isPublic ?? true },
+      output: { success: result.success, slug: result.slug ?? null, error: result.error ?? null },
+    });
+    revalidatePath("/admin/hamilton");
+    revalidatePath("/reports");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const cancelReport = tool({
+  description:
+    "Cancels a pending/assembling/rendering report job. Use only when the operator asks to cancel a specific in-flight report. Logs to agent_events.",
+  inputSchema: z.object({
+    jobId: z.string().describe("report_jobs.id (UUID)"),
+  }),
+  execute: async ({ jobId }) => {
+    const result = await cancelReportAction(jobId);
+    const eventId = await logAgentEvent({
+      action: "cancel_report",
+      tool: "cancelReport",
+      entity: "report_jobs",
+      entityId: jobId,
+      status: result.success ? "success" : "error",
+      input: { jobId },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath("/admin/hamilton");
+    return { ...result, event_id: eventId };
+  },
+});
+
 /** All internal tools bundled for admin agent configs */
 export const internalTools = {
   queryDistrictData,
@@ -876,4 +1034,9 @@ export const internalTools = {
   triggerPipelineJob,
   queryNationalData,
   queryRegulatoryRisk,
+  approveFee,
+  rejectFee,
+  updateFeeScheduleUrl,
+  publishReport,
+  cancelReport,
 };

@@ -135,6 +135,12 @@ const OPS_TOOL_NAMES = new Set([
   "queryJobStatus",
   "queryDataQuality",
   "triggerPipelineJob",
+  // Admin write tools — never expose to pro
+  "approveFee",
+  "rejectFee",
+  "updateFeeScheduleUrl",
+  "publishReport",
+  "cancelReport",
 ]);
 
 const proOnlyInternalTools: ToolSet = Object.fromEntries(
@@ -151,8 +157,16 @@ const chatInternalTools: ToolSet = {
   searchInstitutionsByName: internalTools.searchInstitutionsByName,
   rankInstitutions: internalTools.rankInstitutions,
 };
+// Admin-only write tools (Wave 1 action parity). NOT exposed to pro role.
+const adminWriteTools: ToolSet = {
+  approveFee: internalTools.approveFee,
+  rejectFee: internalTools.rejectFee,
+  updateFeeScheduleUrl: internalTools.updateFeeScheduleUrl,
+  publishReport: internalTools.publishReport,
+  cancelReport: internalTools.cancelReport,
+};
 const proTools: ToolSet = { ...publicTools, ...chatInternalTools };
-const adminTools: ToolSet = { ...publicTools, ...chatInternalTools };
+const adminTools: ToolSet = { ...publicTools, ...chatInternalTools, ...adminWriteTools };
 
 async function dataContext(): Promise<string> {
   const s = await getPublicStats();
