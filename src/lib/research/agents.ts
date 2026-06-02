@@ -170,6 +170,21 @@ const proOnlyInternalTools: ToolSet = Object.fromEntries(
 // queryNationalData (11 sources) replaces most individual data tools
 const consumerTools: ToolSet = { ...publicTools };
 const chatInternalTools: ToolSet = {
+  // Atomic per-source national data tools (replaces queryNationalData switchboard)
+  queryCallReportData: internalTools.queryCallReportData,
+  queryEconomicData: internalTools.queryEconomicData,
+  queryNationalHealth: internalTools.queryNationalHealth,
+  queryCfpbComplaints: internalTools.queryCfpbComplaints,
+  queryFeeIndexData: internalTools.queryFeeIndexData,
+  queryDerivedMetrics: internalTools.queryDerivedMetrics,
+  queryFedContent: internalTools.queryFedContent,
+  queryLaborData: internalTools.queryLaborData,
+  queryDemographics: internalTools.queryDemographics,
+  queryResearchData: internalTools.queryResearchData,
+  queryDepositsData: internalTools.queryDepositsData,
+  queryExternalIntel: internalTools.queryExternalIntel,
+  // Backward-compat shim — kept so in-flight Hamilton conversations referencing
+  // queryNationalData continue to resolve. Deprecated; prefer atomic tools above.
   queryNationalData: internalTools.queryNationalData,
   queryRegulatoryRisk: internalTools.queryRegulatoryRisk,
   queryOutliers: internalTools.queryOutliers,
