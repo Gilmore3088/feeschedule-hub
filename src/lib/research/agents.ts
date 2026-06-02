@@ -4,6 +4,7 @@ import { internalTools } from "./tools-internal";
 import { getPublicStats } from "../crawler-db";
 import { sql } from "../crawler-db/connection";
 import { HAMILTON_SYSTEM_PROMPT } from "../hamilton/voice";
+import { buildFilterDescription, type PeerFilters } from "../fed-districts";
 
 export interface AgentConfig {
   id: string;
@@ -104,6 +105,24 @@ SCREEN BOUNDARY RULE (NON-NEGOTIABLE):
 
 CONFIDENCE FRAMING:
 Apply the same confidence framing rules as your base role. Never reference missing data directly — turn it into insight.`;
+}
+
+/**
+ * Build a one-line segment-context fragment appended to the system prompt
+ * when the user has active peer filters selected. Empty string when no
+ * meaningful filters are present so the model falls back to its default
+ * (national) context.
+ */
+export function buildSegmentContextLine(filters: PeerFilters | undefined | null): string {
+  if (!filters) return "";
+  const hasAny =
+    !!filters.charter ||
+    (filters.tiers && filters.tiers.length > 0) ||
+    (filters.districts && filters.districts.length > 0);
+  if (!hasAny) return "";
+  const description = buildFilterDescription(filters);
+  if (!description || description === "All Institutions") return "";
+  return `\n\nActive segment: ${description}. Use this as the implicit peer scope unless the user names a different one.`;
 }
 
 export function buildMonitorModeSuffix(): string {
