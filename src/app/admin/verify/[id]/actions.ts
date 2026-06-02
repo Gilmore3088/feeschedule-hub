@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import { sql } from "@/lib/crawler-db/connection";
 
@@ -27,4 +28,6 @@ export async function saveGoldStandardVerification(
         verified_at = NOW()
     `;
   }
+
+  revalidatePath(`/admin/verify/${institutionId}`);
 }
