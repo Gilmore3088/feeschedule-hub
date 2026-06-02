@@ -79,7 +79,7 @@ def run(
         targets = db.fetchall(
             """SELECT DISTINCT ct.id, ct.institution_name
                FROM crawl_targets ct
-               JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+               JOIN fees_verified ef ON ct.id = ef.crawl_target_id
                ORDER BY ct.institution_name"""
         )
         print(f"Analyzing {len(targets)} institutions with extracted fees...\n")

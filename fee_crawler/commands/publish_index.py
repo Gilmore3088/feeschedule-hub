@@ -2,9 +2,9 @@
 
 This is the final pipeline stage. It:
 1. Materializes the fee_index_cache table (precomputed stats per category)
+   from the live fees_verified Tier-2 table.
 2. Updates the coverage_snapshots table with current metrics
 3. Revalidates the Next.js ISR cache so public pages reflect new data
-4. Runs PRAGMA optimize and WAL checkpoint for DB health
 """
 
 from __future__ import annotations
@@ -25,14 +25,19 @@ def _compute_index_cache(db: Database) -> int:
     """
     from fee_crawler.fee_analysis import FEE_FAMILIES
     canonical_cats: set[str] = set()
-    for members in FEE_FAMILIES.values():
-        canonical_cats.update(members)
+    cat_to_family: dict[str, str] = {}
+    for family, members in FEE_FAMILIES.items():
+        for member in members:
+            canonical_cats.add(member)
+            cat_to_family[member] = family
 
     placeholders = ",".join("?" for _ in canonical_cats)
+    # fees_verified is the live Tier-2 table. fee_family is not stored there;
+    # it's derived from fee_category via the taxonomy (cat_to_family above).
     rows = db.fetchall(f"""
-        SELECT ef.fee_category, ef.fee_family, ef.amount,
+        SELECT ef.fee_category, ef.amount,
                ef.crawl_target_id, ef.review_status, ct.charter_type
-        FROM extracted_fees ef
+        FROM fees_verified ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
         WHERE ef.fee_category IN ({placeholders}) AND ef.review_status != 'rejected'
     """, tuple(canonical_cats))
@@ -42,7 +47,7 @@ def _compute_index_cache(db: Database) -> int:
         cat = row["fee_category"]
         if cat not in grouped:
             grouped[cat] = {
-                "family": row["fee_family"],
+                "family": cat_to_family.get(cat),
                 "amounts": [],
                 "banks": set(),
                 "cus": set(),
@@ -57,7 +62,9 @@ def _compute_index_cache(db: Database) -> int:
             entry["banks"].add(row["crawl_target_id"])
         else:
             entry["cus"].add(row["crawl_target_id"])
-        if row["review_status"] == "approved":
+        # On fees_verified, 'verified' is the default high-confidence state and
+        # 'approved' is human-approved; both count toward maturity ("approved").
+        if row["review_status"] in ("approved", "verified"):
             entry["approved"] += 1
 
     # Clear and rebuild
@@ -118,10 +125,10 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
         SELECT
           (SELECT COUNT(*) FROM crawl_targets) as total,
           (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND fee_schedule_url != '') as with_url,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status != 'rejected') as with_fees,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status IN ('approved','verified')) as with_approved,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status != 'rejected') as total_fees,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status IN ('approved','verified')) as approved_fees
     """)
 
     if snapshot:
@@ -163,13 +170,7 @@ def run(db: Database, config: Config, *, dry_run: bool = False) -> None:
     except Exception as e:
         print(f"Cache revalidation skipped: {e}")
 
-    # 4. DB maintenance
-    if not dry_run:
-        db.execute("PRAGMA optimize")
-        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-        print("DB maintenance: PRAGMA optimize + WAL checkpoint(TRUNCATE).")
-    else:
-        print("[DRY RUN] Would run PRAGMA optimize + WAL checkpoint.")
+    # (Postgres handles vacuum/analyze via autovacuum — no PRAGMA maintenance.)
 
     # Marker write so the admin freshness UI ("Daily post-processing /
     # Federal data ingest / …") can show publish-index as expected-within-
