@@ -125,9 +125,10 @@ export function PipelineMap({ data }: { data: PipelineMapData }) {
         <strong className="text-gray-700 dark:text-gray-200">Reading this page:</strong> every new
         fee starts at Scrape and drops down one tier each time an agent approves it. A row that sits
         in Extraction for a long time means Darwin has not classified it yet. A row that sits in
-        Review means the adversarial handshake has not happened. The daily Modal cron at 06:00 UTC
+        Review means the adversarial handshake has not happened. Classification is handled by the
+        Darwin agent and review by the publish-fees confidence gate. The daily Modal cron at 06:00 UTC
         runs{" "}
-        <code className="font-mono text-[10px]">categorize → auto-review → publish-fees → snapshot → publish-index</code>,
+        <code className="font-mono text-[10px]">publish-fees → snapshot → publish-index</code>,
         so Tier 2 → Tier 3 promotion is now automatic.
       </div>
 

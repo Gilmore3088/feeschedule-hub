@@ -26,15 +26,6 @@ interface CommandInfo {
 }
 
 const COMMAND_INFO: Record<string, CommandInfo> = {
-  "run-pipeline": {
-    description: "Run Full Pipeline",
-    detail: "Runs discover + crawl + categorize in sequence. This is the main command for collecting new fee data end-to-end.",
-    group: "pipeline",
-    usesLimit: true,
-    usesCharter: true,
-    usesState: true,
-    typical: "python -m fee_crawler run-pipeline --limit 50",
-  },
   crawl: {
     description: "Crawl & Extract Fees",
     detail: "Downloads fee schedule pages from institutions that already have a known URL, then uses LLM extraction to pull out individual fees and amounts.",
@@ -52,14 +43,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: true,
     usesState: true,
     typical: "python -m fee_crawler discover --limit 50",
-  },
-  categorize: {
-    description: "Categorize Fees",
-    detail: "Maps extracted fee names to the 49-category taxonomy using alias matching (e.g., 'Monthly Service Charge' → monthly_maintenance). Fast, no API calls.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler categorize",
   },
   validate: {
     description: "Validate Fees",
@@ -237,14 +220,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     typical: "python -m fee_crawler stats",
   },
-  "merge-fees": {
-    description: "Merge Fees",
-    detail: "Re-merges extracted fees with existing data. Compares by category, snapshots old values, records change events. Useful after updating categorization rules.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler merge-fees",
-  },
   "publish-index": {
     description: "Publish Index",
     detail: "Materializes the fee index cache (49 categories), updates coverage snapshot, revalidates Next.js cache, runs DB maintenance (PRAGMA optimize + WAL checkpoint).",
@@ -261,15 +236,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     usesState: true,
     typical: "python -m fee_crawler rediscover-failed --state CA",
-  },
-  pipeline: {
-    description: "Atomic Pipeline (v2)",
-    detail: "Runs the full 9-stage atomic pipeline with resume support: seed-enrich, discover, crawl, merge-fees, categorize, validate, auto-review, snapshot, publish-index. Use --state to target a specific state.",
-    group: "pipeline",
-    usesLimit: true,
-    usesCharter: false,
-    usesState: true,
-    typical: "python -m fee_crawler pipeline --limit 100 --state CA",
   },
 };
 
@@ -346,7 +312,7 @@ export function OpsClient({
     if (stateCode) params.state = stateCode;
 
     // Smart defaults for pipeline commands
-    if (cmd === "crawl" || cmd === "run-pipeline") {
+    if (cmd === "crawl") {
       params.skip_with_fees = true;
     }
 

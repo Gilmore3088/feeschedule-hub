@@ -347,33 +347,6 @@ def cmd_ingest_census_tracts(args: argparse.Namespace) -> None:
         db.close()
 
 
-def cmd_run_pipeline(args: argparse.Namespace) -> None:
-    """Run full pipeline: discover → crawl → categorize."""
-    import logging
-
-    from fee_crawler.commands.run_pipeline import run
-
-    if args.verbose:
-        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(
-            db, config,
-            limit=args.limit,
-            workers=args.workers,
-            max_llm_calls=args.max_llm_calls,
-            max_search_cost=args.max_search_cost,
-            skip_discover=args.skip_discover,
-            skip_crawl=args.skip_crawl,
-            skip_categorize=args.skip_categorize,
-            state=args.state,
-        )
-    finally:
-        db.close()
-
-
 def cmd_rediscover_failed(args: argparse.Namespace) -> None:
     """Clear bad URLs and prepare for rediscovery."""
     from fee_crawler.commands.rediscover_failed import run
@@ -433,29 +406,6 @@ def cmd_publish_index(args: argparse.Namespace) -> None:
     db = get_db(config)
     try:
         run(db, config, dry_run=args.dry_run)
-    finally:
-        db.close()
-
-
-def cmd_pipeline_v2(args: argparse.Namespace) -> None:
-    """Run atomic pipeline with resume support."""
-    from fee_crawler.pipeline.executor import run_pipeline
-
-    config = load_config()
-    db = get_db(config)
-    skip = frozenset(args.skip.split(",")) if args.skip else frozenset()
-    try:
-        run_id = run_pipeline(
-            db, config,
-            from_phase=args.from_phase,
-            resume_run_id=args.resume,
-            skip=skip,
-            dry_run=args.dry_run,
-            limit=args.limit,
-            workers=args.workers,
-            state=args.state,
-        )
-        print(f"\nPipeline run ID: {run_id}")
     finally:
         db.close()
 
@@ -1143,22 +1093,6 @@ def main() -> None:
     )
     snapshot_parser.set_defaults(func=cmd_snapshot)
 
-    # run-pipeline command
-    pipeline_parser = subparsers.add_parser(
-        "run-pipeline",
-        help="Run full pipeline: discover → crawl → categorize (cron-ready)",
-    )
-    pipeline_parser.add_argument("--limit", type=int, default=None, help="Max institutions per stage")
-    pipeline_parser.add_argument("--workers", type=int, default=4, help="Concurrent workers (default: 4)")
-    pipeline_parser.add_argument("--max-llm-calls", type=int, default=500, help="Max LLM API calls (default: 500)")
-    pipeline_parser.add_argument("--max-search-cost", type=float, default=10.0, help="Max search API budget in $ (default: 10)")
-    pipeline_parser.add_argument("--state", type=str, default=None, help="Filter by state code")
-    pipeline_parser.add_argument("--skip-discover", action="store_true", help="Skip URL discovery stage")
-    pipeline_parser.add_argument("--skip-crawl", action="store_true", help="Skip crawl/extraction stage")
-    pipeline_parser.add_argument("--skip-categorize", action="store_true", help="Skip categorization stage")
-    pipeline_parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
-    pipeline_parser.set_defaults(func=cmd_run_pipeline)
-
     # rediscover-failed command
     rediscover_parser = subparsers.add_parser(
         "rediscover-failed",
@@ -1207,20 +1141,6 @@ def main() -> None:
     publish_parser.add_argument("--dry-run", action="store_true", help="Show what would be published")
     publish_parser.set_defaults(func=cmd_publish_index)
 
-    # pipeline-v2 command (new orchestrator with resume)
-    v2_parser = subparsers.add_parser(
-        "pipeline",
-        help="Run atomic pipeline with resume support (replaces run-pipeline)",
-    )
-    v2_parser.add_argument("--from-phase", type=int, default=1, help="Start from phase N (1-4)")
-    v2_parser.add_argument("--resume", type=int, default=None, help="Resume a previous run by ID")
-    v2_parser.add_argument("--skip", type=str, default=None, help="Comma-separated stage names to skip")
-    v2_parser.add_argument("--dry-run", action="store_true", help="Show what would run")
-    v2_parser.add_argument("--limit", type=int, default=None, help="Max institutions per stage")
-    v2_parser.add_argument("--workers", type=int, default=1, help="Concurrent workers")
-    v2_parser.add_argument("--state", type=str, default=None, help="Filter by state code (e.g., CA, TX, NY)")
-    v2_parser.set_defaults(func=cmd_pipeline_v2)
-
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
     stats_parser.set_defaults(func=cmd_stats)
@@ -1236,22 +1156,6 @@ def main() -> None:
              "run_post_processing, ingest_data, test_connection",
     )
     run_cron_parser.set_defaults(func=cmd_run_cron)
-
-    # Demo data — populate every Command Center surface so a fresh
-    # install can SEE what "live" looks like without Modal/Anthropic.
-    demo_parser = subparsers.add_parser(
-        "seed-demo",
-        help="Populate synthetic data so /admin/command looks alive",
-    )
-    demo_parser.add_argument("--clear", action="store_true",
-                              help="Remove demo rows instead of inserting")
-    demo_parser.set_defaults(
-        func=lambda args: sys.exit(
-            __import__("fee_crawler.commands.seed_demo", fromlist=["main"]).main(
-                (["--clear"] if args.clear else [])
-            )
-        )
-    )
 
     # S-03 / C-01: historical-backfill — ingest archived fee snapshots
     hb_parser = subparsers.add_parser(

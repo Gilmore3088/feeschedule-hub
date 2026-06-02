@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { runCrawlGaps, runCategorize, runAutoReview, runSmartPipeline } from "./actions";
+import { runCrawlGaps } from "./actions";
 
 interface PipelineStage {
   id: string;
@@ -22,8 +22,6 @@ interface UnifiedPipelineProps {
 
 const ACTION_MAP: Record<string, () => Promise<{ success: boolean; jobId?: number; error?: string }>> = {
   crawl: runCrawlGaps,
-  categorize: runCategorize,
-  review: runAutoReview,
 };
 
 export function UnifiedPipeline({ stages }: UnifiedPipelineProps) {
@@ -42,18 +40,6 @@ export function UnifiedPipeline({ stages }: UnifiedPipelineProps) {
     setRunning(false);
     if (result.success) {
       setActionMessage({ type: "success", text: `Job #${result.jobId} started` });
-    } else {
-      setActionMessage({ type: "error", text: result.error || "Failed" });
-    }
-  }
-
-  async function handleSmartPipeline() {
-    setRunning(true);
-    setActionMessage(null);
-    const result = await runSmartPipeline();
-    setRunning(false);
-    if (result.success) {
-      setActionMessage({ type: "success", text: `Smart Pipeline job #${result.jobId} started` });
     } else {
       setActionMessage({ type: "error", text: result.error || "Failed" });
     }
@@ -80,20 +66,11 @@ export function UnifiedPipeline({ stages }: UnifiedPipelineProps) {
         <h2 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
           Pipeline Status
         </h2>
-        <div className="flex items-center gap-2">
-          {actionMessage && (
-            <span className={`text-[11px] ${actionMessage.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
-              {actionMessage.text}
-            </span>
-          )}
-          <button
-            onClick={handleSmartPipeline}
-            disabled={running}
-            className="rounded-md bg-gray-900 dark:bg-white/[0.1] px-3 py-1 text-[10px] font-semibold text-white hover:bg-gray-800 dark:hover:bg-white/[0.15] disabled:opacity-40 transition-colors"
-          >
-            {running ? "Running..." : "Run Smart Pipeline"}
-          </button>
-        </div>
+        {actionMessage && (
+          <span className={`text-[11px] ${actionMessage.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+            {actionMessage.text}
+          </span>
+        )}
       </div>
 
       {/* Stage bars */}

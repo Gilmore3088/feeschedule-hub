@@ -429,7 +429,7 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
       throughput_24h: 0,
       agents: [
         { name: "Darwin", status: "live", note: "classifier; auto-promote >=0.90" },
-        { name: "auto-review CLI", status: "live", note: "heuristic rules" },
+        { name: "publish-fees gate", status: "live", note: "confidence-gated review" },
       ],
     },
     {

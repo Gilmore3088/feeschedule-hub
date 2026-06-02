@@ -29,12 +29,6 @@ EXTRA_MIGRATIONS = REPO_ROOT / "scripts" / "migrations"
 HAMILTON_SCHEMA = Path(__file__).parent / "hamilton_schema.sql"
 
 
-# E2E suite is legacy SQLite-era (uses a removed `test_db` fixture with
-# PRAGMA calls). Needs a full rewrite for the Postgres era; out of scope
-# for 62B. Skip collection entirely so these tests don't error on every run.
-collect_ignore_glob = ["e2e/*"]
-
-
 # NOTE: Legacy SQLite fixtures removed in Phase 62a per D-13. Callers that
 # still need sync DB access should use psycopg2 directly against db_schema's
 # dsn; async callers use the pool yielded above.
