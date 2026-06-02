@@ -150,6 +150,9 @@ const chatInternalTools: ToolSet = {
   queryOutliers: internalTools.queryOutliers,
   searchInstitutionsByName: internalTools.searchInstitutionsByName,
   rankInstitutions: internalTools.rankInstitutions,
+  rankByPercentile: internalTools.rankByPercentile,
+  rankByFeeCount: internalTools.rankByFeeCount,
+  rankByOutlierFlags: internalTools.rankByOutlierFlags,
 };
 const proTools: ToolSet = { ...publicTools, ...chatInternalTools };
 const adminTools: ToolSet = { ...publicTools, ...chatInternalTools };

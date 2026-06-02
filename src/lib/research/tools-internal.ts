@@ -11,6 +11,7 @@ import { getOutlierFlaggedFees, getReviewStats, getStats } from "@/lib/crawler-d
 import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
 import { sql } from "@/lib/crawler-db/connection";
 import { spawnJob } from "@/lib/job-runner";
+import { computePercentiles } from "./percentile";
 
 // queryNationalData imports -- Phase 23-25 query functions
 import {
@@ -211,124 +212,241 @@ export const searchInstitutionsByName = tool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Institution ranking primitives
+//
+// Replaces the original monolithic `rankInstitutions` with three composable
+// tools that share `computePercentiles` for per-category thresholds. The old
+// `rankInstitutions` tool is kept below as a thin backward-compat shim that
+// dispatches by metric name.
+// ---------------------------------------------------------------------------
+
+type RankRow = {
+  id: number;
+  institution_name: string;
+  state_code: string;
+  charter_type: string;
+  asset_size_tier: string;
+  fee_category: string;
+  amount: number;
+};
+
+type PercentileBucket = {
+  name: string;
+  state: string;
+  charter: string;
+  tier: string;
+  count: number;
+  total: number;
+  categories: string[];
+};
+
+async function runPercentileRanking(
+  direction: "above" | "below",
+  metric: "p25" | "p75",
+  charter: "bank" | "credit_union" | undefined,
+  categories: string[] | undefined,
+  limit: number,
+) {
+  const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
+  const categoryClause =
+    categories && categories.length > 0
+      ? sql`AND ef.fee_category IN ${sql(categories)}`
+      : sql``;
+
+  const benchmarks = (await sql`
+    SELECT fee_category, amount
+    FROM extracted_fees
+    WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
+    ORDER BY fee_category, amount
+  `) as { fee_category: string; amount: number }[];
+
+  const grouped: Record<string, number[]> = {};
+  for (const r of benchmarks) {
+    if (!grouped[r.fee_category]) grouped[r.fee_category] = [];
+    grouped[r.fee_category].push(r.amount);
+  }
+  const pctMap: Record<string, { p25: number; p75: number }> = {};
+  for (const [cat, amounts] of Object.entries(grouped)) {
+    const { p25, p75 } = computePercentiles(amounts);
+    pctMap[cat] = { p25, p75 };
+  }
+
+  const instFees = (await sql`
+    SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+           ef.fee_category, ef.amount
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
+      ${charterClause}
+      ${categoryClause}
+  `) as RankRow[];
+
+  const counts: Record<number, PercentileBucket> = {};
+  for (const r of instFees) {
+    if (!counts[r.id]) {
+      counts[r.id] = {
+        name: r.institution_name,
+        state: r.state_code,
+        charter: r.charter_type,
+        tier: r.asset_size_tier,
+        count: 0,
+        total: 0,
+        categories: [],
+      };
+    }
+    counts[r.id].total++;
+    const pct = pctMap[r.fee_category];
+    if (!pct) continue;
+    const threshold = pct[metric];
+    const pass = direction === "above" ? r.amount > threshold : r.amount < threshold;
+    if (pass) {
+      counts[r.id].count++;
+      if (!counts[r.id].categories.includes(r.fee_category)) {
+        counts[r.id].categories.push(r.fee_category);
+      }
+    }
+  }
+
+  const ranked = Object.entries(counts)
+    .map(([id, data]) => ({
+      id: Number(id),
+      ...data,
+      pct_pass: Math.round((data.count / Math.max(data.total, 1)) * 100),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+
+  return {
+    metric: `${direction}_${metric}` as const,
+    results: ranked.map((r) => ({
+      institution: r.name,
+      state: r.state,
+      charter_type: r.charter,
+      asset_tier: r.tier,
+      matching_fees: r.count,
+      total_fees: r.total,
+      pct: r.pct_pass + "%",
+      categories: r.categories.slice(0, 5),
+    })),
+  };
+}
+
+export const rankByPercentile = tool({
+  description:
+    "Ranks institutions by count of fees above or below the national P25/P75 for each category. Combine with queryRegulatoryRisk or rankByOutlierFlags to layer pricing-leader and risk lenses.",
+  inputSchema: z.object({
+    metric: z.enum(["p25", "p75"]).describe("Percentile threshold to compare against"),
+    direction: z.enum(["above", "below"]).describe("'above' = fees > threshold, 'below' = fees < threshold"),
+    categories: z
+      .array(z.string())
+      .optional()
+      .describe("Optional fee_category allow-list (e.g. ['overdraft','nsf'])"),
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
+    limit: z.number().optional().default(10).describe("Number of results"),
+  }),
+  execute: async ({ metric, direction, categories, charter, limit }) => {
+    return runPercentileRanking(direction, metric, charter, categories, limit ?? 10);
+  },
+});
+
+async function runFeeCountRanking(
+  charter: "bank" | "credit_union" | undefined,
+  limit: number,
+) {
+  const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
+  const rows = (await sql`
+    SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+           COUNT(*) as fee_count
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.review_status != 'rejected' ${charterClause}
+    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
+    ORDER BY fee_count DESC
+    LIMIT ${limit}
+  `) as {
+    institution_name: string;
+    state_code: string;
+    charter_type: string;
+    asset_size_tier: string;
+    fee_count: number;
+  }[];
+  return { metric: "total_fees" as const, results: rows };
+}
+
+async function runOutlierFlagRanking(
+  charter: "bank" | "credit_union" | undefined,
+  limit: number,
+) {
+  const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
+  const rows = (await sql`
+    SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+           COUNT(*) as flag_count
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
+      AND ef.review_status != 'rejected' ${charterClause}
+    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
+    ORDER BY flag_count DESC
+    LIMIT ${limit}
+  `) as {
+    institution_name: string;
+    state_code: string;
+    charter_type: string;
+    asset_size_tier: string;
+    flag_count: number;
+  }[];
+  return { metric: "outlier_flags" as const, results: rows };
+}
+
+export const rankByFeeCount = tool({
+  description:
+    "Ranks institutions by total non-rejected fee observations. Use to find most-documented institutions or comparison anchors. Combine with rankByPercentile to weight by pricing posture.",
+  inputSchema: z.object({
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
+    limit: z.number().optional().default(10).describe("Number of results"),
+  }),
+  execute: async ({ charter, limit }) => runFeeCountRanking(charter, limit ?? 10),
+});
+
+export const rankByOutlierFlags = tool({
+  description:
+    "Ranks institutions by count of validation-flagged fees (statistical outliers, parse issues). Combine with queryOutliers for the underlying fees or rankByPercentile to separate price posture from data quality.",
+  inputSchema: z.object({
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
+    limit: z.number().optional().default(10).describe("Number of results"),
+  }),
+  execute: async ({ charter, limit }) => runOutlierFlagRanking(charter, limit ?? 10),
+});
+
+/**
+ * @deprecated Use rankByPercentile, rankByFeeCount, or rankByOutlierFlags directly.
+ * Kept as a backward-compat shim that dispatches by metric.
+ */
 export const rankInstitutions = tool({
   description:
-    "Ranks institutions by above_p75 (most fees above 75th pct), below_p25, total_fees, or outlier_flags. When: 'which institutions have the highest fees?', pricing leadership, outlier leaderboard. Combine with: queryRegulatoryRisk if ranking by overdraft/NSF categories, queryNationalData(complaints) to correlate pricing with complaints.",
+    "[Deprecated] Ranks institutions by above_p75, below_p25, total_fees, or outlier_flags. Prefer rankByPercentile / rankByFeeCount / rankByOutlierFlags for composability.",
   inputSchema: z.object({
     metric: z
       .enum(["above_p75", "below_p25", "total_fees", "outlier_flags"])
-      .describe("Ranking metric: above_p75 (most fees above 75th pct), below_p25 (most below 25th), total_fees (most observations), outlier_flags (most validation flags)"),
-    charter: z
-      .enum(["bank", "credit_union"])
-      .optional()
-      .describe("Filter by charter type"),
+      .describe("Ranking metric (legacy)"),
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
     limit: z.number().optional().default(10).describe("Number of results"),
   }),
   execute: async ({ metric, charter, limit }) => {
-    const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
     const n = limit ?? 10;
-
-    if (metric === "above_p75" || metric === "below_p25") {
-      const benchmarks = await sql`
-        SELECT fee_category, amount
-        FROM extracted_fees
-        WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
-        ORDER BY fee_category, amount
-      ` as { fee_category: string; amount: number }[];
-
-      const pctMap: Record<string, { p25: number; p75: number }> = {};
-      const grouped: Record<string, number[]> = {};
-      for (const r of benchmarks) {
-        if (!grouped[r.fee_category]) grouped[r.fee_category] = [];
-        grouped[r.fee_category].push(r.amount);
-      }
-      for (const [cat, amounts] of Object.entries(grouped)) {
-        const sorted = amounts.sort((a, b) => a - b);
-        pctMap[cat] = {
-          p25: sorted[Math.floor(sorted.length * 0.25)],
-          p75: sorted[Math.floor(sorted.length * 0.75)],
-        };
-      }
-
-      const threshold = metric === "above_p75" ? "p75" : "p25";
-      const comparison = metric === "above_p75" ? ">" : "<";
-
-      const instFees = await sql`
-        SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
-               ef.fee_category, ef.amount
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
-          ${charterClause}
-      ` as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
-
-      const counts: Record<number, { name: string; state: string; charter: string; tier: string; count: number; total: number; categories: string[] }> = {};
-      for (const r of instFees) {
-        if (!counts[r.id]) counts[r.id] = { name: r.institution_name, state: r.state_code, charter: r.charter_type, tier: r.asset_size_tier, count: 0, total: 0, categories: [] };
-        counts[r.id].total++;
-        const pct = pctMap[r.fee_category];
-        if (pct) {
-          const pass = comparison === ">" ? r.amount > pct[threshold] : r.amount < pct[threshold];
-          if (pass) {
-            counts[r.id].count++;
-            if (!counts[r.id].categories.includes(r.fee_category)) {
-              counts[r.id].categories.push(r.fee_category);
-            }
-          }
-        }
-      }
-
-      const ranked = Object.entries(counts)
-        .map(([id, data]) => ({ id: Number(id), ...data, pct_above: Math.round(data.count / Math.max(data.total, 1) * 100) }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, n);
-
-      return {
-        metric,
-        results: ranked.map(r => ({
-          institution: r.name,
-          state: r.state,
-          charter_type: r.charter,
-          asset_tier: r.tier,
-          matching_fees: r.count,
-          total_fees: r.total,
-          pct: r.pct_above + "%",
-          categories: r.categories.slice(0, 5),
-        })),
-      };
+    if (metric === "above_p75") {
+      return runPercentileRanking("above", "p75", charter, undefined, n);
     }
-
+    if (metric === "below_p25") {
+      return runPercentileRanking("below", "p25", charter, undefined, n);
+    }
     if (metric === "total_fees") {
-      const rows = await sql`
-        SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
-               COUNT(*) as fee_count
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.review_status != 'rejected' ${charterClause}
-        GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
-        ORDER BY fee_count DESC
-        LIMIT ${n}
-      ` as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_count: number }[];
-
-      return { metric, results: rows };
+      return runFeeCountRanking(charter, n);
     }
-
     if (metric === "outlier_flags") {
-      const rows = await sql`
-        SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
-               COUNT(*) as flag_count
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
-          AND ef.review_status != 'rejected' ${charterClause}
-        GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
-        ORDER BY flag_count DESC
-        LIMIT ${n}
-      ` as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; flag_count: number }[];
-
-      return { metric, results: rows };
+      return runOutlierFlagRanking(charter, n);
     }
-
     return { error: "Unknown metric" };
   },
 });
@@ -871,6 +989,9 @@ export const internalTools = {
   getReviewQueueStats,
   searchInstitutionsByName,
   rankInstitutions,
+  rankByPercentile,
+  rankByFeeCount,
+  rankByOutlierFlags,
   queryJobStatus,
   queryDataQuality,
   triggerPipelineJob,
