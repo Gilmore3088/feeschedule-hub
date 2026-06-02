@@ -126,7 +126,7 @@ async def _reset_circuit(actor: str) -> dict:
         async with conn.transaction():
             await conn.execute(
                 "UPDATE agent_budgets SET halted_at = NULL, halted_reason = NULL "
-                "WHERE agent_name='darwin' AND budget_window='per_batch'"
+                "WHERE agent_name='darwin'"
             )
             await conn.execute(
                 """INSERT INTO agent_events
@@ -180,7 +180,7 @@ async def reclassify_endpoint(req: ReclassifyRequest) -> dict:
     normalized = normalize_fee_name(fee_name)
     sys_prompt, user_prompt = build_prompt([normalized])
     try:
-        results = await classify_names_with_retry([normalized], config=DEFAULT)
+        results, _cost_cents = await classify_names_with_retry([normalized], config=DEFAULT)
     except Exception as e:
         return {"error": f"reclassify failed: {e}"}
 

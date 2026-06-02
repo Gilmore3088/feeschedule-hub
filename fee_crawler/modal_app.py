@@ -371,9 +371,12 @@ async def run_post_processing():
         )
 
     env = {**os.environ, "DATABASE_URL": db_url}
+    # NOTE: the legacy `categorize` + `auto-review` subcommands were removed in
+    # the agentic cutover — categorization is now handled by the extractor +
+    # Darwin gateway, and auto-review by the publish-fees confidence gate.
+    # Leaving them here would fail argparse (exit 2) on the very first step and
+    # abort the whole daily drain before publish-fees/snapshot/publish-index.
     commands = [
-        ["python3", "-m", "fee_crawler", "categorize"],
-        ["python3", "-m", "fee_crawler", "auto-review"],
         # Drain fees_verified -> fees_published before snapshot/publish-index
         # so the index cache reflects newly-published rows in the same cycle.
         ["python3", "-m", "fee_crawler", "publish-fees", "--apply", "--limit", "2000"],

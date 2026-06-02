@@ -163,6 +163,12 @@ async def run_discovery_session(
         processed, found = _parse_worker_summary(worker_summary)
         result.processed = processed
         result.found = found
+        # A job that discovers no fee URL is recorded as status="failed" by the
+        # worker (discovery_worker.py: found_url is None -> "failed"), so the
+        # session-level failure count is processed minus found. Mirror the
+        # exception path's arithmetic so the success-path session_end row and
+        # DiscovererResult report the real miss count instead of a flat 0.
+        result.failed = processed - found
         result.cost_cents = processed * _COST_PER_JOB_CENTS
 
         # 4. Debit budget against agent_budgets.spent_cents

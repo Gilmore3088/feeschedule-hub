@@ -202,6 +202,13 @@ async def classify_batch(
     result = BatchResult()
     cb = CircuitBreaker(config)
 
+    # Each classify_batch call is one "batch": reset the per_batch budget window
+    # so it measures this batch's spend rather than accumulating toward a
+    # permanent lifetime ceiling. Time-based windows (per_day) roll over on
+    # their own cadence inside account_budget/check_budget.
+    from fee_crawler.agent_tools.budget import reset_budget_window
+    await reset_budget_window(conn, AGENT_NAME, "per_batch")
+
     async def emit(ev_type: str, **payload):
         if on_event:
             await on_event({"type": ev_type, **payload})

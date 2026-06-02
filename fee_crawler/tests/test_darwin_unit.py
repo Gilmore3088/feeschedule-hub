@@ -127,9 +127,13 @@ async def test_classify_names_retries_on_rate_limit():
         calls["n"] += 1
         if calls["n"] < 3:
             raise make_rate_limit_error()
-        return [{"fee_name": n, "canonical_fee_key": None, "confidence": 0.5} for n in names]
+        # Match the production contract: (classifications, cost_cents).
+        return [{"fee_name": n, "canonical_fee_key": None, "confidence": 0.5} for n in names], 0
 
     config = DarwinConfig(backoff_base_seconds=0.0, backoff_max_seconds=0.0)
-    result = await classify_names_with_retry(["foo"], _caller=fake_call, config=config)
-    assert len(result) == 1
+    classifications, cost_cents = await classify_names_with_retry(
+        ["foo"], _caller=fake_call, config=config
+    )
+    assert len(classifications) == 1
+    assert cost_cents == 0
     assert calls["n"] == 3
