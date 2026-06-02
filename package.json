@@ -10,7 +10,8 @@
     "db:migrate": "node scripts/apply-migration.mjs --pending",
     "db:migrate:status": "node scripts/apply-migration.mjs --status",
     "db:seed": "python -m fee_crawler seed-users",
-    "setup": "bash scripts/dev-setup.sh"
+    "setup": "bash scripts/dev-setup.sh",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -38,6 +39,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
