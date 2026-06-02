@@ -271,11 +271,45 @@ export function OpsClient({
     }
   }, []);
 
+  // Audit #7: prefer LISTEN/NOTIFY SSE for instant updates; fall back to 3s
+  // polling if EventSource is unavailable or the stream fails (e.g. session-
+  // mode DSN not configured in this environment).
   useEffect(() => {
-    if (activeJobs.length === 0) return;
-    const interval = setInterval(refresh, 3000);
-    return () => clearInterval(interval);
-  }, [activeJobs.length, refresh]);
+    if (typeof window === "undefined" || typeof EventSource === "undefined") {
+      const interval = setInterval(refresh, 3000);
+      return () => clearInterval(interval);
+    }
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    const startPollingFallback = () => {
+      if (pollInterval) return;
+      pollInterval = setInterval(refresh, 3000);
+    };
+
+    const es = new EventSource("/api/ops/stream");
+    es.addEventListener("ops_job", () => {
+      // Notification arrived: re-fetch the full summary + job lists. Payload
+      // contains {id, status, command, op} but we re-query to keep render
+      // logic centralized in /admin/ops/api.
+      void refresh();
+    });
+    es.addEventListener("ready", () => {
+      // Initial sync so we don't miss state changes during page-load gap.
+      void refresh();
+    });
+    es.onerror = () => {
+      // Browser will auto-reconnect; if it cannot (e.g. 503 because
+      // DATABASE_URL_SESSION is unset), close and degrade to polling.
+      if (es.readyState === EventSource.CLOSED) {
+        startPollingFallback();
+      }
+    };
+
+    return () => {
+      es.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [refresh]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
