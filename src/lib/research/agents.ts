@@ -224,10 +224,12 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
         requiresAuth: true,
         requiredRole: "premium",
         exampleQuestions: [
-          "Compare overdraft pricing for community banks in District 7 vs the national median",
-          "Which asset tier has the highest fee-to-revenue dependency?",
-          "Identify the top 10 institutions with the most fees above the 75th percentile",
-          "How do credit union NSF fees in the Southeast compare to bank NSF fees?",
+          "Benchmark our overdraft pricing against community banks in District 7",
+          "Summarize recent CFPB and Fed guidance affecting NSF and overdraft fees",
+          "Where are monthly maintenance fees trending year-over-year by charter?",
+          "Identify the top 10 institutions with fees above the 75th percentile",
+          "Compare credit union NSF fees in the Southeast to bank NSF fees",
+          "Draft an executive summary on national overdraft pricing for our board",
         ],
       };
     }

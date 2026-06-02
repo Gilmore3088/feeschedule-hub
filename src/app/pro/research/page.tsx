@@ -90,6 +90,7 @@ export default async function ProResearchPage() {
       <AnalystHub
         agentId="hamilton"
         agentName={agent.name}
+        exampleQuestions={agent.exampleQuestions}
         conversations={conversations}
         queriesToday={usage.today}
         dailyLimit={dailyLimit}
