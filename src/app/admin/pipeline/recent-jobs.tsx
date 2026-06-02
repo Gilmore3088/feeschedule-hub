@@ -46,10 +46,6 @@ function formatResultSummary(raw: string | null): string | null {
       if (r.fees_extracted !== undefined) parts.push(`${r.fees_extracted} fees extracted`);
       if (r.succeeded !== undefined) parts.push(`${r.succeeded} succeeded`);
       if (r.failed > 0) parts.push(`${r.failed} failed`);
-    } else if (r.command === "outlier-detect") {
-      if (r.decimal_errors_rejected > 0) parts.push(`${r.decimal_errors_rejected} decimal errors rejected`);
-      if (r.statistical_outliers_flagged > 0) parts.push(`${r.statistical_outliers_flagged} outliers flagged`);
-      if (r.skipped_manual > 0) parts.push(`${r.skipped_manual} manual skipped`);
     } else {
       if (r.processed !== undefined) parts.push(`${r.processed} processed`);
       if (r.succeeded !== undefined && r.succeeded !== r.processed) parts.push(`${r.succeeded} succeeded`);

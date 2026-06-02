@@ -27,7 +27,6 @@ async function getTierCounts(): Promise<{
   fees_verified: number;
   fees_published_live: number;
   fees_published_total: number;
-  extracted_fees_legacy: number;
 }> {
   // Each tier counted separately so a transient query failure on one
   // doesn't blank the whole page.
@@ -37,13 +36,11 @@ async function getTierCounts(): Promise<{
     SELECT COUNT(*)::int AS n FROM fees_published WHERE rolled_back_at IS NULL
   `.catch(() => [{ n: 0 }] as { n: number }[]);
   const [pubTotal] = await sql<{ n: number }[]>`SELECT COUNT(*)::int AS n FROM fees_published`.catch(() => [{ n: 0 }] as { n: number }[]);
-  const [legacy] = await sql<{ n: number }[]>`SELECT COUNT(*)::int AS n FROM extracted_fees`.catch(() => [{ n: 0 }] as { n: number }[]);
   return {
     fees_raw: raw?.n ?? 0,
     fees_verified: verified?.n ?? 0,
     fees_published_live: pubLive?.n ?? 0,
     fees_published_total: pubTotal?.n ?? 0,
-    extracted_fees_legacy: legacy?.n ?? 0,
   };
 }
 
@@ -239,8 +236,6 @@ export default async function CommandCenterPage() {
           <StatTile label="Tier 3 fees_published (live)" value={tiers.fees_published_live.toLocaleString()}
                     sub={`${publishPct}% promoted from verified`}
                     tone={publishPct < 10 ? "bad" : publishPct < 50 ? "warn" : "ok"} />
-          <StatTile label="Legacy extracted_fees" value={tiers.extracted_fees_legacy.toLocaleString()}
-                    sub="frozen; awaiting cutover drop" tone="neutral" />
           <StatTile label="States with publish coverage" value={`${coverage.states_with_full_coverage}/${coverage.total_states}`}
                     sub={`median publish ${coverage.median_publish_pct}%`}
                     tone={coverage.states_with_full_coverage === 0 ? "bad"

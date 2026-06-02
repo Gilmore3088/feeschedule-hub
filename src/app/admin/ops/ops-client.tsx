@@ -44,14 +44,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesState: true,
     typical: "python -m fee_crawler discover --limit 50",
   },
-  validate: {
-    description: "Validate Fees",
-    detail: "Re-runs validation rules on existing fees: amount bounds checking, frequency detection, duplicate detection, and confidence scoring.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler validate",
-  },
   analyze: {
     description: "Compute Analysis",
     detail: "Builds peer comparison reports and fee summary statistics per institution. Results power the dashboard and peer analysis pages.",
@@ -59,14 +51,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesLimit: false,
     usesCharter: false,
     typical: "python -m fee_crawler analyze",
-  },
-  "outlier-detect": {
-    description: "Detect Outliers",
-    detail: "Flags fees with amounts that are statistical outliers within their category (e.g., $500 overdraft fee). Uses IQR and z-score methods.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler outlier-detect",
   },
   enrich: {
     description: "Enrich Institutions",

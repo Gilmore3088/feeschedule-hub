@@ -6,10 +6,8 @@
 const ALLOWED_COMMANDS = new Set([
   "crawl",
   "discover",
-  "validate",
   "analyze",
   "enrich",
-  "outlier-detect",
   "stats",
   "ingest-call-reports",
   "ingest-fdic",

@@ -409,13 +409,12 @@ export const queryDataQuality = tool({
 });
 
 const SAFE_PIPELINE_COMMANDS = new Set([
-  "validate", "outlier-detect",
   "enrich", "publish-index", "snapshot",
 ]);
 
 export const triggerPipelineJob = tool({
   description:
-    "Triggers a safe pipeline job: validate, outlier-detect, enrich, publish-index, snapshot. When: operator asks to run a pipeline step. Does NOT trigger crawl or discover (those use API credits). Combine with: queryJobStatus to confirm the triggered job is running.",
+    "Triggers a safe pipeline job: enrich, publish-index, snapshot. When: operator asks to run a pipeline step. Does NOT trigger crawl or discover (those use API credits). Combine with: queryJobStatus to confirm the triggered job is running.",
   inputSchema: z.object({
     command: z.string().describe("Pipeline command name"),
     dryRun: z.boolean().optional().default(false).describe("If true, pass --dry-run flag"),

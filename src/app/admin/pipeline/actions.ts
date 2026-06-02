@@ -16,28 +16,6 @@ export async function runCrawlGaps(): Promise<{ success: boolean; jobId?: number
   }
 }
 
-export async function runOutlierDetect(): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("outlier-detect", [], user.username);
-    revalidatePath("/admin/pipeline");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
-export async function runValidate(): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("validate", [], user.username);
-    revalidatePath("/admin/pipeline");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
 export async function runEnrich(): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
   try {

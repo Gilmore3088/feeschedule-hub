@@ -5,7 +5,6 @@ const STAGES = [
   { name: "seed-enrich", label: "Seed", phase: 1, icon: "db" },
   { name: "discover", label: "Discover", phase: 1, icon: "search" },
   { name: "crawl", label: "Crawl", phase: 2, icon: "download" },
-  { name: "validate", label: "Validate", phase: 3, icon: "check" },
   { name: "snapshot", label: "Snapshot", phase: 4, icon: "camera" },
   { name: "publish", label: "Publish", phase: 4, icon: "globe" },
 ] as const;
@@ -148,7 +147,7 @@ export async function PipelineRunsPanel() {
         </div>
         <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300">No Pipeline Runs Yet</h3>
         <p className="text-[11px] text-gray-400 mt-1">
-          Run a pipeline command (crawl, validate, publish-index) or trigger from Ops Center
+          Run a pipeline command (crawl, snapshot, publish-index) or trigger from Ops Center
         </p>
       </div>
     );

@@ -3,8 +3,6 @@
 import { useState } from "react";
 import {
   runCrawlGaps,
-  runOutlierDetect,
-  runValidate,
   runEnrich,
   runDiscover,
   runRefreshData,
@@ -30,8 +28,6 @@ export function QuickActions() {
 
   const actions: ActionButton[] = [
     { label: "Crawl Gaps", description: "Crawl institutions with URLs but no fees", fn: runCrawlGaps },
-    { label: "Detect Outliers", description: "Find statistical outliers + decimal errors", fn: runOutlierDetect },
-    { label: "Validate", description: "Check amount bounds per category", fn: runValidate },
     { label: "Enrich", description: "Enrich institution data from federal sources", fn: runEnrich },
     { label: "Refresh Daily", description: "Refresh FRED, BLS, NY Fed, OFR data", fn: () => runRefreshData("daily") },
     { label: "Refresh Weekly", description: "Refresh weekly cadence data sources", fn: () => runRefreshData("weekly") },

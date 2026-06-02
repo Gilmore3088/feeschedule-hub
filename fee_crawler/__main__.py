@@ -111,30 +111,6 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         db.close()
 
 
-def cmd_validate(args: argparse.Namespace) -> None:
-    """Retroactively validate existing extracted fees."""
-    from fee_crawler.commands.backfill_validation import run
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(db)
-    finally:
-        db.close()
-
-
-def cmd_outlier_detect(args: argparse.Namespace) -> None:
-    """Detect statistical outliers in extracted fee amounts."""
-    from fee_crawler.pipeline.outlier_detection import run_outlier_detection
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run_outlier_detection(db, auto_flag=args.auto_flag)
-    finally:
-        db.close()
-
-
 def cmd_backfill_ncua_urls(args: argparse.Namespace) -> None:
     """Backfill website URLs for NCUA credit unions from mapping API."""
     from fee_crawler.commands.backfill_ncua_urls import run
@@ -511,7 +487,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
             print(f"  With errors:  {failed['cnt']:,}" if failed else "  Errors: 0")
 
         # Extraction stats
-        total_fees = db.count("extracted_fees")
+        total_fees = db.count("fees_verified")
         if total_fees > 0:
             runs = db.fetchone("SELECT COUNT(*) as cnt FROM crawl_runs")
             avg_fees = db.fetchone(
@@ -796,19 +772,6 @@ def main() -> None:
         help="Analyze all institutions with extracted fees",
     )
     analyze_parser.set_defaults(func=cmd_analyze)
-
-    # validate command
-    validate_parser = subparsers.add_parser("validate", help="Retroactively validate existing fees")
-    validate_parser.set_defaults(func=cmd_validate)
-
-    # outlier-detect command
-    outlier_parser = subparsers.add_parser("outlier-detect", help="Detect statistical outliers in fee amounts")
-    outlier_parser.add_argument(
-        "--auto-flag",
-        action="store_true",
-        help="Automatically flag detected outliers for review",
-    )
-    outlier_parser.set_defaults(func=cmd_outlier_detect)
 
     # backfill-ncua-urls command
     ncua_url_parser = subparsers.add_parser(
