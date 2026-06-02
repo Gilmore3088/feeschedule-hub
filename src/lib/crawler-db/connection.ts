@@ -1,8 +1,35 @@
 import postgres from "postgres";
 
 const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL_SESSION = process.env.DATABASE_URL_SESSION;
 
 let _sql: ReturnType<typeof postgres> | null = null;
+let _sqlSession: ReturnType<typeof postgres> | null = null;
+
+/**
+ * Session-mode postgres client. REQUIRED for LISTEN/NOTIFY because the
+ * transaction-mode pooler (port 6543) does not persist LISTEN registrations
+ * across pooled checkouts (research §Pitfall 2). Use ONLY for LISTEN; writes
+ * and standard reads continue to use getSql().
+ */
+export function getSessionSql() {
+  if (!_sqlSession) {
+    if (!DATABASE_URL_SESSION) {
+      throw new Error(
+        "DATABASE_URL_SESSION environment variable is required for LISTEN/NOTIFY. " +
+          "Set it to the Supabase session-mode pooler DSN (port 5432).",
+      );
+    }
+    _sqlSession = postgres(DATABASE_URL_SESSION, {
+      ssl: "require",
+      max: 4,
+      idle_timeout: 0,
+      connect_timeout: 15,
+      prepare: false,
+    });
+  }
+  return _sqlSession;
+}
 
 export function getSql() {
   if (!_sql) {
