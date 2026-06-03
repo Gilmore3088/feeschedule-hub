@@ -4,6 +4,45 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 import { spawnJob } from "@/lib/job-runner";
+import { createRun, seedSteps } from "@/lib/pipeline/db";
+import { executeRun } from "@/lib/pipeline/runner";
+import { getStage, stageNames } from "@/lib/pipeline/stages";
+
+/**
+ * Pipeline rebuild — trigger a run through the new control plane.
+ *
+ * Replaces the dead spawnJob() subprocess path (which shells out to
+ * `python -m fee_crawler ...` and cannot run on Vercel). Creates a
+ * pipeline_runs row, seeds its steps, and executes them inline through the
+ * engine-neutral runner. Returns the runId so the caller can refresh into the
+ * live step view.
+ */
+export async function startPipelineRun(
+  stages: string[],
+): Promise<{ ok: boolean; runId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+
+  const valid = stages.filter((s) => getStage(s));
+  if (valid.length === 0) {
+    return {
+      ok: false,
+      error: `No valid stages. Available: ${stageNames().join(", ")}`,
+    };
+  }
+
+  try {
+    const runId = await createRun("manual", user.username, valid, {});
+    await seedSteps(runId, valid);
+    const outcome = await executeRun(runId, valid, {});
+    revalidatePath("/admin/pipeline");
+    if (outcome.status === "failed") {
+      return { ok: false, runId, error: outcome.error };
+    }
+    return { ok: true, runId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 
 export async function runCrawlGaps(): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
