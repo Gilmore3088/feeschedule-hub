@@ -33,3 +33,13 @@ export interface Stage {
   description: string;
   run(ctx: StageContext): Promise<StageResult>;
 }
+
+/** Read a numeric run param with a default. */
+export function numParam(v: unknown, dflt: number): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : dflt;
+}
+
+/** Read a boolean run param (default false). Stages are dry-run unless apply=true. */
+export function boolParam(v: unknown): boolean {
+  return v === true;
+}

@@ -1,15 +1,17 @@
 /**
- * Stage registry.
+ * Stage registry — the ordered list of stages the pipeline can run.
  *
- * The ordered list of stages the pipeline can run. Phase 1 registers only
- * `publish`. Later phases append discover, extract, classify, review, snapshot —
- * each a Stage against the same contract, in execution order.
+ * Execution order matters for a full run: classify (raw → verified) →
+ * review (Knox accept/reject) → publish (verified → published). Phase 3 prepends
+ * discover + extract; snapshot lands later.
  */
 
 import type { Stage } from "../stage";
+import { classifyStage } from "./classify";
+import { reviewStage } from "./review";
 import { publishStage } from "./publish";
 
-export const STAGES: Stage[] = [publishStage];
+export const STAGES: Stage[] = [classifyStage, reviewStage, publishStage];
 
 export function getStage(name: string): Stage | undefined {
   return STAGES.find((s) => s.name === name);
