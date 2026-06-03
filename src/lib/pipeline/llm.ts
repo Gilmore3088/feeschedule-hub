@@ -32,7 +32,7 @@ const SYSTEM_PROMPT =
   "Never infer NSF from overdraft or vice versa — they are distinct regulatory categories.";
 
 let _client: Anthropic | null = null;
-function client(): Anthropic {
+export function getAnthropic(): Anthropic {
   if (!_client) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
@@ -56,7 +56,7 @@ export async function classifyFeeNames(
     `Approved canonical keys:\n${CANONICAL_FEE_KEYS.join(", ")}\n\n` +
     `Fee names to classify:\n${names.map((n) => `- ${n}`).join("\n")}`;
 
-  const resp = await client().messages.create({
+  const resp = await getAnthropic().messages.create({
     model: CLASSIFY_MODEL,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,

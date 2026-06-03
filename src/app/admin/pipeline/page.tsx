@@ -115,7 +115,13 @@ export default async function PipelinePage() {
               Trigger a run and watch each step — backed by pipeline_runs / pipeline_steps
             </p>
           </div>
-          <RunTrigger stages={["publish"]} />
+          <div className="flex items-center gap-2">
+            <RunTrigger
+              stages={["discover", "extract", "classify", "review", "publish"]}
+              label="Run full pipeline (dry-run)"
+            />
+            <RunTrigger stages={["publish"]} label="Run publish" />
+          </div>
         </div>
 
         <div className="p-4 space-y-5">

@@ -21,6 +21,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1025.0",
     "@react-pdf/renderer": "^4.5.1",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/sandbox": "^2.1.0",
     "ai": "^6.0.116",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
