@@ -77,7 +77,7 @@ export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
 
 export async function getFeesByInstitution(targetId: number): Promise<ExtractedFee[]> {
   const rows = await sql<ExtractedFee[]>`
-    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
     FROM fees_verified ef
@@ -125,7 +125,7 @@ export async function getAllFees(
 
   const feesParams = [...params, limit, offset];
   const fees = await sql.unsafe<ExtractedFee[]>(
-    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
     FROM fees_verified ef
@@ -333,7 +333,7 @@ export async function getFeesByStatus(
     : ", ef.fee_name ASC";
 
   const fees = await sql.unsafe<ReviewableFee[]>(
-    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
             ef.extraction_confidence, ef.review_status, ef.validation_flags,
             ef.fee_category, ct.institution_name, ef.crawl_target_id,
             ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
@@ -358,7 +358,7 @@ export async function getDistinctFeeTypes(): Promise<string[]> {
 
 export async function getFeeById(feeId: number): Promise<ReviewableFee | null> {
   const [row] = await sql<ReviewableFee[]>`
-    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
             ef.extraction_confidence, ef.review_status, ef.validation_flags,
             ef.fee_category, ct.institution_name, ef.crawl_target_id,
             ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
@@ -403,7 +403,7 @@ export async function getOutlierFlaggedFees(
   const cnt = Number(countResult[0].cnt);
 
   const fees = await sql.unsafe<ReviewableFee[]>(
-    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
             ef.extraction_confidence, ef.review_status, ef.validation_flags,
             ef.fee_category, ct.institution_name, ef.crawl_target_id,
             ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
