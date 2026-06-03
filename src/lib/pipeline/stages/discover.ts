@@ -40,6 +40,21 @@ export const discoverStage: Stage = {
     const limit = numParam(ctx.params.limit, DEFAULT_LIMIT);
     const apply = boolParam(ctx.params.apply);
 
+    if (!apply) {
+      const rows = (await sql`
+        SELECT count(*)::int AS n
+          FROM crawl_targets
+         WHERE (fee_schedule_url IS NULL OR fee_schedule_url = '')
+           AND website_url IS NOT NULL AND website_url <> ''
+      `) as { n: number }[];
+      const n = Number(rows[0]?.n ?? 0);
+      return {
+        rowsIn: n,
+        rowsOut: 0,
+        notes: { mode: "dry-run", message: `${n} target(s) missing a fee URL` },
+      };
+    }
+
     const candidates = (await sql`
       SELECT id, website_url
         FROM crawl_targets
@@ -48,14 +63,6 @@ export const discoverStage: Stage = {
        ORDER BY id
        LIMIT ${limit}
     `) as Target[];
-
-    if (!apply) {
-      return {
-        rowsIn: candidates.length,
-        rowsOut: 0,
-        notes: { mode: "dry-run", message: `${candidates.length} target(s) missing a fee URL` },
-      };
-    }
 
     let found = 0;
     let notFound = 0;

@@ -27,12 +27,9 @@ describe("extractStage", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("dry-run counts targets needing extraction, no sandbox, no writes", async () => {
-    h.query.mockResolvedValueOnce([
-      { id: 1, institution_name: "A", fee_schedule_url: "https://a.com/fees" },
-      { id: 2, institution_name: "B", fee_schedule_url: "https://b.com/fees" },
-    ]);
+    h.query.mockResolvedValueOnce([{ n: 954 }]);
     const r = await extractStage.run({ runId: 1, params: {} });
-    expect(r.rowsIn).toBe(2);
+    expect(r.rowsIn).toBe(954);
     expect(r.rowsOut).toBe(0);
     expect(fetchPageTextMock).not.toHaveBeenCalled();
     expect(h.begin).not.toHaveBeenCalled();

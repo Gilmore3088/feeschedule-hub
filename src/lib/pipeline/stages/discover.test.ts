@@ -43,13 +43,10 @@ describe("probeFeeUrl", () => {
 describe("discoverStage dry-run", () => {
   beforeEach(() => vi.clearAllMocks());
   it("counts targets missing a fee URL without writing", async () => {
-    h.query.mockResolvedValueOnce([
-      { id: 1, website_url: "a.com" },
-      { id: 2, website_url: "b.com" },
-    ]);
+    h.query.mockResolvedValueOnce([{ n: 3444 }]);
     const r = await discoverStage.run({ runId: 1, params: {} });
-    expect(r.rowsIn).toBe(2);
+    expect(r.rowsIn).toBe(3444);
     expect(r.rowsOut).toBe(0);
-    expect(h.query).toHaveBeenCalledTimes(1); // only the candidate query, no updates
+    expect(h.query).toHaveBeenCalledTimes(1); // only the count query, no updates
   });
 });

@@ -32,6 +32,21 @@ export const classifyStage: Stage = {
     const limit = numParam(ctx.params.limit, DEFAULT_LIMIT);
     const apply = boolParam(ctx.params.apply);
 
+    if (!apply) {
+      const rows = (await sql`
+        SELECT count(*)::int AS n
+          FROM fees_raw fr
+          LEFT JOIN fees_verified fv ON fv.fee_raw_id = fr.fee_raw_id
+         WHERE fv.fee_verified_id IS NULL
+      `) as { n: number }[];
+      const n = Number(rows[0]?.n ?? 0);
+      return {
+        rowsIn: n,
+        rowsOut: 0,
+        notes: { mode: "dry-run", message: `${n} raw fee(s) awaiting classification` },
+      };
+    }
+
     const candidates = (await sql`
       SELECT fr.fee_raw_id, fr.fee_name, fr.amount
         FROM fees_raw fr
@@ -40,17 +55,6 @@ export const classifyStage: Stage = {
        ORDER BY fr.fee_raw_id
        LIMIT ${limit}
     `) as RawCandidate[];
-
-    if (!apply) {
-      return {
-        rowsIn: candidates.length,
-        rowsOut: 0,
-        notes: {
-          mode: "dry-run",
-          message: `${candidates.length} raw fee(s) awaiting classification`,
-        },
-      };
-    }
 
     if (candidates.length === 0) {
       return { rowsIn: 0, rowsOut: 0, notes: { mode: "apply", message: "nothing to classify" } };

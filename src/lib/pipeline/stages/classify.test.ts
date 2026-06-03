@@ -16,13 +16,10 @@ import { classifyStage } from "./classify";
 describe("classifyStage", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("dry-run counts candidates without calling the LLM or writing", async () => {
-    h.query.mockResolvedValueOnce([
-      { fee_raw_id: 1, fee_name: "Monthly Fee", amount: 5 },
-      { fee_raw_id: 2, fee_name: "Overdraft Item", amount: 35 },
-    ]);
+  it("dry-run counts the full backlog without calling the LLM or writing", async () => {
+    h.query.mockResolvedValueOnce([{ n: 102330 }]);
     const r = await classifyStage.run({ runId: 1, params: {} });
-    expect(r.rowsIn).toBe(2);
+    expect(r.rowsIn).toBe(102330);
     expect(r.rowsOut).toBe(0);
     expect(classifyFeeNamesMock).not.toHaveBeenCalled();
     expect(h.begin).not.toHaveBeenCalled();

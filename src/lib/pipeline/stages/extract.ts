@@ -32,6 +32,21 @@ export const extractStage: Stage = {
     const limit = numParam(ctx.params.limit, DEFAULT_LIMIT);
     const apply = boolParam(ctx.params.apply);
 
+    if (!apply) {
+      const rows = (await sql`
+        SELECT count(*)::int AS n
+          FROM crawl_targets ct
+         WHERE ct.fee_schedule_url IS NOT NULL AND ct.fee_schedule_url <> ''
+           AND NOT EXISTS (SELECT 1 FROM fees_raw fr WHERE fr.institution_id = ct.id)
+      `) as { n: number }[];
+      const n = Number(rows[0]?.n ?? 0);
+      return {
+        rowsIn: n,
+        rowsOut: 0,
+        notes: { mode: "dry-run", message: `${n} target(s) need extraction` },
+      };
+    }
+
     const candidates = (await sql`
       SELECT ct.id, ct.institution_name, ct.fee_schedule_url
         FROM crawl_targets ct
@@ -40,14 +55,6 @@ export const extractStage: Stage = {
        ORDER BY ct.id
        LIMIT ${limit}
     `) as Target[];
-
-    if (!apply) {
-      return {
-        rowsIn: candidates.length,
-        rowsOut: 0,
-        notes: { mode: "dry-run", message: `${candidates.length} target(s) need extraction` },
-      };
-    }
 
     let written = 0;
     let failed = 0;
