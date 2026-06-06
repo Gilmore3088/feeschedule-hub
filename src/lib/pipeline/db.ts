@@ -11,48 +11,17 @@
  */
 
 import { sql } from "@/lib/crawler-db/connection";
+import type {
+  RunStatus,
+  StepStatus,
+  TriggerSource,
+  PipelineRunRow,
+  PipelineStepRow,
+  StepResult,
+} from "./types";
 
-export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
-export type StepStatus = "pending" | "running" | "succeeded" | "failed" | "skipped";
-export type TriggerSource = "manual" | "cron" | "api";
-
-export interface PipelineRunRow {
-  id: number;
-  trigger_source: TriggerSource;
-  triggered_by: string;
-  status: RunStatus;
-  params_json: Record<string, unknown>;
-  workflow_run_id: string | null;
-  stages_total: number;
-  stages_done: number;
-  started_at: Date | null;
-  finished_at: Date | null;
-  error: string | null;
-  created_at: Date;
-}
-
-export interface PipelineStepRow {
-  id: number;
-  run_id: number;
-  stage: string;
-  seq: number;
-  status: StepStatus;
-  rows_in: number | null;
-  rows_out: number | null;
-  cost_cents: number;
-  started_at: Date | null;
-  finished_at: Date | null;
-  error: string | null;
-  notes_json: Record<string, unknown> | null;
-}
-
-export interface StepResult {
-  rowsIn?: number;
-  rowsOut?: number;
-  costCents?: number;
-  error?: string;
-  notes?: Record<string, unknown>;
-}
+// Re-export so existing `@/lib/pipeline/db` type imports keep working.
+export type { RunStatus, StepStatus, TriggerSource, PipelineRunRow, PipelineStepRow, StepResult };
 
 export async function createRun(
   triggerSource: TriggerSource,

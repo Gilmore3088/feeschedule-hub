@@ -14,34 +14,12 @@ import {
   getRunSteps,
   type PipelineRunRow,
   type PipelineStepRow,
-  type RunStatus,
-  type StepStatus,
 } from "@/lib/pipeline/db";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { RunTrigger } from "./run-trigger";
+import { PipelineLive } from "./pipeline-live";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
-}
-
-function fmtDuration(start: Date | null, end: Date | null): string {
-  if (!start) return "—";
-  const finish = end ?? new Date();
-  const ms = finish.getTime() - new Date(start).getTime();
-  if (ms < 0) return "—";
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
-}
-
-function fmtTime(d: Date | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 export default async function PipelinePage() {
@@ -104,126 +82,8 @@ export default async function PipelinePage() {
 
       <JobFreshnessBanner health={health} />
 
-      {/* ── Pipeline Control Plane (rebuild) ───────────────────────────── */}
-      <div className="admin-card overflow-hidden mb-8">
-        <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04] flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-              Pipeline Control
-            </h2>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              Trigger a run and watch each step — backed by pipeline_runs / pipeline_steps
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <RunTrigger
-              stages={["discover", "extract", "classify", "review", "publish"]}
-              label="Run full pipeline (dry-run)"
-            />
-            <RunTrigger stages={["publish"]} label="Run publish" />
-          </div>
-        </div>
-
-        <div className="p-4 space-y-5">
-          {/* Recent runs */}
-          <div>
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Recent Runs
-            </p>
-            {runs.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="admin-table w-full text-xs">
-                  <thead>
-                    <tr className="text-left">
-                      <th>Run</th>
-                      <th>Trigger</th>
-                      <th>By</th>
-                      <th className="text-center">Status</th>
-                      <th className="text-right">Steps</th>
-                      <th>Started</th>
-                      <th className="text-right">Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {runs.map((run) => (
-                      <tr key={run.id}>
-                        <td className="tabular-nums text-gray-500">#{run.id}</td>
-                        <td className="text-gray-600 dark:text-gray-300">{run.trigger_source}</td>
-                        <td className="text-gray-500">{run.triggered_by}</td>
-                        <td className="text-center">
-                          <RunStatusBadge status={run.status} />
-                        </td>
-                        <td className="text-right tabular-nums text-gray-500">
-                          {run.stages_done}/{run.stages_total}
-                        </td>
-                        <td className="text-gray-500 tabular-nums">{fmtTime(run.started_at)}</td>
-                        <td className="text-right tabular-nums text-gray-600">
-                          {fmtDuration(run.started_at, run.finished_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-gray-200 dark:border-white/[0.08] p-6 text-center">
-                <p className="text-xs text-gray-400">
-                  No runs yet. Click <span className="font-semibold text-gray-600 dark:text-gray-300">Run publish (dry-run)</span> to trigger the first one.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Latest run — step detail */}
-          {latestSteps.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                Latest Run · Steps (run #{runs[0]?.id})
-              </p>
-              <div className="overflow-x-auto">
-                <table className="admin-table w-full text-xs">
-                  <thead>
-                    <tr className="text-left">
-                      <th>Stage</th>
-                      <th className="text-center">Status</th>
-                      <th className="text-right">In</th>
-                      <th className="text-right">Out</th>
-                      <th className="text-right">Duration</th>
-                      <th>Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {latestSteps.map((step) => (
-                      <tr key={step.id}>
-                        <td className="font-medium text-gray-700 dark:text-gray-300">{step.stage}</td>
-                        <td className="text-center">
-                          <StepStatusBadge status={step.status} />
-                        </td>
-                        <td className="text-right tabular-nums text-gray-600">
-                          {step.rows_in ?? "—"}
-                        </td>
-                        <td className="text-right tabular-nums text-gray-600">
-                          {step.rows_out ?? "—"}
-                        </td>
-                        <td className="text-right tabular-nums text-gray-500">
-                          {fmtDuration(step.started_at, step.finished_at)}
-                        </td>
-                        <td className="text-gray-400 max-w-[280px] truncate">
-                          {step.error
-                            ? step.error
-                            : typeof step.notes_json?.message === "string"
-                              ? step.notes_json.message
-                              : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* ── Pipeline Control Plane (rebuild) — live ────────────────────── */}
+      <PipelineLive initialRuns={runs} initialSteps={latestSteps} />
 
       {/* Pipeline Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-8">
@@ -494,36 +354,6 @@ function JobStatusBadge({ status }: { status: string }) {
   const cls = config[status] ?? config.queued;
   return (
     <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${cls}`}>
-      {status}
-    </span>
-  );
-}
-
-function RunStatusBadge({ status }: { status: RunStatus }) {
-  const config: Record<RunStatus, string> = {
-    succeeded: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    running: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    queued: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    failed: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    canceled: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  };
-  return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${config[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function StepStatusBadge({ status }: { status: StepStatus }) {
-  const config: Record<StepStatus, string> = {
-    succeeded: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    running: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    pending: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-    failed: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    skipped: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  };
-  return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${config[status]}`}>
       {status}
     </span>
   );
