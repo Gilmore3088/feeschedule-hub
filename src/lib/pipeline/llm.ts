@@ -7,6 +7,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { CANONICAL_FEE_KEYS } from "./taxonomy";
 
 export const CLASSIFY_MODEL = "claude-haiku-4-5-20251001";
+// Stronger model used to adjudicate names the cheap model wasn't confident about.
+export const ESCALATION_MODEL = "claude-sonnet-4-5-20250929";
 
 // USD per 1M tokens [input, output]. Mirrors Darwin's pricing table.
 const PRICING: Record<string, [number, number]> = {
@@ -55,11 +57,12 @@ export function getAnthropic(): Anthropic {
  */
 export async function classifyFeeNames(
   names: string[],
+  model: string = CLASSIFY_MODEL,
 ): Promise<{ results: Classification[]; costCents: number }> {
   const results: Classification[] = [];
   let costCents = 0;
   for (let i = 0; i < names.length; i += LLM_BATCH_SIZE) {
-    const chunk = await classifyChunk(names.slice(i, i + LLM_BATCH_SIZE));
+    const chunk = await classifyChunk(names.slice(i, i + LLM_BATCH_SIZE), model);
     results.push(...chunk.results);
     costCents += chunk.costCents;
   }
@@ -68,6 +71,7 @@ export async function classifyFeeNames(
 
 async function classifyChunk(
   names: string[],
+  model: string,
 ): Promise<{ results: Classification[]; costCents: number }> {
   if (names.length === 0) return { results: [], costCents: 0 };
 
@@ -77,7 +81,7 @@ async function classifyChunk(
     `Fee names to classify:\n${names.map((n) => `- ${n}`).join("\n")}`;
 
   const resp = await getAnthropic().messages.create({
-    model: CLASSIFY_MODEL,
+    model,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     tools: [
@@ -117,10 +121,6 @@ async function classifyChunk(
   const results = toolUse
     ? ((toolUse.input as { classifications?: Classification[] }).classifications ?? [])
     : [];
-  const costCents = estimateCostCents(
-    CLASSIFY_MODEL,
-    resp.usage.input_tokens,
-    resp.usage.output_tokens,
-  );
+  const costCents = estimateCostCents(model, resp.usage.input_tokens, resp.usage.output_tokens);
   return { results, costCents };
 }

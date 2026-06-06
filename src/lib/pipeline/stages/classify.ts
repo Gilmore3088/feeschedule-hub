@@ -11,7 +11,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "@/lib/crawler-db/connection";
 import { numParam, boolParam, type Stage, type StageContext, type StageResult } from "../stage";
-import { classifyFeeNames } from "../llm";
+import { classifyFeeNames, CLASSIFY_MODEL, ESCALATION_MODEL, type Classification } from "../llm";
 import { normalizeFeeName, isValidClassification } from "../taxonomy";
 
 const DEFAULT_LIMIT = 200;
@@ -66,39 +66,58 @@ export const classifyStage: Stage = {
     }
 
     const normalized = candidates.map((c) => ({ ...c, norm: normalizeFeeName(c.fee_name) }));
-    const { results, costCents } = await classifyFeeNames(normalized.map((c) => c.norm));
-    const byName = new Map(results.map((r) => [r.fee_name, r]));
+    const escalate = ctx.params.escalate !== false; // accuracy-first: on by default
 
-    let promoted = 0;
-    let lowConfidence = 0;
-    let invalid = 0;
+    // Pass 1 — cheap model promotes the confident ones.
+    const pass1 = await classifyFeeNames(normalized.map((c) => c.norm), CLASSIFY_MODEL);
+    const map1 = new Map(pass1.results.map((r) => [r.fee_name, r]));
+    let totalCost = pass1.costCents;
+    let basePromoted = 0;
+    const unresolved: typeof normalized = [];
     for (const c of normalized) {
-      const r = byName.get(c.norm);
-      if (!r || r.canonical_fee_key === null) {
-        lowConfidence++;
-        continue;
-      }
-      if (!isValidClassification(c.norm, r.canonical_fee_key)) {
-        invalid++;
-        continue;
-      }
-      if (r.confidence < AUTO_PROMOTE_THRESHOLD) {
-        lowConfidence++;
-        continue;
-      }
-      const ok = await promoteToTier2(c.fee_raw_id, r.canonical_fee_key, c.norm, r.confidence);
-      if (ok) promoted++;
-      else invalid++;
+      if (await tryPromote(c, map1.get(c.norm), CLASSIFY_MODEL)) basePromoted++;
+      else unresolved.push(c);
     }
 
+    // Pass 2 — adjudicate the unsure ones with the stronger model.
+    let escalatedPromoted = 0;
+    if (escalate && unresolved.length > 0) {
+      const pass2 = await classifyFeeNames(unresolved.map((c) => c.norm), ESCALATION_MODEL);
+      totalCost += pass2.costCents;
+      const map2 = new Map(pass2.results.map((r) => [r.fee_name, r]));
+      for (const c of unresolved) {
+        if (await tryPromote(c, map2.get(c.norm), ESCALATION_MODEL)) escalatedPromoted++;
+      }
+    }
+
+    const promoted = basePromoted + escalatedPromoted;
     return {
       rowsIn: candidates.length,
       rowsOut: promoted,
-      costCents,
-      notes: { mode: "apply", promoted, lowConfidence, invalid },
+      costCents: totalCost,
+      notes: {
+        mode: "apply",
+        promoted,
+        basePromoted: basePromoted,
+        escalatedPromoted,
+        unresolved: candidates.length - promoted,
+        escalated: escalate,
+      },
     };
   },
 };
+
+/** Promote a candidate iff its classification is valid + confident. */
+async function tryPromote(
+  c: { fee_raw_id: number; norm: string },
+  r: Classification | undefined,
+  model: string,
+): Promise<boolean> {
+  if (!r || r.canonical_fee_key === null) return false;
+  if (!isValidClassification(c.norm, r.canonical_fee_key)) return false;
+  if (r.confidence < AUTO_PROMOTE_THRESHOLD) return false;
+  return promoteToTier2(c.fee_raw_id, r.canonical_fee_key, c.norm, r.confidence, model);
+}
 
 /**
  * Faithful Darwin write: open a darwin classify agent_events row, then call
@@ -110,6 +129,7 @@ async function promoteToTier2(
   canonicalFeeKey: string,
   normalizedName: string,
   confidence: number,
+  model: string,
 ): Promise<boolean> {
   const eventId = randomUUID();
   try {
@@ -121,7 +141,7 @@ async function promoteToTier2(
         VALUES
           (${eventId}::uuid, 'darwin', 'classify', 'classify_fees', 'fees_raw', 'success',
            ${t.json({ fee_raw_id: feeRawId, normalized: normalizedName })},
-           ${t.json({ canonical_fee_key: canonicalFeeKey, confidence })})
+           ${t.json({ canonical_fee_key: canonicalFeeKey, confidence, model })})
       `;
       await t`
         SELECT promote_to_tier2(
