@@ -25,6 +25,9 @@ export interface Classification {
   confidence: number;
 }
 
+// Darwin classifies 50 names per LLM call; larger batches truncate the output.
+const LLM_BATCH_SIZE = 50;
+
 const SYSTEM_PROMPT =
   "You are a bank fee taxonomy specialist. For each fee name, identify the canonical " +
   "fee category from the approved taxonomy. Only use canonical keys from the provided list. " +
@@ -46,7 +49,24 @@ export function getAnthropic(): Anthropic {
  * tool schema so the output is structured. Returns the raw classifications plus
  * the estimated cost; validation/promotion is the caller's job.
  */
+/**
+ * Classify fee names, chunking into LLM_BATCH_SIZE calls so large drains don't
+ * truncate the model output. Aggregates results + cost across chunks.
+ */
 export async function classifyFeeNames(
+  names: string[],
+): Promise<{ results: Classification[]; costCents: number }> {
+  const results: Classification[] = [];
+  let costCents = 0;
+  for (let i = 0; i < names.length; i += LLM_BATCH_SIZE) {
+    const chunk = await classifyChunk(names.slice(i, i + LLM_BATCH_SIZE));
+    results.push(...chunk.results);
+    costCents += chunk.costCents;
+  }
+  return { results, costCents };
+}
+
+async function classifyChunk(
   names: string[],
 ): Promise<{ results: Classification[]; costCents: number }> {
   if (names.length === 0) return { results: [], costCents: 0 };

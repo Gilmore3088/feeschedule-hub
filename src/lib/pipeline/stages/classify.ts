@@ -47,6 +47,10 @@ export const classifyStage: Stage = {
       };
     }
 
+    // FOR UPDATE OF fr SKIP LOCKED mirrors Darwin so a drain can run alongside
+    // the Modal classifier without grabbing rows it is actively holding. The
+    // full guarantee against double-promotion is the pending fees_verified dedup
+    // unique constraint; until then, run drains sequentially.
     const candidates = (await sql`
       SELECT fr.fee_raw_id, fr.fee_name, fr.amount
         FROM fees_raw fr
@@ -54,6 +58,7 @@ export const classifyStage: Stage = {
        WHERE fv.fee_verified_id IS NULL
        ORDER BY fr.fee_raw_id
        LIMIT ${limit}
+       FOR UPDATE OF fr SKIP LOCKED
     `) as RawCandidate[];
 
     if (candidates.length === 0) {
