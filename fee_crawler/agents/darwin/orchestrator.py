@@ -11,7 +11,9 @@ import asyncpg
 
 from fee_crawler.agents.darwin.circuit import CircuitBreaker
 from fee_crawler.agents.darwin.classifier import (
+    FeeRow,
     build_prompt,
+    canonicalize_key,
     classify_names_with_retry,
     validate_llm_result,
 )
@@ -54,6 +56,8 @@ class _Candidate:
     fee_raw_id: int
     fee_name: str
     amount: Optional[float] = None
+    frequency: Optional[str] = None
+    conditions: Optional[str] = None
     normalized_name: str = field(init=False)
 
     def __post_init__(self):
@@ -61,10 +65,15 @@ class _Candidate:
 
 
 async def select_candidates(conn: asyncpg.Connection, limit: int) -> list[_Candidate]:
-    """Select unpromoted fees_raw rows. FOR UPDATE SKIP LOCKED prevents races."""
+    """Select unpromoted fees_raw rows. FOR UPDATE SKIP LOCKED prevents races.
+
+    Pulls amount/frequency/conditions so the LLM classifier has enough context
+    to disambiguate similar names (e.g. "Interest Checking Fee" + $15 monthly
+    + balance condition → monthly_maintenance).
+    """
     rows = await conn.fetch(
         """
-        SELECT fr.fee_raw_id, fr.fee_name, fr.amount
+        SELECT fr.fee_raw_id, fr.fee_name, fr.amount, fr.frequency, fr.conditions
           FROM fees_raw fr
           LEFT JOIN fees_verified fv ON fv.fee_raw_id = fr.fee_raw_id
          WHERE fv.fee_verified_id IS NULL
@@ -79,6 +88,8 @@ async def select_candidates(conn: asyncpg.Connection, limit: int) -> list[_Candi
             fee_raw_id=r["fee_raw_id"],
             fee_name=r["fee_name"],
             amount=float(r["amount"]) if r["amount"] is not None else None,
+            frequency=r["frequency"],
+            conditions=r["conditions"],
         )
         for r in rows
     ]
@@ -128,6 +139,10 @@ async def _promote_or_cache(
 
     outcome: 'promoted' | 'cached_low_conf' | 'rejected'
     """
+    # Canonicalize aliases (e.g., "overdraft_privilege" -> "overdraft") before
+    # the validate gate; otherwise common Darwin variants get rejected for not
+    # being in CANONICAL_KEY_MAP even though they're semantically correct.
+    key = canonicalize_key(key)
     if (
         key is not None
         and confidence >= config.auto_promote_threshold
@@ -237,11 +252,23 @@ async def classify_batch(
 
     for i in range(0, len(misses), config.llm_batch_size):
         chunk = misses[i : i + config.llm_batch_size]
-        chunk_names = [c.normalized_name for c in chunk]
+        # Pass FeeRow with amount/frequency/conditions so the LLM has enough
+        # context to disambiguate. Fee name stays normalized so the LLM's
+        # echoed `fee_name` field in the tool output still matches what we
+        # use as the cache key.
+        chunk_rows = [
+            FeeRow(
+                fee_name=c.normalized_name,
+                amount=c.amount,
+                frequency=c.frequency,
+                conditions=c.conditions,
+            )
+            for c in chunk
+        ]
         await emit("llm_call_start", size=len(chunk))
         try:
             llm_results, chunk_cost_cents = await classify_names_with_retry(
-                chunk_names, config=config,
+                chunk_rows, config=config,
             )
             result.llm_calls += 1
             result.cost_usd += chunk_cost_cents / 100.0
@@ -272,7 +299,7 @@ async def classify_batch(
 
         await emit("llm_call_done", success=True)
 
-        sys_p, user_p = build_prompt(chunk_names)
+        sys_p, user_p = build_prompt(chunk_rows)
         reasoning_prompt = f"{sys_p}\n---\n{user_p}"
 
         llm_by_name: dict[str, dict] = {r.get("fee_name", ""): r for r in llm_results}

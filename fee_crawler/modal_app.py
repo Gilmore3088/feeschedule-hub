@@ -787,56 +787,14 @@ async def extract_single(item: ExtractRequest) -> dict:
         await conn.close()
 
 
-@app.function(secrets=secrets, timeout=120)
-@modal.fastapi_endpoint(method="POST")
-def discover_url(item: DiscoverRequest) -> dict:
-    """HTTP endpoint for single-institution URL discovery."""
-    from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
-    from fee_crawler.config import Config
-
-    if not item.website_url:
-        return {"found": False, "error": "website_url required"}
-
-    config = Config()
-    discoverer = UrlDiscoverer(config)
-    result = discoverer.discover(item.website_url)
-
-    return {
-        "found": result.found,
-        "fee_schedule_url": result.fee_schedule_url,
-        "document_type": result.document_type,
-        "method": result.method,
-        "confidence": result.confidence,
-        "pages_checked": result.pages_checked,
-        "error": result.error,
-        "methods_tried": result.methods_tried,
-    }
-
-
-@app.function(secrets=secrets, timeout=7200, memory=2048, image=browser_image)
-@modal.fastapi_endpoint(method="POST")
-async def run_state_agent(item: StateAgentRequest) -> dict:
-    """HTTP endpoint to extract every institution in a given state.
-
-    Routes through the extractor agent (writes fees_raw via gateway).
-    """
-    import os
-    import asyncpg
-    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
-
-    state_code = item.state_code.upper()
-    if len(state_code) != 2:
-        return {"error": "state_code must be a 2-letter code"}
-
-    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
-    try:
-        cfg = ExtractorConfig(include_failing=True)
-        result = await extract_batch(
-            conn, size=10_000, config=cfg, state_code=state_code,
-        )
-        return {"ok": True, "state_code": state_code, **result.to_dict()}
-    finally:
-        await conn.close()
+# NOTE: discover_url and run_state_agent web endpoints removed 2026-06-03 to
+# stay under the Modal workspace cap of 8 web functions. Both paths remain
+# available:
+#   - discover_url: callable via `magellan_api` (which orchestrates discovery)
+#     or via the local CLI / `modal run fee_crawler/modal_app.py::discover_url`.
+#   - run_state_agent: same function-name web wrapper duplicated state_run
+#     (line 723), which remains active. State-level extractions go through
+#     state_run.
 
 
 @app.function(secrets=secrets, timeout=600, image=browser_image, memory=2048)

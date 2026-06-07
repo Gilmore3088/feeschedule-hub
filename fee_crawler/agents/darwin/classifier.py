@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import random
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional
 
 import anthropic
@@ -19,12 +20,76 @@ from fee_crawler.fee_analysis import (
     NEVER_MERGE_PAIRS,
 )
 
+
+@dataclass
+class FeeRow:
+    """Context passed to the classifier. Richer than just a fee name."""
+    fee_name: str
+    amount: Optional[float] = None
+    frequency: Optional[str] = None
+    conditions: Optional[str] = None
+
+
+# Common non-canonical names Darwin emits → map to the closest canonical key.
+# Add new entries here when /admin/darwin shows recurring rejections for the
+# same suggested_key. Each entry should be a safe, high-confidence mapping
+# (e.g. "overdraft_privilege" ≡ "overdraft"); do NOT alias ambiguous names
+# like "transfer_fee" or "debit_card_fee" that span multiple canonicals.
+_CANONICAL_ALIASES: dict[str, str] = {
+    # Only entries with empirical evidence in this session's row_complete data
+    # belong here. Adding unverified aliases drives the LLM toward false matches
+    # and was rolled back on 2026-06-06. New aliases must be backed by:
+    # 1. agent_events row showing Darwin emitted the alias at >=0.85 conf, AND
+    # 2. human or Knox confirmation that the alias maps to the canonical.
+    "overdraft_privilege": "overdraft",
+    "overdraft_protection": "overdraft",
+    "dormant_fee": "dormant_account",
+    "inactive_fee": "dormant_account",
+    "all_other_atms": "atm_non_network",
+    "non_network_atm": "atm_non_network",
+    "out_of_network_atm": "atm_non_network",
+    "international_atm": "atm_international",
+    "return_item_charge": "nsf",
+    "returned_item_charge": "nsf",
+    "returned_deposited_item": "deposited_item_return",
+    "deposited_item_returned": "deposited_item_return",
+    "wire_outgoing": "wire_domestic_outgoing",
+    "wire_incoming": "wire_domestic_incoming",
+    "domestic_wire": "wire_domestic_outgoing",
+    "rush_card_delivery": "rush_card",
+}
+
+
+def canonicalize_key(suggested_key: Optional[str]) -> Optional[str]:
+    """Resolve an alias to its canonical key.
+
+    CANONICAL_KEY_MAP is keyed by alias and its values ARE the canonical keys
+    (many entries map a key to itself, others alias variants like
+    "rush_card_delivery" -> "rush_card"). Local _CANONICAL_ALIASES covers
+    extras Darwin has been observed to emit that the upstream map missed.
+    """
+    if suggested_key is None:
+        return None
+    if suggested_key in CANONICAL_KEY_MAP:
+        return CANONICAL_KEY_MAP[suggested_key]
+    aliased = _CANONICAL_ALIASES.get(suggested_key)
+    if aliased and aliased in CANONICAL_KEY_MAP:
+        return CANONICAL_KEY_MAP[aliased]
+    return suggested_key
+
 log = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """\
-You are a bank fee taxonomy specialist. For each fee name, identify the canonical
-fee category from the approved taxonomy. Only use canonical keys from the provided list.
-If a fee does not match any canonical category, respond with null and confidence 0.0.
+You are a bank fee taxonomy specialist. For each fee in the input list, identify
+the canonical fee category from the approved taxonomy. Only use canonical keys
+from the provided list. If a fee does not match any canonical category, respond
+with null and confidence 0.0.
+
+When the input has the form `- fee_name  (amount=$X, frequency=Y, conditions="…")`,
+treat the bare token before the parenthesis as the fee_name and use the parenthetical
+context to disambiguate. In your response, echo the bare fee_name exactly as it
+appeared before the parenthesis (without the context).
+
 Never infer NSF from overdraft or vice versa — they are distinct regulatory categories.
 """
 
@@ -57,10 +122,28 @@ _TOOL = {
 
 
 def validate_llm_result(normalized_name: str, suggested_key: str) -> bool:
-    """Reject hallucinated keys and cross-category suggestions."""
-    if suggested_key not in CANONICAL_KEY_MAP:
+    """Reject hallucinated keys and cross-category suggestions.
+
+    Aliases are canonicalized first via canonicalize_key(), so common Darwin
+    variants like 'overdraft_privilege' resolve to 'overdraft' before the
+    NEVER_MERGE check runs.
+
+    Daily-cap NEVER_MERGE pairs (nsf_daily_cap vs nsf, od_daily_cap vs overdraft)
+    are bypassed when the fee name explicitly signals a cap/limit/maximum/daily
+    structure — otherwise correctly-classified cap fees get rejected for sharing
+    the parent keyword (e.g. "NSF Return Fee Daily Cap" -> nsf_daily_cap was
+    being rejected because name contains "nsf").
+    """
+    canonical = canonicalize_key(suggested_key)
+    if canonical not in CANONICAL_KEY_MAP:
         return False
+    _CAP_SIGNAL_TOKENS = ("daily", "cap", "max", "maximum", "limit", "per day", "per_day")
+    name_has_cap_signal = any(tok in normalized_name for tok in _CAP_SIGNAL_TOKENS)
     for member_a, member_b in NEVER_MERGE_PAIRS:
+        # Skip cap-vs-parent pairs when name clearly says "cap/daily/max" —
+        # those are exactly the cases where the cap key is correct.
+        if member_a.endswith("_daily_cap") and name_has_cap_signal:
+            continue
         name_has_a = (member_a.replace("_", " ") in normalized_name
                       or member_a in normalized_name)
         name_has_b = (member_b.replace("_", " ") in normalized_name
@@ -72,16 +155,56 @@ def validate_llm_result(normalized_name: str, suggested_key: str) -> bool:
     return True
 
 
-def build_prompt(names: list[str]) -> tuple[str, str]:
-    """Returns (system, user) prompts for a given batch of names."""
+def _render_row(row: FeeRow) -> str:
+    """Render one fee row as a contextual line for the LLM.
+
+    The fee name is rendered first as the bare token so the LLM's tool-output
+    `fee_name` field echoes the exact normalized name (used by the orchestrator
+    to match the LLM response back to the candidate). Disambiguating context
+    follows in parentheses as hints.
+    """
+    extras = []
+    if row.amount is not None:
+        extras.append(f"amount=${row.amount:.2f}")
+    if row.frequency:
+        extras.append(f"frequency={row.frequency}")
+    if row.conditions:
+        cond = row.conditions[:200].strip().replace('"', "'")
+        extras.append(f'conditions="{cond}"')
+    suffix = f"  ({', '.join(extras)})" if extras else ""
+    return f"- {row.fee_name}{suffix}"
+
+
+def build_prompt(rows: list[FeeRow] | list[str]) -> tuple[str, str]:
+    """Returns (system, user) prompts for a given batch.
+
+    Accepts either a list[FeeRow] (preferred — includes amount/frequency/conditions
+    for better disambiguation) or a list[str] (legacy name-only, kept for tests).
+    """
     valid_keys = sorted(CANONICAL_KEY_MAP.keys())
     keys_text = ", ".join(valid_keys)
-    fee_list = "\n".join(f"- {n}" for n in names)
+
+    if rows and isinstance(rows[0], FeeRow):
+        fee_list = "\n".join(_render_row(r) for r in rows)
+        guidance = (
+            "Each entry includes the fee name plus any available amount, "
+            "frequency, and conditions text — use this context to disambiguate "
+            "similar names (e.g. a $15 monthly fee with a balance-below condition "
+            "is monthly_maintenance, not a generic transfer or service fee). "
+            "Higher amounts that recur monthly almost always indicate "
+            "monthly_maintenance or overdraft; one-off $5 amounts often indicate "
+            "service fees like money_order or notary_fee."
+        )
+    else:
+        fee_list = "\n".join(f"- {n}" for n in rows)
+        guidance = ""
+
     user = (
-        f"Classify each of the following bank fee names using only keys from the "
+        f"Classify each of the following bank fees using only keys from the "
         f"approved taxonomy.\n\n"
         f"Approved canonical keys:\n{keys_text}\n\n"
-        f"Fee names to classify:\n{fee_list}"
+        + (f"{guidance}\n\n" if guidance else "")
+        + f"Fees to classify:\n{fee_list}"
     )
     return _SYSTEM_PROMPT, user
 
@@ -107,7 +230,7 @@ def _cost_cents_from_usage(model: str, in_tokens: int, out_tokens: int) -> int:
 
 
 async def _call_anthropic(
-    names: list[str], config: DarwinConfig,
+    rows: list[FeeRow] | list[str], config: DarwinConfig,
 ) -> tuple[list[dict], int]:
     """Single Anthropic call. Returns (classifications, cost_cents).
 
@@ -115,8 +238,10 @@ async def _call_anthropic(
     The cost is propagated up to `classify_batch` which debits it against
     `agent_budgets`. This was the gap that allowed the 2026-04 runaway:
     cost_cents was always 0 in the gateway so spent_cents never moved.
+
+    Accepts list[FeeRow] (preferred) or list[str] (legacy name-only).
     """
-    system, user = build_prompt(names)
+    system, user = build_prompt(rows)
     client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
     resp = await client.messages.create(
         model=config.model,
