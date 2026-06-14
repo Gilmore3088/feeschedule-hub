@@ -41,7 +41,9 @@ export interface DimensionBreakdown {
   median_amount: number | null;
 }
 
-export interface FeeChangeEvent {
+// Transient amount-diff shape (distinct from the persistent audit record
+// FeeChangeEvent in crawler-db/fee-changes.ts, which shares no fields).
+export interface FeeChangeDiff {
   institution_name: string;
   previous_amount: number | null;
   new_amount: number | null;
@@ -144,7 +146,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   by_asset_tier: DimensionBreakdown[];
   by_fed_district: DimensionBreakdown[];
   by_state: DimensionBreakdown[];
-  change_events: FeeChangeEvent[];
+  change_events: FeeChangeDiff[];
 }> {
   const rawFees = await sql`
     SELECT ef.id, ct.institution_name, ef.crawl_target_id,
@@ -247,7 +249,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
     WHERE fce.fee_category = ${category}
     ORDER BY fce.detected_at DESC
     LIMIT 50
-  ` as FeeChangeEvent[];
+  ` as FeeChangeDiff[];
 
   return {
     fees,
