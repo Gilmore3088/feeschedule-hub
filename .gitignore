@@ -54,3 +54,9 @@ supabase/.temp/
 
 # worktrees
 .worktrees/
+
+# consolidation: generated HTML views (markdown is source of truth)
+docs/consolidation/*.html
+# playwright auth state (contains session token) + test output
+tests/e2e/.auth/
+test-results/

@@ -11,6 +11,7 @@
 
 import { sql } from "@/lib/crawler-db/connection";
 import { toDateStr, safeJsonb } from "@/lib/pg-helpers";
+import type { UncategorizedFee } from "@/lib/crawler-db/quality";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -126,10 +127,7 @@ export interface CoverageFunnelData {
   with_approved: number;
 }
 
-export interface UncategorizedFee {
-  fee_name: string;
-  count: number;
-}
+// UncategorizedFee is defined once in crawler-db/quality.ts and imported above.
 
 // ---------------------------------------------------------------------------
 // Dashboard
