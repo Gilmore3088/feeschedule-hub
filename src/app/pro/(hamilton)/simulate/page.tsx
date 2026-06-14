@@ -1,3 +1,6 @@
+// Auth-gated, renders live DB-backed data at request time; not statically prerendered.
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";

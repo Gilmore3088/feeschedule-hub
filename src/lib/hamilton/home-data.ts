@@ -95,7 +95,16 @@ function deriveConfidence(
  * Returns thesis: null on API failure so page can render empty state gracefully.
  */
 export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
-  const allEntries = await getNationalIndexCached();
+  // getNationalIndexCached hits the DB. During build-time ISR prerender (revalidate=86400)
+  // the DB can be unreachable; degrade to an empty briefing — the page already renders an
+  // "Analysis unavailable" state for null data — instead of crashing the build. Normal
+  // request-time behavior (DB reachable) is unchanged.
+  let allEntries: Awaited<ReturnType<typeof getNationalIndexCached>> = [];
+  try {
+    allEntries = await getNationalIndexCached();
+  } catch {
+    // DB unavailable at prerender — fall through with an empty briefing.
+  }
   const spotlightCategories = getSpotlightCategories();
 
   // Build positioning entries for spotlight categories

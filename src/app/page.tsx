@@ -1,3 +1,6 @@
+// Renders live DB-backed stats at request time; must not be statically prerendered.
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import { getPublicStats, getDataFreshness } from "@/lib/crawler-db/core";
 import { LandingHero } from "./landing-hero";
