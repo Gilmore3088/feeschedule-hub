@@ -55,7 +55,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const institutionIds = await getInstitutionIdsWithFees();
+  // If the DB is unreachable at build, emit static + taxonomy URLs only and skip the
+  // remaining per-state/report queries — otherwise one outage means dozens of connect
+  // timeouts that blow the page's render budget.
+  let dbAvailable = true;
+  let institutionIds: Awaited<ReturnType<typeof getInstitutionIdsWithFees>> = [];
+  try {
+    institutionIds = await getInstitutionIdsWithFees();
+  } catch {
+    dbAvailable = false;
+  }
   const institutionPages: MetadataRoute.Sitemap = institutionIds.map((id) => ({
     url: `${BASE_URL}/institution/${id}`,
     lastModified: now,
@@ -94,19 +103,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const cityPages: MetadataRoute.Sitemap = [];
-  for (const code of STATE_CODES) {
-    try {
-      const cities = await getCitiesInState(code);
-      for (const c of cities.slice(0, 20)) { // Top 20 cities per state
-        cityPages.push({
-          url: `${BASE_URL}/fees/city/${code.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`,
-          lastModified: now,
-          changeFrequency: "weekly" as const,
-          priority: 0.6,
-        });
+  if (dbAvailable) {
+    for (const code of STATE_CODES) {
+      try {
+        const cities = await getCitiesInState(code);
+        for (const c of cities.slice(0, 20)) { // Top 20 cities per state
+          cityPages.push({
+            url: `${BASE_URL}/fees/city/${code.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`,
+            lastModified: now,
+            changeFrequency: "weekly" as const,
+            priority: 0.6,
+          });
+        }
+      } catch {
+        // Skip states with no data
       }
-    } catch {
-      // Skip states with no data
     }
   }
 
@@ -122,7 +133,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Individual published report landing pages
   let reportPages: MetadataRoute.Sitemap = [];
-  try {
+  if (dbAvailable) {
+   try {
     const sql = getSql();
     const reportRows = await sql<Array<{ slug: string; published_at: string }>>`
       SELECT slug, published_at
@@ -137,9 +149,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly" as const,
       priority: 0.8,
     }));
-  } catch {
-    // No published_reports table yet or DB unavailable — return empty
-    reportPages = [];
+    } catch {
+      // No published_reports table yet or DB unavailable — return empty
+      reportPages = [];
+    }
   }
 
   return [
