@@ -13,8 +13,18 @@ vars never picked up.
   `password authentication failed for user "postgres"`.
 - `GET https://feeinsight.com/api/health` → `503 {"status":"error","message":"…password
   authentication failed for user \"postgres\""}` (runtime is down too, not just builds).
-- Database host is reachable (Supabase pooler port 6543 responds) — the DB is healthy; only
-  the credential is wrong.
+- Database host is reachable (the `db.rmhwbbjjctzfaqjyhomu.supabase.co` project is alive —
+  its REST API responds 401) — the DB is healthy; only the credential is wrong.
+
+### Also found: Supabase project mismatch (verify this)
+
+- `DATABASE_URL` (in `.env`) → project **`rmhwbbjjctzfaqjyhomu`** (alive; password rejected).
+- `NEXT_PUBLIC_SUPABASE_URL` (in `.env.local`) → project **`otagwdqirqkvkejutwvf`** (did not
+  resolve/respond from here).
+
+Your frontend and your Postgres connection point at **two different Supabase projects**.
+Confirm which one is canonical before fixing the password — you may need to repoint
+`DATABASE_URL` at the current project rather than just rotate the password.
 
 ## Fix (≈5 minutes — requires the DB password, which only you have)
 
