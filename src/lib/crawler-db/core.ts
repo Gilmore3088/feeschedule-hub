@@ -27,7 +27,7 @@ export async function getPublicStats(): Promise<PublicStats> {
         COUNT(DISTINCT ef.fee_category) as total_categories,
         COUNT(DISTINCT ct.state_code) as total_states
       FROM crawl_targets ct
-      JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+      JOIN fees_verified ef ON ct.id = ef.crawl_target_id
       WHERE ct.state_code IN ${sql(validCodes)}
         AND ef.review_status != 'rejected'`;
     return {
@@ -47,7 +47,7 @@ export async function getStats(): Promise<CrawlStats> {
   const [cus] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='credit_union'`;
   const [withUrl] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
   const [withFee] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-  const [fees] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM extracted_fees`;
+  const [fees] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM fees_verified`;
   const [runs] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_runs`;
 
   return {
@@ -67,7 +67,7 @@ export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
            ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type,
            COUNT(ef.id) as fee_count
     FROM crawl_targets ct
-    LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN fees_verified ef ON ct.id = ef.crawl_target_id
     WHERE ct.fee_schedule_url IS NOT NULL
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
              ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type
@@ -77,10 +77,10 @@ export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
 
 export async function getFeesByInstitution(targetId: number): Promise<ExtractedFee[]> {
   const rows = await sql<ExtractedFee[]>`
-    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ef.crawl_target_id = ${targetId}
     ORDER BY ef.fee_name
@@ -116,7 +116,7 @@ export async function getAllFees(
 
   const countResult = await sql.unsafe<{ cnt: number }[]>(
     `SELECT COUNT(*) as cnt
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${where}`,
     params,
@@ -125,10 +125,10 @@ export async function getAllFees(
 
   const feesParams = [...params, limit, offset];
   const fees = await sql.unsafe<ExtractedFee[]>(
-    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     ${where}
     ORDER BY ct.institution_name, ef.fee_name
@@ -182,7 +182,7 @@ export async function getInstitutionsByFilter(filters: {
     SELECT COUNT(*) as cnt FROM (
       SELECT ct.id
       FROM crawl_targets ct
-      LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+      LEFT JOIN fees_verified ef ON ct.id = ef.crawl_target_id
         AND ef.review_status != 'rejected'
       ${where}
       GROUP BY ct.id
@@ -198,7 +198,7 @@ export async function getInstitutionsByFilter(filters: {
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM crawl_targets ct
-    LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN fees_verified ef ON ct.id = ef.crawl_target_id
       AND ef.review_status != 'rejected'
     ${where}
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
@@ -219,7 +219,7 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM crawl_targets ct
-    LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN fees_verified ef ON ct.id = ef.crawl_target_id
     WHERE ct.id = ${id}
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
              ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
@@ -271,7 +271,7 @@ export async function getDistrictCounts(): Promise<{ district: number; count: nu
 export async function getReviewStats(): Promise<ReviewStats> {
   const rows = await sql<{ review_status: string; cnt: number }[]>`
     SELECT review_status, COUNT(*) as cnt
-    FROM extracted_fees
+    FROM fees_verified
     GROUP BY review_status
   `;
 
@@ -319,7 +319,7 @@ export async function getFeesByStatus(
 
   const countResult = await sql.unsafe<{ cnt: number }[]>(
     `SELECT COUNT(*) as cnt
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${whereClause}`,
     params,
@@ -333,11 +333,11 @@ export async function getFeesByStatus(
     : ", ef.fee_name ASC";
 
   const fees = await sql.unsafe<ReviewableFee[]>(
-    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
             ef.extraction_confidence, ef.review_status, ef.validation_flags,
             ef.fee_category, ct.institution_name, ef.crawl_target_id,
             ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
      WHERE ${whereClause}
@@ -351,18 +351,18 @@ export async function getFeesByStatus(
 
 export async function getDistinctFeeTypes(): Promise<string[]> {
   const rows = await sql<{ fee_name: string }[]>`
-    SELECT DISTINCT fee_name FROM extracted_fees ORDER BY fee_name
+    SELECT DISTINCT fee_name FROM fees_verified ORDER BY fee_name
   `;
   return rows.map((r) => r.fee_name);
 }
 
 export async function getFeeById(feeId: number): Promise<ReviewableFee | null> {
   const [row] = await sql<ReviewableFee[]>`
-    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
             ef.extraction_confidence, ef.review_status, ef.validation_flags,
             ef.fee_category, ct.institution_name, ef.crawl_target_id,
             ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
      WHERE ef.id = ${feeId}
@@ -395,7 +395,7 @@ export async function getOutlierFlaggedFees(
 
   const countResult = await sql.unsafe<{ cnt: number }[]>(
     `SELECT COUNT(*) as cnt
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${where}`,
     params,
@@ -403,11 +403,11 @@ export async function getOutlierFlaggedFees(
   const cnt = Number(countResult[0].cnt);
 
   const fees = await sql.unsafe<ReviewableFee[]>(
-    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
+    `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, NULL::text AS conditions,
             ef.extraction_confidence, ef.review_status, ef.validation_flags,
             ef.fee_category, ct.institution_name, ef.crawl_target_id,
             ct.state_code, ct.charter_type, cr.document_url, ct.fee_schedule_url
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
      ${where}
@@ -437,7 +437,7 @@ function getSortClause(sort?: string, dir?: string, fallback = "ef.id DESC"): st
 export async function getOutlierCount(): Promise<number> {
   const [row] = await sql<{ cnt: number }[]>`
     SELECT COUNT(*) as cnt
-    FROM extracted_fees
+    FROM fees_verified
     WHERE review_status IN ('flagged', 'pending', 'staged')
       AND (validation_flags::text LIKE '%statistical_outlier%'
            OR validation_flags::text LIKE '%decimal_error%'
@@ -456,7 +456,7 @@ export interface CategoryMedian {
 export async function getCategoryMedians(): Promise<Record<string, CategoryMedian>> {
   const rows = await sql<{ fee_category: string; amount: number }[]>`
     SELECT fee_category, amount
-    FROM extracted_fees
+    FROM fees_verified
     WHERE fee_category IS NOT NULL
       AND amount IS NOT NULL
       AND amount > 0
@@ -506,11 +506,11 @@ export async function getDataFreshness(): Promise<DataFreshness> {
   `;
 
   const [fee] = await sql<{ last_at: string | Date | null }[]>`
-    SELECT MAX(created_at) as last_at FROM extracted_fees
+    SELECT MAX(created_at) as last_at FROM fees_verified
   `;
 
   const [count] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status != 'rejected'
+    SELECT COUNT(*) as cnt FROM fees_verified WHERE review_status != 'rejected'
   `;
 
   // Normalize Date objects (Postgres) to ISO strings

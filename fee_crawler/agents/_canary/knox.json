@@ -1,0 +1,13 @@
+{
+  "agent": "knox",
+  "version": 1,
+  "description": "Canary expectations for Knox's adversarial review: fees that should be flagged on inspection (low confidence + edge cases).",
+  "expectations": [
+    {"scenario": "low_confidence_high_amount", "expected_action": "challenge"},
+    {"scenario": "duplicate_in_same_institution", "expected_action": "challenge"},
+    {"scenario": "amount_above_category_ceiling", "expected_action": "challenge"}
+  ],
+  "thresholds": {
+    "min_pass_rate": 1.0
+  }
+}

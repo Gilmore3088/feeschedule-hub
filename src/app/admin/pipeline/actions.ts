@@ -4,66 +4,77 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 import { spawnJob } from "@/lib/job-runner";
+import { createRun, seedSteps, getRunSteps } from "@/lib/pipeline/db";
+import { executeRun } from "@/lib/pipeline/runner";
+import { getStage, stageNames } from "@/lib/pipeline/stages";
+
+/**
+ * Pipeline rebuild — trigger a run through the new control plane.
+ *
+ * Replaces the dead spawnJob() subprocess path (which shells out to
+ * `python -m fee_crawler ...` and cannot run on Vercel). Creates a
+ * pipeline_runs row, seeds its steps, and executes them inline through the
+ * engine-neutral runner. Returns the runId so the caller can refresh into the
+ * live step view.
+ */
+export async function startPipelineRun(
+  stages: string[],
+): Promise<{ ok: boolean; runId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+
+  const valid = stages.filter((s) => getStage(s));
+  if (valid.length === 0) {
+    return {
+      ok: false,
+      error: `No valid stages. Available: ${stageNames().join(", ")}`,
+    };
+  }
+
+  try {
+    const runId = await createRun("manual", user.username, valid, {});
+    await seedSteps(runId, valid);
+    const outcome = await executeRun(runId, valid, {});
+    revalidatePath("/admin/pipeline");
+    if (outcome.status === "failed") {
+      return { ok: false, runId, error: outcome.error };
+    }
+    return { ok: true, runId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Re-run only the failed stages of a prior run, as a new run. Keeps the original
+ * run's record intact and tags the new run with the run it retries.
+ */
+export async function rerunFailedSteps(
+  sourceRunId: number,
+): Promise<{ ok: boolean; runId?: number; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    const steps = await getRunSteps(sourceRunId);
+    const failed = steps.filter((s) => s.status === "failed").map((s) => s.stage).filter((s) => getStage(s));
+    if (failed.length === 0) {
+      return { ok: false, error: "No failed steps to re-run" };
+    }
+    const runId = await createRun("manual", user.username, failed, { rerunOf: sourceRunId });
+    await seedSteps(runId, failed);
+    const outcome = await executeRun(runId, failed, {});
+    revalidatePath("/admin/pipeline");
+    if (outcome.status === "failed") {
+      return { ok: false, runId, error: outcome.error };
+    }
+    return { ok: true, runId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 
 export async function runCrawlGaps(): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
   try {
     const result = await spawnJob("crawl", ["--skip-with-fees", "--limit", "500"], user.username);
-    revalidatePath("/admin/pipeline");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
-export async function runCategorize(): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("categorize", [], user.username);
-    revalidatePath("/admin/pipeline");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
-export async function runAutoReview(): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("auto-review", [], user.username);
-    revalidatePath("/admin/pipeline");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
-export async function runSmartPipeline(): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("run-pipeline", ["--limit", "100"], user.username);
-    revalidatePath("/admin/pipeline");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
-export async function runOutlierDetect(): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("outlier-detect", [], user.username);
-    revalidatePath("/admin/pipeline");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
-export async function runValidate(): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("validate", [], user.username);
     revalidatePath("/admin/pipeline");
     return { success: true, jobId: result.jobId };
   } catch (e) {
@@ -193,9 +204,10 @@ export async function bulkImportUrls(
 
   try {
     let count = 0;
-    await sql.begin(async (tx: any) => {
+    await sql.begin(async (tx) => {
+      const t = tx as unknown as typeof sql;
       for (const u of updates) {
-        const r = await tx`UPDATE crawl_targets SET fee_schedule_url = ${u.url} WHERE id = ${u.id}`;
+        const r = await t`UPDATE crawl_targets SET fee_schedule_url = ${u.url} WHERE id = ${u.id}`;
         if (r.count > 0) count++;
         else errors.push(`Institution ID ${u.id} not found`);
       }

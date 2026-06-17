@@ -26,15 +26,6 @@ interface CommandInfo {
 }
 
 const COMMAND_INFO: Record<string, CommandInfo> = {
-  "run-pipeline": {
-    description: "Run Full Pipeline",
-    detail: "Runs discover + crawl + categorize in sequence. This is the main command for collecting new fee data end-to-end.",
-    group: "pipeline",
-    usesLimit: true,
-    usesCharter: true,
-    usesState: true,
-    typical: "python -m fee_crawler run-pipeline --limit 50",
-  },
   crawl: {
     description: "Crawl & Extract Fees",
     detail: "Downloads fee schedule pages from institutions that already have a known URL, then uses LLM extraction to pull out individual fees and amounts.",
@@ -53,22 +44,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesState: true,
     typical: "python -m fee_crawler discover --limit 50",
   },
-  categorize: {
-    description: "Categorize Fees",
-    detail: "Maps extracted fee names to the 49-category taxonomy using alias matching (e.g., 'Monthly Service Charge' → monthly_maintenance). Fast, no API calls.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler categorize",
-  },
-  validate: {
-    description: "Validate Fees",
-    detail: "Re-runs validation rules on existing fees: amount bounds checking, frequency detection, duplicate detection, and confidence scoring.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler validate",
-  },
   analyze: {
     description: "Compute Analysis",
     detail: "Builds peer comparison reports and fee summary statistics per institution. Results power the dashboard and peer analysis pages.",
@@ -76,14 +51,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesLimit: false,
     usesCharter: false,
     typical: "python -m fee_crawler analyze",
-  },
-  "outlier-detect": {
-    description: "Detect Outliers",
-    detail: "Flags fees with amounts that are statistical outliers within their category (e.g., $500 overdraft fee). Uses IQR and z-score methods.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler outlier-detect",
   },
   enrich: {
     description: "Enrich Institutions",
@@ -237,14 +204,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     typical: "python -m fee_crawler stats",
   },
-  "merge-fees": {
-    description: "Merge Fees",
-    detail: "Re-merges extracted fees with existing data. Compares by category, snapshots old values, records change events. Useful after updating categorization rules.",
-    group: "data-quality",
-    usesLimit: false,
-    usesCharter: false,
-    typical: "python -m fee_crawler merge-fees",
-  },
   "publish-index": {
     description: "Publish Index",
     detail: "Materializes the fee index cache (49 categories), updates coverage snapshot, revalidates Next.js cache, runs DB maintenance (PRAGMA optimize + WAL checkpoint).",
@@ -261,15 +220,6 @@ const COMMAND_INFO: Record<string, CommandInfo> = {
     usesCharter: false,
     usesState: true,
     typical: "python -m fee_crawler rediscover-failed --state CA",
-  },
-  pipeline: {
-    description: "Atomic Pipeline (v2)",
-    detail: "Runs the full 9-stage atomic pipeline with resume support: seed-enrich, discover, crawl, merge-fees, categorize, validate, auto-review, snapshot, publish-index. Use --state to target a specific state.",
-    group: "pipeline",
-    usesLimit: true,
-    usesCharter: false,
-    usesState: true,
-    typical: "python -m fee_crawler pipeline --limit 100 --state CA",
   },
 };
 
@@ -321,11 +271,45 @@ export function OpsClient({
     }
   }, []);
 
+  // Audit #7: prefer LISTEN/NOTIFY SSE for instant updates; fall back to 3s
+  // polling if EventSource is unavailable or the stream fails (e.g. session-
+  // mode DSN not configured in this environment).
   useEffect(() => {
-    if (activeJobs.length === 0) return;
-    const interval = setInterval(refresh, 3000);
-    return () => clearInterval(interval);
-  }, [activeJobs.length, refresh]);
+    if (typeof window === "undefined" || typeof EventSource === "undefined") {
+      const interval = setInterval(refresh, 3000);
+      return () => clearInterval(interval);
+    }
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    const startPollingFallback = () => {
+      if (pollInterval) return;
+      pollInterval = setInterval(refresh, 3000);
+    };
+
+    const es = new EventSource("/api/ops/stream");
+    es.addEventListener("ops_job", () => {
+      // Notification arrived: re-fetch the full summary + job lists. Payload
+      // contains {id, status, command, op} but we re-query to keep render
+      // logic centralized in /admin/ops/api.
+      void refresh();
+    });
+    es.addEventListener("ready", () => {
+      // Initial sync so we don't miss state changes during page-load gap.
+      void refresh();
+    });
+    es.onerror = () => {
+      // Browser will auto-reconnect; if it cannot (e.g. 503 because
+      // DATABASE_URL_SESSION is unset), close and degrade to polling.
+      if (es.readyState === EventSource.CLOSED) {
+        startPollingFallback();
+      }
+    };
+
+    return () => {
+      es.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [refresh]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -346,7 +330,7 @@ export function OpsClient({
     if (stateCode) params.state = stateCode;
 
     // Smart defaults for pipeline commands
-    if (cmd === "crawl" || cmd === "run-pipeline") {
+    if (cmd === "crawl") {
       params.skip_with_fees = true;
     }
 

@@ -41,7 +41,10 @@ async def test_sc5_env_var_halts_knox(db_schema, monkeypatch):
     pool_mod._pool = pool
 
     try:
-        # Seed prior Knox spend (1500 cents across one representative event).
+        # Seed prior Knox spend (1500 cents). The audit row records the spend;
+        # agent_budgets.spent_cents is the authoritative source check_budget
+        # reads, so set it there too (the gateway/orchestrators keep it in sync
+        # in production via account_budget).
         async with pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO agent_events
@@ -50,6 +53,10 @@ async def test_sc5_env_var_halts_knox(db_schema, monkeypatch):
                    VALUES ($1::UUID, 'knox', 'extract', '_seed', 'fees_raw',
                            'success', 1500, $2::UUID, $3)""",
                 str(uuid.uuid4()), str(uuid.uuid4()), b"\x00" * 32,
+            )
+            await conn.execute(
+                "UPDATE agent_budgets SET spent_cents = 1500, window_started_at = NOW() "
+                "WHERE agent_name = 'knox'"
             )
 
         # Set the env-var override.

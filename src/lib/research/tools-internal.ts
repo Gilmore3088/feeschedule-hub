@@ -11,6 +11,42 @@ import { getOutlierFlaggedFees, getReviewStats, getStats } from "@/lib/crawler-d
 import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
 import { sql } from "@/lib/crawler-db/connection";
 import { spawnJob } from "@/lib/job-runner";
+import { revalidatePath } from "next/cache";
+import { approveFee as approveFeeAction, rejectFee as rejectFeeAction } from "@/lib/fee-actions";
+import { updateFeeScheduleUrl as updateFeeScheduleUrlAction } from "@/app/admin/peers/actions";
+import { publishReport as publishReportAction, cancelReport as cancelReportAction } from "@/app/admin/hamilton/actions";
+import type { ReportType } from "@/lib/report-engine/types";
+
+const AGENT_ACTOR_NAME = "hamilton_admin";
+
+type JsonPayload = Parameters<typeof sql.json>[0];
+
+async function logAgentEvent(params: {
+  action: string;
+  tool: string;
+  entity: string;
+  entityId: string;
+  status: "success" | "error";
+  input: JsonPayload;
+  output?: JsonPayload;
+}): Promise<string | null> {
+  try {
+    const rows = await sql<{ event_id: string }[]>`
+      INSERT INTO agent_events
+        (agent_name, action, tool_name, entity, entity_id, status, input_payload, output_payload)
+      VALUES
+        (${AGENT_ACTOR_NAME}, ${params.action}, ${params.tool}, ${params.entity},
+         ${params.entityId}, ${params.status},
+         ${sql.json(params.input)},
+         ${params.output ? sql.json(params.output) : null})
+      RETURNING event_id
+    `;
+    return rows[0]?.event_id ?? null;
+  } catch {
+    return null;
+  }
+}
+import { computePercentiles } from "./percentile";
 
 // queryNationalData imports -- Phase 23-25 query functions
 import {
@@ -211,124 +247,241 @@ export const searchInstitutionsByName = tool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Institution ranking primitives
+//
+// Replaces the original monolithic `rankInstitutions` with three composable
+// tools that share `computePercentiles` for per-category thresholds. The old
+// `rankInstitutions` tool is kept below as a thin backward-compat shim that
+// dispatches by metric name.
+// ---------------------------------------------------------------------------
+
+type RankRow = {
+  id: number;
+  institution_name: string;
+  state_code: string;
+  charter_type: string;
+  asset_size_tier: string;
+  fee_category: string;
+  amount: number;
+};
+
+type PercentileBucket = {
+  name: string;
+  state: string;
+  charter: string;
+  tier: string;
+  count: number;
+  total: number;
+  categories: string[];
+};
+
+async function runPercentileRanking(
+  direction: "above" | "below",
+  metric: "p25" | "p75",
+  charter: "bank" | "credit_union" | undefined,
+  categories: string[] | undefined,
+  limit: number,
+) {
+  const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
+  const categoryClause =
+    categories && categories.length > 0
+      ? sql`AND ef.fee_category IN ${sql(categories)}`
+      : sql``;
+
+  const benchmarks = (await sql`
+    SELECT fee_category, amount
+    FROM extracted_fees
+    WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
+    ORDER BY fee_category, amount
+  `) as { fee_category: string; amount: number }[];
+
+  const grouped: Record<string, number[]> = {};
+  for (const r of benchmarks) {
+    if (!grouped[r.fee_category]) grouped[r.fee_category] = [];
+    grouped[r.fee_category].push(r.amount);
+  }
+  const pctMap: Record<string, { p25: number; p75: number }> = {};
+  for (const [cat, amounts] of Object.entries(grouped)) {
+    const { p25, p75 } = computePercentiles(amounts);
+    pctMap[cat] = { p25, p75 };
+  }
+
+  const instFees = (await sql`
+    SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+           ef.fee_category, ef.amount
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
+      ${charterClause}
+      ${categoryClause}
+  `) as RankRow[];
+
+  const counts: Record<number, PercentileBucket> = {};
+  for (const r of instFees) {
+    if (!counts[r.id]) {
+      counts[r.id] = {
+        name: r.institution_name,
+        state: r.state_code,
+        charter: r.charter_type,
+        tier: r.asset_size_tier,
+        count: 0,
+        total: 0,
+        categories: [],
+      };
+    }
+    counts[r.id].total++;
+    const pct = pctMap[r.fee_category];
+    if (!pct) continue;
+    const threshold = pct[metric];
+    const pass = direction === "above" ? r.amount > threshold : r.amount < threshold;
+    if (pass) {
+      counts[r.id].count++;
+      if (!counts[r.id].categories.includes(r.fee_category)) {
+        counts[r.id].categories.push(r.fee_category);
+      }
+    }
+  }
+
+  const ranked = Object.entries(counts)
+    .map(([id, data]) => ({
+      id: Number(id),
+      ...data,
+      pct_pass: Math.round((data.count / Math.max(data.total, 1)) * 100),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+
+  return {
+    metric: `${direction}_${metric}` as const,
+    results: ranked.map((r) => ({
+      institution: r.name,
+      state: r.state,
+      charter_type: r.charter,
+      asset_tier: r.tier,
+      matching_fees: r.count,
+      total_fees: r.total,
+      pct: r.pct_pass + "%",
+      categories: r.categories.slice(0, 5),
+    })),
+  };
+}
+
+export const rankByPercentile = tool({
+  description:
+    "Ranks institutions by count of fees above or below the national P25/P75 for each category. Combine with queryRegulatoryRisk or rankByOutlierFlags to layer pricing-leader and risk lenses.",
+  inputSchema: z.object({
+    metric: z.enum(["p25", "p75"]).describe("Percentile threshold to compare against"),
+    direction: z.enum(["above", "below"]).describe("'above' = fees > threshold, 'below' = fees < threshold"),
+    categories: z
+      .array(z.string())
+      .optional()
+      .describe("Optional fee_category allow-list (e.g. ['overdraft','nsf'])"),
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
+    limit: z.number().optional().default(10).describe("Number of results"),
+  }),
+  execute: async ({ metric, direction, categories, charter, limit }) => {
+    return runPercentileRanking(direction, metric, charter, categories, limit ?? 10);
+  },
+});
+
+async function runFeeCountRanking(
+  charter: "bank" | "credit_union" | undefined,
+  limit: number,
+) {
+  const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
+  const rows = (await sql`
+    SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+           COUNT(*) as fee_count
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.review_status != 'rejected' ${charterClause}
+    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
+    ORDER BY fee_count DESC
+    LIMIT ${limit}
+  `) as {
+    institution_name: string;
+    state_code: string;
+    charter_type: string;
+    asset_size_tier: string;
+    fee_count: number;
+  }[];
+  return { metric: "total_fees" as const, results: rows };
+}
+
+async function runOutlierFlagRanking(
+  charter: "bank" | "credit_union" | undefined,
+  limit: number,
+) {
+  const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
+  const rows = (await sql`
+    SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
+           COUNT(*) as flag_count
+    FROM extracted_fees ef
+    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
+      AND ef.review_status != 'rejected' ${charterClause}
+    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
+    ORDER BY flag_count DESC
+    LIMIT ${limit}
+  `) as {
+    institution_name: string;
+    state_code: string;
+    charter_type: string;
+    asset_size_tier: string;
+    flag_count: number;
+  }[];
+  return { metric: "outlier_flags" as const, results: rows };
+}
+
+export const rankByFeeCount = tool({
+  description:
+    "Ranks institutions by total non-rejected fee observations. Use to find most-documented institutions or comparison anchors. Combine with rankByPercentile to weight by pricing posture.",
+  inputSchema: z.object({
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
+    limit: z.number().optional().default(10).describe("Number of results"),
+  }),
+  execute: async ({ charter, limit }) => runFeeCountRanking(charter, limit ?? 10),
+});
+
+export const rankByOutlierFlags = tool({
+  description:
+    "Ranks institutions by count of validation-flagged fees (statistical outliers, parse issues). Combine with queryOutliers for the underlying fees or rankByPercentile to separate price posture from data quality.",
+  inputSchema: z.object({
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
+    limit: z.number().optional().default(10).describe("Number of results"),
+  }),
+  execute: async ({ charter, limit }) => runOutlierFlagRanking(charter, limit ?? 10),
+});
+
+/**
+ * @deprecated Use rankByPercentile, rankByFeeCount, or rankByOutlierFlags directly.
+ * Kept as a backward-compat shim that dispatches by metric.
+ */
 export const rankInstitutions = tool({
   description:
-    "Ranks institutions by above_p75 (most fees above 75th pct), below_p25, total_fees, or outlier_flags. When: 'which institutions have the highest fees?', pricing leadership, outlier leaderboard. Combine with: queryRegulatoryRisk if ranking by overdraft/NSF categories, queryNationalData(complaints) to correlate pricing with complaints.",
+    "[Deprecated] Ranks institutions by above_p75, below_p25, total_fees, or outlier_flags. Prefer rankByPercentile / rankByFeeCount / rankByOutlierFlags for composability.",
   inputSchema: z.object({
     metric: z
       .enum(["above_p75", "below_p25", "total_fees", "outlier_flags"])
-      .describe("Ranking metric: above_p75 (most fees above 75th pct), below_p25 (most below 25th), total_fees (most observations), outlier_flags (most validation flags)"),
-    charter: z
-      .enum(["bank", "credit_union"])
-      .optional()
-      .describe("Filter by charter type"),
+      .describe("Ranking metric (legacy)"),
+    charter: z.enum(["bank", "credit_union"]).optional().describe("Filter by charter type"),
     limit: z.number().optional().default(10).describe("Number of results"),
   }),
   execute: async ({ metric, charter, limit }) => {
-    const charterClause = charter ? sql`AND ct.charter_type = ${charter}` : sql``;
     const n = limit ?? 10;
-
-    if (metric === "above_p75" || metric === "below_p25") {
-      const benchmarks = await sql`
-        SELECT fee_category, amount
-        FROM extracted_fees
-        WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
-        ORDER BY fee_category, amount
-      ` as { fee_category: string; amount: number }[];
-
-      const pctMap: Record<string, { p25: number; p75: number }> = {};
-      const grouped: Record<string, number[]> = {};
-      for (const r of benchmarks) {
-        if (!grouped[r.fee_category]) grouped[r.fee_category] = [];
-        grouped[r.fee_category].push(r.amount);
-      }
-      for (const [cat, amounts] of Object.entries(grouped)) {
-        const sorted = amounts.sort((a, b) => a - b);
-        pctMap[cat] = {
-          p25: sorted[Math.floor(sorted.length * 0.25)],
-          p75: sorted[Math.floor(sorted.length * 0.75)],
-        };
-      }
-
-      const threshold = metric === "above_p75" ? "p75" : "p25";
-      const comparison = metric === "above_p75" ? ">" : "<";
-
-      const instFees = await sql`
-        SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
-               ef.fee_category, ef.amount
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
-          ${charterClause}
-      ` as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
-
-      const counts: Record<number, { name: string; state: string; charter: string; tier: string; count: number; total: number; categories: string[] }> = {};
-      for (const r of instFees) {
-        if (!counts[r.id]) counts[r.id] = { name: r.institution_name, state: r.state_code, charter: r.charter_type, tier: r.asset_size_tier, count: 0, total: 0, categories: [] };
-        counts[r.id].total++;
-        const pct = pctMap[r.fee_category];
-        if (pct) {
-          const pass = comparison === ">" ? r.amount > pct[threshold] : r.amount < pct[threshold];
-          if (pass) {
-            counts[r.id].count++;
-            if (!counts[r.id].categories.includes(r.fee_category)) {
-              counts[r.id].categories.push(r.fee_category);
-            }
-          }
-        }
-      }
-
-      const ranked = Object.entries(counts)
-        .map(([id, data]) => ({ id: Number(id), ...data, pct_above: Math.round(data.count / Math.max(data.total, 1) * 100) }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, n);
-
-      return {
-        metric,
-        results: ranked.map(r => ({
-          institution: r.name,
-          state: r.state,
-          charter_type: r.charter,
-          asset_tier: r.tier,
-          matching_fees: r.count,
-          total_fees: r.total,
-          pct: r.pct_above + "%",
-          categories: r.categories.slice(0, 5),
-        })),
-      };
+    if (metric === "above_p75") {
+      return runPercentileRanking("above", "p75", charter, undefined, n);
     }
-
+    if (metric === "below_p25") {
+      return runPercentileRanking("below", "p25", charter, undefined, n);
+    }
     if (metric === "total_fees") {
-      const rows = await sql`
-        SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
-               COUNT(*) as fee_count
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.review_status != 'rejected' ${charterClause}
-        GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
-        ORDER BY fee_count DESC
-        LIMIT ${n}
-      ` as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_count: number }[];
-
-      return { metric, results: rows };
+      return runFeeCountRanking(charter, n);
     }
-
     if (metric === "outlier_flags") {
-      const rows = await sql`
-        SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
-               COUNT(*) as flag_count
-        FROM extracted_fees ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
-          AND ef.review_status != 'rejected' ${charterClause}
-        GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
-        ORDER BY flag_count DESC
-        LIMIT ${n}
-      ` as { institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; flag_count: number }[];
-
-      return { metric, results: rows };
+      return runOutlierFlagRanking(charter, n);
     }
-
     return { error: "Unknown metric" };
   },
 });
@@ -375,19 +528,19 @@ export const queryDataQuality = tool({
         SELECT
           (SELECT COUNT(*) FROM crawl_targets) as total_institutions,
           (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status != 'rejected') as with_fees,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status = 'approved') as with_approved,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status != 'rejected') as total_fees,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status = 'approved') as approved_fees
       `;
       return row;
     }
     if (view === "uncategorized") {
       const [count] = await sql`
-        SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'
+        SELECT COUNT(*) as cnt FROM fees_verified WHERE fee_category IS NULL AND review_status != 'rejected'
       ` as { cnt: number }[];
       const top = await sql`
-        SELECT fee_name, COUNT(*) as cnt FROM extracted_fees
+        SELECT fee_name, COUNT(*) as cnt FROM fees_verified
         WHERE fee_category IS NULL AND review_status != 'rejected'
         GROUP BY fee_name ORDER BY cnt DESC LIMIT 15
       `;
@@ -403,19 +556,18 @@ export const queryDataQuality = tool({
     }
     // review_status
     return await sql`
-      SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC
+      SELECT review_status, COUNT(*) as cnt FROM fees_verified GROUP BY review_status ORDER BY cnt DESC
     `;
   },
 });
 
 const SAFE_PIPELINE_COMMANDS = new Set([
-  "categorize", "auto-review", "validate", "outlier-detect",
-  "enrich", "publish-index", "snapshot", "merge-fees",
+  "enrich", "publish-index", "snapshot",
 ]);
 
 export const triggerPipelineJob = tool({
   description:
-    "Triggers a safe pipeline job: categorize, auto-review, validate, outlier-detect, enrich, publish-index, snapshot, merge-fees. When: operator asks to run a pipeline step. Does NOT trigger crawl or discover (those use API credits). Combine with: queryJobStatus to confirm the triggered job is running.",
+    "Triggers a safe pipeline job: enrich, publish-index, snapshot. When: operator asks to run a pipeline step. Does NOT trigger crawl or discover (those use API credits). Combine with: queryJobStatus to confirm the triggered job is running.",
   inputSchema: z.object({
     command: z.string().describe("Pipeline command name"),
     dryRun: z.boolean().optional().default(false).describe("If true, pass --dry-run flag"),
@@ -438,32 +590,148 @@ export const triggerPipelineJob = tool({
 
 const VALID_SOURCES = ["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"] as const;
 
+// ── Atomic National Data Tools (one per source) ──────────────────────────────
+
+export const queryCallReportData = tool({
+  description:
+    "FDIC/NCUA service charge revenue: trends, top institutions, by asset tier, by district. Views: trend, top_institutions, by_tier, by_district, all.",
+  inputSchema: z.object({
+    view: z.enum(["trend", "top_institutions", "by_tier", "by_district", "all"]).optional().default("all"),
+    quarters: z.number().optional().default(8),
+    limit: z.number().optional().default(10),
+    district: z.number().min(1).max(12).optional(),
+  }),
+  execute: async ({ view, quarters, limit, district }) =>
+    handleCallReports(view, quarters, limit, district),
+});
+
+export const queryEconomicData = tool({
+  description:
+    "FRED rates, Beige Book themes, national/district economic summaries. Views: fred, beige_book, national, district, all.",
+  inputSchema: z.object({
+    view: z.enum(["fred", "beige_book", "national", "district", "all"]).optional().default("all"),
+    district: z.number().min(1).max(12).optional(),
+  }),
+  execute: async ({ view, district }) => handleEconomic(view, district),
+});
+
+export const queryNationalHealth = tool({
+  description:
+    "Industry health: ROA, efficiency, deposit/loan growth, institution counts. Views: metrics, by_charter, deposits, loans, institution_counts, all.",
+  inputSchema: z.object({
+    view: z.enum(["metrics", "by_charter", "deposits", "loans", "institution_counts", "all"]).optional().default("all"),
+    quarters: z.number().optional().default(8),
+  }),
+  execute: async ({ view, quarters }) => handleHealth(view, quarters),
+});
+
+export const queryCfpbComplaints = tool({
+  description: "CFPB consumer complaint summary for a Fed district.",
+  inputSchema: z.object({
+    district: z.number().min(1).max(12).describe("Fed district number (1-12)"),
+  }),
+  execute: async ({ district }) => handleComplaints(district),
+});
+
+export const queryFeeIndexData = tool({
+  description:
+    "National or peer-filtered fee medians by category. Optional charter/tiers filters switch to peer index.",
+  inputSchema: z.object({
+    charter: z.enum(["bank", "credit_union"]).optional(),
+    tiers: z.array(z.string()).optional(),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ charter, tiers, limit }) => handleFeeIndex(charter, tiers, limit),
+});
+
+export const queryDerivedMetrics = tool({
+  description:
+    "Derived analytics: revenue concentration, fee dependency, revenue per institution trends. Views: concentration, dependency, revenue_per_institution, all.",
+  inputSchema: z.object({
+    view: z.enum(["concentration", "dependency", "revenue_per_institution", "all"]).optional().default("all"),
+    top_n: z.number().optional().default(5),
+    quarters: z.number().optional().default(8),
+  }),
+  execute: async ({ view, top_n, quarters }) => handleDerived(view, top_n, quarters),
+});
+
+export const queryFedContent = tool({
+  description:
+    "Recent Fed speeches/papers, optionally filtered to a single Fed district.",
+  inputSchema: z.object({
+    district: z.number().min(1).max(12).optional(),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ district, limit }) => handleFedContent(district, limit),
+});
+
+export const queryLaborData = tool({
+  description:
+    "BLS labor indicators (defaults to unemployment, payroll, bank-fee CPI). Pass seriesIds to override.",
+  inputSchema: z.object({
+    seriesIds: z.array(z.string()).optional(),
+  }),
+  execute: async ({ seriesIds }) => handleLabor(seriesIds),
+});
+
+export const queryDemographics = tool({
+  description: "Census ACS state demographics (income, poverty) by state FIPS code.",
+  inputSchema: z.object({
+    stateFips: z.string().describe("State FIPS code (e.g., '06' for CA, '36' for NY)"),
+  }),
+  execute: async ({ stateFips }) => handleDemographics(stateFips),
+});
+
+export const queryResearchData = tool({
+  description: "NY Fed + OFR financial stability research data.",
+  inputSchema: z.object({
+    limit: z.number().optional().default(20),
+  }),
+  execute: async ({ limit }) => handleResearch(limit),
+});
+
+export const queryDepositsData = tool({
+  description: "FDIC Summary of Deposits market share, optionally filtered by state FIPS.",
+  inputSchema: z.object({
+    stateFips: z.string().optional(),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ stateFips, limit }) => handleDeposits(stateFips, limit),
+});
+
+export const queryExternalIntel = tool({
+  description:
+    "Admin-curated external intelligence: research, surveys, regulatory reports. Pass query for full-text search; view filters by category.",
+  inputSchema: z.object({
+    query: z.string().optional(),
+    view: z.string().optional().describe("Category filter when query is set"),
+    limit: z.number().optional().default(10),
+  }),
+  execute: async ({ query, view, limit }) => handleExternal(query, view, limit),
+});
+
+/**
+ * @deprecated Use the atomic per-source tools instead:
+ * queryCallReportData, queryEconomicData, queryNationalHealth, queryCfpbComplaints,
+ * queryFeeIndexData, queryDerivedMetrics, queryFedContent, queryLaborData,
+ * queryDemographics, queryResearchData, queryDepositsData, queryExternalIntel.
+ * Kept as a backward-compat shim that delegates to the atomic handlers.
+ */
 export const queryNationalData = tool({
   description:
-    "Query national summary data across all 12 source domains. Sources: call_reports (FDIC/NCUA revenue trends), economic (FRED rates, Beige Book themes), health (ROA, efficiency, deposits, loans), complaints (CFPB district summaries), fee_index (national/peer fee medians), derived (concentration, fee dependency), fed_content (Fed speeches/papers by district), labor (BLS unemployment, payroll, bank-fee CPI), demographics (Census ACS income/poverty by state), research (NY Fed + OFR financial stability data), deposits (FDIC SOD market share), external (admin-curated research, surveys, reports -- use 'query' param for full-text search). When: any macroeconomic, regional, or financial context question. Combine with: district analysis → economic+complaints+fed_content; compliance question → complaints+fee_index+fed_content; consumer impact → demographics+labor+fee_index; external context → external+fee_index for industry research alongside fee data.",
+    "DEPRECATED: use the atomic per-source tools (queryCallReportData, queryEconomicData, queryNationalHealth, queryCfpbComplaints, queryFeeIndexData, queryDerivedMetrics, queryFedContent, queryLaborData, queryDemographics, queryResearchData, queryDepositsData, queryExternalIntel). Kept as a thin shim for backward compatibility.",
   inputSchema: z.object({
-    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"])
-      .describe("Data source category to query"),
-    view: z.string().optional()
-      .describe("Specific view within the source (e.g., 'trend', 'by_tier', 'fred', 'concentration'). For external source, doubles as category filter."),
-    query: z.string().optional()
-      .describe("Search query text (used for external source full-text search)"),
-    limit: z.number().optional().default(10)
-      .describe("Limit results (for top_institutions, fee_index)"),
-    quarters: z.number().optional().default(8)
-      .describe("Number of quarters for trend data"),
-    district: z.number().min(1).max(12).optional()
-      .describe("Fed district number (for complaints, economic district view, fed_content)"),
-    charter: z.enum(["bank", "credit_union"]).optional()
-      .describe("Charter type filter"),
-    tiers: z.array(z.string()).optional()
-      .describe("Asset size tier filter (for fee_index peer queries)"),
-    top_n: z.number().optional().default(5)
-      .describe("Top N for concentration analysis"),
-    stateFips: z.string().optional()
-      .describe("State FIPS code for demographics/deposits (e.g., '06' for California, '36' for New York)"),
-    seriesIds: z.array(z.string()).optional()
-      .describe("BLS series IDs for labor view (defaults to unemployment, payroll, bank fee CPI)"),
+    source: z.enum(["call_reports", "economic", "health", "complaints", "fee_index", "derived", "fed_content", "labor", "demographics", "research", "deposits", "external"]),
+    view: z.string().optional(),
+    query: z.string().optional(),
+    limit: z.number().optional().default(10),
+    quarters: z.number().optional().default(8),
+    district: z.number().min(1).max(12).optional(),
+    charter: z.enum(["bank", "credit_union"]).optional(),
+    tiers: z.array(z.string()).optional(),
+    top_n: z.number().optional().default(5),
+    stateFips: z.string().optional(),
+    seriesIds: z.array(z.string()).optional(),
   }),
   execute: async ({ source, view, query, limit, quarters, district, charter, tiers, top_n, stateFips, seriesIds }) => {
     switch (source) {
@@ -763,7 +1031,7 @@ export const queryRegulatoryRisk = tool({
       try {
         const fees = await sql`
           SELECT ef.fee_category, ef.amount, ct.institution_name, ct.state_code
-          FROM extracted_fees ef
+          FROM fees_verified ef
           JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
           WHERE ef.fee_category = ANY(${targetCategories}::text[])
             AND ef.amount > 0
@@ -861,6 +1129,129 @@ export const queryRegulatoryRisk = tool({
   },
 });
 
+// ── Admin write tools (Wave 1 action parity) ─────────────────────────────────
+// Each wraps an existing server action, logs to agent_events for audit, and
+// revalidates affected admin pages. Underlying actions enforce role/permission.
+
+export const approveFee = tool({
+  description:
+    "Approves a pending or staged fee in the review queue. Use only when the operator explicitly asks to approve a specific fee by ID. Logs to agent_events.",
+  inputSchema: z.object({
+    feeId: z.number().int().positive().describe("extracted_fees.id"),
+    notes: z.string().optional().describe("Reviewer note for audit trail"),
+  }),
+  execute: async ({ feeId, notes }) => {
+    const result = await approveFeeAction(feeId, notes);
+    const eventId = await logAgentEvent({
+      action: "approve_fee",
+      tool: "approveFee",
+      entity: "extracted_fees",
+      entityId: String(feeId),
+      status: result.success ? "success" : "error",
+      input: { feeId, notes: notes ?? null },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath("/admin/review");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const rejectFee = tool({
+  description:
+    "Rejects a pending or staged fee in the review queue. Use only when the operator explicitly asks to reject a specific fee by ID. Logs to agent_events.",
+  inputSchema: z.object({
+    feeId: z.number().int().positive().describe("extracted_fees.id"),
+    rationale: z.string().optional().describe("Reason for rejection (recorded in fee_reviews.notes)"),
+  }),
+  execute: async ({ feeId, rationale }) => {
+    const result = await rejectFeeAction(feeId, rationale);
+    const eventId = await logAgentEvent({
+      action: "reject_fee",
+      tool: "rejectFee",
+      entity: "extracted_fees",
+      entityId: String(feeId),
+      status: result.success ? "success" : "error",
+      input: { feeId, rationale: rationale ?? null },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath("/admin/review");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const updateFeeScheduleUrl = tool({
+  description:
+    "Sets the fee_schedule_url for an institution. Use when a verified URL has been discovered and the operator asks to record it. Logs to agent_events.",
+  inputSchema: z.object({
+    institutionId: z.number().int().positive().describe("crawl_targets.id"),
+    url: z.string().url().describe("Fully qualified URL to the fee schedule"),
+    discoveredBy: z.string().optional().describe("Source/agent that surfaced the URL"),
+  }),
+  execute: async ({ institutionId, url, discoveredBy }) => {
+    const result = await updateFeeScheduleUrlAction(institutionId, url);
+    const eventId = await logAgentEvent({
+      action: "update_fee_schedule_url",
+      tool: "updateFeeScheduleUrl",
+      entity: "crawl_targets",
+      entityId: String(institutionId),
+      status: result.success ? "success" : "error",
+      input: { institutionId, url, discoveredBy: discoveredBy ?? null },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath(`/admin/peers/${institutionId}`);
+    revalidatePath("/admin/coverage");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const publishReport = tool({
+  description:
+    "Publishes a completed report job to the public catalog with a slug. Use only when the operator asks to publish a specific completed report. Logs to agent_events.",
+  inputSchema: z.object({
+    jobId: z.string().describe("report_jobs.id (UUID)"),
+    title: z.string().min(3).describe("Display title; used for slug generation"),
+    reportType: z.string().describe("ReportType enum value (e.g., 'monthly_pulse')"),
+    isPublic: z.boolean().optional().default(true).describe("Whether the report is publicly visible"),
+  }),
+  execute: async ({ jobId, title, reportType, isPublic }) => {
+    const result = await publishReportAction(jobId, title, reportType as ReportType, isPublic ?? true);
+    const eventId = await logAgentEvent({
+      action: "publish_report",
+      tool: "publishReport",
+      entity: "report_jobs",
+      entityId: jobId,
+      status: result.success ? "success" : "error",
+      input: { jobId, title, reportType, isPublic: isPublic ?? true },
+      output: { success: result.success, slug: result.slug ?? null, error: result.error ?? null },
+    });
+    revalidatePath("/admin/hamilton");
+    revalidatePath("/reports");
+    return { ...result, event_id: eventId };
+  },
+});
+
+export const cancelReport = tool({
+  description:
+    "Cancels a pending/assembling/rendering report job. Use only when the operator asks to cancel a specific in-flight report. Logs to agent_events.",
+  inputSchema: z.object({
+    jobId: z.string().describe("report_jobs.id (UUID)"),
+  }),
+  execute: async ({ jobId }) => {
+    const result = await cancelReportAction(jobId);
+    const eventId = await logAgentEvent({
+      action: "cancel_report",
+      tool: "cancelReport",
+      entity: "report_jobs",
+      entityId: jobId,
+      status: result.success ? "success" : "error",
+      input: { jobId },
+      output: { success: result.success, error: result.error ?? null },
+    });
+    revalidatePath("/admin/hamilton");
+    return { ...result, event_id: eventId };
+  },
+});
+
 /** All internal tools bundled for admin agent configs */
 export const internalTools = {
   queryDistrictData,
@@ -871,9 +1262,31 @@ export const internalTools = {
   getReviewQueueStats,
   searchInstitutionsByName,
   rankInstitutions,
+  rankByPercentile,
+  rankByFeeCount,
+  rankByOutlierFlags,
   queryJobStatus,
   queryDataQuality,
   triggerPipelineJob,
+  // Atomic national-data tools (one per source)
+  queryCallReportData,
+  queryEconomicData,
+  queryNationalHealth,
+  queryCfpbComplaints,
+  queryFeeIndexData,
+  queryDerivedMetrics,
+  queryFedContent,
+  queryLaborData,
+  queryDemographics,
+  queryResearchData,
+  queryDepositsData,
+  queryExternalIntel,
+  // Backward-compat shim (deprecated)
   queryNationalData,
   queryRegulatoryRisk,
+  approveFee,
+  rejectFee,
+  updateFeeScheduleUrl,
+  publishReport,
+  cancelReport,
 };

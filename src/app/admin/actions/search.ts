@@ -42,7 +42,7 @@ export async function searchDashboard(query: string): Promise<SearchResult> {
 
   const categories = await sql`
     SELECT fee_category, COUNT(DISTINCT crawl_target_id) as count
-    FROM extracted_fees
+    FROM fees_verified
     WHERE fee_category ILIKE ${pattern}
     AND fee_category IS NOT NULL
     GROUP BY fee_category
@@ -52,7 +52,7 @@ export async function searchDashboard(query: string): Promise<SearchResult> {
 
   const feeNames = await sql`
     SELECT fee_name, COUNT(*) as count
-    FROM extracted_fees
+    FROM fees_verified
     WHERE fee_name ILIKE ${pattern}
     GROUP BY fee_name
     ORDER BY count DESC

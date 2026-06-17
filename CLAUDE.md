@@ -22,7 +22,7 @@ The national authority on bank and credit union fee data. A B2B platform that co
 - TypeScript 5 - Frontend (React/Next.js), server-side code, API routes
 - Python 3.12 - Fee crawler pipeline, data extraction, analysis
 - JavaScript (ESM modules) - Build config, linting configuration
-- SQL (Postgres/SQLite) - Database queries via postgres client
+- SQL (Postgres) - Database queries via postgres client
 ## Runtime
 - Node.js 20 (Vercel/Docker deployment) - Primary Next.js runtime
 - Python 3.12 - Fee crawler agents and pipeline workers
@@ -70,7 +70,7 @@ The national authority on bank and credit union fee data. A B2B platform that co
 - asyncpg 0.29+ - Async PostgreSQL driver
 - requests 2.31+ - Synchronous HTTP client
 ## Configuration
-- Database: `DATABASE_URL` (Postgres), `DB_PATH` (legacy SQLite)
+- Database: `DATABASE_URL` (Postgres; Supabase pooler). SQLite removed — `fee_crawler/db.py` is a Postgres-only psycopg2 shim.
 - Session-mode DB: `DATABASE_URL_SESSION` (Supabase session pooler, port 5432) — required for Phase 62b LISTEN/NOTIFY agent messaging. Transaction-mode pool (port 6543) does NOT support LISTEN registrations (research §Pitfall 2). In CI, set `DATABASE_URL_SESSION_TEST` to a staging-session DSN so LISTEN/NOTIFY integration tests (`test_listen_notify_roundtrip`, `test_session_pool.py`) DO NOT skip — they MUST FAIL loudly instead of silently green if the DSN is missing.
 - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - Storage: `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
@@ -85,7 +85,7 @@ The national authority on bank and credit union fee data. A B2B platform that co
 - `postcss.config.mjs` - Tailwind v4 PostCSS plugin
 - `eslint.config.mjs` - Next.js vitals + TypeScript rules
 - `components.json` - Shadcn component configuration
-- `fee_crawler/config.yaml` - Database type (sqlite/postgres), crawl concurrency, extraction model (haiku), batch API, daily budget
+- `fee_crawler/config.yaml` - crawl concurrency, extraction model (haiku), batch API, daily budget (Postgres-only; legacy sqlite/path keys ignored)
 ## Platform Requirements
 - Node.js 20+
 - Python 3.12+
@@ -238,28 +238,6 @@ Conventions not yet established. Will populate as patterns emerge during develop
 | fee-revenue-correlation | Analysis framework correlating published fee schedules with actual service charge revenue from Call Reports | `.claude/skills/fee-revenue-correlation/SKILL.md` |
 | monthly-pulse | Generate concise monthly summaries of fee index movements and notable trends | `.claude/skills/monthly-pulse/SKILL.md` |
 <!-- GSD:skills-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
-
-
-
-<!-- GSD:profile-start -->
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
 
 ## Design Context
 

@@ -6,7 +6,6 @@ export async function PipelineDashboard() {
 
   const noWebsite = d.total - d.hasWebsite;
   const needDiscover = d.hasWebsite - d.hasUrl;
-  const uncategorized = d.totalFees - d.categorized;
 
   const stages = [
     {
@@ -42,21 +41,6 @@ export async function PipelineDashboard() {
           count: s.count,
           color: "text-gray-500 dark:text-gray-400",
         })),
-      ],
-    },
-    {
-      id: "categorize",
-      name: "Categorize",
-      count: d.categorized,
-      total: d.totalFees,
-      pct: d.totalFees > 0 ? Math.round((d.categorized / d.totalFees) * 100) : 0,
-      actionLabel: "Run Categorize",
-      actionHref: "/admin/ops",
-      description: `${uncategorized.toLocaleString()} fees don't match any of the 49 standard categories (long-tail fee names).`,
-      breakdowns: [
-        { label: "Categorized", count: d.categorized, color: "text-emerald-600 dark:text-emerald-400" },
-        { label: "Uncategorized", count: uncategorized, color: "text-amber-600 dark:text-amber-400" },
-        { label: "Total fees", count: d.totalFees },
       ],
     },
     {

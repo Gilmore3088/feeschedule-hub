@@ -21,6 +21,11 @@ function formatRelativeRefresh(iso: string | null): string {
 
 export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) {
   const refreshedRelative = formatRelativeRefresh(freshness.last_crawl_at);
+  // W-05: an empty DB shouldn't surface as "0 institutions tracked" in
+  // the public hero — visitors interpret zero as "not real / abandoned."
+  // Show a token "—" placeholder for empty stats; the data tile next to
+  // it still shows real ones.
+  const fmt = (n: number) => (n > 0 ? n.toLocaleString() : "—");
   // Palette: warm-*/terra tokens from globals.css @theme. Works in any route,
   // no .consumer-brand wrapper required (legacy slate-* utilities still work
   // via the wrapper for compatibility with older surfaces).
@@ -30,7 +35,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           <div>
             <dd className="text-[28px] font-bold text-warm-900 tabular-nums">
-              {stats.total_institutions.toLocaleString()}
+              {fmt(stats.total_institutions)}
             </dd>
             <dt className="text-[12px] font-normal text-warm-600 uppercase tracking-wide mt-1">
               Institutions tracked
@@ -57,7 +62,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
 
           <div>
             <dd className="text-[28px] font-bold text-warm-900 tabular-nums">
-              {stats.total_observations.toLocaleString()}
+              {fmt(stats.total_observations)}
             </dd>
             <dt className="text-[12px] font-normal text-warm-600 uppercase tracking-wide mt-1">
               Verified fee observations

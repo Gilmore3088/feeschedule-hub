@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition, useState } from "react";
-import { rerunCategorization, republishIndex, resetZombieJobs } from "./actions";
+import { republishIndex, resetZombieJobs } from "./actions";
 
 interface ActionResult {
   success: boolean;
@@ -77,11 +77,6 @@ export function QuickActions({ canTrigger }: { canTrigger: boolean }) {
 
   return (
     <div className="space-y-2">
-      <ActionButton
-        label="Re-run Categorization"
-        description="Re-categorize all uncategorized fees using the taxonomy engine"
-        action={rerunCategorization}
-      />
       <ActionButton
         label="Re-publish Index"
         description="Recompute fee_index_cache with latest approved + staged data"

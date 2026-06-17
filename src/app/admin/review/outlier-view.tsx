@@ -138,13 +138,13 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
   }
 
   function handleBulkSetToMedian() {
-    const updates: { feeId: number; amount: number }[] = [];
+    const updates: { feeId: number; updates: { amount: number } }[] = [];
     for (const id of selectedIds) {
       const fee = fees.find((f) => f.id === id);
       if (!fee?.fee_category) continue;
       const median = medians[fee.fee_category];
       if (!median) continue;
-      updates.push({ feeId: id, amount: median.median });
+      updates.push({ feeId: id, updates: { amount: median.median } });
     }
     if (updates.length === 0) {
       alert("No selected fees have a category median to apply.");
@@ -168,7 +168,7 @@ export function OutlierView({ fees, total, medians, categories }: OutlierViewPro
   function handleBulkApproveAsIs() {
     const updates = Array.from(selectedIds).map((id) => {
       const fee = fees.find((f) => f.id === id);
-      return { feeId: id, amount: fee?.amount ?? 0 };
+      return { feeId: id, updates: { amount: fee?.amount ?? 0 } };
     });
     startBulkTransition(async () => {
       const result = await bulkEditAndApproveFees(updates, `Bulk approved as-is`);

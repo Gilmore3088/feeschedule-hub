@@ -5,7 +5,13 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class DarwinConfig:
     # Classification policy
-    auto_promote_threshold: float = 0.90
+    # Lowered 2026-06-06 from 0.90 -> 0.80. At 0.90 the empirical promotion rate
+    # on legacy migration_v10 rows was only ~10% because many correct calls
+    # land at 0.80-0.85 confidence (e.g. bill_pay, card_foreign_txn,
+    # ira_administration). Lower threshold + the prompt enrichment work
+    # together to push promotion rate to ~70-80%. Rejections trade off:
+    # slightly higher false-positive rate vs. dramatically higher recall.
+    auto_promote_threshold: float = 0.80
     digest_sample_rate: float = 0.05   # q2_high_confidence: 5% of auto-promotes sampled to digest
 
     # LLM batching

@@ -75,6 +75,8 @@ export async function crawlInstitution(
       user.username,
       institutionId,
     );
+    revalidatePath("/admin/peers");
+    revalidatePath("/admin/ops");
     return { success: true, jobId: result.jobId };
   } catch (e) {
     return { success: false, error: String(e) };

@@ -126,15 +126,51 @@ async def test_connection():
     memory=2048,
 )
 async def run_discovery():
-    """Nightly URL discovery: sweep institutions with website but no fee URL."""
-    from fee_crawler.workers.discovery_worker import run
+    """Nightly URL discovery via the `discoverer` agent shell.
+
+    Was a bare subprocess call to discovery_worker.run() — no agent
+    identity, no audit, no budget (Stage 1 leak #1 in WORKFLOW-MAP.md).
+    Now wrapped by fee_crawler.agents.discoverer which:
+      - validates agent_registry.is_active
+      - emits paired session_start / session_end agent_events
+      - debits agent_budgets after the run
+    """
+    from fee_crawler.agents.discoverer import run_discovery_session
     try:
-        result = await run(concurrency=20)
+        result = await run_discovery_session(concurrency=20)
         _mark_job_completion("run_discovery", "ok")
-        return result
-    except Exception as exc:
+        return result.to_dict()
+    except Exception:
         _mark_job_completion("run_discovery", "failed")
         raise
+
+
+async def _run_extractor(job_name: str, doc_type: str | None, size: int) -> str:
+    """Shared body for the agentic PDF / browser extraction crons.
+
+    Calls extract_batch(...) directly via asyncpg — no subprocess, no legacy
+    `python -m fee_crawler crawl` (which writes the frozen extracted_fees
+    table). Every fee write goes through create_fee_raw → agent gateway →
+    fees_raw, with audit + budget enforcement applied per-call.
+    """
+    import os
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        config = ExtractorConfig(
+            document_type=doc_type,
+            include_failing=True,
+        )
+        result = await extract_batch(conn, size=size, config=config)
+        _mark_job_completion(job_name, "ok")
+        return f"{job_name}: {result.to_dict()}"
+    except Exception:
+        _mark_job_completion(job_name, "failed")
+        raise
+    finally:
+        await conn.close()
 
 
 @app.function(
@@ -144,22 +180,9 @@ async def run_discovery():
     memory=1024,
     image=pdf_image,
 )
-def run_pdf_extraction():
-    """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
-    import os
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    try:
-        result = run_checked(
-            ["python3", "-m", "fee_crawler", "crawl",
-             "--limit", "500", "--workers", "4", "--include-failing",
-             "--doc-type", "pdf"],
-            env=env, timeout=7200,
-        )
-        _mark_job_completion("run_pdf_extraction", "ok")
-        return result.stdout[-1000:] if result.stdout else ""
-    except Exception:
-        _mark_job_completion("run_pdf_extraction", "failed")
-        raise
+async def run_pdf_extraction():
+    """Nightly PDF extraction via the extractor agent → fees_raw."""
+    return await _run_extractor("run_pdf_extraction", doc_type="pdf", size=500)
 
 
 @app.function(
@@ -169,21 +192,9 @@ def run_pdf_extraction():
     memory=2048,
     image=browser_image,
 )
-def run_browser_extraction():
-    """Nightly browser extraction: Playwright for JS-rendered pages."""
-    import os
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    try:
-        result = run_checked(
-            ["python3", "-m", "fee_crawler", "crawl",
-             "--limit", "500", "--workers", "2", "--include-failing"],
-            env=env, timeout=10800,
-        )
-        _mark_job_completion("run_browser_extraction", "ok")
-        return result.stdout[-1000:] if result.stdout else ""
-    except Exception:
-        _mark_job_completion("run_browser_extraction", "failed")
-        raise
+async def run_browser_extraction():
+    """Nightly browser extraction via the extractor agent → fees_raw."""
+    return await _run_extractor("run_browser_extraction", doc_type=None, size=500)
 
 
 # D-05 pivot (Phase 62b, Plan 62B-08): Modal Starter tier caps at 5 cron slots.
@@ -198,20 +209,121 @@ def run_browser_extraction():
     memory=1024,
 )
 async def run_post_processing():
-    """Every-minute dispatcher for agent review_ticks + once-daily post-processing pipeline."""
+    """Every-minute dispatcher.
+
+    S-02 (product-focus round): the 7 independent agent tasks below now
+    run concurrently via asyncio.gather(return_exceptions=True). Each
+    opens its own asyncpg connection, so no shared state. Order of
+    execution doesn't matter — atlas creating new fees_raw and darwin
+    consuming its inbox can race; worst case is the message processes
+    on the next minute-tick.
+
+    Includes R-01: pipeline_health check emits health_alert agent_events
+    for any cron that's stale beyond its threshold.
+    """
+    import asyncio
     import os
-    import psycopg2
     from datetime import datetime, timezone, timedelta
 
-    # Every minute: dispatch pending agent review_ticks (LOOP-03 D-05 pivot).
-    try:
+    # ── 7 concurrent tasks ────────────────────────────────────────────
+    async def _safe(name: str, coro):
+        """Run a task; never raise; return ('name', result|exception)."""
+        try:
+            return (name, await coro)
+        except Exception as exc:
+            print(f"{name} failed (non-fatal): {exc!r}")
+            return (name, exc)
+
+    async def _t_dispatch_ticks():
         from fee_crawler.agent_base.dispatcher import dispatch_ticks
-        dispatched = await dispatch_ticks()
-        if dispatched:
-            print(f"dispatch_ticks: invoked {dispatched} agent review(s)")
-    except Exception as exc:
-        # Never let tick dispatch block the daily pipeline.
-        print(f"dispatch_ticks failed (non-fatal): {exc}")
+        n = await dispatch_ticks()
+        if n:
+            print(f"dispatch_ticks: invoked {n} agent review(s)")
+        return n
+
+    async def _t_darwin_inbox():
+        from fee_crawler.agents.darwin.inbox import drain_darwin_inbox
+        r = await drain_darwin_inbox(max_messages=5, batch_size=100)
+        if r.messages_processed > 0:
+            print(f"darwin inbox: {r.to_dict()}")
+        return r
+
+    async def _t_review_tick():
+        from fee_crawler.agent_base.review_tick import run_review_tick
+        agents = ("darwin", "magellan", "knox", "extractor",
+                  "discoverer", "atlas", "hamilton")
+        idx = datetime.now(timezone.utc).minute % len(agents)
+        r = await run_review_tick(agents[idx])
+        if r.lesson_committed or r.events_seen > 0:
+            print(f"review_tick {agents[idx]}: {r.to_dict()}")
+        return r
+
+    async def _t_knox_summary():
+        import asyncpg
+        from fee_crawler.agents.knox.rejections import maybe_run_weekly_summary
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            r = await maybe_run_weekly_summary(conn)
+            if r:
+                print(f"knox rejection summary: {r.to_dict()}")
+            return r
+        finally:
+            await conn.close()
+
+    async def _t_hamilton_digests():
+        import asyncpg
+        from fee_crawler.agents.hamilton import process_due_digests
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            r = await process_due_digests(conn, max_runs=5)
+            if r:
+                print(f"hamilton digests: {[x.to_dict() for x in r]}")
+            return r
+        finally:
+            await conn.close()
+
+    async def _t_atlas_dispatch():
+        import asyncpg
+        from fee_crawler.agents.atlas import dispatch_state_fleet
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            r = await dispatch_state_fleet(
+                conn, states_per_tick=2, size_per_state=100,
+            )
+            if r.runs:
+                print(f"atlas: dispatched {len(r.runs)} state(s), "
+                      f"{sum(x.fees_written for x in r.runs)} fees, "
+                      f"${sum(x.cost_usd for x in r.runs):.4f}")
+            return r
+        finally:
+            await conn.close()
+
+    async def _t_pipeline_health():
+        # R-01: emit health_alert agent_events for stale crons.
+        import asyncpg
+        from fee_crawler.agent_base.pipeline_health import check_pipeline_health
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            r = await check_pipeline_health(conn)
+            if r.alerts_emitted > 0:
+                print(f"pipeline_health: {r.to_dict()}")
+            return r
+        finally:
+            await conn.close()
+
+    # asyncio.gather runs all 7 concurrently. return_exceptions=True so
+    # one failure doesn't cancel the others — _safe also catches +
+    # logs, defense-in-depth.
+    await asyncio.gather(
+        _safe("dispatch_ticks",   _t_dispatch_ticks()),
+        _safe("darwin_inbox",     _t_darwin_inbox()),
+        _safe("review_tick",      _t_review_tick()),
+        _safe("knox_summary",     _t_knox_summary()),
+        _safe("hamilton_digests", _t_hamilton_digests()),
+        _safe("atlas_dispatch",   _t_atlas_dispatch()),
+        _safe("pipeline_health",  _t_pipeline_health()),
+        return_exceptions=False,
+    )
 
     now = datetime.now(timezone.utc)
 
@@ -228,6 +340,8 @@ async def run_post_processing():
     today_0600 = now.replace(hour=6, minute=0, second=0, microsecond=0)
     if now < today_0600 or now >= today_0600 + timedelta(minutes=10):
         return "dispatch_only"
+
+    import psycopg2  # function-local, matching this module's connection pattern
 
     db_url = os.environ["DATABASE_URL"]
     try:
@@ -259,9 +373,12 @@ async def run_post_processing():
         )
 
     env = {**os.environ, "DATABASE_URL": db_url}
+    # NOTE: the legacy `categorize` + `auto-review` subcommands were removed in
+    # the agentic cutover — categorization is now handled by the extractor +
+    # Darwin gateway, and auto-review by the publish-fees confidence gate.
+    # Leaving them here would fail argparse (exit 2) on the very first step and
+    # abort the whole daily drain before publish-fees/snapshot/publish-index.
     commands = [
-        ["python3", "-m", "fee_crawler", "categorize"],
-        ["python3", "-m", "fee_crawler", "auto-review"],
         # Drain fees_verified -> fees_published before snapshot/publish-index
         # so the index cache reflects newly-published rows in the same cycle.
         ["python3", "-m", "fee_crawler", "publish-fees", "--apply", "--limit", "2000"],
@@ -547,90 +664,137 @@ class ExtractRequest(_BaseModel):
     target_id: int
 
 
+class ExtractBatchRequest(_BaseModel):
+    size: int = 100
+    document_type: str | None = None  # "pdf" / "html" / None=both
+    include_failing: bool = False
+
+
+class AtlasDispatchRequest(_BaseModel):
+    states_per_tick: int = 2
+    size_per_state: int = 100
+    only_states: list[str] | None = None  # restrict to subset, e.g. ["TX","CA"]
+    force: bool = False                    # bypass once-per-day marker
+
+
+class StateRunRequest(_BaseModel):
+    state_code: str           # 2-letter, case-insensitive
+    size: int = 100
+
+
+@app.function(
+    secrets=secrets,
+    timeout=14400,
+    memory=2048,
+    image=browser_image,
+)
+@modal.fastapi_endpoint(method="POST")
+async def atlas_dispatch(item: AtlasDispatchRequest) -> dict:
+    """Manual Atlas tick — same code path as the per-minute dispatcher.
+
+    Use when: you want to force-extract a specific state, drain a backlog
+    faster than the per-minute pace, or smoke-test after deploy. force=true
+    bypasses the once-per-day marker.
+    """
+    import os
+    import asyncpg
+    from fee_crawler.agents.atlas import dispatch_state_fleet
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        result = await dispatch_state_fleet(
+            conn,
+            states_per_tick=item.states_per_tick,
+            size_per_state=item.size_per_state,
+            only_states=item.only_states,
+            force=item.force,
+        )
+        return {"ok": True, **result.to_dict()}
+    finally:
+        await conn.close()
+
+
+@app.function(
+    secrets=secrets,
+    timeout=14400,
+    memory=2048,
+    image=browser_image,
+)
+@modal.fastapi_endpoint(method="POST")
+async def state_run(item: StateRunRequest) -> dict:
+    """Run extraction for one specific state under its state agent identity."""
+    import os
+    import asyncpg
+    from fee_crawler.agents.state import run_state_agent
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        result = await run_state_agent(conn, item.state_code, size=item.size)
+        return {"ok": True, **result.to_dict()}
+    finally:
+        await conn.close()
+
+
+@app.function(
+    secrets=secrets,
+    timeout=14400,
+    memory=2048,
+    image=browser_image,
+)
+@modal.fastapi_endpoint(method="POST")
+async def extract_batch_endpoint(item: ExtractBatchRequest) -> dict:
+    """Manual trigger for the extractor agent (mirrors the nightly cron path).
+
+    Use cases: re-run after a discovery sweep, smoke-test a fresh deploy,
+    one-shot recrawl of a known-broken cohort. The body is the same code
+    path as run_pdf_extraction / run_browser_extraction.
+    """
+    import os
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
+
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        cfg = ExtractorConfig(
+            document_type=item.document_type,
+            include_failing=item.include_failing,
+        )
+        result = await extract_batch(conn, size=item.size, config=cfg)
+        return {"ok": True, **result.to_dict()}
+    finally:
+        await conn.close()
+
+
 @app.function(secrets=secrets, timeout=180, memory=2048, image=browser_image)
 @modal.fastapi_endpoint(method="POST")
-def extract_single(item: ExtractRequest) -> dict:
-    """HTTP endpoint to extract fees from a single institution by ID."""
+async def extract_single(item: ExtractRequest) -> dict:
+    """HTTP endpoint to extract fees from a single institution by ID.
+
+    Routes through the extractor agent (writes fees_raw via gateway).
+    """
     import os
-    import json
-    import psycopg2
-    import psycopg2.extras
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
 
-    conn = psycopg2.connect(
-        os.environ["DATABASE_URL"],
-        cursor_factory=psycopg2.extras.RealDictCursor,
-    )
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM crawl_targets WHERE id = %s", (item.target_id,))
-    inst = cur.fetchone()
-
-    if not inst:
-        conn.close()
-        return {"error": "Institution not found", "ok": False}
-    if not inst["fee_schedule_url"]:
-        conn.close()
-        return {"error": "No fee schedule URL set", "ok": False}
-
-    from fee_crawler.agents.classify import classify_document
-    from fee_crawler.agents.extract_pdf import extract_pdf
-    from fee_crawler.agents.extract_html import extract_html
-    from fee_crawler.agents.extract_js import extract_js
-    from fee_crawler.agents.state_agent import _write_fees
-
-    url = inst["fee_schedule_url"]
-    doc_type = classify_document(url)
-
-    if doc_type == "pdf":
-        fees = extract_pdf(url, inst)
-    elif doc_type == "js_rendered":
-        fees = extract_js(url, inst)
-    else:
-        fees = extract_html(url, inst)
-
-    if fees:
-        _write_fees(conn, inst["id"], fees)
-
-    conn.close()
-    return {"ok": True, "feeCount": len(fees), "docType": doc_type}
+    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    try:
+        cfg = ExtractorConfig(include_failing=True)
+        result = await extract_batch(
+            conn, size=1, config=cfg, target_ids=[item.target_id],
+        )
+        return {"ok": True, "target_id": item.target_id, **result.to_dict()}
+    finally:
+        await conn.close()
 
 
-@app.function(secrets=secrets, timeout=120)
-@modal.fastapi_endpoint(method="POST")
-def discover_url(item: DiscoverRequest) -> dict:
-    """HTTP endpoint for single-institution URL discovery."""
-    from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
-    from fee_crawler.config import Config
-
-    if not item.website_url:
-        return {"found": False, "error": "website_url required"}
-
-    config = Config()
-    discoverer = UrlDiscoverer(config)
-    result = discoverer.discover(item.website_url)
-
-    return {
-        "found": result.found,
-        "fee_schedule_url": result.fee_schedule_url,
-        "document_type": result.document_type,
-        "method": result.method,
-        "confidence": result.confidence,
-        "pages_checked": result.pages_checked,
-        "error": result.error,
-        "methods_tried": result.methods_tried,
-    }
-
-
-@app.function(secrets=secrets, timeout=7200, memory=2048, image=browser_image)
-@modal.fastapi_endpoint(method="POST")
-def run_state_agent(item: StateAgentRequest) -> dict:
-    """HTTP endpoint to run the full state agent."""
-    from fee_crawler.agents.state_agent import run_state_agent as _run
-
-    state_code = item.state_code.upper()
-    if len(state_code) != 2:
-        return {"error": "state_code must be a 2-letter code"}
-
-    return _run(state_code)
+# NOTE: discover_url and run_state_agent web endpoints removed 2026-06-03 to
+# stay under the Modal workspace cap of 8 web functions. Both paths remain
+# available:
+#   - discover_url: callable via `magellan_api` (which orchestrates discovery)
+#     or via the local CLI / `modal run fee_crawler/modal_app.py::discover_url`.
+#   - run_state_agent: same function-name web wrapper duplicated state_run
+#     (line 723), which remains active. State-level extractions go through
+#     state_run.
 
 
 @app.function(secrets=secrets, timeout=600, image=browser_image, memory=2048)

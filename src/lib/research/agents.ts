@@ -4,6 +4,7 @@ import { internalTools } from "./tools-internal";
 import { getPublicStats } from "../crawler-db";
 import { sql } from "../crawler-db/connection";
 import { HAMILTON_SYSTEM_PROMPT } from "../hamilton/voice";
+import { buildFilterDescription, type PeerFilters } from "../fed-districts";
 
 export interface AgentConfig {
   id: string;
@@ -106,6 +107,24 @@ CONFIDENCE FRAMING:
 Apply the same confidence framing rules as your base role. Never reference missing data directly — turn it into insight.`;
 }
 
+/**
+ * Build a one-line segment-context fragment appended to the system prompt
+ * when the user has active peer filters selected. Empty string when no
+ * meaningful filters are present so the model falls back to its default
+ * (national) context.
+ */
+export function buildSegmentContextLine(filters: PeerFilters | undefined | null): string {
+  if (!filters) return "";
+  const hasAny =
+    !!filters.charter ||
+    (filters.tiers && filters.tiers.length > 0) ||
+    (filters.districts && filters.districts.length > 0);
+  if (!hasAny) return "";
+  const description = buildFilterDescription(filters);
+  if (!description || description === "All Institutions") return "";
+  return `\n\nActive segment: ${description}. Use this as the implicit peer scope unless the user names a different one.`;
+}
+
 export function buildMonitorModeSuffix(): string {
   return `
 
@@ -135,6 +154,12 @@ const OPS_TOOL_NAMES = new Set([
   "queryJobStatus",
   "queryDataQuality",
   "triggerPipelineJob",
+  // Admin write tools — never expose to pro
+  "approveFee",
+  "rejectFee",
+  "updateFeeScheduleUrl",
+  "publishReport",
+  "cancelReport",
 ]);
 
 const proOnlyInternalTools: ToolSet = Object.fromEntries(
@@ -145,14 +170,40 @@ const proOnlyInternalTools: ToolSet = Object.fromEntries(
 // queryNationalData (11 sources) replaces most individual data tools
 const consumerTools: ToolSet = { ...publicTools };
 const chatInternalTools: ToolSet = {
+  // Atomic per-source national data tools (replaces queryNationalData switchboard)
+  queryCallReportData: internalTools.queryCallReportData,
+  queryEconomicData: internalTools.queryEconomicData,
+  queryNationalHealth: internalTools.queryNationalHealth,
+  queryCfpbComplaints: internalTools.queryCfpbComplaints,
+  queryFeeIndexData: internalTools.queryFeeIndexData,
+  queryDerivedMetrics: internalTools.queryDerivedMetrics,
+  queryFedContent: internalTools.queryFedContent,
+  queryLaborData: internalTools.queryLaborData,
+  queryDemographics: internalTools.queryDemographics,
+  queryResearchData: internalTools.queryResearchData,
+  queryDepositsData: internalTools.queryDepositsData,
+  queryExternalIntel: internalTools.queryExternalIntel,
+  // Backward-compat shim — kept so in-flight Hamilton conversations referencing
+  // queryNationalData continue to resolve. Deprecated; prefer atomic tools above.
   queryNationalData: internalTools.queryNationalData,
   queryRegulatoryRisk: internalTools.queryRegulatoryRisk,
   queryOutliers: internalTools.queryOutliers,
   searchInstitutionsByName: internalTools.searchInstitutionsByName,
   rankInstitutions: internalTools.rankInstitutions,
+  rankByPercentile: internalTools.rankByPercentile,
+  rankByFeeCount: internalTools.rankByFeeCount,
+  rankByOutlierFlags: internalTools.rankByOutlierFlags,
+};
+// Admin-only write tools (Wave 1 action parity). NOT exposed to pro role.
+const adminWriteTools: ToolSet = {
+  approveFee: internalTools.approveFee,
+  rejectFee: internalTools.rejectFee,
+  updateFeeScheduleUrl: internalTools.updateFeeScheduleUrl,
+  publishReport: internalTools.publishReport,
+  cancelReport: internalTools.cancelReport,
 };
 const proTools: ToolSet = { ...publicTools, ...chatInternalTools };
-const adminTools: ToolSet = { ...publicTools, ...chatInternalTools };
+const adminTools: ToolSet = { ...publicTools, ...chatInternalTools, ...adminWriteTools };
 
 async function dataContext(): Promise<string> {
   const s = await getPublicStats();
@@ -165,7 +216,7 @@ async function opsContext(): Promise<string> {
       SELECT completed_at FROM crawl_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1
     `) as { completed_at: string }[];
     const [pendingReview] = (await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status IN ('pending', 'staged', 'flagged')
+      SELECT COUNT(*) as cnt FROM fees_verified WHERE review_status IN ('pending', 'staged', 'flagged')
     `) as { cnt: number }[];
     const [activeJobs] = (await sql`
       SELECT COUNT(*) as cnt FROM ops_jobs WHERE status IN ('running', 'queued')
@@ -224,10 +275,12 @@ export async function getHamilton(role: HamiltonRole): Promise<AgentConfig> {
         requiresAuth: true,
         requiredRole: "premium",
         exampleQuestions: [
-          "Compare overdraft pricing for community banks in District 7 vs the national median",
-          "Which asset tier has the highest fee-to-revenue dependency?",
-          "Identify the top 10 institutions with the most fees above the 75th percentile",
-          "How do credit union NSF fees in the Southeast compare to bank NSF fees?",
+          "Benchmark our overdraft pricing against community banks in District 7",
+          "Summarize recent CFPB and Fed guidance affecting NSF and overdraft fees",
+          "Where are monthly maintenance fees trending year-over-year by charter?",
+          "Identify the top 10 institutions with fees above the 75th percentile",
+          "Compare credit union NSF fees in the Southeast to bank NSF fees",
+          "Draft an executive summary on national overdraft pricing for our board",
         ],
       };
     }

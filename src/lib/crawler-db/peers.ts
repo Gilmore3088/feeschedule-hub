@@ -43,7 +43,7 @@ export async function getTopCategoriesForPeerSet(
 
   const rows = await sql.unsafe(
     `SELECT ef.fee_category, ef.amount, ef.crawl_target_id
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${where}`,
     params
@@ -136,9 +136,9 @@ export async function getPeerPreviewStats(filters: {
 
   const [feeRow] = await sql.unsafe(
     `SELECT COUNT(*) as cnt,
-            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+            SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) as flagged,
             AVG(ef.extraction_confidence) as avg_conf
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${where}`,
     params

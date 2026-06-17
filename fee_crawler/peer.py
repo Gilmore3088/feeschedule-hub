@@ -168,7 +168,7 @@ def find_peers(
     # Fetch candidates: same charter type, exclude self
     fee_join = ""
     if require_fees:
-        fee_join = "JOIN extracted_fees ef ON ct.id = ef.crawl_target_id"
+        fee_join = "JOIN fees_verified ef ON ct.id = ef.crawl_target_id"
 
     candidates = db.fetchall(
         f"""SELECT DISTINCT ct.id, ct.institution_name, ct.charter_type,
@@ -267,7 +267,7 @@ def get_institutions_by_filter(
                    ct.state_code, ct.city,
                    COUNT(ef.id) as fee_count
             FROM crawl_targets ct
-            LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+            LEFT JOIN fees_verified ef ON ct.id = ef.crawl_target_id
             {where}
             GROUP BY ct.id
             ORDER BY ct.asset_size DESC NULLS LAST

@@ -13,11 +13,11 @@ async function getCategoryCoverage() {
     SELECT fee_category,
            COUNT(*) as total,
            SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
-           SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
-           SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+           SUM(CASE WHEN review_status = 'verified' THEN 1 ELSE 0 END) as staged,
+           SUM(CASE WHEN review_status = 'challenged' THEN 1 ELSE 0 END) as flagged,
            SUM(CASE WHEN amount IS NOT NULL AND amount >= 0 THEN 1 ELSE 0 END) as has_amount,
            COUNT(DISTINCT crawl_target_id) as institutions
-    FROM extracted_fees
+    FROM fees_verified
     WHERE fee_category = ANY(${officialCategories}) AND review_status != 'rejected'
     GROUP BY fee_category
     ORDER BY total DESC
@@ -28,7 +28,7 @@ async function getCategoryCoverage() {
   try {
     const allStates = await sql`
       SELECT ef.fee_category, ct.state_code as state, COUNT(*) as count
-      FROM extracted_fees ef
+      FROM fees_verified ef
       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
       WHERE ef.fee_category = ANY(${officialCategories}) AND ef.review_status != 'rejected'
       GROUP BY ef.fee_category, ct.state_code

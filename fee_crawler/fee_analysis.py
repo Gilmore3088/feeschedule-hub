@@ -1688,7 +1688,7 @@ def compare_fees_across_peers(
 
     # Get target's fees
     target_fees = db.fetchall(
-        "SELECT fee_name, amount FROM extracted_fees WHERE crawl_target_id = ?",
+        "SELECT fee_name, amount FROM fees_verified WHERE crawl_target_id = ?",
         (target_id,),
     )
     if not target_fees:
@@ -1705,7 +1705,7 @@ def compare_fees_across_peers(
     placeholders = ",".join("?" for _ in peer_ids)
     peer_fees = db.fetchall(
         f"""SELECT fee_name, amount, crawl_target_id
-            FROM extracted_fees
+            FROM fees_verified
             WHERE crawl_target_id IN ({placeholders})""",
         tuple(peer_ids),
     )

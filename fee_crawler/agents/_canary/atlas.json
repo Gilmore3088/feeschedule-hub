@@ -1,0 +1,12 @@
+{
+  "agent": "atlas",
+  "version": 1,
+  "description": "Atlas's dispatch decisions should round-robin across states with pending work; canary asserts the ranking output is deterministic for a fixed input.",
+  "expectations": [
+    {"input": "two_never_run_states", "expected_first_pick_reason": "never_run"},
+    {"input": "one_stale_one_fresh", "expected_first_pick_reason": "stale"}
+  ],
+  "thresholds": {
+    "min_pass_rate": 1.0
+  }
+}

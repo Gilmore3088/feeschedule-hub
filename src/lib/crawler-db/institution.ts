@@ -116,7 +116,7 @@ export async function getInstitutionFees(
         extraction_confidence, review_status,
         fee_category, fee_family,
         account_product_type, is_fee_cap, created_at
-      FROM extracted_fees
+      FROM fees_verified
       WHERE crawl_target_id = ${id}
         AND review_status != 'rejected'
       ORDER BY fee_category ASC NULLS LAST, fee_name ASC

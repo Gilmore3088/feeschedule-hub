@@ -48,22 +48,31 @@ def cmd_discover(args: argparse.Namespace) -> None:
 
 
 def cmd_crawl(args: argparse.Namespace) -> None:
-    """Run the full crawl pipeline: download, extract, store."""
-    from fee_crawler.commands.crawl import run
+    """Run the agentic extractor against `crawl_targets` → fees_raw."""
+    import asyncio
+    import os
+    import asyncpg
+    from fee_crawler.agents.extractor import extract_batch, ExtractorConfig
 
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(db, config, target_id=getattr(args, 'target_id', None),
-            limit=args.limit, state=args.state, tier=getattr(args, 'tier', None),
-            doc_type=getattr(args, 'doc_type', None),
-            dry_run=args.dry_run, workers=args.workers, include_failing=args.include_failing,
-            skip_with_fees=getattr(args, 'skip_with_fees', False),
-            new_only=getattr(args, 'new_only', False),
-            stealth=getattr(args, 'stealth', False),
-            pdf_probe=getattr(args, 'pdf_probe', False))
-    finally:
-        db.close()
+    async def _run() -> None:
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            cfg = ExtractorConfig(
+                document_type=getattr(args, "doc_type", None),
+                include_failing=getattr(args, "include_failing", False),
+            )
+            result = await extract_batch(
+                conn,
+                size=args.limit,
+                config=cfg,
+                target_ids=[args.target_id] if getattr(args, "target_id", None) else None,
+                state_code=getattr(args, "state", None),
+            )
+            print(result.to_dict())
+        finally:
+            await conn.close()
+
+    asyncio.run(_run())
 
 
 def cmd_enrich(args: argparse.Namespace) -> None:
@@ -74,18 +83,6 @@ def cmd_enrich(args: argparse.Namespace) -> None:
     db = get_db(config)
     try:
         run(db)
-    finally:
-        db.close()
-
-
-def cmd_auto_review(args: argparse.Namespace) -> None:
-    """Intelligent auto-review of staged and flagged fees."""
-    from fee_crawler.commands.auto_review import run
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(db, config, dry_run=args.dry_run)
     finally:
         db.close()
 
@@ -110,42 +107,6 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     db = get_db(config)
     try:
         run(db, target_id=args.target_id, analyze_all=args.analyze_all)
-    finally:
-        db.close()
-
-
-def cmd_validate(args: argparse.Namespace) -> None:
-    """Retroactively validate existing extracted fees."""
-    from fee_crawler.commands.backfill_validation import run
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(db)
-    finally:
-        db.close()
-
-
-def cmd_outlier_detect(args: argparse.Namespace) -> None:
-    """Detect statistical outliers in extracted fee amounts."""
-    from fee_crawler.pipeline.outlier_detection import run_outlier_detection
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run_outlier_detection(db, auto_flag=args.auto_flag)
-    finally:
-        db.close()
-
-
-def cmd_categorize(args: argparse.Namespace) -> None:
-    """Batch-categorize extracted fees using fee name aliases."""
-    from fee_crawler.commands.categorize_fees import run
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(db, dry_run=args.dry_run, force=args.force, limit=args.limit)
     finally:
         db.close()
 
@@ -362,45 +323,6 @@ def cmd_ingest_census_tracts(args: argparse.Namespace) -> None:
         db.close()
 
 
-def cmd_run_pipeline(args: argparse.Namespace) -> None:
-    """Run full pipeline: discover → crawl → categorize."""
-    import logging
-
-    from fee_crawler.commands.run_pipeline import run
-
-    if args.verbose:
-        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(
-            db, config,
-            limit=args.limit,
-            workers=args.workers,
-            max_llm_calls=args.max_llm_calls,
-            max_search_cost=args.max_search_cost,
-            skip_discover=args.skip_discover,
-            skip_crawl=args.skip_crawl,
-            skip_categorize=args.skip_categorize,
-            state=args.state,
-        )
-    finally:
-        db.close()
-
-
-def cmd_merge_fees(args: argparse.Namespace) -> None:
-    """Re-merge extracted fees with existing data."""
-    from fee_crawler.commands.merge_fees import run
-
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(db, config, dry_run=args.dry_run)
-    finally:
-        db.close()
-
-
 def cmd_rediscover_failed(args: argparse.Namespace) -> None:
     """Clear bad URLs and prepare for rediscovery."""
     from fee_crawler.commands.rediscover_failed import run
@@ -464,27 +386,59 @@ def cmd_publish_index(args: argparse.Namespace) -> None:
         db.close()
 
 
-def cmd_pipeline_v2(args: argparse.Namespace) -> None:
-    """Run atomic pipeline with resume support."""
-    from fee_crawler.pipeline.executor import run_pipeline
+def cmd_run_cron(args: argparse.Namespace) -> None:
+    """R-02: locally invoke any Modal cron entry point.
 
-    config = load_config()
-    db = get_db(config)
-    skip = frozenset(args.skip.split(",")) if args.skip else frozenset()
-    try:
-        run_id = run_pipeline(
-            db, config,
-            from_phase=args.from_phase,
-            resume_run_id=args.resume,
-            skip=skip,
-            dry_run=args.dry_run,
-            limit=args.limit,
-            workers=args.workers,
-            state=args.state,
+    Modal's @app.function-decorated crons are async functions inside
+    fee_crawler.modal_app. This command lets an operator run any of
+    them locally for debugging or emergency operation — useful when
+    Modal is down, when iterating on a cron body, or to verify a
+    deploy without waiting for the scheduled time.
+
+    DATABASE_URL must be set; the cron body itself reads everything
+    else from .env.local / Modal secrets.
+    """
+    import asyncio
+    import os
+
+    if not os.environ.get("DATABASE_URL"):
+        print("run-cron: DATABASE_URL not set; aborting.", file=sys.stderr)
+        sys.exit(2)
+
+    target = args.cron_name
+    available = {
+        "run_discovery":          "fee_crawler.modal_app:run_discovery",
+        "run_pdf_extraction":     "fee_crawler.modal_app:run_pdf_extraction",
+        "run_browser_extraction": "fee_crawler.modal_app:run_browser_extraction",
+        "run_post_processing":    "fee_crawler.modal_app:run_post_processing",
+        "ingest_data":            "fee_crawler.modal_app:ingest_data",
+        "test_connection":        "fee_crawler.modal_app:test_connection",
+    }
+    if target not in available:
+        print(
+            f"run-cron: unknown cron '{target}'. Available: "
+            + ", ".join(sorted(available)),
+            file=sys.stderr,
         )
-        print(f"\nPipeline run ID: {run_id}")
-    finally:
-        db.close()
+        sys.exit(2)
+
+    print(f"run-cron: invoking {available[target]} locally...")
+
+    # Import the underlying coroutine. Modal's @app.function wraps the
+    # original function; the .local() attribute (Modal SDK convention)
+    # returns the unwrapped callable. Falls back to plain attribute
+    # access if local() isn't present (test stubs, future Modal versions).
+    from fee_crawler import modal_app as _ma
+    fn = getattr(_ma, target)
+    runnable = getattr(fn, "local", None)
+    coro = (runnable() if runnable else fn())
+
+    result = asyncio.run(coro) if asyncio.iscoroutine(coro) else coro
+    print(f"run-cron: {target} completed.")
+    if result is not None:
+        # Most crons return a dict or summary string; print a brief preview.
+        preview = repr(result)
+        print(preview[:500] + ("..." if len(preview) > 500 else ""))
 
 
 def cmd_stats(args: argparse.Namespace) -> None:
@@ -533,7 +487,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
             print(f"  With errors:  {failed['cnt']:,}" if failed else "  Errors: 0")
 
         # Extraction stats
-        total_fees = db.count("extracted_fees")
+        total_fees = db.count("fees_verified")
         if total_fees > 0:
             runs = db.fetchone("SELECT COUNT(*) as cnt FROM crawl_runs")
             avg_fees = db.fetchone(
@@ -819,49 +773,6 @@ def main() -> None:
     )
     analyze_parser.set_defaults(func=cmd_analyze)
 
-    # validate command
-    validate_parser = subparsers.add_parser("validate", help="Retroactively validate existing fees")
-    validate_parser.set_defaults(func=cmd_validate)
-
-    # outlier-detect command
-    outlier_parser = subparsers.add_parser("outlier-detect", help="Detect statistical outliers in fee amounts")
-    outlier_parser.add_argument(
-        "--auto-flag",
-        action="store_true",
-        help="Automatically flag detected outliers for review",
-    )
-    outlier_parser.set_defaults(func=cmd_outlier_detect)
-
-    # categorize command
-    cat_parser = subparsers.add_parser("categorize", help="Batch-categorize fees using name aliases")
-    cat_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Report what would be categorized without writing",
-    )
-    cat_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Re-categorize even if fee_category is already set",
-    )
-    cat_parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Max rows to process (for testing)",
-    )
-    cat_parser.set_defaults(func=cmd_categorize)
-
-    # auto-review command
-    review_parser = subparsers.add_parser(
-        "auto-review", help="Intelligent auto-review of staged and flagged fees"
-    )
-    review_parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Show what would be approved/rejected without making changes",
-    )
-    review_parser.set_defaults(func=cmd_auto_review)
-
     # backfill-ncua-urls command
     ncua_url_parser = subparsers.add_parser(
         "backfill-ncua-urls", help="Backfill website URLs for NCUA credit unions"
@@ -1145,30 +1056,6 @@ def main() -> None:
     )
     snapshot_parser.set_defaults(func=cmd_snapshot)
 
-    # run-pipeline command
-    pipeline_parser = subparsers.add_parser(
-        "run-pipeline",
-        help="Run full pipeline: discover → crawl → categorize (cron-ready)",
-    )
-    pipeline_parser.add_argument("--limit", type=int, default=None, help="Max institutions per stage")
-    pipeline_parser.add_argument("--workers", type=int, default=4, help="Concurrent workers (default: 4)")
-    pipeline_parser.add_argument("--max-llm-calls", type=int, default=500, help="Max LLM API calls (default: 500)")
-    pipeline_parser.add_argument("--max-search-cost", type=float, default=10.0, help="Max search API budget in $ (default: 10)")
-    pipeline_parser.add_argument("--state", type=str, default=None, help="Filter by state code")
-    pipeline_parser.add_argument("--skip-discover", action="store_true", help="Skip URL discovery stage")
-    pipeline_parser.add_argument("--skip-crawl", action="store_true", help="Skip crawl/extraction stage")
-    pipeline_parser.add_argument("--skip-categorize", action="store_true", help="Skip categorization stage")
-    pipeline_parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
-    pipeline_parser.set_defaults(func=cmd_run_pipeline)
-
-    # merge-fees command
-    merge_parser = subparsers.add_parser(
-        "merge-fees",
-        help="Re-merge extracted fees with existing data",
-    )
-    merge_parser.add_argument("--dry-run", action="store_true", help="Show what would be merged")
-    merge_parser.set_defaults(func=cmd_merge_fees)
-
     # rediscover-failed command
     rediscover_parser = subparsers.add_parser(
         "rediscover-failed",
@@ -1217,118 +1104,41 @@ def main() -> None:
     publish_parser.add_argument("--dry-run", action="store_true", help="Show what would be published")
     publish_parser.set_defaults(func=cmd_publish_index)
 
-    # pipeline-v2 command (new orchestrator with resume)
-    v2_parser = subparsers.add_parser(
-        "pipeline",
-        help="Run atomic pipeline with resume support (replaces run-pipeline)",
-    )
-    v2_parser.add_argument("--from-phase", type=int, default=1, help="Start from phase N (1-4)")
-    v2_parser.add_argument("--resume", type=int, default=None, help="Resume a previous run by ID")
-    v2_parser.add_argument("--skip", type=str, default=None, help="Comma-separated stage names to skip")
-    v2_parser.add_argument("--dry-run", action="store_true", help="Show what would run")
-    v2_parser.add_argument("--limit", type=int, default=None, help="Max institutions per stage")
-    v2_parser.add_argument("--workers", type=int, default=1, help="Concurrent workers")
-    v2_parser.add_argument("--state", type=str, default=None, help="Filter by state code (e.g., CA, TX, NY)")
-    v2_parser.set_defaults(func=cmd_pipeline_v2)
-
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
     stats_parser.set_defaults(func=cmd_stats)
 
+    # R-02: run-cron — locally invoke any Modal cron entry point.
+    run_cron_parser = subparsers.add_parser(
+        "run-cron",
+        help="Locally run a Modal cron (debug / Modal-down operator path)",
+    )
+    run_cron_parser.add_argument(
+        "cron_name",
+        help="One of: run_discovery, run_pdf_extraction, run_browser_extraction, "
+             "run_post_processing, ingest_data, test_connection",
+    )
+    run_cron_parser.set_defaults(func=cmd_run_cron)
+
+    # S-03 / C-01: historical-backfill — ingest archived fee snapshots
+    hb_parser = subparsers.add_parser(
+        "historical-backfill",
+        help="Ingest archived fee snapshots from FDIC SDP / Wayback (S-03)",
+    )
+    hb_parser.add_argument("--source", required=True, choices=["fdic_sdp", "wayback_machine"])
+    hb_parser.add_argument("--years", type=int, default=5)
+    hb_parser.add_argument("--apply", action="store_true",
+                           help="Default is dry-run — re-run with --apply to actually fetch")
+    hb_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__("fee_crawler.commands.historical_backfill", fromlist=["main"]).main(
+                ["--source", args.source, "--years", str(args.years)]
+                + (["--apply"] if args.apply else [])
+            )
+        )
+    )
+
     # ── Wave orchestrator ──────────────────────────────────────────────
-    wave_parser = subparsers.add_parser(
-        "wave",
-        help="Wave orchestrator: batch state agent runs across all states",
-    )
-    wave_sub = wave_parser.add_subparsers(dest="wave_command", required=True)
-
-    wave_run_parser = wave_sub.add_parser(
-        "run",
-        help="Launch wave campaign (all states by coverage gap, or --states override)",
-    )
-    wave_run_parser.add_argument(
-        "--states",
-        default=None,
-        help="Comma-separated state codes to run (e.g., WY,MT,TX). Omit for auto-selection by coverage gap.",
-    )
-    wave_run_parser.add_argument(
-        "--wave-size",
-        type=int,
-        default=8,
-        help="States per wave chunk (default: 8)",
-    )
-    wave_run_parser.add_argument(
-        "--max-passes",
-        type=int,
-        default=3,
-        dest="max_passes",
-        help="Number of discovery passes per state (default: 3). Each pass escalates strategy: tier1 -> tier2 -> tier3.",
-    )
-    wave_run_parser.set_defaults(
-        func=lambda args: __import__(
-            "fee_crawler.wave.cli", fromlist=["cmd_wave_run"]
-        ).cmd_wave_run(args)
-    )
-
-    wave_rec_parser = wave_sub.add_parser(
-        "recommend",
-        help="Show ranked state list by coverage gap (for operator review before running)",
-    )
-    wave_rec_parser.add_argument(
-        "--wave-size",
-        type=int,
-        default=8,
-        help="How many states to display per wave grouping (default: 8)",
-    )
-    wave_rec_parser.set_defaults(
-        func=lambda args: __import__(
-            "fee_crawler.wave.cli", fromlist=["cmd_wave_recommend"]
-        ).cmd_wave_recommend(args)
-    )
-
-    wave_resume_parser = wave_sub.add_parser(
-        "resume",
-        help="Resume an interrupted wave — skips already-complete states",
-    )
-    wave_resume_parser.add_argument(
-        "wave_id",
-        type=int,
-        help="Wave run ID to resume (from wave_runs.id)",
-    )
-    wave_resume_parser.add_argument(
-        "--max-passes",
-        type=int,
-        default=3,
-        dest="max_passes",
-        help="Number of discovery passes per state (default: 3). Each pass escalates strategy: tier1 -> tier2 -> tier3.",
-    )
-    wave_resume_parser.set_defaults(
-        func=lambda args: __import__(
-            "fee_crawler.wave.cli", fromlist=["cmd_wave_resume"]
-        ).cmd_wave_resume(args)
-    )
-
-    wave_report_parser = wave_sub.add_parser(
-        "report",
-        help="Print a Markdown summary report for a completed wave",
-    )
-    wave_report_parser.add_argument(
-        "wave_id",
-        type=int,
-        help="Wave run ID to report on (from wave_runs.id)",
-    )
-    wave_report_parser.add_argument(
-        "--output",
-        default=None,
-        metavar="PATH",
-        help="Optional file path to write the report (default: stdout only)",
-    )
-    wave_report_parser.set_defaults(
-        func=lambda args: __import__(
-            "fee_crawler.wave.cli", fromlist=["cmd_wave_report"]
-        ).cmd_wave_report(args)
-    )
-
     # ── Knowledge management ───────────────────────────────────────────
     knowledge_parser = subparsers.add_parser(
         "knowledge",
@@ -1442,6 +1252,17 @@ def main() -> None:
         default=500,
         help="max rows per run (default: 500)",
     )
+    publish_parser.add_argument(
+        "--override-max-rows",
+        action="store_true",
+        help="Bypass the 10,000-row safety ceiling. Requires --i-know-what-im-doing.",
+    )
+    publish_parser.add_argument(
+        "--i-know-what-im-doing",
+        dest="i_know_what_im_doing",
+        action="store_true",
+        help="Required when pairing with --override-max-rows.",
+    )
     publish_parser.set_defaults(
         func=lambda args: sys.exit(
             __import__(
@@ -1450,6 +1271,8 @@ def main() -> None:
                 (["--apply"] if args.apply else [])
                 + ["--min-confidence", str(args.min_confidence)]
                 + ["--limit", str(args.limit)]
+                + (["--override-max-rows"] if args.override_max_rows else [])
+                + (["--i-know-what-im-doing"] if args.i_know_what_im_doing else [])
             )
         )
     )

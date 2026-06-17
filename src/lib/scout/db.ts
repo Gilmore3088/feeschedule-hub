@@ -19,7 +19,7 @@ export async function getExtractedFees(
   crawlTargetId: number
 ): Promise<ExtractedFeeRow[]> {
   const rows = await sql<ExtractedFeeRow[]>`
-    SELECT * FROM extracted_fees
+    SELECT * FROM fees_verified
     WHERE crawl_target_id = ${crawlTargetId}
     ORDER BY fee_category
     LIMIT 500

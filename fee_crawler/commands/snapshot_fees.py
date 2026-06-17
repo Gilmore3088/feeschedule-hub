@@ -14,7 +14,7 @@ from datetime import datetime
 
 
 def run(conn, *, snapshot_date: str | None = None) -> dict:
-    """Snapshot current approved+staged fees to Postgres snapshot tables.
+    """Snapshot current verified (non-rejected) fees to Postgres snapshot tables.
 
     Args:
         conn: psycopg2 connection
@@ -45,14 +45,19 @@ def _snapshot_categories(conn, date: str) -> int:
     cur = conn.cursor()
 
     # Fetch all approved+staged fees with amount and category
+    # fees_verified is the live Tier-2 table. fee_category/crawl_target_id are
+    # compat columns (= canonical_fee_key / institution_id); charter comes from
+    # crawl_targets.charter_type. "Included" = anything not rejected, matching
+    # the public index (getNationalIndex reads fees_verified WHERE != rejected).
     cur.execute("""
-        SELECT fee_category, canonical_fee_key,
-               crawl_target_id, amount, charter
-        FROM extracted_fees
-        JOIN crawl_targets ON crawl_targets.id = extracted_fees.crawl_target_id
-        WHERE review_status IN ('approved', 'staged')
-          AND fee_category IS NOT NULL
-          AND amount IS NOT NULL
+        SELECT fees_verified.fee_category, fees_verified.canonical_fee_key,
+               fees_verified.crawl_target_id, fees_verified.amount,
+               crawl_targets.charter_type AS charter
+        FROM fees_verified
+        JOIN crawl_targets ON crawl_targets.id = fees_verified.crawl_target_id
+        WHERE fees_verified.review_status != 'rejected'
+          AND fees_verified.fee_category IS NOT NULL
+          AND fees_verified.amount IS NOT NULL
     """)
     rows = cur.fetchall()
 
@@ -116,7 +121,7 @@ def _snapshot_institutions(conn, date: str) -> int:
 
     cur.execute("""
         SELECT crawl_target_id, canonical_fee_key, amount, review_status
-        FROM extracted_fees
+        FROM fees_verified
         WHERE canonical_fee_key IS NOT NULL
           AND review_status != 'rejected'
     """)

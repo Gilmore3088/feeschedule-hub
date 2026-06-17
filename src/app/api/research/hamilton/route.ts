@@ -1,6 +1,8 @@
 import { streamText, generateText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, type HamiltonRole } from "@/lib/research/agents";
+import { z } from "zod";
+import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, buildSegmentContextLine, type HamiltonRole } from "@/lib/research/agents";
+import type { PeerFilters } from "@/lib/fed-districts";
 import { evaluateCitationDensity } from "@/lib/hamilton/citation-gate";
 import { getCurrentUser, type User } from "@/lib/auth";
 import {
@@ -18,6 +20,18 @@ import {
 import { canAccessPremium } from "@/lib/access";
 
 export const maxDuration = 30;
+
+// Optional segment-context body field. Matches PeerFilters shape so the
+// Analyze-mode system prompt can scope answers to the user's active segment
+// without requiring a follow-up question.
+const SegmentContextSchema = z
+  .object({
+    charter: z.string().optional(),
+    tiers: z.array(z.string()).optional(),
+    districts: z.array(z.number().int().min(1).max(12)).optional(),
+    range: z.string().optional(),
+  })
+  .strict();
 
 // Daily cost circuit breaker thresholds (in cents)
 const DAILY_COST_LIMIT_CENTS = 5000; // $50/day
@@ -129,6 +143,7 @@ export async function POST(request: Request) {
   let messages: UIMessage[];
   let mode: string | undefined;
   let analysisFocus: string | undefined;
+  let segmentContext: PeerFilters | undefined;
   // Opt-in citation-density gate. Default false preserves the streaming chat
   // UX (useChat); callers that need a vetted report (report runner, export)
   // set `gate_citations: true` and receive a buffered JSON response that can
@@ -140,6 +155,12 @@ export async function POST(request: Request) {
     mode = body.mode;
     analysisFocus = body.analysisFocus;
     gateCitations = body.gate_citations === true;
+    if (body.segment_context !== undefined && body.segment_context !== null) {
+      const parsed = SegmentContextSchema.safeParse(body.segment_context);
+      if (parsed.success) {
+        segmentContext = parsed.data;
+      }
+    }
     if (!Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: "Messages required" }, { status: 400 });
     }
@@ -182,6 +203,9 @@ export async function POST(request: Request) {
     const VALID_FOCUS = new Set(["Pricing", "Risk", "Peer Position", "Trend"]);
     const focus = VALID_FOCUS.has(analysisFocus ?? "") ? (analysisFocus as string) : "Pricing";
     systemPrompt += buildAnalyzeModeSuffix(focus);
+    if (segmentContext) {
+      systemPrompt += buildSegmentContextLine(segmentContext);
+    }
   }
 
   // Monitor mode: concise surveillance-oriented responses (Phase 46)

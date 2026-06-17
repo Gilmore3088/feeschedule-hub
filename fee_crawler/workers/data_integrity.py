@@ -49,13 +49,8 @@ def _run_checks_with_conn(conn) -> dict:
     # ── REFERENTIAL INTEGRITY ──────────────────────────────────────────
 
     check(
-        "FK: extracted_fees → crawl_targets",
-        "SELECT COUNT(*) as n FROM extracted_fees ef WHERE NOT EXISTS (SELECT 1 FROM crawl_targets ct WHERE ct.id = ef.crawl_target_id)",
-    )
-
-    check(
-        "FK: fee_reviews → extracted_fees",
-        "SELECT COUNT(*) as n FROM fee_reviews fr WHERE NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.id = fr.fee_id)",
+        "FK: fees_verified → crawl_targets",
+        "SELECT COUNT(*) as n FROM fees_verified ef WHERE NOT EXISTS (SELECT 1 FROM crawl_targets ct WHERE ct.id = ef.crawl_target_id)",
     )
 
     check(
@@ -82,30 +77,24 @@ def _run_checks_with_conn(conn) -> dict:
 
     check(
         "Fees with NULL amount AND NULL fee_name",
-        "SELECT COUNT(*) as n FROM extracted_fees WHERE amount IS NULL AND fee_name IS NULL",
-    )
-
-    check(
-        "Approved fees with no category",
-        "SELECT COUNT(*) as n FROM extracted_fees WHERE review_status = 'approved' AND fee_category IS NULL",
-        threshold=50,  # some uncategorized is ok
+        "SELECT COUNT(*) as n FROM fees_verified WHERE amount IS NULL AND fee_name IS NULL",
     )
 
     check(
         "Fees with negative amounts",
-        "SELECT COUNT(*) as n FROM extracted_fees WHERE amount < 0",
+        "SELECT COUNT(*) as n FROM fees_verified WHERE amount < 0",
     )
 
     check(
         "Fees with amount > $10,000 (likely misextracted)",
-        "SELECT COUNT(*) as n FROM extracted_fees WHERE amount > 10000 AND review_status != 'rejected'",
+        "SELECT COUNT(*) as n FROM fees_verified WHERE amount > 10000 AND review_status != 'rejected'",
     )
 
     check(
-        "Institutions with fee_url but 0 extracted fees",
+        "Institutions with fee_url but 0 verified fees",
         """SELECT COUNT(*) as n FROM crawl_targets ct
            WHERE ct.fee_schedule_url IS NOT NULL
-           AND NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id)""",
+           AND NOT EXISTS (SELECT 1 FROM fees_verified ef WHERE ef.crawl_target_id = ct.id)""",
         threshold=500,  # some lag is normal
     )
 
@@ -113,7 +102,7 @@ def _run_checks_with_conn(conn) -> dict:
         "Duplicate fees (same institution + category + amount)",
         """SELECT COUNT(*) as n FROM (
              SELECT crawl_target_id, fee_category, amount, COUNT(*) as dupes
-             FROM extracted_fees
+             FROM fees_verified
              WHERE review_status != 'rejected' AND fee_category IS NOT NULL
              GROUP BY crawl_target_id, fee_category, amount
              HAVING COUNT(*) > 1
@@ -125,7 +114,7 @@ def _run_checks_with_conn(conn) -> dict:
         "Institutions with > 100 fees (extraction anomaly)",
         """SELECT COUNT(*) as n FROM (
              SELECT crawl_target_id, COUNT(*) as cnt
-             FROM extracted_fees WHERE review_status != 'rejected'
+             FROM fees_verified WHERE review_status != 'rejected'
              GROUP BY crawl_target_id HAVING COUNT(*) > 100
            ) sub""",
     )
@@ -151,16 +140,6 @@ def _run_checks_with_conn(conn) -> dict:
         "SELECT COUNT(*) as n FROM fee_snapshots",
         expect_zero=False,
         threshold=0,
-    )
-
-    check(
-        "Approved fees with review trail",
-        """SELECT COUNT(*) as n FROM extracted_fees ef
-           WHERE ef.review_status = 'approved'
-           AND NOT EXISTS (
-             SELECT 1 FROM fee_reviews fr WHERE fr.fee_id = ef.id AND fr.new_status = 'approved'
-           )""",
-        threshold=1000,  # auto-staged fees may not have explicit review
     )
 
     check(
@@ -204,22 +183,22 @@ def _run_checks_with_conn(conn) -> dict:
 
     check(
         "Overdraft fees in reasonable range ($0-$75)",
-        """SELECT COUNT(*) as n FROM extracted_fees
-           WHERE fee_category = 'overdraft' AND review_status = 'approved'
+        """SELECT COUNT(*) as n FROM fees_verified
+           WHERE fee_category = 'overdraft' AND review_status != 'rejected'
            AND (amount < 0 OR amount > 75)""",
     )
 
     check(
         "Monthly maintenance in reasonable range ($0-$50)",
-        """SELECT COUNT(*) as n FROM extracted_fees
-           WHERE fee_category = 'monthly_maintenance' AND review_status = 'approved'
+        """SELECT COUNT(*) as n FROM fees_verified
+           WHERE fee_category = 'monthly_maintenance' AND review_status != 'rejected'
            AND (amount < 0 OR amount > 50)""",
     )
 
     check(
         "Wire domestic outgoing in reasonable range ($0-$75)",
-        """SELECT COUNT(*) as n FROM extracted_fees
-           WHERE fee_category = 'wire_domestic_outgoing' AND review_status = 'approved'
+        """SELECT COUNT(*) as n FROM fees_verified
+           WHERE fee_category = 'wire_domestic_outgoing' AND review_status != 'rejected'
            AND (amount < 0 OR amount > 75)""",
     )
 

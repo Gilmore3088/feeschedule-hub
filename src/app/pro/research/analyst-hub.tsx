@@ -36,6 +36,7 @@ interface ConversationSummary {
 interface AnalystHubProps {
   agentId: string;
   agentName: string;
+  exampleQuestions?: string[];
   conversations: ConversationSummary[];
   queriesToday: number;
   dailyLimit: number;
@@ -82,11 +83,14 @@ const SUGGESTIONS = [
 export function AnalystHub({
   agentId,
   agentName,
+  exampleQuestions,
   conversations,
   queriesToday,
   dailyLimit,
   queryMonth,
 }: AnalystHubProps) {
+  const suggestions =
+    exampleQuestions && exampleQuestions.length > 0 ? exampleQuestions : SUGGESTIONS;
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<OutputTab>("chart");
@@ -289,23 +293,45 @@ export function AnalystHub({
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <p className="text-[14px] text-warm-600 mb-6">
-                Ask a question to get started, or try one of these:
-              </p>
-              <div className="flex flex-col gap-2 max-w-xl">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => {
-                      setInput(s);
-                      inputRef.current?.focus();
-                    }}
-                    className="rounded-xl border border-warm-200 bg-white/70 px-4 py-2.5 text-[13px] text-warm-700 hover:border-terra/30 hover:text-warm-900 transition-all text-left"
+            <div className="flex flex-col items-center justify-center h-full">
+              <div className="w-full max-w-xl">
+                <div className="rounded-2xl border border-warm-200 bg-white px-6 py-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] mb-5">
+                  <h2
+                    className="text-[18px] font-medium text-warm-900 mb-1.5"
+                    style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                   >
-                    {s}
-                  </button>
-                ))}
+                    {agentName} — your Bank Fee Index analyst
+                  </h2>
+                  <p className="text-[13px] leading-relaxed text-warm-600 mb-3">
+                    I analyze 65,000+ fees from 4,000+ institutions. Ask me about peer
+                    benchmarks, regulatory trends, or competitive positioning.
+                  </p>
+                  <a
+                    href="/pro/research/help"
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-terra hover:text-terra-dark transition-colors"
+                  >
+                    Learn what {agentName} can do
+                    <span aria-hidden="true">→</span>
+                  </a>
+                </div>
+
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500 mb-2 px-1">
+                  Suggested questions
+                </p>
+                <div className="flex flex-col gap-2">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        setInput(s);
+                        inputRef.current?.focus();
+                      }}
+                      className="rounded-xl border border-warm-200 bg-white/70 px-4 py-2.5 text-[13px] text-warm-700 hover:border-terra/30 hover:text-warm-900 transition-all text-left"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (

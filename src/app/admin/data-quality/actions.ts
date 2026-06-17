@@ -5,21 +5,6 @@ import { sql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 import { spawnJob } from "@/lib/job-runner";
 
-export async function rerunCategorization(): Promise<{
-  success: boolean;
-  jobId?: number;
-  error?: string;
-}> {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await spawnJob("categorize", [], user.username);
-    revalidatePath("/admin/data-quality");
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
-}
-
 export async function republishIndex(): Promise<{
   success: boolean;
   jobId?: number;

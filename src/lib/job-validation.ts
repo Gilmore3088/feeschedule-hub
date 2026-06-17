@@ -6,13 +6,8 @@
 const ALLOWED_COMMANDS = new Set([
   "crawl",
   "discover",
-  "validate",
-  "categorize",
-  "auto-review",
   "analyze",
   "enrich",
-  "outlier-detect",
-  "run-pipeline",
   "stats",
   "ingest-call-reports",
   "ingest-fdic",
@@ -31,9 +26,7 @@ const ALLOWED_COMMANDS = new Set([
   "snapshot",
   "seed",
   "backfill-ncua-urls",
-  "merge-fees",
   "publish-index",
-  "pipeline",
   "rediscover-failed",
 ]);
 
@@ -111,10 +104,10 @@ export function validateJobRequest(
       const source = params.charter_type === "bank" ? "fdic" : "ncua";
       args.push("--source", source);
     }
-    // crawl, run-pipeline etc. don't have a charter filter — filter is done at query level
+    // crawl etc. don't have a charter filter — filter is done at query level
   }
 
-  const COMMANDS_WITH_STATE = new Set(["crawl", "discover", "run-pipeline", "pipeline", "rediscover-failed"]);
+  const COMMANDS_WITH_STATE = new Set(["crawl", "discover", "rediscover-failed"]);
   if (params.state !== undefined && params.state !== "" && COMMANDS_WITH_STATE.has(command)) {
     if (!/^[A-Z]{2}$/.test(params.state)) {
       return { valid: false, error: "state must be a 2-letter state code" };

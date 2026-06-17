@@ -42,8 +42,8 @@ def _render_report(conn) -> str:
             COUNT(*) as total,
             COUNT(website_url) as has_website,
             COUNT(fee_schedule_url) as has_fee_url,
-            (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees) as with_fees,
-            (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved
+            (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status != 'rejected') as with_fees,
+            (SELECT COUNT(DISTINCT crawl_target_id) FROM fees_verified WHERE review_status IN ('approved','verified')) as with_approved
         FROM crawl_targets
     """)
     f = cur.fetchone()
@@ -84,24 +84,24 @@ def _render_report(conn) -> str:
 
     # Extraction (last 24h)
     cur.execute("""
-        SELECT COUNT(*) as n FROM extracted_fees
+        SELECT COUNT(*) as n FROM fees_verified
         WHERE created_at > NOW() - INTERVAL '24 hours'
     """)
     new_fees = cur.fetchone()["n"]
 
     cur.execute("""
-        SELECT review_status, COUNT(*) as n FROM extracted_fees
+        SELECT review_status, COUNT(*) as n FROM fees_verified
         GROUP BY review_status ORDER BY n DESC
     """)
     statuses = {r["review_status"]: r["n"] for r in cur.fetchall()}
 
     lines.append("")
-    lines.append("FEES")
+    lines.append("FEES (verified tier)")
     lines.append(f"  New (24h):     {new_fees}")
     lines.append(f"  Total:         {sum(statuses.values()):,}")
+    lines.append(f"  Verified:      {statuses.get('verified', 0):,}")
     lines.append(f"  Approved:      {statuses.get('approved', 0):,}")
-    lines.append(f"  Staged:        {statuses.get('staged', 0):,}")
-    lines.append(f"  Flagged:       {statuses.get('flagged', 0):,}")
+    lines.append(f"  Challenged:    {statuses.get('challenged', 0):,}")
     lines.append(f"  Rejected:      {statuses.get('rejected', 0):,}")
 
     # Time series

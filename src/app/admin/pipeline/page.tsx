@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import {
   getPipelineOverview,
@@ -10,7 +9,14 @@ import {
   getDiscoveryStatus,
   getJobFreshness,
 } from "@/lib/admin-queries";
+import {
+  getRecentRuns,
+  getRunSteps,
+  type PipelineRunRow,
+  type PipelineStepRow,
+} from "@/lib/pipeline/db";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { PipelineLive } from "./pipeline-live";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -45,6 +51,19 @@ export default async function PipelinePage() {
     console.error("Pipeline data load failed:", e);
   }
 
+  // New control plane (pipeline_runs / pipeline_steps). Resilient to the tables
+  // not existing yet (migration pending) — degrades to an empty control room.
+  let runs: PipelineRunRow[] = [];
+  let latestSteps: PipelineStepRow[] = [];
+  try {
+    runs = await getRecentRuns(10);
+    if (runs.length > 0) {
+      latestSteps = await getRunSteps(runs[0].id);
+    }
+  } catch (e) {
+    console.error("Pipeline control-plane load failed (migration pending?):", e);
+  }
+
   const urlPct = overview.total_institutions > 0
     ? Math.round((overview.with_url / overview.total_institutions) * 100)
     : 0;
@@ -62,6 +81,9 @@ export default async function PipelinePage() {
       </div>
 
       <JobFreshnessBanner health={health} />
+
+      {/* ── Pipeline Control Plane (rebuild) — live ────────────────────── */}
+      <PipelineLive initialRuns={runs} initialSteps={latestSteps} />
 
       {/* Pipeline Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-8">
@@ -233,12 +255,29 @@ function JobFreshnessBanner({
   health: Awaited<ReturnType<typeof getJobFreshness>>;
 }) {
   const stale = health.jobs.filter((j) => j.status === "stale" || j.status === "never_ran");
+  const everRan = health.jobs.filter((j) => j.last_completed_at).length;
+
+  // W-04: a fresh DB shouldn't trigger an alarming red banner just
+  // because no cron has ever fired here. Distinguish "deployment in
+  // progress" (no job has ever run → neutral) from "real outage"
+  // (some jobs have run before, some are now stale → red).
   if (stale.length === 0) {
     return (
       <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/20 px-4 py-2.5 flex items-center gap-2.5">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
         <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
           All {health.ok_count} scheduled jobs ran within their expected window.
+        </span>
+      </div>
+    );
+  }
+  if (everRan === 0) {
+    // Brand-new deploy / fresh DB — nobody's ever fired. Neutral.
+    return (
+      <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-900/20 px-4 py-2.5 flex items-center gap-2.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+        <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
+          Setup in progress — {stale.length} cron jobs scheduled, none have run yet. Deploy + apply migrations to start the pipeline.
         </span>
       </div>
     );

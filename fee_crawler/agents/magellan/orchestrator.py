@@ -220,6 +220,17 @@ async def rescue_batch(
             last_result = rung_result
             result.cost_usd += rung_result.cost_usd
 
+            # Debit per-rung cost against the magellan budget so spent_cents
+            # reflects real spend. Was the same bug as Darwin: rung_result
+            # carried cost_usd but nothing fed it into account_budget, so
+            # agent_budgets.spent_cents stayed at 0 forever. Fix piggybacks
+            # on the existing conn passed into rescue_batch.
+            if rung_result.cost_usd > 0:
+                from fee_crawler.agent_tools.budget import account_budget
+                cents = int(round(rung_result.cost_usd * 100))
+                if cents > 0:
+                    await account_budget(conn, AGENT_NAME, cents)
+
             if not rung_result.fees:
                 await emit(
                     "rung_done",

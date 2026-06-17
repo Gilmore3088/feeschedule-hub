@@ -100,9 +100,12 @@ async def _collect_status() -> dict:
         today_promoted = await conn.fetchval(
             "SELECT COUNT(*) FROM fees_verified WHERE created_at >= CURRENT_DATE"
         ) or 0
+        # today_cost_usd reflects the day's spend -> read the per_day window.
+        # per_batch is reset at the start of every classify_batch, so it would
+        # only show the most recent batch, not the day.
         budget_row = await conn.fetchrow(
             "SELECT spent_cents, limit_cents, halted_at, halted_reason "
-            "FROM agent_budgets WHERE agent_name='darwin' AND budget_window='per_batch'"
+            "FROM agent_budgets WHERE agent_name='darwin' AND budget_window='per_day'"
         )
         halted = bool(budget_row and budget_row["halted_at"])
         return {
@@ -126,7 +129,7 @@ async def _reset_circuit(actor: str) -> dict:
         async with conn.transaction():
             await conn.execute(
                 "UPDATE agent_budgets SET halted_at = NULL, halted_reason = NULL "
-                "WHERE agent_name='darwin' AND budget_window='per_batch'"
+                "WHERE agent_name='darwin'"
             )
             await conn.execute(
                 """INSERT INTO agent_events
@@ -180,7 +183,7 @@ async def reclassify_endpoint(req: ReclassifyRequest) -> dict:
     normalized = normalize_fee_name(fee_name)
     sys_prompt, user_prompt = build_prompt([normalized])
     try:
-        results = await classify_names_with_retry([normalized], config=DEFAULT)
+        results, _cost_cents = await classify_names_with_retry([normalized], config=DEFAULT)
     except Exception as e:
         return {"error": f"reclassify failed: {e}"}
 

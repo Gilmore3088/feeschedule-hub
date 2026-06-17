@@ -123,7 +123,8 @@ class Database:
     # Whitelist of valid table names to prevent SQL injection in count().
     # Retained verbatim from the pre-62a Database class.
     _VALID_TABLES = frozenset({
-        "crawl_targets", "crawl_runs", "crawl_results", "extracted_fees",
+        "crawl_targets", "crawl_runs", "crawl_results", "fees_verified",
+        "fees_raw", "fees_published",
         "analysis_results", "users", "fee_reviews", "sessions",
         "institution_financials", "institution_complaints",
         "fee_snapshots", "fee_change_events", "coverage_snapshots",

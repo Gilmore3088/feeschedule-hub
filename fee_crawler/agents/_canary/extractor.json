@@ -1,0 +1,26 @@
+{
+  "agent": "extractor",
+  "version": 1,
+  "description": "Canary HTML fragments that should yield known fee counts. Extractor must extract at least min_pass_rate of expected fees before any IMPROVE commits.",
+  "expectations": [
+    {
+      "fixture": "simple_fee_table.html",
+      "expected_fees": [
+        {"name": "Monthly Maintenance", "amount": 12.00},
+        {"name": "NSF Fee",             "amount": 35.00},
+        {"name": "Overdraft Fee",       "amount": 36.00}
+      ]
+    },
+    {
+      "fixture": "narrative_disclosure.html",
+      "expected_fees": [
+        {"name": "Wire Transfer",       "amount": 25.00},
+        {"name": "Stop Payment",        "amount": 30.00}
+      ]
+    }
+  ],
+  "thresholds": {
+    "min_pass_rate": 0.80,
+    "min_amount_accuracy": 0.95
+  }
+}

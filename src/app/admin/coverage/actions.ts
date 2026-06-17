@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { MAGELLAN_SIDECAR_URL } from "@/lib/modal-endpoints";
 import type { MagellanStatus } from "./types";
@@ -42,7 +43,9 @@ export async function resetMagellanCircuit(actor: string): Promise<{ ok: boolean
       signal: AbortSignal.timeout(8_000),
     });
     if (!r.ok) throw new Error(`sidecar reset ${r.status}`);
-    return r.json();
+    const result = await r.json();
+    revalidatePath("/admin/coverage");
+    return result;
   } catch (e) {
     console.warn("magellan sidecar reset failed:", e instanceof Error ? e.message : e);
     return { ok: false };

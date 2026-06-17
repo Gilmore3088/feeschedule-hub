@@ -171,6 +171,17 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: "Workflows",
     items: [
       {
+        href: "/admin/command",
+        label: "Command Center",
+        icon: (
+          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+            <circle cx="8" cy="8" r="6.5" />
+            <circle cx="8" cy="8" r="2" />
+            <path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3" />
+          </svg>
+        ),
+      },
+      {
         href: "/admin/pipeline",
         label: "Pipeline",
         icon: (

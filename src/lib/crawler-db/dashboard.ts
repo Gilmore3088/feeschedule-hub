@@ -24,7 +24,7 @@ export async function getCrawlHealth(): Promise<CrawlHealth> {
 
   const [confidence] = await sql<{ avg_conf: number | null }[]>`
     SELECT AVG(extraction_confidence) as avg_conf
-    FROM extracted_fees
+    FROM fees_verified
     WHERE created_at > NOW() - INTERVAL '1 day'`;
 
   const [failing] = await sql<{ cnt: number }[]>`
@@ -54,13 +54,13 @@ export interface StuckReviewItems {
 
 export async function getStuckReviewItems(): Promise<StuckReviewItems> {
   const [flagged] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*) as cnt FROM extracted_fees
-    WHERE review_status = 'flagged'
+    SELECT COUNT(*) as cnt FROM fees_verified
+    WHERE review_status = 'challenged'
       AND created_at < NOW() - INTERVAL '14 days'`;
 
   const [staged] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*) as cnt FROM extracted_fees
-    WHERE review_status = 'staged'
+    SELECT COUNT(*) as cnt FROM fees_verified
+    WHERE review_status = 'verified'
       AND created_at < NOW() - INTERVAL '30 days'`;
 
   return {
@@ -106,10 +106,10 @@ export async function getDistrictMetrics(filters?: {
             COUNT(DISTINCT ct.id) as institution_count,
             COUNT(DISTINCT CASE WHEN ct.fee_schedule_url IS NOT NULL THEN ct.id END) as with_fee_url,
             COUNT(ef.id) as total_fees,
-            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged_count,
+            SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) as flagged_count,
             AVG(ef.extraction_confidence) as avg_confidence
      FROM crawl_targets ct
-     LEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+     LEFT JOIN fees_verified ef ON ct.id = ef.crawl_target_id
      WHERE ${where}
      GROUP BY ct.fed_district
      ORDER BY ct.fed_district`,
@@ -197,7 +197,7 @@ export async function getPeerFilteredStats(filters: {
 
   const [feeRow] = await sql.unsafe(
     `SELECT COUNT(*) as cnt
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${where}`,
     params
@@ -261,8 +261,8 @@ export async function getVolatileCategories(
     `SELECT ef.fee_category,
             COUNT(DISTINCT ef.crawl_target_id) as institution_count,
             COUNT(*) as total_count,
-            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged_count
-     FROM extracted_fees ef
+            SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) as flagged_count
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${where}
      GROUP BY ef.fee_category
@@ -282,7 +282,7 @@ export async function getVolatileCategories(
   const catPlaceholders = categoryNames.map((_, i) => `$${paramIdx + i}`).join(",");
   const amountRows = await sql.unsafe(
     `SELECT ef.fee_category, ef.amount
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${where} AND ef.fee_category IN (${catPlaceholders}) AND ef.amount > 0`,
     [...params, ...categoryNames]
@@ -387,13 +387,13 @@ export async function getRiskOutliers(filters?: {
   // Top flagged categories
   const flagged = await sql.unsafe(
     `SELECT ef.fee_category,
-            SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged_count,
+            SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) as flagged_count,
             COUNT(*) as total_count
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${efWhere}
      GROUP BY ef.fee_category
-     HAVING SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) > 0
+     HAVING SUM(CASE WHEN ef.review_status = 'challenged' THEN 1 ELSE 0 END) > 0
      ORDER BY flagged_count DESC
      LIMIT 5`,
     params
@@ -422,7 +422,7 @@ export async function getRiskOutliers(filters?: {
   // First get category medians
   const catRows = await sql.unsafe(
     `SELECT ef.fee_category, ef.amount
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${efWhere}
      AND ef.amount IS NOT NULL AND ef.amount > 0`,
@@ -447,7 +447,7 @@ export async function getRiskOutliers(filters?: {
   const outlierFees = await sql.unsafe(
     `SELECT ef.id, ef.fee_name, ef.amount, ef.fee_category,
             ct.institution_name, ef.crawl_target_id
-     FROM extracted_fees ef
+     FROM fees_verified ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      ${efWhere}
      AND ef.amount IS NOT NULL
@@ -564,7 +564,7 @@ export async function getRecentCrawlActivity(
      JOIN crawl_targets ct ON cr.crawl_target_id = ct.id
      LEFT JOIN (
        SELECT crawl_result_id, AVG(extraction_confidence) as extraction_confidence
-       FROM extracted_fees
+       FROM fees_verified
        GROUP BY crawl_result_id
      ) conf ON conf.crawl_result_id = cr.id
      ${where}
@@ -594,7 +594,7 @@ export async function getRecentReviews(limit = 15): Promise<RecentReviewAction[]
            fr.action, fr.username, fr.previous_status, fr.new_status,
            fr.created_at
     FROM fee_reviews fr
-    JOIN extracted_fees ef ON fr.fee_id = ef.id
+    JOIN fees_verified ef ON fr.fee_id = ef.id
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     ORDER BY fr.created_at DESC
     LIMIT ${limit}` as RecentReviewAction[];

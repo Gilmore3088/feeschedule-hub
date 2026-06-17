@@ -48,6 +48,13 @@ AGENT_NAME = "darwin"
 DEFAULT_MIN_CONFIDENCE = 0.90
 DEFAULT_LIMIT = 500
 
+# Hard ceiling — a corrupt Darwin batch could otherwise cascade-publish at
+# scale (one of the operational risks called out in WORKFLOW-MAP.md Stage 4).
+# Override with --override-max-rows for legitimate big drains; the override
+# also requires --i-know-what-im-doing so it can't be set by automation
+# silently.
+DEFAULT_MAX_ROWS_HARD = 10_000
+
 
 SELECT_ELIGIBLE = """
     SELECT
@@ -219,6 +226,19 @@ def main(argv: list[str]) -> int:
         default=DEFAULT_LIMIT,
         help=f"max rows per run (default: {DEFAULT_LIMIT})",
     )
+    parser.add_argument(
+        "--override-max-rows",
+        action="store_true",
+        help=(
+            f"Bypass the {DEFAULT_MAX_ROWS_HARD:,}-row hard ceiling. Requires "
+            "--i-know-what-im-doing. Use for legitimate big drains only."
+        ),
+    )
+    parser.add_argument(
+        "--i-know-what-im-doing",
+        action="store_true",
+        help="Required when pairing with --override-max-rows.",
+    )
     args = parser.parse_args(argv)
 
     if args.min_confidence < 0.0 or args.min_confidence > 1.0:
@@ -227,6 +247,15 @@ def main(argv: list[str]) -> int:
     if args.limit < 1:
         print("publish-fees: --limit must be >= 1", file=sys.stderr)
         return 2
+    if args.limit > DEFAULT_MAX_ROWS_HARD:
+        if not (args.override_max_rows and args.i_know_what_im_doing):
+            print(
+                f"publish-fees: --limit {args.limit:,} exceeds the "
+                f"{DEFAULT_MAX_ROWS_HARD:,}-row safety ceiling. "
+                "Re-run with --override-max-rows --i-know-what-im-doing to bypass.",
+                file=sys.stderr,
+            )
+            return 2
 
     try:
         return asyncio.run(_run(args.apply, args.min_confidence, args.limit))

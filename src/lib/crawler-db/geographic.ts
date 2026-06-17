@@ -23,7 +23,7 @@ export async function getStateStats(stateCode: string): Promise<GeoStats> {
     SELECT COUNT(DISTINCT ef.crawl_target_id) as with_fees,
            COUNT(*) as total_fees,
            COUNT(DISTINCT ef.fee_category) as categories
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ct.state_code = ${stateCode} AND ef.review_status != 'rejected'
   ` as { with_fees: number; total_fees: number; categories: number }[];
@@ -51,7 +51,7 @@ export async function getDistrictStats(districtId: number): Promise<GeoStats> {
     SELECT COUNT(DISTINCT ef.crawl_target_id) as with_fees,
            COUNT(*) as total_fees,
            COUNT(DISTINCT ef.fee_category) as categories
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ct.fed_district = ${districtId} AND ef.review_status != 'rejected'
   ` as { with_fees: number; total_fees: number; categories: number }[];
@@ -69,7 +69,7 @@ export async function getDistrictStats(districtId: number): Promise<GeoStats> {
 export async function getInstitutionIdsWithFees(): Promise<number[]> {
   const rows = await sql`
     SELECT DISTINCT crawl_target_id as id
-    FROM extracted_fees
+    FROM fees_verified
     WHERE review_status != 'rejected'
     ORDER BY crawl_target_id
   ` as { id: number }[];
@@ -108,14 +108,14 @@ export async function getCityInstitutions(city: string, stateCode: string): Prom
   return await sql`
     SELECT ct.id, ct.institution_name, ct.charter_type, ct.asset_size,
            COALESCE(fc.fee_count, 0) as fee_count,
-           (SELECT ef.amount FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'overdraft' AND ef.review_status != 'rejected' LIMIT 1) as overdraft,
-           (SELECT ef.amount FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'monthly_maintenance' AND ef.review_status != 'rejected' LIMIT 1) as monthly_maintenance,
-           (SELECT ef.amount FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'nsf' AND ef.review_status != 'rejected' LIMIT 1) as nsf,
-           (SELECT ef.amount FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'atm_non_network' AND ef.review_status != 'rejected' LIMIT 1) as atm_non_network
+           (SELECT ef.amount FROM fees_verified ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'overdraft' AND ef.review_status != 'rejected' LIMIT 1) as overdraft,
+           (SELECT ef.amount FROM fees_verified ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'monthly_maintenance' AND ef.review_status != 'rejected' LIMIT 1) as monthly_maintenance,
+           (SELECT ef.amount FROM fees_verified ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'nsf' AND ef.review_status != 'rejected' LIMIT 1) as nsf,
+           (SELECT ef.amount FROM fees_verified ef WHERE ef.crawl_target_id = ct.id AND ef.fee_category = 'atm_non_network' AND ef.review_status != 'rejected' LIMIT 1) as atm_non_network
     FROM crawl_targets ct
     LEFT JOIN (
       SELECT crawl_target_id, COUNT(*) as fee_count
-      FROM extracted_fees WHERE review_status != 'rejected'
+      FROM fees_verified WHERE review_status != 'rejected'
       GROUP BY crawl_target_id
     ) fc ON ct.id = fc.crawl_target_id
     WHERE LOWER(ct.city) = LOWER(${city}) AND ct.state_code = ${upperState}
@@ -130,7 +130,7 @@ export async function getCityFeeAverages(city: string, stateCode: string): Promi
     SELECT ef.fee_category,
            ROUND(AVG(ef.amount)::numeric, 2) as median,
            COUNT(DISTINCT ef.crawl_target_id) as institution_count
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE LOWER(ct.city) = LOWER(${city}) AND ct.state_code = ${upperState}
       AND ef.review_status != 'rejected'
@@ -157,7 +157,7 @@ export async function getCitiesInState(stateCode: string): Promise<CitySummary[]
     FROM crawl_targets ct
     LEFT JOIN (
       SELECT crawl_target_id, COUNT(*) as fee_count
-      FROM extracted_fees WHERE review_status != 'rejected'
+      FROM fees_verified WHERE review_status != 'rejected'
       GROUP BY crawl_target_id
     ) fc ON ct.id = fc.crawl_target_id
     WHERE ct.state_code = ${upperState} AND ct.city IS NOT NULL AND ct.city != ''
@@ -173,7 +173,7 @@ export async function getCityAutocomplete(query: string, limit: number = 10): Pr
     SELECT ct.city, ct.state_code, COUNT(DISTINCT ct.id) as count
     FROM crawl_targets ct
     WHERE ct.city ILIKE ${pattern} AND ct.city IS NOT NULL
-    AND ct.id IN (SELECT DISTINCT crawl_target_id FROM extracted_fees WHERE review_status != 'rejected')
+    AND ct.id IN (SELECT DISTINCT crawl_target_id FROM fees_verified WHERE review_status != 'rejected')
     GROUP BY LOWER(ct.city), ct.city, ct.state_code
     ORDER BY count DESC
     LIMIT ${limit}
@@ -189,7 +189,7 @@ export async function getStatesWithFeeData(): Promise<{ state_code: string; inst
             COUNT(DISTINCT ct.id) as institution_count,
             COUNT(ef.id) as fee_count
      FROM crawl_targets ct
-     JOIN extracted_fees ef ON ct.id = ef.crawl_target_id
+     JOIN fees_verified ef ON ct.id = ef.crawl_target_id
      WHERE ct.state_code IN (${placeholders})
        AND ef.review_status != 'rejected'
      GROUP BY ct.state_code

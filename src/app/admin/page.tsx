@@ -93,13 +93,27 @@ async function DashboardContent() {
           <div className="sm:col-span-7">
             <p className="admin-eyebrow">Fee schedule coverage</p>
             <div className="mt-2 flex items-baseline gap-3 flex-wrap">
-              <span className="admin-hero-figure">
-                {Number.isFinite(stats.coverage_pct) ? stats.coverage_pct : 0}%
-              </span>
-              <span className="admin-meta">of {formatNumber(stats.total_institutions)} U.S. institutions</span>
+              {/* W-02: a brand-new empty DB shouldn't read as "0% coverage"
+                  (alarming). Show "Setup in progress" until any institution
+                  is seeded; only show the percentage once we have data. */}
+              {stats.total_institutions === 0 ? (
+                <>
+                  <span className="admin-hero-figure">—</span>
+                  <span className="admin-meta">Setup in progress · seed institutions to populate</span>
+                </>
+              ) : (
+                <>
+                  <span className="admin-hero-figure">
+                    {Number.isFinite(stats.coverage_pct) ? stats.coverage_pct : 0}%
+                  </span>
+                  <span className="admin-meta">of {formatNumber(stats.total_institutions)} U.S. institutions</span>
+                </>
+              )}
             </div>
             <p className="admin-lede mt-3">
-              {totalReview > 0
+              {stats.total_institutions === 0
+                ? "No institutions yet — run `python -m fee_crawler seed` to bootstrap."
+                : totalReview > 0
                 ? `${formatNumber(totalReview)} fees are awaiting review.`
                 : "Review queue is clear."}
             </p>

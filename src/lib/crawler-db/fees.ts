@@ -89,7 +89,7 @@ export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
 
   const rows = await sql`
     SELECT ef.fee_category, ef.amount, ef.crawl_target_id, ct.charter_type
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ef.fee_category IS NOT NULL AND ef.review_status != 'rejected'
   ` as {
@@ -152,7 +152,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
            ct.charter_type, ct.state_code, ct.asset_size_tier,
            ct.asset_size, ef.review_status, ef.extraction_confidence,
            ef.canonical_fee_key, ef.variant_type
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ef.fee_category = ${category} AND ef.review_status != 'rejected'
     ORDER BY ef.amount DESC NULLS LAST
@@ -204,7 +204,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   // For fed district, re-query with actual district numbers
   const districtRows = await sql`
     SELECT ct.fed_district, ef.amount
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ef.fee_category = ${category} AND ct.fed_district IS NOT NULL
   ` as { fed_district: number; amount: number | null }[];
@@ -358,20 +358,20 @@ export async function getCategoryReviewStats(): Promise<CategoryReviewStats[]> {
   const rows = await sql`
     SELECT
       fee_category,
-      SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
-      SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
-      SUM(CASE WHEN review_status = 'pending' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN review_status = 'verified' THEN 1 ELSE 0 END) as staged,
+      SUM(CASE WHEN review_status = 'challenged' THEN 1 ELSE 0 END) as flagged,
+      SUM(CASE WHEN review_status = 'verified' THEN 1 ELSE 0 END) as pending,
       SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
       SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected,
       COUNT(*) as total,
       ROUND(AVG(extraction_confidence)::numeric, 2) as avg_confidence,
       SUM(CASE
-        WHEN review_status IN ('staged', 'pending')
+        WHEN review_status = 'verified'
           AND extraction_confidence >= 0.9
           AND (validation_flags IS NULL OR validation_flags = '[]'::jsonb)
         THEN 1 ELSE 0
       END) as ready_count
-    FROM extracted_fees
+    FROM fees_verified
     WHERE fee_category IS NOT NULL
     GROUP BY fee_category
     ORDER BY total DESC
@@ -423,7 +423,7 @@ export async function getFeesByCategory(
            ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
            ef.validation_flags, ef.fee_category, ef.created_at
-    FROM extracted_fees ef
+    FROM fees_verified ef
     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
     WHERE ${conditions.join(" AND ")}
     ORDER BY ef.amount DESC NULLS LAST
