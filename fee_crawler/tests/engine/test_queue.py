@@ -124,8 +124,8 @@ async def test_complete_and_depth(pool):
     job = await q.claim_job(pool, "fetch", "w")
     async with pool.acquire() as conn:
         await q.complete_job(conn, job["id"], result={"ok": True})
-        payload = await conn.fetchval("SELECT payload FROM jobs WHERE id=$1", j1)
-    assert '"ok": true' in payload
+        payload = await conn.fetchval("SELECT payload FROM jobs WHERE id=$1", job["id"])
+    assert payload["result"]["ok"] is True
     assert await q.queue_depth(pool, "fetch") == 1  # one still pending
 
 

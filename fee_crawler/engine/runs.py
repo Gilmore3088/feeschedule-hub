@@ -19,7 +19,6 @@ Usage:
 from __future__ import annotations
 
 import contextlib
-import json
 import traceback
 from typing import Any, AsyncIterator, Optional
 
@@ -92,7 +91,7 @@ async def finish_run(
             """,
             run.run_id,
             status,
-            json.dumps(run.stats),
+            run.stats,
             (error[:4000] if error else None),
         )
 

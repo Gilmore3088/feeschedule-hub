@@ -18,7 +18,6 @@ a connection when the work must share the caller's transaction.
 
 from __future__ import annotations
 
-import json
 from typing import Any, Optional
 
 import asyncpg
@@ -67,7 +66,7 @@ async def enqueue(
         """,
         queue,
         entity_id,
-        json.dumps(payload or {}),
+        payload or {},
         priority,
         max_attempts,
         state_code,
@@ -135,7 +134,7 @@ async def complete_job(
          WHERE id=$1
         """,
         job_id,
-        json.dumps({"result": result} if result is not None else {}),
+        {"result": result} if result is not None else {},
     )
 
 

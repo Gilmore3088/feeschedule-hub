@@ -7,6 +7,7 @@ that schema via search_path. No production DSN is ever accepted.
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 from pathlib import Path
@@ -15,6 +16,17 @@ from typing import AsyncGenerator
 import asyncpg
 import pytest
 import pytest_asyncio
+
+
+async def _init_codec(conn: asyncpg.Connection) -> None:
+    # Match the production pool: decode/encode jsonb via the json module so
+    # payload/stats columns come back as dicts, not strings.
+    await conn.set_type_codec(
+        "jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+    )
+    await conn.set_type_codec(
+        "json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+    )
 
 MIGRATIONS = Path(__file__).resolve().parents[3] / "supabase" / "migrations"
 
@@ -49,11 +61,46 @@ CREATE TABLE IF NOT EXISTS crawl_targets (
     last_content_hash TEXT,
     consecutive_failures INT NOT NULL DEFAULT 0
 );
+-- fees_raw base columns (mirrors supabase/migrations/20260420_fees_tier_tables.sql
+-- pre-Phase-1; the engine provenance migration ALTERs in document_id etc.).
+CREATE TABLE IF NOT EXISTS fees_raw (
+    fee_raw_id            BIGSERIAL PRIMARY KEY,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    institution_id        INTEGER NOT NULL,
+    source_url            TEXT,
+    document_r2_key       TEXT,
+    extraction_confidence NUMERIC(5,4),
+    agent_event_id        UUID NOT NULL,
+    fee_name              TEXT NOT NULL,
+    amount                NUMERIC(12,2),
+    frequency             TEXT,
+    conditions            TEXT,
+    outlier_flags         JSONB NOT NULL DEFAULT '[]'::jsonb,
+    source                TEXT NOT NULL DEFAULT 'knox'
+);
+CREATE TABLE IF NOT EXISTS fees_verified (
+    fee_verified_id            BIGSERIAL PRIMARY KEY,
+    created_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    fee_raw_id                 BIGINT NOT NULL REFERENCES fees_raw(fee_raw_id),
+    institution_id             INTEGER NOT NULL,
+    source_url                 TEXT,
+    document_r2_key            TEXT,
+    extraction_confidence      NUMERIC(5,4),
+    canonical_fee_key          TEXT NOT NULL,
+    variant_type               TEXT,
+    outlier_flags              JSONB NOT NULL DEFAULT '[]'::jsonb,
+    verified_by_agent_event_id UUID NOT NULL,
+    fee_name                   TEXT NOT NULL,
+    amount                     NUMERIC(12,2),
+    frequency                  TEXT,
+    review_status              TEXT NOT NULL DEFAULT 'verified'
+);
 """
 
-# Engine migrations applied in order (Phase 0, Phase 2).
+# Engine migrations applied in order (Phase 0, provenance, Phase 2).
 _ENGINE_MIGRATIONS = [
     "20260716000001_engine_phase0.sql",
+    "20260716000003_engine_fees_provenance.sql",
     "20260716000002_engine_state_knowledge.sql",
 ]
 
@@ -83,6 +130,7 @@ async def pool() -> AsyncGenerator[asyncpg.Pool, None]:
         min_size=1,
         max_size=8,
         server_settings={"search_path": schema},
+        init=_init_codec,
     )
     async with p.acquire() as conn:
         await conn.execute(_PREREQ)

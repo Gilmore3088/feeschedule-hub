@@ -107,8 +107,7 @@ async def test_run_scope_completes_on_success(pool):
             "SELECT status, stats FROM pipeline_runs WHERE id=$1", run.run_id
         )
     assert row["status"] == "completed"
-    import json
-    assert json.loads(row["stats"])["extracted"] == 15
+    assert row["stats"]["extracted"] == 15
 
 
 async def test_run_scope_fails_and_reraises_on_exception(pool):
