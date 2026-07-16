@@ -106,6 +106,8 @@ _ENGINE_MIGRATIONS = [
     "20260716000002_engine_state_knowledge.sql",
     "20260716000004_engine_publish.sql",
     "20260716000005_engine_golden.sql",
+    "20260716000006_engine_fee_taxonomy_ref.sql",
+    "20260716000007_engine_extracted_fees_compat.sql",
 ]
 
 
