@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS crawl_targets (
     website_url TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     last_content_hash TEXT,
+    last_crawl_at TIMESTAMPTZ,
+    last_success_at TIMESTAMPTZ,
     consecutive_failures INT NOT NULL DEFAULT 0
 );
 -- fees_raw base columns (mirrors supabase/migrations/20260420_fees_tier_tables.sql
