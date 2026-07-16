@@ -104,6 +104,7 @@ _ENGINE_MIGRATIONS = [
     "20260716000001_engine_phase0.sql",
     "20260716000003_engine_fees_provenance.sql",
     "20260716000002_engine_state_knowledge.sql",
+    "20260716000004_engine_publish.sql",
 ]
 
 
