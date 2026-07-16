@@ -137,8 +137,45 @@ therefore showed stale data. The net is **fewer pages, no lost function, and a
 large gain**: queues, per-state Steward learning, document provenance, and
 publish batches become visible for the first time.
 
-## Open decisions (need your call)
+## Resolved decisions
 
-1. **Which research tree is canonical** — `research/*` or `hamilton/research/*`? (Delete the other.)
-2. **`query` (raw SQL) placement** — keep in the console, or a separate "advanced" area?
-3. **Order of the REWIRE for product pages** — do the ops console first, then repoint market/peers/fees off `extracted_fees` as a second pass? (Recommended.)
+### 1. Canonical research tree → keep `research/*`, delete `hamilton/research/*`
+Evidence: `/admin/research` has **13 inbound links**, `/admin/hamilton/research` has **1**;
+both trees are 10 files; `articles/actions.ts` is byte-identical; only `page.tsx` +
+`[agentId]/page.tsx` differ. `hamilton/research/*` is a near-orphan copy.
+**How:** diff the two differing `page.tsx` files, fold any real behavior into
+`research/*`, fix the 1 stray link, `git rm -r admin/hamilton/research`, add a
+redirect `/admin/hamilton/research/* → /admin/research/*`. Apply the same to the
+other orphan duplicates: `hamilton/leads → leads`, `hamilton/methodology →
+methodology`, `hamilton/scout → scout`.
+
+### 2. `query` (raw SQL) → keep, fenced off the console
+It's a power tool with arbitrary-SQL blast radius; it doesn't belong on the
+operator overview. **How:** move to `/admin/advanced/query`, require the **admin**
+role (not analyst), enforce **read-only** (read-only transaction / reject
+non-`SELECT`), log every query.
+
+### 3. REWIRE order — driven by a finding that reframes it
+
+**Finding:** ~18 files in `src/lib/crawler-db/*` (market, peers, institution,
+fee-index, states, dashboard, search…) **plus the public `api/v1` and reports
+routes read the FROZEN `extracted_fees`.** The published tier
+(`fees_verified`/`fees_published`) is read in only ~4 internal spots. So the
+**product — national index, peer benchmarks, institution reports, the public API
+— is served from a frozen table the engine no longer writes to.** The engine's
+`fees_raw → verified → published` pipeline currently reaches nothing a user sees.
+The product rewire is therefore the **wire that connects the engine to the
+product**, not a cosmetic second pass.
+
+**How (low-risk):** build a **compatibility view** shaped like `extracted_fees`
+but backed by `fees_published_current ⋈ crawl_targets`; point the query layer's
+`FROM` at the view in one place; run a **parity check** vs the frozen snapshot on
+a sample; then flip. One view swap → all ~18 readers get fresh data with no query
+rewrites. Delete `extracted_fees` afterward.
+
+**Build sequence:**
+1. **Ops console** — pure observability, zero product risk.
+2. **Product rewire via the compat view** — fast follow (this is the value
+   connection); the parity check makes it safe.
+3. **Workflow pages** — review, triage, lineage, per-state, document browser.
+4. **Delete legacy** — `extracted_fees`, the duplicate trees, `agents/messages`.
