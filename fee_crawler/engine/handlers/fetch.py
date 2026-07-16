@@ -20,7 +20,7 @@ from ..documents import record_document
 from ..worker import EnqueueSpec, HandlerResult, PermanentError, RetryableError
 
 
-class FetchHandler:
+class Magellan:
     queue = "fetch"
 
     def __init__(self, fetcher: Fetcher, store: ObjectStore):
@@ -118,3 +118,6 @@ async def _bump_failure(pool: asyncpg.Pool, target_id: int) -> None:
             "WHERE id=$1",
             target_id,
         )
+
+# Back-compat alias (persona rename).
+FetchHandler = Magellan

@@ -125,18 +125,6 @@ async def test_connection():
     secrets=secrets,
     memory=2048,
 )
-async def run_discovery():
-    """Nightly URL discovery: sweep institutions with website but no fee URL."""
-    from fee_crawler.workers.discovery_worker import run
-    try:
-        result = await run(concurrency=20)
-        _mark_job_completion("run_discovery", "ok")
-        return result
-    except Exception as exc:
-        _mark_job_completion("run_discovery", "failed")
-        raise
-
-
 @app.function(
     schedule=modal.Cron("0 3 * * *"),
     timeout=10800,
@@ -144,24 +132,6 @@ async def run_discovery():
     memory=1024,
     image=pdf_image,
 )
-def run_pdf_extraction():
-    """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
-    import os
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    try:
-        result = run_checked(
-            ["python3", "-m", "fee_crawler", "crawl",
-             "--limit", "500", "--workers", "4", "--include-failing",
-             "--doc-type", "pdf"],
-            env=env, timeout=7200,
-        )
-        _mark_job_completion("run_pdf_extraction", "ok")
-        return result.stdout[-1000:] if result.stdout else ""
-    except Exception:
-        _mark_job_completion("run_pdf_extraction", "failed")
-        raise
-
-
 @app.function(
     schedule=modal.Cron("0 4 * * *"),
     timeout=14400,
@@ -169,299 +139,12 @@ def run_pdf_extraction():
     memory=2048,
     image=browser_image,
 )
-def run_browser_extraction():
-    """Nightly browser extraction: Playwright for JS-rendered pages."""
-    import os
-    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    try:
-        result = run_checked(
-            ["python3", "-m", "fee_crawler", "crawl",
-             "--limit", "500", "--workers", "2", "--include-failing"],
-            env=env, timeout=10800,
-        )
-        _mark_job_completion("run_browser_extraction", "ok")
-        return result.stdout[-1000:] if result.stdout else ""
-    except Exception:
-        _mark_job_completion("run_browser_extraction", "failed")
-        raise
-
-
-# D-05 pivot (Phase 62b, Plan 62B-08): Modal Starter tier caps at 5 cron slots.
-# Rather than add a 6th slot for review_dispatcher, this function now ticks every
-# minute — calling dispatch_ticks() first (LOOP-03 agent review dispatch), then
-# running the original daily post-processing pipeline only at 06:00. See research
-# §Mechanics 3 / Pitfall 1 and 62B-08-SUMMARY.md for the decision rationale.
 @app.function(
     schedule=modal.Cron("* * * * *"),
     timeout=3600,
     secrets=secrets,
     memory=1024,
 )
-async def run_post_processing():
-    """Every-minute dispatcher for agent review_ticks + once-daily post-processing pipeline."""
-    import os
-    import psycopg2
-    from datetime import datetime, timezone, timedelta
-
-    # Every minute: dispatch pending agent review_ticks (LOOP-03 D-05 pivot).
-    try:
-        from fee_crawler.agent_base.dispatcher import dispatch_ticks
-        dispatched = await dispatch_ticks()
-        if dispatched:
-            print(f"dispatch_ticks: invoked {dispatched} agent review(s)")
-    except Exception as exc:
-        # Never let tick dispatch block the daily pipeline.
-        print(f"dispatch_ticks failed (non-fatal): {exc}")
-
-    now = datetime.now(timezone.utc)
-
-    # 05:00-05:09 UTC window: Magellan rescue + Knox review.
-    # Piggybacks on the every-minute dispatcher so we stay inside the 5-cron Modal
-    # Starter cap. Gated on workers_last_run markers so each runs once per day.
-    today_0500 = now.replace(hour=5, minute=0, second=0, microsecond=0)
-    if today_0500 <= now < today_0500 + timedelta(minutes=10):
-        await _run_0500_jobs(now, today_0500)
-
-    # WR-05 fix: widen the trigger window to 06:00-06:09 UTC to absorb Modal
-    # cron jitter, and gate actual work on a workers_last_run marker so we
-    # run at most once per UTC day (idempotent catch-up if we missed 06:00).
-    today_0600 = now.replace(hour=6, minute=0, second=0, microsecond=0)
-    if now < today_0600 or now >= today_0600 + timedelta(minutes=10):
-        return "dispatch_only"
-
-    db_url = os.environ["DATABASE_URL"]
-    try:
-        conn = psycopg2.connect(db_url)
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT completed_at FROM workers_last_run WHERE job_name = %s",
-            ("daily_pipeline",),
-        )
-        row = cur.fetchone()
-        last_completed = row[0] if row else None
-        cur.close()
-        conn.close()
-    except Exception as exc:
-        # If we can't read the marker, fall through rather than silently skipping.
-        print(f"workers_last_run read failed (proceeding anyway): {exc}")
-        last_completed = None
-
-    if last_completed is not None and last_completed >= today_0600:
-        return "dispatch_only"
-
-    # If we're past 06:01 and still about to run, log a WARNING so missed
-    # windows are observable in the Modal dashboard.
-    if now >= today_0600 + timedelta(minutes=2):
-        delay_s = int((now - today_0600).total_seconds())
-        print(
-            f"WARNING: daily_pipeline running {delay_s}s after 06:00 UTC "
-            "(cron jitter or catch-up)"
-        )
-
-    env = {**os.environ, "DATABASE_URL": db_url}
-    commands = [
-        ["python3", "-m", "fee_crawler", "categorize"],
-        ["python3", "-m", "fee_crawler", "auto-review"],
-        # Drain fees_verified -> fees_published before snapshot/publish-index
-        # so the index cache reflects newly-published rows in the same cycle.
-        ["python3", "-m", "fee_crawler", "publish-fees", "--apply", "--limit", "2000"],
-        ["python3", "-m", "fee_crawler", "snapshot"],
-        ["python3", "-m", "fee_crawler", "publish-index"],
-    ]
-    results = []
-    for cmd in commands:
-        run_checked(cmd, env=env)
-        results.append(f"{cmd[-1]}: OK")
-
-    # Run data integrity checks
-    from fee_crawler.workers.data_integrity import run_checks, print_report
-    integrity = run_checks()
-    print(print_report(integrity))
-
-    # Generate daily report
-    from fee_crawler.workers.daily_report import generate_report
-    report = generate_report()
-    print(report)
-
-    # Record completion so subsequent minute-ticks skip until tomorrow.
-    try:
-        conn = psycopg2.connect(db_url)
-        cur = conn.cursor()
-        cur.execute(
-            """INSERT INTO workers_last_run (job_name, completed_at, status)
-               VALUES (%s, NOW(), %s)
-               ON CONFLICT (job_name) DO UPDATE
-                 SET completed_at = EXCLUDED.completed_at,
-                     status       = EXCLUDED.status""",
-            ("daily_pipeline", "ok"),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as exc:
-        # Marker write failures should not mask a successful pipeline, but
-        # leave a breadcrumb so operators notice recurring double-runs.
-        print(f"workers_last_run write failed (pipeline still succeeded): {exc}")
-
-    return f"Pipeline: {'; '.join(results)} | Integrity: {integrity['score']}% ({integrity['passed']}/{integrity['total']} passed)"
-
-
-async def _run_0500_jobs(now, today_0500) -> None:
-    """05:00 UTC daily jobs: Magellan URL rescue + Knox adversarial review.
-
-    Piggybacks on run_post_processing's every-minute dispatcher so we don't
-    exceed Modal Starter's 5-cron cap. Each job is gated by its own
-    workers_last_run marker so it runs once per UTC day.
-    """
-    import os
-    import psycopg2
-    import asyncpg
-
-    db_url = os.environ["DATABASE_URL"]
-
-    def _already_ran(job_name: str) -> bool:
-        try:
-            conn = psycopg2.connect(db_url)
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT completed_at FROM workers_last_run WHERE job_name = %s",
-                (job_name,),
-            )
-            row = cur.fetchone()
-            cur.close()
-            conn.close()
-            return row is not None and row[0] is not None and row[0] >= today_0500
-        except Exception as exc:
-            print(f"[{job_name}] marker read failed (running anyway): {exc}")
-            return False
-
-    def _mark_ran(job_name: str, status: str = "ok") -> None:
-        try:
-            conn = psycopg2.connect(db_url)
-            cur = conn.cursor()
-            cur.execute(
-                """INSERT INTO workers_last_run (job_name, completed_at, status)
-                   VALUES (%s, NOW(), %s)
-                   ON CONFLICT (job_name) DO UPDATE
-                     SET completed_at = EXCLUDED.completed_at,
-                         status       = EXCLUDED.status""",
-                (job_name, status),
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-        except Exception as exc:
-            print(f"[{job_name}] marker write failed: {exc}")
-
-    # --- Magellan URL rescue ---
-    if not _already_ran("magellan_rescue"):
-        try:
-            from fee_crawler.agents.magellan.orchestrator import rescue_batch
-            conn = await asyncpg.connect(db_url)
-            try:
-                result = await rescue_batch(conn, size=200)
-                print(f"magellan_rescue: {result.to_dict() if hasattr(result, 'to_dict') else result}")
-            finally:
-                await conn.close()
-            _mark_ran("magellan_rescue", "ok")
-        except Exception as exc:
-            print(f"magellan_rescue failed (non-fatal): {exc}")
-            _mark_ran("magellan_rescue", "failed")
-
-    # --- Knox adversarial review ---
-    if not _already_ran("knox_review"):
-        try:
-            from fee_crawler.agents.knox.orchestrator import review_batch
-            result = await review_batch(limit=500)
-            print(f"knox_review: {result.to_dict()}")
-            _mark_ran("knox_review", "ok")
-        except Exception as exc:
-            print(f"knox_review failed (non-fatal): {exc}")
-            _mark_ran("knox_review", "failed")
-
-    # --- Darwin drain (Roadmap #3) ---
-    # Classifies fees_raw → fees_verified in up to 5 consecutive 500-row
-    # batches (~2,500 rows/day), draining the ~102K backlog in ~41 days.
-    # Runs BEFORE the 06:00 daily_pipeline so newly-classified fees land in
-    # fees_verified in time for publish-fees to drain them through to
-    # fees_published in the same UTC day. Kept in the 05:00 window on
-    # purpose: no new cron slot.
-    #
-    # Circuit breakers (added per 2026-04-19 code review MAJOR-4):
-    # - Per-batch cost accumulator; halts if a single run crosses
-    #   DARWIN_DAILY_COST_LIMIT_USD (default $20).
-    # - Per-batch failure counter; halts after 2 consecutive errors rather
-    #   than marching through all 5 and burning budget on malformed output.
-    # - Failed runs record status='failed' AND halt_reason so ops can see
-    #   whether tomorrow's run should reset or hold.
-    DARWIN_DAILY_COST_LIMIT_USD = float(
-        os.environ.get("DARWIN_DAILY_COST_LIMIT_USD", "20")
-    )
-    DARWIN_MAX_CONSECUTIVE_FAILURES = 2
-    if not _already_ran("darwin_drain"):
-        from fee_crawler.agents.darwin import classify_batch
-
-        total_classified = 0
-        total_cost_usd = 0.0
-        consecutive_failures = 0
-        halt_reason: str | None = None
-
-        conn = None
-        try:
-            conn = await asyncpg.connect(db_url)
-            for i in range(5):
-                try:
-                    result = await classify_batch(conn, size=500)
-                except Exception as batch_exc:
-                    consecutive_failures += 1
-                    print(
-                        f"darwin_drain batch {i+1}/5 FAILED (#{consecutive_failures}): "
-                        f"{batch_exc!r}"
-                    )
-                    if consecutive_failures >= DARWIN_MAX_CONSECUTIVE_FAILURES:
-                        halt_reason = (
-                            f"halt: {consecutive_failures} consecutive batch failures"
-                        )
-                        print(f"darwin_drain {halt_reason}")
-                        break
-                    continue
-
-                consecutive_failures = 0
-                summary = result.to_dict()
-                print(f"darwin_drain batch {i+1}/5: {summary}")
-                classified = int(summary.get("classified", 0) or 0)
-                batch_cost = float(summary.get("cost_usd", 0) or 0)
-                total_classified += classified
-                total_cost_usd += batch_cost
-
-                if classified == 0:
-                    halt_reason = f"backlog exhausted after {i+1} batch(es)"
-                    print(f"darwin_drain: {halt_reason}")
-                    break
-                if total_cost_usd >= DARWIN_DAILY_COST_LIMIT_USD:
-                    halt_reason = (
-                        f"halt: cost ${total_cost_usd:.4f} crossed "
-                        f"${DARWIN_DAILY_COST_LIMIT_USD:.2f} daily limit"
-                    )
-                    print(f"darwin_drain {halt_reason}")
-                    break
-
-            print(
-                f"darwin_drain total: {total_classified} rows classified, "
-                f"${total_cost_usd:.4f} spent"
-            )
-            status = "failed" if consecutive_failures >= DARWIN_MAX_CONSECUTIVE_FAILURES else "ok"
-            _mark_ran("darwin_drain", status)
-        except Exception as exc:
-            # Fatal (outside the per-batch try). Re-raise is too disruptive
-            # for the shared dispatcher, but surface loudly and mark failed.
-            print(f"darwin_drain FATAL: {exc!r}")
-            _mark_ran("darwin_drain", "failed")
-        finally:
-            if conn is not None:
-                await conn.close()
-
-
 @app.function(
     schedule=modal.Cron("0 10 * * *"),
     timeout=7200,
@@ -733,9 +416,11 @@ async def generate_report(request: dict) -> dict:
 def run_monthly_pulse():
     """Manual-only trigger for the monthly pulse report.
 
-    NOT scheduled. Modal free tier is capped at 5 cron jobs and all five
-    slots are taken by run_discovery, run_pdf_extraction, run_browser_extraction,
-    run_post_processing, and ingest_data. Invoke this function manually:
+    NOT scheduled. The legacy crawl crons (run_discovery / run_pdf_extraction /
+    run_browser_extraction / run_post_processing) were removed in the ingestion-
+    engine cutover — the crawl pipeline now lives in modal_app_engine.py
+    (pump/supervise/national). This file retains report + ingest endpoints only.
+    Invoke this function manually:
 
         modal run fee_crawler/modal_app.py::run_monthly_pulse
 
@@ -816,36 +501,12 @@ async def darwin_nightly_drain():
     timeout=600,
     min_containers=1,  # avoid cold-start on UI clicks
 )
-@modal.asgi_app()
-def darwin_api():
-    """Serve FastAPI sidecar as a Modal web endpoint."""
-    from fee_crawler.darwin_api import app as fastapi_app
-
-    return fastapi_app
-
-
-# ----------------------------------------------------------------------
-# Magellan v1 — coverage rescue web endpoint
-# ----------------------------------------------------------------------
-
 @app.function(
     image=image,
     secrets=secrets,
     timeout=600,
     min_containers=1,
 )
-@modal.asgi_app()
-def magellan_api():
-    """Serve Magellan FastAPI sidecar as a Modal web endpoint."""
-    from fee_crawler.magellan_api import app as fastapi_app
-    return fastapi_app
-
-
-# ----------------------------------------------------------------------
-# Ops generic runner — invoked from Next.js /admin/ops buttons.
-# Replaces the old child_process.spawn path that can't run on Vercel.
-# ----------------------------------------------------------------------
-
 @app.function(
     image=image,
     secrets=secrets,

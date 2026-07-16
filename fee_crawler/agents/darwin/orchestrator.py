@@ -9,7 +9,7 @@ from typing import Awaitable, Callable, Optional
 
 import asyncpg
 
-from fee_crawler.agents.darwin.circuit import CircuitBreaker
+from fee_crawler.agents._common.circuit import CircuitBreaker
 from fee_crawler.agents.darwin.classifier import (
     build_prompt,
     classify_names_with_retry,

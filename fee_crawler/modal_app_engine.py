@@ -53,11 +53,14 @@ async def _pool():
 
 @app.function(secrets=secrets, timeout=120, max_containers=64)
 async def drain_queue(queue: str, shard: int = 0) -> int:
-    """Drain one queue for ~50s. Spawned by the pump; Modal autoscales copies."""
+    """Drain one queue for ~50s as its persona (Magellan/Rosetta/Knox/Darwin).
+    Spawned by the pump; Modal autoscales copies."""
+    from fee_crawler.engine.personas import persona_for
     from fee_crawler.engine.run_worker import drain
 
     pool = await _pool()
-    return await drain(pool, queue, worker_id=f"modal-{queue}-{shard}", max_seconds=50.0)
+    persona = persona_for(queue).name
+    return await drain(pool, queue, worker_id=f"{persona}-{shard}", max_seconds=50.0)
 
 
 # --- pump: reaper + depth-proportional fan-out ------------------------------

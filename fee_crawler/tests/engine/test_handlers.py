@@ -14,10 +14,10 @@ import pytest
 
 from fee_crawler.engine import queue as q
 from fee_crawler.engine.adapters import FeeCandidate, FetchOutcome, ReadOutcome
-from fee_crawler.engine.handlers.extract import ExtractHandler
-from fee_crawler.engine.handlers.fetch import FetchHandler
-from fee_crawler.engine.handlers.read import ReadHandler
-from fee_crawler.engine.handlers.verify import VerifyHandler, rule_flags
+from fee_crawler.engine.handlers.extract import Knox
+from fee_crawler.engine.handlers.fetch import Magellan
+from fee_crawler.engine.handlers.read import Rosetta
+from fee_crawler.engine.handlers.verify import Darwin, rule_flags
 from fee_crawler.engine.worker import run_once
 
 pytestmark = pytest.mark.asyncio
@@ -104,7 +104,7 @@ async def test_fetch_changed_enqueues_read(pool):
                                        http_status=200, render_mode="http", doc_type="pdf"))
     async with pool.acquire() as conn:
         await q.enqueue(conn, "fetch", f"target:{tid}", payload={"url": "http://x/f.pdf"}, state_code="IA")
-    handler = FetchHandler(fetcher, store)
+    handler = Magellan(fetcher, store)
     assert await run_once(pool, handler, "w") is True
 
     # a read job now exists; document + r2 object stored; failure streak reset
@@ -122,7 +122,7 @@ async def test_fetch_unchanged_gates_no_read(pool):
     store = FakeStore()
     fetcher = FakeFetcher(FetchOutcome(ok=True, raw_bytes=b"pdf", text="Monthly Fee $5",
                                        http_status=200, render_mode="http", doc_type="pdf"))
-    handler = FetchHandler(fetcher, store)
+    handler = Magellan(fetcher, store)
     # first fetch -> changed -> read job
     async with pool.acquire() as conn:
         await q.enqueue(conn, "fetch", f"target:{tid}", payload={"url": "u"}, state_code="IA")
@@ -140,7 +140,7 @@ async def test_fetch_dead_url_escalates_then_gives_up(pool):
     tid = await _mk_target(pool)
     store = FakeStore()
     fetcher = FakeFetcher(FetchOutcome(ok=False, dead=True, error="404"))
-    handler = FetchHandler(fetcher, store)
+    handler = Magellan(fetcher, store)
     async with pool.acquire() as conn:
         await q.enqueue(conn, "fetch", f"target:{tid}", payload={"url": "u"}, state_code="IA")
     await run_once(pool, handler, "w")
@@ -177,7 +177,7 @@ async def test_read_enqueues_extract(pool):
     async with pool.acquire() as conn:
         await q.enqueue(conn, "read", f"doc:{cap.document_id}",
                         payload={"r2_key": cap.r2_key, "doc_type": "pdf"}, state_code="IA")
-    await run_once(pool, ReadHandler(store, reader), "w")
+    await run_once(pool, Rosetta(store, reader), "w")
     assert await q.queue_depth(pool, "extract") == 1
 
 
@@ -189,7 +189,7 @@ async def test_read_ocr_marks_hint(pool):
     async with pool.acquire() as conn:
         await q.enqueue(conn, "read", f"doc:{cap.document_id}",
                         payload={"r2_key": cap.r2_key, "doc_type": "pdf"}, state_code="IA")
-    await run_once(pool, ReadHandler(store, reader), "w")
+    await run_once(pool, Rosetta(store, reader), "w")
     async with pool.acquire() as conn:
         needs_ocr = await conn.fetchval(
             "SELECT needs_ocr FROM institution_hints WHERE crawl_target_id=$1", tid
@@ -205,7 +205,7 @@ async def test_read_empty_region_is_terminal(pool):
     async with pool.acquire() as conn:
         await q.enqueue(conn, "read", f"doc:{cap.document_id}",
                         payload={"r2_key": cap.r2_key, "doc_type": "pdf"}, state_code="IA")
-    await run_once(pool, ReadHandler(store, reader), "w")
+    await run_once(pool, Rosetta(store, reader), "w")
     assert await q.queue_depth(pool, "extract") == 0
 
 
@@ -221,7 +221,7 @@ async def test_extract_writes_provenance_and_chains_verify(pool):
     async with pool.acquire() as conn:
         await q.enqueue(conn, "extract", f"doc:{cap.document_id}",
                         payload={"region": "Monthly Fee Wire Fee", "region_start": 100}, state_code="IA")
-    await run_once(pool, ExtractHandler(FakeExtractor(fees)), "w")
+    await run_once(pool, Knox(FakeExtractor(fees)), "w")
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -239,7 +239,7 @@ async def test_extract_is_idempotent(pool):
     tid = await _mk_target(pool)
     cap = await _mk_doc(pool, tid)
     fees = [FeeCandidate("Monthly Fee", 5.0, "monthly", None, 0.95)]
-    handler = ExtractHandler(FakeExtractor(fees))
+    handler = Knox(FakeExtractor(fees))
     for _ in range(2):
         async with pool.acquire() as conn:
             await q.enqueue(conn, "extract", f"doc:{cap.document_id}",
@@ -277,7 +277,7 @@ async def test_verify_promotes_clean_flags_dirty(pool):
     await _seed_raw(pool, tid, "Fuzzy Fee", 5.0, 0.20)       # low conf -> flag
 
     promoter = FakePromoter()
-    handler = VerifyHandler(FakeClassifier("monthly_maintenance"), promoter)
+    handler = Darwin(FakeClassifier("monthly_maintenance"), promoter)
     async with pool.acquire() as conn:
         await q.enqueue(conn, "verify", f"doc:1", payload={"event_id": ev}, state_code="IA")
     await run_once(pool, handler, "w")
@@ -292,7 +292,7 @@ async def test_verify_flags_unclassified(pool):
     ev = "11111111-1111-4111-8111-111111111111"
     await _seed_raw(pool, tid, "Monthly Fee", 5.0, 0.95)
     promoter = FakePromoter()
-    handler = VerifyHandler(FakeClassifier(None), promoter)  # classifier can't map it
+    handler = Darwin(FakeClassifier(None), promoter)  # classifier can't map it
     async with pool.acquire() as conn:
         await q.enqueue(conn, "verify", "doc:1", payload={"event_id": ev}, state_code="IA")
     await run_once(pool, handler, "w")

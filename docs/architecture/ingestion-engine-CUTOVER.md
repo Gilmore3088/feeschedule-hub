@@ -23,20 +23,22 @@ Execute top-to-bottom **after** the shadow run in §Shadow below passes.
 - [ ] Repoint the app's published reads to `fees_published_current` (view over the
       active batch). This is the go-live switch; rollback = repoint back.
 
-## Retire legacy Modal (replaces the every-minute multiplexer)
-- [ ] Remove the `run_post_processing` (`* * * * *`) function and its 05:00/06:00
-      time-window blocks from `fee_crawler/modal_app.py`.
-- [ ] Remove `run_discovery`, `run_pdf_extraction`, `run_browser_extraction`,
-      `ingest_data` **crawl** crons once `pump`/`supervise` cover them (keep the
-      FDIC/NCUA/CFPB **ingest** crons — those feed `crawl_targets`, still needed).
-- [ ] Delete the FastAPI sidecars `fee_crawler/darwin_api.py`,
-      `fee_crawler/magellan_api.py` and their `modal.asgi_app()` registrations in
-      `modal_app.py`. (Also closes the unauthenticated-endpoint finding from the
-      operational audit.) Delete `tests/test_darwin_api.py`, `tests/test_magellan_api.py`.
+## Retire legacy Modal (replaces the every-minute multiplexer) — DONE
+- [x] Removed the `run_post_processing` (`* * * * *`) multiplexer and its
+      05:00/06:00 time-window block (`_run_0500_jobs`) from `modal_app.py`.
+- [x] Removed `run_discovery`, `run_pdf_extraction`, `run_browser_extraction`
+      crawl crons (the `pump`/`supervise` crons in `modal_app_engine.py` cover
+      them). Kept the FDIC/NCUA/CFPB `ingest_data` cron (feeds `crawl_targets`).
+- [x] Deleted the FastAPI sidecars `fee_crawler/darwin_api.py`,
+      `fee_crawler/magellan_api.py`, their `modal.asgi_app()` registrations, and
+      `tests/test_darwin_api.py` / `tests/test_magellan_api.py`. (Closes the
+      unauthenticated-endpoint finding from the operational audit.)
 
 ## Collapse duplicate agent/extraction code
-- [ ] Point Darwin's orchestrator at `agents/_common/circuit.py`; delete the
-      divergent `agents/darwin/circuit.py`.
+- [x] Pointed Darwin's orchestrator + `test_darwin_unit` at
+      `agents/_common/circuit.py`; deleted the divergent `agents/darwin/circuit.py`.
+- [x] Ported Darwin's classifier brain into `engine/classifier.py` (verify is now
+      self-sufficient — no legacy dispatch needed).
 - [ ] Refactor Darwin classify + Knox review to run behind the `verify` queue
       handler (a real `Classifier`/second-pass); delete their standalone
       dispatch paths once the verify worker covers them.

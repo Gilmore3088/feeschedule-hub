@@ -47,7 +47,7 @@ def rule_flags(fee: dict, *, conf_threshold: float = _DEFAULT_CONF_THRESHOLD) ->
     return flags
 
 
-class VerifyHandler:
+class Darwin:
     queue = "verify"
 
     def __init__(self, classifier: Classifier, promoter: Promoter, *, conf_threshold: float = _DEFAULT_CONF_THRESHOLD):
@@ -89,3 +89,6 @@ class VerifyHandler:
                         promoted += 1
 
         return HandlerResult(result={"promoted": promoted, "flagged": flagged})
+
+# Back-compat alias (persona rename).
+VerifyHandler = Darwin

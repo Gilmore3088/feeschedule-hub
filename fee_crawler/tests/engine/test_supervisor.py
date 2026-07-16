@@ -14,10 +14,10 @@ from fee_crawler.engine import knowledge as kn
 from fee_crawler.engine import queue as q
 from fee_crawler.engine import supervisor as sup
 from fee_crawler.engine.adapters import FeeCandidate, FetchOutcome, ReadOutcome
-from fee_crawler.engine.handlers.extract import ExtractHandler
-from fee_crawler.engine.handlers.fetch import FetchHandler
-from fee_crawler.engine.handlers.read import ReadHandler
-from fee_crawler.engine.handlers.verify import VerifyHandler
+from fee_crawler.engine.handlers.extract import Knox
+from fee_crawler.engine.handlers.fetch import Magellan
+from fee_crawler.engine.handlers.read import Rosetta
+from fee_crawler.engine.handlers.verify import Darwin
 from fee_crawler.engine.promoter import FeesVerifiedPromoter
 from fee_crawler.engine.worker import run_once
 
@@ -68,14 +68,14 @@ async def test_known_hint_url_overrides_missing_target_url(pool):
 def _fleet(pool):
     """Handlers with fakes that always succeed with one fee."""
     store = _FakeStore()
-    fetch = FetchHandler(
+    fetch = Magellan(
         _FakeFetcher(FetchOutcome(ok=True, raw_bytes=b"pdf", text="Fee Schedule\nMonthly Fee $5",
                                   http_status=200, render_mode="http", doc_type="pdf")),
         store,
     )
-    read = ReadHandler(store, _FakeReader(ReadOutcome(text="Fee Schedule\nMonthly Fee $5", region_end=27)))
-    extract = ExtractHandler(_FakeExtractor([FeeCandidate("Monthly Fee", 5.0, "monthly", None, 0.95)]))
-    verify = VerifyHandler(_FakeClassifier("monthly_maintenance"), FeesVerifiedPromoter())
+    read = Rosetta(store, _FakeReader(ReadOutcome(text="Fee Schedule\nMonthly Fee $5", region_end=27)))
+    extract = Knox(_FakeExtractor([FeeCandidate("Monthly Fee", 5.0, "monthly", None, 0.95)]))
+    verify = Darwin(_FakeClassifier("monthly_maintenance"), FeesVerifiedPromoter())
     return {"fetch": fetch, "read": read, "extract": extract, "verify": verify}
 
 

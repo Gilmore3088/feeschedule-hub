@@ -9,6 +9,24 @@
 
 ---
 
+## 0. The cast (personified agents)
+
+Continuing the existing Darwin / Knox / Magellan naming, every worker and
+orchestrator has a persona — its identity in logs, worker ids, and dashboards.
+
+| Persona | Role | Queue |
+|---|---|---|
+| **Magellan** — the Navigator | Fetches each institution's document; http→browser escalation + dead-URL rescue | `fetch` |
+| **Rosetta** — the Decipherer | Raw bytes → clean text; text-extract→OCR escalation | `read` |
+| **Knox** — the Extractor | Pulls structured fees from text into `fees_raw` | `extract` |
+| **Darwin** — the Verifier | Classifies to the canonical taxonomy + rules/review gate → `fees_verified` | `verify` |
+| **Steward** — the Keeper | One per state; owns its work-list and accumulates local knowledge that compounds each cycle | — |
+| **Atlas** — the Cartographer | Assembles all states' verified fees into the national index and publishes atomically | — |
+
+Defined in `fee_crawler/engine/personas.py`. The four queue personas are the
+handler classes (`engine/handlers/*`); Steward is the supervisor, Atlas the
+roll-up.
+
 ## 1. Mental model
 
 Two kinds of "agent", deliberately separated:

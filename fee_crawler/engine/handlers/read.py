@@ -15,7 +15,7 @@ from ..adapters import ObjectStore, Reader
 from ..worker import EnqueueSpec, HandlerResult, PermanentError
 
 
-class ReadHandler:
+class Rosetta:
     queue = "read"
 
     def __init__(self, store: ObjectStore, reader: Reader):
@@ -76,3 +76,6 @@ async def _mark_needs_ocr(pool: asyncpg.Pool, document_id: int) -> None:
             """,
             target_id,
         )
+
+# Back-compat alias (persona rename).
+ReadHandler = Rosetta

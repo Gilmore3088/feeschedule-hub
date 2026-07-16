@@ -23,7 +23,7 @@ from ..worker import EnqueueSpec, HandlerResult, PermanentError
 _NS = uuid.UUID("5f3d1b64-0000-4000-8000-000000000001")
 
 
-class ExtractHandler:
+class Knox:
     queue = "extract"
 
     def __init__(self, extractor: Extractor):
@@ -117,3 +117,6 @@ async def _aliases(pool: asyncpg.Pool, target_id: int) -> dict:
     if not raw:
         return {}
     return raw if isinstance(raw, dict) else json.loads(raw)
+
+# Back-compat alias (persona rename).
+ExtractHandler = Knox
