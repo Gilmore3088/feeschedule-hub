@@ -167,23 +167,45 @@ async def reject_batch(pool: asyncpg.Pool, batch_id: int, reasons: list[str]) ->
 
 
 async def run_national_rollup(
-    pool: asyncpg.Pool, *, revalidate: Optional["RevalidateFn"] = None
+    pool: asyncpg.Pool,
+    *,
+    revalidate: Optional["RevalidateFn"] = None,
+    enforce_golden: bool = True,
+    alerter=None,
 ) -> dict:
-    """Full roll-up: build -> validate -> (publish | reject). Returns a summary.
+    """Full roll-up: build -> validate -> golden gate -> (publish | reject).
 
     On success optionally calls `revalidate` (e.g. the app's ISR revalidation)
-    AFTER the swap commits, so the site only rebuilds against the live batch.
+    AFTER the swap commits, so the site only rebuilds against the live batch. A
+    validation or golden-set failure rejects the batch, alerts, and leaves the
+    live snapshot untouched.
     """
     from .runs import run_scope
+
+    async def _fail(batch_id, reasons, run):
+        await reject_batch(pool, batch_id, reasons)
+        run.add_stats(published=0, rejected=1)
+        if alerter is not None:
+            await alerter.alert("[engine] national roll-up rejected", "\n".join(reasons))
+        return {"batch_id": batch_id, "published": False, "reasons": reasons}
 
     async with run_scope(pool, "national") as run:
         batch_id = await build_staging(pool)
         result = await validate_batch(pool, batch_id)
         run.add_stats(batch_id=batch_id, staging_rows=result.staging_rows)
         if not result.ok:
-            await reject_batch(pool, batch_id, result.reasons)
-            run.add_stats(published=0, rejected=1)
-            return {"batch_id": batch_id, "published": False, "reasons": result.reasons}
+            return await _fail(batch_id, result.reasons, run)
+
+        if enforce_golden:
+            from .golden import golden_regressions
+
+            regressions = await golden_regressions(pool)
+            if regressions:
+                reasons = [f"golden regression: target {d.crawl_target_id} "
+                           f"missing={d.missing} wrong={d.wrong_amount} extra={d.unexpected}"
+                           for d in regressions]
+                return await _fail(batch_id, reasons, run)
+
         await publish_batch(pool, batch_id)
         run.add_stats(published=1)
     if revalidate is not None:

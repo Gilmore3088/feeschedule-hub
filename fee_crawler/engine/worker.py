@@ -65,9 +65,16 @@ async def _heartbeat_loop(pool: asyncpg.Pool, job_id: int, interval: float = 30.
         pass
 
 
-async def run_once(pool: asyncpg.Pool, handler: Handler, worker_id: str) -> bool:
+async def run_once(
+    pool: asyncpg.Pool,
+    handler: Handler,
+    worker_id: str,
+    *,
+    alerter: Optional["Any"] = None,
+) -> bool:
     """Claim and process one job. Returns True if a job was processed, False if
-    the queue was empty."""
+    the queue was empty. If a job exhausts retries and goes `dead`, fire an alert
+    (loud failure, never silent)."""
     job = await q.claim_job(pool, handler.queue, worker_id)
     if job is None:
         return False
@@ -92,15 +99,27 @@ async def run_once(pool: asyncpg.Pool, handler: Handler, worker_id: str) -> bool
                     )
         return True
     except PermanentError as exc:
-        await q.fail_job(pool, job["id"], str(exc), retryable=False)
+        status = await q.fail_job(pool, job["id"], str(exc), retryable=False)
+        await _maybe_alert(alerter, status, job, str(exc))
         return True
     except Exception as exc:  # RetryableError and anything unexpected
-        await q.fail_job(pool, job["id"], str(exc), retryable=True)
+        status = await q.fail_job(pool, job["id"], str(exc), retryable=True)
+        await _maybe_alert(alerter, status, job, str(exc))
         return True
     finally:
         hb.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await hb
+
+
+async def _maybe_alert(alerter, status: str, job, error: str) -> None:
+    if alerter is not None and status == q.DEAD:
+        from .alerting import alert_dead_job
+
+        try:
+            await alert_dead_job(alerter, job, error)
+        except Exception:  # never let alerting mask the failure
+            pass
 
 
 async def run_forever(
@@ -111,6 +130,7 @@ async def run_forever(
     should_stop: Optional[Callable[[], bool]] = None,
     idle_sleep: float = 2.0,
     wake: Optional[Callable[[], Awaitable[None]]] = None,
+    alerter: Optional["Any"] = None,
 ) -> None:
     """Drain the queue continuously.
 
@@ -120,7 +140,7 @@ async def run_forever(
     colliding.
     """
     while should_stop is None or not should_stop():
-        processed = await run_once(pool, handler, worker_id)
+        processed = await run_once(pool, handler, worker_id, alerter=alerter)
         if not processed:
             if wake is not None:
                 try:
