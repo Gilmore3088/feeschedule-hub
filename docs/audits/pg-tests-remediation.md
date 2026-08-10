@@ -36,17 +36,34 @@ adds the engine suite (+65 passing) on top.
 
 ## Remaining ~18 — each needs an owner decision, NOT a blind fix
 
-### A. `user_id` type contract — schema drift (blocks ~8: `test_tools_hamilton`, `test_tools_peer_research`, and most Hamilton recipes in `test_sc2`)
-The **tool layer treats `user_id` as a string** (`schemas/hamilton.py`:
-`user_id: str`; tools compare `str(owner) != inp.user_id`) and the tests pass
-`"user_test_1"`. The **migrated schema** makes those columns `INTEGER`/`BIGINT`
-(FK to `users.id`) — and `report_jobs.user_id` is declared as **both** `uuid`
-(hamilton_schema mirror) **and** `integer` (a later `ALTER`). These genuinely
-disagree.
-**Decision needed:** what is the canonical `user_id` type? If **text**, the
-migrations that made it integer/uuid are the bug (fix schema). If **integer**,
-the tool `schemas/*` and every string-user_id test are the bug (fix tools+tests
-and seed `users` rows). Do not guess — it changes production tool behavior.
+### A. `user_id` type — RESOLVED as integer; fix is mechanical but security-sensitive (blocks ~8: `test_tools_hamilton`, `test_tools_peer_research`, and most Hamilton recipes in `test_sc2`)
+The canonical type is **integer**, per the production source of truth — the
+TypeScript DDL that actually creates these tables: `src/lib/hamilton/chat-memory.ts`
+and `src/lib/hamilton/pro-tables.ts` both declare `user_id INTEGER NOT NULL`,
+and the TS queries pass a numeric `userId`. So the **Python agent tools are the
+drift**: `fee_crawler/agent_tools/schemas/hamilton.py` (and `peer_research.py`)
+declare `user_id: str`, and the tests pass non-numeric strings (`"user_test_1"`)
+that can never satisfy an integer FK to `users(id)`.
+
+**The fix (determinate, but do it deliberately — it is user-scoped access
+control):**
+1. `schemas/hamilton.py` / `schemas/peer_research.py`: `user_id: str` →
+   `user_id: int` (every occurrence).
+2. Tool bodies: the ownership guards `if str(owner) != inp.user_id: raise
+   PermissionError` become integer comparisons (`owner != inp.user_id`). **Review
+   each of these carefully — they are the cross-user access checks.**
+3. Regenerate `src/lib/agent-tools/types.generated.ts`
+   (`bash scripts/codegen.sh agent-tool-types`) and commit; the drift guard will
+   otherwise fail. This changes the agent→frontend contract (`user_id` becomes a
+   number) — confirm frontend callers already pass numbers (they do in the TS).
+4. Tests: replace string user_ids with integers and seed a `users` row per test.
+5. Also resolve the `report_jobs.user_id` conflict (declared `uuid` in the
+   hamilton_schema mirror but `integer` via a later `ALTER`) — pick integer to
+   match the rest.
+
+This was NOT force-changed in this session because it edits security-sensitive
+user-scoping logic and the agent/frontend type contract — it deserves a review,
+not a CI-driven auto-push.
 
 ### B. `test_sc2_every_tool_writes_auth_log` — 17 tool recipes
 Beyond the `user_id` ones, several tools insert rows missing NOT-NULL columns
