@@ -1,10 +1,10 @@
-"""pipeline_runs — try/finally run tracking.
+"""engine_runs — try/finally run tracking.
 
 Every supervisor cycle, worker-pool session, and national roll-up opens a
-`pipeline_runs` row on start and ALWAYS closes it (completed/failed) on exit,
+`engine_runs` row on start and ALWAYS closes it (completed/failed) on exit,
 even on exception. A reaper fails rows stuck `running` past a timeout. This is
 the structural fix for the audit's silent-cron / orphaned-`running` findings:
-freshness dashboards read pipeline_runs and therefore cannot show a dead run as
+freshness dashboards read engine_runs and therefore cannot show a dead run as
 healthy.
 
 Usage:
@@ -26,7 +26,7 @@ import asyncpg
 
 
 class RunHandle:
-    """Live handle to a pipeline_runs row; accumulate stats during the run."""
+    """Live handle to a engine_runs row; accumulate stats during the run."""
 
     def __init__(self, pool: asyncpg.Pool, run_id: int):
         self._pool = pool
@@ -44,7 +44,7 @@ class RunHandle:
     async def heartbeat(self) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(
-                "UPDATE pipeline_runs SET heartbeat_at=NOW() "
+                "UPDATE engine_runs SET heartbeat_at=NOW() "
                 "WHERE id=$1 AND status='running'",
                 self.run_id,
             )
@@ -64,7 +64,7 @@ async def start_run(
     async with pool.acquire() as conn:
         run_id = await conn.fetchval(
             """
-            INSERT INTO pipeline_runs (kind, state_code, cycle, status)
+            INSERT INTO engine_runs (kind, state_code, cycle, status)
             VALUES ($1, $2, $3, 'running')
             RETURNING id
             """,
@@ -85,7 +85,7 @@ async def finish_run(
     async with pool.acquire() as conn:
         await conn.execute(
             """
-            UPDATE pipeline_runs
+            UPDATE engine_runs
                SET status=$2, stats=$3::jsonb, error=$4, finished_at=NOW()
              WHERE id=$1
             """,
@@ -125,14 +125,14 @@ async def run_scope(
 
 
 async def reap_stale_runs(pool: asyncpg.Pool, timeout_seconds: int = 7200) -> int:
-    """Fail pipeline_runs stuck `running` past timeout (worker/host died).
+    """Fail engine_runs stuck `running` past timeout (worker/host died).
     Default 2h. Returns count reaped."""
     async with pool.acquire() as conn:
         return int(
             await conn.fetchval(
                 """
                 WITH stale AS (
-                    UPDATE pipeline_runs
+                    UPDATE engine_runs
                        SET status='failed',
                            error=COALESCE(error,'') || ' [reaped: run stalled]',
                            finished_at=NOW()

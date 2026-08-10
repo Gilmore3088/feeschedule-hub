@@ -2,7 +2,7 @@
 -- Plan: docs/architecture/ingestion-engine-plan.md §4.1, §4.2, §6.3
 --
 -- Extends the existing `jobs` queue with sharding/provenance/heartbeat columns,
--- adds content-addressed `documents`, and adds `pipeline_runs` (try/finally run
+-- adds content-addressed `documents`, and adds `engine_runs` (try/finally run
 -- tracking that replaces the silent-cron crawl_runs freshness path).
 --
 -- All statements idempotent (IF NOT EXISTS) so the migration is safe to re-apply.
@@ -64,9 +64,9 @@ COMMENT ON TABLE documents IS
     'traces to one of these for full provenance.';
 
 -- ---------------------------------------------------------------------------
--- T0.5 — pipeline_runs (try/finally run tracking)
+-- T0.5 — engine_runs (try/finally run tracking)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS pipeline_runs (
+CREATE TABLE IF NOT EXISTS engine_runs (
     id             BIGSERIAL PRIMARY KEY,
     kind           TEXT        NOT NULL,   -- state | national | worker-pool
     state_code     CHAR(2),                -- NULL for national/global runs
@@ -80,13 +80,13 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     finished_at    TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS pipeline_runs_state_idx
-    ON pipeline_runs (state_code, started_at DESC);
-CREATE INDEX IF NOT EXISTS pipeline_runs_reaper_idx
-    ON pipeline_runs (heartbeat_at)
+CREATE INDEX IF NOT EXISTS engine_runs_state_idx
+    ON engine_runs (state_code, started_at DESC);
+CREATE INDEX IF NOT EXISTS engine_runs_reaper_idx
+    ON engine_runs (heartbeat_at)
     WHERE status = 'running';
 
-COMMENT ON TABLE pipeline_runs IS
+COMMENT ON TABLE engine_runs IS
     'One row per (kind, state, cycle). Written in try/finally: always transitions '
     'to completed/failed on exit. A reaper fails rows stuck running past timeout so '
     'freshness dashboards can never show a dead run as healthy.';

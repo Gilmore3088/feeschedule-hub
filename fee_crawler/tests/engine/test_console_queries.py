@@ -1,7 +1,7 @@
 """Validate the ops-console SQL (src/lib/engine-db/*) against the engine schema.
 
 The console read layer is TypeScript, but its queries are the risky part — joins
-across jobs / pipeline_runs / documents / state_run_notes / fees_* / publish_*.
+across jobs / engine_runs / documents / state_run_notes / fees_* / publish_*.
 These tests run the same SQL (params as $1) against a seeded engine schema so a
 column typo in the console fails here, not in production.
 """
@@ -26,7 +26,7 @@ async def _seed(pool):
         await conn.execute("INSERT INTO institution_hints (crawl_target_id,state_code,render_mode,known_fee_url) "
                            "VALUES ($1,'IA','http','http://x/fees')", tid)
         await conn.execute("INSERT INTO state_run_notes (state_code,run_id,discovered,extracted,failed) VALUES ('IA',1,3,8,1)")
-        await conn.execute("INSERT INTO pipeline_runs (kind,state_code,cycle,status,finished_at) VALUES ('state','IA',1,'completed',NOW())")
+        await conn.execute("INSERT INTO engine_runs (kind,state_code,cycle,status,finished_at) VALUES ('state','IA',1,'completed',NOW())")
         doc = await conn.fetchval(
             "INSERT INTO documents (crawl_target_id,state_code,source_url,content_sha256,raw_sha256,r2_key,render_mode,doc_type) "
             "VALUES ($1,'IA','http://x/fees','c1','r1','documents/r1','http','html') RETURNING id", tid)
@@ -67,7 +67,7 @@ async def test_runs_query(pool):
         rows = await conn.fetch("""
             SELECT id, kind, state_code, cycle, status, stats, error, started_at, finished_at,
                    EXTRACT(EPOCH FROM (COALESCE(finished_at, NOW()) - started_at)) AS dur
-              FROM pipeline_runs ORDER BY started_at DESC LIMIT 40""")
+              FROM engine_runs ORDER BY started_at DESC LIMIT 40""")
     assert rows[0]["status"] == "completed"
     assert rows[0]["dur"] is not None
 

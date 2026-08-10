@@ -1,4 +1,4 @@
-"""Phase 0 — change-gate documents + pipeline_runs try/finally."""
+"""Phase 0 — change-gate documents + engine_runs try/finally."""
 
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ async def test_real_change_records_new_row(pool):
     assert count == 2
 
 
-# ---- pipeline_runs try/finally --------------------------------------------
+# ---- engine_runs try/finally --------------------------------------------
 
 async def test_run_scope_completes_on_success(pool):
     async with runs.run_scope(pool, "state", state_code="IA", cycle=1) as run:
@@ -104,7 +104,7 @@ async def test_run_scope_completes_on_success(pool):
         run.add_stats(extracted=5)  # accumulates
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT status, stats FROM pipeline_runs WHERE id=$1", run.run_id
+            "SELECT status, stats FROM engine_runs WHERE id=$1", run.run_id
         )
     assert row["status"] == "completed"
     assert row["stats"]["extracted"] == 15
@@ -118,7 +118,7 @@ async def test_run_scope_fails_and_reraises_on_exception(pool):
             raise RuntimeError("kaboom")
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT status, error FROM pipeline_runs WHERE id=$1", run_id_holder["id"]
+            "SELECT status, error FROM engine_runs WHERE id=$1", run_id_holder["id"]
         )
     assert row["status"] == "failed"          # ALWAYS terminal, never stuck running
     assert "kaboom" in row["error"]
@@ -128,11 +128,11 @@ async def test_reap_stale_run(pool):
     run = await runs.start_run(pool, "state", state_code="IA")
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE pipeline_runs SET heartbeat_at = NOW() - INTERVAL '3 hours' WHERE id=$1",
+            "UPDATE engine_runs SET heartbeat_at = NOW() - INTERVAL '3 hours' WHERE id=$1",
             run.run_id,
         )
     reaped = await runs.reap_stale_runs(pool, timeout_seconds=7200)
     assert reaped == 1
     async with pool.acquire() as conn:
-        status = await conn.fetchval("SELECT status FROM pipeline_runs WHERE id=$1", run.run_id)
+        status = await conn.fetchval("SELECT status FROM engine_runs WHERE id=$1", run.run_id)
     assert status == "failed"

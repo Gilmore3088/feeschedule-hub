@@ -9,7 +9,7 @@ Cycle (plan §6.2):
 
 `select_work` uses hints to route: a target with a known fee URL goes straight
 to `fetch`; one without goes to `resolve` first. Failing targets over the cap
-are skipped this cycle. The whole cycle runs inside a pipeline_runs scope so it
+are skipped this cycle. The whole cycle runs inside a engine_runs scope so it
 always closes terminal (completed/failed), never silently stuck.
 """
 

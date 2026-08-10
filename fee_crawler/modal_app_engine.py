@@ -17,7 +17,7 @@ Replaces the every-minute `run_post_processing` scheduler-within-a-scheduler
                     warrants, so idle queues cost nothing and busy ones scale out.
 
 This is queue-driven and self-throttling: no time-window multiplexing, no
-silent crons (every run is a pipeline_runs row), loud alerting on dead jobs.
+silent crons (every run is a engine_runs row), loud alerting on dead jobs.
 """
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ async def supervise() -> dict:
     dispatched = {}
     async with pool.acquire() as conn:
         prev = await conn.fetch(
-            "SELECT state_code, cycle FROM pipeline_runs "
+            "SELECT state_code, cycle FROM engine_runs "
             "WHERE kind='state' AND status='completed' AND cycle < $1",
             cycle,
         )
@@ -110,7 +110,7 @@ async def supervise() -> dict:
         try:
             async with pool.acquire() as conn:
                 run_id = await conn.fetchval(
-                    "SELECT id FROM pipeline_runs WHERE kind='state' AND state_code=$1 "
+                    "SELECT id FROM engine_runs WHERE kind='state' AND state_code=$1 "
                     "AND cycle=$2 ORDER BY id DESC LIMIT 1",
                     state, prev_cycle,
                 )

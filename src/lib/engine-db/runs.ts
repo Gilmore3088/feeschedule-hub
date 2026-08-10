@@ -1,5 +1,5 @@
 /**
- * Run timeline — from `pipeline_runs` (always terminal; never the orphaned
+ * Run timeline — from `engine_runs` (always terminal; never the orphaned
  * `running` rows the legacy crawl_runs freshness view suffered from).
  */
 
@@ -36,7 +36,7 @@ export async function getRecentRuns(limit = 40): Promise<PipelineRun[]> {
     >`
       SELECT id, kind, state_code, cycle, status, stats, error, started_at, finished_at,
              EXTRACT(EPOCH FROM (COALESCE(finished_at, NOW()) - started_at)) AS dur
-        FROM pipeline_runs
+        FROM engine_runs
        ORDER BY started_at DESC
        LIMIT ${limit}
     `;
@@ -62,7 +62,7 @@ export async function getRecentRuns(limit = 40): Promise<PipelineRun[]> {
 export async function getStuckRunCount(thresholdSecs = 7200): Promise<number> {
   try {
     const [row] = await sql<{ n: string }[]>`
-      SELECT count(*) AS n FROM pipeline_runs
+      SELECT count(*) AS n FROM engine_runs
        WHERE status='running' AND heartbeat_at < NOW() - (${thresholdSecs} * INTERVAL '1 second')
     `;
     return Number(row?.n ?? 0);
