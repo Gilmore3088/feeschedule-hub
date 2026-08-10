@@ -27,13 +27,13 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 BACKFILL_SQL = (
-    REPO_ROOT / "supabase" / "migrations" / "20260420_backfill_fees_raw.sql"
+    REPO_ROOT / "supabase" / "migrations" / "20260424_backfill_fees_raw.sql"
 )
 FREEZE_SQL = (
     REPO_ROOT
     / "supabase"
     / "migrations"
-    / "20260420_freeze_extracted_fees_writes.sql"
+    / "20260425_freeze_extracted_fees_writes.sql"
 )
 
 
@@ -91,18 +91,23 @@ async def test_backfill_flags_lineage_missing(db_schema):
     async with pool.acquire() as conn:
         await conn.execute(CREATE_LEGACY_SURFACE)
         await conn.execute(
-            "INSERT INTO crawl_targets (institution_name) VALUES ('A'), ('B')"
+            "INSERT INTO crawl_targets (institution_name, charter_type, source) VALUES ('A','bank','test'), ('B','bank','test')"
         )
+        await conn.execute("INSERT INTO crawl_runs DEFAULT VALUES")
         await conn.execute(
-            "INSERT INTO crawl_results (crawl_target_id, document_url, document_path) "
-            "VALUES (1, 'https://a.example/fees.pdf', 's3://bucket/a.pdf'), "
-            "       (2, NULL, NULL)"
+            "INSERT INTO crawl_results (crawl_run_id, crawl_target_id, status, document_url, document_path) "
+            "VALUES (1, 1, 'ok', 'https://a.example/fees.pdf', 's3://bucket/a.pdf'), "
+            "       (1, 2, 'ok', NULL, NULL)"
         )
-        await conn.execute(
-            "INSERT INTO extracted_fees (crawl_target_id, crawl_result_id, fee_name, amount) "
-            "VALUES (1, 1, 'wire_domestic', 25.00), "
-            "       (2, 2, 'overdraft', 35.00)"
-        )
+        # extracted_fees is frozen post-v10.0; seed legacy rows via the
+        # intended kill-switch so the backfill has something to copy.
+        async with conn.transaction():
+            await conn.execute("SET LOCAL app.allow_legacy_writes = 'true'")
+            await conn.execute(
+                "INSERT INTO extracted_fees (crawl_target_id, crawl_result_id, fee_name, amount) "
+                "VALUES (1, 1, 'wire_domestic', 25.00), "
+                "       (2, 2, 'overdraft', 35.00)"
+            )
 
         # Re-run the backfill body now that legacy tables exist. The initial
         # migration run (from db_schema setup) hit the to_regclass guard and
@@ -138,18 +143,21 @@ async def test_backfill_skips_rejected(db_schema):
     async with pool.acquire() as conn:
         await conn.execute(CREATE_LEGACY_SURFACE)
         await conn.execute(
-            "INSERT INTO crawl_targets (institution_name) VALUES ('A')"
+            "INSERT INTO crawl_targets (institution_name, charter_type, source) VALUES ('A','bank','test')"
         )
+        await conn.execute("INSERT INTO crawl_runs DEFAULT VALUES")
         await conn.execute(
-            "INSERT INTO crawl_results (crawl_target_id, document_url) "
-            "VALUES (1, 'https://a.example/fees.pdf')"
+            "INSERT INTO crawl_results (crawl_run_id, crawl_target_id, status, document_url) "
+            "VALUES (1, 1, 'ok', 'https://a.example/fees.pdf')"
         )
-        await conn.execute(
-            "INSERT INTO extracted_fees "
-            "(crawl_target_id, crawl_result_id, fee_name, amount, review_status) "
-            "VALUES (1, 1, 'should_copy', 10.00, 'pending'), "
-            "       (1, 1, 'should_skip', 99.99, 'rejected')"
-        )
+        async with conn.transaction():
+            await conn.execute("SET LOCAL app.allow_legacy_writes = 'true'")
+            await conn.execute(
+                "INSERT INTO extracted_fees "
+                "(crawl_target_id, crawl_result_id, fee_name, amount, review_status) "
+                "VALUES (1, 1, 'should_copy', 10.00, 'pending'), "
+                "       (1, 1, 'should_skip', 99.99, 'rejected')"
+            )
 
         await conn.execute(BACKFILL_SQL.read_text())
 
@@ -188,6 +196,12 @@ async def test_freeze_kill_switch_permits_write(db_schema):
     _, pool = db_schema
     async with pool.acquire() as conn:
         await conn.execute(CREATE_LEGACY_SURFACE)
+        # extracted_fees.crawl_target_id FKs to crawl_targets; seed one so the
+        # kill-switch write below satisfies the constraint.
+        await conn.execute(
+            "INSERT INTO crawl_targets (institution_name, charter_type, source) "
+            "VALUES ('A','bank','test')"
+        )
         await conn.execute(FREEZE_SQL.read_text())
 
         # Inside a transaction, SET LOCAL scopes the kill-switch to the txn.
@@ -213,17 +227,20 @@ async def test_backfill_idempotent(db_schema):
     async with pool.acquire() as conn:
         await conn.execute(CREATE_LEGACY_SURFACE)
         await conn.execute(
-            "INSERT INTO crawl_targets (institution_name) VALUES ('A')"
+            "INSERT INTO crawl_targets (institution_name, charter_type, source) VALUES ('A','bank','test')"
         )
+        await conn.execute("INSERT INTO crawl_runs DEFAULT VALUES")
         await conn.execute(
-            "INSERT INTO crawl_results (crawl_target_id, document_url) "
-            "VALUES (1, 'https://a.example/fees.pdf')"
+            "INSERT INTO crawl_results (crawl_run_id, crawl_target_id, status, document_url) "
+            "VALUES (1, 1, 'ok', 'https://a.example/fees.pdf')"
         )
-        await conn.execute(
-            "INSERT INTO extracted_fees "
-            "(crawl_target_id, crawl_result_id, fee_name) "
-            "VALUES (1, 1, 'wire')"
-        )
+        async with conn.transaction():
+            await conn.execute("SET LOCAL app.allow_legacy_writes = 'true'")
+            await conn.execute(
+                "INSERT INTO extracted_fees "
+                "(crawl_target_id, crawl_result_id, fee_name) "
+                "VALUES (1, 1, 'wire')"
+            )
 
         backfill_sql = BACKFILL_SQL.read_text()
         await conn.execute(backfill_sql)
