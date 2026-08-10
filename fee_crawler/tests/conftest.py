@@ -139,19 +139,43 @@ async def db_schema() -> AsyncGenerator[tuple[str, asyncpg.Pool], None]:
                     await tx.rollback()
                     skipped.append(f"{migration.name}: {exc}")
 
-        # Finally the incremental supabase/migrations/ directory.
-        for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
-            sql = migration.read_text()
-            if not sql.strip():
-                continue
-            tx = boot.transaction()
-            await tx.start()
-            try:
-                await boot.execute(sql)
-                await tx.commit()
-            except tolerated as exc:
-                await tx.rollback()
-                skipped.append(f"{migration.name}: {exc}")
+        # Finally the incremental supabase/migrations/ directory, applied to a
+        # FIXPOINT. Some migrations ADD to (or depend on) a table that a
+        # LATER-sorted migration creates, so filename order alone can't satisfy
+        # them on the first pass — e.g. 20260419 adds fees_published.batch_id but
+        # 20260420 creates fees_published; 20260417 updates agent_registry but
+        # 20260422 creates it. Production applied these in authored (not filename)
+        # order, so the drift only shows up in this fresh-DB bootstrap. We retry
+        # any migration that fails with a tolerated (dependency-shaped) error
+        # until a full pass makes no further progress; a migration that succeeds
+        # is never re-run. Non-tolerated errors still propagate immediately.
+        pending = [
+            (m.name, sql)
+            for m in sorted(MIGRATIONS_DIR.glob("*.sql"))
+            if (sql := m.read_text()).strip()
+        ]
+        while pending:
+            still_pending: list[tuple[str, str]] = []
+            progressed = False
+            last_exc: dict[str, str] = {}
+            for name, sql in pending:
+                tx = boot.transaction()
+                await tx.start()
+                try:
+                    await boot.execute(sql)
+                    await tx.commit()
+                    progressed = True
+                except tolerated as exc:
+                    await tx.rollback()
+                    still_pending.append((name, sql))
+                    last_exc[name] = str(exc)
+            pending = still_pending
+            if not progressed:
+                # No migration advanced this pass — the rest have unmet prereqs
+                # that no migration provides. Record and stop.
+                for name, _ in pending:
+                    skipped.append(f"{name}: {last_exc.get(name, 'unmet dependency')}")
+                break
     finally:
         await boot.close()
 
