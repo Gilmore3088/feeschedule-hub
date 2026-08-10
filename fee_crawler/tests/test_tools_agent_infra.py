@@ -102,12 +102,12 @@ async def test_upsert_agent_budget_idempotent(db_schema):
         async with pool.acquire() as conn:
             count = await conn.fetchval(
                 "SELECT COUNT(*) FROM agent_budgets "
-                "WHERE agent_name='knox' AND window='per_cycle'"
+                "WHERE agent_name='knox' AND budget_window='per_cycle'"
             )
             assert count == 1, f"expected 1 row after upserts, got {count}"
             limit = await conn.fetchval(
                 "SELECT limit_cents FROM agent_budgets "
-                "WHERE agent_name='knox' AND window='per_cycle'"
+                "WHERE agent_name='knox' AND budget_window='per_cycle'"
             )
             assert limit == 75000, f"expected limit_cents=75000, got {limit}"
     finally:
@@ -154,7 +154,7 @@ async def test_upsert_agent_budget_does_not_touch_spent_cents(db_schema):
         async with pool.acquire() as conn:
             await conn.execute(
                 "UPDATE agent_budgets SET spent_cents = 2500 "
-                "WHERE agent_name = 'darwin' AND window = 'per_batch'"
+                "WHERE agent_name = 'darwin' AND budget_window = 'per_batch'"
             )
 
         with with_agent_context(agent_name="atlas"):
@@ -169,7 +169,7 @@ async def test_upsert_agent_budget_does_not_touch_spent_cents(db_schema):
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT limit_cents, spent_cents FROM agent_budgets "
-                "WHERE agent_name='darwin' AND window='per_batch'"
+                "WHERE agent_name='darwin' AND budget_window='per_batch'"
             )
             assert row["limit_cents"] == 20000
             assert row["spent_cents"] == 2500, (

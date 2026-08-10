@@ -56,8 +56,8 @@ async def test_institution_dossier_upsert_idempotent(db_schema):
             # Seed crawl_targets (FK target of institution_dossiers).
             await conn.execute(_SEED_CRAWL_TARGETS)
             await conn.execute(
-                "INSERT INTO crawl_targets (id, institution_name) "
-                "VALUES (1001, 'Test Bank') ON CONFLICT (id) DO NOTHING"
+                "INSERT INTO crawl_targets (id, institution_name, charter_type, source) "
+                "VALUES (1001, 'Test Bank', 'bank', 'test') ON CONFLICT (id) DO NOTHING"
             )
 
         # First upsert.

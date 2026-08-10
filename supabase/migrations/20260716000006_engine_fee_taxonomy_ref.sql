@@ -1,0 +1,82 @@
+-- Ingestion Engine — fee taxonomy reference table (DB home for the canonical map)
+-- Plan: docs/architecture/backend-ui-inventory.md §3 (product rewire)
+--
+-- Gives the canonical_fee_key -> (fee_family, display_name) map a queryable home,
+-- so the compat view (and eventually all SQL) can group the published tier the
+-- way the product expects WITHOUT the TS/Python hand-synced taxonomy. Seeded from
+-- src/lib/fee-taxonomy.ts FEE_FAMILIES (65 base categories).
+
+CREATE TABLE IF NOT EXISTS fee_taxonomy_ref (
+    canonical_fee_key TEXT PRIMARY KEY,
+    fee_family        TEXT NOT NULL,
+    display_name      TEXT NOT NULL
+);
+
+INSERT INTO fee_taxonomy_ref (canonical_fee_key, fee_family, display_name) VALUES
+    ('monthly_maintenance', 'Account Maintenance', 'Monthly Maintenance'),
+    ('minimum_balance', 'Account Maintenance', 'Minimum Balance'),
+    ('early_closure', 'Account Maintenance', 'Early Closure'),
+    ('dormant_account', 'Account Maintenance', 'Dormant Account'),
+    ('account_research', 'Account Maintenance', 'Account Research'),
+    ('paper_statement', 'Account Maintenance', 'Paper Statement'),
+    ('estatement_fee', 'Account Maintenance', 'Estatement Fee'),
+    ('overdraft', 'Overdraft & NSF', 'Overdraft'),
+    ('nsf', 'Overdraft & NSF', 'Nsf'),
+    ('continuous_od', 'Overdraft & NSF', 'Continuous Od'),
+    ('od_protection_transfer', 'Overdraft & NSF', 'Od Protection Transfer'),
+    ('od_line_of_credit', 'Overdraft & NSF', 'Od Line Of Credit'),
+    ('od_daily_cap', 'Overdraft & NSF', 'Od Daily Cap'),
+    ('nsf_daily_cap', 'Overdraft & NSF', 'Nsf Daily Cap'),
+    ('atm_non_network', 'ATM & Card', 'Atm Non Network'),
+    ('atm_international', 'ATM & Card', 'Atm International'),
+    ('card_replacement', 'ATM & Card', 'Card Replacement'),
+    ('rush_card', 'ATM & Card', 'Rush Card'),
+    ('card_foreign_txn', 'ATM & Card', 'Card Foreign Txn'),
+    ('card_dispute', 'ATM & Card', 'Card Dispute'),
+    ('wire_domestic_outgoing', 'Wire Transfers', 'Wire Domestic Outgoing'),
+    ('wire_domestic_incoming', 'Wire Transfers', 'Wire Domestic Incoming'),
+    ('wire_intl_outgoing', 'Wire Transfers', 'Wire Intl Outgoing'),
+    ('wire_intl_incoming', 'Wire Transfers', 'Wire Intl Incoming'),
+    ('cashiers_check', 'Check Services', 'Cashiers Check'),
+    ('money_order', 'Check Services', 'Money Order'),
+    ('check_printing', 'Check Services', 'Check Printing'),
+    ('stop_payment', 'Check Services', 'Stop Payment'),
+    ('counter_check', 'Check Services', 'Counter Check'),
+    ('check_cashing', 'Check Services', 'Check Cashing'),
+    ('check_image', 'Check Services', 'Check Image'),
+    ('ach_origination', 'Digital & Electronic', 'Ach Origination'),
+    ('ach_return', 'Digital & Electronic', 'Ach Return'),
+    ('bill_pay', 'Digital & Electronic', 'Bill Pay'),
+    ('mobile_deposit', 'Digital & Electronic', 'Mobile Deposit'),
+    ('zelle_fee', 'Digital & Electronic', 'Zelle Fee'),
+    ('coin_counting', 'Cash & Deposit', 'Coin Counting'),
+    ('cash_advance', 'Cash & Deposit', 'Cash Advance'),
+    ('deposited_item_return', 'Cash & Deposit', 'Deposited Item Return'),
+    ('night_deposit', 'Cash & Deposit', 'Night Deposit'),
+    ('notary_fee', 'Account Services', 'Notary Fee'),
+    ('safe_deposit_box', 'Account Services', 'Safe Deposit Box'),
+    ('garnishment_levy', 'Account Services', 'Garnishment Levy'),
+    ('legal_process', 'Account Services', 'Legal Process'),
+    ('account_verification', 'Account Services', 'Account Verification'),
+    ('balance_inquiry', 'Account Services', 'Balance Inquiry'),
+    ('late_payment', 'Lending Fees', 'Late Payment'),
+    ('loan_origination', 'Lending Fees', 'Loan Origination'),
+    ('appraisal_fee', 'Lending Fees', 'Appraisal Fee'),
+    ('mortgage_modification', 'Mortgage Servicing', 'Mortgage Modification'),
+    ('mortgage_payoff', 'Mortgage Servicing', 'Mortgage Payoff'),
+    ('mortgage_lien_release', 'Mortgage Servicing', 'Mortgage Lien Release'),
+    ('refinance_fee', 'Mortgage Servicing', 'Refinance Fee'),
+    ('reconveyance', 'Mortgage Servicing', 'Reconveyance'),
+    ('ira_administration', 'Retirement & IRA', 'Ira Administration'),
+    ('ira_termination', 'Retirement & IRA', 'Ira Termination'),
+    ('ira_distribution', 'Retirement & IRA', 'Ira Distribution'),
+    ('vehicle_title', 'Vehicle & Title', 'Vehicle Title'),
+    ('duplicate_title', 'Vehicle & Title', 'Duplicate Title'),
+    ('dmv_filing', 'Vehicle & Title', 'Dmv Filing'),
+    ('gift_card_purchase', 'Gift & Prepaid Cards', 'Gift Card Purchase'),
+    ('prepaid_card_reload', 'Gift & Prepaid Cards', 'Prepaid Card Reload'),
+    ('courier_delivery', 'Other Fees', 'Courier Delivery'),
+    ('document_reproduction', 'Other Fees', 'Document Reproduction'),
+    ('other_lending_fee', 'Other Fees', 'Other Lending Fee')
+ON CONFLICT (canonical_fee_key) DO UPDATE SET
+    fee_family = EXCLUDED.fee_family, display_name = EXCLUDED.display_name;

@@ -132,7 +132,7 @@ async def test_dispatch_known_agent_calls_review(db_schema):
         async with pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO agent_registry (agent_name, display_name, role) "
-                "VALUES ('smoke_agent','Smoke','test') ON CONFLICT DO NOTHING"
+                "VALUES ('smoke_agent','Smoke','classifier') ON CONFLICT DO NOTHING"
             )
             await conn.execute(
                 "INSERT INTO agent_events (agent_name, action, tool_name, entity, status) "
@@ -166,7 +166,7 @@ async def test_dispatch_idempotent(db_schema):
         async with pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO agent_registry (agent_name, display_name, role) "
-                "VALUES ('smoke_agent','Smoke','test') ON CONFLICT DO NOTHING"
+                "VALUES ('smoke_agent','Smoke','classifier') ON CONFLICT DO NOTHING"
             )
             await conn.execute(
                 "INSERT INTO agent_events (agent_name, action, tool_name, entity, status) "
@@ -195,7 +195,7 @@ async def test_dispatch_ignores_ticks_outside_window(db_schema):
         async with pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO agent_registry (agent_name, display_name, role) "
-                "VALUES ('smoke_agent','Smoke','test') ON CONFLICT DO NOTHING"
+                "VALUES ('smoke_agent','Smoke','classifier') ON CONFLICT DO NOTHING"
             )
             # Force an old tick — 1 hour ago — to verify the window filter.
             await conn.execute(

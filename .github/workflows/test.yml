@@ -34,7 +34,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r fee_crawler/requirements.txt
       - name: Install json2ts (required by pydantic2ts)
-        run: npm install -g json-schema-to-typescript
+        # Pinned: json-schema-to-typescript formatting changes between releases,
+        # which silently makes the committed types.generated.ts drift (the drift
+        # guard below then fails on unrelated PRs). Bump deliberately + regen.
+        run: npm install -g json-schema-to-typescript@15.0.4
       - name: Run sqlite-kill guard
         run: bash scripts/ci-guards.sh sqlite-kill
       - name: Check TS codegen is up to date (drift guard)

@@ -299,7 +299,7 @@ async def test_shared_correlation_id_matches_preferred_path(db_schema):
              WHERE tool_name = 'promote_to_tier3'
                AND entity_id = $1::TEXT
             """,
-            published_id,
+            str(published_id),
         )
         assert row is not None
         assert row["corr"] == str(shared), f"expected shared corr {shared}, got {row['corr']!r}"
@@ -346,7 +346,7 @@ async def test_cross_correlation_grandfather_path_still_publishes(db_schema):
              WHERE tool_name = 'promote_to_tier3'
                AND entity_id = $1::TEXT
             """,
-            published_id,
+            str(published_id),
         )
         assert row is not None
         assert row["gf"] == "true", f"expected grandfathered=true, got {row['gf']!r}"

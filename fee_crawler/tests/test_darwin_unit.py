@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from fee_crawler.agents.darwin.circuit import CircuitBreaker, HaltReason
+from fee_crawler.agents._common.circuit import CircuitBreaker, HaltReason
 from fee_crawler.agents.darwin.config import DarwinConfig
 
 

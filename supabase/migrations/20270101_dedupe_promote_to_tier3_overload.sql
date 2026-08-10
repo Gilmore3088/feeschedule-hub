@@ -1,0 +1,31 @@
+-- Dedupe the promote_to_tier3 function overload — 2027-01-01
+--
+-- Bug: two overloads of promote_to_tier3 coexist, so a 2-argument call is
+-- ambiguous ("function promote_to_tier3(unknown, unknown) is not unique"):
+--
+--   * promote_to_tier3(BIGINT, UUID)             -- created by 20260420, then
+--                                                   re-introduced by
+--                                                   20260421_tier_promotion_functions
+--                                                   and 20260510 (which sort
+--                                                   AFTER the batch_id migration)
+--   * promote_to_tier3(BIGINT, UUID, TEXT DEFAULT NULL)  -- the canonical form,
+--                                                   created by
+--                                                   20260421_promote_to_tier3_batch_id
+--
+-- 20260421_promote_to_tier3_batch_id.sql intentionally DROPped the 2-arg form
+-- and replaced it with the 3-arg (batch-aware) form, but two later migrations
+-- re-created the 2-arg form via CREATE OR REPLACE. Because PostgreSQL keys
+-- functions by (name, argument types), the 3-arg form was never removed and
+-- both now exist — making unqualified 2-arg calls ambiguous.
+--
+-- Canonical form: the 3-arg promote_to_tier3(BIGINT, UUID, TEXT DEFAULT NULL).
+-- Every production caller already passes three arguments:
+--   * fee_crawler/agent_tools/tools_fees.py  -> promote_to_tier3($1, $2::UUID, $3)
+--   * src/app/admin/agents/knox/reviews/actions.ts -> promote_to_tier3(..::bigint, ..::uuid, ..::text)
+-- and 2-arg callers resolve to the 3-arg form via its DEFAULT NULL once the
+-- redundant overload is gone. Dropping the 2-arg overload is therefore safe.
+--
+-- Idempotent: DROP FUNCTION IF EXISTS is a no-op when the overload is already
+-- absent, so this is safe to (re-)apply against production and the test bootstrap.
+
+DROP FUNCTION IF EXISTS promote_to_tier3(BIGINT, UUID);

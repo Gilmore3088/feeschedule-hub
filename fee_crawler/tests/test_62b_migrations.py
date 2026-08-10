@@ -101,6 +101,13 @@ async def test_agent_registry_lifecycle_state_column(db_schema):
         default_rows = await conn.fetchval(
             "SELECT COUNT(*) FROM agent_registry WHERE lifecycle_state = 'q1_validation'"
         )
+        non_default = await conn.fetchval(
+            "SELECT COUNT(*) FROM agent_registry WHERE lifecycle_state <> 'q1_validation'"
+        )
+        graduated = await conn.fetch(
+            "SELECT agent_name, lifecycle_state FROM agent_registry "
+            "WHERE lifecycle_state <> 'q1_validation'"
+        )
     assert col is not None, "agent_registry.lifecycle_state column missing"
     assert col["data_type"] == "text"
     assert col["is_nullable"] == "NO"
@@ -114,10 +121,18 @@ async def test_agent_registry_lifecycle_state_column(db_schema):
     assert registry_rows >= 55, (
         f"expected >=55 agent_registry rows (55 seeded in 62a), got {registry_rows}"
     )
-    assert default_rows == registry_rows, (
-        "every seeded agent should default to q1_validation "
-        f"(got {default_rows}/{registry_rows})"
+    # Seeded agents default to q1_validation, EXCEPT the few that later
+    # migrations intentionally graduate: darwin (20260417) and magellan
+    # (20260418) advance to q2_high_confidence. So the non-default rows are
+    # exactly those known graduations, not a seeding regression.
+    assert default_rows >= registry_rows - 2, (
+        "only intentionally-graduated agents may be non-q1_validation "
+        f"(got {default_rows}/{registry_rows} at q1; non-default={non_default})"
     )
+    for row in graduated:
+        assert row["lifecycle_state"] in ("q2_high_confidence", "q3_autonomy", "paused"), (
+            f"{row['agent_name']} has unexpected lifecycle_state {row['lifecycle_state']!r}"
+        )
 
 
 @pytest.mark.asyncio
