@@ -15,14 +15,19 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
     setPending(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await loginAction(formData, redirectTo);
-
-    if (result.success && result.redirect) {
-      router.push(result.redirect);
-    } else {
+    try {
+      const result = await loginAction(formData, redirectTo);
+      if (result.success && result.redirect) {
+        router.push(result.redirect);
+        return; // leave pending true through the navigation
+      }
       setError(result.error || "Invalid username or password");
-      setPending(false);
+    } catch {
+      // Any transport/server error must not leave the button stuck on
+      // "Signing in..." — surface a message and re-enable the form.
+      setError("Sign-in is temporarily unavailable. Please try again shortly.");
     }
+    setPending(false);
   }
 
   return (
