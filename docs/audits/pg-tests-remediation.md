@@ -79,11 +79,24 @@ against the intended tool contract.
 ### C. `test_darwin_integration` / `test_magellan_integration` — 12 errors
 Their `seeded_conn` / `magellan_seeded_conn` fixtures operate on the empty
 `public` schema, and the agent code (`classify_batch`, `rescue_batch`) opens its
-**own global pool** to `public`. Needs a **session-scoped `public` bootstrap**
-(baseline + migrations) plus pointing the agents' pool at the test DSN. This is
-shared mutable state across the suite — implement carefully so it doesn't
-perturb the per-test `db_schema` tests. (An attempt to bootstrap a per-connection
-schema was reverted because the agents' global pool bypasses it.)
+**own global pool** to `public`.
+
+**Two approaches were tried and reverted — do NOT repeat them:**
+- Bootstrapping a **per-connection throwaway schema** — reverted: the agents'
+  global pool bypasses the fixture connection, so it still hit an empty `public`.
+- A **session-scoped `public` bootstrap** — empirically **regressed 11
+  previously-passing `db_schema` tests** (`test_promote_to_tier3` ×7,
+  `test_rollback_publish` ×2, `test_lineage_graph`, `test_knox_review_overrides`):
+  a populated `public` collides with the per-test schemas that use
+  `search_path = "<schema>, public"`. Full suite went 19 → 25 failures. Reverted.
+
+**What will actually work:** give the agents' global pool its **own dedicated,
+isolated schema** for the duration of these tests (e.g. a fixture that creates a
+throwaway schema, bootstraps it, and sets `server_settings.search_path` on the
+`fee_crawler.agent_tools.pool` pool to that schema — NOT public), and tear it
+down after. Then the 4 that already pass stay green and the remaining 8 are
+genuine agent-logic assertions (`circuit_tripped`, `rescue_batch` ladder
+outcomes) to be triaged against the agent internals.
 
 ### D. `test_sc5_budget_halt::test_sc5_env_var_halts_knox`
 Asserts a `budget_halt` row is written when the env kill-switch is set; none is.
