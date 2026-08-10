@@ -94,7 +94,7 @@ async def test_override_promotes_fee_when_darwin_already_accepted(db_schema):
                  VALUES ('knox', 'darwin', 'reject', 'answered',
                          $1::uuid,
                          jsonb_build_object(
-                           'fee_verified_id', $2::text,
+                           'fee_verified_id', $2::bigint::text,
                            'reason', 'amount is extreme outlier'
                          ),
                          1)
@@ -110,7 +110,7 @@ async def test_override_promotes_fee_when_darwin_already_accepted(db_schema):
                      correlation_id, payload, round_number)
                  VALUES ('darwin', 'knox', 'accept', 'resolved',
                          $1::uuid,
-                         jsonb_build_object('fee_verified_id', $2::text),
+                         jsonb_build_object('fee_verified_id', $2::bigint::text),
                          1)""",
             corr,
             verified_id,
@@ -134,7 +134,7 @@ async def test_override_promotes_fee_when_darwin_already_accepted(db_schema):
                      VALUES ('knox', 'darwin', 'accept', 'resolved',
                              $1::uuid,
                              jsonb_build_object(
-                               'fee_verified_id', $2::text,
+                               'fee_verified_id', $2::bigint::text,
                                'source', 'human_override'
                              ),
                              1)""",
@@ -147,7 +147,7 @@ async def test_override_promotes_fee_when_darwin_already_accepted(db_schema):
                          status, correlation_id, input_payload)
                      VALUES ('_human_review', 'knox_override', 'knox_review_ui',
                              'agent_messages', $1, 'success', $2::uuid,
-                             jsonb_build_object('fee_verified_id', $3))
+                             jsonb_build_object('fee_verified_id', $3::bigint))
                    RETURNING event_id""",
                 str(rejection_msg_id),
                 corr,
