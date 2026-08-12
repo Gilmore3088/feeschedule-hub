@@ -789,8 +789,7 @@ export interface UpsertInstitutionDossierInput {
   last_outcome?: ("success" | "blocked" | "404" | "no_fees" | "captcha" | "rate_limited" | "unknown") | null;
   last_cost_cents?: number;
   next_try_recommendation?:
-    | ("retry_same" | "stealth_pass_1" | "needs_playwright_stealth" | "skip" | "rediscover_url")
-    | null;
+    ("retry_same" | "stealth_pass_1" | "needs_playwright_stealth" | "skip" | "rediscover_url") | null;
   notes?: {
     [k: string]: unknown;
   };

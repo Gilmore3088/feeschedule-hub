@@ -42,6 +42,11 @@ pydantic2ts --module "$MODULE" --output "$TMPFILE"
 
 rm -f "$TMPFILE"
 
+# json-schema-to-typescript has minor wrapping differences across runner
+# environments. Normalize nullable single-line enum unions so CI drift checks
+# are stable across macOS/Linux and Node patch releases.
+perl -0pi -e 's/(\w+\?:)\n    \| (\([^\n]+\))\n    \| null;/$1\n    $2 | null;/g' "$OUTPUT"
+
 if [[ "${CHECK_MODE:-0}" == "1" ]]; then
   if ! git diff --exit-code -- "$OUTPUT" >/dev/null 2>&1; then
     echo "gen-agent-tool-types: $OUTPUT is stale. Regenerate locally and commit." >&2
