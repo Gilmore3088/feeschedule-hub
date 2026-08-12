@@ -457,6 +457,36 @@ export interface InsertAgentMessageOutput {
   message_id?: string | null;
   event_ref?: AgentEventRef | null;
 }
+export interface PersistCrawlExtractionInput {
+  crawl_target_id: number;
+  crawl_run_id: number;
+  document_url: string;
+  document_path?: string | null;
+  content_hash?: string | null;
+  document_r2_key?: string | null;
+  crawl_strategy?: string | null;
+  extraction_method: string;
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  fees: [RawFeeObservationInput, ...RawFeeObservationInput[]];
+}
+export interface RawFeeObservationInput {
+  fee_name: string;
+  amount?: number | null;
+  frequency?: string | null;
+  conditions?: string | null;
+  extraction_confidence?: number | null;
+  outlier_flags?: string[];
+}
+export interface PersistCrawlExtractionOutput {
+  success: boolean;
+  error?: string | null;
+  crawl_result_id?: number | null;
+  fee_raw_ids?: number[];
+  event_ref?: AgentEventRef | null;
+}
 export interface PromoteFeeToTier2Input {
   fee_raw_id: number;
   canonical_fee_key: string;
