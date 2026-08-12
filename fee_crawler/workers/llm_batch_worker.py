@@ -87,22 +87,76 @@ def _collect_pending_jobs(
     conn: psycopg2.extensions.connection,
     limit: int,
 ) -> list[dict]:
-    """Pull pending llm_batch jobs ordered by priority (asset size desc)."""
+    """Pull one useful pending llm_batch job per institution.
+
+    Cost caps only work if each capped run advances the frontier. This selector
+    skips institutions that already have live fee observations and collapses
+    duplicate pending rows to one job per entity before applying the run limit.
+    """
     with conn.cursor() as cur:
         cur.execute("""
+            WITH ranked AS (
+                SELECT DISTINCT ON (j.entity_id)
+                       j.id, j.entity_id, j.payload, j.attempts,
+                       ct.institution_name, ct.charter_type, ct.state_code,
+                       ct.asset_size, j.priority, j.run_at
+                FROM jobs j
+                JOIN crawl_targets ct ON ct.id::text = j.entity_id
+                WHERE j.queue = 'llm_batch'
+                  AND j.status = 'pending'
+                  AND j.attempts < j.max_attempts
+                  AND j.run_at <= NOW()
+                  AND NOT EXISTS (
+                      SELECT 1 FROM fees_raw fr
+                      WHERE fr.institution_id = ct.id
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM extracted_fees ef
+                      WHERE ef.crawl_target_id = ct.id
+                        AND ef.review_status != 'rejected'
+                  )
+                ORDER BY j.entity_id, j.priority DESC, j.attempts ASC,
+                         j.run_at ASC, j.id ASC
+            )
             SELECT j.id, j.entity_id, j.payload, j.attempts,
-                   ct.institution_name, ct.charter_type, ct.state_code,
-                   ct.asset_size
-            FROM jobs j
-            JOIN crawl_targets ct ON ct.id = j.entity_id::INT
-            WHERE j.queue = 'llm_batch'
-              AND j.status = 'pending'
-              AND j.attempts < j.max_attempts
-              AND j.run_at <= NOW()
-            ORDER BY j.priority DESC, j.id ASC
+                   j.institution_name, j.charter_type, j.state_code,
+                   j.asset_size
+            FROM ranked j
+            ORDER BY j.priority DESC, j.attempts ASC, j.run_at ASC, j.id ASC
             LIMIT %s
         """, (limit,))
         return [dict(row) for row in cur.fetchall()]
+
+
+def _retire_unneeded_jobs(conn: psycopg2.extensions.connection) -> int:
+    """Complete pending batch jobs whose institution already has live fees."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE jobs j
+            SET status = 'completed',
+                completed_at = NOW(),
+                locked_by = NULL,
+                locked_at = NULL,
+                error = 'already_has_live_fee_data'
+            FROM crawl_targets ct
+            WHERE j.queue = 'llm_batch'
+              AND j.status = 'pending'
+              AND ct.id::text = j.entity_id
+              AND (
+                EXISTS (
+                    SELECT 1 FROM fees_raw fr
+                    WHERE fr.institution_id = ct.id
+                )
+                OR EXISTS (
+                    SELECT 1 FROM extracted_fees ef
+                    WHERE ef.crawl_target_id = ct.id
+                      AND ef.review_status != 'rejected'
+                )
+              )
+        """)
+        retired = cur.rowcount
+    conn.commit()
+    return int(retired or 0)
 
 
 def _claim_jobs(
@@ -179,14 +233,33 @@ def _release_jobs(
     job_ids: list[int],
     error_msg: str,
 ) -> None:
-    """Release claimed jobs back to pending on batch-level failure."""
+    """Release claimed jobs with backoff on batch-level failure.
+
+    Without backoff, a capped operator run can submit the same first slice over
+    and over after provider/account failures. Attempts were already incremented
+    by _claim_jobs(), so max_attempts still bounds total retries.
+    """
     with conn.cursor() as cur:
         cur.execute("""
             UPDATE jobs
-            SET status = 'pending',
+            SET status = CASE
+                    WHEN attempts >= max_attempts THEN 'failed'
+                    ELSE 'pending'
+                END,
                 locked_by = NULL,
                 locked_at = NULL,
-                error = %s
+                error = %s,
+                run_at = CASE
+                    WHEN attempts >= max_attempts THEN run_at
+                    ELSE NOW() + (
+                        LEAST(1440, GREATEST(30, attempts * 60))::text
+                        || ' minutes'
+                    )::interval
+                END,
+                completed_at = CASE
+                    WHEN attempts >= max_attempts THEN NOW()
+                    ELSE completed_at
+                END
             WHERE id = ANY(%s) AND status = 'running'
         """, (error_msg[:2000], job_ids))
     conn.commit()
@@ -467,6 +540,10 @@ def run(
             "Budget: $%.2f spent today, $%.2f remaining, max %d institutions",
             spent_today, remaining_budget, effective_limit,
         )
+
+        retired = _retire_unneeded_jobs(conn)
+        if retired:
+            logger.info("Retired %d llm_batch jobs that already have live fees", retired)
 
         # Collect pending jobs
         jobs = _collect_pending_jobs(conn, effective_limit)

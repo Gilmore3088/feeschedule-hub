@@ -100,7 +100,7 @@ def _looks_like_fee_document(url: str, content_type: str) -> bool:
 
 
 async def claim_job(conn: asyncpg.Connection) -> dict | None:
-    """Atomically claim a pending discovery job."""
+    """Atomically claim a pending discovery job that still needs discovery."""
     row = await conn.fetchrow("""
         UPDATE jobs
         SET status = 'running',
@@ -108,18 +108,76 @@ async def claim_job(conn: asyncpg.Connection) -> dict | None:
             locked_at = NOW(),
             attempts = attempts + 1
         WHERE id = (
-            SELECT id FROM jobs
-            WHERE queue = 'discovery'
-              AND status = 'pending'
-              AND run_at <= NOW()
-              AND attempts < max_attempts
-            ORDER BY priority DESC, id ASC
+            SELECT j.id FROM jobs j
+            JOIN crawl_targets ct ON ct.id::text = j.entity_id
+            WHERE j.queue = 'discovery'
+              AND j.status = 'pending'
+              AND j.run_at <= NOW()
+              AND j.attempts < j.max_attempts
+              AND ct.status = 'active'
+              AND ct.website_url IS NOT NULL
+              AND ct.website_url != ''
+              AND (ct.fee_schedule_url IS NULL OR ct.fee_schedule_url = '')
+            ORDER BY j.priority DESC, j.attempts ASC, j.run_at ASC, j.id ASC
             FOR UPDATE SKIP LOCKED
             LIMIT 1
         )
         RETURNING *
     """, WORKER_ID)
     return dict(row) if row else None
+
+
+async def retire_resolved_jobs(pool: asyncpg.Pool) -> int:
+    """Complete queued discovery jobs for institutions that already have URLs."""
+    async with pool.acquire() as conn:
+        status = await conn.execute("""
+            UPDATE jobs j
+            SET status = 'completed',
+                completed_at = NOW(),
+                locked_by = NULL,
+                locked_at = NULL,
+                error = 'already_has_fee_url'
+            FROM crawl_targets ct
+            WHERE j.queue = 'discovery'
+              AND j.status IN ('pending', 'running')
+              AND ct.id::text = j.entity_id
+              AND ct.fee_schedule_url IS NOT NULL
+              AND ct.fee_schedule_url != ''
+        """)
+    return int(status.rsplit(" ", 1)[-1])
+
+
+async def release_stale_running_jobs(pool: asyncpg.Pool, older_than_hours: int = 6) -> int:
+    """Requeue stale discovery leases with bounded retry backoff."""
+    async with pool.acquire() as conn:
+        status = await conn.execute("""
+            UPDATE jobs
+            SET status = CASE
+                    WHEN attempts >= max_attempts THEN 'failed'
+                    ELSE 'pending'
+                END,
+                locked_by = NULL,
+                locked_at = NULL,
+                error = 'stale_discovery_lease_released',
+                run_at = CASE
+                    WHEN attempts >= max_attempts THEN run_at
+                    ELSE NOW() + (
+                        LEAST(1440, GREATEST(30, attempts * 60))::text
+                        || ' minutes'
+                    )::interval
+                END,
+                completed_at = CASE
+                    WHEN attempts >= max_attempts THEN NOW()
+                    ELSE completed_at
+                END
+            WHERE queue = 'discovery'
+              AND status = 'running'
+              AND (
+                locked_at IS NULL
+                OR locked_at < NOW() - ($1::text || ' hours')::interval
+              )
+        """, older_than_hours)
+    return int(status.rsplit(" ", 1)[-1])
 
 
 async def _update_platform_registry(
@@ -352,6 +410,15 @@ async def run(concurrency: int = CONCURRENCY) -> str:
     if pool is None:
         raise RuntimeError(
             f"Failed to create database connection pool after 3 attempts: {last_err!r}"
+        )
+
+    retired = await retire_resolved_jobs(pool)
+    released = await release_stale_running_jobs(pool)
+    if retired or released:
+        logger.info(
+            "Discovery queue hygiene: retired=%d already resolved, released=%d stale leases",
+            retired,
+            released,
         )
 
     rate_limiter = DomainRateLimiter(min_interval=INTER_PROBE_DELAY)

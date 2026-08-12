@@ -738,6 +738,7 @@ def run(
                    WHEN ct.last_success_at IS NULL THEN 3
                    ELSE 4 END,
               ct.last_success_at ASC NULLS FIRST,
+              ct.last_crawl_at ASC NULLS FIRST,
               ct.asset_size DESC NULLS LAST"""
     if limit and limit > 0:
         query += " LIMIT ?"
