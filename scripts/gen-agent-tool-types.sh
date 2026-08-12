@@ -45,6 +45,7 @@ rm -f "$TMPFILE"
 if [[ "${CHECK_MODE:-0}" == "1" ]]; then
   if ! git diff --exit-code -- "$OUTPUT" >/dev/null 2>&1; then
     echo "gen-agent-tool-types: $OUTPUT is stale. Regenerate locally and commit." >&2
+    git diff -- "$OUTPUT" >&2
     exit 1
   fi
 fi
