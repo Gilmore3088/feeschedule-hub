@@ -1,86 +1,72 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { sqlMock, txMock, beginMock } = vi.hoisted(() => {
-  const tx = vi.fn();
-  const begin = vi.fn(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx));
-  const sql = Object.assign(vi.fn(), { begin });
-  return { sqlMock: sql, txMock: tx, beginMock: begin };
-});
+const { sqlMock, startAgentRunMock, assertAutomationEnabledMock } = vi.hoisted(() => ({
+  sqlMock: vi.fn(),
+  startAgentRunMock: vi.fn(),
+  assertAutomationEnabledMock: vi.fn(),
+}));
 
 vi.mock("./crawler-db/connection", () => ({
   sql: sqlMock,
-  withTransaction: beginMock,
 }));
 vi.mock("./automation-control", () => ({
-  assertAutomationEnabled: vi.fn().mockResolvedValue({ enabled: true }),
+  assertAutomationEnabled: assertAutomationEnabledMock,
+}));
+vi.mock("./agents/run-store", () => ({
+  startAgentRun: startAgentRunMock,
 }));
 
 import { triggerReportJob } from "./report-job-runner";
 
-function response(body: unknown, status = 200): Response {
-  return new Response(typeof body === "string" ? body : JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-describe("report job envelope", () => {
+describe("agentic report job envelope", () => {
   beforeEach(() => {
-    sqlMock.mockReset();
-    txMock.mockReset().mockResolvedValue([]);
-    beginMock.mockClear();
-    process.env.MODAL_REPORT_URL = "https://modal.example/report";
-    process.env.REPORT_INTERNAL_SECRET = "test-modal-secret";
-    vi.restoreAllMocks();
+    sqlMock.mockReset().mockResolvedValue([]);
+    startAgentRunMock.mockReset().mockResolvedValue({
+      run: { id: 501 },
+      reused: false,
+      steps: [],
+    });
+    assertAutomationEnabledMock.mockReset().mockResolvedValue({ enabled: true });
   });
 
-  afterEach(() => {
-    delete process.env.MODAL_REPORT_URL;
-    delete process.env.REPORT_INTERNAL_SECRET;
-  });
-
-  it("marks both records failed when the Modal trigger fails", async () => {
-    sqlMock
-      .mockResolvedValueOnce([{ id: 90 }])
-      .mockResolvedValueOnce([]);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response("worker down", 503)));
-
+  it("creates a Hamilton report run and links it to report_jobs", async () => {
     await expect(triggerReportJob(
       "report-1",
       "monthly_pulse",
-      {},
+      { state: "CA" },
       "admin",
-    )).resolves.toMatchObject({ success: false, opsJobId: 90 });
+    )).resolves.toEqual({ success: true, agentRunId: 501 });
 
-    expect(beginMock).toHaveBeenCalledOnce();
-    expect(txMock).toHaveBeenCalledTimes(2);
-    expect(txMock.mock.calls[0][0].join(" ")).toContain("status = 'failed'");
-    expect(txMock.mock.calls[1][0].join(" ")).toContain("status = 'failed'");
+    expect(startAgentRunMock).toHaveBeenCalledWith(expect.objectContaining({
+      agent: "hamilton",
+      kind: "report",
+      triggeredBy: "admin",
+      idempotencyKey: "report:report-1",
+      params: expect.objectContaining({
+        report_job_id: "report-1",
+        report_type: "monthly_pulse",
+        state: "CA",
+      }),
+    }));
+    expect(sqlMock).toHaveBeenCalledOnce();
+    expect(sqlMock.mock.calls[0][0].join(" ")).toContain("UPDATE report_jobs");
+    expect(sqlMock.mock.calls[0][0].join(" ")).toContain("agent_run_id");
   });
 
-  it("persists the same Modal call ID on report_jobs and ops_jobs", async () => {
-    sqlMock
-      .mockResolvedValueOnce([{ id: 91 }])
-      .mockResolvedValueOnce([]);
-    const fetchMock = vi.fn().mockResolvedValue(response({ call_id: "fc-report" }));
-    vi.stubGlobal("fetch", fetchMock);
+  it("does not create a run when automation safety is stopped", async () => {
+    assertAutomationEnabledMock.mockRejectedValueOnce(new Error("Emergency stop is active"));
 
     await expect(triggerReportJob(
       "report-2",
       "national_index",
-      { quarter: "2026-Q2" },
+      {},
       "admin",
     )).resolves.toEqual({
-      success: true,
-      opsJobId: 91,
-      callId: "fc-report",
+      success: false,
+      error: "Emergency stop is active",
     });
 
-    expect(txMock).toHaveBeenCalledTimes(2);
-    expect(txMock.mock.calls[0].slice(1)).toContain("fc-report");
-    expect(txMock.mock.calls[1].slice(1)).toContain("fc-report");
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
-      internal_secret: "test-modal-secret",
-    });
+    expect(startAgentRunMock).not.toHaveBeenCalled();
+    expect(sqlMock).not.toHaveBeenCalled();
   });
 });

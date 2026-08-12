@@ -1,29 +1,26 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { spawnJob } from "@/lib/job-runner";
-import { DARWIN_SIDECAR_URL, modalInternalHeaders } from "@/lib/modal-endpoints";
+import { startAgentRun } from "@/lib/agents/run-store";
+import { getExecutionBackendStatus } from "@/lib/execution-backend";
 import type { DarwinStatus } from "./types";
 
 export async function fetchDarwinStatus(): Promise<DarwinStatus> {
   await requireAuth("view");
-  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/status`, {
-    cache: "no-store",
-    headers: modalInternalHeaders(),
-  });
-  if (!r.ok) throw new Error(`sidecar status ${r.status}`);
-  return r.json();
+  const backend = getExecutionBackendStatus();
+  return {
+    pending: 0,
+    today_promoted: 0,
+    today_cost_usd: 0,
+    circuit: { halted: true, reason: backend.detail },
+    recent_run_avg_tokens_per_row: null,
+  };
 }
 
 export async function resetDarwinCircuit(actor: string): Promise<{ ok: boolean }> {
   await requireAuth("trigger_jobs");
-  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/reset`, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...modalInternalHeaders() },
-    body: JSON.stringify({ actor }),
-  });
-  if (!r.ok) throw new Error(`sidecar reset ${r.status}`);
-  return r.json();
+  void actor;
+  return { ok: false };
 }
 
 export async function runDarwinRepair(
@@ -35,14 +32,35 @@ export async function runDarwinRepair(
     return { success: false, error: "Invalid classification batch request" };
   }
   try {
-    const result = await spawnJob(
-      "darwin-drain",
-      ["--size", String(size), "--batches", String(batches)],
-      user.username,
-      undefined,
-      { agent: "darwin", idempotencyKey: "darwin:classification-repair" },
-    );
-    return { success: true, jobId: result.jobId, reused: result.reused };
+    const result = await startAgentRun({
+      agent: "darwin",
+      kind: "workflow_lane",
+      title: "Darwin classification repair",
+      params: { size, batches, source: "admin.darwin_repair" },
+      triggeredBy: user.username,
+      triggerSource: "admin",
+      idempotencyKey: "darwin:classification-repair",
+      steps: [
+        {
+          key: "classify",
+          agent: "darwin",
+          title: "Classify staged fee observations",
+          input: { size, batches },
+        },
+        {
+          key: "verify",
+          agent: "darwin",
+          title: "Verify canonical category and amount confidence",
+        },
+        {
+          key: "review",
+          agent: "knox",
+          title: "Escalate anomaly-only exceptions",
+        },
+      ],
+      summary: "Agentic Darwin run accepted. Watch Atlas live status for step events.",
+    });
+    return { success: true, jobId: result.run.id, reused: result.reused };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -86,12 +104,8 @@ export async function fetchReasoningFromR2(
 ): Promise<{ prompt: string | null; output: string | null }> {
   await requireAuth("view");
   if (!r2Key) return { prompt: null, output: null };
-  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/reasoning/${encodeURIComponent(r2Key)}`, {
-    cache: "no-store",
-    headers: modalInternalHeaders(),
-  });
-  if (!r.ok) throw new Error(`sidecar reasoning ${r.status}`);
-  return r.json();
+  void r2Key;
+  return { prompt: null, output: null };
 }
 
 export async function reclassifyFee(feeRawId: number): Promise<{
@@ -103,11 +117,12 @@ export async function reclassifyFee(feeRawId: number): Promise<{
   error?: string;
 }> {
   await requireAuth("trigger_jobs");
-  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/reclassify`, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...modalInternalHeaders() },
-    body: JSON.stringify({ fee_raw_id: feeRawId }),
-  });
-  if (!r.ok) throw new Error(`reclassify ${r.status}`);
-  return r.json();
+  return {
+    fee_raw_id: feeRawId,
+    fee_name: null,
+    normalized_name: null,
+    prompt: null,
+    output: null,
+    error: getExecutionBackendStatus().detail,
+  };
 }

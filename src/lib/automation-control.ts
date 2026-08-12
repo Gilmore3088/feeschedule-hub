@@ -58,8 +58,9 @@ export async function engageEmergencyStop(
   return withTransaction(async (tx) => {
     const [active] = await tx`
       SELECT COUNT(*)::int AS count
-        FROM ops_jobs
-       WHERE status IN ('queued', 'running', 'cancel_requested')
+        FROM agent_runs
+       WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+         AND status IN ('queued', 'running', 'cancel_requested')
     `;
     const [row] = await tx`
       UPDATE automation_control
@@ -138,7 +139,7 @@ export async function recordEmergencyStopOutcome(
   outcome: {
     requested: number;
     cancelled: number;
-    failed: Array<{ jobId: number; error: string }>;
+    failed: Array<{ runId: number; error: string }>;
   },
 ): Promise<void> {
   await sql`

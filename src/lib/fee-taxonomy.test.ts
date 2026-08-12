@@ -7,7 +7,7 @@ import {
 } from "./fee-taxonomy";
 
 // Tripwire for Python↔TS drift. If you change these numbers, update the
-// matching assertion in fee_crawler/tests/test_backfill_canonical.py.
+// Guards the canonical taxonomy keys used by public pages and agentic admin flows.
 const EXPECTED_TAXONOMY_COUNT = 65;
 const EXPECTED_CANONICAL_KEY_COUNT = 197;
 

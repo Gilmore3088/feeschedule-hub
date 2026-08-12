@@ -36,8 +36,9 @@ const ICONS: Record<AtlasWorkflowId, LucideIcon> = {
 
 const ACTIVE_JOB_LIMIT = 3;
 
-function disabledCopy(automationEnabled: boolean, activeJobCount: number): string | null {
-  if (!automationEnabled) return "Automation stopped";
+function disabledCopy(
+  activeJobCount: number,
+): string | null {
   if (activeJobCount >= ACTIVE_JOB_LIMIT) return "Job limit reached";
   return null;
 }
@@ -46,21 +47,32 @@ export function AtlasWorkflowLauncher({
   lanes,
   automationEnabled,
   activeJobCount,
+  executionEnabled,
+  executionBlockedReason,
 }: {
   lanes: WorkflowLane[];
   automationEnabled: boolean;
   activeJobCount: number;
+  executionEnabled: boolean;
+  executionBlockedReason?: string;
 }) {
   const router = useRouter();
   const [pendingWorkflow, setPendingWorkflow] = useState<AtlasWorkflowId | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const blockedReason = disabledCopy(automationEnabled, activeJobCount);
+  const blockedReason = disabledCopy(
+    activeJobCount,
+  );
+  const backendNote = !automationEnabled
+    ? `Safety stop active; run records are visible, but workers stay halted. ${executionBlockedReason ?? ""}`.trim()
+    : executionEnabled
+      ? "Agentic backend selected"
+      : executionBlockedReason ?? "Agentic backend disabled";
 
   function start(workflow: WorkflowLane) {
     setPendingWorkflow(workflow.id);
-    setMessage(`Request sent for ${workflow.title}. Creating the job record and contacting Modal...`);
+    setMessage(`Request sent for ${workflow.title}. Creating a visible agent run...`);
     setError(null);
     startTransition(async () => {
       const result = await runAtlasWorkflow(workflow.id);
@@ -72,14 +84,14 @@ export function AtlasWorkflowLauncher({
       }
       setMessage(
         result.reused
-          ? `${workflow.title} job #${result.jobId} is already active.`
-          : `${workflow.title} job #${result.jobId} started.`,
+          ? `${workflow.title} run #${result.runId} is already visible.`
+          : `${workflow.title} run #${result.runId} created.`,
       );
-      if (typeof result.jobId === "number") {
+      if (typeof result.runId === "number") {
         window.dispatchEvent(new CustomEvent("atlas:started", {
           detail: {
-            jobId: result.jobId,
-            command: result.command ?? workflow.commandLabel,
+            runId: result.runId,
+            title: result.title ?? workflow.title,
             label: workflow.title,
             agent: workflow.owner,
             reused: result.reused,
@@ -102,7 +114,7 @@ export function AtlasWorkflowLauncher({
           </h2>
         </div>
         <p className="admin-meta">
-          {blockedReason ?? `${ACTIVE_JOB_LIMIT - activeJobCount} job slots open`}
+          {blockedReason ?? backendNote}
         </p>
       </div>
 

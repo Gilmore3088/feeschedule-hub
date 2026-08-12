@@ -3,7 +3,7 @@ import { sql } from "@/lib/crawler-db/connection";
 
 export async function GET() {
   try {
-    const [row] = await sql`SELECT COUNT(*) as cnt FROM extracted_fees`;
+    const [row] = await sql`SELECT COUNT(*) as cnt FROM published_fee_observations`;
 
     return NextResponse.json({
       status: "ok",

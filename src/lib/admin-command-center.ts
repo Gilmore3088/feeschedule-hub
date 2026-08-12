@@ -2,8 +2,7 @@ import { sql } from "./crawler-db/connection";
 import { getAutomationControl, type AutomationControlState } from "./automation-control";
 import { getJobFreshness, getReviewQueueCounts } from "./admin-queries";
 import { getKnoxReviewCounts } from "./crawler-db/knox-reviews";
-import { reconcileStaleJobs, type AdminAgent, type AdminJobStatus } from "./job-runner";
-import { summarizeJobOutput } from "./job-output-summary";
+import type { AdminAgent, AgentRunStatus } from "./agents/types";
 import { toISO } from "./pg-helpers";
 
 export interface CoverageMetric {
@@ -18,13 +17,13 @@ export interface CommandCenterJob {
   agent: AdminAgent;
   command: string;
   args: string[];
-  status: AdminJobStatus;
+  status: AgentRunStatus;
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
   heartbeatAt: string | null;
   updatedAt: string | null;
-  modalCallId: string | null;
+  backendReceipt: string | null;
   error: string | null;
   progress: string | null;
   stdoutTail: string | null;
@@ -150,42 +149,35 @@ function parseJobArgs(params: unknown): string[] {
 }
 
 function mapJob(row: Record<string, unknown>): CommandCenterJob {
-  const lastStage = row.pipeline_last_stage
-    ? String(row.pipeline_last_stage)
-    : null;
-  const stdoutTail = row.stdout_tail ? String(row.stdout_tail) : null;
-  const stdoutSummary = summarizeJobOutput(stdoutTail);
-  const pipelineProgress: Record<string, string> = {
-    "seed-enrich": "Enrichment complete; Magellan is discovering fee URLs",
-    discover: "Discovery complete; Magellan is refreshing stale institutions",
-    crawl: "Collection complete; Darwin is classifying raw fees",
-    "darwin-drain": "Classification complete; Knox is reviewing exceptions",
-    "knox-review": "Knox review complete; publishing eligible fees",
-    "publish-fees": "Publication complete; Atlas is closing the cycle",
-  };
+  const status = String(row.status) === "complete"
+    ? "completed"
+    : String(row.status ?? "queued");
+  const currentStage = row.current_stage ? String(row.current_stage) : null;
+  const progressTotal = Number(row.progress_total ?? 0);
+  const progressCurrent = Number(row.progress_current ?? 0);
+  const progress = row.summary
+    ? String(row.summary)
+    : currentStage
+      ? `Current step: ${currentStage}`
+      : progressTotal > 0
+        ? `${progressCurrent} / ${progressTotal} steps complete`
+        : null;
   return {
     id: Number(row.id),
     agent: String(row.agent_name ?? "atlas") as AdminAgent,
-    command: String(row.command),
+    command: String(row.title ?? row.run_kind ?? "Agent run"),
     args: parseJobArgs(row.params_json),
-    status: String(row.status) as AdminJobStatus,
-    createdAt: requiredISO(row.created_at as string | Date),
+    status: status as AgentRunStatus,
+    createdAt: requiredISO(row.started_at as string | Date),
     startedAt: row.started_at ? toISO(row.started_at as string | Date) : null,
     completedAt: row.completed_at ? toISO(row.completed_at as string | Date) : null,
-    heartbeatAt: row.heartbeat_at ? toISO(row.heartbeat_at as string | Date) : null,
+    heartbeatAt: row.updated_at ? toISO(row.updated_at as string | Date) : null,
     updatedAt: row.updated_at ? toISO(row.updated_at as string | Date) : null,
-    modalCallId: row.modal_call_id ? String(row.modal_call_id) : null,
+    backendReceipt: row.backend ? String(row.backend) : null,
     error: row.error_summary ? operatorError(row.error_summary) : null,
     pipelineRunId: row.pipeline_run_id ? Number(row.pipeline_run_id) : null,
-    stdoutTail,
-    progress: stdoutSummary
-      ?? (row.result_summary
-        ? String(row.result_summary)
-        : lastStage
-          ? (pipelineProgress[lastStage] ?? `Last completed stage: ${lastStage}`)
-          : row.command === "pipeline" && row.status === "running"
-            ? "Atlas is starting the six-stage cycle"
-            : null),
+    stdoutTail: null,
+    progress,
   };
 }
 
@@ -347,10 +339,6 @@ async function getAgentFailureOverview(): Promise<AgentFailureOverview> {
 }
 
 export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
-  await reconcileStaleJobs().catch((error) => {
-    console.error("Atlas stale-job reconciliation failed", error);
-  });
-
   const [
     coverageRows,
     jobRows,
@@ -383,24 +371,16 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
       return [] as Record<string, unknown>[];
     }),
     sql`
-      SELECT ops.id, ops.agent_name, ops.command, ops.params_json, ops.status,
-             ops.created_at, ops.started_at, ops.completed_at,
-             ops.heartbeat_at, ops.updated_at, ops.modal_call_id,
-             ops.error_summary, ops.result_summary, ops.stdout_tail,
-             pipeline.id AS pipeline_run_id,
-             pipeline.last_completed_job AS pipeline_last_stage
-        FROM ops_jobs ops
-        LEFT JOIN LATERAL (
-          SELECT id, last_completed_job
-            FROM pipeline_runs
-           WHERE ops_job_id = ops.id
-           ORDER BY id DESC
-           LIMIT 1
-        ) pipeline ON TRUE
-       ORDER BY ops.created_at DESC
+      SELECT id, agent_name, run_kind, title, params_json, status,
+             started_at, completed_at, updated_at, backend, error_summary,
+             summary, current_stage, progress_current, progress_total,
+             NULL::bigint AS pipeline_run_id
+        FROM agent_runs
+       WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+       ORDER BY started_at DESC, id DESC
        LIMIT 30
     `.catch((error) => {
-      console.error("Atlas jobs query failed", error);
+      console.error("Atlas agent runs query failed", error);
       return [] as Record<string, unknown>[];
     }),
     getJobFreshness(),
@@ -482,7 +462,7 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     });
   }
 
-  const recentFailure = jobs.find((job) => job.status === "failed" || job.status === "timed_out");
+  const recentFailure = jobs.find((job) => job.status === "failed");
   if (recentFailure) {
     attention.push({
       id: `job:${recentFailure.id}`,

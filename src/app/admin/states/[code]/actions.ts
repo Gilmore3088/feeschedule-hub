@@ -26,7 +26,7 @@ export async function triggerExtract(institutionId: number) {
         ok: true,
         jobId: result.jobId,
         reused: result.reused,
-        message: `Extraction queued as job #${result.jobId}`,
+        message: `Extraction run #${result.jobId} created`,
       }
     : { error: result.error };
 }

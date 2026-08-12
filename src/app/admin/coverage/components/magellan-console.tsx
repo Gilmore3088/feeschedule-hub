@@ -20,7 +20,7 @@ type WatchedJob = {
   completedAt: string | null;
   heartbeatAt: string | null;
   updatedAt: string | null;
-  modalCallId: string | null;
+  backendReceipt: string | null;
   error: string | null;
   resultSummary: string | null;
   stdoutTail: string | null;
@@ -61,7 +61,7 @@ function jobMessage(job: WatchedJob): string {
   return job.error
     ?? summarizeJobOutput(job.stdoutTail)
     ?? job.resultSummary
-    ?? (isActiveStatus(job.status) ? "Waiting for remote output." : "No terminal summary recorded.");
+    ?? (isActiveStatus(job.status) ? "Waiting for agent events." : "No terminal summary recorded.");
 }
 
 export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStatus }) {
@@ -106,7 +106,8 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
         window.dispatchEvent(new CustomEvent("atlas:started", {
           detail: {
             jobId: result.jobId,
-            command: "magellan-rescue",
+            runId: result.jobId,
+            title: "Magellan fee URL rescue",
             label: "Magellan repair",
             agent: "magellan",
             reused: result.reused,
@@ -148,7 +149,7 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
       <StatusPanel status={status} />
       <BatchRunner
         onStart={start}
-        disabled={running || status.circuit.halted}
+        disabled={running}
         busy={running}
         disabledReason={disabledReason}
         title="Repair discovery and extraction gaps"
@@ -164,7 +165,7 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
           command={`magellan-rescue --size ${queuedJob.size} --batches ${queuedJob.chain}`}
           scope={`${(queuedJob.size * queuedJob.chain).toLocaleString("en-US")} institutions · ${queuedJob.chain === 1 ? "single batch" : `${queuedJob.chain} batches`}`}
           reused={queuedJob.reused}
-          detail="Magellan will retry source discovery and extraction gaps. This page now watches the Modal call and terminal output for this job."
+          detail="Magellan will run a bounded agentic discovery pass, update rescued fee URLs, and write discovery evidence."
         />
       )}
       {queuedJob && (
@@ -190,7 +191,7 @@ function MagellanJobOutcome({
       <div role="status" className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-blue-950 dark:border-blue-950 dark:bg-blue-950/25 dark:text-blue-100">
         <p className="text-sm font-semibold">Looking up job status...</p>
         <p className="mt-1 text-xs text-blue-800 dark:text-blue-200">
-          Waiting for Atlas to attach the Modal call ID, heartbeat, and first output tail.
+          Waiting for Atlas to attach the run steps and event stream.
         </p>
         {watchError && <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-300">Status refresh failed: {watchError}</p>}
       </div>
@@ -205,13 +206,13 @@ function MagellanJobOutcome({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Job #{job.id} outcome</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Run #{job.id} outcome</p>
             <span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${statusTone(job.status)}`}>
               {job.status.replace("_", " ")}
             </span>
           </div>
           <p className="admin-meta mt-1">
-            {job.modalCallId ? `Modal ${job.modalCallId}` : "Waiting for Modal call ID"} · {terminal ? "Terminal" : "Polling every 3 seconds"}
+            Backend {job.backendReceipt ?? "agentic_v1"} · {terminal ? "Terminal" : "Polling every 3 seconds"}
           </p>
         </div>
         <p className="admin-meta tabular-nums">

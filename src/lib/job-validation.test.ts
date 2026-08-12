@@ -11,7 +11,7 @@ describe("admin job validation", () => {
     });
   });
 
-  it("rejects unsafe commands before Modal dispatch", () => {
+  it("rejects unsafe commands before backend dispatch", () => {
     expect(validateJobRequest("shell", {})).toEqual({
       valid: false,
       error: "Unknown command: shell",

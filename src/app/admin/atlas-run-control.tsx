@@ -5,14 +5,20 @@ import { useRouter } from "next/navigation";
 import { Play, RotateCw } from "lucide-react";
 import { runAtlasCycle } from "./atlas-actions";
 
-export function AtlasRunControl({ disabled = false }: { disabled?: boolean }) {
+export function AtlasRunControl({
+  disabled = false,
+  disabledReason,
+}: {
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function run() {
-    setMessage("Request sent. Creating the job record and contacting Modal...");
+    setMessage("Request sent. Creating the job record and checking the agentic backend...");
     setError(null);
     startTransition(async () => {
       const result = await runAtlasCycle();
@@ -23,13 +29,13 @@ export function AtlasRunControl({ disabled = false }: { disabled?: boolean }) {
       }
       setMessage(
         result.reused
-          ? `Atlas cycle #${result.jobId} is already active.`
-          : `Atlas cycle #${result.jobId} started.`,
+          ? `Atlas run #${result.runId} is already visible.`
+          : `Atlas run #${result.runId} created.`,
       );
       window.dispatchEvent(new CustomEvent("atlas:started", {
         detail: {
-          jobId: result.jobId,
-          command: "pipeline",
+          runId: result.runId,
+          title: "Atlas full data cycle",
           label: "Atlas cycle",
           agent: "atlas",
           reused: result.reused,
@@ -57,6 +63,9 @@ export function AtlasRunControl({ disabled = false }: { disabled?: boolean }) {
         </p>
       )}
       {error && <p role="alert" className="max-w-sm text-xs text-red-700 dark:text-red-400">{error}</p>}
+      {disabled && disabledReason && !error && (
+        <p className="max-w-sm text-xs text-amber-700 dark:text-amber-400">{disabledReason}</p>
+      )}
     </div>
   );
 }

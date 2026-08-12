@@ -155,8 +155,8 @@ export function InstitutionActions({
                         setQueuedJob({ id: result.jobId, reused: Boolean(result.reused) });
                         window.dispatchEvent(new CustomEvent("atlas:started", {
                           detail: {
-                            jobId: result.jobId,
-                            command: "crawl",
+                            runId: result.jobId,
+                            title: `${institutionName} extraction`,
                             label: `${institutionName} extraction`,
                             agent: "magellan",
                             reused: result.reused,
@@ -198,7 +198,7 @@ export function InstitutionActions({
           command={`crawl --target-id ${institutionId}`}
           scope={institutionName}
           reused={queuedJob.reused}
-          detail="Magellan will extract this institution's fee schedule. Track live status for the Modal call, heartbeat, and output tail."
+          detail="Magellan will extract this institution's fee schedule. Track live status for the backend receipt, heartbeat, and output tail."
         />
       )}
     </div>

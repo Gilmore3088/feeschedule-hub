@@ -77,8 +77,8 @@ vi.mock("@/lib/crawler-db/intelligence", () => ({
 vi.mock("@/lib/crawler-db/connection", () => ({
   sql: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("@/lib/job-runner", () => ({
-  spawnJob: vi.fn().mockResolvedValue({ jobId: 1, pid: 123, logPath: "/tmp/test.log" }),
+vi.mock("@/lib/agents/run-store", () => ({
+  startAgentRun: vi.fn().mockResolvedValue({ run: { id: 1 }, reused: false, steps: [] }),
 }));
 
 import { internalTools } from "./tools-internal";

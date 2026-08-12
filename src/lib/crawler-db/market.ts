@@ -155,7 +155,7 @@ export async function getFeesForCategory(
 
   const rows = await sql.unsafe(
     `SELECT ef.amount, ct.charter_type, ct.institution_name
-     FROM extracted_fees ef
+     FROM published_fee_observations ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${conditions.join(" AND ")}
      ORDER BY ef.amount`,
@@ -220,7 +220,7 @@ export async function getSegmentOutliers(
 
   const highest = await sql.unsafe(
     `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
-     FROM extracted_fees ef
+     FROM published_fee_observations ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${where}
      ORDER BY ef.amount DESC
@@ -235,7 +235,7 @@ export async function getSegmentOutliers(
 
   const lowest = await sql.unsafe(
     `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
-     FROM extracted_fees ef
+     FROM published_fee_observations ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${where}
      ORDER BY ef.amount ASC
@@ -256,7 +256,7 @@ export async function getSegmentOutliers(
   const flagged = await sql.unsafe(
     `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id,
             COALESCE(ef.amount, 0) as amount
-     FROM extracted_fees ef
+     FROM published_fee_observations ef
      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
      WHERE ${flaggedConditions.join(" AND ")}
      ORDER BY ef.amount DESC

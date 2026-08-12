@@ -7,35 +7,35 @@ const QUERY_GROUPS = [
   {
     label: "Overview",
     queries: [
-      { label: "Dashboard stats", sql: "SELECT\n  (SELECT COUNT(*) FROM crawl_targets) as institutions,\n  (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,\n  (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved_fees,\n  (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees,\n  (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'staged') as staged_fees,\n  (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'flagged') as flagged_fees" },
-      { label: "Fee status breakdown", sql: "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC" },
-      { label: "All tables", sql: "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name" },
+      { label: "Dashboard stats", sql: "SELECT\n  (SELECT COUNT(*) FROM crawl_targets) as institutions,\n  (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,\n  (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_published_fees,\n  (SELECT COUNT(*) FROM published_fee_observations) as published_fees,\n  (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'staged') as staged_review_bridge,\n  (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'flagged') as flagged_review_bridge" },
+      { label: "Legacy review bridge status", sql: "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC" },
+      { label: "Tables and views", sql: "SELECT table_schema, table_name, table_type\nFROM information_schema.tables\nWHERE table_schema = 'public'\nORDER BY table_type, table_name" },
     ],
   },
   {
     label: "Coverage",
     queries: [
-      { label: "By state", sql: "SELECT ct.state_code, COUNT(*) as total,\n  SUM(CASE WHEN ct.fee_schedule_url IS NOT NULL THEN 1 ELSE 0 END) as with_url,\n  COUNT(DISTINCT CASE WHEN ef.review_status = 'approved' THEN ct.id END) as with_fees\nFROM crawl_targets ct\nLEFT JOIN extracted_fees ef ON ct.id = ef.crawl_target_id\nGROUP BY ct.state_code ORDER BY total DESC" },
+      { label: "By state", sql: "SELECT ct.state_code, COUNT(*) as total,\n  SUM(CASE WHEN ct.fee_schedule_url IS NOT NULL THEN 1 ELSE 0 END) as with_url,\n  COUNT(DISTINCT ef.crawl_target_id) as with_published_fees\nFROM crawl_targets ct\nLEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id\nGROUP BY ct.state_code ORDER BY total DESC" },
       { label: "By charter type", sql: "SELECT charter_type,\n  COUNT(*) as total,\n  SUM(CASE WHEN fee_schedule_url IS NOT NULL THEN 1 ELSE 0 END) as with_url\nFROM crawl_targets GROUP BY charter_type" },
       { label: "Never discovered", sql: "SELECT state_code, COUNT(*) as cnt\nFROM crawl_targets\nWHERE (fee_schedule_url IS NULL OR fee_schedule_url = '')\n  AND website_url IS NOT NULL AND website_url != ''\n  AND id NOT IN (SELECT DISTINCT crawl_target_id FROM discovery_cache)\nGROUP BY state_code ORDER BY cnt DESC" },
-      { label: "Have URL, no fees", sql: "SELECT ct.institution_name, ct.state_code, ct.fee_schedule_url\nFROM crawl_targets ct\nWHERE ct.fee_schedule_url IS NOT NULL\n  AND ct.id NOT IN (SELECT DISTINCT crawl_target_id FROM extracted_fees WHERE review_status != 'rejected')\nORDER BY ct.asset_size DESC LIMIT 30" },
+      { label: "Have URL, no published fees", sql: "SELECT ct.institution_name, ct.state_code, ct.fee_schedule_url\nFROM crawl_targets ct\nWHERE ct.fee_schedule_url IS NOT NULL\n  AND ct.id NOT IN (SELECT DISTINCT crawl_target_id FROM published_fee_observations)\nORDER BY ct.asset_size DESC LIMIT 30" },
     ],
   },
   {
     label: "Fees",
     queries: [
-      { label: "Top institutions by fee count", sql: "SELECT ct.institution_name, ct.state_code, ct.charter_type, COUNT(*) as fees\nFROM extracted_fees ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.review_status = 'approved'\nGROUP BY ct.id ORDER BY fees DESC LIMIT 20" },
-      { label: "Average overdraft by state", sql: "SELECT ct.state_code, ROUND(AVG(ef.amount), 2) as avg_overdraft, COUNT(*) as institutions\nFROM extracted_fees ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.fee_category = 'overdraft' AND ef.review_status = 'approved' AND ef.amount > 0\nGROUP BY ct.state_code ORDER BY avg_overdraft DESC" },
-      { label: "Median fees by category", sql: "SELECT fee_category, COUNT(*) as cnt,\n  ROUND(AVG(amount), 2) as avg_amount,\n  MIN(amount) as min_amount,\n  MAX(amount) as max_amount\nFROM extracted_fees\nWHERE review_status = 'approved' AND amount > 0 AND fee_category IS NOT NULL\nGROUP BY fee_category ORDER BY cnt DESC" },
-      { label: "Banks vs CUs (spotlight fees)", sql: "SELECT ef.fee_category, ct.charter_type,\n  COUNT(*) as cnt, ROUND(AVG(ef.amount), 2) as avg_fee\nFROM extracted_fees ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.review_status = 'approved' AND ef.amount > 0\n  AND ef.fee_category IN ('overdraft', 'nsf', 'monthly_maintenance', 'atm_non_network', 'wire_domestic_outgoing')\nGROUP BY ef.fee_category, ct.charter_type\nORDER BY ef.fee_category, ct.charter_type" },
-      { label: "Highest overdraft fees", sql: "SELECT ct.institution_name, ct.state_code, ef.amount, ef.fee_name\nFROM extracted_fees ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.fee_category = 'overdraft' AND ef.review_status = 'approved' AND ef.amount > 0\nORDER BY ef.amount DESC LIMIT 20" },
-      { label: "Free checking (no monthly fee)", sql: "SELECT ct.institution_name, ct.state_code, ct.charter_type, ef.amount, ef.conditions\nFROM extracted_fees ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.fee_category = 'monthly_maintenance' AND ef.review_status = 'approved'\n  AND (ef.amount = 0 OR ef.amount IS NULL)\nORDER BY ct.asset_size DESC LIMIT 30" },
+      { label: "Top institutions by fee count", sql: "SELECT ct.institution_name, ct.state_code, ct.charter_type, COUNT(*) as fees\nFROM published_fee_observations ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nGROUP BY ct.id ORDER BY fees DESC LIMIT 20" },
+      { label: "Average overdraft by state", sql: "SELECT ct.state_code, ROUND(AVG(ef.amount), 2) as avg_overdraft, COUNT(*) as institutions\nFROM published_fee_observations ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.fee_category = 'overdraft' AND ef.amount > 0\nGROUP BY ct.state_code ORDER BY avg_overdraft DESC" },
+      { label: "Median fees by category", sql: "SELECT fee_category, COUNT(*) as cnt,\n  ROUND(AVG(amount), 2) as avg_amount,\n  MIN(amount) as min_amount,\n  MAX(amount) as max_amount\nFROM published_fee_observations\nWHERE amount > 0 AND fee_category IS NOT NULL\nGROUP BY fee_category ORDER BY cnt DESC" },
+      { label: "Banks vs CUs (spotlight fees)", sql: "SELECT ef.fee_category, ct.charter_type,\n  COUNT(*) as cnt, ROUND(AVG(ef.amount), 2) as avg_fee\nFROM published_fee_observations ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.amount > 0\n  AND ef.fee_category IN ('overdraft', 'nsf', 'monthly_maintenance', 'atm_non_network', 'wire_domestic_outgoing')\nGROUP BY ef.fee_category, ct.charter_type\nORDER BY ef.fee_category, ct.charter_type" },
+      { label: "Highest overdraft fees", sql: "SELECT ct.institution_name, ct.state_code, ef.amount, ef.fee_name\nFROM published_fee_observations ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.fee_category = 'overdraft' AND ef.amount > 0\nORDER BY ef.amount DESC LIMIT 20" },
+      { label: "Free checking (no monthly fee)", sql: "SELECT ct.institution_name, ct.state_code, ct.charter_type, ef.amount, ef.conditions\nFROM published_fee_observations ef\nJOIN crawl_targets ct ON ef.crawl_target_id = ct.id\nWHERE ef.fee_category = 'monthly_maintenance'\n  AND (ef.amount = 0 OR ef.amount IS NULL)\nORDER BY ct.asset_size DESC LIMIT 30" },
     ],
   },
   {
     label: "Pipeline",
     queries: [
-      { label: "Recent jobs", sql: "SELECT id, command, status, started_at, completed_at, result_summary\nFROM ops_jobs ORDER BY id DESC LIMIT 15" },
+      { label: "Recent runs", sql: "SELECT id, title, agent_name, status, started_at, completed_at, summary\nFROM agent_runs\nWHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')\nORDER BY id DESC LIMIT 15" },
       { label: "Discovery hit rate", sql: "SELECT discovery_method, result, COUNT(*) as cnt\nFROM discovery_cache\nGROUP BY discovery_method, result ORDER BY discovery_method, cnt DESC" },
       { label: "Failing institutions", sql: "SELECT institution_name, state_code, consecutive_failures, fee_schedule_url\nFROM crawl_targets\nWHERE consecutive_failures >= 3\nORDER BY consecutive_failures DESC LIMIT 20" },
       { label: "Recent auto-review actions", sql: "SELECT action, COUNT(*) as cnt, MIN(created_at) as earliest, MAX(created_at) as latest\nFROM fee_reviews\nWHERE username = 'system'\nGROUP BY action ORDER BY cnt DESC" },

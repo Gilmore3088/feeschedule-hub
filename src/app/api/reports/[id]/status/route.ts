@@ -78,7 +78,7 @@ export async function GET(
 
 /**
  * PATCH /api/reports/[id]/status
- * Internal endpoint for Modal worker to update job status via HTTP.
+ * Internal endpoint for the report backend to update job status via HTTP.
  * Auth: X-Internal-Secret header (same as assemble endpoint).
  *
  * Body: { status, artifact_key?, error? }
@@ -110,7 +110,7 @@ export async function PATCH(
 
   const status = body.status;
   const isTerminal = status === 'complete' || status === 'failed';
-  const opsStatus = status === 'complete'
+  const runStatus = status === 'complete'
     ? 'completed'
     : status === 'failed'
       ? 'failed'
@@ -128,12 +128,12 @@ export async function PATCH(
            AND status IN ('pending', 'assembling', 'rendering')
       `;
       await tx`
-        UPDATE ops_jobs
-           SET status = ${opsStatus},
+        UPDATE agent_runs
+           SET status = ${runStatus},
                error_summary = ${body.error ?? null},
-               result_summary = ${status === 'complete' ? 'Report generated successfully' : null},
-               completed_at = NOW(), heartbeat_at = NOW(), updated_at = NOW()
-         WHERE id = (SELECT ops_job_id FROM report_jobs WHERE id = ${id})
+               summary = ${status === 'complete' ? 'Report generated successfully' : null},
+               completed_at = NOW(), updated_at = NOW()
+         WHERE id = (SELECT agent_run_id FROM report_jobs WHERE id = ${id})
            AND status IN ('queued', 'running')
       `;
     } else {
@@ -143,10 +143,10 @@ export async function PATCH(
            AND status NOT IN ('cancel_requested', 'cancelled')
       `;
       await tx`
-        UPDATE ops_jobs
+        UPDATE agent_runs
            SET status = 'running', started_at = COALESCE(started_at, NOW()),
-               heartbeat_at = NOW(), updated_at = NOW()
-         WHERE id = (SELECT ops_job_id FROM report_jobs WHERE id = ${id})
+               updated_at = NOW()
+         WHERE id = (SELECT agent_run_id FROM report_jobs WHERE id = ${id})
            AND status IN ('queued', 'running')
       `;
     }

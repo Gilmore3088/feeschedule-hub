@@ -44,8 +44,8 @@ export function ManualReviewRow({
         setQueuedJob({ id: extractResult.jobId, reused: Boolean(extractResult.reused) });
         window.dispatchEvent(new CustomEvent("atlas:started", {
           detail: {
-            jobId: extractResult.jobId,
-            command: "crawl",
+            runId: extractResult.jobId,
+            title: `${institutionName} extraction`,
             label: `${institutionName} extraction`,
             agent: "magellan",
             reused: extractResult.reused,
@@ -171,7 +171,7 @@ export function ManualReviewRow({
               command={`crawl --target-id ${institutionId}`}
               scope={institutionName}
               reused={queuedJob.reused}
-              detail="Magellan is extracting this fee schedule. Track live status for the Modal call, heartbeat, and output tail."
+              detail="Magellan is extracting this fee schedule. Track live status for the backend receipt, heartbeat, and output tail."
             />
           </td>
         </tr>

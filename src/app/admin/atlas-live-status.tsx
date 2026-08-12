@@ -8,6 +8,7 @@ import { AtlasCancelButton } from "./atlas-cancel-button";
 type LiveJob = {
   id: number;
   command: string;
+  title?: string;
   agent: string;
   status: string;
   createdAt: string | null;
@@ -15,7 +16,7 @@ type LiveJob = {
   completedAt: string | null;
   heartbeatAt: string | null;
   updatedAt: string | null;
-  modalCallId: string | null;
+  backendReceipt: string | null;
   error: string | null;
   resultSummary: string | null;
   stdoutTail: string | null;
@@ -25,6 +26,28 @@ type LiveJob = {
   stagesDone: number | null;
   stagesTotal: number | null;
   pipelineError: string | null;
+  steps?: LiveRunStep[];
+  events?: LiveRunEvent[];
+};
+
+type LiveRunStep = {
+  id: number;
+  key: string;
+  title: string;
+  agent: string;
+  status: string;
+  sequence: number;
+  summary: string | null;
+  error: string | null;
+  updatedAt: string;
+};
+
+type LiveRunEvent = {
+  id: number;
+  eventType: string;
+  status: string;
+  message: string;
+  createdAt: string;
 };
 
 type Snapshot = {
@@ -34,8 +57,8 @@ type Snapshot = {
 };
 
 type AtlasStartedDetail = {
-  jobId?: number;
-  command?: string;
+  runId?: number;
+  title?: string;
   label?: string;
   agent?: string;
   reused?: boolean;
@@ -43,8 +66,8 @@ type AtlasStartedDetail = {
 };
 
 type PendingLaunch = {
-  jobId: number;
-  command: string;
+  runId: number;
+  title: string;
   label: string;
   agent: string;
   reused: boolean;
@@ -52,15 +75,6 @@ type PendingLaunch = {
 };
 
 const ACTIVE_STATUSES = ["queued", "running", "cancel_requested"];
-
-const STAGES = [
-  { name: "seed-enrich", label: "Seed" },
-  { name: "discover", label: "Discover" },
-  { name: "crawl", label: "Crawl" },
-  { name: "darwin-drain", label: "Darwin" },
-  { name: "knox-review", label: "Knox" },
-  { name: "publish-fees", label: "Publish" },
-] as const;
 
 function dateTime(value: string | null): string {
   return formatAdminDateTime(value, { seconds: true });
@@ -85,31 +99,15 @@ function statusTone(status: string): string {
   return "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/30";
 }
 
-function currentStageIndex(job: LiveJob): number {
-  const done = job.stagesDone ?? (
-    job.lastCompletedJob
-      ? STAGES.findIndex((stage) => stage.name === job.lastCompletedJob) + 1
-      : 0
-  );
-  if (job.status === "completed") return STAGES.length;
-  return Math.min(STAGES.length - 1, Math.max(0, done));
-}
-
 function isActiveStatus(status: string): boolean {
   return ACTIVE_STATUSES.includes(status);
 }
 
-function isStageCompleted(job: LiveJob, index: number): boolean {
-  if (job.status === "completed") return true;
-  if (job.stagesDone !== null) return job.stagesDone > index;
-  if (!job.lastCompletedJob) return false;
-  return STAGES.findIndex((stage) => stage.name === job.lastCompletedJob) >= index;
-}
-
 function pendingLaunchJob(launch: PendingLaunch): LiveJob {
   return {
-    id: launch.jobId,
-    command: launch.command,
+    id: launch.runId,
+    command: launch.title,
+    title: launch.title,
     agent: launch.agent,
     status: "queued",
     createdAt: launch.startedAt,
@@ -117,11 +115,11 @@ function pendingLaunchJob(launch: PendingLaunch): LiveJob {
     completedAt: null,
     heartbeatAt: null,
     updatedAt: launch.startedAt,
-    modalCallId: null,
+    backendReceipt: "agentic_v1",
     error: null,
     resultSummary: launch.reused
-      ? "Existing active job found. Waiting for the live status refresh."
-      : "Launch accepted. Waiting for Modal call ID and first worker heartbeat.",
+      ? "Existing run found. Waiting for the live status refresh."
+      : "Run record accepted. Waiting for the agentic status snapshot.",
     stdoutTail: null,
     pipelineRunId: null,
     pipelineStatus: null,
@@ -129,6 +127,8 @@ function pendingLaunchJob(launch: PendingLaunch): LiveJob {
     stagesDone: null,
     stagesTotal: null,
     pipelineError: null,
+    steps: [],
+    events: [],
   };
 }
 
@@ -167,11 +167,11 @@ export function AtlasLiveStatus({
   useEffect(() => {
     function handleStarted(event: Event) {
       const detail = (event as CustomEvent<AtlasStartedDetail>).detail;
-      if (typeof detail?.jobId === "number") {
+      if (typeof detail?.runId === "number") {
         setPendingLaunch({
-          jobId: detail.jobId,
-          command: detail.command ?? "pipeline",
-          label: detail.label ?? "Atlas job",
+          runId: detail.runId,
+          title: detail.title ?? detail.label ?? "Atlas run",
+          label: detail.label ?? "Atlas run",
           agent: detail.agent ?? "atlas",
           reused: Boolean(detail.reused),
           startedAt: detail.startedAt ?? new Date().toISOString(),
@@ -199,8 +199,8 @@ export function AtlasLiveStatus({
 
   useEffect(() => {
     if (pendingLaunch === null) return;
-    if (snapshot.activeJobs.some((job) => job.id === pendingLaunch.jobId)) return;
-    const terminalJob = snapshot.recentJobs.find((job) => job.id === pendingLaunch.jobId);
+    if (snapshot.activeJobs.some((job) => job.id === pendingLaunch.runId)) return;
+    const terminalJob = snapshot.recentJobs.find((job) => job.id === pendingLaunch.runId);
     if (!terminalJob || isActiveStatus(terminalJob.status)) return;
     const timeout = window.setTimeout(() => setPendingLaunch(null), 15000);
     return () => window.clearTimeout(timeout);
@@ -213,8 +213,8 @@ export function AtlasLiveStatus({
 
   const watchedJob = useMemo(() => {
     if (pendingLaunch) {
-      const matchingJob = snapshot.activeJobs.find((job) => job.id === pendingLaunch.jobId)
-        ?? snapshot.recentJobs.find((job) => job.id === pendingLaunch.jobId);
+      const matchingJob = snapshot.activeJobs.find((job) => job.id === pendingLaunch.runId)
+        ?? snapshot.recentJobs.find((job) => job.id === pendingLaunch.runId);
       return matchingJob ?? pendingLaunchJob(pendingLaunch);
     }
     if (snapshot.activeJobs.length > 0) return snapshot.activeJobs[0];
@@ -224,9 +224,9 @@ export function AtlasLiveStatus({
   const isActive = watchedJob ? isActiveStatus(watchedJob.status) : false;
   const showingPendingLaunch = Boolean(
     pendingLaunch
-      && watchedJob?.id === pendingLaunch.jobId
-      && !snapshot.activeJobs.some((job) => job.id === pendingLaunch.jobId)
-      && !snapshot.recentJobs.some((job) => job.id === pendingLaunch.jobId),
+      && watchedJob?.id === pendingLaunch.runId
+      && !snapshot.activeJobs.some((job) => job.id === pendingLaunch.runId)
+      && !snapshot.recentJobs.some((job) => job.id === pendingLaunch.runId),
   );
 
   return (
@@ -236,7 +236,7 @@ export function AtlasLiveStatus({
           <div>
             <p className="admin-eyebrow">Execution</p>
             <h2 id="active-heading" className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-              What is running now?
+              What is visible now?
             </h2>
           </div>
           <button
@@ -251,18 +251,18 @@ export function AtlasLiveStatus({
 
         {!watchedJob ? (
           <div className="border-y border-black/[0.06] py-7 dark:border-white/[0.06]">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No active admin job</p>
-            <p className="admin-meta mt-1">A started workflow appears here with its owner, Modal call, heartbeat, and output tail.</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No active agent run</p>
+            <p className="admin-meta mt-1">A started workflow appears here with its owner, backend, step ledger, and event stream.</p>
           </div>
         ) : (
           <div className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
             {showingPendingLaunch && pendingLaunch && (
               <div role="status" className="mb-5 rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-blue-900 dark:border-blue-950 dark:bg-blue-950/30 dark:text-blue-200">
                 <p className="text-xs font-semibold">
-                  {pendingLaunch.reused ? "Existing job selected" : "Launch accepted"}
+                  {pendingLaunch.reused ? "Existing run selected" : "Run accepted"}
                 </p>
                 <p className="mt-1 text-xs">
-                  {pendingLaunch.label} #{pendingLaunch.jobId} is queued locally. This panel is polling for the Modal call ID, heartbeat, and output tail.
+                  {pendingLaunch.label} #{pendingLaunch.runId} is visible locally. This panel is polling for steps and events.
                 </p>
               </div>
             )}
@@ -270,7 +270,7 @@ export function AtlasLiveStatus({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   {isActive ? <Activity className="h-4 w-4 text-blue-600" /> : watchedJob.status === "completed" ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4 text-red-600" />}
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">#{watchedJob.id} · {watchedJob.command}</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Run #{watchedJob.id} · {watchedJob.title ?? watchedJob.command}</p>
                   <span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${statusTone(watchedJob.status)}`}>
                     {watchedJob.status.replace("_", " ")}
                   </span>
@@ -279,23 +279,44 @@ export function AtlasLiveStatus({
                   </span>
                 </div>
                 <p className="admin-meta mt-1">
-                  {watchedJob.modalCallId ? `Modal ${watchedJob.modalCallId}` : "Waiting for Modal call ID"}
+                  Backend {watchedJob.backendReceipt ?? "agentic_v1"}
                 </p>
               </div>
-              {isActive && <AtlasCancelButton jobId={watchedJob.id} />}
+              {isActive && <AtlasCancelButton runId={watchedJob.id} />}
             </div>
 
             <div className="mt-5 grid gap-4 text-xs sm:grid-cols-4">
               <LiveDatum label="Started" value={dateTime(watchedJob.startedAt ?? watchedJob.createdAt)} />
               <LiveDatum label="Elapsed" value={duration(watchedJob.startedAt ?? watchedJob.createdAt, watchedJob.completedAt)} />
               <LiveDatum label="Heartbeat" value={dateTime(watchedJob.heartbeatAt ?? watchedJob.updatedAt)} />
-              <LiveDatum label="Pipeline run" value={watchedJob.pipelineRunId ? `#${watchedJob.pipelineRunId}` : "Pending"} />
+              <LiveDatum label="Progress" value={watchedJob.stagesTotal ? `${watchedJob.stagesDone ?? 0} / ${watchedJob.stagesTotal}` : "Pending"} />
             </div>
 
-            {watchedJob.command === "pipeline" || watchedJob.pipelineRunId ? (
+            {watchedJob.steps && watchedJob.steps.length > 0 ? (
               <StageRail job={watchedJob} />
             ) : (
               <JobLifecycleRail job={watchedJob} />
+            )}
+
+            {watchedJob.events && watchedJob.events.length > 0 && (
+              <div className="mt-5 rounded-md border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-white/[0.02]">
+                <div className="border-b border-black/[0.06] px-3 py-2 dark:border-white/[0.06]">
+                  <p className="admin-label">Event stream</p>
+                </div>
+                <div className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+                  {watchedJob.events.slice(-5).map((event) => (
+                    <div key={event.id} className="px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-medium text-gray-800 dark:text-gray-200">{event.message}</p>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${statusTone(event.status)}`}>
+                          {event.status.replace("_", " ")}
+                        </span>
+                      </div>
+                      <p className="admin-meta mt-1">{event.eventType} · {dateTime(event.createdAt)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {(watchedJob.resultSummary || watchedJob.error || watchedJob.pipelineError) && (
@@ -319,7 +340,7 @@ export function AtlasLiveStatus({
               </div>
             ) : isActive ? (
               <div className="mt-5 rounded-md border border-dashed border-black/[0.12] px-3 py-3 dark:border-white/[0.12]">
-                <p className="font-mono text-[11px] text-gray-500">Waiting for remote output. Heartbeat and job state will update here while the Modal call runs.</p>
+                <p className="font-mono text-[11px] text-gray-500">Agentic runs report through the step ledger and event stream above. Raw stdout is not used for this backend.</p>
               </div>
             ) : null}
 
@@ -332,7 +353,7 @@ export function AtlasLiveStatus({
       <div>
         <div className="admin-section-header">
           <div>
-            <p className="admin-eyebrow">Recent jobs</p>
+            <p className="admin-eyebrow">Recent runs</p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
               Last outcomes
             </h2>
@@ -342,7 +363,7 @@ export function AtlasLiveStatus({
           {snapshot.recentJobs.slice(0, 5).map((job) => (
             <div key={job.id} className="grid gap-1 py-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">#{job.id} · {job.command}</p>
+                <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">#{job.id} · {job.title ?? job.command}</p>
                 <span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${statusTone(job.status)}`}>
                   {job.status.replace("_", " ")}
                 </span>
@@ -355,7 +376,7 @@ export function AtlasLiveStatus({
           ))}
           {snapshot.recentJobs.length === 0 && (
             <div className="py-6">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No terminal admin jobs yet.</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No terminal agent runs yet.</p>
             </div>
           )}
         </div>
@@ -374,28 +395,35 @@ function LiveDatum({ label, value }: { label: string; value: string }) {
 }
 
 function StageRail({ job }: { job: LiveJob }) {
-  const activeIndex = currentStageIndex(job);
+  const steps = job.steps ?? [];
   return (
-    <div className="mt-5 grid gap-2 sm:grid-cols-6">
-      {STAGES.map((stage, index) => {
-        const completed = isStageCompleted(job, index);
-        const active = !completed && index === activeIndex && isActiveStatus(job.status);
+    <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {steps.map((step) => {
+        const completed = step.status === "completed" || step.status === "skipped";
+        const active = step.status === "running" || step.status === "queued";
+        const blocked = step.status === "blocked" || step.status === "failed";
         return (
           <div
-            key={stage.name}
+            key={step.id}
             className={`min-h-16 rounded-md border px-3 py-2 ${
               completed
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-300"
                 : active
                   ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-950 dark:bg-blue-950/20 dark:text-blue-300"
-                  : "border-black/[0.06] bg-white text-gray-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-gray-400"
+                  : blocked
+                    ? "border-red-200 bg-red-50 text-red-800 dark:border-red-950 dark:bg-red-950/20 dark:text-red-300"
+                    : "border-black/[0.06] bg-white text-gray-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-gray-400"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide">{stage.label}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wide">{step.agent}</p>
               {active && <Clock3 className="h-3.5 w-3.5" />}
             </div>
-            <p className="mt-2 truncate font-mono text-[10px]">{stage.name}</p>
+            <p className="mt-2 truncate text-[11px] font-semibold">{step.title}</p>
+            <p className="mt-1 truncate font-mono text-[10px]">{step.key} · {step.status.replace("_", " ")}</p>
+            {(step.error || step.summary) && (
+              <p className="mt-1 truncate text-[10px] opacity-80">{step.error ?? step.summary}</p>
+            )}
           </div>
         );
       })}
@@ -413,11 +441,11 @@ function JobLifecycleRail({ job }: { job: LiveJob }) {
       active: job.status === "queued",
     },
     {
-      key: "modal",
-      label: "Modal",
-      detail: job.modalCallId ? "Call ready" : "Awaiting call",
-      complete: Boolean(job.modalCallId),
-      active: job.status === "running" && !job.modalCallId,
+      key: "backend",
+      label: "Backend",
+      detail: job.backendReceipt ?? "agentic_v1",
+      complete: Boolean(job.backendReceipt),
+      active: false,
     },
     {
       key: "worker",

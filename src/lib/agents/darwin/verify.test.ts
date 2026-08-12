@@ -1,0 +1,125 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { runDarwinVerify } from "./verify";
+
+type DbMock = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
+
+function templateText(strings: unknown): string {
+  return Array.isArray(strings) ? strings.join(" ") : String(strings);
+}
+
+function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
+  const db = vi.fn((strings: TemplateStringsArray) => {
+    const text = templateText(strings);
+    if (text.includes("INSERT INTO fees_verified")) {
+      return Promise.resolve([{ fee_verified_id: db.mock.calls.length + 1200 }]);
+    }
+    return Promise.resolve([]);
+  }) as DbMock;
+  db.unsafe = vi.fn((query: string) => {
+    if (query.includes("FROM fees_raw")) return Promise.resolve(rows);
+    return Promise.resolve([]);
+  });
+  return db;
+}
+
+function asVerifyDb(db: DbMock): NonNullable<Parameters<typeof runDarwinVerify>[0]["db"]> {
+  return db as unknown as NonNullable<Parameters<typeof runDarwinVerify>[0]["db"]>;
+}
+
+const rawFee = {
+  fee_raw_id: 801,
+  institution_id: 42,
+  source_url: "https://testbank.example/fees",
+  document_r2_key: null,
+  extraction_confidence: "0.9200",
+  fee_name: "Overdraft fee",
+  amount: "35.00",
+  frequency: "per_item",
+  outlier_flags: ["needs_darwin_verification", "canonical_hint:overdraft"],
+  conditions: "canonical_hint=overdraft; excerpt=\"Overdraft fee $35\"",
+};
+
+describe("Darwin agentic verification", () => {
+  it("verifies Knox raw rows with canonical hints into fees_verified", async () => {
+    const db = createDbMock([rawFee]);
+
+    const result = await runDarwinVerify({
+      runId: 101,
+      limit: 999,
+      db: asVerifyDb(db),
+    });
+
+    expect(result).toMatchObject({
+      selectedRawFees: 1,
+      processedRawFees: 1,
+      verifiedFees: 1,
+      skippedFees: 0,
+      limit: 500,
+      dryRun: false,
+    });
+    expect(result.results[0]).toMatchObject({
+      feeRawId: 801,
+      institutionId: 42,
+      canonicalFeeKey: "overdraft",
+      status: "verified",
+      feeVerifiedId: 1201,
+    });
+
+    const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(unsafeSql).toContain("FROM fees_raw");
+    expect(unsafeSql).toContain("fr.outlier_flags ? 'needs_darwin_verification'");
+
+    const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(insertSql).toContain("INSERT INTO fees_verified");
+    expect(insertSql).toContain("ON CONFLICT DO NOTHING");
+    expect(insertSql).not.toContain("promote_to_tier2");
+    expect(insertSql).not.toContain("agent_events");
+    expect(JSON.stringify(db.mock.calls)).toContain("agentic_darwin_verified");
+  });
+
+  it("keeps dry runs read-only while still reporting verified candidates", async () => {
+    const db = createDbMock([rawFee]);
+
+    const result = await runDarwinVerify({
+      runId: 102,
+      dryRun: true,
+      db: asVerifyDb(db),
+    });
+
+    expect(result.verifiedFees).toBe(1);
+    expect(result.results[0]).toMatchObject({
+      status: "verified",
+      feeVerifiedId: null,
+    });
+    expect(db.unsafe).toHaveBeenCalledTimes(1);
+    expect(db).not.toHaveBeenCalled();
+  });
+
+  it("skips raw rows without a valid canonical hint", async () => {
+    const db = createDbMock([
+      {
+        ...rawFee,
+        outlier_flags: ["needs_darwin_verification"],
+        conditions: "canonical_hint=not_a_real_fee",
+      },
+    ]);
+
+    const result = await runDarwinVerify({
+      runId: 103,
+      db: asVerifyDb(db),
+    });
+
+    expect(result).toMatchObject({
+      selectedRawFees: 1,
+      processedRawFees: 1,
+      verifiedFees: 0,
+      skippedFees: 1,
+    });
+    expect(result.results[0]).toMatchObject({
+      status: "skipped",
+      reason: "Missing or invalid canonical hint",
+    });
+    expect(db).not.toHaveBeenCalled();
+  });
+});

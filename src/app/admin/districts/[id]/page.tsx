@@ -4,7 +4,6 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import {
   getLatestBeigeBook,
-  getBeigeBookEditions,
   getDistrictContent,
   getDistrictIndicators,
   getDistrictMetrics,
@@ -41,9 +40,8 @@ export default async function DistrictDetailPage({
 
 async function DistrictDetailContent({ districtId }: { districtId: number }) {
   const districtName = DISTRICT_NAMES[districtId] ?? `District ${districtId}`;
-  const [beigeBook, editions, content, indicators, metrics, econSummary, feeRevenue, complaints, themes, feeMedians] = await Promise.all([
+  const [beigeBook, content, indicators, metrics, econSummary, feeRevenue, complaints, themes, feeMedians] = await Promise.all([
     getLatestBeigeBook(districtId),
-    getBeigeBookEditions(8),
     getDistrictContent(districtId, 15),
     getDistrictIndicators(districtId),
     getDistrictMetrics(),
@@ -439,11 +437,7 @@ async function DistrictDetailContent({ districtId }: { districtId: number }) {
                 </div>
               ) : (
                 <div className="rounded-lg border bg-white dark:bg-white/[0.02] p-6 text-center text-gray-400 text-sm">
-                  No Beige Book data available. Run{" "}
-                  <code className="bg-gray-100 dark:bg-white/10 px-1.5 py-0.5 rounded text-xs">
-                    python -m fee_crawler ingest-beige-book
-                  </code>{" "}
-                  to import.
+                  No Beige Book data available. The agentic ingest backend must import this source.
                 </div>
               )}
 

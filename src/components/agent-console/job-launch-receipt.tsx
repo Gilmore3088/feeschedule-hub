@@ -11,7 +11,7 @@ export function JobLaunchReceipt({
   scope,
   reused = false,
   compact = false,
-  detail = "Atlas records the job immediately, then Modal attaches the worker call, heartbeat, and output tail.",
+  detail = "Atlas records the run immediately, then the agentic backend attaches steps, events, and worker output.",
 }: {
   jobId: number;
   title: string;
@@ -33,7 +33,7 @@ export function JobLaunchReceipt({
           <div className="flex flex-wrap items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
             <p className="text-sm font-semibold">
-              {reused ? "Existing job selected" : "Job queued"} · #{jobId}
+              {reused ? "Existing run selected" : "Run created"} · #{jobId}
             </p>
             <span className="rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-white/[0.08] dark:text-emerald-200">
               {owner}
@@ -56,12 +56,12 @@ export function JobLaunchReceipt({
           <dd className="mt-1 font-medium">{scope}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Command</dt>
+          <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Plan</dt>
           <dd className="mt-1 truncate font-mono text-[11px]">{command}</dd>
         </div>
         <div>
           <dt className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Next status</dt>
-          <dd className="mt-1 font-medium">{reused ? "Resume watching active run" : "Waiting for Modal call ID"}</dd>
+          <dd className="mt-1 font-medium">{reused ? "Resume watching active run" : "Waiting for run events"}</dd>
         </div>
       </dl>
     </div>

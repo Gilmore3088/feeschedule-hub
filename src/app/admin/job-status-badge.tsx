@@ -3,8 +3,19 @@ import { sql } from "@/lib/crawler-db/connection";
 
 async function getJobCounts(): Promise<{ running: number; failed: number }> {
   try {
-    const [runningRow] = await sql`SELECT COUNT(*) as c FROM ops_jobs WHERE status IN ('running', 'queued')`;
-    const [failedRow] = await sql`SELECT COUNT(*) as c FROM ops_jobs WHERE status = 'failed' AND completed_at > NOW() - INTERVAL '24 hours'`;
+    const [runningRow] = await sql`
+      SELECT COUNT(*) as c
+        FROM agent_runs
+       WHERE status IN ('running', 'queued')
+         AND run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+    `;
+    const [failedRow] = await sql`
+      SELECT COUNT(*) as c
+        FROM agent_runs
+       WHERE status = 'failed'
+         AND completed_at > NOW() - INTERVAL '24 hours'
+         AND run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+    `;
     return { running: Number(runningRow.c), failed: Number(failedRow.c) };
   } catch {
     return { running: 0, failed: 0 };
@@ -28,7 +39,7 @@ export async function JobStatusBadge() {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
           </span>
           <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-            {running} job{running > 1 ? "s" : ""} running
+            {running} run{running > 1 ? "s" : ""} running
           </span>
         </Link>
       )}

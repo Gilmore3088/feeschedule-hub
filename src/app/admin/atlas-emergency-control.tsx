@@ -37,8 +37,8 @@ export function AtlasEmergencyControl({
       const failureCount = result.cancellationFailures?.length ?? 0;
       setMessage(
         failureCount > 0
-          ? `Stop engaged. ${result.cancelled ?? 0} jobs cancelled; ${failureCount} need manual review.`
-          : `Stop engaged. ${result.cancelled ?? 0} of ${result.requested ?? 0} active jobs cancelled.`,
+          ? `Stop engaged. ${result.cancelled ?? 0} runs cancelled; ${failureCount} need manual review.`
+          : `Stop engaged. ${result.cancelled ?? 0} of ${result.requested ?? 0} active runs cancelled.`,
       );
       setConfirming(false);
     });
@@ -60,7 +60,7 @@ export function AtlasEmergencyControl({
             <div>
               <p className="text-sm font-bold text-red-900 dark:text-red-200">Emergency stop is active</p>
               <p className="mt-1 text-xs text-red-800/80 dark:text-red-300/80">
-                New jobs, agent tools, and AI provider calls are blocked. {reason ?? "No reason recorded."}
+                New worker execution, agent tools, and AI provider calls are blocked. {reason ?? "No reason recorded."}
               </p>
               <p className="mt-1 text-[10px] text-red-700/70 dark:text-red-400/70">
                 Changed by {changedBy} · {changedAtLabel}
@@ -91,7 +91,7 @@ export function AtlasEmergencyControl({
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">Automation safety</p>
-            <p className="admin-meta mt-1">Provider calls and scheduled work are permitted. {activeJobCount} job{activeJobCount === 1 ? "" : "s"} active.</p>
+            <p className="admin-meta mt-1">Provider calls and scheduled work are permitted. {activeJobCount} run{activeJobCount === 1 ? "" : "s"} active.</p>
           </div>
           <button
             type="button"
@@ -107,7 +107,7 @@ export function AtlasEmergencyControl({
           <div>
             <p className="text-sm font-bold text-red-800 dark:text-red-300">Stop all automation?</p>
             <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-              The gate closes first, then Atlas requests remote cancellation for {activeJobCount} active job{activeJobCount === 1 ? "" : "s"}.
+              The gate closes first, then Atlas cancels {activeJobCount} active agent run{activeJobCount === 1 ? "" : "s"}.
             </p>
           </div>
           <label className="block">

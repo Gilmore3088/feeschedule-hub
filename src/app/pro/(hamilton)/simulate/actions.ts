@@ -65,15 +65,13 @@ export async function getInstitutionFee(
   try {
     const rows = await sql<{ amount: string }[]>`
       SELECT ef.amount::text
-      FROM extracted_fees ef
-      JOIN crawl_results cr ON ef.crawl_result_id = cr.id
-      JOIN crawl_targets ct ON cr.crawl_target_id = ct.id
+      FROM published_fee_observations ef
+      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
       WHERE ct.institution_name ILIKE ${`%${institutionId.replace(/-/g, ' ')}%`}
         AND ef.fee_category = ${feeCategory}
-        AND ef.review_status IN ('approved', 'staged', 'pending')
+        AND ef.review_status = 'approved'
         AND ef.amount IS NOT NULL
       ORDER BY
-        CASE ef.review_status WHEN 'approved' THEN 1 WHEN 'staged' THEN 2 ELSE 3 END,
         ef.created_at DESC
       LIMIT 1
     `;

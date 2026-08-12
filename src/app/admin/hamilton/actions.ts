@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
-import { cancelJob } from "@/lib/job-runner";
+import { cancelAgentRun } from "@/lib/agents/run-store";
 import { triggerReportJob } from "@/lib/report-job-runner";
 import type { ReportType } from "@/lib/report-engine/types";
 
@@ -76,15 +76,15 @@ export async function cancelReport(
   try {
     const sql = getSql();
     const [job] = await sql`
-      SELECT id, status, ops_job_id
+      SELECT id, status, agent_run_id
         FROM report_jobs
        WHERE id = ${jobId}
     `;
     if (!job || !["pending", "assembling", "rendering", "cancel_requested"].includes(String(job.status))) {
       return { success: false, error: "Job not found or already complete/failed" };
     }
-    if (!job.ops_job_id) {
-      return { success: false, error: "This legacy report has no cancellable Modal call ID" };
+    if (!job.agent_run_id) {
+      return { success: false, error: "This report has no cancellable agent run" };
     }
 
     await sql`
@@ -92,10 +92,10 @@ export async function cancelReport(
          SET status = 'cancel_requested', cancel_requested_at = NOW()
        WHERE id = ${jobId}
     `;
-    const cancelled = await cancelJob(Number(job.ops_job_id));
+    const cancelled = await cancelAgentRun(Number(job.agent_run_id), "hamilton-admin");
     if (!cancelled.success) {
       await sql`
-        UPDATE report_jobs SET error = ${cancelled.error ?? "Modal cancellation failed"}
+        UPDATE report_jobs SET error = ${cancelled.error ?? "Backend cancellation failed"}
          WHERE id = ${jobId} AND status = 'cancel_requested'
       `;
       return cancelled;

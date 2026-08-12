@@ -1,4 +1,3 @@
-# Phase 62a CI: Postgres service container + pytest run against real schema.
 name: tests
 
 on:
@@ -7,39 +6,18 @@ on:
   pull_request:
 
 jobs:
-  pg-tests:
+  app-tests:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: bfi_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/bfi_test
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "22"
+          cache: npm
       - name: Install dependencies
-        run: pip install -r fee_crawler/requirements.txt
-      - name: Install json2ts (required by pydantic2ts)
-        run: npm install -g json-schema-to-typescript
-      - name: Run sqlite-kill guard
-        run: bash scripts/ci-guards.sh sqlite-kill
-      - name: Check TS codegen is up to date (drift guard)
-        env:
-          CHECK_MODE: "1"
-        run: bash scripts/codegen.sh agent-tool-types
-      - name: Run pytest
-        run: pytest fee_crawler/tests/ -v --no-header
+        run: npm ci
+      - name: Guard retired execution surfaces
+        run: npm run guard:legacy
+      - name: Run focused agentic tests
+        run: npm run test:agentic

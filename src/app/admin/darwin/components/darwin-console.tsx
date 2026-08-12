@@ -55,6 +55,16 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
         setError(result.error ?? "Darwin repair could not be queued");
       } else if (typeof result.jobId === "number") {
         setQueuedJob({ id: result.jobId, size, chain, reused: Boolean(result.reused) });
+        window.dispatchEvent(new CustomEvent("atlas:started", {
+          detail: {
+            runId: result.jobId,
+            title: "Darwin classification repair",
+            label: "Darwin classification",
+            agent: "darwin",
+            reused: result.reused,
+            startedAt: new Date().toISOString(),
+          },
+        }));
       }
     } finally {
       setRunning(false);
@@ -118,7 +128,7 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
       <BudgetGauge status={status} />
       <BatchRunner
         onStart={start}
-        disabled={running || status.circuit.halted}
+        disabled={running}
         busy={running}
         disabledReason={disabledReason}
         title="Classify raw fee rows"
@@ -134,7 +144,7 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
           command={`darwin-drain --size ${queuedJob.size} --batches ${queuedJob.chain}`}
           scope={`${(queuedJob.size * queuedJob.chain).toLocaleString("en-US")} fees · ${queuedJob.chain === 1 ? "single batch" : `${queuedJob.chain} batches`}`}
           reused={queuedJob.reused}
-          detail="Darwin will promote raw fee rows into verified categories. Atlas live status shows the Modal call, heartbeat, and latest output."
+          detail="Darwin will create a visible classification run. Worker execution stays halted until the agentic backend is wired."
         />
       )}
       {error && <p role="alert" className="text-xs text-red-700 dark:text-red-400">{error}</p>}

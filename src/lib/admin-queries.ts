@@ -71,7 +71,7 @@ export interface PipelineOverview {
   crawl_runs: number;
 }
 
-export type AgentStatus = "live" | "stubbed" | "missing";
+export type AgentStatus = "live" | "stubbed" | "missing" | "blocked";
 
 export interface PipelineStageAgent {
   name: string;
@@ -142,8 +142,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE fee_schedule_url IS NOT NULL)::int AS with_urls,
         COUNT(*) FILTER (WHERE EXISTS (
-          SELECT 1 FROM extracted_fees ef
-           WHERE ef.crawl_target_id = ct.id AND ef.review_status = 'approved'
+          SELECT 1 FROM published_fee_observations ef
+           WHERE ef.crawl_target_id = ct.id
         ))::int AS with_fees
       FROM crawl_targets ct
       WHERE status = 'active'
@@ -180,25 +180,23 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
     // Institutions with 6+ fees (credible)
     const [goodRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
-        SELECT crawl_target_id FROM extracted_fees
-        WHERE review_status != 'rejected'
+        SELECT crawl_target_id FROM published_fee_observations
         GROUP BY crawl_target_id HAVING COUNT(*) >= 6
       ) sub`;
 
     // Institutions with 1-5 fees (incomplete)
     const [incompleteRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
-        SELECT crawl_target_id FROM extracted_fees
-        WHERE review_status != 'rejected'
+        SELECT crawl_target_id FROM published_fee_observations
         GROUP BY crawl_target_id HAVING COUNT(*) BETWEEN 1 AND 5
       ) sub`;
 
     // Have URL but no fees
     const [urlNoFeesRow] = await sql`
-      SELECT COUNT(*) as cnt FROM crawl_targets ct
-      WHERE ct.fee_schedule_url IS NOT NULL AND ct.status = 'active'
-        AND NOT EXISTS (
-          SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected'
+        SELECT COUNT(*) as cnt FROM crawl_targets ct
+        WHERE ct.fee_schedule_url IS NOT NULL AND ct.status = 'active'
+          AND NOT EXISTS (
+          SELECT 1 FROM published_fee_observations ef WHERE ef.crawl_target_id = ct.id
         )`;
 
     // No URL at all (addressable)
@@ -210,9 +208,8 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
 
     // Freeform fees (not in 49-category taxonomy)
     const [freeformRow] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
-      WHERE review_status != 'rejected'
-        AND fee_category NOT IN (
+      SELECT COUNT(*) as cnt FROM published_fee_observations
+      WHERE fee_category NOT IN (
           'overdraft','nsf','wire_domestic_outgoing','wire_domestic_incoming',
           'wire_intl_outgoing','wire_intl_incoming','atm_non_network','atm_international',
           'monthly_maintenance','minimum_balance','dormant_account','account_closing',
@@ -227,7 +224,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
           'account_verification','balance_inquiry','appraisal_fee','loan_origination'
         )`;
 
-    const [rejectedRow] = await sql`SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status = 'rejected'`;
+    const [rejectedRow] = await sql`SELECT 0::int as cnt`;
 
     const good = Number(goodRow.cnt);
     const incomplete = Number(incompleteRow.cnt);
@@ -345,9 +342,9 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
       SELECT
         t.state_code,
         COUNT(DISTINCT t.id) as total,
-        COUNT(DISTINCT CASE WHEN e.review_status = 'approved' THEN e.crawl_target_id END) as with_fees
+        COUNT(DISTINCT e.crawl_target_id) as with_fees
       FROM crawl_targets t
-      LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
+      LEFT JOIN published_fee_observations e ON e.crawl_target_id = t.id
       WHERE t.state_code IS NOT NULL
         AND t.status = 'active'
         AND COALESCE(t.document_type, '') NOT IN ('offline', 'no_website')
@@ -374,7 +371,8 @@ export async function getDiscoveryStatus(): Promise<DiscoveryStatusRow[]> {
   try {
     const rows = await sql`
       SELECT status, COUNT(*) as cnt
-      FROM ops_jobs
+      FROM agent_runs
+      WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
       GROUP BY status
       ORDER BY cnt DESC
     `;
@@ -402,7 +400,7 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
       current_label: "crawl targets",
       throughput_24h: 0,
       agents: [
-        { name: "Modal crawler", status: "live", note: "runs at 02:00 / 03:00 / 04:00 UTC" },
+        { name: "External crawler", status: "blocked", note: "blocked pending agentic backend cutover" },
         { name: "state_xx (per-state)", status: "live", note: "50 state orchestrators" },
       ],
     },
@@ -517,7 +515,7 @@ export async function getPipelineOverview(): Promise<PipelineOverview> {
   try {
     const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
     const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
+    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_observations`;
     const [runRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_runs`;
     return {
       total_institutions: Number(totalRow.cnt),
@@ -554,8 +552,7 @@ export interface JobHealthSummary {
   jobs: JobFreshness[];
 }
 
-// Inventory of scheduled jobs we expect to run.
-// All jobs below write workers_last_run markers from modal_app.py.
+// Inventory of scheduled jobs we expect the agentic backend to publish.
 // Any stale entry here surfaces as a red banner on /admin/pipeline.
 const JOB_INVENTORY: Array<
   Pick<JobFreshness, "job_name" | "display_name" | "source" | "expected_within_hours">
@@ -567,7 +564,7 @@ const JOB_INVENTORY: Array<
 ];
 
 // Reliability Roadmap #11 — URL freshness surface.
-// Stale URLs are flagged by fee_crawler/commands/probe_urls.py::run_revalidate
+// Stale URLs are surfaced by the admin data-quality checks and agentic run queue.
 // by setting failure_reason='url_stale'. This helper counts them per state
 // so /admin/coverage can expose the pool that's silently not being recrawled.
 export interface UrlFreshnessStats {
@@ -742,10 +739,12 @@ export async function getJobFreshness(): Promise<JobHealthSummary> {
 export async function getRecentJobs(limit = 20): Promise<OpsJob[]> {
   try {
     const rows = await sql`
-      SELECT id, command, status, created_at, started_at, completed_at,
+      SELECT id, COALESCE(title, run_kind) AS command, status,
+             started_at AS created_at, started_at, completed_at,
              triggered_by, error_summary
-      FROM ops_jobs
-      ORDER BY created_at DESC
+      FROM agent_runs
+      WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+      ORDER BY started_at DESC
       LIMIT ${limit}
     `;
     return rows.map((r) => ({
@@ -768,12 +767,13 @@ export async function getJobQueueStatus(): Promise<JobQueueRow[]> {
   try {
     const rows = await sql`
       SELECT
-        COALESCE(command, 'unknown') as queue,
+        COALESCE(agent_name, 'unknown') as queue,
         status,
         COUNT(*) as cnt
-      FROM ops_jobs
-      GROUP BY command, status
-      ORDER BY command, status
+      FROM agent_runs
+      WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+      GROUP BY agent_name, status
+      ORDER BY agent_name, status
     `;
     return rows.map((r) => ({
       queue: String(r.queue),
@@ -797,7 +797,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   try {
     const [row] = await sql`
       SELECT COUNT(*) as cnt
-      FROM extracted_fees ef
+      FROM published_fee_observations ef
       LEFT JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
       WHERE ct.id IS NULL
     `;
@@ -815,8 +815,8 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 2. Negative amounts
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
-      WHERE amount < 0 AND review_status != 'rejected'
+      SELECT COUNT(*) as cnt FROM published_fee_observations
+      WHERE amount < 0
     `;
     const cnt = Number(row.cnt);
     checks.push({
@@ -832,8 +832,8 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 3. Extreme amounts (> $10,000)
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
-      WHERE amount > 10000 AND review_status != 'rejected'
+      SELECT COUNT(*) as cnt FROM published_fee_observations
+      WHERE amount > 10000
     `;
     const cnt = Number(row.cnt);
     checks.push({
@@ -868,8 +868,8 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 5. Uncategorized fees
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
-      WHERE fee_category IS NULL AND review_status != 'rejected'
+      SELECT COUNT(*) as cnt FROM published_fee_observations
+      WHERE fee_category IS NULL
     `;
     const cnt = Number(row.cnt);
     checks.push({
@@ -885,8 +885,8 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 6. Null amounts
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees
-      WHERE amount IS NULL AND review_status != 'rejected'
+      SELECT COUNT(*) as cnt FROM published_fee_observations
+      WHERE amount IS NULL
         AND LOWER(fee_name) NOT LIKE '%free%'
         AND LOWER(fee_name) NOT LIKE '%waived%'
     `;
@@ -937,21 +937,23 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
     checks.push({ name: "Financial data linked", status: "warn", detail: "Check failed", count: -1 });
   }
 
-  // 9. Zombie jobs
+  // 9. Stale agent runs
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM ops_jobs
-      WHERE status = 'running' AND started_at < NOW() - INTERVAL '2 hours'
+      SELECT COUNT(*) as cnt FROM agent_runs
+      WHERE status = 'running'
+        AND started_at < NOW() - INTERVAL '2 hours'
+        AND run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
     `;
     const cnt = Number(row.cnt);
     checks.push({
-      name: "No zombie jobs",
+      name: "No stale agent runs",
       status: cnt === 0 ? "pass" : "fail",
-      detail: cnt === 0 ? "No jobs stuck in running state" : `${cnt} jobs running for 2+ hours`,
+      detail: cnt === 0 ? "No runs stuck in running state" : `${cnt} runs running for 2+ hours`,
       count: cnt,
     });
   } catch {
-    checks.push({ name: "No zombie jobs", status: "warn", detail: "Check failed", count: -1 });
+    checks.push({ name: "No stale agent runs", status: "warn", detail: "Check failed", count: -1 });
   }
 
   // 10. Invalid state codes
@@ -979,8 +981,8 @@ export async function getCoverageFunnelData(): Promise<CoverageFunnelData> {
     const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
     const [webRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
     const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
-    const [appRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees WHERE review_status = 'approved'`;
+    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_observations`;
+    const [appRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_observations`;
     return {
       total_institutions: Number(totalRow.cnt),
       with_website: Number(webRow.cnt),
@@ -998,8 +1000,8 @@ export async function getUncategorizedTopFees(limit = 20): Promise<Uncategorized
   try {
     const rows = await sql`
       SELECT fee_name, COUNT(*) as cnt
-      FROM extracted_fees
-      WHERE fee_category IS NULL AND review_status != 'rejected'
+      FROM published_fee_observations
+      WHERE fee_category IS NULL
       GROUP BY fee_name
       ORDER BY cnt DESC
       LIMIT ${limit}
@@ -1228,13 +1230,14 @@ export interface OpsJobRow {
 export async function getOpsJobs(limit = 50): Promise<OpsJobRow[]> {
   try {
     const rows = await sql`
-      SELECT id, command, status, started_at, completed_at,
+      SELECT id, COALESCE(title, run_kind) AS command, status, started_at, completed_at,
              CASE WHEN started_at IS NOT NULL AND completed_at IS NOT NULL
                THEN EXTRACT(EPOCH FROM (completed_at - started_at))::int
                ELSE NULL END as duration_sec,
-             result_summary, triggered_by, error_summary
-      FROM ops_jobs
-      ORDER BY created_at DESC
+             summary AS result_summary, triggered_by, error_summary
+      FROM agent_runs
+      WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+      ORDER BY started_at DESC
       LIMIT ${limit}
     `;
     return rows.map((r) => ({
@@ -1317,7 +1320,7 @@ export async function searchInstitutions(
         FROM crawl_targets ct
         LEFT JOIN (
           SELECT crawl_target_id, COUNT(*) as fee_count
-          FROM extracted_fees WHERE review_status != 'rejected'
+          FROM published_fee_observations
           GROUP BY crawl_target_id
         ) fc ON fc.crawl_target_id = ct.id
         WHERE ct.institution_name ILIKE $1
@@ -1344,7 +1347,7 @@ export async function searchInstitutions(
       FROM crawl_targets ct
       LEFT JOIN (
         SELECT crawl_target_id, COUNT(*) as fee_count
-        FROM extracted_fees WHERE review_status != 'rejected'
+        FROM published_fee_observations
         GROUP BY crawl_target_id
       ) fc ON fc.crawl_target_id = ct.id
       ORDER BY ${orderBy}
@@ -1465,9 +1468,8 @@ export async function getFeeCatalogSummary(): Promise<FeeCatalogRow[]> {
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) as median,
         PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY amount) as p25,
         PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY amount) as p75
-      FROM extracted_fees
+      FROM published_fee_observations
       WHERE fee_category IS NOT NULL
-        AND review_status != 'rejected'
         AND amount IS NOT NULL
       GROUP BY fee_category
       ORDER BY cnt DESC
@@ -1519,8 +1521,7 @@ export async function getDistrictOverview(): Promise<DistrictOverviewRow[]> {
         COUNT(*) as total,
         COUNT(DISTINCT ef.crawl_target_id) as with_fees
       FROM crawl_targets ct
-      LEFT JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
-        AND ef.review_status != 'rejected'
+      LEFT JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
       WHERE ct.fed_district IS NOT NULL
       GROUP BY ct.fed_district
       ORDER BY ct.fed_district
@@ -1658,7 +1659,6 @@ export async function getMarketData(filters: {
     // Build filtered segment query
     const conditions = [
       "ef.fee_category IS NOT NULL",
-      "ef.review_status != 'rejected'",
       "ef.amount IS NOT NULL",
     ];
     const params: (string | number | null)[] = [];
@@ -1669,7 +1669,7 @@ export async function getMarketData(filters: {
       params.push(filters.charter_type);
     }
     if (filters.asset_tier) {
-      conditions.push(`ct.asset_tier = $${paramIdx++}`);
+      conditions.push(`ct.asset_size_tier = $${paramIdx++}`);
       params.push(filters.asset_tier);
     }
     if (filters.state_code) {
@@ -1682,7 +1682,7 @@ export async function getMarketData(filters: {
       `SELECT ef.fee_category,
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
-       FROM extracted_fees ef
+       FROM published_fee_observations ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
@@ -1764,7 +1764,6 @@ export async function getPeerIndexData(filters: {
 
     const conditions = [
       "ef.fee_category IS NOT NULL",
-      "ef.review_status != 'rejected'",
       "ef.amount IS NOT NULL",
     ];
     const params: (string | number | null)[] = [];
@@ -1775,7 +1774,7 @@ export async function getPeerIndexData(filters: {
       params.push(filters.charter_type);
     }
     if (filters.asset_tier) {
-      conditions.push(`ct.asset_tier = $${paramIdx++}`);
+      conditions.push(`ct.asset_size_tier = $${paramIdx++}`);
       params.push(filters.asset_tier);
     }
     if (filters.fed_district) {
@@ -1788,7 +1787,7 @@ export async function getPeerIndexData(filters: {
       `SELECT ef.fee_category,
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
-       FROM extracted_fees ef
+       FROM published_fee_observations ef
        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
@@ -1851,8 +1850,7 @@ export async function getGoldStandardCandidates(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM crawl_targets ct
-      JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
-      WHERE ef.review_status != 'rejected'
+      JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
       ORDER BY ct.asset_size DESC NULLS LAST
@@ -1886,8 +1884,8 @@ export async function getGoldStandardCandidate(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM crawl_targets ct
-      JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
-      WHERE ct.id = ${id} AND ef.review_status != 'rejected'
+      JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
+      WHERE ct.id = ${id}
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
     `;
@@ -1923,9 +1921,8 @@ export async function getExtractedFeesForInstitution(
   try {
     const rows = await sql`
       SELECT id, fee_name, amount, fee_category, frequency, review_status
-      FROM extracted_fees
+      FROM published_fee_observations
       WHERE crawl_target_id = ${institutionId}
-        AND review_status != 'rejected'
       ORDER BY fee_category NULLS LAST, fee_name
     `;
     return rows.map((r) => ({

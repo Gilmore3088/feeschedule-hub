@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   getMarketConcentration,
 } from "@/lib/crawler-db/financial";
@@ -351,8 +350,8 @@ export default async function MarketConcentrationPage() {
             No market concentration data available yet.
           </p>
           <p className="mt-1 text-[13px] text-[#A09788]">
-            Run <code className="rounded bg-[#E8DFD1]/60 px-1.5 py-0.5 text-xs">python -m fee_crawler ingest-sod</code> to
-            populate branch deposit data and compute market HHI.
+            Start the Atlas data refresh from the admin console to populate branch deposit
+            data and compute market HHI.
           </p>
         </div>
       )}

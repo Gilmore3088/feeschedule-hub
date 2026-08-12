@@ -2,15 +2,15 @@
  * POST /api/reports/generate
  * Phase 13-03 + 14-03: report generation endpoint with cron auth support.
  *
- * Enqueues a report generation job. Waits only for Modal to acknowledge the
- * background call ID; clients poll /api/reports/[id]/status for completion.
+ * Enqueues a report generation job. The active backend decides whether it can
+ * execute; clients poll /api/reports/[id]/status for completion.
  *
  * Auth paths:
  *   1. Session cookie (getCurrentUser) — normal user-triggered generation
  *   2. X-Cron-Secret header — cron-triggered generation (run_monthly_pulse)
  *      Cron jobs get user_id=null in report_jobs; this is correct per ReportJob spec.
  *
- * Flow: auth → validate report_type → freshness gate → DB insert → Modal trigger
+ * Flow: auth → validate report_type → freshness gate → DB insert → backend trigger
  *
  * Decision refs: D-04, D-07, D-10 (see 13-CONTEXT.md)
  * Threat refs: T-13-10, T-13-13, T-14-07

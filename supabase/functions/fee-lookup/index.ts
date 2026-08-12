@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
   const id = targets[0].id;
 
   const [{ data: fees }, { data: crawlResults }] = await Promise.all([
-    sb.from("extracted_fees").select("*").eq("crawl_target_id", id).limit(500),
+    sb.from("published_fee_observations").select("*").eq("crawl_target_id", id).limit(500),
     sb.from("crawl_results").select("*").eq("crawl_target_id", id).order("id", { ascending: false }).limit(10),
   ]);
 

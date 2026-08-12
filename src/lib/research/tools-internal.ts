@@ -7,10 +7,12 @@ import {
   getTierFeeRevenueSummary,
   getCharterFeeRevenueSummary,
 } from "@/lib/crawler-db/fee-revenue";
-import { getOutlierFlaggedFees, getReviewStats, getStats } from "@/lib/crawler-db/core";
+import { getStats } from "@/lib/crawler-db/core";
+import { getOutlierFlaggedFees, getReviewStats } from "@/lib/crawler-db/review-bridge";
 import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
 import { sql } from "@/lib/crawler-db/connection";
-import { spawnJob } from "@/lib/job-runner";
+import { startAgentRun } from "@/lib/agents/run-store";
+import type { AdminAgent } from "@/lib/agents/types";
 
 // queryNationalData imports -- Phase 23-25 query functions
 import {
@@ -231,8 +233,8 @@ export const rankInstitutions = tool({
     if (metric === "above_p75" || metric === "below_p25") {
       const benchmarks = await sql`
         SELECT fee_category, amount
-        FROM extracted_fees
-        WHERE fee_category IS NOT NULL AND amount > 0 AND review_status != 'rejected'
+        FROM published_fee_observations
+        WHERE fee_category IS NOT NULL AND amount > 0
         ORDER BY fee_category, amount
       ` as { fee_category: string; amount: number }[];
 
@@ -256,9 +258,9 @@ export const rankInstitutions = tool({
       const instFees = await sql`
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                ef.fee_category, ef.amount
-        FROM extracted_fees ef
+        FROM published_fee_observations ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.fee_category IS NOT NULL AND ef.amount > 0 AND ef.review_status != 'rejected'
+        WHERE ef.fee_category IS NOT NULL AND ef.amount > 0
           ${charterClause}
       ` as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
 
@@ -302,9 +304,9 @@ export const rankInstitutions = tool({
       const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as fee_count
-        FROM extracted_fees ef
+        FROM published_fee_observations ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-        WHERE ef.review_status != 'rejected' ${charterClause}
+        WHERE ef.review_status = 'approved' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
         ORDER BY fee_count DESC
         LIMIT ${n}
@@ -317,10 +319,10 @@ export const rankInstitutions = tool({
       const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as flag_count
-        FROM extracted_fees ef
+        FROM published_fee_observations ef
         JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
         WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
-          AND ef.review_status != 'rejected' ${charterClause}
+          AND ef.review_status = 'approved' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
         ORDER BY flag_count DESC
         LIMIT ${n}
@@ -335,28 +337,38 @@ export const rankInstitutions = tool({
 
 export const queryJobStatus = tool({
   description:
-    "Returns recent, active, or detailed pipeline job status. When: 'did the last crawl succeed?', 'what's running now?', job failure investigation. Combine with: getCrawlStatus for coverage impact of recent jobs.",
+    "Returns recent, active, or detailed agent run status. When: 'did the last run succeed?', 'what's running now?', run failure investigation. Combine with: getCrawlStatus for coverage impact of recent runs.",
   inputSchema: z.object({
     view: z
       .enum(["recent", "active", "detail"])
-      .describe("'recent' for last 10 jobs, 'active' for running/queued, 'detail' for a specific job"),
-    jobId: z.number().optional().describe("Job ID for detail view"),
+      .describe("'recent' for last 10 runs, 'active' for running/queued, 'detail' for a specific run"),
+    jobId: z.number().optional().describe("Run ID for detail view"),
   }),
   execute: async ({ view, jobId }) => {
     if (view === "detail" && jobId) {
-      const [job] = await sql`SELECT * FROM ops_jobs WHERE id = ${jobId}`;
-      return job || { error: "Job not found" };
+      const [run] = await sql`
+        SELECT id, title, agent_name, run_kind, status, started_at, completed_at,
+               updated_at, summary, error_summary
+          FROM agent_runs
+         WHERE id = ${jobId}
+      `;
+      return run || { error: "Run not found" };
     }
     if (view === "active") {
       return await sql`
-        SELECT id, command, status, triggered_by, started_at
-        FROM ops_jobs WHERE status IN ('running', 'queued')
-        ORDER BY created_at DESC
+        SELECT id, title, agent_name, run_kind, status, triggered_by, started_at
+          FROM agent_runs
+         WHERE status IN ('running', 'queued')
+           AND run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+         ORDER BY started_at DESC
       `;
     }
     return await sql`
-      SELECT id, command, status, exit_code, triggered_by, started_at, completed_at, result_summary
-      FROM ops_jobs ORDER BY created_at DESC LIMIT 10
+      SELECT id, title, agent_name, run_kind, status, triggered_by, started_at, completed_at, summary
+        FROM agent_runs
+       WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+       ORDER BY started_at DESC
+       LIMIT 10
     `;
   },
 });
@@ -375,20 +387,20 @@ export const queryDataQuality = tool({
         SELECT
           (SELECT COUNT(*) FROM crawl_targets) as total_institutions,
           (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
-          (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_fees,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_approved,
+          (SELECT COUNT(*) FROM published_fee_observations) as total_fees,
+          (SELECT COUNT(*) FROM published_fee_observations) as approved_fees
       `;
       return row;
     }
     if (view === "uncategorized") {
       const [count] = await sql`
-        SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'
+        SELECT COUNT(*) as cnt FROM published_fee_observations WHERE fee_category IS NULL
       ` as { cnt: number }[];
       const top = await sql`
-        SELECT fee_name, COUNT(*) as cnt FROM extracted_fees
-        WHERE fee_category IS NULL AND review_status != 'rejected'
+        SELECT fee_name, COUNT(*) as cnt FROM published_fee_observations
+        WHERE fee_category IS NULL
         GROUP BY fee_name ORDER BY cnt DESC LIMIT 15
       `;
       return { total_uncategorized: count.cnt, top_names: top };
@@ -413,9 +425,20 @@ const SAFE_PIPELINE_COMMANDS = new Set([
   "enrich", "publish-index", "snapshot", "merge-fees",
 ]);
 
+const SAFE_PIPELINE_AGENTS: Record<string, AdminAgent> = {
+  categorize: "darwin",
+  "auto-review": "knox",
+  validate: "darwin",
+  "outlier-detect": "knox",
+  enrich: "atlas",
+  "publish-index": "hamilton",
+  snapshot: "hamilton",
+  "merge-fees": "darwin",
+};
+
 export const triggerPipelineJob = tool({
   description:
-    "Triggers a safe pipeline job: categorize, auto-review, validate, outlier-detect, enrich, publish-index, snapshot, merge-fees. When: operator asks to run a pipeline step. Does NOT trigger crawl or discover (those use API credits). Combine with: queryJobStatus to confirm the triggered job is running.",
+    "Creates a visible agent run for a safe pipeline step: categorize, auto-review, validate, outlier-detect, enrich, publish-index, snapshot, merge-fees. Does not launch retired external workers, crawl, or discover.",
   inputSchema: z.object({
     command: z.string().describe("Pipeline command name"),
     dryRun: z.boolean().optional().default(false).describe("If true, pass --dry-run flag"),
@@ -425,9 +448,26 @@ export const triggerPipelineJob = tool({
       return { error: `Command '${command}' not allowed. Safe commands: ${[...SAFE_PIPELINE_COMMANDS].join(", ")}` };
     }
     try {
-      const args = dryRun ? ["--dry-run"] : [];
-      const result = await spawnJob(command, args, "agent");
-      return { success: true, jobId: result.jobId, pid: result.pid, logPath: result.logPath };
+      const agent = SAFE_PIPELINE_AGENTS[command] ?? "atlas";
+      const result = await startAgentRun({
+        agent,
+        kind: dryRun ? "dry_run" : "manual_repair",
+        title: `Research-requested ${command}`,
+        params: { command, dry_run: dryRun, source: "hamilton.research_tool" },
+        triggeredBy: "hamilton",
+        triggerSource: "agent",
+        idempotencyKey: `research:${command}:${dryRun ? "dry-run" : "run"}`,
+        steps: [
+          {
+            key: command,
+            agent,
+            title: `${dryRun ? "Dry-run" : "Run"} ${command}`,
+            input: { dry_run: dryRun },
+          },
+        ],
+        summary: "Agentic research-requested run accepted. Watch Atlas live status for step events.",
+      });
+      return { success: true, runId: result.run.id, reused: result.reused };
     } catch (e) {
       return { error: String(e) };
     }
@@ -744,15 +784,9 @@ export const queryRegulatoryRisk = tool({
       .describe(
         "Fee categories to assess (default: overdraft, nsf, monthly_maintenance, atm_non_network, wire_domestic_outgoing)"
       ),
-    district: z
-      .number()
-      .min(1)
-      .max(12)
-      .optional()
-      .describe("Narrow complaint signals to a specific Fed district"),
     limit: z.number().optional().default(5).describe("Max outlier institutions to surface"),
   }),
-  execute: async ({ categories, district: _district, limit }) => {
+  execute: async ({ categories, limit }) => {
     const targetCategories = categories && categories.length > 0
       ? categories
       : [...REGULATED_FEE_CATEGORIES];
@@ -763,11 +797,11 @@ export const queryRegulatoryRisk = tool({
       try {
         const fees = await sql`
           SELECT ef.fee_category, ef.amount, ct.institution_name, ct.state_code
-          FROM extracted_fees ef
+          FROM published_fee_observations ef
           JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
           WHERE ef.fee_category = ANY(${targetCategories}::text[])
             AND ef.amount > 0
-            AND ef.review_status != 'rejected'
+            AND ef.review_status = 'approved'
           ORDER BY ef.fee_category, ef.amount DESC
         ` as { fee_category: string; amount: number; institution_name: string; state_code: string }[];
 

@@ -49,8 +49,7 @@ export interface ReportJob {
   created_at: string;
   completed_at: string | null;
   user_id: string | null;
-  ops_job_id: number | null;
-  modal_call_id: string | null;
+  agent_run_id?: number | null;
   cancel_requested_at: string | null;
 }
 

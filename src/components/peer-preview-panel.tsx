@@ -21,7 +21,6 @@ export function PeerPreviewPanel({
   stats,
   topCategories,
   filterDescription,
-  exploreHref,
   singleDistrict,
   beigeBookSections,
   multipleDistricts,

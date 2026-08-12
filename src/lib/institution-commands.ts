@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "./auth";
 import { sql, withTransaction } from "./crawler-db/connection";
-import { spawnJob } from "./job-runner";
+import { startAgentRun } from "./agents/run-store";
 
 export interface InstitutionCommandResult {
   success: boolean;
@@ -128,7 +128,7 @@ export async function extractInstitutionCommand(
   try {
     validateInstitutionId(institutionId);
     const [institution] = await sql`
-      SELECT id, fee_schedule_url
+      SELECT id, institution_name, state_code, fee_schedule_url
         FROM crawl_targets
        WHERE id = ${institutionId}
     `;
@@ -137,17 +137,45 @@ export async function extractInstitutionCommand(
       return { success: false, error: "Find a fee URL before extracting this institution" };
     }
 
-    const result = await spawnJob(
-      "crawl",
-      ["--target-id", String(institutionId)],
-      user.username,
-      institutionId,
-      {
-        agent: "magellan",
-        idempotencyKey: `institution:${institutionId}:extract`,
+    const result = await startAgentRun({
+      agent: "magellan",
+      kind: "manual_repair",
+      title: `Extract fees for ${String(institution.institution_name ?? `institution ${institutionId}`)}`,
+      stateCode: institution.state_code ? String(institution.state_code) : undefined,
+      params: {
+        institution_id: institutionId,
+        fee_schedule_url: String(institution.fee_schedule_url),
+        source: "admin.institution.extract",
       },
-    );
-    return { success: true, jobId: result.jobId, reused: result.reused };
+      triggeredBy: user.username,
+      triggerSource: "admin",
+      idempotencyKey: `institution:${institutionId}:extract`,
+      steps: [
+        {
+          key: "fetch",
+          agent: "magellan",
+          title: "Fetch the institution fee document",
+          input: { institution_id: institutionId },
+        },
+        {
+          key: "read",
+          agent: "rosetta",
+          title: "Read and normalize the fee document",
+        },
+        {
+          key: "extract",
+          agent: "knox",
+          title: "Extract fee observations",
+        },
+        {
+          key: "classify",
+          agent: "darwin",
+          title: "Classify and verify extracted fees",
+        },
+      ],
+      summary: "Agentic institution extraction run accepted. Watch Atlas live status for step events.",
+    });
+    return { success: true, jobId: result.run.id, reused: result.reused };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }

@@ -1,5 +1,5 @@
 /**
- * Fee taxonomy constants ported from fee_crawler/fee_analysis.py.
+ * Fee taxonomy constants for the public app and agentic admin experience.
  * Single source of truth for fee families, display names, and colors in the UI.
  */
 
@@ -186,7 +186,7 @@ export const DISPLAY_NAMES: Record<string, string> = {
  * For the 49 base categories, canonical_fee_key === fee_category (identity mapping).
  * Synonym clusters map long-tail slugs to a single canonical key.
  *
- * IMPORTANT: Keep in sync with fee_crawler/fee_analysis.py CANONICAL_KEY_MAP.
+ * IMPORTANT: Keep this map in sync with the public fee category definitions.
  * Cross-language sync is enforced by fee-taxonomy.test.ts.
  */
 export const CANONICAL_KEY_MAP: Record<string, string> = {
@@ -270,7 +270,7 @@ export const CANONICAL_KEY_MAP: Record<string, string> = {
   document_reproduction: "document_reproduction",
   other_lending_fee: "other_lending_fee",
   // Synonym clusters: production fee_category slugs -> canonical key
-  // Keep in sync with fee_crawler/fee_analysis.py CANONICAL_KEY_MAP.
+  // Keep in sync with CANONICAL_FEE_KEYS above.
   // --- Slug duplicates / abbreviations ---
   rush_card_delivery: "rush_card",
   estatement: "estatement_fee",

@@ -55,7 +55,7 @@ export async function searchInstitutions(params: {
   const rows = await sql.unsafe(
     `SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
             ct.charter_type, ct.asset_size_tier,
-            (SELECT COUNT(*) FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
+            (SELECT COUNT(*) FROM published_fee_observations ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
      FROM crawl_targets ct
      ${where}
      ORDER BY ct.institution_name ASC
@@ -72,7 +72,7 @@ export async function autocompleteInstitutions(query: string, limit = 8): Promis
   return await sql`
     SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
            ct.charter_type, ct.asset_size_tier,
-           (SELECT COUNT(*) FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
+           (SELECT COUNT(*) FROM published_fee_observations ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
     FROM crawl_targets ct
     WHERE ct.institution_name ILIKE ${pattern}
     ORDER BY fee_count DESC, ct.institution_name ASC

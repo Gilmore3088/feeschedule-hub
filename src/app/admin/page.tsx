@@ -16,6 +16,7 @@ import {
 import { requireAuth } from "@/lib/auth";
 import { formatAdminDateTime } from "@/lib/admin-time";
 import { getAtlasCommandCenter, type AttentionItem, type CommandCenterJob } from "@/lib/admin-command-center";
+import { getExecutionBackendStatus, type ExecutionBackendStatus } from "@/lib/execution-backend";
 import type { JobFreshness } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { AtlasEmergencyControl } from "./atlas-emergency-control";
@@ -68,7 +69,7 @@ function initialLiveJob(job: CommandCenterJob) {
     completedAt: job.completedAt,
     heartbeatAt: job.heartbeatAt,
     updatedAt: job.updatedAt,
-    modalCallId: job.modalCallId,
+    backendReceipt: job.backendReceipt,
     error: job.error,
     resultSummary: job.progress,
     stdoutTail: job.stdoutTail,
@@ -139,6 +140,7 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
 export default async function AtlasCommandPage() {
   await requireAuth("view");
   const center = await getAtlasCommandCenter();
+  const execution = getExecutionBackendStatus();
   const problemSchedules = center.schedules.failed_count
     + center.schedules.stale_count
     + center.schedules.never_ran_count;
@@ -158,9 +160,14 @@ export default async function AtlasCommandPage() {
               One system view for scheduled work, agent exceptions, and the next safe action.
             </p>
           </div>
-          <AtlasRunControl disabled={!center.automation.enabled || center.activeJobs.some((job) => job.agent === "atlas")} />
+          <AtlasRunControl
+            disabled={center.activeJobs.some((job) => job.agent === "atlas")}
+            disabledReason={center.activeJobs.some((job) => job.agent === "atlas") ? "Atlas already has an active run." : undefined}
+          />
         </div>
       </header>
+
+      <ExecutionBackendBanner status={execution} />
 
       <AtlasEmergencyControl
         enabled={center.automation.enabled}
@@ -205,6 +212,8 @@ export default async function AtlasCommandPage() {
         lanes={workflowLanes(center)}
         automationEnabled={center.automation.enabled}
         activeJobCount={center.activeJobs.length}
+        executionEnabled={execution.enabled}
+        executionBlockedReason={execution.detail}
       />
 
       <section aria-labelledby="usage-heading">
@@ -390,7 +399,7 @@ export default async function AtlasCommandPage() {
         </div>
         <div className="overflow-x-auto border-y border-black/[0.06] dark:border-white/[0.06]">
           <table className="admin-table w-full text-xs">
-            <thead><tr><th>Job</th><th>Owner</th><th>Status</th><th>Started</th><th>Modal</th><th>Result</th></tr></thead>
+            <thead><tr><th>Run</th><th>Owner</th><th>Status</th><th>Started</th><th>Backend</th><th>Result</th></tr></thead>
             <tbody>
               {center.recentJobs.map((job) => (
                 <tr key={job.id}>
@@ -401,7 +410,7 @@ export default async function AtlasCommandPage() {
                   <td className="capitalize text-gray-600 dark:text-gray-400">{job.agent}</td>
                   <td><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${statusTone(job.status)}`}>{job.status}</span></td>
                   <td className="tabular-nums text-gray-500">{dateTime(job.startedAt ?? job.createdAt)}</td>
-                  <td className="max-w-[180px] truncate font-mono text-[10px] text-gray-500">{job.modalCallId ?? "No Modal ID"}</td>
+                  <td className="max-w-[180px] truncate font-mono text-[10px] text-gray-500">{job.backendReceipt ?? "agentic_v1"}</td>
                   <td className="max-w-xl truncate text-gray-500" title={jobResult(job)}>{jobResult(job)}</td>
                 </tr>
               ))}
@@ -411,6 +420,26 @@ export default async function AtlasCommandPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function ExecutionBackendBanner({ status }: { status: ExecutionBackendStatus }) {
+  const tone = status.enabled
+    ? "border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-950 dark:bg-blue-950/25 dark:text-blue-100"
+    : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-950 dark:bg-amber-950/25 dark:text-amber-100";
+
+  return (
+    <section aria-label="Execution backend" className={`rounded-md border px-4 py-3 ${tone}`}>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide">{status.label}</p>
+          <p className="mt-1 text-sm">{status.detail}</p>
+        </div>
+        <span className="font-mono text-[11px] uppercase tracking-wide">
+          EXECUTION_BACKEND={status.backend}
+        </span>
+      </div>
+    </section>
   );
 }
 

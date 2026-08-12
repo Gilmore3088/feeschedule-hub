@@ -1,49 +1,43 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { spawnJob } from "@/lib/job-runner";
-import { MAGELLAN_SIDECAR_URL, modalInternalHeaders } from "@/lib/modal-endpoints";
+import { startAgentRun } from "@/lib/agents/run-store";
+import { getExecutionBackendStatus } from "@/lib/execution-backend";
+import { sql } from "@/lib/crawler-db/connection";
 import type { MagellanStatus } from "./types";
 
 export async function fetchMagellanStatus(): Promise<MagellanStatus> {
   await requireAuth("view");
-  try {
-    const r = await fetch(`${MAGELLAN_SIDECAR_URL()}/magellan/status`, {
-      cache: "no-store",
-      headers: modalInternalHeaders(),
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!r.ok) throw new Error(`sidecar ${r.status}`);
-    return r.json();
-  } catch (e) {
-    console.warn("magellan sidecar unavailable:", e instanceof Error ? e.message : e);
-    return {
-      pending: 0,
-      circuit: { halted: true, reason: "sidecar unavailable" },
-      rescued: 0,
-      dead: 0,
-      needs_human: 0,
-      retry_after: 0,
-      today_cost_usd: 0,
-    };
-  }
+  const backend = getExecutionBackendStatus();
+  const [row] = await sql`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE COALESCE(status, 'active') = 'active'
+          AND (fee_schedule_url IS NULL OR btrim(fee_schedule_url) = '')
+          AND website_url IS NOT NULL
+          AND btrim(website_url) <> ''
+      )::int AS pending,
+      COUNT(*) FILTER (WHERE rescue_status = 'rescued')::int AS rescued,
+      COUNT(*) FILTER (WHERE rescue_status = 'dead')::int AS dead,
+      COUNT(*) FILTER (WHERE rescue_status = 'needs_human')::int AS needs_human,
+      COUNT(*) FILTER (WHERE rescue_status = 'retry_after')::int AS retry_after
+    FROM crawl_targets
+  `;
+  return {
+    pending: Number(row?.pending ?? 0),
+    circuit: { halted: !backend.enabled, reason: backend.enabled ? null : backend.detail },
+    rescued: Number(row?.rescued ?? 0),
+    dead: Number(row?.dead ?? 0),
+    needs_human: Number(row?.needs_human ?? 0),
+    retry_after: Number(row?.retry_after ?? 0),
+    today_cost_usd: 0,
+  };
 }
 
 export async function resetMagellanCircuit(actor: string): Promise<{ ok: boolean }> {
   await requireAuth("trigger_jobs");
-  try {
-    const r = await fetch(`${MAGELLAN_SIDECAR_URL()}/magellan/reset`, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...modalInternalHeaders() },
-      body: JSON.stringify({ actor }),
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!r.ok) throw new Error(`sidecar reset ${r.status}`);
-    return r.json();
-  } catch (e) {
-    console.warn("magellan sidecar reset failed:", e instanceof Error ? e.message : e);
-    return { ok: false };
-  }
+  void actor;
+  return { ok: false };
 }
 
 export async function runMagellanRepair(
@@ -55,14 +49,35 @@ export async function runMagellanRepair(
     return { success: false, error: "Invalid repair batch request" };
   }
   try {
-    const result = await spawnJob(
-      "magellan-rescue",
-      ["--size", String(size), "--batches", String(batches)],
-      user.username,
-      undefined,
-      { agent: "magellan", idempotencyKey: "magellan:rescue" },
-    );
-    return { success: true, jobId: result.jobId, reused: result.reused };
+    const result = await startAgentRun({
+      agent: "magellan",
+      kind: "workflow_lane",
+      title: "Magellan fee URL rescue",
+      params: { size, batches, limit: size * batches, source: "admin.magellan_rescue" },
+      triggeredBy: user.username,
+      triggerSource: "admin",
+      idempotencyKey: "magellan:rescue",
+      steps: [
+        {
+          key: "rescue",
+          agent: "magellan",
+          title: "Resolve failed fee schedule discovery/fetch candidates",
+          input: { size, batches },
+        },
+        {
+          key: "read",
+          agent: "rosetta",
+          title: "Read rescued source documents",
+        },
+        {
+          key: "extract",
+          agent: "knox",
+          title: "Extract fee observations from rescued documents",
+        },
+      ],
+      summary: "Agentic Magellan run accepted. Watch Atlas live status for step events.",
+    });
+    return { success: true, jobId: result.run.id, reused: result.reused };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }

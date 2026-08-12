@@ -2,27 +2,70 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
-import { sql } from "@/lib/crawler-db/connection";
 import {
   engageEmergencyStop,
   recordEmergencyStopOutcome,
   resumeAutomation,
 } from "@/lib/automation-control";
-import { cancelAllActiveJobs, cancelJob, spawnJob } from "@/lib/job-runner";
+import { cancelAgentRun, cancelAllActiveAgentRuns, startAgentRun } from "@/lib/agents/run-store";
+import type { AgentRunStepDefinition, AdminAgent } from "@/lib/agents/types";
 
 export type AtlasWorkflowId = "enhance" | "discover" | "extract" | "classify" | "review";
+
+const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
+  {
+    key: "enhance",
+    agent: "atlas",
+    title: "Refresh institution source attributes",
+  },
+  {
+    key: "discover",
+    agent: "magellan",
+    title: "Find and verify missing fee schedule URLs",
+  },
+  {
+    key: "fetch",
+    agent: "magellan",
+    title: "Fetch source fee documents",
+  },
+  {
+    key: "read",
+    agent: "rosetta",
+    title: "Read PDFs, HTML, and OCR candidates",
+  },
+  {
+    key: "extract",
+    agent: "knox",
+    title: "Extract fee observations from normalized text",
+  },
+  {
+    key: "classify",
+    agent: "darwin",
+    title: "Classify and verify fee observations",
+  },
+  {
+    key: "review",
+    agent: "knox",
+    title: "Escalate anomaly-only human exceptions",
+  },
+  {
+    key: "publish",
+    agent: "hamilton",
+    title: "Publish clean fee intelligence for product reads",
+  },
+];
 
 export async function stopAllAutomation(reason: string): Promise<{
   success: boolean;
   cancelled?: number;
   requested?: number;
-  cancellationFailures?: Array<{ jobId: number; error: string }>;
+  cancellationFailures?: Array<{ runId: number; error: string }>;
   error?: string;
 }> {
   const user = await requireAuth("cancel_jobs");
   try {
     await engageEmergencyStop(user.username, reason);
-    const cancellations = await cancelAllActiveJobs();
+    const cancellations = await cancelAllActiveAgentRuns(user.username);
     await recordEmergencyStopOutcome(user.username, cancellations);
     revalidatePath("/admin");
     return {
@@ -53,71 +96,118 @@ export async function resumeAllAutomation(reason: string): Promise<{
 
 export async function runAtlasCycle(): Promise<{
   success: boolean;
-  jobId?: number;
+  runId?: number;
   reused?: boolean;
   error?: string;
 }> {
   const user = await requireAuth("trigger_jobs");
   try {
-    const result = await spawnJob(
-      "pipeline",
-      ["--limit", "100", "--workers", "4"],
-      user.username,
-      undefined,
-      {
-        agent: "atlas",
-        idempotencyKey: "atlas:full-cycle",
+    const result = await startAgentRun({
+      agent: "atlas",
+      kind: "workflow",
+      title: "Atlas full data cycle",
+      params: {
+        limit: 100,
+        requested_concurrency: 4,
+        source: "admin.start_atlas",
       },
-    );
+      triggeredBy: user.username,
+      triggerSource: "admin",
+      idempotencyKey: "atlas:full-cycle",
+      steps: FULL_CYCLE_STEPS,
+      summary: "Agentic run accepted. Watch Atlas live status for step events.",
+    });
     revalidatePath("/admin");
-    return { success: true, jobId: result.jobId, reused: result.reused };
+    return { success: true, runId: result.run.id, reused: result.reused };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
 const WORKFLOW_JOBS: Record<AtlasWorkflowId, {
-  command: string;
-  args: string[];
-  agent: "atlas" | "magellan" | "darwin" | "knox";
+  title: string;
+  agent: AdminAgent;
   idempotencyKey: string;
+  steps: AgentRunStepDefinition[];
 }> = {
   enhance: {
-    command: "enrich",
-    args: [],
+    title: "Enhance institution data",
     agent: "atlas",
     idempotencyKey: "atlas:quick-enhance",
+    steps: [
+      {
+        key: "enhance",
+        agent: "atlas",
+        title: "Refresh institution source attributes",
+      },
+    ],
   },
   discover: {
-    command: "discover",
-    args: [],
+    title: "Find missing fee URLs",
     agent: "magellan",
     idempotencyKey: "magellan:quick-discover",
+    steps: [
+      {
+        key: "discover",
+        agent: "magellan",
+        title: "Find and verify missing fee schedule URLs",
+      },
+    ],
   },
   extract: {
-    command: "crawl",
-    args: ["--skip-with-fees", "--limit", "500"],
+    title: "Extract fee schedules",
     agent: "magellan",
     idempotencyKey: "magellan:quick-extract-gaps",
+    steps: [
+      {
+        key: "fetch",
+        agent: "magellan",
+        title: "Fetch source fee documents",
+        input: { limit: 500, skip_with_fees: true },
+      },
+      {
+        key: "read",
+        agent: "rosetta",
+        title: "Read PDFs, HTML, and OCR candidates",
+      },
+      {
+        key: "extract",
+        agent: "knox",
+        title: "Extract fee observations from normalized text",
+      },
+    ],
   },
   classify: {
-    command: "darwin-drain",
-    args: ["--size", "500", "--batches", "1"],
+    title: "Classify raw fees",
     agent: "darwin",
     idempotencyKey: "darwin:quick-classify",
+    steps: [
+      {
+        key: "classify",
+        agent: "darwin",
+        title: "Classify and verify staged fee observations",
+        input: { batch_size: 500, batches: 1 },
+      },
+    ],
   },
   review: {
-    command: "auto-review",
-    args: [],
+    title: "Review exceptions",
     agent: "knox",
     idempotencyKey: "knox:quick-auto-review",
+    steps: [
+      {
+        key: "review",
+        agent: "knox",
+        title: "Resolve anomaly-only fee exceptions",
+      },
+    ],
   },
 };
 
 export async function runAtlasWorkflow(workflowId: AtlasWorkflowId): Promise<{
   success: boolean;
-  jobId?: number;
-  command?: string;
+  runId?: number;
+  title?: string;
   reused?: boolean;
   error?: string;
 }> {
@@ -126,21 +216,25 @@ export async function runAtlasWorkflow(workflowId: AtlasWorkflowId): Promise<{
   if (!workflow) return { success: false, error: "Unknown Atlas workflow" };
 
   try {
-    const result = await spawnJob(
-      workflow.command,
-      workflow.args,
-      user.username,
-      undefined,
-      {
-        agent: workflow.agent,
-        idempotencyKey: workflow.idempotencyKey,
+    const result = await startAgentRun({
+      agent: workflow.agent,
+      kind: "workflow_lane",
+      title: workflow.title,
+      params: {
+        workflow_id: workflowId,
+        source: "admin.workflow_launcher",
       },
-    );
+      triggeredBy: user.username,
+      triggerSource: "admin",
+      idempotencyKey: workflow.idempotencyKey,
+      steps: workflow.steps,
+      summary: "Agentic run accepted. Watch Atlas live status for step events.",
+    });
     revalidatePath("/admin");
     return {
       success: true,
-      jobId: result.jobId,
-      command: workflow.command,
+      runId: result.run.id,
+      title: workflow.title,
       reused: result.reused,
     };
   } catch (error) {
@@ -149,19 +243,19 @@ export async function runAtlasWorkflow(workflowId: AtlasWorkflowId): Promise<{
   }
 }
 
-export async function cancelAtlasJob(jobId: number): Promise<{
+export async function cancelAtlasRun(runId: number): Promise<{
   success: boolean;
   error?: string;
 }> {
-  await requireAuth("cancel_jobs");
-  const result = await cancelJob(jobId);
+  const user = await requireAuth("cancel_jobs");
+  const result = await cancelAgentRun(runId, user.username);
   revalidatePath("/admin");
   return result;
 }
 
 export async function resumeAtlasCycle(runId: number): Promise<{
   success: boolean;
-  jobId?: number;
+  runId?: number;
   reused?: boolean;
   error?: string;
 }> {
@@ -170,30 +264,23 @@ export async function resumeAtlasCycle(runId: number): Promise<{
     return { success: false, error: "Invalid Atlas pipeline run" };
   }
 
-  const [run] = await sql`
-    SELECT id, status, ops_job_id
-      FROM pipeline_runs
-     WHERE id = ${runId}
-  `;
-  if (!run) return { success: false, error: "Atlas pipeline run not found" };
-  if (!["failed", "partial", "cancelled"].includes(String(run.status))) {
-    return { success: false, error: `Atlas run #${runId} is ${run.status}, not repairable` };
-  }
-
   try {
-    const result = await spawnJob(
-      "pipeline",
-      ["--resume", String(runId), "--limit", "100", "--workers", "4"],
-      user.username,
-      undefined,
-      {
-        agent: "atlas",
-        idempotencyKey: `atlas:resume:${runId}`,
-        parentJobId: run.ops_job_id ? Number(run.ops_job_id) : undefined,
+    const result = await startAgentRun({
+      agent: "atlas",
+      kind: "manual_repair",
+      title: `Atlas repair for prior pipeline run #${runId}`,
+      params: {
+        pipeline_run_id: runId,
+        source: "admin.resume_pipeline_run",
       },
-    );
+      triggeredBy: user.username,
+      triggerSource: "admin",
+      idempotencyKey: `atlas:resume:${runId}`,
+      steps: FULL_CYCLE_STEPS,
+      summary: "Agentic repair run accepted. Watch Atlas live status for step events.",
+    });
     revalidatePath("/admin");
-    return { success: true, jobId: result.jobId, reused: result.reused };
+    return { success: true, runId: result.run.id, reused: result.reused };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }

@@ -2,9 +2,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
-import { modalInternalSecret } from "@/lib/modal-endpoints";
+import { getExecutionBackendStatus } from "@/lib/execution-backend";
 import type { InstitutionRow } from "./types";
-import type { AuditResult, DiscoveryResponse } from "./audit-types";
+import type { AuditResult } from "./audit-types";
 import {
   clearFeeScheduleUrl,
   setFeeScheduleUrl,
@@ -260,106 +260,28 @@ export async function discoverer(
     };
   }
 
-  emit(`Running heuristic discovery on ${websiteUrl}...`);
-
-  const modalUrl = process.env.MODAL_DISCOVER_URL;
-  if (!modalUrl) {
-    emit("MODAL_DISCOVER_URL not configured — skipping heuristic discovery");
-    return {
-      institutionId: institution.id,
-      institutionName: institution.institution_name,
-      urlBefore: null,
-      urlAfter: null,
-      action: "not_found",
-      discoveryMethod: null,
-      confidence: null,
-      reason: "MODAL_DISCOVER_URL not configured",
-    };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60_000);
-    const res = await fetch(modalUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        website_url: websiteUrl,
-        institution_id: institution.id,
-        internal_secret: modalInternalSecret(),
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      const text = await res.text();
-      emit(`Discovery endpoint error: ${res.status}`);
-      return {
-        institutionId: institution.id,
-        institutionName: institution.institution_name,
-        urlBefore: null,
-        urlAfter: null,
-        action: "not_found",
-        discoveryMethod: null,
-        confidence: null,
-        reason: `Discovery endpoint ${res.status}: ${text.slice(0, 100)}`,
-      };
-    }
-
-    const data: DiscoveryResponse = await res.json();
-    emit(`Methods tried: ${data.methods_tried.join(", ")}`);
-
-    if (data.found && data.fee_schedule_url) {
-      emit(`Found: ${data.fee_schedule_url} (method: ${data.method}, confidence: ${data.confidence})`);
-      await setFeeScheduleUrl(institution.id, data.fee_schedule_url, data.document_type);
-      await recordAuditResult(
-        auditRunId,
-        institution.id,
-        null,
-        data.fee_schedule_url,
-        "discovered",
-        data.method,
-        data.confidence,
-        `Pages checked: ${data.pages_checked}`
-      );
-      return {
-        institutionId: institution.id,
-        institutionName: institution.institution_name,
-        urlBefore: null,
-        urlAfter: data.fee_schedule_url,
-        action: "discovered",
-        discoveryMethod: data.method,
-        confidence: data.confidence,
-        reason: `Pages checked: ${data.pages_checked}`,
-      };
-    }
-
-    emit(`Not found after checking ${data.pages_checked} pages`);
-    return {
-      institutionId: institution.id,
-      institutionName: institution.institution_name,
-      urlBefore: null,
-      urlAfter: null,
-      action: "not_found",
-      discoveryMethod: null,
-      confidence: null,
-      reason: `Heuristics failed after ${data.pages_checked} pages`,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    emit(`Discovery error: ${msg}`);
-    return {
-      institutionId: institution.id,
-      institutionName: institution.institution_name,
-      urlBefore: null,
-      urlAfter: null,
-      action: "not_found",
-      discoveryMethod: null,
-      confidence: null,
-      reason: `Discovery error: ${msg}`,
-    };
-  }
+  const backend = getExecutionBackendStatus();
+  emit(`Heuristic discovery is blocked: ${backend.detail}`);
+  await recordAuditResult(
+    auditRunId,
+    institution.id,
+    null,
+    null,
+    "not_found",
+    null,
+    null,
+    backend.detail,
+  );
+  return {
+    institutionId: institution.id,
+    institutionName: institution.institution_name,
+    urlBefore: null,
+    urlAfter: null,
+    action: "not_found",
+    discoveryMethod: null,
+    confidence: null,
+    reason: backend.detail,
+  };
 }
 
 // ── Agent 3: AI Scout ────────────────────────────────────────────────────────

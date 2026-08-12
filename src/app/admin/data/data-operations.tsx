@@ -39,15 +39,15 @@ export function DataOperations() {
     setError(null);
     startTransition(async () => {
       const result = await runAtlasWorkflow("enhance");
-      if (!result.success || typeof result.jobId !== "number") {
+      if (!result.success || typeof result.runId !== "number") {
         setError(result.error ?? "Enhancement could not be queued");
         return;
       }
-      setQueuedJob({ id: result.jobId, reused: Boolean(result.reused) });
+      setQueuedJob({ id: result.runId, reused: Boolean(result.reused) });
       window.dispatchEvent(new CustomEvent("atlas:started", {
         detail: {
-          jobId: result.jobId,
-          command: result.command ?? "enrich",
+          runId: result.runId,
+          title: result.title ?? "Enhance institution data",
           label: "Institution data enhancement",
           agent: "atlas",
           reused: result.reused,

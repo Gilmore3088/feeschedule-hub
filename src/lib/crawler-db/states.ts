@@ -75,7 +75,7 @@ export async function getStateInstitutions(
       FROM crawl_targets ct
       LEFT JOIN (
         SELECT crawl_target_id, COUNT(*) as fee_count
-        FROM extracted_fees WHERE review_status != 'rejected'
+        FROM published_fee_observations
         GROUP BY crawl_target_id
       ) fc ON fc.crawl_target_id = ct.id
       WHERE ct.state_code = ${stateCode}
@@ -110,8 +110,7 @@ export async function getStateSummary(
         COUNT(DISTINCT ef.crawl_target_id) as with_fees,
         COUNT(DISTINCT CASE WHEN ct.document_type = 'offline' OR ct.website_url IS NULL THEN ct.id END) as excluded
       FROM crawl_targets ct
-      LEFT JOIN extracted_fees ef ON ef.crawl_target_id = ct.id
-        AND ef.review_status != 'rejected'
+      LEFT JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
       WHERE ct.state_code = ${stateCode}
     `;
     const r = rows[0];

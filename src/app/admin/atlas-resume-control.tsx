@@ -22,14 +22,14 @@ export function AtlasResumeControl({ runId }: { runId: number }) {
       }
       setMessage(
         result.reused
-          ? `Repair job #${result.jobId} is already active.`
-          : `Repair job #${result.jobId} started.`,
+          ? `Repair run #${result.runId} is already visible.`
+          : `Repair run #${result.runId} created.`,
       );
-      if (typeof result.jobId === "number") {
+      if (typeof result.runId === "number") {
         window.dispatchEvent(new CustomEvent("atlas:started", {
           detail: {
-            jobId: result.jobId,
-            command: "pipeline",
+            runId: result.runId,
+            title: `Atlas repair for run #${runId}`,
             label: `Atlas repair for run #${runId}`,
             agent: "atlas",
             reused: result.reused,

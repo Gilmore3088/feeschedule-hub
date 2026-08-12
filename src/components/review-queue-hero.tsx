@@ -1,5 +1,10 @@
 import Link from "next/link";
-import type { ReviewStats, StuckReviewItems } from "@/lib/crawler-db";
+import type { ReviewStats } from "@/lib/crawler-db";
+
+interface StuckReviewItems {
+  flagged_over_14d: number;
+  staged_over_30d: number;
+}
 
 interface ReviewQueueHeroProps {
   stats: ReviewStats;

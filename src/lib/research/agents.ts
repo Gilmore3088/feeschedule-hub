@@ -128,19 +128,6 @@ const REGULATION_INSTRUCTION =
 const EXTERNAL_INTELLIGENCE_INSTRUCTION =
   "When your analysis benefits from external research, surveys, or industry reports, query external intelligence using queryNationalData(source='external', query='relevant terms'). When citing external intelligence in your response, always include inline attribution using the citation field from the result, formatted as [Source: Name, Date]. Treat external intelligence as supplementary context — internal fee data and Call Reports remain your primary evidence. Never fabricate external source citations; only cite sources returned by the tool.";
 
-// Non-ops internal tools available to pro role (all internalTools minus ops-only tools)
-const OPS_TOOL_NAMES = new Set([
-  "getCrawlStatus",
-  "getReviewQueueStats",
-  "queryJobStatus",
-  "queryDataQuality",
-  "triggerPipelineJob",
-]);
-
-const proOnlyInternalTools: ToolSet = Object.fromEntries(
-  Object.entries(internalTools).filter(([name]) => !OPS_TOOL_NAMES.has(name))
-);
-
 // Toolset definitions — curated to stay under 200K token context limit
 // queryNationalData (11 sources) replaces most individual data tools
 const consumerTools: ToolSet = { ...publicTools };
@@ -154,11 +141,6 @@ const chatInternalTools: ToolSet = {
 const proTools: ToolSet = { ...publicTools, ...chatInternalTools };
 const adminTools: ToolSet = { ...publicTools, ...chatInternalTools };
 
-async function dataContext(): Promise<string> {
-  const s = await getPublicStats();
-  return `${s.total_observations.toLocaleString()}+ fee observations from ${s.total_institutions.toLocaleString()}+ institutions across ${s.total_states} states and territories and 12 Federal Reserve districts`;
-}
-
 async function opsContext(): Promise<string> {
   try {
     const [lastCrawl] = (await sql`
@@ -167,13 +149,16 @@ async function opsContext(): Promise<string> {
     const [pendingReview] = (await sql`
       SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status IN ('pending', 'staged', 'flagged')
     `) as { cnt: number }[];
-    const [activeJobs] = (await sql`
-      SELECT COUNT(*) as cnt FROM ops_jobs WHERE status IN ('running', 'queued')
+    const [activeRuns] = (await sql`
+      SELECT COUNT(*) as cnt
+        FROM agent_runs
+       WHERE status IN ('running', 'queued')
+         AND run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
     `) as { cnt: number }[];
     const parts: string[] = [];
     if (lastCrawl?.completed_at) parts.push(`Last crawl: ${lastCrawl.completed_at}`);
     if (pendingReview.cnt > 0) parts.push(`${pendingReview.cnt} fees pending review`);
-    if (activeJobs.cnt > 0) parts.push(`${activeJobs.cnt} jobs running`);
+    if (activeRuns.cnt > 0) parts.push(`${activeRuns.cnt} agent runs active`);
     return parts.length > 0 ? `\n\nOperational status: ${parts.join(". ")}.` : "";
   } catch {
     return "";

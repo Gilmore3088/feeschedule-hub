@@ -1,10 +1,10 @@
 /**
  * POST /api/reports/[id]/assemble
- * Internal endpoint called by Modal worker (server-to-server).
+ * Internal endpoint called by the report generation backend (server-to-server).
  *
  * Runs assembleAndRender() for a pending report job and returns the HTML.
  * Auth: shared secret via X-Internal-Secret header (T-W3P-01).
- * Not exposed to browsers — only Modal calls this endpoint.
+ * Not exposed to browsers.
  *
  * Flow: validate secret -> load job row -> assembleAndRender -> return HTML
  */

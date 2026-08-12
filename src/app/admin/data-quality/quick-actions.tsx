@@ -49,7 +49,7 @@ function ActionButton({
           >
             {result.success
               ? result.jobId
-                ? `Job #${result.jobId} queued`
+                ? `Run #${result.jobId} created`
                 : `Done (${result.count ?? 0} affected)`
               : result.error}
           </p>
@@ -89,7 +89,7 @@ export function QuickActions({ canTrigger }: { canTrigger: boolean }) {
       />
       <ActionButton
         label="Reset Zombie Jobs"
-        description="Mark jobs stuck in 'running' for 2+ hours as failed"
+        description="Mark agent runs stuck in 'running' for 2+ hours as failed"
         action={resetZombieJobs}
       />
     </div>

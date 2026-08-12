@@ -3,7 +3,7 @@
  *
  * Queries live pipeline data and packages it into a typed PeerCompetitivePayload.
  * No AI calls happen here — this is pure data assembly.
- * The Modal worker calls generateSection() on each sections[] entry.
+ * The report backend calls generateSection() on each sections[] entry.
  *
  * Key links:
  *   - getPeerIndex() / getNationalIndex() from crawler-db/fee-index.ts
@@ -41,7 +41,7 @@ export interface PeerBriefSection {
 export interface PeerCompetitivePayload {
   /** Feeds renderPeerCompetitiveReport() */
   data: PeerCompetitiveData;
-  /** 3–5 sections for generateSection() calls in the Modal worker */
+  /** 3–5 sections for generateSection() calls in the report backend */
   sections: PeerBriefSection[];
   manifest: DataManifest;
 }

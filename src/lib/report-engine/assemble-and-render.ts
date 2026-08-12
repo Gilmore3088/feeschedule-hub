@@ -2,9 +2,9 @@
  * Report Assembly Orchestrator
  *
  * assembleAndRender() picks the right assembler + Hamilton sections + template by report_type,
- * runs them in sequence, and returns a complete HTML string ready for Modal PDF conversion.
+ * runs them in sequence, and returns a complete HTML string ready for PDF conversion.
  *
- * Status flow: pending → assembling (set at entry) → caller sets rendering before Modal.
+ * Status flow: pending → assembling (set at entry) → caller sets rendering before PDF work.
  * On any unhandled error: job status is set to 'failed' before re-throwing.
  *
  * Decision refs: D-01 through D-09 (see 18-CONTEXT.md)

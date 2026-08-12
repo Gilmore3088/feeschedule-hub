@@ -1,0 +1,135 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { runMagellanDiscovery } from "./discovery";
+
+type DbMock = ReturnType<typeof vi.fn>;
+
+function templateText(strings: unknown): string {
+  return Array.isArray(strings) ? strings.join(" ") : String(strings);
+}
+
+function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
+  const db = vi.fn((strings: TemplateStringsArray) => {
+    const text = templateText(strings);
+    if (text.includes("FROM crawl_targets")) return Promise.resolve(rows);
+    return Promise.resolve([]);
+  });
+  return db;
+}
+
+function asDiscoveryDb(db: DbMock): NonNullable<Parameters<typeof runMagellanDiscovery>[0]["db"]> {
+  return db as unknown as NonNullable<Parameters<typeof runMagellanDiscovery>[0]["db"]>;
+}
+
+function response(body: string, contentType = "text/html", status = 200): Response {
+  return new Response(body, { status, headers: { "content-type": contentType } });
+}
+
+describe("Magellan agentic discovery", () => {
+  it("discovers a homepage fee schedule link and writes crawl target plus discovery cache evidence", async () => {
+    const db = createDbMock([
+      {
+        id: 42,
+        institution_name: "Test Bank",
+        website_url: "https://testbank.example",
+        state_code: "CA",
+        asset_size: "1000000",
+        rescue_status: null,
+      },
+    ]);
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response('<a href="/schedule-of-fees.pdf">Schedule of Fees</a>'))
+      .mockResolvedValueOnce(response("%PDF", "application/pdf"));
+
+    const result = await runMagellanDiscovery({
+      runId: 101,
+      limit: 500,
+      db: asDiscoveryDb(db),
+      fetchImpl,
+    });
+
+    expect(result).toMatchObject({
+      selected: 1,
+      processed: 1,
+      discovered: 1,
+      dead: 0,
+      needsHuman: 0,
+      retryAfter: 0,
+      attemptedUrls: 2,
+      limit: 50,
+      dryRun: false,
+    });
+    expect(result.results[0]).toMatchObject({
+      institutionId: 42,
+      outcome: "discovered",
+      url: "https://testbank.example/schedule-of-fees.pdf",
+      documentType: "pdf",
+    });
+
+    const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(sqlText).toContain("UPDATE crawl_targets");
+    expect(sqlText).toContain("INSERT INTO discovery_cache");
+  });
+
+  it("keeps dry runs read-only while still reporting possible discoveries", async () => {
+    const db = createDbMock([
+      {
+        id: 43,
+        institution_name: "Dry Run CU",
+        website_url: "dryrun.example",
+        state_code: "WA",
+        asset_size: "100",
+        rescue_status: null,
+      },
+    ]);
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response('<a href="/fees">Account Fees</a>'))
+      .mockResolvedValueOnce(response("monthly maintenance fee overdraft fee atm fee"));
+
+    const result = await runMagellanDiscovery({
+      runId: 102,
+      dryRun: true,
+      db: asDiscoveryDb(db),
+      fetchImpl,
+    });
+
+    expect(result.discovered).toBe(1);
+    expect(db).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks successful homepage scans with no fee-like links as no source found", async () => {
+    const db = createDbMock([
+      {
+        id: 44,
+        institution_name: "No Links Bank",
+        website_url: "https://nolinks.example",
+        state_code: "OR",
+        asset_size: "50",
+        rescue_status: null,
+      },
+    ]);
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response('<a href="/careers">Careers</a>'))
+      .mockResolvedValue(response("", "text/html", 404));
+
+    const result = await runMagellanDiscovery({
+      runId: 103,
+      db: asDiscoveryDb(db),
+      fetchImpl,
+    });
+
+    expect(result).toMatchObject({
+      selected: 1,
+      processed: 1,
+      discovered: 0,
+      dead: 1,
+      attemptedUrls: 4,
+    });
+    const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(sqlText).toContain("INSERT INTO discovery_cache");
+    expect(db.mock.calls.some((call) => call.includes("magellan_dead"))).toBe(true);
+  });
+});

@@ -2,8 +2,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
-import { ensureAgentTables, getLatestAgentRun, getAgentRunResults } from "@/lib/scout/agent-db";
-import { spawnJob } from "@/lib/job-runner";
+import { getLatestAgentRun, getAgentRunResults } from "@/lib/scout/agent-db";
+import { startAgentRun } from "@/lib/agents/run-store";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -16,7 +16,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "state param required" }, { status: 400 });
   }
 
-  await ensureAgentTables();
   const run = await getLatestAgentRun(state);
   if (!run) {
     return NextResponse.json({ run: null });
@@ -39,14 +38,44 @@ export async function POST(req: NextRequest) {
 
   try {
     const stateCode = String(state).toUpperCase();
-    const result = await spawnJob(
-      "discover",
-      ["--state", stateCode, "--limit", "100"],
-      user.username,
-      undefined,
-      { agent: "magellan", triggerSource: "api", idempotencyKey: `magellan:discover:${stateCode}` },
+    const result = await startAgentRun({
+      agent: "magellan",
+      kind: "state_agent",
+      title: `Scout ${stateCode} fee schedule discovery`,
+      stateCode,
+      params: { state: stateCode, limit: 100, source: "api.scout.agent" },
+      triggeredBy: user.username,
+      triggerSource: "api",
+      idempotencyKey: `magellan:discover:${stateCode}`,
+      steps: [
+        {
+          key: "discover",
+          agent: "magellan",
+          title: `Find ${stateCode} fee schedule URLs`,
+          input: { state: stateCode, limit: 100 },
+        },
+        {
+          key: "fetch",
+          agent: "magellan",
+          title: "Fetch discovered fee documents",
+        },
+        {
+          key: "read",
+          agent: "rosetta",
+          title: "Read fee documents",
+        },
+        {
+          key: "extract",
+          agent: "knox",
+          title: "Extract fee observations",
+        },
+      ],
+      summary: "State agent run created. Worker execution waits for the agentic_v1 backend.",
+    });
+    return NextResponse.json(
+      { ok: true, job_id: result.run.id, run_id: result.run.id, reused: result.reused },
+      { status: 202 },
     );
-    return NextResponse.json({ ok: true, job_id: result.jobId, reused: result.reused }, { status: 202 });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

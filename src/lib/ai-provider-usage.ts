@@ -19,7 +19,7 @@ export interface ProviderCallContext {
   model: string;
   agent: string;
   operation: string;
-  opsJobId?: number;
+  agentRunId?: number;
   requestCount?: number;
   metadata?: Record<string, unknown>;
 }
@@ -115,13 +115,13 @@ export async function recordProviderUsage(
         (provider, model, agent_name, operation, status, request_count,
          input_tokens, output_tokens, cache_read_input_tokens,
          cache_creation_input_tokens, estimated_cost_microusd, latency_ms,
-         ops_job_id, error_summary, metadata)
+         agent_run_id, error_summary, metadata)
       VALUES
         (${context.provider}, ${context.model}, ${context.agent}, ${context.operation},
          ${status}, ${context.requestCount ?? 1}, ${nonNegative(usage.inputTokens)},
          ${nonNegative(usage.outputTokens)}, ${nonNegative(usage.cacheReadInputTokens)},
          ${nonNegative(usage.cacheCreationInputTokens)}, ${estimatedCost},
-         ${options.latencyMs ?? null}, ${context.opsJobId ?? null},
+         ${options.latencyMs ?? null}, ${context.agentRunId ?? null},
          ${options.error?.slice(0, 1000) ?? null},
          ${JSON.stringify(context.metadata ?? {})})
     `;
