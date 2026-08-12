@@ -195,10 +195,10 @@ export function InstitutionActions({
           jobId={queuedJob.id}
           title={`${institutionName} extraction`}
           owner="magellan"
-          command={`crawl --target-id ${institutionId}`}
+          command={`fetch + read + extract #${institutionId}`}
           scope={institutionName}
           reused={queuedJob.reused}
-          detail="Magellan will extract this institution's fee schedule. Track live status for the backend receipt, heartbeat, and output tail."
+          detail="Magellan queued an agentic extraction run for this fee schedule. Track live status for step events and outputs."
         />
       )}
     </div>

@@ -8,9 +8,9 @@ import {
   getCharterFeeRevenueSummary,
 } from "@/lib/crawler-db/fee-revenue";
 import { getStats } from "@/lib/crawler-db/core";
-import { getOutlierFlaggedFees, getReviewStats } from "@/lib/crawler-db/review-bridge";
 import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
 import { sql } from "@/lib/crawler-db/connection";
+import { getKnoxReviewCounts } from "@/lib/crawler-db/knox-reviews";
 import { startAgentRun } from "@/lib/agents/run-store";
 import type { AdminAgent } from "@/lib/agents/types";
 
@@ -135,10 +135,44 @@ export const queryOutliers = tool({
       .describe("Max results to return"),
   }),
   execute: async ({ category, limit }) => {
-    const result = await getOutlierFlaggedFees(limit ?? 20, 0, category);
+    const n = Math.min(Math.max(limit ?? 20, 1), 100);
+    const categoryFilter = category ? sql`AND ef.fee_category = ${category}` : sql``;
+    const [count] = await sql<{ cnt: number | string }[]>`
+      SELECT COUNT(*) AS cnt
+        FROM published_fee_observations ef
+       WHERE ef.validation_flags IS NOT NULL
+         AND ef.validation_flags != '[]'::jsonb
+         AND ef.validation_flags != '{}'::jsonb
+         ${categoryFilter}
+    `;
+    const rows = await sql<{
+      id: number;
+      institution_name: string;
+      fee_name: string;
+      amount: number | null;
+      fee_category: string | null;
+      validation_flags: unknown;
+      state_code: string | null;
+    }[]>`
+      SELECT ef.id,
+             ct.institution_name,
+             ef.fee_name,
+             ef.amount,
+             ef.fee_category,
+             ef.validation_flags,
+             ct.state_code
+        FROM published_fee_observations ef
+        JOIN crawl_targets ct ON ct.id = ef.crawl_target_id
+       WHERE ef.validation_flags IS NOT NULL
+         AND ef.validation_flags != '[]'::jsonb
+         AND ef.validation_flags != '{}'::jsonb
+         ${categoryFilter}
+       ORDER BY ef.created_at DESC, ef.id DESC
+       LIMIT ${n}
+    `;
     return {
-      total: result.total,
-      data: result.fees.map((f) => ({
+      total: Number(count?.cnt ?? 0),
+      data: rows.map((f) => ({
         id: f.id,
         institution_name: f.institution_name,
         fee_name: f.fee_name,
@@ -169,10 +203,18 @@ export const getCrawlStatus = tool({
 
 export const getReviewQueueStats = tool({
   description:
-    "Returns pending, approved, rejected, staged counts in the fee review pipeline. When: review backlog questions, approval pipeline health. Combine with: getCrawlStatus for pipeline breadth, queryDataQuality(review_status) for detailed breakdown.",
+    "Returns Knox rejection-decision counts for anomaly-only human review. When: review backlog questions, approval pipeline health. Combine with: getCrawlStatus for pipeline breadth, queryDataQuality(review_status) for published fee status.",
   inputSchema: z.object({}),
   execute: async () => {
-    return await getReviewStats();
+    const counts = await getKnoxReviewCounts();
+    return {
+      queue: "knox_decisions",
+      pending: counts.pending,
+      confirmed: counts.confirmed,
+      overridden: counts.overridden,
+      total: counts.total,
+      source: "agent_messages",
+    };
   },
 });
 
@@ -375,7 +417,7 @@ export const queryJobStatus = tool({
 
 export const queryDataQuality = tool({
   description:
-    "Returns data quality metrics: funnel (coverage), uncategorized fees, stale institutions, review_status breakdown. When: coverage gap questions, data hygiene review, pre-analysis quality check. Combine with: getCrawlStatus for pipeline health, queryNationalData(fee_index) to contextualize coverage against category depth.",
+    "Returns data quality metrics: funnel (coverage), uncategorized fees, stale institutions, published review_status breakdown. When: coverage gap questions, data hygiene review, pre-analysis quality check. Combine with: getCrawlStatus for pipeline health, queryNationalData(fee_index) to contextualize coverage against category depth.",
   inputSchema: z.object({
     view: z
       .enum(["funnel", "uncategorized", "stale", "review_status"])
@@ -413,32 +455,32 @@ export const queryDataQuality = tool({
       ` as { cnt: number }[];
       return { stale_institutions: stale.cnt, threshold_days: 90 };
     }
-    // review_status
+    // Published status shape is kept for callers that still ask for review_status.
     return await sql`
-      SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC
+      SELECT review_status, COUNT(*) as cnt
+      FROM published_fee_observations
+      GROUP BY review_status
+      ORDER BY cnt DESC
     `;
   },
 });
 
 const SAFE_PIPELINE_COMMANDS = new Set([
-  "categorize", "auto-review", "validate", "outlier-detect",
-  "enrich", "publish-index", "snapshot", "merge-fees",
+  "enhance", "classify", "verify", "review", "publish", "publish-index",
 ]);
 
 const SAFE_PIPELINE_AGENTS: Record<string, AdminAgent> = {
-  categorize: "darwin",
-  "auto-review": "knox",
-  validate: "darwin",
-  "outlier-detect": "knox",
-  enrich: "atlas",
+  enhance: "atlas",
+  classify: "darwin",
+  verify: "darwin",
+  review: "knox",
+  publish: "hamilton",
   "publish-index": "hamilton",
-  snapshot: "hamilton",
-  "merge-fees": "darwin",
 };
 
 export const triggerPipelineJob = tool({
   description:
-    "Creates a visible agent run for a safe pipeline step: categorize, auto-review, validate, outlier-detect, enrich, publish-index, snapshot, merge-fees. Does not launch retired external workers, crawl, or discover.",
+    "Creates a visible agentic run for an implemented pipeline step: enhance, classify, verify, review, publish, publish-index. Does not launch retired external workers.",
   inputSchema: z.object({
     command: z.string().describe("Pipeline command name"),
     dryRun: z.boolean().optional().default(false).describe("If true, pass --dry-run flag"),

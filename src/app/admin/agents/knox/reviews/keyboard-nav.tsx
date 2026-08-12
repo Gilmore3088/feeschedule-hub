@@ -11,7 +11,7 @@ const HIGHLIGHT_CLASSES = [
 ];
 
 /**
- * Mirror of /admin/review keyboard semantics:
+ * Knox decision table keyboard semantics:
  *   j/k    — move focus up/down
  *   Enter  — open detail
  *   c      — confirm rejection

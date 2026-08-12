@@ -16,7 +16,7 @@ vi.mock("./agents/run-store", () => ({
   startAgentRun: startAgentRunMock,
 }));
 
-import { triggerReportJob } from "./report-job-runner";
+import { triggerReportJob } from "./report-agent-runs";
 
 describe("agentic report job envelope", () => {
   beforeEach(() => {

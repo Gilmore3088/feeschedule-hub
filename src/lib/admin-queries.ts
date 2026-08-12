@@ -10,7 +10,7 @@
  */
 
 import { sql } from "@/lib/crawler-db/connection";
-import { toDateStr, safeJsonb } from "@/lib/pg-helpers";
+import { toDateStr } from "@/lib/pg-helpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,14 +23,6 @@ export interface DashboardStats {
   coverage_pct: number;
 }
 
-export interface ReviewQueueCounts {
-  staged: number;
-  flagged: number;
-  pending: number;
-  approved: number;
-  rejected: number;
-}
-
 export interface RecentCrawlRun {
   id: number;
   started_at: string;
@@ -40,16 +32,6 @@ export interface RecentCrawlRun {
   targets_succeeded: number;
   fees_extracted: number;
   success_rate: number;
-}
-
-export interface RecentReview {
-  fee_id: number;
-  fee_name: string;
-  fee_category: string | null;
-  institution_name: string;
-  action: string;
-  username: string | null;
-  created_at: string;
 }
 
 export interface StateCoverage {
@@ -246,34 +228,6 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
   }
 }
 
-export async function getReviewQueueCounts(): Promise<ReviewQueueCounts> {
-  try {
-    const rows = await sql`
-      SELECT review_status, COUNT(*) as cnt
-      FROM extracted_fees
-      GROUP BY review_status
-    `;
-    const counts: ReviewQueueCounts = {
-      staged: 0,
-      flagged: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-    };
-    for (const row of rows) {
-      const status = String(row.review_status);
-      const cnt = Number(row.cnt);
-      if (status in counts) {
-        counts[status as keyof ReviewQueueCounts] = cnt;
-      }
-    }
-    return counts;
-  } catch (e) {
-    console.error("getReviewQueueCounts failed:", e);
-    return { staged: 0, flagged: 0, pending: 0, approved: 0, rejected: 0 };
-  }
-}
-
 export async function getRecentCrawlRuns(limit = 10): Promise<RecentCrawlRun[]> {
   try {
     const rows = await sql`
@@ -299,39 +253,6 @@ export async function getRecentCrawlRuns(limit = 10): Promise<RecentCrawlRun[]> 
     }));
   } catch (e) {
     console.error("getRecentCrawlRuns failed:", e);
-    return [];
-  }
-}
-
-export async function getRecentReviews(limit = 10): Promise<RecentReview[]> {
-  try {
-    const rows = await sql`
-      SELECT
-        rl.fee_id,
-        ef.fee_name,
-        ef.fee_category,
-        ct.institution_name,
-        rl.action,
-        u.username,
-        rl.created_at
-      FROM fee_reviews rl
-      JOIN extracted_fees ef ON ef.id = rl.fee_id
-      JOIN crawl_targets ct ON ct.id = ef.crawl_target_id
-      LEFT JOIN users u ON u.id = rl.user_id
-      ORDER BY rl.created_at DESC
-      LIMIT ${limit}
-    `;
-    return rows.map((r) => ({
-      fee_id: Number(r.fee_id),
-      fee_name: String(r.fee_name),
-      fee_category: r.fee_category ? String(r.fee_category) : null,
-      institution_name: String(r.institution_name),
-      action: String(r.action),
-      username: r.username ? String(r.username) : null,
-      created_at: toDateStr(r.created_at as string | Date),
-    }));
-  } catch (e) {
-    console.error("getRecentReviews failed:", e);
     return [];
   }
 }
@@ -400,8 +321,7 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
       current_label: "crawl targets",
       throughput_24h: 0,
       agents: [
-        { name: "External crawler", status: "blocked", note: "blocked pending agentic backend cutover" },
-        { name: "state_xx (per-state)", status: "live", note: "50 state orchestrators" },
+        { name: "Magellan fetch", status: "live", note: "TypeScript agentic worker" },
       ],
     },
     {
@@ -423,7 +343,8 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
       current_label: "fees_raw rows",
       throughput_24h: 0,
       agents: [
-        { name: "extract_pdf / html / js", status: "live", note: "specialist subagents per doc type" },
+        { name: "Rosetta", status: "live", note: "normalize source text before extraction" },
+        { name: "Knox extract", status: "live", note: "conservative raw fee observations" },
       ],
     },
     {
@@ -434,8 +355,8 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
       current_label: "fees_verified rows",
       throughput_24h: 0,
       agents: [
-        { name: "Darwin", status: "live", note: "classifier; auto-promote >=0.90" },
-        { name: "auto-review CLI", status: "live", note: "heuristic rules" },
+        { name: "Darwin", status: "live", note: "verify canonical-hinted raw rows" },
+        { name: "Knox decisions", status: "live", note: "anomaly-only rejection review" },
       ],
     },
     {
@@ -446,8 +367,7 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
       current_label: "fees_published rows",
       throughput_24h: 0,
       agents: [
-        { name: "Darwin accept", status: "live", note: "auto via publish-fees CLI" },
-        { name: "Knox accept", status: "stubbed", note: "publish-fees plays both sides until real Knox ships" },
+        { name: "Hamilton publish", status: "live", note: "promote verified rows into Tier-3 ledger" },
       ],
     },
   ];
@@ -1017,53 +937,6 @@ export async function getUncategorizedTopFees(limit = 20): Promise<Uncategorized
 }
 
 // ---------------------------------------------------------------------------
-// Review Page
-// ---------------------------------------------------------------------------
-
-export interface ReviewFeeRow {
-  id: number;
-  fee_name: string;
-  amount: number | null;
-  fee_category: string | null;
-  review_status: string;
-  institution_name: string;
-  crawl_target_id: number;
-  state_code: string | null;
-  charter_type: string | null;
-  confidence: number;
-  created_at: string;
-}
-
-export interface FeeDetailRow {
-  id: number;
-  fee_name: string;
-  amount: number | null;
-  frequency: string | null;
-  conditions: string | null;
-  fee_category: string | null;
-  fee_family: string | null;
-  review_status: string;
-  confidence: number;
-  created_at: string;
-  institution_name: string;
-  crawl_target_id: number;
-  state_code: string | null;
-  charter_type: string | null;
-  document_url: string | null;
-  fee_schedule_url: string | null;
-  validation_flags: string[];
-  review_history: ReviewHistoryRow[];
-}
-
-export interface ReviewHistoryRow {
-  action: string;
-  username: string | null;
-  previous_status: string | null;
-  new_status: string | null;
-  notes: string | null;
-  created_at: string;
-}
-
 export interface FeeCatalogRow {
   fee_category: string;
   display_name: string;
@@ -1071,140 +944,6 @@ export interface FeeCatalogRow {
   median: number | null;
   p25: number | null;
   p75: number | null;
-}
-
-export async function getReviewFees(
-  status: string,
-  page: number,
-  limit: number,
-  search?: string,
-  sort?: string,
-  dir?: string,
-  category?: string,
-): Promise<{ fees: ReviewFeeRow[]; total: number }> {
-  try {
-    const offset = (page - 1) * limit;
-    const conditions = ["ef.review_status = $1"];
-    const params: (string | number | null)[] = [status];
-    let paramIdx = 2;
-
-    if (search) {
-      conditions.push(
-        `(ef.fee_name ILIKE $${paramIdx++} OR ct.institution_name ILIKE $${paramIdx++})`,
-      );
-      params.push(`%${search}%`, `%${search}%`);
-    }
-
-    if (category) {
-      conditions.push(`ef.fee_category = $${paramIdx++}`);
-      params.push(category);
-    }
-
-    const where = conditions.join(" AND ");
-
-    const countResult = await sql.unsafe<{ cnt: string }[]>(
-      `SELECT COUNT(*) as cnt
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ${where}`,
-      params,
-    );
-    const total = Number(countResult[0].cnt);
-
-    const rows = await sql.unsafe<Record<string, unknown>[]>(
-      `SELECT ef.id, ef.fee_name, ef.amount, ef.fee_category,
-              ef.review_status, ct.institution_name, ef.crawl_target_id,
-              ct.state_code, ct.charter_type, ef.extraction_confidence,
-              ef.created_at
-       FROM extracted_fees ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-       WHERE ${where}
-       ORDER BY ${sort === "amount" ? "ef.amount" : sort === "category" ? "ef.fee_category" : sort === "institution" ? "ct.institution_name" : sort === "confidence" ? "ef.extraction_confidence" : "ef.created_at"} ${dir === "asc" ? "ASC" : "DESC"} NULLS LAST
-       LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
-      [...params, limit, offset],
-    );
-
-    const fees: ReviewFeeRow[] = rows.map((r) => ({
-      id: Number(r.id),
-      fee_name: String(r.fee_name),
-      amount: r.amount != null ? Number(r.amount) : null,
-      fee_category: r.fee_category ? String(r.fee_category) : null,
-      review_status: String(r.review_status),
-      institution_name: String(r.institution_name),
-      crawl_target_id: Number(r.crawl_target_id),
-      state_code: r.state_code ? String(r.state_code) : null,
-      charter_type: r.charter_type ? String(r.charter_type) : null,
-      confidence: Number(r.extraction_confidence),
-      created_at: toDateStr(r.created_at as string | Date),
-    }));
-
-    return { fees, total };
-  } catch (e) {
-    console.error("getReviewFees failed:", e);
-    return { fees: [], total: 0 };
-  }
-}
-
-export async function getFeeDetail(feeId: number): Promise<FeeDetailRow | null> {
-  try {
-    const [row] = await sql<Record<string, unknown>[]>`
-      SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
-             ef.fee_category, ef.fee_family, ef.review_status,
-             ef.extraction_confidence, ef.created_at, ef.validation_flags,
-             ct.institution_name, ef.crawl_target_id,
-             ct.state_code, ct.charter_type,
-             cr.document_url, ct.fee_schedule_url
-      FROM extracted_fees ef
-      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
-      LEFT JOIN crawl_results cr ON ef.crawl_result_id = cr.id
-      WHERE ef.id = ${feeId}
-    `;
-    if (!row) return null;
-
-    const historyRows = await sql<Record<string, unknown>[]>`
-      SELECT rl.action, u.username, rl.previous_status, rl.new_status,
-             rl.notes, rl.created_at
-      FROM fee_reviews rl
-      LEFT JOIN users u ON u.id = rl.user_id
-      WHERE rl.fee_id = ${feeId}
-      ORDER BY rl.created_at DESC
-    `;
-
-    const flags = safeJsonb<string[]>(row.validation_flags) ?? [];
-
-    const history: ReviewHistoryRow[] = historyRows.map((h) => ({
-      action: String(h.action),
-      username: h.username ? String(h.username) : null,
-      previous_status: h.previous_status ? String(h.previous_status) : null,
-      new_status: h.new_status ? String(h.new_status) : null,
-      notes: h.notes ? String(h.notes) : null,
-      created_at: toDateStr(h.created_at as string | Date),
-    }));
-
-    return {
-      id: Number(row.id),
-      fee_name: String(row.fee_name),
-      amount: row.amount != null ? Number(row.amount) : null,
-      frequency: row.frequency ? String(row.frequency) : null,
-      conditions: row.conditions ? String(row.conditions) : null,
-      fee_category: row.fee_category ? String(row.fee_category) : null,
-      fee_family: row.fee_family ? String(row.fee_family) : null,
-      review_status: String(row.review_status),
-      confidence: Number(row.extraction_confidence),
-      created_at: toDateStr(row.created_at as string | Date),
-      institution_name: String(row.institution_name),
-      crawl_target_id: Number(row.crawl_target_id),
-      state_code: row.state_code ? String(row.state_code) : null,
-      charter_type: row.charter_type ? String(row.charter_type) : null,
-      document_url: row.document_url ? String(row.document_url) : null,
-      fee_schedule_url: row.fee_schedule_url ? String(row.fee_schedule_url) : null,
-      validation_flags: flags,
-      review_history: history,
-    };
-  } catch (e) {
-    console.error("getFeeDetail failed:", e);
-    return null;
-  }
 }
 
 // ---------------------------------------------------------------------------

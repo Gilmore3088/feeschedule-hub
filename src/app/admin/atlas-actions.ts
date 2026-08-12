@@ -193,12 +193,12 @@ const WORKFLOW_JOBS: Record<AtlasWorkflowId, {
   review: {
     title: "Review exceptions",
     agent: "knox",
-    idempotencyKey: "knox:quick-auto-review",
+    idempotencyKey: "knox:quick-decision-review",
     steps: [
       {
         key: "review",
         agent: "knox",
-        title: "Resolve anomaly-only fee exceptions",
+        title: "Summarize anomaly-only Knox decisions",
       },
     ],
   },

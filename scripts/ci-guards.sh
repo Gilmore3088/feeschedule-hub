@@ -113,29 +113,26 @@ fee_read_model_kill() {
     ":(exclude)src/**/*.test.ts"
     ":(exclude)src/**/*.test.tsx"
   )
-  local allowed='^(src/lib/crawler-db/review-bridge\.ts|src/lib/admin-queries\.ts|src/lib/fee-actions\.ts|src/lib/agents/knox/review\.ts|src/lib/research/tools-internal\.ts|src/lib/research/agents\.ts|src/app/admin/query/query-client\.tsx):'
   local hits=""
 
   if git rev-parse --git-dir >/dev/null 2>&1; then
     hits=$(git grep --untracked -nE '\bextracted_fees\b' -- \
       "${include_dirs[@]}" "${exclude_paths[@]}" \
-      | grep -v '^Binary file' \
-      | grep -Ev "$allowed" || true)
+      | grep -v '^Binary file' || true)
   else
     hits=$(grep -rnE '\bextracted_fees\b' \
       --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
       --exclude-dir=node_modules \
-      "${include_dirs[@]}" 2>/dev/null \
-      | grep -Ev "$allowed" || true)
+      "${include_dirs[@]}" 2>/dev/null || true)
   fi
 
   if [[ -n "$hits" ]]; then
-    echo "fee-read-model-kill: product/runtime extracted_fees references remain outside review bridge allowlist:" >&2
+    echo "fee-read-model-kill: runtime extracted_fees references remain:" >&2
     echo "$hits" >&2
     exit 1
   fi
 
-  echo "fee-read-model-kill: OK (product fee reads use published_fee_observations)"
+  echo "fee-read-model-kill: OK (zero runtime extracted_fees references)"
   exit 0
 }
 

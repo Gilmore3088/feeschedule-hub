@@ -113,7 +113,7 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       owner: "magellan",
       metric: `${number(staleOrMissingCrawls)} stale or uncollected`,
       detail: "Collect fee rows from institutions that still need a fresh crawl.",
-      commandLabel: "crawl --skip-with-fees --limit 500",
+      commandLabel: "fetch + read + extract",
       href: "/admin/magellan",
     },
     {
@@ -122,7 +122,7 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       owner: "darwin",
       metric: `${number(unverified)} without verified fees`,
       detail: "Promote raw fee rows into the canonical verified fee table.",
-      commandLabel: "darwin-drain --size 500",
+      commandLabel: "classify",
       href: "/admin/darwin",
     },
     {
@@ -130,8 +130,8 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       title: "Review exceptions",
       owner: "knox",
       metric: reviewWork?.title ?? "Knox queue ready",
-      detail: "Run automated checks, then resolve the anomaly-only human queue.",
-      commandLabel: "auto-review",
+      detail: "Review anomaly-only Knox decisions and maintain the gold standard.",
+      commandLabel: "review decisions",
       href: "/admin/knox",
     },
   ];

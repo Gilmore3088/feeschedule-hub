@@ -10,7 +10,6 @@ const {
   runDarwinVerifyMock,
   runHamiltonPublishMock,
   runKnoxExtractMock,
-  reviewReadyStagedFeesMock,
   runMagellanDiscoveryMock,
   runMagellanFetchMock,
   runRosettaReadMock,
@@ -26,7 +25,6 @@ const {
     runDarwinVerifyMock: vi.fn(),
     runHamiltonPublishMock: vi.fn(),
     runKnoxExtractMock: vi.fn(),
-    reviewReadyStagedFeesMock: vi.fn(),
     runMagellanDiscoveryMock: vi.fn(),
     runMagellanFetchMock: vi.fn(),
     runRosettaReadMock: vi.fn(),
@@ -52,10 +50,6 @@ vi.mock("@/lib/agents/hamilton/publish", () => ({
 
 vi.mock("@/lib/agents/knox/extract", () => ({
   runKnoxExtract: runKnoxExtractMock,
-}));
-
-vi.mock("@/lib/agents/knox/review", () => ({
-  reviewReadyStagedFees: reviewReadyStagedFeesMock,
 }));
 
 vi.mock("@/lib/agents/magellan/discovery", () => ({
@@ -190,6 +184,13 @@ function installTxMocks(
     if (text.includes("INSERT INTO agent_runs")) return Promise.resolve([runOverride]);
     if (text.includes("FROM agent_runs")) return Promise.resolve([runOverride]);
     if (text.includes("FROM agent_run_steps")) return Promise.resolve(stepRows);
+    if (text.includes("FROM agent_messages")) {
+      return Promise.resolve([
+        { bucket: "pending", cnt: "3" },
+        { bucket: "confirmed", cnt: "2" },
+        { bucket: "overridden", cnt: "1" },
+      ]);
+    }
     return Promise.resolve([]);
   });
   txMock.unsafe.mockResolvedValue([{ count: "7" }]);
@@ -273,18 +274,6 @@ describe("agentic run store", () => {
       dryRun: false,
       results: [],
     });
-    reviewReadyStagedFeesMock.mockReset().mockResolvedValue({
-      stagedBefore: 25860,
-      readyBefore: 500,
-      approved: 500,
-      auditRows: 500,
-      stagedAfter: 25360,
-      flagged: 311,
-      pending: 0,
-      limit: 500,
-      minConfidence: 0.9,
-      dryRun: false,
-    });
   });
 
   it("creates a visible blocked run shell without any legacy backend call when execution is disabled", async () => {
@@ -357,15 +346,10 @@ describe("agentic run store", () => {
         limit: 10,
       }),
     );
-    expect(reviewReadyStagedFeesMock).toHaveBeenCalledWith(
-      txMock,
-      expect.objectContaining({
-        runId: 101,
-        dryRun: false,
-        limit: 10,
-      }),
-    );
     const combinedSql = combinedTransactionSql();
+    expect(combinedSql).toContain("FROM agent_messages");
+    expect(combinedSql).toContain("knox_overrides");
+    expect(combinedSql).not.toContain("extracted_fees");
     expect(combinedSql).toContain("step.started");
     expect(combinedSql).toContain("step.finished");
     expect(combinedSql).toContain("run.completed");

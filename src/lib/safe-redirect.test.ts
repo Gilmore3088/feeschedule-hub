@@ -4,8 +4,8 @@ import { sanitizeInternalRedirect } from "./safe-redirect";
 describe("sanitizeInternalRedirect", () => {
   it("preserves an internal path, query, and fragment", () => {
     expect(
-      sanitizeInternalRedirect("/admin/knox?queue=fees#review", "/admin"),
-    ).toBe("/admin/knox?queue=fees#review");
+      sanitizeInternalRedirect("/admin/knox?queue=decisions#review", "/admin"),
+    ).toBe("/admin/knox?queue=decisions#review");
   });
 
   it.each([

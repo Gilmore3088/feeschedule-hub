@@ -7,9 +7,9 @@ import {
   getStateInstitutions,
   getStateSummary,
   getStateAgentRuns,
-  getStateManualReview,
+  getStateUrlResolutionQueue,
 } from "@/lib/crawler-db/states";
-import { ManualReviewRow } from "./manual-review-actions";
+import { UrlResolutionRow } from "./url-resolution-row";
 import { SortableInstitutionTable } from "./sortable-institution-table";
 
 // ---------------------------------------------------------------------------
@@ -54,11 +54,11 @@ export default async function StateDetailPage({
   const stateCode = code.toUpperCase();
   const stateName = STATE_NAMES[stateCode] ?? stateCode;
 
-  const [summary, institutions, agentRuns, manualReview] = await Promise.all([
+  const [summary, institutions, agentRuns, urlResolutionQueue] = await Promise.all([
     getStateSummary(stateCode),
     getStateInstitutions(stateCode),
     getStateAgentRuns(stateCode),
-    getStateManualReview(stateCode),
+    getStateUrlResolutionQueue(stateCode),
   ]);
 
   return (
@@ -84,7 +84,7 @@ export default async function StateDetailPage({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-8">
         <StatCard label="Total Institutions" value={formatNumber(summary.total)} />
         <StatCard label="With Fee URL" value={formatNumber(summary.withUrl)} />
-        <StatCard label="With Extracted Fees" value={formatNumber(summary.withFees)} />
+        <StatCard label="With Published Fees" value={formatNumber(summary.withFees)} />
         <StatCard label="Coverage" value={`${summary.coveragePct}%`} highlight />
       </div>
 
@@ -162,12 +162,12 @@ export default async function StateDetailPage({
         )}
       </div>
 
-      {/* Manual Review */}
-      {manualReview.length > 0 && (
+      {/* URL Resolution */}
+      {urlResolutionQueue.length > 0 && (
         <div className="admin-card overflow-hidden">
           <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
             <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-              Needs Manual Review ({manualReview.length} institutions)
+              Magellan URL Resolution ({urlResolutionQueue.length} institutions)
             </h2>
           </div>
           <table className="admin-table w-full text-xs">
@@ -179,8 +179,8 @@ export default async function StateDetailPage({
               </tr>
             </thead>
             <tbody>
-              {manualReview.map((inst) => (
-                <ManualReviewRow
+              {urlResolutionQueue.map((inst) => (
+                <UrlResolutionRow
                   key={inst.id}
                   institutionId={inst.id}
                   institutionName={inst.institution_name}

@@ -783,8 +783,8 @@ function generateHtml(
         <p>
           Peer group: ${peerCount} ${escapeHtml(charterLabel.toLowerCase())}s selected by closest asset size
           to ${escapeHtml(inst.institution_name)}, with same-state institutions prioritized.
-          Fee amounts extracted from published fee schedules using automated extraction
-          with manual review. Medians computed from non-rejected observations only.
+          Fee amounts extracted from published fee schedules using agentic extraction
+          and verification. Medians computed from non-rejected observations only.
           Percentile ranges (P25-P75) represent the interquartile range of peer fees.
         </p>
       </div>

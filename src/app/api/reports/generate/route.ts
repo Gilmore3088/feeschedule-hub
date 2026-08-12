@@ -20,7 +20,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser, hasPermission } from '@/lib/auth';
 import { getSql } from '@/lib/crawler-db/connection';
 import { checkFreshness } from '@/lib/report-engine/freshness';
-import { triggerReportJob } from '@/lib/report-job-runner';
+import { triggerReportJob } from '@/lib/report-agent-runs';
 import type { ReportType } from '@/lib/report-engine/types';
 import { matchesConfiguredCronSecret } from '@/lib/cron-secret';
 

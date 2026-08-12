@@ -37,7 +37,7 @@ export function AtlasEmergencyControl({
       const failureCount = result.cancellationFailures?.length ?? 0;
       setMessage(
         failureCount > 0
-          ? `Stop engaged. ${result.cancelled ?? 0} runs cancelled; ${failureCount} need manual review.`
+          ? `Stop engaged. ${result.cancelled ?? 0} runs cancelled; ${failureCount} need operator attention.`
           : `Stop engaged. ${result.cancelled ?? 0} of ${result.requested ?? 0} active runs cancelled.`,
       );
       setConfirming(false);

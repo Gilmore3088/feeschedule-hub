@@ -7,8 +7,8 @@ const QUERY_GROUPS = [
   {
     label: "Overview",
     queries: [
-      { label: "Dashboard stats", sql: "SELECT\n  (SELECT COUNT(*) FROM crawl_targets) as institutions,\n  (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,\n  (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_published_fees,\n  (SELECT COUNT(*) FROM published_fee_observations) as published_fees,\n  (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'staged') as staged_review_bridge,\n  (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'flagged') as flagged_review_bridge" },
-      { label: "Legacy review bridge status", sql: "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC" },
+      { label: "Dashboard stats", sql: "SELECT\n  (SELECT COUNT(*) FROM crawl_targets) as institutions,\n  (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,\n  (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_published_fees,\n  (SELECT COUNT(*) FROM published_fee_observations) as published_fees,\n  (SELECT COUNT(*) FROM agent_messages WHERE sender_agent = 'knox' AND intent = 'reject') as knox_rejections,\n  (SELECT COUNT(*) FROM agent_runs WHERE status IN ('queued','running')) as active_agent_runs" },
+      { label: "Knox decision status", sql: "SELECT\n  CASE\n    WHEN ko.decision IS NULL THEN 'pending'\n    WHEN ko.decision = 'confirm' THEN 'confirmed'\n    WHEN ko.decision = 'override' THEN 'overridden'\n    ELSE 'other'\n  END AS status,\n  COUNT(*) as cnt\nFROM agent_messages am\nLEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id\nWHERE am.sender_agent = 'knox' AND am.intent = 'reject'\nGROUP BY 1 ORDER BY cnt DESC" },
       { label: "Tables and views", sql: "SELECT table_schema, table_name, table_type\nFROM information_schema.tables\nWHERE table_schema = 'public'\nORDER BY table_type, table_name" },
     ],
   },
@@ -38,7 +38,7 @@ const QUERY_GROUPS = [
       { label: "Recent runs", sql: "SELECT id, title, agent_name, status, started_at, completed_at, summary\nFROM agent_runs\nWHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')\nORDER BY id DESC LIMIT 15" },
       { label: "Discovery hit rate", sql: "SELECT discovery_method, result, COUNT(*) as cnt\nFROM discovery_cache\nGROUP BY discovery_method, result ORDER BY discovery_method, cnt DESC" },
       { label: "Failing institutions", sql: "SELECT institution_name, state_code, consecutive_failures, fee_schedule_url\nFROM crawl_targets\nWHERE consecutive_failures >= 3\nORDER BY consecutive_failures DESC LIMIT 20" },
-      { label: "Recent auto-review actions", sql: "SELECT action, COUNT(*) as cnt, MIN(created_at) as earliest, MAX(created_at) as latest\nFROM fee_reviews\nWHERE username = 'system'\nGROUP BY action ORDER BY cnt DESC" },
+      { label: "Recent Knox decisions", sql: "SELECT ko.decision, COUNT(*) as cnt, MIN(ko.created_at) as earliest, MAX(ko.created_at) as latest\nFROM knox_overrides ko\nGROUP BY ko.decision ORDER BY cnt DESC" },
       { label: "Price changes", sql: "SELECT ct.institution_name, fce.fee_category, fce.previous_amount, fce.new_amount, fce.change_type, fce.detected_at\nFROM fee_change_events fce\nJOIN crawl_targets ct ON fce.crawl_target_id = ct.id\nORDER BY fce.detected_at DESC LIMIT 20" },
       { label: "Data source freshness", sql: "SELECT 'FRED' as source, MAX(fetched_at) as last_refresh, COUNT(*) as rows FROM fed_economic_indicators\nUNION ALL SELECT 'Beige Book', MAX(fetched_at), COUNT(*) FROM fed_beige_book\nUNION ALL SELECT 'Fed Content', MAX(fetched_at), COUNT(*) FROM fed_content\nUNION ALL SELECT 'Complaints', MAX(fetched_at), COUNT(*) FROM institution_complaints\nUNION ALL SELECT 'Financials', MAX(fetched_at), COUNT(*) FROM institution_financials" },
     ],

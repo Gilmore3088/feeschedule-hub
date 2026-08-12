@@ -1,16 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { requireAuth } from "@/lib/auth";
-import { getReviewQueueCounts } from "@/lib/admin-queries";
 import { getKnoxReviewCounts } from "@/lib/crawler-db/knox-reviews";
-import { FeeExceptionsView } from "../review/page";
 import { KnoxDecisionsView } from "../agents/knox/reviews/page";
 import { GoldStandardView } from "../verify/page";
 
 export const dynamic = "force-dynamic";
 
 const QUEUES = [
-  { key: "fees", label: "Human exceptions" },
   { key: "decisions", label: "Knox decisions" },
   { key: "gold", label: "Gold standard" },
 ] as const;
@@ -28,29 +26,13 @@ export default async function KnoxPage({
 }) {
   await requireAuth("view");
   const params = await searchParams;
-  const queue = QUEUES.some((item) => item.key === params.queue) ? params.queue as QueueKey : "fees";
+  if (params.queue === "fees") {
+    redirect("/admin/knox?queue=decisions");
+  }
+  const queue = QUEUES.some((item) => item.key === params.queue) ? params.queue as QueueKey : "decisions";
   const forwardedParams = Promise.resolve(params);
-  const [reviewCounts, knoxCounts] = await Promise.all([
-    getReviewQueueCounts(),
-    getKnoxReviewCounts(),
-  ]);
-  const humanFeeExceptions = reviewCounts.flagged + reviewCounts.pending;
-  const stagedBacklog = reviewCounts.staged;
+  const knoxCounts = await getKnoxReviewCounts();
   const summary = [
-    {
-      key: "fees" as const,
-      label: "Human exceptions",
-      countLabel: formatNumber(humanFeeExceptions),
-      detail: `${formatNumber(reviewCounts.flagged)} flagged · ${formatNumber(reviewCounts.pending)} pending`,
-      href: "/admin/knox?queue=fees&status=flagged",
-    },
-    {
-      key: "staged" as const,
-      label: "Agent backlog",
-      countLabel: formatNumber(stagedBacklog),
-      detail: "Staged fees are for Knox auto-review, not manual review.",
-      href: "/admin/knox?queue=fees&status=staged",
-    },
     {
       key: "decisions" as const,
       label: "Knox decisions",
@@ -66,15 +48,7 @@ export default async function KnoxPage({
       href: "/admin/knox?queue=gold",
     },
   ];
-  const workFirst = reviewCounts.flagged > 0
-    ? summary[0]
-    : reviewCounts.pending > 0
-      ? summary[0]
-      : stagedBacklog > 0
-        ? summary[1]
-      : knoxCounts.pending > 0
-        ? summary[2]
-        : summary[3];
+  const workFirst = knoxCounts.pending > 0 ? summary[0] : summary[1];
 
   return (
     <div>
@@ -82,7 +56,7 @@ export default async function KnoxPage({
         <Breadcrumbs items={[{ label: "Atlas", href: "/admin" }, { label: "Knox" }]} />
         <p className="admin-eyebrow mt-3">Agent · Review</p>
         <h1 className="admin-display-title mt-1">Knox</h1>
-        <p className="admin-lede mt-2">Human work is anomaly-only: resolve flagged fees, adjudicate Knox decisions, and maintain the gold standard. Staged fees are agent backlog.</p>
+        <p className="admin-lede mt-2">Human work is anomaly-only: adjudicate Knox rejection decisions and maintain the gold standard. Routine fee movement stays inside the agentic pipeline.</p>
       </header>
 
       <section aria-labelledby="knox-work-heading" className="mb-7 border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
@@ -123,7 +97,7 @@ export default async function KnoxPage({
 
       <nav aria-label="Knox review queues" className="mb-7 flex gap-1 overflow-x-auto border-b border-black/[0.06] dark:border-white/[0.06]">
         {QUEUES.map((item) => {
-          const count = item.key === "fees" ? humanFeeExceptions : item.key === "decisions" ? knoxCounts.pending : null;
+          const count = item.key === "decisions" ? knoxCounts.pending : null;
           return (
             <Link
               key={item.key}
@@ -141,7 +115,6 @@ export default async function KnoxPage({
           );
         })}
       </nav>
-      {queue === "fees" && <FeeExceptionsView searchParams={forwardedParams} embedded />}
       {queue === "decisions" && <KnoxDecisionsView searchParams={forwardedParams} embedded />}
       {queue === "gold" && <GoldStandardView embedded />}
     </div>

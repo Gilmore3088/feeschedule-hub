@@ -1,6 +1,6 @@
 import { sql } from "./crawler-db/connection";
 import { getAutomationControl, type AutomationControlState } from "./automation-control";
-import { getJobFreshness, getReviewQueueCounts } from "./admin-queries";
+import { getJobFreshness } from "./admin-queries";
 import { getKnoxReviewCounts } from "./crawler-db/knox-reviews";
 import type { AdminAgent, AgentRunStatus } from "./agents/types";
 import { toISO } from "./pg-helpers";
@@ -343,7 +343,6 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     coverageRows,
     jobRows,
     schedules,
-    reviewCounts,
   ] = await Promise.all([
     sql`
       WITH verified AS (
@@ -384,7 +383,6 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
       return [] as Record<string, unknown>[];
     }),
     getJobFreshness(),
-    getReviewQueueCounts(),
   ]);
 
   const [knoxCounts, automation, apiUsage, agentHealth] = await Promise.all([
@@ -478,28 +476,6 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     });
   }
 
-  const humanFeeExceptions = reviewCounts.flagged + reviewCounts.pending;
-  if (humanFeeExceptions > 0) {
-    attention.push({
-      id: "review:fees",
-      severity: "work",
-      owner: "knox",
-      title: `${humanFeeExceptions.toLocaleString()} human fee exceptions need review`,
-      detail: `${reviewCounts.flagged.toLocaleString()} flagged, ${reviewCounts.pending.toLocaleString()} pending. ${reviewCounts.staged.toLocaleString()} staged fees are agent auto-review backlog.`,
-      href: "/admin/knox?queue=fees&status=flagged",
-      action: "Open human queue",
-    });
-  } else if (reviewCounts.staged > 0) {
-    attention.push({
-      id: "review:staged-agent-backlog",
-      severity: "work",
-      owner: "knox",
-      title: `${reviewCounts.staged.toLocaleString()} staged fees ready for agent auto-review`,
-      detail: "These are not manual exceptions. Run Knox auto-review to approve/reject the routine backlog.",
-      href: "/admin#workflow-heading",
-      action: "Run auto-review",
-    });
-  }
   if (knoxCounts.pending > 0) {
     attention.push({
       id: "review:knox",

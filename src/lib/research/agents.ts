@@ -3,6 +3,7 @@ import { publicTools } from "./tools";
 import { internalTools } from "./tools-internal";
 import { getPublicStats } from "../crawler-db";
 import { sql } from "../crawler-db/connection";
+import { getKnoxReviewCounts } from "../crawler-db/knox-reviews";
 import { HAMILTON_SYSTEM_PROMPT } from "../hamilton/voice";
 
 export interface AgentConfig {
@@ -146,9 +147,7 @@ async function opsContext(): Promise<string> {
     const [lastCrawl] = (await sql`
       SELECT completed_at FROM crawl_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1
     `) as { completed_at: string }[];
-    const [pendingReview] = (await sql`
-      SELECT COUNT(*) as cnt FROM extracted_fees WHERE review_status IN ('pending', 'staged', 'flagged')
-    `) as { cnt: number }[];
+    const knoxReview = await getKnoxReviewCounts();
     const [activeRuns] = (await sql`
       SELECT COUNT(*) as cnt
         FROM agent_runs
@@ -157,7 +156,7 @@ async function opsContext(): Promise<string> {
     `) as { cnt: number }[];
     const parts: string[] = [];
     if (lastCrawl?.completed_at) parts.push(`Last crawl: ${lastCrawl.completed_at}`);
-    if (pendingReview.cnt > 0) parts.push(`${pendingReview.cnt} fees pending review`);
+    if (knoxReview.pending > 0) parts.push(`${knoxReview.pending} Knox decisions pending review`);
     if (activeRuns.cnt > 0) parts.push(`${activeRuns.cnt} agent runs active`);
     return parts.length > 0 ? `\n\nOperational status: ${parts.join(". ")}.` : "";
   } catch {

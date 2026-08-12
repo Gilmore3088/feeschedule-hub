@@ -4,7 +4,6 @@ import { getExecutionBackend } from "@/lib/execution-backend";
 import { runDarwinVerify } from "@/lib/agents/darwin/verify";
 import { runHamiltonPublish } from "@/lib/agents/hamilton/publish";
 import { runKnoxExtract } from "@/lib/agents/knox/extract";
-import { reviewReadyStagedFees } from "@/lib/agents/knox/review";
 import { runMagellanDiscovery } from "@/lib/agents/magellan/discovery";
 import { runMagellanFetch } from "@/lib/agents/magellan/fetch";
 import { runRosettaRead } from "@/lib/agents/rosetta/read";
@@ -22,7 +21,7 @@ import type {
 
 const ACTIVE_STATUSES = ["queued", "running", "cancel_requested"];
 const AGENTIC_SUMMARY =
-  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs and fetch source documents; Rosetta can normalize HTML/text source documents and route PDFs to OCR; Knox can extract conservative raw fee observations and reduce safe staged fee backlog rows; Darwin can verify canonical-hinted raw rows; Hamilton can publish eligible verified rows into the Tier-3 ledger. Durable queues, PDF/OCR, provider extraction, and adversarial review remain gated until each agent module is implemented.";
+  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs and fetch source documents; Rosetta can normalize HTML/text source documents and route PDFs to OCR; Knox can extract conservative raw fee observations and surface rejection decisions for anomaly-only human review; Darwin can verify canonical-hinted raw rows; Hamilton can publish eligible verified rows into the Tier-3 ledger. Durable queues, PDF/OCR, provider extraction, and adversarial review depth remain gated until each agent module is implemented.";
 
 type SqlTag = typeof sql;
 
@@ -125,6 +124,45 @@ function isTerminalRunStatus(status: string): boolean {
 async function countRows(tx: SqlTag, table: string, where = "TRUE"): Promise<number> {
   const [row] = await tx.unsafe(`SELECT COUNT(*)::int AS count FROM ${table} WHERE ${where}`);
   return Number(row?.count ?? 0);
+}
+
+interface KnoxDecisionQueueSnapshot {
+  pending: number;
+  confirmed: number;
+  overridden: number;
+  total: number;
+}
+
+async function getKnoxDecisionQueueSnapshot(tx: SqlTag): Promise<KnoxDecisionQueueSnapshot> {
+  const rows = await tx<{ bucket: string; cnt: string | number }[]>`
+    SELECT
+      CASE
+        WHEN ko.decision IS NULL THEN 'pending'
+        WHEN ko.decision = 'confirm' THEN 'confirmed'
+        WHEN ko.decision = 'override' THEN 'overridden'
+        ELSE 'other'
+      END AS bucket,
+      COUNT(*) AS cnt
+    FROM agent_messages am
+    LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
+    WHERE am.sender_agent = 'knox'
+      AND am.intent = 'reject'
+    GROUP BY 1
+  `;
+  const counts: KnoxDecisionQueueSnapshot = {
+    pending: 0,
+    confirmed: 0,
+    overridden: 0,
+    total: 0,
+  };
+  for (const row of rows) {
+    const count = Number(row.cnt ?? 0);
+    if (row.bucket === "pending") counts.pending = count;
+    if (row.bucket === "confirmed") counts.confirmed = count;
+    if (row.bucket === "overridden") counts.overridden = count;
+    counts.total += count;
+  }
+  return counts;
 }
 
 function numericRunParam(
@@ -324,35 +362,16 @@ async function executeAgenticStep(
       };
     }
     case "review": {
-      const review = await reviewReadyStagedFees(tx, {
-        runId: run.id,
-        dryRun: run.runKind === "dry_run",
-        limit: numericRunParam(run.params, ["review_limit", "limit", "batch_size", "size"]),
-        minConfidence: numericRunParam(run.params, [
-          "min_confidence",
-          "confidence_threshold",
-          "minimum_confidence",
-        ]),
-      });
-      const humanExceptions = review.flagged + review.pending;
-      const summary = review.dryRun
-        ? `Review queue checked: ${review.readyBefore.toLocaleString()} ready staged rows would be approved; ${review.stagedBefore.toLocaleString()} staged rows and ${humanExceptions.toLocaleString()} human exceptions remain.`
-        : `Knox approved ${review.approved.toLocaleString()} ready staged rows; ${review.stagedAfter.toLocaleString()} staged rows and ${humanExceptions.toLocaleString()} human exceptions remain.`;
+      const decisions = await getKnoxDecisionQueueSnapshot(tx);
       return {
         status: "completed",
-        summary,
+        summary: `Knox decision queue checked: ${decisions.pending.toLocaleString()} pending human verdicts; ${decisions.confirmed.toLocaleString()} confirmed and ${decisions.overridden.toLocaleString()} overridden.`,
         detail: {
-          ready_staged_before: review.readyBefore,
-          approved_ready_fees: review.approved,
-          review_audit_rows: review.auditRows,
-          review_limit: review.limit,
-          review_min_confidence: review.minConfidence,
-          dry_run: review.dryRun,
-          human_exceptions: humanExceptions,
-          flagged_fees: review.flagged,
-          pending_fees: review.pending,
-          staged_agent_backlog_before: review.stagedBefore,
-          staged_agent_backlog_after: review.stagedAfter,
+          pending_knox_decisions: decisions.pending,
+          confirmed_knox_decisions: decisions.confirmed,
+          overridden_knox_decisions: decisions.overridden,
+          total_knox_decisions: decisions.total,
+          dry_run: run.runKind === "dry_run",
         },
       };
     }

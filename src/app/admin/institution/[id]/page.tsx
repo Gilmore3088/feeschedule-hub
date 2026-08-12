@@ -164,18 +164,18 @@ export default async function InstitutionDetailPage({
       {/* Financial Profile — Hero Cards */}
       <HeroCards financials={financials} peerRanking={peerRanking} />
 
-      {/* Extracted Fees */}
+      {/* Published Fees */}
       <div className="admin-card overflow-hidden mb-8">
         <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
           <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
-            Extracted Fees ({fees.length})
+            Published Fees ({fees.length})
           </h2>
         </div>
         {fees.length > 0 ? (
-          <FeeTable fees={fees} institutionId={institution.id} />
+          <FeeTable fees={fees} />
         ) : (
           <div className="p-6 text-xs text-gray-400 text-center">
-            No fees extracted. Set a fee schedule URL and run the agent.
+            No published fees yet. Set a fee schedule URL and run the agentic pipeline.
           </div>
         )}
       </div>

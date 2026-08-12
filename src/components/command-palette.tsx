@@ -100,7 +100,7 @@ export function CommandPalette() {
       items.push({
         label: fn.fee_name,
         sub: `${fn.count} occurrences`,
-        href: `/admin/knox?queue=fees&q=${encodeURIComponent(fn.fee_name)}`,
+        href: `/admin/fees/catalog?search=${encodeURIComponent(fn.fee_name)}`,
       });
     }
     for (const conv of results.conversations ?? []) {
@@ -233,7 +233,7 @@ export function CommandPalette() {
                   return (
                     <button
                       key={`fn-${fn.fee_name}`}
-                      onClick={() => navigate(`/admin/knox?queue=fees&q=${encodeURIComponent(fn.fee_name)}`)}
+                      onClick={() => navigate(`/admin/fees/catalog?search=${encodeURIComponent(fn.fee_name)}`)}
                       className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 dark:hover:bg-white/[0.06] ${
                         selectedIndex === idx ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "dark:text-gray-200"
                       }`}

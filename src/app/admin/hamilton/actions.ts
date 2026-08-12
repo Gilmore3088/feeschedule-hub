@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 import { cancelAgentRun } from "@/lib/agents/run-store";
-import { triggerReportJob } from "@/lib/report-job-runner";
+import { triggerReportJob } from "@/lib/report-agent-runs";
 import type { ReportType } from "@/lib/report-engine/types";
 
 // Slug generation helper — title to URL-safe slug

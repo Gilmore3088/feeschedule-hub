@@ -727,8 +727,8 @@ function generateHtml(
           Deposit data sourced from FDIC Summary of Deposits (SOD) for ${msa.year}.
           HHI (Herfindahl-Hirschman Index) computed from individual institution deposit shares;
           values above 2,500 indicate high concentration, 1,500-2,500 moderate concentration.
-          Fee amounts extracted from published fee schedules using automated extraction
-          with manual review. Green indicates the lowest fee in this market; red indicates
+          Fee amounts extracted from published fee schedules using agentic extraction
+          and verification. Green indicates the lowest fee in this market; red indicates
           the highest.
         </p>
       </div>

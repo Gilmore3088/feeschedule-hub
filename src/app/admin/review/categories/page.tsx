@@ -6,5 +6,8 @@ export default async function LegacyCategoryReviewPage({
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  redirect(buildLegacyAdminPath("/admin/knox", await searchParams, { queue: "fees" }));
+  const params = { ...(await searchParams) };
+  delete params.queue;
+  delete params.status;
+  redirect(buildLegacyAdminPath("/admin/knox", params, { queue: "decisions" }));
 }

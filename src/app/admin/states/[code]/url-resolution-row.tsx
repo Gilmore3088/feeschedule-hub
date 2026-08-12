@@ -11,7 +11,7 @@ interface Props {
   failureReason: string | null;
 }
 
-export function ManualReviewRow({
+export function UrlResolutionRow({
   institutionId,
   institutionName,
   websiteUrl,
@@ -168,10 +168,10 @@ export function ManualReviewRow({
               jobId={queuedJob.id}
               title={`${institutionName} extraction`}
               owner="magellan"
-              command={`crawl --target-id ${institutionId}`}
+              command={`fetch + read + extract #${institutionId}`}
               scope={institutionName}
               reused={queuedJob.reused}
-              detail="Magellan is extracting this fee schedule. Track live status for the backend receipt, heartbeat, and output tail."
+              detail="Magellan queued an agentic extraction run for this fee schedule. Track live status for step events and outputs."
             />
           </td>
         </tr>

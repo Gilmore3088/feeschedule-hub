@@ -45,7 +45,7 @@ export interface StateAgentRun {
   failed: number;
 }
 
-export interface ManualReviewInstitution {
+export interface StateUrlResolutionInstitution {
   id: number;
   institution_name: string;
   website_url: string | null;
@@ -243,9 +243,9 @@ export async function getAgentRunDetail(runId: number): Promise<{
   }
 }
 
-export async function getStateManualReview(
+export async function getStateUrlResolutionQueue(
   stateCode: string,
-): Promise<ManualReviewInstitution[]> {
+): Promise<StateUrlResolutionInstitution[]> {
   try {
     const rows = await sql`
       SELECT
@@ -275,7 +275,7 @@ export async function getStateManualReview(
         : null,
     }));
   } catch (e) {
-    console.error("getStateManualReview failed:", e);
+    console.error("getStateUrlResolutionQueue failed:", e);
     return [];
   }
 }

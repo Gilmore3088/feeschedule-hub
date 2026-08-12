@@ -13,4 +13,3 @@ export * from "./geographic";
 export * from "./fee-revenue";
 export * from "./articles";
 export * from "./knox-reviews";
-export * from "./review-bridge";

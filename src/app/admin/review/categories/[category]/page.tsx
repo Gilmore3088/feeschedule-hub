@@ -8,9 +8,10 @@ export default async function LegacyCategoryReviewDetailPage({
   params: Promise<{ category: string }>;
   searchParams: Promise<AdminSearchParams>;
 }) {
-  const { category } = await params;
-  redirect(buildLegacyAdminPath("/admin/knox", await searchParams, {
-    queue: "fees",
-    category,
-  }));
+  await params;
+  const query = { ...(await searchParams) };
+  delete query.queue;
+  delete query.status;
+  delete query.category;
+  redirect(buildLegacyAdminPath("/admin/knox", query, { queue: "decisions" }));
 }

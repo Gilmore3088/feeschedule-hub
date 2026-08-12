@@ -23,7 +23,7 @@ export async function triggerReportJob(
       report_job_id: reportJobId,
       report_type: reportType,
       ...params,
-      source: "report_job_runner",
+      source: "report_agent_runs",
     },
     triggeredBy,
     triggerSource,

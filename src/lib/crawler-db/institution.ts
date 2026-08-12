@@ -41,6 +41,9 @@ export interface InstitutionFee {
   fee_family: string | null;
   account_product_type: string | null;
   is_fee_cap: boolean;
+  source_url: string | null;
+  variant_type: string | null;
+  coverage_tier: string | null;
   created_at: string;
 }
 
@@ -115,7 +118,9 @@ export async function getInstitutionFees(
         id, fee_name, amount, frequency, conditions,
         extraction_confidence, review_status,
         fee_category, fee_family,
-        account_product_type, is_fee_cap, created_at
+        account_product_type, is_fee_cap,
+        source_url, variant_type, coverage_tier,
+        created_at
       FROM published_fee_observations
       WHERE crawl_target_id = ${id}
         AND review_status != 'rejected'
@@ -137,6 +142,9 @@ export async function getInstitutionFees(
         ? String(r.account_product_type)
         : null,
       is_fee_cap: Boolean(r.is_fee_cap),
+      source_url: r.source_url ? String(r.source_url) : null,
+      variant_type: r.variant_type ? String(r.variant_type) : null,
+      coverage_tier: r.coverage_tier ? String(r.coverage_tier) : null,
       created_at: toDateStr(r.created_at as string | Date | null),
     }));
   } catch (e) {
