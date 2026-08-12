@@ -18,6 +18,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
 import { HAMILTON_RULES, HAMILTON_FORBIDDEN } from "../hamilton/voice";
 import type { SectionType, ValidatedSection } from "../hamilton/types";
 import type { ThesisOutput } from "../hamilton/types";
@@ -159,12 +160,15 @@ export async function runEditorReview(
 
   const userMessage = buildUserMessage(sections, thesis);
 
-  const response = await client.messages.create({
-    model: EDITOR_MODEL,
-    max_tokens: MAX_TOKENS,
-    system: EDITOR_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-  });
+  const response = await trackAnthropicRequest(
+    { model: EDITOR_MODEL, agent: "hamilton", operation: "review_report_draft" },
+    () => client.messages.create({
+      model: EDITOR_MODEL,
+      max_tokens: MAX_TOKENS,
+      system: EDITOR_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  );
 
   const rawText = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")

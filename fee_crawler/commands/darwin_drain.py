@@ -49,20 +49,23 @@ async def _drain(size: int, batches: int, dry_run: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    conn = await asyncpg.connect(db_url)
+    conn = await asyncpg.connect(db_url, statement_cache_size=0)
     try:
-        total_classified = 0
+        total_processed = 0
         for i in range(batches):
             result = await classify_batch(conn, size=size)
             summary = result.to_dict()
             log.info("darwin-drain batch %d/%d: %s", i + 1, batches, summary)
-            classified = int(summary.get("classified", 0) or 0)
-            total_classified += classified
+            processed = int(summary.get("processed", 0) or 0)
+            total_processed += processed
+            if summary.get("failures", 0) or summary.get("circuit_tripped"):
+                log.error("darwin-drain: batch failed: %s", summary)
+                return 1
             # If a batch returns zero eligible rows the backlog is empty; no point looping.
-            if classified == 0:
+            if processed == 0:
                 log.info("darwin-drain: backlog exhausted after %d batch(es)", i + 1)
                 break
-        log.info("darwin-drain done: %d rows classified across %d batch(es)", total_classified, batches)
+        log.info("darwin-drain done: %d rows processed across %d batch(es)", total_processed, batches)
     finally:
         await conn.close()
     return 0

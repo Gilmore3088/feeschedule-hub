@@ -1,21 +1,23 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 import { requireAuth } from "@/lib/auth";
 import { getGoldStandardCandidates } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAssets } from "@/lib/format";
 
-export default async function VerifyPage() {
+export async function GoldStandardView({ embedded = false }: { embedded?: boolean } = {}) {
   await requireAuth("view");
 
   const candidates = await getGoldStandardCandidates(50);
 
   return (
     <div className="admin-content space-y-6">
-      <Breadcrumbs items={[{ label: "Verify" }]} />
+      {!embedded && <Breadcrumbs items={[{ label: "Verify" }]} />}
 
-      <div>
+      {!embedded && <div>
         <h1 className="text-xl font-bold tracking-tight text-gray-900">
           Gold Standard Verification
         </h1>
@@ -23,7 +25,7 @@ export default async function VerifyPage() {
           Top institutions by asset size with extracted fees. Verify extraction
           accuracy against original fee schedules.
         </p>
-      </div>
+      </div>}
 
       <div className="admin-card overflow-hidden">
         <table className="w-full text-sm">
@@ -114,4 +116,12 @@ export default async function VerifyPage() {
       </div>
     </div>
   );
+}
+
+export default async function LegacyVerifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  redirect(buildLegacyAdminPath("/admin/knox", await searchParams, { queue: "gold" }));
 }

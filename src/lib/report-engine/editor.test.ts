@@ -19,6 +19,10 @@ vi.mock("@anthropic-ai/sdk", () => {
   };
 });
 
+vi.mock("@/lib/ai-provider-usage", () => ({
+  trackAnthropicRequest: async (_context: unknown, request: () => Promise<unknown>) => request(),
+}));
+
 // Import after mock is set up
 import { runEditorReview } from "./editor";
 

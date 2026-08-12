@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireAuth } from "@/lib/auth";
 import { createArticle, updateArticle, deleteArticle } from "@/lib/crawler-db/articles";
 
 export async function saveArticle(data: {
@@ -11,6 +12,7 @@ export async function saveArticle(data: {
   category: string;
   tags?: string[];
 }): Promise<{ success: boolean; id?: number; error?: string }> {
+  await requireAuth("edit");
   if (!data.title || !data.slug || !data.content) {
     return { success: false, error: "Title, slug, and content are required" };
   }
@@ -46,6 +48,7 @@ export async function updateArticleAction(
     status: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAuth("edit");
   try {
     const updated = await updateArticle(id, data);
     if (!updated) return { success: false, error: "Article not found" };
@@ -61,6 +64,7 @@ export async function updateArticleAction(
 export async function deleteArticleAction(
   id: number
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAuth("edit");
   try {
     const deleted = await deleteArticle(id);
     if (!deleted) return { success: false, error: "Article not found" };

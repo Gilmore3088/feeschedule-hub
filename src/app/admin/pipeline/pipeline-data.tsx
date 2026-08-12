@@ -7,6 +7,7 @@ export async function PipelineDashboard() {
   const noWebsite = d.total - d.hasWebsite;
   const needDiscover = d.hasWebsite - d.hasUrl;
   const uncategorized = d.totalFees - d.categorized;
+  const humanReview = d.flagged + d.pending;
 
   const stages = [
     {
@@ -65,13 +66,14 @@ export async function PipelineDashboard() {
       count: d.approved,
       total: d.totalFees,
       pct: d.totalFees > 0 ? Math.round((d.approved / d.totalFees) * 100) : 0,
-      actionLabel: "Review Queue",
-      actionHref: "/admin/review",
-      description: `${(d.staged + d.flagged).toLocaleString()} fees need review. ${d.staged.toLocaleString()} staged, ${d.flagged.toLocaleString()} flagged.`,
+      actionLabel: "Open Human Queue",
+      actionHref: "/admin/knox?queue=fees&status=flagged",
+      description: `${humanReview.toLocaleString()} human exceptions. ${d.staged.toLocaleString()} staged fees are agent auto-review backlog.`,
       breakdowns: [
         { label: "Approved", count: d.approved, color: "text-emerald-600 dark:text-emerald-400" },
-        { label: "Staged", count: d.staged, color: "text-blue-600 dark:text-blue-400", href: "/admin/review?status=staged" },
-        { label: "Flagged", count: d.flagged, color: "text-amber-600 dark:text-amber-400", href: "/admin/review?status=flagged" },
+        { label: "Agent staged", count: d.staged, color: "text-blue-600 dark:text-blue-400", href: "/admin/knox?queue=fees&status=staged" },
+        { label: "Flagged", count: d.flagged, color: "text-amber-600 dark:text-amber-400", href: "/admin/knox?queue=fees&status=flagged" },
+        { label: "Pending", count: d.pending, color: "text-gray-500 dark:text-gray-400", href: "/admin/knox?queue=fees&status=pending" },
         { label: "Rejected", count: d.rejected, color: "text-red-500 dark:text-red-400" },
       ],
     },

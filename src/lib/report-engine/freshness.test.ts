@@ -74,6 +74,31 @@ describe('checkFreshness()', () => {
     expect(result.reason).toBeUndefined();
   });
 
+  it('national: permits a seven-day recovery grace only after a healthy Atlas cycle', async () => {
+    const mockSql = await getMockSql();
+    mockSql
+      .mockResolvedValueOnce(makeQueryResult(125))
+      .mockResolvedValueOnce([{ atlas_healthy: true }]);
+
+    const result = await checkFreshness('national');
+
+    expect(result.fresh).toBe(true);
+    expect(result.medianAgeDays).toBeCloseTo(125);
+    expect(result.threshold).toBe(127);
+  });
+
+  it('national: keeps the 120-day gate when Atlas is not healthy', async () => {
+    const mockSql = await getMockSql();
+    mockSql
+      .mockResolvedValueOnce(makeQueryResult(125))
+      .mockResolvedValueOnce([{ atlas_healthy: false }]);
+
+    const result = await checkFreshness('national');
+
+    expect(result.fresh).toBe(false);
+    expect(result.threshold).toBe(120);
+  });
+
   it('state: returns fresh:false when median age is 95 days (> 90 threshold)', async () => {
     const mockSql = await getMockSql();
     mockSql.mockResolvedValue(makeQueryResult(95));

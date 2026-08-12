@@ -152,7 +152,7 @@ def ingest_bls_series(
 
         for sid, observations in results.items():
             title = series_map.get(sid, sid)
-            upserted = 0
+            rows: list[tuple] = []
 
             for obs in observations:
                 year = obs.get("year", "")
@@ -178,24 +178,29 @@ def ingest_bls_series(
                 units = "Index" if sid.startswith("CU") else ""
                 frequency = "Monthly" if period.startswith("M") else "Annual"
 
-                db.execute(
+                rows.append(
+                    (sid, title, None, date, value, units, frequency)
+                )
+
+            if rows:
+                db.execute_values(
                     """INSERT INTO fed_economic_indicators
-                       (series_id, series_title, fed_district, observation_date,
-                        value, units, frequency)
-                       VALUES (?, ?, NULL, ?, ?, ?, ?)
+                         (series_id, series_title, fed_district,
+                          observation_date, value, units, frequency)
+                       VALUES %s
                        ON CONFLICT (series_id, observation_date)
                        DO UPDATE SET
                          series_title = EXCLUDED.series_title,
                          fed_district = EXCLUDED.fed_district,
                          value = EXCLUDED.value,
                          units = EXCLUDED.units,
-                         frequency = EXCLUDED.frequency""",
-                    (sid, title, date, value, units, frequency),
+                         frequency = EXCLUDED.frequency,
+                         fetched_at = NOW()""",
+                    rows,
                 )
-                upserted += 1
 
-            print(f"    {sid}: {title} -- {upserted} observations")
-            total_upserted += upserted
+            print(f"    {sid}: {title} -- {len(rows)} observations")
+            total_upserted += len(rows)
 
     return total_upserted
 
@@ -225,7 +230,7 @@ def run(
     if series:
         # Single series
         series_map = {series: series}
-        print(f"Ingesting 1 BLS series...")
+        print("Ingesting 1 BLS series...")
         count = ingest_bls_series(db, api_key, series_map, start_year=sy, end_year=ey)
         total += count
     else:

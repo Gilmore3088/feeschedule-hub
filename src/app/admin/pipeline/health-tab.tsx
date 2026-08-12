@@ -43,24 +43,24 @@ export function HealthTab({ stats, quality, lastCrawlAt, activeJobCount, pending
       desc: ">90 days since crawl",
     },
     quality.uncategorized_fees > 0 && {
-      label: "Uncategorized fees",
+      label: "Uncategorized agent backlog",
       count: quality.uncategorized_fees,
       severity: "amber" as const,
-      fix: "/admin/review?status=staged",
+      fix: "/admin/knox?queue=fees&status=staged",
       desc: "fees without category",
     },
     quality.duplicate_fees.length > 0 && {
       label: "Duplicate fees",
       count: quality.duplicate_fees.length,
       severity: "red" as const,
-      fix: "/admin/review",
+      fix: "/admin/knox?queue=fees&status=flagged",
       desc: "duplicate fee names per institution",
     },
     quality.null_amounts > 100 && {
       label: "Null amounts",
       count: quality.null_amounts,
       severity: "gray" as const,
-      fix: "/admin/review?status=flagged",
+      fix: "/admin/knox?queue=fees&status=flagged",
       desc: "non-free fees with no amount",
     },
   ].filter(Boolean) as { label: string; count: number; severity: "red" | "amber" | "gray"; fix: string; desc: string }[];
@@ -87,9 +87,9 @@ export function HealthTab({ stats, quality, lastCrawlAt, activeJobCount, pending
           sub="institutions"
         />
         <KPI
-          label="Pending Review"
+          label="Human Exceptions"
           value={pendingReviewCount.toLocaleString()}
-          href="/admin/review"
+          href="/admin/knox?queue=fees&status=flagged"
         />
         <KPI
           label="Active Jobs"

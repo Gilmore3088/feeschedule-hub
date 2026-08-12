@@ -1,5 +1,10 @@
 import { permanentRedirect } from "next/navigation";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 
-export default function ResearchHubRedirect() {
-  permanentRedirect("/admin/hamilton");
+export default async function ResearchHubRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  permanentRedirect(buildLegacyAdminPath("/admin/hamilton/research", await searchParams));
 }

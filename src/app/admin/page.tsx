@@ -1,550 +1,504 @@
 export const dynamic = "force-dynamic";
 
-import { Suspense } from "react";
 import Link from "next/link";
-import { requireAuth } from "@/lib/auth";
 import {
-  getDashboardStats,
-  getReviewQueueCounts,
-  getRecentCrawlRuns,
-  getRecentReviews,
-  getCoverageByState,
-  getDataQualityStats,
-  getLeadsSummary,
-} from "@/lib/admin-queries";
+  ArrowRight,
+  BookOpenText,
+  Check,
+  CircleAlert,
+  Clock3,
+  Compass,
+  Dna,
+  Orbit,
+  ShieldCheck,
+  TriangleAlert,
+} from "lucide-react";
+import { requireAuth } from "@/lib/auth";
+import { formatAdminDateTime } from "@/lib/admin-time";
+import { getAtlasCommandCenter, type AttentionItem, type CommandCenterJob } from "@/lib/admin-command-center";
+import type { JobFreshness } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { SkeletonPage } from "@/components/skeleton";
+import { AtlasEmergencyControl } from "./atlas-emergency-control";
+import { AtlasLiveStatus } from "./atlas-live-status";
+import { AtlasResumeControl } from "./atlas-resume-control";
+import { AtlasRunControl } from "./atlas-run-control";
+import { AtlasWorkflowLauncher } from "./atlas-workflow-launcher";
 
-function formatNumber(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return n.toLocaleString("en-US");
+function number(value: number): string {
+  return value.toLocaleString("en-US");
 }
 
-export default async function AdminDashboard() {
+const dateTime = formatAdminDateTime;
+
+function estimatedUsd(microusd: number): string {
+  const dollars = microusd / 1_000_000;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: dollars > 0 && dollars < 1 ? 4 : 2,
+    maximumFractionDigits: dollars > 0 && dollars < 1 ? 4 : 2,
+  }).format(dollars);
+}
+
+function statusTone(status: string): string {
+  if (status === "ok" || status === "completed") return "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30";
+  if (status === "running") return "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/30";
+  if (status === "queued" || status === "cancel_requested") return "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/30";
+  return "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/30";
+}
+
+function commandLine(job: CommandCenterJob): string {
+  return [job.command, ...job.args].join(" ");
+}
+
+function jobResult(job: CommandCenterJob): string {
+  return job.error
+    ?? job.progress
+    ?? (job.completedAt ? `Completed ${dateTime(job.completedAt)}` : "No terminal summary recorded");
+}
+
+function initialLiveJob(job: CommandCenterJob) {
+  return {
+    id: job.id,
+    command: job.command,
+    agent: job.agent,
+    status: job.status,
+    createdAt: job.createdAt,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt,
+    heartbeatAt: job.heartbeatAt,
+    updatedAt: job.updatedAt,
+    modalCallId: job.modalCallId,
+    error: job.error,
+    resultSummary: job.progress,
+    stdoutTail: job.stdoutTail,
+    pipelineRunId: job.pipelineRunId,
+    pipelineStatus: null,
+    lastCompletedJob: null,
+    stagesDone: null,
+    stagesTotal: null,
+    pipelineError: null,
+  };
+}
+
+function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>) {
+  const missingUrls = Math.max(0, center.metrics.url.denominator - center.metrics.url.numerator);
+  const staleOrMissingCrawls = Math.max(0, center.metrics.fresh.denominator - center.metrics.fresh.numerator);
+  const unverified = Math.max(0, center.metrics.verified.denominator - center.metrics.verified.numerator);
+  const reviewWork = center.attention.find((item) => item.id.startsWith("review:"));
+
+  return [
+    {
+      id: "enhance" as const,
+      title: "Enhance institution data",
+      owner: "atlas",
+      metric: `${number(center.metrics.eligible)} eligible institutions`,
+      detail: "Refresh source attributes before discovery, extraction, and benchmarks.",
+      commandLabel: "enrich",
+      href: "/admin/data",
+    },
+    {
+      id: "discover" as const,
+      title: "Find missing fee URLs",
+      owner: "magellan",
+      metric: `${number(missingUrls)} missing URLs`,
+      detail: "Resolve active institutions that do not have a usable fee schedule URL.",
+      commandLabel: "discover",
+      href: "/admin/magellan",
+    },
+    {
+      id: "extract" as const,
+      title: "Extract fee schedules",
+      owner: "magellan",
+      metric: `${number(staleOrMissingCrawls)} stale or uncollected`,
+      detail: "Collect fee rows from institutions that still need a fresh crawl.",
+      commandLabel: "crawl --skip-with-fees --limit 500",
+      href: "/admin/magellan",
+    },
+    {
+      id: "classify" as const,
+      title: "Classify raw fees",
+      owner: "darwin",
+      metric: `${number(unverified)} without verified fees`,
+      detail: "Promote raw fee rows into the canonical verified fee table.",
+      commandLabel: "darwin-drain --size 500",
+      href: "/admin/darwin",
+    },
+    {
+      id: "review" as const,
+      title: "Review exceptions",
+      owner: "knox",
+      metric: reviewWork?.title ?? "Knox queue ready",
+      detail: "Run automated checks, then resolve the anomaly-only human queue.",
+      commandLabel: "auto-review",
+      href: "/admin/knox",
+    },
+  ];
+}
+
+export default async function AtlasCommandPage() {
   await requireAuth("view");
+  const center = await getAtlasCommandCenter();
+  const problemSchedules = center.schedules.failed_count
+    + center.schedules.stale_count
+    + center.schedules.never_ran_count;
+  const healthy = problemSchedules === 0
+    && center.agentHealth.errors24h === 0
+    && center.automation.enabled;
 
   return (
-    <>
-      <div className="mb-6">
-        <Breadcrumbs items={[{ label: "Dashboard" }]} />
-        <p className="admin-eyebrow mt-2">Admin · Overview</p>
-        <h1 className="admin-display-title mt-1">Operations</h1>
-      </div>
-
-      <Suspense fallback={<SkeletonPage />}>
-        <DashboardContent />
-      </Suspense>
-    </>
-  );
-}
-
-async function DashboardContent() {
-  let stats = { total_institutions: 0, with_fees: 0, with_urls: 0, coverage_pct: 0 };
-  let queue = { staged: 0, flagged: 0, pending: 0, approved: 0, rejected: 0 };
-  let crawlRuns: Awaited<ReturnType<typeof getRecentCrawlRuns>> = [];
-  let reviews: Awaited<ReturnType<typeof getRecentReviews>> = [];
-  let stateCoverage: Awaited<ReturnType<typeof getCoverageByState>> = [];
-  let quality = { total_with_fees: 0, good_6plus: 0, incomplete_1to5: 0, url_no_fees: 0, no_url: 0, freeform_fees: 0, rejected_fees: 0, quality_pct: 0 };
-  let leads: Awaited<ReturnType<typeof getLeadsSummary>> = { total: 0, new_this_week: 0, new_today: 0, latest_at: null };
-  let loadFailed = false;
-  let loadError: string | null = null;
-
-  try {
-    [stats, queue, crawlRuns, reviews, stateCoverage, quality, leads] = await Promise.all([
-      getDashboardStats(),
-      getReviewQueueCounts(),
-      getRecentCrawlRuns(10),
-      getRecentReviews(15),
-      getCoverageByState(),
-      getDataQualityStats(),
-      getLeadsSummary(),
-    ]);
-  } catch (e) {
-    console.error("Dashboard data load failed:", e);
-    loadFailed = true;
-    loadError = e instanceof Error ? e.message : "Unknown error";
-  }
-
-  const totalReview = queue.staged + queue.flagged + queue.pending;
-
-  return (
-    <>
-      {loadFailed && (
-        <div
-          role="alert"
-          className="mb-5 rounded-md border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-900/40 px-4 py-3"
-        >
-          <p className="text-[13px] font-semibold text-red-700 dark:text-red-300">
-            We couldn&rsquo;t load the dashboard.
-          </p>
-          <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
-            {loadError
-              ? `${loadError}. `
-              : ""}
-            Refresh to try again. Numbers below show zeros until the connection recovers.
-          </p>
-        </div>
-      )}
-
-      {/* Dashboard Hero — single statement, asymmetric split */}
-      <section className="mb-12">
-        <hr className="admin-rule-brand mb-5" />
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-8 sm:gap-10 items-start">
-          <div className="sm:col-span-7">
-            <p className="admin-eyebrow">Fee schedule coverage</p>
-            <div className="mt-2 flex items-baseline gap-3 flex-wrap">
-              <span className="admin-hero-figure">
-                {Number.isFinite(stats.coverage_pct) ? stats.coverage_pct : 0}%
-              </span>
-              <span className="admin-meta">of {formatNumber(stats.total_institutions)} U.S. institutions</span>
-            </div>
-            <p className="admin-lede mt-3">
-              {totalReview > 0
-                ? `${formatNumber(totalReview)} fees are awaiting review.`
-                : "Review queue is clear."}
+    <div className="space-y-9 pb-10">
+      <header>
+        <Breadcrumbs items={[{ label: "Atlas" }]} />
+        <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div>
+            <p className="admin-eyebrow">Command · Atlas</p>
+            <h1 className="admin-display-title mt-1">Operations command</h1>
+            <p className="admin-lede mt-2">
+              One system view for scheduled work, agent exceptions, and the next safe action.
             </p>
           </div>
-          <div className="sm:col-span-5 sm:border-l sm:border-gray-200 dark:sm:border-white/[0.06] sm:pl-8 flex flex-col">
-            <HeroStat
-              label="Tracked institutions"
-              value={formatNumber(stats.total_institutions)}
-            />
-            <HeroStat
-              label="Fee URL found"
-              value={formatNumber(stats.with_urls)}
-              hint={
-                stats.total_institutions > 0
-                  ? `${Math.round((stats.with_urls / stats.total_institutions) * 100)}% of tracked`
-                  : undefined
-              }
-            />
-            <HeroStat
-              label="Verified fee schedules"
-              value={formatNumber(stats.with_fees)}
-              hint={`${stats.coverage_pct}% coverage`}
-            />
+          <AtlasRunControl disabled={!center.automation.enabled || center.activeJobs.some((job) => job.agent === "atlas")} />
+        </div>
+      </header>
+
+      <AtlasEmergencyControl
+        enabled={center.automation.enabled}
+        reason={center.automation.reason}
+        changedBy={center.automation.changedBy}
+        changedAtLabel={dateTime(center.automation.changedAt)}
+        activeJobCount={center.activeJobs.length}
+      />
+
+      <AtlasLiveStatus
+        initialActiveJobs={center.activeJobs.map(initialLiveJob)}
+        initialGeneratedAt={center.generatedAt}
+      />
+
+      <section aria-labelledby="health-heading" className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="xl:col-span-2">
+            <p id="health-heading" className="admin-section-title">Is the system healthy?</p>
+            <div className="mt-2 flex items-center gap-3">
+              <span className={`relative flex h-3 w-3 rounded-full ${healthy ? "bg-emerald-500" : "bg-red-500"}`}>
+                {healthy && <span className="live-pulse absolute inset-0 rounded-full bg-emerald-400" />}
+              </span>
+              <p className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+                {healthy
+                  ? "Automation and scheduled systems are healthy"
+                  : !center.automation.enabled
+                    ? "Automation is stopped"
+                    : center.agentHealth.errors24h > 0
+                      ? `${center.agentHealth.errors24h.toLocaleString()} agent failures need attention`
+                      : `${problemSchedules} scheduled checks need attention`}
+              </p>
+            </div>
+            <p className="admin-meta mt-2">Checked {dateTime(center.generatedAt)}</p>
           </div>
+          <Metric label="URL Coverage" value={center.metrics.url.value} metric={center.metrics.url} />
+          <Metric label="Verified Coverage" value={center.metrics.verified.value} metric={center.metrics.verified} />
+          <Metric label="Fresh Coverage" value={center.metrics.fresh.value} metric={center.metrics.fresh} />
         </div>
       </section>
 
-      {/* Leads snapshot — compact widget above operational panels */}
-      <section className="mb-6">
-        <Link
-          href="/admin/leads"
-          className="admin-card block p-4 hover:bg-gray-50/50 dark:hover:bg-white/[0.03] transition-colors"
-        >
-          <div className="flex items-baseline justify-between gap-4 flex-wrap">
-            <div className="flex items-baseline gap-6">
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Leads total
-                </p>
-                <p className="text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100 mt-0.5">
-                  {formatNumber(leads.total)}
-                </p>
+      <AtlasWorkflowLauncher
+        lanes={workflowLanes(center)}
+        automationEnabled={center.automation.enabled}
+        activeJobCount={center.activeJobs.length}
+      />
+
+      <section aria-labelledby="usage-heading">
+        <div className="admin-section-header">
+          <div>
+            <p className="admin-eyebrow">Cost control</p>
+            <h2 id="usage-heading" className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+              API usage
+            </h2>
+          </div>
+          <p className="admin-meta">
+            {center.apiUsage.firstTrackedAt
+              ? `Metered since ${dateTime(center.apiUsage.firstTrackedAt)}`
+              : "Provider metering begins with this release"}
+          </p>
+        </div>
+        <div className="grid gap-x-6 gap-y-5 border-y border-black/[0.06] py-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 dark:border-white/[0.06]">
+          <UsageMetric label="AI calls today" value={number(center.apiUsage.callsToday)} />
+          <UsageMetric label="AI calls · 30d" value={number(center.apiUsage.calls30d)} />
+          <UsageMetric label="Tokens · 30d" value={number(center.apiUsage.inputTokens30d + center.apiUsage.outputTokens30d)} />
+          <UsageMetric label="Est. AI spend · 30d" value={estimatedUsd(center.apiUsage.estimatedCostMicrousd30d)} />
+          <UsageMetric label="Provider failures · 30d" value={number(center.apiUsage.failures30d)} tone={center.apiUsage.failures30d > 0 ? "danger" : "default"} />
+          <UsageMetric label="Provider blocked · 30d" value={number(center.apiUsage.blocked30d)} tone={center.apiUsage.blocked30d > 0 ? "danger" : "default"} />
+          <UsageMetric label="Client API requests · 30d" value={number(center.apiUsage.clientApiRequests30d)} />
+        </div>
+        <p className="admin-meta mt-2">
+          Spend is estimated from recorded model tokens and configured Anthropic model-family rates. Provider invoices remain authoritative.
+        </p>
+
+        <div className="mt-5 overflow-x-auto border-y border-black/[0.06] dark:border-white/[0.06]">
+          <table className="admin-table w-full text-xs">
+            <thead><tr><th>Provider / model</th><th>Agent / operation</th><th>Calls</th><th>Tokens</th><th>Failed / blocked</th><th>Last event</th><th>Est. spend</th></tr></thead>
+            <tbody>
+              {center.apiUsage.breakdown.map((row) => (
+                <tr key={`${row.provider}:${row.model}:${row.agent}`}>
+                  <td><span className="font-semibold capitalize text-gray-800 dark:text-gray-200">{row.provider}</span><span className="ml-2 text-gray-500">{row.model}</span></td>
+                  <td>
+                    <span className="capitalize text-gray-700 dark:text-gray-300">{row.agent}</span>
+                    <span className="mt-1 block font-mono text-[10px] text-gray-500">{row.lastOperation ?? "No operation recorded"}</span>
+                  </td>
+                  <td className="tabular-nums">{number(row.calls)}</td>
+                  <td className="tabular-nums">{number(row.tokens)}</td>
+                  <td className={row.failures > 0 || row.blocked > 0 ? "font-semibold text-red-700 dark:text-red-400" : "text-gray-500"}>
+                    {number(row.failures)} / {number(row.blocked)}
+                  </td>
+                  <td>
+                    <span className="tabular-nums text-gray-600 dark:text-gray-400">{dateTime(row.lastSeenAt)}</span>
+                    {row.lastStatus && (
+                      <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-semibold capitalize ${statusTone(row.lastStatus)}`}>
+                        {row.lastStatus}
+                      </span>
+                    )}
+                  </td>
+                  <td className="tabular-nums">{estimatedUsd(row.estimatedCostMicrousd)}</td>
+                </tr>
+              ))}
+              {center.apiUsage.breakdown.length === 0 && (
+                <tr><td colSpan={7} className="py-6 text-center text-gray-400">No metered provider calls yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {center.apiUsage.recentFailures.length > 0 && (
+          <div className="mt-4 divide-y divide-red-100 border-y border-red-100 dark:divide-red-950 dark:border-red-950">
+            {center.apiUsage.recentFailures.slice(0, 4).map((failure) => (
+              <div key={failure.id} className="grid gap-1 py-3 sm:grid-cols-[180px_1fr_auto] sm:items-center">
+                <p className="text-xs font-semibold capitalize text-red-800 dark:text-red-300">{failure.agent} · {failure.operation} · {failure.status}</p>
+                <p className="truncate text-xs text-gray-600 dark:text-gray-400" title={failure.error}>{failure.error}</p>
+                <p className="admin-meta">{dateTime(failure.createdAt)}</p>
               </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                  This week
-                </p>
-                <p
-                  className={`text-lg font-bold tabular-nums mt-0.5 ${
-                    leads.new_this_week > 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-gray-500 dark:text-gray-400"
-                  }`}
-                >
-                  {leads.new_this_week > 0 ? "+" : ""}
-                  {formatNumber(leads.new_this_week)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                  Today
-                </p>
-                <p
-                  className={`text-lg font-bold tabular-nums mt-0.5 ${
-                    leads.new_today > 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-gray-500 dark:text-gray-400"
-                  }`}
-                >
-                  {leads.new_today > 0 ? "+" : ""}
-                  {formatNumber(leads.new_today)}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Latest
-              </p>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                {leads.latest_at ?? "No leads yet"}
-              </p>
-            </div>
+            ))}
           </div>
-        </Link>
-      </section>
-
-      {/* Operational panels: Data Quality + Review Queue pair on xl */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
-        {/* Data Quality Panel */}
-        <div className="admin-card overflow-hidden">
-          <div className="admin-panel-header">
-            <h2 className="admin-section-title">Data Quality</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100 dark:divide-white/[0.06]">
-            <QualityCell
-              label="Credible (6+ fees)"
-              value={formatNumber(quality.good_6plus)}
-              tone="emerald"
-              hint={`${quality.quality_pct}% quality rate`}
-            />
-            <QualityCell
-              label="Incomplete (1-5 fees)"
-              value={formatNumber(quality.incomplete_1to5)}
-              tone="amber"
-              hint="need re-extraction"
-            />
-            <QualityCell
-              label="URL, No Fees"
-              value={formatNumber(quality.url_no_fees)}
-              tone="red"
-              hint="extraction gap"
-            />
-            <QualityCell
-              label="No URL"
-              value={formatNumber(quality.no_url)}
-              tone="neutral"
-              hint="discovery gap"
-            />
-          </div>
-        </div>
-
-        {/* Review Queue */}
-        <div className="admin-card overflow-hidden">
-          <div className="admin-panel-header">
-            <h2 className="admin-section-title">Review Queue</h2>
-            <Link href="/admin/review" className="admin-section-link">
-              Open review &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100 dark:divide-white/[0.06]">
-            <QueueCell label="Needs Review" value={totalReview} highlight={totalReview > 0} />
-            <QueueCell label="Staged" value={queue.staged} />
-            <QueueCell label="Flagged" value={queue.flagged} warn={queue.flagged > 0} />
-            <QueueCell label="Pending" value={queue.pending} />
-          </div>
-        </div>
-      </div>
-
-      {/* Activity Feeds */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        {/* Recent Crawl Runs */}
-        <div className="admin-card overflow-hidden">
-          <div className="admin-panel-header">
-            <h2 className="admin-section-title">Recent Crawl Runs</h2>
-            <Link href="/admin/pipeline" className="admin-section-link">
-              Open pipeline &rarr;
-            </Link>
-          </div>
-          {crawlRuns.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table aria-label="Recent crawl runs" className="admin-table w-full text-xs">
-                <caption className="sr-only">
-                  Ten most recent crawl runs with status, targets crawled, fees extracted, and success rate.
-                </caption>
-                <thead>
-                  <tr className="text-left">
-                    <th>Date</th>
-                    <th className="text-center">Status</th>
-                    <th className="text-right">Targets</th>
-                    <th className="text-right">Fees</th>
-                    <th className="text-right">Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {crawlRuns.map((run) => (
-                    <tr key={run.id}>
-                      <td className="text-gray-700 dark:text-gray-300 tabular-nums">
-                        {run.started_at}
-                      </td>
-                      <td className="text-center">
-                        <StatusDot status={run.status} />
-                      </td>
-                      <td className="text-right tabular-nums text-gray-600 dark:text-gray-400">
-                        {run.targets_crawled}
-                      </td>
-                      <td className="text-right tabular-nums text-gray-600 dark:text-gray-400">
-                        {run.fees_extracted}
-                      </td>
-                      <td className="text-right tabular-nums text-gray-700 dark:text-gray-200 font-medium">
-                        {run.success_rate}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-6 admin-meta text-center">
-              No crawl runs yet.{" "}
-              <Link href="/admin/pipeline" className="admin-section-link">
-                Start one &rarr;
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Recent Reviews */}
-        <div className="admin-card overflow-hidden">
-          <div className="admin-panel-header">
-            <h2 className="admin-section-title">Recent Reviews</h2>
-          </div>
-          {reviews.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table
-                aria-label="Recent reviews"
-                className="admin-table w-full text-xs table-fixed"
-              >
-                <caption className="sr-only">
-                  Fifteen most recent fee reviews with reviewer, action, fee and institution, and timestamp.
-                </caption>
-                <thead>
-                  <tr className="text-left">
-                    <th className="w-[18%]">Reviewer</th>
-                    <th className="w-[14%]">Action</th>
-                    <th>Fee</th>
-                    <th className="w-[18%] text-right">When</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviews.map((rr, i) => (
-                    <tr key={`${rr.fee_id}-${i}`}>
-                      <td className="text-gray-600 dark:text-gray-400 truncate">
-                        {rr.username ?? "system"}
-                      </td>
-                      <td>
-                        <ActionBadge action={rr.action} />
-                      </td>
-                      <td className="min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1 min-w-0">
-                          <Link
-                            href={`/admin/review/${rr.fee_id}`}
-                            className="text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors truncate"
-                            title={rr.fee_category ?? rr.fee_name ?? undefined}
-                          >
-                            {rr.fee_category ?? rr.fee_name}
-                          </Link>
-                          {rr.institution_name && (
-                            <span
-                              className="admin-meta hidden sm:inline truncate"
-                              title={rr.institution_name}
-                            >
-                              {rr.institution_name}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="text-right admin-meta tabular-nums truncate">
-                        {rr.created_at}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-6 admin-meta text-center">
-              No reviews yet — decisions will appear here as the queue is worked.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Coverage by State */}
-      {stateCoverage.length > 0 && (
-        <div className="admin-card overflow-hidden">
-          <div className="admin-panel-header">
-            <h2 className="admin-section-title">Coverage by State</h2>
-          </div>
-          <ul
-            role="list"
-            className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-1 p-3"
-          >
-            {stateCoverage.map((s) => {
-              const pctColor =
-                s.pct >= 50
-                  ? "text-emerald-700 dark:text-emerald-400"
-                  : s.pct >= 20
-                    ? "text-amber-700 dark:text-amber-400"
-                    : "text-gray-500 dark:text-gray-400";
-              return (
-                <li key={s.state_code}>
-                  <Link
-                    href={`/admin/states/${s.state_code}`}
-                    aria-label={`${s.state_code}: ${s.with_fees} of ${s.total} institutions covered, ${s.pct} percent`}
-                    className="block text-center rounded p-1.5 min-h-11 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
-                  >
-                    <span className="admin-label-xs block text-gray-700 dark:text-gray-300">
-                      {s.state_code}
-                    </span>
-                    <span className={`block text-[11px] font-bold tabular-nums mt-0.5 ${pctColor}`}>
-                      {s.pct}%
-                    </span>
-                    <span className="admin-label-xs block tabular-nums mt-0.5 normal-case tracking-normal font-medium">
-                      {s.with_fees}/{s.total}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Helper Components
-// ---------------------------------------------------------------------------
-
-function HeroStat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-3 border-b border-gray-200/70 dark:border-white/[0.06] first:pt-0 last:border-b-0 last:pb-0">
-      <div className="min-w-0">
-        <p className="admin-label">{label}</p>
-        {hint && <p className="admin-meta mt-0.5">{hint}</p>}
-      </div>
-      <p className="admin-hero-sub-value shrink-0">{value}</p>
-    </div>
-  );
-}
-
-function QueueCell({
-  label,
-  value,
-  highlight,
-  warn,
-}: {
-  label: string;
-  value: number;
-  highlight?: boolean;
-  warn?: boolean;
-}) {
-  const valueColor = highlight
-    ? "admin-text-brand"
-    : warn
-      ? "text-amber-600 dark:text-amber-400"
-      : "text-gray-900 dark:text-gray-100";
-  return (
-    <div className="px-3 py-2.5 text-center">
-      <p className="admin-label mb-0.5">{label}</p>
-      <p className={`admin-value ${valueColor}`}>{formatNumber(value)}</p>
-    </div>
-  );
-}
-
-function QualityCell({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  tone: "emerald" | "amber" | "red" | "neutral";
-}) {
-  const valueColor =
-    tone === "emerald"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : tone === "amber"
-        ? "text-amber-600 dark:text-amber-400"
-        : tone === "red"
-          ? "text-red-600 dark:text-red-400"
-          : "text-gray-700 dark:text-gray-300";
-  return (
-    <div className="px-4 py-3">
-      <p className="admin-label">{label}</p>
-      <p className={`admin-value mt-1 ${valueColor}`}>{value}</p>
-      <p className="admin-sublabel">{hint}</p>
-    </div>
-  );
-}
-
-function StatusDot({ status }: { status: string }) {
-  const config =
-    status === "completed"
-      ? {
-          dot: "bg-emerald-500",
-          text: "text-emerald-700 dark:text-emerald-400",
-          glyph: "✓",
-        }
-      : status === "running"
-        ? {
-            dot: "bg-blue-500",
-            text: "text-blue-700 dark:text-blue-400",
-            glyph: "●",
-          }
-        : status === "failed"
-          ? {
-              dot: "bg-red-500",
-              text: "text-red-700 dark:text-red-400",
-              glyph: "×",
-            }
-          : {
-              dot: "bg-gray-400",
-              text: "text-gray-600 dark:text-gray-400",
-              glyph: "–",
-            };
-  const isLive = status === "running";
-  return (
-    <span
-      className="inline-flex items-center gap-1"
-      aria-label={`Status: ${status}`}
-    >
-      <span
-        aria-hidden="true"
-        className="relative inline-flex items-center justify-center w-3.5 h-3.5 shrink-0"
-      >
-        {isLive && (
-          <span
-            className={`absolute inset-0 rounded-full ${config.dot} live-pulse pointer-events-none`}
-          />
         )}
-        <span
-          className={`relative z-10 inline-flex items-center justify-center w-full h-full rounded-full ${config.dot} text-white text-[9px] leading-none font-bold`}
-        >
-          {config.glyph}
-        </span>
-      </span>
-      <span className={`text-[10px] font-medium ${config.text}`}>{status}</span>
-    </span>
+      </section>
+
+      <section aria-labelledby="attention-heading">
+        <div className="admin-section-header">
+          <div>
+            <p className="admin-eyebrow">Priority queue</p>
+            <h2 id="attention-heading" className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+              What needs my attention?
+            </h2>
+          </div>
+          <span className="admin-meta">{center.attention.length} actionable items</span>
+        </div>
+        {center.attention.length === 0 ? (
+          <div className="flex items-center gap-3 border-y border-emerald-200 py-5 text-emerald-800 dark:border-emerald-900/50 dark:text-emerald-300">
+            <Check className="h-5 w-5" />
+            <p className="text-sm font-medium">No exceptions need operator attention.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-black/[0.06] border-y border-black/[0.06] dark:divide-white/[0.06] dark:border-white/[0.06]">
+            {center.attention.map((item) => <AttentionRow key={item.id} item={item} />)}
+          </div>
+        )}
+      </section>
+
+      {center.agentHealth.errors24h > 0 && (
+        <section id="agent-failures" aria-labelledby="agent-failures-heading">
+          <div className="admin-section-header">
+            <div>
+              <p className="admin-eyebrow">Failure ledger</p>
+              <h2 id="agent-failures-heading" className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+                Agent errors · last 24 hours
+              </h2>
+            </div>
+            <span className="admin-meta">{center.agentHealth.affectedAgents24h} affected agents</span>
+          </div>
+          <div className="divide-y divide-black/[0.06] border-y border-black/[0.06] dark:divide-white/[0.06] dark:border-white/[0.06]">
+            {center.agentHealth.groups.map((group) => (
+              <div key={`${group.agent}:${group.tool}:${group.error}`} className="grid gap-2 py-3 sm:grid-cols-[180px_1fr_auto] sm:items-center">
+                <div className="flex items-center gap-2">
+                  <TriangleAlert className="h-4 w-4 text-red-600" />
+                  <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">{group.agent} · {group.tool}</p>
+                </div>
+                <p className="truncate text-xs text-gray-600 dark:text-gray-400">{group.error}</p>
+                <p className="text-xs tabular-nums text-red-700 dark:text-red-400">{group.occurrences} · {dateTime(group.lastSeenAt)}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section aria-labelledby="next-heading">
+        <div className="admin-section-header">
+          <div>
+            <p className="admin-eyebrow">Operator guidance</p>
+            <h2 id="next-heading" className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+              What should I do next?
+            </h2>
+          </div>
+        </div>
+        <div className="flex flex-col justify-between gap-4 border-y border-black/[0.06] py-5 sm:flex-row sm:items-center dark:border-white/[0.06]">
+          {center.activeJobs.length > 0 ? (
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Let Atlas finish the active run.</p>
+              <p className="admin-meta mt-1">If it stops, the failing agent and its repair action will appear above.</p>
+            </div>
+          ) : center.attention[0] ? (
+            <>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{center.attention[0].title}</p>
+                <p className="admin-meta mt-1">{center.attention[0].detail}</p>
+              </div>
+              {center.attention[0].repairRunId ? (
+                <AtlasResumeControl runId={center.attention[0].repairRunId} />
+              ) : (
+                <Link href={center.attention[0].href} className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--brand-primary)] hover:text-[var(--brand-primary-hover)]">
+                  {center.attention[0].action}<ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
+            </>
+          ) : (
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">No operator action is required.</p>
+              <p className="admin-meta mt-1">Atlas will run on schedule. Use the command action only for an intentional out-of-cycle refresh.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section aria-labelledby="pipeline-heading">
+        <div className="admin-section-header">
+          <div>
+            <p className="admin-eyebrow">Agent handoff</p>
+            <h2 id="pipeline-heading" className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+              Who owns each step?
+            </h2>
+          </div>
+          <p className="admin-meta">Atlas coordinates; specialists own remediation.</p>
+        </div>
+        <AgentRail schedules={center.schedules.jobs} />
+      </section>
+
+      <section aria-labelledby="history-heading">
+        <div className="admin-section-header">
+          <div>
+            <p className="admin-eyebrow">Run history</p>
+            <h2 id="history-heading" className="mt-1 text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+              Recent terminal jobs
+            </h2>
+          </div>
+        </div>
+        <div className="overflow-x-auto border-y border-black/[0.06] dark:border-white/[0.06]">
+          <table className="admin-table w-full text-xs">
+            <thead><tr><th>Job</th><th>Owner</th><th>Status</th><th>Started</th><th>Modal</th><th>Result</th></tr></thead>
+            <tbody>
+              {center.recentJobs.map((job) => (
+                <tr key={job.id}>
+                  <td>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">#{job.id}</span>
+                    <span className="mt-1 block truncate font-mono text-[10px] text-gray-500">{commandLine(job)}</span>
+                  </td>
+                  <td className="capitalize text-gray-600 dark:text-gray-400">{job.agent}</td>
+                  <td><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${statusTone(job.status)}`}>{job.status}</span></td>
+                  <td className="tabular-nums text-gray-500">{dateTime(job.startedAt ?? job.createdAt)}</td>
+                  <td className="max-w-[180px] truncate font-mono text-[10px] text-gray-500">{job.modalCallId ?? "No Modal ID"}</td>
+                  <td className="max-w-xl truncate text-gray-500" title={jobResult(job)}>{jobResult(job)}</td>
+                </tr>
+              ))}
+              {center.recentJobs.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-gray-400">No terminal jobs recorded.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   );
 }
 
-function ActionBadge({ action }: { action: string }) {
-  const config: Record<string, string> = {
-    approve: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    reject: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    stage: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    flag: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    edit: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-  };
-  const cls = config[action] ?? config.edit;
+function Metric({ label, value, metric }: { label: string; value: number; metric: { numerator: number; denominator: number; definition: string } }) {
   return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${cls}`}>
-      {action}
-    </span>
+    <div title={metric.definition}>
+      <p className="admin-label">{label}</p>
+      <p className="admin-value-xl mt-2">{value}%</p>
+      <p className="admin-meta mt-1">{number(metric.numerator)} / {number(metric.denominator)}</p>
+    </div>
+  );
+}
+
+function UsageMetric({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <div>
+      <p className="admin-label">{label}</p>
+      <p className={`mt-2 text-xl font-semibold tabular-nums tracking-tight ${tone === "danger" ? "text-red-700 dark:text-red-400" : "text-gray-900 dark:text-gray-100"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function AttentionRow({ item }: { item: AttentionItem }) {
+  const Icon = item.severity === "critical" ? CircleAlert : item.severity === "warning" ? Clock3 : ShieldCheck;
+  const iconTone = item.severity === "critical" ? "text-red-600" : item.severity === "warning" ? "text-amber-600" : "text-blue-600";
+  return (
+    <div className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="flex min-w-0 gap-3">
+        <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconTone}`} />
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.title}</p>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">{item.owner}</span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{item.detail}</p>
+        </div>
+      </div>
+      {item.repairRunId ? (
+        <AtlasResumeControl runId={item.repairRunId} />
+      ) : (
+        <Link href={item.href} className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--brand-primary)] hover:text-[var(--brand-primary-hover)]">
+          {item.action}<ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function AgentRail({ schedules }: { schedules: JobFreshness[] }) {
+  const stages = [
+    { name: "Magellan", role: "Discover + collect", href: "/admin/magellan", icon: Compass, jobs: ["run_discovery", "run_pdf_extraction", "run_browser_extraction", "magellan_rescue"] },
+    { name: "Darwin", role: "Classify", href: "/admin/darwin", icon: Dna, jobs: ["darwin_drain"] },
+    { name: "Knox", role: "Adversarial review", href: "/admin/knox", icon: ShieldCheck, jobs: ["knox_review"] },
+    { name: "Publish", role: "Verified index", href: "/admin/data", icon: Orbit, jobs: ["daily_pipeline"] },
+  ];
+  return (
+    <div className="grid overflow-hidden rounded-lg border border-black/[0.06] bg-white sm:grid-cols-4 dark:border-white/[0.06] dark:bg-[oklch(0.19_0_0)]">
+      {stages.map((stage, index) => {
+        const related = schedules.filter((job) => stage.jobs.includes(job.job_name));
+        const state = related.some((job) => job.status !== "ok") ? "attention" : "ready";
+        const Icon = stage.icon;
+        return (
+          <Link key={stage.name} href={stage.href} className="group relative flex min-h-32 flex-col justify-between border-b border-black/[0.06] p-4 transition-colors hover:bg-gray-50 sm:border-b-0 sm:border-r sm:last:border-r-0 dark:border-white/[0.06] dark:hover:bg-white/[0.03]">
+            <div className="flex items-center justify-between">
+              <Icon className="h-5 w-5 text-gray-500 transition-colors group-hover:text-[var(--brand-primary)]" />
+              <span className={`h-2 w-2 rounded-full ${state === "ready" ? "bg-emerald-500" : "bg-amber-500"}`} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{index + 1}. {stage.name}</p>
+              <p className="admin-meta mt-1">{stage.role}</p>
+            </div>
+          </Link>
+        );
+      })}
+      <div className="sm:col-span-4 flex items-center gap-3 border-t border-black/[0.06] px-4 py-3 dark:border-white/[0.06]">
+        <BookOpenText className="h-4 w-4 text-gray-400" />
+        <p className="text-xs text-gray-600 dark:text-gray-400"><strong className="text-gray-800 dark:text-gray-200">Hamilton</strong> reads published data; it does not write into the fee pipeline.</p>
+      </div>
+    </div>
   );
 }

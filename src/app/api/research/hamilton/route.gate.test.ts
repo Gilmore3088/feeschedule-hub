@@ -28,6 +28,12 @@ vi.mock("@ai-sdk/anthropic", () => ({
   anthropic: (model: string) => ({ model }),
 }));
 
+vi.mock("@/lib/ai-provider-usage", () => ({
+  trackAnthropicRequest: async (_context: unknown, request: () => Promise<unknown>) => request(),
+  guardProviderCall: async () => Date.now(),
+  recordProviderUsage: vi.fn(async () => {}),
+}));
+
 vi.mock("@/lib/auth", () => ({
   getCurrentUser: vi.fn(async () => ({
     id: 1,

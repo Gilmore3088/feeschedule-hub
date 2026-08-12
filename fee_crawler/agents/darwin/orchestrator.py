@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from dataclasses import asdict, dataclass, field
@@ -18,11 +19,12 @@ from fee_crawler.agents.darwin.classifier import (
 from fee_crawler.agents.darwin.config import DEFAULT, DarwinConfig
 from fee_crawler.agent_tools.schemas import (
     PromoteFeeToTier2Input,
+    UpdateFeeRawFlagsInput,
     UpsertClassificationCacheInput,
 )
-from fee_crawler.agent_tools.tools_fees import promote_fee_to_tier2
+from fee_crawler.agent_tools.tools_fees import promote_fee_to_tier2, update_fee_raw_flags
 from fee_crawler.agent_tools.tools_peer_research import upsert_classification_cache
-from fee_crawler.fee_analysis import normalize_fee_name
+from fee_crawler.fee_analysis import CANONICAL_KEY_MAP, normalize_fee_name
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +37,9 @@ BatchEvent = dict  # {type: str, **payload}
 class BatchResult:
     processed: int = 0
     cache_hits: int = 0
+    deterministic_hits: int = 0
     llm_calls: int = 0
+    provider_deferred: int = 0
     promoted: int = 0
     cached_low_conf: int = 0
     rejected: int = 0
@@ -54,6 +58,8 @@ class _Candidate:
     fee_raw_id: int
     fee_name: str
     amount: Optional[float] = None
+    source: str = "knox"
+    outlier_flags: list[str] = field(default_factory=list)
     normalized_name: str = field(init=False)
 
     def __post_init__(self):
@@ -64,24 +70,55 @@ async def select_candidates(conn: asyncpg.Connection, limit: int) -> list[_Candi
     """Select unpromoted fees_raw rows. FOR UPDATE SKIP LOCKED prevents races."""
     rows = await conn.fetch(
         """
-        SELECT fr.fee_raw_id, fr.fee_name, fr.amount
+        SELECT fr.fee_raw_id, fr.fee_name, fr.amount, fr.source,
+               fr.outlier_flags
           FROM fees_raw fr
           LEFT JOIN fees_verified fv ON fv.fee_raw_id = fr.fee_raw_id
          WHERE fv.fee_verified_id IS NULL
-         ORDER BY fr.fee_raw_id
+           AND NOT (fr.outlier_flags ? 'darwin_low_confidence')
+           AND NOT (fr.outlier_flags ? 'darwin_rejected')
+         ORDER BY (fr.source = 'magellan') DESC,
+                  CASE WHEN fr.source = 'magellan' THEN fr.fee_raw_id END DESC,
+                  fr.fee_raw_id ASC
          LIMIT $1
          FOR UPDATE OF fr SKIP LOCKED
         """,
         limit,
     )
-    return [
-        _Candidate(
-            fee_raw_id=r["fee_raw_id"],
-            fee_name=r["fee_name"],
-            amount=float(r["amount"]) if r["amount"] is not None else None,
+    candidates: list[_Candidate] = []
+    for row in rows:
+        raw_flags = row["outlier_flags"] or []
+        if isinstance(raw_flags, str):
+            try:
+                raw_flags = json.loads(raw_flags)
+            except json.JSONDecodeError:
+                raw_flags = []
+        candidates.append(
+            _Candidate(
+                fee_raw_id=row["fee_raw_id"],
+                fee_name=row["fee_name"],
+                amount=float(row["amount"]) if row["amount"] is not None else None,
+                source=row["source"],
+                outlier_flags=list(raw_flags) if isinstance(raw_flags, list) else [],
+            )
         )
-        for r in rows
-    ]
+    return candidates
+
+
+def _is_deferable_provider_error(exc: Exception) -> bool:
+    """Identify account/configuration failures that should become repair work."""
+    status_code = getattr(exc, "status_code", None)
+    message = str(exc).lower()
+    return status_code in {400, 401, 402, 403} and any(
+        marker in message
+        for marker in (
+            "credit balance is too low",
+            "billing",
+            "insufficient credits",
+            "authentication_error",
+            "invalid x-api-key",
+        )
+    )
 
 
 async def _lookup_cache(
@@ -111,6 +148,7 @@ async def _promote_or_cache(
 
     outcome: 'promoted' | 'cached_low_conf' | 'rejected'
     """
+    cache_hit = reasoning_prompt.startswith("cache:")
     if (
         key is not None
         and confidence >= config.auto_promote_threshold
@@ -127,18 +165,19 @@ async def _promote_or_cache(
             reasoning_prompt=reasoning_prompt,
             reasoning_output=reasoning_output,
         )
-        await upsert_classification_cache(
-            inp=UpsertClassificationCacheInput(
-                cache_key=cand.normalized_name,
-                canonical_fee_key=key,
-                confidence=confidence,
-                model=config.model,
-                source="darwin",
-            ),
-            agent_name=AGENT_NAME,
-            reasoning_prompt=reasoning_prompt,
-            reasoning_output=reasoning_output,
-        )
+        if not cache_hit:
+            await upsert_classification_cache(
+                inp=UpsertClassificationCacheInput(
+                    cache_key=cand.normalized_name,
+                    canonical_fee_key=key,
+                    confidence=confidence,
+                    model=config.model,
+                    source="darwin",
+                ),
+                agent_name=AGENT_NAME,
+                reasoning_prompt=reasoning_prompt,
+                reasoning_output=reasoning_output,
+            )
         return "promoted", None
 
     if key is not None and not validate_llm_result(cand.normalized_name, key):
@@ -154,15 +193,34 @@ async def _promote_or_cache(
             reasoning_prompt=reasoning_prompt,
             reasoning_output=reasoning_output,
         )
+        await update_fee_raw_flags(
+            inp=UpdateFeeRawFlagsInput(
+                fee_raw_id=cand.fee_raw_id,
+                outlier_flags=sorted(set(cand.outlier_flags + ["darwin_rejected"])),
+            ),
+            agent_name=AGENT_NAME,
+            reasoning_prompt=reasoning_prompt,
+            reasoning_output=reasoning_output,
+        )
         return "rejected", None
 
-    await upsert_classification_cache(
-        inp=UpsertClassificationCacheInput(
-            cache_key=cand.normalized_name,
-            canonical_fee_key=key,
-            confidence=confidence,
-            model=config.model,
-            source="darwin",
+    if not cache_hit:
+        await upsert_classification_cache(
+            inp=UpsertClassificationCacheInput(
+                cache_key=cand.normalized_name,
+                canonical_fee_key=key,
+                confidence=confidence,
+                model=config.model,
+                source="darwin",
+            ),
+            agent_name=AGENT_NAME,
+            reasoning_prompt=reasoning_prompt,
+            reasoning_output=reasoning_output,
+        )
+    await update_fee_raw_flags(
+        inp=UpdateFeeRawFlagsInput(
+            fee_raw_id=cand.fee_raw_id,
+            outlier_flags=sorted(set(cand.outlier_flags + ["darwin_low_confidence"])),
         ),
         agent_name=AGENT_NAME,
         reasoning_prompt=reasoning_prompt,
@@ -204,7 +262,16 @@ async def classify_batch(
     resolved: dict[int, tuple[Optional[str], float, str, str]] = {}
 
     for c in candidates:
-        if c.normalized_name in cache:
+        deterministic_key = CANONICAL_KEY_MAP.get(c.normalized_name)
+        if c.source == "magellan" and deterministic_key is not None:
+            resolved[c.fee_raw_id] = (
+                deterministic_key,
+                0.99,
+                f"taxonomy:{c.normalized_name}",
+                "deterministic canonical taxonomy match",
+            )
+            result.deterministic_hits += 1
+        elif c.normalized_name in cache:
             k, conf = cache[c.normalized_name]
             resolved[c.fee_raw_id] = (k, conf, f"cache:{c.normalized_name}", "cache-hit")
             result.cache_hits += 1
@@ -215,13 +282,40 @@ async def classify_batch(
         chunk = misses[i : i + config.llm_batch_size]
         chunk_names = [c.normalized_name for c in chunk]
         await emit("llm_call_start", size=len(chunk))
+        result.llm_calls += 1
         try:
             llm_results = await classify_names_with_retry(chunk_names, config=config)
-            result.llm_calls += 1
         except anthropic.RateLimitError:
             cb.record_rate_limit_exhausted()
             result.failures += len(chunk)
             await emit("llm_call_done", success=False, error="rate_limit_saturated")
+            if cb.halt_reason():
+                result.circuit_tripped = True
+                result.halt_reason = cb.halt_reason().value
+                break
+            continue
+        except anthropic.APIStatusError as e:
+            if _is_deferable_provider_error(e):
+                sys_p, user_p = build_prompt(chunk_names)
+                prompt = f"{sys_p}\n---\n{user_p}"
+                for c in chunk:
+                    resolved[c.fee_raw_id] = (
+                        None,
+                        0.0,
+                        prompt,
+                        f"provider deferred: {type(e).__name__}",
+                    )
+                result.provider_deferred += len(chunk)
+                await emit(
+                    "llm_call_done",
+                    success=False,
+                    deferred=True,
+                    error="provider_unavailable",
+                )
+                continue
+            cb.record_failure()
+            result.failures += len(chunk)
+            await emit("llm_call_done", success=False, error=str(e))
             if cb.halt_reason():
                 result.circuit_tripped = True
                 result.halt_reason = cb.halt_reason().value
@@ -257,14 +351,25 @@ async def classify_batch(
 
         await asyncio.sleep(config.inter_batch_delay_seconds)
 
-    for c in candidates:
-        if result.circuit_tripped:
-            break
-        if c.fee_raw_id not in resolved:
-            continue
+    semaphore = asyncio.Semaphore(config.persistence_concurrency)
+
+    async def persist_candidate(c: _Candidate) -> tuple[_Candidate, str | None, float, str]:
         key, conf, prompt, output = resolved[c.fee_raw_id]
-        try:
-            outcome, _ = await _promote_or_cache(c, key, conf, prompt, output, config)
+        async with semaphore:
+            try:
+                outcome, _ = await _promote_or_cache(c, key, conf, prompt, output, config)
+                return c, key, conf, outcome
+            except Exception as exc:
+                return c, key, conf, f"failure:{exc}"
+
+    tasks = [
+        asyncio.create_task(persist_candidate(c))
+        for c in candidates
+        if not result.circuit_tripped and c.fee_raw_id in resolved
+    ]
+    for task in asyncio.as_completed(tasks):
+        c, key, conf, outcome = await task
+        if not outcome.startswith("failure:"):
             cb.record_success()
             if outcome == "promoted":
                 result.promoted += 1
@@ -281,7 +386,7 @@ async def classify_batch(
                 key=key,
                 confidence=conf,
             )
-        except Exception as e:
+        else:
             cb.record_failure()
             result.failures += 1
             await emit(
@@ -290,11 +395,15 @@ async def classify_batch(
                 fee_name=c.fee_name,
                 amount=c.amount,
                 outcome="failure",
-                error=str(e),
+                error=outcome.removeprefix("failure:"),
             )
             if cb.halt_reason():
                 result.circuit_tripped = True
                 result.halt_reason = cb.halt_reason().value
+                for pending in tasks:
+                    if not pending.done():
+                        pending.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
                 break
 
     result.duration_s = time.time() - t0

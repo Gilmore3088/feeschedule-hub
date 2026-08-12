@@ -1,5 +1,10 @@
 import { streamText, generateText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
+import {
+  guardProviderCall,
+  recordProviderUsage,
+  trackAnthropicRequest,
+} from "@/lib/ai-provider-usage";
 import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, type HamiltonRole } from "@/lib/research/agents";
 import { evaluateCitationDensity } from "@/lib/hamilton/citation-gate";
 import { getCurrentUser, type User } from "@/lib/auth";
@@ -210,6 +215,15 @@ export async function POST(request: Request) {
     }
   }
 
+  const providerContext = {
+    provider: "anthropic" as const,
+    model: agent.model,
+    agent: "hamilton",
+    operation: gateCitations ? "research_with_citation_gate" : "research_stream",
+  };
+  let providerStartedAt: number | null = null;
+  let providerFailed = false;
+
   try {
     // Buffered (gated) path: for report-generation callers. Trades off
     // streaming UX for a deterministic post-generation citation check. If
@@ -217,14 +231,17 @@ export async function POST(request: Request) {
     // of a partial report. Tokens are still logged via logUsage so cost
     // attribution is unchanged.
     if (gateCitations) {
-      const result = await generateText({
-        model: anthropic(agent.model),
-        system: systemPrompt,
-        messages: await convertToModelMessages(messages),
-        tools: agent.tools,
-        maxOutputTokens: agent.maxTokens,
-        stopWhen: stepCountIs(agent.maxSteps),
-      });
+      const result = await trackAnthropicRequest(
+        providerContext,
+        async () => generateText({
+          model: anthropic(agent.model),
+          system: systemPrompt,
+          messages: await convertToModelMessages(messages),
+          tools: agent.tools,
+          maxOutputTokens: agent.maxTokens,
+          stopWhen: stepCountIs(agent.maxSteps),
+        }),
+      );
 
       const inputTokens = result.usage?.inputTokens ?? 0;
       const outputTokens = result.usage?.outputTokens ?? 0;
@@ -263,6 +280,7 @@ export async function POST(request: Request) {
       });
     }
 
+    providerStartedAt = await guardProviderCall(providerContext);
     const result = streamText({
       model: anthropic(agent.model),
       system: systemPrompt,
@@ -275,6 +293,14 @@ export async function POST(request: Request) {
           const inputTokens = usage?.inputTokens ?? 0;
           const outputTokens = usage?.outputTokens ?? 0;
           const costCents = estimateCostCents(agent.model, inputTokens, outputTokens);
+          if (!providerFailed && providerStartedAt !== null) {
+            await recordProviderUsage(
+              providerContext,
+              "completed",
+              { inputTokens, outputTokens },
+              { latencyMs: Date.now() - providerStartedAt },
+            );
+          }
           await logUsage(
             user?.id ?? null,
             user ? null : ip,
@@ -287,12 +313,31 @@ export async function POST(request: Request) {
           // Non-critical — don't fail the response
         }
       },
+      onError: async ({ error }) => {
+        providerFailed = true;
+        await recordProviderUsage(providerContext, "failed", {}, {
+          latencyMs: providerStartedAt === null ? undefined : Date.now() - providerStartedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      },
     });
 
     return result.toUIMessageStreamResponse();
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "An unexpected error occurred";
+
+    if (providerStartedAt !== null && !providerFailed) {
+      providerFailed = true;
+      await recordProviderUsage(providerContext, "failed", {}, {
+        latencyMs: Date.now() - providerStartedAt,
+        error: message,
+      });
+    }
+
+    if (message.includes("Emergency stop")) {
+      return Response.json({ error: message }, { status: 423 });
+    }
 
     if (message.includes("authentication") || message.includes("API key")) {
       return Response.json(

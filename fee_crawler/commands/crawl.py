@@ -5,18 +5,21 @@ For each institution with a fee_schedule_url:
 2. Check content hash for changes (skip if unchanged)
 3. Extract text (pdfplumber for PDFs, BeautifulSoup for HTML)
 4. Send to Claude for structured fee extraction
-5. Store results in crawl_results and extracted_fees tables
+5. Store results in crawl_results and the canonical fees_raw tier
 
 Supports concurrent crawling via --workers flag.
 """
 
 import json
+import asyncio
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Coroutine
 
 from fee_crawler.config import Config
-from fee_crawler.db import Database, get_worker_db
-from fee_crawler.fee_analysis import normalize_fee_name, get_fee_family
+from fee_crawler.db import Database, close_worker_db, get_worker_db
+from fee_crawler.fee_analysis import normalize_fee_name
 from fee_crawler.pipeline.download import download_document
 from fee_crawler.pipeline.extract_html import extract_text_from_html
 from fee_crawler.pipeline.extract_llm import extract_fees_with_llm
@@ -25,6 +28,71 @@ from fee_crawler.pipeline.extract_pdf import (
     extract_text_from_pdf as _legacy_extract_text_from_pdf,
     PDFProtectedError,
 )
+from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
+from fee_crawler.validation import validate_and_classify_fees
+
+
+_agent_tool_loop: asyncio.AbstractEventLoop | None = None
+_agent_tool_thread: threading.Thread | None = None
+_agent_tool_loop_lock = threading.Lock()
+
+
+def _get_agent_tool_loop() -> asyncio.AbstractEventLoop:
+    """Return one long-lived event loop for audited writes from crawler threads."""
+    global _agent_tool_loop, _agent_tool_thread
+
+    with _agent_tool_loop_lock:
+        if _agent_tool_loop is not None and _agent_tool_loop.is_running():
+            return _agent_tool_loop
+
+        ready = threading.Event()
+        loop = asyncio.new_event_loop()
+
+        def _serve() -> None:
+            asyncio.set_event_loop(loop)
+            ready.set()
+            loop.run_forever()
+
+        thread = threading.Thread(
+            target=_serve,
+            name="magellan-agent-tool-loop",
+            daemon=True,
+        )
+        thread.start()
+        ready.wait(timeout=5)
+        if not loop.is_running():
+            raise RuntimeError("Magellan agent-tool event loop failed to start")
+        _agent_tool_loop = loop
+        _agent_tool_thread = thread
+        return loop
+
+
+def _run_agent_tool(coro: Coroutine[Any, Any, Any]) -> Any:
+    """Execute an audited async tool on the process-owned crawler event loop."""
+    future = asyncio.run_coroutine_threadsafe(coro, _get_agent_tool_loop())
+    return future.result(timeout=90)
+
+
+def _shutdown_agent_tool_loop() -> None:
+    """Close the shared asyncpg pool and stop the crawler's event-loop thread."""
+    global _agent_tool_loop, _agent_tool_thread
+
+    with _agent_tool_loop_lock:
+        loop = _agent_tool_loop
+        thread = _agent_tool_thread
+        if loop is None:
+            return
+
+        if loop.is_running():
+            from fee_crawler.agent_tools.pool import close_pool
+
+            asyncio.run_coroutine_threadsafe(close_pool(), loop).result(timeout=30)
+            loop.call_soon_threadsafe(loop.stop)
+        if thread is not None:
+            thread.join(timeout=5)
+        loop.close()
+        _agent_tool_loop = None
+        _agent_tool_thread = None
 
 
 def extract_text_from_pdf(content: bytes) -> str:
@@ -40,8 +108,6 @@ def extract_text_from_pdf(content: bytes) -> str:
         except extract_kreuzberg.PDFProtectedError as exc:
             raise PDFProtectedError(str(exc)) from exc
     return _legacy_extract_text_from_pdf(content)
-from fee_crawler.pipeline.rate_limiter import DomainRateLimiter
-from fee_crawler.validation import validate_and_classify_fees, flags_to_json
 
 
 def _determine_crawl_strategy(dl: dict, doc_type: str) -> str:
@@ -58,6 +124,69 @@ def _determine_crawl_strategy(dl: dict, doc_type: str) -> str:
         return "playwright_html"
     else:
         return "static_html"
+
+
+def _persist_raw_extraction(
+    *,
+    run_id: int,
+    target_id: int,
+    url: str,
+    dl: dict,
+    doc_type: str,
+    validated: list[tuple],
+    extraction_method: str,
+) -> None:
+    """Persist one successful extraction through the audited Tier-1 gateway."""
+    from fee_crawler.agent_tools.context import with_agent_context
+    from fee_crawler.agent_tools.schemas import (
+        PersistCrawlExtractionInput,
+        RawFeeObservationInput,
+    )
+    from fee_crawler.agent_tools.tools_crawl import persist_crawl_extraction
+
+    observations = []
+    for fee, flags, _review_status in validated:
+        observations.append(
+            RawFeeObservationInput(
+                fee_name=fee.fee_name,
+                amount=fee.amount,
+                frequency=fee.frequency,
+                conditions=fee.conditions,
+                extraction_confidence=fee.confidence,
+                outlier_flags=[flag.rule for flag in flags],
+            )
+        )
+
+    inp = PersistCrawlExtractionInput(
+        crawl_target_id=target_id,
+        crawl_run_id=run_id,
+        document_url=url,
+        document_path=dl.get("path"),
+        content_hash=dl.get("content_hash"),
+        document_r2_key=dl.get("r2_key"),
+        crawl_strategy=_determine_crawl_strategy(dl, doc_type),
+        extraction_method=extraction_method,
+        fees=observations,
+    )
+    reasoning = json.dumps(
+        {
+            "method": extraction_method,
+            "fee_count": len(observations),
+            "crawl_run_id": run_id,
+            "crawl_target_id": target_id,
+        },
+        sort_keys=True,
+    )
+
+    with with_agent_context(agent_name="magellan"):
+        _run_agent_tool(
+            persist_crawl_extraction(
+                inp=inp,
+                agent_name="magellan",
+                reasoning_prompt=f"extract:{extraction_method}",
+                reasoning_output=reasoning,
+            )
+        )
 
 
 def _crawl_one(
@@ -107,7 +236,7 @@ def _crawl_one(
                     fetch_with_browser,
                     _is_cloudflare_blocked,
                 )
-                print(f"    403 detected, retrying with stealth Playwright...")
+                print("    403 detected, retrying with stealth Playwright...")
                 stealth_result = fetch_with_browser(url, stealth=True)
                 if stealth_result["success"] and stealth_result["content"]:
                     if _is_cloudflare_blocked(stealth_result["content"]):
@@ -280,72 +409,67 @@ def _crawl_one(
 
         charter = target.get("charter_type", "bank")
 
-        # Step 3a: Try platform rule extraction first (free, no LLM cost)
+        # Step 3a: Prefer deterministic extraction before paid LLM work.
         cms_platform = target.get("cms_platform")
         extracted_by = "llm"
-        if cms_platform and "html" in (dl.get("content_type") or ""):
-            try:
-                from fee_crawler.pipeline.extract_platform import try_platform_extraction
-                platform_row = db.fetchone(
-                    "SELECT rule_enabled FROM platform_registry WHERE platform = ?",
-                    (cms_platform,),
+        rule_fees = None
+        rule_source = cms_platform or "explicit_text"
+        try:
+            from fee_crawler.pipeline.extract_platform import (
+                extract_explicit_fee_lines,
+                try_platform_extraction,
+            )
+
+            if "html" in (dl.get("content_type") or ""):
+                platform_key = cms_platform or "generic"
+                rule_enabled = platform_key == "generic"
+                if cms_platform:
+                    platform_row = db.fetchone(
+                        "SELECT rule_enabled FROM platform_registry WHERE platform = ?",
+                        (cms_platform,),
+                    )
+                    rule_enabled = bool(platform_row and platform_row["rule_enabled"])
+                raw_html = dl["content"].decode("utf-8", errors="replace")
+                rule_fees = try_platform_extraction(platform_key, raw_html, rule_enabled)
+                rule_source = platform_key
+            else:
+                rule_fees = extract_explicit_fee_lines(text)
+
+            if rule_fees and len(rule_fees) >= 3:
+                from fee_crawler.pipeline.extract_llm import ExtractedFee
+                fees = [
+                    ExtractedFee(
+                        fee_name=f.fee_name, amount=f.amount,
+                        frequency=f.frequency, conditions=f.conditions,
+                        confidence=f.confidence,
+                    )
+                    for f in rule_fees
+                ]
+                extracted_by = f"{rule_source}_rule"
+                print(f"    Rule extraction ({rule_source}): {len(fees)} fees (no LLM cost)")
+                categories = [normalize_fee_name(f.fee_name) for f in fees]
+                validated = validate_and_classify_fees(fees, config, fee_categories=categories)
+                db.commit()
+                _persist_raw_extraction(
+                    run_id=run_id,
+                    target_id=target_id,
+                    url=url,
+                    dl=dl,
+                    doc_type=doc_type,
+                    validated=validated,
+                    extraction_method=extracted_by,
                 )
-                if platform_row and platform_row["rule_enabled"]:
-                    rule_fees = try_platform_extraction(cms_platform, text, True)
-                    if rule_fees and len(rule_fees) >= 3:
-                        from fee_crawler.pipeline.extract_llm import ExtractedFee
-                        fees = [
-                            ExtractedFee(
-                                fee_name=f.fee_name, amount=f.amount,
-                                frequency=f.frequency, conditions=f.conditions,
-                                confidence=f.confidence,
-                            )
-                            for f in rule_fees
-                        ]
-                        extracted_by = f"{cms_platform}_rule"
-                        print(f"    Platform rule ({cms_platform}): {len(fees)} fees extracted (no LLM cost)")
-                        # Skip LLM — jump to step 4
-                        categories = [normalize_fee_name(f.fee_name) for f in fees]
-                        fee_families = [get_fee_family(c) if c else None for c in categories]
-                        validated = validate_and_classify_fees(fees, config, fee_categories=categories)
-                        # Jump to merge (step 5)
-                        from fee_crawler.commands.merge_fees import merge_institution_fees
-                        db.execute("BEGIN")
-                        try:
-                            result_id = _save_result(
-                                db, run_id, target_id, "success", url,
-                                content_hash=dl["content_hash"],
-                                document_path=dl["path"],
-                                fees_extracted=len(fees),
-                            )
-                            merge_stats = merge_institution_fees(
-                                db, target_id, result_id,
-                                validated, categories, fee_families,
-                                extracted_by=extracted_by,
-                            )
-                            r2_key = dl.get("r2_key")
-                            strategy = _determine_crawl_strategy(dl, doc_type)
-                            update_sql = """UPDATE crawl_targets
-                                   SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                                       last_success_at = datetime('now'), consecutive_failures = 0,
-                                       crawl_strategy = ?"""
-                            if r2_key:
-                                update_sql += ", document_r2_key = ?"
-                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, r2_key, target_id))
-                            else:
-                                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, target_id))
-                            db.commit()
-                        except Exception:
-                            db.execute("ROLLBACK")
-                            raise
-                        result["status"] = "success"
-                        result["fees"] = len(fees)
-                        result["staged"] = merge_stats.get("staged", 0)
-                        result["flagged"] = merge_stats.get("flagged", 0)
-                        result["message"] = f"RULE: {len(fees)} fees ({cms_platform})"
-                        return result
-            except Exception as e:
-                print(f"    Platform rule extraction failed: {e}")
+                result["status"] = "success"
+                result["fees"] = len(fees)
+                result["staged"] = len(fees)
+                result["message"] = f"RULE: {len(fees)} fees ({rule_source})"
+                return result
+        except Exception as e:
+            if rule_fees and len(rule_fees) >= 3:
+                raise RuntimeError(
+                    f"Rule extraction persistence failed ({rule_source}): {e}"
+                ) from e
+            print(f"    Rule extraction failed: {e}")
 
         print(f"    LLM extraction: {len(text):,} chars, charter={charter}, doc_type={doc_type}")
         try:
@@ -365,60 +489,32 @@ def _crawl_one(
 
         # Step 4: Categorize + validate fees (category enables auto-approve)
         categories = [normalize_fee_name(f.fee_name) for f in fees]
-        fee_families = [get_fee_family(c) if c else None for c in categories]
         validated = validate_and_classify_fees(fees, config, fee_categories=categories)
 
-        # Step 5: Merge new fees with existing (compare, snapshot, change events)
-        from fee_crawler.commands.merge_fees import merge_institution_fees
+        # Step 5: append immutable observations through the Magellan gateway.
+        db.commit()
+        _persist_raw_extraction(
+            run_id=run_id,
+            target_id=target_id,
+            url=url,
+            dl=dl,
+            doc_type=doc_type,
+            validated=validated,
+            extraction_method="llm",
+        )
 
-        db.execute("BEGIN")
-        try:
-            result_id = _save_result(
-                db, run_id, target_id, "success", url,
-                content_hash=dl["content_hash"],
-                document_path=dl["path"],
-                fees_extracted=len(validated),
-            )
-
-            merge_stats = merge_institution_fees(
-                db, target_id, result_id,
-                validated, categories, fee_families,
-            )
-
-            r2_key = dl.get("r2_key")
-            strategy = _determine_crawl_strategy(dl, doc_type)
-            update_sql = """UPDATE crawl_targets
-                   SET last_content_hash = ?, last_crawl_at = datetime('now'),
-                       last_success_at = datetime('now'), consecutive_failures = 0,
-                       crawl_strategy = ?"""
-            if r2_key:
-                update_sql += ", document_r2_key = ?"
-                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, r2_key, target_id))
-            else:
-                db.execute(update_sql + " WHERE id = ?", (dl["content_hash"], strategy, target_id))
-            db.commit()
-        except Exception:
-            db.execute("ROLLBACK")
-            raise
-
-        approved_count = merge_stats["approved"]
-        staged_count = merge_stats["staged"]
-        flagged_count = merge_stats["flagged"]
+        flagged_count = sum(1 for _fee, flags, _status in validated if flags)
+        staged_count = len(validated)
 
         result["status"] = "success"
         result["fees"] = len(validated)
-        result["approved"] = approved_count
         result["staged"] = staged_count
         result["flagged"] = flagged_count
-        result["unchanged"] = merge_stats["unchanged"]
-        result["changed"] = merge_stats["changed"]
-        result["new_fees"] = merge_stats["new"]
-        status_summary = f"{len(validated)} fees"
+        result["new_fees"] = len(validated)
+        status_summary = f"{len(validated)} raw fees"
         parts = []
-        if approved_count:
-            parts.append(f"{approved_count} auto-approved")
         if staged_count:
-            parts.append(f"{staged_count} staged")
+            parts.append(f"{staged_count} queued for Darwin")
         if flagged_count:
             parts.append(f"{flagged_count} flagged")
         if parts:
@@ -430,6 +526,9 @@ def _crawl_one(
         result["status"] = "failed"
         result["message"] = f"ERROR: {e}"
         try:
+            # The triggering write may have aborted this transaction. Reset it
+            # before recording the failure so telemetry is not silently lost.
+            db.rollback()
             _save_result(db, run_id, target_id, "failed", url, error=str(e))
             db.execute(
                 "UPDATE crawl_targets SET consecutive_failures = consecutive_failures + 1 WHERE id = ?",
@@ -445,10 +544,11 @@ def _crawl_one(
             )
             db.commit()
         except Exception as db_err:
+            db.rollback()
             print(f"  WARNING: Failed to record error for {name}: {db_err}")
         return result
     finally:
-        pass  # Worker DB is thread-local; closed when thread exits
+        close_worker_db()
 
 
 def run(
@@ -480,18 +580,11 @@ def run(
         dry_run: Download and extract text but skip LLM extraction (no API cost).
         workers: Number of concurrent worker threads.
         include_failing: Include institutions with 5+ consecutive failures (skipped by default).
-        skip_with_fees: Skip institutions that already have extracted fees.
+        skip_with_fees: Skip institutions that already have canonical or legacy fees.
         new_only: Only crawl institutions whose fee_schedule_url was set in the last 24 hours.
         stealth: Force stealth Playwright mode for all initial fetches.
         pdf_probe: Run PDF URL probing pre-step before the main crawl.
     """
-    # Create a crawl run record
-    run_id = db.insert_returning_id(
-        "INSERT INTO crawl_runs (trigger_type, targets_total) VALUES (?, 0)",
-        ("manual",),
-    )
-    db.commit()
-
     # PDF probe pre-step: discover direct PDF URLs for institutions missing them
     if pdf_probe:
         from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
@@ -556,7 +649,11 @@ def run(
         print(f"Crawling single institution: {row['institution_name']} ({row['state_code']})")
 
     # Build query for targets with fee schedule URLs
-    where_clauses = ["ct.fee_schedule_url IS NOT NULL", "ct.status = 'active'"]
+    where_clauses = [
+        "ct.fee_schedule_url IS NOT NULL",
+        "ct.status = 'active'",
+        "COALESCE(ct.document_type, '') NOT IN ('offline', 'no_website')",
+    ]
     params: list = []
 
     if target_id:
@@ -606,7 +703,13 @@ def run(
 
     if skip_with_fees:
         where_clauses.append(
-            "NOT EXISTS (SELECT 1 FROM extracted_fees ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')"
+            "NOT EXISTS (SELECT 1 FROM fees_raw fr WHERE fr.institution_id = ct.id)"
+        )
+        # Keep the read-only legacy fallback during the Tier-1 migration so an
+        # institution is not needlessly recrawled if its backfill was incomplete.
+        where_clauses.append(
+            "NOT EXISTS (SELECT 1 FROM extracted_fees ef "
+            "WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected')"
         )
 
     if new_only:
@@ -615,19 +718,25 @@ def run(
     where_sql = " AND ".join(where_clauses)
 
     # Priority order:
-    # 1. Has fee URL but never crawled (last_success_at IS NULL)
-    # 2. Stale data (last_success_at > 90 days ago)
-    # 3. No extracted fees yet
-    # 4. Everything else, by asset size
+    # Atlas maintenance must not be starved by Magellan's hard rescue queue:
+    # 1. Previously successful but stale data
+    # 2. Truly new URLs that have never been attempted
+    # 3. Institutions with no canonical or legacy observations
+    # 4. Never-successful retries (owned contextually by Magellan)
+    # 5. Everything else, by asset size
     query = f"""SELECT ct.id, ct.institution_name, ct.fee_schedule_url, ct.document_type,
-                   ct.last_content_hash, ct.state_code, ct.asset_size, ct.charter_type
+                   ct.last_content_hash, ct.state_code, ct.asset_size, ct.charter_type,
+                   ct.cms_platform
             FROM crawl_targets ct
             WHERE {where_sql}
             ORDER BY
-              CASE WHEN ct.last_success_at IS NULL THEN 0
-                   WHEN ct.last_success_at < datetime('now', '-90 days') THEN 1
-                   WHEN NOT EXISTS (SELECT 1 FROM extracted_fees ef2 WHERE ef2.crawl_target_id = ct.id) THEN 2
-                   ELSE 3 END,
+              CASE WHEN ct.last_success_at IS NOT NULL
+                         AND ct.last_success_at < datetime('now', '-90 days') THEN 0
+                   WHEN ct.last_crawl_at IS NULL THEN 1
+                   WHEN NOT EXISTS (SELECT 1 FROM fees_raw fr2 WHERE fr2.institution_id = ct.id)
+                    AND NOT EXISTS (SELECT 1 FROM extracted_fees ef2 WHERE ef2.crawl_target_id = ct.id) THEN 2
+                   WHEN ct.last_success_at IS NULL THEN 3
+                   ELSE 4 END,
               ct.last_success_at ASC NULLS FIRST,
               ct.asset_size DESC NULLS LAST"""
     if limit and limit > 0:
@@ -641,12 +750,17 @@ def run(
         print("No institutions with fee schedule URLs to crawl.")
         return
 
+    # Do not create telemetry rows for no-op or invalid requests. A run row now
+    # means that extraction work actually started.
+    run_id = db.insert_returning_id(
+        """INSERT INTO crawl_runs (trigger_type, targets_total, heartbeat_at)
+           VALUES (?, ?, datetime('now'))""",
+        ("manual", total),
+    )
+    db.commit()
+
     # Convert RealDictRow rows to plain dicts (needed for thread safety)
     targets = [dict(t) for t in targets]
-
-    # Update run with target count
-    db.execute("UPDATE crawl_runs SET targets_total = ? WHERE id = ?", (total, run_id))
-    db.commit()
 
     # Log how many were skipped by circuit breaker
     if not include_failing:
@@ -672,10 +786,23 @@ def run(
 
     if stealth:
         print("  STEALTH MODE: all fetches will use Playwright stealth")
-    if workers <= 1:
-        _run_serial(targets, config, run_id, dry_run, total, db, limiter, stealth=stealth)
-    else:
-        _run_concurrent(targets, config, run_id, dry_run, total, workers, db, limiter, stealth=stealth)
+    try:
+        if workers <= 1:
+            _run_serial(targets, config, run_id, dry_run, total, db, limiter, stealth=stealth)
+        else:
+            _run_concurrent(targets, config, run_id, dry_run, total, workers, db, limiter, stealth=stealth)
+    except BaseException:
+        db.rollback()
+        db.execute(
+            """UPDATE crawl_runs
+                  SET status = 'error', completed_at = datetime('now')
+                WHERE id = ? AND status = 'running'""",
+            (run_id,),
+        )
+        db.commit()
+        raise
+    finally:
+        _shutdown_agent_tool_loop()
 
 
 def _run_serial(
@@ -721,8 +848,12 @@ def _run_serial(
                     f"Fees: {stats['total_fees']} ---\n"
                 )
 
+            if i % 10 == 0:
+                _checkpoint_run(db, run_id, stats)
+
     except KeyboardInterrupt:
         print(f"\n\nInterrupted by user after {stats['crawled']} institutions.")
+        raise
 
     stats["duration_s"] = time.time() - _start
     _finalize_run(db, run_id, stats, total)
@@ -794,8 +925,12 @@ def _run_concurrent(
                         f"Rate: {rate:.0f}/hr ---\n"
                     )
 
+                if completed % 10 == 0:
+                    _checkpoint_run(db, run_id, stats)
+
     except KeyboardInterrupt:
         print(f"\n\nInterrupted by user after {completed} institutions.")
+        raise
 
     stats["duration_s"] = time.time() - start_time
     _finalize_run(db, run_id, stats, total)
@@ -806,16 +941,50 @@ def _run_concurrent(
         print(f"\n  Elapsed: {elapsed / 60:.1f} min | Rate: {rate:.0f} institutions/hr")
 
 
-def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
-    """Update crawl run record and print summary."""
+def _checkpoint_run(db: Database, run_id: int, stats: dict) -> None:
+    """Persist bounded crawl progress so operators can distinguish slow from stuck."""
     db.execute(
         """UPDATE crawl_runs
-           SET status = 'completed',
+              SET targets_crawled = ?, targets_succeeded = ?,
+                  targets_failed = ?, targets_unchanged = ?, fees_extracted = ?,
+                  heartbeat_at = datetime('now')
+            WHERE id = ? AND status = 'running'""",
+        (
+            stats["crawled"],
+            stats["succeeded"],
+            stats["failed"],
+            stats["unchanged"],
+            stats["total_fees"],
+            run_id,
+        ),
+    )
+    db.commit()
+
+
+def _crawl_terminal_status(stats: dict) -> str:
+    """Treat a batch with no usable outcome as a real execution failure."""
+    if (
+        stats["crawled"] > 0
+        and stats["succeeded"] == 0
+        and stats["unchanged"] == 0
+        and stats["failed"] >= stats["crawled"]
+    ):
+        return "error"
+    return "completed"
+
+
+def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
+    """Update crawl run record and print summary."""
+    terminal_status = _crawl_terminal_status(stats)
+    db.execute(
+        """UPDATE crawl_runs
+           SET status = ?,
                targets_crawled = ?, targets_succeeded = ?,
                targets_failed = ?, targets_unchanged = ?,
-               fees_extracted = ?, completed_at = datetime('now')
+               fees_extracted = ?, heartbeat_at = datetime('now'),
+               completed_at = datetime('now')
            WHERE id = ?""",
-        (stats["crawled"], stats["succeeded"], stats["failed"],
+        (terminal_status, stats["crawled"], stats["succeeded"], stats["failed"],
          stats["unchanged"], stats["total_fees"], run_id),
     )
     db.commit()
@@ -834,14 +1003,24 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     print(f"  Unchanged:  {stats['unchanged']}")
     print(f"  Fees found: {stats['total_fees']}")
 
-    # Fee status breakdown
-    status_rows = db.fetchall(
-        "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC"
-    )
-    if status_rows:
-        print(f"\n  Fee Inventory:")
-        for row in status_rows:
-            print(f"    {row['review_status']:<12s} {row['cnt']:>8,}")
+    # Canonical inventory. Each tier is a distinct lifecycle concept; do not
+    # collapse them into the legacy extracted_fees review queue.
+    inventory = db.fetchone("""
+        SELECT
+          (SELECT COUNT(*) FROM fees_raw) AS raw_fees,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status != 'rejected') AS verified_fees,
+          (SELECT COUNT(*) FROM fees_published WHERE rolled_back_at IS NULL) AS published_fees,
+          (SELECT COUNT(*) FROM fees_raw fr
+            WHERE NOT EXISTS (
+              SELECT 1 FROM fees_verified fv WHERE fv.fee_raw_id = fr.fee_raw_id
+            )) AS awaiting_darwin
+    """)
+    if inventory:
+        print("\n  Canonical Fee Inventory:")
+        print(f"    {'Tier 1 raw':<18s} {inventory['raw_fees']:>8,}")
+        print(f"    {'Awaiting Darwin':<18s} {inventory['awaiting_darwin']:>8,}")
+        print(f"    {'Tier 2 verified':<18s} {inventory['verified_fees']:>8,}")
+        print(f"    {'Tier 3 published':<18s} {inventory['published_fees']:>8,}")
 
     # Confidence distribution
     conf = db.fetchall("""
@@ -854,33 +1033,36 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
             ELSE '<0.70'
           END as range,
           COUNT(*) as cnt
-        FROM extracted_fees WHERE review_status != 'rejected'
+        FROM fees_raw
         GROUP BY range ORDER BY range DESC
     """)
     if conf:
-        print(f"\n  Confidence Distribution:")
+        print("\n  Confidence Distribution:")
         for row in conf:
             print(f"    {row['range']:<12s} {row['cnt']:>6,}")
 
     # Top categories
     cats = db.fetchall("""
-        SELECT fee_category, COUNT(DISTINCT crawl_target_id) as inst_cnt, COUNT(*) as cnt
-        FROM extracted_fees
-        WHERE fee_category IS NOT NULL AND review_status != 'rejected'
-        GROUP BY fee_category ORDER BY inst_cnt DESC LIMIT 10
+        SELECT canonical_fee_key, COUNT(DISTINCT institution_id) as inst_cnt, COUNT(*) as cnt
+        FROM fees_verified
+        WHERE review_status != 'rejected'
+        GROUP BY canonical_fee_key ORDER BY inst_cnt DESC LIMIT 10
     """)
     if cats:
-        print(f"\n  Top Categories:")
+        print("\n  Top Categories:")
         print(f"    {'Category':<28s} {'Inst':>6s} {'Fees':>6s}")
         for row in cats:
-            print(f"    {row['fee_category']:<28s} {row['inst_cnt']:>6,} {row['cnt']:>6,}")
+            print(f"    {row['canonical_fee_key']:<28s} {row['inst_cnt']:>6,} {row['cnt']:>6,}")
 
-    # Uncategorized remaining
+    # Raw observations that have not yet reached Darwin's verified tier.
     uncat = db.fetchone(
-        "SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'"
+        """SELECT COUNT(*) as cnt FROM fees_raw fr
+             WHERE NOT EXISTS (
+               SELECT 1 FROM fees_verified fv WHERE fv.fee_raw_id = fr.fee_raw_id
+             )"""
     )
     if uncat and uncat["cnt"] > 0:
-        print(f"\n  Uncategorized remaining: {uncat['cnt']:,}")
+        print(f"\n  Awaiting Darwin classification: {uncat['cnt']:,}")
 
     print(f"{'='*60}")
 
@@ -888,7 +1070,11 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     result = {
         "version": 1,
         "command": "crawl",
-        "status": "completed" if stats["failed"] == 0 else "partial",
+        "status": (
+            "failed" if terminal_status == "error"
+            else "completed" if stats["failed"] == 0
+            else "partial"
+        ),
         "duration_s": round(stats.get("duration_s", 0), 1),
         "processed": stats["crawled"],
         "succeeded": stats["succeeded"],
@@ -904,12 +1090,24 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
     try:
         snapshot = db.fetchone("""
             SELECT
-              (SELECT COUNT(*) FROM crawl_targets) as total,
-              (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL AND fee_schedule_url != '') as with_url,
-              (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
-              (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved,
-              (SELECT COUNT(*) FROM extracted_fees WHERE review_status != 'rejected') as total_fees,
-              (SELECT COUNT(*) FROM extracted_fees WHERE review_status = 'approved') as approved_fees
+              (SELECT COUNT(*) FROM crawl_targets
+                WHERE status = 'active'
+                  AND COALESCE(document_type, '') NOT IN ('offline', 'no_website')) as total,
+              (SELECT COUNT(*) FROM crawl_targets
+                WHERE status = 'active'
+                  AND COALESCE(document_type, '') NOT IN ('offline', 'no_website')
+                  AND fee_schedule_url IS NOT NULL AND fee_schedule_url != '') as with_url,
+              (SELECT COUNT(DISTINCT fr.institution_id) FROM fees_raw fr
+                JOIN crawl_targets ct ON ct.id = fr.institution_id
+                WHERE ct.status = 'active'
+                  AND COALESCE(ct.document_type, '') NOT IN ('offline', 'no_website')) as with_fees,
+              (SELECT COUNT(DISTINCT fp.institution_id) FROM fees_published fp
+                JOIN crawl_targets ct ON ct.id = fp.institution_id
+                WHERE ct.status = 'active'
+                  AND COALESCE(ct.document_type, '') NOT IN ('offline', 'no_website')
+                  AND fp.rolled_back_at IS NULL) as with_approved,
+              (SELECT COUNT(*) FROM fees_raw) as total_fees,
+              (SELECT COUNT(*) FROM fees_published WHERE rolled_back_at IS NULL) as approved_fees
         """)
         if snapshot:
             db.execute(
@@ -929,6 +1127,26 @@ def _finalize_run(db: Database, run_id: int, stats: dict, total: int) -> None:
             db.commit()
     except Exception:
         pass  # Don't fail the crawl if snapshot fails
+
+    if terminal_status == "error":
+        top_errors = db.fetchall(
+            """SELECT COALESCE(error_message, '(none)') AS error_message,
+                      COUNT(*) AS count
+                 FROM crawl_results
+                WHERE crawl_run_id = ?
+                GROUP BY COALESCE(error_message, '(none)')
+                ORDER BY count DESC
+                LIMIT 3""",
+            (run_id,),
+        )
+        summary = "; ".join(
+            f"{row['count']}x {str(row['error_message'])[:180]}"
+            for row in top_errors
+        )
+        raise RuntimeError(
+            f"Crawl run #{run_id} produced no successful or unchanged targets. "
+            f"Top errors: {summary or 'unknown'}"
+        )
 
 
 def _find_embedded_pdf_link(content: bytes, page_url: str) -> str | None:

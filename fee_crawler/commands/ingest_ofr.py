@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 
@@ -11,6 +11,7 @@ from fee_crawler.db import Database
 
 OFR_FSI_URL = "https://www.financialresearch.gov/financial-stress-index/data/fsi.json"
 MAX_RETRIES = 3
+REVISION_OVERLAP_DAYS = 14
 
 # Series to ingest from the FSI JSON.
 # Keys map to JSON top-level keys; values are (series_id, title) tuples.
@@ -58,7 +59,25 @@ def run(
         series_data = data.get(json_key, {})
         observations = series_data.get("data", [])
 
-        upserted = 0
+        effective_start_date = start_date
+        if effective_start_date is None:
+            latest = db.fetchone(
+                """SELECT MAX(observation_date) AS latest
+                     FROM fed_economic_indicators
+                    WHERE series_id = ?""",
+                (series_id,),
+            )
+            latest_value = latest.get("latest") if latest else None
+            if latest_value:
+                try:
+                    latest_date = date.fromisoformat(str(latest_value)[:10])
+                    effective_start_date = (
+                        latest_date - timedelta(days=REVISION_OVERLAP_DAYS)
+                    ).isoformat()
+                except ValueError:
+                    effective_start_date = None
+
+        rows: list[tuple] = []
         for obs in observations:
             if not isinstance(obs, list) or len(obs) < 2:
                 continue
@@ -67,23 +86,42 @@ def run(
             if value is None:
                 continue
 
-            date = _epoch_to_date(epoch_ms)
+            observation_date = _epoch_to_date(epoch_ms)
 
             # Filter by start date if provided
-            if start_date and date < start_date:
+            if effective_start_date and observation_date < effective_start_date:
                 continue
 
-            db.execute(
-                """INSERT OR REPLACE INTO fed_economic_indicators
-                   (series_id, series_title, fed_district, observation_date,
-                    value, units, frequency)
-                   VALUES (?, ?, NULL, ?, ?, ?, ?)""",
-                (series_id, title, date, float(value), "Index", "Daily"),
+            rows.append(
+                (
+                    series_id,
+                    title,
+                    None,
+                    observation_date,
+                    float(value),
+                    "Index",
+                    "Daily",
+                )
             )
-            upserted += 1
 
-        print(f"  {series_id}: {title} -- {upserted} observations")
-        total += upserted
+        if rows:
+            db.execute_values(
+                """INSERT INTO fed_economic_indicators
+                     (series_id, series_title, fed_district, observation_date,
+                      value, units, frequency)
+                   VALUES %s
+                   ON CONFLICT (series_id, observation_date)
+                   DO UPDATE SET
+                     series_title = EXCLUDED.series_title,
+                     value = EXCLUDED.value,
+                     units = EXCLUDED.units,
+                     frequency = EXCLUDED.frequency,
+                     fetched_at = NOW()""",
+                rows,
+            )
+
+        print(f"  {series_id}: {title} -- {len(rows)} observations")
+        total += len(rows)
 
     db.commit()
 

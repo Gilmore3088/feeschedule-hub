@@ -285,7 +285,7 @@ export function ReviewTable({ fees, canApprove, activeStatus, sortColumn, sortDi
                 <td className="px-4 py-2.5">
                   <Link
                     data-detail-link
-                    href={`/admin/review/${fee.id}`}
+                    href={`/admin/knox/fees/${fee.id}`}
                     className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
                   >
                     {fee.fee_name}

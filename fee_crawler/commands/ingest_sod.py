@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from datetime import date
 
 import requests
 
@@ -25,6 +26,11 @@ SOD_FIELDS = ",".join([
     "SIMS_LATITUDE",
     "SIMS_LONGITUDE",
 ])
+
+
+def _default_sod_year(*, today: date | None = None) -> int:
+    """SOD is annual; use the most recently completed calendar year."""
+    return (today or date.today()).year - 1
 
 
 def _safe_int(val: object) -> int | None:
@@ -49,7 +55,7 @@ def ingest_sod(
     db: Database,
     config: Config,
     *,
-    year: int = 2024,
+    year: int | None = None,
     limit: int | None = None,
 ) -> int:
     """Pull SOD branch-level deposit data from FDIC API.
@@ -57,6 +63,7 @@ def ingest_sod(
     Also computes market concentration (HHI) per MSA and stores in
     market_concentration table.
     """
+    year = year or _default_sod_year()
     base = f"{config.fdic_api.base_url}/sod"
     page_size = config.fdic_api.page_size
 
@@ -105,7 +112,10 @@ def ingest_sod(
         if not records:
             break
 
+        upsert_rows: list[tuple] = []
         for rec in records:
+            if limit and total_upserted + len(upsert_rows) >= limit:
+                break
             d = rec.get("data", {})
             cert = str(d.get("CERT", ""))
             target_id = cert_map.get(cert)
@@ -118,16 +128,32 @@ def ingest_sod(
                 msa_info["name"] = d.get("MSANAMB", "") or ""
                 msa_info["institutions"][cert] += deposits
 
-            try:
-                # Commit every 500 rows to prevent connection exhaustion
-                if total_upserted > 0 and total_upserted % 500 == 0:
-                    db.commit()
-                db.execute(
-                    """INSERT INTO branch_deposits
+            upsert_rows.append(
+                (
+                    int(cert) if cert else None,
+                    target_id,
+                    year,
+                    _safe_int(d.get("BRNUM")) or 0,
+                    _safe_int(d.get("BKMO")) == 1,
+                    deposits,
+                    d.get("STALPBR"),
+                    d.get("CITYBR"),
+                    _safe_int(d.get("CNTYNUMB")),
+                    msa_code,
+                    d.get("MSANAMB"),
+                    _safe_int(d.get("FED")),
+                    _safe_float(d.get("SIMS_LATITUDE")),
+                    _safe_float(d.get("SIMS_LONGITUDE")),
+                )
+            )
+
+        if upsert_rows:
+            db.execute_values(
+                """INSERT INTO branch_deposits
                        (cert, crawl_target_id, year, branch_number, is_main_office,
                         deposits, state, city, county_fips, msa_code, msa_name,
                         fed_district, latitude, longitude)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       VALUES %s
                        ON CONFLICT (cert, year, branch_number) DO UPDATE SET
                         crawl_target_id = EXCLUDED.crawl_target_id,
                         is_main_office = EXCLUDED.is_main_office,
@@ -140,26 +166,9 @@ def ingest_sod(
                         fed_district = EXCLUDED.fed_district,
                         latitude = EXCLUDED.latitude,
                         longitude = EXCLUDED.longitude""",
-                    (
-                        int(cert) if cert else None,
-                        target_id,
-                        year,
-                        _safe_int(d.get("BRNUM")) or 0,
-                        True if d.get("BKMO") == 1 else False,
-                        deposits,
-                        d.get("STALPBR"),
-                        d.get("CITYBR"),
-                        _safe_int(d.get("CNTYNUMB")),
-                        msa_code,
-                        d.get("MSANAMB"),
-                        _safe_int(d.get("FED")),
-                        _safe_float(d.get("SIMS_LATITUDE")),
-                        _safe_float(d.get("SIMS_LONGITUDE")),
-                    ),
-                )
-                total_upserted += 1
-            except Exception as e:
-                print(f"  Error for CERT {cert} branch {d.get('BRNUM')}: {e}")
+                upsert_rows,
+            )
+            total_upserted += len(upsert_rows)
 
         db.commit()
         offset += page_size
@@ -176,7 +185,7 @@ def ingest_sod(
 
     # Compute HHI per MSA
     print(f"\nComputing market concentration for {len(msa_deposits):,} MSAs...")
-    hhi_count = 0
+    hhi_rows: list[tuple] = []
     for msa_code, info in msa_deposits.items():
         inst_deposits = info["institutions"]
         total_dep = sum(inst_deposits.values())
@@ -191,23 +200,27 @@ def ingest_sod(
         sorted_shares = sorted(shares, reverse=True)
         top3 = sum(sorted_shares[:3])
 
-        db.execute(
+        hhi_rows.append(
+            (year, msa_code, info["name"], total_dep, len(inst_deposits), hhi, round(top3, 2))
+        )
+
+    if hhi_rows:
+        db.execute_values(
             """INSERT INTO market_concentration
                (year, msa_code, msa_name, total_deposits, institution_count, hhi, top3_share)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
+               VALUES %s
                ON CONFLICT (year, msa_code) DO UPDATE SET
                 msa_name = EXCLUDED.msa_name,
                 total_deposits = EXCLUDED.total_deposits,
                 institution_count = EXCLUDED.institution_count,
                 hhi = EXCLUDED.hhi,
                 top3_share = EXCLUDED.top3_share""",
-            (year, msa_code, info["name"], total_dep, len(inst_deposits), hhi, round(top3, 2)),
+            hhi_rows,
         )
-        hhi_count += 1
 
     db.commit()
 
-    print(f"\nSOD ingestion complete: {total_upserted:,} branches, {hhi_count:,} MSA concentrations")
+    print(f"\nSOD ingestion complete: {total_upserted:,} branches, {len(hhi_rows):,} MSA concentrations")
     return total_upserted
 
 
@@ -215,10 +228,11 @@ def run(
     db: Database,
     config: Config,
     *,
-    year: int = 2024,
+    year: int | None = None,
     limit: int | None = None,
 ) -> None:
     """Entry point for the CLI command."""
+    year = year or _default_sod_year()
     ingest_sod(db, config, year=year, limit=limit)
 
     branch_cnt = db.fetchone("SELECT COUNT(*) as cnt FROM branch_deposits")

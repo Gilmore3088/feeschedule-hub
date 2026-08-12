@@ -10,12 +10,34 @@
 
 import { NextResponse } from "next/server";
 import { getJobFreshness } from "@/lib/admin-queries";
+import { getAutomationControl } from "@/lib/automation-control";
+import { sql } from "@/lib/crawler-db/connection";
+import { isJobHealthDegraded } from "@/lib/job-health";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
-  const health = await getJobFreshness();
-  const degraded = health.stale_count > 0 || health.never_ran_count > 0;
+  const [scheduleHealth, control, counts] = await Promise.all([
+    getJobFreshness(),
+    getAutomationControl(),
+    sql`
+      SELECT
+        (SELECT COUNT(*)::int FROM agent_events
+          WHERE status = 'error'
+            AND created_at >= NOW() - INTERVAL '24 hours') AS agent_errors,
+        (SELECT COUNT(*)::int FROM ai_api_usage_events
+          WHERE status = 'failed'
+            AND created_at >= NOW() - INTERVAL '24 hours') AS provider_failures
+    `,
+  ]);
+  const health = {
+    ...scheduleHealth,
+    automation_enabled: control.enabled,
+    automation_changed_at: control.changedAt,
+    agent_error_count_24h: Number(counts[0]?.agent_errors ?? 0),
+    provider_failure_count_24h: Number(counts[0]?.provider_failures ?? 0),
+  };
+  const degraded = isJobHealthDegraded(health);
   return NextResponse.json(health, { status: degraded ? 503 : 200 });
 }

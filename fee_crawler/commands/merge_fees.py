@@ -28,6 +28,8 @@ def merge_institution_fees(
     validated: list[tuple],
     categories: list[str | None],
     fee_families: list[str | None],
+    *,
+    extracted_by: str = "claude",
 ) -> dict:
     """Merge new fees for one institution against existing data.
 
@@ -89,8 +91,10 @@ def merge_institution_fees(
             if amounts_match:
                 # Unchanged — keep existing fee, update crawl_result_id only
                 db.execute(
-                    "UPDATE extracted_fees SET crawl_result_id = ? WHERE id = ?",
-                    (result_id, old["id"]),
+                    """UPDATE extracted_fees
+                       SET crawl_result_id = ?, extracted_by = ?
+                       WHERE id = ?""",
+                    (result_id, extracted_by, old["id"]),
                 )
                 stats["unchanged"] += 1
                 if old["review_status"] == "approved":
@@ -129,10 +133,11 @@ def merge_institution_fees(
                     """UPDATE extracted_fees
                        SET fee_name = ?, amount = ?, frequency = ?, conditions = ?,
                            extraction_confidence = ?, review_status = 'staged',
-                           validation_flags = ?, crawl_result_id = ?
+                           validation_flags = ?, crawl_result_id = ?, extracted_by = ?
                        WHERE id = ?""",
                     (fee.fee_name, new_amount, frequency, fee.conditions,
-                     fee.confidence, flags_to_json(flags), result_id, old["id"]),
+                     fee.confidence, flags_to_json(flags), result_id,
+                     extracted_by, old["id"]),
                 )
 
                 # Audit trail
@@ -151,12 +156,13 @@ def merge_institution_fees(
                    (crawl_result_id, crawl_target_id, fee_name, amount,
                     frequency, conditions, extraction_confidence,
                     review_status, validation_flags,
-                    fee_category, fee_family, canonical_fee_key, variant_type)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    fee_category, fee_family, canonical_fee_key, variant_type,
+                    extracted_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (result_id, target_id, fee.fee_name, fee.amount,
                  frequency, fee.conditions, fee.confidence,
                  review_status, flags_to_json(flags),
-                 fee_category, fee_family, canonical_key, variant),
+                 fee_category, fee_family, canonical_key, variant, extracted_by),
             )
             if review_status == "approved":
                 stats["approved"] += 1

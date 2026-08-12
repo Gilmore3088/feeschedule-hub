@@ -44,7 +44,7 @@ class _DbConnectedAgent:
             raise RuntimeError(
                 "DATABASE_URL is not set in the dispatcher process environment"
             )
-        return await asyncpg.connect(db_url)
+        return await asyncpg.connect(db_url, statement_cache_size=0)
 
 
 class DarwinAgent(_DbConnectedAgent):

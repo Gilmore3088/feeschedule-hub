@@ -1,5 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { BarChart3, ExternalLink } from "lucide-react";
 import { getCurrentUser, type User } from "@/lib/auth";
 import { LogoutButton } from "./logout-button";
 import { AdminNav, AdminNavInline } from "./admin-nav";
@@ -28,6 +31,11 @@ async function AdminLayoutInner({
 }: {
   children: React.ReactNode;
 }) {
+  const requestHeaders = await headers();
+  if (requestHeaders.get("x-bfi-admin-login-route") === "1") {
+    return <>{children}</>;
+  }
+
   let user: User | null = null;
   try {
     user = await getCurrentUser();
@@ -36,12 +44,11 @@ async function AdminLayoutInner({
   }
 
   if (!user) {
-    return <>{children}</>;
+    redirect("/admin/login");
   }
 
   // Only admin can access the admin panel
   if (user.role !== "admin") {
-    const { redirect } = await import("next/navigation");
     redirect("/account");
   }
 
@@ -79,20 +86,11 @@ async function AdminLayoutInner({
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               aria-label="Bank Fee Index — Dashboard"
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
+              <BarChart3
                 aria-hidden="true"
                 className="h-[18px] w-[18px] text-[var(--brand-primary)]"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="4" y="13" width="4" height="8" rx="1" />
-                <rect x="10" y="8" width="4" height="13" rx="1" />
-                <rect x="16" y="3" width="4" height="18" rx="1" />
-              </svg>
+                strokeWidth={1.8}
+              />
               <span className="text-[13px] font-extrabold tracking-tight text-gray-900 dark:text-gray-100 hidden sm:inline">
                 Bank Fee Index
               </span>
@@ -133,16 +131,7 @@ async function AdminLayoutInner({
               href="/"
               className="flex items-center gap-2 text-[11px] text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors font-medium"
             >
-              <svg
-                className="w-3 h-3"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              >
-                <path d="M6 12H3.5a1 1 0 01-1-1V5a1 1 0 011-1H6M10.5 12l3.5-4-3.5-4M6.5 8h7" />
-              </svg>
+              <ExternalLink className="size-3" strokeWidth={1.5} />
               Public site
             </Link>
           </div>

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { unstable_noStore } from "next/cache";
+import { unstable_cache, unstable_noStore } from "next/cache";
 import type { Metadata } from "next";
 import { fetchHomeBriefingData, fetchHomeBriefingSignals } from "@/lib/hamilton/home-data";
 import { getCurrentUser } from "@/lib/auth";
@@ -11,7 +11,13 @@ import { MonitorFeedPreview } from "@/components/hamilton/home/MonitorFeedPrevie
 import { RecommendedActionCard } from "@/components/hamilton/home/RecommendedActionCard";
 import type { HomeBriefingSignals } from "@/lib/hamilton/home-data";
 
-export const revalidate = 86400; // Per D-09: 24h ISR for thesis generation cost control
+export const dynamic = "force-dynamic";
+
+const getCachedHomeBriefing = unstable_cache(
+  fetchHomeBriefingData,
+  ["hamilton-home-briefing"],
+  { revalidate: 86400 },
+);
 
 export const metadata: Metadata = { title: "Executive Briefing" };
 
@@ -76,7 +82,7 @@ async function BriefingSignals() {
 }
 
 export default async function HamiltonHomePage() {
-  const data = await fetchHomeBriefingData();
+  const data = await getCachedHomeBriefing();
 
   return (
     <div>

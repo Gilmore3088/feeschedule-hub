@@ -1,6 +1,8 @@
 // src/lib/scout/audit-agents.ts
 
 import Anthropic from "@anthropic-ai/sdk";
+import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
+import { modalInternalSecret } from "@/lib/modal-endpoints";
 import type { InstitutionRow } from "./types";
 import type { AuditResult, DiscoveryResponse } from "./audit-types";
 import {
@@ -284,6 +286,7 @@ export async function discoverer(
       body: JSON.stringify({
         website_url: websiteUrl,
         institution_id: institution.id,
+        internal_secret: modalInternalSecret(),
       }),
       signal: controller.signal,
     });
@@ -473,11 +476,14 @@ export async function aiScout(
 
   emit(`Found ${links.length} links — sending to Claude...`);
 
-  const response = await claude.messages.create(
-    {
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 500,
-      system: `You find fee schedule URLs on bank/credit union websites. Given a list of links from an institution's homepage, identify which URL most likely leads to their fee schedule, schedule of fees, or fee disclosure document.
+  const model = "claude-sonnet-4-20250514";
+  const response = await trackAnthropicRequest(
+    { model, agent: "magellan", operation: "audit_fee_url" },
+    () => claude.messages.create(
+      {
+        model,
+        max_tokens: 500,
+        system: `You find fee schedule URLs on bank/credit union websites. Given a list of links from an institution's homepage, identify which URL most likely leads to their fee schedule, schedule of fees, or fee disclosure document.
 
 Return ONLY raw JSON:
 {"url": "https://...", "confidence": 0.8, "reasoning": "one sentence"}
@@ -490,8 +496,9 @@ If no link looks like a fee schedule, return:
           content: `Institution: ${institution.institution_name}\nWebsite: ${websiteUrl}\n\nLinks found on homepage:\n${links.slice(0, 50).map((l) => `- ${l.text}: ${l.href}`).join("\n")}`,
         },
       ],
-    },
-    { timeout: 30_000 }
+      },
+      { timeout: 30_000 },
+    ),
   );
 
   // Estimate cost

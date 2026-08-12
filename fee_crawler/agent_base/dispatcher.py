@@ -26,6 +26,7 @@ import json
 import logging
 
 from fee_crawler.agent_tools.pool import get_pool
+from fee_crawler.ai_usage import assert_automation_enabled_async, EmergencyStopActive
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +48,12 @@ async def dispatch_ticks(*, window_minutes: int = 10) -> dict:
     """
     pool = await get_pool()
     stats = {"dispatched": 0, "errors": 0, "skipped": 0}
+
+    try:
+        await assert_automation_enabled_async("agent review dispatcher")
+    except EmergencyStopActive:
+        stats["skipped"] = 1
+        return stats
 
     # Step 1: claim a batch of pending ticks atomically.
     # FOR UPDATE SKIP LOCKED partitions contention across concurrent dispatchers,
@@ -82,6 +89,14 @@ async def dispatch_ticks(*, window_minutes: int = 10) -> dict:
     for event_id, created_at, agent_name in claims:
         info = AGENT_CLASSES.get(agent_name)
         if info is None:
+            if agent_name.startswith("state_"):
+                await _mark_skipped(
+                    event_id,
+                    created_at,
+                    "State collection is coordinated by Atlas/Magellan, not review ticks",
+                )
+                stats["skipped"] += 1
+                continue
             await _mark_error(
                 event_id,
                 created_at,
@@ -135,6 +150,23 @@ async def _mark_error(event_id, created_at, message: str) -> None:
             event_id,
             created_at,
             json.dumps({"error": message}),
+        )
+
+
+async def _mark_skipped(event_id, created_at, message: str) -> None:
+    """Resolve a retired review tick without reporting a false agent failure."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE agent_events
+                  SET status = 'success',
+                      output_payload = $3::JSONB
+                WHERE event_id = $1
+                  AND created_at = $2
+                  AND status = 'in_progress'""",
+            event_id,
+            created_at,
+            json.dumps({"skipped": True, "reason": message}),
         )
 
 

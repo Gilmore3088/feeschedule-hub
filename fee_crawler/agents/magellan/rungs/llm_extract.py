@@ -36,7 +36,11 @@ class LlmExtractRung:
 
             import anthropic
             client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-            result = await client.messages.create(
+            from fee_crawler.ai_usage import tracked_anthropic_call_async
+            result = await tracked_anthropic_call_async(
+                client.messages.create,
+                agent_name="magellan",
+                operation="extract_html_fees",
                 model="claude-haiku-4-5-20251001",
                 max_tokens=2048,
                 system=_PROMPT,

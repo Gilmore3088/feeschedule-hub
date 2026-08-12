@@ -10,6 +10,8 @@ DATABASE_URL_TEST=postgres://postgres:postgres@localhost:5433/bfi_test.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 
@@ -122,7 +124,7 @@ async def test_agent_registry_lifecycle_state_column(db_schema):
 
 @pytest.mark.asyncio
 async def test_agent_registry_review_schedule_seeded(db_schema):
-    """knox every 15 min; darwin hourly; state_agents every 4h."""
+    """Knox and Darwin retain review ticks; state collection is Atlas-owned."""
     _, pool = db_schema
     async with pool.acquire() as conn:
         col = await conn.fetchrow(
@@ -140,16 +142,40 @@ async def test_agent_registry_review_schedule_seeded(db_schema):
         )
         state_count = await conn.fetchval(
             "SELECT COUNT(*) FROM agent_registry "
-            "WHERE role = 'state_agent' AND review_schedule = '0 */4 * * *'"
+            "WHERE role = 'state_agent' AND review_schedule IS NOT NULL"
         )
     assert col is not None, "agent_registry.review_schedule column missing"
     assert col["data_type"] == "text"
     assert knox == "*/15 * * * *"
     assert darwin == "0 * * * *"
-    # 50 states + DC = 51 state_agents; allow >=51 in case future rows land.
-    assert state_count >= 51, (
-        f"expected >=51 state_agent rows with '0 */4 * * *' schedule; got {state_count}"
+    assert state_count == 0, (
+        "state agents are full collection pipelines and must not emit review ticks; "
+        f"found {state_count} scheduled rows"
     )
+
+
+@pytest.mark.asyncio
+async def test_agent_registry_includes_scout_audit_agents(db_schema):
+    """Scout/audit agent identities exist so downstream FK writes do not fail."""
+    _, pool = db_schema
+    expected = {"validator", "discoverer", "ai_scout", "reporter"}
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT agent_name, role
+              FROM agent_registry
+             WHERE agent_name = ANY($1::TEXT[])
+            """,
+            list(expected),
+        )
+    found = {str(row["agent_name"]) for row in rows}
+    missing = expected - found
+    assert not missing, f"agent_registry missing scout agents: {sorted(missing)}"
+    role_map = {str(row["agent_name"]): str(row["role"]) for row in rows}
+    assert role_map["validator"] == "data"
+    assert role_map["discoverer"] == "data"
+    assert role_map["ai_scout"] == "analyst"
+    assert role_map["reporter"] == "analyst"
 
 
 # ---------------------------------------------------------------------------
@@ -304,3 +330,84 @@ async def test_darwin_lifecycle_state_is_q2_high_confidence(db_schema):
     assert row["lifecycle_state"] == "q2_high_confidence", (
         "Darwin v1 spec requires q2_high_confidence lifecycle to permit auto-promote >= 0.90"
     )
+
+
+# ---------------------------------------------------------------------------
+# 20260810 — deployed Modal worker compatibility
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_modal_worker_compatibility_schema(db_schema):
+    """Legacy deployed workers and the new command center share one schema."""
+    _, pool = db_schema
+    async with pool.acquire() as conn:
+        digest_tables = await conn.fetch(
+            """
+            SELECT table_name
+              FROM information_schema.tables
+             WHERE table_schema = current_schema()
+               AND table_name = ANY($1::TEXT[])
+            """,
+            ["hamilton_digest_subscriptions", "hamilton_digest_runs"],
+        )
+        responded_at = await conn.fetchval(
+            """
+            SELECT column_name
+              FROM information_schema.columns
+             WHERE table_schema = current_schema()
+               AND table_name = 'agent_messages'
+               AND column_name = 'responded_at'
+            """
+        )
+
+    assert {row["table_name"] for row in digest_tables} == {
+        "hamilton_digest_subscriptions",
+        "hamilton_digest_runs",
+    }
+    assert responded_at == "responded_at"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_runs_checkpoint_schema(db_schema):
+    """Atlas can create, resume, and finish canonical pipeline checkpoints."""
+    _, pool = db_schema
+    expected = {
+        "ops_job_id",
+        "status",
+        "trigger_source",
+        "triggered_by",
+        "params_json",
+        "last_completed_phase",
+        "last_completed_job",
+        "config_json",
+        "started_at",
+        "completed_at",
+        "error_msg",
+        "finished_at",
+        "inst_count",
+        "summary_json",
+    }
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT column_name
+              FROM information_schema.columns
+             WHERE table_schema = current_schema()
+               AND table_name = 'pipeline_runs'
+            """
+        )
+
+    present = {row["column_name"] for row in rows}
+    assert not expected - present, (
+        f"pipeline_runs missing checkpoint columns: {sorted(expected - present)}"
+    )
+
+
+def test_crawl_run_heartbeat_migration_contract():
+    migration = Path(
+        "supabase/migrations/20260810_crawl_runs_heartbeat.sql"
+    ).read_text()
+
+    assert "ALTER TABLE crawl_runs" in migration
+    assert "heartbeat_at TIMESTAMPTZ" in migration

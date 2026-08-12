@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireAuth } from "@/lib/auth";
 import { createArticle, updateArticle, deleteArticle } from "@/lib/crawler-db/articles";
 
 export async function saveArticle(data: {
@@ -11,6 +12,7 @@ export async function saveArticle(data: {
   category: string;
   tags?: string[];
 }): Promise<{ success: boolean; id?: number; error?: string }> {
+  await requireAuth("edit");
   if (!data.title || !data.slug || !data.content) {
     return { success: false, error: "Title, slug, and content are required" };
   }
@@ -27,7 +29,7 @@ export async function saveArticle(data: {
       slug,
       generated_by: "content-writer",
     });
-    revalidatePath("/admin/research/articles");
+    revalidatePath("/admin/hamilton/research/articles");
     return { success: true, id };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to save article";
@@ -46,10 +48,11 @@ export async function updateArticleAction(
     status: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAuth("edit");
   try {
     const updated = await updateArticle(id, data);
     if (!updated) return { success: false, error: "Article not found" };
-    revalidatePath("/admin/research/articles");
+    revalidatePath("/admin/hamilton/research/articles");
     revalidatePath("/research/articles");
     return { success: true };
   } catch (e: unknown) {
@@ -61,10 +64,11 @@ export async function updateArticleAction(
 export async function deleteArticleAction(
   id: number
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAuth("edit");
   try {
     const deleted = await deleteArticle(id);
     if (!deleted) return { success: false, error: "Article not found" };
-    revalidatePath("/admin/research/articles");
+    revalidatePath("/admin/hamilton/research/articles");
     return { success: true };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to delete article";

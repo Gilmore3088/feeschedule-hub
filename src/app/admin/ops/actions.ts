@@ -46,12 +46,10 @@ export async function cancelOpsJob(
     await requireOpsPermission("cancel_jobs");
 
     const cancelled = await cancelJob(jobId);
-    if (!cancelled) {
-      return { success: false, error: "Job not found or not cancellable" };
-    }
+    if (!cancelled.success) return cancelled;
 
     revalidatePath("/admin/ops");
-    return { success: true };
+    return cancelled;
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }

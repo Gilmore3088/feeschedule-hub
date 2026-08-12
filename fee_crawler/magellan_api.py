@@ -8,13 +8,14 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 import os
 from typing import AsyncIterator, Optional
 
 import asyncpg
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -23,7 +24,19 @@ from fee_crawler.agents.magellan.config import DEFAULT
 
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="magellan")
+def _require_internal_secret(
+    x_internal_secret: str | None = Header(default=None),
+) -> None:
+    configured = os.environ.get("MODAL_INTERNAL_SECRET") or os.environ.get(
+        "REPORT_INTERNAL_SECRET"
+    )
+    if not configured:
+        raise HTTPException(status_code=503, detail="internal secret is not configured")
+    if not x_internal_secret or not hmac.compare_digest(x_internal_secret, configured):
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+app = FastAPI(title="magellan", dependencies=[Depends(_require_internal_secret)])
 
 
 class BatchRequest(BaseModel):

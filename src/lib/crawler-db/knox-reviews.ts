@@ -181,21 +181,23 @@ function reviewStatusFragment(filter: ReviewFilter) {
 // JS regex branches in categorizeReason() exactly — keep the two in sync.
 // ~* is Postgres case-insensitive regex; payload is JSONB so ->> returns
 // TEXT or NULL (NULL naturally falls through to 'other').
-const REASON_CATEGORY_CASE = sql`
-  CASE
-    WHEN am.payload->>'reason' ~* '(outlier|extreme|out of range|implausible)' THEN 'outlier'
-    WHEN am.payload->>'reason' ~* '(duplicate|already|dedupe)' THEN 'duplicate'
-    WHEN am.payload->>'reason' ~* '(confidence|low[-_ ]confidence|uncertain)' THEN 'low_confidence'
-    WHEN am.payload->>'reason' ~* '(schema|shape|missing field|missing amount|malformed)' THEN 'schema_mismatch'
-    WHEN am.payload->>'reason' ~* '(canonical|fee[_ ]key|taxonomy)' THEN 'canonical_miss'
-    WHEN am.payload->>'reason' ~* '(policy|contract|governance|disallowed)' THEN 'policy_violation'
-    ELSE 'other'
-  END
-`;
+function reasonCategoryCase() {
+  return sql`
+    CASE
+      WHEN am.payload->>'reason' ~* '(outlier|extreme|out of range|implausible)' THEN 'outlier'
+      WHEN am.payload->>'reason' ~* '(duplicate|already|dedupe)' THEN 'duplicate'
+      WHEN am.payload->>'reason' ~* '(confidence|low[-_ ]confidence|uncertain)' THEN 'low_confidence'
+      WHEN am.payload->>'reason' ~* '(schema|shape|missing field|missing amount|malformed)' THEN 'schema_mismatch'
+      WHEN am.payload->>'reason' ~* '(canonical|fee[_ ]key|taxonomy)' THEN 'canonical_miss'
+      WHEN am.payload->>'reason' ~* '(policy|contract|governance|disallowed)' THEN 'policy_violation'
+      ELSE 'other'
+    END
+  `;
+}
 
 function reasonCategoryFragment(category: KnoxReasonCategory | "all") {
   if (category === "all") return sql`TRUE`;
-  return sql`(${REASON_CATEGORY_CASE}) = ${category}`;
+  return sql`(${reasonCategoryCase()}) = ${category}`;
 }
 
 export const KNOX_REVIEWS_PAGE_SIZE = 25;
@@ -270,7 +272,7 @@ export async function listKnoxRejections(
         ko.decision AS review_decision,
         ko.created_at AS reviewed_at,
         u.username AS reviewer_username,
-        (${REASON_CATEGORY_CASE})::text AS reason_category
+        (${reasonCategoryCase()})::text AS reason_category
       FROM agent_messages am
       LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
       LEFT JOIN users u ON u.id = ko.reviewer_id

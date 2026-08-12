@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { sql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
 import { spawnJob } from "@/lib/job-runner";
+import {
+  bulkSetInstitutionFeeUrls,
+  createInstitutionCommand,
+  setInstitutionFeeUrl,
+} from "@/lib/institution-commands";
 
 export async function runCrawlGaps(): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
@@ -41,7 +45,13 @@ export async function runAutoReview(): Promise<{ success: boolean; jobId?: numbe
 export async function runSmartPipeline(): Promise<{ success: boolean; jobId?: number; error?: string }> {
   const user = await requireAuth("trigger_jobs");
   try {
-    const result = await spawnJob("run-pipeline", ["--limit", "100"], user.username);
+    const result = await spawnJob(
+      "pipeline",
+      ["--limit", "100"],
+      user.username,
+      undefined,
+      { agent: "atlas", idempotencyKey: "atlas:full-cycle" },
+    );
     revalidatePath("/admin/pipeline");
     return { success: true, jobId: result.jobId };
   } catch (e) {
@@ -116,93 +126,18 @@ export async function addInstitution(
   websiteUrl?: string,
   feeScheduleUrl?: string,
 ): Promise<{ success: boolean; id?: number; error?: string }> {
-  await requireAuth("edit");
-  if (!name || name.trim().length < 2) return { success: false, error: "Name is required" };
-  if (!/^[A-Z]{2}$/.test(stateCode)) return { success: false, error: "Invalid state code" };
-
-  try {
-    const [result] = await sql`
-      INSERT INTO crawl_targets (institution_name, state_code, charter_type, website_url, fee_schedule_url, source, status)
-      VALUES (${name.trim()}, ${stateCode}, ${charterType}, ${websiteUrl || null}, ${feeScheduleUrl || null}, 'manual', 'active')
-      RETURNING id
-    `;
-    revalidatePath("/admin/pipeline");
-    return { success: true, id: Number(result.id) };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
+  return createInstitutionCommand({ name, stateCode, charterType, websiteUrl, feeScheduleUrl });
 }
 
 export async function setFeeScheduleUrl(
   institutionId: number,
   url: string
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAuth("edit");
-  if (!url || !url.startsWith("http")) {
-    return { success: false, error: "Invalid URL" };
-  }
-
-  try {
-    const result = await sql`
-      UPDATE crawl_targets SET fee_schedule_url = ${url} WHERE id = ${institutionId}
-    `;
-    if (result.count === 0) {
-      return { success: false, error: "Institution not found" };
-    }
-    revalidatePath("/admin/pipeline");
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
+  return setInstitutionFeeUrl(institutionId, url);
 }
 
 export async function bulkImportUrls(
   csvText: string
 ): Promise<{ success: boolean; updated: number; errors: string[] }> {
-  await requireAuth("edit");
-  const lines = csvText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith("institution_id"));
-
-  const errors: string[] = [];
-  const updates: { id: number; url: string }[] = [];
-
-  for (const line of lines) {
-    const parts = line.split(/[,\t]/).map((p) => p.trim());
-    if (parts.length < 2) {
-      errors.push(`Invalid line: ${line}`);
-      continue;
-    }
-    const id = parseInt(parts[0], 10);
-    const url = parts[1];
-    if (isNaN(id)) {
-      errors.push(`Invalid ID: ${parts[0]}`);
-      continue;
-    }
-    if (!url.startsWith("http")) {
-      errors.push(`Invalid URL for ID ${id}: ${url}`);
-      continue;
-    }
-    updates.push({ id, url });
-  }
-
-  if (updates.length === 0) {
-    return { success: false, updated: 0, errors: errors.length > 0 ? errors : ["No valid rows found"] };
-  }
-
-  try {
-    let count = 0;
-    await sql.begin(async (tx: any) => {
-      for (const u of updates) {
-        const r = await tx`UPDATE crawl_targets SET fee_schedule_url = ${u.url} WHERE id = ${u.id}`;
-        if (r.count > 0) count++;
-        else errors.push(`Institution ID ${u.id} not found`);
-      }
-    });
-    revalidatePath("/admin/pipeline");
-    return { success: true, updated: count, errors };
-  } catch (e) {
-    return { success: false, updated: 0, errors: [...errors, String(e)] };
-  }
+  return bulkSetInstitutionFeeUrls(csvText);
 }

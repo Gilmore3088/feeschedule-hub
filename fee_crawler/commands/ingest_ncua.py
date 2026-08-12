@@ -17,7 +17,7 @@ import json
 import os
 import time
 import zipfile
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import psycopg2
 import psycopg2.extras
@@ -25,10 +25,6 @@ import requests
 
 # NCUA bulk data URL -- quarterly ZIP of CSV files.
 NCUA_ZIP_BASE = "https://ncua.gov/files/publications/analysis/call-report-data-{year}-{month:02d}.zip"
-
-# Default to most recent available quarter.
-NCUA_DEFAULT_YEAR = 2025
-NCUA_DEFAULT_MONTH = 12
 
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2
@@ -203,6 +199,8 @@ def _upsert_financials(cur, financials: dict, branch_counts: dict,
     Returns stats dict with matched, unmatched, errors counts.
     """
     stats = {"matched": 0, "unmatched": 0, "errors": 0}
+    matched_rows: list[tuple] = []
+    unmatched_rows: list[tuple] = []
 
     for cu_num, rec in financials.items():
         if limit and (stats["matched"] + stats["unmatched"]) >= limit:
@@ -264,96 +262,76 @@ def _upsert_financials(cur, financials: dict, branch_counts: dict,
             json.dumps(rec.get("raw", {})),
         )
 
-        try:
-            if target_id is not None:
-                cur.execute(
-                    """INSERT INTO institution_financials
-                       (crawl_target_id, source_cert_number, report_date, source,
-                        total_assets, total_deposits, total_loans,
-                        service_charge_income, other_noninterest_income,
-                        net_interest_margin, efficiency_ratio,
-                        roa, roe, tier1_capital_ratio,
-                        branch_count, employee_count, member_count,
-                        total_revenue, fee_income_ratio,
-                        raw_json)
-                       VALUES (%s, %s, %s, 'ncua',
-                               %s, %s, %s,
-                               %s, %s,
-                               %s, %s,
-                               %s, %s, %s,
-                               %s, %s, %s,
-                               %s, %s,
-                               %s)
-                       ON CONFLICT (crawl_target_id, report_date, source)
-                         DO UPDATE SET
-                         total_assets = EXCLUDED.total_assets,
-                         total_deposits = EXCLUDED.total_deposits,
-                         total_loans = EXCLUDED.total_loans,
-                         service_charge_income = EXCLUDED.service_charge_income,
-                         other_noninterest_income = EXCLUDED.other_noninterest_income,
-                         net_interest_margin = EXCLUDED.net_interest_margin,
-                         efficiency_ratio = EXCLUDED.efficiency_ratio,
-                         roa = EXCLUDED.roa,
-                         roe = EXCLUDED.roe,
-                         tier1_capital_ratio = EXCLUDED.tier1_capital_ratio,
-                         branch_count = EXCLUDED.branch_count,
-                         employee_count = EXCLUDED.employee_count,
-                         member_count = EXCLUDED.member_count,
-                         total_revenue = EXCLUDED.total_revenue,
-                         fee_income_ratio = EXCLUDED.fee_income_ratio,
-                         raw_json = EXCLUDED.raw_json,
-                         fetched_at = NOW()""",
-                    (target_id, cu_num, rec["report_date"], *values),
-                )
-                stats["matched"] += 1
-            else:
-                cur.execute(
-                    """INSERT INTO institution_financials
-                       (crawl_target_id, source_cert_number, report_date, source,
-                        total_assets, total_deposits, total_loans,
-                        service_charge_income, other_noninterest_income,
-                        net_interest_margin, efficiency_ratio,
-                        roa, roe, tier1_capital_ratio,
-                        branch_count, employee_count, member_count,
-                        total_revenue, fee_income_ratio,
-                        raw_json)
-                       VALUES (NULL, %s, %s, 'ncua',
-                               %s, %s, %s,
-                               %s, %s,
-                               %s, %s,
-                               %s, %s, %s,
-                               %s, %s, %s,
-                               %s, %s,
-                               %s)
-                       ON CONFLICT (source_cert_number, report_date, source)
-                         WHERE crawl_target_id IS NULL
-                         DO UPDATE SET
-                         total_assets = EXCLUDED.total_assets,
-                         total_deposits = EXCLUDED.total_deposits,
-                         total_loans = EXCLUDED.total_loans,
-                         service_charge_income = EXCLUDED.service_charge_income,
-                         other_noninterest_income = EXCLUDED.other_noninterest_income,
-                         net_interest_margin = EXCLUDED.net_interest_margin,
-                         efficiency_ratio = EXCLUDED.efficiency_ratio,
-                         roa = EXCLUDED.roa,
-                         roe = EXCLUDED.roe,
-                         tier1_capital_ratio = EXCLUDED.tier1_capital_ratio,
-                         branch_count = EXCLUDED.branch_count,
-                         employee_count = EXCLUDED.employee_count,
-                         member_count = EXCLUDED.member_count,
-                         total_revenue = EXCLUDED.total_revenue,
-                         fee_income_ratio = EXCLUDED.fee_income_ratio,
-                         raw_json = EXCLUDED.raw_json,
-                         fetched_at = NOW()""",
-                    (cu_num, rec["report_date"], *values),
-                )
-                stats["unmatched"] += 1
-        except Exception as e:
-            stats["errors"] += 1
-            if stats["errors"] <= 5:
-                print(f"  Error for CU {cu_num}: {e}")
+        row = (target_id, cu_num, rec["report_date"], "ncua", *values)
+        if target_id is not None:
+            matched_rows.append(row)
+            stats["matched"] += 1
+        else:
+            unmatched_rows.append(row)
+            stats["unmatched"] += 1
+
+    insert_sql = """INSERT INTO institution_financials
+       (crawl_target_id, source_cert_number, report_date, source,
+        total_assets, total_deposits, total_loans,
+        service_charge_income, other_noninterest_income,
+        net_interest_margin, efficiency_ratio,
+        roa, roe, tier1_capital_ratio,
+        branch_count, employee_count, member_count,
+        total_revenue, fee_income_ratio, raw_json)
+       VALUES %s"""
+    update_sql = """ DO UPDATE SET
+       total_assets = EXCLUDED.total_assets,
+       total_deposits = EXCLUDED.total_deposits,
+       total_loans = EXCLUDED.total_loans,
+       service_charge_income = EXCLUDED.service_charge_income,
+       other_noninterest_income = EXCLUDED.other_noninterest_income,
+       net_interest_margin = EXCLUDED.net_interest_margin,
+       efficiency_ratio = EXCLUDED.efficiency_ratio,
+       roa = EXCLUDED.roa,
+       roe = EXCLUDED.roe,
+       tier1_capital_ratio = EXCLUDED.tier1_capital_ratio,
+       branch_count = EXCLUDED.branch_count,
+       employee_count = EXCLUDED.employee_count,
+       member_count = EXCLUDED.member_count,
+       total_revenue = EXCLUDED.total_revenue,
+       fee_income_ratio = EXCLUDED.fee_income_ratio,
+       raw_json = EXCLUDED.raw_json,
+       fetched_at = NOW()"""
+
+    if matched_rows:
+        psycopg2.extras.execute_values(
+            cur,
+            insert_sql
+            + " ON CONFLICT (crawl_target_id, report_date, source)"
+            + update_sql,
+            matched_rows,
+            page_size=1000,
+        )
+    if unmatched_rows:
+        psycopg2.extras.execute_values(
+            cur,
+            insert_sql
+            + " ON CONFLICT (source_cert_number, report_date, source)"
+            + " WHERE crawl_target_id IS NULL"
+            + update_sql,
+            unmatched_rows,
+            page_size=1000,
+        )
 
     return stats
+
+
+def _latest_released_quarter(*, today: date | None = None) -> tuple[int, int]:
+    """Choose the latest quarter old enough to have passed the release lag."""
+    cutoff = (today or date.today()) - timedelta(days=45)
+    completed = [
+        (date(cutoff.year, month, day), month)
+        for month, day in ((3, 31), (6, 30), (9, 30), (12, 31))
+        if date(cutoff.year, month, day) <= cutoff
+    ]
+    if completed:
+        return cutoff.year, completed[-1][1]
+    return cutoff.year - 1, 12
 
 
 def _iter_ncua_quarters(from_year: int) -> list[tuple[int, int]]:
@@ -394,7 +372,7 @@ def ingest_ncua_financials(
             parts = quarter.split("-")
             quarters_list = [(int(parts[0]), int(parts[1]))]
         else:
-            quarters_list = [(NCUA_DEFAULT_YEAR, NCUA_DEFAULT_MONTH)]
+            quarters_list = [_latest_released_quarter()]
 
         total_matched = 0
         total_unmatched = 0
@@ -435,13 +413,18 @@ def ingest_ncua_financials(
                 total_errors += 1
 
         print(f"\n{'='*60}")
-        print(f"NCUA 5300 Ingestion Summary")
+        print("NCUA 5300 Ingestion Summary")
         print(f"{'='*60}")
         print(f"  Quarters processed:  {quarters_processed}")
         print(f"  Rows matched:        {total_matched:,}")
         print(f"  Rows unmatched:      {total_unmatched:,}")
         print(f"  Total upserted:      {total_matched + total_unmatched:,}")
         print(f"  Errors:              {total_errors:,}")
+
+        if total_errors:
+            raise RuntimeError(
+                f"NCUA ingestion completed with {total_errors} source or quarter errors"
+            )
 
         return total_matched + total_unmatched
 

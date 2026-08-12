@@ -1,9 +1,10 @@
-import FeeScout from "@/components/scout/FeeScout";
+import { permanentRedirect } from "next/navigation";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 
-export const metadata = {
-  title: "FeeScout - Bank Fee Index",
-};
-
-export default function ScoutPage() {
-  return <FeeScout />;
+export default async function ScoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  permanentRedirect(buildLegacyAdminPath("/admin/hamilton/research", await searchParams));
 }

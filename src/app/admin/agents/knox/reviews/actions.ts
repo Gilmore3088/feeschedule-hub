@@ -70,6 +70,8 @@ export async function confirmRejection(
     clearKnoxReviewCountsCache();
     revalidatePath("/admin/agents/knox/reviews");
     revalidatePath(`/admin/agents/knox/reviews/${messageId}`);
+    revalidatePath("/admin/knox");
+    revalidatePath(`/admin/knox/decisions/${messageId}`);
     return { success: true };
   } catch (e) {
     console.error("confirmRejection failed:", e);
@@ -253,6 +255,8 @@ export async function overrideRejection(
     clearKnoxReviewCountsCache();
     revalidatePath("/admin/agents/knox/reviews");
     revalidatePath(`/admin/agents/knox/reviews/${messageId}`);
+    revalidatePath("/admin/knox");
+    revalidatePath(`/admin/knox/decisions/${messageId}`);
     return { success: true, promoted_fee_published_id: publishedId };
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);

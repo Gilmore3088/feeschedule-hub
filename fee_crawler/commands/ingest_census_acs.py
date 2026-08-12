@@ -57,8 +57,11 @@ def _fetch_acs(
         try:
             resp = requests.get(url, params=params, timeout=30)
             resp.raise_for_status()
-            return resp.json()
-        except requests.exceptions.RequestException as e:
+            payload = resp.json()
+            if not isinstance(payload, list):
+                raise ValueError("Census API returned a non-tabular response")
+            return payload
+        except (requests.exceptions.RequestException, ValueError) as e:
             if attempt < MAX_RETRIES - 1:
                 print(f"  Retry {attempt + 1}/{MAX_RETRIES}: {e}")
                 time.sleep(2 ** attempt)
@@ -77,6 +80,28 @@ def _safe_int(val: str | None) -> int | None:
         return None
 
 
+def _upsert_demographics(db: Database, rows: list[tuple]) -> None:
+    """Persist one API response without a database round trip per geography."""
+    if not rows:
+        return
+    db.execute_values(
+        """INSERT INTO demographics
+             (geo_id, geo_type, geo_name, state_fips, county_fips,
+              median_household_income, poverty_count, total_population, year)
+           VALUES %s
+           ON CONFLICT (geo_id, geo_type, year) DO UPDATE SET
+             geo_name = EXCLUDED.geo_name,
+             state_fips = EXCLUDED.state_fips,
+             county_fips = EXCLUDED.county_fips,
+             median_household_income = EXCLUDED.median_household_income,
+             poverty_count = EXCLUDED.poverty_count,
+             total_population = EXCLUDED.total_population,
+             fetched_at = NOW()""",
+        rows,
+        page_size=1000,
+    )
+
+
 def ingest_demographics(
     db: Database,
     api_key: str | None,
@@ -93,19 +118,25 @@ def ingest_demographics(
         if data is None:
             return 0
 
-        # First row is header
+        rows = []
         for row in data[1:]:
             name, income, poverty, pop, state_fips = row
             geo_id = f"state:{state_fips}"
-            db.execute(
-                """INSERT OR REPLACE INTO demographics
-                   (geo_id, geo_type, geo_name, state_fips, county_fips,
-                    median_household_income, poverty_count, total_population, year)
-                   VALUES (?, 'state', ?, ?, NULL, ?, ?, ?, ?)""",
-                (geo_id, name, state_fips, _safe_int(income),
-                 _safe_int(poverty), _safe_int(pop), year),
+            rows.append(
+                (
+                    geo_id,
+                    "state",
+                    name,
+                    state_fips,
+                    None,
+                    _safe_int(income),
+                    _safe_int(poverty),
+                    _safe_int(pop),
+                    year,
+                )
             )
             total_upserted += 1
+        _upsert_demographics(db, rows)
 
         print(f"    {total_upserted} states")
 
@@ -117,21 +148,26 @@ def ingest_demographics(
             if data is None:
                 continue
 
-            state_count = 0
+            rows = []
             for row in data[1:]:
                 name, income, poverty, pop, st, county = row
                 geo_id = f"county:{st}{county}"
-                db.execute(
-                    """INSERT OR REPLACE INTO demographics
-                       (geo_id, geo_type, geo_name, state_fips, county_fips,
-                        median_household_income, poverty_count, total_population, year)
-                       VALUES (?, 'county', ?, ?, ?, ?, ?, ?, ?)""",
-                    (geo_id, name, st, county, _safe_int(income),
-                     _safe_int(poverty), _safe_int(pop), year),
+                rows.append(
+                    (
+                        geo_id,
+                        "county",
+                        name,
+                        st,
+                        county,
+                        _safe_int(income),
+                        _safe_int(poverty),
+                        _safe_int(pop),
+                        year,
+                    )
                 )
-                state_count += 1
                 total_upserted += 1
 
+            _upsert_demographics(db, rows)
             db.commit()
             time.sleep(0.2)  # rate limit courtesy
 
@@ -151,9 +187,10 @@ def run(
     """Entry point for the CLI command."""
     api_key = _get_api_key()
     if not api_key:
-        print("Census API key not configured (requests may be rate-limited).")
-        print("Set CENSUS_API_KEY env var.")
-        print("Register free at: https://api.census.gov/data/key_signup.html")
+        raise RuntimeError(
+            "CENSUS_API_KEY is required; configure the Modal secret before "
+            "running Census ingestion"
+        )
 
     print(f"Ingesting Census ACS {level}-level demographics...")
 
@@ -165,6 +202,8 @@ def run(
         county_count = ingest_demographics(db, api_key, year=year, level="county")
 
     total = state_count + county_count
+    if total == 0:
+        raise RuntimeError("Census API returned no demographic rows")
     print(f"\nCensus ACS ingestion complete: {total:,} rows upserted")
 
     # Summary

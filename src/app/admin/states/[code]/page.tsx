@@ -91,7 +91,6 @@ export default async function StateDetailPage({
       {/* Institution Table */}
       <SortableInstitutionTable
         institutions={institutions}
-        stateCode={stateCode}
       />
 
       {/* Agent Run History */}
@@ -186,7 +185,6 @@ export default async function StateDetailPage({
                   institutionId={inst.id}
                   institutionName={inst.institution_name}
                   websiteUrl={inst.website_url}
-                  stateCode={stateCode}
                   failureReason={inst.latest_failure_reason}
                 />
               ))}

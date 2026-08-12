@@ -1,38 +1,10 @@
-export const dynamic = "force-dynamic";
-import { requireAuth } from "@/lib/auth";
-import { Breadcrumbs } from "@/components/breadcrumbs";
-import { getLeads } from "@/lib/admin-queries";
-import type { LeadRow } from "@/lib/admin-queries";
-import { LeadsTable } from "./leads-table";
+import { redirect } from "next/navigation";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 
-export default async function LeadsPage() {
-  await requireAuth("view");
-
-  let leads: LeadRow[] = [];
-  try {
-    leads = await getLeads();
-  } catch {
-    leads = [];
-  }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <Breadcrumbs
-          items={[
-            { label: "Admin", href: "/admin" },
-            { label: "Leads" },
-          ]}
-        />
-        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-          Leads
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {leads.length} lead{leads.length !== 1 ? "s" : ""} collected
-        </p>
-      </div>
-
-      <LeadsTable leads={leads} />
-    </div>
-  );
+export default async function LegacyHamiltonLeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  redirect(buildLegacyAdminPath("/admin/leads", await searchParams));
 }

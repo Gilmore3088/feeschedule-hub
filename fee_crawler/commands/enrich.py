@@ -2,10 +2,10 @@
 
 from fee_crawler.db import Database
 from fee_crawler.peer import (
+    ASSET_TIERS,
     TIER_DISPLAY,
     FED_DISTRICT_NAMES,
-    classify_asset_tier,
-    get_fed_district,
+    STATE_TO_FED_DISTRICT,
 )
 
 
@@ -27,39 +27,49 @@ def run(db: Database) -> None:
              AND id IN (SELECT DISTINCT crawl_target_id FROM institution_financials)"""
     )
     db.commit()
-    print(f"Synced CU asset_size from institution_financials")
+    print(f"Synced CU asset_size for {cu_fix.rowcount:,} institutions")
 
-    # Step 2: Compute fed_district for rows missing it
-    missing_district = db.fetchall(
-        """SELECT id, state_code FROM crawl_targets
-           WHERE fed_district IS NULL AND state_code IS NOT NULL"""
+    # Step 2: Compute districts in one statement instead of one round trip per row.
+    district_cases: list[str] = []
+    district_params: list[object] = []
+    for state_code, district in STATE_TO_FED_DISTRICT.items():
+        district_cases.append("WHEN ? THEN ?")
+        district_params.extend((state_code, district))
+    district_update = db.execute(
+        f"""UPDATE crawl_targets
+               SET fed_district = CASE UPPER(TRIM(state_code))
+                 {' '.join(district_cases)}
+                 ELSE fed_district
+               END
+             WHERE fed_district IS NULL
+               AND state_code IS NOT NULL""",
+        tuple(district_params),
     )
-    district_count = 0
-    for row in missing_district:
-        district = get_fed_district(row["state_code"])
-        if district:
-            db.execute(
-                "UPDATE crawl_targets SET fed_district = ? WHERE id = ?",
-                (district, row["id"]),
-            )
-            district_count += 1
     db.commit()
-    print(f"Set fed_district for {district_count} institutions")
+    print(f"Set fed_district for {district_update.rowcount:,} institutions")
 
-    # Step 3: Compute asset_size_tier for all rows
-    all_targets = db.fetchall(
-        "SELECT id, asset_size FROM crawl_targets WHERE asset_size IS NOT NULL"
+    # Step 3: Compute all tiers in one set-based update.
+    tier_cases: list[str] = []
+    tier_params: list[object] = []
+    fallback_tier = "super_regional"
+    for tier, (_low, high) in ASSET_TIERS.items():
+        if high is None:
+            fallback_tier = tier
+            continue
+        tier_cases.append("WHEN asset_size < ? THEN ?")
+        tier_params.extend((high, tier))
+    tier_params.append(fallback_tier)
+    tier_update = db.execute(
+        f"""UPDATE crawl_targets
+               SET asset_size_tier = CASE
+                 {' '.join(tier_cases)}
+                 ELSE ?
+               END
+             WHERE asset_size IS NOT NULL""",
+        tuple(tier_params),
     )
-    tier_count = 0
-    for row in all_targets:
-        tier = classify_asset_tier(row["asset_size"])
-        db.execute(
-            "UPDATE crawl_targets SET asset_size_tier = ? WHERE id = ?",
-            (tier, row["id"]),
-        )
-        tier_count += 1
     db.commit()
-    print(f"Set asset_size_tier for {tier_count} institutions")
+    print(f"Set asset_size_tier for {tier_update.rowcount:,} institutions")
 
     # Summary
     print("\n--- Enrichment Summary ---")

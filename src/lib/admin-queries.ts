@@ -137,12 +137,21 @@ export interface UncategorizedFee {
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
-    const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
-    const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM extracted_fees`;
-    const total = Number(totalRow.cnt);
-    const withUrls = Number(urlRow.cnt);
-    const withFees = Number(feeRow.cnt);
+    const [row] = await sql`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE fee_schedule_url IS NOT NULL)::int AS with_urls,
+        COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM extracted_fees ef
+           WHERE ef.crawl_target_id = ct.id AND ef.review_status = 'approved'
+        ))::int AS with_fees
+      FROM crawl_targets ct
+      WHERE status = 'active'
+        AND COALESCE(document_type, '') NOT IN ('offline', 'no_website')
+    `;
+    const total = Number(row.total);
+    const withUrls = Number(row.with_urls);
+    const withFees = Number(row.with_fees);
     return {
       total_institutions: total,
       with_fees: withFees,
@@ -308,7 +317,7 @@ export async function getRecentReviews(limit = 10): Promise<RecentReview[]> {
         rl.action,
         u.username,
         rl.created_at
-      FROM review_log rl
+      FROM fee_reviews rl
       JOIN extracted_fees ef ON ef.id = rl.fee_id
       JOIN crawl_targets ct ON ct.id = ef.crawl_target_id
       LEFT JOIN users u ON u.id = rl.user_id
@@ -336,24 +345,23 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
       SELECT
         t.state_code,
         COUNT(DISTINCT t.id) as total,
-        COUNT(DISTINCT e.crawl_target_id) as with_fees,
-        COUNT(DISTINCT CASE WHEN t.document_type = 'offline' OR t.website_url IS NULL THEN t.id END) as excluded
+        COUNT(DISTINCT CASE WHEN e.review_status = 'approved' THEN e.crawl_target_id END) as with_fees
       FROM crawl_targets t
       LEFT JOIN extracted_fees e ON e.crawl_target_id = t.id
       WHERE t.state_code IS NOT NULL
+        AND t.status = 'active'
+        AND COALESCE(t.document_type, '') NOT IN ('offline', 'no_website')
       GROUP BY t.state_code
       ORDER BY t.state_code
     `;
     return rows.map((r) => {
       const total = Number(r.total);
       const withFees = Number(r.with_fees);
-      const excluded = Number(r.excluded);
-      const addressable = total - excluded;
       return {
         state_code: String(r.state_code),
         total,
         with_fees: withFees,
-        pct: addressable > 0 ? Math.round((withFees / addressable) * 100) : 0,
+        pct: total > 0 ? Math.round((withFees / total) * 100) : 0,
       };
     });
   } catch (e) {
@@ -530,36 +538,32 @@ export async function getPipelineOverview(): Promise<PipelineOverview> {
 export interface JobFreshness {
   job_name: string;
   display_name: string;
-  source: "workers_last_run" | "crawl_runs";
+  source: "workers_last_run";
   last_completed_at: string | null;
   hours_since: number | null;
   expected_within_hours: number;
-  status: "ok" | "stale" | "never_ran";
+  status: "ok" | "failed" | "stale" | "never_ran";
 }
 
 export interface JobHealthSummary {
   generated_at: string;
   stale_count: number;
+  failed_count: number;
   ok_count: number;
   never_ran_count: number;
   jobs: JobFreshness[];
 }
 
-// Inventory of scheduled jobs we expect to run. Two sources of truth:
-// (a) workers_last_run markers written by modal_app.py post-processing
-// (b) crawl_runs rows for the three Modal scraping crons that don't yet
-//     write markers (run_discovery, run_pdf_extraction, run_browser_extraction).
+// Inventory of scheduled jobs we expect to run.
+// All jobs below write workers_last_run markers from modal_app.py.
 // Any stale entry here surfaces as a red banner on /admin/pipeline.
 const JOB_INVENTORY: Array<
   Pick<JobFreshness, "job_name" | "display_name" | "source" | "expected_within_hours">
 > = [
-  { job_name: "daily_pipeline",     display_name: "Daily post-processing (06:00)",       source: "workers_last_run", expected_within_hours: 26 },
-  { job_name: "magellan_rescue",    display_name: "Magellan URL rescue (05:00)",         source: "workers_last_run", expected_within_hours: 26 },
-  { job_name: "knox_review",        display_name: "Knox adversarial review (05:00)",     source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "atlas_cycle",        display_name: "Atlas daily cycle (02:00)",           source: "workers_last_run", expected_within_hours: 26 },
+  { job_name: "review_dispatcher",  display_name: "Agent review dispatcher",             source: "workers_last_run", expected_within_hours: 0.1 },
   { job_name: "ingest_data",        display_name: "Federal data ingest (10:00)",         source: "workers_last_run", expected_within_hours: 26 },
-  { job_name: "run_discovery",      display_name: "URL discovery crawler (02:00)",       source: "crawl_runs",       expected_within_hours: 26 },
-  { job_name: "run_pdf_extraction", display_name: "PDF extraction crawler (03:00)",      source: "crawl_runs",       expected_within_hours: 26 },
-  { job_name: "run_browser_extraction", display_name: "Browser extraction crawler (04:00)", source: "crawl_runs",   expected_within_hours: 26 },
+  { job_name: "monthly_pulse", display_name: "Hamilton monthly pulse (1st at 07:00)", source: "workers_last_run", expected_within_hours: 24 * 35 },
 ];
 
 // Reliability Roadmap #11 — URL freshness surface.
@@ -685,50 +689,33 @@ export async function getCrawlHealthTiers(): Promise<CrawlHealthTiers> {
 export async function getJobFreshness(): Promise<JobHealthSummary> {
   const jobs: JobFreshness[] = [];
 
-  // Pull all workers_last_run rows at once, then index by job_name.
-  const markerRows: Record<string, Date | null> = {};
+  const markerRows: Record<string, { completedAt: Date | null; status: string | null }> = {};
   try {
-    const rows = await sql`SELECT job_name, completed_at FROM workers_last_run`;
+    const rows = await sql`SELECT job_name, completed_at, status FROM workers_last_run`;
     for (const r of rows) {
-      markerRows[String(r.job_name)] = (r.completed_at as Date | null) ?? null;
+      markerRows[String(r.job_name)] = {
+        completedAt: (r.completed_at as Date | null) ?? null,
+        status: r.status ? String(r.status) : null,
+      };
     }
   } catch (e) {
     console.error("getJobFreshness marker read failed:", e);
   }
 
-  // For crawl_runs-backed jobs, find latest completed crawl_run per source label.
-  // run_discovery -> trigger_type='scheduled' AND source='discovery' (if discovery
-  // writes crawl_runs rows) else any scheduled run. Keep it simple: look at
-  // most-recent crawl_run completed_at as a blanket "crawler is alive" signal,
-  // since all three scraping Modal crons write to crawl_runs.
-  let latestCrawlRun: Date | null = null;
-  try {
-    const [row] = await sql`
-      SELECT MAX(completed_at) AS last FROM crawl_runs
-       WHERE trigger_type = 'scheduled' AND status = 'completed'
-    `;
-    latestCrawlRun = (row?.last as Date | null) ?? null;
-  } catch (e) {
-    console.error("getJobFreshness crawl_runs read failed:", e);
-  }
-
   const now = Date.now();
   for (const spec of JOB_INVENTORY) {
-    let lastCompleted: Date | null = null;
-    if (spec.source === "workers_last_run") {
-      lastCompleted = markerRows[spec.job_name] ?? null;
-    } else {
-      // crawl_runs: all three scraping jobs share the latest row for now,
-      // because we don't per-job-label them yet (#1 follow-up: emit markers
-      // per cron function in modal_app.py so we can tell WHICH crawler stalled).
-      lastCompleted = latestCrawlRun;
-    }
+    const marker = markerRows[spec.job_name];
+    const lastCompleted = marker?.completedAt ?? null;
 
     let hoursSince: number | null = null;
     let status: JobFreshness["status"] = "never_ran";
     if (lastCompleted) {
       hoursSince = (now - lastCompleted.getTime()) / (1000 * 60 * 60);
-      status = hoursSince > spec.expected_within_hours ? "stale" : "ok";
+      status = marker?.status === "failed"
+        ? "failed"
+        : hoursSince > spec.expected_within_hours
+          ? "stale"
+          : "ok";
     }
 
     jobs.push({
@@ -745,6 +732,7 @@ export async function getJobFreshness(): Promise<JobHealthSummary> {
   return {
     generated_at: new Date().toISOString(),
     stale_count: jobs.filter((j) => j.status === "stale").length,
+    failed_count: jobs.filter((j) => j.status === "failed").length,
     ok_count: jobs.filter((j) => j.status === "ok").length,
     never_ran_count: jobs.filter((j) => j.status === "never_ran").length,
     jobs,
@@ -1090,6 +1078,7 @@ export async function getReviewFees(
   search?: string,
   sort?: string,
   dir?: string,
+  category?: string,
 ): Promise<{ fees: ReviewFeeRow[]; total: number }> {
   try {
     const offset = (page - 1) * limit;
@@ -1102,6 +1091,11 @@ export async function getReviewFees(
         `(ef.fee_name ILIKE $${paramIdx++} OR ct.institution_name ILIKE $${paramIdx++})`,
       );
       params.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (category) {
+      conditions.push(`ef.fee_category = $${paramIdx++}`);
+      params.push(category);
     }
 
     const where = conditions.join(" AND ");
@@ -1168,7 +1162,7 @@ export async function getFeeDetail(feeId: number): Promise<FeeDetailRow | null> 
     const historyRows = await sql<Record<string, unknown>[]>`
       SELECT rl.action, u.username, rl.previous_status, rl.new_status,
              rl.notes, rl.created_at
-      FROM review_log rl
+      FROM fee_reviews rl
       LEFT JOIN users u ON u.id = rl.user_id
       WHERE rl.fee_id = ${feeId}
       ORDER BY rl.created_at DESC

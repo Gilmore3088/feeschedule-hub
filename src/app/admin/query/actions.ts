@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { sql } from "@/lib/crawler-db/connection";
+import { withTransaction } from "@/lib/crawler-db/connection";
 
 const MAX_ROWS = 500;
 const BLOCKED_KEYWORDS = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "ATTACH", "DETACH"];
@@ -25,7 +25,10 @@ export async function runQuery(
   const start = performance.now();
 
   try {
-    const rows = await sql.unsafe(trimmed) as Record<string, unknown>[];
+    const rows = await withTransaction(async (tx) => {
+      await tx.unsafe("SET TRANSACTION READ ONLY");
+      return tx.unsafe(trimmed) as Promise<Record<string, unknown>[]>;
+    });
     const duration = Math.round(performance.now() - start);
 
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];

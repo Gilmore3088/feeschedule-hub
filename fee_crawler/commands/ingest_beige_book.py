@@ -279,7 +279,12 @@ def extract_themes_for_district(
             "Confidence is 0.0-1.0 reflecting how clearly the text supports this theme."
         )
 
-        message = client.messages.create(
+        from fee_crawler.ai_usage import tracked_anthropic_call
+
+        message = tracked_anthropic_call(
+            client.messages.create,
+            agent_name="hamilton",
+            operation="extract_beige_book_themes",
             model=model,
             max_tokens=1024,
             messages=[{"role": "user", "content": user_prompt}],

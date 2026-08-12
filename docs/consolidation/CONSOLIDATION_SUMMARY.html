@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consolidation Summary</title>
+<style>
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #1f2430;
+  --muted: #5b6472;
+  --accent: #2f6df6;
+  --border: #e3e7ee;
+  --code-bg: #f1f3f7;
+  --good: #1f9d6b;
+  --warn: #c47f17;
+  --risk: #c0392b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+.banner {
+  background: linear-gradient(135deg, #2f6df6 0%, #5b3df6 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 28px 32px;
+  margin-bottom: 36px;
+  box-shadow: 0 8px 24px rgba(47, 109, 246, 0.18);
+}
+.banner h1 { margin: 0; font-size: 26px; border: none; color: #fff; }
+.banner .meta { margin-top: 8px; font-size: 13px; opacity: 0.9; }
+.content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px 40px 40px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+}
+h1, h2, h3, h4 { line-height: 1.3; font-weight: 650; }
+h1 { font-size: 24px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+h2 { font-size: 20px; margin-top: 34px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+h3 { font-size: 17px; margin-top: 26px; color: #2b3242; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+p, li { color: var(--ink); }
+code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font: 13.5px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+}
+pre code { background: none; padding: 0; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 18px 0;
+  font-size: 14.5px;
+}
+th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
+th { background: #eef2fb; font-weight: 650; }
+tr:nth-child(even) td { background: #fafbfd; }
+blockquote {
+  margin: 18px 0;
+  padding: 4px 18px;
+  border-left: 4px solid var(--accent);
+  background: #f4f8ff;
+  color: var(--muted);
+  border-radius: 0 8px 8px 0;
+}
+hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+strong { color: #161b26; }
+.footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">
+    <h1>Consolidation Summary</h1>
+    <div class="meta">feeschedule-hub consolidation &middot; CONSOLIDATION_SUMMARY.md</div>
+  </div>
+  <div class="content">
+<h1 id="consolidation-summary">Consolidation Summary</h1>
+<p><strong>Date:</strong> 2026-06-13
+<strong>Canonical repo:</strong> <code>feeschedule-hub</code> (<code>github.com/Gilmore3088/feeschedule-hub</code>)
+<strong>Work branch:</strong> <code>chore/consolidation</code> (5 commits on top of <code>main</code>)</p>
+<h2 id="outcome">Outcome</h2>
+<p>Four overlapping directories were consolidated into a single canonical repository, with
+every piece of unique work preserved and nothing destroyed.</p>
+<p><strong>Before:</strong> <code>claude-feesinsight-compv2</code>, <code>FeeInsight.com</code>, <code>bfi-v2</code>, <code>feeschedule-hub</code>
+(two GitHub remotes, one un-versioned dir, the superset on a stray branch with untracked
+files).</p>
+<p><strong>After:</strong> one <code>feeschedule-hub</code> on the Desktop, plus one <code>_archive_feeinsight/</code> holding
+backups and the three superseded directories.</p>
+<h2 id="what-happened-by-phase">What happened, by phase</h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 — Safety net</td>
+<td>All 4 dirs captured as verified git bundles; <code>FeeInsight.com</code> given git history; uncommitted <code>feeschedule-hub</code> work tarred. See <code>_archive_feeinsight/BACKUPS.md</code>.</td>
+</tr>
+<tr>
+<td>1 — Stabilize git</td>
+<td><code>main</code> returned to a clean state matching <code>origin/main</code> (the 1 unpushed commit was pushed); 9 locked agent worktrees removed; 35 stray-identical + 1 new untracked file triaged.</td>
+</tr>
+<tr>
+<td>2 — Analyze</td>
+<td>Four parallel audits → <code>CONSOLIDATION_REPORT.md</code>. Verdict: the other 3 dirs hold almost no unique code; <code>feeschedule-hub</code> is the superset.</td>
+</tr>
+<tr>
+<td>3 — Execute</td>
+<td>bfi-v2 history merged (provenance); unique salvage ported; safe de-dup applied (typecheck-clean); scratch/one-offs archived.</td>
+</tr>
+<tr>
+<td>4 — Archive</td>
+<td>The 3 superseded dirs moved into <code>_archive_feeinsight/</code>.</td>
+</tr>
+<tr>
+<td>5 — Verify</td>
+<td>Typecheck 0 <code>src</code> errors; this summary.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-was-salvaged-changed">What was salvaged / changed</h2>
+<ul>
+<li><strong>bfi-v2 history</strong>: all 36 commits merged via <code>-s ours</code> (preserved + tagged
+  <code>bfi-v2-archive</code>) without polluting the live tree.</li>
+<li><strong>Ported from bfi-v2</strong>: <code>docs/team/*</code>, <code>docs/marketing/LAUNCH_ESSAY.md</code>, and the
+  evidence-verification migration as a <strong>review-first draft</strong> at
+  <code>docs/consolidation/proposed-migrations/evidence_verification.DRAFT.sql</code>.</li>
+<li><strong>De-duplicated (behavior-preserving)</strong>: <code>UncategorizedFee</code> now defined once;
+  <code>fees.ts</code> <code>FeeChangeEvent</code> renamed <code>FeeChangeDiff</code> to end a real name collision.
+  <code>ExtractedFeeRow</code> / <code>InstitutionRow</code> were intentionally <strong>left alone</strong> — they are
+  distinct query projections that merely share a name; merging would change SQL behavior.</li>
+<li><strong>Archived in-repo</strong>: scratch runners → <code>archive/scratch-runners/</code>; superseded one-off
+  scripts → <code>archive/one-off-scripts/</code>; committed brainstorm scratch removed.</li>
+<li><strong>Captured</strong>: previously-uncommitted ops scripts (<code>cost-audit</code>, <code>verify-backfill</code>, …).</li>
+</ul>
+<h2 id="your-follow-ups-nothing-is-auto-applied">Your follow-ups (nothing is auto-applied)</h2>
+<ol>
+<li><strong>Push strategy</strong> — confirm whether the <code>chore/consolidation</code> branch goes up as a PR
+   or merges straight to <code>main</code> (pending, see chat).</li>
+<li><strong>Archive the bfi-v2 GitHub repo</strong> — outward-facing, awaiting your go-ahead (pending).</li>
+<li><strong>Evidence-verification migration</strong> — review the DRAFT against the live schema, then
+   move it into <code>supabase/migrations/</code> with a current timestamp and apply.</li>
+<li><strong>Magellan extraction consolidation</strong> — optional, behavior-affecting; plan in
+   <code>docs/consolidation/EXTRACTION_CONSOLIDATION_PLAN.md</code>.</li>
+<li><strong>bfi-v2 FLAG items</strong> — confirm whether Atlas content-validation, <code>agent-procs.ts</code>,
+   or Hamilton templates are worth porting (details in <code>CONSOLIDATION_REPORT.md</code>).</li>
+</ol>
+<h2 id="recovery">Recovery</h2>
+<p>Every original is restorable from <code>_archive_feeinsight/</code>: the moved directories
+themselves, plus git bundles in <code>_backups/</code> (<code>git clone &lt;bundle&gt; restored</code>). Uncommitted
+<code>feeschedule-hub</code> work is in <code>_backups/feeschedule-hub-uncommitted.tar.gz</code>.</p>
+<h2 id="note">Note</h2>
+<p>This repo's CLAUDE.md prefers edits via GSD workflow commands. This consolidation was run
+as an explicit, user-directed operation outside that flow, with each change committed
+atomically on a dedicated branch for review.</p>
+  </div>
+  <div class="footer">Generated from CONSOLIDATION_SUMMARY.md &middot; source of truth is the Markdown file</div>
+</div>
+</body>
+</html>

@@ -1,13 +1,24 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { getReviewFees, getReviewQueueCounts } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ServerSortableTable, type ServerColumn } from "@/components/server-sortable-table";
 import { formatAmount } from "@/lib/format";
 import { DISPLAY_NAMES } from "@/lib/fee-taxonomy";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 
-const STATUS_TABS = ["staged", "flagged", "pending", "approved", "rejected"] as const;
+const STATUS_TABS = ["flagged", "pending", "staged", "approved", "rejected"] as const;
+type StatusTab = (typeof STATUS_TABS)[number];
+
+const STATUS_LABELS: Record<StatusTab, string> = {
+  flagged: "Flagged",
+  pending: "Pending",
+  staged: "Agent staged",
+  approved: "Approved",
+  rejected: "Rejected",
+};
 
 const STATUS_COLORS: Record<string, string> = {
   staged: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
@@ -34,20 +45,26 @@ function confidenceBadge(conf: number) {
   );
 }
 
-export default async function ReviewPage({
+export async function FeeExceptionsView({
   searchParams,
+  embedded = false,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; page?: string; sort?: string; dir?: string; per?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string; sort?: string; dir?: string; per?: string; category?: string }>;
+  embedded?: boolean;
 }) {
   await requireAuth("view");
 
   const params = await searchParams;
-  const activeStatus = params.status || "staged";
+  const requestedStatus = params.status || "";
+  const activeStatus: StatusTab = STATUS_TABS.includes(requestedStatus as StatusTab)
+    ? (requestedStatus as StatusTab)
+    : "flagged";
   const searchQuery = params.q || "";
   const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
   const sortKey = params.sort || "date";
   const sortDir = params.dir || "desc";
   const perPage = VALID_PER.includes(Number(params.per) as 25 | 50 | 100) ? Number(params.per) : 50;
+  const category = params.category || "";
 
   let fees: Awaited<ReturnType<typeof getReviewFees>>["fees"] = [];
   let total = 0;
@@ -57,7 +74,7 @@ export default async function ReviewPage({
 
   try {
     [{ fees, total }, counts] = await Promise.all([
-      getReviewFees(activeStatus, currentPage, perPage, searchQuery || undefined, sortKey, sortDir),
+      getReviewFees(activeStatus, currentPage, perPage, searchQuery || undefined, sortKey, sortDir, category || undefined),
       getReviewQueueCounts(),
     ]);
   } catch (e) {
@@ -73,7 +90,7 @@ export default async function ReviewPage({
       sortable: false,
       render: (fee) => (
         <Link
-          href={`/admin/review/${fee.id}`}
+          href={`/admin/knox/fees/${fee.id}`}
           className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
         >
           {fee.fee_name}
@@ -138,18 +155,18 @@ export default async function ReviewPage({
 
   return (
     <>
-      <div className="mb-6">
+      {!embedded && <div className="mb-6">
         <Breadcrumbs items={[
           { label: "Dashboard", href: "/admin" },
           { label: "Review" },
         ]} />
         <h1 className="text-xl font-bold tracking-tight text-gray-900">
-          Fee Review Queue
+          Fee Exception Queue
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Review and approve extracted fee data
+          Resolve flagged and pending fee exceptions. Staged rows are the Knox auto-review backlog.
         </p>
-      </div>
+      </div>}
 
       {/* Status tabs */}
       <div className="flex gap-1 mb-4 border-b overflow-x-auto">
@@ -159,14 +176,14 @@ export default async function ReviewPage({
           return (
             <Link
               key={tab}
-              href={`/admin/review?status=${tab}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`}
-              className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px whitespace-nowrap ${
+              href={`/admin/knox?queue=fees&status=${tab}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}${category ? `&category=${encodeURIComponent(category)}` : ""}`}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 isActive
                   ? "border-gray-900 text-gray-900 dark:border-gray-100 dark:text-gray-100"
                   : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400"
               }`}
             >
-              {tab}
+              {STATUS_LABELS[tab]}
               {count > 0 && (
                 <span
                   className={`ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-xs tabular-nums ${
@@ -185,8 +202,10 @@ export default async function ReviewPage({
 
       {/* Search */}
       <div className="mb-4">
-        <form action="/admin/review" method="GET" className="flex gap-2">
+        <form action="/admin/knox" method="GET" className="flex gap-2">
+          <input type="hidden" name="queue" value="fees" />
           <input type="hidden" name="status" value={activeStatus} />
+          {category && <input type="hidden" name="category" value={category} />}
           <input
             type="text"
             name="q"
@@ -204,7 +223,7 @@ export default async function ReviewPage({
           </button>
           {searchQuery && (
             <Link
-              href={`/admin/review?status=${activeStatus}`}
+              href={`/admin/knox?queue=fees&status=${activeStatus}${category ? `&category=${encodeURIComponent(category)}` : ""}`}
               className="rounded-md border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors
                          dark:border-white/[0.12] dark:text-gray-400 dark:hover:bg-white/[0.06]"
             >
@@ -224,8 +243,8 @@ export default async function ReviewPage({
       {fees.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           {searchQuery
-            ? `No fees matching "${searchQuery}" with status "${activeStatus}"`
-            : `No fees with status "${activeStatus}"`}
+            ? `No fees matching "${searchQuery}" in ${STATUS_LABELS[activeStatus].toLowerCase()}`
+            : `No fees in ${STATUS_LABELS[activeStatus].toLowerCase()}`}
         </div>
       ) : (
         <div className="admin-card overflow-hidden">
@@ -233,17 +252,25 @@ export default async function ReviewPage({
             columns={reviewColumns}
             rows={fees}
             rowKey={(r) => String(r.id)}
-            basePath="/admin/review"
+            basePath="/admin/knox"
             sort={sortKey}
             dir={sortDir as "asc" | "desc"}
             page={currentPage}
             perPage={perPage}
             totalItems={total}
-            params={{ status: activeStatus, ...(searchQuery && { q: searchQuery }) }}
-            caption="Fee review queue"
+            params={{ queue: "fees", status: activeStatus, ...(searchQuery && { q: searchQuery }), ...(category && { category }) }}
+            caption="Fee exception queue"
           />
         </div>
       )}
     </>
   );
+}
+
+export default async function LegacyReviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  redirect(buildLegacyAdminPath("/admin/knox", await searchParams, { queue: "fees" }));
 }

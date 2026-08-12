@@ -20,7 +20,7 @@ export async function JobStatusBadge() {
     <div className="mx-3 mt-2 pt-2 border-t border-black/[0.04] dark:border-white/[0.04]">
       {running > 0 && (
         <Link
-          href="/admin/ops"
+          href="/admin"
           className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
         >
           <span className="relative flex h-2 w-2" aria-hidden="true">
@@ -34,7 +34,7 @@ export async function JobStatusBadge() {
       )}
       {failed > 0 && (
         <Link
-          href="/admin/ops"
+          href="/admin"
           className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
         >
           <span className="inline-flex rounded-full h-2 w-2 bg-red-500" aria-hidden="true" />

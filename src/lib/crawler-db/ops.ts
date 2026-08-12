@@ -1,10 +1,11 @@
 import { sql } from "./connection";
+import type { AdminAgent, AdminJobStatus, JobTriggerSource } from "../job-runner";
 
 export interface OpsJob {
   id: number;
   command: string;
   params_json: unknown;
-  status: string;
+  status: AdminJobStatus;
   triggered_by: string;
   target_id: number | null;
   crawl_run_id: number | null;
@@ -17,6 +18,14 @@ export interface OpsJob {
   error_summary: string | null;
   result_summary: string | null;
   created_at: string | Date;
+  agent_name: AdminAgent | null;
+  parent_job_id: number | null;
+  trigger_source: JobTriggerSource;
+  modal_call_id: string | null;
+  idempotency_key: string | null;
+  heartbeat_at: string | Date | null;
+  cancel_requested_at: string | Date | null;
+  updated_at: string | Date;
 }
 
 export interface OpsJobSummary {
@@ -26,6 +35,8 @@ export interface OpsJobSummary {
   completed: number;
   failed: number;
   cancelled: number;
+  cancel_requested: number;
+  timed_out: number;
 }
 
 export async function getOpsJobs(
@@ -73,6 +84,8 @@ export async function getOpsJobSummary(): Promise<OpsJobSummary> {
     completed: 0,
     failed: 0,
     cancelled: 0,
+    cancel_requested: 0,
+    timed_out: 0,
   };
 
   for (const row of rows) {
@@ -88,7 +101,7 @@ export async function getOpsJobSummary(): Promise<OpsJobSummary> {
 
 export async function getActiveJobs(): Promise<OpsJob[]> {
   return await sql`
-    SELECT * FROM ops_jobs WHERE status IN ('running', 'queued') ORDER BY created_at DESC
+    SELECT * FROM ops_jobs WHERE status IN ('running', 'queued', 'cancel_requested') ORDER BY created_at DESC
   ` as OpsJob[];
 }
 

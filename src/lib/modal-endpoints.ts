@@ -45,3 +45,15 @@ export const MAGELLAN_SIDECAR_URL = () =>
   resolve("MAGELLAN_SIDECAR_URL", "magellan-api");
 export const EXTRACT_SINGLE_URL = () =>
   resolve("EXTRACT_SINGLE_URL", "extract-single");
+
+export function modalInternalSecret(): string {
+  const secret = process.env.MODAL_INTERNAL_SECRET || process.env.REPORT_INTERNAL_SECRET;
+  if (!secret) {
+    throw new Error("MODAL_INTERNAL_SECRET or REPORT_INTERNAL_SECRET is required");
+  }
+  return secret;
+}
+
+export function modalInternalHeaders(): Record<string, string> {
+  return { "x-internal-secret": modalInternalSecret() };
+}

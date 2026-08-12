@@ -92,6 +92,7 @@ export interface PipelineStageCounts {
   approved: number;
   staged: number;
   flagged: number;
+  pending: number;
   rejected: number;
   stateGaps: { state_code: string; count: number }[];
 }
@@ -107,7 +108,7 @@ export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
     FROM crawl_targets`;
 
   // 1 query for all extracted_fees counts
-  const [ef] = await sql<{ with_fees: number; total_fees: number; categorized: number; approved: number; staged: number; flagged: number; rejected: number }[]>`
+  const [ef] = await sql<{ with_fees: number; total_fees: number; categorized: number; approved: number; staged: number; flagged: number; pending: number; rejected: number }[]>`
     SELECT
       COUNT(DISTINCT CASE WHEN review_status != 'rejected' THEN crawl_target_id END) as with_fees,
       SUM(CASE WHEN review_status != 'rejected' THEN 1 ELSE 0 END) as total_fees,
@@ -115,6 +116,7 @@ export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
       SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) as approved,
       SUM(CASE WHEN review_status = 'staged' THEN 1 ELSE 0 END) as staged,
       SUM(CASE WHEN review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
+      SUM(CASE WHEN review_status = 'pending' THEN 1 ELSE 0 END) as pending,
       SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) as rejected
     FROM extracted_fees`;
 
@@ -145,6 +147,7 @@ export async function getPipelineStageCounts(): Promise<PipelineStageCounts> {
     approved: Number(ef.approved),
     staged: Number(ef.staged),
     flagged: Number(ef.flagged),
+    pending: Number(ef.pending),
     rejected: Number(ef.rejected),
     stateGaps: (stateGaps as { state_code: string; count: number }[]).map(g => ({ ...g, count: Number(g.count) })),
   };

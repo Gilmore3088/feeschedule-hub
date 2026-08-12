@@ -24,6 +24,8 @@ const STEP_PROGRESS: Record<ReportJobStatus, number> = {
   rendering: 75,
   complete: 100,
   failed: 0,
+  cancel_requested: 50,
+  cancelled: 0,
 };
 
 // Ordered steps for the stepper (terminal steps excluded from main sequence)
@@ -54,7 +56,7 @@ export function BriefStatusPoller({ jobId }: Props) {
         setLastPollAt(new Date());
 
         // Clear interval on terminal state
-        if (data.status === 'complete' || data.status === 'failed') {
+        if (data.status === 'complete' || data.status === 'failed' || data.status === 'cancelled') {
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
@@ -88,6 +90,15 @@ export function BriefStatusPoller({ jobId }: Props) {
         <p className="mt-2 text-xs text-red-500">
           Please try again or contact support.
         </p>
+      </div>
+    );
+  }
+
+  if (status === 'cancelled') {
+    return (
+      <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-5">
+        <p className="text-sm font-semibold text-[#5E574D]">Report generation cancelled</p>
+        <p className="mt-1 text-sm text-[#81786B]">No further report work will run for this request.</p>
       </div>
     );
   }

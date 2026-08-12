@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Agent-First Resolution</title>
+  <style>
+    :root { --paper:#f7f2e9; --ink:#231f1a; --muted:#746b5f; --rule:#d8cec0; --accent:#b94f32; --ok:#2e6f4f; --warn:#96651d; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.55 Georgia, "Times New Roman", serif; }
+    main { width:min(1040px, calc(100% - 40px)); margin:0 auto; padding:64px 0 96px; }
+    header { border-top:4px solid var(--accent); border-bottom:1px solid var(--rule); padding:28px 0 32px; }
+    .eyebrow { color:var(--accent); font:700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { max-width:760px; margin:10px 0 12px; font-size:clamp(36px, 7vw, 68px); line-height:.98; letter-spacing:-.04em; }
+    h2 { margin:52px 0 14px; font-size:24px; letter-spacing:-.02em; }
+    h3 { margin:28px 0 8px; font-size:17px; }
+    p { max-width:760px; }
+    .lede { color:var(--muted); font-size:18px; }
+    .status { display:inline-block; margin-top:14px; border:1px solid color-mix(in srgb, var(--ok), transparent 55%); border-radius:999px; padding:6px 10px; color:var(--ok); font:700 11px/1 ui-monospace, monospace; text-transform:uppercase; }
+    table { width:100%; border-collapse:collapse; margin:14px 0 30px; background:rgba(255,255,255,.36); }
+    th, td { border-bottom:1px solid var(--rule); padding:12px 10px; text-align:left; vertical-align:top; }
+    th { color:var(--muted); font:700 10px/1.2 ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; }
+    code { font:12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color:#7f351f; }
+    ol { padding-left:22px; }
+    li { margin:8px 0; }
+    .flow { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; font:700 12px/1.2 ui-monospace, monospace; }
+    .flow span { border:1px solid var(--rule); border-radius:5px; background:rgba(255,255,255,.5); padding:10px 12px; }
+    .note { border-left:3px solid var(--accent); padding:2px 0 2px 18px; color:var(--muted); }
+    footer { margin-top:64px; border-top:1px solid var(--rule); padding-top:18px; color:var(--muted); font-size:12px; }
+    @media (max-width:700px) { main { width:min(100% - 24px, 1040px); padding-top:28px; } table { display:block; overflow-x:auto; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Bank Fee Index / Admin Resolution / Verified 2026-08-10</div>
+    <h1>One operator. One coordinator. Clear agent ownership.</h1>
+    <p class="lede">The admin is reorganized around Atlas, Magellan, Darwin, Knox, and Hamilton. Routine work begins with one Atlas cycle; specialist actions appear only when a stage needs repair.</p>
+    <span class="status">Live in production / all monitored jobs healthy</span>
+  </header>
+
+  <h2>Resolved Navigation</h2>
+  <table>
+    <thead><tr><th>Destination</th><th>Operator question</th><th>Consolidates</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Atlas / Command</strong></td><td>Is the system healthy, and what do I do next?</td><td>Dashboard, Pipeline, Ops, Data Quality, agent overview</td></tr>
+      <tr><td><strong>Magellan / Discover</strong></td><td>Which institutions still need a fee URL or extraction?</td><td>Coverage, URL rescue, collection fleet</td></tr>
+      <tr><td><strong>Darwin / Classify</strong></td><td>Which fee rows need classification repair?</td><td>Classification console and diagnostics</td></tr>
+      <tr><td><strong>Knox / Review</strong></td><td>Which anomalies require a human verdict?</td><td>Fee Exceptions, Knox Decisions, Gold Standard</td></tr>
+      <tr><td><strong>Hamilton / Research</strong></td><td>What analysis or report should be generated?</td><td>Chat, Reports, Research, Methodology</td></tr>
+      <tr><td><strong>Data</strong></td><td>Where can I inspect institutions and benchmarks?</td><td>Institutions, Index, Market, Peers, Categories, Districts, Explorer</td></tr>
+      <tr><td><strong>Leads</strong></td><td>Which sales leads are available?</td><td>Single canonical Leads route</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Before / After Route Map</h2>
+  <table>
+    <thead><tr><th>Before</th><th>After</th><th>Resolution</th></tr></thead>
+    <tbody>
+      <tr><td><code>/admin/pipeline</code>, <code>/admin/ops</code>, <code>/admin/quality</code>, <code>/admin/data-quality</code>, <code>/admin/agents</code></td><td><code>/admin</code></td><td>Atlas owns health, execution, schedules, and run history.</td></tr>
+      <tr><td><code>/admin/coverage</code></td><td><code>/admin/magellan</code></td><td>Discovery, rescue, and collection have one owner.</td></tr>
+      <tr><td><code>/admin/review</code>, Knox review lists, category review, <code>/admin/verify</code></td><td><code>/admin/knox?queue=...</code></td><td>Fee Exceptions, Knox Decisions, and Gold Standard are tabs; filters are retained.</td></tr>
+      <tr><td><code>/admin/research</code>, <code>/admin/scout</code>, legacy research children</td><td><code>/admin/hamilton/research</code></td><td>Agent IDs and article filters are retained by redirects.</td></tr>
+      <tr><td><code>/admin/methodology</code></td><td><code>/admin/hamilton/methodology</code></td><td>Methodology stays with Hamilton.</td></tr>
+      <tr><td><code>/admin/national</code>, <code>/admin/fees</code></td><td><code>/admin/index</code>, <code>/admin/fees/catalog</code></td><td>Duplicate benchmark entry points become canonical Data destinations.</td></tr>
+      <tr><td><code>/admin/hamilton/leads</code></td><td><code>/admin/leads</code></td><td>Sales leads have one route.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Agent Handoff</h2>
+  <div class="flow"><span>Atlas coordinates</span><span>Magellan discovers + collects</span><span>Darwin classifies</span><span>Knox reviews</span><span>Publish</span><span>Hamilton reads</span></div>
+  <p class="note">Hamilton is a downstream research consumer. It does not write into the fee pipeline.</p>
+
+  <h2>Operator Steps</h2>
+  <ol>
+    <li>Open <code>/admin</code> and read the system health statement.</li>
+    <li>Work the ordered Needs Attention queue. Each item names its owning agent and one next action.</li>
+    <li>Use <strong>Run Atlas cycle</strong> for normal manual execution. A duplicate click returns the already-active cycle.</li>
+    <li>If an active job must stop, use <strong>Cancel</strong> in Atlas. The job remains non-terminal until Modal confirms cancellation.</li>
+    <li>If a stage fails, open that specialist agent and use only the repair action tied to the failure.</li>
+    <li>Complete human review inside Knox. Routine fees do not require manual approval.</li>
+  </ol>
+
+  <h2>Reliability Contract</h2>
+  <table>
+    <thead><tr><th>Problem</th><th>Resolution</th></tr></thead>
+    <tbody>
+      <tr><td>False-green Modal subprocesses</td><td>Nonzero exits raise and write terminal <code>failed</code> state with exit code and log tail.</td></tr>
+      <tr><td>Incompatible <code>ops_jobs</code> writers</td><td>One schema stores agent, trigger source, Modal call ID, heartbeat, idempotency key, cancellation, result, and error.</td></tr>
+      <tr><td>Deployed schema drift</td><td>An additive compatibility migration restores Hamilton digest tables and <code>agent_messages.responded_at</code>; preflight verifies tables and columns before workers run.</td></tr>
+      <tr><td>Database-only cancellation</td><td>Cancellation reconstructs the exact Modal <code>FunctionCall</code> and confirms remote cancellation before showing <code>cancelled</code>.</td></tr>
+      <tr><td>Overlapping full pipelines</td><td>The atomic <code>pipeline</code> uses a Postgres advisory lock and Atlas idempotency key.</td></tr>
+      <tr><td>Conflicting institution actions</td><td>Institution, Peer, and State pages call one URL/offline/extraction command service.</td></tr>
+      <tr><td>Unaudited fee decisions</td><td>Institution review actions use the canonical transition service and write <code>fee_reviews</code>.</td></tr>
+      <tr><td>Report jobs stuck or falsely cancelled</td><td>Reports link to <code>ops_jobs</code>, persist call IDs, fail terminally on trigger errors, and cancel the Modal call.</td></tr>
+      <tr><td>View-only mutation paths</td><td>Writes require explicit edit, trigger, approval, rejection, or cancellation permission. Direct Magellan and Darwin mutation streams are retired in favor of queued repair jobs.</td></tr>
+      <tr><td>Unreadable crawl progress and orphan telemetry</td><td><code>crawl_runs</code> records bounded progress and heartbeats; the audited <code>reconcile-runs</code> repair terminalizes abandoned job, pipeline, crawl, and report rows.</td></tr>
+      <tr><td>Cosmetic admin cookie check</td><td>The server validates the signed database session before rendering admin children. Invalid cookies redirect to login without exposing Atlas controls or data.</td></tr>
+      <tr><td>Slow federal ingest and stale CLI contracts</td><td>NCUA, CFPB, SOD, Call Reports, and Census use current adapters and bounded bulk upserts. NCUA selects a release-aware quarter; all eleven production sources completed in job <code>#66</code>.</td></tr>
+      <tr><td>Darwin budget scans on zero-cost writes</td><td>Zero-cost audited writes bypass budget queries, while paid tools use the maintained <code>agent_budgets.spent_cents</code> counter. The repaired 100-row Darwin stage completed in under 30 seconds.</td></tr>
+      <tr><td>Repair scope drift</td><td>Scheduled, manual, and resumed Atlas cycles share the safe <code>--limit 100 --workers 4</code> contract. The UI never exposes independent global stage buttons.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Metric Definitions</h2>
+  <p><strong>Eligible institutions</strong> are active tracked institutions not marked offline or no-website. URL Coverage, Verified Coverage, and Fresh Coverage use this denominator and show numerator, denominator, definition, and update time.</p>
+
+  <h2>Repository Verification</h2>
+  <table>
+    <thead><tr><th>Check</th><th>Result</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Next.js production build</td><td><strong>Passed</strong></td><td>All canonical and redirect routes compiled under Next.js 16.1.6.</td></tr>
+      <tr><td>TypeScript</td><td><strong>Passed</strong></td><td><code>tsc --noEmit</code> completed without errors.</td></tr>
+      <tr><td>TypeScript tests</td><td><strong>Passed</strong></td><td>1,310 passed; 3 skipped. Lifecycle tests cover trigger failure, malformed responses, call IDs, idempotency, cancellation, health degradation, recovery freshness, and safe bookmark redirects.</td></tr>
+      <tr><td>Python tests</td><td><strong>Passed</strong></td><td>380 passed; 164 environment-dependent tests skipped.</td></tr>
+      <tr><td>Core rollout lint</td><td><strong>Passed</strong></td><td>The new job-health, secret, routing, validation, and production-auth files are lint-clean.</td></tr>
+      <tr><td>Repository-wide lint</td><td><strong>Existing debt</strong></td><td>67 errors and 102 warnings remain across legacy public, admin-detail, and script files; they do not block the production build and are not represented as resolved.</td></tr>
+      <tr><td>Postgres migration execution</td><td><strong>Passed</strong></td><td>Agent command-center, worker compatibility, pipeline checkpoint, cancellation link, and crawl-heartbeat migrations were applied through the audited Modal migration runner.</td></tr>
+      <tr><td>Live Modal preflight</td><td><strong>Passed</strong></td><td>The deployed preflight passes Postgres, required tables and columns, agent registry, R2, internal auth, report config, and a net-zero <code>agent_events</code> write.</td></tr>
+      <tr><td>Live Modal worker</td><td><strong>Deployed</strong></td><td><code>bank-fee-index-workers</code> and <code>bank-fee-index-preflight</code> were redeployed on August 10, 2026 with checked subprocesses, four-worker Atlas extraction, heartbeats, cancellation, and audited reconciliation.</td></tr>
+      <tr><td>Vercel production</td><td><strong>Passed</strong></td><td>Deployment <code>feeschedule-117h5mypd-gilmore3088s-projects.vercel.app</code> is Ready and aliased to <code>feeinsight.com</code>; its build verified all seven canonical admin routes.</td></tr>
+      <tr><td>Build source boundary</td><td><strong>Passed</strong></td><td>Tailwind now scans only <code>src/</code> and Vercel excludes the 745 MB crawler artifact directory, preventing institution HTML from generating application CSS.</td></tr>
+      <tr><td>Shareable document</td><td><strong>Passed</strong></td><td>Rendered and inspected at desktop and 390px mobile widths.</td></tr>
+      <tr><td>Authenticated production admin</td><td><strong>Passed</strong></td><td>A short-lived server-validated admin session returned HTTP 200 for Atlas, Magellan, Darwin, Knox, Hamilton, Data, and Leads. Atlas displayed all four operator questions, one Run Atlas action, and the seven-item navigation. The session was immediately revoked.</td></tr>
+      <tr><td>Bookmark redirects</td><td><strong>Passed</strong></td><td>Authenticated legacy URLs emitted Next redirect and meta-refresh signals to their canonical route while preserving state, status, and category filters.</td></tr>
+      <tr><td>Cancellation and reconciliation</td><td><strong>Passed</strong></td><td>Failed ingest attempts were cancelled only after Modal confirmed the remote call. Audited repair job <code>#69</code> reconciled the successful Atlas marker from canonical pipeline job <code>#68</code>.</td></tr>
+      <tr><td>Federal ingest</td><td><strong>Passed</strong></td><td>Canonical job <code>#66</code> completed FRED, NY Fed, BLS, OFR, FDIC, NCUA, CFPB, SOD, Beige Book, FFIEC Call Reports, and Census with no failures.</td></tr>
+      <tr><td>Atlas cycle</td><td><strong>Passed</strong></td><td>Pipeline run <code>#9</code> and canonical job <code>#68</code> completed all six checkpoints through Darwin, Knox, and Publish; <code>fees_published</code> reached 12,905.</td></tr>
+      <tr><td>Hamilton monthly pulse</td><td><strong>Passed</strong></td><td>Report job <code>d7e90905-9375-4eff-87f9-57af165ffbe9</code> completed under canonical job <code>#70</code>; its PDF is stored in R2 and the authenticated download route returns a presigned redirect.</td></tr>
+      <tr><td>Production schedules</td><td><strong>Healthy</strong></td><td><code>/api/admin/job-health</code> returns HTTP 200 with Atlas, dispatcher, federal ingest, and monthly pulse all <code>ok</code>; stale, failed, and never-run counts are zero.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Remaining External Work</h2>
+  <ol>
+    <li>Fund or replace the Anthropic API account used by extraction. Production currently returns <code>credit balance is too low</code>.</li>
+    <li>Continue Magellan's rescue queue for stale, HTML-as-PDF, Cloudflare-blocked, and non-fee URLs. These are visible data-quality tasks, not hidden scheduler failures.</li>
+    <li>Let Fresh Coverage recover through daily Atlas cycles. A bounded seven-day national-report grace is allowed only while Atlas is healthy within 26 hours; the base threshold remains 120 days.</li>
+    <li>Resolve the pre-existing repository ESLint backlog separately; the production build and runtime verification are not substitutes for that cleanup.</li>
+  </ol>
+
+  <footer>Source audit: Admin Function and Overlap Map. The UI, schema, Vercel deployment, Modal lifecycle, authenticated route checks, ingest, Atlas cycle, Hamilton report, cancellation, and reconciliation are live. The only external runtime limitation is the depleted Anthropic credit balance, which is reported explicitly rather than masked.</footer>
+</main>
+</body>
+</html>

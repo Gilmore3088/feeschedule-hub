@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import time
+from datetime import date, timedelta
 
 import requests
 
@@ -14,6 +15,7 @@ FRED_BASE_DEFAULT = "https://api.stlouisfed.org/fred"
 MAX_RETRIES = 3
 # FRED rate limit: 120 requests/minute
 REQUEST_DELAY = 0.5
+REVISION_OVERLAP_DAYS = 90
 
 # National-level series (fed_district = NULL)
 NATIONAL_SERIES: list[str] = [
@@ -157,17 +159,40 @@ def ingest_series(
     district_label = f" [district {fed_district}]" if fed_district else ""
     print(f"  {series_id}: {title}{district_label}")
 
-    observations = _fetch_series(api_key, series_id, from_date=from_date, base_url=base_url)
+    effective_from_date = from_date
+    if effective_from_date is None:
+        latest = db.fetchone(
+            """SELECT MAX(observation_date) AS latest
+                 FROM fed_economic_indicators
+                WHERE series_id = ?""",
+            (series_id,),
+        )
+        latest_value = latest.get("latest") if latest else None
+        if latest_value:
+            try:
+                latest_date = date.fromisoformat(str(latest_value)[:10])
+                effective_from_date = (
+                    latest_date - timedelta(days=REVISION_OVERLAP_DAYS)
+                ).isoformat()
+            except ValueError:
+                effective_from_date = None
+
+    observations = _fetch_series(
+        api_key,
+        series_id,
+        from_date=effective_from_date,
+        base_url=base_url,
+    )
     if observations is None:
         return 0
 
-    upserted = 0
+    rows: list[tuple] = []
     for obs in observations:
-        date = obs.get("date", "")
+        observation_date = obs.get("date", "")
         value_str = obs.get("value", "")
 
         # FRED uses "." for missing values
-        if not date or value_str == ".":
+        if not observation_date or value_str == ".":
             continue
 
         try:
@@ -175,24 +200,37 @@ def ingest_series(
         except (ValueError, TypeError):
             continue
 
-        db.execute(
+        rows.append(
+            (
+                series_id,
+                title,
+                fed_district,
+                observation_date,
+                value,
+                units,
+                frequency,
+            )
+        )
+
+    if rows:
+        db.execute_values(
             """INSERT INTO fed_economic_indicators
-               (series_id, series_title, fed_district, observation_date,
-                value, units, frequency)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
+                 (series_id, series_title, fed_district, observation_date,
+                  value, units, frequency)
+               VALUES %s
                ON CONFLICT (series_id, observation_date)
                DO UPDATE SET
                  series_title = EXCLUDED.series_title,
                  fed_district = EXCLUDED.fed_district,
                  value = EXCLUDED.value,
                  units = EXCLUDED.units,
-                 frequency = EXCLUDED.frequency""",
-            (series_id, title, fed_district, date, value, units, frequency),
+                 frequency = EXCLUDED.frequency,
+                 fetched_at = NOW()""",
+            rows,
         )
-        upserted += 1
 
-    print(f"    {upserted} observations")
-    return upserted
+    print(f"    {len(rows)} observations")
+    return len(rows)
 
 
 def run(

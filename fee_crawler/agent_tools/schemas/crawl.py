@@ -52,6 +52,33 @@ class CreateCrawlResultOutput(BaseToolOutput):
     event_ref: Optional[AgentEventRef] = None
 
 
+class RawFeeObservationInput(BaseToolInput):
+    fee_name: str = Field(min_length=1, max_length=500)
+    amount: Optional[float] = None
+    frequency: Optional[str] = None
+    conditions: Optional[str] = None
+    extraction_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    outlier_flags: List[str] = Field(default_factory=list)
+
+
+class PersistCrawlExtractionInput(BaseToolInput):
+    crawl_target_id: int = Field(gt=0)
+    crawl_run_id: int = Field(gt=0)
+    document_url: str = Field(min_length=1)
+    document_path: Optional[str] = None
+    content_hash: Optional[str] = None
+    document_r2_key: Optional[str] = None
+    crawl_strategy: Optional[str] = None
+    extraction_method: str = Field(min_length=1, max_length=100)
+    fees: List[RawFeeObservationInput] = Field(min_length=1, max_length=100)
+
+
+class PersistCrawlExtractionOutput(BaseToolOutput):
+    crawl_result_id: Optional[int] = None
+    fee_raw_ids: List[int] = Field(default_factory=list)
+    event_ref: Optional[AgentEventRef] = None
+
+
 # ----------------------------------------------------------------------
 # crawl_runs
 # ----------------------------------------------------------------------
@@ -158,6 +185,8 @@ class UpdateWaveStateRunOutput(BaseToolOutput):
 __all__ = [
     "UpdateCrawlTargetInput", "UpdateCrawlTargetOutput",
     "CreateCrawlResultInput", "CreateCrawlResultOutput",
+    "RawFeeObservationInput",
+    "PersistCrawlExtractionInput", "PersistCrawlExtractionOutput",
     "CreateCrawlRunInput", "CreateCrawlRunOutput",
     "UpdateCrawlRunInput", "UpdateCrawlRunOutput",
     "UpsertInstitutionDossierInput", "UpsertInstitutionDossierOutput",

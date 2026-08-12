@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from fee_crawler.pipeline.executor import LOCK_FILE as PROD_LOCK_FILE
+from fee_crawler.pipeline.executor import PIPELINE_LOCK_ID
 
 
 @pytest.mark.e2e
@@ -66,16 +66,7 @@ def test_config_db_path_matches_test_db_path(test_config, test_db_path: Path) ->
 
 
 @pytest.mark.e2e
-def test_isolated_lock_file_is_not_production(isolated_lock_file: Path) -> None:
-    """Lock file must be redirected away from data/pipeline.lock."""
-    prod_lock = Path("data/pipeline.lock").resolve()
-    assert isolated_lock_file.resolve() != prod_lock, (
-        "isolated_lock_file still points to data/pipeline.lock. "
-        "The lock file override fixture is not working."
-    )
-    # The monkeypatch must also have taken effect on the module-level constant
-    from fee_crawler.pipeline import executor
-    assert executor.LOCK_FILE == isolated_lock_file, (
-        "LOCK_FILE in executor module was not patched. "
-        "isolated_lock_file fixture monkeypatch did not apply."
-    )
+def test_pipeline_uses_stable_advisory_lock_id() -> None:
+    """All containers must contend on one stable Postgres advisory lock."""
+    assert isinstance(PIPELINE_LOCK_ID, int)
+    assert PIPELINE_LOCK_ID > 0

@@ -25,12 +25,28 @@ jobs:
   # Triggered nightly and on every workflow_dispatch with mode=fast.
   # --------------------------------------------------------------------------
   e2e-fast:
-    name: E2E Tests (fast — no LLM)
+    name: Runtime Smoke (fast)
     runs-on: ubuntu-latest
     if: >
       (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'fast') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == '')
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bfi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/bfi_test
 
     steps:
       - name: Check out repository
@@ -52,16 +68,21 @@ jobs:
             tesseract-ocr \
             poppler-utils
 
-      - name: Run fast E2E tests (e2e marker only)
+      - name: Install Modal browser runtime
+        run: python -m playwright install chromium
+
+      - name: Run fast runtime smoke tests
         env:
           # Explicitly unset R2_ENDPOINT so the R2 bypass guard passes
           R2_ENDPOINT: ""
         run: |
-          pytest -m "e2e and not llm and not slow" \
-            --timeout=120 \
-            -v \
-            --tb=short \
-            fee_crawler/tests/e2e/
+          pytest --timeout=120 -v --tb=short \
+            fee_crawler/tests/test_executor.py \
+            fee_crawler/tests/test_call_report_scaling.py \
+            fee_crawler/tests/test_darwin_api.py \
+            fee_crawler/tests/test_magellan_api.py \
+            fee_crawler/tests/test_62b_migrations.py \
+            fee_crawler/tests/test_sc4_no_sqlite.py
 
   # --------------------------------------------------------------------------
   # Full mode: runs e2e + llm + slow tests — makes real Anthropic API calls.
@@ -69,11 +90,27 @@ jobs:
   # Requires ANTHROPIC_API_KEY secret.
   # --------------------------------------------------------------------------
   e2e-full:
-    name: E2E Tests (full — with LLM)
+    name: Runtime Regression (full)
     runs-on: ubuntu-latest
     if: >
       (github.event_name == 'schedule' && github.event.schedule == '0 4 * * 0') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'full')
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bfi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/bfi_test
 
     steps:
       - name: Check out repository
@@ -95,14 +132,14 @@ jobs:
             tesseract-ocr \
             poppler-utils
 
-      - name: Run full E2E tests (e2e + llm + slow markers)
+      - name: Install Modal browser runtime
+        run: python -m playwright install chromium
+
+      - name: Run full runtime regression suite
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # Explicitly unset R2_ENDPOINT so the R2 bypass guard passes
           R2_ENDPOINT: ""
         run: |
-          pytest -m "e2e or llm or slow" \
-            --timeout=600 \
-            -v \
-            --tb=short \
-            fee_crawler/tests/e2e/
+          pytest fee_crawler/tests/ -m "not e2e" \
+            --timeout=600 -v --tb=short

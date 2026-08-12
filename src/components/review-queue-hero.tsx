@@ -51,7 +51,7 @@ export function ReviewQueueHero({
           </div>
           {stats.flagged > 0 && (
             <Link
-              href="/admin/review?status=flagged"
+              href="/admin/knox?queue=fees&status=flagged"
               className="shrink-0 rounded-lg bg-gray-900 dark:bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-gray-800 dark:hover:bg-white/15 transition-colors"
             >
               Review flagged ({stats.flagged})
@@ -95,14 +95,14 @@ export function ReviewQueueHero({
           {/* Legend */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5">
             <LegendItem
-              href="/admin/review?status=approved"
+              href="/admin/knox?queue=fees&status=approved"
               color="bg-emerald-500"
               count={stats.approved}
               label="Approved"
             />
             {stats.staged > 0 && (
               <LegendItem
-                href="/admin/review?status=staged"
+                href="/admin/knox?queue=fees&status=staged"
                 color="bg-blue-400"
                 count={stats.staged}
                 label="Staged"
@@ -110,7 +110,7 @@ export function ReviewQueueHero({
             )}
             {stats.flagged > 0 && (
               <LegendItem
-                href="/admin/review?status=flagged"
+                href="/admin/knox?queue=fees&status=flagged"
                 color="bg-orange-400"
                 count={stats.flagged}
                 label="Flagged"
@@ -126,14 +126,14 @@ export function ReviewQueueHero({
         {/* Actions + stuck warnings */}
         <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-white/[0.06]">
           <Link
-            href="/admin/review?status=staged"
+            href="/admin/knox?queue=fees&status=staged"
             className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
           >
             Review staged
           </Link>
           {isAdmin && stats.staged > 0 && (
             <Link
-              href="/admin/review?status=staged"
+              href="/admin/knox?queue=fees&status=staged"
               className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 transition-colors"
             >
               Bulk approve
@@ -144,7 +144,7 @@ export function ReviewQueueHero({
             <div className="flex gap-3 ml-auto">
               {stuck.flagged_over_14d > 0 && (
                 <Link
-                  href="/admin/review?status=flagged"
+                  href="/admin/knox?queue=fees&status=flagged"
                   className="flex items-center gap-1 text-[10px] font-semibold text-orange-600 dark:text-orange-400 hover:underline tabular-nums"
                 >
                   <span className="inline-block w-1 h-1 rounded-full bg-orange-500" />
@@ -153,7 +153,7 @@ export function ReviewQueueHero({
               )}
               {stuck.staged_over_30d > 0 && (
                 <Link
-                  href="/admin/review?status=staged"
+                  href="/admin/knox?queue=fees&status=staged"
                   className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline tabular-nums"
                 >
                   <span className="inline-block w-1 h-1 rounded-full bg-blue-500" />

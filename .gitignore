@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results
+/tests/e2e/.auth
 
 # next.js
 /.next/
@@ -44,6 +46,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+.mcp.json
 
 # typescript
 *.tsbuildinfo

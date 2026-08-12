@@ -10,6 +10,7 @@ These tests cover:
 
 import os
 import sys
+from pathlib import Path
 import pytest
 
 modal = pytest.importorskip("modal", reason="modal package not installed; skipping")
@@ -82,3 +83,30 @@ class TestRunCheckedFailure:
             run_checked(cmd)
         assert exc_info.value.cmd == cmd
         assert exc_info.value.returncode == 3
+
+
+class TestModalScheduleContract:
+    def test_routine_schedule_uses_one_atomic_atlas_cycle(self):
+        source = (Path(__file__).parents[1] / "modal_app.py").read_text()
+        assert 'schedule=modal.Cron("0 2 * * *")' in source
+        assert '["python3", "-m", "fee_crawler", "pipeline", *args]' in source
+        assert '"atlas:full-cycle"' in source
+        assert "_run_0500_jobs" not in source
+        assert '"run-pipeline"' not in source
+
+    def test_monthly_pulse_has_an_explicit_schedule(self):
+        source = (Path(__file__).parents[1] / "modal_app.py").read_text()
+        assert 'schedule=modal.Cron("0 7 1 * *")' in source
+        assert "NEXT_PUBLIC_APP_URL" not in source
+        assert "BFI_APP_URL" in source
+
+    def test_scheduled_preemption_reuses_the_modal_call_envelope(self):
+        source = (Path(__file__).parents[1] / "modal_app.py").read_text()
+        assert "WHERE modal_call_id = %s" in source
+        assert 'retry_row[1] in ("failed", "timed_out")' in source
+        assert "str(exc).strip() or type(exc).__name__" in source
+
+    def test_ingest_failure_summary_includes_child_output(self):
+        source = (Path(__file__).parents[1] / "modal_app.py").read_text()
+        assert 'exc.stderr_tail or exc.stdout_tail or "no child output"' in source
+        assert 'failures.append(f"{cmd}: {detail}")' in source

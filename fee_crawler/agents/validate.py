@@ -6,6 +6,8 @@ import logging
 
 import anthropic
 
+from fee_crawler.ai_usage import tracked_anthropic_call
+
 log = logging.getLogger(__name__)
 
 
@@ -29,7 +31,10 @@ def validate_fees(institution: dict, fees: list[dict]) -> dict:
         indent=2,
     )
 
-    response = client.messages.create(
+    response = tracked_anthropic_call(
+        client.messages.create,
+        agent_name="darwin",
+        operation="validate_extracted_fees",
         model="claude-haiku-4-5-20251001",
         max_tokens=1000,
         system="""You validate extracted bank fee data. Review fees for completeness and accuracy.

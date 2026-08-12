@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import anthropic
+
+from fee_crawler.ai_usage import record_api_usage, tracked_anthropic_call
 import psycopg2
 import psycopg2.extras
 
@@ -376,7 +378,13 @@ def _poll_batch(
     """
     start = time.time()
     while True:
-        batch_status = client.messages.batches.retrieve(batch_id)
+        batch_status = tracked_anthropic_call(
+            lambda: client.messages.batches.retrieve(batch_id),
+            agent_name="extractor",
+            operation="poll_extraction_batch",
+            model=DEFAULT_MODEL,
+            pass_model=False,
+        )
         processing = batch_status.processing_status
 
         if processing == "ended":
@@ -520,7 +528,15 @@ def run(
         # Submit batch to Anthropic
         client = anthropic.Anthropic()
         try:
-            batch = client.messages.batches.create(requests=requests)
+            batch = tracked_anthropic_call(
+                client.messages.batches.create,
+                agent_name="extractor",
+                operation="submit_extraction_batch",
+                model=DEFAULT_MODEL,
+                request_count=len(requests),
+                pass_model=False,
+                requests=requests,
+            )
         except Exception as e:
             error_msg = f"Batch submission failed: {e}"
             logger.error(error_msg, exc_info=True)
@@ -544,8 +560,17 @@ def run(
         succeeded = 0
         failed = 0
         total_fees = 0
+        total_input_tokens = 0
+        total_output_tokens = 0
 
-        for result in client.messages.batches.results(batch_id):
+        result_stream = tracked_anthropic_call(
+            lambda: client.messages.batches.results(batch_id),
+            agent_name="extractor",
+            operation="download_extraction_batch",
+            model=DEFAULT_MODEL,
+            pass_model=False,
+        )
+        for result in result_stream:
             job = job_map.get(result.custom_id)
             if not job:
                 logger.warning("Unknown custom_id in results: %s", result.custom_id)
@@ -567,6 +592,10 @@ def run(
                     "Job %d failed: %s %s", job_id, error_type, error_detail,
                 )
                 continue
+
+            usage = getattr(result.result.message, "usage", None)
+            total_input_tokens += int(getattr(usage, "input_tokens", 0) or 0)
+            total_output_tokens += int(getattr(usage, "output_tokens", 0) or 0)
 
             # Parse fees from tool_use response
             try:
@@ -592,6 +621,23 @@ def run(
                 logger.error(
                     "Job %d parse/write error: %s", job_id, e, exc_info=True,
                 )
+
+        class _BatchUsage:
+            input_tokens = total_input_tokens
+            output_tokens = total_output_tokens
+            cache_read_input_tokens = 0
+            cache_creation_input_tokens = 0
+
+        record_api_usage(
+            provider="anthropic",
+            model=DEFAULT_MODEL,
+            agent_name="extractor",
+            operation="extraction_batch_tokens",
+            status="completed",
+            usage=_BatchUsage(),
+            request_count=0,
+            metadata={"batch_id": batch_id, "succeeded": succeeded, "failed": failed},
+        )
 
         actual_cost = succeeded * COST_PER_INSTITUTION_USD
         summary = (

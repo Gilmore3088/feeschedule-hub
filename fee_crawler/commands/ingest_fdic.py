@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import date, timedelta
 
 import requests
 
@@ -32,11 +33,21 @@ FDIC_FINANCIAL_FIELDS = ",".join([
     "OFFDOM",      # domestic offices (branches)
 ])
 
-# Default quarterly report dates (most recent 8 quarters for 2-year history).
-REPORT_DATES = [
-    "20251231", "20250930", "20250630", "20250331",
-    "20241231", "20240930", "20240630", "20240331",
-]
+def _recent_report_dates(count: int, *, today: date | None = None) -> list[str]:
+    """Return recent completed quarter ends in FDIC's YYYYMMDD format."""
+    cursor = today or date.today()
+    quarter_start_month = ((cursor.month - 1) // 3) * 3 + 1
+    quarter_end = date(cursor.year, quarter_start_month, 1) - timedelta(days=1)
+    dates: list[str] = []
+    for _ in range(count):
+        dates.append(quarter_end.strftime("%Y%m%d"))
+        previous_quarter_start = date(
+            quarter_end.year,
+            ((quarter_end.month - 1) // 3) * 3 + 1,
+            1,
+        )
+        quarter_end = previous_quarter_start - timedelta(days=1)
+    return dates
 
 
 def _safe_int(val: object) -> int | None:
@@ -75,9 +86,11 @@ def ingest_fdic_financials(
     if report_date:
         dates = [report_date]
     elif quarters:
-        dates = REPORT_DATES[:quarters]
+        dates = _recent_report_dates(quarters)
     else:
-        dates = REPORT_DATES
+        # Weekly refreshes revisit only the two most recent completed quarters.
+        # Historical loads remain available explicitly through --quarters.
+        dates = _recent_report_dates(2)
     base = f"{config.fdic_api.base_url}/financials"
     page_size = config.fdic_api.page_size
     total_upserted = 0
@@ -102,14 +115,14 @@ def ingest_fdic_financials(
 
     print(f"Found {len(cert_map):,} bank institutions in database")
 
-    for date in dates:
-        print(f"\nFetching financials for report date {date}...")
+    for report_date_key in dates:
+        print(f"\nFetching financials for report date {report_date_key}...")
         offset = 0
         date_upserted = 0
 
         while True:
             params = {
-                "filters": f"REPDTE:{date}",
+                "filters": f"REPDTE:{report_date_key}",
                 "fields": FDIC_FINANCIAL_FIELDS,
                 "limit": page_size,
                 "offset": offset,
@@ -127,8 +140,9 @@ def ingest_fdic_financials(
             if not records:
                 break
 
+            upsert_rows: list[tuple] = []
             for rec in records:
-                if limit and date_upserted >= limit:
+                if limit and date_upserted + len(upsert_rows) >= limit:
                     break
 
                 d = rec.get("data", {})
@@ -139,7 +153,7 @@ def ingest_fdic_financials(
                     total_skipped += 1
                     continue
 
-                report_date_val = str(d.get("REPDTE", date))
+                report_date_val = str(d.get("REPDTE", report_date_key))
                 # Format as YYYY-MM-DD
                 if len(report_date_val) == 8:
                     report_date_fmt = (
@@ -167,9 +181,31 @@ def ingest_fdic_financials(
                 if sc is not None and total_revenue and total_revenue > 0:
                     fee_income_ratio = round(sc / total_revenue, 4)
 
-                try:
-                    db.execute(
-                        """INSERT INTO institution_financials
+                upsert_rows.append(
+                    (
+                        target_id,
+                        report_date_fmt,
+                        _safe_int(d.get("ASSET")),
+                        _safe_int(d.get("DEP")),
+                        _safe_int(d.get("LNLSNET")),
+                        sc,
+                        nonii,
+                        _safe_float(d.get("NIMY")),
+                        _safe_float(d.get("EEFFR")),
+                        _safe_float(d.get("ROA")),
+                        _safe_float(d.get("ROE")),
+                        _safe_float(d.get("RBC1AAJ")),
+                        _safe_int(d.get("OFFDOM")),
+                        _safe_int(d.get("NUMEMP")),
+                        total_revenue,
+                        fee_income_ratio,
+                        json.dumps(d),
+                    )
+                )
+
+            if upsert_rows:
+                db.execute_values(
+                    """INSERT INTO institution_financials
                            (crawl_target_id, report_date, source,
                             total_assets, total_deposits, total_loans,
                             service_charge_income, other_noninterest_income,
@@ -178,14 +214,7 @@ def ingest_fdic_financials(
                             branch_count, employee_count,
                             total_revenue, fee_income_ratio,
                             raw_json)
-                           VALUES (?, ?, 'fdic',
-                                   ?, ?, ?,
-                                   ?, ?,
-                                   ?, ?,
-                                   ?, ?, ?,
-                                   ?, ?,
-                                   ?, ?,
-                                   ?)
+                           VALUES %s
                            ON CONFLICT(crawl_target_id, report_date, source) DO UPDATE SET
                             total_assets = excluded.total_assets,
                             total_deposits = excluded.total_deposits,
@@ -202,37 +231,19 @@ def ingest_fdic_financials(
                             total_revenue = excluded.total_revenue,
                             fee_income_ratio = excluded.fee_income_ratio,
                             raw_json = excluded.raw_json""",
-                        (
-                            target_id,
-                            report_date_fmt,
-                            _safe_int(d.get("ASSET")),
-                            _safe_int(d.get("DEP")),
-                            _safe_int(d.get("LNLSNET")),
-                            sc,
-                            nonii,
-                            _safe_float(d.get("NIMY")),
-                            _safe_float(d.get("EEFFR")),
-                            _safe_float(d.get("ROA")),
-                            _safe_float(d.get("ROE")),
-                            _safe_float(d.get("RBC1AAJ")),
-                            _safe_int(d.get("OFFDOM")),
-                            _safe_int(d.get("NUMEMP")),
-                            total_revenue,
-                            fee_income_ratio,
-                            json.dumps(d),
-                        ),
-                    )
-                    date_upserted += 1
-                except Exception as e:
-                    print(f"  Error for CERT {cert}: {e}")
-                    total_skipped += 1
+                    [
+                        (row[0], row[1], "fdic", *row[2:])
+                        for row in upsert_rows
+                    ],
+                )
+                date_upserted += len(upsert_rows)
 
             db.commit()
             offset += page_size
 
             fetched = min(offset, total_api)
             print(
-                f"  {date}: {fetched:,}/{total_api:,} fetched | "
+                f"  {report_date_key}: {fetched:,}/{total_api:,} fetched | "
                 f"{date_upserted:,} matched"
             )
 

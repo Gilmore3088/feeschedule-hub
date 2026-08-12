@@ -1,43 +1,51 @@
 "use server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { spawnJob } from "@/lib/job-runner";
+import { DARWIN_SIDECAR_URL, modalInternalHeaders } from "@/lib/modal-endpoints";
 import type { DarwinStatus } from "./types";
 
-const SIDECAR = process.env.DARWIN_SIDECAR_URL;
-
-async function assertAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
-    throw new Error("forbidden");
-  }
-}
-
 export async function fetchDarwinStatus(): Promise<DarwinStatus> {
-  await assertAdmin();
-  if (!SIDECAR) throw new Error("DARWIN_SIDECAR_URL not set");
-  const r = await fetch(`${SIDECAR}/darwin/status`, { cache: "no-store" });
+  await requireAuth("view");
+  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/status`, {
+    cache: "no-store",
+    headers: modalInternalHeaders(),
+  });
   if (!r.ok) throw new Error(`sidecar status ${r.status}`);
   return r.json();
 }
 
 export async function resetDarwinCircuit(actor: string): Promise<{ ok: boolean }> {
-  await assertAdmin();
-  if (!SIDECAR) throw new Error("DARWIN_SIDECAR_URL not set");
-  const r = await fetch(`${SIDECAR}/darwin/reset`, {
+  await requireAuth("trigger_jobs");
+  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/reset`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...modalInternalHeaders() },
     body: JSON.stringify({ actor }),
   });
   if (!r.ok) throw new Error(`sidecar reset ${r.status}`);
   return r.json();
 }
 
-export async function classifyBatchStreamUrl(size: number): Promise<string> {
-  await assertAdmin();
-  if (!SIDECAR) throw new Error("DARWIN_SIDECAR_URL not set");
-  // Return a URL the browser can EventSource directly. Sidecar accepts POST
-  // but EventSource only supports GET — so we proxy through a Next.js API route.
-  return `/api/admin/darwin/stream?size=${size}`;
+export async function runDarwinRepair(
+  size: number,
+  batches: number,
+): Promise<{ success: boolean; jobId?: number; reused?: boolean; error?: string }> {
+  const user = await requireAuth("trigger_jobs");
+  if (![100, 500, 1000].includes(size) || !Number.isInteger(batches) || batches < 1 || batches > 20) {
+    return { success: false, error: "Invalid classification batch request" };
+  }
+  try {
+    const result = await spawnJob(
+      "darwin-drain",
+      ["--size", String(size), "--batches", String(batches)],
+      user.username,
+      undefined,
+      { agent: "darwin", idempotencyKey: "darwin:classification-repair" },
+    );
+    return { success: true, jobId: result.jobId, reused: result.reused };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export async function fetchDarwinReasoning(feeRawId: number): Promise<{
@@ -46,7 +54,7 @@ export async function fetchDarwinReasoning(feeRawId: number): Promise<{
   reasoning_r2_key: string | null;
   created_at: string | null;
 }> {
-  await assertAdmin();
+  await requireAuth("view");
   const { sql } = await import("@/lib/crawler-db/connection");
   const rows = await sql`
     SELECT reasoning_prompt_text, reasoning_output_text, reasoning_r2_key, created_at::text AS created_at
@@ -76,12 +84,11 @@ export async function fetchDarwinReasoning(feeRawId: number): Promise<{
 export async function fetchReasoningFromR2(
   r2Key: string,
 ): Promise<{ prompt: string | null; output: string | null }> {
-  await assertAdmin();
+  await requireAuth("view");
   if (!r2Key) return { prompt: null, output: null };
-  const sidecar = process.env.DARWIN_SIDECAR_URL;
-  if (!sidecar) throw new Error("DARWIN_SIDECAR_URL not set");
-  const r = await fetch(`${sidecar}/darwin/reasoning/${encodeURIComponent(r2Key)}`, {
+  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/reasoning/${encodeURIComponent(r2Key)}`, {
     cache: "no-store",
+    headers: modalInternalHeaders(),
   });
   if (!r.ok) throw new Error(`sidecar reasoning ${r.status}`);
   return r.json();
@@ -95,12 +102,10 @@ export async function reclassifyFee(feeRawId: number): Promise<{
   output: string | null;
   error?: string;
 }> {
-  await assertAdmin();
-  const sidecar = process.env.DARWIN_SIDECAR_URL;
-  if (!sidecar) throw new Error("DARWIN_SIDECAR_URL not set");
-  const r = await fetch(`${sidecar}/darwin/reclassify`, {
+  await requireAuth("trigger_jobs");
+  const r = await fetch(`${DARWIN_SIDECAR_URL()}/darwin/reclassify`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...modalInternalHeaders() },
     body: JSON.stringify({ fee_raw_id: feeRawId }),
   });
   if (!r.ok) throw new Error(`reclassify ${r.status}`);

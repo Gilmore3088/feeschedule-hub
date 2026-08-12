@@ -18,6 +18,7 @@ class DarwinConfig:
     backoff_base_seconds: float = 1.0
     backoff_max_seconds: float = 30.0
     inter_batch_delay_seconds: float = 0.2
+    persistence_concurrency: int = 6
 
     # Circuit breaker
     consecutive_failures_to_halt: int = 5

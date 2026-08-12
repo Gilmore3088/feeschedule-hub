@@ -12,7 +12,6 @@ const ALLOWED_COMMANDS = new Set([
   "analyze",
   "enrich",
   "outlier-detect",
-  "run-pipeline",
   "stats",
   "ingest-call-reports",
   "ingest-fdic",
@@ -35,6 +34,9 @@ const ALLOWED_COMMANDS = new Set([
   "publish-index",
   "pipeline",
   "rediscover-failed",
+  "darwin-drain",
+  "magellan-rescue",
+  "reconcile-runs",
 ]);
 
 // These commands are safe to run without a limit — they have their own guardrails
@@ -111,10 +113,10 @@ export function validateJobRequest(
       const source = params.charter_type === "bank" ? "fdic" : "ncua";
       args.push("--source", source);
     }
-    // crawl, run-pipeline etc. don't have a charter filter — filter is done at query level
+    // crawl/pipeline don't have a charter filter — filter is done at query level
   }
 
-  const COMMANDS_WITH_STATE = new Set(["crawl", "discover", "run-pipeline", "pipeline", "rediscover-failed"]);
+  const COMMANDS_WITH_STATE = new Set(["crawl", "discover", "pipeline", "rediscover-failed"]);
   if (params.state !== undefined && params.state !== "" && COMMANDS_WITH_STATE.has(command)) {
     if (!/^[A-Z]{2}$/.test(params.state)) {
       return { valid: false, error: "state must be a 2-letter state code" };
@@ -146,6 +148,10 @@ export function validateJobRequest(
 
 export function getAllowedCommands(): string[] {
   return Array.from(ALLOWED_COMMANDS).sort();
+}
+
+export function isAllowedCommand(command: string): boolean {
+  return ALLOWED_COMMANDS.has(command);
 }
 
 export function commandRequiresTarget(command: string): boolean {

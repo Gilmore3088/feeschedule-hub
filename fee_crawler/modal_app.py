@@ -11,6 +11,7 @@ Test:   modal run fee_crawler/modal_app.py::test_connection
 import subprocess as _subprocess
 
 import modal
+from pydantic import BaseModel as _BaseModel
 
 
 class SubprocessFailed(RuntimeError):
@@ -73,18 +74,26 @@ browser_image = (
 image = browser_image
 
 app = modal.App("bank-fee-index-workers", image=image)
-secrets = [modal.Secret.from_name("bfi-secrets")]
+secrets = [
+    modal.Secret.from_name("bfi-secrets"),
+    modal.Secret.from_name("bfi-r2-secrets"),
+    modal.Secret.from_name("bfi-app-runtime"),
+]
+
+
+async def _connect_asyncpg(db_url: str):
+    """Connect with prepared statements disabled for Supabase transaction pooling."""
+    import asyncpg
+
+    return await asyncpg.connect(db_url, statement_cache_size=0)
 
 
 def _mark_job_completion(job_name: str, status: str = "ok") -> None:
     """Write a workers_last_run row so the /admin/pipeline health dashboard
     can tell whether this scheduled job has actually completed recently.
 
-    Intentionally best-effort: if the marker write fails we log and return
-    rather than re-raising, so a marker-DB hiccup doesn't mask an otherwise
-    successful job run. The opposite (silent missing markers) produced the
-    '7 scheduled jobs never completed' red banner that was a misleading
-    report of crons that ARE running — they just weren't writing markers.
+    Marker persistence is part of the execution contract. If it fails, the
+    Modal run must fail too rather than leaving an unobservable false-green.
     """
     import os
     try:
@@ -103,7 +112,336 @@ def _mark_job_completion(job_name: str, status: str = "ok") -> None:
         cur.close()
         conn.close()
     except Exception as exc:
-        print(f"workers_last_run write failed for {job_name}: {exc}")
+        raise RuntimeError(
+            f"workers_last_run write failed for {job_name}: {exc}"
+        ) from exc
+
+
+class _ScheduledEnvelopeState:
+    def __init__(self, job_id: int, started: bool, message: str | None = None):
+        self.job_id = job_id
+        self.started = started
+        self.message = message
+
+
+def _reconcile_stale_execution_rows() -> int:
+    """Terminalize stale envelopes even when no new scheduled job starts."""
+    import os
+
+    import psycopg2
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ops_jobs
+                      SET status = 'timed_out',
+                          error_summary = 'Job heartbeat expired',
+                          completed_at = NOW(),
+                          updated_at = NOW()
+                    WHERE (status = 'queued'
+                           AND created_at < NOW() - INTERVAL '15 minutes')
+                       OR (status IN ('running', 'cancel_requested')
+                           AND COALESCE(heartbeat_at, started_at, created_at)
+                               < NOW() - INTERVAL '3 hours')"""
+            )
+            reconciled = cur.rowcount
+            cur.execute(
+                """UPDATE report_jobs AS report
+                      SET status = 'failed',
+                          error = COALESCE(report.error, 'Remote report job timed out'),
+                          completed_at = NOW()
+                     FROM ops_jobs AS ops
+                    WHERE report.ops_job_id = ops.id
+                      AND ops.status = 'timed_out'
+                      AND report.status IN (
+                        'pending', 'assembling', 'rendering', 'cancel_requested'
+                      )"""
+            )
+        conn.commit()
+        return reconciled
+    finally:
+        conn.close()
+
+
+def _scheduled_job(
+    command: str,
+    agent_name: str,
+    idempotency_key: str,
+    args: list[str],
+    *,
+    trigger_source: str = "schedule",
+    triggered_by: str = "modal-schedule",
+):
+    """Context manager that gives direct Modal invocations the ops_jobs lifecycle."""
+    import json
+    import os
+    import threading
+    from contextlib import contextmanager
+
+    import psycopg2
+
+    @contextmanager
+    def _envelope():
+        from fee_crawler.ai_usage import (
+            EmergencyStopActive,
+            assert_automation_enabled,
+        )
+
+        try:
+            assert_automation_enabled(f"scheduled {command}")
+        except EmergencyStopActive as exc:
+            yield _ScheduledEnvelopeState(0, False, str(exc))
+            return
+
+        call_id = modal.current_function_call_id()
+        _reconcile_stale_execution_rows()
+        conn = psycopg2.connect(os.environ["DATABASE_URL"])
+        job_id = 0
+        started = False
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT id, status
+                         FROM ops_jobs
+                        WHERE modal_call_id = %s
+                          AND command = %s
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                        FOR UPDATE""",
+                    (call_id, command),
+                )
+                retry_row = cur.fetchone()
+                if retry_row and retry_row[1] in ("failed", "timed_out"):
+                    job_id = int(retry_row[0])
+                    cur.execute(
+                        """UPDATE ops_jobs
+                              SET status = 'running',
+                                  completed_at = NULL,
+                                  error_summary = NULL,
+                                  heartbeat_at = NOW(),
+                                  updated_at = NOW()
+                            WHERE id = %s""",
+                        (job_id,),
+                    )
+                    conn.commit()
+                    started = True
+                elif retry_row:
+                    job_id = int(retry_row[0])
+                else:
+                    cur.execute(
+                        """INSERT INTO ops_jobs
+                         (command, params_json, status, triggered_by, agent_name,
+                          trigger_source, modal_call_id, idempotency_key,
+                          started_at, heartbeat_at, updated_at)
+                       VALUES (%s, %s::JSONB, 'running', %s, %s,
+                               %s, %s, %s, NOW(), NOW(), NOW())
+                    RETURNING id""",
+                    (
+                        command,
+                        json.dumps({"args": args}),
+                        triggered_by,
+                        agent_name,
+                        trigger_source,
+                        call_id,
+                        idempotency_key,
+                    ),
+                    )
+                    job_id = int(cur.fetchone()[0])
+                    conn.commit()
+                    started = True
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT id FROM ops_jobs
+                        WHERE idempotency_key = %s
+                          AND status IN ('queued', 'running', 'cancel_requested')
+                        ORDER BY created_at DESC LIMIT 1""",
+                    (idempotency_key,),
+                )
+                row = cur.fetchone()
+                job_id = int(row[0]) if row else 0
+        finally:
+            conn.close()
+
+        state = _ScheduledEnvelopeState(job_id, started)
+        if not started:
+            yield state
+            return
+
+        stop = threading.Event()
+
+        def _heartbeat() -> None:
+            while not stop.wait(60):
+                heartbeat_conn = None
+                try:
+                    heartbeat_conn = psycopg2.connect(os.environ["DATABASE_URL"])
+                    with heartbeat_conn.cursor() as cur:
+                        cur.execute(
+                            """UPDATE ops_jobs
+                                  SET heartbeat_at = NOW(), updated_at = NOW()
+                                WHERE id = %s AND status = 'running'""",
+                            (job_id,),
+                        )
+                    heartbeat_conn.commit()
+                except Exception as exc:
+                    print(f"scheduled heartbeat failed job={job_id}: {exc}")
+                finally:
+                    if heartbeat_conn is not None:
+                        heartbeat_conn.close()
+
+        heartbeat = threading.Thread(target=_heartbeat, daemon=True)
+        heartbeat.start()
+        try:
+            yield state
+        except BaseException as exc:
+            error = str(exc).strip() or type(exc).__name__
+            _finish_scheduled_job(job_id, "failed", error)
+            raise
+        else:
+            _finish_scheduled_job(job_id, "completed")
+        finally:
+            stop.set()
+            heartbeat.join(timeout=2)
+
+    return _envelope()
+
+
+def _finish_scheduled_job(job_id: int, status: str, error: str | None = None) -> None:
+    import os
+    import psycopg2
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ops_jobs
+                      SET status = %s,
+                          error_summary = %s,
+                          completed_at = NOW(),
+                          heartbeat_at = NOW(),
+                          updated_at = NOW()
+                    WHERE id = %s AND status = 'running'""",
+                (status, error[:1000] if error else None, job_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _update_scheduled_job_progress(job_id: int, summary: str) -> None:
+    """Expose the active child step without weakening heartbeat semantics."""
+    import os
+
+    import psycopg2
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ops_jobs
+                      SET result_summary = %s,
+                          heartbeat_at = NOW(),
+                          updated_at = NOW()
+                    WHERE id = %s AND status = 'running'""",
+                (summary[:1000], job_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@app.function(
+    schedule=modal.Cron("0 2 * * *"),
+    timeout=21600,
+    secrets=secrets,
+    memory=2048,
+)
+def run_atlas_cycle():
+    """Canonical scheduled cycle; manual and scheduled runs share one lock/key."""
+    import os
+
+    args = ["--limit", "100", "--workers", "4"]
+    with _scheduled_job("pipeline", "atlas", "atlas:full-cycle", args) as job:
+        if not job.started:
+            return job.message or f"Atlas cycle #{job.job_id} is already active"
+        try:
+            result = run_checked(
+                ["python3", "-m", "fee_crawler", "pipeline", *args],
+                env={
+                    **os.environ,
+                    "DATABASE_URL": os.environ["DATABASE_URL"],
+                    "BFI_TRIGGER_SOURCE": "schedule",
+                    "BFI_TRIGGERED_BY": "atlas",
+                    "BFI_OPS_JOB_ID": str(job.job_id),
+                },
+                timeout=18000,
+            )
+            _mark_job_completion("atlas_cycle", "ok")
+            return result.stdout[-2000:] if result.stdout else "Atlas cycle completed"
+        except Exception:
+            _mark_job_completion("atlas_cycle", "failed")
+            raise
+
+
+@app.function(timeout=900, secrets=secrets, memory=1024)
+def reconcile_execution_state():
+    """Audited repair for stale canonical envelopes and execution telemetry."""
+    import os
+
+    with _scheduled_job(
+        "reconcile-runs",
+        "atlas",
+        "atlas:reconcile-execution-state",
+        [],
+        trigger_source="admin",
+        triggered_by="atlas-repair",
+    ) as job:
+        if not job.started:
+            return job.message or f"Reconciliation job #{job.job_id} is already active"
+        result = run_checked(
+            ["python3", "-m", "fee_crawler", "reconcile-runs"],
+            env={
+                **os.environ,
+                "DATABASE_URL": os.environ["DATABASE_URL"],
+                "BFI_TRIGGER_SOURCE": "admin",
+                "BFI_TRIGGERED_BY": "atlas-repair",
+                "BFI_OPS_JOB_ID": str(job.job_id),
+            },
+            timeout=600,
+        )
+        return result.stdout[-2000:] if result.stdout else "Execution state reconciled"
+
+
+@app.function(timeout=1800, secrets=secrets, memory=2048)
+def run_magellan_repair(target_id: int):
+    """Audited single-institution extraction repair for Magellan."""
+    import os
+
+    args = ["--target-id", str(target_id), "--workers", "1"]
+    with _scheduled_job(
+        "crawl",
+        "magellan",
+        f"magellan:extract:{target_id}",
+        args,
+        trigger_source="admin",
+        triggered_by="magellan-repair",
+    ) as job:
+        if not job.started:
+            return job.message or f"Magellan repair job #{job.job_id} is already active"
+        result = run_checked(
+            ["python3", "-m", "fee_crawler", "crawl", *args],
+            env={
+                **os.environ,
+                "DATABASE_URL": os.environ["DATABASE_URL"],
+                "BFI_TRIGGER_SOURCE": "admin",
+                "BFI_TRIGGERED_BY": "magellan-repair",
+                "BFI_OPS_JOB_ID": str(job.job_id),
+            },
+            timeout=1500,
+        )
+        return result.stdout[-2000:] if result.stdout else "Magellan repair completed"
 
 
 @app.function(secrets=secrets, timeout=300)
@@ -120,32 +458,30 @@ async def test_connection():
 
 
 @app.function(
-    schedule=modal.Cron("0 2 * * *"),
     timeout=21600,
     secrets=secrets,
     memory=2048,
 )
 async def run_discovery():
-    """Nightly URL discovery: sweep institutions with website but no fee URL."""
+    """Manual Magellan discovery repair; routine work runs through Atlas."""
     from fee_crawler.workers.discovery_worker import run
     try:
         result = await run(concurrency=20)
         _mark_job_completion("run_discovery", "ok")
         return result
-    except Exception as exc:
+    except Exception:
         _mark_job_completion("run_discovery", "failed")
         raise
 
 
 @app.function(
-    schedule=modal.Cron("0 3 * * *"),
     timeout=10800,
     secrets=secrets,
     memory=1024,
     image=pdf_image,
 )
 def run_pdf_extraction():
-    """Nightly PDF extraction: fast, cheap worker (no browser needed)."""
+    """Manual PDF extraction repair; routine work runs through Atlas."""
     import os
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     try:
@@ -163,14 +499,13 @@ def run_pdf_extraction():
 
 
 @app.function(
-    schedule=modal.Cron("0 4 * * *"),
     timeout=14400,
     secrets=secrets,
     memory=2048,
     image=browser_image,
 )
 def run_browser_extraction():
-    """Nightly browser extraction: Playwright for JS-rendered pages."""
+    """Manual browser extraction repair; routine work runs through Atlas."""
     import os
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
     try:
@@ -186,11 +521,8 @@ def run_browser_extraction():
         raise
 
 
-# D-05 pivot (Phase 62b, Plan 62B-08): Modal Starter tier caps at 5 cron slots.
-# Rather than add a 6th slot for review_dispatcher, this function now ticks every
-# minute — calling dispatch_ticks() first (LOOP-03 agent review dispatch), then
-# running the original daily post-processing pipeline only at 06:00. See research
-# §Mechanics 3 / Pitfall 1 and 62B-08-SUMMARY.md for the decision rationale.
+# The review dispatcher retains the minute schedule while routine pipeline work
+# is owned by the single daily Atlas cycle above.
 @app.function(
     schedule=modal.Cron("* * * * *"),
     timeout=3600,
@@ -198,302 +530,71 @@ def run_browser_extraction():
     memory=1024,
 )
 async def run_post_processing():
-    """Every-minute dispatcher for agent review_ticks + once-daily post-processing pipeline."""
-    import os
-    import psycopg2
-    from datetime import datetime, timezone, timedelta
-
-    # Every minute: dispatch pending agent review_ticks (LOOP-03 D-05 pivot).
+    """Dispatch due agent review ticks; Atlas owns the routine daily pipeline."""
+    reconciled = _reconcile_stale_execution_rows()
+    if reconciled:
+        print(f"reconciled {reconciled} stale ops job(s)")
     try:
         from fee_crawler.agent_base.dispatcher import dispatch_ticks
         dispatched = await dispatch_ticks()
         if dispatched:
             print(f"dispatch_ticks: invoked {dispatched} agent review(s)")
     except Exception as exc:
-        # Never let tick dispatch block the daily pipeline.
-        print(f"dispatch_ticks failed (non-fatal): {exc}")
+        _mark_job_completion("review_dispatcher", "failed")
+        raise RuntimeError(f"dispatch_ticks failed: {exc}") from exc
 
-    now = datetime.now(timezone.utc)
-
-    # 05:00-05:09 UTC window: Magellan rescue + Knox review.
-    # Piggybacks on the every-minute dispatcher so we stay inside the 5-cron Modal
-    # Starter cap. Gated on workers_last_run markers so each runs once per day.
-    today_0500 = now.replace(hour=5, minute=0, second=0, microsecond=0)
-    if today_0500 <= now < today_0500 + timedelta(minutes=10):
-        await _run_0500_jobs(now, today_0500)
-
-    # WR-05 fix: widen the trigger window to 06:00-06:09 UTC to absorb Modal
-    # cron jitter, and gate actual work on a workers_last_run marker so we
-    # run at most once per UTC day (idempotent catch-up if we missed 06:00).
-    today_0600 = now.replace(hour=6, minute=0, second=0, microsecond=0)
-    if now < today_0600 or now >= today_0600 + timedelta(minutes=10):
-        return "dispatch_only"
-
-    db_url = os.environ["DATABASE_URL"]
-    try:
-        conn = psycopg2.connect(db_url)
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT completed_at FROM workers_last_run WHERE job_name = %s",
-            ("daily_pipeline",),
-        )
-        row = cur.fetchone()
-        last_completed = row[0] if row else None
-        cur.close()
-        conn.close()
-    except Exception as exc:
-        # If we can't read the marker, fall through rather than silently skipping.
-        print(f"workers_last_run read failed (proceeding anyway): {exc}")
-        last_completed = None
-
-    if last_completed is not None and last_completed >= today_0600:
-        return "dispatch_only"
-
-    # If we're past 06:01 and still about to run, log a WARNING so missed
-    # windows are observable in the Modal dashboard.
-    if now >= today_0600 + timedelta(minutes=2):
-        delay_s = int((now - today_0600).total_seconds())
-        print(
-            f"WARNING: daily_pipeline running {delay_s}s after 06:00 UTC "
-            "(cron jitter or catch-up)"
-        )
-
-    env = {**os.environ, "DATABASE_URL": db_url}
-    commands = [
-        ["python3", "-m", "fee_crawler", "categorize"],
-        ["python3", "-m", "fee_crawler", "auto-review"],
-        # Drain fees_verified -> fees_published before snapshot/publish-index
-        # so the index cache reflects newly-published rows in the same cycle.
-        ["python3", "-m", "fee_crawler", "publish-fees", "--apply", "--limit", "2000"],
-        ["python3", "-m", "fee_crawler", "snapshot"],
-        ["python3", "-m", "fee_crawler", "publish-index"],
-    ]
-    results = []
-    for cmd in commands:
-        run_checked(cmd, env=env)
-        results.append(f"{cmd[-1]}: OK")
-
-    # Run data integrity checks
-    from fee_crawler.workers.data_integrity import run_checks, print_report
-    integrity = run_checks()
-    print(print_report(integrity))
-
-    # Generate daily report
-    from fee_crawler.workers.daily_report import generate_report
-    report = generate_report()
-    print(report)
-
-    # Record completion so subsequent minute-ticks skip until tomorrow.
-    try:
-        conn = psycopg2.connect(db_url)
-        cur = conn.cursor()
-        cur.execute(
-            """INSERT INTO workers_last_run (job_name, completed_at, status)
-               VALUES (%s, NOW(), %s)
-               ON CONFLICT (job_name) DO UPDATE
-                 SET completed_at = EXCLUDED.completed_at,
-                     status       = EXCLUDED.status""",
-            ("daily_pipeline", "ok"),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as exc:
-        # Marker write failures should not mask a successful pipeline, but
-        # leave a breadcrumb so operators notice recurring double-runs.
-        print(f"workers_last_run write failed (pipeline still succeeded): {exc}")
-
-    return f"Pipeline: {'; '.join(results)} | Integrity: {integrity['score']}% ({integrity['passed']}/{integrity['total']} passed)"
+    _mark_job_completion("review_dispatcher", "ok")
+    return f"dispatched {dispatched} agent review(s)"
 
 
-async def _run_0500_jobs(now, today_0500) -> None:
-    """05:00 UTC daily jobs: Magellan URL rescue + Knox adversarial review.
-
-    Piggybacks on run_post_processing's every-minute dispatcher so we don't
-    exceed Modal Starter's 5-cron cap. Each job is gated by its own
-    workers_last_run marker so it runs once per UTC day.
-    """
-    import os
-    import psycopg2
-    import asyncpg
-
-    db_url = os.environ["DATABASE_URL"]
-
-    def _already_ran(job_name: str) -> bool:
-        try:
-            conn = psycopg2.connect(db_url)
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT completed_at FROM workers_last_run WHERE job_name = %s",
-                (job_name,),
-            )
-            row = cur.fetchone()
-            cur.close()
-            conn.close()
-            return row is not None and row[0] is not None and row[0] >= today_0500
-        except Exception as exc:
-            print(f"[{job_name}] marker read failed (running anyway): {exc}")
-            return False
-
-    def _mark_ran(job_name: str, status: str = "ok") -> None:
-        try:
-            conn = psycopg2.connect(db_url)
-            cur = conn.cursor()
-            cur.execute(
-                """INSERT INTO workers_last_run (job_name, completed_at, status)
-                   VALUES (%s, NOW(), %s)
-                   ON CONFLICT (job_name) DO UPDATE
-                     SET completed_at = EXCLUDED.completed_at,
-                         status       = EXCLUDED.status""",
-                (job_name, status),
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-        except Exception as exc:
-            print(f"[{job_name}] marker write failed: {exc}")
-
-    # --- Magellan URL rescue ---
-    if not _already_ran("magellan_rescue"):
-        try:
-            from fee_crawler.agents.magellan.orchestrator import rescue_batch
-            conn = await asyncpg.connect(db_url)
-            try:
-                result = await rescue_batch(conn, size=200)
-                print(f"magellan_rescue: {result.to_dict() if hasattr(result, 'to_dict') else result}")
-            finally:
-                await conn.close()
-            _mark_ran("magellan_rescue", "ok")
-        except Exception as exc:
-            print(f"magellan_rescue failed (non-fatal): {exc}")
-            _mark_ran("magellan_rescue", "failed")
-
-    # --- Knox adversarial review ---
-    if not _already_ran("knox_review"):
-        try:
-            from fee_crawler.agents.knox.orchestrator import review_batch
-            result = await review_batch(limit=500)
-            print(f"knox_review: {result.to_dict()}")
-            _mark_ran("knox_review", "ok")
-        except Exception as exc:
-            print(f"knox_review failed (non-fatal): {exc}")
-            _mark_ran("knox_review", "failed")
-
-    # --- Darwin drain (Roadmap #3) ---
-    # Classifies fees_raw → fees_verified in up to 5 consecutive 500-row
-    # batches (~2,500 rows/day), draining the ~102K backlog in ~41 days.
-    # Runs BEFORE the 06:00 daily_pipeline so newly-classified fees land in
-    # fees_verified in time for publish-fees to drain them through to
-    # fees_published in the same UTC day. Kept in the 05:00 window on
-    # purpose: no new cron slot.
-    #
-    # Circuit breakers (added per 2026-04-19 code review MAJOR-4):
-    # - Per-batch cost accumulator; halts if a single run crosses
-    #   DARWIN_DAILY_COST_LIMIT_USD (default $20).
-    # - Per-batch failure counter; halts after 2 consecutive errors rather
-    #   than marching through all 5 and burning budget on malformed output.
-    # - Failed runs record status='failed' AND halt_reason so ops can see
-    #   whether tomorrow's run should reset or hold.
-    DARWIN_DAILY_COST_LIMIT_USD = float(
-        os.environ.get("DARWIN_DAILY_COST_LIMIT_USD", "20")
-    )
-    DARWIN_MAX_CONSECUTIVE_FAILURES = 2
-    if not _already_ran("darwin_drain"):
-        from fee_crawler.agents.darwin import classify_batch
-
-        total_classified = 0
-        total_cost_usd = 0.0
-        consecutive_failures = 0
-        halt_reason: str | None = None
-
-        conn = None
-        try:
-            conn = await asyncpg.connect(db_url)
-            for i in range(5):
-                try:
-                    result = await classify_batch(conn, size=500)
-                except Exception as batch_exc:
-                    consecutive_failures += 1
-                    print(
-                        f"darwin_drain batch {i+1}/5 FAILED (#{consecutive_failures}): "
-                        f"{batch_exc!r}"
-                    )
-                    if consecutive_failures >= DARWIN_MAX_CONSECUTIVE_FAILURES:
-                        halt_reason = (
-                            f"halt: {consecutive_failures} consecutive batch failures"
-                        )
-                        print(f"darwin_drain {halt_reason}")
-                        break
-                    continue
-
-                consecutive_failures = 0
-                summary = result.to_dict()
-                print(f"darwin_drain batch {i+1}/5: {summary}")
-                classified = int(summary.get("classified", 0) or 0)
-                batch_cost = float(summary.get("cost_usd", 0) or 0)
-                total_classified += classified
-                total_cost_usd += batch_cost
-
-                if classified == 0:
-                    halt_reason = f"backlog exhausted after {i+1} batch(es)"
-                    print(f"darwin_drain: {halt_reason}")
-                    break
-                if total_cost_usd >= DARWIN_DAILY_COST_LIMIT_USD:
-                    halt_reason = (
-                        f"halt: cost ${total_cost_usd:.4f} crossed "
-                        f"${DARWIN_DAILY_COST_LIMIT_USD:.2f} daily limit"
-                    )
-                    print(f"darwin_drain {halt_reason}")
-                    break
-
-            print(
-                f"darwin_drain total: {total_classified} rows classified, "
-                f"${total_cost_usd:.4f} spent"
-            )
-            status = "failed" if consecutive_failures >= DARWIN_MAX_CONSECUTIVE_FAILURES else "ok"
-            _mark_ran("darwin_drain", status)
-        except Exception as exc:
-            # Fatal (outside the per-batch try). Re-raise is too disruptive
-            # for the shared dispatcher, but surface loudly and mark failed.
-            print(f"darwin_drain FATAL: {exc!r}")
-            _mark_ran("darwin_drain", "failed")
-        finally:
-            if conn is not None:
-                await conn.close()
-
-
-@app.function(
-    schedule=modal.Cron("0 10 * * *"),
-    timeout=7200,
-    secrets=secrets,
-)
-def ingest_data():
+def _ingest_data_body(job_id: int):
     """Daily + weekly data refreshes. Weekly jobs run on Mondays."""
     import os
     from datetime import datetime, timezone
     env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
-    results = []
-    failures = []
+    results: list[str] = []
+    failures: list[str] = []
 
-    # Daily: FRED, NYFED, BLS, OFR
-    for cmd in ["ingest-fred", "ingest-nyfed", "ingest-bls", "ingest-ofr"]:
-        try:
-            run_checked(["python3", "-m", "fee_crawler", cmd], env=env)
-            results.append(f"{cmd}: OK")
-        except SubprocessFailed as exc:
-            results.append(f"{cmd}: FAIL ({exc.returncode})")
-            failures.append(cmd)
+    commands = ["ingest-fred", "ingest-nyfed", "ingest-bls", "ingest-ofr"]
 
     # Weekly (Monday only): FDIC, NCUA, CFPB, SOD, Beige Book, Call Reports
     if datetime.now(timezone.utc).weekday() == 0:
-        for cmd in ["ingest-fdic", "ingest-ncua", "ingest-cfpb", "ingest-sod",
-                     "ingest-beige-book", "ingest-call-reports", "ingest-census-acs"]:
-            try:
-                run_checked(["python3", "-m", "fee_crawler", cmd], env=env)
-                results.append(f"{cmd}: OK")
-            except SubprocessFailed as exc:
-                results.append(f"{cmd}: FAIL ({exc.returncode})")
-                failures.append(cmd)
+        commands.extend(
+            [
+                "ingest-fdic",
+                "ingest-ncua",
+                "ingest-cfpb",
+                "ingest-sod",
+                "ingest-beige-book",
+                "ingest-call-reports",
+            ]
+        )
+        if os.environ.get("CENSUS_API_KEY", "").strip():
+            commands.append("ingest-census-acs")
+        else:
+            results.append("ingest-census-acs: SKIPPED (CENSUS_API_KEY not configured)")
+
+    for index, cmd in enumerate(commands, start=1):
+        _update_scheduled_job_progress(
+            job_id,
+            f"Running {cmd} ({index}/{len(commands)}); "
+            f"completed: {', '.join(results) or 'none'}",
+        )
+        try:
+            run_checked(
+                ["python3", "-m", "fee_crawler", cmd],
+                env=env,
+                timeout=3600,
+            )
+            results.append(f"{cmd}: OK")
+        except SubprocessFailed as exc:
+            detail = (exc.stderr_tail or exc.stdout_tail or "no child output").strip()
+            detail = " ".join(detail.split())[-400:]
+            failure = f"{cmd}: FAIL ({exc.returncode}) - {detail}"
+            print(failure)
+            results.append(failure)
+            failures.append(f"{cmd}: {detail}")
+        _update_scheduled_job_progress(job_id, "; ".join(results))
 
     # Quarterly (Feb 15, May 15, Aug 15, Nov 15): full FFIEC + NCUA ingestion
     # Runs on approximate FFIEC release dates (~45 days after quarter end).
@@ -502,12 +603,17 @@ def ingest_data():
     is_quarterly = now.month in (2, 5, 8, 11) and now.day == 15
     if is_quarterly:
         for cmd in ["ingest-call-reports", "ingest-ncua"]:
+            _update_scheduled_job_progress(job_id, f"Running quarterly-{cmd}")
             try:
                 run_checked(["python3", "-m", "fee_crawler", cmd], env=env, timeout=3600)
                 results.append(f"quarterly-{cmd}: OK")
             except SubprocessFailed as exc:
-                results.append(f"quarterly-{cmd}: FAIL ({exc.returncode})")
-                failures.append(f"quarterly-{cmd}")
+                detail = (exc.stderr_tail or exc.stdout_tail or "no child output").strip()
+                detail = " ".join(detail.split())[-400:]
+                failure = f"quarterly-{cmd}: FAIL ({exc.returncode}) - {detail}"
+                print(failure)
+                results.append(failure)
+                failures.append(f"quarterly-{cmd}: {detail}")
 
     summary = "; ".join(results)
     # Mark BEFORE raising so the health dashboard sees partial-failure runs
@@ -521,6 +627,22 @@ def ingest_data():
     return summary
 
 
+@app.function(
+    schedule=modal.Cron("0 10 * * *"),
+    timeout=7200,
+    secrets=secrets,
+)
+def ingest_data():
+    """Canonical scheduled envelope for federal and market data ingestion."""
+    from datetime import datetime, timezone
+
+    key = f"schedule:ingest-data:{datetime.now(timezone.utc).date().isoformat()}"
+    with _scheduled_job("ingest-data", "hamilton", key, []) as job:
+        if not job.started:
+            return job.message or f"Ingest job #{job.job_id} is already active"
+        return _ingest_data_body(job.job_id)
+
+
 @app.function(timeout=300, secrets=secrets)
 def check_integrity():
     """On-demand data integrity check."""
@@ -531,73 +653,43 @@ def check_integrity():
     return f"Score: {results['score']}% ({results['passed']}/{results['total']} passed)"
 
 
-from pydantic import BaseModel as _BaseModel
-
-
 class DiscoverRequest(_BaseModel):
     website_url: str
     institution_id: int | None = None
+    internal_secret: str
 
 
 class StateAgentRequest(_BaseModel):
     state_code: str
+    internal_secret: str
 
 
 class ExtractRequest(_BaseModel):
     target_id: int
+    internal_secret: str
 
 
 @app.function(secrets=secrets, timeout=180, memory=2048, image=browser_image)
 @modal.fastapi_endpoint(method="POST")
 def extract_single(item: ExtractRequest) -> dict:
-    """HTTP endpoint to extract fees from a single institution by ID."""
-    import os
-    import json
-    import psycopg2
-    import psycopg2.extras
-
-    conn = psycopg2.connect(
-        os.environ["DATABASE_URL"],
-        cursor_factory=psycopg2.extras.RealDictCursor,
-    )
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM crawl_targets WHERE id = %s", (item.target_id,))
-    inst = cur.fetchone()
-
-    if not inst:
-        conn.close()
-        return {"error": "Institution not found", "ok": False}
-    if not inst["fee_schedule_url"]:
-        conn.close()
-        return {"error": "No fee schedule URL set", "ok": False}
-
-    from fee_crawler.agents.classify import classify_document
-    from fee_crawler.agents.extract_pdf import extract_pdf
-    from fee_crawler.agents.extract_html import extract_html
-    from fee_crawler.agents.extract_js import extract_js
-    from fee_crawler.agents.state_agent import _write_fees
-
-    url = inst["fee_schedule_url"]
-    doc_type = classify_document(url)
-
-    if doc_type == "pdf":
-        fees = extract_pdf(url, inst)
-    elif doc_type == "js_rendered":
-        fees = extract_js(url, inst)
-    else:
-        fees = extract_html(url, inst)
-
-    if fees:
-        _write_fees(conn, inst["id"], fees)
-
-    conn.close()
-    return {"ok": True, "feeCount": len(fees), "docType": doc_type}
+    """Compatibility endpoint that queues the canonical Magellan repair."""
+    _verify_internal_secret(item.internal_secret)
+    _require_automation_http("single-institution extraction")
+    call = run_magellan_repair.spawn(item.target_id)
+    return {
+        "ok": True,
+        "accepted": True,
+        "target_id": item.target_id,
+        "call_id": call.object_id,
+    }
 
 
 @app.function(secrets=secrets, timeout=120)
 @modal.fastapi_endpoint(method="POST")
 def discover_url(item: DiscoverRequest) -> dict:
     """HTTP endpoint for single-institution URL discovery."""
+    _verify_internal_secret(item.internal_secret)
+    _require_automation_http("single-institution discovery")
     from fee_crawler.pipeline.url_discoverer import UrlDiscoverer
     from fee_crawler.config import Config
 
@@ -624,6 +716,8 @@ def discover_url(item: DiscoverRequest) -> dict:
 @modal.fastapi_endpoint(method="POST")
 def run_state_agent(item: StateAgentRequest) -> dict:
     """HTTP endpoint to run the full state agent."""
+    _verify_internal_secret(item.internal_secret)
+    _require_automation_http("state-agent collection")
     from fee_crawler.agents.state_agent import run_state_agent as _run
 
     state_code = item.state_code.upper()
@@ -634,8 +728,7 @@ def run_state_agent(item: StateAgentRequest) -> dict:
 
 
 @app.function(secrets=secrets, timeout=600, image=browser_image, memory=2048)
-@modal.fastapi_endpoint(method="POST")
-async def generate_report(request: dict) -> dict:
+async def generate_report_command(request: dict) -> dict:
     """Full report pipeline: assemble HTML via Next.js, render PDF, upload to R2.
 
     Accepts POST JSON: { job_id, report_type, params }
@@ -649,6 +742,9 @@ async def generate_report(request: dict) -> dict:
     import urllib.request
     import urllib.error
     from fee_crawler.workers.report_render import render_and_store
+    from fee_crawler.ai_usage import assert_automation_enabled
+
+    assert_automation_enabled("Hamilton report worker")
 
     job_id = request.get("job_id", "")
     report_type = request.get("report_type", "")
@@ -724,36 +820,47 @@ async def generate_report(request: dict) -> dict:
         raise
 
 
-@app.function(
-    # Cron removed — Modal free tier limited to 5 cron jobs.
-    # Trigger manually from /admin/hamilton or merge with existing cron.
-    timeout=60,
-    secrets=secrets,
-)
-def run_monthly_pulse():
-    """Manual-only trigger for the monthly pulse report.
+@app.function(secrets=secrets, timeout=60, image=browser_image)
+@modal.fastapi_endpoint(method="POST")
+def generate_report(request: dict) -> dict:
+    """Queue report rendering and return the cancellable Modal call ID."""
+    _verify_internal_secret(str(request.get("internal_secret", "")))
+    _require_automation_http("Hamilton report trigger")
+    if not request.get("job_id") or not request.get("report_type"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="job_id and report_type are required")
+    worker_request = {key: value for key, value in request.items() if key != "internal_secret"}
+    call = generate_report_command.spawn(worker_request)
+    return {
+        "ok": True,
+        "call_id": call.object_id,
+        "job_id": request["job_id"],
+    }
 
-    NOT scheduled. Modal free tier is capped at 5 cron jobs and all five
-    slots are taken by run_discovery, run_pdf_extraction, run_browser_extraction,
-    run_post_processing, and ingest_data. Invoke this function manually:
 
-        modal run fee_crawler/modal_app.py::run_monthly_pulse
-
-    Or trigger from /admin/hamilton. Reads BFI_APP_URL (the same env var
-    used by the rest of the report stack — see src/app/api/reports/*).
-    """
+def _trigger_monthly_pulse_request() -> dict:
+    """Submit one monthly-pulse report request to the canonical report API."""
     import os
     import json
     import urllib.request
     import urllib.error
     from datetime import datetime, timezone
+    from fee_crawler.ai_usage import assert_automation_enabled
 
-    app_url = os.environ.get("BFI_APP_URL", "")
-    cron_secret = os.environ.get("REPORT_CRON_SECRET", "")
+    assert_automation_enabled("Hamilton monthly pulse trigger")
+
+    app_url = os.environ.get("BFI_APP_URL", "").strip()
+    cron_secret = (
+        os.environ.get("REPORT_CRON_SECRET")
+        or os.environ.get("BFI_REVALIDATE_TOKEN", "")
+    ).strip()
     if not app_url:
         return {"triggered": False, "error": "BFI_APP_URL not set"}
     if not cron_secret:
-        return {"triggered": False, "error": "REPORT_CRON_SECRET not set"}
+        return {
+            "triggered": False,
+            "error": "REPORT_CRON_SECRET or BFI_REVALIDATE_TOKEN not set",
+        }
 
     endpoint = f"{app_url.rstrip('/')}/api/reports/generate"
     payload = json.dumps({"report_type": "monthly_pulse"}).encode()
@@ -779,6 +886,23 @@ def run_monthly_pulse():
         return {"triggered": False, "error": str(exc)[:500]}
 
 
+@app.function(
+    schedule=modal.Cron("0 7 1 * *"),
+    timeout=60,
+    secrets=secrets,
+)
+def run_monthly_pulse():
+    """Explicit monthly Hamilton pulse schedule."""
+    result = _trigger_monthly_pulse_request()
+    if not result.get("triggered"):
+        _mark_job_completion("monthly_pulse", "failed")
+        raise RuntimeError(
+            f"monthly pulse trigger failed: {result.get('error', 'unknown error')}"
+        )
+    _mark_job_completion("monthly_pulse", "ok")
+    return result
+
+
 # ----------------------------------------------------------------------
 # Darwin v1 — nightly drain + sidecar web endpoint
 # ----------------------------------------------------------------------
@@ -788,24 +912,30 @@ def run_monthly_pulse():
     secrets=secrets,
     timeout=3600,
 )
-async def darwin_nightly_drain():
+async def darwin_nightly_drain(size: int = 500):
     """Drain up to 500 unpromoted fees_raw rows via Darwin classifier.
 
     Manual only — `modal run fee_crawler/modal_app.py::darwin_nightly_drain`.
-    Not scheduled because the Modal free-plan cron limit (5) is saturated."""
-    import asyncpg
+    Routine classification runs inside the scheduled Atlas cycle."""
     import os
     import logging
+    from fee_crawler.ai_usage import assert_automation_enabled_async
+
+    await assert_automation_enabled_async("Darwin manual drain")
 
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
 
-    conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+    conn = await _connect_asyncpg(os.environ["DATABASE_URL"])
     try:
         from fee_crawler.agents.darwin import classify_batch
 
-        result = await classify_batch(conn, size=500)
-        log.info("darwin nightly drain: %s", result.to_dict())
+        result = await classify_batch(conn, size=size)
+        summary = result.to_dict()
+        log.info("darwin nightly drain: %s", summary)
+        if summary.get("failures") or summary.get("circuit_tripped"):
+            raise RuntimeError(f"Darwin drain failed: {summary}")
+        return summary
     finally:
         await conn.close()
 
@@ -814,7 +944,6 @@ async def darwin_nightly_drain():
     image=image,
     secrets=secrets,
     timeout=600,
-    min_containers=1,  # avoid cold-start on UI clicks
 )
 @modal.asgi_app()
 def darwin_api():
@@ -832,7 +961,6 @@ def darwin_api():
     image=image,
     secrets=secrets,
     timeout=600,
-    min_containers=1,
 )
 @modal.asgi_app()
 def magellan_api():
@@ -858,42 +986,135 @@ def ops_run_command(command: str, args: list[str], job_id: int) -> dict:
     Called via spawn from the web endpoint below. Not web-accessible directly.
     """
     import os
-    import json
     import psycopg2
+    import threading
 
     dsn = os.environ["DATABASE_URL"]
 
-    def _update(status: str, result: dict | None = None, error: str | None = None):
+    def _update(
+        status: str,
+        *,
+        exit_code: int | None = None,
+        stdout_tail: str | None = None,
+        result_summary: str | None = None,
+        error_summary: str | None = None,
+    ):
         try:
             conn = psycopg2.connect(dsn)
             with conn.cursor() as cur:
-                cur.execute(
-                    """UPDATE ops_jobs
-                          SET status = %s,
-                              result_json = COALESCE(%s::JSONB, result_json),
-                              error = %s,
-                              updated_at = NOW()
-                        WHERE id = %s""",
-                    (status, json.dumps(result) if result else None, error, job_id),
-                )
+                if status == "running":
+                    cur.execute(
+                        """UPDATE ops_jobs
+                              SET status = 'running',
+                                  started_at = COALESCE(started_at, NOW()),
+                                  heartbeat_at = NOW(),
+                                  updated_at = NOW()
+                            WHERE id = %s AND status = 'queued'""",
+                        (job_id,),
+                    )
+                else:
+                    cur.execute(
+                        """UPDATE ops_jobs
+                              SET status = %s,
+                                  completed_at = NOW(),
+                                  heartbeat_at = NOW(),
+                                  exit_code = %s,
+                                  stdout_tail = COALESCE(%s, stdout_tail),
+                                  result_summary = COALESCE(%s, result_summary),
+                                  error_summary = %s,
+                                  updated_at = NOW()
+                            WHERE id = %s
+                              AND status IN ('queued', 'running')""",
+                        (
+                            status,
+                            exit_code,
+                            stdout_tail,
+                            result_summary,
+                            error_summary,
+                            job_id,
+                        ),
+                    )
             conn.commit()
             conn.close()
         except Exception as e:
             print(f"ops_jobs update failed job={job_id} status={status}: {e}")
 
-    _update("running")
+    from fee_crawler.ai_usage import EmergencyStopActive, assert_automation_enabled
     try:
-        env = {**os.environ, "DATABASE_URL": dsn}
+        assert_automation_enabled(f"Modal {command} worker")
+    except EmergencyStopActive as exc:
+        _update("cancelled", error_summary=str(exc))
+        return {"status": "cancelled", "reason": str(exc)}
+
+    _update("running")
+    heartbeat_stop = threading.Event()
+
+    def _heartbeat() -> None:
+        while not heartbeat_stop.wait(60):
+            try:
+                conn = psycopg2.connect(dsn)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """UPDATE ops_jobs
+                              SET heartbeat_at = NOW(), updated_at = NOW()
+                            WHERE id = %s AND status IN ('running', 'cancel_requested')""",
+                        (job_id,),
+                    )
+                conn.commit()
+                conn.close()
+            except Exception as exc:
+                print(f"ops_jobs heartbeat failed job={job_id}: {exc}")
+
+    heartbeat = threading.Thread(target=_heartbeat, daemon=True)
+    heartbeat.start()
+    try:
+        env = {
+            **os.environ,
+            "DATABASE_URL": dsn,
+            "BFI_TRIGGER_SOURCE": "admin",
+            "BFI_TRIGGERED_BY": f"ops_job:{job_id}",
+            "BFI_OPS_JOB_ID": str(job_id),
+        }
         result = run_checked(
             ["python3", "-m", "fee_crawler", command, *args],
             env=env, timeout=7000,
         )
         stdout_tail = (result.stdout or "")[-2000:]
-        _update("completed", result={"stdout_tail": stdout_tail, "returncode": result.returncode})
+        if command == "pipeline":
+            _mark_job_completion("atlas_cycle", "ok")
+        _update(
+            "completed",
+            exit_code=result.returncode,
+            stdout_tail=stdout_tail,
+            result_summary=f"{command} completed successfully",
+        )
         return {"status": "completed", "returncode": result.returncode, "stdout_tail": stdout_tail}
     except Exception as e:
-        _update("failed", error=str(e)[:500])
+        if command == "pipeline":
+            try:
+                _mark_job_completion("atlas_cycle", "failed")
+            except Exception as marker_error:
+                print(f"atlas_cycle failure marker write failed: {marker_error}")
+        exit_code = e.returncode if isinstance(e, SubprocessFailed) else None
+        stdout_tail = e.stdout_tail if isinstance(e, SubprocessFailed) else None
+        if isinstance(e, SubprocessFailed):
+            detail = e.stderr_tail or e.stdout_tail or str(e)
+            error_summary = (
+                f"{command} exited {e.returncode}: "
+                + " ".join(detail.split())[-900:]
+            )
+        else:
+            error_summary = str(e)[:1000]
+        _update(
+            "failed",
+            exit_code=exit_code,
+            stdout_tail=stdout_tail,
+            error_summary=error_summary,
+        )
         raise
+    finally:
+        heartbeat_stop.set()
+        heartbeat.join(timeout=2)
 
 
 class RunCommandRequest(_BaseModel):
@@ -901,6 +1122,51 @@ class RunCommandRequest(_BaseModel):
     command: str
     args: list[str] = []
     job_id: int
+    internal_secret: str
+
+
+class CancelCommandRequest(_BaseModel):
+    """Body of POST /ops/cancel."""
+    job_id: int
+    call_id: str
+    internal_secret: str
+
+
+def _verify_internal_secret(provided: str) -> None:
+    import hmac
+    import os
+    from fastapi import HTTPException
+
+    configured = os.environ.get("MODAL_INTERNAL_SECRET") or os.environ.get(
+        "REPORT_INTERNAL_SECRET"
+    )
+    if not configured:
+        raise HTTPException(status_code=503, detail="internal secret is not configured")
+    if not hmac.compare_digest(provided, configured):
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+def _require_automation_http(context: str) -> None:
+    """Block trigger endpoints with an explicit status while the safety gate is closed."""
+    from fastapi import HTTPException
+    from fee_crawler.ai_usage import EmergencyStopActive, assert_automation_enabled
+
+    try:
+        assert_automation_enabled(context)
+    except EmergencyStopActive as exc:
+        raise HTTPException(status_code=423, detail=str(exc)) from exc
+
+
+SAFE_OPS_COMMANDS = {
+    "crawl", "discover", "validate", "categorize", "auto-review", "analyze",
+    "enrich", "outlier-detect", "stats", "ingest-call-reports", "ingest-fdic",
+    "ingest-ncua", "ingest-cfpb", "ingest-beige-book", "ingest-fed-content",
+    "ingest-fred", "ingest-bls", "ingest-nyfed", "refresh-data", "ingest-ofr",
+    "ingest-sod", "ingest-census-acs", "ingest-census-tracts", "snapshot", "seed",
+    "backfill-ncua-urls", "merge-fees", "publish-index", "pipeline",
+    "rediscover-failed",
+    "darwin-drain", "magellan-rescue", "reconcile-runs",
+}
 
 
 @app.function(
@@ -911,5 +1177,107 @@ class RunCommandRequest(_BaseModel):
 @modal.fastapi_endpoint(method="POST")
 def ops_run(request: RunCommandRequest) -> dict:
     """Web endpoint — fires ops_run_command in the background, returns immediately."""
+    _verify_internal_secret(request.internal_secret)
+    if request.command not in SAFE_OPS_COMMANDS:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="command is not allowed")
+    import json
+    import os
+    import psycopg2
+    from fastapi import HTTPException
+
+    _require_automation_http(f"Modal {request.command} trigger")
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT command, params_json, status FROM ops_jobs WHERE id = %s",
+                (request.job_id,),
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="job not found")
+    stored_params = row[1] if isinstance(row[1], dict) else json.loads(row[1] or "{}")
+    if row[0] != request.command or stored_params.get("args", []) != request.args:
+        raise HTTPException(status_code=409, detail="request does not match queued job")
+    if row[2] != "queued":
+        raise HTTPException(status_code=409, detail=f"job is already {row[2]}")
     call = ops_run_command.spawn(request.command, request.args, request.job_id)
     return {"ok": True, "call_id": call.object_id, "job_id": request.job_id}
+
+
+@app.function(
+    image=image,
+    secrets=secrets,
+    timeout=60,
+)
+@modal.fastapi_endpoint(method="POST")
+def ops_cancel(request: CancelCommandRequest) -> dict:
+    """Cancel the exact Modal call recorded for an active ops_jobs row."""
+    _verify_internal_secret(request.internal_secret)
+    import os
+    import psycopg2
+    from fastapi import HTTPException
+
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT modal_call_id, status
+                     FROM ops_jobs
+                    WHERE id = %s
+                    FOR UPDATE""",
+                (request.job_id,),
+            )
+            row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="job not found")
+        if row[0] != request.call_id:
+            raise HTTPException(status_code=409, detail="call ID does not match job")
+        if row[1] not in ("queued", "running", "cancel_requested"):
+            raise HTTPException(status_code=409, detail=f"job is already {row[1]}")
+
+        call = modal.FunctionCall.from_id(request.call_id)
+        call.cancel(terminate_containers=False)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ops_jobs
+                      SET status = 'cancelled',
+                          completed_at = NOW(),
+                          updated_at = NOW()
+                    WHERE id = %s
+                      AND status IN ('queued', 'running', 'cancel_requested')
+                  RETURNING status""",
+                (request.job_id,),
+            )
+            cancelled = cur.fetchone()
+            cur.execute(
+                """UPDATE pipeline_runs
+                      SET status = 'cancelled',
+                          completed_at = COALESCE(completed_at, NOW()),
+                          finished_at = COALESCE(finished_at, NOW()),
+                          error_msg = COALESCE(
+                            error_msg, 'Cancelled through canonical job service'
+                          ),
+                          error = COALESCE(
+                            error, 'Cancelled through canonical job service'
+                          )
+                    WHERE ops_job_id = %s
+                      AND status IN ('queued', 'running')""",
+                (request.job_id,),
+            )
+        if not cancelled or cancelled[0] != "cancelled":
+            raise HTTPException(status_code=409, detail="job completed before cancellation was recorded")
+        conn.commit()
+        return {
+            "ok": True,
+            "status": "cancelled",
+            "job_id": request.job_id,
+            "call_id": request.call_id,
+        }
+    finally:
+        conn.close()

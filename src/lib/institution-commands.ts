@@ -1,0 +1,206 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireAuth } from "./auth";
+import { sql, withTransaction } from "./crawler-db/connection";
+import { spawnJob } from "./job-runner";
+
+export interface InstitutionCommandResult {
+  success: boolean;
+  error?: string;
+  jobId?: number;
+  reused?: boolean;
+}
+
+export interface CreateInstitutionInput {
+  name: string;
+  stateCode: string;
+  charterType: "bank" | "credit_union";
+  websiteUrl?: string;
+  feeScheduleUrl?: string;
+}
+
+export interface BulkInstitutionUrlResult {
+  success: boolean;
+  updated: number;
+  errors: string[];
+}
+
+function validateInstitutionId(institutionId: number): void {
+  if (!Number.isInteger(institutionId) || institutionId < 1) {
+    throw new Error("Invalid institution ID");
+  }
+}
+
+function normalizeHttpUrl(value: string): string {
+  const url = new URL(value.trim());
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("URL must use http or https");
+  }
+  return url.toString();
+}
+
+function revalidateInstitutionSurfaces(institutionId: number, stateCode?: string): void {
+  revalidatePath(`/admin/institution/${institutionId}`);
+  revalidatePath(`/admin/peers/${institutionId}`);
+  if (stateCode) revalidatePath(`/admin/states/${stateCode}`);
+  revalidatePath("/admin/magellan");
+  revalidatePath("/admin");
+}
+
+export async function createInstitutionCommand(
+  input: CreateInstitutionInput,
+): Promise<InstitutionCommandResult & { id?: number }> {
+  await requireAuth("edit");
+  try {
+    const name = input.name.trim();
+    const stateCode = input.stateCode.trim().toUpperCase();
+    if (name.length < 2) throw new Error("Name is required");
+    if (!/^[A-Z]{2}$/.test(stateCode)) throw new Error("Invalid state code");
+    const websiteUrl = input.websiteUrl ? normalizeHttpUrl(input.websiteUrl) : null;
+    const feeScheduleUrl = input.feeScheduleUrl ? normalizeHttpUrl(input.feeScheduleUrl) : null;
+    const [row] = await sql`
+      INSERT INTO crawl_targets
+        (institution_name, state_code, charter_type, website_url,
+         fee_schedule_url, source, status)
+      VALUES
+        (${name}, ${stateCode}, ${input.charterType}, ${websiteUrl},
+         ${feeScheduleUrl}, 'manual', 'active')
+      RETURNING id
+    `;
+    revalidatePath("/admin/magellan");
+    revalidatePath("/admin/institutions");
+    revalidatePath("/admin");
+    return { success: true, id: Number(row.id) };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function setInstitutionFeeUrl(
+  institutionId: number,
+  value: string,
+): Promise<InstitutionCommandResult> {
+  await requireAuth("edit");
+  try {
+    validateInstitutionId(institutionId);
+    const url = normalizeHttpUrl(value);
+    const rows = await sql`
+      UPDATE crawl_targets
+         SET fee_schedule_url = ${url},
+             document_type = NULL
+       WHERE id = ${institutionId}
+       RETURNING state_code
+    `;
+    if (rows.length === 0) return { success: false, error: "Institution not found" };
+    revalidateInstitutionSurfaces(institutionId, String(rows[0].state_code ?? ""));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function markInstitutionOfflineCommand(
+  institutionId: number,
+): Promise<InstitutionCommandResult> {
+  await requireAuth("edit");
+  try {
+    validateInstitutionId(institutionId);
+    const rows = await sql`
+      UPDATE crawl_targets
+         SET fee_schedule_url = NULL,
+             document_type = 'offline'
+       WHERE id = ${institutionId}
+       RETURNING state_code
+    `;
+    if (rows.length === 0) return { success: false, error: "Institution not found" };
+    revalidateInstitutionSurfaces(institutionId, String(rows[0].state_code ?? ""));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function extractInstitutionCommand(
+  institutionId: number,
+): Promise<InstitutionCommandResult> {
+  const user = await requireAuth("trigger_jobs");
+  try {
+    validateInstitutionId(institutionId);
+    const [institution] = await sql`
+      SELECT id, fee_schedule_url
+        FROM crawl_targets
+       WHERE id = ${institutionId}
+    `;
+    if (!institution) return { success: false, error: "Institution not found" };
+    if (!institution.fee_schedule_url) {
+      return { success: false, error: "Find a fee URL before extracting this institution" };
+    }
+
+    const result = await spawnJob(
+      "crawl",
+      ["--target-id", String(institutionId)],
+      user.username,
+      institutionId,
+      {
+        agent: "magellan",
+        idempotencyKey: `institution:${institutionId}:extract`,
+      },
+    );
+    return { success: true, jobId: result.jobId, reused: result.reused };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function bulkSetInstitutionFeeUrls(
+  csvText: string,
+): Promise<BulkInstitutionUrlResult> {
+  await requireAuth("edit");
+  const lines = csvText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("institution_id"));
+  const errors: string[] = [];
+  const updates: Array<{ id: number; url: string }> = [];
+
+  for (const line of lines) {
+    const [rawId, rawUrl] = line.split(/[,\t]/).map((part) => part.trim());
+    const id = Number.parseInt(rawId ?? "", 10);
+    if (!Number.isInteger(id) || id < 1) {
+      errors.push(`Invalid institution ID: ${rawId || "missing"}`);
+      continue;
+    }
+    try {
+      updates.push({ id, url: normalizeHttpUrl(rawUrl ?? "") });
+    } catch (error) {
+      errors.push(`Invalid URL for institution ${id}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  if (updates.length === 0) {
+    return { success: false, updated: 0, errors: errors.length ? errors : ["No valid rows found"] };
+  }
+
+  try {
+    let updated = 0;
+    await withTransaction(async (tx) => {
+      for (const item of updates) {
+        const rows = await tx`
+          UPDATE crawl_targets
+             SET fee_schedule_url = ${item.url}, document_type = NULL
+           WHERE id = ${item.id}
+          RETURNING id
+        `;
+        if (rows.length > 0) updated += 1;
+        else errors.push(`Institution ID ${item.id} not found`);
+      }
+    });
+    revalidatePath("/admin/magellan");
+    revalidatePath("/admin/institutions");
+    revalidatePath("/admin");
+    return { success: true, updated, errors };
+  } catch (error) {
+    return { success: false, updated: 0, errors: [...errors, error instanceof Error ? error.message : String(error)] };
+  }
+}

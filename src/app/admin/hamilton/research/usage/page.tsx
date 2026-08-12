@@ -26,7 +26,7 @@ export default async function ResearchUsagePage() {
           </p>
         </div>
         <Link
-          href="/admin/research"
+          href="/admin/hamilton/research"
           className="rounded-md border border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
         >
           Back to Research Hub

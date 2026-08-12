@@ -2,8 +2,7 @@
 
 import { requireAuth } from "@/lib/auth";
 import { savePeerSet, deletePeerSet } from "@/lib/crawler-db";
-import { sql } from "@/lib/crawler-db/connection";
-import { spawnJob } from "@/lib/job-runner";
+import { extractInstitutionCommand, setInstitutionFeeUrl } from "@/lib/institution-commands";
 import type { PeerFilters } from "@/lib/fed-districts";
 import { revalidatePath } from "next/cache";
 
@@ -42,41 +41,11 @@ export async function updateFeeScheduleUrl(
   institutionId: number,
   url: string,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAuth("trigger_jobs");
-
-  if (!url.trim()) {
-    return { success: false, error: "URL is required" };
-  }
-
-  try {
-    new URL(url.trim());
-  } catch {
-    return { success: false, error: "Invalid URL format" };
-  }
-
-  try {
-    await sql`UPDATE crawl_targets SET fee_schedule_url = ${url.trim()} WHERE id = ${institutionId}`;
-    revalidatePath(`/admin/peers/${institutionId}`);
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
+  return setInstitutionFeeUrl(institutionId, url);
 }
 
 export async function crawlInstitution(
   institutionId: number,
-): Promise<{ success: boolean; jobId?: number; error?: string }> {
-  const user = await requireAuth("trigger_jobs");
-
-  try {
-    const result = await spawnJob(
-      "crawl",
-      ["--target-id", String(institutionId)],
-      user.username,
-      institutionId,
-    );
-    return { success: true, jobId: result.jobId };
-  } catch (e) {
-    return { success: false, error: String(e) };
-  }
+): Promise<{ success: boolean; jobId?: number; reused?: boolean; error?: string }> {
+  return extractInstitutionCommand(institutionId);
 }

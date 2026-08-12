@@ -2,281 +2,123 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ComponentType } from "react";
+import {
+  BookOpenText,
+  Compass,
+  ContactRound,
+  Database,
+  Dna,
+  Orbit,
+  ShieldCheck,
+} from "lucide-react";
 
 interface NavItem {
   href: string;
   label: string;
+  role: string;
+  icon: ComponentType<{ className?: string }>;
   exact?: boolean;
-  icon: React.ReactNode;
   badgeKey?: string;
+  activePrefixes?: string[];
 }
 
-const ICON_CLASS = "w-[14px] h-[14px] shrink-0";
-
-const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
+    label: "Control",
+    items: [
+      { href: "/admin", label: "Atlas", role: "Command center", icon: Orbit, exact: true },
+    ],
+  },
+  {
+    label: "Pipeline",
     items: [
       {
-        href: "/admin",
-        label: "Dashboard",
-        exact: true,
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <rect x="1.5" y="1.5" width="5" height="5" rx="1" />
-            <rect x="9.5" y="1.5" width="5" height="5" rx="1" />
-            <rect x="1.5" y="9.5" width="5" height="5" rx="1" />
-            <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
-          </svg>
-        ),
+        href: "/admin/magellan",
+        label: "Magellan",
+        role: "1 Discover + extract",
+        icon: Compass,
+        activePrefixes: ["/admin/coverage", "/admin/states"],
+      },
+      { href: "/admin/darwin", label: "Darwin", role: "2 Classify fees", icon: Dna },
+      {
+        href: "/admin/knox",
+        label: "Knox",
+        role: "3 Human exceptions",
+        icon: ShieldCheck,
+        badgeKey: "knoxPending",
+        activePrefixes: ["/admin/review", "/admin/verify", "/admin/agents/knox"],
+      },
+      {
+        href: "/admin/data",
+        label: "Data",
+        role: "4 Publish + explore",
+        icon: Database,
+        activePrefixes: [
+          "/admin/institutions", "/admin/institution", "/admin/index", "/admin/market",
+          "/admin/peers", "/admin/fees", "/admin/districts", "/admin/query", "/admin/national",
+        ],
       },
     ],
   },
   {
-    label: "Benchmarks",
-    items: [
-      {
-        href: "/admin/market",
-        label: "Market",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M1.5 12.5l3.5-5 3 3.5 3-6 3.5 5" />
-            <path d="M1.5 14.5h13" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/index",
-        label: "National",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <rect x="2" y="8" width="3" height="6" rx="0.5" />
-            <rect x="6.5" y="5" width="3" height="9" rx="0.5" />
-            <rect x="11" y="2" width="3" height="12" rx="0.5" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/peers",
-        label: "Peer",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="6" cy="5" r="2.5" />
-            <circle cx="11" cy="6" r="2" />
-            <path d="M1.5 13.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" />
-            <path d="M10.5 11.5c1.5 0 3.5.8 3.5 2.5" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/fees/catalog",
-        label: "Categories",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M2 4h12M2 8h8M2 12h10" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/districts",
-        label: "Districts",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="8" cy="7" r="5.5" />
-            <path d="M8 1.5v11M2.5 7h11M3.5 3.5c1.5 1 3 1.5 4.5 1.5s3-.5 4.5-1.5M3.5 10.5c1.5-1 3-1.5 4.5-1.5s3 .5 4.5 1.5" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "Hamilton",
+    label: "Workspace",
     items: [
       {
         href: "/admin/hamilton",
         label: "Hamilton",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="8" cy="5" r="2.5" />
-            <path d="M3 14c0-3 2-5 5-5s5 2 5 5" />
-            <path d="M11 7.5l2.5 1.5M5 7.5L2.5 9" />
-          </svg>
-        ),
+        role: "Research",
+        icon: BookOpenText,
+        activePrefixes: ["/admin/research", "/admin/scout", "/admin/methodology"],
       },
-    ],
-  },
-  {
-    label: "Sales",
-    items: [
-      {
-        href: "/admin/leads",
-        label: "Leads",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5v13M4.5 5L8 1.5 11.5 5" />
-            <rect x="2" y="9" width="12" height="5" rx="1" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "Agents",
-    items: [
-      {
-        href: "/admin/darwin",
-        label: "Darwin",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1.5l4.5 3v4.5L8 12l-4.5-3V4.5L8 1.5" />
-            <path d="M8 4.5v3M5.5 5.5l5 3M10.5 5.5l-5 3" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/coverage",
-        label: "Magellan",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className={ICON_CLASS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/agents",
-        label: "Agents",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="8" cy="6" r="2.5" />
-            <path d="M3.5 13.5c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" />
-            <path d="M2 2.5l1.5 1.5M14 2.5l-1.5 1.5" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/agents/knox/reviews",
-        label: "Knox Reviews",
-        badgeKey: "knoxPending",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M4 8l2.5 2.5L12 4.5" />
-            <path d="M1.5 12.5h3M11.5 12.5h3" />
-            <circle cx="8" cy="8" r="6.5" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "Workflows",
-    items: [
-      {
-        href: "/admin/pipeline",
-        label: "Pipeline",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M2 3h12M3 6h10M4 9h8M5 12h6" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/review",
-        label: "Review",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M4 8l2.5 2.5L12 4.5" />
-            <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "Explore",
-    items: [
-      {
-        href: "/admin/review/categories",
-        label: "By Category",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <rect x="1.5" y="2" width="13" height="3" rx="1" />
-            <rect x="1.5" y="7" width="9" height="3" rx="1" />
-            <rect x="1.5" y="12" width="6" height="3" rx="1" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/query",
-        label: "Explorer",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10.5 10.5L14 14" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "Audit",
-    items: [
-      {
-        href: "/admin/data-quality",
-        label: "Data Quality",
-        icon: (
-          <svg className={ICON_CLASS} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <path d="M8 1v14M1 8h14" />
-            <circle cx="8" cy="8" r="6" />
-          </svg>
-        ),
-      },
+      { href: "/admin/leads", label: "Leads", role: "Sales", icon: ContactRound },
     ],
   },
 ];
+
+function isItemActive(pathname: string, item: NavItem): boolean {
+  if (item.exact) return pathname === item.href;
+  if (pathname.startsWith(item.href)) return true;
+  return item.activePrefixes?.some((prefix) => pathname.startsWith(prefix)) ?? false;
+}
 
 export function AdminNav({ badges }: { badges?: Record<string, number> }) {
   const pathname = usePathname();
 
   return (
-    <nav className="admin-sidebar-nav flex flex-col gap-0.5 px-2.5 py-1">
-      {NAV_GROUPS.map((group, gi) => (
-        <div key={gi}>
-          {gi > 0 && (
-            <div className="mx-2 my-2 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
-          )}
-          {group.label && (
-            <span className="block px-2 mb-1 text-[9px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-[0.1em]">
-              {group.label}
-            </span>
-          )}
+    <nav aria-label="Admin navigation" className="admin-sidebar-nav flex flex-col gap-0.5 px-2.5 py-1">
+      {NAV_GROUPS.map((group, groupIndex) => (
+        <div key={group.label}>
+          {groupIndex > 0 && <div className="mx-2 my-2 h-px bg-black/[0.04] dark:bg-white/[0.04]" />}
+          <span className="mb-1 block px-2 text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
+            {group.label}
+          </span>
           {group.items.map((item) => {
-            const isActive = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+            const active = isItemActive(pathname, item);
             const badgeCount = item.badgeKey ? badges?.[item.badgeKey] ?? 0 : 0;
+            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={`relative flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
-                  isActive
+                aria-current={active ? "page" : undefined}
+                className={`relative flex min-h-10 items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
+                  active
                     ? "bg-gray-900 text-white dark:bg-white/10 dark:text-gray-100"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-black/[0.03] dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/[0.04]"
+                    : "text-gray-600 hover:bg-black/[0.03] hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.04] dark:hover:text-gray-200"
                 }`}
               >
-                <span aria-hidden="true" className="flex items-center">
-                  {item.icon}
+                <Icon className="h-[14px] w-[14px] shrink-0" />
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="block truncate text-[12px] font-semibold">{item.label}</span>
+                  <span className={`block truncate text-[9px] ${active ? "text-white/60" : "text-gray-400"}`}>
+                    {item.role}
+                  </span>
                 </span>
-                <span className="flex-1">{item.label}</span>
                 {badgeCount > 0 && (
-                  <span
-                    className={`inline-block rounded-full px-1.5 py-0 text-[10px] font-semibold tabular-nums ${
-                      isActive
-                        ? "bg-white/20 text-white"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    }`}
-                  >
+                  <span className={`rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${
+                    active ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                  }`}>
                     {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 )}
@@ -291,33 +133,24 @@ export function AdminNav({ badges }: { badges?: Record<string, number> }) {
 
 export function AdminNavInline() {
   const pathname = usePathname();
-
   return (
-    <nav
-      aria-label="Admin sections"
-      className="admin-nav-inline relative flex md:hidden items-center gap-0.5 overflow-x-auto scrollbar-hide"
-    >
-      {NAV_GROUPS.flatMap((group) =>
-        group.items.map((item) => {
-          const isActive = item.exact
-            ? pathname === item.href
-            : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              className={`inline-flex items-center min-h-9 text-[11px] font-semibold px-2.5 py-2 rounded-md transition-colors whitespace-nowrap ${
-                isActive
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-              }`}
-            >
-              {item.label}
-            </Link>
-          );
-        })
-      )}
+    <nav aria-label="Admin sections" className="admin-nav-inline relative flex items-center gap-0.5 overflow-x-auto md:hidden">
+      {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
+        const active = isItemActive(pathname, item);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+            aria-label={`${item.label}: ${item.role}`}
+            className={`inline-flex min-h-9 items-center whitespace-nowrap rounded-md px-2.5 py-2 text-[11px] font-semibold transition-colors ${
+              active ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+            }`}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

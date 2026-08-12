@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireAuth } from "@/lib/auth";
 import { createArticle, getArticles } from "@/lib/crawler-db/articles";
 import { ensureResearchTables } from "@/lib/research/history";
 import { toISO } from "@/lib/pg-helpers";
@@ -10,6 +11,7 @@ const MAX_DRAFTS_PER_DAY = 5;
 export async function saveArticleFromChat(
   markdownContent: string
 ): Promise<{ success: boolean; slug?: string; error?: string }> {
+  await requireAuth("edit");
   if (!markdownContent || markdownContent.length < 100) {
     return { success: false, error: "Content too short to save as article" };
   }
@@ -73,7 +75,7 @@ export async function saveArticleFromChat(
       generated_by: "content-writer",
     });
 
-    revalidatePath("/admin/research/articles");
+    revalidatePath("/admin/hamilton/research/articles");
     return { success: true, slug };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to save";

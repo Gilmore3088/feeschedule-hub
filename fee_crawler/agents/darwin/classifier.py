@@ -13,6 +13,8 @@ from typing import Any, Awaitable, Callable, Optional
 
 import anthropic
 
+from fee_crawler.ai_usage import tracked_anthropic_call_async
+
 from fee_crawler.agents.darwin.config import DarwinConfig
 from fee_crawler.fee_analysis import (
     CANONICAL_KEY_MAP,
@@ -90,7 +92,10 @@ async def _call_anthropic(names: list[str], config: DarwinConfig) -> list[dict]:
     """Single Anthropic call — no retry."""
     system, user = build_prompt(names)
     client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-    resp = await client.messages.create(
+    resp = await tracked_anthropic_call_async(
+        client.messages.create,
+        agent_name="darwin",
+        operation="classify_fee_names",
         model=config.model,
         max_tokens=config.max_tokens,
         system=system,

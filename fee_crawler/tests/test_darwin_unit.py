@@ -1,9 +1,22 @@
 """Pure unit tests for Darwin — no DB, no network, no async."""
+import asyncio
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from fee_crawler.agents.darwin.circuit import CircuitBreaker, HaltReason
+from fee_crawler.agents.darwin.classifier import (
+    classify_names_with_retry,
+    validate_llm_result,
+)
 from fee_crawler.agents.darwin.config import DarwinConfig
+from fee_crawler.agents.darwin.estimate import estimate_batch_cost_usd
+from fee_crawler.agents.darwin.orchestrator import (
+    _Candidate,
+    _is_deferable_provider_error,
+    _promote_or_cache,
+    classify_batch,
+)
 
 
 def test_circuit_no_halt_when_empty():
@@ -55,7 +68,86 @@ def test_circuit_rate_limit_counter_resets_on_success():
     assert cb.halt_reason() is None
 
 
-from fee_crawler.agents.darwin.estimate import estimate_batch_cost_usd
+def test_billing_error_is_deferred_to_low_confidence_queue():
+    exc = RuntimeError("Your credit balance is too low; visit billing")
+    exc.status_code = 400
+    assert _is_deferable_provider_error(exc) is True
+
+
+def test_unrelated_bad_request_is_not_deferred():
+    exc = RuntimeError("malformed tool schema")
+    exc.status_code = 400
+    assert _is_deferable_provider_error(exc) is False
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_does_not_rewrite_classification_cache(monkeypatch):
+    cache_upsert = AsyncMock()
+    flag_update = AsyncMock()
+    monkeypatch.setattr(
+        "fee_crawler.agents.darwin.orchestrator.upsert_classification_cache",
+        cache_upsert,
+    )
+    monkeypatch.setattr(
+        "fee_crawler.agents.darwin.orchestrator.update_fee_raw_flags",
+        flag_update,
+    )
+
+    outcome, _ = await _promote_or_cache(
+        _Candidate(fee_raw_id=1, fee_name="synthetic uncommon fee"),
+        None,
+        0.1,
+        "cache:synthetic uncommon fee",
+        "cache-hit",
+        DarwinConfig(),
+    )
+
+    assert outcome == "cached_low_conf"
+    cache_upsert.assert_not_awaited()
+    flag_update.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_persistence_is_bounded_and_concurrent(monkeypatch):
+    candidates = [
+        _Candidate(fee_raw_id=i, fee_name=f"synthetic uncommon fee {i}")
+        for i in range(12)
+    ]
+    monkeypatch.setattr(
+        "fee_crawler.agents.darwin.orchestrator.select_candidates",
+        AsyncMock(return_value=candidates),
+    )
+    monkeypatch.setattr(
+        "fee_crawler.agents.darwin.orchestrator._lookup_cache",
+        AsyncMock(
+            return_value={candidate.normalized_name: (None, 0.1) for candidate in candidates}
+        ),
+    )
+
+    active = 0
+    maximum = 0
+
+    async def persist(*_args, **_kwargs):
+        nonlocal active, maximum
+        active += 1
+        maximum = max(maximum, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        return "cached_low_conf", None
+
+    monkeypatch.setattr(
+        "fee_crawler.agents.darwin.orchestrator._promote_or_cache",
+        persist,
+    )
+
+    result = await classify_batch(
+        object(),
+        len(candidates),
+        config=DarwinConfig(persistence_concurrency=3),
+    )
+
+    assert result.cached_low_conf == len(candidates)
+    assert maximum == 3
 
 
 def test_estimate_uses_bootstrap_when_no_history():
@@ -87,12 +179,6 @@ def test_estimate_zero_at_full_cache_hit():
 # ---------------------------------------------------------------------------
 # A-4: classifier tests
 # ---------------------------------------------------------------------------
-
-from fee_crawler.agents.darwin.classifier import (
-    validate_llm_result,
-    classify_names_with_retry,
-)
-
 
 def test_validate_rejects_unknown_key():
     assert validate_llm_result("totally_fake_name_xyz", "not_a_real_key") is False

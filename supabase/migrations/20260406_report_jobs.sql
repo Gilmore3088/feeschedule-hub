@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS report_jobs (
   error         text,
   created_at    timestamptz NOT NULL DEFAULT now(),
   completed_at  timestamptz,
-  user_id       uuid        -- nullable: null for cron-triggered jobs
+  user_id       uuid,       -- nullable: null for cron-triggered jobs
 
   CONSTRAINT report_jobs_status_check
     CHECK (status IN ('pending', 'assembling', 'rendering', 'complete', 'failed')),

@@ -155,6 +155,7 @@ export default async function InstitutionDetailPage({
         {/* Admin Actions */}
         <InstitutionActions
           institutionId={institution.id}
+          institutionName={institution.institution_name}
           feeScheduleUrl={institution.fee_schedule_url}
           documentType={institution.document_type}
         />
@@ -428,4 +429,3 @@ function CrawlStatusBadge({ status }: { status: string }) {
     </span>
   );
 }
-

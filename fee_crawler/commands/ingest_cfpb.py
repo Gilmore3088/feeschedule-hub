@@ -7,9 +7,9 @@ import psycopg2
 import psycopg2.extras
 import requests
 
-MAX_RETRIES = 3
-
 from fee_crawler.config import Config
+
+MAX_RETRIES = 3
 
 CFPB_BASE = "https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/"
 
@@ -161,6 +161,7 @@ def ingest_cfpb_complaints(
     total_unmatched = 0
     matched_companies: set[str] = set()
     unmatched_companies: list[tuple[str, int]] = []
+    unmatched_names: set[str] = set()
 
     cursor = conn.cursor()
 
@@ -189,8 +190,9 @@ def ingest_cfpb_complaints(
 
             print(f"  {len(buckets)} companies with complaints")
 
+            upsert_counts: dict[int, int] = {}
             for bucket in buckets:
-                if limit and total_upserted >= limit:
+                if limit and total_upserted + len(upsert_counts) >= limit:
                     break
 
                 company_name = bucket["key"]
@@ -198,51 +200,46 @@ def ingest_cfpb_complaints(
 
                 target_id = _match_company(company_name, name_index)
                 if not target_id:
-                    if company_name not in [u[0] for u in unmatched_companies]:
+                    if company_name not in unmatched_names:
                         unmatched_companies.append((company_name, total_count))
+                        unmatched_names.add(company_name)
                     total_unmatched += 1
                     continue
 
                 matched_companies.add(company_name)
+                upsert_counts[target_id] = upsert_counts.get(target_id, 0) + total_count
 
-                # Store total complaint count per product
-                try:
-                    cursor.execute(
-                        """INSERT INTO institution_complaints
-                           (crawl_target_id, report_period, product, issue, complaint_count)
-                           VALUES (%s, %s, %s, '_total', %s)
-                           ON CONFLICT (crawl_target_id, report_period, product, issue)
-                           DO UPDATE SET complaint_count = EXCLUDED.complaint_count""",
-                        (target_id, year, product, total_count),
-                    )
-                    total_upserted += 1
-                except Exception as e:
-                    print(f"  Error inserting total for {company_name}: {e}")
+            if upsert_counts:
+                upsert_rows = [
+                    (target_id, year, product, "_total", total_count)
+                    for target_id, total_count in upsert_counts.items()
+                ]
+                psycopg2.extras.execute_values(
+                    cursor,
+                    """INSERT INTO institution_complaints
+                         (crawl_target_id, report_period, product, issue, complaint_count)
+                       VALUES %s
+                       ON CONFLICT (crawl_target_id, report_period, product, issue)
+                       DO UPDATE SET complaint_count = EXCLUDED.complaint_count""",
+                    upsert_rows,
+                    page_size=1000,
+                )
+                total_upserted += len(upsert_rows)
 
             # Fetch issue-level breakdown for "Checking or savings account"
-            # (most fee-relevant product) -- uses a single aggregation query
+            # from the response already fetched for the company aggregation.
             if product == "Checking or savings account":
-                issue_data = _fetch_with_retry(
-                    CFPB_BASE,
-                    {
-                        "product": product,
-                        "date_received_min": date_min,
-                        "date_received_max": date_max,
-                        "size": 0,
-                    },
+                issue_agg = data.get("aggregations", {}).get("issue", {})
+                issue_buckets = issue_agg.get("issue", {}).get("buckets", [])
+                fee_issue_count = sum(
+                    b["doc_count"]
+                    for b in issue_buckets
+                    if b["key"] in FEE_ISSUES
                 )
-                if issue_data:
-                    issue_agg = issue_data.get("aggregations", {}).get("issue", {})
-                    issue_buckets = issue_agg.get("issue", {}).get("buckets", [])
-                    fee_issue_count = sum(
-                        b["doc_count"]
-                        for b in issue_buckets
-                        if b["key"] in FEE_ISSUES
-                    )
-                    all_count = sum(b["doc_count"] for b in issue_buckets)
-                    if all_count > 0:
-                        pct = fee_issue_count / all_count * 100
-                        print(f"  Fee-related issues: {fee_issue_count:,}/{all_count:,} ({pct:.0f}%)")
+                all_count = sum(b["doc_count"] for b in issue_buckets)
+                if all_count > 0:
+                    pct = fee_issue_count / all_count * 100
+                    print(f"  Fee-related issues: {fee_issue_count:,}/{all_count:,} ({pct:.0f}%)")
 
             print(f"  Matched: {len(matched_companies)} | Unmatched: {total_unmatched}")
             time.sleep(0.5)
@@ -251,7 +248,7 @@ def ingest_cfpb_complaints(
 
     if unmatched_companies:
         unmatched_companies.sort(key=lambda x: -x[1])
-        print(f"\nTop unmatched companies (by complaint count):")
+        print("\nTop unmatched companies (by complaint count):")
         for name, count in unmatched_companies[:15]:
             print(f"  {name}: {count:,}")
 

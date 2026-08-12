@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, hasPermission, type Permission } from "./auth";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql, withTransaction } from "@/lib/crawler-db/connection";
 
 async function requirePermission(permission: Permission) {
   const user = await getCurrentUser();
@@ -32,7 +32,7 @@ export async function approveFee(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("approve");
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
@@ -60,7 +60,7 @@ export async function rejectFee(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("reject");
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
@@ -82,6 +82,78 @@ export async function rejectFee(
   }
 }
 
+export async function markFeeDuplicate(
+  feeId: number,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requirePermission("reject");
+    await withTransaction(async (tx) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
+      const [fee] = await tx`
+        SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
+      `;
+      if (!fee) throw new Error("Fee not found");
+      assertTransition(fee.review_status, "rejected");
+      await tx`
+        UPDATE extracted_fees
+           SET review_status = 'rejected',
+               validation_flags = COALESCE(validation_flags, '{}'::jsonb)
+                 || jsonb_build_object('reason', 'duplicate')
+         WHERE id = ${feeId}
+      `;
+      await tx`
+        INSERT INTO fee_reviews
+          (fee_id, action, user_id, username, previous_status, new_status, notes)
+        VALUES
+          (${feeId}, 'reject', ${user.id}, ${user.username},
+           ${fee.review_status}, 'rejected', 'Marked as duplicate')
+      `;
+    });
+    revalidatePath("/admin/review");
+    revalidatePath("/admin/knox");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
+export async function approveInstitutionFees(
+  institutionId: number,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const user = await requirePermission("approve");
+    const fees = await sql`
+      SELECT id, review_status
+        FROM extracted_fees
+       WHERE crawl_target_id = ${institutionId}
+         AND review_status IN ('pending', 'staged', 'flagged')
+    `;
+    if (fees.length === 0) return { success: true, count: 0 };
+
+    await withTransaction(async (tx) => {
+      await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
+      for (const fee of fees) {
+        assertTransition(String(fee.review_status), "approved");
+        await tx`
+          UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${fee.id}
+        `;
+        await tx`
+          INSERT INTO fee_reviews
+            (fee_id, action, user_id, username, previous_status, new_status, notes)
+          VALUES
+            (${fee.id}, 'approve', ${user.id}, ${user.username},
+             ${fee.review_status}, 'approved', 'Approved from institution detail')
+        `;
+      }
+    });
+    revalidatePath("/admin/review");
+    revalidatePath("/admin/knox");
+    return { success: true, count: fees.length };
+  } catch (e) {
+    return { success: false, count: 0, error: (e as Error).message };
+  }
+}
+
 export async function editFee(
   feeId: number,
   updates: {
@@ -94,7 +166,7 @@ export async function editFee(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("edit");
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, fee_name, amount, frequency, conditions, review_status
@@ -167,7 +239,7 @@ export async function updateFeeCategory(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requirePermission("edit");
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, fee_category, review_status FROM extracted_fees WHERE id = ${feeId}
@@ -216,7 +288,7 @@ export async function editAndApproveFee(
       amount: fee.amount,
     });
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const setClauses: string[] = [];
       const params: (string | number | null)[] = [];
@@ -274,7 +346,7 @@ export async function bulkApproveStagedFees(
 
     const bulkNote = notes || `Bulk approved ${staged.length} staged fees`;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const fee of staged) {
         await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${fee.id}`;
@@ -304,7 +376,7 @@ export async function bulkRejectFees(
     const bulkNote = notes || `Bulk rejected ${feeIds.length} outlier fees`;
     let count = 0;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const feeId of feeIds) {
         const [fee] = await tx`
@@ -340,7 +412,7 @@ export async function bulkEditAndApproveFees(
     const bulkNote = notes || `Bulk fixed and approved ${updates.length} outlier fees`;
     let count = 0;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const { feeId, amount } of updates) {
         const [fee] = await tx`
@@ -378,7 +450,7 @@ export async function bulkApproveFees(
     const bulkNote = notes || `Bulk approved ${feeIds.length} fees`;
     let count = 0;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const feeId of feeIds) {
         const [fee] = await tx`
@@ -420,7 +492,7 @@ export async function bulkApproveByConfidence(
 
     const bulkNote = notes || `Confidence batch: approved ${staged.length} fees >= ${(minConfidence * 100).toFixed(0)}%`;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const fee of staged) {
         await tx`UPDATE extracted_fees SET review_status = 'approved' WHERE id = ${fee.id}`;
@@ -453,7 +525,7 @@ export async function bulkRejectByInstitution(
 
     const bulkNote = notes || `Rejected all ${fees.length} non-reviewed fees for institution #${institutionId}`;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const fee of fees) {
         await tx`UPDATE extracted_fees SET review_status = 'rejected' WHERE id = ${fee.id}`;
@@ -480,7 +552,7 @@ export async function unstageFee(
   }
   try {
     const user = await requirePermission("edit");
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       const [fee] = await tx`
         SELECT id, review_status FROM extracted_fees WHERE id = ${feeId}
@@ -517,7 +589,7 @@ export async function bulkUpdateFeeCategory(
     const bulkNote = notes || `Bulk recategorized ${feeIds.length} fees to ${newCategory}`;
     let count = 0;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`SET LOCAL app.allow_legacy_writes = 'true'`;
       for (const feeId of feeIds) {
         const [fee] = await tx`

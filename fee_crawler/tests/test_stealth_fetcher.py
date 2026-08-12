@@ -4,9 +4,31 @@ Verifies that fetch_with_browser(stealth=True) applies playwright-stealth
 to the browser context and rotates user agents.
 """
 
-from unittest.mock import MagicMock, patch, PropertyMock
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import MagicMock, patch
 
-import pytest
+
+def test_parallel_browser_requests_run_on_one_owner_thread():
+    from fee_crawler.pipeline import playwright_fetcher
+
+    owner_threads = []
+
+    def owned_fetch(_url, _timeout, _stealth):
+        owner_threads.append(threading.get_ident())
+        return {"success": True}
+
+    with patch.object(playwright_fetcher, "_fetch_with_browser_owned", owned_fetch):
+        with ThreadPoolExecutor(max_workers=4) as callers:
+            results = list(
+                callers.map(
+                    lambda i: playwright_fetcher.fetch_with_browser(f"https://example.com/{i}"),
+                    range(8),
+                )
+            )
+
+    assert all(result["success"] for result in results)
+    assert len(set(owner_threads)) == 1
 
 
 def test_user_agent_list_has_minimum_entries():
@@ -43,10 +65,10 @@ def test_stealth_true_calls_apply_stealth_sync():
          patch("fee_crawler.pipeline.playwright_fetcher.Stealth", return_value=mock_stealth_instance) as mock_stealth_cls, \
          patch("fee_crawler.pipeline.playwright_fetcher._is_safe_url", return_value=True), \
          patch("fee_crawler.pipeline.playwright_fetcher.is_playwright_available", return_value=True), \
-         patch("time.sleep"):
+        patch("time.sleep"):
 
         from fee_crawler.pipeline.playwright_fetcher import fetch_with_browser
-        result = fetch_with_browser("https://example.com/fees", stealth=True)
+        fetch_with_browser("https://example.com/fees", stealth=True)
 
     mock_stealth_cls.assert_called_once()
     mock_stealth_instance.apply_stealth_sync.assert_called_once_with(mock_context)
@@ -73,10 +95,10 @@ def test_stealth_false_does_not_call_apply_stealth():
 
     with patch("fee_crawler.pipeline.playwright_fetcher._get_browser", return_value=mock_browser), \
          patch("fee_crawler.pipeline.playwright_fetcher._is_safe_url", return_value=True), \
-         patch("fee_crawler.pipeline.playwright_fetcher.is_playwright_available", return_value=True):
+        patch("fee_crawler.pipeline.playwright_fetcher.is_playwright_available", return_value=True):
 
         from fee_crawler.pipeline.playwright_fetcher import fetch_with_browser
-        result = fetch_with_browser("https://example.com/fees", stealth=False)
+        fetch_with_browser("https://example.com/fees", stealth=False)
 
     # Stealth should not have been imported/called at all in the default path
     # The browser.new_context should NOT have user_agent from USER_AGENT_LIST
@@ -111,10 +133,10 @@ def test_stealth_true_passes_random_user_agent():
          patch("fee_crawler.pipeline.playwright_fetcher.Stealth", return_value=MagicMock()), \
          patch("fee_crawler.pipeline.playwright_fetcher._is_safe_url", return_value=True), \
          patch("fee_crawler.pipeline.playwright_fetcher.is_playwright_available", return_value=True), \
-         patch("time.sleep"):
+        patch("time.sleep"):
 
         from fee_crawler.pipeline.playwright_fetcher import fetch_with_browser
-        result = fetch_with_browser("https://example.com/fees", stealth=True)
+        fetch_with_browser("https://example.com/fees", stealth=True)
 
     call_kwargs = mock_browser.new_context.call_args
     ua_passed = call_kwargs.kwargs.get("user_agent") or (call_kwargs.args[0] if call_kwargs.args else None)

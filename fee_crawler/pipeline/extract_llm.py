@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 import anthropic
 
+from fee_crawler.ai_usage import tracked_anthropic_call
+
 from fee_crawler.config import Config
 
 logger = logging.getLogger(__name__)
@@ -290,7 +292,10 @@ def _extract_single(
         document_type=document_type,
     )
 
-    message = client.messages.create(
+    message = tracked_anthropic_call(
+        client.messages.create,
+        agent_name="extractor",
+        operation="extract_fee_chunk",
         model=config.claude.model,
         max_tokens=config.claude.max_tokens,
         system=_SYSTEM_PROMPT,
@@ -329,7 +334,10 @@ def _extract_single(
             retry_messages.append({"role": "user", "content": _RETRY_PROMPT})
 
         try:
-            retry_message = client.messages.create(
+            retry_message = tracked_anthropic_call(
+                client.messages.create,
+                agent_name="extractor",
+                operation="retry_fee_chunk",
                 model=config.claude.model,
                 max_tokens=config.claude.max_tokens,
                 system=_SYSTEM_PROMPT,

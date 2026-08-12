@@ -408,7 +408,7 @@ function OutlierRow({
       </td>
       <td className="px-4 py-2.5">
         <Link
-          href={`/admin/review/${fee.id}`}
+          href={`/admin/knox/fees/${fee.id}`}
           className="text-gray-900 hover:text-blue-600 transition-colors font-medium text-xs dark:text-gray-100"
         >
           {fee.fee_name}

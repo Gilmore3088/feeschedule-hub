@@ -294,6 +294,92 @@ def _upsert_unmatched(cur, cert: str, report_date: str,
     )
 
 
+def _financial_values(
+    target_id: int | None,
+    cert: str,
+    report_date: str,
+    data: dict,
+    sc: int | None,
+    nonii: int | None,
+    total_revenue: int | None,
+    fee_income_ratio: float | None,
+) -> tuple:
+    return (
+        target_id,
+        cert,
+        report_date,
+        "ffiec",
+        _scale_thousands(_safe_int(data.get("ASSET"))),
+        _scale_thousands(_safe_int(data.get("DEP"))),
+        _scale_thousands(_safe_int(data.get("LNLSNET"))),
+        sc,
+        nonii,
+        _safe_float(data.get("NIMY")),
+        _safe_float(data.get("EEFFR")),
+        _safe_float(data.get("ROA")),
+        _safe_float(data.get("ROE")),
+        _safe_float(data.get("RBC1AAJ")),
+        _safe_int(data.get("OFFDOM")),
+        _safe_int(data.get("NUMEMP")),
+        total_revenue,
+        fee_income_ratio,
+        json.dumps(data),
+    )
+
+
+def _bulk_upsert_financials(
+    cur,
+    matched_rows: list[tuple],
+    unmatched_rows: list[tuple],
+) -> None:
+    """Persist one FDIC API page with bounded database round trips."""
+    insert_sql = """INSERT INTO institution_financials
+       (crawl_target_id, source_cert_number, report_date, source,
+        total_assets, total_deposits, total_loans,
+        service_charge_income, other_noninterest_income,
+        net_interest_margin, efficiency_ratio,
+        roa, roe, tier1_capital_ratio,
+        branch_count, employee_count,
+        total_revenue, fee_income_ratio, raw_json)
+       VALUES %s"""
+    update_sql = """ DO UPDATE SET
+       total_assets = EXCLUDED.total_assets,
+       total_deposits = EXCLUDED.total_deposits,
+       total_loans = EXCLUDED.total_loans,
+       service_charge_income = EXCLUDED.service_charge_income,
+       other_noninterest_income = EXCLUDED.other_noninterest_income,
+       net_interest_margin = EXCLUDED.net_interest_margin,
+       efficiency_ratio = EXCLUDED.efficiency_ratio,
+       roa = EXCLUDED.roa,
+       roe = EXCLUDED.roe,
+       tier1_capital_ratio = EXCLUDED.tier1_capital_ratio,
+       branch_count = EXCLUDED.branch_count,
+       employee_count = EXCLUDED.employee_count,
+       total_revenue = EXCLUDED.total_revenue,
+       fee_income_ratio = EXCLUDED.fee_income_ratio,
+       raw_json = EXCLUDED.raw_json,
+       fetched_at = NOW()"""
+    if matched_rows:
+        psycopg2.extras.execute_values(
+            cur,
+            insert_sql
+            + " ON CONFLICT (crawl_target_id, report_date, source)"
+            + update_sql,
+            matched_rows,
+            page_size=1000,
+        )
+    if unmatched_rows:
+        psycopg2.extras.execute_values(
+            cur,
+            insert_sql
+            + " ON CONFLICT (source_cert_number, report_date, source)"
+            + " WHERE crawl_target_id IS NULL"
+            + update_sql,
+            unmatched_rows,
+            page_size=1000,
+        )
+
+
 def _ingest_quarter(cur, report_date_yyyymmdd: str,
                     cert_map: dict[str, int],
                     name_map: dict[tuple[str, str], int]) -> dict:
@@ -329,6 +415,8 @@ def _ingest_quarter(cur, report_date_yyyymmdd: str,
         if not records:
             break
 
+        matched_rows: list[tuple] = []
+        unmatched_rows: list[tuple] = []
         for rec in records:
             d = rec.get("data", {})
             cert = str(d.get("CERT", "")).strip()
@@ -366,19 +454,24 @@ def _ingest_quarter(cur, report_date_yyyymmdd: str,
                 if name and state:
                     target_id = name_map.get((name, state))
 
-            try:
-                if target_id is not None:
-                    _upsert_matched(cur, target_id, cert, report_date,
-                                    d, sc, nonii, total_revenue, fee_income_ratio)
-                    stats["matched"] += 1
-                else:
-                    _upsert_unmatched(cur, cert, report_date,
-                                      d, sc, nonii, total_revenue, fee_income_ratio)
-                    stats["unmatched"] += 1
-            except Exception as e:
-                stats["errors"] += 1
-                if stats["errors"] <= 5:
-                    print(f"  Error for CERT {cert}: {e}")
+            row = _financial_values(
+                target_id,
+                cert,
+                report_date,
+                d,
+                sc,
+                nonii,
+                total_revenue,
+                fee_income_ratio,
+            )
+            if target_id is not None:
+                matched_rows.append(row)
+                stats["matched"] += 1
+            else:
+                unmatched_rows.append(row)
+                stats["unmatched"] += 1
+
+        _bulk_upsert_financials(cur, matched_rows, unmatched_rows)
 
         offset += PAGE_SIZE
         fetched = min(offset, stats["total_api"])
@@ -445,13 +538,18 @@ def run(
                 total_errors += 1
 
         print(f"\n{'='*60}")
-        print(f"FFIEC Call Report Ingestion Summary")
+        print("FFIEC Call Report Ingestion Summary")
         print(f"{'='*60}")
         print(f"  Quarters processed:  {quarters_processed}")
         print(f"  Rows matched:        {total_matched:,}")
         print(f"  Rows unmatched:      {total_unmatched:,}")
         print(f"  Total upserted:      {total_matched + total_unmatched:,}")
         print(f"  Errors:              {total_errors:,}")
+
+        if total_errors:
+            raise RuntimeError(
+                f"FFIEC ingestion completed with {total_errors} source or quarter errors"
+            )
 
     finally:
         cur.close()

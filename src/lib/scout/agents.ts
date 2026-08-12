@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
 import type {
   InstitutionRow,
   ExtractedFeeRow,
@@ -228,14 +229,18 @@ Return ONLY raw JSON (no markdown fences):
 
 Only reference fees provided. Do not invent data.`;
 
-  const response = await claude.messages.create(
-    {
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      system,
-      messages: [{ role: "user", content: JSON.stringify(payload) }],
-    },
-    { timeout: 30_000 }
+  const model = "claude-sonnet-4-20250514";
+  const response = await trackAnthropicRequest(
+    { model, agent: "hamilton", operation: "build_institution_fee_report" },
+    () => claude.messages.create(
+      {
+        model,
+        max_tokens: 2000,
+        system,
+        messages: [{ role: "user", content: JSON.stringify(payload) }],
+      },
+      { timeout: 30_000 },
+    ),
   );
 
   emit("Response received — building report...");

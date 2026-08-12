@@ -41,8 +41,11 @@ export function DecisionStream({
 }) {
   if (decisions.length === 0) {
     return (
-      <div className="admin-card p-4 text-sm text-gray-500">
-        No decisions yet — click Classify to start.
+      <div className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No live classification rows in this view.</p>
+        <p className="admin-meta mt-1">
+          Start a classification run above, then track the queued job in the command center. Recent reasoning is available when rows are present.
+        </p>
       </div>
     );
   }

@@ -17,6 +17,8 @@ import logging
 from urllib.parse import urljoin
 
 import anthropic
+
+from fee_crawler.ai_usage import tracked_anthropic_call
 from playwright.sync_api import sync_playwright
 
 from fee_crawler.agents.strategy import StrategyTier, TIER1
@@ -353,7 +355,10 @@ def _ask_claude(client, institution_name: str, current_url: str, links_text: str
     if knowledge:
         knowledge_section = f"\n\nPrior knowledge about this institution/region:\n{knowledge}\n"
 
-    response = client.messages.create(
+    response = tracked_anthropic_call(
+        client.messages.create,
+        agent_name="magellan",
+        operation="discover_fee_url",
         model="claude-sonnet-4-20250514",
         max_tokens=500,
         system=f"""You find fee schedule URLs on bank and credit union websites. Every bank publishes a fee schedule — your job is to find it.
@@ -382,7 +387,10 @@ Return JSON only:
 
 
 def _ask_claude_followup(client, institution_name: str, current_url: str, page_text: str, links_text: str) -> dict | None:
-    response = client.messages.create(
+    response = tracked_anthropic_call(
+        client.messages.create,
+        agent_name="magellan",
+        operation="discover_fee_url_followup",
         model="claude-sonnet-4-20250514",
         max_tokens=500,
         system="""You find fee schedule URLs on bank and credit union websites.

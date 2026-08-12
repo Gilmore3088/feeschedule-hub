@@ -7,6 +7,7 @@ upsert_institution_dossier to record per-institution strategy memory.
 
 from __future__ import annotations
 
+import json
 from typing import Optional
 
 from fee_crawler.agent_tools.gateway import with_agent_tool
@@ -19,6 +20,8 @@ from fee_crawler.agent_tools.schemas import (
     CreateCrawlRunOutput,
     CreateJobInput,
     CreateJobOutput,
+    PersistCrawlExtractionInput,
+    PersistCrawlExtractionOutput,
     CreateWaveRunInput,
     CreateWaveRunOutput,
     UpdateCrawlRunInput,
@@ -152,6 +155,104 @@ async def create_crawl_result(
     return CreateCrawlResultOutput(
         success=True,
         crawl_result_id=new_id,
+        event_ref=AgentEventRef(event_id=event_id, correlation_id=corr),
+    )
+
+
+@agent_tool(
+    name="persist_crawl_extraction",
+    entity="fees_raw",
+    action="create",
+    input_schema=PersistCrawlExtractionInput,
+    output_schema=PersistCrawlExtractionOutput,
+    description=(
+        "Atomically record a successful Magellan crawl, its Tier-1 fee "
+        "observations, lineage, and target freshness."
+    ),
+)
+async def persist_crawl_extraction(
+    *,
+    inp: PersistCrawlExtractionInput,
+    agent_name: str,
+    reasoning_prompt: str,
+    reasoning_output: str,
+    parent_event_id: Optional[str] = None,
+) -> PersistCrawlExtractionOutput:
+    async with with_agent_tool(
+        tool_name="persist_crawl_extraction",
+        entity="fees_raw",
+        entity_id=None,
+        action="create",
+        agent_name=agent_name,
+        reasoning_prompt=reasoning_prompt,
+        reasoning_output=reasoning_output,
+        input_payload=inp.model_dump(),
+        pk_column="fee_raw_id",
+        parent_event_id=parent_event_id,
+    ) as (conn, event_id):
+        crawl_result_id = await conn.fetchval(
+            """INSERT INTO crawl_results
+                   (crawl_run_id, crawl_target_id, status, document_url,
+                    document_path, content_hash, fees_extracted)
+               VALUES ($1, $2, 'success', $3, $4, $5, $6)
+               RETURNING id""",
+            inp.crawl_run_id,
+            inp.crawl_target_id,
+            inp.document_url,
+            inp.document_path,
+            inp.content_hash,
+            len(inp.fees),
+        )
+
+        source = "magellan" if agent_name == "magellan" else "knox"
+        fee_raw_ids: list[int] = []
+        for fee in inp.fees:
+            flags = sorted(set(fee.outlier_flags + [f"extracted_by:{inp.extraction_method}"]))
+            fee_raw_id = await conn.fetchval(
+                """INSERT INTO fees_raw
+                       (institution_id, crawl_event_id, document_r2_key,
+                        source_url, extraction_confidence, agent_event_id,
+                        fee_name, amount, frequency, conditions,
+                        outlier_flags, source)
+                   VALUES ($1, $2, $3, $4, $5, $6::UUID, $7, $8, $9, $10,
+                           $11::JSONB, $12)
+                   RETURNING fee_raw_id""",
+                inp.crawl_target_id,
+                crawl_result_id,
+                inp.document_r2_key,
+                inp.document_url,
+                fee.extraction_confidence,
+                event_id,
+                fee.fee_name,
+                fee.amount,
+                fee.frequency,
+                fee.conditions,
+                json.dumps(flags),
+                source,
+            )
+            fee_raw_ids.append(fee_raw_id)
+
+        await conn.execute(
+            """UPDATE crawl_targets
+                  SET last_content_hash = $1,
+                      last_crawl_at = NOW(),
+                      last_success_at = NOW(),
+                      consecutive_failures = 0,
+                      failure_reason = NULL,
+                      crawl_strategy = $2,
+                      document_r2_key = COALESCE($3, document_r2_key)
+                WHERE id = $4""",
+            inp.content_hash,
+            inp.crawl_strategy,
+            inp.document_r2_key,
+            inp.crawl_target_id,
+        )
+        corr = await _correlation_of(event_id, conn)
+
+    return PersistCrawlExtractionOutput(
+        success=True,
+        crawl_result_id=crawl_result_id,
+        fee_raw_ids=fee_raw_ids,
         event_ref=AgentEventRef(event_id=event_id, correlation_id=corr),
     )
 

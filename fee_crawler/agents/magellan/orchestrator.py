@@ -38,6 +38,7 @@ class RescueOutcome(str, Enum):
 
 @dataclass
 class BatchResult:
+    selected: int = 0
     processed: int = 0
     rescued: int = 0
     dead: int = 0
@@ -194,7 +195,7 @@ async def rescue_batch(
             await on_event({"type": ev_type, **payload})
 
     targets = await select_candidates(conn, size)
-    result.processed = len(targets)
+    result.selected = len(targets)
     await emit("candidates_selected", count=len(targets))
 
     if not targets:
@@ -208,6 +209,7 @@ async def rescue_batch(
         if result.circuit_tripped:
             break
 
+        result.processed += 1
         last_result = RungResult()
         rescued = False
 
@@ -215,7 +217,7 @@ async def rescue_batch(
             try:
                 rung_result = await rung.run(target, ctx)
             except Exception as e:
-                rung_result = RungResult(error=str(e))
+                rung_result = RungResult(error=f"{type(e).__name__}: {e}")
 
             last_result = rung_result
             result.cost_usd += rung_result.cost_usd
@@ -279,14 +281,16 @@ async def rescue_batch(
                     "http_status": last_result.http_status,
                 })
                 await _mark_target(target, outcome, reasoning)
-                cb.record_failure()
 
                 if outcome == RescueOutcome.DEAD:
                     result.dead += 1
+                    cb.record_success()
                 elif outcome == RescueOutcome.NEEDS_HUMAN:
                     result.needs_human += 1
+                    cb.record_success()
                 elif outcome == RescueOutcome.RETRY_AFTER:
                     result.retry_after += 1
+                    cb.record_failure()
 
                 await emit("row_complete", target_id=target.id, outcome=outcome.value)
 

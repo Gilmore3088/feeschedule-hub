@@ -21,6 +21,7 @@
 
 import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { guardProviderCall, recordProviderUsage } from "@/lib/ai-provider-usage";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { getDailyCostCents, logUsage } from "@/lib/research/history";
@@ -123,12 +124,29 @@ Market distribution (${approved_count} approved observations):
 
 Provide a concise strategic interpretation of this fee change. What does this positioning mean competitively? What is the key risk or opportunity?`.trim();
 
+  const providerContext = {
+    provider: "anthropic" as const,
+    model: HAMILTON_MODEL,
+    agent: "hamilton",
+    operation: "simulate_fee_change",
+  };
+  let providerStartedAt: number;
+  try {
+    providerStartedAt = await guardProviderCall(providerContext);
+  } catch (error) {
+    return new Response(
+      error instanceof Error ? error.message : "Automation is stopped",
+      { status: 423 },
+    );
+  }
+
+  let providerFailed = false;
   const result = await streamText({
     model: anthropic(HAMILTON_MODEL),
     system: systemPrompt,
     prompt: userPrompt,
     maxOutputTokens: 300,
-    onFinish: ({ usage }) => {
+    onFinish: async ({ usage }) => {
       const inputRate = COST_PER_M_INPUT[HAMILTON_MODEL] ?? 300;
       const outputRate = COST_PER_M_OUTPUT[HAMILTON_MODEL] ?? 1500;
       const inputTokens = usage?.inputTokens ?? 0;
@@ -136,9 +154,24 @@ Provide a concise strategic interpretation of this fee change. What does this po
       const costCents = Math.round(
         (inputTokens * inputRate + outputTokens * outputRate) / 1_000_000
       );
+      if (!providerFailed) {
+        await recordProviderUsage(
+          providerContext,
+          "completed",
+          { inputTokens, outputTokens },
+          { latencyMs: Date.now() - providerStartedAt },
+        );
+      }
       logUsage(user.id, null, "hamilton-simulate", inputTokens, outputTokens, costCents).catch(
         () => {}
       );
+    },
+    onError: async ({ error }) => {
+      providerFailed = true;
+      await recordProviderUsage(providerContext, "failed", {}, {
+        latencyMs: Date.now() - providerStartedAt,
+        error: error instanceof Error ? error.message : String(error),
+      });
     },
   });
 

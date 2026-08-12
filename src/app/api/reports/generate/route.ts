@@ -2,8 +2,8 @@
  * POST /api/reports/generate
  * Phase 13-03 + 14-03: report generation endpoint with cron auth support.
  *
- * Enqueues a report generation job. Returns jobId immediately — does NOT wait
- * for Modal to complete (fire-and-forget). Clients poll /api/reports/[id]/status.
+ * Enqueues a report generation job. Waits only for Modal to acknowledge the
+ * background call ID; clients poll /api/reports/[id]/status for completion.
  *
  * Auth paths:
  *   1. Session cookie (getCurrentUser) — normal user-triggered generation
@@ -16,11 +16,13 @@
  * Threat refs: T-13-10, T-13-13, T-14-07
  */
 
-import { NextResponse, after } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { getCurrentUser, hasPermission } from '@/lib/auth';
 import { getSql } from '@/lib/crawler-db/connection';
 import { checkFreshness } from '@/lib/report-engine/freshness';
+import { triggerReportJob } from '@/lib/report-job-runner';
 import type { ReportType } from '@/lib/report-engine/types';
+import { matchesConfiguredCronSecret } from '@/lib/cron-secret';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -49,17 +51,16 @@ export async function POST(request: Request) {
   let cronAuthed = false;
   if (!user) {
     const headerSecret = request.headers.get('x-cron-secret');
-    // Accept either REPORT_CRON_SECRET or BFI_REVALIDATE_TOKEN (Hamilton chat uses the latter)
-    const secrets = [process.env.REPORT_CRON_SECRET, process.env.BFI_REVALIDATE_TOKEN].filter(
-      (s): s is string => typeof s === 'string' && s.length > 0,
-    );
-    if (headerSecret && secrets.some((s) => s === headerSecret)) {
+    if (matchesConfiguredCronSecret(headerSecret)) {
       cronAuthed = true;
     }
   }
 
   if (!user && !cronAuthed) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (user && !hasPermission(user, 'trigger_jobs')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   let body: { report_type?: unknown; params?: unknown };
@@ -128,34 +129,18 @@ export async function POST(request: Request) {
     );
   }
 
-  // Trigger Modal via after() — runs after response is sent, Vercel keeps function alive.
-  // Modal endpoint is synchronous (runs full pipeline), so we can't await it before responding.
-  const modalUrl = process.env.MODAL_REPORT_URL;
-
-  if (modalUrl) {
-    after(async () => {
-      try {
-        const triggerRes = await fetch(modalUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            job_id: jobId,
-            report_type: validatedType,
-            params: validatedParams,
-          }),
-        });
-        if (!triggerRes.ok) {
-          console.error('[reports/generate] Modal returned', triggerRes.status);
-        }
-      } catch (err: unknown) {
-        console.error(
-          '[reports/generate] Modal trigger failed:',
-          err instanceof Error ? err.message : String(err),
-        );
-      }
-    });
-  } else {
-    console.warn('[reports/generate] MODAL_REPORT_URL not configured — skipping Modal trigger');
+  const trigger = await triggerReportJob(
+    jobId,
+    validatedType,
+    validatedParams,
+    user?.username ?? 'monthly-pulse',
+    cronAuthed ? 'schedule' : 'api',
+  );
+  if (!trigger.success) {
+    return NextResponse.json(
+      { error: trigger.error ?? 'Report worker failed to accept the job', jobId },
+      { status: 503 },
+    );
   }
 
   return NextResponse.json({ jobId }, { status: 202 });

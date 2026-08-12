@@ -4,6 +4,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
 import { HAMILTON_VOICE } from "./voice";
 import {
   evaluateCitationDensity,
@@ -69,14 +70,17 @@ export async function generateSection(input: SectionInput): Promise<SectionOutpu
 
   let response: Anthropic.Message;
   try {
-    response = await client.messages.create(
-      {
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: HAMILTON_VOICE.systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      },
-      { timeout: REQUEST_TIMEOUT_MS }
+    response = await trackAnthropicRequest(
+      { model: MODEL, agent: "hamilton", operation: "generate_report_section" },
+      () => client.messages.create(
+        {
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          system: HAMILTON_VOICE.systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+        },
+        { timeout: REQUEST_TIMEOUT_MS },
+      ),
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -196,14 +200,17 @@ export async function generateGlobalThesis(input: ThesisInput): Promise<ThesisOu
 
   let response: Anthropic.Message;
   try {
-    response = await client.messages.create(
-      {
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: HAMILTON_VOICE.systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      },
-      { timeout: THESIS_TIMEOUT_MS },
+    response = await trackAnthropicRequest(
+      { model: MODEL, agent: "hamilton", operation: "generate_report_thesis" },
+      () => client.messages.create(
+        {
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          system: HAMILTON_VOICE.systemPrompt,
+          messages: [{ role: 'user', content: userMessage }],
+        },
+        { timeout: THESIS_TIMEOUT_MS },
+      ),
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

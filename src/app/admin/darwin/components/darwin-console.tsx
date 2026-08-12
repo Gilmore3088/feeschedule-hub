@@ -5,27 +5,26 @@ import {
   BatchRunner,
   type BatchSizeOption,
 } from "@/components/agent-console/batch-runner";
-import { DecisionStream, rowFromEvent, type Decision } from "./decision-stream";
+import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { DecisionStream, type Decision } from "./decision-stream";
 import { CircuitBanner } from "@/components/agent-console/circuit-banner";
 import { BudgetGauge } from "./budget-gauge";
-import { fetchDarwinStatus, resetDarwinCircuit, fetchDarwinReasoning, fetchReasoningFromR2, reclassifyFee } from "../actions";
-import type { BatchEvent, BatchResult, DarwinStatus } from "../types";
+import { fetchDarwinStatus, resetDarwinCircuit, fetchDarwinReasoning, fetchReasoningFromR2, reclassifyFee, runDarwinRepair } from "../actions";
+import type { DarwinStatus } from "../types";
 
-type RunningTotals = {
-  promoted: number;
-  cached: number;
-  rejected: number;
-  failure: number;
+type QueuedJob = {
+  id: number;
+  size: BatchSizeOption;
+  chain: number;
+  reused: boolean;
 };
-
-const ZERO_TOTALS: RunningTotals = { promoted: 0, cached: 0, rejected: 0, failure: 0 };
 
 export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }) {
   const [status, setStatus] = useState<DarwinStatus>(initialStatus);
   const [running, setRunning] = useState(false);
   const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [lastResult, setLastResult] = useState<BatchResult | null>(null);
-  const [runningTotals, setRunningTotals] = useState<RunningTotals>(ZERO_TOTALS);
+  const [queuedJob, setQueuedJob] = useState<QueuedJob | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Filter state
   const [filterOutcome, setFilterOutcome] = useState<string>("all");
@@ -45,57 +44,23 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
     try { setStatus(await fetchDarwinStatus()); } catch {}
   }, []);
 
-  const runOne = useCallback((size: BatchSizeOption): Promise<void> => {
-    return new Promise((resolve) => {
-      const es = new EventSource(`/api/admin/darwin/stream?size=${size}`);
-      const handle = (ev: MessageEvent) => {
-        try {
-          const payload = JSON.parse(ev.data) as BatchEvent;
-          if (payload.type === "row_complete") {
-            const row = rowFromEvent(payload);
-            if (row) {
-              setDecisions((prev) => [row, ...prev].slice(0, 200));
-              const outcomeKey =
-                payload.outcome === "cached_low_conf" ? "cached" : payload.outcome;
-              setRunningTotals((prev) => ({
-                ...prev,
-                [outcomeKey]: (prev[outcomeKey as keyof RunningTotals] ?? 0) + 1,
-              }));
-            }
-          } else if (payload.type === "done") {
-            setLastResult(payload.result);
-            es.close();
-            resolve();
-          } else if (payload.type === "halted" || payload.type === "error") {
-            es.close();
-            resolve();
-          }
-        } catch {
-          /* ignore parse errors */
-        }
-      };
-      ["row_complete", "done", "halted", "error"].forEach((t) => {
-        es.addEventListener(t, (ev) => handle(ev as MessageEvent));
-      });
-      es.onerror = () => { es.close(); resolve(); };
-    });
-  }, []);
-
   const start = useCallback(async (size: BatchSizeOption, chain: number) => {
     setRunning(true);
     setDecisions([]);
-    setRunningTotals(ZERO_TOTALS);
+    setQueuedJob(null);
+    setError(null);
     try {
-      for (let i = 0; i < chain; i++) {
-        await runOne(size);
-        await refreshStatus();
-        if ((await fetchDarwinStatus()).circuit.halted) break;
+      const result = await runDarwinRepair(size, chain);
+      if (!result.success) {
+        setError(result.error ?? "Darwin repair could not be queued");
+      } else if (typeof result.jobId === "number") {
+        setQueuedJob({ id: result.jobId, size, chain, reused: Boolean(result.reused) });
       }
     } finally {
       setRunning(false);
       await refreshStatus();
     }
-  }, [runOne, refreshStatus]);
+  }, [refreshStatus]);
 
   useEffect(() => {
     const id = setInterval(refreshStatus, 10_000);
@@ -141,37 +106,38 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
       (filterOutcome === "all" || r.outcome === filterOutcome) &&
       (r.confidence == null || r.confidence >= minConfidence),
   );
-
-  const totalsAreNonZero =
-    runningTotals.promoted + runningTotals.cached + runningTotals.rejected + runningTotals.failure > 0;
+  const disabledReason = status.circuit.halted
+    ? status.circuit.reason
+      ? `Circuit halted: ${status.circuit.reason}`
+      : "Circuit halted"
+    : undefined;
 
   return (
     <div className="space-y-4">
       <CircuitBanner status={status} onReset={handleReset} />
-      <BudgetGauge />
-      <BatchRunner onStart={start} disabled={running || status.circuit.halted} />
-
-      {lastResult && (
-        <div className="admin-card p-3 text-[11px] text-gray-600 flex gap-4 tabular-nums">
-          <span>processed: <b>{lastResult.processed}</b></span>
-          <span>promoted: <b>{lastResult.promoted}</b></span>
-          <span>cached: <b>{lastResult.cached_low_conf}</b></span>
-          <span>rejected: <b>{lastResult.rejected}</b></span>
-          <span>failures: <b>{lastResult.failures}</b></span>
-          <span>cache hits: <b>{lastResult.cache_hits}</b></span>
-          <span>duration: <b>{lastResult.duration_s.toFixed(1)}s</b></span>
-        </div>
+      <BudgetGauge status={status} />
+      <BatchRunner
+        onStart={start}
+        disabled={running || status.circuit.halted}
+        busy={running}
+        disabledReason={disabledReason}
+        title="Classify raw fee rows"
+        description="Queue Darwin to promote unclassified fees into verified categories."
+        actionLabel="Start classification"
+        unitLabel="fees"
+      />
+      {queuedJob && (
+        <JobLaunchReceipt
+          jobId={queuedJob.id}
+          title="Darwin classification"
+          owner="darwin"
+          command={`darwin-drain --size ${queuedJob.size} --batches ${queuedJob.chain}`}
+          scope={`${(queuedJob.size * queuedJob.chain).toLocaleString("en-US")} fees · ${queuedJob.chain === 1 ? "single batch" : `${queuedJob.chain} batches`}`}
+          reused={queuedJob.reused}
+          detail="Darwin will promote raw fee rows into verified categories. Atlas live status shows the Modal call, heartbeat, and latest output."
+        />
       )}
-
-      {(running || totalsAreNonZero) && (
-        <div className="admin-card p-3 text-[11px] text-gray-600 flex gap-4 tabular-nums">
-          <span>This run:</span>
-          <span className="text-emerald-700">promoted: <b>{runningTotals.promoted}</b></span>
-          <span className="text-amber-700">cached: <b>{runningTotals.cached}</b></span>
-          <span className="text-gray-500">rejected: <b>{runningTotals.rejected}</b></span>
-          <span className="text-red-700">failed: <b>{runningTotals.failure}</b></span>
-        </div>
-      )}
+      {error && <p role="alert" className="text-xs text-red-700 dark:text-red-400">{error}</p>}
 
       {/* Filter bar */}
       <div className="admin-card p-3 flex items-center gap-3 text-[11px]">

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS crawl_runs (
     targets_unchanged   INT         NOT NULL DEFAULT 0,
     fees_extracted      INT         NOT NULL DEFAULT 0,
     started_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    heartbeat_at        TIMESTAMPTZ,
     completed_at        TIMESTAMPTZ
 );
 
@@ -457,21 +458,45 @@ CREATE TABLE IF NOT EXISTS ops_jobs (
     stdout_tail     TEXT,
     error_summary   TEXT,
     result_summary  TEXT,
+    agent_name      TEXT,
+    parent_job_id   BIGINT      REFERENCES ops_jobs(id),
+    trigger_source  TEXT        NOT NULL DEFAULT 'admin',
+    modal_call_id   TEXT,
+    idempotency_key TEXT,
+    heartbeat_at    TIMESTAMPTZ,
+    cancel_requested_at TIMESTAMPTZ,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS pipeline_runs (
     id                      BIGSERIAL PRIMARY KEY,
-    status                  TEXT        NOT NULL DEFAULT 'running',
+    ops_job_id              BIGINT      REFERENCES ops_jobs(id),
+    status                  TEXT        NOT NULL DEFAULT 'running'
+                                           CHECK (status IN ('queued', 'running', 'succeeded', 'completed', 'partial', 'failed', 'canceled', 'cancelled', 'timed_out')),
+    trigger_source          TEXT        NOT NULL DEFAULT 'manual'
+                                           CHECK (trigger_source IN ('manual', 'cron', 'schedule', 'admin', 'api', 'agent')),
+    triggered_by            TEXT        NOT NULL DEFAULT 'pipeline_executor',
+    params_json             JSONB       NOT NULL DEFAULT '{}'::JSONB,
+    workflow_run_id         TEXT,
+    stages_total            INT         NOT NULL DEFAULT 0,
+    stages_done             INT         NOT NULL DEFAULT 0,
     last_completed_phase    INT         DEFAULT 0,
     last_completed_job      TEXT,
     config_json             JSONB,
     started_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at            TIMESTAMPTZ,
+    finished_at             TIMESTAMPTZ,
     error_msg               TEXT,
+    error                   TEXT,
     inst_count              INT,
-    summary_json            JSONB
+    summary_json            JSONB,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS pipeline_runs_ops_job_id_unique
+  ON pipeline_runs (ops_job_id)
+  WHERE ops_job_id IS NOT NULL;
 
 -- ── RESEARCH ────────────────────────────────────────────────────────────────
 
@@ -710,6 +735,10 @@ CREATE INDEX IF NOT EXISTS idx_sub_peer_groups_org ON saved_subscriber_peer_grou
 CREATE INDEX IF NOT EXISTS idx_target_changes_target ON crawl_target_changes(crawl_target_id);
 CREATE INDEX IF NOT EXISTS idx_ops_jobs_status ON ops_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_ops_jobs_created ON ops_jobs(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS ops_jobs_active_idempotency_idx
+  ON ops_jobs (idempotency_key)
+  WHERE idempotency_key IS NOT NULL
+    AND status IN ('queued', 'running', 'cancel_requested');
 CREATE INDEX IF NOT EXISTS idx_reg_articles_published ON reg_articles(published_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_jobs_queue_pending ON jobs(queue, priority DESC, id ASC) WHERE status = 'pending';

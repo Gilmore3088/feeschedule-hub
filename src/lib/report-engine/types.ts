@@ -15,7 +15,9 @@ export type ReportJobStatus =
   | 'assembling'
   | 'rendering'
   | 'complete'
-  | 'failed';
+  | 'failed'
+  | 'cancel_requested'
+  | 'cancelled';
 
 // ─── Data Manifest ─────────────────────────────────────────────────────────
 // Audit trail: stored as JSONB on report_jobs.
@@ -47,6 +49,9 @@ export interface ReportJob {
   created_at: string;
   completed_at: string | null;
   user_id: string | null;
+  ops_job_id: number | null;
+  modal_call_id: string | null;
+  cancel_requested_at: string | null;
 }
 
 // ─── Published Report ──────────────────────────────────────────────────────

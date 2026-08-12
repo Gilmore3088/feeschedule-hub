@@ -26,6 +26,7 @@ export interface FreshnessResult {
 
 const NATIONAL_THRESHOLD_DAYS = 120;
 const STATE_THRESHOLD_DAYS = 90;
+const NATIONAL_RECOVERY_GRACE_DAYS = 7;
 
 // Fail-safe sentinel: treat missing data as very stale.
 const MISSING_DATA_AGE_DAYS = 999;
@@ -73,6 +74,29 @@ export async function checkFreshness(
     rawAge === null || rawAge === undefined
       ? MISSING_DATA_AGE_DAYS
       : parseFloat(rawAge);
+
+  if (
+    scope === 'national'
+    && medianAgeDays > NATIONAL_THRESHOLD_DAYS
+    && medianAgeDays <= NATIONAL_THRESHOLD_DAYS + NATIONAL_RECOVERY_GRACE_DAYS
+  ) {
+    const healthRows = await sql<Array<{ atlas_healthy: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+          FROM workers_last_run
+         WHERE job_name = 'atlas_cycle'
+           AND status = 'ok'
+           AND completed_at >= NOW() - INTERVAL '26 hours'
+      ) AS atlas_healthy
+    `;
+    if (healthRows[0]?.atlas_healthy) {
+      return {
+        fresh: true,
+        medianAgeDays,
+        threshold: NATIONAL_THRESHOLD_DAYS + NATIONAL_RECOVERY_GRACE_DAYS,
+      };
+    }
+  }
 
   if (medianAgeDays > threshold) {
     const scopeLabel =

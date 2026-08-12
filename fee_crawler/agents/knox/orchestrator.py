@@ -47,15 +47,19 @@ async def _fetch_pending(conn: asyncpg.Connection, limit: int) -> list[dict]:
           v.canonical_fee_key,
           v.fee_name,
           v.amount,
-          ct.asset_size_tier
+          ct.asset_size_tier,
+          fr.source AS raw_source
         FROM fees_verified v
+        JOIN fees_raw fr ON fr.fee_raw_id = v.fee_raw_id
         JOIN crawl_targets ct ON ct.id = v.institution_id
         WHERE NOT EXISTS (
           SELECT 1 FROM agent_messages m
            WHERE m.sender_agent = 'knox'
              AND m.payload->>'fee_verified_id' = v.fee_verified_id::text
         )
-        ORDER BY v.fee_verified_id ASC
+        ORDER BY (fr.source = 'magellan') DESC,
+                 CASE WHEN fr.source = 'magellan' THEN v.fee_verified_id END DESC,
+                 v.fee_verified_id ASC
         LIMIT $1
         """,
         limit,

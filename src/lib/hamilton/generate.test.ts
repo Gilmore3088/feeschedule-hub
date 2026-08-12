@@ -20,6 +20,10 @@ vi.mock("@anthropic-ai/sdk", () => {
   return { default: MockAnthropic };
 });
 
+vi.mock("@/lib/ai-provider-usage", () => ({
+  trackAnthropicRequest: async (_context: unknown, request: () => Promise<unknown>) => request(),
+}));
+
 import { generateGlobalThesis, generateSection } from "./generate";
 import type { ThesisInput } from "./types";
 

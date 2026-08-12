@@ -485,7 +485,11 @@ export function proxy(request: NextRequest) {
 
   // Skip login page itself
   if (pathname === "/admin/login") {
-    return NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-bfi-admin-login-route", "1");
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
   }
 
   // Check for session cookie on all /admin/* routes
@@ -493,7 +497,7 @@ export function proxy(request: NextRequest) {
     const session = request.cookies.get("fsh_session");
     if (!session?.value) {
       const loginUrl = new URL("/admin/login", request.url);
-      loginUrl.searchParams.set("from", pathname);
+      loginUrl.searchParams.set("from", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(loginUrl);
     }
   }

@@ -1,9 +1,17 @@
 """Magellan sidecar tests."""
 from unittest.mock import AsyncMock, patch
+import pytest
 from fastapi.testclient import TestClient
 
 from fee_crawler.magellan_api import app
 from fee_crawler.agents.magellan import BatchResult
+
+AUTH_HEADERS = {"x-internal-secret": "test-secret"}
+
+
+@pytest.fixture(autouse=True)
+def internal_secret(monkeypatch):
+    monkeypatch.setenv("REPORT_INTERNAL_SECRET", "test-secret")
 
 
 def test_rescue_batch_streams_sse():
@@ -17,7 +25,9 @@ def test_rescue_batch_streams_sse():
     with patch("fee_crawler.magellan_api.rescue_batch", new=fake_rb), \
          patch("fee_crawler.magellan_api._get_conn", new=AsyncMock(return_value=AsyncMock())):
         with TestClient(app) as client:
-            with client.stream("POST", "/magellan/rescue-batch", json={"size": 3}) as r:
+            with client.stream(
+                "POST", "/magellan/rescue-batch", json={"size": 3}, headers=AUTH_HEADERS
+            ) as r:
                 body = "\n".join(l for l in r.iter_lines())
     assert "candidates_selected" in body
     assert "done" in body
@@ -31,7 +41,7 @@ def test_status_returns_json():
                    "today_cost_usd": 0.0, "circuit": {"halted": False},
                })):
         with TestClient(app) as client:
-            r = client.get("/magellan/status")
+            r = client.get("/magellan/status", headers=AUTH_HEADERS)
     assert r.status_code == 200
     assert r.json()["pending"] == 965
 
@@ -45,6 +55,14 @@ def test_reset_endpoint():
 
     with patch("fee_crawler.magellan_api._reset_circuit", new=fake_reset):
         with TestClient(app) as client:
-            r = client.post("/magellan/reset", json={"actor": "jgmbp"})
+            r = client.post(
+                "/magellan/reset", json={"actor": "jgmbp"}, headers=AUTH_HEADERS
+            )
     assert r.status_code == 200
     assert calls["actor"] == "jgmbp"
+
+
+def test_sidecar_rejects_unauthenticated_requests():
+    with TestClient(app) as client:
+        response = client.get("/magellan/status")
+    assert response.status_code == 401

@@ -173,6 +173,23 @@ class Database:
         cur.executemany(pg_sql, params)
         return cur
 
+    def execute_values(
+        self,
+        sql: str,
+        params: list[tuple],
+        *,
+        page_size: int = 1000,
+    ) -> Any:
+        """Bulk insert rows through psycopg2's multi-value protocol."""
+        cur = self.conn.cursor(cursor_factory=self._cursor_factory)
+        psycopg2.extras.execute_values(
+            cur,
+            sql,
+            params,
+            page_size=page_size,
+        )
+        return cur
+
     def insert_returning_id(self, sql: str, params: tuple = ()) -> int:
         """Execute an INSERT and return the new row's id.
 

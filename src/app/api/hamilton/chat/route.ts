@@ -13,6 +13,7 @@
 
 import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { guardProviderCall, recordProviderUsage } from "@/lib/ai-provider-usage";
 import { getCurrentUser } from "@/lib/auth";
 import { checkAdminRateLimit } from "@/lib/research/rate-limit";
 import { getDailyCostCents, logUsage } from "@/lib/research/history";
@@ -153,6 +154,23 @@ export async function POST(request: Request) {
     }
   }
 
+  const providerContext = {
+    provider: "anthropic" as const,
+    model: HAMILTON_MODEL,
+    agent: "hamilton",
+    operation: "chat",
+  };
+  let providerStartedAt: number;
+  try {
+    providerStartedAt = await guardProviderCall(providerContext);
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Automation is stopped" },
+      { status: 423 },
+    );
+  }
+
+  let providerFailed = false;
   try {
     const result = streamText({
       model: anthropic(HAMILTON_MODEL),
@@ -167,6 +185,14 @@ export async function POST(request: Request) {
           const outputTokens = usage?.outputTokens ?? 0;
           const costCents = estimateCostCents(HAMILTON_MODEL, inputTokens, outputTokens);
 
+          if (!providerFailed) {
+            await recordProviderUsage(
+              providerContext,
+              "completed",
+              { inputTokens, outputTokens },
+              { latencyMs: Date.now() - providerStartedAt },
+            );
+          }
           await logUsage(user.id, null, "hamilton-chat", inputTokens, outputTokens, costCents);
 
           // Persist messages to conversation if conversation_id provided
@@ -191,10 +217,24 @@ export async function POST(request: Request) {
           // Non-critical — don't fail the stream
         }
       },
+      onError: async ({ error }) => {
+        providerFailed = true;
+        await recordProviderUsage(providerContext, "failed", {}, {
+          latencyMs: Date.now() - providerStartedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      },
     });
 
     return result.toUIMessageStreamResponse();
   } catch (err) {
+    if (!providerFailed) {
+      providerFailed = true;
+      await recordProviderUsage(providerContext, "failed", {}, {
+        latencyMs: Date.now() - providerStartedAt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
     const message = err instanceof Error ? err.message : "An unexpected error occurred";
     const stack = err instanceof Error ? err.stack : "";
     console.error("[hamilton/chat] Error:", message, "\nStack:", stack);

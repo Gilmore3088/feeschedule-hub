@@ -16,7 +16,6 @@ Security:
 
 from __future__ import annotations
 
-import atexit
 import hashlib
 import ipaddress
 import logging
@@ -24,6 +23,7 @@ import random
 import socket
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 try:
@@ -39,6 +39,10 @@ logger = logging.getLogger(__name__)
 _browser_lock = threading.Lock()
 _browser_instance = None
 _playwright_instance = None
+_browser_executor = ThreadPoolExecutor(
+    max_workers=1,
+    thread_name_prefix="bfi-playwright",
+)
 
 # Block private/internal IP ranges (SSRF protection)
 _BLOCKED_NETWORKS = [
@@ -283,8 +287,8 @@ def _get_browser():
         return _browser_instance
 
 
-def close_browser():
-    """Shut down the shared browser. Called at process exit."""
+def _close_browser_owned() -> None:
+    """Shut down Playwright on the same thread that owns its greenlet."""
     global _browser_instance, _playwright_instance
 
     with _browser_lock:
@@ -302,10 +306,26 @@ def close_browser():
             _playwright_instance = None
 
 
-atexit.register(close_browser)
+def close_browser() -> None:
+    """Shut down the shared browser through its owning worker thread."""
+    try:
+        _browser_executor.submit(_close_browser_owned).result(timeout=15)
+    except (RuntimeError, TimeoutError):
+        # Interpreter shutdown may close the executor before application hooks.
+        pass
 
 
 def fetch_with_browser(url: str, timeout: int = 30, stealth: bool = False) -> dict:
+    """Serialize sync Playwright work onto the thread that owns the browser."""
+    return _browser_executor.submit(
+        _fetch_with_browser_owned,
+        url,
+        timeout,
+        stealth,
+    ).result()
+
+
+def _fetch_with_browser_owned(url: str, timeout: int = 30, stealth: bool = False) -> dict:
     """Fetch a URL using headless Chromium with full JS rendering.
 
     Returns a dict matching the format of download.py results:

@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { label: "Chat", href: "/admin/hamilton/chat" },
   { label: "Reports", href: "/admin/hamilton/reports" },
+  { label: "Research", href: "/admin/hamilton/research" },
+  { label: "Methodology", href: "/admin/hamilton/methodology" },
 ] as const;
 
 function HamiltonTabs() {

@@ -1,8 +1,16 @@
 """Sidecar API tests. Uses FastAPI TestClient + mocked orchestrator."""
 from unittest.mock import AsyncMock, patch
+import pytest
 from fastapi.testclient import TestClient
 from fee_crawler.darwin_api import app
 from fee_crawler.agents.darwin.orchestrator import BatchResult
+
+AUTH_HEADERS = {"x-internal-secret": "test-secret"}
+
+
+@pytest.fixture(autouse=True)
+def internal_secret(monkeypatch):
+    monkeypatch.setenv("REPORT_INTERNAL_SECRET", "test-secret")
 
 
 def test_classify_batch_streams_sse():
@@ -19,7 +27,9 @@ def test_classify_batch_streams_sse():
     with patch("fee_crawler.darwin_api.classify_batch", new=fake_classify):
         with patch("fee_crawler.darwin_api._get_conn", new=AsyncMock(return_value=AsyncMock())):
             with TestClient(app) as client:
-                with client.stream("POST", "/darwin/classify-batch", json={"size": 5}) as r:
+                with client.stream(
+                    "POST", "/darwin/classify-batch", json={"size": 5}, headers=AUTH_HEADERS
+                ) as r:
                     lines = [l for l in r.iter_lines()]
     body = "\n".join(lines)
     assert "batch_start" in body
@@ -33,7 +43,7 @@ def test_status_endpoint_returns_json():
         "circuit": {"halted": False}, "recent_run_avg_tokens_per_row": None,
     })):
         with TestClient(app) as client:
-            r = client.get("/darwin/status")
+            r = client.get("/darwin/status", headers=AUTH_HEADERS)
     assert r.status_code == 200
     assert r.json()["pending"] == 50000
 
@@ -47,6 +57,14 @@ def test_reset_endpoint_clears_halt():
 
     with patch("fee_crawler.darwin_api._reset_circuit", new=fake_reset):
         with TestClient(app) as client:
-            r = client.post("/darwin/reset", json={"actor": "jgmbp"})
+            r = client.post(
+                "/darwin/reset", json={"actor": "jgmbp"}, headers=AUTH_HEADERS
+            )
     assert r.status_code == 200
     assert calls["actor"] == "jgmbp"
+
+
+def test_sidecar_rejects_unauthenticated_requests():
+    with TestClient(app) as client:
+        response = client.get("/darwin/status")
+    assert response.status_code == 401

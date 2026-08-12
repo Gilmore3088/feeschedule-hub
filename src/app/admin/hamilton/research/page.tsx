@@ -50,7 +50,7 @@ export default async function ResearchHubPage() {
           </p>
         </div>
         <Link
-          href="/admin/research/usage"
+          href="/admin/hamilton/research/usage"
           className="mb-0.5 text-[12px] font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
           View detailed usage →

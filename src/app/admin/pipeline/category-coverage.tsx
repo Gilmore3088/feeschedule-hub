@@ -112,7 +112,7 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
   }
 
   function needsAttention(cat: CategoryCoverage): boolean {
-    return cat.staged > 0 || cat.flagged > 0 || cat.approval_rate < 80;
+    return cat.flagged > 0 || cat.approval_rate < 80;
   }
 
   return (
@@ -191,13 +191,13 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
           <span className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{totals.approved.toLocaleString()}</span> approved
         </span>
         {totals.staged > 0 && (
-          <Link href="/admin/review?status=staged" className="text-gray-400 hover:text-blue-500 transition-colors">
-            <span className="font-semibold text-blue-600 dark:text-blue-400 tabular-nums">{totals.staged.toLocaleString()}</span> need review
+          <Link href="/admin/knox?queue=fees&status=staged" className="text-gray-400 hover:text-blue-500 transition-colors">
+            <span className="font-semibold text-blue-600 dark:text-blue-400 tabular-nums">{totals.staged.toLocaleString()}</span> agent staged
           </Link>
         )}
         {totals.flagged > 0 && (
-          <Link href="/admin/review?status=flagged" className="text-gray-400 hover:text-amber-500 transition-colors">
-            <span className="font-semibold text-amber-600 dark:text-amber-400 tabular-nums">{totals.flagged.toLocaleString()}</span> flagged
+          <Link href="/admin/knox?queue=fees&status=flagged" className="text-gray-400 hover:text-amber-500 transition-colors">
+            <span className="font-semibold text-amber-600 dark:text-amber-400 tabular-nums">{totals.flagged.toLocaleString()}</span> human flagged
           </Link>
         )}
       </div>
@@ -220,7 +220,7 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
               const groupApprovalRate = group.total > 0 ? (group.approved / group.total) * 100 : 0;
               const isOpen = expandedFamily === group.family;
               const groupCov = coveragePct(group.institutions);
-              const groupNeedsReview = group.staged > 0 || group.flagged > 0;
+              const groupNeedsReview = group.flagged > 0;
               return (
                 <Fragment key={group.family}>
                   <tr
@@ -233,7 +233,7 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                         <span className="text-[10px] text-gray-400">{group.categories.length} categories</span>
                         {groupNeedsReview && (
                           <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
-                            {group.staged + group.flagged} to review
+                            {group.flagged} flagged
                           </span>
                         )}
                       </div>
@@ -272,12 +272,12 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                                 {TIER_LABELS[cat.tier].label}
                               </span>
                             )}
-                            {attention && (cat.staged + cat.flagged) > 0 && (
+                            {attention && cat.flagged > 0 && (
                               <Link
-                                href={`/admin/review?status=staged&q=${encodeURIComponent(cat.display_name)}`}
+                                href={`/admin/knox?queue=fees&status=flagged&q=${encodeURIComponent(cat.display_name)}`}
                                 className="inline-flex items-center rounded bg-amber-50 dark:bg-amber-900/20 px-1 py-0.5 text-[8px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
                               >
-                                {cat.staged + cat.flagged} to review
+                                {cat.flagged} flagged
                               </Link>
                             )}
                           </div>
@@ -322,9 +322,9 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                             {TIER_LABELS[cat.tier].label}
                           </span>
                         )}
-                        {(cat.staged + cat.flagged) > 0 && (
+                        {cat.flagged > 0 && (
                           <span className="inline-flex items-center rounded bg-amber-50 dark:bg-amber-900/20 px-1 py-0.5 text-[8px] font-medium text-amber-600 dark:text-amber-400">
-                            {cat.staged + cat.flagged} to review
+                            {cat.flagged} flagged
                           </span>
                         )}
                       </div>
@@ -359,10 +359,10 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                             <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{cat.approved.toLocaleString()}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Need Review</div>
+                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Agent Staged</div>
                             <div className="text-sm font-bold text-blue-600 dark:text-blue-400 tabular-nums">
                               {cat.staged > 0 ? (
-                                <Link href={`/admin/review?status=staged&q=${encodeURIComponent(cat.display_name)}`} className="hover:underline">
+                                <Link href={`/admin/knox?queue=fees&status=staged&q=${encodeURIComponent(cat.display_name)}`} className="hover:underline">
                                   {cat.staged.toLocaleString()}
                                 </Link>
                               ) : "0"}
@@ -372,7 +372,7 @@ export function CategoryCoverageTable({ categories, totalInstitutions, families 
                             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Flagged</div>
                             <div className="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                               {cat.flagged > 0 ? (
-                                <Link href={`/admin/review?status=flagged&q=${encodeURIComponent(cat.display_name)}`} className="hover:underline">
+                                <Link href={`/admin/knox?queue=fees&status=flagged&q=${encodeURIComponent(cat.display_name)}`} className="hover:underline">
                                   {cat.flagged.toLocaleString()}
                                 </Link>
                               ) : "0"}

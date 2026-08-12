@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getSql } from "@/lib/crawler-db/connection";
 import { requireAuth } from "@/lib/auth";
+import { cancelJob } from "@/lib/job-runner";
+import { triggerReportJob } from "@/lib/report-job-runner";
 import type { ReportType } from "@/lib/report-engine/types";
 
 // Slug generation helper — title to URL-safe slug
@@ -26,7 +28,7 @@ export async function publishReport(
   reportType: ReportType,
   isPublic: boolean = true,
 ): Promise<{ success: boolean; slug?: string; error?: string }> {
-  await requireAuth("trigger_jobs");
+  await requireAuth("edit");
 
   const slug = generateSlug(title);
 
@@ -69,20 +71,40 @@ export async function publishReport(
 export async function cancelReport(
   jobId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAuth("trigger_jobs");
+  await requireAuth("cancel_jobs");
 
   try {
     const sql = getSql();
-    const rows = await sql`
-      UPDATE report_jobs
-      SET status = 'failed', error = 'Cancelled by user', completed_at = NOW()
-      WHERE id = ${jobId} AND status IN ('pending', 'assembling', 'rendering')
-      RETURNING id
+    const [job] = await sql`
+      SELECT id, status, ops_job_id
+        FROM report_jobs
+       WHERE id = ${jobId}
     `;
-
-    if (!rows[0]) {
+    if (!job || !["pending", "assembling", "rendering", "cancel_requested"].includes(String(job.status))) {
       return { success: false, error: "Job not found or already complete/failed" };
     }
+    if (!job.ops_job_id) {
+      return { success: false, error: "This legacy report has no cancellable Modal call ID" };
+    }
+
+    await sql`
+      UPDATE report_jobs
+         SET status = 'cancel_requested', cancel_requested_at = NOW()
+       WHERE id = ${jobId}
+    `;
+    const cancelled = await cancelJob(Number(job.ops_job_id));
+    if (!cancelled.success) {
+      await sql`
+        UPDATE report_jobs SET error = ${cancelled.error ?? "Modal cancellation failed"}
+         WHERE id = ${jobId} AND status = 'cancel_requested'
+      `;
+      return cancelled;
+    }
+    await sql`
+      UPDATE report_jobs
+         SET status = 'cancelled', error = 'Cancelled by user', completed_at = NOW()
+       WHERE id = ${jobId} AND status = 'cancel_requested'
+    `;
 
     revalidatePath("/admin/hamilton");
     return { success: true };
@@ -95,19 +117,27 @@ export async function cancelReport(
  * Cancel all non-terminal report jobs at once.
  */
 export async function cancelAllPending(): Promise<{ success: boolean; count?: number; error?: string }> {
-  await requireAuth("trigger_jobs");
+  await requireAuth("cancel_jobs");
 
   try {
     const sql = getSql();
     const rows = await sql`
-      UPDATE report_jobs
-      SET status = 'failed', error = 'Cancelled by user (bulk)', completed_at = NOW()
-      WHERE status IN ('pending', 'assembling', 'rendering')
-      RETURNING id
+      SELECT id FROM report_jobs
+       WHERE status IN ('pending', 'assembling', 'rendering', 'cancel_requested')
     `;
 
+    let count = 0;
+    const errors: string[] = [];
+    for (const row of rows) {
+      const result = await cancelReport(String(row.id));
+      if (result.success) count += 1;
+      else errors.push(result.error ?? `Failed to cancel ${row.id}`);
+    }
+
     revalidatePath("/admin/hamilton");
-    return { success: true, count: rows.length };
+    return errors.length > 0
+      ? { success: false, count, error: errors.join("; ") }
+      : { success: true, count };
   } catch (e) {
     return { success: false, error: String(e) };
   }
@@ -121,7 +151,7 @@ export async function cancelAllPending(): Promise<{ success: boolean; count?: nu
 export async function retryReport(
   jobId: string,
 ): Promise<{ success: boolean; newJobId?: string; error?: string }> {
-  await requireAuth("trigger_jobs");
+  const user = await requireAuth("trigger_jobs");
 
   try {
     const sql = getSql();
@@ -147,19 +177,16 @@ export async function retryReport(
       return { success: false, error: "Failed to create retry job" };
     }
 
-    // Fire-and-forget Modal trigger for the new job
-    const modalUrl = process.env.MODAL_REPORT_URL;
-    if (modalUrl) {
-      fetch(modalUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: newJobId, report_type, params: params ?? {} }),
-      }).catch((err: unknown) => {
-        console.error(
-          "[retryReport] Modal trigger failed:",
-          err instanceof Error ? err.message : String(err),
-        );
-      });
+    const trigger = await triggerReportJob(
+      newJobId,
+      report_type as ReportType,
+      (params ?? {}) as Record<string, unknown>,
+      user.username,
+      "admin",
+    );
+    if (!trigger.success) {
+      revalidatePath("/admin/hamilton");
+      return { success: false, error: trigger.error };
     }
 
     revalidatePath("/admin/hamilton");

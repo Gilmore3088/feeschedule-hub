@@ -5,6 +5,8 @@ import logging
 import tempfile
 import requests
 import anthropic
+
+from fee_crawler.ai_usage import tracked_anthropic_call
 import pdfplumber
 
 from fee_crawler.pipeline.extract_pdf import extract_text_from_pdf as _pipeline_extract_text
@@ -71,7 +73,10 @@ def _extract_fees_with_llm(text: str, institution: dict, doc_type: str) -> list[
     charter = institution.get("charter_type", "bank")
     name = institution.get("institution_name", "Unknown")
 
-    response = client.messages.create(
+    response = tracked_anthropic_call(
+        client.messages.create,
+        agent_name="extractor",
+        operation="extract_pdf_fees",
         model="claude-haiku-4-5-20251001",
         max_tokens=4096,
         system="""You are a financial data extraction specialist. Extract ALL fees from fee schedule documents.

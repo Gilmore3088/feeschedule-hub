@@ -26,15 +26,6 @@ interface CommandInfo {
 }
 
 const COMMAND_INFO: Record<string, CommandInfo> = {
-  "run-pipeline": {
-    description: "Run Full Pipeline",
-    detail: "Runs discover + crawl + categorize in sequence. This is the main command for collecting new fee data end-to-end.",
-    group: "pipeline",
-    usesLimit: true,
-    usesCharter: true,
-    usesState: true,
-    typical: "python -m fee_crawler run-pipeline --limit 50",
-  },
   crawl: {
     description: "Crawl & Extract Fees",
     detail: "Downloads fee schedule pages from institutions that already have a known URL, then uses LLM extraction to pull out individual fees and amounts.",
@@ -346,7 +337,7 @@ export function OpsClient({
     if (stateCode) params.state = stateCode;
 
     // Smart defaults for pipeline commands
-    if (cmd === "crawl" || cmd === "run-pipeline") {
+    if (cmd === "crawl" || cmd === "pipeline") {
       params.skip_with_fees = true;
     }
 

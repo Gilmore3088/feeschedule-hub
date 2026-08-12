@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,11 +35,8 @@ export function CommandPalette() {
   // Focus input when dialog opens
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    } else {
-      setQuery("");
-      setResults(null);
-      setSelectedIndex(0);
+      const timer = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -46,10 +44,7 @@ export function CommandPalette() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (query.length < 2) {
-      setResults(null);
-      return;
-    }
+    if (query.length < 2) return;
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
@@ -63,6 +58,25 @@ export function CommandPalette() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query]);
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setQuery("");
+      setResults(null);
+      setSelectedIndex(0);
+      setLoading(false);
+    }
+  }
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    if (value.length < 2) {
+      setResults(null);
+      setSelectedIndex(0);
+      setLoading(false);
+    }
+  }
 
   const flatItems = useCallback((): { label: string; sub: string; href: string }[] => {
     if (!results) return [];
@@ -86,14 +100,14 @@ export function CommandPalette() {
       items.push({
         label: fn.fee_name,
         sub: `${fn.count} occurrences`,
-        href: `/admin/fees`,
+        href: `/admin/knox?queue=fees&q=${encodeURIComponent(fn.fee_name)}`,
       });
     }
     for (const conv of results.conversations ?? []) {
       items.push({
         label: conv.title,
         sub: `${conv.agent_id} conversation`,
-        href: `/admin/research/${conv.agent_id}`,
+        href: `/admin/hamilton/research/${conv.agent_id}`,
       });
     }
     return items;
@@ -125,27 +139,15 @@ export function CommandPalette() {
   let sectionStart = 0;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden dark:bg-[oklch(0.205_0_0)] dark:border-white/[0.08]">
         <div className="flex items-center border-b px-4 dark:border-white/[0.08]">
-          <svg
-            className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          <Search className="mr-2 size-4 shrink-0 text-gray-400 dark:text-gray-500" />
           <input
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => handleQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search institutions, fee categories, fee names..."
             className="w-full py-3 text-sm outline-none placeholder:text-gray-400 dark:bg-transparent dark:text-gray-100 dark:placeholder:text-gray-500"
@@ -231,7 +233,7 @@ export function CommandPalette() {
                   return (
                     <button
                       key={`fn-${fn.fee_name}`}
-                      onClick={() => navigate(`/admin/fees`)}
+                      onClick={() => navigate(`/admin/knox?queue=fees&q=${encodeURIComponent(fn.fee_name)}`)}
                       className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 dark:hover:bg-white/[0.06] ${
                         selectedIndex === idx ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "dark:text-gray-200"
                       }`}
@@ -262,7 +264,7 @@ export function CommandPalette() {
                     <button
                       key={`conv-${conv.id}`}
                       onClick={() =>
-                        navigate(`/admin/research/${conv.agent_id}`)
+                        navigate(`/admin/hamilton/research/${conv.agent_id}`)
                       }
                       className={`w-full px-4 py-2 flex items-center justify-between text-sm text-left hover:bg-gray-50 dark:hover:bg-white/[0.06] ${
                         selectedIndex === idx ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "dark:text-gray-200"
@@ -320,8 +322,6 @@ export function CommandPalette() {
 }
 
 export function CommandPaletteTrigger() {
-  const [, setOpen] = useState(false);
-
   function handleClick() {
     // Dispatch Cmd+K to open the palette
     document.dispatchEvent(
@@ -331,7 +331,6 @@ export function CommandPaletteTrigger() {
         bubbles: true,
       })
     );
-    setOpen(true);
   }
 
   return (
@@ -340,19 +339,7 @@ export function CommandPaletteTrigger() {
       className="hidden md:flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500
                  hover:bg-gray-100 transition-colors dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08]"
     >
-      <svg
-        className="w-3.5 h-3.5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        />
-      </svg>
+      <Search className="size-3.5" />
       Search...
       <kbd className="ml-1 px-1 py-0.5 rounded bg-gray-200 text-[10px] font-mono text-gray-500 dark:bg-white/[0.1] dark:text-gray-400">
         ⌘K

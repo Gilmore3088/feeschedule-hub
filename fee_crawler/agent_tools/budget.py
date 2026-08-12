@@ -55,33 +55,39 @@ async def check_budget(
     Writes a budget_halt agent_events row in the same transaction before raising.
     Hierarchy: env var override > agent_budgets row > no-check (implicit pass).
     """
-    # Sum spent across all windows for this agent (simple implementation; 62a does
-    # not slice by per_cycle/per_batch — Plan 65 Atlas tightens).
-    spent_raw = await conn.fetchval(
-        """SELECT COALESCE(SUM(cost_cents), 0)::INTEGER
-             FROM agent_events
-            WHERE agent_name = $1
-              AND status = 'success'""",
-        agent_name,
-    )
-    spent = int(spent_raw or 0)
+    if projected_cost_cents <= 0:
+        return
 
     env_limit = _env_override_cents(agent_name)
-    if env_limit is not None:
-        if spent + projected_cost_cents > env_limit:
-            await _write_budget_halt(conn, agent_name, spent, env_limit, "env_override")
-            raise BudgetExceeded(agent_name, spent, env_limit, "env_override")
-        return  # env override passes; skip row check.
-
-    # Fallback: agent_budgets row (take the tightest window).
     row = await conn.fetchrow(
-        """SELECT limit_cents
+        """SELECT limit_cents, spent_cents
              FROM agent_budgets
             WHERE agent_name = $1
             ORDER BY limit_cents ASC
             LIMIT 1""",
         agent_name,
     )
+    if row is not None:
+        spent = int(row["spent_cents"] or 0)
+    elif env_limit is not None:
+        # Legacy fallback for an env-only budget with no seeded counter row.
+        spent_raw = await conn.fetchval(
+            """SELECT COALESCE(SUM(cost_cents), 0)::INTEGER
+                 FROM agent_events
+                WHERE agent_name = $1
+                  AND status = 'success'""",
+            agent_name,
+        )
+        spent = int(spent_raw or 0)
+    else:
+        return
+
+    if env_limit is not None:
+        if spent + projected_cost_cents > env_limit:
+            await _write_budget_halt(conn, agent_name, spent, env_limit, "env_override")
+            raise BudgetExceeded(agent_name, spent, env_limit, "env_override")
+        return
+
     if row is not None:
         limit = int(row["limit_cents"])
         if spent + projected_cost_cents > limit:

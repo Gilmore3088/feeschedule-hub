@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FeeInsight Consolidation Design</title>
+<style>
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #1f2430;
+  --muted: #5b6472;
+  --accent: #2f6df6;
+  --border: #e3e7ee;
+  --code-bg: #f1f3f7;
+  --good: #1f9d6b;
+  --warn: #c47f17;
+  --risk: #c0392b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+.banner {
+  background: linear-gradient(135deg, #2f6df6 0%, #5b3df6 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 28px 32px;
+  margin-bottom: 36px;
+  box-shadow: 0 8px 24px rgba(47, 109, 246, 0.18);
+}
+.banner h1 { margin: 0; font-size: 26px; border: none; color: #fff; }
+.banner .meta { margin-top: 8px; font-size: 13px; opacity: 0.9; }
+.content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px 40px 40px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+}
+h1, h2, h3, h4 { line-height: 1.3; font-weight: 650; }
+h1 { font-size: 24px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+h2 { font-size: 20px; margin-top: 34px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+h3 { font-size: 17px; margin-top: 26px; color: #2b3242; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+p, li { color: var(--ink); }
+code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font: 13.5px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+}
+pre code { background: none; padding: 0; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 18px 0;
+  font-size: 14.5px;
+}
+th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
+th { background: #eef2fb; font-weight: 650; }
+tr:nth-child(even) td { background: #fafbfd; }
+blockquote {
+  margin: 18px 0;
+  padding: 4px 18px;
+  border-left: 4px solid var(--accent);
+  background: #f4f8ff;
+  color: var(--muted);
+  border-radius: 0 8px 8px 0;
+}
+hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+strong { color: #161b26; }
+.footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">
+    <h1>FeeInsight Consolidation Design</h1>
+    <div class="meta">feeschedule-hub consolidation &middot; 2026-06-13-consolidation-design.md</div>
+  </div>
+  <div class="content">
+<h1 id="feeinsight-consolidation-design">FeeInsight Consolidation Design</h1>
+<p><strong>Date:</strong> 2026-06-13
+<strong>Status:</strong> Awaiting user review
+<strong>Canonical repo:</strong> <code>feeschedule-hub</code> -&gt; <code>github.com/Gilmore3088/feeschedule-hub</code></p>
+<h2 id="problem">Problem</h2>
+<p>Four directories on the Desktop are overlapping generations of the same "fee insight"
+product. They drifted apart, two point at different GitHub remotes, one has no git at
+all, and the most complete one is sitting on a non-default branch with uncommitted
+files. The goal: review all four, consolidate into a single canonical directory, and
+align it with its GitHub remote without losing any unique work.</p>
+<h2 id="investigation-findings">Investigation findings</h2>
+<h3 id="the-four-directories-are-a-lineage-not-flat-copies">The four directories are a lineage, not flat copies</h3>
+<table>
+<thead>
+<tr>
+<th>Directory</th>
+<th>Stack</th>
+<th>Git</th>
+<th>Remote</th>
+<th>Last touched</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>claude-feesinsight-compv2</code></td>
+<td>Python (poetry)</td>
+<td>yes</td>
+<td><strong>none</strong></td>
+<td>May 4</td>
+<td>Earliest pure-Python agentic prototype</td>
+</tr>
+<tr>
+<td><code>FeeInsight.com</code></td>
+<td>Next.js</td>
+<td><strong>no git</strong></td>
+<td>none</td>
+<td>Apr 19</td>
+<td>Old web version, never version-controlled</td>
+</tr>
+<tr>
+<td><code>bfi-v2</code></td>
+<td>Next.js</td>
+<td>yes</td>
+<td><code>Gilmore3088/bfi-v2</code></td>
+<td>May 25</td>
+<td>Clean lean rewrite, own repo, <code>main</code> in sync</td>
+</tr>
+<tr>
+<td><code>feeschedule-hub</code></td>
+<td>Next.js + Python</td>
+<td>yes</td>
+<td><code>Gilmore3088/feeschedule-hub</code></td>
+<td>Jun 6</td>
+<td><strong>Superset</strong> — both stacks, 20+ branches, active</td>
+</tr>
+</tbody>
+</table>
+<p><code>feeschedule-hub</code> is the only directory containing both the web app and the Python
+<code>fee_crawler</code>, plus the planning corpus (<code>PRD.md</code>, <code>RESEARCH_FINDINGS.md</code>, and even a
+<code>bfi-v2-SPEC.md</code>). It is the canonical home.</p>
+<h3 id="state-of-feeschedule-hub">State of <code>feeschedule-hub</code></h3>
+<ul>
+<li>On branch <code>claude/peaceful-ride-EK68V</code> (in sync with its own remote), <strong>not</strong> <code>main</code>.</li>
+<li><code>main</code> is <strong>1 commit ahead</strong> of <code>origin/main</code> (one unpushed commit).</li>
+<li>284 <code>fee_crawler/*</code> files are tracked on HEAD — the real, current Python code.</li>
+<li>~30 untracked <code>fee_crawler/*</code> files are <strong>resurrected legacy modules</strong> that were
+  intentionally deleted in commit <code>a655e91</code> ("remove legacy pipeline, fake-data seeder,
+  and dead modules"). Low value, but backed up before removal.</li>
+<li>A handful of genuinely new untracked items (<code>bfi-v2-SPEC.md</code>, some <code>scripts/*.mjs</code>)
+  to be triaged individually.</li>
+<li>11 git worktrees: 2 real (<code>darwin-v1</code>, <code>magellan-v1</code>) and 9 <strong>locked agent scratch
+  worktrees</strong> under <code>.claude/worktrees/agent-*</code> (junk).</li>
+<li>Several feature branches are ahead of their remotes (real work to preserve).</li>
+</ul>
+<h3 id="the-two-highest-risk-items">The two highest-risk items</h3>
+<ol>
+<li><code>claude-feesinsight-compv2</code> has <strong>no remote</strong> — its history lives only on this disk.</li>
+<li><code>FeeInsight.com</code> has <strong>no git at all</strong> — any unique work in it is unprotected.</li>
+</ol>
+<p>Both are addressed first, in Phase 0.</p>
+<h2 id="decisions">Decisions</h2>
+<ul>
+<li><strong>Canonical:</strong> <code>feeschedule-hub</code>, aligned to <code>github.com/Gilmore3088/feeschedule-hub</code>.</li>
+<li><strong>Refactor in scope:</strong> beyond git/file hygiene, the consolidation actively
+  <strong>de-duplicates competing implementations</strong> inside <code>feeschedule-hub</code> into one coherent
+  structure. Behavior-preserving — where two implementations differ in behavior, the
+  difference is flagged for the user to choose, never silently merged.</li>
+<li><strong>bfi-v2 remote reconciled, not left standing:</strong> bfi-v2's <strong>full commit history is
+  merged into <code>feeschedule-hub</code></strong> (subtree / unrelated-histories merge so nothing is
+  lost), then the <code>bfi-v2</code> GitHub repo is <strong>archived (read-only)</strong>. End state: a single
+  live remote, history preserved, reversible.</li>
+<li><strong>Other three (local dirs):</strong> archived (moved) into a single
+  <code>~/Desktop/_archive_feeinsight/</code> folder after salvage. Nothing is deleted locally.</li>
+<li><strong>Salvage + de-dup are gated:</strong> a written <code>CONSOLIDATION_REPORT</code> (salvage list + internal
+  de-duplication plan) is produced and <strong>user-approved</strong> before any file is copied,
+  merged, or removed.</li>
+<li><strong>Final git state:</strong> <code>main</code> clean, the unpushed commit pushed, working tree clean,
+  one live remote.</li>
+<li><strong>Deliverables as HTML:</strong> every Markdown report is rendered to a styled,
+  self-contained HTML page via <code>render.py</code> and auto-opened in the browser. Markdown
+  stays the git-tracked source of truth.</li>
+</ul>
+<h2 id="plan">Plan</h2>
+<p>Each destructive step happens only after a backup exists.</p>
+<h3 id="phase-0-safety-net">Phase 0 — Safety net</h3>
+<ul>
+<li>Create <code>~/Desktop/_archive_feeinsight/</code> with a <code>_backups/</code> subfolder.</li>
+<li><code>claude-feesinsight-compv2</code> (no remote): <code>git bundle create</code> of <strong>all refs</strong> — full
+  history captured in one portable file.</li>
+<li><code>FeeInsight.com</code> (no git): <code>git init</code> + a single baseline commit, then a source-only
+  tarball (excludes <code>node_modules</code>, <code>.next</code>).</li>
+<li><code>bfi-v2</code>: already pushed; create a bundle as belt-and-suspenders.</li>
+<li><code>feeschedule-hub</code>: push every local branch that is ahead of its remote so no commit
+  exists only on disk.</li>
+</ul>
+<h3 id="phase-1-stabilize-feeschedule-hub-git-state">Phase 1 — Stabilize <code>feeschedule-hub</code> git state</h3>
+<ul>
+<li>Copy the ~30 resurrected-legacy untracked <code>fee_crawler</code> files into the backup folder,
+  then remove them from the working tree.</li>
+<li>Triage the few genuinely-new untracked files: commit the keepers, discard scratch.</li>
+<li>Remove the 9 locked agent worktrees; keep <code>darwin-v1</code> and <code>magellan-v1</code>.</li>
+<li>Fetch, switch to <code>main</code>, push the 1 unpushed commit. <code>main</code> becomes clean and aligned.</li>
+<li>Leave all real feature branches untouched.</li>
+</ul>
+<h3 id="phase-2-map-analyze-and-report-approval-gate">Phase 2 — Map, analyze, and report (approval gate)</h3>
+<ul>
+<li><strong>Map the canonical codebase</strong> to locate internal duplication and competing
+  implementations (overlapping modules, the Python/Next.js boundary, redundant configs,
+  parallel "v1/v2" code paths). This scopes the de-duplication precisely.</li>
+<li><strong>Diff the other three</strong> for unique work:</li>
+<li><code>compv2</code>: Python <code>src/</code>, <code>migrations/</code>, docs vs <code>fee_crawler/</code> + repo docs.</li>
+<li><code>FeeInsight.com</code>: <code>app/</code>, <code>components/</code>, <code>lib/</code>, <code>agentic_*</code> packages vs <code>src/</code>.</li>
+<li><code>bfi-v2</code>: <code>src/</code>, <code>agents/</code>, <code>supabase/</code> vs canonical equivalents (also informs how
+    much of bfi-v2's tree is overlap vs unique once its history is merged).</li>
+<li>Produce <code>CONSOLIDATION_REPORT.md</code> (+ HTML) with three sections:
+  1. <strong>Salvage</strong> — per directory: what is unique, what is already present, port / skip.
+  2. <strong>De-duplication plan</strong> — each competing implementation, the chosen canonical
+     version, what gets removed, and any behavior differences needing a user decision.
+  3. <strong>bfi-v2 merge plan</strong> — how its history is brought in and which files survive
+     de-dup.</li>
+<li><strong>Stop and wait for user approval.</strong></li>
+</ul>
+<h3 id="phase-3-execute-merge-salvage-de-duplicate">Phase 3 — Execute: merge, salvage, de-duplicate</h3>
+<ul>
+<li>Create branch <code>chore/consolidation</code> off clean <code>main</code>.</li>
+<li><strong>Merge bfi-v2 history</strong> into <code>feeschedule-hub</code> (subtree / <code>--allow-unrelated-histories</code>)
+  so its commits are preserved in the DAG.</li>
+<li><strong>Port approved salvage</strong> from <code>FeeInsight.com</code> and <code>compv2</code>.</li>
+<li><strong>Apply the approved de-duplication:</strong> collapse competing implementations to the
+  chosen canonical version and remove overlaps (history stays reachable). Behavior-
+  preserving throughout.</li>
+<li>Commit in logical, conventional-commit units.</li>
+<li>Run build (<code>npm run build</code>) and tests after each meaningful step; fix integration
+  issues. Merge to <code>main</code>, push.</li>
+</ul>
+<h3 id="phase-4-archive-local-dirs-and-the-bfi-v2-remote">Phase 4 — Archive (local dirs and the bfi-v2 remote)</h3>
+<ul>
+<li>Move <code>bfi-v2</code>, <code>FeeInsight.com</code>, <code>claude-feesinsight-compv2</code> into
+  <code>~/Desktop/_archive_feeinsight/</code>. Desktop is left with only <code>feeschedule-hub</code>.</li>
+<li><strong>Archive the <code>bfi-v2</code> GitHub repo</strong> (mark read-only via <code>gh</code>). This is an
+  outward-facing, hard-to-reverse action — confirmed with the user immediately before
+  it runs. End state: one live remote (<code>feeschedule-hub</code>).</li>
+</ul>
+<h3 id="phase-5-verify-and-finalize">Phase 5 — Verify and finalize</h3>
+<ul>
+<li>Confirm the web app builds and Python imports/tests run.</li>
+<li>Confirm competing implementations are gone (no duplicate code paths remain).</li>
+<li>Confirm <code>main</code> is pushed, aligned with <code>origin/main</code>, working tree clean.</li>
+<li>Confirm exactly one live remote; bfi-v2 archived and reachable in history.</li>
+<li>Write <code>CONSOLIDATION_SUMMARY.md</code> (+ HTML): what was salvaged, what was merged, what was
+  de-duplicated, what was archived, where the backups live, and the final git state.</li>
+</ul>
+<h2 id="salvage-methodology">Salvage methodology</h2>
+<p>"Unique work" means content present in an other directory but absent from
+<code>feeschedule-hub</code>, judged by:</p>
+<ul>
+<li>Files/paths with no counterpart in the canonical tree.</li>
+<li>Counterpart files whose content meaningfully diverges (newer logic, extra functions,
+  config the canonical repo lacks).</li>
+</ul>
+<p>Generated/derived content (<code>node_modules</code>, <code>.next</code>, <code>__pycache__</code>, lockfile churn,
+build caches) is ignored. The report distinguishes "unique source" from "already
+present" so the user approves on facts.</p>
+<h2 id="de-duplication-methodology">De-duplication methodology</h2>
+<p>"Competing implementations" means two or more code paths in the canonical repo that do
+the same job (e.g. an old and a new version of a module, parallel config files, the same
+logic expressed once in Python and once in TypeScript). For each one the report records:</p>
+<ul>
+<li>All locations of the duplicated behavior.</li>
+<li>The recommended canonical version and why (newer, tested, referenced by live code).</li>
+<li>What gets removed once the canonical version is chosen.</li>
+<li><strong>Any behavioral difference between the versions</strong> — these are surfaced for a user
+  decision and never collapsed silently.</li>
+</ul>
+<p>De-duplication is behavior-preserving: it changes structure, not outputs. Removed code
+remains reachable in git history, so any choice is reversible.</p>
+<h2 id="risks-and-mitigations">Risks and mitigations</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Losing <code>compv2</code> history (no remote)</td>
+<td>Phase 0 git bundle of all refs</td>
+</tr>
+<tr>
+<td>Losing <code>FeeInsight.com</code> work (no git)</td>
+<td>Phase 0 <code>git init</code> + source tarball</td>
+</tr>
+<tr>
+<td>Unpushed <code>feeschedule-hub</code> branch work</td>
+<td>Phase 0 pushes all ahead branches</td>
+</tr>
+<tr>
+<td>Deleting something still wanted</td>
+<td>Nothing deleted — only moved to archive</td>
+</tr>
+<tr>
+<td>Porting breaks the canonical build</td>
+<td>Phase 3 isolates work on a branch + build/test gate</td>
+</tr>
+<tr>
+<td>Removing a needed untracked file</td>
+<td>Backed up before removal; recoverable</td>
+</tr>
+<tr>
+<td>De-dup silently changes behavior</td>
+<td>Behavior diffs surfaced for user decision; removed code stays in history</td>
+</tr>
+<tr>
+<td>bfi-v2 history merge pollutes/conflicts</td>
+<td>Done on a branch; subtree keeps it isolated; build/test gate before merge to main</td>
+</tr>
+<tr>
+<td>Archiving bfi-v2 repo too early or wrongly</td>
+<td>Archive (not delete) is reversible; confirmed with user immediately before it runs; happens only after history is merged and pushed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="non-goals">Non-goals</h2>
+<ul>
+<li><strong>No behavior changes.</strong> De-duplication consolidates structure only; outputs stay the
+  same. Genuine behavior differences are escalated to the user, not resolved unilaterally.</li>
+<li><strong>No full re-architecture.</strong> Rethinking module boundaries / rearchitecting the app is a
+  separate milestone, spec'd and planned after this consolidation lands.</li>
+<li>No dependency upgrades or new feature work.</li>
+</ul>
+<h2 id="success-criteria">Success criteria</h2>
+<ul>
+<li>Desktop contains a single canonical <code>feeschedule-hub</code> plus one <code>_archive_feeinsight/</code>.</li>
+<li><code>feeschedule-hub</code> <code>main</code> is clean, builds, and matches <code>origin/main</code>.</li>
+<li>Competing implementations are consolidated to one canonical version each.</li>
+<li>bfi-v2's history is reachable inside <code>feeschedule-hub</code>; the bfi-v2 GitHub repo is
+  archived; exactly one live remote remains.</li>
+<li>Every unique piece of work the user approved is present in the canonical repo.</li>
+<li>Full backups of all four directories exist in the archive.</li>
+<li>Spec, consolidation report, and summary are all available as launched HTML.</li>
+</ul>
+  </div>
+  <div class="footer">Generated from 2026-06-13-consolidation-design.md &middot; source of truth is the Markdown file</div>
+</div>
+</body>
+</html>

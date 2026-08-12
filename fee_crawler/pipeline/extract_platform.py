@@ -45,6 +45,25 @@ FREQUENCY_ONE_TIME = frozenset({"one time", "one-time", "once", "initial", "per 
 
 DOLLAR_RE = re.compile(r"\$?\s*(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)")
 PERCENT_RE = re.compile(r"(\d{1,3}(?:\.\d{1,2})?)\s*%")
+EXPLICIT_FEE_LINE_RE = re.compile(
+    r"^(?P<name>.{3,140}?)\s*(?:\.{2,}|[-:])?\s*\$(?P<amount>\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\b",
+    re.IGNORECASE,
+)
+AMOUNT_LEADING_FEE_RE = re.compile(
+    r"^\$\s*(?P<amount>\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)"
+    r"(?:\s*-\s*\$?\s*(?P<upper>\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?))?"
+    r"\*?\s*(?P<tail>.*)$",
+    re.IGNORECASE,
+)
+EXPLICIT_FEE_TERMS = (
+    "fee", "charge", "overdraft", "nsf", "returned item", "wire",
+    "stop payment", "cashier", "money order", "statement", "atm",
+    "transfer", "rollover", "replacement", "research", "deposit box",
+)
+EXPLICIT_FEE_EXCLUSIONS = (
+    "minimum balance", "opening deposit", "daily limit", "withdrawal limit",
+    "credit limit", "loan amount", "maximum", "apy", "annual percentage",
+)
 
 
 @dataclass
@@ -85,6 +104,7 @@ def try_platform_extraction(
         "drupal": _extract_generic_tables,
         "fiserv": _extract_generic_tables,
         "fis": _extract_generic_tables,
+        "generic": _extract_generic_tables,
     }
 
     extractor = extractors.get(platform_key)
@@ -110,6 +130,105 @@ def try_platform_extraction(
             unique.append(fee)
 
     return unique if unique else None
+
+
+def extract_explicit_fee_lines(text: str) -> list[PlatformFee]:
+    """Extract conservative fee/amount pairs from normalized document text.
+
+    PDF table extraction commonly places a short fee heading on one line and
+    its amount on the next, or puts the amount before the description. Support
+    those layouts while requiring an explicit fee/service term so balance,
+    income, loan, and limit amounts are not treated as fees.
+    """
+    fees: list[PlatformFee] = []
+    seen: set[tuple[str, float]] = set()
+    lines = [" ".join(raw_line.split()) for raw_line in text.splitlines()]
+
+    def add_fee(
+        name: str,
+        amount: float,
+        *,
+        conditions: str | None = None,
+        confidence: float = 0.72,
+    ) -> bool:
+        name = name.strip(" .:-|*")
+        lowered_name = name.lower()
+        if not any(term in lowered_name for term in EXPLICIT_FEE_TERMS):
+            return False
+        if any(term in lowered_name for term in EXPLICIT_FEE_EXCLUSIONS):
+            return False
+        if not _is_valid_fee_name(name):
+            return False
+        key = (lowered_name, amount)
+        if key in seen:
+            return False
+        seen.add(key)
+        fees.append(
+            PlatformFee(
+                fee_name=name,
+                amount=amount,
+                frequency=_parse_frequency(name),
+                conditions=conditions,
+                confidence=confidence,
+                extracted_by="explicit_text_rule",
+            )
+        )
+        return True
+
+    def preceding_fee_heading(index: int) -> str | None:
+        for prior_index in range(index - 1, max(-1, index - 4), -1):
+            prior = lines[prior_index]
+            if not prior:
+                continue
+            heading = prior.split("|", 1)[0].strip()
+            lowered_heading = heading.lower()
+            if len(heading) <= 100 and any(
+                term in lowered_heading for term in EXPLICIT_FEE_TERMS
+            ) and not any(
+                term in lowered_heading for term in EXPLICIT_FEE_EXCLUSIONS
+            ):
+                return heading
+            return None
+        return None
+
+    for index, line in enumerate(lines):
+        if not line:
+            continue
+        lowered = line.lower()
+        if any(term in lowered for term in EXPLICIT_FEE_EXCLUSIONS):
+            continue
+
+        match = EXPLICIT_FEE_LINE_RE.match(line)
+        if match:
+            name = match.group("name")
+            amount = float(match.group("amount").replace(",", ""))
+            if add_fee(name, amount):
+                continue
+
+        amount_match = AMOUNT_LEADING_FEE_RE.match(line)
+        if not amount_match:
+            continue
+
+        raw_amount = amount_match.group("upper") or amount_match.group("amount")
+        amount = float(raw_amount.replace(",", ""))
+        tail = amount_match.group("tail").strip()
+        tail_name = re.split(
+            r"\.(?:\s|$)|\b(?:in addition|if you|note:)\b",
+            tail,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0].strip(" .:-|*")
+        tail_name = re.sub(r"^(?:per|for)\s+", "", tail_name, flags=re.IGNORECASE)
+
+        if tail_name and any(term in tail_name.lower() for term in EXPLICIT_FEE_TERMS):
+            add_fee(tail_name, amount, conditions=line, confidence=0.74)
+            continue
+
+        heading = preceding_fee_heading(index)
+        if heading:
+            add_fee(heading, amount, conditions=line, confidence=0.78)
+
+    return fees
 
 
 def validate_platform_rules(

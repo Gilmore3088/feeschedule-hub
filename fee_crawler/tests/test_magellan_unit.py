@@ -1,5 +1,10 @@
-"""Pure unit tests for Magellan — no DB, no network, no async."""
+"""Pure unit tests for Magellan — no DB, no network."""
+import pytest
+
+import fee_crawler.agents.magellan.orchestrator as orchestrator
+from fee_crawler.agents.magellan.config import MagellanConfig
 from fee_crawler.agents.magellan.plausibility import is_plausible_fee_schedule
+from fee_crawler.agents.magellan.rungs._base import _Target
 
 
 def test_plausible_with_real_fees():
@@ -75,3 +80,77 @@ def test_decide_dead_on_404():
 def test_decide_dead_default():
     r = RungResult()
     assert decide_next_state(r, plausible=False) == RescueOutcome.DEAD
+
+
+def _targets(count: int) -> list[_Target]:
+    return [
+        _Target(
+            id=index + 1,
+            fee_schedule_url=f"https://example{index}.test/fees",
+            institution_name=f"Bank {index}",
+            charter_type="bank",
+        )
+        for index in range(count)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_rescue_batch_dead_urls_do_not_trip_circuit(monkeypatch):
+    class _DeadRung:
+        name = "dead"
+
+        async def run(self, target, context):
+            return RungResult(fees=[], http_status=404)
+
+    async def fake_select_candidates(conn, limit):
+        return _targets(limit)
+
+    async def fake_mark_target(target, outcome, reasoning):
+        return None
+
+    monkeypatch.setattr(orchestrator, "select_candidates", fake_select_candidates)
+    monkeypatch.setattr(orchestrator, "_mark_target", fake_mark_target)
+    orchestrator.LADDER.clear()
+    orchestrator.LADDER.append(_DeadRung())
+    try:
+        result = await orchestrator.rescue_batch(object(), size=5)
+    finally:
+        orchestrator.LADDER.clear()
+
+    assert result.selected == 5
+    assert result.processed == 5
+    assert result.dead == 5
+    assert result.circuit_tripped is False
+
+
+@pytest.mark.asyncio
+async def test_rescue_batch_attempted_count_stops_at_circuit(monkeypatch):
+    class _TransientRung:
+        name = "transient"
+
+        async def run(self, target, context):
+            raise TimeoutError("upstream timed out")
+
+    async def fake_select_candidates(conn, limit):
+        return _targets(limit)
+
+    async def fake_mark_target(target, outcome, reasoning):
+        return None
+
+    monkeypatch.setattr(orchestrator, "select_candidates", fake_select_candidates)
+    monkeypatch.setattr(orchestrator, "_mark_target", fake_mark_target)
+    orchestrator.LADDER.clear()
+    orchestrator.LADDER.append(_TransientRung())
+    try:
+        result = await orchestrator.rescue_batch(
+            object(),
+            size=5,
+            config=MagellanConfig(consecutive_failures_to_halt=2),
+        )
+    finally:
+        orchestrator.LADDER.clear()
+
+    assert result.selected == 5
+    assert result.processed == 2
+    assert result.retry_after == 2
+    assert result.circuit_tripped is True

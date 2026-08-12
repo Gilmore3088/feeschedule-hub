@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import date, timedelta
 
 import requests
 
@@ -11,6 +12,7 @@ from fee_crawler.db import Database
 
 NYFED_BASE = "https://markets.newyorkfed.org/api/rates"
 MAX_RETRIES = 3
+REVISION_OVERLAP_DAYS = 14
 
 # Rate types to ingest. Each maps to a path segment and human title.
 # The API returns daily observations with percentRate, volume, and percentiles.
@@ -79,19 +81,37 @@ def ingest_rate_type(
 
     print(f"  {series_id}: {title}")
 
+    effective_start_date = start_date
+    if effective_start_date is None:
+        latest = db.fetchone(
+            """SELECT MAX(observation_date) AS latest
+                 FROM fed_economic_indicators
+                WHERE series_id = ?""",
+            (series_id,),
+        )
+        latest_value = latest.get("latest") if latest else None
+        if latest_value:
+            try:
+                latest_date = date.fromisoformat(str(latest_value)[:10])
+                effective_start_date = (
+                    latest_date - timedelta(days=REVISION_OVERLAP_DAYS)
+                ).isoformat()
+            except ValueError:
+                effective_start_date = None
+
     observations = _fetch_rates(
         rate_type, rate_info["path"],
-        start_date=start_date, end_date=end_date,
+        start_date=effective_start_date, end_date=end_date,
     )
     if observations is None:
         return 0
 
-    upserted = 0
+    rows: list[tuple] = []
     for obs in observations:
-        date = obs.get("effectiveDate", "")
+        observation_date = obs.get("effectiveDate", "")
         rate = obs.get("percentRate")
 
-        if not date or rate is None:
+        if not observation_date or rate is None:
             continue
 
         try:
@@ -99,17 +119,28 @@ def ingest_rate_type(
         except (ValueError, TypeError):
             continue
 
-        db.execute(
-            """INSERT OR REPLACE INTO fed_economic_indicators
-               (series_id, series_title, fed_district, observation_date,
-                value, units, frequency)
-               VALUES (?, ?, NULL, ?, ?, ?, ?)""",
-            (series_id, title, date, value, units, "Daily"),
+        rows.append(
+            (series_id, title, None, observation_date, value, units, "Daily")
         )
-        upserted += 1
 
-    print(f"    {upserted} observations")
-    return upserted
+    if rows:
+        db.execute_values(
+            """INSERT INTO fed_economic_indicators
+                 (series_id, series_title, fed_district, observation_date,
+                  value, units, frequency)
+               VALUES %s
+               ON CONFLICT (series_id, observation_date)
+               DO UPDATE SET
+                 series_title = EXCLUDED.series_title,
+                 value = EXCLUDED.value,
+                 units = EXCLUDED.units,
+                 frequency = EXCLUDED.frequency,
+                 fetched_at = NOW()""",
+            rows,
+        )
+
+    print(f"    {len(rows)} observations")
+    return len(rows)
 
 
 def run(
@@ -129,11 +160,6 @@ def run(
         types_to_fetch = {rate_type_upper: RATE_TYPES[rate_type_upper]}
     else:
         types_to_fetch = RATE_TYPES
-
-    # Default to last 5 years if no start date
-    if not start_date:
-        from datetime import datetime, timedelta
-        start_date = (datetime.now() - timedelta(days=5 * 365)).strftime("%Y-%m-%d")
 
     print(f"Ingesting {len(types_to_fetch)} NY Fed rate types...")
     total = 0

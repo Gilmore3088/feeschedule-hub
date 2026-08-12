@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { requireAuth } from "@/lib/auth";
+import { hasPermission, requireAuth } from "@/lib/auth";
 import { formatAmount } from "@/lib/format";
 import {
   getKnoxReviewCounts,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/crawler-db/knox-reviews";
 import { ConfirmButton, OverrideButton, SkipButton } from "./review-actions";
 import { KnoxKeyboardNav } from "./keyboard-nav";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 
 type FilterTab = "pending" | "confirmed" | "overridden" | "all";
 const TABS: FilterTab[] = ["pending", "confirmed", "overridden", "all"];
@@ -51,13 +53,15 @@ function confidenceBadge(conf: number | null) {
   );
 }
 
-export default async function KnoxReviewsPage({
+export async function KnoxDecisionsView({
   searchParams,
+  embedded = false,
 }: {
   searchParams: Promise<{ filter?: string; reason?: string; page?: string }>;
+  embedded?: boolean;
 }) {
   const user = await requireAuth("view");
-  const canAct = user.role === "analyst" || user.role === "admin";
+  const canAct = hasPermission(user, "approve");
 
   const params = await searchParams;
   const filter = (TABS as readonly string[]).includes(params.filter ?? "")
@@ -88,12 +92,13 @@ export default async function KnoxReviewsPage({
     qs.set("filter", next.filter ?? filter);
     qs.set("reason", next.reason ?? reason);
     qs.set("page", String(next.page ?? 1));
-    return `/admin/agents/knox/reviews?${qs.toString()}`;
+    qs.set("queue", "decisions");
+    return `/admin/knox?${qs.toString()}`;
   }
 
   return (
     <>
-      <div className="mb-6">
+      {!embedded && <div className="mb-6">
         <Breadcrumbs
           items={[
             { label: "Dashboard", href: "/admin" },
@@ -108,7 +113,7 @@ export default async function KnoxReviewsPage({
           Human review of Knox rejection decisions. Override to re-promote fees
           Knox incorrectly blocked; confirmations train Knox&apos;s rules.
         </p>
-      </div>
+      </div>}
 
       {/* Status tabs */}
       <div className="flex gap-1 mb-4 border-b overflow-x-auto">
@@ -208,7 +213,7 @@ export default async function KnoxReviewsPage({
                   <td className="px-4 py-2.5">
                     <Link
                       data-detail-link
-                      href={`/admin/agents/knox/reviews/${r.message_id}`}
+                      href={`/admin/knox/decisions/${r.message_id}`}
                       className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 transition-colors"
                     >
                       {r.fee_name ?? "(unknown)"}
@@ -316,4 +321,12 @@ export default async function KnoxReviewsPage({
       )}
     </>
   );
+}
+
+export default async function LegacyKnoxReviewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  redirect(buildLegacyAdminPath("/admin/knox", await searchParams, { queue: "decisions" }));
 }

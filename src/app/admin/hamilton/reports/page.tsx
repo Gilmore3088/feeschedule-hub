@@ -9,7 +9,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Hamilton — Reports — Bank Fee Index Admin" };
 
 // T-16-12: validate filter params against explicit allowlists
-const VALID_STATUSES = new Set(["pending", "assembling", "rendering", "complete", "failed"]);
+const VALID_STATUSES = new Set([
+  "pending", "assembling", "rendering", "complete", "failed",
+  "cancel_requested", "cancelled",
+]);
 const VALID_TYPES = new Set<string>(["national_index", "state_index", "peer_brief", "monthly_pulse"]);
 
 const REPORT_TYPE_LABELS: Record<string, string> = {

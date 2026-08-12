@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 import psycopg2
 import psycopg2.extras
 
+from fee_crawler.ai_usage import tracked_anthropic_call
+
 from fee_crawler.agents.discover import discover_url
 from fee_crawler.agents.strategy import StrategyTier, TIER1, tier_for_pass
 from fee_crawler.agents.classify import classify_document
@@ -370,7 +372,10 @@ def _generate_learnings(conn, run_id: int, state_code: str, stats: dict) -> list
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
-    response = client.messages.create(
+    response = tracked_anthropic_call(
+        client.messages.create,
+        agent_name=f"state_{state_code.lower()}",
+        operation="generate_state_learnings",
         model="claude-haiku-4-5-20251001",
         max_tokens=1000,
         system="""You analyze fee schedule agent run results and extract learnings.

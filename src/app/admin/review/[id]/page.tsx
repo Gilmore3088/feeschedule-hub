@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { getFeeById, getAuditTrail } from "@/lib/crawler-db";
 import { ApproveButton, RejectButton, UnstageButton } from "../review-actions";
@@ -8,6 +9,7 @@ import { formatAmount } from "@/lib/format";
 import { safeJsonb } from "@/lib/pg-helpers";
 import { FeeDetailEditor } from "./fee-detail-editor";
 import { getDisplayName } from "@/lib/fee-taxonomy";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 
 interface ValidationFlag {
   rule: string;
@@ -43,22 +45,17 @@ const ACTION_LABELS: Record<string, string> = {
   reset: "Reset (re-crawl)",
 };
 
-export default async function FeeDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export async function FeeDetailView({ feeId }: { feeId: string }) {
   const user = await requireAuth("view");
 
-  const { id } = await params;
-  const feeId = parseInt(id, 10);
-  const fee = await getFeeById(feeId);
+  const numericFeeId = parseInt(feeId, 10);
+  const fee = await getFeeById(numericFeeId);
 
   if (!fee) {
     return <p className="text-gray-500">Fee not found</p>;
   }
 
-  const auditTrail = await getAuditTrail(feeId);
+  const auditTrail = await getAuditTrail(numericFeeId);
   const flags = parseFlags(fee.validation_flags);
   const canApprove = user.role === "analyst" || user.role === "admin";
   const isActionable =
@@ -70,9 +67,9 @@ export default async function FeeDetailPage({
     <>
       <div className="mb-6">
         <Breadcrumbs items={[
-          { label: "Dashboard", href: "/admin" },
-          { label: "Review", href: "/admin/review" },
-          { label: `Fee #${feeId}` },
+          { label: "Atlas", href: "/admin" },
+          { label: "Knox", href: "/admin/knox?queue=fees" },
+          { label: `Fee #${numericFeeId}` },
         ]} />
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold tracking-tight text-gray-900">
@@ -255,5 +252,21 @@ export default async function FeeDetailPage({
         )}
       </div>
     </>
+  );
+}
+
+export default async function LegacyFeeDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  const { id } = await params;
+  redirect(
+    buildLegacyAdminPath(
+      `/admin/knox/fees/${encodeURIComponent(id)}`,
+      await searchParams,
+    ),
   );
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { sql } from "@/lib/crawler-db/connection";
+import { requireAuth } from "@/lib/auth";
 
 export interface SearchResult {
   institutions: {
@@ -26,6 +27,7 @@ export interface SearchResult {
 }
 
 export async function searchDashboard(query: string): Promise<SearchResult> {
+  await requireAuth("view");
   if (!query || query.length < 2) {
     return { institutions: [], categories: [], feeNames: [], conversations: [] };
   }

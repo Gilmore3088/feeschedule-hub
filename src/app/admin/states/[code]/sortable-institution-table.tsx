@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import type { StateInstitution } from "@/lib/crawler-db/states";
-import { formatAssets } from "@/lib/format";
 import { InstitutionRow } from "./institution-row";
 
 type SortKey = "institution_name" | "asset_size" | "fee_count" | "status" | "charter_type" | "city";
@@ -19,12 +18,21 @@ function statusRank(inst: StateInstitution): number {
   return 1;
 }
 
+function renderSortIcon(column: SortKey, sortKey: SortKey, sortDir: SortDir) {
+  if (sortKey !== column) {
+    return <ArrowUpDown className="h-3 w-3 text-gray-400" />;
+  }
+  return sortDir === "asc" ? (
+    <ArrowUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+  ) : (
+    <ArrowDown className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+  );
+}
+
 export function SortableInstitutionTable({
   institutions,
-  stateCode,
 }: {
   institutions: StateInstitution[];
-  stateCode: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -105,17 +113,6 @@ export function SortableInstitutionTable({
 
   const displayed = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
 
-  function SortIcon({ column }: { column: SortKey }) {
-    if (sortKey !== column) {
-      return <ArrowUpDown className="h-3 w-3 text-gray-400" />;
-    }
-    return sortDir === "asc" ? (
-      <ArrowUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-    ) : (
-      <ArrowDown className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-    );
-  }
-
   return (
     <div className="admin-card overflow-hidden mb-8">
       {/* Header bar */}
@@ -172,7 +169,7 @@ export function SortableInstitutionTable({
                       onClick={() => handleSort("institution_name")}
                       className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
                     >
-                      Name <SortIcon column="institution_name" />
+                      Name {renderSortIcon("institution_name", sortKey, sortDir)}
                     </button>
                   </th>
                   <th>
@@ -180,7 +177,7 @@ export function SortableInstitutionTable({
                       onClick={() => handleSort("city")}
                       className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
                     >
-                      City <SortIcon column="city" />
+                      City {renderSortIcon("city", sortKey, sortDir)}
                     </button>
                   </th>
                   <th>
@@ -188,7 +185,7 @@ export function SortableInstitutionTable({
                       onClick={() => handleSort("charter_type")}
                       className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
                     >
-                      Charter <SortIcon column="charter_type" />
+                      Charter {renderSortIcon("charter_type", sortKey, sortDir)}
                     </button>
                   </th>
                   <th>
@@ -196,7 +193,7 @@ export function SortableInstitutionTable({
                       onClick={() => handleSort("status")}
                       className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
                     >
-                      Status <SortIcon column="status" />
+                      Status {renderSortIcon("status", sortKey, sortDir)}
                     </button>
                   </th>
                   <th>Fee URL / Actions</th>
@@ -205,7 +202,7 @@ export function SortableInstitutionTable({
                       onClick={() => handleSort("asset_size")}
                       className="flex items-center gap-1 ml-auto hover:text-gray-700 dark:hover:text-gray-200"
                     >
-                      Assets <SortIcon column="asset_size" />
+                      Assets {renderSortIcon("asset_size", sortKey, sortDir)}
                     </button>
                   </th>
                 </tr>
@@ -223,7 +220,6 @@ export function SortableInstitutionTable({
                     document_type={inst.document_type}
                     fee_count={inst.fee_count}
                     last_crawled={inst.last_crawled}
-                    stateCode={stateCode}
                     assetSize={inst.asset_size}
                   />
                 ))}

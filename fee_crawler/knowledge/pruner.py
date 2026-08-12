@@ -7,6 +7,8 @@ from pathlib import Path
 
 import anthropic
 
+from fee_crawler.ai_usage import tracked_anthropic_call
+
 log = logging.getLogger(__name__)
 
 KNOWLEDGE_DIR = Path(__file__).parent
@@ -55,7 +57,10 @@ def prune_file(
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
-    response = client.messages.create(
+    response = tracked_anthropic_call(
+        client.messages.create,
+        agent_name="atlas",
+        operation="prune_agent_knowledge",
         model="claude-haiku-4-5-20251001",
         max_tokens=4096,
         system="""You condense knowledge files for a fee schedule crawling agent.

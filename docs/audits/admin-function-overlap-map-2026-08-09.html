@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Admin Function and Overlap Map</title>
+  <style>
+    :root {
+      --paper: #fffdf8;
+      --canvas: #f3eee4;
+      --ink: #1d2528;
+      --muted: #667176;
+      --rule: #d9d1c3;
+      --accent: #b9472b;
+      --accent-soft: #f6e6de;
+      --navy: #173c4b;
+      --navy-soft: #e4eef1;
+      --amber: #9a6400;
+      --amber-soft: #fff3cf;
+      --shadow: 0 18px 55px rgba(57, 43, 25, .11);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(185, 71, 43, .10), transparent 28rem),
+        linear-gradient(180deg, #eee7db 0, var(--canvas) 24rem);
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 16px;
+      line-height: 1.62;
+    }
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 32px auto 64px;
+      padding: clamp(28px, 5vw, 72px);
+      background: var(--paper);
+      border: 1px solid rgba(117, 100, 73, .20);
+      box-shadow: var(--shadow);
+    }
+    main > h1:first-child {
+      margin: 0 0 8px;
+      max-width: 850px;
+      color: var(--navy);
+      font-size: clamp(2.35rem, 5.6vw, 4.9rem);
+      font-weight: 500;
+      line-height: .98;
+      letter-spacing: -.045em;
+    }
+    main > h1:first-child + p {
+      display: inline-block;
+      margin: 14px 0 24px;
+      padding: 5px 10px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: 999px;
+      font: 700 .75rem/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 58px 0 18px;
+      padding-top: 17px;
+      color: var(--navy);
+      border-top: 3px solid var(--navy);
+      font-size: 1.72rem;
+      font-weight: 600;
+      line-height: 1.15;
+      letter-spacing: -.02em;
+    }
+    h3 {
+      margin: 34px 0 10px;
+      color: var(--navy);
+      font-size: 1.22rem;
+      line-height: 1.3;
+    }
+    h3.severity {
+      padding: 11px 14px;
+      border-left: 5px solid;
+      border-radius: 3px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 1rem;
+    }
+    h3.p0 { color: #8f271b; background: #fbe8e3; border-color: #bd3f2d; }
+    h3.p1 { color: #775000; background: var(--amber-soft); border-color: #d39618; }
+    h3.p2 { color: #214e61; background: var(--navy-soft); border-color: #3f788d; }
+    p { margin: 0 0 15px; }
+    strong { color: #142f3b; }
+    a { color: #9c3824; text-decoration-color: rgba(156, 56, 36, .35); }
+    code {
+      padding: .12em .35em;
+      color: #6f2a1d;
+      background: #f3e9df;
+      border: 1px solid #e4d5c7;
+      border-radius: 4px;
+      font: .87em/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+    pre { overflow-x: auto; padding: 16px; background: #18282e; color: #eef5f4; }
+    pre code { padding: 0; color: inherit; background: transparent; border: 0; }
+    ol, ul { margin: 0 0 20px; padding-left: 1.35rem; }
+    li { margin: 7px 0; padding-left: .2rem; }
+    table {
+      display: block;
+      width: 100%;
+      margin: 20px 0 30px;
+      overflow-x: auto;
+      border-spacing: 0;
+      border-collapse: collapse;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: .82rem;
+      line-height: 1.45;
+    }
+    thead { color: #fff; background: var(--navy); }
+    th { min-width: 135px; padding: 10px 12px; text-align: left; vertical-align: bottom; }
+    td { min-width: 135px; padding: 10px 12px; vertical-align: top; border-bottom: 1px solid var(--rule); }
+    tbody tr:nth-child(even) { background: #f7f3eb; }
+    tbody tr:hover { background: #f3e8dc; }
+    blockquote { margin: 24px 0; padding: 4px 20px; color: var(--muted); border-left: 4px solid var(--accent); }
+    .document-footer {
+      margin-top: 64px;
+      padding-top: 18px;
+      color: var(--muted);
+      border-top: 1px solid var(--rule);
+      font: .78rem/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    @media (max-width: 720px) {
+      body { font-size: 15px; }
+      main { width: 100%; margin: 0; padding: 24px 18px 48px; border: 0; box-shadow: none; }
+      main > h1:first-child { font-size: 2.55rem; }
+      h2 { margin-top: 42px; font-size: 1.45rem; }
+      th, td { min-width: 180px; }
+    }
+    @media print {
+      @page { size: letter; margin: .55in; }
+      body { color: #111; background: #fff; font-size: 10.5pt; }
+      main { width: 100%; margin: 0; padding: 0; border: 0; box-shadow: none; }
+      main > h1:first-child { font-size: 30pt; }
+      h2 { margin-top: 26pt; break-after: avoid; }
+      h3 { break-after: avoid; }
+      table { display: table; font-size: 7.5pt; break-inside: auto; }
+      tr { break-inside: avoid; }
+      thead { display: table-header-group; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Admin Function and Overlap Map</h1>
+<p>Date: 2026-08-09 (America/Los_Angeles)</p>
+<p>Scope: <code>src/app/admin</code>, the API and server actions called by admin pages, the
+<code>ops_jobs</code> execution path, and the scheduled Modal jobs that perform the same
+work.</p>
+<h2>Executive Summary</h2>
+<p>The admin application currently contains several partially overlapping control
+planes:</p>
+<ol>
+<li><code>/admin</code> is an operational summary built from <code>crawl_targets</code>,
+   <code>extracted_fees</code>, <code>crawl_runs</code>, and a review table name that does not exist.</li>
+<li><code>/admin/pipeline</code> is a read-only status page built from three different job
+   models: <code>workers_last_run</code>, <code>crawl_runs</code>, and <code>ops_jobs</code>.</li>
+<li><code>/admin/ops</code> is a second read-only job-history page. A much larger interactive
+   operations console exists in the repository but is not mounted.</li>
+<li><code>/admin/data-quality</code> is the only currently mounted page that exposes generic
+   <code>ops_jobs</code> commands.</li>
+<li>Institution URL, extraction, and fee-review operations are reimplemented in
+   several route families with different permissions, side effects, and audit
+   behavior.</li>
+<li>Modal schedules, generic admin jobs, the two CLI pipeline orchestrators, and
+   per-institution endpoints can all run overlapping stages without one shared
+   locking or idempotency contract.</li>
+</ol>
+<p>This is why the admin can simultaneously show a failed scheduled job, an old
+<code>crawl_runs</code> row as still running, and no active <code>ops_jobs</code> work. Those displays
+describe different systems.</p>
+<h2>Visible Admin Navigation</h2>
+<table>
+<thead>
+<tr>
+<th>Navigation item</th>
+<th>Route</th>
+<th>Current function</th>
+<th>Primary data or backend</th>
+<th>Important overlap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dashboard</td>
+<td><code>/admin</code></td>
+<td>Coverage, quality, review queue, crawl activity, leads, state coverage</td>
+<td><code>crawl_targets</code>, <code>extracted_fees</code>, <code>crawl_runs</code>, <code>review_log</code>, <code>leads</code></td>
+<td>Repeats Pipeline, Data Quality, Review, Leads, and state coverage; <code>review_log</code> does not exist in production</td>
+</tr>
+<tr>
+<td>Market</td>
+<td><code>/admin/market</code></td>
+<td>Filterable fee benchmark</td>
+<td><code>extracted_fees</code> through market/index queries</td>
+<td>An unfiltered Market view is another National Index; the same filters reappear in Peer and District views</td>
+</tr>
+<tr>
+<td>National</td>
+<td><code>/admin/index</code></td>
+<td>National fee index by category</td>
+<td><code>extracted_fees</code> and taxonomy</td>
+<td>Overlaps Market's unfiltered view and hidden <code>/admin/national</code>; the three pages use different scopes and labels</td>
+</tr>
+<tr>
+<td>Peer</td>
+<td><code>/admin/peers</code></td>
+<td>Peer benchmark and saved peer sets</td>
+<td><code>extracted_fees</code>, <code>crawl_targets</code>, peer filters</td>
+<td>Also acts as an institution entry point and exposes URL edit/crawl on <code>/admin/peers/[id]</code></td>
+</tr>
+<tr>
+<td>Categories</td>
+<td><code>/admin/fees/catalog</code></td>
+<td>Fee-category catalog and distribution</td>
+<td><code>extracted_fees</code></td>
+<td>Overlaps <code>/admin/fees</code>, Review by Category, Market, and National Index</td>
+</tr>
+<tr>
+<td>Districts</td>
+<td><code>/admin/districts</code></td>
+<td>Fed district fee/economic portal</td>
+<td>Fee index, financial, Fed, complaint, and call-report tables</td>
+<td>District is also a Market/Peer filter; hidden <code>/admin/national</code> includes much of the same economic data</td>
+</tr>
+<tr>
+<td>Hamilton</td>
+<td><code>/admin/hamilton</code> -&gt; <code>/admin/hamilton/chat</code></td>
+<td>Research chat and report tabs</td>
+<td>Hamilton chat tables, report APIs, Modal report worker</td>
+<td>Legacy research routes still exist; reports have their own job model and a second false-cancel behavior</td>
+</tr>
+<tr>
+<td>Leads</td>
+<td><code>/admin/leads</code></td>
+<td>Sales lead table</td>
+<td><code>leads</code></td>
+<td>Exact duplicate page also exists at <code>/admin/hamilton/leads</code></td>
+</tr>
+<tr>
+<td>Darwin</td>
+<td><code>/admin/darwin</code></td>
+<td>Classification agent console and manual reclassification</td>
+<td>Darwin Modal sidecar and agent tables</td>
+<td>Classification health also appears in Agents and Pipeline; manual reclassify overlaps automated Darwin drain</td>
+</tr>
+<tr>
+<td>Magellan</td>
+<td><code>/admin/coverage</code></td>
+<td>URL rescue agent console</td>
+<td>Magellan Modal sidecar and crawler tables</td>
+<td>URL health also appears in Dashboard, Pipeline, State, Institution, and Peer pages</td>
+</tr>
+<tr>
+<td>Agents</td>
+<td><code>/admin/agents</code></td>
+<td>Read-only agent health, lineage, messages, replay</td>
+<td>Agent event/message/lineage tables</td>
+<td>Repeats Darwin, Magellan, Knox, and Pipeline stage health at a different abstraction level</td>
+</tr>
+<tr>
+<td>Knox Reviews</td>
+<td><code>/admin/agents/knox/reviews</code></td>
+<td>Human decision on Knox rejections</td>
+<td><code>agent_messages</code>, <code>knox_overrides</code>, <code>fees_verified</code>, <code>fees_published</code></td>
+<td>A second review system beside <code>/admin/review</code>, but it reviews a later data tier</td>
+</tr>
+<tr>
+<td>Pipeline</td>
+<td><code>/admin/pipeline</code></td>
+<td>Scheduled-job freshness, coverage, crawl runs, ops job history</td>
+<td><code>workers_last_run</code>, <code>crawl_runs</code>, <code>ops_jobs</code></td>
+<td>Overlaps Dashboard, Ops, Data Quality, Agents, Darwin, and Magellan; existing control components are not mounted</td>
+</tr>
+<tr>
+<td>Review</td>
+<td><code>/admin/review</code></td>
+<td>Canonical extracted-fee review queue</td>
+<td><code>extracted_fees</code>, <code>fee_reviews</code></td>
+<td>Overlaps institution-level fee actions and Review by Category; institution actions bypass this audit path</td>
+</tr>
+<tr>
+<td>By Category</td>
+<td><code>/admin/review/categories</code></td>
+<td>Same extracted-fee review queue grouped by category</td>
+<td><code>extracted_fees</code></td>
+<td>Workflow variant of Review, but it is presented under Explore rather than Review</td>
+</tr>
+<tr>
+<td>Explorer</td>
+<td><code>/admin/query</code></td>
+<td>Admin SQL/query console</td>
+<td>Database</td>
+<td>Can reproduce almost every read-only admin view without its domain rules</td>
+</tr>
+<tr>
+<td>Data Quality</td>
+<td><code>/admin/data-quality</code></td>
+<td>Integrity checks and three repair buttons</td>
+<td><code>extracted_fees</code>, <code>crawl_targets</code>, <code>ops_jobs</code></td>
+<td>Categorize and Publish Index duplicate Pipeline/Ops/Modal stages; zombie reset changes status only</td>
+</tr>
+</tbody>
+</table>
+<h2>Important Routes Outside the Navigation</h2>
+<table>
+<thead>
+<tr>
+<th>Route family</th>
+<th>Function</th>
+<th>Overlap or disposition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/admin/ops</code></td>
+<td>Generic job history</td>
+<td>Duplicates the Pipeline recent-jobs table. The interactive <code>OpsClient</code> is orphaned and not rendered by either page.</td>
+</tr>
+<tr>
+<td><code>/admin/institutions</code></td>
+<td>Institution search/list</td>
+<td>Overlaps state lists, peer explorer, and institution search in the command palette.</td>
+</tr>
+<tr>
+<td><code>/admin/institution/[id]</code></td>
+<td>Institution operations, fee editing, extraction</td>
+<td>Overlaps <code>/admin/peers/[id]</code>, <code>/admin/states/[code]</code>, and canonical <code>/admin/review</code>; behavior differs materially.</td>
+</tr>
+<tr>
+<td><code>/admin/states/[code]</code></td>
+<td>State coverage, state agent history, URL correction</td>
+<td>Overlaps Pipeline coverage and Institution operations. Its write actions require only <code>view</code>.</td>
+</tr>
+<tr>
+<td><code>/admin/national</code></td>
+<td>National economic/data portal</td>
+<td>Competes with the visible <code>/admin/index</code> named "National" and with Market/Districts.</td>
+</tr>
+<tr>
+<td><code>/admin/verify</code></td>
+<td>Gold-standard verification</td>
+<td>A third review-like workflow; writes <code>gold_standard_fees</code>, not the normal review state.</td>
+</tr>
+<tr>
+<td><code>/admin/fees</code></td>
+<td>Older fee-family catalog</td>
+<td>Overlaps the visible <code>/admin/fees/catalog</code>.</td>
+</tr>
+<tr>
+<td><code>/admin/methodology</code></td>
+<td>Methodology content</td>
+<td>Duplicated at <code>/admin/hamilton/methodology</code>.</td>
+</tr>
+<tr>
+<td><code>/admin/research/*</code></td>
+<td>Mixed legacy aliases and duplicate files</td>
+<td>Hub and agent pages redirect, but articles and usage remain live duplicates. Internal links still point to the legacy prefix.</td>
+</tr>
+<tr>
+<td><code>/admin/scout</code></td>
+<td>Legacy alias</td>
+<td>Redirects to Hamilton; <code>/admin/hamilton/scout</code> also exists.</td>
+</tr>
+<tr>
+<td><code>/admin/quality</code></td>
+<td>Legacy alias</td>
+<td>Redirects to Pipeline even though the separate Data Quality page is live.</td>
+</tr>
+</tbody>
+</table>
+<h2>Execution Overlap Matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Scheduled path</th>
+<th>Manual admin paths</th>
+<th>Other path</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Discover fee URLs</td>
+<td>Modal <code>run_discovery</code> at 02:00 UTC; Magellan rescue at 05:00 UTC</td>
+<td>Pipeline <code>runDiscover</code>; orphaned Ops console <code>discover</code></td>
+<td><code>run-pipeline</code>, atomic <code>pipeline</code>, state agents</td>
+<td>Several implementations can select the same institutions without a shared run lock. Pipeline UI text says 200 max, but <code>runDiscover</code> supplies no limit.</td>
+</tr>
+<tr>
+<td>Crawl/extract</td>
+<td>Modal PDF at 03:00 UTC and browser at 04:00 UTC</td>
+<td>Pipeline Crawl Gaps; Ops <code>crawl</code>; Peer detail Crawl; Institution Extract</td>
+<td><code>run-pipeline</code>, atomic <code>pipeline</code>, state agents</td>
+<td>At least three extractor entry points use different selection and write paths. Duplicate cost and conflicting run status are possible.</td>
+</tr>
+<tr>
+<td>Categorize</td>
+<td>Modal daily post-processing at 06:00 UTC</td>
+<td>Pipeline Categorize; Data Quality Re-run Categorization; Ops <code>categorize</code></td>
+<td><code>run-pipeline</code>, atomic <code>pipeline</code></td>
+<td>Same global mutation can be started repeatedly.</td>
+</tr>
+<tr>
+<td>Validate</td>
+<td>No dedicated cron stage in the current daily command list</td>
+<td>Pipeline Validate; Ops <code>validate</code></td>
+<td>Atomic <code>pipeline</code></td>
+<td>UI's "Full Pipeline" description implies validation, but its action invokes legacy <code>run-pipeline</code>, which only discovers, crawls, and categorizes.</td>
+</tr>
+<tr>
+<td>Detect outliers</td>
+<td>No dedicated current cron stage</td>
+<td>Pipeline Detect Outliers; Ops <code>outlier-detect</code></td>
+<td>Atomic <code>pipeline</code> may include stage-dependent checks</td>
+<td>Operators cannot tell which output belongs to which orchestrator.</td>
+</tr>
+<tr>
+<td>Auto-review</td>
+<td>Modal daily post-processing</td>
+<td>Pipeline Auto-Review; Ops <code>auto-review</code></td>
+<td>Atomic <code>pipeline</code></td>
+<td>Mutates the same review population while humans may be reviewing it.</td>
+</tr>
+<tr>
+<td>Publish fees/index</td>
+<td>Modal daily <code>publish-fees</code>, snapshot, and <code>publish-index</code></td>
+<td>Data Quality Re-publish Index; Ops <code>publish-index</code></td>
+<td>Atomic <code>pipeline</code></td>
+<td>Index publication can occur while upstream stages are still running.</td>
+</tr>
+<tr>
+<td>Federal/economic ingest</td>
+<td>Modal <code>ingest_data</code> daily/weekly/quarterly</td>
+<td>Pipeline Refresh Daily/Weekly; Ops individual ingestors and <code>refresh-data</code></td>
+<td>Direct CLI</td>
+<td>The same source can run twice, including <code>ingest-call-reports</code> and NCUA on quarterly Mondays.</td>
+</tr>
+<tr>
+<td>Generate reports</td>
+<td>Modal report endpoint; manual-only <code>run_monthly_pulse</code> function</td>
+<td>Hamilton Reports controls and retry</td>
+<td><code>/api/reports/generate</code> cron-auth path</td>
+<td>Report jobs use <code>report_jobs</code>, not <code>ops_jobs</code>, and therefore do not appear in Pipeline/Ops health.</td>
+</tr>
+<tr>
+<td>Agent classification/review</td>
+<td>Darwin drain, Knox review, every-minute dispatcher</td>
+<td>Darwin reclassify and Knox review UI</td>
+<td>Agent APIs</td>
+<td>Manual and scheduled work share agent tables but have separate status displays.</td>
+</tr>
+</tbody>
+</table>
+<h2>Critical Behavioral Conflicts</h2>
+<h3 class="severity p0">P0: <code>ops_jobs</code> Runner and Admin Readers Use Different Schemas</h3>
+<p>The live <code>ops_jobs</code> table contains:</p>
+<p><code>started_at</code>, <code>completed_at</code>, <code>exit_code</code>, <code>stdout_tail</code>, <code>error_summary</code>, and
+<code>result_summary</code>.</p>
+<p>The current Modal generic runner updates:</p>
+<p><code>result_json</code>, <code>error</code>, and <code>updated_at</code>.</p>
+<p>Those columns do not exist in the live table or in <code>scripts/migrate-schema.sql</code>.
+The runner catches and logs its update error, so the subprocess can run while the
+admin row remains <code>queued</code> or <code>running</code>. The most recent live row is job 42,
+<code>categorize</code>, still <code>queued</code> since 2026-04-18.</p>
+<p>Affected surfaces:</p>
+<ul>
+<li><code>/admin/pipeline</code> job summaries and recent jobs</li>
+<li><code>/admin/ops</code></li>
+<li><code>/admin/data-quality</code> action feedback</li>
+<li>the sidebar job status badge</li>
+<li>Hamilton's internal job-status research tool</li>
+</ul>
+<h3 class="severity p0">P0: Institution Review Actions Bypass the Canonical Review Contract</h3>
+<p><code>src/lib/fee-actions.ts</code> is the canonical review path. It validates status
+transitions, uses permission-specific authorization, writes <code>fee_reviews</code>, and
+performs the mutation and audit insert in one transaction.</p>
+<p><code>src/app/admin/institution/[id]/actions.ts</code> separately approves, rejects, edits,
+and bulk-approves <code>extracted_fees</code> with direct updates. These actions do not
+write <code>fee_reviews</code>, do not enforce the canonical transition table, and can edit
+already-reviewed fees. As a result, the same human decision has different audit
+and validation behavior depending on which admin page was open.</p>
+<h3 class="severity p0">P0: State Pages Grant Write Operations to <code>view</code></h3>
+<p>The state action module uses <code>requireAuth("view")</code> for URL edits, marking an
+institution offline, and the Extract action. <code>view</code> is granted to non-admin
+roles by the permission model. The admin layout normally redirects non-admins,
+but server-action authorization must not rely on page layout behavior.</p>
+<h3 class="severity p1">P1: "Cancel" Does Not Cancel Modal Work</h3>
+<p><code>cancelJob</code> changes an <code>ops_jobs</code> row to <code>cancelled</code>; it does not cancel the
+Modal function call. <code>cancelReport</code> and <code>cancelAllPending</code> have the same semantic
+problem for report generation. A worker can continue consuming resources and
+writing data after the admin says it is cancelled. It can also later overwrite
+the status if its completion update succeeds.</p>
+<h3 class="severity p1">P1: "Extract" Has Three Different Meanings</h3>
+<ul>
+<li>Institution detail calls the single-item Modal extraction endpoint.</li>
+<li>Peer detail queues the generic CLI <code>crawl --target-id</code> job.</li>
+<li>State detail's <code>triggerExtract</code> does not start anything; it returns an
+  instruction to use Scout.</li>
+</ul>
+<p>The institution URL save also fire-and-forgets extraction and discards every
+error with <code>.catch(() =&gt; {})</code>, so a failed automatic extraction is invisible.</p>
+<h3 class="severity p1">P1: Dashboard Review Activity Reads the Wrong Table</h3>
+<p>The canonical review actions write <code>fee_reviews</code>. The Dashboard and one fee
+detail query read <code>review_log</code>. Production has <code>fee_reviews</code> (26,786 rows) and no
+<code>review_log</code> table. These queries catch the error and return empty data, so real
+review activity is hidden as if no reviews occurred.</p>
+<h3 class="severity p1">P1: Pipeline Status Combines Incompatible Lifecycles</h3>
+<p><code>/admin/pipeline</code> combines:</p>
+<ul>
+<li><code>workers_last_run</code>: current scheduled Modal completion markers</li>
+<li><code>crawl_runs</code>: extraction-run records, including orphaned rows still marked
+  <code>running</code> since April</li>
+<li><code>ops_jobs</code>: manually triggered generic jobs, with no current successful writer</li>
+</ul>
+<p>These are not one queue and cannot safely be aggregated as if they were.</p>
+<h3 class="severity p1">P1: Two "Full Pipeline" Commands Coexist</h3>
+<p><code>run-pipeline</code> is the legacy three-stage discover/crawl/categorize command.
+<code>pipeline</code> is the newer atomic, resumable orchestrator and is explicitly
+documented in the CLI as replacing <code>run-pipeline</code>.</p>
+<p>The Pipeline quick action still starts <code>run-pipeline</code>, while the orphaned Ops
+console offers both. The quick-action explanatory text describes a
+categorize/validate/outlier/auto-review sequence that the invoked command does
+not perform.</p>
+<h3 class="severity p2">P2: Large Parts of the Intended Pipeline UI Are Orphaned</h3>
+<p>The repository contains Pipeline tabs, health, coverage, operation controls,
+pipeline visualization, recent jobs, and an interactive Ops console. The current
+<code>/admin/pipeline/page.tsx</code> imports none of them. The current <code>/admin/ops/page.tsx</code>
+also does not render <code>OpsClient</code>.</p>
+<p>This leaves duplicate server actions and command metadata in production code
+without a visible owner, while the visible pages provide read-only fragments of
+the intended control plane.</p>
+<h3 class="severity p2">P2: Metrics Reuse Labels but Not Definitions</h3>
+<p>Examples:</p>
+<ul>
+<li>Dashboard <code>with_fees</code> counts any institution present in <code>extracted_fees</code>,
+  including rejected-only institutions.</li>
+<li>Data Quality excludes rejected fees.</li>
+<li>Index views usually include all non-rejected fees unless <code>approvedOnly</code> is
+  explicitly requested.</li>
+<li>Agent Pipeline counts <code>fees_raw</code>, <code>fees_verified</code>, and <code>fees_published</code>, not
+  <code>extracted_fees</code>.</li>
+<li>State coverage changes the denominator by excluding offline/no-website rows,
+  while the headline Dashboard coverage uses all <code>crawl_targets</code>.</li>
+</ul>
+<p>The word "coverage" therefore reports different populations across the admin.</p>
+<h2>Live State Observed During This Review</h2>
+<p>Read-only production checks on 2026-08-09 PDT / 2026-08-10 UTC showed:</p>
+<ul>
+<li><code>run_discovery</code>: failed at 02:00 UTC</li>
+<li><code>run_pdf_extraction</code>: failed at 03:00 UTC</li>
+<li><code>run_browser_extraction</code>: failed at 04:00 UTC</li>
+<li><code>darwin_drain</code>, <code>knox_review</code>, and <code>magellan_rescue</code>: last marker was <code>ok</code></li>
+<li><code>ingest_data</code>: last marker was <code>ok</code> but approximately 90 hours old</li>
+<li><code>crawl_runs</code>: several rows remain <code>running</code> from 2026-04-20 through
+  2026-04-22</li>
+<li><code>ops_jobs</code>: one row remains <code>queued</code> from 2026-04-18</li>
+</ul>
+<p>The collection failures occurred before the latest Modal deployment completed.
+The next scheduled cycle is still required to prove the replacement code in
+normal cron execution.</p>
+<h2>Recommended Ownership Model</h2>
+<h3>1. One Operations Route</h3>
+<p>Make <code>/admin/pipeline</code> the only operational control plane and redirect
+<code>/admin/ops</code>, <code>/admin/quality</code>, and generic job controls into it. Mount the useful
+existing components after removing conflicting implementations.</p>
+<h3>2. One Job Contract</h3>
+<p>Use one job table or a normalized parent job table with typed child details. At
+minimum, every job needs:</p>
+<ul>
+<li>job ID and job type</li>
+<li>trigger source: schedule, admin, API, or agent</li>
+<li>Modal call ID</li>
+<li>requested, started, heartbeat, and completed timestamps</li>
+<li>terminal status and structured error</li>
+<li>scope and idempotency key</li>
+<li>cancellation state that is propagated to Modal</li>
+</ul>
+<p><code>workers_last_run</code> should be a derived health view or a schedule marker, not a
+second job system.</p>
+<h3>3. One Pipeline Orchestrator</h3>
+<p>Retire admin use of <code>run-pipeline</code>. Route full runs through atomic <code>pipeline</code>.
+Keep individual stages available only as explicitly labeled repair operations.
+Add a shared lock/idempotency key so scheduled and manual jobs cannot process the
+same scope concurrently.</p>
+<h3>4. One Institution Command Service</h3>
+<p>All URL edits, offline decisions, and extraction requests should call one server
+module. Route Institution, Peer, State, Pipeline, and bulk import UIs through it.
+Use the same permission, URL validation, audit event, revalidation, and
+extraction behavior everywhere.</p>
+<h3>5. One Extracted-Fee Review Service</h3>
+<p>Delete the direct review updates in the institution route and use
+<code>src/lib/fee-actions.ts</code>. Keep Knox review and gold-standard verification as
+separate named stages because they operate on different tables and answer
+different questions.</p>
+<h3>6. Canonical Navigation Names</h3>
+<p>Recommended top-level information architecture:</p>
+<ul>
+<li>Overview</li>
+<li>Benchmarks: National, Market, Peer, Category, District</li>
+<li>Operations: Pipeline, Schedules, Runs, Data Quality</li>
+<li>Review: Extracted Fees, Knox Decisions, Gold Standard</li>
+<li>Agents: Overview, Darwin, Magellan, Lineage, Messages, Replay</li>
+<li>Hamilton: Chat, Reports, Research</li>
+<li>Sales: Leads</li>
+</ul>
+<h2>Suggested Remediation Order</h2>
+<ol>
+<li>Repair the Modal <code>ops_jobs</code> update contract and store/cancel by Modal call ID.</li>
+<li>Replace institution fee mutations with the canonical audited review actions.</li>
+<li>Change state mutations from <code>view</code> to the correct edit/job permissions.</li>
+<li>Change Dashboard review reads from <code>review_log</code> to <code>fee_reviews</code>.</li>
+<li>Define one coverage metric contract and apply it to every summary page.</li>
+<li>Replace <code>run-pipeline</code> admin triggers with atomic <code>pipeline</code> and add run locks.</li>
+<li>Consolidate <code>/admin/pipeline</code>, <code>/admin/ops</code>, and <code>/admin/data-quality</code>.</li>
+<li>Consolidate duplicate Institution/Peer/State mutation actions.</li>
+<li>Remove or redirect duplicate National, Fees, Leads, Research, Scout,
+   Methodology, and Quality routes.</li>
+<li>Clean up orphaned <code>crawl_runs</code> and <code>ops_jobs</code> rows with an auditable
+    reconciliation job, not a status-only UI reset.</li>
+</ol>
+    <div class="document-footer">
+      Bank Fee Index admin architecture audit. Generated from the repository audit source on 2026-08-09.
+    </div>
+  </main>
+</body>
+</html>

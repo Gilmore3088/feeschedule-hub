@@ -13,7 +13,7 @@
 
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getSql } from '@/lib/crawler-db/connection';
+import { getSql, withTransaction } from '@/lib/crawler-db/connection';
 import { generatePresignedUrl } from '@/lib/report-engine/presign';
 import type { ReportJob } from '@/lib/report-engine/types';
 
@@ -108,25 +108,49 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
   }
 
-  const sql = getSql();
-  const isTerminal = body.status === 'complete' || body.status === 'failed';
+  const status = body.status;
+  const isTerminal = status === 'complete' || status === 'failed';
+  const opsStatus = status === 'complete'
+    ? 'completed'
+    : status === 'failed'
+      ? 'failed'
+      : 'running';
 
-  if (isTerminal) {
-    await sql`
-      UPDATE report_jobs
-      SET status = ${body.status},
-          artifact_key = ${body.artifact_key ?? null},
-          error = ${body.error ?? null},
-          completed_at = NOW()
-      WHERE id = ${id}
-    `;
-  } else {
-    await sql`
-      UPDATE report_jobs
-      SET status = ${body.status}
-      WHERE id = ${id}
-    `;
-  }
+  await withTransaction(async (tx) => {
+    if (isTerminal) {
+      await tx`
+        UPDATE report_jobs
+           SET status = ${status},
+               artifact_key = ${body.artifact_key ?? null},
+               error = ${body.error ?? null},
+               completed_at = NOW()
+         WHERE id = ${id}
+           AND status IN ('pending', 'assembling', 'rendering')
+      `;
+      await tx`
+        UPDATE ops_jobs
+           SET status = ${opsStatus},
+               error_summary = ${body.error ?? null},
+               result_summary = ${status === 'complete' ? 'Report generated successfully' : null},
+               completed_at = NOW(), heartbeat_at = NOW(), updated_at = NOW()
+         WHERE id = (SELECT ops_job_id FROM report_jobs WHERE id = ${id})
+           AND status IN ('queued', 'running')
+      `;
+    } else {
+      await tx`
+        UPDATE report_jobs SET status = ${status}
+         WHERE id = ${id}
+           AND status NOT IN ('cancel_requested', 'cancelled')
+      `;
+      await tx`
+        UPDATE ops_jobs
+           SET status = 'running', started_at = COALESCE(started_at, NOW()),
+               heartbeat_at = NOW(), updated_at = NOW()
+         WHERE id = (SELECT ops_job_id FROM report_jobs WHERE id = ${id})
+           AND status IN ('queued', 'running')
+      `;
+    }
+  });
 
   return NextResponse.json({ ok: true });
 }

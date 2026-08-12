@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { requireAuth } from "@/lib/auth";
 import { formatAmount } from "@/lib/format";
@@ -9,6 +10,7 @@ import {
   ConfirmButton,
   OverrideButton,
 } from "../review-actions";
+import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
 
 const REASON_LABELS: Record<string, string> = {
   outlier: "Outlier",
@@ -36,13 +38,8 @@ function confidenceBadge(conf: number | null) {
   );
 }
 
-export default async function KnoxRejectionDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export async function KnoxDecisionDetailView({ id }: { id: string }) {
   const user = await requireAuth("view");
-  const { id } = await params;
   const detail = await getKnoxRejectionById(id);
 
   if (!detail) {
@@ -52,7 +49,7 @@ export default async function KnoxRejectionDetailPage({
           Rejection {id} not found or is not a Knox rejection.
         </p>
         <Link
-          href="/admin/agents/knox/reviews"
+          href="/admin/knox?queue=decisions"
           className="mt-3 inline-block text-sm text-blue-600 hover:underline"
         >
           Back to queue
@@ -73,9 +70,8 @@ export default async function KnoxRejectionDetailPage({
       <div className="mb-6">
         <Breadcrumbs
           items={[
-            { label: "Dashboard", href: "/admin" },
-            { label: "Agents", href: "/admin/agents" },
-            { label: "Knox Reviews", href: "/admin/agents/knox/reviews" },
+            { label: "Atlas", href: "/admin" },
+            { label: "Knox", href: "/admin/knox?queue=decisions" },
             { label: id.slice(0, 8) },
           ]}
         />
@@ -287,7 +283,7 @@ export default async function KnoxRejectionDetailPage({
                 feeVerifiedId={detail.fee_verified_id}
               />
               <Link
-                href="/admin/agents/knox/reviews"
+                href="/admin/knox?queue=decisions"
                 className="rounded px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.12] transition-colors"
               >
                 Skip / Back to queue
@@ -303,5 +299,21 @@ export default async function KnoxRejectionDetailPage({
         </div>
       </div>
     </>
+  );
+}
+
+export default async function LegacyKnoxDecisionDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  const { id } = await params;
+  redirect(
+    buildLegacyAdminPath(
+      `/admin/knox/decisions/${encodeURIComponent(id)}`,
+      await searchParams,
+    ),
   );
 }

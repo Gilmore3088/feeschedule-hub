@@ -6,8 +6,9 @@ A simple ordered list with a start index gives resume.
 
 from __future__ import annotations
 
-import json
 import os
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +16,7 @@ from pathlib import Path
 from fee_crawler.config import Config
 from fee_crawler.db import Database
 
-LOCK_FILE = Path("data/pipeline.lock")
+PIPELINE_LOCK_ID = 0x42464950495045
 
 
 @dataclass
@@ -26,38 +27,33 @@ class Stage:
 
 
 PIPELINE_STAGES = [
-    # Phase 1: Discovery
+    # Magellan: institution registry + fee URL discovery
     Stage("seed-enrich", phase=1, command="enrich"),
     Stage("discover",    phase=1, command="discover"),
-    # Phase 2: Extraction
+    # Magellan: collection writes immutable observations to fees_raw
     Stage("crawl",       phase=2, command="crawl"),
-    Stage("merge-fees",  phase=2, command="merge-fees"),
-    # Phase 3: Hygiene
-    Stage("categorize",  phase=3, command="categorize"),
-    Stage("validate",    phase=3, command="validate"),
-    Stage("auto-review", phase=3, command="auto-review"),
-    # Phase 4: Publishing
-    Stage("snapshot",    phase=4, command="snapshot"),
-    Stage("publish",     phase=4, command="publish-index"),
+    # Darwin -> Knox: classify, verify, and adversarially review
+    Stage("darwin-drain", phase=3, command="darwin-drain"),
+    Stage("knox-review", phase=3, command="knox-review"),
+    # Publish: only the verified tier can flow to Hamilton/public consumers
+    Stage("publish-fees", phase=4, command="publish-fees"),
 ]
 
 
-def acquire_lock() -> bool:
-    """Acquire PID-file lock. Returns True if acquired."""
-    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if LOCK_FILE.exists():
-        try:
-            pid = int(LOCK_FILE.read_text().strip())
-            os.kill(pid, 0)
-            return False  # process still running
-        except (ProcessLookupError, ValueError):
-            pass  # stale lock
-    LOCK_FILE.write_text(str(os.getpid()))
-    return True
+def acquire_lock(db: Database) -> bool:
+    """Acquire the cross-container Postgres advisory lock for the pipeline."""
+    row = db.fetchone(
+        "SELECT pg_try_advisory_lock(?) AS acquired",
+        (PIPELINE_LOCK_ID,),
+    )
+    return bool(row and row["acquired"])
 
 
-def release_lock() -> None:
-    LOCK_FILE.unlink(missing_ok=True)
+def release_lock(db: Database) -> None:
+    """Release the lock even when the pipeline left the transaction aborted."""
+    db.rollback()
+    db.execute("SELECT pg_advisory_unlock(?)", (PIPELINE_LOCK_ID,))
+    db.commit()
 
 
 def cleanup_old_logs(max_age_days: int = 30) -> int:
@@ -75,12 +71,35 @@ def cleanup_old_logs(max_age_days: int = 30) -> int:
     return deleted
 
 
+def _restore_config(saved: object, fallback: Config) -> Config:
+    """Restore a checkpoint config from either JSON text or decoded JSONB."""
+    if not saved:
+        return fallback
+    if isinstance(saved, (str, bytes, bytearray)):
+        return Config.model_validate_json(saved)
+    return Config.model_validate(saved)
+
+
 def _create_run(db: Database, config: Config) -> int:
     """Create a pipeline_runs record and return its ID."""
+    config_json = config.model_dump_json()
+    trigger_source = os.environ.get("BFI_TRIGGER_SOURCE", "manual")
+    triggered_by = os.environ.get("BFI_TRIGGERED_BY", "pipeline_executor")
+    ops_job_id_raw = os.environ.get("BFI_OPS_JOB_ID", "").strip()
+    ops_job_id = int(ops_job_id_raw) if ops_job_id_raw.isdigit() else None
     run_id = db.insert_returning_id(
-        """INSERT INTO pipeline_runs (status, config_json)
-           VALUES ('running', ?)""",
-        (config.model_dump_json(),),
+        """INSERT INTO pipeline_runs
+             (ops_job_id, status, trigger_source, triggered_by, params_json,
+              config_json, stages_total, stages_done, started_at)
+           VALUES (?, 'running', ?, ?, ?, ?, ?, 0, NOW())""",
+        (
+            ops_job_id,
+            trigger_source,
+            triggered_by,
+            config_json,
+            config_json,
+            len(PIPELINE_STAGES),
+        ),
     )
     db.commit()
     return run_id
@@ -99,6 +118,14 @@ def _update_run(
     if last_job is not None:
         parts.append("last_completed_job = ?")
         params.append(last_job)
+        completed_stage = next(
+            (index for index, stage in enumerate(PIPELINE_STAGES, start=1)
+             if stage.name == last_job),
+            None,
+        )
+        if completed_stage is not None:
+            parts.append("stages_done = GREATEST(COALESCE(stages_done, 0), ?)")
+            params.append(completed_stage)
     if last_phase is not None:
         parts.append("last_completed_phase = ?")
         params.append(last_phase)
@@ -107,8 +134,11 @@ def _update_run(
         params.append(status)
         if status in ("completed", "failed", "partial"):
             parts.append("completed_at = datetime('now')")
+            parts.append("finished_at = datetime('now')")
     if error_msg is not None:
         parts.append("error_msg = ?")
+        params.append(error_msg)
+        parts.append("error = ?")
         params.append(error_msg)
     if not parts:
         return
@@ -140,17 +170,25 @@ def _print_run_report(db: Database, run_id: int, start_time: float) -> None:
         if run["error_msg"]:
             print(f"  Error:      {run['error_msg']}")
 
-    # Fee totals
-    print(f"\n  {'--- FEE INVENTORY ---':^50}")
-    status_counts = db.fetchall(
-        "SELECT review_status, COUNT(*) as cnt FROM extracted_fees GROUP BY review_status ORDER BY cnt DESC"
-    )
-    total_fees = 0
-    for row in status_counts:
-        total_fees += row["cnt"]
-        label = row["review_status"]
-        print(f"    {label:<12s} {row['cnt']:>8,}")
-    print(f"    {'TOTAL':<12s} {total_fees:>8,}")
+    # Each canonical tier is a separate lifecycle concept. Reporting the old
+    # extracted_fees statuses here made a successful Atlas cycle look stale.
+    print(f"\n  {'--- CANONICAL FEE INVENTORY ---':^50}")
+    inventory = db.fetchone("""
+        SELECT
+          (SELECT COUNT(*) FROM fees_raw) AS raw_fees,
+          (SELECT COUNT(*) FROM fees_verified WHERE review_status != 'rejected') AS verified_fees,
+          (SELECT COUNT(*) FROM fees_published WHERE rolled_back_at IS NULL) AS published_fees,
+          (SELECT COUNT(*) FROM fees_raw fr
+            WHERE NOT EXISTS (
+              SELECT 1 FROM fees_verified fv WHERE fv.fee_raw_id = fr.fee_raw_id
+            )) AS awaiting_darwin
+    """)
+    total_fees = inventory["raw_fees"] if inventory else 0
+    if inventory:
+        print(f"    {'Tier 1 raw':<18s} {inventory['raw_fees']:>8,}")
+        print(f"    {'Awaiting Darwin':<18s} {inventory['awaiting_darwin']:>8,}")
+        print(f"    {'Tier 2 verified':<18s} {inventory['verified_fees']:>8,}")
+        print(f"    {'Tier 3 published':<18s} {inventory['published_fees']:>8,}")
 
     # Confidence distribution
     print(f"\n  {'--- CONFIDENCE DISTRIBUTION ---':^50}")
@@ -164,8 +202,7 @@ def _print_run_report(db: Database, run_id: int, start_time: float) -> None:
             ELSE '<0.70'
           END as range,
           COUNT(*) as cnt
-        FROM extracted_fees
-        WHERE review_status != 'rejected'
+        FROM fees_raw
         GROUP BY range
         ORDER BY range DESC
     """)
@@ -177,12 +214,12 @@ def _print_run_report(db: Database, run_id: int, start_time: float) -> None:
     # Category coverage
     print(f"\n  {'--- CATEGORY COVERAGE (top 15) ---':^50}")
     categories = db.fetchall("""
-        SELECT fee_category, COUNT(*) as cnt,
-               COUNT(DISTINCT crawl_target_id) as inst_cnt,
+        SELECT canonical_fee_key, COUNT(*) as cnt,
+               COUNT(DISTINCT institution_id) as inst_cnt,
                ROUND(AVG(CASE WHEN amount IS NOT NULL THEN amount END), 2) as avg_amt
-        FROM extracted_fees
-        WHERE fee_category IS NOT NULL AND review_status != 'rejected'
-        GROUP BY fee_category
+        FROM fees_verified
+        WHERE review_status != 'rejected'
+        GROUP BY canonical_fee_key
         ORDER BY inst_cnt DESC
         LIMIT 15
     """)
@@ -190,33 +227,49 @@ def _print_run_report(db: Database, run_id: int, start_time: float) -> None:
     print(f"    {'-'*30} {'-'*6} {'-'*6} {'-'*8}")
     for row in categories:
         avg = f"${row['avg_amt']:.2f}" if row["avg_amt"] else "-"
-        print(f"    {row['fee_category']:<30s} {row['inst_cnt']:>6,} {row['cnt']:>6,} {avg:>8s}")
+        print(f"    {row['canonical_fee_key']:<30s} {row['inst_cnt']:>6,} {row['cnt']:>6,} {avg:>8s}")
 
     # Remaining uncategorized
     uncat = db.fetchone(
-        "SELECT COUNT(*) as cnt FROM extracted_fees WHERE fee_category IS NULL AND review_status != 'rejected'"
+        """SELECT COUNT(*) as cnt FROM fees_raw fr
+             WHERE NOT EXISTS (
+               SELECT 1 FROM fees_verified fv WHERE fv.fee_raw_id = fr.fee_raw_id
+             )"""
     )
-    print(f"\n    Uncategorized remaining: {uncat['cnt']:,}" if uncat else "")
+    print(f"\n    Awaiting Darwin classification: {uncat['cnt']:,}" if uncat else "")
 
     # Coverage funnel
     print(f"\n  {'--- COVERAGE FUNNEL ---':^50}")
     funnel = db.fetchone("""
         SELECT
-          (SELECT COUNT(*) FROM crawl_targets) as total,
-          (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_url,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status != 'rejected') as with_fees,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM extracted_fees WHERE review_status = 'approved') as with_approved
+          (SELECT COUNT(*) FROM crawl_targets
+            WHERE status = 'active'
+              AND COALESCE(document_type, '') NOT IN ('offline', 'no_website')) as total,
+          (SELECT COUNT(*) FROM crawl_targets
+            WHERE status = 'active'
+              AND COALESCE(document_type, '') NOT IN ('offline', 'no_website')
+              AND fee_schedule_url IS NOT NULL) as with_url,
+          (SELECT COUNT(DISTINCT fr.institution_id) FROM fees_raw fr
+            JOIN crawl_targets ct ON ct.id = fr.institution_id
+            WHERE ct.status = 'active'
+              AND COALESCE(ct.document_type, '') NOT IN ('offline', 'no_website')) as with_fees,
+          (SELECT COUNT(DISTINCT fp.institution_id) FROM fees_published fp
+            JOIN crawl_targets ct ON ct.id = fp.institution_id
+            WHERE ct.status = 'active'
+              AND COALESCE(ct.document_type, '') NOT IN ('offline', 'no_website')
+              AND fp.rolled_back_at IS NULL) as with_approved
     """)
     if funnel:
         t = funnel["total"]
         print(f"    Total institutions:  {t:>8,}")
         print(f"    With fee URL:        {funnel['with_url']:>8,}  ({funnel['with_url']*100//t}%)")
-        print(f"    With extracted fees: {funnel['with_fees']:>8,}  ({funnel['with_fees']*100//t}%)")
-        print(f"    With approved fees:  {funnel['with_approved']:>8,}  ({funnel['with_approved']*100//t}%)")
+        print(f"    With raw fees:       {funnel['with_fees']:>8,}  ({funnel['with_fees']*100//t}%)")
+        print(f"    With published fees: {funnel['with_approved']:>8,}  ({funnel['with_approved']*100//t}%)")
 
     # Recent change events
     changes = db.fetchone(
-        "SELECT COUNT(*) as cnt FROM fee_change_events WHERE detected_at >= date('now', '-1 day')"
+        "SELECT COUNT(*) as cnt FROM fee_change_events "
+        "WHERE detected_at >= NOW() - INTERVAL '1 day'"
     )
     if changes and changes["cnt"] > 0:
         print(f"\n    Price changes (last 24h): {changes['cnt']}")
@@ -235,8 +288,16 @@ def _execute_stage(stage: Stage, db: Database, config: Config, **kwargs) -> None
         run(db, config, limit=kwargs.get("limit"), state=kwargs.get("state"))
     elif cmd == "crawl":
         from fee_crawler.commands.crawl import run
-        run(db, config, limit=kwargs.get("limit"), workers=kwargs.get("workers", 1),
-            state=kwargs.get("state"))
+        # Atlas owns freshness maintenance, so it must revisit stale targets.
+        # Gap-only Magellan commands retain skip_with_fees=True explicitly.
+        run(
+            db,
+            config,
+            limit=kwargs.get("limit"),
+            workers=kwargs.get("workers", 1),
+            state=kwargs.get("state"),
+            skip_with_fees=False,
+        )
     elif cmd == "merge-fees":
         from fee_crawler.commands.merge_fees import run
         run(db, config)
@@ -249,9 +310,34 @@ def _execute_stage(stage: Stage, db: Database, config: Config, **kwargs) -> None
     elif cmd == "auto-review":
         from fee_crawler.commands.auto_review import run
         run(db, config)
+    elif cmd == "darwin-drain":
+        args = [
+            "--size", str(kwargs.get("limit") or 500),
+            "--batches", "1",
+        ]
+        subprocess.run(
+            [sys.executable, "-m", "fee_crawler", "darwin-drain", *args],
+            check=True,
+        )
+    elif cmd == "knox-review":
+        subprocess.run(
+            [
+                sys.executable, "-m", "fee_crawler", "knox-review", "--apply",
+                "--limit", str(kwargs.get("limit") or 500),
+            ],
+            check=True,
+        )
+    elif cmd == "publish-fees":
+        subprocess.run(
+            [
+                sys.executable, "-m", "fee_crawler", "publish-fees", "--apply",
+                "--limit", str(kwargs.get("limit") or 500),
+            ],
+            check=True,
+        )
     elif cmd == "snapshot":
         from fee_crawler.commands.snapshot_fees import run
-        run(db, config)
+        run(db)
     elif cmd == "publish-index":
         from fee_crawler.commands.publish_index import run
         run(db, config)
@@ -270,8 +356,8 @@ def run_pipeline(
     **kwargs,
 ) -> int:
     """Execute pipeline stages sequentially. Returns the run ID."""
-    if not acquire_lock():
-        raise RuntimeError("Another pipeline is already running (PID lock).")
+    if not acquire_lock(db):
+        raise RuntimeError("Another pipeline is already running (database lock).")
 
     try:
         pipeline_start = time.time()
@@ -289,8 +375,7 @@ def run_pipeline(
             )
             if not row:
                 raise ValueError(f"Pipeline run {resume_run_id} not found.")
-            if row["config_json"]:
-                config = Config.model_validate_json(row["config_json"])
+            config = _restore_config(row["config_json"], config)
             last_job = row["last_completed_job"]
             start_idx = 0
             if last_job:
@@ -299,7 +384,21 @@ def run_pipeline(
                         start_idx = i + 1
                         break
             run_id = resume_run_id
-            _update_run(db, run_id, status="running")
+            ops_job_id_raw = os.environ.get("BFI_OPS_JOB_ID", "").strip()
+            ops_job_id = int(ops_job_id_raw) if ops_job_id_raw.isdigit() else None
+            db.execute(
+                """UPDATE pipeline_runs
+                      SET status = 'running',
+                          ops_job_id = COALESCE(?, ops_job_id),
+                          completed_at = NULL,
+                          finished_at = NULL,
+                          error = NULL,
+                          error_msg = NULL,
+                          stages_done = GREATEST(COALESCE(stages_done, 0), ?)
+                    WHERE id = ?""",
+                (ops_job_id, start_idx, run_id),
+            )
+            db.commit()
         else:
             run_id = _create_run(db, config)
             start_idx = next(
@@ -309,6 +408,7 @@ def run_pipeline(
 
         completed_count = 0
         failed = False
+        failure_detail: str | None = None
 
         for stage in PIPELINE_STAGES[start_idx:]:
             if stage.name in skip:
@@ -333,9 +433,13 @@ def run_pipeline(
                 completed_count += 1
                 print(f"  Completed in {elapsed:.1f}s")
             except Exception as e:
-                _update_run(db, run_id, status="failed", error_msg=f"{stage.name}: {e}")
+                # A failed stage may leave psycopg2 in an aborted transaction.
+                # Roll it back before persisting the pipeline failure checkpoint.
+                db.rollback()
+                failure_detail = f"{stage.name}: {e}"
+                _update_run(db, run_id, status="failed", error_msg=failure_detail)
                 print(f"\n  FAILED at {stage.name}: {e}")
-                print(f"  Resume with: run-pipeline --resume {run_id}")
+                print(f"  Resume with: pipeline --resume {run_id}")
                 failed = True
                 break
 
@@ -348,7 +452,12 @@ def run_pipeline(
         # Post-run report
         _print_run_report(db, run_id, pipeline_start)
 
+        # The CLI exit code is the execution contract used by Modal. Never let
+        # a partially completed pipeline look successful to its caller.
+        if failed:
+            raise RuntimeError(f"Pipeline failed at {failure_detail}")
+
         return run_id
 
     finally:
-        release_lock()
+        release_lock(db)

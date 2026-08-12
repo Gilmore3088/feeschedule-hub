@@ -20,6 +20,8 @@ import os
 from typing import Any
 
 import anthropic
+
+from fee_crawler.ai_usage import tracked_anthropic_call
 import psycopg2
 import psycopg2.extras
 
@@ -212,7 +214,10 @@ def _classify_batch_with_llm(names: list[str]) -> list[dict]:
     )
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-    response = client.messages.create(
+    response = tracked_anthropic_call(
+        client.messages.create,
+        agent_name="darwin",
+        operation="classify_null_fee_keys",
         model=MODEL,
         max_tokens=2048,
         system=_CLASSIFY_SYSTEM,

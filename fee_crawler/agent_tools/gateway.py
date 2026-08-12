@@ -28,6 +28,7 @@ from typing import Any, AsyncIterator, Optional
 
 import asyncpg
 
+from fee_crawler.ai_usage import EmergencyStopActive
 from fee_crawler.agent_tools.budget import (
     BudgetExceeded,  # noqa: F401 — re-exported at package level
     account_budget,
@@ -194,6 +195,19 @@ async def with_agent_tool(
 
     async with pool.acquire() as conn:
         async with conn.transaction():
+            control = await conn.fetchrow(
+                """SELECT enabled, reason
+                     FROM automation_control
+                    WHERE control_key = 'global'"""
+            )
+            if control is None:
+                raise RuntimeError("Global automation control is not configured")
+            if not bool(control["enabled"]):
+                detail = f": {control['reason']}" if control["reason"] else ""
+                raise EmergencyStopActive(
+                    f"Emergency stop is active; agent tool {tool_name} is blocked{detail}"
+                )
+
             # 1. Validate agent identity.
             agent_row = await conn.fetchrow(
                 "SELECT is_active FROM agent_registry WHERE agent_name = $1",

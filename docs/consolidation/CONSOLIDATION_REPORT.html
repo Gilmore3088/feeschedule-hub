@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consolidation Report — Salvage, De-dup & Merge</title>
+<style>
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #1f2430;
+  --muted: #5b6472;
+  --accent: #2f6df6;
+  --border: #e3e7ee;
+  --code-bg: #f1f3f7;
+  --good: #1f9d6b;
+  --warn: #c47f17;
+  --risk: #c0392b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+.banner {
+  background: linear-gradient(135deg, #2f6df6 0%, #5b3df6 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 28px 32px;
+  margin-bottom: 36px;
+  box-shadow: 0 8px 24px rgba(47, 109, 246, 0.18);
+}
+.banner h1 { margin: 0; font-size: 26px; border: none; color: #fff; }
+.banner .meta { margin-top: 8px; font-size: 13px; opacity: 0.9; }
+.content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px 40px 40px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+}
+h1, h2, h3, h4 { line-height: 1.3; font-weight: 650; }
+h1 { font-size: 24px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+h2 { font-size: 20px; margin-top: 34px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+h3 { font-size: 17px; margin-top: 26px; color: #2b3242; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+p, li { color: var(--ink); }
+code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font: 13.5px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+}
+pre code { background: none; padding: 0; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 18px 0;
+  font-size: 14.5px;
+}
+th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
+th { background: #eef2fb; font-weight: 650; }
+tr:nth-child(even) td { background: #fafbfd; }
+blockquote {
+  margin: 18px 0;
+  padding: 4px 18px;
+  border-left: 4px solid var(--accent);
+  background: #f4f8ff;
+  color: var(--muted);
+  border-radius: 0 8px 8px 0;
+}
+hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+strong { color: #161b26; }
+.footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">
+    <h1>Consolidation Report — Salvage, De-dup & Merge</h1>
+    <div class="meta">feeschedule-hub consolidation &middot; CONSOLIDATION_REPORT.md</div>
+  </div>
+  <div class="content">
+<h1 id="consolidation-report-salvage-de-duplication-merge-plan">Consolidation Report — Salvage, De-duplication &amp; Merge Plan</h1>
+<p><strong>Date:</strong> 2026-06-13
+<strong>Canonical repo:</strong> <code>feeschedule-hub</code>
+<strong>Status:</strong> Phases 0-2 complete. This report is the approval gate for Phase 3.</p>
+<h2 id="executive-summary">Executive summary</h2>
+<p>Four parallel analyses (one per directory) reached a consistent verdict:</p>
+<ul>
+<li><strong><code>feeschedule-hub</code> is a true superset.</strong> It is dramatically more mature than the other
+  three — 1,653 commits, a full Python <code>fee_crawler/</code> agent platform, a 90-table live
+  schema, and a complete Next.js app.</li>
+<li><strong>The other three contain almost no unique <em>code</em> worth porting.</strong> <code>compv2</code> and
+  <code>FeeInsight.com</code> are earlier/abandoned architectures (an <code>institutions</code>-table model the
+  canonical repo deliberately rejected in favor of <code>crawl_targets</code>). <code>bfi-v2</code> is an
+  ~80-85% overlap rebuild whose <code>SPEC.md</code> is <strong>byte-identical</strong> to the canonical
+  <code>bfi-v2-SPEC.md</code>.</li>
+<li><strong>The genuine work is therefore small and targeted:</strong> a few salvage items from
+  <code>bfi-v2</code>, merging <code>bfi-v2</code>'s 36-commit history for provenance, and the internal
+  de-duplication you requested — most of which is safe, but a few items carry real
+  behavior risk and need your decision.</li>
+</ul>
+<hr />
+<h2 id="section-a-salvage-analysis">Section A — Salvage analysis</h2>
+<h3 id="a1-compv2-python-prototype-no-remote-nothing-to-port-as-code">A1. compv2 (Python prototype, no remote) — <strong>nothing to port as code</strong></h3>
+<p>Superseded clean-room prototype (~1.6k LOC, self-described as "specification documents
+only"). Its Inngest/Ptolemy/Nisty/Chronos stack has <strong>zero footprint</strong> in canonical, and
+everything it does (FDIC/NCUA ingestion, R2, review gates, agents) exists in canonical in
+a more advanced form. Three <strong>documentation-only</strong> ideas are worth a skim, not a port:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Recommendation</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chronos 3-tier change-detection heuristic (cosmetic-diff suppression)</td>
+<td>FLAG (doc)</td>
+<td>Confirm canonical <code>recrawl.py</code>/<code>snapshot_fees.py</code> already does this; if not, adopt the heuristic</td>
+</tr>
+<tr>
+<td>Nisty lineage invariant (mandatory verbatim <code>quote</code> + <code>page_ref</code> per fee)</td>
+<td>FLAG (doc)</td>
+<td>Verify canonical extraction enforces equivalent provenance</td>
+</tr>
+<tr>
+<td>Inngest durable-workflow HITL pattern</td>
+<td>SKIP (idea only)</td>
+<td>Canonical's Knox/agent_messages gating already covers this</td>
+</tr>
+</tbody>
+</table>
+<h3 id="a2-feeinsightcom-nextjs-no-git-nothing-to-port-as-code">A2. FeeInsight.com (Next.js, no git) — <strong>nothing to port as code</strong></h3>
+<p>Abandoned "clean-room v2" built on the rejected <code>institutions</code> schema. All TS pipeline,
+app, component, test, and config code is superseded. Two <strong>reference-only</strong> specs exist
+(governed-truth lineage schema; Ptolemy/Nisty/Publisher role decomposition) — historical
+value only, no port.</p>
+<h3 id="a3-bfi-v2-nextjs-own-remote-3-real-salvage-items">A3. bfi-v2 (Next.js, own remote) — <strong>3 real salvage items</strong></h3>
+<p>~80-85% overlap with canonical. The genuinely unique slice (post-absorption work, since
+bfi-v2's last commit is ~5 weeks newer than canonical's):</p>
+<table>
+<thead>
+<tr>
+<th>Item (path)</th>
+<th>Unique?</th>
+<th>Recommendation</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>supabase/migrations/20260525000004_data_cleaning.sql</code> — <code>evidence_quote</code>, <code>evidence_in_source</code>, <code>amount_in_bounds</code>, <code>amount_bound_reason</code> cols + <code>_unmapped</code> category</td>
+<td><strong>Yes</strong> (0 grep hits in canonical)</td>
+<td><strong>PORT</strong></td>
+<td>Highest-value. Re-author as a properly-dated canonical migration — do <strong>not</strong> import bfi-v2's file as-is. Needs review before applying to the DB.</td>
+</tr>
+<tr>
+<td><code>docs/team/*</code> + <code>docs/marketing/LAUNCH_ESSAY.md</code></td>
+<td>Yes</td>
+<td><strong>PORT</strong></td>
+<td>Pure docs, zero collision risk</td>
+</tr>
+<tr>
+<td>Atlas content-validation (soft-404 / non-fee-page rejection), <code>src/lib/agent-procs.ts</code>, Hamilton Jinja2 report templates, operator-UX form components, seed/ingest scripts</td>
+<td>Partial</td>
+<td><strong>FLAG</strong></td>
+<td>Likely covered by canonical's richer equivalents; confirm before porting/discarding</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="section-b-internal-de-duplication-plan">Section B — Internal de-duplication plan</h2>
+<h3 id="b1-safe-behavior-preserving-proposed-to-auto-apply-on-a-branch-with-typecheck">B1. Safe / behavior-preserving (proposed to auto-apply on a branch, with typecheck)</h3>
+<p>These change structure, not outputs. High confidence, exact locations confirmed.</p>
+<table>
+<thead>
+<tr>
+<th>Duplication</th>
+<th>Locations</th>
+<th>Action</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UncategorizedFee</code> (byte-identical)</td>
+<td><code>src/lib/admin-queries.ts:129</code> &amp; <code>src/lib/crawler-db/quality.ts:11</code></td>
+<td>Keep <code>crawler-db/quality.ts</code>; re-export</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>InstitutionRow</code> (5 ad-hoc copies)</td>
+<td><code>admin-queries.ts:1267</code>, <code>scout/types.ts:55</code>, <code>admin/states/[code]/runs/[id]/page.tsx:14</code>, <code>api/reports/institution/[id]/route.ts:16</code>, <code>admin/institutions/page.tsx:13</code></td>
+<td>Import the rich <code>scout/types.ts</code> def everywhere</td>
+<td>none (locals are narrower)</td>
+</tr>
+<tr>
+<td><code>ExtractedFeeRow</code> (2 copies)</td>
+<td><code>admin-queries.ts:1917</code> &amp; <code>scout/types.ts:76</code></td>
+<td>Use scout superset; widen callers</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>_run_states.py</code>, <code>_run_states_original.py</code>, <code>_run_il_3x.py</code>, <code>_run_il_3x.log</code></td>
+<td>repo root</td>
+<td>Move to <code>archive/scratch-runners/</code></td>
+<td>none (manual scratch)</td>
+</tr>
+<tr>
+<td>Committed brainstorm scratch HTML</td>
+<td><code>.superpowers/brainstorm/.../report-layout{,-v2,-v3}.html</code> + server.pid/log</td>
+<td>Remove (keep nothing)</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>migrate-data.js</code> vs <code>-v2.js</code>; <code>dedup-preview.mjs</code> vs <code>-v2.mjs</code>; 7× <code>apply-62b-*.mjs</code></td>
+<td><code>scripts/</code></td>
+<td>Move superseded one-offs to <code>archive/one-off-scripts/</code></td>
+<td>none (already-run)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="b2-behavior-risk-needs-your-decision-will-not-touch-without-it">B2. Behavior risk — <strong>needs your decision (will NOT touch without it)</strong></h3>
+<table>
+<thead>
+<tr>
+<th>Duplication</th>
+<th>Locations</th>
+<th>Why it's risky</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Three parallel fee-extraction stacks</strong></td>
+<td><code>pipeline/extract_*</code> (used by <code>commands/crawl.py</code>) vs <code>agents/extract_{pdf,html,js}.py</code> (LLM wrappers, used by <code>modal_app.py</code>) vs <code>agents/magellan/rungs/*</code></td>
+<td><code>commands/crawl.py</code> uses the <strong>pipeline</strong> layer; <code>modal_app.py</code> uses the <strong>agents</strong> layer; magellan rungs are newest. Which is the live production path is ambiguous from code. Removing the wrong one breaks crawling.</td>
+</tr>
+<tr>
+<td><strong>Two orchestrators</strong></td>
+<td><code>pipeline/executor.py</code> vs <code>modal_app.py</code></td>
+<td>Both appear wired (local pipeline vs Modal serverless). Need to know which the daily run uses.</td>
+</tr>
+<tr>
+<td><code>extract_kreuzberg.py</code> vs <code>extract_pdf.py</code></td>
+<td><code>pipeline/</code></td>
+<td>Kreuzberg is experiment-gated; safe to drop only if the experiment concluded.</td>
+</tr>
+<tr>
+<td><code>FeeChangeEvent</code> name collision (two different shapes)</td>
+<td><code>crawler-db/fee-changes.ts:10</code> (8-field audit) vs <code>crawler-db/fees.ts:44</code> (4-field diff)</td>
+<td>Same import name, divergent meaning. Fix is a <strong>rename</strong> (<code>FeeChangeDiff</code>), not a merge — low risk but I want your nod on the new name.</td>
+</tr>
+<tr>
+<td><strong>Three SQL-migration homes</strong></td>
+<td><code>supabase/migrations/</code> (47, canonical) vs <code>scripts/migrations/</code> (6) vs <code>scripts/migrate-schema.sql</code></td>
+<td>Consolidating migration source files is safe; but I won't reorganize migration history without confirming none are unapplied.</td>
+</tr>
+<tr>
+<td>Taxonomy mirrored Python↔TS</td>
+<td><code>fee_crawler/fee_analysis.py</code> ↔ <code>src/lib/fee-taxonomy.ts</code></td>
+<td>Intentional cross-language mirror. Long-term fix is codegen, not de-dup. Out of scope unless you want it.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="section-c-bfi-v2-history-merge-plan">Section C — bfi-v2 history merge plan</h2>
+<p><strong>Approach:</strong> <code>git subtree add --prefix=archive/bfi-v2 &lt;bfi-v2&gt; main</code>. This brings all
+<strong>36 commits</strong> into <code>feeschedule-hub</code>'s history under <code>archive/bfi-v2/</code>, preserving
+provenance with <strong>zero path collisions</strong> (everything is namespaced under the prefix, so
+the destructive baseline migration and duplicate <code>package.json</code>/configs never touch the
+live tree).</p>
+<p><strong>After the subtree merge:</strong>
+1. Port the 3 salvage items (Section A3) to their proper canonical homes.
+2. Remove the rest of <code>archive/bfi-v2/</code> working tree (history stays reachable in the DAG).
+3. The bfi-v2 GitHub repo is archived read-only (Phase 4).</p>
+<p>This preserves history (your requirement) and ends de-duplicated.</p>
+<hr />
+<h2 id="section-d-decisions-needed-from-you-the-gate">Section D — Decisions needed from you (the gate)</h2>
+<ol>
+<li><strong>Extraction stack / orchestrator</strong> (B2 rows 1-2): which is the live production path —
+   <code>pipeline</code> (used by <code>commands/crawl.py</code>), <code>modal_app.py</code> (Modal serverless), or
+   magellan rungs? Or: <strong>leave all three in place</strong> for now and only do safe de-dup.</li>
+<li><strong>Scope of internal de-dup</strong>: apply all of <strong>B1 (safe)</strong> now, plus whichever <strong>B2</strong>
+   items you clear?</li>
+<li>Everything additive (bfi-v2 history merge, doc salvage, scratch cleanup) proceeds
+   regardless unless you object.</li>
+</ol>
+<h2 id="what-proceeds-autonomously-after-your-answer">What proceeds autonomously after your answer</h2>
+<ul>
+<li>bfi-v2 subtree history merge + the 2 zero-risk doc PORTs.</li>
+<li>All <strong>B1</strong> safe de-dup, verified with a TypeScript typecheck before merging to <code>main</code>.</li>
+<li>The evidence-verification migration is <strong>authored but not applied</strong> (flagged for your
+  DB review).</li>
+<li>Behavior-risk <strong>B2</strong> items only as you direct.</li>
+</ul>
+  </div>
+  <div class="footer">Generated from CONSOLIDATION_REPORT.md &middot; source of truth is the Markdown file</div>
+</div>
+</body>
+</html>

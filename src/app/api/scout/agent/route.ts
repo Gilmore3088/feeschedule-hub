@@ -1,12 +1,13 @@
 // src/app/api/scout/agent/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { ensureAgentTables, getLatestAgentRun, getAgentRunResults } from "@/lib/scout/agent-db";
+import { spawnJob } from "@/lib/job-runner";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
+  if (!user || !hasPermission(user, "view")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,37 +28,25 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
+  if (!user || !hasPermission(user, "trigger_jobs")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { state } = await req.json();
-  if (!state || state.length !== 2) {
+  if (!state || !/^[A-Za-z]{2}$/.test(state)) {
     return NextResponse.json({ error: "state required (2-letter code)" }, { status: 400 });
   }
 
-  await ensureAgentTables();
-
-  const modalUrl = process.env.MODAL_AGENT_URL;
-  if (!modalUrl) {
-    return NextResponse.json({ error: "MODAL_AGENT_URL not configured" }, { status: 500 });
-  }
-
-  // Trigger Modal job (fire-and-forget — Modal runs async)
   try {
-    const res = await fetch(modalUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state_code: state }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      return NextResponse.json({ error: `Modal error: ${text}` }, { status: 502 });
-    }
-
-    const data = await res.json();
-    return NextResponse.json(data);
+    const stateCode = String(state).toUpperCase();
+    const result = await spawnJob(
+      "discover",
+      ["--state", stateCode, "--limit", "100"],
+      user.username,
+      undefined,
+      { agent: "magellan", triggerSource: "api", idempotencyKey: `magellan:discover:${stateCode}` },
+    );
+    return NextResponse.json({ ok: true, job_id: result.jobId, reused: result.reused }, { status: 202 });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

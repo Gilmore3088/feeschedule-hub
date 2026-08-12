@@ -166,18 +166,7 @@ def cmd_ingest_call_reports(args: argparse.Namespace) -> None:
     """Ingest Call Report service charge revenue data."""
     from fee_crawler.commands.ingest_call_reports import run
 
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(
-            db, config,
-            csv_path=args.csv,
-            report_date=args.report_date,
-            source=args.source,
-            show_gaps=args.gaps,
-        )
-    finally:
-        db.close()
+    run(backfill=args.backfill, from_year=args.from_year)
 
 
 def cmd_ingest_fdic(args: argparse.Namespace) -> None:
@@ -196,12 +185,7 @@ def cmd_ingest_ncua(args: argparse.Namespace) -> None:
     """Ingest financial data from NCUA 5300 Call Reports."""
     from fee_crawler.commands.ingest_ncua import run
 
-    config = load_config()
-    db = get_db(config)
-    try:
-        run(db, config, quarter=args.quarter, limit=args.limit)
-    finally:
-        db.close()
+    run(quarter=args.quarter, limit=args.limit)
 
 
 def cmd_ingest_cfpb(args: argparse.Namespace) -> None:
@@ -526,7 +510,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
             "SELECT COUNT(*) as cnt FROM crawl_targets WHERE consecutive_failures > 0"
         )
         if crawled and crawled["cnt"] > 0:
-            print(f"\nDiscovery progress:")
+            print("\nDiscovery progress:")
             print(f"  Crawled:      {crawled['cnt']:,}")
             print(f"  Fee PDFs:     {fee_pdf['cnt']:,}" if fee_pdf else "  Fee PDFs: 0")
             print(f"  Fee HTML:     {fee_html['cnt']:,}" if fee_html else "  Fee HTML: 0")
@@ -540,7 +524,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 """SELECT AVG(fees_extracted) as avg FROM crawl_results
                    WHERE status = 'success' AND fees_extracted > 0"""
             )
-            print(f"\nExtraction results:")
+            print("\nExtraction results:")
             print(f"  Crawl runs:       {runs['cnt']:,}" if runs else "  Runs: 0")
             print(f"  Total fees found: {total_fees:,}")
             avg = avg_fees["avg"] if avg_fees and avg_fees["avg"] else 0
@@ -562,7 +546,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
             comp_inst = db.fetchone(
                 "SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints"
             )
-            print(f"\nFinancial data:")
+            print("\nFinancial data:")
             print(f"  Total records:  {fin_total:,}")
             print(f"  FDIC (banks):   {fin_fdic['cnt']:,}" if fin_fdic else "  FDIC: 0")
             print(f"  NCUA (CUs):     {fin_ncua['cnt']:,}" if fin_ncua else "  NCUA: 0")
@@ -586,6 +570,21 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 fee_url = row["fee_schedule_url"]
                 url_str = f"FEE: {fee_url[:50]}" if fee_url else (row["website_url"] or "no URL")
                 print(f"  {row['institution_name'][:50]:50s} {row['state_code'] or '':>2s}  {asset_str:>10s}  {url_str}")
+    finally:
+        db.close()
+
+
+def cmd_reconcile_runs(args: argparse.Namespace) -> None:
+    """Terminalize stale execution envelopes and telemetry rows."""
+    from fee_crawler.commands.reconcile_runs import run
+
+    config = load_config()
+    db = get_db(config)
+    try:
+        result = run(db)
+        print("Reconciled stale runs: " + ", ".join(
+            f"{name}={count}" for name, count in result.items()
+        ))
     finally:
         db.close()
 
@@ -886,27 +885,15 @@ def main() -> None:
         help="Ingest Call Report service charge revenue data for coverage gap analysis",
     )
     call_report_parser.add_argument(
-        "--csv",
-        type=str,
-        default=None,
-        help="Path to bulk Call Report CSV file",
-    )
-    call_report_parser.add_argument(
-        "--report-date",
-        type=str,
-        default=None,
-        help="Reporting period (e.g., 2024-12-31). Required with --csv",
-    )
-    call_report_parser.add_argument(
-        "--source",
-        type=str,
-        default="ffiec",
-        help="Data source identifier: ffiec or ncua_5300 (default: ffiec)",
-    )
-    call_report_parser.add_argument(
-        "--gaps",
+        "--backfill",
         action="store_true",
-        help="Show high-revenue institutions missing fee data",
+        help="Ingest all available quarters instead of the latest four",
+    )
+    call_report_parser.add_argument(
+        "--from-year",
+        type=int,
+        default=2010,
+        help="First year to ingest when --backfill is set (default: 2010)",
     )
     call_report_parser.set_defaults(func=cmd_ingest_call_reports)
 
@@ -1079,8 +1066,8 @@ def main() -> None:
         "ingest-sod", help="Ingest FDIC Summary of Deposits (branch-level)"
     )
     sod_parser.add_argument(
-        "--year", type=int, default=2024,
-        help="SOD year (default: 2024)",
+        "--year", type=int, default=None,
+        help="SOD year (default: latest completed calendar year)",
     )
     sod_parser.add_argument(
         "--limit", type=int, default=None,
@@ -1234,6 +1221,12 @@ def main() -> None:
     # stats command
     stats_parser = subparsers.add_parser("stats", help="Show database statistics")
     stats_parser.set_defaults(func=cmd_stats)
+
+    reconcile_parser = subparsers.add_parser(
+        "reconcile-runs",
+        help="Mark abandoned job, pipeline, crawl, and report rows terminal",
+    )
+    reconcile_parser.set_defaults(func=cmd_reconcile_runs)
 
     # ── Wave orchestrator ──────────────────────────────────────────────
     wave_parser = subparsers.add_parser(
@@ -1499,6 +1492,22 @@ def main() -> None:
                 ["--size", str(args.size), "--batches", str(args.batches)]
                 + (["--dry-run"] if args.dry_run else [])
             )
+        )
+    )
+
+    magellan_rescue_parser = subparsers.add_parser(
+        "magellan-rescue",
+        help="Repair unresolved fee URLs through Magellan",
+    )
+    magellan_rescue_parser.add_argument("--size", type=int, default=500)
+    magellan_rescue_parser.add_argument("--batches", type=int, default=1)
+    magellan_rescue_parser.set_defaults(
+        func=lambda args: sys.exit(
+            __import__(
+                "fee_crawler.commands.magellan_rescue", fromlist=["main"]
+            ).main([
+                "--size", str(args.size), "--batches", str(args.batches),
+            ])
         )
     )
 

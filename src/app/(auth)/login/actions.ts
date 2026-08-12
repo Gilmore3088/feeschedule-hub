@@ -1,6 +1,7 @@
 "use server";
 
-import { login, getCurrentUser } from "@/lib/auth";
+import { login } from "@/lib/auth";
+import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 
 export async function loginAction(
   formData: FormData,
@@ -18,10 +19,19 @@ export async function loginAction(
     return { success: false, error: "Invalid email or password" };
   }
 
-  // Route admins/analysts to admin hub, everyone else to their destination
+  const destination = sanitizeInternalRedirect(redirectTo, "/account");
+
+  // Preserve admin bookmarks without allowing an external redirect or sending
+  // a non-admin user into the protected operator console.
   if (user.role === "admin" || user.role === "analyst") {
-    return { success: true, redirect: "/admin" };
+    return {
+      success: true,
+      redirect: destination.startsWith("/admin") ? destination : "/admin",
+    };
   }
 
-  return { success: true, redirect: redirectTo || "/account" };
+  return {
+    success: true,
+    redirect: destination.startsWith("/admin") ? "/account" : destination,
+  };
 }

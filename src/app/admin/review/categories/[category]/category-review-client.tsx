@@ -155,7 +155,7 @@ function FeeTable({
                 </td>
                 <td className="px-3 py-2">
                   <Link
-                    href={`/admin/review/${fee.id}`}
+                    href={`/admin/knox/fees/${fee.id}`}
                     className="text-gray-900 hover:text-blue-600 transition-colors font-medium"
                   >
                     {fee.institution_name}

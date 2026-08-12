@@ -8,6 +8,7 @@ import pytest
 import pytest_asyncio
 
 from fee_crawler.agents.magellan import BatchResult, rescue_batch
+from fee_crawler.agents.magellan.config import MagellanConfig
 from fee_crawler.agents.magellan.orchestrator import select_candidates
 from fee_crawler.agents.magellan.rungs import LADDER, RungResult
 from fee_crawler.agents.magellan.rungs._base import _Context, _Target
@@ -113,6 +114,9 @@ async def test_rescue_batch_all_rungs_fail_marks_dead(magellan_seeded_conn):
         LADDER.clear()
     assert r.dead == 5
     assert r.rescued == 0
+    assert r.processed == 5
+    assert r.selected == 5
+    assert r.circuit_tripped is False
 
 
 @pytest.mark.asyncio
@@ -132,3 +136,30 @@ async def test_rescue_batch_retry_after_on_transient(magellan_seeded_conn):
     finally:
         LADDER.clear()
     assert r.retry_after == 3
+
+
+@pytest.mark.asyncio
+async def test_rescue_batch_reports_attempted_count_when_circuit_trips(magellan_seeded_conn):
+    """Selected candidates and attempted candidates are different on early halt."""
+
+    class _ErrRung:
+        name = "transient"
+
+        async def run(self, target, context):
+            raise TimeoutError("upstream timed out")
+
+    LADDER.clear()
+    LADDER.append(_ErrRung())
+    try:
+        r = await rescue_batch(
+            magellan_seeded_conn,
+            size=5,
+            config=MagellanConfig(consecutive_failures_to_halt=2),
+        )
+    finally:
+        LADDER.clear()
+
+    assert r.selected == 5
+    assert r.processed == 2
+    assert r.retry_after == 2
+    assert r.circuit_tripped is True

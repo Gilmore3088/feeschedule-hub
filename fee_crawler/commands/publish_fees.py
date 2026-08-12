@@ -194,7 +194,7 @@ async def _run(apply: bool, min_confidence: float, limit: int) -> int:
         f"publish-fees: done. published={published} failed={failures} "
         f"total_considered={len(rows)} batch_id={batch_id}"
     )
-    return 0
+    return 1 if failures else 0
 
 
 def main(argv: list[str]) -> int:
