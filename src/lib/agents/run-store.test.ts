@@ -99,16 +99,6 @@ const blockedRunRow = {
   error_summary: "agentic execution backend is disabled",
 };
 
-const completedRunRow = {
-  ...runRow,
-  status: "completed",
-  completed_at: "2026-08-12T20:01:00.000Z",
-  updated_at: "2026-08-12T20:01:00.000Z",
-  progress_current: 2,
-  current_stage: null,
-  summary: "Agentic run advanced through the TypeScript run ledger.",
-};
-
 const queuedStepRows = [
   {
     id: 201,
@@ -150,14 +140,6 @@ const blockedStepRows = [
   },
   queuedStepRows[1],
 ];
-
-const completedStepRows = queuedStepRows.map((step) => ({
-  ...step,
-  status: "completed",
-  summary: `${step.title} completed`,
-  completed_at: "2026-08-12T20:01:00.000Z",
-  updated_at: "2026-08-12T20:01:00.000Z",
-}));
 
 function templateText(strings: unknown): string {
   return Array.isArray(strings) ? strings.join(" ") : String(strings);
@@ -328,10 +310,58 @@ describe("agentic run store", () => {
     expect(combinedSql).not.toContain("ops_jobs");
   });
 
+  it("creates a visible blocked run shell when automation safety stop is active", async () => {
+    getExecutionBackendMock.mockReturnValue("agentic_v1");
+    assertAutomationEnabledMock.mockRejectedValueOnce(new Error("Emergency stop is active"));
+    installSqlMocks({
+      finalRun: {
+        ...blockedRunRow,
+        error_summary: "Emergency stop is active",
+      },
+      finalSteps: [
+        {
+          ...blockedStepRows[0],
+          error_summary: "Emergency stop is active",
+        },
+        blockedStepRows[1],
+      ],
+    });
+    installTxMocks();
+
+    const result = await startAgentRun({
+      agent: "atlas",
+      kind: "workflow",
+      title: "Atlas full data cycle",
+      params: { limit: 10 },
+      triggeredBy: "admin",
+      idempotencyKey: "atlas:test",
+      steps: [
+        { key: "discover", agent: "magellan", title: "Find URLs" },
+        { key: "review", agent: "knox", title: "Review exceptions" },
+      ],
+    });
+
+    expect(result.reused).toBe(false);
+    expect(result.run).toMatchObject({
+      id: 101,
+      status: "blocked",
+      error: "Emergency stop is active",
+    });
+    expect(result.steps[0]).toMatchObject({
+      status: "blocked",
+      error: "Emergency stop is active",
+    });
+    expect(runMagellanDiscoveryMock).not.toHaveBeenCalled();
+    const combinedSql = combinedTransactionSql();
+    expect(combinedSql).toContain("run.blocked");
+    expect(combinedSql).toContain("UPDATE agent_runs");
+    expect(combinedSql).not.toContain("ops_jobs");
+  });
+
   it("creates a visible queued run first, then advances it through the agentic runner", async () => {
     getExecutionBackendMock.mockReturnValue("agentic_v1");
     const discoverRunRow = { ...runRow, progress_total: 1 };
-    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedStepRows.slice(0, 1) });
+    installSqlMocks({ finalRun: discoverRunRow, finalSteps: queuedStepRows.slice(0, 1) });
     installTxMocks(queuedStepRows.slice(0, 1), discoverRunRow);
 
     const result = await startAgentRun({
@@ -383,20 +413,13 @@ describe("agentic run store", () => {
         title: "Fetch the institution fee document",
       },
     ];
-    const completedFetchStepRows = [
-      {
-        ...completedStepRows[0],
-        step_key: "fetch",
-        title: "Fetch the institution fee document",
-      },
-    ];
     const fetchRunRow = {
       ...runRow,
       agent_name: "magellan",
       run_kind: "manual_repair",
       params_json: { institution_id: 42, fetch_limit: 1 },
     };
-    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedFetchStepRows });
+    installSqlMocks({ finalRun: fetchRunRow, finalSteps: fetchStepRows });
     installTxMocks(fetchStepRows, fetchRunRow);
 
     const result = await startAgentRun({
@@ -434,21 +457,13 @@ describe("agentic run store", () => {
         title: "Read source document text",
       },
     ];
-    const completedReadStepRows = [
-      {
-        ...completedStepRows[0],
-        step_key: "read",
-        agent_name: "rosetta",
-        title: "Read source document text",
-      },
-    ];
     const readRunRow = {
       ...runRow,
       agent_name: "rosetta",
       run_kind: "manual_repair",
       params_json: { institution_id: 42, read_limit: 4 },
     };
-    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedReadStepRows });
+    installSqlMocks({ finalRun: readRunRow, finalSteps: readStepRows });
     installTxMocks(readStepRows, readRunRow);
 
     const result = await startAgentRun({
@@ -486,21 +501,13 @@ describe("agentic run store", () => {
         title: "Extract raw fee observations",
       },
     ];
-    const completedExtractStepRows = [
-      {
-        ...completedStepRows[0],
-        step_key: "extract",
-        agent_name: "knox",
-        title: "Extract raw fee observations",
-      },
-    ];
     const extractRunRow = {
       ...runRow,
       agent_name: "knox",
       run_kind: "manual_repair",
       params_json: { institution_id: 42, extract_limit: 10 },
     };
-    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedExtractStepRows });
+    installSqlMocks({ finalRun: extractRunRow, finalSteps: extractStepRows });
     installTxMocks(extractStepRows, extractRunRow);
 
     const result = await startAgentRun({
@@ -539,21 +546,13 @@ describe("agentic run store", () => {
         title: "Verify raw fee observations",
       },
     ];
-    const completedVerifyStepRows = [
-      {
-        ...completedStepRows[0],
-        step_key: "verify",
-        agent_name: "darwin",
-        title: "Verify raw fee observations",
-      },
-    ];
     const verifyRunRow = {
       ...runRow,
       agent_name: "darwin",
       run_kind: "manual_repair",
       params_json: { institution_id: 42, verify_limit: 10 },
     };
-    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedVerifyStepRows });
+    installSqlMocks({ finalRun: verifyRunRow, finalSteps: verifyStepRows });
     installTxMocks(verifyStepRows, verifyRunRow);
 
     const result = await startAgentRun({
@@ -592,14 +591,6 @@ describe("agentic run store", () => {
         title: "Publish clean fee intelligence",
       },
     ];
-    const completedPublishStepRows = [
-      {
-        ...completedStepRows[0],
-        step_key: "publish",
-        agent_name: "hamilton",
-        title: "Publish clean fee intelligence",
-      },
-    ];
     const publishRunRow = {
       ...runRow,
       agent_name: "hamilton",
@@ -610,7 +601,7 @@ describe("agentic run store", () => {
         publish_min_confidence: 0.88,
       },
     };
-    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedPublishStepRows });
+    installSqlMocks({ finalRun: publishRunRow, finalSteps: publishStepRows });
     installTxMocks(publishStepRows, publishRunRow);
 
     const result = await startAgentRun({

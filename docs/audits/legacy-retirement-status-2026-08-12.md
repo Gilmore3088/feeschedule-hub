@@ -44,6 +44,9 @@ The current committed runtime includes:
   admin or cron-style bearer caller without any Modal process.
 - `vercel.json` schedules `/api/admin/agents/tick` every five minutes in
   production. Vercel authenticates that request with `CRON_SECRET`.
+- If the global automation safety stop is active, new direct launches and cron
+  pickup mark the run `blocked` with the stop reason instead of leaving silent
+  queued work.
 
 The backend is intentionally honest when disabled: clicking an agent action
 creates or blocks a visible run instead of silently launching an external worker.

@@ -36,6 +36,8 @@ Already implemented on `main`:
   authenticated admin or cron-style bearer caller.
 - `vercel.json` schedules `/api/admin/agents/tick` every five minutes in
   production using Vercel Cron and `CRON_SECRET`.
+- The automation safety stop blocks direct launches and cron pickup into a
+  visible `blocked` run state with the recorded stop reason.
 - Product/report/research/admin analytics reads use
   `published_fee_observations`.
 - Magellan discovery/fetch, Rosetta HTML/text read, Knox raw extraction, Darwin

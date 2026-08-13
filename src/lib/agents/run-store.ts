@@ -457,22 +457,57 @@ async function executeAgenticStep(
 }
 
 async function blockRunForBackend(runId: number): Promise<AgentRunExecutionResult> {
+  return blockAgentRun(runId, {
+    message: "Worker execution is waiting for EXECUTION_BACKEND=agentic_v1.",
+    stepError: "Waiting for EXECUTION_BACKEND=agentic_v1",
+    runError: "agentic execution backend is disabled",
+    summary: "Run record created; execution is blocked until EXECUTION_BACKEND=agentic_v1.",
+    detail: {
+      reason: "agentic execution backend is disabled",
+      retired_external_worker_blocked: true,
+    },
+  });
+}
+
+async function blockRunForAutomationStop(
+  runId: number,
+  reason: string,
+): Promise<AgentRunExecutionResult> {
+  return blockAgentRun(runId, {
+    message: reason,
+    stepError: reason,
+    runError: reason,
+    summary: "Run record created; execution is blocked by the automation safety stop.",
+    detail: {
+      reason,
+      automation_stop_active: true,
+    },
+  });
+}
+
+async function blockAgentRun(
+  runId: number,
+  input: {
+    message: string;
+    stepError: string;
+    runError: string;
+    summary: string;
+    detail: Record<string, unknown>;
+  },
+): Promise<AgentRunExecutionResult> {
   await withTransaction(async (tx) => {
     await tx`
       INSERT INTO agent_run_events
         (agent_run_id, event_type, status, message, detail)
       VALUES
         (${runId}, 'run.blocked', 'blocked',
-         'Worker execution is waiting for EXECUTION_BACKEND=agentic_v1.',
-         ${JSON.stringify({
-           reason: "agentic execution backend is disabled",
-           retired_external_worker_blocked: true,
-         })}::jsonb)
+         ${input.message},
+         ${JSON.stringify(input.detail)}::jsonb)
     `;
     await tx`
       UPDATE agent_run_steps
          SET status = 'blocked',
-             error_summary = 'Waiting for EXECUTION_BACKEND=agentic_v1',
+             error_summary = ${input.stepError},
              updated_at = NOW()
        WHERE agent_run_id = ${runId}
          AND sequence = (
@@ -485,8 +520,8 @@ async function blockRunForBackend(runId: number): Promise<AgentRunExecutionResul
     await tx`
       UPDATE agent_runs
          SET status = 'blocked',
-             error_summary = 'agentic execution backend is disabled',
-             summary = COALESCE(summary, 'Run record created; execution is blocked until EXECUTION_BACKEND=agentic_v1.'),
+             error_summary = ${input.runError},
+             summary = COALESCE(summary, ${input.summary}),
              updated_at = NOW()
        WHERE id = ${runId}
          AND status IN ('queued', 'running')
@@ -497,7 +532,7 @@ async function blockRunForBackend(runId: number): Promise<AgentRunExecutionResul
     status: "blocked",
     terminal: true,
     executedSteps: 0,
-    message: "Agentic execution backend is disabled.",
+    message: input.message,
   };
 }
 
@@ -834,6 +869,26 @@ export async function executeAgentRun(
     };
   }
 
+  const existing = await getAgentRun(runId);
+  if (!existing) {
+    return {
+      runId,
+      status: "missing",
+      terminal: true,
+      executedSteps: 0,
+      message: "Agent run not found.",
+    };
+  }
+  if (isTerminalRunStatus(existing.status)) {
+    return {
+      runId,
+      status: existing.status,
+      terminal: true,
+      executedSteps: 0,
+      message: `Run is already ${existing.status}.`,
+    };
+  }
+
   if (getExecutionBackend() !== "agentic_v1") {
     return blockRunForBackend(runId);
   }
@@ -841,13 +896,10 @@ export async function executeAgentRun(
   try {
     await assertAutomationEnabled("agent run execution");
   } catch (error) {
-    return {
+    return blockRunForAutomationStop(
       runId,
-      status: "queued",
-      terminal: false,
-      executedSteps: 0,
-      message: error instanceof Error ? error.message : String(error),
-    };
+      error instanceof Error ? error.message : String(error),
+    );
   }
 
   const maxSteps = Math.min(Math.max(Math.floor(options.maxSteps ?? 1), 1), 10);
@@ -1158,35 +1210,21 @@ export async function startAgentRun(input: StartAgentRunInput): Promise<StartAge
   });
 
   if (getExecutionBackend() !== "agentic_v1") {
-    await withTransaction(async (tx) => {
-      await tx`
-        INSERT INTO agent_run_events
-          (agent_run_id, event_type, status, message, detail)
-        VALUES
-          (${created.run.id}, 'run.blocked', 'blocked',
-           'Worker execution is waiting for EXECUTION_BACKEND=agentic_v1.',
-           ${JSON.stringify({
-             reason: "agentic execution backend is disabled",
-             retired_external_worker_blocked: true,
-           })}::jsonb)
-      `;
-      await tx`
-        UPDATE agent_run_steps
-           SET status = 'blocked',
-               error_summary = 'Waiting for EXECUTION_BACKEND=agentic_v1',
-               updated_at = NOW()
-         WHERE agent_run_id = ${created.run.id}
-           AND sequence = 1
-      `;
-      await tx`
-        UPDATE agent_runs
-           SET status = 'blocked',
-               error_summary = 'agentic execution backend is disabled',
-               summary = COALESCE(summary, 'Run record created; execution is blocked until EXECUTION_BACKEND=agentic_v1.'),
-               updated_at = NOW()
-         WHERE id = ${created.run.id}
-      `;
-    });
+    await blockRunForBackend(created.run.id);
+    const [run, steps] = await Promise.all([
+      getAgentRun(created.run.id),
+      getAgentRunSteps(created.run.id),
+    ]);
+    return { run: run ?? created.run, steps, reused: false };
+  }
+
+  try {
+    await assertAutomationEnabled("agent run launch");
+  } catch (error) {
+    await blockRunForAutomationStop(
+      created.run.id,
+      error instanceof Error ? error.message : String(error),
+    );
     const [run, steps] = await Promise.all([
       getAgentRun(created.run.id),
       getAgentRunSteps(created.run.id),
