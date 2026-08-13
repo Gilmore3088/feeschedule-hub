@@ -75,7 +75,7 @@ export interface InstitutionRow {
 
 export interface ExtractedFeeRow {
   id: number;
-  crawl_target_id: number;
+  institution_id: number;
   fee_name: string;
   fee_category: string | null;
   amount: number | null;
@@ -89,7 +89,7 @@ export interface ExtractedFeeRow {
 
 export interface CrawlResultRow {
   id: number;
-  crawl_target_id: number;
+  institution_id: number;
   status: string;
   document_url: string | null;
   document_path: string | null;

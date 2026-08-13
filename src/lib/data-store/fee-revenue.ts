@@ -1,7 +1,7 @@
 import { sql } from "./connection";
 
 export interface FeeRevenueCorrelation {
-  crawl_target_id: number;
+  institution_id: number;
   institution_name: string;
   charter_type: string;
   state_code: string | null;
@@ -17,7 +17,7 @@ export interface FeeRevenueCorrelation {
 export async function getFeeRevenueData(): Promise<FeeRevenueCorrelation[]> {
   const rows = await sql`
     SELECT
-      ct.id as crawl_target_id,
+      ct.id as institution_id,
       ct.institution_name,
       ct.charter_type,
       ct.state_code,
@@ -31,7 +31,7 @@ export async function getFeeRevenueData(): Promise<FeeRevenueCorrelation[]> {
       COUNT(ef.id) as fee_count,
       NULL as median_overdraft
     FROM institution_sources ct
-    JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
+    JOIN published_fee_catalog ef ON ct.id = ef.institution_id
     JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
     WHERE ef.review_status != 'rejected'
       AND ef.amount IS NOT NULL
@@ -78,12 +78,12 @@ export async function getTierFeeRevenueSummary(): Promise<TierFeeRevenueSummary[
       ), 2) as avg_fee_income_ratio
     FROM institution_sources ct
     JOIN (
-      SELECT crawl_target_id, AVG(amount) as avg_fee
+      SELECT institution_id, AVG(amount) as avg_fee
       FROM published_fee_catalog
       WHERE review_status != 'rejected' AND amount IS NOT NULL AND amount > 0
-      GROUP BY crawl_target_id
+      GROUP BY institution_id
       HAVING COUNT(*) >= 3
-    ) ef_avg ON ct.id = ef_avg.crawl_target_id
+    ) ef_avg ON ct.id = ef_avg.institution_id
     JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
     WHERE ct.asset_size_tier IS NOT NULL
       AND ifin.service_charge_income IS NOT NULL
@@ -127,12 +127,12 @@ export async function getCharterFeeRevenueSummary(): Promise<CharterFeeRevenueSu
       ), 2) as avg_fee_income_ratio
     FROM institution_sources ct
     JOIN (
-      SELECT crawl_target_id, AVG(amount) as avg_fee
+      SELECT institution_id, AVG(amount) as avg_fee
       FROM published_fee_catalog
       WHERE review_status != 'rejected' AND amount IS NOT NULL AND amount > 0
-      GROUP BY crawl_target_id
+      GROUP BY institution_id
       HAVING COUNT(*) >= 3
-    ) ef_avg ON ct.id = ef_avg.crawl_target_id
+    ) ef_avg ON ct.id = ef_avg.institution_id
     JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
     WHERE ifin.service_charge_income IS NOT NULL
       AND ifin.report_date = (

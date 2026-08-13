@@ -28,15 +28,15 @@ export async function getNationalIndex(approvedOnly = false): Promise<IndexEntry
     : "ef.review_status != 'rejected'";
 
   const rows = await sql.unsafe(
-    `SELECT ef.fee_category, ef.amount, ef.crawl_target_id,
+    `SELECT ef.fee_category, ef.amount, ef.institution_id,
             ef.review_status, ef.created_at, ct.charter_type
      FROM published_fee_catalog ef
-     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.institution_id = ct.id
      WHERE ef.fee_category = ANY(ARRAY[${CANONICAL_CATEGORIES.map((c) => `'${c}'`).join(",")}]) AND ${statusFilter}`
   ) as {
     fee_category: string;
     amount: number | null;
-    crawl_target_id: number;
+    institution_id: number;
     review_status: string;
     created_at: string;
     charter_type: string;
@@ -94,16 +94,16 @@ export async function getPeerIndex(
   const where = conditions.join(" AND ");
 
   const rows = await sql.unsafe(
-    `SELECT ef.fee_category, ef.amount, ef.crawl_target_id,
+    `SELECT ef.fee_category, ef.amount, ef.institution_id,
             ef.review_status, ef.created_at, ct.charter_type
      FROM published_fee_catalog ef
-     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.institution_id = ct.id
      WHERE ${where}`,
     params
   ) as {
     fee_category: string;
     amount: number | null;
-    crawl_target_id: number;
+    institution_id: number;
     review_status: string;
     created_at: string;
     charter_type: string;
@@ -153,15 +153,15 @@ export async function getDistrictMedianByCategory(
   }
 
   const rows = await sql.unsafe(
-    `SELECT ef.amount, ct.fed_district, ef.crawl_target_id
+    `SELECT ef.amount, ct.fed_district, ef.institution_id
      FROM published_fee_catalog ef
-     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.institution_id = ct.id
      WHERE ${conditions.join(" AND ")}`,
     params
   ) as {
     amount: number | null;
     fed_district: number;
-    crawl_target_id: number;
+    institution_id: number;
   }[];
 
   const grouped = new Map<
@@ -174,7 +174,7 @@ export async function getDistrictMedianByCategory(
       grouped.set(row.fed_district, { amounts: [], institutions: new Set() });
     }
     const entry = grouped.get(row.fed_district)!;
-    entry.institutions.add(row.crawl_target_id);
+    entry.institutions.add(row.institution_id);
     if (row.amount !== null && row.amount > 0) {
       entry.amounts.push(row.amount);
     }
@@ -200,16 +200,16 @@ export async function getDistrictFeeMedians(
   const rows = await sql`
     SELECT ef.fee_category,
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) AS median_amount,
-           COUNT(DISTINCT ef.crawl_target_id) AS institution_count
+           COUNT(DISTINCT ef.institution_id) AS institution_count
     FROM published_fee_catalog ef
-    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.institution_id = ct.id
     WHERE ct.fed_district = ${district}
       AND ef.review_status != 'rejected'
       AND ef.amount IS NOT NULL
       AND ef.amount > 0
     GROUP BY ef.fee_category
-    HAVING COUNT(DISTINCT ef.crawl_target_id) >= 3
-    ORDER BY COUNT(DISTINCT ef.crawl_target_id) DESC
+    HAVING COUNT(DISTINCT ef.institution_id) >= 3
+    ORDER BY COUNT(DISTINCT ef.institution_id) DESC
   `;
   return rows.map(r => ({
     fee_category: r.fee_category as string,
@@ -222,7 +222,7 @@ function buildIndexEntries(
   rows: {
     fee_category: string;
     amount: number | null;
-    crawl_target_id: number;
+    institution_id: number;
     review_status: string;
     created_at: string;
     charter_type: string;
@@ -257,7 +257,7 @@ function buildIndexEntries(
     if (amt !== null && amt > 0) {
       entry.amounts.push(amt);
     }
-    const targetId = Number(row.crawl_target_id);
+    const targetId = Number(row.institution_id);
     if (row.charter_type === "bank") {
       entry.banks.add(targetId);
     } else {

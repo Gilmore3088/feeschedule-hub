@@ -19,7 +19,7 @@ interface MsaRow {
 }
 
 interface InstitutionDeposit {
-  crawl_target_id: number;
+  institution_id: number;
   institution_name: string;
   total_deposits: number;
   branch_count: number;
@@ -27,7 +27,7 @@ interface InstitutionDeposit {
 }
 
 interface FeeData {
-  crawl_target_id: number;
+  institution_id: number;
   fee_category: string;
   amount: number;
 }
@@ -121,7 +121,7 @@ async function loadMsa(code: string): Promise<MsaRow | null> {
 async function loadInstitutionsFromBranches(msaCode: number): Promise<InstitutionDeposit[]> {
   const rows = await sql`
     SELECT
-      bd.crawl_target_id,
+      bd.crawl_target_id as institution_id,
       ct.institution_name,
       SUM(bd.deposits) as total_deposits,
       COUNT(DISTINCT bd.branch_number) as branch_count,
@@ -154,7 +154,7 @@ async function loadInstitutionsFromBranches(msaCode: number): Promise<Institutio
 async function loadInstitutionsFromCbsa(cbsaCode: string): Promise<InstitutionDeposit[]> {
   const rows = await sql`
     SELECT
-      id as crawl_target_id,
+      id as institution_id,
       institution_name,
       0 as total_deposits,
       0 as branch_count,
@@ -171,9 +171,9 @@ async function loadFees(targetIds: number[]): Promise<FeeData[]> {
   if (targetIds.length === 0) return [];
 
   const rows = await sql<FeeData[]>`
-    SELECT crawl_target_id, fee_category, amount
+    SELECT institution_id, fee_category, amount
     FROM published_fee_catalog
-    WHERE crawl_target_id IN ${sql(targetIds)}
+    WHERE institution_id IN ${sql(targetIds)}
       AND review_status != 'rejected'
       AND fee_category IS NOT NULL
       AND amount IS NOT NULL
@@ -193,14 +193,14 @@ function buildEntries(
   // Group fees by target ID and category (take median if multiple)
   const feeMap = new Map<number, Map<string, number[]>>();
   for (const f of fees) {
-    if (!feeMap.has(f.crawl_target_id)) feeMap.set(f.crawl_target_id, new Map());
-    const catMap = feeMap.get(f.crawl_target_id)!;
+    if (!feeMap.has(f.institution_id)) feeMap.set(f.institution_id, new Map());
+    const catMap = feeMap.get(f.institution_id)!;
     if (!catMap.has(f.fee_category)) catMap.set(f.fee_category, []);
     catMap.get(f.fee_category)!.push(f.amount);
   }
 
   return institutions.map((inst) => {
-    const catMap = feeMap.get(inst.crawl_target_id);
+    const catMap = feeMap.get(inst.institution_id);
     const feeObj: Record<string, number | null> = {};
 
     for (const cat of KEY_CATEGORIES) {
@@ -218,7 +218,7 @@ function buildEntries(
     }
 
     return {
-      id: inst.crawl_target_id,
+      id: inst.institution_id,
       name: inst.institution_name,
       totalDeposits: Number(inst.total_deposits) || 0,
       branchCount: Number(inst.branch_count) || 0,
@@ -846,7 +846,7 @@ export async function GET(
 
     // Load fees for all found institutions
     const targetIds = institutions
-      .map((inst) => inst.crawl_target_id)
+      .map((inst) => inst.institution_id)
       .filter((id) => id != null);
     const fees = await loadFees(targetIds);
 

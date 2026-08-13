@@ -122,7 +122,7 @@ export async function getInstitutionFees(
         source_url, variant_type, coverage_tier,
         created_at
       FROM published_fee_catalog
-      WHERE crawl_target_id = ${id}
+      WHERE institution_id = ${id}
         AND review_status != 'rejected'
       ORDER BY fee_category ASC NULLS LAST, fee_name ASC
     `;
@@ -164,7 +164,7 @@ export async function getInstitutionCrawlHistory(
         COALESCE(fees_extracted, 0) as fees_extracted,
         error_message, crawled_at
       FROM source_documents
-      WHERE crawl_target_id = ${id}
+      WHERE institution_id = ${id}
       ORDER BY crawled_at DESC NULLS LAST
       LIMIT ${limit}
     `;

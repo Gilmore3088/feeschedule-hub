@@ -117,7 +117,7 @@ export async function assembleMonthlyPulse(): Promise<MonthlyPulsePayload> {
   const manifest: DataManifest = {
     queries: [
       {
-        sql: "SELECT ef.fee_category, ef.amount, ef.crawl_target_id, ef.review_status, ef.created_at, ct.charter_type FROM published_fee_catalog ef JOIN institution_sources ct ON ef.crawl_target_id = ct.id WHERE ef.fee_category IS NOT NULL AND ef.review_status = 'approved'",
+        sql: "SELECT ef.fee_category, ef.amount, ef.institution_id, ef.review_status, ef.created_at, ct.charter_type FROM published_fee_catalog ef JOIN institution_sources ct ON ef.institution_id = ct.id WHERE ef.fee_category IS NOT NULL AND ef.review_status = 'approved'",
         row_count: currentIndex.length,
         executed_at: executedAt,
       },

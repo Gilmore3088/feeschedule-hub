@@ -50,15 +50,15 @@ export async function getTopCategoriesForPeerSet(
   const where = conditions.join(" AND ");
 
   const rows = await sql.unsafe(
-    `SELECT ef.fee_category, ef.amount, ef.crawl_target_id
+    `SELECT ef.fee_category, ef.amount, ef.institution_id
      FROM published_fee_catalog ef
-     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.institution_id = ct.id
      WHERE ${where}`,
     params
   ) as {
     fee_category: string;
     amount: number | null;
-    crawl_target_id: number;
+    institution_id: number;
   }[];
 
   const grouped = new Map<string, { amounts: number[]; institutions: Set<number> }>();
@@ -67,7 +67,7 @@ export async function getTopCategoriesForPeerSet(
       grouped.set(row.fee_category, { amounts: [], institutions: new Set() });
     }
     const entry = grouped.get(row.fee_category)!;
-    entry.institutions.add(row.crawl_target_id);
+    entry.institutions.add(row.institution_id);
     if (row.amount !== null && row.amount > 0) {
       entry.amounts.push(row.amount);
     }
@@ -147,7 +147,7 @@ export async function getPeerPreviewStats(filters: {
             SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
             AVG(ef.extraction_confidence) as avg_conf
      FROM published_fee_catalog ef
-     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.institution_id = ct.id
      ${where}`,
     params
   ) as { cnt: number; flagged: number; avg_conf: number | null }[];

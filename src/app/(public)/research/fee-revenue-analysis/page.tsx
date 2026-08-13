@@ -282,12 +282,12 @@ export default async function FeeRevenueAnalysisPage() {
                 .slice(0, 50)
                 .map((row) => (
                   <tr
-                    key={row.crawl_target_id}
+                    key={row.institution_id}
                     className="hover:bg-[#FAF7F2]/60 transition-colors"
                   >
                     <td className="px-4 py-2.5">
                       <Link
-                        href={`/institution/${row.crawl_target_id}`}
+                        href={`/institution/${row.institution_id}`}
                         className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
                       >
                         {row.institution_name}

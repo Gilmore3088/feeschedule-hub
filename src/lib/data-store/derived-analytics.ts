@@ -88,7 +88,7 @@ export async function getRevenueConcentration(
       SELECT
         fee_category,
         SUM(amount) as total_fee_dollars,
-        COUNT(DISTINCT crawl_target_id) as institution_count
+        COUNT(DISTINCT institution_id) as institution_count
       FROM published_fee_catalog
       WHERE fee_category IS NOT NULL
         AND amount > 0
@@ -98,7 +98,7 @@ export async function getRevenueConcentration(
     `;
 
     const totalRow = await sql`
-      SELECT COUNT(DISTINCT crawl_target_id) as total
+      SELECT COUNT(DISTINCT institution_id) as total
       FROM published_fee_catalog
       WHERE review_status != 'rejected'
     `;

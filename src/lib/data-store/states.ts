@@ -74,10 +74,10 @@ export async function getStateInstitutions(
         ct.last_crawl_at as last_crawled
       FROM institution_sources ct
       LEFT JOIN (
-        SELECT crawl_target_id, COUNT(*) as fee_count
+        SELECT institution_id, COUNT(*) as fee_count
         FROM published_fee_catalog
-        GROUP BY crawl_target_id
-      ) fc ON fc.crawl_target_id = ct.id
+        GROUP BY institution_id
+      ) fc ON fc.institution_id = ct.id
       WHERE ct.state_code = ${stateCode}
       ORDER BY ct.asset_size DESC NULLS LAST
     `;
@@ -107,10 +107,10 @@ export async function getStateSummary(
       SELECT
         COUNT(DISTINCT ct.id) as total,
         COUNT(DISTINCT CASE WHEN ct.fee_schedule_url IS NOT NULL THEN ct.id END) as with_url,
-        COUNT(DISTINCT ef.crawl_target_id) as with_fees,
+        COUNT(DISTINCT ef.institution_id) as with_fees,
         COUNT(DISTINCT CASE WHEN ct.document_type = 'offline' OR ct.website_url IS NULL THEN ct.id END) as excluded
       FROM institution_sources ct
-      LEFT JOIN published_fee_catalog ef ON ef.crawl_target_id = ct.id
+      LEFT JOIN published_fee_catalog ef ON ef.institution_id = ct.id
       WHERE ct.state_code = ${stateCode}
     `;
     const r = rows[0];

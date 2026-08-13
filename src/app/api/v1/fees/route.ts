@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       family: getFeeFamily(category),
       tier: getFeeTier(category),
       summary: {
-        institution_count: new Set(detail.fees.map((f) => f.crawl_target_id)).size,
+        institution_count: new Set(detail.fees.map((f) => f.institution_id)).size,
         observation_count: detail.fees.length,
       },
       by_charter_type: detail.by_charter_type,

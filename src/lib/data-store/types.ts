@@ -20,7 +20,7 @@ export interface ExtractedFee {
   review_status: string;
   validation_flags: unknown;
   institution_name: string;
-  crawl_target_id: number;
+  institution_id: number;
 }
 
 export interface ReviewableFee extends ExtractedFee {

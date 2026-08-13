@@ -24,7 +24,7 @@ export async function getPublicStats(): Promise<PublicStats> {
         COUNT(DISTINCT ef.fee_category) as total_categories,
         COUNT(DISTINCT ct.state_code) as total_states
       FROM institution_sources ct
-      JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
+      JOIN published_fee_catalog ef ON ct.id = ef.institution_id
       WHERE ct.state_code IN ${sql(validCodes)}
         AND ef.review_status != 'rejected'`;
     return {
@@ -64,7 +64,7 @@ export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
            ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type,
            COUNT(ef.id) as fee_count
     FROM institution_sources ct
-    LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN published_fee_catalog ef ON ct.id = ef.institution_id
     WHERE ct.fee_schedule_url IS NOT NULL
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
              ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type
@@ -76,17 +76,17 @@ export async function getFeesByInstitution(targetId: number): Promise<ExtractedF
   const rows = await sql<ExtractedFee[]>`
     SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
-           ct.institution_name, ef.crawl_target_id
+           ct.institution_name, ef.institution_id
     FROM published_fee_catalog ef
-    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
-    WHERE ef.crawl_target_id = ${targetId}
+    JOIN institution_sources ct ON ef.institution_id = ct.id
+    WHERE ef.institution_id = ${targetId}
     ORDER BY ef.fee_name
   `;
   // Normalize numeric fields (Postgres NUMERIC/BIGINT returns strings)
   return rows.map((r) => ({
     ...r,
     id: Number(r.id),
-    crawl_target_id: Number(r.crawl_target_id),
+    institution_id: Number(r.institution_id),
     amount: r.amount !== null ? Number(r.amount) : null,
     extraction_confidence: Number(r.extraction_confidence),
   }));
@@ -114,7 +114,7 @@ export async function getAllFees(
   const countResult = await sql.unsafe<{ cnt: number }[]>(
     `SELECT COUNT(*) as cnt
      FROM published_fee_catalog ef
-     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.institution_id = ct.id
      ${where}`,
     params,
   );
@@ -124,9 +124,9 @@ export async function getAllFees(
   const fees = await sql.unsafe<ExtractedFee[]>(
     `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
-           ct.institution_name, ef.crawl_target_id
+           ct.institution_name, ef.institution_id
     FROM published_fee_catalog ef
-    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.institution_id = ct.id
     ${where}
     ORDER BY ct.institution_name, ef.fee_name
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -179,7 +179,7 @@ export async function getInstitutionsByFilter(filters: {
     SELECT COUNT(*) as cnt FROM (
       SELECT ct.id
       FROM institution_sources ct
-      LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
+      LEFT JOIN published_fee_catalog ef ON ct.id = ef.institution_id
         AND ef.review_status != 'rejected'
       ${where}
       GROUP BY ct.id
@@ -195,7 +195,7 @@ export async function getInstitutionsByFilter(filters: {
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM institution_sources ct
-    LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN published_fee_catalog ef ON ct.id = ef.institution_id
       AND ef.review_status != 'rejected'
     ${where}
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
@@ -216,7 +216,7 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM institution_sources ct
-    LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN published_fee_catalog ef ON ct.id = ef.institution_id
     WHERE ct.id = ${id}
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
              ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,

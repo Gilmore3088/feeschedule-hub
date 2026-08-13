@@ -7,7 +7,7 @@ import type { FeeInstance } from "@/lib/data-store";
 import { formatAmount, formatAssets } from "@/lib/format";
 
 interface InstitutionGroup {
-  crawl_target_id: number;
+  institution_id: number;
   institution_name: string;
   charter_type: string;
   state_code: string | null;
@@ -31,6 +31,25 @@ type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 25;
 
+function SortIcon({
+  column,
+  sortKey,
+  sortDir,
+}: {
+  column: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}) {
+  if (sortKey !== column) {
+    return <ArrowUpDown className="h-3 w-3 text-gray-400" />;
+  }
+  return sortDir === "asc" ? (
+    <ArrowUp className="h-3 w-3 text-blue-600" />
+  ) : (
+    <ArrowDown className="h-3 w-3 text-blue-600" />
+  );
+}
+
 export function InstitutionTable({
   fees,
   median,
@@ -49,9 +68,9 @@ export function InstitutionTable({
   const groups = useMemo(() => {
     const map = new Map<number, InstitutionGroup>();
     for (const fee of fees) {
-      if (!map.has(fee.crawl_target_id)) {
-        map.set(fee.crawl_target_id, {
-          crawl_target_id: fee.crawl_target_id,
+      if (!map.has(fee.institution_id)) {
+        map.set(fee.institution_id, {
+          institution_id: fee.institution_id,
           institution_name: fee.institution_name,
           charter_type: fee.charter_type,
           state_code: fee.state_code,
@@ -64,7 +83,7 @@ export function InstitutionTable({
           fee_count: 0,
         });
       }
-      const group = map.get(fee.crawl_target_id)!;
+      const group = map.get(fee.institution_id)!;
       group.fees.push(fee);
       group.fee_count++;
     }
@@ -155,17 +174,6 @@ export function InstitutionTable({
     });
   }
 
-  function SortIcon({ column }: { column: SortKey }) {
-    if (sortKey !== column) {
-      return <ArrowUpDown className="h-3 w-3 text-gray-400" />;
-    }
-    return sortDir === "asc" ? (
-      <ArrowUp className="h-3 w-3 text-blue-600" />
-    ) : (
-      <ArrowDown className="h-3 w-3 text-blue-600" />
-    );
-  }
-
   return (
     <div className="admin-card overflow-hidden">
       <div className="px-4 py-3 border-b bg-gray-50 dark:bg-white/[0.03] flex flex-wrap items-center gap-3">
@@ -216,7 +224,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("institution_name")}
                   className="flex items-center gap-1 hover:text-gray-900"
                 >
-                  Institution <SortIcon column="institution_name" />
+                  Institution <SortIcon column="institution_name" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium text-right">
@@ -224,7 +232,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("amount")}
                   className="flex items-center gap-1 ml-auto hover:text-gray-900"
                 >
-                  Amount <SortIcon column="amount" />
+                  Amount <SortIcon column="amount" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium text-center">
@@ -232,7 +240,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("fee_count")}
                   className="flex items-center gap-1 mx-auto hover:text-gray-900"
                 >
-                  Entries <SortIcon column="fee_count" />
+                  Entries <SortIcon column="fee_count" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium">
@@ -240,7 +248,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("charter_type")}
                   className="flex items-center gap-1 hover:text-gray-900"
                 >
-                  Type <SortIcon column="charter_type" />
+                  Type <SortIcon column="charter_type" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium">
@@ -248,7 +256,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("state_code")}
                   className="flex items-center gap-1 hover:text-gray-900"
                 >
-                  State <SortIcon column="state_code" />
+                  State <SortIcon column="state_code" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium text-right">
@@ -256,14 +264,14 @@ export function InstitutionTable({
                   onClick={() => handleSort("asset_size")}
                   className="flex items-center gap-1 ml-auto hover:text-gray-900"
                 >
-                  Assets <SortIcon column="asset_size" />
+                  Assets <SortIcon column="asset_size" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
             </tr>
           </thead>
           <tbody>
             {displayed.map((group) => {
-              const isExpanded = expandedInst.has(group.crawl_target_id);
+              const isExpanded = expandedInst.has(group.institution_id);
               const isHigh =
                 median !== null &&
                 group.primary_amount !== null &&
@@ -278,11 +286,11 @@ export function InstitutionTable({
               return (
                 <>
                   <tr
-                    key={group.crawl_target_id}
+                    key={group.institution_id}
                     className={`border-b hover:bg-gray-50 dark:hover:bg-white/[0.03] ${
                       hasMultiple ? "cursor-pointer" : ""
                     } ${isExpanded ? "bg-blue-50/30 dark:bg-blue-900/10" : ""}`}
-                    onClick={hasMultiple ? () => toggleExpand(group.crawl_target_id) : undefined}
+                    onClick={hasMultiple ? () => toggleExpand(group.institution_id) : undefined}
                   >
                     <td className="px-4 py-2 text-gray-400">
                       {hasMultiple ? (
@@ -295,7 +303,7 @@ export function InstitutionTable({
                     </td>
                     <td className="px-4 py-2 sticky left-0 bg-white dark:bg-[oklch(0.205_0_0)] z-10">
                       <Link
-                        href={`/admin/peers/${group.crawl_target_id}`}
+                        href={`/admin/peers/${group.institution_id}`}
                         className="text-blue-600 hover:underline font-medium"
                         onClick={(e) => e.stopPropagation()}
                       >

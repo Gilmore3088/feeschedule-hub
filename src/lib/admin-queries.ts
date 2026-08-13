@@ -125,7 +125,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         COUNT(*) FILTER (WHERE fee_schedule_url IS NOT NULL)::int AS with_urls,
         COUNT(*) FILTER (WHERE EXISTS (
           SELECT 1 FROM published_fee_catalog ef
-           WHERE ef.crawl_target_id = ct.id
+           WHERE ef.institution_id = ct.id
         ))::int AS with_fees
       FROM institution_sources ct
       WHERE status = 'active'
@@ -162,15 +162,15 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
     // Institutions with 6+ fees (credible)
     const [goodRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
-        SELECT crawl_target_id FROM published_fee_catalog
-        GROUP BY crawl_target_id HAVING COUNT(*) >= 6
+        SELECT institution_id FROM published_fee_catalog
+        GROUP BY institution_id HAVING COUNT(*) >= 6
       ) sub`;
 
     // Institutions with 1-5 fees (incomplete)
     const [incompleteRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
-        SELECT crawl_target_id FROM published_fee_catalog
-        GROUP BY crawl_target_id HAVING COUNT(*) BETWEEN 1 AND 5
+        SELECT institution_id FROM published_fee_catalog
+        GROUP BY institution_id HAVING COUNT(*) BETWEEN 1 AND 5
       ) sub`;
 
     // Have URL but no fees
@@ -178,7 +178,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
         SELECT COUNT(*) as cnt FROM institution_sources ct
         WHERE ct.fee_schedule_url IS NOT NULL AND ct.status = 'active'
           AND NOT EXISTS (
-          SELECT 1 FROM published_fee_catalog ef WHERE ef.crawl_target_id = ct.id
+          SELECT 1 FROM published_fee_catalog ef WHERE ef.institution_id = ct.id
         )`;
 
     // No URL at all (addressable)
@@ -263,9 +263,9 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
       SELECT
         t.state_code,
         COUNT(DISTINCT t.id) as total,
-        COUNT(DISTINCT e.crawl_target_id) as with_fees
+        COUNT(DISTINCT e.institution_id) as with_fees
       FROM institution_sources t
-      LEFT JOIN published_fee_catalog e ON e.crawl_target_id = t.id
+      LEFT JOIN published_fee_catalog e ON e.institution_id = t.id
       WHERE t.state_code IS NOT NULL
         AND t.status = 'active'
         AND COALESCE(t.document_type, '') NOT IN ('offline', 'no_website')
@@ -430,7 +430,7 @@ export async function getPipelineOverview(): Promise<PipelineOverview> {
   try {
     const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources`;
     const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_catalog`;
+    const [feeRow] = await sql`SELECT COUNT(DISTINCT institution_id) as cnt FROM published_fee_catalog`;
     const [runRow] = await sql`SELECT COUNT(*) as cnt FROM source_collection_runs`;
     return {
       total_institutions: Number(totalRow.cnt),
@@ -712,7 +712,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
     const [row] = await sql`
       SELECT COUNT(*) as cnt
       FROM published_fee_catalog ef
-      LEFT JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+      LEFT JOIN institution_sources ct ON ef.institution_id = ct.id
       WHERE ct.id IS NULL
     `;
     const cnt = Number(row.cnt);
@@ -895,8 +895,8 @@ export async function getCoverageFunnelData(): Promise<CoverageFunnelData> {
     const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources`;
     const [webRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources WHERE website_url IS NOT NULL`;
     const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources WHERE fee_schedule_url IS NOT NULL`;
-    const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_catalog`;
-    const [appRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_catalog`;
+    const [feeRow] = await sql`SELECT COUNT(DISTINCT institution_id) as cnt FROM published_fee_catalog`;
+    const [appRow] = await sql`SELECT COUNT(DISTINCT institution_id) as cnt FROM published_fee_catalog`;
     return {
       total_institutions: Number(totalRow.cnt),
       with_website: Number(webRow.cnt),
@@ -1052,10 +1052,10 @@ export async function searchInstitutions(
                COALESCE(fc.fee_count, 0) as fee_count
         FROM institution_sources ct
         LEFT JOIN (
-          SELECT crawl_target_id, COUNT(*) as fee_count
+          SELECT institution_id, COUNT(*) as fee_count
           FROM published_fee_catalog
-          GROUP BY crawl_target_id
-        ) fc ON fc.crawl_target_id = ct.id
+          GROUP BY institution_id
+        ) fc ON fc.institution_id = ct.id
         WHERE ct.institution_name ILIKE $1
         ORDER BY ${orderBy}
         LIMIT $2 OFFSET $3
@@ -1079,10 +1079,10 @@ export async function searchInstitutions(
              COALESCE(fc.fee_count, 0) as fee_count
       FROM institution_sources ct
       LEFT JOIN (
-        SELECT crawl_target_id, COUNT(*) as fee_count
+        SELECT institution_id, COUNT(*) as fee_count
         FROM published_fee_catalog
-        GROUP BY crawl_target_id
-      ) fc ON fc.crawl_target_id = ct.id
+        GROUP BY institution_id
+      ) fc ON fc.institution_id = ct.id
       ORDER BY ${orderBy}
       LIMIT $1 OFFSET $2
       `,
@@ -1252,9 +1252,9 @@ export async function getDistrictOverview(): Promise<DistrictOverviewRow[]> {
       SELECT
         ct.fed_district as district,
         COUNT(*) as total,
-        COUNT(DISTINCT ef.crawl_target_id) as with_fees
+        COUNT(DISTINCT ef.institution_id) as with_fees
       FROM institution_sources ct
-      LEFT JOIN published_fee_catalog ef ON ef.crawl_target_id = ct.id
+      LEFT JOIN published_fee_catalog ef ON ef.institution_id = ct.id
       WHERE ct.fed_district IS NOT NULL
       GROUP BY ct.fed_district
       ORDER BY ct.fed_district
@@ -1416,7 +1416,7 @@ export async function getMarketData(filters: {
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
        FROM published_fee_catalog ef
-       JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+       JOIN institution_sources ct ON ef.institution_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
       params,
@@ -1521,7 +1521,7 @@ export async function getPeerIndexData(filters: {
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
        FROM published_fee_catalog ef
-       JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+       JOIN institution_sources ct ON ef.institution_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
       params,
@@ -1583,7 +1583,7 @@ export async function getGoldStandardCandidates(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM institution_sources ct
-      JOIN published_fee_catalog ef ON ef.crawl_target_id = ct.id
+      JOIN published_fee_catalog ef ON ef.institution_id = ct.id
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
       ORDER BY ct.asset_size DESC NULLS LAST
@@ -1617,7 +1617,7 @@ export async function getGoldStandardCandidate(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM institution_sources ct
-      JOIN published_fee_catalog ef ON ef.crawl_target_id = ct.id
+      JOIN published_fee_catalog ef ON ef.institution_id = ct.id
       WHERE ct.id = ${id}
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
@@ -1655,7 +1655,7 @@ export async function getExtractedFeesForInstitution(
     const rows = await sql`
       SELECT id, fee_name, amount, fee_category, frequency, review_status
       FROM published_fee_catalog
-      WHERE crawl_target_id = ${institutionId}
+      WHERE institution_id = ${institutionId}
       ORDER BY fee_category NULLS LAST, fee_name
     `;
     return rows.map((r) => ({

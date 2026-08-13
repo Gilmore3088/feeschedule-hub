@@ -18,7 +18,7 @@ export interface FeeCategorySummary {
 export interface FeeInstance {
   id: number;
   institution_name: string;
-  crawl_target_id: number;
+  institution_id: number;
   amount: number | null;
   frequency: string | null;
   conditions: string | null;
@@ -88,14 +88,14 @@ export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
   >();
 
   const rows = await sql`
-    SELECT ef.fee_category, ef.amount, ef.crawl_target_id, ct.charter_type
+    SELECT ef.fee_category, ef.amount, ef.institution_id, ct.charter_type
     FROM published_fee_catalog ef
-    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.institution_id = ct.id
     WHERE ef.fee_category IS NOT NULL AND ef.review_status != 'rejected'
   ` as {
     fee_category: string;
     amount: number | null;
-    crawl_target_id: number;
+    institution_id: number;
     charter_type: string;
   }[];
 
@@ -110,9 +110,9 @@ export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
       entry.amounts.push(amt);
     }
     if (row.charter_type === "bank") {
-      entry.banks.add(Number(row.crawl_target_id));
+      entry.banks.add(Number(row.institution_id));
     } else {
-      entry.cus.add(Number(row.crawl_target_id));
+      entry.cus.add(Number(row.institution_id));
     }
   }
 
@@ -147,13 +147,13 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   change_events: FeeChangeEvent[];
 }> {
   const rawFees = await sql`
-    SELECT ef.id, ct.institution_name, ef.crawl_target_id,
+    SELECT ef.id, ct.institution_name, ef.institution_id,
            ef.amount, ef.frequency, ef.conditions,
            ct.charter_type, ct.state_code, ct.asset_size_tier,
            ct.asset_size, ef.review_status, ef.extraction_confidence,
            ef.canonical_fee_key, ef.variant_type
     FROM published_fee_catalog ef
-    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.institution_id = ct.id
     WHERE ef.fee_category = ${category} AND ef.review_status != 'rejected'
     ORDER BY ef.amount DESC NULLS LAST
   ` as FeeInstance[];
@@ -162,7 +162,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   const fees: FeeInstance[] = rawFees.map((f) => ({
     ...f,
     id: Number(f.id),
-    crawl_target_id: Number(f.crawl_target_id),
+    institution_id: Number(f.institution_id),
     amount: f.amount !== null ? Number(f.amount) : null,
     asset_size: f.asset_size !== null && f.asset_size !== undefined ? Number(f.asset_size) : null,
     extraction_confidence: Number(f.extraction_confidence ?? 0),
@@ -202,7 +202,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   const districtRows = await sql`
     SELECT ct.fed_district, ef.amount
     FROM published_fee_catalog ef
-    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.institution_id = ct.id
     WHERE ef.fee_category = ${category} AND ct.fed_district IS NOT NULL
   ` as { fed_district: number; amount: number | null }[];
 

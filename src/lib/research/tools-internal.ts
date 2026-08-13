@@ -162,7 +162,7 @@ export const queryOutliers = tool({
              ef.validation_flags,
              ct.state_code
         FROM published_fee_catalog ef
-        JOIN institution_sources ct ON ct.id = ef.crawl_target_id
+        JOIN institution_sources ct ON ct.id = ef.institution_id
        WHERE ef.validation_flags IS NOT NULL
          AND ef.validation_flags != '[]'::jsonb
          AND ef.validation_flags != '{}'::jsonb
@@ -301,7 +301,7 @@ export const rankInstitutions = tool({
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                ef.fee_category, ef.amount
         FROM published_fee_catalog ef
-        JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+        JOIN institution_sources ct ON ef.institution_id = ct.id
         WHERE ef.fee_category IS NOT NULL AND ef.amount > 0
           ${charterClause}
       ` as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
@@ -347,7 +347,7 @@ export const rankInstitutions = tool({
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as fee_count
         FROM published_fee_catalog ef
-        JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+        JOIN institution_sources ct ON ef.institution_id = ct.id
         WHERE ef.review_status = 'approved' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
         ORDER BY fee_count DESC
@@ -362,7 +362,7 @@ export const rankInstitutions = tool({
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as flag_count
         FROM published_fee_catalog ef
-        JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+        JOIN institution_sources ct ON ef.institution_id = ct.id
         WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
           AND ef.review_status = 'approved' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
@@ -429,8 +429,8 @@ export const queryDataQuality = tool({
         SELECT
           (SELECT COUNT(*) FROM institution_sources) as total_institutions,
           (SELECT COUNT(*) FROM institution_sources WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_catalog) as with_fees,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_catalog) as with_approved,
+          (SELECT COUNT(DISTINCT institution_id) FROM published_fee_catalog) as with_fees,
+          (SELECT COUNT(DISTINCT institution_id) FROM published_fee_catalog) as with_approved,
           (SELECT COUNT(*) FROM published_fee_catalog) as total_fees,
           (SELECT COUNT(*) FROM published_fee_catalog) as approved_fees
       `;
@@ -840,7 +840,7 @@ export const queryRegulatoryRisk = tool({
         const fees = await sql`
           SELECT ef.fee_category, ef.amount, ct.institution_name, ct.state_code
           FROM published_fee_catalog ef
-          JOIN institution_sources ct ON ef.crawl_target_id = ct.id
+          JOIN institution_sources ct ON ef.institution_id = ct.id
           WHERE ef.fee_category = ANY(${targetCategories}::text[])
             AND ef.amount > 0
             AND ef.review_status = 'approved'

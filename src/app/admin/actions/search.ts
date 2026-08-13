@@ -43,7 +43,7 @@ export async function searchDashboard(query: string): Promise<SearchResult> {
   `;
 
   const categories = await sql`
-    SELECT fee_category, COUNT(DISTINCT crawl_target_id) as count
+    SELECT fee_category, COUNT(DISTINCT institution_id) as count
     FROM published_fee_catalog
     WHERE fee_category ILIKE ${pattern}
     AND fee_category IS NOT NULL

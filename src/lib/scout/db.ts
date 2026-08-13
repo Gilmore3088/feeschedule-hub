@@ -16,11 +16,11 @@ export async function searchInstitutions(
 }
 
 export async function getExtractedFees(
-  crawlTargetId: number
+  institutionId: number
 ): Promise<ExtractedFeeRow[]> {
   const rows = await sql<ExtractedFeeRow[]>`
     SELECT * FROM published_fee_catalog
-    WHERE crawl_target_id = ${crawlTargetId}
+    WHERE institution_id = ${institutionId}
       AND review_status = 'approved'
     ORDER BY fee_category
     LIMIT 500
@@ -29,11 +29,11 @@ export async function getExtractedFees(
 }
 
 export async function getCrawlResults(
-  crawlTargetId: number
+  institutionId: number
 ): Promise<CrawlResultRow[]> {
   const rows = await sql<CrawlResultRow[]>`
     SELECT * FROM source_documents
-    WHERE crawl_target_id = ${crawlTargetId}
+    WHERE institution_id = ${institutionId}
     ORDER BY id DESC
     LIMIT 10
   `;

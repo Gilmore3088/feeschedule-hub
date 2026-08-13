@@ -41,7 +41,7 @@ export const searchFees = tool({
         tier: getFeeTier(category),
         summary: {
           institution_count: new Set(
-            detail.fees.map((f) => f.crawl_target_id)
+            detail.fees.map((f) => f.institution_id)
           ).size,
           observation_count: detail.fees.length,
         },
