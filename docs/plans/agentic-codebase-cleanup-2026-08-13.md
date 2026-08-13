@@ -45,7 +45,7 @@ Make the public/admin product run through one understandable agentic system:
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config. Active `.claude` prompts are now guarded by `prompt-kill` so they cannot point agents at retired crawler/database tooling.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
-- Some reporting, admin, and agent write-path modules still query the historical source tables directly. They must move to the semantic source views or a physical schema rename in later slices.
+- Some reporting, admin, Scout, API, and institution command modules still query the historical source tables directly. They must move to the semantic source views or a physical schema rename in later slices.
 
 ### Removed In This Cleanup Pass
 
@@ -65,7 +65,9 @@ Make the public/admin product run through one understandable agentic system:
 - Removed unreferenced standalone `scripts/migrations/*.sql` artifacts; canonical database history remains under `supabase/migrations`.
 - Added semantic source views for `institution_sources`, `source_documents`, and `source_collection_runs`.
 - Moved public stats/freshness, collection health, Hamilton internal status tools, admin query presets, and Magellan admin status counts onto the semantic source views.
-- Added `source-read-model-kill` to keep migrated read boundaries from querying historical source tables directly.
+- Moved active Magellan discovery/fetch, Rosetta read, and Atlas/run-store inventory paths onto semantic source views.
+- Added `source-read-model-kill` to keep migrated read/write boundaries from querying historical source tables directly.
+- Verified the current workspace contains no `.fmd` or `*fmd*` files to audit.
 
 ## Retirement Plan
 
@@ -148,11 +150,11 @@ Target: agent backlog shrinks without asking a human to review 26k rows.
 
 Target: a fresh database should not recreate retired execution infrastructure just to drop it later.
 
-- Status: started. Semantic source views exist for migrated read boundaries; physical source table and column renames remain deferred until write paths are migrated.
+- Status: started. Semantic source views exist for migrated read boundaries and the active Magellan/Rosetta/run-store source paths; physical source table and column renames remain deferred until the remaining broad readers and support write paths are migrated.
 - Do not edit production-applied migrations in place.
 - Create a new agentic baseline migration set or squashed schema dump for fresh environments.
 - Archive older compatibility migrations under a clearly named historical folder once the baseline is verified.
-- Move remaining direct source table references in reporting, admin queries, data-store modules, Magellan, Rosetta, and run-store before attempting physical table renames.
+- Move remaining direct source table references in reporting, admin queries, data-store modules, Scout, institution commands, submit-fees, alerts, and report APIs before attempting physical table renames.
 - Remove active references to:
   - `ops_jobs`
   - `ops_job_id`

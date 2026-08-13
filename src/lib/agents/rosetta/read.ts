@@ -405,8 +405,8 @@ async function selectCandidates(
              ct.institution_name,
              cr.document_url,
              cr.content_hash
-        FROM crawl_results cr
-        JOIN crawl_targets ct ON ct.id = cr.crawl_target_id
+        FROM source_documents cr
+        JOIN institution_sources ct ON ct.id = cr.crawl_target_id
        WHERE cr.status = 'success'
          AND cr.document_url IS NOT NULL
          ${targetFilter}

@@ -17,8 +17,10 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 - Current Postgres data access is `src/lib/data-store`; do not reintroduce the
   retired crawler-named data module.
 - Migrated source read paths use the semantic views `institution_sources`,
-  `source_documents`, and `source_collection_runs`. Expand that boundary instead
-  of adding new direct reads against historical source storage names.
+  `source_documents`, and `source_collection_runs`. Active Magellan/Rosetta
+  source paths and Atlas/run-store inventory also use those views. Expand that
+  boundary instead of adding new direct reads or writes against historical
+  source storage names.
 - Atlas creates visible runs; Magellan discovers/fetches; Rosetta reads
   fetched HTML/text and extractable PDF text, while scanned/image-only PDFs are
   marked `needs_ocr`; Knox extracts conservative raw fee observations and

@@ -430,7 +430,7 @@ async function discoverForInstitution(
 async function selectCandidates(db: SqlTag, limit: number): Promise<DiscoveryCandidateRow[]> {
   return db<DiscoveryCandidateRow[]>`
     SELECT id, institution_name, state_code, website_url, asset_size, rescue_status
-      FROM crawl_targets
+      FROM institution_sources
      WHERE COALESCE(status, 'active') = 'active'
        AND (fee_schedule_url IS NULL OR btrim(fee_schedule_url) = '')
        AND website_url IS NOT NULL
@@ -466,7 +466,7 @@ async function recordDiscoveryResult(
   const failureNote = result.outcome === "discovered" ? null : result.reason;
 
   await db`
-    UPDATE crawl_targets
+    UPDATE institution_sources
        SET fee_schedule_url = COALESCE(${result.url}, fee_schedule_url),
            document_type = COALESCE(${result.documentType}, document_type),
            rescue_status = ${rescueStatus},

@@ -12,7 +12,7 @@ function templateText(strings: unknown): string {
 function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
   const db = vi.fn(() => Promise.resolve([])) as DbMock;
   db.unsafe = vi.fn((query: string) => {
-    if (query.includes("FROM crawl_results")) return Promise.resolve(rows);
+    if (query.includes("FROM source_documents")) return Promise.resolve(rows);
     return Promise.resolve([]);
   });
   return db;

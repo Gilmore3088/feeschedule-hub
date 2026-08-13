@@ -225,7 +225,7 @@ async function selectCandidates(
   if (institutionId) {
     return db<FetchCandidateRow[]>`
       SELECT id, institution_name, fee_schedule_url, asset_size, last_crawl_at, consecutive_failures
-        FROM crawl_targets
+        FROM institution_sources
        WHERE id = ${institutionId}
          AND COALESCE(status, 'active') = 'active'
        LIMIT 1
@@ -234,7 +234,7 @@ async function selectCandidates(
 
   return db<FetchCandidateRow[]>`
     SELECT id, institution_name, fee_schedule_url, asset_size, last_crawl_at, consecutive_failures
-      FROM crawl_targets
+      FROM institution_sources
      WHERE COALESCE(status, 'active') = 'active'
        AND fee_schedule_url IS NOT NULL
        AND btrim(fee_schedule_url) <> ''
@@ -259,7 +259,7 @@ async function selectCandidates(
 async function recordFetchResult(db: SqlTag, result: FetchResult): Promise<void> {
   const crawlStatus = result.outcome === "success" ? "success" : "failed";
   await db`
-    INSERT INTO crawl_results
+    INSERT INTO source_documents
       (crawl_target_id, status, document_url, document_path, content_hash,
        fees_extracted, error_message, crawled_at, status_code)
     VALUES
@@ -269,7 +269,7 @@ async function recordFetchResult(db: SqlTag, result: FetchResult): Promise<void>
 
   if (result.outcome === "success") {
     await db`
-      UPDATE crawl_targets
+      UPDATE institution_sources
          SET last_crawl_at = NOW(),
              last_success_at = NOW(),
              consecutive_failures = 0,
@@ -285,7 +285,7 @@ async function recordFetchResult(db: SqlTag, result: FetchResult): Promise<void>
   }
 
   await db`
-    UPDATE crawl_targets
+    UPDATE institution_sources
        SET last_crawl_at = NOW(),
            consecutive_failures = COALESCE(consecutive_failures, 0) + 1,
            failure_reason = 'agentic_fetch_failed',

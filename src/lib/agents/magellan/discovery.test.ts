@@ -11,7 +11,7 @@ function templateText(strings: unknown): string {
 function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
   const db = vi.fn((strings: TemplateStringsArray) => {
     const text = templateText(strings);
-    if (text.includes("FROM crawl_targets")) return Promise.resolve(rows);
+    if (text.includes("FROM institution_sources")) return Promise.resolve(rows);
     return Promise.resolve([]);
   });
   return db;
@@ -68,7 +68,7 @@ describe("Magellan agentic discovery", () => {
     });
 
     const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(sqlText).toContain("UPDATE crawl_targets");
+    expect(sqlText).toContain("UPDATE institution_sources");
     expect(sqlText).toContain("INSERT INTO discovery_cache");
   });
 

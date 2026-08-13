@@ -20,7 +20,7 @@ Make Fee Insight run through one visible agentic system:
 | P1 | Knox | Add bounded provider-assisted extraction fallback | Deterministic misses on readable documents get one metered fallback, with only anomalies sent to human review. |
 | P1 | Darwin | Thin review pressure | Verification routes ordinary canonical rows forward and challenges only suspicious rows. |
 | P1 | Hamilton | Publish data-quality summaries | Admin can distinguish no source, source fetched, PDF pending OCR, extracted, verified, and published. |
-| P1 | Schema | Migrate remaining source reads and writes to agentic names | Reporting, admin query, Magellan, Rosetta, and run-store paths stop querying historical source tables directly. |
+| P1 | Schema | Migrate remaining source reads and writes to agentic names | Reporting, admin query, Scout, institution command, submit-fees, alert, and report API paths stop querying historical source tables directly. |
 | P2 | Schema | Create fresh agentic schema baseline | Empty database can be built without recreating retired execution tables as active infrastructure. |
 | P2 | Docs | Keep active docs current-only | `npm run guard:legacy` blocks stale active guidance and historical docs stay in archive. |
 
@@ -36,6 +36,8 @@ Make Fee Insight run through one visible agentic system:
 | Runtime boundary | Local Supabase Edge Function source removed; `guard:legacy` now fails if a tracked Edge Function runtime returns. |
 | Script artifacts | Unreferenced standalone `scripts/migrations/*.sql` files removed; canonical DB history remains under `supabase/migrations`. |
 | Source read model | Added `institution_sources`, `source_documents`, and `source_collection_runs`; migrated public stats, collection health, Hamilton admin status tools, admin query presets, and Magellan status counts; added `source-read-model-kill`. |
+| Agent source paths | Magellan discovery/fetch, Rosetta read, and Atlas/run-store inventory now use semantic source views instead of historical source tables. |
+| FMD audit | Rechecked the workspace; no `.fmd` or `*fmd*` files are present to audit. |
 
 ## Verification Gates
 

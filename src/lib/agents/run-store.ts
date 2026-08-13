@@ -209,8 +209,8 @@ async function executeAgenticStep(
   const params = runParamsForStep(run, step);
   switch (step.stepKey) {
     case "enhance": {
-      const total = await countRows(tx, "crawl_targets");
-      const missingWebsite = await countRows(tx, "crawl_targets", "website_url IS NULL");
+      const total = await countRows(tx, "institution_sources");
+      const missingWebsite = await countRows(tx, "institution_sources", "website_url IS NULL");
       return {
         status: "completed",
         summary: `Profile inventory checked: ${total.toLocaleString()} institutions, ${missingWebsite.toLocaleString()} missing websites.`,

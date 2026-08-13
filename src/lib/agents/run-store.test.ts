@@ -487,7 +487,7 @@ describe("agentic run store", () => {
       }),
     );
     expect(txMock.unsafe).not.toHaveBeenCalledWith(
-      expect.stringContaining("FROM crawl_results"),
+      expect.stringContaining("FROM source_documents"),
     );
   });
 
