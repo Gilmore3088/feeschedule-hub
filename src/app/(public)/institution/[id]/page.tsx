@@ -138,10 +138,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
+  const hasPublishedFees = inst.fee_count > 0;
 
   return {
-    title: `${inst.institution_name} Fees - ${charterLabel} Fee Schedule`,
-    description: `Fee schedule for ${inst.institution_name}${stateName ? ` in ${stateName}` : ""}. ${inst.fee_count} fees extracted and benchmarked against national medians.`,
+    title: hasPublishedFees
+      ? `${inst.institution_name} Fees - ${charterLabel} Fee Schedule`
+      : `${inst.institution_name} Fee Schedule Status`,
+    description: hasPublishedFees
+      ? `Fee schedule for ${inst.institution_name}${stateName ? ` in ${stateName}` : ""}. ${inst.fee_count} fees extracted and benchmarked against national medians.`
+      : `${inst.institution_name}${stateName ? ` in ${stateName}` : ""} is tracked by Bank Fee Index, but its consumer fee schedule has not been verified for publication yet.`,
     keywords: [
       inst.institution_name,
       `${inst.institution_name} fees`,
@@ -232,19 +237,29 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const instId = parseInt(id, 10);
   if (isNaN(instId)) notFound();
 
-  const user = await getCurrentUser();
-  const isPro = canAccessPremium(user);
-
-  const inst = await getInstitutionById(instId);
+  const [user, inst] = await Promise.all([
+    getCurrentUser().catch(() => null),
+    getInstitutionById(instId),
+  ]);
   if (!inst) notFound();
 
+  const isPro = canAccessPremium(user);
   const fees = (await getFeesByInstitution(instId)).filter((f) => f.review_status !== "rejected");
-  const [financials, nationalIndex, revenueTrend, peerRanking] = await Promise.all([
-    getFinancialsByInstitution(instId).catch(() => []),
-    getNationalIndex(),
-    getInstitutionRevenueTrend(instId).catch(() => []),
-    getInstitutionPeerRanking(instId).catch(() => null),
-  ]);
+  const hasVerifiedFees = fees.length > 0;
+
+  let financials: Awaited<ReturnType<typeof getFinancialsByInstitution>> = [];
+  let nationalIndex: Awaited<ReturnType<typeof getNationalIndex>> = [];
+  let revenueTrend: Awaited<ReturnType<typeof getInstitutionRevenueTrend>> = [];
+  let peerRanking: Awaited<ReturnType<typeof getInstitutionPeerRanking>> = null;
+
+  if (hasVerifiedFees || isPro) {
+    [financials, nationalIndex, revenueTrend, peerRanking] = await Promise.all([
+      getFinancialsByInstitution(instId).catch(() => []),
+      getNationalIndex(),
+      getInstitutionRevenueTrend(instId).catch(() => []),
+      getInstitutionPeerRanking(instId).catch(() => null),
+    ]);
+  }
 
   const indexMap = new Map(nationalIndex.map((e) => [e.fee_category, e]));
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
@@ -271,15 +286,19 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const showQualityNotice = fees.length === 0 || disclosureUnderReview;
 
   // Rating engine
-  const rating = computeInstitutionRating(fees, nationalIndex);
-  const ratingConfig = RATING_CONFIG[rating.color];
-  const overdraftFee = fees.find((f) => f.fee_name.toLowerCase().includes("overdraft") && f.amount !== null);
-  const interpretation = generateInterpretation({
-    rating,
-    feeCount: fees.length,
-    overdraftAmount: overdraftFee?.amount ?? null,
-    charterType: inst.charter_type,
-  });
+  const rating = hasVerifiedFees ? computeInstitutionRating(fees, nationalIndex) : null;
+  const ratingConfig = rating ? RATING_CONFIG[rating.color] : null;
+  const overdraftFee = hasVerifiedFees
+    ? fees.find((f) => f.fee_name.toLowerCase().includes("overdraft") && f.amount !== null)
+    : null;
+  const interpretation = rating
+    ? generateInterpretation({
+        rating,
+        feeCount: fees.length,
+        overdraftAmount: overdraftFee?.amount ?? null,
+        charterType: inst.charter_type,
+      })
+    : null;
 
   // Group fees for schedule
   const grouped = new Map<FeeGroupName, typeof fees>();
@@ -430,131 +449,113 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           )}
 
           {/* ── Rating & Interpretation Grid ─────────────────────── */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-16">
+          {rating && ratingConfig && interpretation ? (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-16">
 
-            {/* Rating Card */}
-            <div
-              className="md:col-span-5 p-8 rounded-lg border-l-4 flex flex-col justify-between"
-              style={{
-                backgroundColor: `${ratingConfig.bg}`,
-                borderLeftColor: ratingConfig.border,
-              }}
-            >
-              <div>
-                <div className="flex justify-between items-start mb-6">
-                  <span
-                    className="font-sans text-[11px] uppercase tracking-widest"
-                    style={{ color: ratingConfig.labelColor }}
-                  >
-                    Fee Profile
-                  </span>
-                  <div
-                    className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter text-white"
-                    style={{ backgroundColor: ratingConfig.badge }}
-                  >
-                    {rating.label}
+              {/* Rating Card */}
+              <div
+                className="md:col-span-5 p-8 rounded-lg border-l-4 flex flex-col justify-between"
+                style={{
+                  backgroundColor: `${ratingConfig.bg}`,
+                  borderLeftColor: ratingConfig.border,
+                }}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-6">
+                    <span
+                      className="font-sans text-[11px] uppercase tracking-widest"
+                      style={{ color: ratingConfig.labelColor }}
+                    >
+                      Fee Profile
+                    </span>
+                    <div
+                      className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter text-white"
+                      style={{ backgroundColor: ratingConfig.badge }}
+                    >
+                      {rating.label}
+                    </div>
                   </div>
+
+                  {overdraftFee && overdraftFee.amount !== null && (
+                    <div className="mb-8">
+                      <span className="font-sans text-xs text-[var(--hamilton-on-surface-variant)] uppercase">Key Indicator</span>
+                      <div
+                        className="text-5xl text-[var(--hamilton-on-surface)]"
+                        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+                      >
+                        {formatAmount(overdraftFee.amount)}
+                      </div>
+                      <p className="text-sm text-[var(--hamilton-on-surface-variant)] mt-1 font-sans">
+                        {getDisplayName(overdraftFee.fee_name)}
+                      </p>
+                    </div>
+                  )}
+
+                  <ul className="space-y-4">
+                    {rating.bullets.map((bullet, i) => {
+                      const iconKey = getBulletIcon(bullet, rating.color);
+                      const IconComponent = BULLET_ICON_MAP[iconKey];
+                      return (
+                        <li key={i} className="flex items-start gap-3">
+                          <IconComponent
+                            className="h-[18px] w-[18px] mt-0.5 flex-shrink-0"
+                            style={{ color: getBulletIconColor(bullet, rating.color) }}
+                          />
+                          <span className="text-sm font-sans leading-relaxed text-[var(--hamilton-on-surface)]">
+                            {bullet}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Interpretation & Stats */}
+              <div className="md:col-span-7 flex flex-col justify-between py-2">
+                <div className="space-y-6">
+                  <h3
+                    className="text-2xl italic text-[var(--hamilton-on-surface)]"
+                    style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+                  >
+                    &ldquo;{interpretation}&rdquo;
+                  </h3>
+
+                  <InstitutionFactGrid
+                    charterLabel={charterLabel}
+                    assetSize={inst.asset_size}
+                    feeCount={fees.length}
+                  />
                 </div>
 
-                {overdraftFee && overdraftFee.amount !== null && (
-                  <div className="mb-8">
-                    <span className="font-sans text-xs text-[var(--hamilton-on-surface-variant)] uppercase">Key Indicator</span>
-                    <div
-                      className="text-5xl text-[var(--hamilton-on-surface)]"
-                      style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                    >
-                      {formatAmount(overdraftFee.amount)}
-                    </div>
-                    <p className="text-sm text-[var(--hamilton-on-surface-variant)] mt-1 font-sans">
-                      {getDisplayName(overdraftFee.fee_name)}
+                {/* Mini CTA */}
+                <div className="mt-8 p-6 bg-[var(--hamilton-surface-container-highest)]/50 rounded-lg flex items-center gap-6">
+                  <div className="text-terra flex-shrink-0">
+                    <BarChart2 className="h-[36px] w-[36px]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-sans text-[var(--hamilton-on-surface-variant)] leading-relaxed">
+                      <span className="font-bold text-[var(--hamilton-on-surface)]">Financial professionals</span>{" "}
+                      get access to peer benchmarking, competitive intelligence, and AI-powered research.{" "}
+                      <Link href="/pro" className="text-terra font-bold hover:underline">
+                        Learn More
+                      </Link>
                     </p>
                   </div>
-                )}
-
-                <ul className="space-y-4">
-                  {rating.bullets.map((bullet, i) => {
-                    const iconKey = getBulletIcon(bullet, rating.color);
-                    const IconComponent = BULLET_ICON_MAP[iconKey];
-                    return (
-                      <li key={i} className="flex items-start gap-3">
-                        <IconComponent
-                          className="h-[18px] w-[18px] mt-0.5 flex-shrink-0"
-                          style={{ color: getBulletIconColor(bullet, rating.color) }}
-                        />
-                        <span className="text-sm font-sans leading-relaxed text-[var(--hamilton-on-surface)]">
-                          {bullet}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-
-            {/* Interpretation & Stats */}
-            <div className="md:col-span-7 flex flex-col justify-between py-2">
-              <div className="space-y-6">
-                <h3
-                  className="text-2xl italic text-[var(--hamilton-on-surface)]"
-                  style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                >
-                  &ldquo;{interpretation}&rdquo;
-                </h3>
-
-                <div className="grid grid-cols-3 gap-4 pt-8">
-                  <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
-                    <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
-                      Charter
-                    </span>
-                    <span
-                      className="text-xl text-[var(--hamilton-on-surface)]"
-                      style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                    >
-                      {charterLabel}
-                    </span>
-                  </div>
-                  <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
-                    <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
-                      Assets
-                    </span>
-                    <span
-                      className="text-xl text-[var(--hamilton-on-surface)]"
-                      style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                    >
-                      {inst.asset_size ? formatAssets(inst.asset_size) : "N/A"}
-                    </span>
-                  </div>
-                  <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
-                    <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
-                      Fees
-                    </span>
-                    <span
-                      className="text-xl text-[var(--hamilton-on-surface)]"
-                      style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                    >
-                      {fees.length}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mini CTA */}
-              <div className="mt-8 p-6 bg-[var(--hamilton-surface-container-highest)]/50 rounded-xl flex items-center gap-6">
-                <div className="text-terra flex-shrink-0">
-                  <BarChart2 className="h-[36px] w-[36px]" />
-                </div>
-                <div>
-                  <p className="text-sm font-sans text-[var(--hamilton-on-surface-variant)] leading-relaxed">
-                    <span className="font-bold text-[var(--hamilton-on-surface)]">Financial professionals</span>{" "}
-                    get access to peer benchmarking, competitive intelligence, and AI-powered research.{" "}
-                    <Link href="/pro" className="text-terra font-bold hover:underline">
-                      Learn More
-                    </Link>
-                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <UnverifiedInstitutionSummary
+              institutionName={inst.institution_name}
+              charterLabel={charterLabel}
+              assetSize={inst.asset_size}
+              feeCount={fees.length}
+              qualityLabel={qualityLabel}
+              stateName={stateName}
+              websiteUrl={websiteUrl}
+            />
+          )}
 
           {/* ── Fee Schedule ──────────────────────────────────────── */}
           <section className="mt-20">
@@ -825,7 +826,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           )}
 
           {/* ── Professional CTA Section (hidden for pro users) ──── */}
-          {!isPro && <div className="mt-20 p-10 bg-[var(--hamilton-surface-container-low)] rounded-lg">
+          {!isPro && hasVerifiedFees && <div className="mt-20 p-10 bg-[var(--hamilton-surface-container-low)] rounded-lg">
             <div className="max-w-3xl mx-auto">
               <h3
                 className="text-3xl text-[var(--hamilton-on-surface)] mb-4"
@@ -875,13 +876,21 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   Data Methodology Disclosure
                 </span>
               </div>
-              <p className="font-sans text-xs leading-relaxed max-w-2xl">
-                Fee data is extracted from publicly available Deposit Account Agreements and Fee Schedules.
-                Rates are current as of the last filing period and may vary by specific account tier or regional promotion.
-                Bank Fee Index uses a proprietary normalization engine to compare disparate banking terms against national benchmarks.
-                Financial data from{" "}
-                {inst.charter_type === "bank" ? "FDIC Call Reports" : "NCUA 5300 Reports"}.
-              </p>
+              {hasVerifiedFees ? (
+                <p className="font-sans text-xs leading-relaxed max-w-2xl">
+                  Fee data is extracted from publicly available Deposit Account Agreements and Fee Schedules.
+                  Rates are current as of the last filing period and may vary by specific account tier or regional promotion.
+                  Bank Fee Index uses a proprietary normalization engine to compare disparate banking terms against national benchmarks.
+                  Financial data from{" "}
+                  {inst.charter_type === "bank" ? "FDIC Call Reports" : "NCUA 5300 Reports"}.
+                </p>
+              ) : (
+                <p className="font-sans text-xs leading-relaxed max-w-2xl">
+                  This page is an institution identity profile. Fee observations appear only after source evidence clears review and publication.
+                  Financial data from{" "}
+                  {inst.charter_type === "bank" ? "FDIC Call Reports" : "NCUA 5300 Reports"} is available in professional views.
+                </p>
+              )}
               <p className="font-sans text-[10px] italic">
                 Source: Federal Reserve System Call Reports &amp; Institutional Disclosure Documents.
               </p>
@@ -898,7 +907,9 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             "@context": "https://schema.org",
             "@type": "FinancialProduct",
             name: inst.institution_name,
-            description: `Fee schedule for ${inst.institution_name}`,
+            description: hasVerifiedFees
+              ? `Fee schedule for ${inst.institution_name}`
+              : `Fee schedule verification status for ${inst.institution_name}`,
             url: `${SITE_URL}/institution/${instId}`,
             provider: {
               "@type": "FinancialService",
@@ -915,6 +926,151 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 // ---------------------------------------------------------------------------
 // Shared tiny components
 // ---------------------------------------------------------------------------
+
+function InstitutionFactGrid({
+  charterLabel,
+  assetSize,
+  feeCount,
+}: {
+  charterLabel: string;
+  assetSize: number | null;
+  feeCount: number;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 pt-8 sm:grid-cols-3">
+      <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
+        <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
+          Charter
+        </span>
+        <span
+          className="text-xl text-[var(--hamilton-on-surface)]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          {charterLabel}
+        </span>
+      </div>
+      <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
+        <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
+          Assets
+        </span>
+        <span
+          className="text-xl text-[var(--hamilton-on-surface)]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          {assetSize ? formatAssets(assetSize) : "N/A"}
+        </span>
+      </div>
+      <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
+        <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
+          Published Fees
+        </span>
+        <span
+          className="text-xl text-[var(--hamilton-on-surface)]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          {feeCount}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function UnverifiedInstitutionSummary({
+  institutionName,
+  charterLabel,
+  assetSize,
+  feeCount,
+  qualityLabel,
+  stateName,
+  websiteUrl,
+}: {
+  institutionName: string;
+  charterLabel: string;
+  assetSize: number | null;
+  feeCount: number;
+  qualityLabel: string;
+  stateName: string | null;
+  websiteUrl: string | null;
+}) {
+  return (
+    <section className="mb-16 rounded-lg border border-[var(--hamilton-outline-variant)]/40 bg-[var(--hamilton-surface-container-low)] p-6 sm:p-8">
+      <div className="grid gap-8 md:grid-cols-12 md:items-start">
+        <div className="md:col-span-7">
+          <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-[#FFF8EC] text-[#A15C00]">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <span className="font-sans text-[11px] uppercase tracking-widest text-terra">
+            Public data status
+          </span>
+          <h2
+            className="mt-3 text-3xl text-[var(--hamilton-on-surface)]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            No public fee score yet
+          </h2>
+          <p className="mt-4 max-w-2xl font-sans text-sm leading-relaxed text-[var(--hamilton-on-surface-variant)]">
+            {institutionName} is tracked in the institution directory, but Bank Fee Index has not published a verified consumer fee schedule for this profile. We show identity and coverage status here so incomplete fee data is not presented as a benchmark.
+          </p>
+
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <Link
+              href="/institutions"
+              className="inline-flex items-center justify-center gap-2 rounded bg-terra px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-terra-dark"
+            >
+              Browse verified institutions
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/submit-fees"
+              className="inline-flex items-center justify-center gap-2 rounded border border-[var(--hamilton-outline-variant)]/60 px-5 py-3 text-sm font-medium text-[var(--hamilton-on-surface)] transition-colors hover:bg-[var(--hamilton-surface-container)]"
+            >
+              Submit a fee schedule
+              <FileText className="h-4 w-4" />
+            </Link>
+            {websiteUrl && (
+              <a
+                href={websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded border border-transparent px-5 py-3 text-sm font-medium text-terra transition-colors hover:bg-terra/10"
+              >
+                Institution website
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div className="md:col-span-5">
+          <div className="rounded-lg border border-[var(--hamilton-outline-variant)]/40 bg-[var(--hamilton-surface)] p-5">
+            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)]">
+              Verification state
+            </p>
+            <p className="mt-3 font-sans text-base font-semibold text-[var(--hamilton-on-surface)]">
+              {qualityLabel}
+            </p>
+            <div className="mt-5 space-y-3 border-t border-[var(--hamilton-outline-variant)]/30 pt-5 font-sans text-sm text-[var(--hamilton-on-surface-variant)]">
+              <div className="flex items-center justify-between gap-4">
+                <span>Region</span>
+                <span className="font-medium text-[var(--hamilton-on-surface)]">{stateName ?? "Unknown"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Published fees</span>
+                <span className="font-medium text-[var(--hamilton-on-surface)]">{feeCount}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Benchmark status</span>
+                <span className="font-medium text-[var(--hamilton-on-surface)]">Unavailable</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <InstitutionFactGrid charterLabel={charterLabel} assetSize={assetSize} feeCount={feeCount} />
+    </section>
+  );
+}
 
 function ProSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
