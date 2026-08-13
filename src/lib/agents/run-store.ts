@@ -23,7 +23,7 @@ import type {
 const ACTIVE_STATUSES = ["queued", "running", "cancel_requested"];
 const RUN_KINDS_WITH_LEDGER = ["workflow", "workflow_lane", "report", "manual_repair", "dry_run"] as const;
 const AGENTIC_SUMMARY =
-  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs and fetch source documents; Rosetta can normalize HTML/text source documents and route PDFs to OCR; Knox can extract conservative raw fee observations and surface rejection decisions for anomaly-only human review; Darwin can verify canonical-hinted raw rows; Hamilton can publish eligible verified rows into the Tier-3 ledger. Durable queues, PDF/OCR, provider extraction, and adversarial review depth remain gated until each agent module is implemented.";
+  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs and fetch source documents; Rosetta can normalize HTML/text/PDF source documents and route scanned PDFs to OCR; Knox can extract conservative raw fee observations and surface rejection decisions for anomaly-only human review; Darwin can verify canonical-hinted raw rows; Hamilton can publish eligible verified rows into the Tier-3 ledger. Durable queues, scanned-PDF OCR, provider extraction, and adversarial review depth remain gated until each agent module is implemented.";
 
 type SqlTag = typeof sql;
 

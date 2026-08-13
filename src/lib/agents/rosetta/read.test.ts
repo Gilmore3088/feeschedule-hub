@@ -22,7 +22,7 @@ function asReadDb(db: DbMock): NonNullable<Parameters<typeof runRosettaRead>[0][
   return db as unknown as NonNullable<Parameters<typeof runRosettaRead>[0]["db"]>;
 }
 
-function response(body: string, contentType = "text/html", status = 200): Response {
+function response(body: BodyInit, contentType = "text/html", status = 200): Response {
   return new Response(body, { status, headers: { "content-type": contentType } });
 }
 
@@ -97,7 +97,7 @@ describe("Rosetta agentic read", () => {
     expect(db).not.toHaveBeenCalled();
   });
 
-  it("routes PDFs to OCR without making provider calls", async () => {
+  it("extracts embedded PDF text into an internal text artifact", async () => {
     const db = createDbMock([
       {
         ...htmlCandidate,
@@ -105,12 +105,66 @@ describe("Rosetta agentic read", () => {
         document_url: "https://testbank.example/schedule-of-fees.pdf",
       },
     ]);
-    const fetchImpl = vi.fn();
+    const pdfBytes = new Uint8Array([37, 80, 68, 70]);
+    const fetchImpl = vi.fn().mockResolvedValueOnce(response(pdfBytes, "application/pdf"));
+    const pdfTextExtractor = vi.fn().mockResolvedValueOnce({
+      totalPages: 2,
+      text: "Schedule of Fees\n\nMonthly maintenance fee $7",
+    });
 
     const result = await runRosettaRead({
       runId: 103,
       db: asReadDb(db),
       fetchImpl,
+      pdfTextExtractor,
+    });
+
+    expect(result).toMatchObject({
+      selected: 1,
+      processed: 1,
+      completed: 1,
+      needsOcr: 0,
+      failed: 0,
+    });
+    expect(result.results[0]).toMatchObject({
+      crawlResultId: 502,
+      status: "completed",
+      documentType: "pdf",
+      charCount: "Schedule of Fees\n\nMonthly maintenance fee $7".length,
+      textHash: createHash("sha256")
+        .update("Schedule of Fees\n\nMonthly maintenance fee $7")
+        .digest("hex"),
+      error: null,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(pdfTextExtractor).toHaveBeenCalledWith(pdfBytes);
+
+    const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(sqlText).toContain("INSERT INTO agent_document_texts");
+    expect(JSON.stringify(db.mock.calls)).toContain("Monthly maintenance fee $7");
+  });
+
+  it("routes scanned PDFs to OCR after embedded text extraction is empty", async () => {
+    const db = createDbMock([
+      {
+        ...htmlCandidate,
+        crawl_result_id: 503,
+        document_url: "https://testbank.example/scanned-fees.pdf",
+      },
+    ]);
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response(new Uint8Array([37, 80, 68, 70]), "application/pdf"));
+    const pdfTextExtractor = vi.fn().mockResolvedValueOnce({
+      totalPages: 4,
+      text: " \n \n",
+    });
+
+    const result = await runRosettaRead({
+      runId: 104,
+      db: asReadDb(db),
+      fetchImpl,
+      pdfTextExtractor,
     });
 
     expect(result).toMatchObject({
@@ -121,15 +175,46 @@ describe("Rosetta agentic read", () => {
       failed: 0,
     });
     expect(result.results[0]).toMatchObject({
-      crawlResultId: 502,
+      crawlResultId: 503,
       status: "needs_ocr",
       documentType: "pdf",
-      error: "PDF reading/OCR is not wired into Rosetta yet",
+      error: "No embedded PDF text found across 4 pages; OCR required",
     });
-    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 
-    const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(sqlText).toContain("INSERT INTO agent_document_texts");
+  it("records visible failures when PDF text extraction errors", async () => {
+    const db = createDbMock([
+      {
+        ...htmlCandidate,
+        crawl_result_id: 504,
+        document_url: "https://testbank.example/broken-fees.pdf",
+      },
+    ]);
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response(new Uint8Array([37, 80, 68, 70]), "application/pdf"));
+    const pdfTextExtractor = vi.fn().mockRejectedValueOnce(new Error("invalid xref"));
+
+    const result = await runRosettaRead({
+      runId: 105,
+      db: asReadDb(db),
+      fetchImpl,
+      pdfTextExtractor,
+    });
+
+    expect(result).toMatchObject({
+      selected: 1,
+      processed: 1,
+      completed: 0,
+      needsOcr: 0,
+      failed: 1,
+    });
+    expect(result.results[0]).toMatchObject({
+      crawlResultId: 504,
+      status: "failed",
+      documentType: "pdf",
+      error: "PDF text extraction failed: invalid xref",
+    });
   });
 
   it("records failed reads for non-OK source responses", async () => {
@@ -137,7 +222,7 @@ describe("Rosetta agentic read", () => {
     const fetchImpl = vi.fn().mockResolvedValueOnce(response("missing", "text/html", 404));
 
     const result = await runRosettaRead({
-      runId: 104,
+      runId: 106,
       db: asReadDb(db),
       fetchImpl,
     });

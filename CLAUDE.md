@@ -15,13 +15,14 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 - Current Postgres data access is `src/lib/data-store`; do not reintroduce the
   retired crawler-named data module.
 - Atlas creates visible runs; Magellan discovers/fetches; Rosetta reads
-  fetched HTML/text and marks PDFs as `needs_ocr`; Knox extracts conservative
-  raw fee observations and performs conservative ready-review; Darwin verifies
-  canonical-hinted raw rows; Hamilton publishes eligible verified rows into
-  `fees_published`. Product/report/research fee reads use
-  `published_fee_observations`. PDF/OCR, provider-assisted extraction,
-  adversarial handling for ambiguous rows, report rendering, and durable queue
-  fan-out remain explicit follow-up work.
+  fetched HTML/text and extractable PDF text, while scanned/image-only PDFs are
+  marked `needs_ocr`; Knox extracts conservative raw fee observations and
+  performs conservative ready-review; Darwin verifies canonical-hinted raw rows;
+  Hamilton publishes eligible verified rows into `fees_published`.
+  Product/report/research fee reads use `published_fee_observations`.
+  Scanned-PDF OCR, provider-assisted extraction, adversarial handling for
+  ambiguous rows, report rendering, and durable queue fan-out remain explicit
+  follow-up work.
 
 ## Hard Rules
 

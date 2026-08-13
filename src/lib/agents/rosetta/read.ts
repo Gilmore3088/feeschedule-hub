@@ -12,6 +12,8 @@ export const ROSETTA_READ_MAX_LIMIT = 50;
 const USER_AGENT = "AiBI-Rosetta/1.0 (+https://theaibankinginstitute.com)";
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_TEXT_DOCUMENT_BYTES = 8 * 1024 * 1024;
+const MAX_PDF_PAGES = 150;
+const PDF_EXTRACTION_TIMEOUT_MS = 20_000;
 
 interface ReadCandidateRow {
   crawl_result_id: number | string;
@@ -22,6 +24,13 @@ interface ReadCandidateRow {
 }
 
 type ReadStatus = "completed" | "empty" | "needs_ocr" | "failed" | "skipped";
+
+interface PdfTextExtraction {
+  text: string;
+  totalPages: number;
+}
+
+type PdfTextExtractor = (bytes: Uint8Array) => Promise<PdfTextExtraction>;
 
 interface ReadResult {
   crawlResultId: number;
@@ -44,6 +53,7 @@ export interface RunRosettaReadOptions {
   dryRun?: boolean;
   db?: SqlTag;
   fetchImpl?: Fetcher;
+  pdfTextExtractor?: PdfTextExtractor;
 }
 
 export interface RunRosettaReadResult {
@@ -119,6 +129,50 @@ function hashText(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function extractPdfText(bytes: Uint8Array): Promise<PdfTextExtraction> {
+  const { extractText, getDocumentProxy } = await import("unpdf");
+  return withTimeout(
+    (async () => {
+      const pdf = await getDocumentProxy(bytes, {
+        maxImageSize: 16_777_216,
+      });
+
+      try {
+        const totalPages = Number(pdf.numPages ?? 0);
+        if (totalPages > MAX_PDF_PAGES) {
+          throw new Error(`PDF has too many pages for Rosetta text read: ${totalPages}`);
+        }
+
+        const extracted = await extractText(pdf, { mergePages: true });
+        return { text: extracted.text, totalPages: extracted.totalPages };
+      } finally {
+        await pdf.destroy?.();
+      }
+    })(),
+    PDF_EXTRACTION_TIMEOUT_MS,
+    "PDF text extraction",
+  );
+}
+
 async function fetchWithTimeout(fetchImpl: Fetcher, url: string): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -136,7 +190,11 @@ async function fetchWithTimeout(fetchImpl: Fetcher, url: string): Promise<Respon
   }
 }
 
-async function readCandidate(row: ReadCandidateRow, fetchImpl: Fetcher): Promise<{
+async function readCandidate(
+  row: ReadCandidateRow,
+  fetchImpl: Fetcher,
+  pdfTextExtractor: PdfTextExtractor,
+): Promise<{
   result: ReadResult;
   normalizedText: string | null;
 }> {
@@ -159,25 +217,6 @@ async function readCandidate(row: ReadCandidateRow, fetchImpl: Fetcher): Promise
         textHash: null,
         charCount: 0,
         error: "Invalid or missing document_url",
-      },
-    };
-  }
-
-  if (sourceUrl.toLowerCase().endsWith(".pdf")) {
-    return {
-      normalizedText: null,
-      result: {
-        crawlResultId,
-        crawlTargetId,
-        institutionName,
-        sourceUrl,
-        status: "needs_ocr",
-        documentType: "pdf",
-        contentType: "application/pdf",
-        sourceHash: row.content_hash,
-        textHash: null,
-        charCount: 0,
-        error: "PDF reading/OCR is not wired into Rosetta yet",
       },
     };
   }
@@ -206,25 +245,6 @@ async function readCandidate(row: ReadCandidateRow, fetchImpl: Fetcher): Promise
 
   const contentType = response.headers.get("content-type");
   const documentType = detectDocumentType(response.url || sourceUrl, contentType);
-  if (documentType === "pdf") {
-    return {
-      normalizedText: null,
-      result: {
-        crawlResultId,
-        crawlTargetId,
-        institutionName,
-        sourceUrl,
-        status: "needs_ocr",
-        documentType,
-        contentType,
-        sourceHash: row.content_hash,
-        textHash: null,
-        charCount: 0,
-        error: "PDF reading/OCR is not wired into Rosetta yet",
-      },
-    };
-  }
-
   if (!response.ok) {
     return {
       normalizedText: null,
@@ -262,6 +282,91 @@ async function readCandidate(row: ReadCandidateRow, fetchImpl: Fetcher): Promise
         error: `Document too large for Rosetta text read: ${contentLength} bytes`,
       },
     };
+  }
+
+  if (documentType === "pdf") {
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+      return {
+        normalizedText: null,
+        result: {
+          crawlResultId,
+          crawlTargetId,
+          institutionName,
+          sourceUrl,
+          status: "failed",
+          documentType,
+          contentType,
+          sourceHash: row.content_hash,
+          textHash: null,
+          charCount: 0,
+          error: `PDF read failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      };
+    }
+
+    if (bytes.byteLength > MAX_TEXT_DOCUMENT_BYTES) {
+      return {
+        normalizedText: null,
+        result: {
+          crawlResultId,
+          crawlTargetId,
+          institutionName,
+          sourceUrl,
+          status: "failed",
+          documentType,
+          contentType,
+          sourceHash: row.content_hash,
+          textHash: null,
+          charCount: 0,
+          error: `Document too large for Rosetta text read: ${bytes.byteLength} bytes`,
+        },
+      };
+    }
+
+    try {
+      const extracted = await pdfTextExtractor(bytes);
+      const normalizedText = normalizeWhitespace(extracted.text);
+      const status: ReadStatus = normalizedText.length > 0 ? "completed" : "needs_ocr";
+      return {
+        normalizedText,
+        result: {
+          crawlResultId,
+          crawlTargetId,
+          institutionName,
+          sourceUrl,
+          status,
+          documentType,
+          contentType,
+          sourceHash: row.content_hash,
+          textHash: normalizedText.length > 0 ? hashText(normalizedText) : null,
+          charCount: normalizedText.length,
+          error:
+            status === "needs_ocr"
+              ? `No embedded PDF text found across ${extracted.totalPages} pages; OCR required`
+              : null,
+        },
+      };
+    } catch (error) {
+      return {
+        normalizedText: null,
+        result: {
+          crawlResultId,
+          crawlTargetId,
+          institutionName,
+          sourceUrl,
+          status: "failed",
+          documentType,
+          contentType,
+          sourceHash: row.content_hash,
+          textHash: null,
+          charCount: 0,
+          error: `PDF text extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      };
+    }
   }
 
   const raw = await response.text();
@@ -356,13 +461,18 @@ export async function runRosettaRead(
 ): Promise<RunRosettaReadResult> {
   const db = options.db ?? sql;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const pdfTextExtractor = options.pdfTextExtractor ?? extractPdfText;
   const limit = boundedLimit(options.limit);
   const dryRun = Boolean(options.dryRun);
   const rows = await selectCandidates(db, limit, options.institutionId);
 
   const results: ReadResult[] = [];
   for (const row of rows) {
-    const { result, normalizedText } = await readCandidate(row, fetchImpl);
+    const { result, normalizedText } = await readCandidate(
+      row,
+      fetchImpl,
+      pdfTextExtractor,
+    );
     results.push(result);
     if (!dryRun) await recordReadResult(db, options.runId, result, normalizedText);
   }

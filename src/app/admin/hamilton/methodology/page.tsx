@@ -15,12 +15,6 @@ const COVERAGE_STATS = {
   humanReviewRate: "~28%",
 };
 
-interface MethodologySection {
-  id: string;
-  title: string;
-  content: React.ReactNode;
-}
-
 function SectionHeading({ title, id }: { title: string; id: string }) {
   return (
     <h2
@@ -168,17 +162,15 @@ export default async function MethodologyPage() {
           for the majority of institutions with well-structured websites.
         </p>
         <p className="mb-3">
-          For institutions where deterministic discovery fails, we deploy an AI-assisted
-          discovery agent using Claude to reason about likely URL patterns and page structures.
-          A Playwright browser automation layer handles JavaScript-rendered pages — a growing
-          segment of fee schedule delivery, particularly among larger institutions.
+          For institutions where deterministic discovery fails, Magellan records the attempted
+          paths, retry window, and terminal reason in the agent run ledger so the next batch does
+          not churn on the same failed sources.
         </p>
         <p className="mb-3">
-          Once a fee schedule document is located, it is downloaded and processed through one
-          of two extraction pathways: direct HTML parsing for web pages, or pdfplumber-based
-          text extraction for PDF documents. The extracted text is passed to Claude with a
-          structured extraction schema specifying the {COVERAGE_STATS.categories} fee categories
-          the index tracks.
+          Once a fee schedule document is located, Magellan fetches the source and Rosetta
+          normalizes readable HTML, text, and embedded PDF text into internal document artifacts.
+          Image-only PDFs are marked for OCR instead of being hidden in the general review queue.
+          Knox then extracts conservative fee observations against the tracked category schema.
         </p>
 
         {/* 4. Fee Categorization */}

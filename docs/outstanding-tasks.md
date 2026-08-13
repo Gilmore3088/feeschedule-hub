@@ -19,7 +19,7 @@ Make Fee Insight run through one visible agentic system:
 | P0 | Atlas | Durable queue pickup and stale-run visibility | Queued runs show pickup window, heartbeat, stale warning, and terminal blocked reason. |
 | P0 | Magellan | Rotate rescue batches instead of retrying the same failures | Batch selection claims work, honors retry windows, and records attempted URLs per institution. |
 | P0 | Provider boundary | Stop credit-error loops before calls repeat | Recent provider credit failures block new calls visibly through automation control and usage events. |
-| P1 | Rosetta | Add PDF/OCR text path | PDF rows move from `needs_ocr` to readable document text or explicit terminal failure. |
+| P1 | Rosetta | Add scanned-PDF OCR fallback | Image-only PDF rows move from `needs_ocr` to readable document text or explicit terminal failure. |
 | P1 | Knox | Add bounded provider-assisted extraction fallback | Deterministic misses on readable documents get one metered fallback, with only anomalies sent to human review. |
 | P1 | Darwin | Thin review pressure | Verification routes ordinary canonical rows forward and challenges only suspicious rows. |
 | P1 | Hamilton | Publish data-quality summaries | Admin can distinguish no source, source fetched, PDF pending OCR, extracted, verified, and published. |
