@@ -34,6 +34,8 @@ Already implemented on `main`:
 - `/api/admin/agents/runs/[id]/execute` runs a bounded agentic ledger slice for
   a specific run; `/api/admin/agents/tick` can pick up queued runs from an
   authenticated admin or cron-style bearer caller.
+- `vercel.json` schedules `/api/admin/agents/tick` every five minutes in
+  production using Vercel Cron and `CRON_SECRET`.
 - Product/report/research/admin analytics reads use
   `published_fee_observations`.
 - Magellan discovery/fetch, Rosetta HTML/text read, Knox raw extraction, Darwin
@@ -99,8 +101,8 @@ Acceptance:
 
 ## Phase 3: Wire Durable Agent Execution
 
-Status: partial. A non-blocking serverless step runner exists; Vercel
-Workflow/Queues durability is still not wired.
+Status: partial. A non-blocking serverless step runner exists and production
+has a Vercel Cron pickup. Vercel Workflow/Queues durability is still not wired.
 
 Purpose: turn the deterministic slices into durable production runs.
 

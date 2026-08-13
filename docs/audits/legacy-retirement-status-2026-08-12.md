@@ -42,6 +42,8 @@ The current committed runtime includes:
   `/api/admin/agents/runs/[id]/execute`.
 - `/api/admin/agents/tick` can drain queued agent runs from an authenticated
   admin or cron-style bearer caller without any Modal process.
+- `vercel.json` schedules `/api/admin/agents/tick` every five minutes in
+  production. Vercel authenticates that request with `CRON_SECRET`.
 
 The backend is intentionally honest when disabled: clicking an agent action
 creates or blocks a visible run instead of silently launching an external worker.
@@ -103,6 +105,12 @@ keys were removed from production/preview/development:
 
 Verification after removal found no `OPS_*`, `MODAL_*`, Darwin sidecar,
 Magellan sidecar, or extraction endpoint keys in the Vercel project env lists.
+Production now carries only the non-legacy execution selector and cron
+credential needed for the agentic runner:
+
+- `EXECUTION_BACKEND`
+- `CRON_SECRET`
+- `REPORT_CRON_SECRET`
 
 Modal deployed apps were also checked and stopped:
 
@@ -139,9 +147,9 @@ entries.
 - `config-kill`
 
 The guard covers active runtime, Edge Functions, scripts, GitHub Actions, root
-config, and `.env.example`. It fails on retired execution/data surfaces such as
-Modal worker URLs, `fee_crawler`, `ops_jobs`, `modal_call_id`, and
-`extracted_fees` runtime reads.
+config, `vercel.json`, and `.env.example`. It fails on retired execution/data
+surfaces such as Modal worker URLs, `fee_crawler`, `ops_jobs`,
+`modal_call_id`, and `extracted_fees` runtime reads.
 
 ## Still Not Done
 

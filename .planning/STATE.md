@@ -20,6 +20,8 @@ Current launch behavior: admin actions create queued visible run records first.
 The browser/live-status surface then calls the serverless agent runner at
 `/api/admin/agents/runs/[id]/execute`; `/api/admin/agents/tick` can pick up
 queued runs from an authenticated admin or cron-style bearer caller.
+Production schedules the tick route every five minutes through `vercel.json`;
+the remaining durability upgrade is Workflow/Queue-backed replay and fan-out.
 
 ## Active References
 

@@ -179,6 +179,7 @@ config_kill() {
     "next.config.ts"
     "package.json"
     "supabase/functions"
+    "vercel.json"
   )
   local exclude_paths=(
     ":(exclude).github/**/node_modules/**"
