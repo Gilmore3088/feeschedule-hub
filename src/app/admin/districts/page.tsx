@@ -10,8 +10,13 @@ import { SortableTable, type Column } from "@/components/sortable-table";
 type DistrictRow = {
   district: number;
   name: string;
+  states: string[];
   total: number;
+  with_urls: number;
   with_fees: number;
+  url_but_zero: number;
+  latest_failed: number;
+  extracted_not_published: number;
   pct: number;
 } & Record<string, unknown>;
 
@@ -44,6 +49,24 @@ const columns: Column<DistrictRow>[] = [
     ),
   },
   {
+    key: "states",
+    label: "States",
+    sortable: false,
+    format: (_, row) => (
+      <div className="flex max-w-md flex-wrap gap-1">
+        {row.states.map((code) => (
+          <Link
+            key={code}
+            href={`/admin/states/${code}`}
+            className="rounded border border-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 hover:border-blue-200 hover:text-blue-700 dark:border-white/[0.08] dark:text-gray-400 dark:hover:border-blue-900/60 dark:hover:text-blue-300"
+          >
+            {code}
+          </Link>
+        ))}
+      </div>
+    ),
+  },
+  {
     key: "total",
     label: "Institutions",
     sortable: true,
@@ -51,8 +74,29 @@ const columns: Column<DistrictRow>[] = [
     format: (v) => Number(v).toLocaleString(),
   },
   {
+    key: "with_urls",
+    label: "With URLs",
+    sortable: true,
+    align: "right",
+    format: (v) => Number(v).toLocaleString(),
+  },
+  {
     key: "with_fees",
-    label: "With Fees",
+    label: "Published",
+    sortable: true,
+    align: "right",
+    format: (v) => Number(v).toLocaleString(),
+  },
+  {
+    key: "url_but_zero",
+    label: "URL, Zero Fees",
+    sortable: true,
+    align: "right",
+    format: (v) => Number(v).toLocaleString(),
+  },
+  {
+    key: "latest_failed",
+    label: "Latest Failed",
     sortable: true,
     align: "right",
     format: (v) => Number(v).toLocaleString(),
@@ -87,8 +131,16 @@ export default async function DistrictsPage() {
           Federal Reserve Districts
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Coverage and fee extraction by Fed district
+          Coverage, mapped states, and fee publication status by Fed district
         </p>
+        <div className="mt-3">
+          <Link
+            href="/admin/states"
+            className="inline-flex rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-blue-200 hover:text-blue-700 dark:border-white/[0.08] dark:text-gray-300 dark:hover:border-blue-900/60 dark:hover:text-blue-300"
+          >
+            View states
+          </Link>
+        </div>
       </div>
 
       {districts.length > 0 ? (

@@ -47,8 +47,9 @@ async function AdminLayoutInner({
     redirect("/admin/login");
   }
 
-  // Only admin can access the admin panel
-  if (user.role !== "admin") {
+  // Admin and analyst roles can enter the operator console; route-level
+  // permissions still gate actions such as edits, approvals, and job triggers.
+  if (user.role !== "admin" && user.role !== "analyst") {
     redirect("/account");
   }
 

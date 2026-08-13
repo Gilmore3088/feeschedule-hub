@@ -10,6 +10,8 @@ interface Result {
   state_code: string | null;
   charter_type: string | null;
   fee_count: number;
+  quality_status?: "verified" | "needs_review";
+  quality_label?: string;
 }
 
 type Variant = "light" | "dark";
@@ -136,6 +138,11 @@ export function InstitutionSearchBar({
                     {r.fee_count} fees
                   </span>
                 )}
+                {r.fee_count === 0 && r.quality_label && (
+                  <span className="ml-2 text-[#A69D90]">
+                    {r.quality_label}
+                  </span>
+                )}
               </div>
             </button>
           ))}
@@ -144,7 +151,7 @@ export function InstitutionSearchBar({
 
       {showResults && results.length === 0 && query.trim().length >= 2 && !loading && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl shadow-lg p-4 z-50">
-          <p className="text-sm text-[#7A7062]">No institutions found for "{query}"</p>
+          <p className="text-sm text-[#7A7062]">No institutions found for {query}</p>
         </div>
       )}
     </div>

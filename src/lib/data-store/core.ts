@@ -1,5 +1,9 @@
 import { sql } from "./connection";
 import { VALID_US_CODES } from "../us-states";
+import {
+  classifyInstitutionQuality,
+  getPublicInstitutionQualityLabel,
+} from "@/lib/institution-quality";
 import type {
   CollectionStats,
   InstitutionSummary,
@@ -210,25 +214,74 @@ export async function getInstitutionsByFilter(filters: {
 }
 
 export async function getInstitutionById(id: number): Promise<InstitutionDetail | null> {
-  const [row] = await sql<InstitutionDetail[]>`
+  const [row] = await sql<(InstitutionDetail & {
+    latest_source_error?: string | null;
+    latest_source_collected_at?: string | Date | null;
+  })[]>`
+    WITH fee_counts AS (
+      SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+      FROM published_fee_catalog
+      GROUP BY institution_id
+    ),
+    latest_docs AS (
+      SELECT DISTINCT ON (institution_id)
+        institution_id,
+        status AS latest_source_status,
+        COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count,
+        error_message AS latest_source_error,
+        crawled_at AS latest_source_collected_at
+      FROM source_documents
+      ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
+    )
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+           ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.document_type,
            ct.website_url, ct.fee_schedule_url,
-           COUNT(ef.id) as fee_count
+           COALESCE(fc.published_fee_count, 0) as fee_count,
+           COALESCE(fc.published_fee_count, 0) as published_fee_count,
+           ld.latest_source_status,
+           COALESCE(ld.latest_extracted_fee_count, 0) as latest_extracted_fee_count,
+           ld.latest_source_error,
+           ld.latest_source_collected_at
     FROM institution_sources ct
-    LEFT JOIN published_fee_catalog ef ON ct.id = ef.institution_id
+    LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+    LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
     WHERE ct.id = ${id}
-    GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
-             ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
-             ct.website_url, ct.fee_schedule_url
   `;
   if (!row) return null;
+  const latestSourceCollectedAtRaw: unknown = row.latest_source_collected_at;
+  const latestSourceCollectedAt =
+    latestSourceCollectedAtRaw instanceof Date
+      ? latestSourceCollectedAtRaw.toISOString()
+      : latestSourceCollectedAtRaw
+        ? String(latestSourceCollectedAtRaw)
+        : null;
+  const publishedFeeCount = Number(row.published_fee_count ?? row.fee_count ?? 0);
+  const quality = classifyInstitutionQuality({
+    source: row.source ?? null,
+    certNumber: row.cert_number ?? null,
+    rssdId: row.rssd_id ?? null,
+    lei: row.lei ?? null,
+    websiteUrl: row.website_url,
+    feeScheduleUrl: row.fee_schedule_url,
+    publishedFeeCount,
+    latestSourceStatus: row.latest_source_status ?? null,
+    latestExtractedFeeCount: Number(row.latest_extracted_fee_count ?? 0),
+    latestSourceError: row.latest_source_error ?? null,
+    latestSourceCollectedAt,
+  });
   return {
     ...row,
     id: Number(row.id),
     asset_size: row.asset_size !== null ? Number(row.asset_size) : null,
     fed_district: row.fed_district !== null ? Number(row.fed_district) : null,
-    fee_count: Number(row.fee_count),
+    fee_count: publishedFeeCount,
+    published_fee_count: publishedFeeCount,
+    latest_extracted_fee_count: Number(row.latest_extracted_fee_count ?? 0),
+    latest_source_collected_at: latestSourceCollectedAt,
+    quality_status: quality.quality_status,
+    quality_signals: quality.quality_signals,
+    quality_label: getPublicInstitutionQualityLabel(quality.quality_signals),
   };
 }
 

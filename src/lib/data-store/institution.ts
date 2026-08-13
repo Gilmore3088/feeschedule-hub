@@ -7,6 +7,13 @@
 
 import { sql } from "@/lib/data-store/connection";
 import { toDateStr, safeJsonb } from "@/lib/pg-helpers";
+import {
+  classifyInstitutionQuality,
+  getPublicInstitutionQualityLabel,
+  type AgentFailureClass,
+  type InstitutionQualitySignal,
+  type InstitutionQualityStatus,
+} from "@/lib/institution-quality";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,12 +28,23 @@ export interface Institution {
   asset_size_tier: string | null;
   asset_size: number | null;
   fed_district: number | null;
+  source: string | null;
   cert_number: string | null;
+  rssd_id: string | null;
+  lei: string | null;
   website_url: string | null;
   fee_schedule_url: string | null;
   document_type: string | null;
   last_crawl_at: string;
   consecutive_failures: number;
+  published_fee_count: number;
+  latest_source_status: string | null;
+  latest_extracted_fee_count: number;
+  latest_source_collected_at: string | null;
+  last_agent_failure_class: AgentFailureClass;
+  quality_status: InstitutionQualityStatus;
+  quality_signals: InstitutionQualitySignal[];
+  quality_label: string;
 }
 
 export interface InstitutionFee {
@@ -67,6 +85,76 @@ export interface InstitutionAgentResult {
   run_status: string;
 }
 
+export interface InstitutionSourceDocument {
+  id: number;
+  source_collection_run_id: number | null;
+  status: string;
+  document_url: string | null;
+  document_path: string | null;
+  content_hash: string | null;
+  fees_extracted: number;
+  error_message: string | null;
+  crawled_at: string;
+  status_code: number | null;
+}
+
+export interface InstitutionSourceText {
+  id: number;
+  agent_run_id: number | null;
+  source_document_id: number;
+  source_url: string | null;
+  document_type: string | null;
+  content_type: string | null;
+  source_hash: string | null;
+  status: string;
+  char_count: number;
+  error_message: string | null;
+  updated_at: string;
+  text_excerpt: string | null;
+}
+
+export interface InstitutionFeePipelineCounts {
+  raw_fee_count: number;
+  verified_fee_count: number;
+  published_fee_count: number;
+  raw_without_verified_count: number;
+  verified_without_published_count: number;
+}
+
+export interface InstitutionRawFeePreview {
+  fee_raw_id: number;
+  source_document_id: number | null;
+  fee_name: string;
+  amount: number | null;
+  frequency: string | null;
+  conditions: string | null;
+  extraction_confidence: number | null;
+  source_url: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface InstitutionVerifiedFeePreview {
+  fee_verified_id: number;
+  fee_raw_id: number;
+  canonical_fee_key: string;
+  fee_name: string;
+  amount: number | null;
+  frequency: string | null;
+  review_status: string;
+  extraction_confidence: number | null;
+  source_url: string | null;
+  created_at: string;
+}
+
+export interface InstitutionFeeScheduleEvidence {
+  latest_document: InstitutionSourceDocument | null;
+  latest_text: InstitutionSourceText | null;
+  pipeline_counts: InstitutionFeePipelineCounts;
+  raw_fee_preview: InstitutionRawFeePreview[];
+  verified_fee_preview: InstitutionVerifiedFeePreview[];
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -76,17 +164,65 @@ export async function getInstitution(
 ): Promise<Institution | null> {
   try {
     const rows = await sql`
+      WITH fee_counts AS (
+        SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+        FROM published_fee_catalog
+        GROUP BY institution_id
+      ),
+      latest_docs AS (
+        SELECT DISTINCT ON (institution_id)
+          institution_id,
+          status AS latest_source_status,
+          COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count,
+          error_message AS latest_source_error,
+          crawled_at AS latest_source_collected_at
+        FROM source_documents
+        ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
+      )
       SELECT
-        id, institution_name, city, state_code,
-        charter_type, asset_size_tier, asset_size,
-        fed_district, cert_number, website_url,
-        fee_schedule_url, document_type,
-        last_crawl_at, consecutive_failures
-      FROM institution_sources
-      WHERE id = ${id}
+        ct.id, ct.institution_name, ct.city, ct.state_code,
+        ct.charter_type, ct.asset_size_tier, ct.asset_size,
+        ct.fed_district, ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.website_url,
+        ct.fee_schedule_url, ct.document_type,
+        ct.last_crawl_at, ct.consecutive_failures,
+        COALESCE(fc.published_fee_count, 0) as published_fee_count,
+        ld.latest_source_status,
+        COALESCE(ld.latest_extracted_fee_count, 0) as latest_extracted_fee_count,
+        ld.latest_source_error,
+        ld.latest_source_collected_at,
+        CASE
+          WHEN ld.latest_source_error ILIKE '%credit balance is too low%' THEN 'provider_credit'
+          WHEN ld.latest_source_error ILIKE '%tool_use%' THEN 'tool_protocol'
+          WHEN ld.latest_source_error ILIKE '%timeout%' OR ld.latest_source_error ILIKE '%timed out%' THEN 'timeout'
+          WHEN ld.latest_source_error IS NULL OR btrim(ld.latest_source_error) = '' THEN 'none'
+          ELSE 'other'
+        END as last_agent_failure_class
+      FROM institution_sources ct
+      LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+      LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
+      WHERE ct.id = ${id}
     `;
     const r = rows[0];
     if (!r) return null;
+    const latestSourceCollectedAt = r.latest_source_collected_at
+      ? toDateStr(r.latest_source_collected_at as string | Date)
+      : null;
+    const publishedFeeCount = Number(r.published_fee_count ?? 0);
+    const lastAgentFailureClass = String(r.last_agent_failure_class ?? "none") as AgentFailureClass;
+    const quality = classifyInstitutionQuality({
+      source: r.source ? String(r.source) : null,
+      certNumber: r.cert_number ? String(r.cert_number) : null,
+      rssdId: r.rssd_id ? String(r.rssd_id) : null,
+      lei: r.lei ? String(r.lei) : null,
+      websiteUrl: r.website_url ? String(r.website_url) : null,
+      feeScheduleUrl: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
+      publishedFeeCount,
+      latestSourceStatus: r.latest_source_status ? String(r.latest_source_status) : null,
+      latestExtractedFeeCount: Number(r.latest_extracted_fee_count ?? 0),
+      latestSourceError: r.latest_source_error ? String(r.latest_source_error) : null,
+      latestSourceCollectedAt,
+      lastAgentFailureClass,
+    });
     return {
       id: Number(r.id),
       institution_name: String(r.institution_name),
@@ -96,12 +232,23 @@ export async function getInstitution(
       asset_size_tier: r.asset_size_tier ? String(r.asset_size_tier) : null,
       asset_size: r.asset_size != null ? Number(r.asset_size) : null,
       fed_district: r.fed_district != null ? Number(r.fed_district) : null,
+      source: r.source ? String(r.source) : null,
       cert_number: r.cert_number ? String(r.cert_number) : null,
+      rssd_id: r.rssd_id ? String(r.rssd_id) : null,
+      lei: r.lei ? String(r.lei) : null,
       website_url: r.website_url ? String(r.website_url) : null,
       fee_schedule_url: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
       document_type: r.document_type ? String(r.document_type) : null,
       last_crawl_at: toDateStr(r.last_crawl_at as string | Date | null),
       consecutive_failures: Number(r.consecutive_failures ?? 0),
+      published_fee_count: publishedFeeCount,
+      latest_source_status: r.latest_source_status ? String(r.latest_source_status) : null,
+      latest_extracted_fee_count: Number(r.latest_extracted_fee_count ?? 0),
+      latest_source_collected_at: latestSourceCollectedAt,
+      last_agent_failure_class: lastAgentFailureClass,
+      quality_status: quality.quality_status,
+      quality_signals: quality.quality_signals,
+      quality_label: getPublicInstitutionQualityLabel(quality.quality_signals),
     };
   } catch (e) {
     console.error("getInstitution failed:", e);
@@ -150,6 +297,225 @@ export async function getInstitutionFees(
   } catch (e) {
     console.error("getInstitutionFees failed:", e);
     return [];
+  }
+}
+
+export async function getInstitutionFeeScheduleEvidence(
+  id: number,
+): Promise<InstitutionFeeScheduleEvidence> {
+  const empty: InstitutionFeeScheduleEvidence = {
+    latest_document: null,
+    latest_text: null,
+    pipeline_counts: {
+      raw_fee_count: 0,
+      verified_fee_count: 0,
+      published_fee_count: 0,
+      raw_without_verified_count: 0,
+      verified_without_published_count: 0,
+    },
+    raw_fee_preview: [],
+    verified_fee_preview: [],
+  };
+
+  try {
+    const [
+      documentRows,
+      textRows,
+      countRows,
+      rawRows,
+      verifiedRows,
+    ] = await Promise.all([
+      sql`
+        SELECT
+          id,
+          source_collection_run_id,
+          status,
+          document_url,
+          document_path,
+          content_hash,
+          COALESCE(fees_extracted, 0) AS fees_extracted,
+          error_message,
+          crawled_at,
+          status_code
+        FROM source_documents
+        WHERE institution_id = ${id}
+        ORDER BY crawled_at DESC NULLS LAST, id DESC
+        LIMIT 1
+      `,
+      sql`
+        SELECT
+          id,
+          agent_run_id,
+          source_document_id,
+          source_url,
+          document_type,
+          content_type,
+          source_hash,
+          status,
+          COALESCE(char_count, 0) AS char_count,
+          error_message,
+          updated_at,
+          NULLIF(left(COALESCE(normalized_text, ''), 700), '') AS text_excerpt
+        FROM agent_source_texts
+        WHERE institution_id = ${id}
+        ORDER BY updated_at DESC NULLS LAST, id DESC
+        LIMIT 1
+      `,
+      sql`
+        SELECT
+          (
+            SELECT COUNT(*)::int
+            FROM raw_fee_observations fr
+            WHERE fr.institution_id = ${id}
+          ) AS raw_fee_count,
+          (
+            SELECT COUNT(*)::int
+            FROM verified_fee_observations fv
+            WHERE fv.institution_id = ${id}
+              AND fv.review_status <> 'rejected'
+          ) AS verified_fee_count,
+          (
+            SELECT COUNT(*)::int
+            FROM published_fee_catalog pfc
+            WHERE pfc.institution_id = ${id}
+              AND pfc.review_status <> 'rejected'
+          ) AS published_fee_count,
+          (
+            SELECT COUNT(*)::int
+            FROM raw_fee_observations fr
+            WHERE fr.institution_id = ${id}
+              AND NOT EXISTS (
+                SELECT 1
+                FROM verified_fee_observations fv
+                WHERE fv.fee_raw_id = fr.fee_raw_id
+                  AND fv.review_status <> 'rejected'
+              )
+          ) AS raw_without_verified_count,
+          (
+            SELECT COUNT(*)::int
+            FROM verified_fee_observations fv
+            WHERE fv.institution_id = ${id}
+              AND fv.review_status <> 'rejected'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM published_fee_catalog pfc
+                WHERE pfc.fee_verified_id = fv.fee_verified_id
+                  AND pfc.review_status <> 'rejected'
+              )
+          ) AS verified_without_published_count
+      `,
+      sql`
+        SELECT
+          fee_raw_id,
+          source_document_id,
+          fee_name,
+          amount,
+          frequency,
+          conditions,
+          extraction_confidence,
+          source_url,
+          source,
+          created_at
+        FROM raw_fee_observations
+        WHERE institution_id = ${id}
+        ORDER BY created_at DESC NULLS LAST, fee_raw_id DESC
+        LIMIT 12
+      `,
+      sql`
+        SELECT
+          fee_verified_id,
+          fee_raw_id,
+          canonical_fee_key,
+          fee_name,
+          amount,
+          frequency,
+          review_status,
+          extraction_confidence,
+          source_url,
+          created_at
+        FROM verified_fee_observations
+        WHERE institution_id = ${id}
+        ORDER BY created_at DESC NULLS LAST, fee_verified_id DESC
+        LIMIT 12
+      `,
+    ]);
+
+    const documentRow = documentRows[0];
+    const textRow = textRows[0];
+    const countRow = countRows[0];
+
+    return {
+      latest_document: documentRow
+        ? {
+            id: Number(documentRow.id),
+            source_collection_run_id: documentRow.source_collection_run_id != null
+              ? Number(documentRow.source_collection_run_id)
+              : null,
+            status: String(documentRow.status),
+            document_url: documentRow.document_url ? String(documentRow.document_url) : null,
+            document_path: documentRow.document_path ? String(documentRow.document_path) : null,
+            content_hash: documentRow.content_hash ? String(documentRow.content_hash) : null,
+            fees_extracted: Number(documentRow.fees_extracted ?? 0),
+            error_message: documentRow.error_message ? String(documentRow.error_message) : null,
+            crawled_at: toDateStr(documentRow.crawled_at as string | Date | null),
+            status_code: documentRow.status_code != null ? Number(documentRow.status_code) : null,
+          }
+        : null,
+      latest_text: textRow
+        ? {
+            id: Number(textRow.id),
+            agent_run_id: textRow.agent_run_id != null ? Number(textRow.agent_run_id) : null,
+            source_document_id: Number(textRow.source_document_id),
+            source_url: textRow.source_url ? String(textRow.source_url) : null,
+            document_type: textRow.document_type ? String(textRow.document_type) : null,
+            content_type: textRow.content_type ? String(textRow.content_type) : null,
+            source_hash: textRow.source_hash ? String(textRow.source_hash) : null,
+            status: String(textRow.status),
+            char_count: Number(textRow.char_count ?? 0),
+            error_message: textRow.error_message ? String(textRow.error_message) : null,
+            updated_at: toDateStr(textRow.updated_at as string | Date | null),
+            text_excerpt: textRow.text_excerpt ? String(textRow.text_excerpt) : null,
+          }
+        : null,
+      pipeline_counts: {
+        raw_fee_count: Number(countRow?.raw_fee_count ?? 0),
+        verified_fee_count: Number(countRow?.verified_fee_count ?? 0),
+        published_fee_count: Number(countRow?.published_fee_count ?? 0),
+        raw_without_verified_count: Number(countRow?.raw_without_verified_count ?? 0),
+        verified_without_published_count: Number(countRow?.verified_without_published_count ?? 0),
+      },
+      raw_fee_preview: rawRows.map((r) => ({
+        fee_raw_id: Number(r.fee_raw_id),
+        source_document_id: r.source_document_id != null ? Number(r.source_document_id) : null,
+        fee_name: String(r.fee_name),
+        amount: r.amount != null ? Number(r.amount) : null,
+        frequency: r.frequency ? String(r.frequency) : null,
+        conditions: r.conditions ? String(r.conditions) : null,
+        extraction_confidence: r.extraction_confidence != null
+          ? Number(r.extraction_confidence)
+          : null,
+        source_url: r.source_url ? String(r.source_url) : null,
+        source: String(r.source ?? "unknown"),
+        created_at: toDateStr(r.created_at as string | Date | null),
+      })),
+      verified_fee_preview: verifiedRows.map((r) => ({
+        fee_verified_id: Number(r.fee_verified_id),
+        fee_raw_id: Number(r.fee_raw_id),
+        canonical_fee_key: String(r.canonical_fee_key),
+        fee_name: String(r.fee_name),
+        amount: r.amount != null ? Number(r.amount) : null,
+        frequency: r.frequency ? String(r.frequency) : null,
+        review_status: String(r.review_status),
+        extraction_confidence: r.extraction_confidence != null
+          ? Number(r.extraction_confidence)
+          : null,
+        source_url: r.source_url ? String(r.source_url) : null,
+        created_at: toDateStr(r.created_at as string | Date | null),
+      })),
+    };
+  } catch (e) {
+    console.error("getInstitutionFeeScheduleEvidence failed:", e);
+    return empty;
   }
 }
 

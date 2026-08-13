@@ -17,7 +17,7 @@ import {
   getInstitutionPeerRanking,
 } from "@/lib/data-store/call-reports";
 import { getDisplayName } from "@/lib/fee-taxonomy";
-import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
+import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -26,7 +26,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import {
   computeInstitutionRating,
-  deriveStrengthsAndWatch,
   generateInterpretation,
 } from "@/lib/institution-rating";
 import type { IndexEntry } from "@/lib/data-store/fee-index";
@@ -250,9 +249,26 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const indexMap = new Map(nationalIndex.map((e) => [e.fee_category, e]));
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
-  const tierLabel = inst.asset_size_tier ? FDIC_TIER_LABELS[inst.asset_size_tier] : null;
   const latestFinancial = financials[0] ?? null;
   const districtName = inst.fed_district ? DISTRICT_NAMES[inst.fed_district] : null;
+  const qualitySignals = inst.quality_signals ?? [];
+  const qualityLabel = inst.quality_label ?? (fees.length > 0 ? "Verified fees" : "Fee schedule not verified");
+  const disclosureUnderReview = Boolean(
+    inst.fee_schedule_url &&
+    (
+      fees.length === 0 ||
+      qualitySignals.some((signal) =>
+        [
+          "bad_or_suspect_url",
+          "url_but_zero_published",
+          "extracted_not_published",
+          "latest_source_failed",
+          "provider_failure",
+        ].includes(signal.code)
+      )
+    )
+  );
+  const showQualityNotice = fees.length === 0 || disclosureUnderReview;
 
   // Rating engine
   const rating = computeInstitutionRating(fees, nationalIndex);
@@ -371,18 +387,47 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   </a>
                 )}
                 {disclosureUrl && (
-                  <a
-                    href={disclosureUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-terra font-medium hover:underline text-xs uppercase tracking-wider"
-                  >
-                    Full Disclosure <FileText className="h-[14px] w-[14px]" />
-                  </a>
+                  disclosureUnderReview ? (
+                    <span className="flex items-center gap-2 text-[#A69D90] font-medium text-xs uppercase tracking-wider">
+                      Disclosure under review <FileText className="h-[14px] w-[14px]" />
+                    </span>
+                  ) : (
+                    <a
+                      href={disclosureUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-terra font-medium hover:underline text-xs uppercase tracking-wider"
+                    >
+                      Full Disclosure <FileText className="h-[14px] w-[14px]" />
+                    </a>
+                  )
                 )}
               </div>
             </div>
           </header>
+
+          {showQualityNotice && (
+            <section className="mb-12 rounded-lg border border-[#E8DFD1] bg-[#FFF8EC] p-5">
+              <div className="flex gap-3">
+                <div className="mt-0.5 text-[#A15C00]">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-sans text-sm font-bold text-[#1A1815]">
+                    Fee schedule not verified yet
+                  </p>
+                  <p className="mt-1 max-w-2xl font-sans text-sm leading-relaxed text-[#7A7062]">
+                    {fees.length === 0
+                      ? "This institution profile is available, but its consumer fee schedule has not been verified into the fee database yet."
+                      : "This institution has fee records, but the current disclosure evidence is still under review."}
+                  </p>
+                  <p className="mt-2 font-sans text-xs font-medium text-[#A15C00]">
+                    Current status: {qualityLabel}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* ── Rating & Interpretation Grid ─────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-16">
@@ -521,20 +566,36 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             </h2>
 
             <div className="space-y-8">
-              {GROUP_ORDER.map((group) => {
-                const rows = groupedRows.get(group) ?? [];
-                if (rows.length === 0) return null;
+              {fees.length === 0 ? (
+                <div className="rounded-lg border border-[var(--hamilton-outline-variant)]/40 bg-[var(--hamilton-surface-container-low)] p-6">
+                  <div className="flex gap-3">
+                    <ShieldCheck className="mt-0.5 h-5 w-5 text-[var(--hamilton-on-surface-variant)]" />
+                    <div>
+                      <p className="font-sans text-sm font-bold text-[var(--hamilton-on-surface)]">
+                        No verified fee schedule is available yet.
+                      </p>
+                      <p className="mt-1 font-sans text-sm leading-relaxed text-[var(--hamilton-on-surface-variant)]">
+                        We are tracking this institution, but its fee observations have not cleared review for publication.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                GROUP_ORDER.map((group) => {
+                  const rows = groupedRows.get(group) ?? [];
+                  if (rows.length === 0) return null;
 
-                return (
-                  <FeeGroup
-                    key={group}
-                    groupName={group}
-                    fees={rows}
-                    isPrimary={PRIMARY_GROUPS.has(group)}
-                    defaultOpen={PRIMARY_GROUPS.has(group)}
-                  />
-                );
-              })}
+                  return (
+                    <FeeGroup
+                      key={group}
+                      groupName={group}
+                      fees={rows}
+                      isPrimary={PRIMARY_GROUPS.has(group)}
+                      defaultOpen={PRIMARY_GROUPS.has(group)}
+                    />
+                  );
+                })
+              )}
             </div>
           </section>
 

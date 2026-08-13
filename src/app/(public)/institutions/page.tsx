@@ -99,7 +99,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-[#7A7062]">
               {results.total.toLocaleString()} institution{results.total !== 1 ? "s" : ""} found
-              {query && <span> for "<strong className="text-[#1A1815]">{query}</strong>"</span>}
+              {query && <span> for <strong className="text-[#1A1815]">{query}</strong></span>}
             </p>
           </div>
 
@@ -118,6 +118,9 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                   </th>
                   <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">
                     Fees
+                  </th>
+                  <th className="hidden md:table-cell px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">
+                    Status
                   </th>
                 </tr>
               </thead>
@@ -152,6 +155,17 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                       ) : (
                         <span className="text-[#D5CBBF]">--</span>
                       )}
+                    </td>
+                    <td className="hidden md:table-cell px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium ${
+                          r.quality_status === "verified"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-[#E8DFD1] bg-[#FAF7F2] text-[#7A7062]"
+                        }`}
+                      >
+                        {r.quality_label}
+                      </span>
                     </td>
                   </tr>
                 ))}

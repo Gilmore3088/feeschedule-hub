@@ -20,6 +20,7 @@ const DESTINATIONS = [
   { href: "/admin/market", label: "Market", detail: "Filter fee benchmarks by institution and market attributes.", icon: BarChart3 },
   { href: "/admin/peers", label: "Peer analysis", detail: "Compare institutions and saved peer groups.", icon: Search },
   { href: "/admin/fees/catalog", label: "Fee categories", detail: "Browse the canonical taxonomy and category distributions.", icon: ListTree },
+  { href: "/admin/states", label: "States", detail: "Review state-level institution coverage and repair backlog.", icon: Map },
   { href: "/admin/districts", label: "Federal Reserve districts", detail: "Review district-level fee and economic context.", icon: Map },
   { href: "/admin/query", label: "Data explorer", detail: "Run controlled administrative data queries.", icon: Database },
 ] as const;

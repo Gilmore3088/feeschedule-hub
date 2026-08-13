@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { LoginForm } from "./login-form";
 import type { Metadata } from "next";
+import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Sign In | Bank Fee Index",
@@ -14,14 +16,15 @@ export default async function LoginPage({
   searchParams: Promise<{ from?: string }>;
 }) {
   const user = await getCurrentUser();
+  const params = await searchParams;
+  const destination = sanitizeInternalRedirect(params.from, "/account");
+
   if (user) {
     if (user.role === "admin" || user.role === "analyst") {
-      redirect("/admin");
+      redirect(destination.startsWith("/admin") ? destination : "/admin");
     }
-    redirect("/account");
+    redirect(destination.startsWith("/admin") ? "/account" : destination);
   }
-
-  const params = await searchParams;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -39,7 +42,7 @@ export default async function LoginPage({
 
         <div className="relative z-10 max-w-md">
           {/* Logo */}
-          <a href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline mb-10">
+          <Link href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline mb-10">
             <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px] text-[#C44B2E]" stroke="currentColor" strokeWidth="1.5">
               <rect x="4" y="13" width="4" height="8" rx="1" />
               <rect x="10" y="8" width="4" height="13" rx="1" />
@@ -48,7 +51,7 @@ export default async function LoginPage({
             <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
               Bank Fee Index
             </span>
-          </a>
+          </Link>
 
           {/* Accent line */}
           <div className="w-10 h-[3px] bg-[#C44B2E] rounded-full mb-6" />
@@ -88,7 +91,7 @@ export default async function LoginPage({
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="text-center mb-8 lg:hidden">
-            <a href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline mb-4">
+            <Link href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline mb-4">
               <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px] text-[#C44B2E]" stroke="currentColor" strokeWidth="1.5">
                 <rect x="4" y="13" width="4" height="8" rx="1" />
                 <rect x="10" y="8" width="4" height="13" rx="1" />
@@ -97,7 +100,7 @@ export default async function LoginPage({
               <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
                 Bank Fee Index
               </span>
-            </a>
+            </Link>
           </div>
 
           <div className="lg:bg-white lg:rounded-xl lg:p-8">
@@ -110,9 +113,9 @@ export default async function LoginPage({
             <LoginForm redirectTo={params.from || "/account"} />
             <p className="mt-4 text-center text-sm text-[#7A7062]">
               Don&apos;t have an account?{" "}
-              <a href="/register" className="text-[#1A1815] font-medium hover:underline">
+              <Link href="/register" className="text-[#1A1815] font-medium hover:underline">
                 Create one
-              </a>
+              </Link>
             </p>
           </div>
         </div>

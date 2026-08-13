@@ -7,8 +7,9 @@ export function formatAmount(amount: number | null): string {
 
 export function formatAssets(assets: number | null): string {
   if (!assets) return "N/A";
-  if (assets > 1_000_000) return `$${(assets / 1_000_000).toFixed(1)}B`;
-  if (assets > 1_000) return `$${(assets / 1_000).toFixed(0)}M`;
+  if (assets >= 1_000_000_000) return `$${(assets / 1_000_000_000).toFixed(1)}T`;
+  if (assets >= 1_000_000) return `$${(assets / 1_000_000).toFixed(1)}B`;
+  if (assets >= 1_000) return `$${(assets / 1_000).toFixed(0)}M`;
   return `$${assets}K`;
 }
 

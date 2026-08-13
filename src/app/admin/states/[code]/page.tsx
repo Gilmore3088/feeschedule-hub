@@ -68,7 +68,7 @@ export default async function StateDetailPage({
         <Breadcrumbs
           items={[
             { label: "Dashboard", href: "/admin" },
-            { label: "States" },
+            { label: "States", href: "/admin/states" },
             { label: stateCode },
           ]}
         />

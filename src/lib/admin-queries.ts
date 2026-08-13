@@ -11,6 +11,15 @@
 
 import { sql } from "@/lib/data-store/connection";
 import { toDateStr } from "@/lib/pg-helpers";
+import {
+  classifyInstitutionQuality,
+  type AgentFailureClass,
+  type InstitutionQualityFilter,
+  type InstitutionQualitySignal,
+  type InstitutionQualityStatus,
+} from "@/lib/institution-quality";
+import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
+import { STATE_NAMES } from "@/lib/us-states";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,6 +47,21 @@ export interface StateCoverage {
   state_code: string;
   total: number;
   with_fees: number;
+  pct: number;
+}
+
+export interface StateOverviewRow {
+  state_code: string;
+  name: string;
+  district: number | null;
+  district_name: string | null;
+  total: number;
+  with_urls: number;
+  with_fees: number;
+  missing_url: number;
+  url_but_zero: number;
+  latest_failed: number;
+  extracted_not_published: number;
   pct: number;
 }
 
@@ -284,6 +308,96 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
     });
   } catch (e) {
     console.error("getCoverageByState failed:", e);
+    return [];
+  }
+}
+
+export async function getStateOverview(): Promise<StateOverviewRow[]> {
+  try {
+    const rows = await sql`
+      WITH fee_counts AS (
+        SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+        FROM published_fee_catalog
+        GROUP BY institution_id
+      ),
+      latest_docs AS (
+        SELECT DISTINCT ON (institution_id)
+          institution_id,
+          status AS latest_source_status,
+          COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count
+        FROM source_documents
+        ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
+      )
+      SELECT
+        ct.state_code,
+        COUNT(DISTINCT ct.id)::int AS total,
+        COUNT(DISTINCT CASE
+          WHEN ct.fee_schedule_url IS NOT NULL AND btrim(ct.fee_schedule_url) <> '' THEN ct.id
+        END)::int AS with_urls,
+        COUNT(DISTINCT CASE
+          WHEN COALESCE(fc.published_fee_count, 0) > 0 THEN ct.id
+        END)::int AS with_fees,
+        COUNT(DISTINCT CASE
+          WHEN ct.fee_schedule_url IS NULL OR btrim(ct.fee_schedule_url) = '' THEN ct.id
+        END)::int AS missing_url,
+        COUNT(DISTINCT CASE
+          WHEN ct.fee_schedule_url IS NOT NULL
+            AND btrim(ct.fee_schedule_url) <> ''
+            AND COALESCE(fc.published_fee_count, 0) = 0
+          THEN ct.id
+        END)::int AS url_but_zero,
+        COUNT(DISTINCT CASE
+          WHEN ld.latest_source_status = 'failed' THEN ct.id
+        END)::int AS latest_failed,
+        COUNT(DISTINCT CASE
+          WHEN ld.latest_source_status = 'success'
+            AND COALESCE(ld.latest_extracted_fee_count, 0) > 0
+            AND COALESCE(fc.published_fee_count, 0) = 0
+          THEN ct.id
+        END)::int AS extracted_not_published
+      FROM institution_sources ct
+      LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+      LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
+      WHERE ct.state_code IS NOT NULL
+        AND btrim(ct.state_code) <> ''
+      GROUP BY ct.state_code
+      ORDER BY ct.state_code
+    `;
+
+    const byCode = new Map<string, Record<string, unknown>>();
+    for (const row of rows) {
+      byCode.set(String(row.state_code).toUpperCase(), row);
+    }
+
+    const codes = [
+      ...new Set([
+        ...Object.keys(STATE_NAMES),
+        ...rows.map((row) => String(row.state_code).toUpperCase()),
+      ]),
+    ].sort((a, b) => a.localeCompare(b));
+
+    return codes.map((code) => {
+      const row = byCode.get(code);
+      const total = Number(row?.total ?? 0);
+      const withFees = Number(row?.with_fees ?? 0);
+      const district = STATE_TO_DISTRICT[code] ?? null;
+      return {
+        state_code: code,
+        name: STATE_NAMES[code] ?? code,
+        district,
+        district_name: district ? DISTRICT_NAMES[district] ?? `District ${district}` : null,
+        total,
+        with_urls: Number(row?.with_urls ?? 0),
+        with_fees: withFees,
+        missing_url: Number(row?.missing_url ?? 0),
+        url_but_zero: Number(row?.url_but_zero ?? 0),
+        latest_failed: Number(row?.latest_failed ?? 0),
+        extracted_not_published: Number(row?.extracted_not_published ?? 0),
+        pct: total > 0 ? Math.round((withFees / total) * 100) : 0,
+      };
+    });
+  } catch (e) {
+    console.error("getStateOverview failed:", e);
     return [];
   }
 }
@@ -997,11 +1111,28 @@ export async function getOpsJobs(limit = 50): Promise<OpsJobRow[]> {
 export interface InstitutionRow {
   id: number;
   institution_name: string;
+  city: string | null;
   state_code: string | null;
   charter_type: string | null;
   asset_size: number | null;
+  source: string | null;
+  cert_number: string | null;
+  rssd_id: string | null;
+  lei: string | null;
+  website_url: string | null;
+  fee_schedule_url: string | null;
+  document_type: string | null;
   has_fee_url: boolean;
   fee_count: number;
+  published_fee_count: number;
+  latest_source_status: string | null;
+  latest_extracted_fee_count: number;
+  latest_source_error: string | null;
+  latest_source_collected_at: string | null;
+  last_agent_failure_class: AgentFailureClass;
+  quality_status: InstitutionQualityStatus;
+  quality_signals: InstitutionQualitySignal[];
+  recommended_action: string;
 }
 
 export interface SearchInstitutionsResult {
@@ -1018,8 +1149,78 @@ const INSTITUTIONS_SORT_SQL: Record<string, string> = {
   charter_type: "ct.charter_type",
   asset_size: "ct.asset_size",
   has_fee_url: "(ct.fee_schedule_url IS NOT NULL)",
-  fee_count: "COALESCE(fc.fee_count, 0)",
+  fee_count: "COALESCE(fc.published_fee_count, 0)",
 };
+
+const INSTITUTION_QUALITY_CTE = `
+  WITH fee_counts AS (
+    SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+    FROM published_fee_catalog
+    GROUP BY institution_id
+  ),
+  latest_docs AS (
+    SELECT DISTINCT ON (institution_id)
+      institution_id,
+      status AS latest_source_status,
+      COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count,
+      error_message AS latest_source_error,
+      crawled_at AS latest_source_collected_at
+    FROM source_documents
+    ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
+  )
+`;
+
+const HAS_FEE_URL_SQL = "(ct.fee_schedule_url IS NOT NULL AND btrim(ct.fee_schedule_url) <> '')";
+const ZERO_PUBLISHED_SQL = "COALESCE(fc.published_fee_count, 0) = 0";
+const PROVIDER_FAILURE_SQL = "(ld.latest_source_error ILIKE '%credit balance is too low%')";
+const IDENTITY_GAP_SQL = `(
+  ct.source IS NULL OR btrim(ct.source) = ''
+  OR ct.cert_number IS NULL OR btrim(ct.cert_number) = ''
+  OR ct.website_url IS NULL OR btrim(ct.website_url) = ''
+)`;
+const SUSPECT_FEE_URL_SQL = `(
+  lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%/ir/news/%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%press%release%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%newsroom%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%page-not-found%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%pagenotfound%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%shareholder%rights%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%credit-card-agreements%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%wrap-fee-agreement%'
+  OR lower(COALESCE(ct.fee_schedule_url, '')) LIKE '%advice/understanding-banking-fees%'
+)`;
+
+function institutionQualityWhere(filter?: InstitutionQualityFilter): string | null {
+  switch (filter) {
+    case "needs_review":
+      return `(
+        ${SUSPECT_FEE_URL_SQL}
+        OR (${HAS_FEE_URL_SQL} AND ${ZERO_PUBLISHED_SQL})
+        OR (ld.latest_source_status = 'success' AND COALESCE(ld.latest_extracted_fee_count, 0) > 0 AND ${ZERO_PUBLISHED_SQL})
+        OR ld.latest_source_status = 'failed'
+        OR ${PROVIDER_FAILURE_SQL}
+        OR ${IDENTITY_GAP_SQL}
+      )`;
+    case "url_but_zero_fees":
+      return `(${HAS_FEE_URL_SQL} AND ${ZERO_PUBLISHED_SQL})`;
+    case "extracted_not_published":
+      return `(ld.latest_source_status = 'success' AND COALESCE(ld.latest_extracted_fee_count, 0) > 0 AND ${ZERO_PUBLISHED_SQL})`;
+    case "latest_failed":
+      return `(ld.latest_source_status = 'failed')`;
+    case "missing_url":
+      return `(NOT ${HAS_FEE_URL_SQL})`;
+    case "verified":
+      return `(
+        COALESCE(fc.published_fee_count, 0) > 0
+        AND NOT ${SUSPECT_FEE_URL_SQL}
+        AND COALESCE(ld.latest_source_status, '') <> 'failed'
+        AND NOT ${PROVIDER_FAILURE_SQL}
+        AND NOT ${IDENTITY_GAP_SQL}
+      )`;
+    default:
+      return null;
+  }
+}
 
 export async function searchInstitutions(
   query: string | undefined,
@@ -1027,6 +1228,7 @@ export async function searchInstitutions(
   limit: number,
   sort?: string,
   dir?: "asc" | "desc",
+  quality?: InstitutionQualityFilter,
 ): Promise<SearchInstitutionsResult> {
   try {
     const offset = (page - 1) * limit;
@@ -1037,56 +1239,60 @@ export async function searchInstitutions(
     const sortDir = dir === "asc" ? "ASC" : "DESC";
     const orderBy = `${sortCol} ${sortDir} NULLS LAST`;
 
+    const params: (string | number)[] = [];
+    const whereParts: string[] = [];
     if (query && query.trim()) {
       const pattern = `%${query.trim()}%`;
-      const countResult = await sql`
-        SELECT COUNT(*) as cnt FROM institution_sources
-        WHERE institution_name ILIKE ${pattern}
-      `;
-      const total = Number(countResult[0].cnt);
-
-      const rows = await sql.unsafe(
-        `
-        SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
-               (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
-               COALESCE(fc.fee_count, 0) as fee_count
-        FROM institution_sources ct
-        LEFT JOIN (
-          SELECT institution_id, COUNT(*) as fee_count
-          FROM published_fee_catalog
-          GROUP BY institution_id
-        ) fc ON fc.institution_id = ct.id
-        WHERE ct.institution_name ILIKE $1
-        ORDER BY ${orderBy}
-        LIMIT $2 OFFSET $3
-        `,
-        [pattern, limit, offset],
-      );
-
-      return {
-        total,
-        institutions: rows.map(mapInstitutionRow),
-      };
+      params.push(pattern);
+      whereParts.push(`ct.institution_name ILIKE $${params.length}`);
     }
 
-    const countResult = await sql`SELECT COUNT(*) as cnt FROM institution_sources`;
+    const qualityWhere = institutionQualityWhere(quality);
+    if (qualityWhere) whereParts.push(qualityWhere);
+
+    const where = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+
+    const countResult = await sql.unsafe(
+      `
+      ${INSTITUTION_QUALITY_CTE}
+      SELECT COUNT(*) as cnt
+      FROM institution_sources ct
+      LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+      LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
+      ${where}
+      `,
+      params,
+    );
     const total = Number(countResult[0].cnt);
 
     const rows = await sql.unsafe(
       `
-      SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
-             (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
-             COALESCE(fc.fee_count, 0) as fee_count
+      ${INSTITUTION_QUALITY_CTE}
+      SELECT ct.id, ct.institution_name, ct.city, ct.state_code, ct.charter_type, ct.asset_size,
+             ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.website_url,
+             ct.fee_schedule_url, ct.document_type,
+             ${HAS_FEE_URL_SQL} as has_fee_url,
+             COALESCE(fc.published_fee_count, 0) as fee_count,
+             COALESCE(fc.published_fee_count, 0) as published_fee_count,
+             ld.latest_source_status,
+             COALESCE(ld.latest_extracted_fee_count, 0) as latest_extracted_fee_count,
+             ld.latest_source_error,
+             ld.latest_source_collected_at,
+             CASE
+               WHEN ld.latest_source_error ILIKE '%credit balance is too low%' THEN 'provider_credit'
+               WHEN ld.latest_source_error ILIKE '%tool_use%' THEN 'tool_protocol'
+               WHEN ld.latest_source_error ILIKE '%timeout%' OR ld.latest_source_error ILIKE '%timed out%' THEN 'timeout'
+               WHEN ld.latest_source_error IS NULL OR btrim(ld.latest_source_error) = '' THEN 'none'
+               ELSE 'other'
+             END as last_agent_failure_class
       FROM institution_sources ct
-      LEFT JOIN (
-        SELECT institution_id, COUNT(*) as fee_count
-        FROM published_fee_catalog
-        GROUP BY institution_id
-      ) fc ON fc.institution_id = ct.id
+      LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+      LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
+      ${where}
       ORDER BY ${orderBy}
-      LIMIT $1 OFFSET $2
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `,
-      [limit, offset],
+      [...params, limit, offset],
     );
 
     return {
@@ -1100,14 +1306,51 @@ export async function searchInstitutions(
 }
 
 function mapInstitutionRow(r: Record<string, unknown>): InstitutionRow {
+  const latestSourceCollectedAt = r.latest_source_collected_at
+    ? toDateStr(r.latest_source_collected_at as string | Date)
+    : null;
+  const publishedFeeCount = Number(r.published_fee_count ?? r.fee_count ?? 0);
+  const lastAgentFailureClass = String(r.last_agent_failure_class ?? "none") as AgentFailureClass;
+  const quality = classifyInstitutionQuality({
+    source: r.source ? String(r.source) : null,
+    certNumber: r.cert_number ? String(r.cert_number) : null,
+    rssdId: r.rssd_id ? String(r.rssd_id) : null,
+    lei: r.lei ? String(r.lei) : null,
+    websiteUrl: r.website_url ? String(r.website_url) : null,
+    feeScheduleUrl: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
+    publishedFeeCount,
+    latestSourceStatus: r.latest_source_status ? String(r.latest_source_status) : null,
+    latestExtractedFeeCount: Number(r.latest_extracted_fee_count ?? 0),
+    latestSourceError: r.latest_source_error ? String(r.latest_source_error) : null,
+    latestSourceCollectedAt,
+    lastAgentFailureClass,
+  });
+
   return {
     id: Number(r.id),
     institution_name: String(r.institution_name),
+    city: r.city ? String(r.city) : null,
     state_code: r.state_code ? String(r.state_code) : null,
     charter_type: r.charter_type ? String(r.charter_type) : null,
     asset_size: r.asset_size != null ? Number(r.asset_size) : null,
+    source: r.source ? String(r.source) : null,
+    cert_number: r.cert_number ? String(r.cert_number) : null,
+    rssd_id: r.rssd_id ? String(r.rssd_id) : null,
+    lei: r.lei ? String(r.lei) : null,
+    website_url: r.website_url ? String(r.website_url) : null,
+    fee_schedule_url: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
+    document_type: r.document_type ? String(r.document_type) : null,
     has_fee_url: Boolean(r.has_fee_url),
-    fee_count: Number(r.fee_count),
+    fee_count: publishedFeeCount,
+    published_fee_count: publishedFeeCount,
+    latest_source_status: r.latest_source_status ? String(r.latest_source_status) : null,
+    latest_extracted_fee_count: Number(r.latest_extracted_fee_count ?? 0),
+    latest_source_error: r.latest_source_error ? String(r.latest_source_error) : null,
+    latest_source_collected_at: latestSourceCollectedAt,
+    last_agent_failure_class: lastAgentFailureClass,
+    quality_status: quality.quality_status,
+    quality_signals: quality.quality_signals,
+    recommended_action: quality.recommended_action,
   };
 }
 
@@ -1235,39 +1478,87 @@ export async function getFeeCatalogSummary(): Promise<FeeCatalogRow[]> {
 export interface DistrictOverviewRow {
   district: number;
   name: string;
+  states: string[];
   total: number;
+  with_urls: number;
   with_fees: number;
+  url_but_zero: number;
+  latest_failed: number;
+  extracted_not_published: number;
   pct: number;
 }
 
 export async function getDistrictOverview(): Promise<DistrictOverviewRow[]> {
-  const NAMES: Record<number, string> = {
-    1: "Boston", 2: "New York", 3: "Philadelphia", 4: "Cleveland",
-    5: "Richmond", 6: "Atlanta", 7: "Chicago", 8: "St. Louis",
-    9: "Minneapolis", 10: "Kansas City", 11: "Dallas", 12: "San Francisco",
-  };
-
   try {
     const rows = await sql`
+      WITH fee_counts AS (
+        SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+        FROM published_fee_catalog
+        GROUP BY institution_id
+      ),
+      latest_docs AS (
+        SELECT DISTINCT ON (institution_id)
+          institution_id,
+          status AS latest_source_status,
+          COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count
+        FROM source_documents
+        ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
+      )
       SELECT
         ct.fed_district as district,
-        COUNT(*) as total,
-        COUNT(DISTINCT ef.institution_id) as with_fees
+        COUNT(DISTINCT ct.id)::int as total,
+        COUNT(DISTINCT CASE
+          WHEN ct.fee_schedule_url IS NOT NULL AND btrim(ct.fee_schedule_url) <> '' THEN ct.id
+        END)::int AS with_urls,
+        COUNT(DISTINCT CASE
+          WHEN COALESCE(fc.published_fee_count, 0) > 0 THEN ct.id
+        END)::int AS with_fees,
+        COUNT(DISTINCT CASE
+          WHEN ct.fee_schedule_url IS NOT NULL
+            AND btrim(ct.fee_schedule_url) <> ''
+            AND COALESCE(fc.published_fee_count, 0) = 0
+          THEN ct.id
+        END)::int AS url_but_zero,
+        COUNT(DISTINCT CASE
+          WHEN ld.latest_source_status = 'failed' THEN ct.id
+        END)::int AS latest_failed,
+        COUNT(DISTINCT CASE
+          WHEN ld.latest_source_status = 'success'
+            AND COALESCE(ld.latest_extracted_fee_count, 0) > 0
+            AND COALESCE(fc.published_fee_count, 0) = 0
+          THEN ct.id
+        END)::int AS extracted_not_published
       FROM institution_sources ct
-      LEFT JOIN published_fee_catalog ef ON ef.institution_id = ct.id
+      LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+      LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
       WHERE ct.fed_district IS NOT NULL
       GROUP BY ct.fed_district
       ORDER BY ct.fed_district
     `;
-    return rows.map((r) => {
-      const total = Number(r.total);
-      const withFees = Number(r.with_fees);
-      const d = Number(r.district);
+
+    const byDistrict = new Map<number, Record<string, unknown>>();
+    for (const row of rows) {
+      byDistrict.set(Number(row.district), row);
+    }
+
+    return Array.from({ length: 12 }, (_, index) => index + 1).map((d) => {
+      const row = byDistrict.get(d);
+      const total = Number(row?.total ?? 0);
+      const withFees = Number(row?.with_fees ?? 0);
+      const states = Object.entries(STATE_TO_DISTRICT)
+        .filter(([, district]) => district === d)
+        .map(([code]) => code)
+        .sort((a, b) => a.localeCompare(b));
       return {
         district: d,
-        name: NAMES[d] ?? `District ${d}`,
+        name: DISTRICT_NAMES[d] ?? `District ${d}`,
+        states,
         total,
+        with_urls: Number(row?.with_urls ?? 0),
         with_fees: withFees,
+        url_but_zero: Number(row?.url_but_zero ?? 0),
+        latest_failed: Number(row?.latest_failed ?? 0),
+        extracted_not_published: Number(row?.extracted_not_published ?? 0),
         pct: total > 0 ? Math.round((withFees / total) * 100) : 0,
       };
     });

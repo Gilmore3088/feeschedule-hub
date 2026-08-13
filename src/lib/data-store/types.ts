@@ -1,3 +1,8 @@
+import type {
+  InstitutionQualitySignal,
+  InstitutionQualityStatus,
+} from "@/lib/institution-quality";
+
 export interface InstitutionSummary {
   id: number;
   institution_name: string;
@@ -61,9 +66,21 @@ export interface InstitutionDetail {
   asset_size_tier: string | null;
   fed_district: number | null;
   city: string | null;
+  source?: string | null;
+  cert_number?: string | null;
+  rssd_id?: string | null;
+  lei?: string | null;
+  document_type?: string | null;
   website_url: string | null;
   fee_schedule_url: string | null;
   fee_count: number;
+  published_fee_count?: number;
+  latest_source_status?: string | null;
+  latest_extracted_fee_count?: number;
+  latest_source_collected_at?: string | null;
+  quality_status?: InstitutionQualityStatus;
+  quality_signals?: InstitutionQualitySignal[];
+  quality_label?: string;
 }
 
 export interface CollectionStats {

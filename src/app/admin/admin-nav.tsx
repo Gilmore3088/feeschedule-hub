@@ -38,7 +38,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         label: "Magellan",
         role: "1 Discover + extract",
         icon: Compass,
-        activePrefixes: ["/admin/coverage", "/admin/states"],
+        activePrefixes: ["/admin/coverage"],
       },
       { href: "/admin/darwin", label: "Darwin", role: "2 Classify fees", icon: Dna },
       {
@@ -56,7 +56,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Database,
         activePrefixes: [
           "/admin/institutions", "/admin/institution", "/admin/index", "/admin/market",
-          "/admin/peers", "/admin/fees", "/admin/districts", "/admin/query", "/admin/national",
+          "/admin/peers", "/admin/fees", "/admin/states", "/admin/districts", "/admin/query", "/admin/national",
         ],
       },
     ],
