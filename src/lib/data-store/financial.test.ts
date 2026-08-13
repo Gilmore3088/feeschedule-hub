@@ -63,7 +63,7 @@ describe("getFinancialsByInstitution - thousands scaling", () => {
 
   it("multiplies dollar columns by 1000", async () => {
     const dbRow = {
-      crawl_target_id: 1,
+      institution_id: 1,
       report_date: "2024-09-30",
       source: "fdic",
       total_assets: 500000,           // DB value in thousands
@@ -102,7 +102,7 @@ describe("getFinancialsByInstitution - thousands scaling", () => {
 
   it("leaves ratio columns unchanged", async () => {
     const dbRow = {
-      crawl_target_id: 1,
+      institution_id: 1,
       report_date: "2024-09-30",
       source: "fdic",
       total_assets: 500000,
@@ -139,7 +139,7 @@ describe("getFinancialsByInstitution - thousands scaling", () => {
 
   it("leaves count columns unchanged", async () => {
     const dbRow = {
-      crawl_target_id: 1,
+      institution_id: 1,
       report_date: "2024-09-30",
       source: "ncua",
       total_assets: 100000,
@@ -173,7 +173,7 @@ describe("getFinancialsByInstitution - thousands scaling", () => {
 
   it("handles null dollar columns correctly", async () => {
     const dbRow = {
-      crawl_target_id: 1,
+      institution_id: 1,
       report_date: "2024-09-30",
       source: "fdic",
       total_assets: null,

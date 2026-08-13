@@ -30,7 +30,7 @@ function makeMockSql(rows: unknown[] | Error): MockSql {
 
 const SAMPLE_ROW = {
   id: 1,
-  crawl_target_id: 42,
+  institution_id: 42,
   institution_name: "First National Bank",
   fee_category: "overdraft",
   old_amount: 30,
@@ -75,7 +75,7 @@ describe("getFeeChangeEvents", () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       id: 1,
-      crawl_target_id: 42,
+      institution_id: 42,
       institution_name: "First National Bank",
       fee_category: "overdraft",
       old_amount: 30,

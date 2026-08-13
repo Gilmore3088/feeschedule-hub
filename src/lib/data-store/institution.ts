@@ -197,9 +197,9 @@ export async function getInstitutionAgentResults(
         arr.detail,
         ar.started_at as run_started_at,
         ar.status as run_status
-      FROM agent_run_results arr
+      FROM agent_institution_run_results arr
       JOIN agent_runs ar ON ar.id = arr.agent_run_id
-      WHERE arr.crawl_target_id = ${id}
+      WHERE arr.institution_id = ${id}
       ORDER BY ar.started_at DESC NULLS LAST, arr.id DESC
       LIMIT ${limit}
     `;

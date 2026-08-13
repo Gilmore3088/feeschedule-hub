@@ -74,7 +74,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-// TODO Phase 50: wire fee movements to real fee_change_events data
+// TODO Phase 50: wire fee movements to real fee_change_records data
 
 // ---------------------------------------------------------------------------
 // Sub-components

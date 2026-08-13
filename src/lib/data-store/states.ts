@@ -181,7 +181,7 @@ export interface AgentRunDetail {
 
 export interface AgentRunResult {
   id: number;
-  crawl_target_id: number;
+  institution_id: number;
   institution_name: string;
   stage: string;
   status: string;
@@ -218,17 +218,17 @@ export async function getAgentRunDetail(runId: number): Promise<{
     };
 
     const resultRows = await sql`
-      SELECT arr.id, arr.crawl_target_id, ct.institution_name,
+      SELECT arr.id, arr.institution_id, ct.institution_name,
              arr.stage, arr.status, arr.detail, arr.created_at
-      FROM agent_run_results arr
-      JOIN institution_sources ct ON ct.id = arr.crawl_target_id
+      FROM agent_institution_run_results arr
+      JOIN institution_sources ct ON ct.id = arr.institution_id
       WHERE arr.agent_run_id = ${runId}
       ORDER BY ct.institution_name, arr.created_at
     `;
 
     const results: AgentRunResult[] = resultRows.map((row) => ({
       id: Number(row.id),
-      crawl_target_id: Number(row.crawl_target_id),
+      institution_id: Number(row.institution_id),
       institution_name: String(row.institution_name),
       stage: String(row.stage),
       status: String(row.status),
@@ -256,8 +256,8 @@ export async function getStateUrlResolutionQueue(
       FROM institution_sources ct
       LEFT JOIN LATERAL (
         SELECT arr.detail->>'reason' as reason
-        FROM agent_run_results arr
-        WHERE arr.crawl_target_id = ct.id AND arr.status = 'failed'
+        FROM agent_institution_run_results arr
+        WHERE arr.institution_id = ct.id AND arr.status = 'failed'
         ORDER BY arr.created_at DESC
         LIMIT 1
       ) latest_result ON true

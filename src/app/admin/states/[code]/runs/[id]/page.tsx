@@ -12,7 +12,7 @@ import type { AgentRunResult } from "@/lib/data-store/states";
 // ---------------------------------------------------------------------------
 
 interface InstitutionRow {
-  crawl_target_id: number;
+  institution_id: number;
   institution_name: string;
   discover: AgentRunResult | null;
   classify: AgentRunResult | null;
@@ -29,9 +29,9 @@ const STAGES = ["discover", "classify", "extract", "validate"] as const;
 function buildInstitutionRows(results: AgentRunResult[]): InstitutionRow[] {
   const map = new Map<number, InstitutionRow>();
   for (const r of results) {
-    if (!map.has(r.crawl_target_id)) {
-      map.set(r.crawl_target_id, {
-        crawl_target_id: r.crawl_target_id,
+    if (!map.has(r.institution_id)) {
+      map.set(r.institution_id, {
+        institution_id: r.institution_id,
         institution_name: r.institution_name,
         discover: null,
         classify: null,
@@ -39,7 +39,7 @@ function buildInstitutionRows(results: AgentRunResult[]): InstitutionRow[] {
         validate: null,
       });
     }
-    const row = map.get(r.crawl_target_id)!;
+    const row = map.get(r.institution_id)!;
     const stage = r.stage as (typeof STAGES)[number];
     if (STAGES.includes(stage)) {
       row[stage] = r;
@@ -179,12 +179,12 @@ export default async function AgentRunDetailPage({
               <tbody>
                 {rows.map((row) => (
                   <tr
-                    key={row.crawl_target_id}
+                    key={row.institution_id}
                     className="hover:bg-gray-50/50 dark:hover:bg-white/[0.04] transition-colors"
                   >
                     <td className="text-gray-900 dark:text-gray-100 font-medium">
                       <Link
-                        href={`/admin/institution/${row.crawl_target_id}`}
+                        href={`/admin/institution/${row.institution_id}`}
                         className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                       >
                         {row.institution_name}

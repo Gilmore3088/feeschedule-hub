@@ -20,7 +20,7 @@ export interface AgentRun {
 export interface AgentRunResult {
   id: number;
   agent_run_id: number;
-  crawl_target_id: number;
+  institution_id: number;
   stage: "discover" | "classify" | "extract" | "validate";
   status: "ok" | "failed" | "skipped";
   detail: Record<string, unknown>;

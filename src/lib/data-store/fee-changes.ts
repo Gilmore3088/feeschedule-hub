@@ -1,7 +1,7 @@
 /**
  * Fee Change Events — DB Query
  *
- * Queries the fee_change_events table with graceful degradation.
+ * Queries the fee_change_records table with graceful degradation.
  * Returns [] (no throw) when the table is absent or empty.
  */
 
@@ -9,7 +9,7 @@ import { getSql } from "./connection";
 
 export interface FeeChangeEvent {
   id: number;
-  crawl_target_id: number;
+  institution_id: number;
   institution_name: string;
   fee_category: string;
   old_amount: number | null;
@@ -32,7 +32,7 @@ const MAX_LIMIT = 500;
 function isTableMissingError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return (
-    msg.includes("fee_change_events") ||
+    msg.includes("fee_change_records") ||
     msg.includes("does not exist") ||
     msg.includes("no such table")
   );
@@ -83,7 +83,7 @@ export async function getFeeChangeEvents(
   const query = `
     SELECT
       fce.id,
-      fce.crawl_target_id,
+      fce.institution_id,
       ct.institution_name,
       fce.fee_category,
       fce.old_amount,
@@ -91,8 +91,8 @@ export async function getFeeChangeEvents(
       fce.change_type,
       fce.changed_at,
       ct.charter_type
-    FROM fee_change_events fce
-    JOIN institution_sources ct ON ct.id = fce.crawl_target_id
+    FROM fee_change_records fce
+    JOIN institution_sources ct ON ct.id = fce.institution_id
     ${where}
     ORDER BY fce.changed_at DESC
     LIMIT ${rowLimit}
@@ -101,7 +101,7 @@ export async function getFeeChangeEvents(
   try {
     const rows = (await sql.unsafe(query, params)) as {
       id: number;
-      crawl_target_id: number;
+      institution_id: number;
       institution_name: string;
       fee_category: string;
       old_amount: number | null;
@@ -113,7 +113,7 @@ export async function getFeeChangeEvents(
 
     return rows.map((row) => ({
       id: Number(row.id),
-      crawl_target_id: Number(row.crawl_target_id),
+      institution_id: Number(row.institution_id),
       institution_name: row.institution_name,
       fee_category: row.fee_category,
       old_amount: row.old_amount !== null ? Number(row.old_amount) : null,

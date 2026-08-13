@@ -11,7 +11,7 @@ const dollarOrNull = numOrNull;
 export { dollarOrNull as _dollarOrNull_FOR_TESTING };
 
 export interface InstitutionFinancial {
-  crawl_target_id: number;
+  institution_id: number;
   report_date: string;
   source: string;
   total_assets: number | null;
@@ -46,11 +46,11 @@ export interface ComplaintSummary {
 }
 
 export async function getFinancialStats(): Promise<FinancialStats> {
-  const [fdic] = await sql`SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'fdic'`;
-  const [ncua] = await sql`SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'ncua'`;
-  const [instFin] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_financials`;
-  const [complaints] = await sql`SELECT COUNT(*) as cnt FROM institution_complaints`;
-  const [instComp] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM institution_complaints`;
+  const [fdic] = await sql`SELECT COUNT(*) as cnt FROM institution_financial_records WHERE source = 'fdic'`;
+  const [ncua] = await sql`SELECT COUNT(*) as cnt FROM institution_financial_records WHERE source = 'ncua'`;
+  const [instFin] = await sql`SELECT COUNT(DISTINCT institution_id) as cnt FROM institution_financial_records`;
+  const [complaints] = await sql`SELECT COUNT(*) as cnt FROM institution_complaint_records`;
+  const [instComp] = await sql`SELECT COUNT(DISTINCT institution_id) as cnt FROM institution_complaint_records`;
 
   return {
     fdic_records: Number((fdic as unknown as { cnt: number }).cnt),
@@ -65,19 +65,19 @@ export async function getFinancialsByInstitution(
   targetId: number
 ): Promise<InstitutionFinancial[]> {
   const rows = [...await sql`
-    SELECT crawl_target_id, report_date, source,
+    SELECT institution_id, report_date, source,
            total_assets, total_deposits, total_loans,
            service_charge_income, other_noninterest_income,
            net_interest_margin, efficiency_ratio,
            roa, roe, tier1_capital_ratio,
            branch_count, employee_count, member_count,
            total_revenue, fee_income_ratio, overdraft_revenue
-    FROM institution_financials
-    WHERE crawl_target_id = ${targetId}
+    FROM institution_financial_records
+    WHERE institution_id = ${targetId}
     ORDER BY report_date DESC`];
 
   return rows.map((r: Record<string, unknown>) => ({
-    crawl_target_id: Number(r.crawl_target_id),
+    institution_id: Number(r.institution_id),
     report_date: r.report_date instanceof Date
       ? r.report_date.toISOString().slice(0, 10)
       : String(r.report_date),
@@ -106,8 +106,8 @@ export async function getComplaintsByInstitution(
 ): Promise<ComplaintSummary[]> {
   const rows = await sql`
     SELECT product, complaint_count
-    FROM institution_complaints
-    WHERE crawl_target_id = ${targetId} AND issue = '_total'
+    FROM institution_complaint_records
+    WHERE institution_id = ${targetId} AND issue = '_total'
     ORDER BY complaint_count DESC`;
   return [...rows] as ComplaintSummary[];
 }
@@ -160,8 +160,8 @@ export async function getMarketConcentrationForInstitution(
     SELECT mc.msa_code, mc.msa_name, mc.total_deposits,
            mc.institution_count, mc.hhi, mc.top3_share, mc.year
     FROM market_concentration mc
-    JOIN branch_deposits bd ON bd.msa_code = mc.msa_code AND bd.year = mc.year
-    WHERE bd.crawl_target_id = ${targetId} AND mc.year = ${y} AND bd.is_main_office = true
+    JOIN institution_branch_deposits bd ON bd.msa_code = mc.msa_code AND bd.year = mc.year
+    WHERE bd.institution_id = ${targetId} AND mc.year = ${y} AND bd.is_main_office = true
     LIMIT 1`;
   if (!row) return null;
   return {
@@ -313,15 +313,15 @@ export async function getRevenueIndexByDate(reportDate?: string): Promise<Revenu
   if (reportDate) {
     rows = await sql`
       SELECT fee_income_ratio, service_charge_income
-      FROM institution_financials
+      FROM institution_financial_records
       WHERE fee_income_ratio IS NOT NULL AND report_date = ${reportDate}
       ORDER BY fee_income_ratio` as typeof rows;
   } else {
     rows = await sql`
       SELECT fee_income_ratio, service_charge_income
-      FROM institution_financials
+      FROM institution_financial_records
       WHERE fee_income_ratio IS NOT NULL
-        AND report_date = (SELECT MAX(report_date) FROM institution_financials)
+        AND report_date = (SELECT MAX(report_date) FROM institution_financial_records)
       ORDER BY fee_income_ratio` as typeof rows;
   }
 
@@ -344,7 +344,7 @@ export async function getRevenueIndexByDate(reportDate?: string): Promise<Revenu
   if (reportDate) {
     rd = reportDate;
   } else {
-    const [maxRow] = await sql`SELECT MAX(report_date) as d FROM institution_financials`;
+    const [maxRow] = await sql`SELECT MAX(report_date) as d FROM institution_financial_records`;
     rd = (maxRow as { d: string }).d;
   }
 
@@ -393,14 +393,14 @@ export async function getDataCoverageSummary(): Promise<DataCoverageSummary> {
     demographics,
     census_tracts,
   ] = await Promise.all([
-    count("SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'fdic'"),
-    count("SELECT COUNT(*) as cnt FROM institution_financials WHERE source = 'ncua'"),
-    count("SELECT COUNT(*) as cnt FROM institution_complaints"),
+    count("SELECT COUNT(*) as cnt FROM institution_financial_records WHERE source = 'fdic'"),
+    count("SELECT COUNT(*) as cnt FROM institution_financial_records WHERE source = 'ncua'"),
+    count("SELECT COUNT(*) as cnt FROM institution_complaint_records"),
     count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id NOT LIKE 'NYFED_%' AND series_id NOT LIKE 'OFR_%' AND series_id NOT LIKE 'CU%'"),
     count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id LIKE 'CU%'"),
     count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id LIKE 'NYFED_%'"),
     count("SELECT COUNT(*) as cnt FROM fed_economic_indicators WHERE series_id LIKE 'OFR_%'"),
-    count("SELECT COUNT(*) as cnt FROM branch_deposits"),
+    count("SELECT COUNT(*) as cnt FROM institution_branch_deposits"),
     count("SELECT COUNT(*) as cnt FROM market_concentration"),
     count("SELECT COUNT(*) as cnt FROM demographics"),
     count("SELECT COUNT(*) as cnt FROM census_tracts"),

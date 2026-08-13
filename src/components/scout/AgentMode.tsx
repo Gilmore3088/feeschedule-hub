@@ -27,13 +27,13 @@ function formatDetail(stage: Stage, detail: Record<string, unknown>): string {
 }
 
 function InstitutionResultsTable({ results }: { results: AgentRunResult[] }) {
-  // Group results by crawl_target_id, preserving insertion order
+  // Group results by institution_id, preserving insertion order
   const rowMap = new Map<number, Partial<Record<Stage, AgentRunResult>>>();
   for (const r of results) {
-    if (!rowMap.has(r.crawl_target_id)) {
-      rowMap.set(r.crawl_target_id, {});
+    if (!rowMap.has(r.institution_id)) {
+      rowMap.set(r.institution_id, {});
     }
-    rowMap.get(r.crawl_target_id)![r.stage] = r;
+    rowMap.get(r.institution_id)![r.stage] = r;
   }
 
   return (

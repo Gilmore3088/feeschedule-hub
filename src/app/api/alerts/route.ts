@@ -16,14 +16,14 @@ export async function GET() {
     const rows = await sql`
       SELECT
         a.id,
-        a.crawl_target_id,
+        a.institution_id,
         a.fee_categories,
         a.is_active,
         a.last_alerted_at,
         a.created_at,
         ct.institution_name
-      FROM fee_alert_subscriptions a
-      JOIN institution_sources ct ON ct.id = a.crawl_target_id
+      FROM institution_fee_alert_subscriptions a
+      JOIN institution_sources ct ON ct.id = a.institution_id
       WHERE a.user_id = ${user.id} AND a.is_active = TRUE
       ORDER BY ct.institution_name
     `;
@@ -38,7 +38,7 @@ export async function GET() {
 /**
  * POST /api/alerts
  * Add an alert subscription for the current user.
- * Body: { crawl_target_id: number, fee_categories?: string[] }
+ * Body: { institution_id: number, fee_categories?: string[] }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -48,18 +48,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { crawl_target_id, fee_categories } = body;
+    const { institution_id, fee_categories } = body;
 
-    if (!crawl_target_id || typeof crawl_target_id !== "number") {
+    if (!institution_id || typeof institution_id !== "number") {
       return NextResponse.json(
-        { error: "crawl_target_id is required and must be a number" },
+        { error: "institution_id is required and must be a number" },
         { status: 400 },
       );
     }
 
     // Verify the crawl target exists
     const [target] = await sql`
-      SELECT id FROM institution_sources WHERE id = ${crawl_target_id}
+      SELECT id FROM institution_sources WHERE id = ${institution_id}
     `;
     if (!target) {
       return NextResponse.json(
@@ -81,12 +81,11 @@ export async function POST(request: NextRequest) {
     const categories = fee_categories?.length ? fee_categories : null;
 
     const [row] = await sql`
-      INSERT INTO fee_alert_subscriptions (user_id, crawl_target_id, fee_categories)
-      VALUES (${user.id}, ${crawl_target_id}, ${categories})
-      ON CONFLICT (user_id, crawl_target_id) DO UPDATE
-      SET is_active = TRUE,
-          fee_categories = EXCLUDED.fee_categories
-      RETURNING id
+      SELECT upsert_institution_fee_alert_subscription(
+        ${user.id},
+        ${institution_id},
+        ${categories}
+      ) as id
     `;
 
     return NextResponse.json({ id: Number(row.id) }, { status: 201 });
@@ -99,7 +98,7 @@ export async function POST(request: NextRequest) {
 /**
  * DELETE /api/alerts
  * Remove (deactivate) an alert subscription.
- * Body: { crawl_target_id: number }
+ * Body: { institution_id: number }
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -109,22 +108,23 @@ export async function DELETE(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { crawl_target_id } = body;
+    const { institution_id } = body;
 
-    if (!crawl_target_id || typeof crawl_target_id !== "number") {
+    if (!institution_id || typeof institution_id !== "number") {
       return NextResponse.json(
-        { error: "crawl_target_id is required and must be a number" },
+        { error: "institution_id is required and must be a number" },
         { status: 400 },
       );
     }
 
-    const result = await sql`
-      UPDATE fee_alert_subscriptions
-      SET is_active = FALSE
-      WHERE user_id = ${user.id} AND crawl_target_id = ${crawl_target_id}
+    const [row] = await sql`
+      SELECT deactivate_institution_fee_alert_subscription(
+        ${user.id},
+        ${institution_id}
+      ) as affected_count
     `;
 
-    if (result.count === 0) {
+    if (Number(row.affected_count) === 0) {
       return NextResponse.json(
         { error: "Subscription not found" },
         { status: 404 },

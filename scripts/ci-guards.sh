@@ -23,6 +23,8 @@
 #                 Fail if fee-tier agents use physical tier tables directly.
 #   catalog-contract-kill
 #                 Fail if published fee catalog consumers use crawler-era aliases.
+#   legacy-data-contract-kill
+#                 Fail if active app code uses crawler-era institution keys or physical data tables.
 #   prompt-kill   Fail if active .claude prompts point agents at retired tooling.
 #   active-doc-kill
 #                 Fail if current docs/plans contain stale runtime guidance.
@@ -550,6 +552,34 @@ catalog_contract_kill() {
   exit 0
 }
 
+legacy_data_contract_kill() {
+  local hits=""
+  local pattern='\bcrawl_target_id\b|\bcrawlTargetId\b|\b(institution_financials|institution_complaints|branch_deposits|fee_change_events|fee_snapshots|analysis_results|fee_alert_subscriptions|agent_run_results|gold_standard_fees)\b'
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git grep --untracked -nE "$pattern" -- \
+      src \
+      ":(exclude)src/**/*.test.ts" \
+      ":(exclude)src/**/*.test.tsx" \
+      ":(exclude)src/**/__tests__/**" \
+      | grep -v '^Binary file' || true)
+  else
+    hits=$(grep -R -nE "$pattern" src \
+      --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
+      --exclude='*.test.ts' --exclude='*.test.tsx' \
+      --exclude-dir='__tests__' --exclude-dir='node_modules' 2>/dev/null || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "legacy-data-contract-kill: active app code must use semantic institution_id views/functions:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "legacy-data-contract-kill: OK (active app code uses semantic institution data contracts)"
+  exit 0
+}
+
 case "$SUBCOMMAND" in
   sqlite-kill) sqlite_kill ;;
   modal-kill) modal_kill ;;
@@ -568,13 +598,14 @@ case "$SUBCOMMAND" in
   agent-source-contract-kill) agent_source_contract_kill ;;
   fee-tier-contract-kill) fee_tier_contract_kill ;;
   catalog-contract-kill) catalog_contract_kill ;;
+  legacy-data-contract-kill) legacy_data_contract_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill|legacy-data-contract-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill|legacy-data-contract-kill>" >&2
     exit 2
     ;;
 esac

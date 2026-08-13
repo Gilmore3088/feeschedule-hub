@@ -239,8 +239,8 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   const change_events = await sql`
     SELECT ct.institution_name, fce.previous_amount, fce.new_amount,
            fce.change_type, fce.detected_at
-    FROM fee_change_events fce
-    JOIN institution_sources ct ON fce.crawl_target_id = ct.id
+    FROM fee_change_records fce
+    JOIN institution_sources ct ON fce.institution_id = ct.id
     WHERE fce.fee_category = ${category}
     ORDER BY fce.detected_at DESC
     LIMIT 50
@@ -270,7 +270,7 @@ export async function getAuditTrail(feeId: number): Promise<FeeReview[]> {
 
 export interface FeeSnapshot {
   id: number;
-  crawl_target_id: number;
+  institution_id: number;
   snapshot_date: string;
   fee_name: string;
   fee_category: string | null;
@@ -281,7 +281,7 @@ export interface FeeSnapshot {
 
 export interface PriceChange {
   id: number;
-  crawl_target_id: number;
+  institution_id: number;
   institution_name: string;
   fee_category: string;
   previous_amount: number | null;
@@ -302,10 +302,10 @@ export interface PriceMovement {
 export async function getFeeHistory(institutionId: number, category: string): Promise<FeeSnapshot[]> {
   try {
     return await sql`
-      SELECT id, crawl_target_id, snapshot_date, fee_name, fee_category,
+      SELECT id, institution_id, snapshot_date, fee_name, fee_category,
              amount, frequency, created_at
-      FROM fee_snapshots
-      WHERE crawl_target_id = ${institutionId} AND fee_category = ${category}
+      FROM institution_fee_snapshot_records
+      WHERE institution_id = ${institutionId} AND fee_category = ${category}
       ORDER BY snapshot_date DESC
     ` as FeeSnapshot[];
   } catch {
@@ -323,11 +323,11 @@ export async function getRecentPriceChanges(days: number = 90, category?: string
       params.push(category);
     }
     const query = `
-      SELECT fce.id, fce.crawl_target_id, ct.institution_name,
+      SELECT fce.id, fce.institution_id, ct.institution_name,
              fce.fee_category, fce.previous_amount, fce.new_amount,
              fce.change_type, fce.detected_at
-      FROM fee_change_events fce
-      JOIN institution_sources ct ON fce.crawl_target_id = ct.id
+      FROM fee_change_records fce
+      JOIN institution_sources ct ON fce.institution_id = ct.id
       WHERE ${conditions.join(" AND ")}
       ORDER BY fce.detected_at DESC
       LIMIT 200
@@ -347,7 +347,7 @@ export async function getPriceMovementSummary(days: number = 90): Promise<PriceM
               SUM(CASE WHEN change_type = 'decreased' THEN 1 ELSE 0 END) as decreased,
               SUM(CASE WHEN change_type = 'removed' THEN 1 ELSE 0 END) as removed,
               COUNT(*) as total_changes
-       FROM fee_change_events
+       FROM fee_change_records
        WHERE detected_at > NOW() - INTERVAL '1 day' * $1
        GROUP BY fee_category
        ORDER BY total_changes DESC`,

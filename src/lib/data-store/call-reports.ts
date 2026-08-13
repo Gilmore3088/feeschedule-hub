@@ -30,7 +30,7 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
   const sql = getSql();
 
   try {
-  // institution_financials has crawl_target_id, not cert_number/charter_type directly.
+  // institution_financial_records has institution_id, not cert_number/charter_type directly.
   // JOIN to institution_sources for charter_type and cert_number.
   // report_date is TEXT (e.g. '2024-12-31') — cast to date for DATE_TRUNC.
   const rows = await sql.unsafe(
@@ -43,8 +43,8 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
                                                                  AS bank_service_charges,
        SUM(CASE WHEN ct.charter_type = 'credit_union' THEN inf.service_charge_income ELSE 0 END)
                                                                  AS cu_service_charges
-     FROM institution_financials inf
-     JOIN institution_sources ct ON ct.id = inf.crawl_target_id
+     FROM institution_financial_records inf
+     JOIN institution_sources ct ON ct.id = inf.institution_id
      WHERE inf.service_charge_income > 0
      GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
      ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
@@ -59,7 +59,7 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
     cu_service_charges: string;
   }[];
 
-  const snapshots: RevenueSnapshot[] = rows.map((row, idx) => ({
+  const snapshots: RevenueSnapshot[] = rows.map((row) => ({
     quarter: row.quarter,
     total_service_charges: Number(row.total_service_charges),
     total_institutions: Number(row.total_institutions),
@@ -95,10 +95,10 @@ export async function getTopRevenueInstitutions(
   const sql = getSql();
 
   try {
-    // Find the latest report_date in institution_financials
+    // Find the latest report_date in institution_financial_records
     const [latestRow] = await sql`
       SELECT MAX(report_date) AS latest_date
-      FROM institution_financials
+      FROM institution_financial_records
       WHERE service_charge_income > 0
     `;
 
@@ -116,8 +116,8 @@ export async function getTopRevenueInstitutions(
          inf.report_date::text                                   AS report_date,
          inf.service_charge_income,
          inf.total_assets
-       FROM institution_financials inf
-       JOIN institution_sources ct ON ct.id = inf.crawl_target_id
+       FROM institution_financial_records inf
+       JOIN institution_sources ct ON ct.id = inf.institution_id
        WHERE inf.report_date = $1
          AND inf.service_charge_income > 0
        ORDER BY inf.service_charge_income DESC
@@ -164,8 +164,8 @@ export async function getInstitutionRevenueTrend(
          TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
          inf.service_charge_income,
          inf.fee_income_ratio
-       FROM institution_financials inf
-       WHERE inf.crawl_target_id = $1
+       FROM institution_financial_records inf
+       WHERE inf.institution_id = $1
          AND inf.service_charge_income IS NOT NULL
        ORDER BY inf.report_date DESC
        LIMIT $2`,
@@ -213,9 +213,9 @@ export async function getInstitutionPeerRanking(
   const instRows = await sql.unsafe(
     `SELECT ct.institution_name, inf.total_assets, inf.service_charge_income,
             inf.fee_income_ratio, inf.report_date
-     FROM institution_financials inf
-     JOIN institution_sources ct ON ct.id = inf.crawl_target_id
-     WHERE inf.crawl_target_id = $1
+     FROM institution_financial_records inf
+     JOIN institution_sources ct ON ct.id = inf.institution_id
+     WHERE inf.institution_id = $1
        AND inf.service_charge_income IS NOT NULL
        AND inf.total_assets IS NOT NULL
      ORDER BY inf.report_date DESC
@@ -254,10 +254,10 @@ export async function getInstitutionPeerRanking(
 
   const statsRows = await sql.unsafe(
     `SELECT
-       COUNT(DISTINCT inf.crawl_target_id)::int AS peer_count,
+       COUNT(DISTINCT inf.institution_id)::int AS peer_count,
        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY inf.service_charge_income) AS median_sc,
        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY inf.fee_income_ratio) AS median_fee_ratio
-     FROM institution_financials inf
+     FROM institution_financial_records inf
      WHERE inf.report_date = $1
        AND inf.total_assets >= $2 AND inf.total_assets < $3
        AND inf.service_charge_income > 0`,
@@ -266,7 +266,7 @@ export async function getInstitutionPeerRanking(
 
   const rankRows = await sql.unsafe(
     `SELECT COUNT(*)::int AS better_count
-     FROM institution_financials inf
+     FROM institution_financial_records inf
      WHERE inf.report_date = $1
        AND inf.total_assets >= $2 AND inf.total_assets < $3
        AND inf.service_charge_income > $4`,
@@ -310,7 +310,7 @@ export async function getDistrictFeeRevenue(
   } else {
     const [row] = await sql`
       SELECT MAX(report_date)::text AS latest_date
-      FROM institution_financials
+      FROM institution_financial_records
       WHERE service_charge_income > 0
     `;
     if (!row?.latest_date) return null;
@@ -320,12 +320,12 @@ export async function getDistrictFeeRevenue(
   const rows = await sql.unsafe(
     `SELECT
        ct.fed_district,
-       COUNT(DISTINCT inf.crawl_target_id)::int  AS institution_count,
+       COUNT(DISTINCT inf.institution_id)::int  AS institution_count,
        COALESCE(SUM(inf.service_charge_income), 0)::bigint AS total_sc_income,
        COALESCE(AVG(inf.service_charge_income), 0)::bigint AS avg_sc_income,
        COALESCE(SUM(inf.other_noninterest_income), 0)::bigint AS total_other_noninterest
-     FROM institution_financials inf
-     JOIN institution_sources ct ON ct.id = inf.crawl_target_id
+     FROM institution_financial_records inf
+     JOIN institution_sources ct ON ct.id = inf.institution_id
      WHERE inf.report_date = $1
        AND ct.fed_district = $2
        AND inf.service_charge_income > 0
@@ -366,7 +366,7 @@ export async function getRevenueByTier(
   if (!date) {
     const [row] = await sql`
       SELECT MAX(report_date)::text AS latest_date
-      FROM institution_financials
+      FROM institution_financial_records
       WHERE service_charge_income > 0
     `;
     if (!row?.latest_date) return [];
@@ -382,10 +382,10 @@ export async function getRevenueByTier(
          WHEN inf.total_assets < 250000000000          THEN 'regional'
          ELSE                                               'mega'
        END AS tier,
-       COUNT(DISTINCT inf.crawl_target_id)::int        AS institution_count,
+       COUNT(DISTINCT inf.institution_id)::int        AS institution_count,
        SUM(inf.service_charge_income)::bigint          AS total_sc_income,
        AVG(inf.service_charge_income)::bigint          AS avg_sc_income
-     FROM institution_financials inf
+     FROM institution_financial_records inf
      WHERE inf.report_date = $1
        AND inf.service_charge_income > 0
        AND inf.total_assets > 0

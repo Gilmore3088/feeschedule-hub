@@ -24,7 +24,7 @@ export async function ensureAuditTables() {
     CREATE TABLE IF NOT EXISTS url_audit_results (
       id SERIAL PRIMARY KEY,
       audit_run_id INTEGER REFERENCES url_audit_runs(id),
-      crawl_target_id INTEGER NOT NULL,
+      institution_id INTEGER NOT NULL,
       url_before TEXT,
       url_after TEXT,
       action TEXT NOT NULL,
@@ -55,7 +55,7 @@ export async function createAuditRun(
 
 export async function recordAuditResult(
   auditRunId: number,
-  crawlTargetId: number,
+  institutionId: number,
   urlBefore: string | null,
   urlAfter: string | null,
   action: string,
@@ -65,9 +65,9 @@ export async function recordAuditResult(
 ) {
   await sql`
     INSERT INTO url_audit_results
-      (audit_run_id, crawl_target_id, url_before, url_after, action, discovery_method, confidence, reason)
+      (audit_run_id, institution_id, url_before, url_after, action, discovery_method, confidence, reason)
     VALUES
-      (${auditRunId}, ${crawlTargetId}, ${urlBefore}, ${urlAfter}, ${action}, ${discoveryMethod}, ${confidence}, ${reason})
+      (${auditRunId}, ${institutionId}, ${urlBefore}, ${urlAfter}, ${action}, ${discoveryMethod}, ${confidence}, ${reason})
   `;
 }
 
@@ -96,17 +96,17 @@ export async function updateAuditRunStats(
 }
 
 export async function clearFeeScheduleUrl(
-  crawlTargetId: number
+  institutionId: number
 ) {
   await sql`
     UPDATE institution_sources
     SET fee_schedule_url = NULL
-    WHERE id = ${crawlTargetId}
+    WHERE id = ${institutionId}
   `;
 }
 
 export async function setFeeScheduleUrl(
-  crawlTargetId: number,
+  institutionId: number,
   url: string,
   documentType: string | null
 ) {
@@ -114,7 +114,7 @@ export async function setFeeScheduleUrl(
     UPDATE institution_sources
     SET fee_schedule_url = ${url},
         document_type = ${documentType}
-    WHERE id = ${crawlTargetId}
+    WHERE id = ${institutionId}
   `;
 }
 

@@ -21,7 +21,7 @@ export interface HealthByCharter {
   credit_union: IndustryHealthMetrics;
 }
 
-// Compute a RichIndicator from institution_financials for a given numeric column,
+// Compute a RichIndicator from institution_financial_records for a given numeric column,
 // aggregating per quarter (median across all institutions for that quarter).
 async function buildHealthIndicator(
   column: "roa" | "roe" | "efficiency_ratio",
@@ -33,7 +33,7 @@ async function buildHealthIndicator(
          TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
          MIN(inf.report_date::text)                                            AS quarter_date,
          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY inf.${column})           AS median_value
-       FROM institution_financials inf
+       FROM institution_financial_records inf
        WHERE inf.${column} IS NOT NULL AND inf.${column} != 0
        GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
        ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
@@ -76,8 +76,8 @@ async function buildHealthIndicatorByCharter(
          TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
          MIN(inf.report_date::text)                                            AS quarter_date,
          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY inf.${column})           AS median_value
-       FROM institution_financials inf
-       JOIN institution_sources ct ON ct.id = inf.crawl_target_id
+       FROM institution_financial_records inf
+       JOIN institution_sources ct ON ct.id = inf.institution_id
        WHERE inf.${column} IS NOT NULL AND inf.${column} != 0
          AND ct.charter_type = $1
        GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
@@ -147,7 +147,7 @@ async function buildGrowthTrend(
          TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
          MIN(inf.report_date::text)                                            AS quarter_date,
          SUM(inf.${column})                                                    AS absolute
-       FROM institution_financials inf
+       FROM institution_financial_records inf
        WHERE inf.${column} IS NOT NULL AND inf.${column} > 0
        GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
        ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
@@ -216,7 +216,7 @@ export interface InstitutionCountTrend {
 }
 
 // Returns quarterly counts of active institutions by charter type with QoQ change percentages.
-// "Active" = at least one filing in institution_financials for that quarter.
+// "Active" = at least one filing in institution_financial_records for that quarter.
 // Per D-02: "Count distinct institutions with filings per quarter. No filing = presumed inactive."
 export async function getInstitutionCountTrends(
   quarterCount = 8
@@ -225,10 +225,10 @@ export async function getInstitutionCountTrends(
     const rows = await sql.unsafe(
       `SELECT
          TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
-         COUNT(DISTINCT CASE WHEN ct.charter_type = 'bank' THEN inf.crawl_target_id END)         AS bank_count,
-         COUNT(DISTINCT CASE WHEN ct.charter_type = 'credit_union' THEN inf.crawl_target_id END) AS cu_count
-       FROM institution_financials inf
-       JOIN institution_sources ct ON ct.id = inf.crawl_target_id
+         COUNT(DISTINCT CASE WHEN ct.charter_type = 'bank' THEN inf.institution_id END)         AS bank_count,
+         COUNT(DISTINCT CASE WHEN ct.charter_type = 'credit_union' THEN inf.institution_id END) AS cu_count
+       FROM institution_financial_records inf
+       JOIN institution_sources ct ON ct.id = inf.institution_id
        GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
        ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
        LIMIT $1`,

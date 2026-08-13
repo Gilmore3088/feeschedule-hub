@@ -12,7 +12,7 @@ export async function getAgentRun(id: number): Promise<AgentRun | null> {
 
 export async function getAgentRunResults(runId: number): Promise<AgentRunResult[]> {
   return sql<AgentRunResult[]>`
-    SELECT * FROM agent_run_results
+    SELECT * FROM agent_institution_run_results
     WHERE agent_run_id = ${runId}
     ORDER BY created_at
   `;

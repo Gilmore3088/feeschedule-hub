@@ -53,13 +53,13 @@ describe("DistrictComplaintSummary type", () => {
 describe("InstitutionComplaintProfile type", () => {
   it("has required fields", () => {
     const profile: InstitutionComplaintProfile = {
-      crawl_target_id: 42,
+      institution_id: 42,
       total_complaints: 250,
       by_product: [{ product: "Checking or savings account", count: 200 }],
       by_issue: [{ issue: "Fees or interest", count: 80 }],
       fee_related_pct: 32.0,
     };
-    expect(profile.crawl_target_id).toBe(42);
+    expect(profile.institution_id).toBe(42);
     expect(profile.fee_related_pct).toBe(32.0);
   });
 });
@@ -164,7 +164,7 @@ describe("getInstitutionComplaintProfile", () => {
 
     const result = await getInstitutionComplaintProfile(42);
 
-    expect(result.crawl_target_id).toBe(42);
+    expect(result.institution_id).toBe(42);
     expect(result.total_complaints).toBe(300);
     expect(result.by_product).toHaveLength(2);
     expect(result.by_product[0].product).toBe("Checking or savings account");

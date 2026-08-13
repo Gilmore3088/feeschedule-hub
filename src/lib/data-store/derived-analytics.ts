@@ -195,8 +195,8 @@ export async function getFeeDependencyTrend(
                THEN service_charge_income * 1.0 / total_revenue * 100
                ELSE NULL END
         ), 2) as avg_fee_income_ratio,
-        COUNT(DISTINCT crawl_target_id) as institution_count
-      FROM institution_financials
+        COUNT(DISTINCT institution_id) as institution_count
+      FROM institution_financial_records
       WHERE service_charge_income IS NOT NULL
       GROUP BY report_date
       ORDER BY report_date DESC
@@ -239,11 +239,11 @@ export async function getRevenuePerInstitutionTrend(
         ROUND(AVG(ifin.service_charge_income * 1000), 0) as avg_sc_income,
         COUNT(DISTINCT ct.id) as institution_count
       FROM institution_sources ct
-      JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
+      JOIN institution_financial_records ifin ON ct.id = ifin.institution_id
       WHERE ifin.service_charge_income IS NOT NULL
         AND ct.asset_size_tier IS NOT NULL
         AND ifin.report_date = (
-          SELECT MAX(report_date) FROM institution_financials
+          SELECT MAX(report_date) FROM institution_financial_records
         )
       GROUP BY ct.asset_size_tier
       ORDER BY AVG(ifin.total_assets) ASC
@@ -256,10 +256,10 @@ export async function getRevenuePerInstitutionTrend(
         ROUND(AVG(ifin.service_charge_income * 1000), 0) as avg_sc_income,
         COUNT(DISTINCT ct.id) as institution_count
       FROM institution_sources ct
-      JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
+      JOIN institution_financial_records ifin ON ct.id = ifin.institution_id
       WHERE ifin.service_charge_income IS NOT NULL
         AND ifin.report_date = (
-          SELECT MAX(report_date) FROM institution_financials
+          SELECT MAX(report_date) FROM institution_financial_records
         )
       GROUP BY ct.charter_type
     `;
@@ -269,8 +269,8 @@ export async function getRevenuePerInstitutionTrend(
       SELECT
         report_date,
         ROUND(AVG(service_charge_income * 1000), 0) as avg_sc_income,
-        COUNT(DISTINCT crawl_target_id) as institution_count
-      FROM institution_financials
+        COUNT(DISTINCT institution_id) as institution_count
+      FROM institution_financial_records
       WHERE service_charge_income IS NOT NULL
       GROUP BY report_date
       ORDER BY report_date DESC

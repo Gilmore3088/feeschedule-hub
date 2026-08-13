@@ -121,17 +121,17 @@ async function loadMsa(code: string): Promise<MsaRow | null> {
 async function loadInstitutionsFromBranches(msaCode: number): Promise<InstitutionDeposit[]> {
   const rows = await sql`
     SELECT
-      bd.crawl_target_id as institution_id,
+      bd.institution_id as institution_id,
       ct.institution_name,
       SUM(bd.deposits) as total_deposits,
       COUNT(DISTINCT bd.branch_number) as branch_count,
       0.0 as deposit_share
-    FROM branch_deposits bd
-    JOIN institution_sources ct ON ct.id = bd.crawl_target_id
+    FROM institution_branch_deposits bd
+    JOIN institution_sources ct ON ct.id = bd.institution_id
     WHERE bd.msa_code = ${msaCode}
-      AND bd.crawl_target_id IS NOT NULL
-      AND bd.year = (SELECT MAX(year) FROM branch_deposits WHERE msa_code = ${msaCode})
-    GROUP BY bd.crawl_target_id, ct.institution_name
+      AND bd.institution_id IS NOT NULL
+      AND bd.year = (SELECT MAX(year) FROM institution_branch_deposits WHERE msa_code = ${msaCode})
+    GROUP BY bd.institution_id, ct.institution_name
     ORDER BY total_deposits DESC
   `;
 
@@ -834,7 +834,7 @@ export async function GET(
       );
     }
 
-    // Try branch_deposits first
+    // Try institution_branch_deposits first
     let institutions = await loadInstitutionsFromBranches(msa.msa_code);
     let hasBranchData = true;
 

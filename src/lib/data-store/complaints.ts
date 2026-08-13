@@ -9,7 +9,7 @@ export interface DistrictComplaintSummary {
 }
 
 export interface InstitutionComplaintProfile {
-  crawl_target_id: number;
+  institution_id: number;
   total_complaints: number;
   by_product: { product: string; count: number }[];
   by_issue: { issue: string; count: number }[];
@@ -25,10 +25,10 @@ export async function getDistrictComplaintSummary(
   // Total complaints for institutions in this district
   const totalRows = await sql.unsafe(
     `SELECT
-       COUNT(DISTINCT ic.crawl_target_id)::int AS institution_count,
+       COUNT(DISTINCT ic.institution_id)::int AS institution_count,
        COALESCE(SUM(ic.complaint_count), 0)::int AS total_complaints
-     FROM institution_complaints ic
-     JOIN institution_sources ct ON ct.id = ic.crawl_target_id
+     FROM institution_complaint_records ic
+     JOIN institution_sources ct ON ct.id = ic.institution_id
      WHERE ct.fed_district = $1
        AND ic.issue = '_total'
        ${reportPeriod ? "AND ic.report_period = $2" : ""}`,
@@ -38,8 +38,8 @@ export async function getDistrictComplaintSummary(
   // Fee-related complaints (issues matching FEE_ISSUES categories)
   const feeRows = await sql.unsafe(
     `SELECT COALESCE(SUM(ic.complaint_count), 0)::int AS fee_complaints
-     FROM institution_complaints ic
-     JOIN institution_sources ct ON ct.id = ic.crawl_target_id
+     FROM institution_complaint_records ic
+     JOIN institution_sources ct ON ct.id = ic.institution_id
      WHERE ct.fed_district = $1
        AND ic.issue != '_total'
        AND ic.issue IN (
@@ -54,8 +54,8 @@ export async function getDistrictComplaintSummary(
   // Top products
   const productRows = await sql.unsafe(
     `SELECT ic.product, SUM(ic.complaint_count)::int AS count
-     FROM institution_complaints ic
-     JOIN institution_sources ct ON ct.id = ic.crawl_target_id
+     FROM institution_complaint_records ic
+     JOIN institution_sources ct ON ct.id = ic.institution_id
      WHERE ct.fed_district = $1 AND ic.issue = '_total'
        ${reportPeriod ? "AND ic.report_period = $2" : ""}
      GROUP BY ic.product
@@ -89,15 +89,15 @@ export async function getNationalComplaintSummary(): Promise<{
 
   const totalRows = await sql.unsafe(
     `SELECT
-       COUNT(DISTINCT ic.crawl_target_id)::int AS institution_count,
+       COUNT(DISTINCT ic.institution_id)::int AS institution_count,
        COALESCE(SUM(ic.complaint_count), 0)::int AS total_complaints
-     FROM institution_complaints ic
+     FROM institution_complaint_records ic
      WHERE ic.issue = '_total'`
   ) as { institution_count: string; total_complaints: string }[];
 
   const feeRows = await sql.unsafe(
     `SELECT COALESCE(SUM(ic.complaint_count), 0)::int AS fee_complaints
-     FROM institution_complaints ic
+     FROM institution_complaint_records ic
      WHERE ic.issue != '_total'
        AND ic.issue IN (
          'Problem caused by your funds being low',
@@ -124,28 +124,28 @@ export async function getInstitutionComplaintProfile(
 
   const [totalRow] = await sql`
     SELECT COALESCE(SUM(complaint_count), 0)::int AS total
-    FROM institution_complaints
-    WHERE crawl_target_id = ${targetId} AND issue = '_total'
+    FROM institution_complaint_records
+    WHERE institution_id = ${targetId} AND issue = '_total'
   `;
 
   const productRows = await sql`
     SELECT product, SUM(complaint_count)::int AS count
-    FROM institution_complaints
-    WHERE crawl_target_id = ${targetId} AND issue = '_total'
+    FROM institution_complaint_records
+    WHERE institution_id = ${targetId} AND issue = '_total'
     GROUP BY product ORDER BY count DESC
   `;
 
   const issueRows = await sql`
     SELECT issue, SUM(complaint_count)::int AS count
-    FROM institution_complaints
-    WHERE crawl_target_id = ${targetId} AND issue != '_total'
+    FROM institution_complaint_records
+    WHERE institution_id = ${targetId} AND issue != '_total'
     GROUP BY issue ORDER BY count DESC LIMIT 10
   `;
 
   const feeIssueRows = await sql`
     SELECT COALESCE(SUM(complaint_count), 0)::int AS fee_count
-    FROM institution_complaints
-    WHERE crawl_target_id = ${targetId}
+    FROM institution_complaint_records
+    WHERE institution_id = ${targetId}
       AND issue != '_total'
       AND issue IN (
         'Problem caused by your funds being low',
@@ -168,7 +168,7 @@ export async function getInstitutionComplaintProfile(
   const feeRelatedPct = allIssueTotal > 0 ? (feeCount / allIssueTotal) * 100 : 0;
 
   return {
-    crawl_target_id: targetId,
+    institution_id: targetId,
     total_complaints: total,
     by_product: [...productRows].map((r) => ({
       product: String((r as unknown as { product: string }).product),

@@ -234,8 +234,8 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
 
 export async function getPeerAnalysis(targetId: number): Promise<Record<string, unknown> | null> {
   const [row] = await sql<{ result_json: string | Record<string, unknown> }[]>`
-    SELECT result_json FROM analysis_results
-    WHERE crawl_target_id = ${targetId} AND analysis_type = 'peer_comparison'
+    SELECT result_json FROM institution_analysis_results
+    WHERE institution_id = ${targetId} AND analysis_type = 'peer_comparison'
   `;
   if (!row) return null;
   // Postgres JSONB returns parsed object; TEXT returns string
