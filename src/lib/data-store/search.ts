@@ -43,7 +43,7 @@ export async function searchInstitutions(params: {
   const offset = (page - 1) * pageSize;
 
   const [countRow] = await sql.unsafe(
-    `SELECT COUNT(*) as cnt FROM crawl_targets ct ${where}`,
+    `SELECT COUNT(*) as cnt FROM institution_sources ct ${where}`,
     queryParams
   ) as { cnt: number }[];
 
@@ -56,7 +56,7 @@ export async function searchInstitutions(params: {
     `SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
             ct.charter_type, ct.asset_size_tier,
             (SELECT COUNT(*) FROM published_fee_observations ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
-     FROM crawl_targets ct
+     FROM institution_sources ct
      ${where}
      ORDER BY ct.institution_name ASC
      LIMIT $${limitParam} OFFSET $${offsetParam}`,
@@ -73,7 +73,7 @@ export async function autocompleteInstitutions(query: string, limit = 8): Promis
     SELECT ct.id, ct.institution_name, ct.city, ct.state_code,
            ct.charter_type, ct.asset_size_tier,
            (SELECT COUNT(*) FROM published_fee_observations ef WHERE ef.crawl_target_id = ct.id AND ef.review_status != 'rejected') as fee_count
-    FROM crawl_targets ct
+    FROM institution_sources ct
     WHERE ct.institution_name ILIKE ${pattern}
     ORDER BY fee_count DESC, ct.institution_name ASC
     LIMIT ${limit}

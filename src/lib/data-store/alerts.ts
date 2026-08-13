@@ -16,7 +16,7 @@ export async function getAlertSubscriptions(userId: number): Promise<AlertSubscr
            a.is_active, a.created_at,
            ct.institution_name
     FROM fee_alert_subscriptions a
-    JOIN crawl_targets ct ON ct.id = a.crawl_target_id
+    JOIN institution_sources ct ON ct.id = a.crawl_target_id
     WHERE a.user_id = ${userId} AND a.is_active = TRUE
     ORDER BY ct.institution_name
   `;

@@ -1,6 +1,6 @@
 "use server";
 
-import { sql } from "@/lib/data-store/connection";
+import { sql, withTransaction } from "@/lib/data-store/connection";
 import { headers } from "next/headers";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
@@ -80,13 +80,13 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
     `;
 
     const [target] = await sql`
-      SELECT id FROM crawl_targets
+      SELECT id FROM institution_sources
       WHERE LOWER(institution_name) = LOWER(${input.institution_name.trim()})
       LIMIT 1
     `;
     const targetId = target?.id ?? null;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       for (const fee of input.fees) {
         if (!fee.fee_name?.trim()) continue;
         await tx`
@@ -116,7 +116,7 @@ export async function searchInstitutions(query: string): Promise<{ id: number; n
   const escaped = query.replace(/[%_]/g, "\\$&");
   const rows = await sql`
     SELECT id, institution_name as name, state_code as state
-    FROM crawl_targets
+    FROM institution_sources
     WHERE institution_name LIKE ${"%" + escaped + "%"}
     ORDER BY asset_size DESC NULLS LAST
     LIMIT 10

@@ -278,7 +278,7 @@ export async function listKnoxRejections(
       LEFT JOIN users u ON u.id = ko.reviewer_id
       LEFT JOIN fees_verified fv
              ON fv.fee_verified_id = NULLIF(am.payload->>'fee_verified_id','')::bigint
-      LEFT JOIN crawl_targets ct ON ct.id = fv.institution_id
+      LEFT JOIN institution_sources ct ON ct.id = fv.institution_id
       WHERE am.sender_agent = 'knox'
         AND am.intent = 'reject'
         AND ${statusFragment}
@@ -354,7 +354,7 @@ export async function getKnoxRejectionById(
       LEFT JOIN fees_verified fv
              ON fv.fee_verified_id = NULLIF(am.payload->>'fee_verified_id','')::bigint
       LEFT JOIN fees_raw fr ON fr.fee_raw_id = fv.fee_raw_id
-      LEFT JOIN crawl_targets ct ON ct.id = fv.institution_id
+      LEFT JOIN institution_sources ct ON ct.id = fv.institution_id
       WHERE am.message_id = ${messageId}
         AND am.sender_agent = 'knox'
         AND am.intent = 'reject'

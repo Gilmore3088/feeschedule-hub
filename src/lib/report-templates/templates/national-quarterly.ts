@@ -541,7 +541,7 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
   const methodologyText = [
     "National medians computed from all non-rejected fee observations in the Bank Fee Index pipeline.",
     `Maturity: "strong" = 10+ approved observations; "provisional" = 10+ total; "insufficient" = below threshold.`,
-    "Charter split computed from charter_type field on crawl_targets.",
+    "Charter split computed from charter_type field on institution_sources.",
     "IQR spread = (P75 - P25) / Median. Categories with median below $0.50 excluded from spread analysis.",
     "Revenue data sourced from FDIC Call Reports and NCUA 5300 filings.",
     `Bank Fee Index \u2014 bankfeeindex.com \u2014 Generated ${data.report_date}`,

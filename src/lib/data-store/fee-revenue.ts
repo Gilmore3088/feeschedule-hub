@@ -30,7 +30,7 @@ export async function getFeeRevenueData(): Promise<FeeRevenueCorrelation[]> {
       ROUND(AVG(ef.amount), 2) as avg_fee,
       COUNT(ef.id) as fee_count,
       NULL as median_overdraft
-    FROM crawl_targets ct
+    FROM institution_sources ct
     JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
     JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
     WHERE ef.review_status != 'rejected'
@@ -76,7 +76,7 @@ export async function getTierFeeRevenueSummary(): Promise<TierFeeRevenueSummary[
              THEN ifin.service_charge_income * 1.0 / ifin.total_assets * 10000
              ELSE NULL END
       ), 2) as avg_fee_income_ratio
-    FROM crawl_targets ct
+    FROM institution_sources ct
     JOIN (
       SELECT crawl_target_id, AVG(amount) as avg_fee
       FROM published_fee_observations
@@ -125,7 +125,7 @@ export async function getCharterFeeRevenueSummary(): Promise<CharterFeeRevenueSu
              THEN ifin.service_charge_income * 1.0 / ifin.total_assets * 10000
              ELSE NULL END
       ), 2) as avg_fee_income_ratio
-    FROM crawl_targets ct
+    FROM institution_sources ct
     JOIN (
       SELECT crawl_target_id, AVG(amount) as avg_fee
       FROM published_fee_observations

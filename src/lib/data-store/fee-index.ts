@@ -31,7 +31,7 @@ export async function getNationalIndex(approvedOnly = false): Promise<IndexEntry
     `SELECT ef.fee_category, ef.amount, ef.crawl_target_id,
             ef.review_status, ef.created_at, ct.charter_type
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ef.fee_category = ANY(ARRAY[${CANONICAL_CATEGORIES.map((c) => `'${c}'`).join(",")}]) AND ${statusFilter}`
   ) as {
     fee_category: string;
@@ -97,7 +97,7 @@ export async function getPeerIndex(
     `SELECT ef.fee_category, ef.amount, ef.crawl_target_id,
             ef.review_status, ef.created_at, ct.charter_type
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ${where}`,
     params
   ) as {
@@ -155,7 +155,7 @@ export async function getDistrictMedianByCategory(
   const rows = await sql.unsafe(
     `SELECT ef.amount, ct.fed_district, ef.crawl_target_id
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ${conditions.join(" AND ")}`,
     params
   ) as {
@@ -202,7 +202,7 @@ export async function getDistrictFeeMedians(
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) AS median_amount,
            COUNT(DISTINCT ef.crawl_target_id) AS institution_count
     FROM published_fee_observations ef
-    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     WHERE ct.fed_district = ${district}
       AND ef.review_status != 'rejected'
       AND ef.amount IS NOT NULL

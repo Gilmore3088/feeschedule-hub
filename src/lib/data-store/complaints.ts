@@ -28,7 +28,7 @@ export async function getDistrictComplaintSummary(
        COUNT(DISTINCT ic.crawl_target_id)::int AS institution_count,
        COALESCE(SUM(ic.complaint_count), 0)::int AS total_complaints
      FROM institution_complaints ic
-     JOIN crawl_targets ct ON ct.id = ic.crawl_target_id
+     JOIN institution_sources ct ON ct.id = ic.crawl_target_id
      WHERE ct.fed_district = $1
        AND ic.issue = '_total'
        ${reportPeriod ? "AND ic.report_period = $2" : ""}`,
@@ -39,7 +39,7 @@ export async function getDistrictComplaintSummary(
   const feeRows = await sql.unsafe(
     `SELECT COALESCE(SUM(ic.complaint_count), 0)::int AS fee_complaints
      FROM institution_complaints ic
-     JOIN crawl_targets ct ON ct.id = ic.crawl_target_id
+     JOIN institution_sources ct ON ct.id = ic.crawl_target_id
      WHERE ct.fed_district = $1
        AND ic.issue != '_total'
        AND ic.issue IN (
@@ -55,7 +55,7 @@ export async function getDistrictComplaintSummary(
   const productRows = await sql.unsafe(
     `SELECT ic.product, SUM(ic.complaint_count)::int AS count
      FROM institution_complaints ic
-     JOIN crawl_targets ct ON ct.id = ic.crawl_target_id
+     JOIN institution_sources ct ON ct.id = ic.crawl_target_id
      WHERE ct.fed_district = $1 AND ic.issue = '_total'
        ${reportPeriod ? "AND ic.report_period = $2" : ""}
      GROUP BY ic.product

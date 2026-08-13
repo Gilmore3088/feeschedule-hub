@@ -2,11 +2,11 @@
  * Report Engine — Data Freshness Gate
  * Phase 13-01: D-10 implementation
  *
- * Checks whether crawl_targets data is fresh enough to generate a report.
+ * Checks whether institution_sources data is fresh enough to generate a report.
  * Uses PERCENTILE_CONT(0.5) (standard Postgres median — MEDIAN is not a
  * built-in aggregate in Postgres/Supabase).
  *
- * Fail-safe: null result from DB (no crawl_targets with timestamps) is
+ * Fail-safe: null result from DB (no institution_sources with timestamps) is
  * treated as age=999 days — always stale. Never publish empty-data reports.
  */
 
@@ -55,7 +55,7 @@ export async function checkFreshness(
       SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (
         ORDER BY EXTRACT(EPOCH FROM (NOW() - last_crawl_at::timestamptz)) / 86400.0
       ) AS median_age
-      FROM crawl_targets
+      FROM institution_sources
       WHERE last_crawl_at IS NOT NULL
         AND state_code = ${stateCode}
     `;
@@ -64,7 +64,7 @@ export async function checkFreshness(
       SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (
         ORDER BY EXTRACT(EPOCH FROM (NOW() - last_crawl_at::timestamptz)) / 86400.0
       ) AS median_age
-      FROM crawl_targets
+      FROM institution_sources
       WHERE last_crawl_at IS NOT NULL
     `;
   }

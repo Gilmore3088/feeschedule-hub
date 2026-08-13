@@ -82,7 +82,7 @@ export async function getInstitution(
         fed_district, cert_number, website_url,
         fee_schedule_url, document_type,
         last_crawl_at, consecutive_failures
-      FROM crawl_targets
+      FROM institution_sources
       WHERE id = ${id}
     `;
     const r = rows[0];
@@ -163,7 +163,7 @@ export async function getInstitutionCrawlHistory(
         id, crawl_run_id, status, document_url,
         COALESCE(fees_extracted, 0) as fees_extracted,
         error_message, crawled_at
-      FROM crawl_results
+      FROM source_documents
       WHERE crawl_target_id = ${id}
       ORDER BY crawled_at DESC NULLS LAST
       LIMIT ${limit}

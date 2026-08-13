@@ -72,7 +72,7 @@ export async function getStateInstitutions(
         ct.document_type,
         COALESCE(fc.fee_count, 0) as fee_count,
         ct.last_crawl_at as last_crawled
-      FROM crawl_targets ct
+      FROM institution_sources ct
       LEFT JOIN (
         SELECT crawl_target_id, COUNT(*) as fee_count
         FROM published_fee_observations
@@ -109,7 +109,7 @@ export async function getStateSummary(
         COUNT(DISTINCT CASE WHEN ct.fee_schedule_url IS NOT NULL THEN ct.id END) as with_url,
         COUNT(DISTINCT ef.crawl_target_id) as with_fees,
         COUNT(DISTINCT CASE WHEN ct.document_type = 'offline' OR ct.website_url IS NULL THEN ct.id END) as excluded
-      FROM crawl_targets ct
+      FROM institution_sources ct
       LEFT JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
       WHERE ct.state_code = ${stateCode}
     `;
@@ -221,7 +221,7 @@ export async function getAgentRunDetail(runId: number): Promise<{
       SELECT arr.id, arr.crawl_target_id, ct.institution_name,
              arr.stage, arr.status, arr.detail, arr.created_at
       FROM agent_run_results arr
-      JOIN crawl_targets ct ON ct.id = arr.crawl_target_id
+      JOIN institution_sources ct ON ct.id = arr.crawl_target_id
       WHERE arr.agent_run_id = ${runId}
       ORDER BY ct.institution_name, arr.created_at
     `;
@@ -253,7 +253,7 @@ export async function getStateUrlResolutionQueue(
         ct.institution_name,
         ct.website_url,
         latest_result.reason as latest_failure_reason
-      FROM crawl_targets ct
+      FROM institution_sources ct
       LEFT JOIN LATERAL (
         SELECT arr.detail->>'reason' as reason
         FROM agent_run_results arr

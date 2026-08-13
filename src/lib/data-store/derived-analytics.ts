@@ -238,7 +238,7 @@ export async function getRevenuePerInstitutionTrend(
         ct.asset_size_tier as tier,
         ROUND(AVG(ifin.service_charge_income * 1000), 0) as avg_sc_income,
         COUNT(DISTINCT ct.id) as institution_count
-      FROM crawl_targets ct
+      FROM institution_sources ct
       JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
       WHERE ifin.service_charge_income IS NOT NULL
         AND ct.asset_size_tier IS NOT NULL
@@ -255,7 +255,7 @@ export async function getRevenuePerInstitutionTrend(
         ct.charter_type as charter,
         ROUND(AVG(ifin.service_charge_income * 1000), 0) as avg_sc_income,
         COUNT(DISTINCT ct.id) as institution_count
-      FROM crawl_targets ct
+      FROM institution_sources ct
       JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
       WHERE ifin.service_charge_income IS NOT NULL
         AND ifin.report_date = (

@@ -102,7 +102,7 @@ export async function getFilteredTierCounts(filters: {
 
   const rows = await sql.unsafe(
     `SELECT asset_size_tier as tier, COUNT(*) as count
-     FROM crawl_targets
+     FROM institution_sources
      WHERE ${conditions.join(" AND ")}
      GROUP BY asset_size_tier
      ORDER BY MIN(asset_size)`,
@@ -156,7 +156,7 @@ export async function getFeesForCategory(
   const rows = await sql.unsafe(
     `SELECT ef.amount, ct.charter_type, ct.institution_name
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ${conditions.join(" AND ")}
      ORDER BY ef.amount`,
     params
@@ -221,7 +221,7 @@ export async function getSegmentOutliers(
   const highest = await sql.unsafe(
     `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ${where}
      ORDER BY ef.amount DESC
      LIMIT $${limitIdx}`,
@@ -236,7 +236,7 @@ export async function getSegmentOutliers(
   const lowest = await sql.unsafe(
     `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id, ef.amount
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ${where}
      ORDER BY ef.amount ASC
      LIMIT $${limitIdx}`,
@@ -257,7 +257,7 @@ export async function getSegmentOutliers(
     `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id,
             COALESCE(ef.amount, 0) as amount
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ${flaggedConditions.join(" AND ")}
      ORDER BY ef.amount DESC
      LIMIT $${limitIdx}`,

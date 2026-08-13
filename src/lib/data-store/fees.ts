@@ -90,7 +90,7 @@ export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
   const rows = await sql`
     SELECT ef.fee_category, ef.amount, ef.crawl_target_id, ct.charter_type
     FROM published_fee_observations ef
-    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     WHERE ef.fee_category IS NOT NULL AND ef.review_status != 'rejected'
   ` as {
     fee_category: string;
@@ -153,7 +153,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
            ct.asset_size, ef.review_status, ef.extraction_confidence,
            ef.canonical_fee_key, ef.variant_type
     FROM published_fee_observations ef
-    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     WHERE ef.fee_category = ${category} AND ef.review_status != 'rejected'
     ORDER BY ef.amount DESC NULLS LAST
   ` as FeeInstance[];
@@ -202,7 +202,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
   const districtRows = await sql`
     SELECT ct.fed_district, ef.amount
     FROM published_fee_observations ef
-    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     WHERE ef.fee_category = ${category} AND ct.fed_district IS NOT NULL
   ` as { fed_district: number; amount: number | null }[];
 
@@ -240,7 +240,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
     SELECT ct.institution_name, fce.previous_amount, fce.new_amount,
            fce.change_type, fce.detected_at
     FROM fee_change_events fce
-    JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
+    JOIN institution_sources ct ON fce.crawl_target_id = ct.id
     WHERE fce.fee_category = ${category}
     ORDER BY fce.detected_at DESC
     LIMIT 50
@@ -327,7 +327,7 @@ export async function getRecentPriceChanges(days: number = 90, category?: string
              fce.fee_category, fce.previous_amount, fce.new_amount,
              fce.change_type, fce.detected_at
       FROM fee_change_events fce
-      JOIN crawl_targets ct ON fce.crawl_target_id = ct.id
+      JOIN institution_sources ct ON fce.crawl_target_id = ct.id
       WHERE ${conditions.join(" AND ")}
       ORDER BY fce.detected_at DESC
       LIMIT 200

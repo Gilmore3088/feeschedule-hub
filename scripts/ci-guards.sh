@@ -440,41 +440,22 @@ legacy_name_kill() {
 }
 
 source_read_model_kill() {
-  local include_paths=(
-    "src/lib/data-store/connection.ts"
-    "src/lib/data-store/core.ts"
-    "src/lib/data-store/dashboard.ts"
-    "src/lib/agents/magellan/discovery.ts"
-    "src/lib/agents/magellan/fetch.ts"
-    "src/lib/agents/rosetta/read.ts"
-    "src/lib/agents/run-store.ts"
-    "src/lib/agents/magellan/discovery.test.ts"
-    "src/lib/agents/magellan/fetch.test.ts"
-    "src/lib/agents/rosetta/read.test.ts"
-    "src/lib/agents/run-store.test.ts"
-    "src/lib/research/tools-internal.ts"
-    "src/lib/research/agents.ts"
-    "src/app/admin/query/query-client.tsx"
-    "src/app/admin/coverage/actions.ts"
-  )
   local pattern='(FROM|JOIN|UPDATE|INSERT INTO|DELETE FROM)[[:space:]]+(public\.)?(crawl_targets|crawl_results|crawl_runs)\b'
   local hits=""
 
   if git rev-parse --git-dir >/dev/null 2>&1; then
-    hits=$(git grep --untracked -nE "$pattern" -- \
-      "${include_paths[@]}" \
-      | grep -v '^Binary file' || true)
+    hits=$(git grep --untracked -nE "$pattern" -- src | grep -v '^Binary file' || true)
   else
-    hits=$(grep -nE "$pattern" "${include_paths[@]}" 2>/dev/null || true)
+    hits=$(grep -R -nE "$pattern" src 2>/dev/null || true)
   fi
 
   if [[ -n "$hits" ]]; then
-    echo "source-read-model-kill: migrated read boundaries still query crawl_* tables directly:" >&2
+    echo "source-read-model-kill: app code still queries crawl_* source tables directly:" >&2
     echo "$hits" >&2
     exit 1
   fi
 
-  echo "source-read-model-kill: OK (migrated read boundaries use agentic source views)"
+  echo "source-read-model-kill: OK (app code uses agentic source views)"
   exit 0
 }
 

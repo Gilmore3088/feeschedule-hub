@@ -92,7 +92,7 @@ export async function getFeeChangeEvents(
       fce.changed_at,
       ct.charter_type
     FROM fee_change_events fce
-    JOIN crawl_targets ct ON ct.id = fce.crawl_target_id
+    JOIN institution_sources ct ON ct.id = fce.crawl_target_id
     ${where}
     ORDER BY fce.changed_at DESC
     LIMIT ${rowLimit}

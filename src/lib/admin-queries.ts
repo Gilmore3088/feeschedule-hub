@@ -50,7 +50,7 @@ export interface PipelineOverview {
   total_institutions: number;
   with_url: number;
   with_fees: number;
-  crawl_runs: number;
+  source_collection_runs: number;
 }
 
 export type AgentStatus = "live" | "stubbed" | "missing" | "blocked";
@@ -127,7 +127,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
           SELECT 1 FROM published_fee_observations ef
            WHERE ef.crawl_target_id = ct.id
         ))::int AS with_fees
-      FROM crawl_targets ct
+      FROM institution_sources ct
       WHERE status = 'active'
         AND COALESCE(document_type, '') NOT IN ('offline', 'no_website')
     `;
@@ -175,7 +175,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
 
     // Have URL but no fees
     const [urlNoFeesRow] = await sql`
-        SELECT COUNT(*) as cnt FROM crawl_targets ct
+        SELECT COUNT(*) as cnt FROM institution_sources ct
         WHERE ct.fee_schedule_url IS NOT NULL AND ct.status = 'active'
           AND NOT EXISTS (
           SELECT 1 FROM published_fee_observations ef WHERE ef.crawl_target_id = ct.id
@@ -183,7 +183,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
 
     // No URL at all (addressable)
     const [noUrlRow] = await sql`
-      SELECT COUNT(*) as cnt FROM crawl_targets ct
+      SELECT COUNT(*) as cnt FROM institution_sources ct
       WHERE ct.fee_schedule_url IS NULL AND ct.status = 'active'
         AND ct.website_url IS NOT NULL
         AND (ct.document_type IS NULL OR ct.document_type != 'offline')`;
@@ -234,7 +234,7 @@ export async function getRecentCrawlRuns(limit = 10): Promise<RecentCrawlRun[]> 
       SELECT
         id, started_at, completed_at, status,
         targets_crawled, targets_succeeded, fees_extracted
-      FROM crawl_runs
+      FROM source_collection_runs
       ORDER BY started_at DESC
       LIMIT ${limit}
     `;
@@ -264,7 +264,7 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
         t.state_code,
         COUNT(DISTINCT t.id) as total,
         COUNT(DISTINCT e.crawl_target_id) as with_fees
-      FROM crawl_targets t
+      FROM institution_sources t
       LEFT JOIN published_fee_observations e ON e.crawl_target_id = t.id
       WHERE t.state_code IS NOT NULL
         AND t.status = 'active'
@@ -373,20 +373,20 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
   ];
 
   try {
-    // Scrape: total crawl targets + crawl_runs in last 24h
-    const [scrapeNow] = await sql`SELECT COUNT(*)::int AS n FROM crawl_targets`;
+    // Scrape: total crawl targets + source_collection_runs in last 24h
+    const [scrapeNow] = await sql`SELECT COUNT(*)::int AS n FROM institution_sources`;
     const [scrape24h] = await sql`
-      SELECT COUNT(*)::int AS n FROM crawl_runs WHERE started_at > NOW() - INTERVAL '24 hours'
+      SELECT COUNT(*)::int AS n FROM source_collection_runs WHERE started_at > NOW() - INTERVAL '24 hours'
     `;
     stages[0].current = Number(scrapeNow?.n ?? 0);
     stages[0].throughput_24h = Number(scrape24h?.n ?? 0);
 
     // Discovery: targets with fee_schedule_url known
     const [discoveryNow] = await sql`
-      SELECT COUNT(*)::int AS n FROM crawl_targets WHERE fee_schedule_url IS NOT NULL
+      SELECT COUNT(*)::int AS n FROM institution_sources WHERE fee_schedule_url IS NOT NULL
     `;
     const [discovery24h] = await sql`
-      SELECT COUNT(*)::int AS n FROM crawl_targets
+      SELECT COUNT(*)::int AS n FROM institution_sources
        WHERE fee_schedule_url IS NOT NULL AND discovered_at > NOW() - INTERVAL '24 hours'
     `;
     stages[1].current = Number(discoveryNow?.n ?? 0);
@@ -433,19 +433,19 @@ export async function getPipelineMap(): Promise<PipelineMapData> {
 
 export async function getPipelineOverview(): Promise<PipelineOverview> {
   try {
-    const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
-    const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
+    const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources`;
+    const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources WHERE fee_schedule_url IS NOT NULL`;
     const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_observations`;
-    const [runRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_runs`;
+    const [runRow] = await sql`SELECT COUNT(*) as cnt FROM source_collection_runs`;
     return {
       total_institutions: Number(totalRow.cnt),
       with_url: Number(urlRow.cnt),
       with_fees: Number(feeRow.cnt),
-      crawl_runs: Number(runRow.cnt),
+      source_collection_runs: Number(runRow.cnt),
     };
   } catch (e) {
     console.error("getPipelineOverview failed:", e);
-    return { total_institutions: 0, with_url: 0, with_fees: 0, crawl_runs: 0 };
+    return { total_institutions: 0, with_url: 0, with_fees: 0, source_collection_runs: 0 };
   }
 }
 
@@ -501,7 +501,7 @@ export async function getUrlFreshnessStats(): Promise<UrlFreshnessStats> {
         COUNT(*) FILTER (WHERE fee_schedule_url IS NOT NULL)::int AS total_with_url,
         COUNT(*) FILTER (WHERE failure_reason = 'url_stale')::int AS stale_count,
         MAX(failure_reason_updated_at) FILTER (WHERE failure_reason = 'url_stale') AS last_revalidated_at
-      FROM crawl_targets
+      FROM institution_sources
     `;
     const total = Number(row?.total_with_url ?? 0);
     const stale = Number(row?.stale_count ?? 0);
@@ -718,7 +718,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
     const [row] = await sql`
       SELECT COUNT(*) as cnt
       FROM published_fee_observations ef
-      LEFT JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+      LEFT JOIN institution_sources ct ON ef.crawl_target_id = ct.id
       WHERE ct.id IS NULL
     `;
     const cnt = Number(row.cnt);
@@ -770,7 +770,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   try {
     const [row] = await sql`
       SELECT COUNT(*) as cnt FROM (
-        SELECT institution_name FROM crawl_targets
+        SELECT institution_name FROM institution_sources
         GROUP BY institution_name HAVING COUNT(*) > 1
       ) sub
     `;
@@ -824,7 +824,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 7. Stale institutions
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM crawl_targets
+      SELECT COUNT(*) as cnt FROM institution_sources
       WHERE last_crawl_at < NOW() - INTERVAL '90 days' OR last_crawl_at IS NULL
     `;
     const cnt = Number(row.cnt);
@@ -842,7 +842,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   try {
     const [row] = await sql`
       SELECT COUNT(*) as cnt
-      FROM crawl_targets ct
+      FROM institution_sources ct
       LEFT JOIN institution_financials ifin ON ct.id = ifin.crawl_target_id
       WHERE ifin.id IS NULL
     `;
@@ -879,7 +879,7 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
   // 10. Invalid state codes
   try {
     const [row] = await sql`
-      SELECT COUNT(*) as cnt FROM crawl_targets
+      SELECT COUNT(*) as cnt FROM institution_sources
       WHERE state_code IS NOT NULL AND LENGTH(state_code) != 2
     `;
     const cnt = Number(row.cnt);
@@ -898,9 +898,9 @@ export async function getIntegrityChecks(): Promise<IntegrityCheck[]> {
 
 export async function getCoverageFunnelData(): Promise<CoverageFunnelData> {
   try {
-    const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
-    const [webRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
-    const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
+    const [totalRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources`;
+    const [webRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources WHERE website_url IS NOT NULL`;
+    const [urlRow] = await sql`SELECT COUNT(*) as cnt FROM institution_sources WHERE fee_schedule_url IS NOT NULL`;
     const [feeRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_observations`;
     const [appRow] = await sql`SELECT COUNT(DISTINCT crawl_target_id) as cnt FROM published_fee_observations`;
     return {
@@ -1046,7 +1046,7 @@ export async function searchInstitutions(
     if (query && query.trim()) {
       const pattern = `%${query.trim()}%`;
       const countResult = await sql`
-        SELECT COUNT(*) as cnt FROM crawl_targets
+        SELECT COUNT(*) as cnt FROM institution_sources
         WHERE institution_name ILIKE ${pattern}
       `;
       const total = Number(countResult[0].cnt);
@@ -1056,7 +1056,7 @@ export async function searchInstitutions(
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
                (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
                COALESCE(fc.fee_count, 0) as fee_count
-        FROM crawl_targets ct
+        FROM institution_sources ct
         LEFT JOIN (
           SELECT crawl_target_id, COUNT(*) as fee_count
           FROM published_fee_observations
@@ -1075,7 +1075,7 @@ export async function searchInstitutions(
       };
     }
 
-    const countResult = await sql`SELECT COUNT(*) as cnt FROM crawl_targets`;
+    const countResult = await sql`SELECT COUNT(*) as cnt FROM institution_sources`;
     const total = Number(countResult[0].cnt);
 
     const rows = await sql.unsafe(
@@ -1083,7 +1083,7 @@ export async function searchInstitutions(
       SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size,
              (ct.fee_schedule_url IS NOT NULL) as has_fee_url,
              COALESCE(fc.fee_count, 0) as fee_count
-      FROM crawl_targets ct
+      FROM institution_sources ct
       LEFT JOIN (
         SELECT crawl_target_id, COUNT(*) as fee_count
         FROM published_fee_observations
@@ -1259,7 +1259,7 @@ export async function getDistrictOverview(): Promise<DistrictOverviewRow[]> {
         ct.fed_district as district,
         COUNT(*) as total,
         COUNT(DISTINCT ef.crawl_target_id) as with_fees
-      FROM crawl_targets ct
+      FROM institution_sources ct
       LEFT JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
       WHERE ct.fed_district IS NOT NULL
       GROUP BY ct.fed_district
@@ -1422,7 +1422,7 @@ export async function getMarketData(filters: {
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
        FROM published_fee_observations ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       JOIN institution_sources ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
       params,
@@ -1527,7 +1527,7 @@ export async function getPeerIndexData(filters: {
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ef.amount) as median,
               COUNT(DISTINCT ct.id) as inst_count
        FROM published_fee_observations ef
-       JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+       JOIN institution_sources ct ON ef.crawl_target_id = ct.id
        WHERE ${where}
        GROUP BY ef.fee_category`,
       params,
@@ -1588,7 +1588,7 @@ export async function getGoldStandardCandidates(
              ct.asset_size,
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
-      FROM crawl_targets ct
+      FROM institution_sources ct
       JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
@@ -1622,7 +1622,7 @@ export async function getGoldStandardCandidate(
              ct.asset_size,
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
-      FROM crawl_targets ct
+      FROM institution_sources ct
       JOIN published_fee_observations ef ON ef.crawl_target_id = ct.id
       WHERE ct.id = ${id}
       GROUP BY ct.id, ct.institution_name, ct.state_code,

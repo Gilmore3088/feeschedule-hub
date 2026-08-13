@@ -20,8 +20,8 @@ Make Fee Insight run through one visible agentic system:
 | P1 | Knox | Add bounded provider-assisted extraction fallback | Deterministic misses on readable documents get one metered fallback, with only anomalies sent to human review. |
 | P1 | Darwin | Thin review pressure | Verification routes ordinary canonical rows forward and challenges only suspicious rows. |
 | P1 | Hamilton | Publish data-quality summaries | Admin can distinguish no source, source fetched, PDF pending OCR, extracted, verified, and published. |
-| P1 | Schema | Migrate remaining source reads and writes to agentic names | Reporting, admin query, Scout, institution command, submit-fees, alert, and report API paths stop querying historical source tables directly. |
-| P2 | Schema | Create fresh agentic schema baseline | Empty database can be built without recreating retired execution tables as active infrastructure. |
+| P1 | Schema | Rename or baseline physical source storage | Empty database can be built around agentic source names without recreating retired table names as active infrastructure. |
+| P2 | Schema | Audit FK/column compatibility names | Remaining `crawl_target_id`/physical FK names are documented or replaced without breaking existing data. |
 | P2 | Docs | Keep active docs current-only | `npm run guard:legacy` blocks stale active guidance and historical docs stay in archive. |
 
 ## Recently Shipped
@@ -37,6 +37,7 @@ Make Fee Insight run through one visible agentic system:
 | Script artifacts | Unreferenced standalone `scripts/migrations/*.sql` files removed; canonical DB history remains under `supabase/migrations`. |
 | Source read model | Added `institution_sources`, `source_documents`, and `source_collection_runs`; migrated public stats, collection health, Hamilton admin status tools, admin query presets, and Magellan status counts; added `source-read-model-kill`. |
 | Agent source paths | Magellan discovery/fetch, Rosetta read, and Atlas/run-store inventory now use semantic source views instead of historical source tables. |
+| App source paths | Reporting, admin queries, data-store modules, Scout, institution commands, submit-fees lookups, alerts, and report APIs now use semantic source views; `source-read-model-kill` scans all of `src/`. |
 | FMD audit | Rechecked the workspace; no `.fmd` or `*fmd*` files are present to audit. |
 
 ## Verification Gates

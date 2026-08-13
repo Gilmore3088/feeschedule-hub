@@ -99,7 +99,7 @@ async function loadInstitution(id: number): Promise<InstitutionRow | null> {
   const rows = await sql<InstitutionRow[]>`
     SELECT id, institution_name, state_code, charter_type,
            asset_size, asset_size_tier, fed_district, city
-    FROM crawl_targets
+    FROM institution_sources
     WHERE id = ${id}
   `;
   return rows[0] ?? null;
@@ -126,7 +126,7 @@ async function loadPeerFees(
   const assetSize = inst.asset_size ?? 0;
 
   const peerInstitutions = await sql.unsafe(
-    `SELECT id FROM crawl_targets
+    `SELECT id FROM institution_sources
      WHERE charter_type = $1
        AND id != $2
        AND fee_schedule_url IS NOT NULL

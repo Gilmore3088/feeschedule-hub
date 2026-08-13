@@ -66,7 +66,7 @@ export async function getInstitutionFee(
     const rows = await sql<{ amount: string }[]>`
       SELECT ef.amount::text
       FROM published_fee_observations ef
-      JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+      JOIN institution_sources ct ON ef.crawl_target_id = ct.id
       WHERE ct.institution_name ILIKE ${`%${institutionId.replace(/-/g, ' ')}%`}
         AND ef.fee_category = ${feeCategory}
         AND ef.review_status = 'approved'

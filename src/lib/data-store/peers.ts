@@ -52,7 +52,7 @@ export async function getTopCategoriesForPeerSet(
   const rows = await sql.unsafe(
     `SELECT ef.fee_category, ef.amount, ef.crawl_target_id
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      WHERE ${where}`,
     params
   ) as {
@@ -137,7 +137,7 @@ export async function getPeerPreviewStats(filters: {
             SUM(CASE WHEN ct.fee_schedule_url IS NOT NULL THEN 1 ELSE 0 END) as with_fee_url,
             SUM(CASE WHEN ct.charter_type = 'bank' THEN 1 ELSE 0 END) as banks,
             SUM(CASE WHEN ct.charter_type = 'credit_union' THEN 1 ELSE 0 END) as credit_unions
-     FROM crawl_targets ct
+     FROM institution_sources ct
      ${where}`,
     params
   ) as { total: number; with_website: number; with_fee_url: number; banks: number; credit_unions: number }[];
@@ -147,7 +147,7 @@ export async function getPeerPreviewStats(filters: {
             SUM(CASE WHEN ef.review_status = 'flagged' THEN 1 ELSE 0 END) as flagged,
             AVG(ef.extraction_confidence) as avg_conf
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      ${where}`,
     params
   ) as { cnt: number; flagged: number; avg_conf: number | null }[];

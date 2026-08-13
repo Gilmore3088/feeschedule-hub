@@ -60,7 +60,7 @@ export async function createInstitutionCommand(
     const websiteUrl = input.websiteUrl ? normalizeHttpUrl(input.websiteUrl) : null;
     const feeScheduleUrl = input.feeScheduleUrl ? normalizeHttpUrl(input.feeScheduleUrl) : null;
     const [row] = await sql`
-      INSERT INTO crawl_targets
+      INSERT INTO institution_sources
         (institution_name, state_code, charter_type, website_url,
          fee_schedule_url, source, status)
       VALUES
@@ -86,7 +86,7 @@ export async function setInstitutionFeeUrl(
     validateInstitutionId(institutionId);
     const url = normalizeHttpUrl(value);
     const rows = await sql`
-      UPDATE crawl_targets
+      UPDATE institution_sources
          SET fee_schedule_url = ${url},
              document_type = NULL
        WHERE id = ${institutionId}
@@ -107,7 +107,7 @@ export async function markInstitutionOfflineCommand(
   try {
     validateInstitutionId(institutionId);
     const rows = await sql`
-      UPDATE crawl_targets
+      UPDATE institution_sources
          SET fee_schedule_url = NULL,
              document_type = 'offline'
        WHERE id = ${institutionId}
@@ -129,7 +129,7 @@ export async function extractInstitutionCommand(
     validateInstitutionId(institutionId);
     const [institution] = await sql`
       SELECT id, institution_name, state_code, fee_schedule_url
-        FROM crawl_targets
+        FROM institution_sources
        WHERE id = ${institutionId}
     `;
     if (!institution) return { success: false, error: "Institution not found" };
@@ -215,7 +215,7 @@ export async function bulkSetInstitutionFeeUrls(
     await withTransaction(async (tx) => {
       for (const item of updates) {
         const rows = await tx`
-          UPDATE crawl_targets
+          UPDATE institution_sources
              SET fee_schedule_url = ${item.url}, document_type = NULL
            WHERE id = ${item.id}
           RETURNING id

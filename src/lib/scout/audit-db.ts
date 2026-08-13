@@ -99,7 +99,7 @@ export async function clearFeeScheduleUrl(
   crawlTargetId: number
 ) {
   await sql`
-    UPDATE crawl_targets
+    UPDATE institution_sources
     SET fee_schedule_url = NULL
     WHERE id = ${crawlTargetId}
   `;
@@ -111,7 +111,7 @@ export async function setFeeScheduleUrl(
   documentType: string | null
 ) {
   await sql`
-    UPDATE crawl_targets
+    UPDATE institution_sources
     SET fee_schedule_url = ${url},
         document_type = ${documentType}
     WHERE id = ${crawlTargetId}
@@ -124,14 +124,14 @@ export async function getInstitutionsByScope(
 ): Promise<InstitutionRow[]> {
   if (scopeType === "state") {
     return sql<InstitutionRow[]>`
-      SELECT * FROM crawl_targets
+      SELECT * FROM institution_sources
       WHERE status = 'active' AND state_code = ${scopeValue}
       ORDER BY asset_size DESC NULLS LAST
     `;
   }
   if (scopeType === "district") {
     return sql<InstitutionRow[]>`
-      SELECT * FROM crawl_targets
+      SELECT * FROM institution_sources
       WHERE status = 'active' AND fed_district = ${Number(scopeValue)}
       ORDER BY asset_size DESC NULLS LAST
     `;
@@ -143,7 +143,7 @@ export async function getInstitutionById(
   id: number
 ): Promise<InstitutionRow | null> {
   const [row] = await sql<InstitutionRow[]>`
-    SELECT * FROM crawl_targets WHERE id = ${id}
+    SELECT * FROM institution_sources WHERE id = ${id}
   `;
   return row || null;
 }

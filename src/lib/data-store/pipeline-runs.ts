@@ -70,8 +70,8 @@ export async function getDiscoveryMethodStats(): Promise<DiscoveryMethodStats[]>
         COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%Pre-LLM%' THEN cr.crawl_target_id END) as prescreen_fail,
         COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%403%' OR cr.error_message LIKE '%404%' THEN cr.crawl_target_id END) as http_error
       FROM discovery_cache dc
-      JOIN crawl_targets ct ON dc.crawl_target_id = ct.id
-      LEFT JOIN crawl_results cr ON cr.crawl_target_id = ct.id
+      JOIN institution_sources ct ON dc.crawl_target_id = ct.id
+      LEFT JOIN source_documents cr ON cr.crawl_target_id = ct.id
       WHERE dc.result = 'found'
       GROUP BY dc.discovery_method
       ORDER BY discovered DESC

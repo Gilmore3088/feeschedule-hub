@@ -23,7 +23,7 @@ export async function GET() {
         a.created_at,
         ct.institution_name
       FROM fee_alert_subscriptions a
-      JOIN crawl_targets ct ON ct.id = a.crawl_target_id
+      JOIN institution_sources ct ON ct.id = a.crawl_target_id
       WHERE a.user_id = ${user.id} AND a.is_active = TRUE
       ORDER BY ct.institution_name
     `;
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Verify the crawl target exists
     const [target] = await sql`
-      SELECT id FROM crawl_targets WHERE id = ${crawl_target_id}
+      SELECT id FROM institution_sources WHERE id = ${crawl_target_id}
     `;
     if (!target) {
       return NextResponse.json(

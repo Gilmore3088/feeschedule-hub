@@ -31,7 +31,7 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
 
   try {
   // institution_financials has crawl_target_id, not cert_number/charter_type directly.
-  // JOIN to crawl_targets for charter_type and cert_number.
+  // JOIN to institution_sources for charter_type and cert_number.
   // report_date is TEXT (e.g. '2024-12-31') — cast to date for DATE_TRUNC.
   const rows = await sql.unsafe(
     `SELECT
@@ -44,7 +44,7 @@ export async function getRevenueTrend(quarterCount = 8): Promise<RevenueTrend> {
        SUM(CASE WHEN ct.charter_type = 'credit_union' THEN inf.service_charge_income ELSE 0 END)
                                                                  AS cu_service_charges
      FROM institution_financials inf
-     JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+     JOIN institution_sources ct ON ct.id = inf.crawl_target_id
      WHERE inf.service_charge_income > 0
      GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
      ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
@@ -117,7 +117,7 @@ export async function getTopRevenueInstitutions(
          inf.service_charge_income,
          inf.total_assets
        FROM institution_financials inf
-       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       JOIN institution_sources ct ON ct.id = inf.crawl_target_id
        WHERE inf.report_date = $1
          AND inf.service_charge_income > 0
        ORDER BY inf.service_charge_income DESC
@@ -214,7 +214,7 @@ export async function getInstitutionPeerRanking(
     `SELECT ct.institution_name, inf.total_assets, inf.service_charge_income,
             inf.fee_income_ratio, inf.report_date
      FROM institution_financials inf
-     JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+     JOIN institution_sources ct ON ct.id = inf.crawl_target_id
      WHERE inf.crawl_target_id = $1
        AND inf.service_charge_income IS NOT NULL
        AND inf.total_assets IS NOT NULL
@@ -325,7 +325,7 @@ export async function getDistrictFeeRevenue(
        COALESCE(AVG(inf.service_charge_income), 0)::bigint AS avg_sc_income,
        COALESCE(SUM(inf.other_noninterest_income), 0)::bigint AS total_other_noninterest
      FROM institution_financials inf
-     JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+     JOIN institution_sources ct ON ct.id = inf.crawl_target_id
      WHERE inf.report_date = $1
        AND ct.fed_district = $2
        AND inf.service_charge_income > 0

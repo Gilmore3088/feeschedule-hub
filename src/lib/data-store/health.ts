@@ -77,7 +77,7 @@ async function buildHealthIndicatorByCharter(
          MIN(inf.report_date::text)                                            AS quarter_date,
          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY inf.${column})           AS median_value
        FROM institution_financials inf
-       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       JOIN institution_sources ct ON ct.id = inf.crawl_target_id
        WHERE inf.${column} IS NOT NULL AND inf.${column} != 0
          AND ct.charter_type = $1
        GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
@@ -228,7 +228,7 @@ export async function getInstitutionCountTrends(
          COUNT(DISTINCT CASE WHEN ct.charter_type = 'bank' THEN inf.crawl_target_id END)         AS bank_count,
          COUNT(DISTINCT CASE WHEN ct.charter_type = 'credit_union' THEN inf.crawl_target_id END) AS cu_count
        FROM institution_financials inf
-       JOIN crawl_targets ct ON ct.id = inf.crawl_target_id
+       JOIN institution_sources ct ON ct.id = inf.crawl_target_id
        GROUP BY DATE_TRUNC('quarter', inf.report_date::date)
        ORDER BY DATE_TRUNC('quarter', inf.report_date::date) DESC
        LIMIT $1`,

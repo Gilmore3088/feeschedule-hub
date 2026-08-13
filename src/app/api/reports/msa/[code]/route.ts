@@ -127,7 +127,7 @@ async function loadInstitutionsFromBranches(msaCode: number): Promise<Institutio
       COUNT(DISTINCT bd.branch_number) as branch_count,
       0.0 as deposit_share
     FROM branch_deposits bd
-    JOIN crawl_targets ct ON ct.id = bd.crawl_target_id
+    JOIN institution_sources ct ON ct.id = bd.crawl_target_id
     WHERE bd.msa_code = ${msaCode}
       AND bd.crawl_target_id IS NOT NULL
       AND bd.year = (SELECT MAX(year) FROM branch_deposits WHERE msa_code = ${msaCode})
@@ -159,7 +159,7 @@ async function loadInstitutionsFromCbsa(cbsaCode: string): Promise<InstitutionDe
       0 as total_deposits,
       0 as branch_count,
       0.0 as deposit_share
-    FROM crawl_targets
+    FROM institution_sources
     WHERE cbsa_code = ${cbsaCode}
       AND status = 'active'
     ORDER BY asset_size DESC NULLS LAST
@@ -838,7 +838,7 @@ export async function GET(
     let institutions = await loadInstitutionsFromBranches(msa.msa_code);
     let hasBranchData = true;
 
-    // Fallback to cbsa_code on crawl_targets
+    // Fallback to cbsa_code on institution_sources
     if (institutions.length === 0) {
       institutions = await loadInstitutionsFromCbsa(code);
       hasBranchData = false;

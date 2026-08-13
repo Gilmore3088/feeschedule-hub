@@ -21,7 +21,7 @@ Make the public/admin product run through one understandable agentic system:
 - `src/lib/agents/run-store.ts` is the current execution envelope and event ledger.
 - `src/lib/automation-control.ts` is the global safety stop.
 - `src/lib/ai-provider.ts` is the only active provider SDK/model construction boundary.
-- `institution_sources`, `source_documents`, and `source_collection_runs` are the current semantic source views for migrated read paths while the historical physical source tables are phased out.
+- `institution_sources`, `source_documents`, and `source_collection_runs` are the current semantic source views for app-code source/institution/document collection access while the historical physical source tables are phased out.
 - `src/lib/ai-provider-usage.ts` records provider usage/failures, trips the same safety stop for Anthropic credit failures, and blocks new Anthropic calls when a recent credit-balance failure is already in the ledger.
 - Current fee flow modules:
   - `src/lib/agents/magellan/discovery.ts`
@@ -45,7 +45,7 @@ Make the public/admin product run through one understandable agentic system:
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config. Active `.claude` prompts are now guarded by `prompt-kill` so they cannot point agents at retired crawler/database tooling.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
-- Some reporting, admin, Scout, API, and institution command modules still query the historical source tables directly. They must move to the semantic source views or a physical schema rename in later slices.
+- App code no longer queries the historical source tables directly. Remaining legacy is in migration history, physical storage/table names, FK column names, and archived docs.
 
 ### Removed In This Cleanup Pass
 
@@ -67,6 +67,8 @@ Make the public/admin product run through one understandable agentic system:
 - Moved public stats/freshness, collection health, Hamilton internal status tools, admin query presets, and Magellan admin status counts onto the semantic source views.
 - Moved active Magellan discovery/fetch, Rosetta read, and Atlas/run-store inventory paths onto semantic source views.
 - Added `source-read-model-kill` to keep migrated read/write boundaries from querying historical source tables directly.
+- Moved app-code reporting, admin queries, data-store modules, Scout, institution commands, submit-fees lookups, alerts, and report APIs onto the semantic source views.
+- Expanded `source-read-model-kill` so it scans all of `src/` instead of a handpicked migrated-file list.
 - Verified the current workspace contains no `.fmd` or `*fmd*` files to audit.
 
 ## Retirement Plan
@@ -80,7 +82,7 @@ Status: implemented for current runtime source and config.
 - Keep `provider-kill` in the guard chain.
 - Keep `legacy-name-kill` in the guard chain.
 - Keep `edge-function-kill` in the guard chain.
-- Keep `source-read-model-kill` in the guard chain and expand it as each module moves to semantic source views.
+- Keep `source-read-model-kill` in the guard chain so all app code keeps using semantic source views.
 - Add a lightweight architecture assertion test that checks:
   - `vercel.json` has only `/api/admin/agents/tick`.
   - runtime source does not import `job-runner`.
@@ -150,11 +152,11 @@ Target: agent backlog shrinks without asking a human to review 26k rows.
 
 Target: a fresh database should not recreate retired execution infrastructure just to drop it later.
 
-- Status: started. Semantic source views exist for migrated read boundaries and the active Magellan/Rosetta/run-store source paths; physical source table and column renames remain deferred until the remaining broad readers and support write paths are migrated.
+- Status: started. Semantic source views exist and app-code read/write SQL now uses them; physical source table and column renames remain deferred to a dedicated schema/baseline pass.
 - Do not edit production-applied migrations in place.
 - Create a new agentic baseline migration set or squashed schema dump for fresh environments.
 - Archive older compatibility migrations under a clearly named historical folder once the baseline is verified.
-- Move remaining direct source table references in reporting, admin queries, data-store modules, Scout, institution commands, submit-fees, alerts, and report APIs before attempting physical table renames.
+- Audit remaining physical FK and column names before attempting physical table renames.
 - Remove active references to:
   - `ops_jobs`
   - `ops_job_id`

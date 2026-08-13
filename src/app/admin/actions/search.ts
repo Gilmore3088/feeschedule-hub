@@ -36,7 +36,7 @@ export async function searchDashboard(query: string): Promise<SearchResult> {
 
   const institutions = await sql`
     SELECT id, institution_name as name, state_code as state, charter_type as charter
-    FROM crawl_targets
+    FROM institution_sources
     WHERE institution_name ILIKE ${pattern}
     ORDER BY asset_size DESC NULLS LAST
     LIMIT 8

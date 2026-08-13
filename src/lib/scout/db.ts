@@ -6,7 +6,7 @@ export async function searchInstitutions(
 ): Promise<InstitutionRow[]> {
   const pattern = `%${query}%`;
   const rows = await sql<InstitutionRow[]>`
-    SELECT * FROM crawl_targets
+    SELECT * FROM institution_sources
     WHERE institution_name ILIKE ${pattern}
       AND status = 'active'
     ORDER BY asset_size DESC NULLS LAST
@@ -32,7 +32,7 @@ export async function getCrawlResults(
   crawlTargetId: number
 ): Promise<CrawlResultRow[]> {
   const rows = await sql<CrawlResultRow[]>`
-    SELECT * FROM crawl_results
+    SELECT * FROM source_documents
     WHERE crawl_target_id = ${crawlTargetId}
     ORDER BY id DESC
     LIMIT 10
@@ -46,7 +46,7 @@ export async function autocompleteInstitutions(query: string) {
     { id: number; institution_name: string; state_code: string | null; asset_size_tier: string | null }[]
   >`
     SELECT id, institution_name, state_code, asset_size_tier
-    FROM crawl_targets
+    FROM institution_sources
     WHERE institution_name ILIKE ${pattern}
       AND status = 'active'
     ORDER BY asset_size DESC NULLS LAST
