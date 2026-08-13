@@ -1,6 +1,6 @@
 # Project State
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 ## Current Focus
 
@@ -23,10 +23,16 @@ queued runs from an authenticated admin or cron-style bearer caller.
 Production schedules the tick route every five minutes through `vercel.json`;
 the remaining durability upgrade is Workflow/Queue-backed replay and fan-out.
 
+Provider behavior: provider SDK/model construction is centralized in
+`src/lib/ai-provider.ts`; usage/failure metering remains in
+`src/lib/ai-provider-usage.ts`; `npm run guard:legacy` blocks direct Anthropic
+imports outside the provider boundary.
+
 ## Active References
 
-- `docs/audits/legacy-retirement-status-2026-08-12.md`
-- `docs/plans/modal-legacy-decommission-agentic-experience-2026-08-12.md`
+- `docs/plans/agentic-codebase-cleanup-2026-08-13.md`
+- `CLAUDE.md`
+- `scripts/ci-guards.sh`
 
 ## Immediate Remaining Work
 

@@ -20,8 +20,8 @@
  */
 
 import { streamText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import { guardProviderCall, recordProviderUsage } from "@/lib/ai-provider-usage";
+import { getAnthropicLanguageModel } from "@/lib/ai-provider";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { getDailyCostCents, logUsage } from "@/lib/research/history";
@@ -142,7 +142,7 @@ Provide a concise strategic interpretation of this fee change. What does this po
 
   let providerFailed = false;
   const result = await streamText({
-    model: anthropic(HAMILTON_MODEL),
+    model: getAnthropicLanguageModel(HAMILTON_MODEL),
     system: systemPrompt,
     prompt: userPrompt,
     maxOutputTokens: 300,

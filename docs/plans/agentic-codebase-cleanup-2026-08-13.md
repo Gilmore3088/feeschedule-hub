@@ -19,7 +19,8 @@ Make the public/admin product run through one understandable agentic system:
 - `src/app/api/admin/agents/runs/[id]/execute/route.ts` lets the UI advance a visible run after a button click.
 - `src/lib/agents/run-store.ts` is the current execution envelope and event ledger.
 - `src/lib/automation-control.ts` is the global safety stop.
-- `src/lib/ai-provider-usage.ts` records provider usage/failures and now trips the same safety stop for streaming Anthropic credit failures.
+- `src/lib/ai-provider.ts` is the only active provider SDK/model construction boundary.
+- `src/lib/ai-provider-usage.ts` records provider usage/failures and trips the same safety stop for streaming Anthropic credit failures.
 - Current fee flow modules:
   - `src/lib/agents/magellan/discovery.ts`
   - `src/lib/agents/magellan/fetch.ts`
@@ -40,7 +41,7 @@ Make the public/admin product run through one understandable agentic system:
 - `src/lib/crawler-db/*` is current Postgres data access, but the name still says "crawler" and should be renamed after import coverage is mapped.
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
-- Direct Anthropic model usage remains in Hamilton/Scout/research surfaces. It is now guarded, but it is not yet centralized behind one provider router.
+- Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
 
 ### Removed In This Cleanup Pass
 
@@ -48,15 +49,17 @@ Make the public/admin product run through one understandable agentic system:
 - Tracked `.superpowers/brainstorm/...` stale generated output and server state.
 - Stale Docker ignore comments that described `fee_crawler` as needed.
 - Added `artifact-kill` to `npm run guard:legacy` so tracked local worktrees, stale tool output, crawler packages, caches, and local DB files fail CI.
+- Added `provider-kill` to `npm run guard:legacy` so direct Anthropic SDK/model construction fails CI outside `src/lib/ai-provider.ts`.
 
 ## Retirement Plan
 
 ### Phase 1 - Make Legacy Impossible To Reintroduce
 
-Status: partially implemented.
+Status: implemented for current runtime source and config.
 
 - Keep `npm run guard:legacy` in CI.
 - Keep `artifact-kill` in the guard chain.
+- Keep `provider-kill` in the guard chain.
 - Add a lightweight architecture assertion test that checks:
   - `vercel.json` has only `/api/admin/agents/tick`.
   - runtime source does not import `job-runner`.
@@ -67,8 +70,8 @@ Status: partially implemented.
 
 Target: no direct provider SDK construction outside a single provider module.
 
-- Create `src/lib/ai-provider.ts` as the only place that chooses model/provider.
-- Move all direct Anthropic calls from:
+- `src/lib/ai-provider.ts` is the only place that constructs Anthropic SDK clients or AI SDK language models.
+- Direct Anthropic calls were moved from:
   - `src/lib/hamilton/generate.ts`
   - `src/lib/report-engine/editor.ts`
   - `src/lib/scout/agents.ts`
@@ -80,7 +83,7 @@ Target: no direct provider SDK construction outside a single provider module.
   - automation stop active means no provider request.
   - recent credit-balance failure means no retry loop.
   - every blocked call records a visible `ai_api_usage_events` row.
-- Add env-driven model selection only through the provider module.
+- Add env-driven model selection only through the provider module when model routing is needed.
 
 ### Phase 3 - Fix The Agentic User Experience
 
@@ -148,6 +151,7 @@ Target: reduce cognitive load without breaking working code.
 ## Validation Gates
 
 - `npm run guard:legacy`
+- direct-provider search returns no provider SDK/model imports outside `src/lib/ai-provider.ts`
 - `npm run lint`
 - `npm run test:agentic`
 - focused route tests for Hamilton/research provider blocking

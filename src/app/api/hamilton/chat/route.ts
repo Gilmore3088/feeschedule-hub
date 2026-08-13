@@ -12,8 +12,12 @@
  */
 
 import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import { guardProviderCall, recordProviderUsage } from "@/lib/ai-provider-usage";
+import {
+  getAnthropicLanguageModel,
+  hasAnthropicApiKey,
+  MISSING_ANTHROPIC_API_KEY_MESSAGE,
+} from "@/lib/ai-provider";
 import { getCurrentUser } from "@/lib/auth";
 import { checkAdminRateLimit } from "@/lib/research/rate-limit";
 import { getDailyCostCents, logUsage } from "@/lib/research/history";
@@ -62,9 +66,9 @@ export async function POST(request: Request) {
   ensureHamiltonTables().catch(() => {});
 
   // Check API key
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!hasAnthropicApiKey()) {
     return Response.json(
-      { error: "AI service not configured. Set ANTHROPIC_API_KEY." },
+      { error: MISSING_ANTHROPIC_API_KEY_MESSAGE },
       { status: 503 }
     );
   }
@@ -173,7 +177,7 @@ export async function POST(request: Request) {
   let providerFailed = false;
   try {
     const result = streamText({
-      model: anthropic(HAMILTON_MODEL),
+      model: getAnthropicLanguageModel(HAMILTON_MODEL),
       system: buildHamiltonSystemPrompt(),
       messages: await convertToModelMessages(messages),
       tools: buildHamiltonTools(),

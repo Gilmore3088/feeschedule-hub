@@ -8,7 +8,7 @@
     "postbuild": "node scripts/check-admin-production-routes.mjs",
     "start": "next start",
     "lint": "eslint",
-    "guard:legacy": "scripts/ci-guards.sh modal-kill && scripts/ci-guards.sh legacy-kill && scripts/ci-guards.sh fee-read-model-kill && scripts/ci-guards.sh script-kill && scripts/ci-guards.sh config-kill && scripts/ci-guards.sh artifact-kill",
+    "guard:legacy": "scripts/ci-guards.sh modal-kill && scripts/ci-guards.sh legacy-kill && scripts/ci-guards.sh fee-read-model-kill && scripts/ci-guards.sh script-kill && scripts/ci-guards.sh config-kill && scripts/ci-guards.sh artifact-kill && scripts/ci-guards.sh provider-kill",
     "test:agentic": "vitest run src/lib/agents/run-store.test.ts src/lib/agents/darwin/verify.test.ts src/lib/agents/hamilton/publish.test.ts src/lib/agents/knox/extract.test.ts src/lib/agents/magellan/discovery.test.ts src/lib/agents/magellan/fetch.test.ts src/lib/agents/rosetta/read.test.ts src/lib/report-agent-runs.test.ts src/lib/research/tools-internal.test.ts src/lib/ai-provider-usage.test.ts"
   },
   "dependencies": {

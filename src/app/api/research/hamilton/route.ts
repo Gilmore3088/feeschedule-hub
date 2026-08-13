@@ -1,10 +1,14 @@
 import { streamText, generateText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import {
   guardProviderCall,
   recordProviderUsage,
   trackAnthropicRequest,
 } from "@/lib/ai-provider-usage";
+import {
+  getAnthropicLanguageModel,
+  hasAnthropicApiKey,
+  MISSING_ANTHROPIC_API_KEY_MESSAGE,
+} from "@/lib/ai-provider";
 import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, type HamiltonRole } from "@/lib/research/agents";
 import { evaluateCitationDensity } from "@/lib/hamilton/citation-gate";
 import { getCurrentUser, type User } from "@/lib/auth";
@@ -53,9 +57,9 @@ function estimateCostCents(
 
 export async function POST(request: Request) {
   // Check API key
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!hasAnthropicApiKey()) {
     return Response.json(
-      { error: "AI service not configured. Set ANTHROPIC_API_KEY." },
+      { error: MISSING_ANTHROPIC_API_KEY_MESSAGE },
       { status: 503 }
     );
   }
@@ -234,7 +238,7 @@ export async function POST(request: Request) {
       const result = await trackAnthropicRequest(
         providerContext,
         async () => generateText({
-          model: anthropic(agent.model),
+          model: getAnthropicLanguageModel(agent.model),
           system: systemPrompt,
           messages: await convertToModelMessages(messages),
           tools: agent.tools,
@@ -282,7 +286,7 @@ export async function POST(request: Request) {
 
     providerStartedAt = await guardProviderCall(providerContext);
     const result = streamText({
-      model: anthropic(agent.model),
+      model: getAnthropicLanguageModel(agent.model),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: agent.tools,

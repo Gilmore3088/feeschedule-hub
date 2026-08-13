@@ -3,7 +3,10 @@
  * Calls Claude with strict data grounding and voice enforcement.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import {
+  extractAnthropicText,
+  getAnthropicMessagesClient,
+} from "@/lib/ai-provider";
 import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
 import { HAMILTON_VOICE } from "./voice";
 import {
@@ -59,16 +62,10 @@ function countWords(text: string): number {
  * @throws Error if API key is missing or the Claude API call fails
  */
 export async function generateSection(input: SectionInput): Promise<SectionOutput> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is not set — Hamilton cannot generate sections without API access");
-  }
-
-  const client = new Anthropic({ apiKey });
-
+  const client = getAnthropicMessagesClient("Hamilton section generation");
   const userMessage = buildUserMessage(input);
 
-  let response: Anthropic.Message;
+  let response: Awaited<ReturnType<typeof client.messages.create>>;
   try {
     response = await trackAnthropicRequest(
       { model: MODEL, agent: "hamilton", operation: "generate_report_section" },
@@ -87,10 +84,7 @@ export async function generateSection(input: SectionInput): Promise<SectionOutpu
     throw new Error(`Hamilton section generation failed [type=${input.type}]: ${message}`);
   }
 
-  const narrative = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("");
+  const narrative = extractAnthropicText(response);
 
   if (!narrative) {
     throw new Error(`Hamilton returned empty response for section type '${input.type}'`);
@@ -190,15 +184,10 @@ ${extraFields}  "narrative_summary": "<exactly 150 words, flowing prose, injecte
  * Per D-08: scope parameter adapts prompt depth (quarterly = full, others = lighter).
  */
 export async function generateGlobalThesis(input: ThesisInput): Promise<ThesisOutput> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY is not set — Hamilton cannot generate thesis without API access');
-  }
-
-  const client = new Anthropic({ apiKey });
+  const client = getAnthropicMessagesClient("Hamilton thesis generation");
   const userMessage = buildThesisPrompt(input);
 
-  let response: Anthropic.Message;
+  let response: Awaited<ReturnType<typeof client.messages.create>>;
   try {
     response = await trackAnthropicRequest(
       { model: MODEL, agent: "hamilton", operation: "generate_report_thesis" },
@@ -217,10 +206,7 @@ export async function generateGlobalThesis(input: ThesisInput): Promise<ThesisOu
     throw new Error(`Hamilton thesis generation failed [scope=${input.scope}]: ${message}`);
   }
 
-  const raw = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
+  const raw = extractAnthropicText(response);
 
   if (!raw) {
     throw new Error(`Hamilton returned empty thesis response [scope=${input.scope}]`);

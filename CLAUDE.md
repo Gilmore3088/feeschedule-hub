@@ -10,6 +10,8 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   `agent_runs`, `agent_run_steps`, `agent_run_events`, provider usage, and
   review queues.
 - The active worker contract is `EXECUTION_BACKEND=agentic_v1`.
+- Provider SDK/model construction is centralized in `src/lib/ai-provider.ts`;
+  direct Anthropic SDK imports elsewhere are blocked by `provider-kill`.
 - Atlas creates visible runs; Magellan discovers/fetches; Rosetta reads
   fetched HTML/text and marks PDFs as `needs_ocr`; Knox extracts conservative
   raw fee observations and performs conservative ready-review; Darwin verifies
@@ -36,9 +38,9 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 
 ## Current Source Of Truth
 
-- `docs/audits/legacy-retirement-status-2026-08-12.md`
-- `docs/plans/modal-legacy-decommission-agentic-experience-2026-08-12.md`
+- `docs/plans/agentic-codebase-cleanup-2026-08-13.md`
 - `src/lib/agents/run-store.ts`
+- `src/lib/ai-provider.ts`
 - `src/lib/execution-backend.ts`
 - `scripts/ci-guards.sh`
 

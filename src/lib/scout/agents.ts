@@ -1,5 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
+import {
+  extractAnthropicText,
+  getAnthropicMessagesClient,
+} from "@/lib/ai-provider";
 import type {
   InstitutionRow,
   ExtractedFeeRow,
@@ -10,8 +13,6 @@ import type {
   ClassifierResult,
   ExtractorResult,
 } from "./types";
-
-const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 type Emit = (msg: string) => void;
 
@@ -230,9 +231,10 @@ Return ONLY raw JSON (no markdown fences):
 Only reference fees provided. Do not invent data.`;
 
   const model = "claude-sonnet-4-20250514";
+  const client = getAnthropicMessagesClient("Hamilton institution fee report");
   const response = await trackAnthropicRequest(
     { model, agent: "hamilton", operation: "build_institution_fee_report" },
-    () => claude.messages.create(
+    () => client.messages.create(
       {
         model,
         max_tokens: 2000,
@@ -245,10 +247,7 @@ Only reference fees provided. Do not invent data.`;
 
   emit("Response received — building report...");
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+  const text = extractAnthropicText(response);
 
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const src = fenced ? fenced[1] : text;

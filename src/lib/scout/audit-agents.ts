@@ -1,7 +1,10 @@
 // src/lib/scout/audit-agents.ts
 
-import Anthropic from "@anthropic-ai/sdk";
 import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
+import {
+  extractAnthropicText,
+  getAnthropicMessagesClient,
+} from "@/lib/ai-provider";
 import { getExecutionBackendStatus } from "@/lib/execution-backend";
 import type { InstitutionRow } from "./types";
 import type { AuditResult } from "./audit-types";
@@ -10,8 +13,6 @@ import {
   setFeeScheduleUrl,
   recordAuditResult,
 } from "./audit-db";
-
-const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 type Emit = (msg: string) => void;
 
@@ -399,9 +400,10 @@ export async function aiScout(
   emit(`Found ${links.length} links — sending to Claude...`);
 
   const model = "claude-sonnet-4-20250514";
+  const client = getAnthropicMessagesClient("Magellan fee URL audit");
   const response = await trackAnthropicRequest(
     { model, agent: "magellan", operation: "audit_fee_url" },
-    () => claude.messages.create(
+    () => client.messages.create(
       {
         model,
         max_tokens: 500,
@@ -428,10 +430,7 @@ If no link looks like a fee schedule, return:
   const outputTokens = response.usage?.output_tokens ?? 0;
   const costCents = Math.round((inputTokens * 0.3 + outputTokens * 1.5) / 100);
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+  const text = extractAnthropicText(response);
 
   try {
     const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);

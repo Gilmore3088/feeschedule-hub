@@ -17,7 +17,10 @@
  * Per T-37-01: thesis fields are Hamilton-internal, not user-controlled — no sanitization needed.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import {
+  extractAnthropicText,
+  getAnthropicMessagesClient,
+} from "@/lib/ai-provider";
 import { trackAnthropicRequest } from "@/lib/ai-provider-usage";
 import { HAMILTON_RULES, HAMILTON_FORBIDDEN } from "../hamilton/voice";
 import type { SectionType, ValidatedSection } from "../hamilton/types";
@@ -151,13 +154,7 @@ export async function runEditorReview(
   sections: ValidatedSection[],
   thesis: ThesisOutput | null = null,
 ): Promise<EditorReviewResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is not set — editor review requires API access");
-  }
-
-  const client = new Anthropic({ apiKey });
-
+  const client = getAnthropicMessagesClient("Hamilton editor review");
   const userMessage = buildUserMessage(sections, thesis);
 
   const response = await trackAnthropicRequest(
@@ -170,10 +167,7 @@ export async function runEditorReview(
     }),
   );
 
-  const rawText = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("");
+  const rawText = extractAnthropicText(response);
 
   // T-13-08: JSON parse failure → fail-safe approved=false
   const parsed = parseSafely(rawText);

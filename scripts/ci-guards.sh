@@ -10,6 +10,7 @@
 #   script-kill   Fail if retired one-off data/process scripts are reintroduced.
 #   config-kill   Fail if active CI/deploy/env-example config references retired surfaces.
 #   artifact-kill Fail if local agent worktrees or stale tool output are tracked.
+#   provider-kill Fail if provider construction is bypassing src/lib/ai-provider.ts.
 
 set -euo pipefail
 
@@ -241,6 +242,38 @@ artifact_kill() {
   exit 0
 }
 
+provider_kill() {
+  local include_dirs=("src")
+  local exclude_paths=(
+    ":(exclude)src/lib/ai-provider.ts"
+    ":(exclude)src/**/*.test.ts"
+    ":(exclude)src/**/*.test.tsx"
+    ":(exclude)src/**/node_modules/**"
+  )
+  local pattern='from ['\''"]@anthropic-ai/sdk['\''"]|from ['\''"]@ai-sdk/anthropic['\''"]|new Anthropic\('
+  local hits=""
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git grep -nE "$pattern" -- \
+      "${include_dirs[@]}" "${exclude_paths[@]}" \
+      | grep -v '^Binary file' || true)
+  else
+    hits=$(grep -rnE "$pattern" \
+      --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
+      --exclude='ai-provider.ts' --exclude-dir=node_modules \
+      "${include_dirs[@]}" 2>/dev/null || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "provider-kill: direct provider construction/imports remain outside src/lib/ai-provider.ts:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "provider-kill: OK (provider construction is centralized in src/lib/ai-provider.ts)"
+  exit 0
+}
+
 case "$SUBCOMMAND" in
   sqlite-kill) sqlite_kill ;;
   modal-kill) modal_kill ;;
@@ -249,13 +282,14 @@ case "$SUBCOMMAND" in
   script-kill) script_kill ;;
   config-kill) config_kill ;;
   artifact-kill) artifact_kill ;;
+  provider-kill) provider_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill>" >&2
     exit 2
     ;;
 esac
