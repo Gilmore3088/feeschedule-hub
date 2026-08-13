@@ -33,6 +33,7 @@ describe("Magellan agentic fetch", () => {
         id: 42,
         institution_name: "Test Bank",
         fee_schedule_url: "https://testbank.example/fees",
+        asset_size: "1000000",
         last_crawl_at: null,
         consecutive_failures: 0,
       },
@@ -77,6 +78,7 @@ describe("Magellan agentic fetch", () => {
         id: 43,
         institution_name: "Dry Run CU",
         fee_schedule_url: "https://dryrun.example/schedule-of-fees.pdf",
+        asset_size: "1000",
         last_crawl_at: null,
         consecutive_failures: 0,
       },
@@ -101,6 +103,7 @@ describe("Magellan agentic fetch", () => {
         id: 44,
         institution_name: "Broken Bank",
         fee_schedule_url: "https://broken.example/fees",
+        asset_size: "500",
         last_crawl_at: null,
         consecutive_failures: 2,
       },
@@ -130,5 +133,23 @@ describe("Magellan agentic fetch", () => {
     expect(sqlText).toContain("INSERT INTO crawl_results");
     expect(sqlText).toContain("consecutive_failures = COALESCE(consecutive_failures, 0) + 1");
     expect(sqlText).toContain("agentic_fetch_failed");
+  });
+
+  it("rotates fetch work by retry window instead of immediately retrying failures", async () => {
+    const db = createDbMock([]);
+    const fetchImpl = vi.fn();
+
+    await runMagellanFetch({
+      runId: 104,
+      db: asFetchDb(db),
+      fetchImpl,
+    });
+
+    const sqlText = templateText(db.mock.calls[0][0]);
+    expect(sqlText).not.toContain("OR consecutive_failures > 0");
+    expect(sqlText).toContain("WHEN COALESCE(consecutive_failures, 0) >= 3 THEN INTERVAL '7 days'");
+    expect(sqlText).toContain("WHEN COALESCE(consecutive_failures, 0) > 0 THEN INTERVAL '24 hours'");
+    expect(sqlText).toContain("last_crawl_at ASC NULLS FIRST");
+    expect(sqlText).toContain("COALESCE(consecutive_failures, 0) ASC");
   });
 });

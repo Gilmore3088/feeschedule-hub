@@ -435,14 +435,16 @@ async function selectCandidates(db: SqlTag, limit: number): Promise<DiscoveryCan
        AND (fee_schedule_url IS NULL OR btrim(fee_schedule_url) = '')
        AND website_url IS NOT NULL
        AND btrim(website_url) <> ''
+       AND COALESCE(rescue_status, 'pending') IN ('pending', 'retry_after')
        AND (
          last_rescue_attempt_at IS NULL
          OR last_rescue_attempt_at < NOW() - INTERVAL '12 hours'
        )
      ORDER BY
-       CASE WHEN rescue_status IN ('pending', 'retry_after') THEN 0 ELSE 1 END,
-       asset_size DESC NULLS LAST,
+       CASE WHEN last_rescue_attempt_at IS NULL THEN 0 ELSE 1 END,
        last_rescue_attempt_at NULLS FIRST,
+       CASE WHEN rescue_status = 'retry_after' THEN 1 ELSE 0 END,
+       asset_size DESC NULLS LAST,
        id ASC
      LIMIT ${limit}
   `;

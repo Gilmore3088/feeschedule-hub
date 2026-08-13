@@ -16,6 +16,7 @@ interface FetchCandidateRow {
   id: number | string;
   institution_name: string;
   fee_schedule_url: string | null;
+  asset_size: number | string | null;
   last_crawl_at: string | Date | null;
   consecutive_failures: number | string | null;
 }
@@ -223,7 +224,7 @@ async function selectCandidates(
 ): Promise<FetchCandidateRow[]> {
   if (institutionId) {
     return db<FetchCandidateRow[]>`
-      SELECT id, institution_name, fee_schedule_url, last_crawl_at, consecutive_failures
+      SELECT id, institution_name, fee_schedule_url, asset_size, last_crawl_at, consecutive_failures
         FROM crawl_targets
        WHERE id = ${institutionId}
          AND COALESCE(status, 'active') = 'active'
@@ -232,20 +233,24 @@ async function selectCandidates(
   }
 
   return db<FetchCandidateRow[]>`
-    SELECT id, institution_name, fee_schedule_url, last_crawl_at, consecutive_failures
+    SELECT id, institution_name, fee_schedule_url, asset_size, last_crawl_at, consecutive_failures
       FROM crawl_targets
      WHERE COALESCE(status, 'active') = 'active'
        AND fee_schedule_url IS NOT NULL
        AND btrim(fee_schedule_url) <> ''
        AND (
          last_crawl_at IS NULL
-         OR last_crawl_at < NOW() - INTERVAL '12 hours'
-         OR consecutive_failures > 0
+         OR last_crawl_at < NOW() - CASE
+           WHEN COALESCE(consecutive_failures, 0) >= 3 THEN INTERVAL '7 days'
+           WHEN COALESCE(consecutive_failures, 0) > 0 THEN INTERVAL '24 hours'
+           ELSE INTERVAL '12 hours'
+         END
        )
      ORDER BY
        CASE WHEN last_crawl_at IS NULL THEN 0 ELSE 1 END,
-       consecutive_failures DESC,
        last_crawl_at ASC NULLS FIRST,
+       COALESCE(consecutive_failures, 0) ASC,
+       asset_size DESC NULLS LAST,
        id ASC
      LIMIT ${limit}
   `;

@@ -132,4 +132,22 @@ describe("Magellan agentic discovery", () => {
     expect(sqlText).toContain("INSERT INTO discovery_cache");
     expect(db.mock.calls.some((call) => call.includes("magellan_dead"))).toBe(true);
   });
+
+  it("selects never-attempted and oldest retryable rows instead of terminal rescue rows", async () => {
+    const db = createDbMock([]);
+    const fetchImpl = vi.fn();
+
+    await runMagellanDiscovery({
+      runId: 104,
+      db: asDiscoveryDb(db),
+      fetchImpl,
+    });
+
+    const sqlText = templateText(db.mock.calls[0][0]);
+    expect(sqlText).toContain("COALESCE(rescue_status, 'pending') IN ('pending', 'retry_after')");
+    expect(sqlText).toContain("last_rescue_attempt_at < NOW() - INTERVAL '12 hours'");
+    expect(sqlText).toContain("CASE WHEN last_rescue_attempt_at IS NULL THEN 0 ELSE 1 END");
+    expect(sqlText).toContain("last_rescue_attempt_at NULLS FIRST");
+    expect(sqlText).toContain("CASE WHEN rescue_status = 'retry_after' THEN 1 ELSE 0 END");
+  });
 });
