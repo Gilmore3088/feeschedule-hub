@@ -28,6 +28,12 @@ Already implemented on `main`:
 - Tracked Python crawler/Modal runtime is removed.
 - TypeScript job runner and Modal endpoint helpers are removed.
 - Admin launches create visible `agent_runs`, steps, and events.
+- Admin launches no longer execute the whole worker pass inside the click
+  request. They return a queued visible run first, then the admin UI/API calls
+  the serverless agent runner.
+- `/api/admin/agents/runs/[id]/execute` runs a bounded agentic ledger slice for
+  a specific run; `/api/admin/agents/tick` can pick up queued runs from an
+  authenticated admin or cron-style bearer caller.
 - Product/report/research/admin analytics reads use
   `published_fee_observations`.
 - Magellan discovery/fetch, Rosetta HTML/text read, Knox raw extraction, Darwin
@@ -93,11 +99,15 @@ Acceptance:
 
 ## Phase 3: Wire Durable Agent Execution
 
+Status: partial. A non-blocking serverless step runner exists; Vercel
+Workflow/Queues durability is still not wired.
+
 Purpose: turn the deterministic slices into durable production runs.
 
 Tasks:
 
-1. Wire Vercel Workflows or the selected durable runner for Atlas.
+1. Upgrade the serverless `executeAgentRun` runner to Vercel Workflows or the
+   selected durable runner for Atlas.
 2. Wire Vercel Queues or the selected fan-out queue for institution-level work.
 3. Persist retries, cancellation, cost, and provider-stop decisions through the
    existing run ledger.
@@ -131,6 +141,10 @@ Acceptance:
   caused them.
 
 ## Phase 5: Operator Experience
+
+Status: partial. Clicking launch controls now creates a visible queued run and
+the live status panel can kick queued runs. Full per-step cost/retry/provider
+detail is still incomplete.
 
 Purpose: make the admin product explain exactly what is happening.
 

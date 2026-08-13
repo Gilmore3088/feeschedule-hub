@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ArrowRight, DatabaseZap, RotateCw } from "lucide-react";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { runAtlasWorkflow } from "../atlas-actions";
 
 type QueuedJob = {
@@ -54,6 +55,7 @@ export function DataOperations() {
           startedAt: new Date().toISOString(),
         },
       }));
+      triggerAgentRunExecution(result.runId);
     });
   }
 

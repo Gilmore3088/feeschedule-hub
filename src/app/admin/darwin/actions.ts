@@ -12,7 +12,7 @@ export async function fetchDarwinStatus(): Promise<DarwinStatus> {
     pending: 0,
     today_promoted: 0,
     today_cost_usd: 0,
-    circuit: { halted: true, reason: backend.detail },
+    circuit: { halted: !backend.enabled, reason: backend.enabled ? null : backend.detail },
     recent_run_avg_tokens_per_row: null,
   };
 }

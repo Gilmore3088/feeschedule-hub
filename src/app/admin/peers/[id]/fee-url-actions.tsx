@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { updateFeeScheduleUrl, crawlInstitution } from "../actions";
 
 interface FeeUrlActionsProps {
@@ -64,6 +65,7 @@ export function FeeUrlActions({ institutionId, currentUrl, institutionName }: Fe
             startedAt: new Date().toISOString(),
           },
         }));
+        triggerAgentRunExecution(result.jobId);
       } else {
         setMessage({ type: "success", text: `Extraction queued for ${institutionName}` });
       }

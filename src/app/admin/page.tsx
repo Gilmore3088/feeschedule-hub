@@ -161,8 +161,16 @@ export default async function AtlasCommandPage() {
             </p>
           </div>
           <AtlasRunControl
-            disabled={center.activeJobs.some((job) => job.agent === "atlas")}
-            disabledReason={center.activeJobs.some((job) => job.agent === "atlas") ? "Atlas already has an active run." : undefined}
+            disabled={!center.automation.enabled || !execution.enabled || center.activeJobs.some((job) => job.agent === "atlas")}
+            disabledReason={
+              !center.automation.enabled
+                ? "Safety stop is active."
+                : !execution.enabled
+                  ? execution.detail
+                  : center.activeJobs.some((job) => job.agent === "atlas")
+                    ? "Atlas already has an active run."
+                    : undefined
+            }
           />
         </div>
       </header>

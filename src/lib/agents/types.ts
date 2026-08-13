@@ -64,6 +64,7 @@ export interface AgentRunStepSnapshot {
   stepKey: string;
   agent: AdminAgent;
   title: string;
+  input: Record<string, unknown>;
   status: AgentRunStepStatus;
   sequence: number;
   summary: string | null;

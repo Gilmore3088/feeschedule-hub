@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCw } from "lucide-react";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { resumeAtlasCycle } from "./atlas-actions";
 
 export function AtlasResumeControl({ runId }: { runId: number }) {
@@ -36,6 +37,7 @@ export function AtlasResumeControl({ runId }: { runId: number }) {
             startedAt: new Date().toISOString(),
           },
         }));
+        triggerAgentRunExecution(result.runId);
         router.refresh();
       }
     });

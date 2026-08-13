@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, CheckCircle2, Clock3, RotateCw, TerminalSquare, XCircle } from "lucide-react";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { formatAdminDateTime } from "@/lib/admin-time";
 import { AtlasCancelButton } from "./atlas-cancel-button";
 
@@ -228,6 +229,12 @@ export function AtlasLiveStatus({
       && !snapshot.activeJobs.some((job) => job.id === pendingLaunch.runId)
       && !snapshot.recentJobs.some((job) => job.id === pendingLaunch.runId),
   );
+
+  useEffect(() => {
+    if (watchedJob?.status === "queued") {
+      triggerAgentRunExecution(watchedJob.id);
+    }
+  }, [watchedJob?.id, watchedJob?.status]);
 
   return (
     <section id="atlas-live-status" aria-labelledby="active-heading" className="scroll-mt-6 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">

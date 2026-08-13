@@ -14,6 +14,7 @@ import {
   Tags,
   type LucideIcon,
 } from "lucide-react";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { runAtlasWorkflow, type AtlasWorkflowId } from "./atlas-actions";
 
 type WorkflowLane = {
@@ -98,6 +99,7 @@ export function AtlasWorkflowLauncher({
             startedAt: new Date().toISOString(),
           },
         }));
+        triggerAgentRunExecution(result.runId);
       }
       setPendingWorkflow(null);
       router.refresh();
@@ -122,7 +124,7 @@ export function AtlasWorkflowLauncher({
         {lanes.map((lane, index) => {
           const Icon = ICONS[lane.id];
           const pending = isPending && pendingWorkflow === lane.id;
-          const disabled = Boolean(blockedReason) || isPending;
+          const disabled = Boolean(blockedReason) || !automationEnabled || !executionEnabled || isPending;
           return (
             <div key={lane.id} className="grid gap-4 py-4 lg:grid-cols-[40px_1.2fr_1fr_auto] lg:items-center">
               <div className="flex items-center gap-3 lg:block">
@@ -152,7 +154,9 @@ export function AtlasWorkflowLauncher({
                   className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[var(--brand-primary)] px-3 text-xs font-semibold text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-soft)] disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent dark:disabled:border-gray-700"
                 >
                   {pending ? <RotateCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  {pending ? "Starting" : blockedReason ?? "Start"}
+                  {pending
+                    ? "Starting"
+                    : blockedReason ?? (!automationEnabled ? "Paused" : !executionEnabled ? "Backend off" : "Start")}
                 </button>
                 <Link
                   href={lane.href}

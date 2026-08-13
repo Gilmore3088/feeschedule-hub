@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BatchRunner, type BatchSizeOption } from "@/components/agent-console/batch-runner";
 import { CircuitBanner } from "@/components/agent-console/circuit-banner";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { formatAdminDateTime } from "@/lib/admin-time";
 import { summarizeJobOutput } from "@/lib/job-output-summary";
 import { StatusPanel } from "./status-panel";
@@ -114,6 +115,7 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
             startedAt: new Date().toISOString(),
           },
         }));
+        triggerAgentRunExecution(result.jobId);
         void refreshJob(result.jobId);
       }
     } finally {
@@ -149,7 +151,7 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
       <StatusPanel status={status} />
       <BatchRunner
         onStart={start}
-        disabled={running}
+        disabled={running || Boolean(disabledReason)}
         busy={running}
         disabledReason={disabledReason}
         title="Repair discovery and extraction gaps"
@@ -162,7 +164,7 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
           jobId={queuedJob.id}
           title="Magellan repair"
           owner="magellan"
-          command={`magellan-rescue --size ${queuedJob.size} --batches ${queuedJob.chain}`}
+          command={`Magellan rescue pass: ${queuedJob.size} x ${queuedJob.chain}`}
           scope={`${(queuedJob.size * queuedJob.chain).toLocaleString("en-US")} institutions · ${queuedJob.chain === 1 ? "single batch" : `${queuedJob.chain} batches`}`}
           reused={queuedJob.reused}
           detail="Magellan will run a bounded agentic discovery pass, update rescued fee URLs, and write discovery evidence."

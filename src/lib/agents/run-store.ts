@@ -7,6 +7,7 @@ import { runKnoxExtract } from "@/lib/agents/knox/extract";
 import { runMagellanDiscovery } from "@/lib/agents/magellan/discovery";
 import { runMagellanFetch } from "@/lib/agents/magellan/fetch";
 import { runRosettaRead } from "@/lib/agents/rosetta/read";
+import { assertAutomationEnabled } from "@/lib/automation-control";
 import type {
   AdminAgent,
   AgentRunEventSnapshot,
@@ -20,6 +21,7 @@ import type {
 } from "./types";
 
 const ACTIVE_STATUSES = ["queued", "running", "cancel_requested"];
+const RUN_KINDS_WITH_LEDGER = ["workflow", "workflow_lane", "report", "manual_repair", "dry_run"] as const;
 const AGENTIC_SUMMARY =
   "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs and fetch source documents; Rosetta can normalize HTML/text source documents and route PDFs to OCR; Knox can extract conservative raw fee observations and surface rejection decisions for anomaly-only human review; Darwin can verify canonical-hinted raw rows; Hamilton can publish eligible verified rows into the Tier-3 ledger. Durable queues, PDF/OCR, provider extraction, and adversarial review depth remain gated until each agent module is implemented.";
 
@@ -29,6 +31,19 @@ interface AgenticStepExecution {
   status: Extract<AgentRunStepStatus, "completed" | "skipped">;
   summary: string;
   detail?: Record<string, unknown>;
+}
+
+export interface AgentRunExecutionResult {
+  runId: number;
+  status: AgentRunStatus | "missing";
+  terminal: boolean;
+  executedSteps: number;
+  message: string;
+}
+
+export interface ExecuteQueuedAgentRunsResult {
+  selected: number;
+  results: AgentRunExecutionResult[];
 }
 
 export interface StartAgentRunInput {
@@ -93,6 +108,7 @@ function mapStep(row: Record<string, unknown>): AgentRunStepSnapshot {
     stepKey: String(row.step_key),
     agent: String(row.agent_name) as AdminAgent,
     title: String(row.title),
+    input: safeRecord(row.input_payload),
     status: String(row.status) as AgentRunStepSnapshot["status"],
     sequence: Number(row.sequence ?? 0),
     summary: row.summary ? String(row.summary) : null,
@@ -119,6 +135,13 @@ function mapEvent(row: Record<string, unknown>): AgentRunEventSnapshot {
 
 function isTerminalRunStatus(status: string): boolean {
   return !ACTIVE_STATUSES.includes(status);
+}
+
+function runParamsForStep(
+  run: AgentRunSnapshot,
+  step: AgentRunStepSnapshot,
+): Record<string, unknown> {
+  return { ...run.params, ...step.input };
 }
 
 async function countRows(tx: SqlTag, table: string, where = "TRUE"): Promise<number> {
@@ -183,6 +206,7 @@ async function executeAgenticStep(
   run: AgentRunSnapshot,
   step: AgentRunStepSnapshot,
 ): Promise<AgenticStepExecution> {
+  const params = runParamsForStep(run, step);
   switch (step.stepKey) {
     case "enhance": {
       const total = await countRows(tx, "crawl_targets");
@@ -199,7 +223,7 @@ async function executeAgenticStep(
         runId: run.id,
         mode: step.stepKey === "rescue" ? "rescue" : "discover",
         dryRun: run.runKind === "dry_run",
-        limit: numericRunParam(run.params, ["discovery_limit", "rescue_limit", "limit", "size"]),
+        limit: numericRunParam(params, ["discovery_limit", "rescue_limit", "limit", "size"]),
       });
       return {
         status: "completed",
@@ -229,8 +253,8 @@ async function executeAgenticStep(
       const fetched = await runMagellanFetch({
         runId: run.id,
         dryRun: run.runKind === "dry_run",
-        limit: numericRunParam(run.params, ["fetch_limit", "limit", "size"]),
-        institutionId: numericRunParam(run.params, ["institution_id", "crawl_target_id"]),
+        limit: numericRunParam(params, ["fetch_limit", "limit", "size"]),
+        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
       });
       return {
         status: "completed",
@@ -260,8 +284,8 @@ async function executeAgenticStep(
       const read = await runRosettaRead({
         runId: run.id,
         dryRun: run.runKind === "dry_run",
-        limit: numericRunParam(run.params, ["read_limit", "limit", "size"]),
-        institutionId: numericRunParam(run.params, ["institution_id", "crawl_target_id"]),
+        limit: numericRunParam(params, ["read_limit", "limit", "size"]),
+        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
       });
       return {
         status: "completed",
@@ -295,8 +319,8 @@ async function executeAgenticStep(
       const extraction = await runKnoxExtract({
         runId: run.id,
         dryRun: run.runKind === "dry_run",
-        limit: numericRunParam(run.params, ["extract_limit", "limit", "size"]),
-        institutionId: numericRunParam(run.params, ["institution_id", "crawl_target_id"]),
+        limit: numericRunParam(params, ["extract_limit", "limit", "size"]),
+        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
         db: tx,
       });
       return {
@@ -334,8 +358,8 @@ async function executeAgenticStep(
       const verification = await runDarwinVerify({
         runId: run.id,
         dryRun: run.runKind === "dry_run",
-        limit: numericRunParam(run.params, ["verify_limit", "classify_limit", "limit", "size"]),
-        institutionId: numericRunParam(run.params, ["institution_id", "crawl_target_id"]),
+        limit: numericRunParam(params, ["verify_limit", "classify_limit", "limit", "size"]),
+        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
         db: tx,
       });
       return {
@@ -381,9 +405,9 @@ async function executeAgenticStep(
       const published = await runHamiltonPublish({
         runId: run.id,
         dryRun: run.runKind === "dry_run",
-        limit: numericRunParam(run.params, ["publish_limit", "limit", "size"]),
-        institutionId: numericRunParam(run.params, ["institution_id", "crawl_target_id"]),
-        minConfidence: numericRunParam(run.params, [
+        limit: numericRunParam(params, ["publish_limit", "limit", "size"]),
+        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
+        minConfidence: numericRunParam(params, [
           "publish_min_confidence",
           "min_confidence",
           "confidence_threshold",
@@ -432,8 +456,63 @@ async function executeAgenticStep(
   }
 }
 
-async function executeAgenticRun(runId: number): Promise<void> {
-  const prepared = await withTransaction(async (tx) => {
+async function blockRunForBackend(runId: number): Promise<AgentRunExecutionResult> {
+  await withTransaction(async (tx) => {
+    await tx`
+      INSERT INTO agent_run_events
+        (agent_run_id, event_type, status, message, detail)
+      VALUES
+        (${runId}, 'run.blocked', 'blocked',
+         'Worker execution is waiting for EXECUTION_BACKEND=agentic_v1.',
+         ${JSON.stringify({
+           reason: "agentic execution backend is disabled",
+           retired_external_worker_blocked: true,
+         })}::jsonb)
+    `;
+    await tx`
+      UPDATE agent_run_steps
+         SET status = 'blocked',
+             error_summary = 'Waiting for EXECUTION_BACKEND=agentic_v1',
+             updated_at = NOW()
+       WHERE agent_run_id = ${runId}
+         AND sequence = (
+           SELECT MIN(sequence)
+             FROM agent_run_steps
+            WHERE agent_run_id = ${runId}
+              AND status IN ('queued', 'running')
+         )
+    `;
+    await tx`
+      UPDATE agent_runs
+         SET status = 'blocked',
+             error_summary = 'agentic execution backend is disabled',
+             summary = COALESCE(summary, 'Run record created; execution is blocked until EXECUTION_BACKEND=agentic_v1.'),
+             updated_at = NOW()
+       WHERE id = ${runId}
+         AND status IN ('queued', 'running')
+    `;
+  });
+  return {
+    runId,
+    status: "blocked",
+    terminal: true,
+    executedSteps: 0,
+    message: "Agentic execution backend is disabled.",
+  };
+}
+
+interface PreparedAgenticStep {
+  run: AgentRunSnapshot;
+  step: AgentRunStepSnapshot;
+}
+
+async function prepareNextAgenticStep(runId: number): Promise<
+  | { kind: "ready"; prepared: PreparedAgenticStep }
+  | { kind: "missing" }
+  | { kind: "terminal"; status: AgentRunStatus; message: string }
+  | { kind: "busy"; status: AgentRunStatus; message: string }
+> {
+  return withTransaction(async (tx) => {
     const [runRow] = await tx`
       SELECT id, agent_name, run_kind, title, status, started_at, completed_at,
              updated_at, trigger_source, triggered_by, correlation_id, backend,
@@ -443,45 +522,130 @@ async function executeAgenticRun(runId: number): Promise<void> {
        WHERE id = ${runId}
        FOR UPDATE
     `;
-    if (!runRow || isTerminalRunStatus(String(runRow.status))) return null;
+    if (!runRow) return { kind: "missing" };
+    if (isTerminalRunStatus(String(runRow.status))) {
+      return {
+        kind: "terminal",
+        status: String(runRow.status) as AgentRunStatus,
+        message: `Run is already ${String(runRow.status)}.`,
+      };
+    }
+    if (String(runRow.status) !== "queued") {
+      return {
+        kind: "busy",
+        status: String(runRow.status) as AgentRunStatus,
+        message: `Run is already ${String(runRow.status)}.`,
+      };
+    }
+
     const run = mapRun(runRow);
 
     const stepRows = await tx`
-      SELECT id, agent_run_id, step_key, agent_name, title, status, sequence,
+      SELECT id, agent_run_id, step_key, agent_name, title, input_payload, status, sequence,
              summary, error_summary, queued_at, started_at, completed_at, updated_at
         FROM agent_run_steps
        WHERE agent_run_id = ${runId}
        ORDER BY sequence ASC, id ASC
     `;
     const steps = stepRows.map(mapStep);
+    const step = steps.find((candidate) => candidate.status === "queued");
+    if (!step) {
+      const failed = steps.find((candidate) => candidate.status === "failed");
+      if (failed) {
+        await tx`
+          UPDATE agent_runs
+             SET status = 'failed',
+                 current_stage = ${failed.stepKey},
+                 error_summary = ${failed.error ?? "Agent run has a failed step."},
+                 completed_at = COALESCE(completed_at, NOW()),
+                 updated_at = NOW()
+           WHERE id = ${runId}
+        `;
+        return {
+          kind: "terminal",
+          status: "failed",
+          message: failed.error ?? "Agent run has a failed step.",
+        };
+      }
+      await tx`
+        UPDATE agent_runs
+           SET status = 'completed',
+               progress_current = ${steps.filter((candidate) => candidate.status === "completed" || candidate.status === "skipped").length},
+               progress_total = ${steps.length},
+               current_stage = NULL,
+               summary = COALESCE(summary, ${AGENTIC_SUMMARY}),
+               completed_at = COALESCE(completed_at, NOW()),
+               updated_at = NOW()
+         WHERE id = ${runId}
+      `;
+      return {
+        kind: "terminal",
+        status: "completed",
+        message: "Run had no queued steps and is now completed.",
+      };
+    }
+
+    const alreadyStarted = steps.some((candidate) => candidate.startedAt !== null);
 
     await tx`
       UPDATE agent_runs
          SET status = 'running',
-             current_stage = ${steps[0]?.stepKey ?? null},
+             current_stage = ${step.stepKey},
              updated_at = NOW()
        WHERE id = ${runId}
     `;
+    if (!alreadyStarted) {
+      await tx`
+        INSERT INTO agent_run_events
+          (agent_run_id, event_type, status, message, detail)
+        VALUES
+          (${runId}, 'run.started', 'running',
+           'Agentic TypeScript runner started.',
+           ${JSON.stringify({ backend: run.backend, step_count: steps.length })}::jsonb)
+      `;
+    }
+    await tx`
+      UPDATE agent_run_steps
+         SET status = 'running',
+             started_at = COALESCE(started_at, NOW()),
+             updated_at = NOW()
+       WHERE id = ${step.id}
+    `;
     await tx`
       INSERT INTO agent_run_events
-        (agent_run_id, event_type, status, message, detail)
+        (agent_run_id, step_id, event_type, status, message, detail)
       VALUES
-        (${runId}, 'run.started', 'running',
-         'Agentic TypeScript worker pass started.',
-         ${JSON.stringify({ backend: run.backend, step_count: steps.length })}::jsonb)
+        (${runId}, ${step.id}, 'step.started', 'running',
+         ${`${step.agent} started ${step.title}.`},
+         ${JSON.stringify({ step_key: step.stepKey, agent: step.agent })}::jsonb)
     `;
 
-    return { run, steps };
+    return { kind: "ready", prepared: { run, step } };
   });
-  if (!prepared) return;
+}
 
-  let completed = 0;
-  for (const step of prepared.steps) {
-    await withTransaction(async (tx) => {
+async function finishAgenticStep(
+  runId: number,
+  step: AgentRunStepSnapshot,
+  outcome: AgenticStepExecution,
+): Promise<AgentRunExecutionResult> {
+  return withTransaction(async (tx) => {
+    const [current] = await tx`
+      SELECT ar.status AS run_status, ars.status AS step_status
+        FROM agent_runs ar
+        JOIN agent_run_steps ars ON ars.agent_run_id = ar.id
+       WHERE ar.id = ${runId}
+         AND ars.id = ${step.id}
+       FOR UPDATE OF ar, ars
+    `;
+    const runStatus = String(current?.run_status ?? "missing");
+    const stepStatus = String(current?.step_status ?? "missing");
+    if (runStatus === "cancelled" || runStatus === "cancel_requested" || stepStatus === "cancelled") {
       await tx`
         UPDATE agent_run_steps
-           SET status = 'running',
-               started_at = COALESCE(started_at, NOW()),
+           SET status = 'cancelled',
+               error_summary = COALESCE(error_summary, 'Cancelled before this step result was committed.'),
+               completed_at = COALESCE(completed_at, NOW()),
                updated_at = NOW()
          WHERE id = ${step.id}
       `;
@@ -489,102 +653,91 @@ async function executeAgenticRun(runId: number): Promise<void> {
         INSERT INTO agent_run_events
           (agent_run_id, step_id, event_type, status, message, detail)
         VALUES
-          (${runId}, ${step.id}, 'step.started', 'running',
-           ${`${step.agent} started ${step.title}.`},
+          (${runId}, ${step.id}, 'step.cancelled', 'cancelled',
+           'Step result was discarded because the run was cancelled.',
            ${JSON.stringify({ step_key: step.stepKey, agent: step.agent })}::jsonb)
       `;
+      return {
+        runId,
+        status: "cancelled",
+        terminal: true,
+        executedSteps: 0,
+        message: "Run was cancelled before the step result was committed.",
+      };
+    }
+
+    await tx`
+      UPDATE agent_run_steps
+         SET status = ${outcome.status},
+             summary = ${outcome.summary},
+             error_summary = NULL,
+             completed_at = NOW(),
+             updated_at = NOW()
+       WHERE id = ${step.id}
+    `;
+    await tx`
+      INSERT INTO agent_run_events
+        (agent_run_id, step_id, event_type, status, message, detail)
+      VALUES
+        (${runId}, ${step.id}, 'step.finished', ${outcome.status},
+         ${outcome.summary},
+         ${JSON.stringify(outcome.detail ?? {})}::jsonb)
+    `;
+
+    const [progress] = await tx`
+      SELECT
+        COUNT(*) FILTER (WHERE status IN ('completed', 'skipped'))::int AS completed_steps,
+        COUNT(*)::int AS total_steps
+        FROM agent_run_steps
+       WHERE agent_run_id = ${runId}
+    `;
+    const [nextStep] = await tx`
+      SELECT step_key
+        FROM agent_run_steps
+       WHERE agent_run_id = ${runId}
+         AND status = 'queued'
+       ORDER BY sequence ASC, id ASC
+       LIMIT 1
+    `;
+    const completed = Number(progress?.completed_steps ?? 0);
+    const total = Number(progress?.total_steps ?? 0);
+
+    if (nextStep) {
       await tx`
         UPDATE agent_runs
-           SET current_stage = ${step.stepKey},
+           SET status = 'queued',
+               progress_current = ${completed},
+               progress_total = ${total},
+               current_stage = ${String(nextStep.step_key)},
                updated_at = NOW()
          WHERE id = ${runId}
       `;
-    });
-
-    try {
-      const outcome =
-        step.stepKey === "discover" ||
-        step.stepKey === "rescue" ||
-        step.stepKey === "fetch" ||
-        step.stepKey === "read"
-          ? await executeAgenticStep(sql, prepared.run, step)
-          : await withTransaction((tx) => executeAgenticStep(tx, prepared.run, step));
-      if (outcome.status === "completed") completed += 1;
-      await withTransaction(async (tx) => {
-        await tx`
-          UPDATE agent_run_steps
-             SET status = ${outcome.status},
-                 summary = ${outcome.summary},
-                 error_summary = NULL,
-                 completed_at = NOW(),
-                 updated_at = NOW()
-           WHERE id = ${step.id}
-        `;
-        await tx`
-          INSERT INTO agent_run_events
-            (agent_run_id, step_id, event_type, status, message, detail)
-          VALUES
-            (${runId}, ${step.id}, 'step.finished', ${outcome.status},
-             ${outcome.summary},
-             ${JSON.stringify(outcome.detail ?? {})}::jsonb)
-        `;
-        await tx`
-          UPDATE agent_runs
-             SET progress_current = ${completed},
-                 current_stage = ${step.stepKey},
-                 updated_at = NOW()
-           WHERE id = ${runId}
-        `;
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await withTransaction(async (tx) => {
-        await tx`
-          UPDATE agent_run_steps
-             SET status = 'failed',
-                 error_summary = ${message},
-                 completed_at = NOW(),
-                 updated_at = NOW()
-           WHERE id = ${step.id}
-        `;
-        await tx`
-          INSERT INTO agent_run_events
-            (agent_run_id, step_id, event_type, status, message, detail)
-          VALUES
-            (${runId}, ${step.id}, 'step.failed', 'failed',
-             ${message},
-             ${JSON.stringify({ step_key: step.stepKey, agent: step.agent })}::jsonb)
-        `;
-        await tx`
-          UPDATE agent_runs
-             SET status = 'failed',
-                 progress_current = ${completed},
-                 current_stage = ${step.stepKey},
-                 error_summary = ${message},
-                 completed_at = NOW(),
-                 updated_at = NOW()
-           WHERE id = ${runId}
-        `;
-        await tx`
-          INSERT INTO agent_run_events
-            (agent_run_id, event_type, status, message, detail)
-          VALUES
-            (${runId}, 'run.failed', 'failed',
-             ${message},
-             ${JSON.stringify({ failed_step: step.stepKey, completed_steps: completed })}::jsonb)
-        `;
-      });
-      return;
+      await tx`
+        INSERT INTO agent_run_events
+          (agent_run_id, event_type, status, message, detail)
+        VALUES
+          (${runId}, 'run.queued', 'queued',
+           ${`Next agent step queued: ${String(nextStep.step_key)}.`},
+           ${JSON.stringify({
+             next_step: String(nextStep.step_key),
+             completed_steps: completed,
+             total_steps: total,
+           })}::jsonb)
+      `;
+      return {
+        runId,
+        status: "queued",
+        terminal: false,
+        executedSteps: 1,
+        message: `Completed ${step.stepKey}; next step queued.`,
+      };
     }
-  }
 
-  const finalStatus: AgentRunStatus = "completed";
-  await withTransaction(async (tx) => {
     await tx`
       UPDATE agent_runs
-         SET status = ${finalStatus},
+         SET status = 'completed',
              progress_current = ${completed},
-             progress_total = ${prepared.steps.length},
+             progress_total = ${total},
              current_stage = NULL,
              summary = ${AGENTIC_SUMMARY},
              error_summary = NULL,
@@ -598,14 +751,183 @@ async function executeAgenticRun(runId: number): Promise<void> {
       VALUES
         (${runId}, 'run.completed', 'completed',
          ${AGENTIC_SUMMARY},
-         ${JSON.stringify({ completed_steps: completed, total_steps: prepared.steps.length })}::jsonb)
+         ${JSON.stringify({ completed_steps: completed, total_steps: total })}::jsonb)
+    `;
+    return {
+      runId,
+      status: "completed",
+      terminal: true,
+      executedSteps: 1,
+      message: "Agentic run completed.",
+    };
+  });
+}
+
+async function failAgenticStep(
+  runId: number,
+  step: AgentRunStepSnapshot,
+  error: unknown,
+): Promise<AgentRunExecutionResult> {
+  const message = error instanceof Error ? error.message : String(error);
+  await withTransaction(async (tx) => {
+    const [progress] = await tx`
+      SELECT COUNT(*) FILTER (WHERE status IN ('completed', 'skipped'))::int AS completed_steps
+        FROM agent_run_steps
+       WHERE agent_run_id = ${runId}
+    `;
+    const completed = Number(progress?.completed_steps ?? 0);
+    await tx`
+      UPDATE agent_run_steps
+         SET status = 'failed',
+             error_summary = ${message},
+             completed_at = NOW(),
+             updated_at = NOW()
+       WHERE id = ${step.id}
+    `;
+    await tx`
+      INSERT INTO agent_run_events
+        (agent_run_id, step_id, event_type, status, message, detail)
+      VALUES
+        (${runId}, ${step.id}, 'step.failed', 'failed',
+         ${message},
+         ${JSON.stringify({ step_key: step.stepKey, agent: step.agent })}::jsonb)
+    `;
+    await tx`
+      UPDATE agent_runs
+         SET status = 'failed',
+             progress_current = ${completed},
+             current_stage = ${step.stepKey},
+             error_summary = ${message},
+             completed_at = NOW(),
+             updated_at = NOW()
+       WHERE id = ${runId}
+    `;
+    await tx`
+      INSERT INTO agent_run_events
+        (agent_run_id, event_type, status, message, detail)
+      VALUES
+        (${runId}, 'run.failed', 'failed',
+         ${message},
+         ${JSON.stringify({ failed_step: step.stepKey, completed_steps: completed })}::jsonb)
     `;
   });
+  return {
+    runId,
+    status: "failed",
+    terminal: true,
+    executedSteps: 0,
+    message,
+  };
+}
+
+export async function executeAgentRun(
+  runId: number,
+  options: { maxSteps?: number } = {},
+): Promise<AgentRunExecutionResult> {
+  if (!Number.isInteger(runId) || runId < 1) {
+    return {
+      runId,
+      status: "missing",
+      terminal: true,
+      executedSteps: 0,
+      message: "Invalid agent run id.",
+    };
+  }
+
+  if (getExecutionBackend() !== "agentic_v1") {
+    return blockRunForBackend(runId);
+  }
+
+  try {
+    await assertAutomationEnabled("agent run execution");
+  } catch (error) {
+    return {
+      runId,
+      status: "queued",
+      terminal: false,
+      executedSteps: 0,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const maxSteps = Math.min(Math.max(Math.floor(options.maxSteps ?? 1), 1), 10);
+  let executedSteps = 0;
+  let lastResult: AgentRunExecutionResult | null = null;
+
+  for (let index = 0; index < maxSteps; index += 1) {
+    const prepared = await prepareNextAgenticStep(runId);
+    if (prepared.kind === "missing") {
+      return {
+        runId,
+        status: "missing",
+        terminal: true,
+        executedSteps,
+        message: "Agent run not found.",
+      };
+    }
+    if (prepared.kind === "terminal" || prepared.kind === "busy") {
+      return {
+        runId,
+        status: prepared.status,
+        terminal: prepared.kind === "terminal",
+        executedSteps,
+        message: prepared.message,
+      };
+    }
+
+    const { run, step } = prepared.prepared;
+    try {
+      const outcome =
+        step.stepKey === "discover" ||
+        step.stepKey === "rescue" ||
+        step.stepKey === "fetch" ||
+        step.stepKey === "read"
+          ? await executeAgenticStep(sql, run, step)
+          : await withTransaction((tx) => executeAgenticStep(tx, run, step));
+      lastResult = await finishAgenticStep(runId, step, outcome);
+      executedSteps += 1;
+      if (lastResult.terminal) return { ...lastResult, executedSteps };
+    } catch (error) {
+      const failed = await failAgenticStep(runId, step, error);
+      return { ...failed, executedSteps };
+    }
+  }
+
+  return {
+    runId,
+    status: lastResult?.status ?? "queued",
+    terminal: Boolean(lastResult?.terminal),
+    executedSteps,
+    message: lastResult?.message ?? "No queued agent step was executed.",
+  };
+}
+
+export async function executeQueuedAgentRuns({
+  runLimit = 2,
+  maxStepsPerRun = 1,
+}: {
+  runLimit?: number;
+  maxStepsPerRun?: number;
+} = {}): Promise<ExecuteQueuedAgentRunsResult> {
+  const safeRunLimit = Math.min(Math.max(Math.floor(runLimit), 1), 10);
+  const rows = await sql`
+    SELECT id
+      FROM agent_runs
+     WHERE run_kind = ANY(${[...RUN_KINDS_WITH_LEDGER]})
+       AND status = 'queued'
+     ORDER BY started_at ASC, id ASC
+     LIMIT ${safeRunLimit}
+  `;
+  const results: AgentRunExecutionResult[] = [];
+  for (const row of rows) {
+    results.push(await executeAgentRun(Number(row.id), { maxSteps: maxStepsPerRun }));
+  }
+  return { selected: rows.length, results };
 }
 
 export async function getAgentRunSteps(runId: number): Promise<AgentRunStepSnapshot[]> {
   const rows = await sql`
-    SELECT id, agent_run_id, step_key, agent_name, title, status, sequence,
+    SELECT id, agent_run_id, step_key, agent_name, title, input_payload, status, sequence,
            summary, error_summary, queued_at, started_at, completed_at, updated_at
       FROM agent_run_steps
      WHERE agent_run_id = ${runId}
@@ -821,7 +1143,7 @@ export async function startAgentRun(input: StartAgentRunInput): Promise<StartAge
     `;
 
     const stepRows = await tx`
-      SELECT id, agent_run_id, step_key, agent_name, title, status, sequence,
+      SELECT id, agent_run_id, step_key, agent_name, title, input_payload, status, sequence,
              summary, error_summary, queued_at, started_at, completed_at, updated_at
         FROM agent_run_steps
        WHERE agent_run_id = ${run.id}
@@ -872,10 +1194,5 @@ export async function startAgentRun(input: StartAgentRunInput): Promise<StartAge
     return { run: run ?? created.run, steps, reused: false };
   }
 
-  await executeAgenticRun(created.run.id);
-  const [run, steps] = await Promise.all([
-    getAgentRun(created.run.id),
-    getAgentRunSteps(created.run.id),
-  ]);
-  return { run: run ?? created.run, steps, reused: false };
+  return created;
 }

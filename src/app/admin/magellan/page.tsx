@@ -60,7 +60,7 @@ export default async function MagellanPage() {
       <div className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
         <div className="grid gap-4 sm:grid-cols-3">
           <Step number="1" title="Find fee URL" detail="Resolve eligible institutions without a usable fee schedule URL." />
-          <Step number="2" title="Extract institution" detail="Queue collection through the canonical job service." />
+          <Step number="2" title="Extract institution" detail="Queue collection through the agentic run ledger." />
           <Step number="3" title="Hand off to Darwin" detail="Send collected fee rows into classification." />
         </div>
       </div>

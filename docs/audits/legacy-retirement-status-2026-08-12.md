@@ -37,6 +37,11 @@ The current committed runtime includes:
 - Provider usage attached to `agent_run_id` and guarded by automation stop.
 - Knox decision review over `agent_messages`/`knox_overrides`, not the old fee
   exception queue.
+- Non-blocking admin launches: `startAgentRun` now returns a queued visible run
+  first, and the admin UI/API kicks a serverless `executeAgentRun` pass through
+  `/api/admin/agents/runs/[id]/execute`.
+- `/api/admin/agents/tick` can drain queued agent runs from an authenticated
+  admin or cron-style bearer caller without any Modal process.
 
 The backend is intentionally honest when disabled: clicking an agent action
 creates or blocks a visible run instead of silently launching an external worker.
@@ -142,8 +147,9 @@ Modal worker URLs, `fee_crawler`, `ops_jobs`, `modal_call_id`, and
 
 These are the remaining real gaps, not hidden legacy dependencies:
 
-1. Choose and wire the durable execution substrate, preferably Vercel Workflows
-   plus Vercel Queues with Supabase as the ledger.
+1. Upgrade the current serverless step runner to the durable execution
+   substrate, preferably Vercel Workflows plus Vercel Queues with Supabase as
+   the ledger.
 2. Finish Rosetta PDF/OCR and blob artifact persistence.
 3. Finish provider-assisted Knox extraction and adversarial review for ambiguous
    rows with budget/provider-stop checks.
@@ -162,6 +168,8 @@ This cleanup is complete only when:
 - Production schema no longer depends on `ops_jobs`.
 - Atlas/Magellan/Rosetta/Knox/Darwin/Hamilton clicks always create visible run
   records with step state, timestamps, cost, failure reason, and next action.
+- Queued run pickup and retries are durable enough to survive browser close,
+  function timeout, and deployment restarts without duplicating completed work.
 - Product/report/research reads use the published agentic fee view.
 - Human review contains anomaly/decision exceptions only, not the routine fee
   corpus backlog.

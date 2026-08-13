@@ -6,6 +6,7 @@ const {
   sqlMock,
   txMock,
   withTransactionMock,
+  assertAutomationEnabledMock,
   getExecutionBackendMock,
   runDarwinVerifyMock,
   runHamiltonPublishMock,
@@ -21,6 +22,7 @@ const {
     sqlMock: vi.fn(),
     txMock: tx,
     withTransactionMock: withTransaction,
+    assertAutomationEnabledMock: vi.fn(),
     getExecutionBackendMock: vi.fn(),
     runDarwinVerifyMock: vi.fn(),
     runHamiltonPublishMock: vi.fn(),
@@ -38,6 +40,10 @@ vi.mock("@/lib/crawler-db/connection", () => ({
 
 vi.mock("@/lib/execution-backend", () => ({
   getExecutionBackend: getExecutionBackendMock,
+}));
+
+vi.mock("@/lib/automation-control", () => ({
+  assertAutomationEnabled: assertAutomationEnabledMock,
 }));
 
 vi.mock("@/lib/agents/darwin/verify", () => ({
@@ -64,7 +70,7 @@ vi.mock("@/lib/agents/rosetta/read", () => ({
   runRosettaRead: runRosettaReadMock,
 }));
 
-import { cancelAgentRun, startAgentRun } from "./run-store";
+import { cancelAgentRun, executeAgentRun, startAgentRun } from "./run-store";
 
 const runRow = {
   id: 101,
@@ -182,6 +188,15 @@ function installTxMocks(
   txMock.mockImplementation((strings: TemplateStringsArray) => {
     const text = templateText(strings);
     if (text.includes("INSERT INTO agent_runs")) return Promise.resolve([runOverride]);
+    if (text.includes("SELECT ar.status AS run_status")) {
+      return Promise.resolve([{ run_status: "running", step_status: "running" }]);
+    }
+    if (text.includes("COUNT(*) FILTER")) {
+      return Promise.resolve([{ completed_steps: "1", total_steps: String(stepRows.length) }]);
+    }
+    if (text.includes("SELECT step_key")) {
+      return Promise.resolve(stepRows.length > 1 ? [{ step_key: stepRows[1].step_key }] : []);
+    }
     if (text.includes("FROM agent_runs")) return Promise.resolve([runOverride]);
     if (text.includes("FROM agent_run_steps")) return Promise.resolve(stepRows);
     if (text.includes("FROM agent_messages")) {
@@ -206,6 +221,7 @@ describe("agentic run store", () => {
     txMock.mockReset();
     txMock.unsafe.mockReset();
     withTransactionMock.mockClear();
+    assertAutomationEnabledMock.mockReset().mockResolvedValue({ enabled: true });
     getExecutionBackendMock.mockReset().mockReturnValue("disabled");
     runDarwinVerifyMock.mockReset().mockResolvedValue({
       selectedRawFees: 7,
@@ -312,10 +328,11 @@ describe("agentic run store", () => {
     expect(combinedSql).not.toContain("ops_jobs");
   });
 
-  it("advances steps through the TypeScript ledger when agentic_v1 is enabled", async () => {
+  it("creates a visible queued run first, then advances it through the agentic runner", async () => {
     getExecutionBackendMock.mockReturnValue("agentic_v1");
-    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedStepRows });
-    installTxMocks();
+    const discoverRunRow = { ...runRow, progress_total: 1 };
+    installSqlMocks({ finalRun: completedRunRow, finalSteps: completedStepRows.slice(0, 1) });
+    installTxMocks(queuedStepRows.slice(0, 1), discoverRunRow);
 
     const result = await startAgentRun({
       agent: "atlas",
@@ -324,20 +341,23 @@ describe("agentic run store", () => {
       params: { limit: 10 },
       triggeredBy: "admin",
       idempotencyKey: "atlas:test",
-      steps: [
-        { key: "discover", agent: "magellan", title: "Find URLs" },
-        { key: "review", agent: "knox", title: "Review exceptions" },
-      ],
+      steps: [{ key: "discover", agent: "magellan", title: "Find URLs" }],
     });
 
     expect(result.reused).toBe(false);
     expect(result.run).toMatchObject({
       id: 101,
-      status: "completed",
-      progressCurrent: 2,
-      progressTotal: 2,
+      status: "queued",
+      progressCurrent: 0,
+      progressTotal: 1,
     });
-    expect(result.steps.every((step) => step.status === "completed")).toBe(true);
+    expect(runMagellanDiscoveryMock).not.toHaveBeenCalled();
+    await expect(executeAgentRun(101)).resolves.toMatchObject({
+      runId: 101,
+      status: "completed",
+      terminal: true,
+      executedSteps: 1,
+    });
     expect(runMagellanDiscoveryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: 101,
@@ -347,8 +367,6 @@ describe("agentic run store", () => {
       }),
     );
     const combinedSql = combinedTransactionSql();
-    expect(combinedSql).toContain("FROM agent_messages");
-    expect(combinedSql).toContain("knox_overrides");
     expect(combinedSql).not.toContain("extracted_fees");
     expect(combinedSql).toContain("step.started");
     expect(combinedSql).toContain("step.finished");
@@ -392,6 +410,7 @@ describe("agentic run store", () => {
     });
 
     expect(result.reused).toBe(false);
+    await executeAgentRun(101);
     expect(runMagellanFetchMock).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: 101,
@@ -443,6 +462,7 @@ describe("agentic run store", () => {
     });
 
     expect(result.reused).toBe(false);
+    await executeAgentRun(101);
     expect(runRosettaReadMock).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: 101,
@@ -494,6 +514,7 @@ describe("agentic run store", () => {
     });
 
     expect(result.reused).toBe(false);
+    await executeAgentRun(101);
     expect(runKnoxExtractMock).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: 101,
@@ -546,6 +567,7 @@ describe("agentic run store", () => {
     });
 
     expect(result.reused).toBe(false);
+    await executeAgentRun(101);
     expect(runDarwinVerifyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: 101,
@@ -606,6 +628,7 @@ describe("agentic run store", () => {
     });
 
     expect(result.reused).toBe(false);
+    await executeAgentRun(101);
     expect(runHamiltonPublishMock).toHaveBeenCalledWith(
       expect.objectContaining({
         runId: 101,

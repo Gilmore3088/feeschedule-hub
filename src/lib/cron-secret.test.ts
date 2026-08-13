@@ -8,6 +8,12 @@ describe("matchesConfiguredCronSecret", () => {
     })).toBe(true);
   });
 
+  it("matches a bearer cron secret", () => {
+    expect(matchesConfiguredCronSecret("Bearer secret", {
+      CRON_SECRET: "secret",
+    })).toBe(true);
+  });
+
   it("normalizes deployment-injected line endings", () => {
     expect(matchesConfiguredCronSecret("secret", {
       REPORT_CRON_SECRET: "secret\n",

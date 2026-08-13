@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { setFeeScheduleUrl, markOffline, triggerExtract } from "./actions";
 import { formatAssets } from "@/lib/format";
 
@@ -120,6 +121,7 @@ export function InstitutionRow({
             startedAt: new Date().toISOString(),
           },
         }));
+        triggerAgentRunExecution(result.jobId);
       } else {
         setFeedback({ type: "success", text: "Extraction queued." });
       }

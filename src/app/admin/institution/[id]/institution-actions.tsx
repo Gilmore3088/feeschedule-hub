@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { updateFeeUrl, markInstitutionOffline, runExtract } from "./actions";
 
 interface Props {
@@ -163,6 +164,7 @@ export function InstitutionActions({
                             startedAt: new Date().toISOString(),
                           },
                         }));
+                        triggerAgentRunExecution(result.jobId);
                       } else {
                         setMessage("Extraction queued. Atlas will surface any failure.");
                       }

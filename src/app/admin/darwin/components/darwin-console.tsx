@@ -6,6 +6,7 @@ import {
   type BatchSizeOption,
 } from "@/components/agent-console/batch-runner";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { DecisionStream, type Decision } from "./decision-stream";
 import { CircuitBanner } from "@/components/agent-console/circuit-banner";
 import { BudgetGauge } from "./budget-gauge";
@@ -65,6 +66,7 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
             startedAt: new Date().toISOString(),
           },
         }));
+        triggerAgentRunExecution(result.jobId);
       }
     } finally {
       setRunning(false);
@@ -128,7 +130,7 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
       <BudgetGauge status={status} />
       <BatchRunner
         onStart={start}
-        disabled={running}
+        disabled={running || Boolean(disabledReason)}
         busy={running}
         disabledReason={disabledReason}
         title="Classify raw fee rows"
@@ -141,10 +143,10 @@ export function DarwinConsole({ initialStatus }: { initialStatus: DarwinStatus }
           jobId={queuedJob.id}
           title="Darwin classification"
           owner="darwin"
-          command={`darwin-drain --size ${queuedJob.size} --batches ${queuedJob.chain}`}
+          command={`Darwin classification pass: ${queuedJob.size} x ${queuedJob.chain}`}
           scope={`${(queuedJob.size * queuedJob.chain).toLocaleString("en-US")} fees · ${queuedJob.chain === 1 ? "single batch" : `${queuedJob.chain} batches`}`}
           reused={queuedJob.reused}
-          detail="Darwin will create a visible classification run. Worker execution stays halted until the agentic backend is wired."
+          detail="Darwin created a visible classification run. The agentic runner attaches step events as each ledger slice executes."
         />
       )}
       {error && <p role="alert" className="text-xs text-red-700 dark:text-red-400">{error}</p>}

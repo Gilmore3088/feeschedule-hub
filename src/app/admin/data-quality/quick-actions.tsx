@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { rerunCategorization, republishIndex, resetZombieJobs } from "./actions";
 
 interface ActionResult {
@@ -27,6 +28,19 @@ function ActionButton({
     startTransition(async () => {
       const res = await action();
       setResult(res);
+      if (res.success && typeof res.jobId === "number") {
+        window.dispatchEvent(new CustomEvent("atlas:started", {
+          detail: {
+            runId: res.jobId,
+            title: label,
+            label,
+            agent: label.toLowerCase().includes("publish") ? "hamilton" : "darwin",
+            reused: false,
+            startedAt: new Date().toISOString(),
+          },
+        }));
+        triggerAgentRunExecution(res.jobId);
+      }
     });
   }
 

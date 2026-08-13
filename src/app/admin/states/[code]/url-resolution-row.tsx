@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
+import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { setFeeScheduleUrl, markOffline, triggerExtract } from "./actions";
 
 interface Props {
@@ -52,6 +53,7 @@ export function UrlResolutionRow({
             startedAt: new Date().toISOString(),
           },
         }));
+        triggerAgentRunExecution(extractResult.jobId);
       } else {
         setFeedback({ type: "success", text: "URL saved. Extraction queued." });
       }
