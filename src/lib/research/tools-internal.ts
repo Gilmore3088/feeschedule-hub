@@ -8,7 +8,7 @@ import {
   getCharterFeeRevenueSummary,
 } from "@/lib/data-store/fee-revenue";
 import { getStats } from "@/lib/data-store/core";
-import { getCrawlHealth } from "@/lib/data-store/dashboard";
+import { getCollectionHealth } from "@/lib/data-store/dashboard";
 import { sql } from "@/lib/data-store/connection";
 import { getKnoxReviewCounts } from "@/lib/data-store/knox-reviews";
 import { startAgentRun } from "@/lib/agents/run-store";
@@ -162,7 +162,7 @@ export const queryOutliers = tool({
              ef.validation_flags,
              ct.state_code
         FROM published_fee_observations ef
-        JOIN crawl_targets ct ON ct.id = ef.crawl_target_id
+        JOIN institution_sources ct ON ct.id = ef.crawl_target_id
        WHERE ef.validation_flags IS NOT NULL
          AND ef.validation_flags != '[]'::jsonb
          AND ef.validation_flags != '{}'::jsonb
@@ -185,25 +185,25 @@ export const queryOutliers = tool({
   },
 });
 
-export const getCrawlStatus = tool({
+export const getCollectionStatus = tool({
   description:
-    "Returns crawl health: total institutions, success rates, recent crawl activity. When: pipeline status questions, 'did the last crawl run?', coverage freshness checks. Combine with: getReviewQueueStats for review backlog, queryDataQuality(funnel) for end-to-end coverage picture.",
+    "Returns source collection health: total institutions, success rates, recent source activity. When: pipeline status questions, 'did the last collection run?', coverage freshness checks. Combine with: getReviewQueueStats for review backlog, queryDataQuality(funnel) for end-to-end coverage picture.",
   inputSchema: z.object({}),
   execute: async () => {
-    const health = await getCrawlHealth();
+    const health = await getCollectionHealth();
     const stats = await getStats();
     return {
       total_institutions: stats.total_institutions,
       institutions_with_fees: stats.with_fee_url,
       total_fees: stats.total_fees,
-      crawl_health: health,
+      collection_health: health,
     };
   },
 });
 
 export const getReviewQueueStats = tool({
   description:
-    "Returns Knox rejection-decision counts for anomaly-only human review. When: review backlog questions, approval pipeline health. Combine with: getCrawlStatus for pipeline breadth, queryDataQuality(review_status) for published fee status.",
+    "Returns Knox rejection-decision counts for anomaly-only human review. When: review backlog questions, approval pipeline health. Combine with: getCollectionStatus for pipeline breadth, queryDataQuality(review_status) for published fee status.",
   inputSchema: z.object({}),
   execute: async () => {
     const counts = await getKnoxReviewCounts();
@@ -228,7 +228,7 @@ export const searchInstitutionsByName = tool({
   execute: async ({ query, limit }) => {
     const rows = await sql`
       SELECT id, institution_name, state_code, city, charter_type, asset_size_tier
-      FROM crawl_targets
+      FROM institution_sources
       WHERE institution_name LIKE ${"%" + query + "%"}
       ORDER BY institution_name
       LIMIT ${limit ?? 10}
@@ -301,7 +301,7 @@ export const rankInstitutions = tool({
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                ef.fee_category, ef.amount
         FROM published_fee_observations ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+        JOIN institution_sources ct ON ef.crawl_target_id = ct.id
         WHERE ef.fee_category IS NOT NULL AND ef.amount > 0
           ${charterClause}
       ` as { id: number; institution_name: string; state_code: string; charter_type: string; asset_size_tier: string; fee_category: string; amount: number }[];
@@ -347,7 +347,7 @@ export const rankInstitutions = tool({
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as fee_count
         FROM published_fee_observations ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+        JOIN institution_sources ct ON ef.crawl_target_id = ct.id
         WHERE ef.review_status = 'approved' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
         ORDER BY fee_count DESC
@@ -362,7 +362,7 @@ export const rankInstitutions = tool({
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as flag_count
         FROM published_fee_observations ef
-        JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+        JOIN institution_sources ct ON ef.crawl_target_id = ct.id
         WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
           AND ef.review_status = 'approved' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
@@ -379,7 +379,7 @@ export const rankInstitutions = tool({
 
 export const queryJobStatus = tool({
   description:
-    "Returns recent, active, or detailed agent run status. When: 'did the last run succeed?', 'what's running now?', run failure investigation. Combine with: getCrawlStatus for coverage impact of recent runs.",
+    "Returns recent, active, or detailed agent run status. When: 'did the last run succeed?', 'what's running now?', run failure investigation. Combine with: getCollectionStatus for coverage impact of recent runs.",
   inputSchema: z.object({
     view: z
       .enum(["recent", "active", "detail"])
@@ -417,7 +417,7 @@ export const queryJobStatus = tool({
 
 export const queryDataQuality = tool({
   description:
-    "Returns data quality metrics: funnel (coverage), uncategorized fees, stale institutions, published review_status breakdown. When: coverage gap questions, data hygiene review, pre-analysis quality check. Combine with: getCrawlStatus for pipeline health, queryNationalData(fee_index) to contextualize coverage against category depth.",
+    "Returns data quality metrics: funnel (coverage), uncategorized fees, stale institutions, published review_status breakdown. When: coverage gap questions, data hygiene review, pre-analysis quality check. Combine with: getCollectionStatus for pipeline health, queryNationalData(fee_index) to contextualize coverage against category depth.",
   inputSchema: z.object({
     view: z
       .enum(["funnel", "uncategorized", "stale", "review_status"])
@@ -427,8 +427,8 @@ export const queryDataQuality = tool({
     if (view === "funnel") {
       const [row] = await sql`
         SELECT
-          (SELECT COUNT(*) FROM crawl_targets) as total_institutions,
-          (SELECT COUNT(*) FROM crawl_targets WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
+          (SELECT COUNT(*) FROM institution_sources) as total_institutions,
+          (SELECT COUNT(*) FROM institution_sources WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
           (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_fees,
           (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_approved,
           (SELECT COUNT(*) FROM published_fee_observations) as total_fees,
@@ -449,7 +449,7 @@ export const queryDataQuality = tool({
     }
     if (view === "stale") {
       const [stale] = await sql`
-        SELECT COUNT(*) as cnt FROM crawl_targets
+        SELECT COUNT(*) as cnt FROM institution_sources
         WHERE fee_schedule_url IS NOT NULL
           AND (last_crawl_at IS NULL OR last_crawl_at < NOW() - INTERVAL '90 days')
       ` as { cnt: number }[];
@@ -840,7 +840,7 @@ export const queryRegulatoryRisk = tool({
         const fees = await sql`
           SELECT ef.fee_category, ef.amount, ct.institution_name, ct.state_code
           FROM published_fee_observations ef
-          JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+          JOIN institution_sources ct ON ef.crawl_target_id = ct.id
           WHERE ef.fee_category = ANY(${targetCategories}::text[])
             AND ef.amount > 0
             AND ef.review_status = 'approved'
@@ -943,7 +943,7 @@ export const internalTools = {
   queryStateData,
   queryFeeRevenueCorrelation,
   queryOutliers,
-  getCrawlStatus,
+  getCollectionStatus,
   getReviewQueueStats,
   searchInstitutionsByName,
   rankInstitutions,

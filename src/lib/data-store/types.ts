@@ -66,12 +66,12 @@ export interface InstitutionDetail {
   fee_count: number;
 }
 
-export interface CrawlStats {
+export interface CollectionStats {
   total_institutions: number;
   banks: number;
   credit_unions: number;
   with_website: number;
   with_fee_url: number;
   total_fees: number;
-  crawl_runs: number;
+  collection_runs: number;
 }

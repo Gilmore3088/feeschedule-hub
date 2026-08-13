@@ -140,12 +140,18 @@ const chatInternalTools: ToolSet = {
   rankInstitutions: internalTools.rankInstitutions,
 };
 const proTools: ToolSet = { ...publicTools, ...chatInternalTools };
-const adminTools: ToolSet = { ...publicTools, ...chatInternalTools };
+const adminTools: ToolSet = {
+  ...publicTools,
+  ...chatInternalTools,
+  getCollectionStatus: internalTools.getCollectionStatus,
+  getReviewQueueStats: internalTools.getReviewQueueStats,
+  queryJobStatus: internalTools.queryJobStatus,
+};
 
 async function opsContext(): Promise<string> {
   try {
-    const [lastCrawl] = (await sql`
-      SELECT completed_at FROM crawl_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1
+    const [lastCollection] = (await sql`
+      SELECT completed_at FROM source_collection_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1
     `) as { completed_at: string }[];
     const knoxReview = await getKnoxReviewCounts();
     const [activeRuns] = (await sql`
@@ -155,7 +161,7 @@ async function opsContext(): Promise<string> {
          AND run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
     `) as { cnt: number }[];
     const parts: string[] = [];
-    if (lastCrawl?.completed_at) parts.push(`Last collection: ${lastCrawl.completed_at}`);
+    if (lastCollection?.completed_at) parts.push(`Last collection: ${lastCollection.completed_at}`);
     if (knoxReview.pending > 0) parts.push(`${knoxReview.pending} Knox decisions pending review`);
     if (activeRuns.cnt > 0) parts.push(`${activeRuns.cnt} agent runs active`);
     return parts.length > 0 ? `\n\nOperational status: ${parts.join(". ")}.` : "";

@@ -1,7 +1,7 @@
 import { sql } from "./connection";
 import { VALID_US_CODES } from "../us-states";
 import type {
-  CrawlStats,
+  CollectionStats,
   InstitutionSummary,
   ExtractedFee,
   InstitutionDetail,
@@ -23,7 +23,7 @@ export async function getPublicStats(): Promise<PublicStats> {
         COUNT(DISTINCT ct.id) as total_institutions,
         COUNT(DISTINCT ef.fee_category) as total_categories,
         COUNT(DISTINCT ct.state_code) as total_states
-      FROM crawl_targets ct
+      FROM institution_sources ct
       JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
       WHERE ct.state_code IN ${sql(validCodes)}
         AND ef.review_status != 'rejected'`;
@@ -38,14 +38,14 @@ export async function getPublicStats(): Promise<PublicStats> {
   }
 }
 
-export async function getStats(): Promise<CrawlStats> {
-  const [total] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets`;
-  const [banks] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='bank'`;
-  const [cus] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE charter_type='credit_union'`;
-  const [withUrl] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE website_url IS NOT NULL`;
-  const [withFee] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_targets WHERE fee_schedule_url IS NOT NULL`;
+export async function getStats(): Promise<CollectionStats> {
+  const [total] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources`;
+  const [banks] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources WHERE charter_type='bank'`;
+  const [cus] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources WHERE charter_type='credit_union'`;
+  const [withUrl] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources WHERE website_url IS NOT NULL`;
+  const [withFee] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources WHERE fee_schedule_url IS NOT NULL`;
   const [fees] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM published_fee_observations`;
-  const [runs] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM crawl_runs`;
+  const [runs] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM source_collection_runs`;
 
   return {
     total_institutions: Number(total.cnt),
@@ -54,7 +54,7 @@ export async function getStats(): Promise<CrawlStats> {
     with_website: Number(withUrl.cnt),
     with_fee_url: Number(withFee.cnt),
     total_fees: Number(fees.cnt),
-    crawl_runs: Number(runs.cnt),
+    collection_runs: Number(runs.cnt),
   };
 }
 
@@ -63,7 +63,7 @@ export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type,
            COUNT(ef.id) as fee_count
-    FROM crawl_targets ct
+    FROM institution_sources ct
     LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
     WHERE ct.fee_schedule_url IS NOT NULL
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
@@ -78,7 +78,7 @@ export async function getFeesByInstitution(targetId: number): Promise<ExtractedF
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
     FROM published_fee_observations ef
-    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     WHERE ef.crawl_target_id = ${targetId}
     ORDER BY ef.fee_name
   `;
@@ -114,7 +114,7 @@ export async function getAllFees(
   const countResult = await sql.unsafe<{ cnt: number }[]>(
     `SELECT COUNT(*) as cnt
      FROM published_fee_observations ef
-     JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      ${where}`,
     params,
   );
@@ -126,7 +126,7 @@ export async function getAllFees(
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
     FROM published_fee_observations ef
-    JOIN crawl_targets ct ON ef.crawl_target_id = ct.id
+    JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     ${where}
     ORDER BY ct.institution_name, ef.fee_name
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -178,7 +178,7 @@ export async function getInstitutionsByFilter(filters: {
   const countResult = await sql.unsafe<{ cnt: number }[]>(`
     SELECT COUNT(*) as cnt FROM (
       SELECT ct.id
-      FROM crawl_targets ct
+      FROM institution_sources ct
       LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
         AND ef.review_status != 'rejected'
       ${where}
@@ -194,7 +194,7 @@ export async function getInstitutionsByFilter(filters: {
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
-    FROM crawl_targets ct
+    FROM institution_sources ct
     LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
       AND ef.review_status != 'rejected'
     ${where}
@@ -215,7 +215,7 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
-    FROM crawl_targets ct
+    FROM institution_sources ct
     LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
     WHERE ct.id = ${id}
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
@@ -246,7 +246,7 @@ export async function getPeerAnalysis(targetId: number): Promise<Record<string, 
 export async function getTierCounts(): Promise<{ tier: string; count: number }[]> {
   const rows = await sql<{ tier: string; count: number }[]>`
     SELECT asset_size_tier as tier, COUNT(*) as count
-    FROM crawl_targets
+    FROM institution_sources
     WHERE asset_size_tier IS NOT NULL
     GROUP BY asset_size_tier
     ORDER BY MIN(asset_size)
@@ -257,7 +257,7 @@ export async function getTierCounts(): Promise<{ tier: string; count: number }[]
 export async function getDistrictCounts(): Promise<{ district: number; count: number }[]> {
   const rows = await sql<{ district: number; count: number }[]>`
     SELECT fed_district as district, COUNT(*) as count
-    FROM crawl_targets
+    FROM institution_sources
     WHERE fed_district IS NOT NULL
     GROUP BY fed_district
     ORDER BY fed_district
@@ -327,7 +327,7 @@ export interface DataFreshness {
 
 export async function getDataFreshness(): Promise<DataFreshness> {
   const [crawl] = await sql<{ last_at: string | Date | null }[]>`
-    SELECT MAX(crawled_at) as last_at FROM crawl_results WHERE status = 'success'
+    SELECT MAX(crawled_at) as last_at FROM source_documents WHERE status = 'success'
   `;
 
   const [fee] = await sql<{ last_at: string | Date | null }[]>`

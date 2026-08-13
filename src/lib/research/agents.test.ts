@@ -43,7 +43,7 @@ vi.mock("./tools-internal", () => ({
     queryStateData: { description: "queryStateData", inputSchema: {}, execute: vi.fn() },
     queryFeeRevenueCorrelation: { description: "queryFeeRevenueCorrelation", inputSchema: {}, execute: vi.fn() },
     queryOutliers: { description: "queryOutliers", inputSchema: {}, execute: vi.fn() },
-    getCrawlStatus: { description: "getCrawlStatus", inputSchema: {}, execute: vi.fn() },
+    getCollectionStatus: { description: "getCollectionStatus", inputSchema: {}, execute: vi.fn() },
     getReviewQueueStats: { description: "getReviewQueueStats", inputSchema: {}, execute: vi.fn() },
     searchInstitutionsByName: { description: "searchInstitutionsByName", inputSchema: {}, execute: vi.fn() },
     rankInstitutions: { description: "rankInstitutions", inputSchema: {}, execute: vi.fn() },
@@ -83,7 +83,7 @@ describe("getHamilton", () => {
 
     // Should NOT have internal/ops tools
     expect(toolNames).not.toContain("triggerPipelineJob");
-    expect(toolNames).not.toContain("getCrawlStatus");
+    expect(toolNames).not.toContain("getCollectionStatus");
     expect(toolNames).not.toContain("queryNationalData");
   });
 
@@ -123,6 +123,9 @@ describe("getHamilton", () => {
     expect(toolNames).toContain("searchFees");
     expect(toolNames).toContain("searchInstitutionsByName");
     expect(toolNames).toContain("rankInstitutions");
+    expect(toolNames).toContain("getCollectionStatus");
+    expect(toolNames).toContain("getReviewQueueStats");
+    expect(toolNames).toContain("queryJobStatus");
   });
 
   it("consumer: systemPrompt contains HAMILTON_SYSTEM_PROMPT base text", async () => {

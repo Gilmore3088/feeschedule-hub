@@ -16,6 +16,9 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   direct Anthropic SDK imports elsewhere are blocked by `provider-kill`.
 - Current Postgres data access is `src/lib/data-store`; do not reintroduce the
   retired crawler-named data module.
+- Migrated source read paths use the semantic views `institution_sources`,
+  `source_documents`, and `source_collection_runs`. Expand that boundary instead
+  of adding new direct reads against historical source storage names.
 - Atlas creates visible runs; Magellan discovers/fetches; Rosetta reads
   fetched HTML/text and extractable PDF text, while scanned/image-only PDFs are
   marked `needs_ocr`; Knox extracts conservative raw fee observations and
@@ -44,6 +47,9 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   `published_fee_observations`. `extracted_fees` is only a temporary staged
   review bridge for Knox ready-review, fee review actions, and explicit review
   queue diagnostics.
+- Do not put direct historical source table reads back into files covered by
+  `source-read-model-kill`; move additional read paths onto the semantic source
+  views as they are touched.
 
 ## Current Source Of Truth
 

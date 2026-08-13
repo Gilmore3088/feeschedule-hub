@@ -1,24 +1,24 @@
 import { sql } from "./connection";
 
-export interface CrawlHealth {
+export interface CollectionHealth {
   last_run_at: string | null;
   last_run_status: string | null;
   success_rate_24h: number;
   avg_confidence: number;
   institutions_failing: number;
-  total_crawled_24h: number;
-  crawl_runs_7d: number;
+  total_collected_24h: number;
+  collection_runs_7d: number;
 }
 
-export async function getCrawlHealth(): Promise<CrawlHealth> {
+export async function getCollectionHealth(): Promise<CollectionHealth> {
   const [lastRun] = await sql<{ completed_at: string | null; status: string }[]>`
-    SELECT completed_at, status FROM crawl_runs
+    SELECT completed_at, status FROM source_collection_runs
     ORDER BY started_at DESC LIMIT 1`;
 
   const [recent] = await sql<{ total: number; succeeded: number }[]>`
     SELECT COUNT(*) as total,
            SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as succeeded
-    FROM crawl_results
+    FROM source_documents
     WHERE crawled_at > NOW() - INTERVAL '1 day'`;
 
   const [confidence] = await sql<{ avg_conf: number | null }[]>`
@@ -27,11 +27,11 @@ export async function getCrawlHealth(): Promise<CrawlHealth> {
     WHERE created_at > NOW() - INTERVAL '1 day'`;
 
   const [failing] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*) as cnt FROM crawl_targets
+    SELECT COUNT(*) as cnt FROM institution_sources
     WHERE consecutive_failures > 3`;
 
   const [runs7d] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*) as cnt FROM crawl_runs
+    SELECT COUNT(*) as cnt FROM source_collection_runs
     WHERE started_at > NOW() - INTERVAL '7 days'`;
 
   return {
@@ -41,8 +41,8 @@ export async function getCrawlHealth(): Promise<CrawlHealth> {
       Number(recent.total) > 0 ? Number(recent.succeeded) / Number(recent.total) : 0,
     avg_confidence: Number(confidence.avg_conf ?? 0),
     institutions_failing: Number(failing.cnt),
-    total_crawled_24h: Number(recent.total),
-    crawl_runs_7d: Number(runs7d.cnt),
+    total_collected_24h: Number(recent.total),
+    collection_runs_7d: Number(runs7d.cnt),
   };
 }
 
@@ -85,7 +85,7 @@ export async function getDistrictMetrics(filters?: {
             COUNT(ef.id) as total_fees,
             SUM(CASE WHEN ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]' THEN 1 ELSE 0 END) as flagged_count,
             AVG(ef.extraction_confidence) as avg_confidence
-     FROM crawl_targets ct
+     FROM institution_sources ct
      LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
      WHERE ${where}
      GROUP BY ct.fed_district

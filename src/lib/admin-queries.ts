@@ -564,7 +564,7 @@ export async function getClassificationHistory(
 // backoff tier so humans can see where Magellan is choosing not to retry and
 // why. Exposed on /admin/coverage so dormant URLs are visible, not silently
 // ignored.
-export interface CrawlHealthTiers {
+export interface CollectionHealthTiers {
   healthy: number;
   short_backoff: number;
   long_backoff: number;
@@ -572,7 +572,7 @@ export interface CrawlHealthTiers {
   total_active: number;
 }
 
-export async function getCrawlHealthTiers(): Promise<CrawlHealthTiers> {
+export async function getCollectionHealthTiers(): Promise<CollectionHealthTiers> {
   try {
     const [row] = await sql`
       SELECT
@@ -587,7 +587,7 @@ export async function getCrawlHealthTiers(): Promise<CrawlHealthTiers> {
         )::int AS long_backoff,
         COUNT(*) FILTER (WHERE status = 'dormant')::int AS dormant,
         COUNT(*)::int AS total_active
-      FROM crawl_targets
+      FROM institution_sources
       WHERE fee_schedule_url IS NOT NULL
     `;
     return {
@@ -598,7 +598,7 @@ export async function getCrawlHealthTiers(): Promise<CrawlHealthTiers> {
       total_active: Number(row?.total_active ?? 0),
     };
   } catch (e) {
-    console.error("getCrawlHealthTiers failed:", e);
+    console.error("getCollectionHealthTiers failed:", e);
     return { healthy: 0, short_backoff: 0, long_backoff: 0, dormant: 0, total_active: 0 };
   }
 }

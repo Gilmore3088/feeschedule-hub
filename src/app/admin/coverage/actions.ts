@@ -21,7 +21,7 @@ export async function fetchMagellanStatus(): Promise<MagellanStatus> {
       COUNT(*) FILTER (WHERE rescue_status = 'dead')::int AS dead,
       COUNT(*) FILTER (WHERE rescue_status = 'needs_human')::int AS needs_human,
       COUNT(*) FILTER (WHERE rescue_status = 'retry_after')::int AS retry_after
-    FROM crawl_targets
+    FROM institution_sources
   `;
   return {
     pending: Number(row?.pending ?? 0),

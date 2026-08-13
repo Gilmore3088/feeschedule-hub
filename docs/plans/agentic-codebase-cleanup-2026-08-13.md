@@ -21,6 +21,7 @@ Make the public/admin product run through one understandable agentic system:
 - `src/lib/agents/run-store.ts` is the current execution envelope and event ledger.
 - `src/lib/automation-control.ts` is the global safety stop.
 - `src/lib/ai-provider.ts` is the only active provider SDK/model construction boundary.
+- `institution_sources`, `source_documents`, and `source_collection_runs` are the current semantic source views for migrated read paths while the historical physical source tables are phased out.
 - `src/lib/ai-provider-usage.ts` records provider usage/failures, trips the same safety stop for Anthropic credit failures, and blocks new Anthropic calls when a recent credit-balance failure is already in the ledger.
 - Current fee flow modules:
   - `src/lib/agents/magellan/discovery.ts`
@@ -44,6 +45,7 @@ Make the public/admin product run through one understandable agentic system:
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config. Active `.claude` prompts are now guarded by `prompt-kill` so they cannot point agents at retired crawler/database tooling.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
+- Some reporting, admin, and agent write-path modules still query the historical source tables directly. They must move to the semantic source views or a physical schema rename in later slices.
 
 ### Removed In This Cleanup Pass
 
@@ -61,6 +63,9 @@ Make the public/admin product run through one understandable agentic system:
 - Removed the production public prelaunch proxy shell so public routes reach the App Router pages instead of a stale parallel static page.
 - Removed the local Supabase Edge Function `fee-lookup` source and added `edge-function-kill` to prevent tracked Edge Function runtimes from returning.
 - Removed unreferenced standalone `scripts/migrations/*.sql` artifacts; canonical database history remains under `supabase/migrations`.
+- Added semantic source views for `institution_sources`, `source_documents`, and `source_collection_runs`.
+- Moved public stats/freshness, collection health, Hamilton internal status tools, admin query presets, and Magellan admin status counts onto the semantic source views.
+- Added `source-read-model-kill` to keep migrated read boundaries from querying historical source tables directly.
 
 ## Retirement Plan
 
@@ -73,6 +78,7 @@ Status: implemented for current runtime source and config.
 - Keep `provider-kill` in the guard chain.
 - Keep `legacy-name-kill` in the guard chain.
 - Keep `edge-function-kill` in the guard chain.
+- Keep `source-read-model-kill` in the guard chain and expand it as each module moves to semantic source views.
 - Add a lightweight architecture assertion test that checks:
   - `vercel.json` has only `/api/admin/agents/tick`.
   - runtime source does not import `job-runner`.
@@ -142,9 +148,11 @@ Target: agent backlog shrinks without asking a human to review 26k rows.
 
 Target: a fresh database should not recreate retired execution infrastructure just to drop it later.
 
+- Status: started. Semantic source views exist for migrated read boundaries; physical source table and column renames remain deferred until write paths are migrated.
 - Do not edit production-applied migrations in place.
 - Create a new agentic baseline migration set or squashed schema dump for fresh environments.
 - Archive older compatibility migrations under a clearly named historical folder once the baseline is verified.
+- Move remaining direct source table references in reporting, admin queries, data-store modules, Magellan, Rosetta, and run-store before attempting physical table renames.
 - Remove active references to:
   - `ops_jobs`
   - `ops_job_id`
@@ -167,6 +175,7 @@ Target: reduce cognitive load without breaking working code.
 ## Validation Gates
 
 - `npm run guard:legacy`
+- `scripts/ci-guards.sh source-read-model-kill`
 - direct-provider search returns no provider SDK/model imports outside `src/lib/ai-provider.ts`
 - `npm run lint`
 - `npm run test:agentic`

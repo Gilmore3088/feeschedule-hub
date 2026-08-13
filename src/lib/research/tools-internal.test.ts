@@ -67,7 +67,7 @@ vi.mock("@/lib/data-store/core", () => ({
   getStats: vi.fn().mockResolvedValue({}),
 }));
 vi.mock("@/lib/data-store/dashboard", () => ({
-  getCrawlHealth: vi.fn().mockResolvedValue({}),
+  getCollectionHealth: vi.fn().mockResolvedValue({}),
 }));
 vi.mock("@/lib/data-store/intelligence", () => ({
   searchExternalIntelligence: vi.fn().mockResolvedValue([]),

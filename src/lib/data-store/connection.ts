@@ -40,7 +40,7 @@ export function withTransaction<T>(callback: (tx: typeof sql) => Promise<T>): Pr
 
 export async function hasData(): Promise<boolean> {
   try {
-    const [row] = await getSql()`SELECT COUNT(*) as cnt FROM crawl_targets`;
+    const [row] = await getSql()`SELECT COUNT(*) as cnt FROM institution_sources`;
     return Number(row.cnt) > 0;
   } catch {
     return false;
