@@ -6,6 +6,8 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 ## Current Runtime
 
 - Next.js 16 / React 19 / TypeScript is the application and agent control plane.
+- Vercel/Next API routes are the runtime boundary; Supabase Edge Functions are
+  not an active product or agent execution surface in this repo.
 - Supabase Postgres is the source of truth for institutions, fee data,
   `agent_runs`, `agent_run_steps`, `agent_run_events`, provider usage, and
   review queues.
@@ -29,10 +31,14 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 - Do not add Modal endpoints, Modal env vars, or `.modal.run` URLs.
 - Do not reintroduce `fee_crawler`, `python -m fee_crawler`, Python crawler
   tests, or pytest setup.
+- Do not add Supabase Edge Functions as a parallel runtime; use typed Next
+  routes and agent modules with run-ledger visibility.
 - Do not use `ops_jobs`, `ops_job_id`, `modal_call_id`, `modalCallId`, or
   `spawnJob`.
 - Do not make hidden provider calls while billing/provider health is broken.
 - Every agent action must create or update a visible agent run/step/event.
+- Do not reintroduce a public prelaunch proxy gate that serves a parallel static
+  site instead of the App Router pages.
 - Do not read `extracted_fees` for product, report, Scout, public API,
   research, market, peer, state, or analytics data. Those reads must use
   `published_fee_observations`. `extracted_fees` is only a temporary staged

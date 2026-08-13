@@ -8,7 +8,7 @@ Make the public/admin product run through one understandable agentic system:
 2. Every step writes `agent_run_steps` and `agent_run_events`.
 3. Vercel Cron or the admin execute API advances queued work.
 4. Provider calls are metered in `ai_api_usage_events` and blocked by `automation_control` when billing/circuit state is unsafe.
-5. No tracked runtime path, config, script, or local artifact can reintroduce Modal, `fee_crawler`, `ops_jobs`, or one-off mutation scripts.
+5. No tracked runtime path, config, script, Supabase Edge Function product endpoint, or local artifact can reintroduce Modal, `fee_crawler`, `ops_jobs`, or one-off mutation scripts.
 
 ## Current State From Audit
 
@@ -17,6 +17,7 @@ Make the public/admin product run through one understandable agentic system:
 - `vercel.json` schedules `/api/admin/agents/tick` every five minutes.
 - `src/app/api/admin/agents/tick/route.ts` advances queued `agent_runs`.
 - `src/app/api/admin/agents/runs/[id]/execute/route.ts` lets the UI advance a visible run after a button click.
+- Product and agent runtime endpoints live in Next/Vercel routes, not Supabase Edge Functions.
 - `src/lib/agents/run-store.ts` is the current execution envelope and event ledger.
 - `src/lib/automation-control.ts` is the global safety stop.
 - `src/lib/ai-provider.ts` is the only active provider SDK/model construction boundary.
@@ -34,6 +35,7 @@ Make the public/admin product run through one understandable agentic system:
 - Runtime/source guard passes for Modal URLs/env vars, `fee_crawler`, `ops_jobs`, `modal_call_id`, and runtime reads from `extracted_fees`.
 - Active env example exposes `EXECUTION_BACKEND` and `AUTOMATION_CONTROL_ENABLED`, not retired worker URLs.
 - Production execution should not launch Modal or Python workers.
+- Tracked Supabase Edge Function source is retired so there is no second product API runtime outside the Next app.
 
 ### Legacy Or Confusing Material Still Present
 
@@ -56,6 +58,9 @@ Make the public/admin product run through one understandable agentic system:
 - Archived historical baseline/gap docs out of active docs and replaced stale outstanding tasks with the current agentic backlog.
 - Added `active-doc-kill` and `migration-history-kill` so current docs/plans and post-decommission migrations cannot drift back toward retired runtime concepts.
 - Added provider circuit checks so recent Anthropic credit-balance failures fail closed before the next provider call and record visible `blocked` `ai_api_usage_events` rows.
+- Removed the production public prelaunch proxy shell so public routes reach the App Router pages instead of a stale parallel static page.
+- Removed the local Supabase Edge Function `fee-lookup` source and added `edge-function-kill` to prevent tracked Edge Function runtimes from returning.
+- Removed unreferenced standalone `scripts/migrations/*.sql` artifacts; canonical database history remains under `supabase/migrations`.
 
 ## Retirement Plan
 
@@ -67,6 +72,7 @@ Status: implemented for current runtime source and config.
 - Keep `artifact-kill` in the guard chain.
 - Keep `provider-kill` in the guard chain.
 - Keep `legacy-name-kill` in the guard chain.
+- Keep `edge-function-kill` in the guard chain.
 - Add a lightweight architecture assertion test that checks:
   - `vercel.json` has only `/api/admin/agents/tick`.
   - runtime source does not import `job-runner`.
@@ -164,6 +170,7 @@ Target: reduce cognitive load without breaking working code.
 - direct-provider search returns no provider SDK/model imports outside `src/lib/ai-provider.ts`
 - `npm run lint`
 - `npm run test:agentic`
+- proxy regression test proving public routes pass through to the App Router while admin auth redirects still work
 - focused route tests for Hamilton/research provider blocking
 - smoke click test:
   - click an agent lane

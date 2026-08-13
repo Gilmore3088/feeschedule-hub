@@ -9,6 +9,8 @@
 #                 Fail if product/runtime fee reads bypass published_fee_observations.
 #   script-kill   Fail if retired one-off data/process scripts are reintroduced.
 #   config-kill   Fail if active CI/deploy/env-example config references retired surfaces.
+#   edge-function-kill
+#                 Fail if Supabase Edge Functions are tracked as a parallel runtime.
 #   artifact-kill Fail if local agent worktrees or stale tool output are tracked.
 #   provider-kill Fail if provider construction is bypassing src/lib/ai-provider.ts.
 #   legacy-name-kill
@@ -223,6 +225,7 @@ artifact_kill() {
   if git rev-parse --git-dir >/dev/null 2>&1; then
     hits=$(git ls-files -- \
       'fee_crawler/**' \
+      'scripts/migrations/**' \
       '.claude/worktrees/**' \
       '.superpowers/**' \
       '.pytest_cache/**' \
@@ -246,6 +249,29 @@ artifact_kill() {
   fi
 
   echo "artifact-kill: OK (no tracked local agent worktrees, stale tool output, or crawler artifacts)"
+  exit 0
+}
+
+edge_function_kill() {
+  local hits=""
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git ls-files -- 'supabase/functions/**' \
+      | while IFS= read -r path; do
+          [[ -e "$path" ]] && printf '%s\n' "$path"
+        done \
+      | sed '/^$/d' || true)
+  elif [[ -d supabase/functions ]]; then
+    hits=$(find supabase/functions -type f | sort || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "edge-function-kill: Supabase Edge Functions remain as a parallel runtime:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "edge-function-kill: OK (no tracked Supabase Edge Function runtime)"
   exit 0
 }
 
@@ -418,6 +444,7 @@ case "$SUBCOMMAND" in
   fee-read-model-kill) fee_read_model_kill ;;
   script-kill) script_kill ;;
   config-kill) config_kill ;;
+  edge-function-kill) edge_function_kill ;;
   artifact-kill) artifact_kill ;;
   provider-kill) provider_kill ;;
   prompt-kill) prompt_kill ;;
@@ -425,12 +452,12 @@ case "$SUBCOMMAND" in
   migration-history-kill) migration_history_kill ;;
   legacy-name-kill) legacy_name_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill>" >&2
     exit 2
     ;;
 esac

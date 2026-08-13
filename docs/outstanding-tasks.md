@@ -10,7 +10,7 @@ Make Fee Insight run through one visible agentic system:
 2. Work advances through `agent_run_steps`.
 3. Every meaningful state change writes `agent_run_events`.
 4. Provider usage and provider failures attach to `ai_api_usage_events`.
-5. No active runtime, prompt, config, script, or current plan points at retired external launchers or local crawler tooling.
+5. No active runtime, prompt, config, script, or current plan points at retired external launchers, Supabase Edge Function product endpoints, or local crawler tooling.
 
 ## Current Priorities
 
@@ -31,6 +31,9 @@ Make Fee Insight run through one visible agentic system:
 | Magellan | Rescue/fetch batches rotate through retry windows instead of retrying the same failed rows. |
 | Provider boundary | Recent Anthropic credit-balance failures block new calls before provider execution and record visible `blocked` usage events. |
 | Rosetta | Readable HTML, text, and extractable PDF documents become `agent_document_texts`; scanned/image-only PDFs are explicitly marked `needs_ocr`. |
+| Public runtime | Production proxy no longer serves the retired static prelaunch page over public App Router routes. |
+| Runtime boundary | Local Supabase Edge Function source removed; `guard:legacy` now fails if a tracked Edge Function runtime returns. |
+| Script artifacts | Unreferenced standalone `scripts/migrations/*.sql` files removed; canonical DB history remains under `supabase/migrations`. |
 
 ## Verification Gates
 
