@@ -21,8 +21,8 @@ Make the public/admin product run through one understandable agentic system:
 - `src/lib/agents/run-store.ts` is the current execution envelope and event ledger.
 - `src/lib/automation-control.ts` is the global safety stop.
 - `src/lib/ai-provider.ts` is the only active provider SDK/model construction boundary.
-- `institution_sources`, `source_documents`, `source_collection_runs`, and `agent_source_texts` are the current semantic source views for app-code source/institution/document/text access while historical physical source storage is phased out.
-- `raw_fee_observations`, `verified_fee_observations`, and `published_fee_records` are the current semantic fee-tier views for Knox, Darwin, and Hamilton while physical fee tier storage is phased out.
+- `institution_sources`, `source_documents`, `source_collection_runs`, and `agent_source_texts` are now the physical semantic source tables for app-code source/institution/document/text access.
+- `raw_fee_observations`, `verified_fee_observations`, and `published_fee_records` are now the physical semantic fee-tier tables for Knox, Darwin, and Hamilton.
 - `published_fee_catalog` is the current semantic product/admin/research read model for Hamilton-published fee records. The old `published_fee_observations` compatibility view is retired and removed by the semantic-view tightening migration.
 - `institution_financial_records`, `institution_complaint_records`, `institution_branch_deposits`, `fee_change_records`, `institution_fee_snapshot_records`, `institution_analysis_results`, `institution_fee_alert_subscriptions`, and `agent_institution_run_results` are the current semantic read contracts for legacy institution-keyed data while physical storage is phased out.
 - `gold_standard_verifications` is the current semantic gold-standard decision table for human verification decisions.
@@ -51,9 +51,10 @@ Make the public/admin product run through one understandable agentic system:
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config. Active `.claude` prompts are now guarded by `prompt-kill` so they cannot point agents at retired crawler/database tooling.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
-- App code no longer queries the historical source tables directly. Magellan fetch, Rosetta read, Knox extract, Darwin verify, Hamilton publish, and Atlas run receipts use semantic source-document/text and fee-tier names. Remaining legacy is in migration history, physical storage/table names, FK/storage column names, and archived docs.
+- App code no longer queries the historical source tables directly. Magellan fetch, Rosetta read, Knox extract, Darwin verify, Hamilton publish, and Atlas run receipts use semantic source-document/text and fee-tier names. Remaining legacy is in migration history, institution-keyed physical table names/FK columns, stale environment values, and archived docs.
 - Active source now has zero runtime matches for Modal URLs, `fee_crawler`, `ops_jobs`, `modal_call_id`, `ops_job_id`, `fees_raw`, `fees_verified`, `fees_published`, `agent_document_texts`, `crawl_targets`, `crawl_results`, `crawl_runs`, `crawl_target_id`, `crawl_result_id`, `crawl_run_id`, `crawl_event_id`, `published_fee_observations`, and `discovery_cache` outside guard/test/history text.
-- Active source has zero `crawl_target_id` references and zero direct reads/writes against the old physical institution-keyed data tables. Remaining legacy is in physical schema names, historical migrations, archived docs, and compatibility storage that will be removed by the schema-baseline pass.
+- Active source has zero `crawl_target_id` references and zero direct reads/writes against the old physical institution-keyed data tables. Remaining legacy is in institution-keyed physical schema names, historical migrations, archived docs, and compatibility storage that will be removed by the schema-baseline pass.
+- Production Vercel env still has stale/malformed URL configuration to clean up separately: `BFI_APP_URL` pulled as an old `bankfeeindex.com` value with a literal `\n`.
 
 ### Removed In This Cleanup Pass
 
@@ -85,9 +86,21 @@ Make the public/admin product run through one understandable agentic system:
 - Added semantic institution-keyed data views/functions, moved financial, complaint, branch, fee-change, snapshot, alert, analysis, agent-run-result, MSA report, Scout, and gold-standard verification code off crawler-era key/table names, and added `legacy-data-contract-kill`.
 - Added semantic `community_fee_submissions`, removed request-time DDL from `/submit-fees`, and backfilled from `community_submissions` when present.
 - Added semantic `agent_url_discovery_attempts`, moved Magellan discovery and discovery stats off `discovery_cache`, and expanded `agent-source-contract-kill` to include Magellan discovery.
-- Rewrote active `.claude` fee/data audit prompts to use `institution_sources`, `source_documents`, `agent_source_texts`, semantic fee-tier views, and `published_fee_catalog`.
+- Rewrote active `.claude` fee/data audit prompts to use `institution_sources`, `source_documents`, `agent_source_texts`, semantic fee-tier tables, and `published_fee_catalog`.
 - Added a semantic-view tightening migration that removes crawler-era alias columns from semantic source/text/fee views, makes `published_fee_catalog` independent of `published_fee_observations`, drops empty retired compatibility tables, and preserves the 124,246-row historical extracted-fee table as `historical_fee_observation_archive`.
 - Verified the current workspace contains no `.fmd` or `*fmd*` files to audit.
+- Converted the source/document/fee-tier spine from semantic compatibility views into physical semantic tables in production:
+  - `crawl_targets` -> `institution_sources`
+  - `crawl_runs` -> `source_collection_runs`
+  - `crawl_results` -> `source_documents`
+  - `agent_document_texts` -> `agent_source_texts`
+  - `fees_raw` -> `raw_fee_observations`
+  - `fees_verified` -> `verified_fee_observations`
+  - `fees_published` -> `published_fee_records`
+  - `fees_published_rollback_log` -> `published_fee_record_rollback_log`
+- Renamed source/tier lineage columns (`source_collection_run_id`, `institution_id`, `source_document_id`), dropped duplicate `verified_fee_observations.id` and `verified_fee_observations.crawl_target_id`, rebuilt `published_fee_catalog`, and rewired `promote_to_tier2`, `promote_to_tier3`, and `lineage_graph` to semantic physical tables.
+- Enabled RLS and revoked anon/authenticated access on the semantic physical source/document/fee-tier tables and their sequences after the physical cutover.
+- Production verification after the cutover: zero old physical relation names for this spine; counts held at 8,750 institution sources, 12,058 source documents, 104,370 raw observations, 6,401 verified observations, and 13,317 published/catalog records.
 
 ## Retirement Plan
 
@@ -100,7 +113,7 @@ Status: implemented for current runtime source and config.
 - Keep `provider-kill` in the guard chain.
 - Keep `legacy-name-kill` in the guard chain.
 - Keep `edge-function-kill` in the guard chain.
-- Keep `source-read-model-kill` in the guard chain so all app code keeps using semantic source views.
+- Keep `source-read-model-kill` in the guard chain so all app code keeps using semantic source contracts.
 - Keep `agent-source-contract-kill` in the guard chain so active document agents do not reintroduce crawler-era source column names.
 - Keep `fee-tier-contract-kill` in the guard chain so active fee-tier agents do not reintroduce physical tier tables or crawler-era lineage column names.
 - Keep `fee-read-model-kill` in the guard chain so runtime fee reads use `published_fee_catalog` and do not reintroduce `published_fee_observations` or `extracted_fees`.
@@ -175,19 +188,20 @@ Target: agent backlog shrinks without asking a human to review 26k rows.
 
 Target: a fresh database should not recreate retired execution/read-model infrastructure just to drop it later.
 
-- Status: started. Semantic source views, document text views, fee-tier views, published fee catalog, public submission storage, Magellan discovery-attempt storage, and institution-keyed data views/functions exist. App-code read/write SQL now uses those semantic contracts for active agent/admin/product paths. The semantic views no longer expose crawler-era ID alias columns after the tightening migration. Physical source/table/column renames remain deferred to a dedicated schema/baseline pass.
+- Status: started. Semantic source/document/text tables, semantic fee-tier tables, published fee catalog, public submission storage, Magellan discovery-attempt storage, and institution-keyed data views/functions exist. App-code read/write SQL now uses those semantic contracts for active agent/admin/product paths. The source/document/text and fee-tier physical storage names are cut over in production. Physical institution-keyed table/column renames remain.
 - Do not edit production-applied migrations in place.
 - Create a new agentic baseline migration set or squashed schema dump for fresh environments.
 - Archive older compatibility migrations under a clearly named historical folder once the baseline is verified.
-- Audit remaining physical FK and column names before attempting physical table renames.
+- Audit remaining physical institution-keyed FK and column names before attempting the next physical table renames.
 - Remove active references to:
   - `ops_jobs`
   - `ops_job_id`
   - `modal_call_id`
   - old extracted-fee active table names; historical data is retained only as `historical_fee_observation_archive`
 - Next rename targets:
-  - physical source, financial, complaint, branch, alert, change, snapshot, and historical fee/source tables still stored with old names or old key columns
-  - historical physical source/tier tables still named `crawl_*`, `agent_document_texts`, and `fees_*`
+  - physical financial, complaint, branch, alert, change, snapshot, analysis, and agent-run-result tables still stored with old names or old key columns
+  - downstream FK/column names such as `crawl_target_id` and `crawl_result_id` on institution-keyed legacy tables
+  - stale production/local environment values that point at old Supabase refs or old public domains
 - Verify from an empty database:
   - migrations apply cleanly.
   - `agent_runs`, `agent_run_steps`, `agent_run_events`, `automation_control`, `ai_api_usage_events`, `source_documents`, `agent_source_texts`, `raw_fee_observations`, `verified_fee_observations`, `published_fee_records`, `published_fee_catalog`, `community_fee_submissions`, `agent_url_discovery_attempts`, institution-keyed semantic views, and `gold_standard_verifications` exist.

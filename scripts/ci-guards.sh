@@ -463,7 +463,7 @@ source_read_model_kill() {
     exit 1
   fi
 
-  echo "source-read-model-kill: OK (app code uses agentic source views)"
+  echo "source-read-model-kill: OK (app code uses agentic source contracts)"
   exit 0
 }
 
@@ -516,7 +516,7 @@ fee_tier_contract_kill() {
     exit 1
   fi
 
-  echo "fee-tier-contract-kill: OK (fee-tier agents use semantic tier views)"
+  echo "fee-tier-contract-kill: OK (fee-tier agents use semantic tier contracts)"
   exit 0
 }
 

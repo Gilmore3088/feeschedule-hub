@@ -53,11 +53,11 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   review bridge for Knox ready-review, fee review actions, and explicit review
   queue diagnostics.
 - Do not query historical source tables directly from app code. `source-read-model-kill`
-  scans all of `src/`; use the semantic source views instead.
+  scans all of `src/`; use the semantic source contracts instead.
 - Document agents must use `institution_id`, `source_document_id`, and
   `agent_source_texts`. `agent-source-contract-kill` blocks crawler-era source
   column names in Magellan fetch, Rosetta read, Knox extract, and Atlas run-store.
-- Fee-tier agents must use semantic tier views. `fee-tier-contract-kill` blocks
+- Fee-tier agents must use semantic tier contracts. `fee-tier-contract-kill` blocks
   direct `fees_raw`, `fees_verified`, `fees_published`, and `crawl_event_id`
   usage in Knox extract, Darwin verify, Hamilton publish, and Atlas run-store.
 

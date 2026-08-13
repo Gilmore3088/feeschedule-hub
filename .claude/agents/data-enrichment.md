@@ -33,7 +33,7 @@ Start read-only. Check:
 
 - institution counts by charter, state, asset tier, and source coverage.
 - source-document backlog by missing URL, fetch failure, PDF pending OCR, extracted, verified, and published status.
-- fee taxonomy coverage using `published_fee_catalog` for product/report reads and semantic tier views for pipeline diagnostics.
+- fee taxonomy coverage using `published_fee_catalog` for product/report reads and semantic tier tables for pipeline diagnostics.
 - agent backlog and failure patterns from `agent_runs`, `agent_run_steps`, and `agent_run_events`.
 
 ### 2. Plan Transformations
