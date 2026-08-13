@@ -21,7 +21,7 @@ Make the public/admin product run through one understandable agentic system:
 - `src/lib/agents/run-store.ts` is the current execution envelope and event ledger.
 - `src/lib/automation-control.ts` is the global safety stop.
 - `src/lib/ai-provider.ts` is the only active provider SDK/model construction boundary.
-- `institution_sources`, `source_documents`, and `source_collection_runs` are the current semantic source views for app-code source/institution/document collection access while the historical physical source tables are phased out.
+- `institution_sources`, `source_documents`, `source_collection_runs`, and `agent_source_texts` are the current semantic source views for app-code source/institution/document/text access while historical physical source storage is phased out.
 - `src/lib/ai-provider-usage.ts` records provider usage/failures, trips the same safety stop for Anthropic credit failures, and blocks new Anthropic calls when a recent credit-balance failure is already in the ledger.
 - Current fee flow modules:
   - `src/lib/agents/magellan/discovery.ts`
@@ -45,7 +45,7 @@ Make the public/admin product run through one understandable agentic system:
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config. Active `.claude` prompts are now guarded by `prompt-kill` so they cannot point agents at retired crawler/database tooling.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
-- App code no longer queries the historical source tables directly. Remaining legacy is in migration history, physical storage/table names, FK column names, and archived docs.
+- App code no longer queries the historical source tables directly. Magellan fetch, Rosetta read, Knox extract, and Atlas run receipts use semantic source-document/text names. Remaining legacy is in migration history, physical storage/table names, FK/storage column names, and archived docs.
 
 ### Removed In This Cleanup Pass
 
@@ -69,6 +69,7 @@ Make the public/admin product run through one understandable agentic system:
 - Added `source-read-model-kill` to keep migrated read/write boundaries from querying historical source tables directly.
 - Moved app-code reporting, admin queries, data-store modules, Scout, institution commands, submit-fees lookups, alerts, and report APIs onto the semantic source views.
 - Expanded `source-read-model-kill` so it scans all of `src/` instead of a handpicked migrated-file list.
+- Added semantic `agent_source_texts` over Rosetta text artifacts, added semantic aliases to `source_documents`, moved Magellan fetch/Rosetta read/Knox extract/Atlas run receipts to `institution_id` and `source_document_id`, and added `agent-source-contract-kill`.
 - Verified the current workspace contains no `.fmd` or `*fmd*` files to audit.
 
 ## Retirement Plan
@@ -83,6 +84,7 @@ Status: implemented for current runtime source and config.
 - Keep `legacy-name-kill` in the guard chain.
 - Keep `edge-function-kill` in the guard chain.
 - Keep `source-read-model-kill` in the guard chain so all app code keeps using semantic source views.
+- Keep `agent-source-contract-kill` in the guard chain so active document agents do not reintroduce crawler-era source column names.
 - Add a lightweight architecture assertion test that checks:
   - `vercel.json` has only `/api/admin/agents/tick`.
   - runtime source does not import `job-runner`.
@@ -152,7 +154,7 @@ Target: agent backlog shrinks without asking a human to review 26k rows.
 
 Target: a fresh database should not recreate retired execution infrastructure just to drop it later.
 
-- Status: started. Semantic source views exist and app-code read/write SQL now uses them; physical source table and column renames remain deferred to a dedicated schema/baseline pass.
+- Status: started. Semantic source views exist and app-code read/write SQL now uses them; active document agents also use semantic source-document/text names. Physical source table and column renames remain deferred to a dedicated schema/baseline pass.
 - Do not edit production-applied migrations in place.
 - Create a new agentic baseline migration set or squashed schema dump for fresh environments.
 - Archive older compatibility migrations under a clearly named historical folder once the baseline is verified.
@@ -164,7 +166,7 @@ Target: a fresh database should not recreate retired execution infrastructure ju
   - `extracted_fees` write paths
 - Verify from an empty database:
   - migrations apply cleanly.
-  - `agent_runs`, `agent_run_steps`, `agent_run_events`, `automation_control`, `ai_api_usage_events`, `agent_document_texts`, `fees_raw`, `fees_verified`, `fees_published`, and `published_fee_observations` exist.
+  - `agent_runs`, `agent_run_steps`, `agent_run_events`, `automation_control`, `ai_api_usage_events`, `agent_source_texts`, `agent_document_texts`, `fees_raw`, `fees_verified`, `fees_published`, and `published_fee_observations` exist.
   - `ops_jobs` does not exist at the end.
 
 ### Phase 6 - Rename Or Quarantine Non-Runtime Legacy Names
@@ -180,6 +182,7 @@ Target: reduce cognitive load without breaking working code.
 
 - `npm run guard:legacy`
 - `scripts/ci-guards.sh source-read-model-kill`
+- `scripts/ci-guards.sh agent-source-contract-kill`
 - direct-provider search returns no provider SDK/model imports outside `src/lib/ai-provider.ts`
 - `npm run lint`
 - `npm run test:agentic`

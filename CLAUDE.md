@@ -17,9 +17,10 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 - Current Postgres data access is `src/lib/data-store`; do not reintroduce the
   retired crawler-named data module.
 - App code uses the semantic views `institution_sources`, `source_documents`,
-  and `source_collection_runs` for source/institution/document collection
-  access. The historical physical table names are schema-storage details until
-  the dedicated physical rename/baseline cleanup.
+  `source_collection_runs`, and `agent_source_texts` for
+  source/institution/document/text access. The historical physical table names
+  are schema-storage details until the dedicated physical rename/baseline
+  cleanup.
 - Atlas creates visible runs; Magellan discovers/fetches; Rosetta reads
   fetched HTML/text and extractable PDF text, while scanned/image-only PDFs are
   marked `needs_ocr`; Knox extracts conservative raw fee observations and
@@ -50,6 +51,9 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   queue diagnostics.
 - Do not query historical source tables directly from app code. `source-read-model-kill`
   scans all of `src/`; use the semantic source views instead.
+- Document agents must use `institution_id`, `source_document_id`, and
+  `agent_source_texts`. `agent-source-contract-kill` blocks crawler-era source
+  column names in Magellan fetch, Rosetta read, Knox extract, and Atlas run-store.
 
 ## Current Source Of Truth
 

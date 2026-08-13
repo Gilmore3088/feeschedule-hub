@@ -16,8 +16,8 @@ const MAX_PDF_PAGES = 150;
 const PDF_EXTRACTION_TIMEOUT_MS = 20_000;
 
 interface ReadCandidateRow {
-  crawl_result_id: number | string;
-  crawl_target_id: number | string;
+  source_document_id: number | string;
+  institution_id: number | string;
   institution_name: string;
   document_url: string | null;
   content_hash: string | null;
@@ -33,8 +33,8 @@ interface PdfTextExtraction {
 type PdfTextExtractor = (bytes: Uint8Array) => Promise<PdfTextExtraction>;
 
 interface ReadResult {
-  crawlResultId: number;
-  crawlTargetId: number;
+  sourceDocumentId: number;
+  institutionId: number;
   institutionName: string;
   sourceUrl: string | null;
   status: ReadStatus;
@@ -198,16 +198,16 @@ async function readCandidate(
   result: ReadResult;
   normalizedText: string | null;
 }> {
-  const crawlResultId = Number(row.crawl_result_id);
-  const crawlTargetId = Number(row.crawl_target_id);
+  const sourceDocumentId = Number(row.source_document_id);
+  const institutionId = Number(row.institution_id);
   const institutionName = String(row.institution_name);
   const sourceUrl = normalizeHttpUrl(row.document_url);
   if (!sourceUrl) {
     return {
       normalizedText: null,
       result: {
-        crawlResultId,
-        crawlTargetId,
+        sourceDocumentId,
+        institutionId,
         institutionName,
         sourceUrl: row.document_url,
         status: "skipped",
@@ -228,8 +228,8 @@ async function readCandidate(
     return {
       normalizedText: null,
       result: {
-        crawlResultId,
-        crawlTargetId,
+        sourceDocumentId,
+        institutionId,
         institutionName,
         sourceUrl,
         status: "failed",
@@ -249,8 +249,8 @@ async function readCandidate(
     return {
       normalizedText: null,
       result: {
-        crawlResultId,
-        crawlTargetId,
+        sourceDocumentId,
+        institutionId,
         institutionName,
         sourceUrl,
         status: "failed",
@@ -269,8 +269,8 @@ async function readCandidate(
     return {
       normalizedText: null,
       result: {
-        crawlResultId,
-        crawlTargetId,
+        sourceDocumentId,
+        institutionId,
         institutionName,
         sourceUrl,
         status: "failed",
@@ -292,8 +292,8 @@ async function readCandidate(
       return {
         normalizedText: null,
         result: {
-          crawlResultId,
-          crawlTargetId,
+          sourceDocumentId,
+          institutionId,
           institutionName,
           sourceUrl,
           status: "failed",
@@ -311,8 +311,8 @@ async function readCandidate(
       return {
         normalizedText: null,
         result: {
-          crawlResultId,
-          crawlTargetId,
+          sourceDocumentId,
+          institutionId,
           institutionName,
           sourceUrl,
           status: "failed",
@@ -333,8 +333,8 @@ async function readCandidate(
       return {
         normalizedText,
         result: {
-          crawlResultId,
-          crawlTargetId,
+          sourceDocumentId,
+          institutionId,
           institutionName,
           sourceUrl,
           status,
@@ -353,8 +353,8 @@ async function readCandidate(
       return {
         normalizedText: null,
         result: {
-          crawlResultId,
-          crawlTargetId,
+          sourceDocumentId,
+          institutionId,
           institutionName,
           sourceUrl,
           status: "failed",
@@ -376,8 +376,8 @@ async function readCandidate(
   return {
     normalizedText,
     result: {
-      crawlResultId,
-      crawlTargetId,
+      sourceDocumentId,
+      institutionId,
       institutionName,
       sourceUrl,
       status,
@@ -396,24 +396,24 @@ async function selectCandidates(
   limit: number,
   institutionId?: number,
 ): Promise<ReadCandidateRow[]> {
-  const targetFilter = institutionId ? "AND cr.crawl_target_id = $2" : "";
+  const targetFilter = institutionId ? "AND cr.institution_id = $2" : "";
   const params = institutionId ? [limit, institutionId] : [limit];
   return db.unsafe<ReadCandidateRow[]>(
     `
-      SELECT cr.id AS crawl_result_id,
-             cr.crawl_target_id,
+      SELECT cr.id AS source_document_id,
+             cr.institution_id,
              ct.institution_name,
              cr.document_url,
              cr.content_hash
         FROM source_documents cr
-        JOIN institution_sources ct ON ct.id = cr.crawl_target_id
+        JOIN institution_sources ct ON ct.id = cr.institution_id
        WHERE cr.status = 'success'
          AND cr.document_url IS NOT NULL
          ${targetFilter}
          AND NOT EXISTS (
            SELECT 1
-             FROM agent_document_texts adt
-            WHERE adt.crawl_result_id = cr.id
+             FROM agent_source_texts adt
+            WHERE adt.source_document_id = cr.id
               AND adt.source_hash IS NOT DISTINCT FROM cr.content_hash
               AND adt.status IN ('completed', 'empty', 'needs_ocr')
          )
@@ -431,16 +431,16 @@ async function recordReadResult(
   normalizedText: string | null,
 ): Promise<void> {
   await db`
-    INSERT INTO agent_document_texts
-      (agent_run_id, crawl_result_id, crawl_target_id, source_url,
+    INSERT INTO agent_source_texts
+      (agent_run_id, source_document_id, institution_id, source_url,
        document_type, content_type, source_hash, status, normalized_text,
        text_hash, char_count, error_message, updated_at)
     VALUES
-      (${runId}, ${result.crawlResultId}, ${result.crawlTargetId}, ${result.sourceUrl},
+      (${runId}, ${result.sourceDocumentId}, ${result.institutionId}, ${result.sourceUrl},
        ${result.documentType}, ${result.contentType}, ${result.sourceHash},
        ${result.status}, ${normalizedText}, ${result.textHash}, ${result.charCount},
        ${result.error}, NOW())
-    ON CONFLICT (crawl_result_id)
+    ON CONFLICT (source_document_id)
     DO UPDATE SET
       agent_run_id = EXCLUDED.agent_run_id,
       source_url = EXCLUDED.source_url,

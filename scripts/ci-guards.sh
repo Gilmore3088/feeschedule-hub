@@ -17,6 +17,8 @@
 #                 Fail if active code/docs reintroduce retired module names.
 #   source-read-model-kill
 #                 Fail if migrated read boundaries query crawl_* tables directly.
+#   agent-source-contract-kill
+#                 Fail if active document agents use crawler-era source column names.
 #   prompt-kill   Fail if active .claude prompts point agents at retired tooling.
 #   active-doc-kill
 #                 Fail if current docs/plans contain stale runtime guidance.
@@ -459,6 +461,32 @@ source_read_model_kill() {
   exit 0
 }
 
+agent_source_contract_kill() {
+  local include_paths=(
+    "src/lib/agents/magellan/fetch.ts"
+    "src/lib/agents/rosetta/read.ts"
+    "src/lib/agents/knox/extract.ts"
+    "src/lib/agents/run-store.ts"
+  )
+  local pattern='crawl_result_id|crawl_target_id|agent_document_texts'
+  local hits=""
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git grep --untracked -nE "$pattern" -- "${include_paths[@]}" | grep -v '^Binary file' || true)
+  else
+    hits=$(grep -nE "$pattern" "${include_paths[@]}" 2>/dev/null || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "agent-source-contract-kill: active document agents still use crawler-era source names:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "agent-source-contract-kill: OK (document agents use semantic source names)"
+  exit 0
+}
+
 case "$SUBCOMMAND" in
   sqlite-kill) sqlite_kill ;;
   modal-kill) modal_kill ;;
@@ -474,13 +502,14 @@ case "$SUBCOMMAND" in
   migration-history-kill) migration_history_kill ;;
   legacy-name-kill) legacy_name_kill ;;
   source-read-model-kill) source_read_model_kill ;;
+  agent-source-contract-kill) agent_source_contract_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill>" >&2
     exit 2
     ;;
 esac

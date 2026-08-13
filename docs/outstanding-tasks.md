@@ -21,7 +21,7 @@ Make Fee Insight run through one visible agentic system:
 | P1 | Darwin | Thin review pressure | Verification routes ordinary canonical rows forward and challenges only suspicious rows. |
 | P1 | Hamilton | Publish data-quality summaries | Admin can distinguish no source, source fetched, PDF pending OCR, extracted, verified, and published. |
 | P1 | Schema | Rename or baseline physical source storage | Empty database can be built around agentic source names without recreating retired table names as active infrastructure. |
-| P2 | Schema | Audit FK/column compatibility names | Remaining `crawl_target_id`/physical FK names are documented or replaced without breaking existing data. |
+| P2 | Schema | Audit FK/column compatibility names | Remaining physical FK/storage names are documented or replaced without breaking existing data. |
 | P2 | Docs | Keep active docs current-only | `npm run guard:legacy` blocks stale active guidance and historical docs stay in archive. |
 
 ## Recently Shipped
@@ -31,13 +31,14 @@ Make Fee Insight run through one visible agentic system:
 | Atlas | Visible run launch receipts plus pickup/stale status on `/admin/atlas/status`. |
 | Magellan | Rescue/fetch batches rotate through retry windows instead of retrying the same failed rows. |
 | Provider boundary | Recent Anthropic credit-balance failures block new calls before provider execution and record visible `blocked` usage events. |
-| Rosetta | Readable HTML, text, and extractable PDF documents become `agent_document_texts`; scanned/image-only PDFs are explicitly marked `needs_ocr`. |
+| Rosetta | Readable HTML, text, and extractable PDF documents flow through semantic `agent_source_texts`; scanned/image-only PDFs are explicitly marked `needs_ocr`. |
 | Public runtime | Production proxy no longer serves the retired static prelaunch page over public App Router routes. |
 | Runtime boundary | Local Supabase Edge Function source removed; `guard:legacy` now fails if a tracked Edge Function runtime returns. |
 | Script artifacts | Unreferenced standalone `scripts/migrations/*.sql` files removed; canonical DB history remains under `supabase/migrations`. |
 | Source read model | Added `institution_sources`, `source_documents`, and `source_collection_runs`; migrated public stats, collection health, Hamilton admin status tools, admin query presets, and Magellan status counts; added `source-read-model-kill`. |
 | Agent source paths | Magellan discovery/fetch, Rosetta read, and Atlas/run-store inventory now use semantic source views instead of historical source tables. |
 | App source paths | Reporting, admin queries, data-store modules, Scout, institution commands, submit-fees lookups, alerts, and report APIs now use semantic source views; `source-read-model-kill` scans all of `src/`. |
+| Agent document path | Magellan fetch, Rosetta read, Knox extract, and Atlas run receipts now use semantic `institution_id` / `source_document_id`; `agent-source-contract-kill` guards the path. |
 | FMD audit | Rechecked the workspace; no `.fmd` or `*fmd*` files are present to audit. |
 
 ## Verification Gates

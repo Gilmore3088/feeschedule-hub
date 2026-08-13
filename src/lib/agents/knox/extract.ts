@@ -16,8 +16,8 @@ const MAX_REASONABLE_FEE_AMOUNT = 2_500;
 
 interface TextArtifactRow {
   document_text_id: number | string;
-  crawl_result_id: number | string;
-  crawl_target_id: number | string;
+  source_document_id: number | string;
+  institution_id: number | string;
   source_url: string | null;
   normalized_text: string;
   text_hash: string | null;
@@ -34,8 +34,8 @@ export interface ExtractedFeeCandidate {
 
 export interface KnoxExtractDocumentResult {
   documentTextId: number;
-  crawlResultId: number;
-  crawlTargetId: number;
+  sourceDocumentId: number;
+  institutionId: number;
   sourceUrl: string | null;
   extracted: number;
   inserted: number;
@@ -261,17 +261,17 @@ async function selectTextArtifacts(
   limit: number,
   institutionId?: number,
 ): Promise<TextArtifactRow[]> {
-  const targetFilter = institutionId ? "AND adt.crawl_target_id = $2" : "";
+  const targetFilter = institutionId ? "AND adt.institution_id = $2" : "";
   const params = institutionId ? [limit, institutionId] : [limit];
   return db.unsafe<TextArtifactRow[]>(
     `
       SELECT adt.id AS document_text_id,
-             adt.crawl_result_id,
-             adt.crawl_target_id,
+             adt.source_document_id,
+             adt.institution_id,
              adt.source_url,
              adt.normalized_text,
              adt.text_hash
-        FROM agent_document_texts adt
+        FROM agent_source_texts adt
        WHERE adt.status = 'completed'
          AND adt.normalized_text IS NOT NULL
          AND adt.char_count > 0
@@ -280,7 +280,7 @@ async function selectTextArtifacts(
            SELECT 1
              FROM fees_raw fr
             WHERE fr.source = 'knox'
-              AND fr.crawl_event_id = adt.crawl_result_id
+              AND fr.crawl_event_id = adt.source_document_id
          )
        ORDER BY adt.updated_at DESC, adt.id DESC
        LIMIT $1
@@ -298,10 +298,10 @@ async function insertCandidate(
   },
 ): Promise<boolean> {
   const documentTextId = Number(options.row.document_text_id);
-  const crawlResultId = Number(options.row.crawl_result_id);
-  const crawlTargetId = Number(options.row.crawl_target_id);
+  const sourceDocumentId = Number(options.row.source_document_id);
+  const institutionId = Number(options.row.institution_id);
   const agentEventId = stableUuid(
-    `knox:${options.runId}:${documentTextId}:${crawlResultId}:${options.candidate.canonicalHint}:${options.candidate.feeName}:${options.candidate.amount}`,
+    `knox:${options.runId}:${documentTextId}:${sourceDocumentId}:${options.candidate.canonicalHint}:${options.candidate.feeName}:${options.candidate.amount}`,
   );
   const flags = ["needs_darwin_verification", `canonical_hint:${options.candidate.canonicalHint}`];
   const conditions =
@@ -324,8 +324,8 @@ async function insertCandidate(
       source
     )
     VALUES (
-      ${crawlTargetId},
-      ${crawlResultId},
+      ${institutionId},
+      ${sourceDocumentId},
       ${null},
       ${options.row.source_url},
       ${options.candidate.confidence},
@@ -362,8 +362,8 @@ export async function runKnoxExtract(
     }
     results.push({
       documentTextId: Number(row.document_text_id),
-      crawlResultId: Number(row.crawl_result_id),
-      crawlTargetId: Number(row.crawl_target_id),
+      sourceDocumentId: Number(row.source_document_id),
+      institutionId: Number(row.institution_id),
       sourceUrl: row.source_url,
       extracted: candidates.length,
       inserted: dryRun ? 0 : inserted,

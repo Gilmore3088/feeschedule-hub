@@ -254,7 +254,7 @@ async function executeAgenticStep(
         runId: run.id,
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["fetch_limit", "limit", "size"]),
-        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
+        institutionId: numericRunParam(params, ["institution_id"]),
       });
       return {
         status: "completed",
@@ -285,7 +285,7 @@ async function executeAgenticStep(
         runId: run.id,
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["read_limit", "limit", "size"]),
-        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
+        institutionId: numericRunParam(params, ["institution_id"]),
       });
       return {
         status: "completed",
@@ -302,8 +302,8 @@ async function executeAgenticStep(
           read_limit: read.limit,
           dry_run: read.dryRun,
           sample_results: read.results.slice(0, 10).map((result) => ({
-            crawl_result_id: result.crawlResultId,
-            crawl_target_id: result.crawlTargetId,
+            source_document_id: result.sourceDocumentId,
+            institution_id: result.institutionId,
             institution_name: result.institutionName,
             status: result.status,
             source_url: result.sourceUrl,
@@ -320,7 +320,7 @@ async function executeAgenticStep(
         runId: run.id,
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["extract_limit", "limit", "size"]),
-        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
+        institutionId: numericRunParam(params, ["institution_id"]),
         db: tx,
       });
       return {
@@ -336,8 +336,8 @@ async function executeAgenticStep(
           dry_run: extraction.dryRun,
           sample_results: extraction.results.slice(0, 10).map((result) => ({
             document_text_id: result.documentTextId,
-            crawl_result_id: result.crawlResultId,
-            crawl_target_id: result.crawlTargetId,
+            source_document_id: result.sourceDocumentId,
+            institution_id: result.institutionId,
             source_url: result.sourceUrl,
             extracted: result.extracted,
             inserted: result.inserted,
@@ -359,7 +359,7 @@ async function executeAgenticStep(
         runId: run.id,
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["verify_limit", "classify_limit", "limit", "size"]),
-        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
+        institutionId: numericRunParam(params, ["institution_id"]),
         db: tx,
       });
       return {
@@ -406,7 +406,7 @@ async function executeAgenticStep(
         runId: run.id,
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["publish_limit", "limit", "size"]),
-        institutionId: numericRunParam(params, ["institution_id", "crawl_target_id"]),
+        institutionId: numericRunParam(params, ["institution_id"]),
         minConfidence: numericRunParam(params, [
           "publish_min_confidence",
           "min_confidence",

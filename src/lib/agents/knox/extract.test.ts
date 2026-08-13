@@ -17,7 +17,7 @@ function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
     return Promise.resolve([]);
   }) as DbMock;
   db.unsafe = vi.fn((query: string) => {
-    if (query.includes("FROM agent_document_texts")) return Promise.resolve(rows);
+    if (query.includes("FROM agent_source_texts")) return Promise.resolve(rows);
     return Promise.resolve([]);
   });
   return db;
@@ -29,8 +29,8 @@ function asExtractDb(db: DbMock): NonNullable<Parameters<typeof runKnoxExtract>[
 
 const textArtifact = {
   document_text_id: 701,
-  crawl_result_id: 501,
-  crawl_target_id: 42,
+  source_document_id: 501,
+  institution_id: 42,
   source_url: "https://testbank.example/fees",
   text_hash: "text-hash",
   normalized_text: [
@@ -73,7 +73,7 @@ describe("Knox agentic extraction", () => {
     });
 
     const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
-    expect(unsafeSql).toContain("FROM agent_document_texts");
+    expect(unsafeSql).toContain("FROM agent_source_texts");
     expect(unsafeSql).toContain("fr.source = 'knox'");
 
     const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");

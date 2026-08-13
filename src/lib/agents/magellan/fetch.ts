@@ -260,7 +260,7 @@ async function recordFetchResult(db: SqlTag, result: FetchResult): Promise<void>
   const crawlStatus = result.outcome === "success" ? "success" : "failed";
   await db`
     INSERT INTO source_documents
-      (crawl_target_id, status, document_url, document_path, content_hash,
+      (institution_id, status, document_url, document_path, content_hash,
        fees_extracted, error_message, crawled_at, status_code)
     VALUES
       (${result.institutionId}, ${crawlStatus}, ${result.finalUrl ?? result.sourceUrl},

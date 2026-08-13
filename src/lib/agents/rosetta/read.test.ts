@@ -27,8 +27,8 @@ function response(body: BodyInit, contentType = "text/html", status = 200): Resp
 }
 
 const htmlCandidate = {
-  crawl_result_id: 501,
-  crawl_target_id: 42,
+  source_document_id: 501,
+  institution_id: 42,
   institution_name: "Test Bank",
   document_url: "https://testbank.example/fees",
   content_hash: "source-hash",
@@ -65,8 +65,8 @@ describe("Rosetta agentic read", () => {
       dryRun: false,
     });
     expect(result.results[0]).toMatchObject({
-      crawlResultId: 501,
-      crawlTargetId: 42,
+      sourceDocumentId: 501,
+      institutionId: 42,
       status: "completed",
       documentType: "html",
       textHash: createHash("sha256")
@@ -75,7 +75,7 @@ describe("Rosetta agentic read", () => {
     });
 
     const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(sqlText).toContain("INSERT INTO agent_document_texts");
+    expect(sqlText).toContain("INSERT INTO agent_source_texts");
     expect(JSON.stringify(db.mock.calls)).toContain("Monthly maintenance fee $5");
     expect(JSON.stringify(db.mock.calls)).not.toContain("window.noise");
   });
@@ -101,7 +101,7 @@ describe("Rosetta agentic read", () => {
     const db = createDbMock([
       {
         ...htmlCandidate,
-        crawl_result_id: 502,
+        source_document_id: 502,
         document_url: "https://testbank.example/schedule-of-fees.pdf",
       },
     ]);
@@ -127,7 +127,7 @@ describe("Rosetta agentic read", () => {
       failed: 0,
     });
     expect(result.results[0]).toMatchObject({
-      crawlResultId: 502,
+      sourceDocumentId: 502,
       status: "completed",
       documentType: "pdf",
       charCount: "Schedule of Fees\n\nMonthly maintenance fee $7".length,
@@ -140,7 +140,7 @@ describe("Rosetta agentic read", () => {
     expect(pdfTextExtractor).toHaveBeenCalledWith(pdfBytes);
 
     const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(sqlText).toContain("INSERT INTO agent_document_texts");
+    expect(sqlText).toContain("INSERT INTO agent_source_texts");
     expect(JSON.stringify(db.mock.calls)).toContain("Monthly maintenance fee $7");
   });
 
@@ -148,7 +148,7 @@ describe("Rosetta agentic read", () => {
     const db = createDbMock([
       {
         ...htmlCandidate,
-        crawl_result_id: 503,
+        source_document_id: 503,
         document_url: "https://testbank.example/scanned-fees.pdf",
       },
     ]);
@@ -175,7 +175,7 @@ describe("Rosetta agentic read", () => {
       failed: 0,
     });
     expect(result.results[0]).toMatchObject({
-      crawlResultId: 503,
+      sourceDocumentId: 503,
       status: "needs_ocr",
       documentType: "pdf",
       error: "No embedded PDF text found across 4 pages; OCR required",
@@ -186,7 +186,7 @@ describe("Rosetta agentic read", () => {
     const db = createDbMock([
       {
         ...htmlCandidate,
-        crawl_result_id: 504,
+        source_document_id: 504,
         document_url: "https://testbank.example/broken-fees.pdf",
       },
     ]);
@@ -210,7 +210,7 @@ describe("Rosetta agentic read", () => {
       failed: 1,
     });
     expect(result.results[0]).toMatchObject({
-      crawlResultId: 504,
+      sourceDocumentId: 504,
       status: "failed",
       documentType: "pdf",
       error: "PDF text extraction failed: invalid xref",
@@ -239,6 +239,6 @@ describe("Rosetta agentic read", () => {
     });
 
     const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(sqlText).toContain("INSERT INTO agent_document_texts");
+    expect(sqlText).toContain("INSERT INTO agent_source_texts");
   });
 });
