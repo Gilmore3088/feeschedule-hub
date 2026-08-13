@@ -6,6 +6,7 @@ import {
   listActiveAgentRuns,
   listAgentRuns,
 } from "@/lib/agents/run-store";
+import { getAgentRunVisibility } from "@/lib/agents/run-visibility";
 import type {
   AgentRunEventSnapshot,
   AgentRunSnapshot,
@@ -24,6 +25,14 @@ async function mapRun(run: AgentRunSnapshot) {
     getAgentRunSteps(run.id),
     getAgentRunEvents(run.id, 10),
   ]);
+  const lastEventAt = events[0]?.createdAt ?? null;
+  const visibility = getAgentRunVisibility({
+    status: normalizeStatus(run.status),
+    startedAt: run.startedAt,
+    updatedAt: run.updatedAt,
+    completedAt: run.completedAt,
+    lastEventAt,
+  });
   return {
     id: run.id,
     command: run.title,
@@ -45,6 +54,11 @@ async function mapRun(run: AgentRunSnapshot) {
     stagesDone: run.progressCurrent,
     stagesTotal: run.progressTotal,
     pipelineError: null,
+    pickupState: visibility.state,
+    pickupMessage: visibility.message,
+    pickupStale: visibility.stale,
+    nextPickupAt: visibility.nextPickupAt,
+    pickupAgeSeconds: visibility.ageSeconds,
     steps: steps.map(mapStep),
     events: events.map(mapEvent),
   };

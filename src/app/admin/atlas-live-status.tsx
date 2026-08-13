@@ -27,6 +27,11 @@ type LiveJob = {
   stagesDone: number | null;
   stagesTotal: number | null;
   pipelineError: string | null;
+  pickupState?: "waiting_for_pickup" | "stale_queued" | "running" | "stale_running" | "blocked" | "terminal";
+  pickupMessage?: string;
+  pickupStale?: boolean;
+  nextPickupAt?: string | null;
+  pickupAgeSeconds?: number | null;
   steps?: LiveRunStep[];
   events?: LiveRunEvent[];
 };
@@ -128,9 +133,35 @@ function pendingLaunchJob(launch: PendingLaunch): LiveJob {
     stagesDone: null,
     stagesTotal: null,
     pipelineError: null,
+    pickupState: "waiting_for_pickup",
+    pickupMessage: "Run is queued and waiting for client execution or the next Vercel cron pickup.",
+    pickupStale: false,
+    nextPickupAt: null,
+    pickupAgeSeconds: 0,
     steps: [],
     events: [],
   };
+}
+
+function relativeAge(seconds: number | null | undefined): string {
+  if (seconds == null) return "unknown age";
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function pickupTone(job: LiveJob): string {
+  if (job.pickupStale || job.pickupState === "blocked") {
+    return "border-red-200 bg-red-50 text-red-900 dark:border-red-950 dark:bg-red-950/30 dark:text-red-200";
+  }
+  if (job.pickupState === "running") {
+    return "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-950 dark:bg-blue-950/30 dark:text-blue-200";
+  }
+  if (job.pickupState === "terminal") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-200";
+  }
+  return "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-950 dark:bg-amber-950/30 dark:text-amber-200";
 }
 
 export function AtlasLiveStatus({
@@ -298,6 +329,25 @@ export function AtlasLiveStatus({
               <LiveDatum label="Heartbeat" value={dateTime(watchedJob.heartbeatAt ?? watchedJob.updatedAt)} />
               <LiveDatum label="Progress" value={watchedJob.stagesTotal ? `${watchedJob.stagesDone ?? 0} / ${watchedJob.stagesTotal}` : "Pending"} />
             </div>
+
+            {isActive && watchedJob.pickupMessage && (
+              <div role={watchedJob.pickupStale ? "alert" : "status"} className={`mt-5 rounded-md border px-3 py-3 ${pickupTone(watchedJob)}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold">
+                      {watchedJob.pickupStale ? "Pickup needs attention" : "Pickup status"}
+                    </p>
+                    <p className="mt-1 text-xs">{watchedJob.pickupMessage}</p>
+                  </div>
+                  <p className="shrink-0 text-[11px] font-semibold tabular-nums">
+                    {relativeAge(watchedJob.pickupAgeSeconds)} old
+                  </p>
+                </div>
+                {watchedJob.nextPickupAt && (
+                  <p className="mt-2 text-[11px] opacity-80">Expected cron pickup by {dateTime(watchedJob.nextPickupAt)}.</p>
+                )}
+              </div>
+            )}
 
             {watchedJob.steps && watchedJob.steps.length > 0 ? (
               <StageRail job={watchedJob} />
