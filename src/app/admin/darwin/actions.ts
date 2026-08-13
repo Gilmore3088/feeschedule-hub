@@ -79,7 +79,7 @@ export async function fetchDarwinReasoning(feeRawId: number): Promise<{
       FROM agent_events
      WHERE agent_name = 'darwin'
        AND (
-         (entity = 'fees_verified' AND entity_id = ${String(feeRawId)})
+         (entity = 'verified_fee_observations' AND entity_id = ${String(feeRawId)})
          OR (entity = 'classification_cache' AND input_payload::text LIKE ${`%${feeRawId}%`})
        )
      ORDER BY created_at DESC

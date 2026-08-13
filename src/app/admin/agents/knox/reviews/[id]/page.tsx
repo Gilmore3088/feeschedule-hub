@@ -256,7 +256,7 @@ export async function KnoxDecisionDetailView({ id }: { id: string }) {
               <div className="mt-5 rounded border border-amber-200 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-900/10 p-3 text-[11px] text-amber-800 dark:text-amber-400">
                 Darwin has not yet posted <code className="font-mono">accept</code> for this
                 fee. Overriding records your verdict and a human-attested Knox accept;
-                promotion to <code className="font-mono">fees_published</code> will complete
+                promotion to <code className="font-mono">published_fee_records</code> will complete
                 on Darwin&apos;s next pass.
               </div>
             )}

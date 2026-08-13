@@ -14,11 +14,11 @@ type SearchParams = { fee?: string };
 
 const LINEAGE_ERROR_MESSAGES: Record<LineageError["code"], string> = {
   fee_published_not_found:
-    "That fee_published_id does not exist in fees_published. Pick one from the Recent Traces list below, or check the table if you expected a specific ID.",
+    "That published fee record does not exist. Pick one from the Recent Traces list below, or check the published_fee_records view if you expected a specific ID.",
   tier_2_missing:
-    "Lineage broken: the Tier-2 (fees_verified) row is missing. This is a data integrity issue — check the promote_to_tier3 handshake log in Messages.",
+    "Lineage broken: the verified fee observation is missing. This is a data integrity issue — check the promote_to_tier3 handshake log in Messages.",
   tier_1_missing:
-    "Lineage broken: the Tier-1 (fees_raw) row is missing. This is a data integrity issue — the extraction source row was deleted or never written.",
+    "Lineage broken: the raw fee observation is missing. This is a data integrity issue — the extraction source row was deleted or never written.",
 };
 
 export default async function AgentsLineagePage({

@@ -92,14 +92,14 @@ async function getReview(): Promise<ReviewStats> {
 async function getDissect(): Promise<DissectStats> {
   try {
     const [unpromoted] = await sql<{ n: string }[]>`
-      SELECT COUNT(*)::text AS n FROM fees_raw fr
+      SELECT COUNT(*)::text AS n FROM raw_fee_observations fr
        WHERE NOT EXISTS (
-         SELECT 1 FROM fees_verified fv
+         SELECT 1 FROM verified_fee_observations fv
           WHERE fv.fee_raw_id = fr.fee_raw_id
        )
     `;
     const [lowConf] = await sql<{ n: string }[]>`
-      SELECT COUNT(*)::text AS n FROM fees_verified
+      SELECT COUNT(*)::text AS n FROM verified_fee_observations
        WHERE extraction_confidence < 0.9
          AND created_at > NOW() - INTERVAL '24 hours'
     `;
@@ -130,7 +130,7 @@ async function getUnderstand(): Promise<UnderstandRow[]> {
         COUNT(*)::text AS rejections,
         STRING_AGG(DISTINCT NULLIF(am.payload->>'reason',''), ' · ' ORDER BY NULLIF(am.payload->>'reason','')) AS reasons
       FROM agent_messages am
-      LEFT JOIN fees_verified fv
+      LEFT JOIN verified_fee_observations fv
         ON fv.fee_verified_id = NULLIF(am.payload->>'fee_verified_id','')::bigint
       WHERE am.sender_agent = 'knox'
         AND am.intent = 'reject'
@@ -288,7 +288,7 @@ export async function LoopPanels() {
         <div className="text-[11px] text-gray-400">what was missed</div>
         <div className="mt-3 space-y-1.5 text-[11px]">
           <div className="flex justify-between">
-            <span className="text-gray-500">Unpromoted fees_raw</span>
+            <span className="text-gray-500">Unpromoted raw observations</span>
             <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-200">
               {dissect.unpromoted_raw.toLocaleString()}
             </span>

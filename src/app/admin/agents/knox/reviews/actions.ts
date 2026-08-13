@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
-import { sql } from "@/lib/data-store/connection";
+import { sql, withTransaction } from "@/lib/data-store/connection";
 import { clearKnoxReviewCountsCache } from "@/lib/data-store/knox-reviews";
 
 const idSchema = z.string().uuid();
@@ -13,9 +13,18 @@ type ActionResult =
   | { success: true; promoted_fee_published_id?: number | null }
   | { success: false; error: string };
 
+type SqlTag = typeof sql;
+type TransactionSql = SqlTag & {
+  savepoint<T>(callback: (sp: SqlTag) => Promise<T>): Promise<T>;
+};
+
+function transactionWithSavepoint(tx: SqlTag): TransactionSql {
+  return tx as TransactionSql;
+}
+
 /**
  * Confirm a Knox rejection. Records the human verdict in knox_overrides and
- * logs an agent_events audit row. No changes to fees_published.
+ * logs an agent_events audit row. No changes to published fee records.
  */
 export async function confirmRejection(
   messageId: string,
@@ -46,7 +55,7 @@ export async function confirmRejection(
         ? Number(feeVerifiedRaw)
         : null;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`
         INSERT INTO knox_overrides
           (rejection_msg_id, fee_verified_id, decision, reviewer_id, note)
@@ -85,14 +94,14 @@ export async function confirmRejection(
 }
 
 /**
- * Override a Knox rejection: re-promote the referenced fee_verified row to
- * fees_published by completing the adversarial handshake on Knox's behalf.
+ * Override a Knox rejection: re-promote the referenced verified observation to
+ * the published fee record tier by completing the adversarial handshake on Knox's behalf.
  *
  * We DO NOT duplicate the promote_to_tier3 write path. Instead:
  *   1. Insert a new agent_messages row  sender='knox' intent='accept'
  *      referencing the same fee_verified_id (V4 handshake requirement).
  *   2. Call promote_to_tier3(fee_verified_id, adversarial_event_id) which
- *      performs the fees_published INSERT inside its own transaction if both
+ *      performs the published fee record INSERT inside its own transaction if both
  *      darwin+knox accepts exist; otherwise it raises.
  *   3. Record the verdict in knox_overrides with the resulting
  *      promoted_fee_published_id (or NULL if promotion was blocked).
@@ -158,7 +167,8 @@ export async function overrideRejection(
 
     let publishedId: number | null = null;
 
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (baseTx) => {
+      const tx = transactionWithSavepoint(baseTx);
       // Ensure the human verdict is recorded first; unique index guarantees
       // idempotency even if the promotion step throws.
       await tx`
@@ -225,7 +235,7 @@ export async function overrideRejection(
         .slice(0, 10)
         .replace(/-/g, "")}`;
       try {
-        await tx.savepoint(async (sp: any) => {
+        await tx.savepoint(async (sp) => {
           const res = await sp<{ published_id: string }[]>`
             SELECT promote_to_tier3(
               ${feeVerifiedId}::bigint,

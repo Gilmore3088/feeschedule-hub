@@ -80,7 +80,7 @@ export function OverrideButton({ messageId, feeVerifiedId, disabled }: Props) {
         close();
         if (res.promoted_fee_published_id) {
           alert(
-            `Override accepted. Fee promoted as fees_published #${res.promoted_fee_published_id}.`
+            `Override accepted. Fee promoted as published record #${res.promoted_fee_published_id}.`
           );
         } else {
           alert(
