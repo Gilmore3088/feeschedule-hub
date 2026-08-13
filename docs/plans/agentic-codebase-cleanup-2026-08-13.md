@@ -39,7 +39,7 @@ Make the public/admin product run through one understandable agentic system:
 
 - Historical Supabase migrations still mention or temporarily depend on `ops_jobs` before the later migration drops it. This is migration history, not an active runtime call, but it makes fresh-schema reasoning fragile.
 - Current Postgres data access now lives under `src/lib/data-store/*`; the retired crawler-named data module is guard-blocked in active code and planning docs.
-- `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config.
+- `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config. Active `.claude` prompts are now guarded by `prompt-kill` so they cannot point agents at retired crawler/database tooling.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
 
@@ -51,6 +51,8 @@ Make the public/admin product run through one understandable agentic system:
 - Added `artifact-kill` to `npm run guard:legacy` so tracked local worktrees, stale tool output, crawler packages, caches, and local DB files fail CI.
 - Added `provider-kill` to `npm run guard:legacy` so direct Anthropic SDK/model construction fails CI outside `src/lib/ai-provider.ts`.
 - Renamed the retired crawler-named data module to `src/lib/data-store` and added `legacy-name-kill` so active source/planning docs cannot reintroduce the old boundary name.
+- Added `prompt-kill` to `npm run guard:legacy` and rewrote active `.claude` data-audit guidance so agents stop being instructed to use retired local crawler/database paths.
+- Shipped visible Atlas and Magellan run receipts so button clicks immediately show the run id, owner, scope, plan, and live-status tracking path.
 
 ## Retirement Plan
 
@@ -91,6 +93,7 @@ Target: no direct provider SDK construction outside a single provider module.
 
 Target: when an operator clicks an agent action, the screen immediately shows exactly what is happening.
 
+- Status: partially shipped for Atlas full-cycle, Atlas workflow lanes, and Magellan repair.
 - Replace vague "Start Atlas" copy with the actual queued lane and step list.
 - Show a run receipt with:
   - run id

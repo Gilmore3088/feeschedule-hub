@@ -13,6 +13,7 @@
 #   provider-kill Fail if provider construction is bypassing src/lib/ai-provider.ts.
 #   legacy-name-kill
 #                 Fail if active code/docs reintroduce retired module names.
+#   prompt-kill   Fail if active .claude prompts point agents at retired tooling.
 
 set -euo pipefail
 
@@ -276,6 +277,35 @@ provider_kill() {
   exit 0
 }
 
+prompt_kill() {
+  local include_paths=(
+    ".claude/agents"
+    ".claude/commands"
+    ".claude/skills"
+  )
+  local pattern='fee_crawler|python3? -m fee_crawler|\bextracted_fees\b|crawler-db|data/crawler\.db|SQLite database|\bops_jobs\b|\bops_job_id\b|\bmodal_call_id\b|modalCallId|modal\.run'
+  local hits=""
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git grep --untracked -nE "$pattern" -- \
+      "${include_paths[@]}" \
+      | grep -v '^Binary file' || true)
+  else
+    hits=$(grep -rnE "$pattern" \
+      --include='*.md' --include='SKILL.md' \
+      "${include_paths[@]}" 2>/dev/null || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "prompt-kill: active .claude prompts still reference retired execution/data tooling:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "prompt-kill: OK (active .claude prompts do not point at retired tooling)"
+  exit 0
+}
+
 legacy_name_kill() {
   local include_paths=("src" "CLAUDE.md" ".planning" "docs/plans" "README.md")
   local exclude_paths=(
@@ -313,14 +343,15 @@ case "$SUBCOMMAND" in
   config-kill) config_kill ;;
   artifact-kill) artifact_kill ;;
   provider-kill) provider_kill ;;
+  prompt-kill) prompt_kill ;;
   legacy-name-kill) legacy_name_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|legacy-name-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|legacy-name-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|legacy-name-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|legacy-name-kill>" >&2
     exit 2
     ;;
 esac

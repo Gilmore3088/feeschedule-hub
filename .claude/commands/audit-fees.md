@@ -1,206 +1,122 @@
-# Fee Categorization Audit & Repair
+# Fee Taxonomy Audit And Repair
 
-You are auditing the fee categorization pipeline for the Bank Fee Index. Your job is to find miscategorized fees, missing aliases, and data quality issues — then fix them.
+You are auditing Fee Insight fee categorization and publication quality. Your job is to find miscategorized fees, missing aliases, outliers, and review pressure, then route fixes through the current agentic pipeline.
 
-## Context
+## Current Model
 
-- Database: `data/crawler.db` (SQLite)
-- ~60,000 extracted fees from ~1,500 institutions
-- ~30,000 have a `fee_category` assigned via `normalize_fee_name()` in `fee_crawler/fee_analysis.py`
-- Categories defined in `FEE_FAMILIES` (Python) and `src/lib/fee-taxonomy.ts` (TypeScript) — must stay in sync
-- The `categorize` CLI command: `python3 -m fee_crawler categorize [--force] [--dry-run]`
+- Product/report reads use `published_fee_observations`.
+- Pipeline diagnostics may inspect `fees_raw`, `fees_verified`, `fees_published`, `agent_runs`, `agent_run_steps`, and `agent_run_events`.
+- Taxonomy logic lives in TypeScript under `src/lib/fee-taxonomy.ts` and agent modules under `src/lib/agents/*`.
+- Repair work should be implemented in TypeScript modules or review decisions, then surfaced through visible agent runs.
 
-## Audit Steps (run ALL of these)
+## Audit Steps
 
-### 1. Distribution Outlier Check
+### 1. Published Distribution Outliers
 
-For each major category, find amounts that are statistical outliers. These are likely miscategorized entries (e.g., a daily cap stored as a per-item fee).
+For major categories, find likely bad published amounts.
 
 ```sql
--- Run for each category in: overdraft, nsf, continuous_od, monthly_maintenance,
--- stop_payment, cashiers_check, wire_domestic_outgoing, wire_domestic_incoming,
--- card_replacement, money_order, check_cashing, atm_non_network
-SELECT fee_category, fee_name, amount, crawl_target_id
-FROM extracted_fees
-WHERE fee_category = '{category}' AND amount > 0
+SELECT canonical_fee_key, fee_name, amount, crawl_target_id, source_url
+FROM published_fee_observations
+WHERE canonical_fee_key = '{category}' AND amount > 0
 ORDER BY amount DESC
-LIMIT 10;
+LIMIT 25;
 ```
 
-**Red flags:**
-- Overdraft/NSF amounts above $45 (likely daily caps)
-- Monthly maintenance above $50 (likely business/commercial products)
-- Wire transfers above $100 (likely international miscategorized as domestic)
-- Any amount that's 3x+ the category median
+Red flags:
 
-For each outlier, check the institution's other fees to determine if it's a cap or legitimate fee.
+- overdraft or NSF amounts above expected per-item ranges.
+- maintenance fees that look like commercial account pricing.
+- wire amounts that look international but are classified domestic.
+- caps, limits, or policy text published as per-item fees.
 
-### 2. Cap/Limit Leakage Check
-
-Verify no cap/limit entries leaked into per-item fee categories:
+### 2. Cap And Policy Leakage
 
 ```sql
-SELECT fee_category, fee_name, amount
-FROM extracted_fees
-WHERE fee_category IN ('overdraft', 'nsf', 'continuous_od')
-  AND (LOWER(fee_name) LIKE '%cap%'
+SELECT canonical_fee_key, fee_name, amount, crawl_target_id
+FROM published_fee_observations
+WHERE canonical_fee_key IN ('overdraft', 'nsf', 'continuous_od')
+  AND (
+    LOWER(fee_name) LIKE '%cap%'
     OR LOWER(fee_name) LIKE '%maximum%'
     OR LOWER(fee_name) LIKE '%daily limit%'
-    OR LOWER(fee_name) LIKE '%per day%')
+    OR LOWER(fee_name) LIKE '%per day%'
+  )
   AND LOWER(fee_name) NOT LIKE '%capture%'
 ORDER BY amount DESC;
 ```
 
-Any results here need to be reclassified to `od_daily_cap` or `nsf_daily_cap`.
+Any results should be routed to Knox/Darwin review logic or direct admin review, not silently patched.
 
-### 3. Continuous OD Misclassification Check
-
-Fees with "continuous", "sustained", "extended", "daily" + overdraft context should be `continuous_od`, not `overdraft`:
+### 3. Pipeline Coverage
 
 ```sql
-SELECT fee_name, amount, fee_category
-FROM extracted_fees
-WHERE fee_category = 'overdraft'
-  AND (LOWER(fee_name) LIKE '%continuous%'
-    OR LOWER(fee_name) LIKE '%sustained%'
-    OR LOWER(fee_name) LIKE '%extended%'
-    OR (LOWER(fee_name) LIKE '%daily%' AND LOWER(fee_name) LIKE '%overdraft%'))
-ORDER BY fee_name;
+SELECT
+  (SELECT COUNT(*) FROM crawl_targets) AS institutions,
+  (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) AS institutions_with_published_fees,
+  (SELECT COUNT(*) FROM fees_raw) AS raw_rows,
+  (SELECT COUNT(*) FROM fees_verified) AS verified_rows,
+  (SELECT COUNT(*) FROM published_fee_observations) AS published_rows;
 ```
 
-### 4. Top Unmatched Fee Names
-
-Find the most common uncategorized fees — these are candidates for new aliases:
+### 4. Review Pressure
 
 ```sql
-SELECT fee_name, COUNT(*) as cnt
-FROM extracted_fees
-WHERE fee_category IS NULL AND fee_name IS NOT NULL
-GROUP BY LOWER(fee_name)
-ORDER BY cnt DESC
-LIMIT 30;
+SELECT status, COUNT(*) AS count
+FROM agent_runs
+GROUP BY status
+ORDER BY count DESC;
 ```
 
-For each, determine:
-- Is this a known fee type that needs an alias? (add to `FEE_NAME_ALIASES`)
-- Is this a new category we should track? (add to `FEE_FAMILIES`)
-- Is this not a fee at all? (leave uncategorized)
+Use run/step/event evidence to determine whether the right fix is Magellan source discovery, Rosetta text/OCR, Knox extraction, Darwin verification, or Hamilton publishing.
 
-### 5. Cross-Institution Sanity Check
+### 5. Remaining Unmatched Or Low-Confidence Rows
 
-Verify that the same fee type has consistent amounts across institutions:
+Inspect raw/verified pipeline rows only when diagnosing the pipeline, then fix the responsible agent rule.
 
 ```sql
-SELECT fee_category,
-       COUNT(*) as n,
-       MIN(amount) as min_amt,
-       ROUND(AVG(amount), 2) as avg_amt,
-       MAX(amount) as max_amt,
-       COUNT(DISTINCT crawl_target_id) as inst_count
-FROM extracted_fees
-WHERE fee_category IS NOT NULL AND amount > 0
-GROUP BY fee_category
-ORDER BY fee_category;
+SELECT canonical_fee_key, fee_name, amount, crawl_target_id, confidence
+FROM fees_raw
+WHERE canonical_fee_key IS NULL OR confidence < 0.7
+ORDER BY created_at DESC
+LIMIT 50;
 ```
 
-**Check for:**
-- Categories where max is 5x+ the average (outlier contamination)
-- Categories with very few institutions (<5) — may need more aliases
-- Categories where min is suspiciously low ($0.01-$1 for a fee that should be $10+)
+## Repair Rules
 
-## Repair Actions
-
-### Adding Aliases
-
-When you find fee names that should map to existing categories, add them to `FEE_NAME_ALIASES` in `fee_crawler/fee_analysis.py`:
-
-```python
-"new alias text": "canonical_category",
-```
-
-Remember:
-- Alias keys must be **lowercase, punctuation stripped, single spaces**
-- Punctuation stripping joins words: "overdraft/nsf" becomes "overdraftnsf"
-- The `_get_sorted_aliases()` cache uses longest-first matching — add new aliases and the cache auto-invalidates on next import
-- Test with: `python3 -c "from fee_crawler.fee_analysis import normalize_fee_name; print(normalize_fee_name('Your Fee Name'))"`
-
-### Fixing Misclassified Rows
-
-For individual rows, fix directly:
-
-```sql
-UPDATE extracted_fees
-SET fee_category = 'correct_category', fee_family = 'Correct Family'
-WHERE id = {row_id};
-```
-
-For systematic fixes, update the aliases/detection logic and re-run:
-
-```bash
-python3 -m fee_crawler categorize --force --dry-run  # preview
-python3 -m fee_crawler categorize --force             # apply
-```
-
-### Adding New Categories
-
-If a genuinely new fee type is found (10+ instances across multiple institutions):
-
-1. Add to `FEE_FAMILIES` in `fee_crawler/fee_analysis.py`
-2. Add to `CANONICAL_DISPLAY_NAMES` in the same file
-3. Add to `FEE_FAMILIES` in `src/lib/fee-taxonomy.ts`
-4. Add to `DISPLAY_NAMES` in the same file
-5. Add aliases to `FEE_NAME_ALIASES`
-6. Re-run categorization
-
-**Both Python and TypeScript taxonomies must stay in sync.**
-
-### Updating Cap Detection
-
-If new cap patterns are found, update `_detect_cap_category()` in `fee_analysis.py`. Key rules:
-- Caps must contain OD/NSF context words (overdraft, nsf, courtesy, bounce, paid item)
-- Item-count limits ("max 4 per day") are NOT dollar caps — skip them
-- "No daily limit" means there IS no cap — skip
-- Punctuation stripping joins "overdraft/nsf" into "overdraftnsf" — use relaxed regex without leading `\b` for compound terms
+- For taxonomy improvements, update TypeScript taxonomy/agent code and tests.
+- For suspicious individual rows, route through Knox/Darwin review surfaces.
+- For repeated source failures, fix Magellan selection/backoff so batches rotate.
+- For unreadable source documents, fix Rosetta/OCR handling.
+- For publish misses, fix Hamilton publish eligibility and lineage checks.
 
 ## Verification
 
-After all repairs:
+Run:
 
 ```bash
-# Re-run categorization
-python3 -m fee_crawler categorize --force
-
-# Check distributions are clean
-sqlite3 data/crawler.db "
-SELECT fee_category, COUNT(*), MIN(amount), ROUND(AVG(amount),0), MAX(amount)
-FROM extracted_fees WHERE fee_category IS NOT NULL AND amount > 0
-GROUP BY fee_category ORDER BY fee_category;
-"
-
-# Build still passes
-npx next build
+npm run guard:legacy
+npm run test:agentic
+npm run build
 ```
 
-## Report Format
+Then report:
 
-After completing the audit, output a summary:
-
-```
+```md
 ## Fee Audit Report
 
 ### Issues Found
-- [count] outlier amounts reclassified
-- [count] new aliases added
-- [count] cap/limit entries corrected
+- [count] outlier published observations
+- [count] taxonomy gaps
+- [count] source/document gaps
+- [count] agent runs blocked or failed
 
-### Distribution Summary (key categories)
-| Category | N | Min | Median | Max |
-|----------|---|-----|--------|-----|
-
-### Top Remaining Unmatched (candidates for future aliases)
-1. [name] (Nx) — suggested category: [x]
+### Recommended Agent Fixes
+| Owner | Fix | Expected Impact |
+|-------|-----|-----------------|
 
 ### Coverage
-- Before: X categorized / Y total (Z%)
-- After:  X categorized / Y total (Z%)
+- Institutions: X
+- Institutions with published fees: Y
+- Published observations: Z
 ```

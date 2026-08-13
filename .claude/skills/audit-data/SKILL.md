@@ -1,70 +1,75 @@
 ---
 name: audit-data
-description: Run data quality checks on the crawler database and report hygiene issues
+description: Run data quality checks on the current Postgres-backed Fee Insight database and agentic pipeline
 user_invocable: true
 ---
 
 # Data Hygiene Audit
 
-Run a comprehensive data quality audit on the Bank Fee Index database.
+Run a data quality audit against the current Fee Insight Postgres model.
 
 ## What This Skill Does
 
-Queries the SQLite database to identify data quality issues and produce a structured report.
+Use current `src/lib/data-store/*` queries or direct read-only SQL to identify data quality issues. Product/report fee reads must use `published_fee_observations`; pipeline diagnostics may inspect `fees_raw`, `fees_verified`, `fees_published`, and the agent run ledger.
 
 ## Steps
 
-1. Import and call `getDataQualityReport()` from `src/lib/crawler-db/hygiene.ts`
-2. Run the report by executing: `npx tsx -e "const { getDataQualityReport } = require('./src/lib/crawler-db/hygiene'); console.log(JSON.stringify(getDataQualityReport(), null, 2));"` or read the database directly
-3. Present findings in a structured table format
+1. Read current data through `src/lib/data-store/connection.ts` or existing `src/lib/data-store/*` helpers.
+2. Check institution coverage, source coverage, fee publication coverage, agent backlog, stale runs, and provider/circuit state.
+3. Present findings with row counts, examples, and the owner agent for each fix.
+4. Route operational fixes through visible `agent_runs` work instead of one-off scripts.
 
-## Checks Performed
+## Checks
 
-| Check | Source Function | Healthy Target |
-|-------|----------------|----------------|
-| Invalid state codes (FM, MH, PW, etc.) | `getInvalidStateCodes()` | 0 institutions |
-| Uncategorized fees | `getUncategorizedFeeCount()` | Trending down |
-| Null amounts (non-free fees) | `getNullAmountCount()` | Trending down |
-| Stale institutions (>90 days) | `getStaleInstitutionCount()` | < 10% of total |
-| Review status distribution | `getStatusDistribution()` | Report only |
-| Duplicate fee names per institution | `getDuplicateFees()` | 0 duplicates |
-| Missing financial data | `getMissingFinancialsCount()` | Trending down |
+| Check | Source | Healthy Target |
+|-------|--------|----------------|
+| Invalid state codes | `crawl_targets.state_code` | 0 institutions |
+| Source URL gaps | `crawl_targets.website_url`, `crawl_targets.fee_schedule_url` | Trending down |
+| Published fee coverage | `published_fee_observations` | Trending up |
+| Raw-to-verified conversion | `fees_raw`, `fees_verified` | Backlog shrinking |
+| Agent run health | `agent_runs`, `agent_run_steps`, `agent_run_events` | No silent queued/running runs |
+| Provider/circuit health | `automation_control`, `ai_api_usage_events` | Blocked reasons visible |
+| Missing financial data | `institution_financials` joined to `crawl_targets` | Trending down |
 
-## How to Run Manually
-
-```bash
-# From project root
-npx tsx scripts/audit-data.ts
-```
-
-Or query the database directly:
+## Useful Read-Only SQL
 
 ```sql
--- Invalid state codes
-SELECT state_code, COUNT(*) as cnt
+SELECT state_code, COUNT(*) AS count
 FROM crawl_targets
 WHERE state_code NOT IN ('AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','PR','VI','GU','AS')
 AND state_code IS NOT NULL
 GROUP BY state_code;
 
--- Status distribution
-SELECT review_status, COUNT(*) FROM extracted_fees GROUP BY review_status;
+SELECT
+  COUNT(*) AS institutions,
+  COUNT(*) FILTER (WHERE website_url IS NOT NULL AND btrim(website_url) <> '') AS with_website,
+  COUNT(*) FILTER (WHERE fee_schedule_url IS NOT NULL AND btrim(fee_schedule_url) <> '') AS with_fee_url
+FROM crawl_targets;
+
+SELECT status, COUNT(*) AS count
+FROM agent_runs
+GROUP BY status
+ORDER BY count DESC;
+
+SELECT COUNT(DISTINCT crawl_target_id) AS institutions_with_published_fees,
+       COUNT(*) AS published_observations
+FROM published_fee_observations;
 ```
 
 ## Output Format
 
-Present the audit as a markdown table with pass/fail indicators:
-
-```
-| Check                  | Result | Status |
-|------------------------|--------|--------|
-| Invalid state codes    | 0      | PASS   |
-| Uncategorized fees     | 234    | WARN   |
-| Stale institutions     | 12%    | FAIL   |
+```md
+| Check | Result | Status | Owner |
+|-------|--------|--------|-------|
+| Source URL gaps | 1,234 | WARN | Magellan |
+| PDF pending OCR | 456 | WARN | Rosetta |
+| Low-confidence raw rows | 78 | REVIEW | Knox/Darwin |
 ```
 
 ## Key Files
 
-- `src/lib/crawler-db/hygiene.ts` - All data quality query functions
-- `src/lib/us-states.ts` - Valid US state/territory code definitions
-- `src/lib/crawler-db/geographic.ts` - Geographic aggregation queries
+- `src/lib/data-store/connection.ts` - Postgres connection boundary.
+- `src/lib/data-store/*` - Current data access layer.
+- `src/lib/agents/run-store.ts` - Current agent run ledger.
+- `src/lib/agents/*` - Agent implementations.
+- `src/lib/ai-provider.ts` - Provider boundary and circuit checks.
