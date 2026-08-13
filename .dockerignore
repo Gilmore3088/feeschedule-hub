@@ -1,11 +1,10 @@
 node_modules
 .next
 .git
-# data/ - not ignored; needed for build-time page generation
-# fee_crawler/ - not ignored; needed for SSH-based data refresh
 plans/
 docs/
-.claude/
+.claude/worktrees/
+.superpowers/
 *.md
 .env*
 !.env.example

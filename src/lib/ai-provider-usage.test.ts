@@ -13,7 +13,11 @@ vi.mock("./automation-control", () => ({
   EmergencyStopActiveError: class EmergencyStopActiveError extends Error {},
 }));
 
-import { estimateAnthropicCostMicrousd, trackAnthropicRequest } from "./ai-provider-usage";
+import {
+  estimateAnthropicCostMicrousd,
+  recordProviderUsage,
+  trackAnthropicRequest,
+} from "./ai-provider-usage";
 
 describe("AI provider usage", () => {
   beforeEach(() => {
@@ -56,6 +60,24 @@ describe("AI provider usage", () => {
         throw error;
       },
     )).rejects.toBe(error);
+
+    expect(sqlMock).toHaveBeenCalledOnce();
+    expect(stopMock).toHaveBeenCalledWith(
+      "provider-guard",
+      expect.stringContaining("credit balance is too low"),
+    );
+  });
+
+  it("engages the emergency stop when a streaming provider route records credit exhaustion", async () => {
+    await recordProviderUsage(
+      { provider: "anthropic", model: "claude-sonnet-4-5", agent: "hamilton", operation: "chat" },
+      "failed",
+      {},
+      {
+        error:
+          "Error code: 400 - Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to purchase credits.",
+      },
+    );
 
     expect(sqlMock).toHaveBeenCalledOnce();
     expect(stopMock).toHaveBeenCalledWith(

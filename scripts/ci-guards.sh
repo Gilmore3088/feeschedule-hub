@@ -9,6 +9,7 @@
 #                 Fail if product/runtime fee reads bypass published_fee_observations.
 #   script-kill   Fail if retired one-off data/process scripts are reintroduced.
 #   config-kill   Fail if active CI/deploy/env-example config references retired surfaces.
+#   artifact-kill Fail if local agent worktrees or stale tool output are tracked.
 
 set -euo pipefail
 
@@ -208,6 +209,38 @@ config_kill() {
   exit 0
 }
 
+artifact_kill() {
+  local hits=""
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git ls-files -- \
+      'fee_crawler/**' \
+      '.claude/worktrees/**' \
+      '.superpowers/**' \
+      '.pytest_cache/**' \
+      '.ruff_cache/**' \
+      '__pycache__/**' \
+      '*.pyc' \
+      '*.pyo' \
+      '*.db' \
+      '*.sqlite' \
+      '*.sqlite3' \
+      | while IFS= read -r path; do
+          [[ -e "$path" ]] && printf '%s\n' "$path"
+        done \
+      | sed '/^$/d' || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "artifact-kill: tracked local/legacy artifacts remain:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "artifact-kill: OK (no tracked local agent worktrees, stale tool output, or crawler artifacts)"
+  exit 0
+}
+
 case "$SUBCOMMAND" in
   sqlite-kill) sqlite_kill ;;
   modal-kill) modal_kill ;;
@@ -215,13 +248,14 @@ case "$SUBCOMMAND" in
   fee-read-model-kill) fee_read_model_kill ;;
   script-kill) script_kill ;;
   config-kill) config_kill ;;
+  artifact-kill) artifact_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill>" >&2
     exit 2
     ;;
 esac

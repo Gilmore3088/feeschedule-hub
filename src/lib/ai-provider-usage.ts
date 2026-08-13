@@ -80,6 +80,17 @@ async function engageProviderCreditStop(context: ProviderCallContext): Promise<v
   }
 }
 
+async function maybeEngageProviderCreditStop(
+  context: ProviderCallContext,
+  status: ProviderStatus,
+  error: string | undefined,
+): Promise<void> {
+  if (status !== "failed") return;
+  if (context.provider !== "anthropic") return;
+  if (!error || !isProviderCreditError(error)) return;
+  await engageProviderCreditStop(context);
+}
+
 export function estimateAnthropicCostMicrousd(
   model: string,
   usage: ProviderUsage,
@@ -128,6 +139,7 @@ export async function recordProviderUsage(
   } catch (error) {
     console.error("AI provider usage write failed", error);
   }
+  await maybeEngageProviderCreditStop(context, status, options.error);
 }
 
 export async function guardProviderCall(
@@ -176,9 +188,6 @@ export async function trackAnthropicRequest<T>(
       latencyMs: Date.now() - startedAt,
       error: message,
     });
-    if (isProviderCreditError(error)) {
-      await engageProviderCreditStop(fullContext);
-    }
     throw error;
   }
 }

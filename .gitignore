@@ -55,5 +55,10 @@ next-env.d.ts
 # Supabase local
 supabase/.temp/
 
-# worktrees
+# local agent/workspace artifacts
 .worktrees/
+.claude/worktrees/
+.superpowers/
+.pytest_cache/
+.ruff_cache/
+Reports/
