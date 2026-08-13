@@ -14,6 +14,7 @@ import {
   Tags,
   type LucideIcon,
 } from "lucide-react";
+import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
 import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
 import { runAtlasWorkflow, type AtlasWorkflowId } from "./atlas-actions";
 
@@ -25,6 +26,15 @@ type WorkflowLane = {
   detail: string;
   commandLabel: string;
   href: string;
+};
+
+type QueuedWorkflow = {
+  id: number;
+  title: string;
+  owner: string;
+  command: string;
+  scope: string;
+  reused: boolean;
 };
 
 const ICONS: Record<AtlasWorkflowId, LucideIcon> = {
@@ -59,7 +69,8 @@ export function AtlasWorkflowLauncher({
 }) {
   const router = useRouter();
   const [pendingWorkflow, setPendingWorkflow] = useState<AtlasWorkflowId | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [queuedWorkflow, setQueuedWorkflow] = useState<QueuedWorkflow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const blockedReason = disabledCopy(
@@ -73,22 +84,27 @@ export function AtlasWorkflowLauncher({
 
   function start(workflow: WorkflowLane) {
     setPendingWorkflow(workflow.id);
-    setMessage(`Request sent for ${workflow.title}. Creating a visible agent run...`);
+    setStatusMessage(`Creating a visible ${workflow.title} run record...`);
+    setQueuedWorkflow(null);
     setError(null);
     startTransition(async () => {
       const result = await runAtlasWorkflow(workflow.id);
       if (!result.success) {
-        setMessage(null);
+        setStatusMessage(null);
         setError(result.error ?? `${workflow.title} could not start`);
         setPendingWorkflow(null);
         return;
       }
-      setMessage(
-        result.reused
-          ? `${workflow.title} run #${result.runId} is already visible.`
-          : `${workflow.title} run #${result.runId} created.`,
-      );
+      setStatusMessage(null);
       if (typeof result.runId === "number") {
+        setQueuedWorkflow({
+          id: result.runId,
+          title: result.title ?? workflow.title,
+          owner: workflow.owner,
+          command: workflow.commandLabel,
+          scope: workflow.metric,
+          reused: Boolean(result.reused),
+        });
         window.dispatchEvent(new CustomEvent("atlas:started", {
           detail: {
             runId: result.runId,
@@ -155,8 +171,8 @@ export function AtlasWorkflowLauncher({
                 >
                   {pending ? <RotateCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                   {pending
-                    ? "Starting"
-                    : blockedReason ?? (!automationEnabled ? "Paused" : !executionEnabled ? "Backend off" : "Start")}
+                    ? "Queueing"
+                    : blockedReason ?? (!automationEnabled ? "Paused" : !executionEnabled ? "Backend off" : "Queue run")}
                 </button>
                 <Link
                   href={lane.href}
@@ -169,10 +185,23 @@ export function AtlasWorkflowLauncher({
           );
         })}
       </div>
-      {message && (
-        <p role="status" className="mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-          {message} <a href="#atlas-live-status" className="underline underline-offset-2">Live status</a>
+      {statusMessage && (
+        <p role="status" className="mt-3 text-xs font-medium text-blue-700 dark:text-blue-400">
+          {statusMessage}
         </p>
+      )}
+      {queuedWorkflow && (
+        <div className="mt-4">
+          <JobLaunchReceipt
+            jobId={queuedWorkflow.id}
+            title={queuedWorkflow.title}
+            owner={queuedWorkflow.owner}
+            command={queuedWorkflow.command}
+            scope={queuedWorkflow.scope}
+            reused={queuedWorkflow.reused}
+            detail="The run record is visible now. Atlas live status shows pickup, step events, terminal result, and any blocked reason."
+          />
+        </div>
       )}
       {error && <p role="alert" className="mt-3 text-xs text-red-700 dark:text-red-400">{error}</p>}
     </section>

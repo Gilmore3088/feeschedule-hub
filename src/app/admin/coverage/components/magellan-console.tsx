@@ -70,6 +70,7 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
   const [running, setRunning] = useState(false);
   const [queuedJob, setQueuedJob] = useState<QueuedJob | null>(null);
   const [watchedJob, setWatchedJob] = useState<WatchedJob | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [watchError, setWatchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,13 +97,16 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
     setRunning(true);
     setQueuedJob(null);
     setWatchedJob(null);
+    setStatusMessage("Creating a visible Magellan run record...");
     setWatchError(null);
     setError(null);
     try {
       const result = await runMagellanRepair(size, chain);
       if (!result.success) {
+        setStatusMessage(null);
         setError(result.error ?? "Magellan repair could not be queued");
       } else if (typeof result.jobId === "number") {
+        setStatusMessage(null);
         setQueuedJob({ id: result.jobId, size, chain, reused: Boolean(result.reused) });
         window.dispatchEvent(new CustomEvent("atlas:started", {
           detail: {
@@ -156,9 +160,14 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
         disabledReason={disabledReason}
         title="Repair discovery and extraction gaps"
         description="Queue Magellan to rescue institutions that need a usable fee schedule source."
-        actionLabel="Start repair"
+        actionLabel="Queue repair"
         unitLabel="institutions"
       />
+      {statusMessage && (
+        <p role="status" className="text-xs font-medium text-blue-700 dark:text-blue-400">
+          {statusMessage}
+        </p>
+      )}
       {queuedJob && (
         <JobLaunchReceipt
           jobId={queuedJob.id}
@@ -167,7 +176,7 @@ export function MagellanConsole({ initialStatus }: { initialStatus: MagellanStat
           command={`Magellan rescue pass: ${queuedJob.size} x ${queuedJob.chain}`}
           scope={`${(queuedJob.size * queuedJob.chain).toLocaleString("en-US")} institutions · ${queuedJob.chain === 1 ? "single batch" : `${queuedJob.chain} batches`}`}
           reused={queuedJob.reused}
-          detail="Magellan will run a bounded agentic discovery pass, update rescued fee URLs, and write discovery evidence."
+          detail="Magellan created the run record first. Atlas live status shows pickup, step events, terminal result, and any blocked reason."
         />
       )}
       {queuedJob && (
