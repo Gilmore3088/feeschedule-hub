@@ -16,14 +16,12 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   direct Anthropic SDK imports elsewhere are blocked by `provider-kill`.
 - Current Postgres data access is `src/lib/data-store`; do not reintroduce the
   retired crawler-named data module.
-- App code uses the semantic views `institution_sources`, `source_documents`,
-  `source_collection_runs`, and `agent_source_texts` for
-  source/institution/document/text access. The historical physical table names
-  are schema-storage details until the dedicated physical rename/baseline
-  cleanup.
+- App code uses the physical semantic tables `institution_sources`,
+  `source_documents`, `source_collection_runs`, and `agent_source_texts` for
+  source/institution/document/text access.
 - Knox, Darwin, and Hamilton use `raw_fee_observations`,
   `verified_fee_observations`, and `published_fee_records` as their fee-tier
-  write/read boundaries. Physical tier table names are storage details.
+  write/read boundaries.
 - Atlas creates visible runs; Magellan discovers/fetches; Rosetta reads
   fetched HTML/text and extractable PDF text, while scanned/image-only PDFs are
   marked `needs_ocr`; Knox extracts conservative raw fee observations and
