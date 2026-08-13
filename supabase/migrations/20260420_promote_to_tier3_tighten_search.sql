@@ -15,7 +15,7 @@
 --
 -- Backward compatibility: LEGACY GRANDFATHER CLAUSE.
 --   Accept messages written before this migration (including all rows
---   posted via fee_crawler/commands/publish_fees.py since 62b shipped)
+--   posted via the historical publish helper since 62b shipped)
 --   DO carry correlation_id — the column is NOT NULL on agent_messages
 --   (see 20260419_agent_messages.sql). The publish_fees.py helper has
 --   always generated a UUID per handshake and passed it to BOTH the

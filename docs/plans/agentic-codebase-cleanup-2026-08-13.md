@@ -53,6 +53,8 @@ Make the public/admin product run through one understandable agentic system:
 - Renamed the retired crawler-named data module to `src/lib/data-store` and added `legacy-name-kill` so active source/planning docs cannot reintroduce the old boundary name.
 - Added `prompt-kill` to `npm run guard:legacy` and rewrote active `.claude` data-audit guidance so agents stop being instructed to use retired local crawler/database paths.
 - Shipped visible Atlas and Magellan run receipts so button clicks immediately show the run id, owner, scope, plan, and live-status tracking path.
+- Archived historical baseline/gap docs out of active docs and replaced stale outstanding tasks with the current agentic backlog.
+- Added `active-doc-kill` and `migration-history-kill` so current docs/plans and post-decommission migrations cannot drift back toward retired runtime concepts.
 
 ## Retirement Plan
 
@@ -68,7 +70,7 @@ Status: implemented for current runtime source and config.
   - `vercel.json` has only `/api/admin/agents/tick`.
   - runtime source does not import `job-runner`.
   - no source file reads `OPS_*`, `MODAL_*`, sidecar URLs, or `EXTRACT_SINGLE_URL`.
-- Expand artifact guard after the schema baseline is complete to fail on active migrations that create or depend on `ops_jobs`.
+- Keep `migration-history-kill` enforcing that migrations after `20260813000200_provider_usage_agent_runs.sql` do not reintroduce retired runtime concepts.
 
 ### Phase 2 - Centralize Provider Calls
 

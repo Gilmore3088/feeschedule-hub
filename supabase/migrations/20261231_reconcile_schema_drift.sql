@@ -1,7 +1,8 @@
 -- Schema drift reconciliation — 2026-04-17
 --
--- This migration reconciles the columns expected by fee_crawler/agent_tools/*
--- with the canonical baseline in scripts/migrate-schema.sql + supabase/migrations/*.
+-- This migration reconciles columns expected by the retired Python agent-tool
+-- layer with the canonical baseline in scripts/migrate-schema.sql +
+-- supabase/migrations/*.
 -- Each ALTER is idempotent (ADD COLUMN IF NOT EXISTS), so it is safe to run
 -- against production — it will only add whatever production is missing.
 --
@@ -9,7 +10,7 @@
 -- dump. Since then, production has accumulated ALTER TABLE changes via
 -- ad-hoc scripts that never landed as tracked migrations. This migration
 -- pulls everything back together so both production AND the local test
--- bootstrap (fee_crawler/tests/conftest.py) line up with the code.
+-- bootstrap line up with the code.
 --
 -- Verified against all 23 tables referenced by agent_tools INSERT/UPDATE
 -- statements. After applying, the 21 baseline-drift pytest failures in

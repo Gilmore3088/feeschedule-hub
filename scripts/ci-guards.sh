@@ -14,6 +14,10 @@
 #   legacy-name-kill
 #                 Fail if active code/docs reintroduce retired module names.
 #   prompt-kill   Fail if active .claude prompts point agents at retired tooling.
+#   active-doc-kill
+#                 Fail if current docs/plans contain stale runtime guidance.
+#   migration-history-kill
+#                 Fail if post-agentic-decommission migrations reintroduce retired runtime concepts.
 
 set -euo pipefail
 
@@ -306,6 +310,79 @@ prompt_kill() {
   exit 0
 }
 
+active_doc_kill() {
+  local include_paths=(
+    "docs"
+    ".planning"
+    "README.md"
+    ".impeccable.md"
+  )
+  local exclude_paths=(
+    ":(exclude)docs/archive/**"
+  )
+  local pattern='data/crawler\.db|SQLite database|Fly\.io|Litestream|COMING_SOON|crawler-db|python3? -m fee_crawler|fee_crawler/'
+  local hits=""
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git grep --untracked -nE "$pattern" -- \
+      "${include_paths[@]}" "${exclude_paths[@]}" \
+      | grep -v '^Binary file' || true)
+  else
+    hits=$(grep -rnE "$pattern" \
+      --include='*.md' --include='*.mdx' \
+      --exclude-dir=archive \
+      "${include_paths[@]}" 2>/dev/null || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "active-doc-kill: active docs/plans still contain stale runtime guidance:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "active-doc-kill: OK (current docs/plans do not contain stale runtime guidance)"
+  exit 0
+}
+
+migration_history_kill() {
+  local cutoff="20260813000200_provider_usage_agent_runs.sql"
+  local pattern='fee_crawler|python3? -m fee_crawler|\bops_jobs\b|\bops_job_id\b|\bmodal_call_id\b|modalCallId|Modal workers|modal\.run|DARWIN_SIDECAR_URL|MAGELLAN_SIDECAR_URL|EXTRACT_SINGLE_URL'
+  local hits=""
+
+  if [[ -d supabase/migrations ]]; then
+    while IFS= read -r file; do
+      local base
+      base="$(basename "$file")"
+      if [[ "$base" > "$cutoff" ]]; then
+        local file_hits
+        file_hits=$(grep -nE "$pattern" "$file" 2>/dev/null | sed "s#^#$file:#" || true)
+        if [[ -n "$file_hits" ]]; then
+          hits="${hits}${file_hits}"$'\n'
+        fi
+      fi
+    done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "migration-history-kill: post-agentic-decommission migrations reference retired runtime concepts:" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  if ! grep -q 'DROP TABLE IF EXISTS ops_jobs' "supabase/migrations/$cutoff"; then
+    echo "migration-history-kill: $cutoff must drop retired ops_jobs" >&2
+    exit 1
+  fi
+
+  if ! grep -q 'DROP COLUMN IF EXISTS modal_call_id' "supabase/migrations/$cutoff"; then
+    echo "migration-history-kill: $cutoff must drop retired modal_call_id columns" >&2
+    exit 1
+  fi
+
+  echo "migration-history-kill: OK (post-agentic migration history stays clean)"
+  exit 0
+}
+
 legacy_name_kill() {
   local include_paths=("src" "CLAUDE.md" ".planning" "docs/plans" "README.md")
   local exclude_paths=(
@@ -344,14 +421,16 @@ case "$SUBCOMMAND" in
   artifact-kill) artifact_kill ;;
   provider-kill) provider_kill ;;
   prompt-kill) prompt_kill ;;
+  active-doc-kill) active_doc_kill ;;
+  migration-history-kill) migration_history_kill ;;
   legacy-name-kill) legacy_name_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|legacy-name-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|legacy-name-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill>" >&2
     exit 2
     ;;
 esac
