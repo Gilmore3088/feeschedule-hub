@@ -10,7 +10,7 @@ import {
   ConfirmButton,
   OverrideButton,
 } from "../review-actions";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
 const REASON_LABELS: Record<string, string> = {
   outlier: "Outlier",
@@ -302,7 +302,7 @@ export async function KnoxDecisionDetailView({ id }: { id: string }) {
   );
 }
 
-export default async function LegacyKnoxDecisionDetailPage({
+export default async function RedirectKnoxDecisionDetailPage({
   params,
   searchParams,
 }: {
@@ -311,7 +311,7 @@ export default async function LegacyKnoxDecisionDetailPage({
 }) {
   const { id } = await params;
   redirect(
-    buildLegacyAdminPath(
+    buildAdminRedirectPath(
       `/admin/knox/decisions/${encodeURIComponent(id)}`,
       await searchParams,
     ),

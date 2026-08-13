@@ -13,7 +13,7 @@ import {
 } from "@/lib/crawler-db/knox-reviews";
 import { ConfirmButton, OverrideButton, SkipButton } from "./review-actions";
 import { KnoxKeyboardNav } from "./keyboard-nav";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
 type FilterTab = "pending" | "confirmed" | "overridden" | "all";
 const TABS: FilterTab[] = ["pending", "confirmed", "overridden", "all"];
@@ -323,10 +323,10 @@ export async function KnoxDecisionsView({
   );
 }
 
-export default async function LegacyKnoxReviewsPage({
+export default async function RedirectKnoxReviewsPage({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  redirect(buildLegacyAdminPath("/admin/knox", await searchParams, { queue: "decisions" }));
+  redirect(buildAdminRedirectPath("/admin/knox", await searchParams, { queue: "decisions" }));
 }

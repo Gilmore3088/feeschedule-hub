@@ -9,13 +9,13 @@ export interface ExecutionBackendStatus {
   detail: string;
 }
 
-export class LegacyExecutionBlockedError extends Error {
+export class RetiredExecutionBlockedError extends Error {
   readonly backend: ExecutionBackend;
   readonly capability: string;
 
   constructor(capability: string, backend = getExecutionBackend()) {
-    super(legacyExecutionBlockedMessage(capability, backend));
-    this.name = "LegacyExecutionBlockedError";
+    super(retiredExecutionBlockedMessage(capability, backend));
+    this.name = "RetiredExecutionBlockedError";
     this.backend = backend;
     this.capability = capability;
   }
@@ -49,7 +49,7 @@ export function getExecutionBackendStatus(): ExecutionBackendStatus {
   };
 }
 
-export function legacyExecutionBlockedMessage(
+export function retiredExecutionBlockedMessage(
   capability: string,
   backend = getExecutionBackend(),
 ): string {
@@ -59,6 +59,6 @@ export function legacyExecutionBlockedMessage(
   return `${capability} is blocked because the agentic execution backend is disabled. Retired external launchers are intentionally unavailable.`;
 }
 
-export function blockLegacyExecution(capability: string): never {
-  throw new LegacyExecutionBlockedError(capability);
+export function blockRetiredExecution(capability: string): never {
+  throw new RetiredExecutionBlockedError(capability);
 }

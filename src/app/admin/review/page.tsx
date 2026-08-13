@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
-export default async function LegacyReviewPage({
+export default async function RedirectReviewPage({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
@@ -11,5 +11,5 @@ export default async function LegacyReviewPage({
   const params = { ...(await searchParams) };
   delete params.queue;
   delete params.status;
-  redirect(buildLegacyAdminPath("/admin/knox", params, { queue: "decisions" }));
+  redirect(buildAdminRedirectPath("/admin/knox", params, { queue: "decisions" }));
 }

@@ -4,7 +4,7 @@ export type AdminSearchParams = Record<
 >;
 
 /** Build a canonical admin URL without dropping filters from an old bookmark. */
-export function buildLegacyAdminPath(
+export function buildAdminRedirectPath(
   destination: string,
   searchParams: AdminSearchParams,
   defaults: AdminSearchParams = {},

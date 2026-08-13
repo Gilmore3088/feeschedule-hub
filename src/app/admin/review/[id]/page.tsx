@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 
-export default async function LegacyFeeDetailPage({
+export default async function RedirectFeeDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;

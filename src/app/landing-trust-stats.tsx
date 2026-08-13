@@ -22,7 +22,7 @@ function formatRelativeRefresh(iso: string | null): string {
 export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) {
   const refreshedRelative = formatRelativeRefresh(freshness.last_crawl_at);
   // Palette: warm-*/terra tokens from globals.css @theme. Works in any route,
-  // no .consumer-brand wrapper required (legacy slate-* utilities still work
+  // no .consumer-brand wrapper required (older slate-* utilities still work
   // via the wrapper for compatibility with older surfaces).
   return (
     <section className="border-t border-warm-300 bg-warm-150/60">

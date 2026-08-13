@@ -1,5 +1,5 @@
 import { permanentRedirect } from "next/navigation";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
 export default async function ResearchAgentRedirect({
   params,
@@ -10,7 +10,7 @@ export default async function ResearchAgentRedirect({
 }) {
   const { agentId } = await params;
   permanentRedirect(
-    buildLegacyAdminPath(
+    buildAdminRedirectPath(
       `/admin/hamilton/research/${encodeURIComponent(agentId)}`,
       await searchParams,
     ),

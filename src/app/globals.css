@@ -765,7 +765,7 @@
    Consumer brand: remap slate → warm palette
    Applied via .consumer-brand wrapper on (public) layout
 
-   ⚠ STATUS: legacy. New marketing/consumer surfaces should use the named
+   ⚠ STATUS: compatibility. New marketing/consumer surfaces should use the named
    warm-* / warm-ink-* / terra tokens defined in the @theme block above.
    Those tokens produce real Tailwind utilities (bg-warm-100, text-warm-900,
    text-terra, hover:border-terra/40, etc.) that work in any route — no

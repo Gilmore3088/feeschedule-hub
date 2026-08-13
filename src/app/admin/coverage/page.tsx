@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
-export default async function LegacyCoveragePage({
+export default async function RedirectCoveragePage({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  redirect(buildLegacyAdminPath("/admin/magellan", await searchParams));
+  redirect(buildAdminRedirectPath("/admin/magellan", await searchParams));
 }

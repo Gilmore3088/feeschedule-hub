@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildLegacyAdminPath } from "./admin-legacy-redirect";
+import { buildAdminRedirectPath } from "./admin-redirect-path";
 
-describe("buildLegacyAdminPath", () => {
-  it("preserves filters from legacy bookmarks", () => {
+describe("buildAdminRedirectPath", () => {
+  it("preserves filters from retired-route bookmarks", () => {
     expect(
-      buildLegacyAdminPath("/admin", {
+      buildAdminRedirectPath("/admin", {
         status: "failed",
         page: "2",
       }),
@@ -13,7 +13,7 @@ describe("buildLegacyAdminPath", () => {
 
   it("preserves repeated values and empty filters", () => {
     expect(
-      buildLegacyAdminPath("/admin/magellan", {
+      buildAdminRedirectPath("/admin/magellan", {
         state: ["CA", "OR"],
         q: "",
       }),
@@ -22,7 +22,7 @@ describe("buildLegacyAdminPath", () => {
 
   it("allows bookmark values to override destination defaults", () => {
     expect(
-      buildLegacyAdminPath(
+      buildAdminRedirectPath(
         "/admin/knox",
         { queue: "decisions", reason: "outlier" },
         { queue: "fees" },
@@ -32,7 +32,7 @@ describe("buildLegacyAdminPath", () => {
 
   it("retains query values already present in the destination", () => {
     expect(
-      buildLegacyAdminPath("/admin/knox?queue=gold", { institution: "42" }),
+      buildAdminRedirectPath("/admin/knox?queue=gold", { institution: "42" }),
     ).toBe("/admin/knox?queue=gold&institution=42");
   });
 });

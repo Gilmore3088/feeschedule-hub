@@ -1,10 +1,10 @@
 import { permanentRedirect } from "next/navigation";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
 export default async function ScoutRedirect({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  permanentRedirect(buildLegacyAdminPath("/admin/hamilton/research", await searchParams));
+  permanentRedirect(buildAdminRedirectPath("/admin/hamilton/research", await searchParams));
 }

@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
-export default async function LegacyOpsPage({
+export default async function RedirectOpsPage({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  redirect(buildLegacyAdminPath("/admin", await searchParams));
+  redirect(buildAdminRedirectPath("/admin", await searchParams));
 }

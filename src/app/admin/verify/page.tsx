@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 import { requireAuth } from "@/lib/auth";
 import { getGoldStandardCandidates } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -118,10 +118,10 @@ export async function GoldStandardView({ embedded = false }: { embedded?: boolea
   );
 }
 
-export default async function LegacyVerifyPage({
+export default async function RedirectVerifyPage({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  redirect(buildLegacyAdminPath("/admin/knox", await searchParams, { queue: "gold" }));
+  redirect(buildAdminRedirectPath("/admin/knox", await searchParams, { queue: "gold" }));
 }

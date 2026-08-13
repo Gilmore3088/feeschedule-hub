@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { buildLegacyAdminPath, type AdminSearchParams } from "@/lib/admin-legacy-redirect";
+import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";
 
-export default async function LegacyCategoryReviewPage({
+export default async function RedirectCategoryReviewPage({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
@@ -9,5 +9,5 @@ export default async function LegacyCategoryReviewPage({
   const params = { ...(await searchParams) };
   delete params.queue;
   delete params.status;
-  redirect(buildLegacyAdminPath("/admin/knox", params, { queue: "decisions" }));
+  redirect(buildAdminRedirectPath("/admin/knox", params, { queue: "decisions" }));
 }
