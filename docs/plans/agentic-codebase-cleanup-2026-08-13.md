@@ -51,9 +51,9 @@ Make the public/admin product run through one understandable agentic system:
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config. Active `.claude` prompts are now guarded by `prompt-kill` so they cannot point agents at retired crawler/database tooling.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
-- App code no longer queries the historical source tables directly. Magellan fetch, Rosetta read, Knox extract, Darwin verify, Hamilton publish, and Atlas run receipts use semantic source-document/text and fee-tier names. Remaining legacy is in migration history, public backup/archive tables, stale environment values, and archived docs.
+- App code no longer queries the historical source tables directly. Magellan fetch, Rosetta read, Knox extract, Darwin verify, Hamilton publish, and Atlas run receipts use semantic source-document/text and fee-tier names. Remaining legacy is in migration history, a few crawler-worded source telemetry columns, stale environment values, and archived docs.
 - Active source now has zero runtime matches for Modal URLs, `fee_crawler`, `ops_jobs`, `modal_call_id`, `ops_job_id`, `fees_raw`, `fees_verified`, `fees_published`, `agent_document_texts`, `crawl_targets`, `crawl_results`, `crawl_runs`, `crawl_target_id`, `crawl_result_id`, `crawl_run_id`, `crawl_event_id`, `published_fee_observations`, and `discovery_cache` outside guard/test/history text.
-- Active source has zero `crawl_target_id` references and zero direct reads/writes against the old physical institution-keyed data tables. Remaining legacy is in public backup/archive tables, historical migrations, archived docs, and compatibility storage that will be removed by the schema-baseline pass.
+- Active source has zero `crawl_target_id` references and zero direct reads/writes against the old physical institution-keyed data tables. Remaining legacy is in source telemetry column names, historical migrations, archived docs, and compatibility storage that will be removed by the schema-baseline pass.
 - Production Vercel env still has stale/malformed URL configuration to clean up separately: `BFI_APP_URL` pulled as an old `bankfeeindex.com` value with a literal `\n`.
 
 ### Removed In This Cleanup Pass
@@ -112,6 +112,12 @@ Make the public/admin product run through one understandable agentic system:
   - `agent_run_results` -> `agent_institution_run_results`
 - Renamed institution-data lineage columns to `institution_id` and `source_document_id`, dropped empty retired `crawl_target_changes` and `upload_jobs`, rebuilt the alert subscription functions on semantic tables, enabled RLS, and revoked anon/authenticated access.
 - Production verification after the institution-data cutover: zero old physical relation names for this batch; counts held at 60,787 financial records, 4,782 complaint records, 152,847 branch deposits, 128 fee change records, 38,505 fee snapshots, and 77,334 agent institution run results.
+- Moved historical backup tables out of the active `public` schema into locked `archive` schema with semantic archive names:
+  - `extracted_fees_dedup_backup_20260418` -> `archive.historical_fee_observation_dedup_backup_20260418`
+  - `extracted_fees_promote_backup_20260418` -> `archive.historical_fee_observation_promote_backup_20260418`
+  - `fee_reviews_dedup_backup_20260418` -> `archive.historical_fee_review_dedup_backup_20260418`
+  - `pipeline_runs_legacy_20260603` -> `archive.historical_pipeline_runs_20260603`
+- Renamed archived fee backup columns to `institution_id` and `source_document_id`; retained row counts at 24,963, 55,075, 16,620, and 5 respectively.
 
 ## Retirement Plan
 
@@ -199,18 +205,17 @@ Target: agent backlog shrinks without asking a human to review 26k rows.
 
 Target: a fresh database should not recreate retired execution/read-model infrastructure just to drop it later.
 
-- Status: started. Semantic source/document/text tables, semantic fee-tier tables, semantic institution-data tables, published fee catalog, public submission storage, and Magellan discovery-attempt storage exist. App-code read/write SQL now uses those semantic contracts for active agent/admin/product paths. The source/document/text, fee-tier, and institution-data physical storage names are cut over in production. Public historical backup/archive tables and stale env values remain.
+- Status: started. Semantic source/document/text tables, semantic fee-tier tables, semantic institution-data tables, published fee catalog, public submission storage, and Magellan discovery-attempt storage exist. App-code read/write SQL now uses those semantic contracts for active agent/admin/product paths. The source/document/text, fee-tier, and institution-data physical storage names are cut over in production. Historical backup tables are quarantined in `archive`. Remaining cleanup is source telemetry column wording, stale env values, archived docs, and baseline history.
 - Do not edit production-applied migrations in place.
 - Create a new agentic baseline migration set or squashed schema dump for fresh environments.
 - Archive older compatibility migrations under a clearly named historical folder once the baseline is verified.
-- Audit remaining public backup/archive tables before moving them out of the active public schema.
+- Audit remaining source telemetry column names before renaming public API/admin-facing code paths.
 - Remove active references to:
   - `ops_jobs`
   - `ops_job_id`
   - `modal_call_id`
   - old extracted-fee active table names; historical data is retained only as `historical_fee_observation_archive`
 - Next rename targets:
-  - public historical backup tables: `extracted_fees_dedup_backup_20260418`, `extracted_fees_promote_backup_20260418`, `fee_reviews_dedup_backup_20260418`, and `pipeline_runs_legacy_20260603`
   - remaining crawler-worded columns on active semantic source tables such as `last_crawl_at`, `crawl_strategy`, `targets_crawled`, and `crawled_at`
   - stale production/local environment values that point at old Supabase refs or old public domains
 - Verify from an empty database:
