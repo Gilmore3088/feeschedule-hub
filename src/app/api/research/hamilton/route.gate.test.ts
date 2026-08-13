@@ -11,6 +11,13 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 // ─── Mocks (must be declared before importing the route) ──────────────────────
 
 const generateTextMock = vi.fn();
+const providerUsageMocks = vi.hoisted(() => ({
+  trackAnthropicRequestMock: vi.fn(async (_context: unknown, request: () => Promise<unknown>) =>
+    request(),
+  ),
+  guardProviderCallMock: vi.fn(async () => Date.now()),
+  recordProviderUsageMock: vi.fn(async () => {}),
+}));
 
 vi.mock("ai", async () => {
   const actual = await vi.importActual<typeof import("ai")>("ai");
@@ -29,9 +36,15 @@ vi.mock("@ai-sdk/anthropic", () => ({
 }));
 
 vi.mock("@/lib/ai-provider-usage", () => ({
-  trackAnthropicRequest: async (_context: unknown, request: () => Promise<unknown>) => request(),
-  guardProviderCall: async () => Date.now(),
-  recordProviderUsage: vi.fn(async () => {}),
+  ProviderCircuitOpenError: class ProviderCircuitOpenError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "ProviderCircuitOpenError";
+    }
+  },
+  trackAnthropicRequest: providerUsageMocks.trackAnthropicRequestMock,
+  guardProviderCall: providerUsageMocks.guardProviderCallMock,
+  recordProviderUsage: providerUsageMocks.recordProviderUsageMock,
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -97,6 +110,11 @@ describe("POST /api/research/hamilton — citation gate", () => {
 
   beforeEach(() => {
     generateTextMock.mockReset();
+    providerUsageMocks.trackAnthropicRequestMock.mockReset().mockImplementation(
+      async (_context: unknown, request: () => Promise<unknown>) => request(),
+    );
+    providerUsageMocks.guardProviderCallMock.mockReset().mockResolvedValue(Date.now());
+    providerUsageMocks.recordProviderUsageMock.mockReset().mockResolvedValue(undefined);
   });
 
   it("should_return_refused_when_report_has_no_citations", async () => {
@@ -155,5 +173,43 @@ describe("POST /api/research/hamilton — citation gate", () => {
     expect(body.status).toBe("ok");
     expect(body.text).toContain("fees_published");
     expect(body.metrics.citations).toBeGreaterThanOrEqual(5);
+  });
+
+  it("should_return_locked_when_gated_provider_circuit_is_open", async () => {
+    const { ProviderCircuitOpenError } = await import("@/lib/ai-provider-usage");
+    providerUsageMocks.trackAnthropicRequestMock.mockRejectedValueOnce(
+      new ProviderCircuitOpenError(
+        "Provider circuit is open: latest Anthropic credit-balance failure was 2026-08-13T02:00:00.000Z on hamilton.chat.",
+      ),
+    );
+
+    const { POST } = await import("./route");
+    const res = await POST(makeRequest({
+      messages: [{ role: "user", parts: [{ type: "text", text: "overdraft report" }] }],
+      gate_citations: true,
+    }));
+
+    expect(res.status).toBe(423);
+    const body = await res.json();
+    expect(body.error).toContain("Provider circuit is open");
+    expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it("should_return_locked_when_streaming_provider_circuit_is_open", async () => {
+    const { ProviderCircuitOpenError } = await import("@/lib/ai-provider-usage");
+    providerUsageMocks.guardProviderCallMock.mockRejectedValueOnce(
+      new ProviderCircuitOpenError(
+        "Provider circuit is open: latest Anthropic credit-balance failure was 2026-08-13T02:00:00.000Z on hamilton.chat.",
+      ),
+    );
+
+    const { POST } = await import("./route");
+    const res = await POST(makeRequest({
+      messages: [{ role: "user", parts: [{ type: "text", text: "overdraft report" }] }],
+    }));
+
+    expect(res.status).toBe(423);
+    const body = await res.json();
+    expect(body.error).toContain("Provider circuit is open");
   });
 });

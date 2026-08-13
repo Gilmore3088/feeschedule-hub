@@ -1,6 +1,7 @@
 import { streamText, generateText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import {
   guardProviderCall,
+  ProviderCircuitOpenError,
   recordProviderUsage,
   trackAnthropicRequest,
 } from "@/lib/ai-provider-usage";
@@ -339,7 +340,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (message.includes("Emergency stop")) {
+    if (err instanceof ProviderCircuitOpenError || message.includes("Emergency stop")) {
       return Response.json({ error: message }, { status: 423 });
     }
 

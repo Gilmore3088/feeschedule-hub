@@ -24,6 +24,13 @@ export interface ProviderCallContext {
   metadata?: Record<string, unknown>;
 }
 
+export class ProviderCircuitOpenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProviderCircuitOpenError";
+  }
+}
+
 interface AnthropicUsageShape {
   input_tokens?: number | null;
   output_tokens?: number | null;
@@ -91,6 +98,35 @@ async function maybeEngageProviderCreditStop(
   await engageProviderCreditStop(context);
 }
 
+async function assertProviderCircuitHealthy(context: ProviderCallContext): Promise<void> {
+  if (context.provider !== "anthropic") return;
+
+  const [failure] = await sql`
+    SELECT provider, model, agent_name, operation, created_at
+      FROM ai_api_usage_events
+     WHERE provider = ${context.provider}
+       AND status = 'failed'
+       AND (
+         error_summary ILIKE '%credit balance is too low%'
+         OR error_summary ILIKE '%insufficient credits%'
+         OR error_summary ILIKE '%purchase credits%'
+         OR error_summary ILIKE '%plans & billing%'
+       )
+       AND created_at >= NOW() - INTERVAL '24 hours'
+     ORDER BY created_at DESC
+     LIMIT 1
+  `;
+  if (!failure) return;
+
+  const seenAt = new Date(failure.created_at as string | Date).toISOString();
+  const failedAgent = String(failure.agent_name ?? "unknown");
+  const failedOperation = String(failure.operation ?? "unknown");
+  await engageProviderCreditStop(context);
+  throw new ProviderCircuitOpenError(
+    `Provider circuit is open: latest Anthropic credit-balance failure was ${seenAt} on ${failedAgent}.${failedOperation}. Fix provider billing or move this route off Anthropic before retrying.`,
+  );
+}
+
 export function estimateAnthropicCostMicrousd(
   model: string,
   usage: ProviderUsage,
@@ -148,9 +184,10 @@ export async function guardProviderCall(
   const startedAt = Date.now();
   try {
     await assertAutomationEnabled(`${context.agent} ${context.operation}`);
+    await assertProviderCircuitHealthy(context);
     return startedAt;
   } catch (error) {
-    if (error instanceof EmergencyStopActiveError) {
+    if (error instanceof EmergencyStopActiveError || error instanceof ProviderCircuitOpenError) {
       await recordProviderUsage(context, "blocked", {}, { error: error.message });
     }
     throw error;
@@ -162,15 +199,7 @@ export async function trackAnthropicRequest<T>(
   request: () => PromiseLike<T>,
 ): Promise<T> {
   const fullContext: ProviderCallContext = { ...context, provider: "anthropic" };
-  const startedAt = Date.now();
-  try {
-    await assertAutomationEnabled(`${context.agent} ${context.operation}`);
-  } catch (error) {
-    if (error instanceof EmergencyStopActiveError) {
-      await recordProviderUsage(fullContext, "blocked", {}, { error: error.message });
-    }
-    throw error;
-  }
+  const startedAt = await guardProviderCall(fullContext);
 
   try {
     const response = await request();

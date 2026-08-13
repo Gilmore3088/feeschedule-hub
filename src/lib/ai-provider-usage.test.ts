@@ -15,9 +15,15 @@ vi.mock("./automation-control", () => ({
 
 import {
   estimateAnthropicCostMicrousd,
+  guardProviderCall,
+  ProviderCircuitOpenError,
   recordProviderUsage,
   trackAnthropicRequest,
 } from "./ai-provider-usage";
+
+function templateText(strings: unknown): string {
+  return Array.isArray(strings) ? strings.join(" ") : String(strings);
+}
 
 describe("AI provider usage", () => {
   beforeEach(() => {
@@ -45,8 +51,11 @@ describe("AI provider usage", () => {
     )).resolves.toBe(response);
 
     expect(controlMock).toHaveBeenCalledOnce();
-    expect(sqlMock).toHaveBeenCalledOnce();
-    expect(sqlMock.mock.calls[0].slice(1)).toEqual(expect.arrayContaining([120, 30]));
+    expect(sqlMock).toHaveBeenCalledTimes(2);
+    const insertCall = sqlMock.mock.calls.find((call) =>
+      templateText(call[0]).includes("INSERT INTO ai_api_usage_events"),
+    );
+    expect(insertCall?.slice(1)).toEqual(expect.arrayContaining([120, 30]));
   });
 
   it("engages the emergency stop after Anthropic credit exhaustion", async () => {
@@ -61,7 +70,7 @@ describe("AI provider usage", () => {
       },
     )).rejects.toBe(error);
 
-    expect(sqlMock).toHaveBeenCalledOnce();
+    expect(sqlMock).toHaveBeenCalledTimes(2);
     expect(stopMock).toHaveBeenCalledWith(
       "provider-guard",
       expect.stringContaining("credit balance is too low"),
@@ -84,5 +93,73 @@ describe("AI provider usage", () => {
       "provider-guard",
       expect.stringContaining("credit balance is too low"),
     );
+  });
+
+  it("blocks Anthropic calls when a recent credit failure is already in the ledger", async () => {
+    sqlMock.mockImplementation((strings: unknown) => {
+      const query = templateText(strings);
+      if (query.includes("FROM ai_api_usage_events")) {
+        return Promise.resolve([
+          {
+            provider: "anthropic",
+            model: "claude-sonnet-4-5-20250929",
+            agent_name: "hamilton",
+            operation: "chat",
+            created_at: "2026-08-13T02:00:00.000Z",
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const request = vi.fn();
+
+    await expect(trackAnthropicRequest(
+      { model: "claude-haiku-4-5", agent: "darwin", operation: "classify" },
+      request,
+    )).rejects.toBeInstanceOf(ProviderCircuitOpenError);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(stopMock).toHaveBeenCalledWith(
+      "provider-guard",
+      expect.stringContaining("credit balance is too low"),
+    );
+    const insertCall = sqlMock.mock.calls.find((call) =>
+      templateText(call[0]).includes("INSERT INTO ai_api_usage_events"),
+    );
+    expect(insertCall).toBeTruthy();
+    expect(JSON.stringify(insertCall)).toContain("blocked");
+    expect(JSON.stringify(insertCall)).toContain("Provider circuit is open");
+  });
+
+  it("uses the same provider circuit guard for streaming routes", async () => {
+    sqlMock.mockImplementation((strings: unknown) => {
+      const query = templateText(strings);
+      if (query.includes("FROM ai_api_usage_events")) {
+        return Promise.resolve([
+          {
+            provider: "anthropic",
+            model: "claude-sonnet-4-5-20250929",
+            agent_name: "hamilton",
+            operation: "research_stream",
+            created_at: "2026-08-13T02:00:00.000Z",
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await expect(guardProviderCall({
+      provider: "anthropic",
+      model: "claude-sonnet-4-5-20250929",
+      agent: "hamilton",
+      operation: "chat",
+    })).rejects.toBeInstanceOf(ProviderCircuitOpenError);
+
+    const insertCall = sqlMock.mock.calls.find((call) =>
+      templateText(call[0]).includes("INSERT INTO ai_api_usage_events"),
+    );
+    expect(insertCall).toBeTruthy();
+    expect(JSON.stringify(insertCall)).toContain("blocked");
   });
 });

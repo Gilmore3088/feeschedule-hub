@@ -20,7 +20,7 @@ Make the public/admin product run through one understandable agentic system:
 - `src/lib/agents/run-store.ts` is the current execution envelope and event ledger.
 - `src/lib/automation-control.ts` is the global safety stop.
 - `src/lib/ai-provider.ts` is the only active provider SDK/model construction boundary.
-- `src/lib/ai-provider-usage.ts` records provider usage/failures and trips the same safety stop for streaming Anthropic credit failures.
+- `src/lib/ai-provider-usage.ts` records provider usage/failures, trips the same safety stop for Anthropic credit failures, and blocks new Anthropic calls when a recent credit-balance failure is already in the ledger.
 - Current fee flow modules:
   - `src/lib/agents/magellan/discovery.ts`
   - `src/lib/agents/magellan/fetch.ts`
@@ -55,6 +55,7 @@ Make the public/admin product run through one understandable agentic system:
 - Shipped visible Atlas and Magellan run receipts so button clicks immediately show the run id, owner, scope, plan, and live-status tracking path.
 - Archived historical baseline/gap docs out of active docs and replaced stale outstanding tasks with the current agentic backlog.
 - Added `active-doc-kill` and `migration-history-kill` so current docs/plans and post-decommission migrations cannot drift back toward retired runtime concepts.
+- Added provider circuit checks so recent Anthropic credit-balance failures fail closed before the next provider call and record visible `blocked` `ai_api_usage_events` rows.
 
 ## Retirement Plan
 
@@ -76,6 +77,8 @@ Status: implemented for current runtime source and config.
 
 Target: no direct provider SDK construction outside a single provider module.
 
+Status: implemented for active Anthropic provider paths.
+
 - `src/lib/ai-provider.ts` is the only place that constructs Anthropic SDK clients or AI SDK language models.
 - Direct Anthropic calls were moved from:
   - `src/lib/hamilton/generate.ts`
@@ -85,7 +88,7 @@ Target: no direct provider SDK construction outside a single provider module.
   - `src/app/api/hamilton/chat/route.ts`
   - `src/app/api/hamilton/simulate/route.ts`
   - `src/app/api/research/hamilton/route.ts`
-- Enforce provider health before any call:
+- Provider health is enforced before active Anthropic calls:
   - automation stop active means no provider request.
   - recent credit-balance failure means no retry loop.
   - every blocked call records a visible `ai_api_usage_events` row.
