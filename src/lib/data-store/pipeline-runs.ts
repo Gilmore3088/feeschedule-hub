@@ -65,14 +65,14 @@ export async function getDiscoveryMethodStats(): Promise<DiscoveryMethodStats[]>
     const rows = await sql`
       SELECT
         dc.discovery_method,
-        COUNT(DISTINCT dc.crawl_target_id) as discovered,
-        COUNT(DISTINCT CASE WHEN cr.status = 'success' THEN cr.crawl_target_id END) as crawl_success,
-        COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%Pre-LLM%' THEN cr.crawl_target_id END) as prescreen_fail,
-        COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%403%' OR cr.error_message LIKE '%404%' THEN cr.crawl_target_id END) as http_error
-      FROM discovery_cache dc
-      JOIN institution_sources ct ON dc.crawl_target_id = ct.id
-      LEFT JOIN source_documents cr ON cr.crawl_target_id = ct.id
-      WHERE dc.result = 'found'
+        COUNT(DISTINCT dc.institution_id) as discovered,
+        COUNT(DISTINCT CASE WHEN cr.status = 'success' THEN cr.institution_id END) as crawl_success,
+        COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%Pre-LLM%' THEN cr.institution_id END) as prescreen_fail,
+        COUNT(DISTINCT CASE WHEN cr.error_message LIKE '%403%' OR cr.error_message LIKE '%404%' THEN cr.institution_id END) as http_error
+      FROM agent_url_discovery_attempts dc
+      JOIN institution_sources ct ON dc.institution_id = ct.id
+      LEFT JOIN source_documents cr ON cr.institution_id = ct.id
+      WHERE dc.result IN ('found', 'discovered')
       GROUP BY dc.discovery_method
       ORDER BY discovered DESC
     ` as { discovery_method: string; discovered: number; crawl_success: number; prescreen_fail: number; http_error: number }[];

@@ -139,7 +139,7 @@ export const queryOutliers = tool({
     const categoryFilter = category ? sql`AND ef.fee_category = ${category}` : sql``;
     const [count] = await sql<{ cnt: number | string }[]>`
       SELECT COUNT(*) AS cnt
-        FROM published_fee_observations ef
+        FROM published_fee_catalog ef
        WHERE ef.validation_flags IS NOT NULL
          AND ef.validation_flags != '[]'::jsonb
          AND ef.validation_flags != '{}'::jsonb
@@ -161,7 +161,7 @@ export const queryOutliers = tool({
              ef.fee_category,
              ef.validation_flags,
              ct.state_code
-        FROM published_fee_observations ef
+        FROM published_fee_catalog ef
         JOIN institution_sources ct ON ct.id = ef.crawl_target_id
        WHERE ef.validation_flags IS NOT NULL
          AND ef.validation_flags != '[]'::jsonb
@@ -275,7 +275,7 @@ export const rankInstitutions = tool({
     if (metric === "above_p75" || metric === "below_p25") {
       const benchmarks = await sql`
         SELECT fee_category, amount
-        FROM published_fee_observations
+        FROM published_fee_catalog
         WHERE fee_category IS NOT NULL AND amount > 0
         ORDER BY fee_category, amount
       ` as { fee_category: string; amount: number }[];
@@ -300,7 +300,7 @@ export const rankInstitutions = tool({
       const instFees = await sql`
         SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                ef.fee_category, ef.amount
-        FROM published_fee_observations ef
+        FROM published_fee_catalog ef
         JOIN institution_sources ct ON ef.crawl_target_id = ct.id
         WHERE ef.fee_category IS NOT NULL AND ef.amount > 0
           ${charterClause}
@@ -346,7 +346,7 @@ export const rankInstitutions = tool({
       const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as fee_count
-        FROM published_fee_observations ef
+        FROM published_fee_catalog ef
         JOIN institution_sources ct ON ef.crawl_target_id = ct.id
         WHERE ef.review_status = 'approved' ${charterClause}
         GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier
@@ -361,7 +361,7 @@ export const rankInstitutions = tool({
       const rows = await sql`
         SELECT ct.institution_name, ct.state_code, ct.charter_type, ct.asset_size_tier,
                COUNT(*) as flag_count
-        FROM published_fee_observations ef
+        FROM published_fee_catalog ef
         JOIN institution_sources ct ON ef.crawl_target_id = ct.id
         WHERE ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]'
           AND ef.review_status = 'approved' ${charterClause}
@@ -429,19 +429,19 @@ export const queryDataQuality = tool({
         SELECT
           (SELECT COUNT(*) FROM institution_sources) as total_institutions,
           (SELECT COUNT(*) FROM institution_sources WHERE fee_schedule_url IS NOT NULL) as with_fee_url,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_fees,
-          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) as with_approved,
-          (SELECT COUNT(*) FROM published_fee_observations) as total_fees,
-          (SELECT COUNT(*) FROM published_fee_observations) as approved_fees
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_catalog) as with_fees,
+          (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_catalog) as with_approved,
+          (SELECT COUNT(*) FROM published_fee_catalog) as total_fees,
+          (SELECT COUNT(*) FROM published_fee_catalog) as approved_fees
       `;
       return row;
     }
     if (view === "uncategorized") {
       const [count] = await sql`
-        SELECT COUNT(*) as cnt FROM published_fee_observations WHERE fee_category IS NULL
+        SELECT COUNT(*) as cnt FROM published_fee_catalog WHERE fee_category IS NULL
       ` as { cnt: number }[];
       const top = await sql`
-        SELECT fee_name, COUNT(*) as cnt FROM published_fee_observations
+        SELECT fee_name, COUNT(*) as cnt FROM published_fee_catalog
         WHERE fee_category IS NULL
         GROUP BY fee_name ORDER BY cnt DESC LIMIT 15
       `;
@@ -458,7 +458,7 @@ export const queryDataQuality = tool({
     // Published status shape is kept for callers that still ask for review_status.
     return await sql`
       SELECT review_status, COUNT(*) as cnt
-      FROM published_fee_observations
+      FROM published_fee_catalog
       GROUP BY review_status
       ORDER BY cnt DESC
     `;
@@ -839,7 +839,7 @@ export const queryRegulatoryRisk = tool({
       try {
         const fees = await sql`
           SELECT ef.fee_category, ef.amount, ct.institution_name, ct.state_code
-          FROM published_fee_observations ef
+          FROM published_fee_catalog ef
           JOIN institution_sources ct ON ef.crawl_target_id = ct.id
           WHERE ef.fee_category = ANY(${targetCategories}::text[])
             AND ef.amount > 0

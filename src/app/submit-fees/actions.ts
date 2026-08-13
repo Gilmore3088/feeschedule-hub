@@ -63,23 +63,7 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
   }
 
   try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS community_submissions (
-        id SERIAL PRIMARY KEY,
-        crawl_target_id INTEGER REFERENCES crawl_targets(id),
-        institution_name TEXT NOT NULL,
-        fee_name TEXT NOT NULL,
-        fee_category TEXT,
-        amount REAL,
-        frequency TEXT,
-        source_url TEXT NOT NULL,
-        submitter_ip TEXT,
-        review_status TEXT NOT NULL DEFAULT 'pending',
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `;
-
-    const [target] = await sql`
+    const [target] = await sql<{ id: number }[]>`
       SELECT id FROM institution_sources
       WHERE LOWER(institution_name) = LOWER(${input.institution_name.trim()})
       LIMIT 1
@@ -90,8 +74,8 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
       for (const fee of input.fees) {
         if (!fee.fee_name?.trim()) continue;
         await tx`
-          INSERT INTO community_submissions
-            (crawl_target_id, institution_name, fee_name, fee_category, amount, frequency, source_url, submitter_ip)
+          INSERT INTO community_fee_submissions
+            (institution_id, institution_name, fee_name, fee_category, amount, frequency, source_url, submitter_ip)
           VALUES (${targetId}, ${input.institution_name.trim()}, ${fee.fee_name.trim()},
                   ${fee.fee_category || null}, ${fee.amount}, ${fee.frequency || "per_occurrence"},
                   ${input.source_url.trim()}, ${ip})

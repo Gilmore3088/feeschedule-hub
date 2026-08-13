@@ -172,7 +172,7 @@ async function loadFees(targetIds: number[]): Promise<FeeData[]> {
 
   const rows = await sql<FeeData[]>`
     SELECT crawl_target_id, fee_category, amount
-    FROM published_fee_observations
+    FROM published_fee_catalog
     WHERE crawl_target_id IN ${sql(targetIds)}
       AND review_status != 'rejected'
       AND fee_category IS NOT NULL

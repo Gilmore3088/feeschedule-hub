@@ -347,10 +347,10 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     sql`
       WITH verified AS (
         SELECT DISTINCT institution_id
-          FROM fees_verified
+          FROM verified_fee_observations
          WHERE review_status != 'rejected'
       ), fresh AS (
-        SELECT DISTINCT crawl_target_id
+        SELECT DISTINCT institution_id
           FROM source_documents
          WHERE status = 'success'
            AND crawled_at >= NOW() - INTERVAL '90 days'
@@ -359,10 +359,10 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
         COUNT(*)::int AS eligible,
         COUNT(*) FILTER (WHERE ct.fee_schedule_url IS NOT NULL)::int AS with_url,
         COUNT(*) FILTER (WHERE verified.institution_id IS NOT NULL)::int AS with_verified,
-        COUNT(*) FILTER (WHERE fresh.crawl_target_id IS NOT NULL)::int AS fresh
+        COUNT(*) FILTER (WHERE fresh.institution_id IS NOT NULL)::int AS fresh
       FROM institution_sources ct
       LEFT JOIN verified ON verified.institution_id = ct.id
-      LEFT JOIN fresh ON fresh.crawl_target_id = ct.id
+      LEFT JOIN fresh ON fresh.institution_id = ct.id
       WHERE ct.status = 'active'
         AND COALESCE(ct.document_type, '') NOT IN ('offline', 'no_website')
     `.catch((error) => {

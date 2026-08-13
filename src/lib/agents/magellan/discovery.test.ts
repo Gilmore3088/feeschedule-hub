@@ -26,7 +26,7 @@ function response(body: string, contentType = "text/html", status = 200): Respon
 }
 
 describe("Magellan agentic discovery", () => {
-  it("discovers a homepage fee schedule link and writes crawl target plus discovery cache evidence", async () => {
+  it("discovers a homepage fee schedule link and writes institution plus discovery evidence", async () => {
     const db = createDbMock([
       {
         id: 42,
@@ -69,7 +69,7 @@ describe("Magellan agentic discovery", () => {
 
     const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
     expect(sqlText).toContain("UPDATE institution_sources");
-    expect(sqlText).toContain("INSERT INTO discovery_cache");
+    expect(sqlText).toContain("INSERT INTO agent_url_discovery_attempts");
   });
 
   it("keeps dry runs read-only while still reporting possible discoveries", async () => {
@@ -129,7 +129,7 @@ describe("Magellan agentic discovery", () => {
       attemptedUrls: 4,
     });
     const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(sqlText).toContain("INSERT INTO discovery_cache");
+    expect(sqlText).toContain("INSERT INTO agent_url_discovery_attempts");
     expect(db.mock.calls.some((call) => call.includes("magellan_dead"))).toBe(true);
   });
 

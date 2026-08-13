@@ -15,13 +15,13 @@ import {
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const WELL_CITED_REPORT = `## Overview
-Per fees_published, the national median overdraft fee is $35 across 1,284 institutions.
+Per published fee records, the national median overdraft fee is $35 across 1,284 institutions.
 JPMorgan Chase charges $34 for overdraft, aligning with the national median.
 According to Call Reports, total service charge revenue fell 3.6% year over year.
-The 75th percentile sits at $38 per fees_published, while the 25th percentile holds at $30.
+The 75th percentile sits at $38 per published fee records, while the 25th percentile holds at $30.
 FRED series FEDFUNDS shows a 5.3% federal funds rate as of the latest release.
 Bank of America maintains a $35 overdraft fee, per the pipeline.
-Fifth Third Bank reports a $37 NSF fee via fees_published.
+Fifth Third Bank reports a $37 NSF fee via published fee records.
 Beige Book commentary cites tightening consumer credit in 6 of 12 districts.`;
 
 const THIN_REPORT = `## Overview
@@ -41,12 +41,12 @@ Overdraft pricing continues to shape bank profitability, and Hamilton has been t
 The industry remains in flux.
 
 ## Findings
-Per fees_published, the median overdraft fee is $35 across 1,284 institutions.
-Per fees_published, JPMorgan Chase charges $34 per overdraft.
+Per published fee records, the median overdraft fee is $35 across 1,284 institutions.
+Per published fee records, JPMorgan Chase charges $34 per overdraft.
 According to Call Reports, service charge revenue declined 3.6% year over year.
-Per fees_published, the 75th percentile holds at $38.
-Per fees_published, Bank of America sits at $35 for overdraft.
-Per fees_published, Fifth Third charges $37 for NSF.`;
+Per published fee records, the 75th percentile holds at $38.
+Per published fee records, Bank of America sits at $35 for overdraft.
+Per published fee records, Fifth Third charges $37 for NSF.`;
 
 // ─── splitIntoSentences ───────────────────────────────────────────────────────
 
@@ -120,11 +120,11 @@ describe("isCitation", () => {
   });
 
   it("should_detect_bracketed_source_tag", () => {
-    expect(isCitation("The median is $35 [source: fees_published].")).toBe(true);
+    expect(isCitation("The median is $35 [source: published_fee_records].")).toBe(true);
   });
 
   it("should_detect_phrased_attribution", () => {
-    expect(isCitation("Per fees_published, the median is $35.")).toBe(true);
+    expect(isCitation("Per published fee records, the median is $35.")).toBe(true);
     expect(isCitation("According to Call Reports, revenue fell.")).toBe(true);
   });
 

@@ -23,7 +23,7 @@ export async function getCollectionHealth(): Promise<CollectionHealth> {
 
   const [confidence] = await sql<{ avg_conf: number | null }[]>`
     SELECT AVG(extraction_confidence) as avg_conf
-    FROM published_fee_observations
+    FROM published_fee_catalog
     WHERE created_at > NOW() - INTERVAL '1 day'`;
 
   const [failing] = await sql<{ cnt: number }[]>`
@@ -86,7 +86,7 @@ export async function getDistrictMetrics(filters?: {
             SUM(CASE WHEN ef.validation_flags IS NOT NULL AND ef.validation_flags != '[]' THEN 1 ELSE 0 END) as flagged_count,
             AVG(ef.extraction_confidence) as avg_confidence
      FROM institution_sources ct
-     LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
+     LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
      WHERE ${where}
      GROUP BY ct.fed_district
      ORDER BY ct.fed_district`,

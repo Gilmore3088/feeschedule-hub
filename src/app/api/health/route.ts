@@ -3,7 +3,7 @@ import { sql } from "@/lib/data-store/connection";
 
 export async function GET() {
   try {
-    const [row] = await sql`SELECT COUNT(*) as cnt FROM published_fee_observations`;
+    const [row] = await sql`SELECT COUNT(*) as cnt FROM published_fee_catalog`;
 
     return NextResponse.json({
       status: "ok",

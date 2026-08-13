@@ -16,7 +16,7 @@ async function getSpotlightMedians(): Promise<{ category: string; displayName: s
   try {
     const rows = await sql`
       SELECT fee_category, ROUND(AVG(amount)::numeric, 2) as median
-      FROM published_fee_observations
+      FROM published_fee_catalog
       WHERE fee_category IN ${sql(spotlight)}
         AND review_status != 'rejected'
         AND amount > 0

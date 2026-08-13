@@ -108,7 +108,7 @@ async function loadInstitution(id: number): Promise<InstitutionRow | null> {
 async function loadApprovedFees(targetId: number): Promise<FeeRow[]> {
   return await sql<FeeRow[]>`
     SELECT fee_name, amount, frequency, conditions, fee_category
-    FROM published_fee_observations
+    FROM published_fee_catalog
     WHERE crawl_target_id = ${targetId}
       AND review_status = 'approved'
       AND amount IS NOT NULL
@@ -145,7 +145,7 @@ async function loadPeerFees(
 
   const rows = await sql<PeerFeeRow[]>`
     SELECT fee_category, amount
-    FROM published_fee_observations
+    FROM published_fee_catalog
     WHERE crawl_target_id IN ${sql(peerIds)}
       AND review_status != 'rejected'
       AND fee_category IS NOT NULL

@@ -6,7 +6,7 @@
 #   modal-kill    Fail if runtime TypeScript/JavaScript/Edge code can call Modal endpoints.
 #   legacy-kill   Fail if runtime TypeScript/JavaScript can call retired execution surfaces.
 #   fee-read-model-kill
-#                 Fail if product/runtime fee reads bypass published_fee_observations.
+#                 Fail if product/runtime fee reads bypass published_fee_catalog.
 #   script-kill   Fail if retired one-off data/process scripts are reintroduced.
 #   config-kill   Fail if active CI/deploy/env-example config references retired surfaces.
 #   edge-function-kill
@@ -134,23 +134,23 @@ fee_read_model_kill() {
   local hits=""
 
   if git rev-parse --git-dir >/dev/null 2>&1; then
-    hits=$(git grep --untracked -nE '\bextracted_fees\b' -- \
+    hits=$(git grep --untracked -nE '\b(extracted_fees|published_fee_observations)\b' -- \
       "${include_dirs[@]}" "${exclude_paths[@]}" \
       | grep -v '^Binary file' || true)
   else
-    hits=$(grep -rnE '\bextracted_fees\b' \
+    hits=$(grep -rnE '\b(extracted_fees|published_fee_observations)\b' \
       --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
       --exclude-dir=node_modules \
       "${include_dirs[@]}" 2>/dev/null || true)
   fi
 
   if [[ -n "$hits" ]]; then
-    echo "fee-read-model-kill: runtime extracted_fees references remain:" >&2
+    echo "fee-read-model-kill: runtime fee reads must use published_fee_catalog:" >&2
     echo "$hits" >&2
     exit 1
   fi
 
-  echo "fee-read-model-kill: OK (zero runtime extracted_fees references in src/ or supabase/functions/)"
+  echo "fee-read-model-kill: OK (runtime reads use published_fee_catalog, not retired fee read models)"
   exit 0
 }
 
@@ -465,6 +465,7 @@ source_read_model_kill() {
 
 agent_source_contract_kill() {
   local include_paths=(
+    "src/lib/agents/magellan/discovery.ts"
     "src/lib/agents/magellan/fetch.ts"
     "src/lib/agents/rosetta/read.ts"
     "src/lib/agents/knox/extract.ts"

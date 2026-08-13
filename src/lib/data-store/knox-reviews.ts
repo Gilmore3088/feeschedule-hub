@@ -276,7 +276,7 @@ export async function listKnoxRejections(
       FROM agent_messages am
       LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
       LEFT JOIN users u ON u.id = ko.reviewer_id
-      LEFT JOIN fees_verified fv
+      LEFT JOIN verified_fee_observations fv
              ON fv.fee_verified_id = NULLIF(am.payload->>'fee_verified_id','')::bigint
       LEFT JOIN institution_sources ct ON ct.id = fv.institution_id
       WHERE am.sender_agent = 'knox'
@@ -351,9 +351,9 @@ export async function getKnoxRejectionById(
       FROM agent_messages am
       LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
       LEFT JOIN users u ON u.id = ko.reviewer_id
-      LEFT JOIN fees_verified fv
+      LEFT JOIN verified_fee_observations fv
              ON fv.fee_verified_id = NULLIF(am.payload->>'fee_verified_id','')::bigint
-      LEFT JOIN fees_raw fr ON fr.fee_raw_id = fv.fee_raw_id
+      LEFT JOIN raw_fee_observations fr ON fr.fee_raw_id = fv.fee_raw_id
       LEFT JOIN institution_sources ct ON ct.id = fv.institution_id
       WHERE am.message_id = ${messageId}
         AND am.sender_agent = 'knox'

@@ -151,13 +151,13 @@ describe("POST /api/research/hamilton — citation gate", () => {
     generateTextMock.mockResolvedValue({
       text: [
         "## Findings",
-        "Per fees_published, the national median overdraft is $35 across 1,284 institutions.",
-        "JPMorgan Chase charges $34 for overdraft, per fees_published.",
+        "Per published fee records, the national median overdraft is $35 across 1,284 institutions.",
+        "JPMorgan Chase charges $34 for overdraft, per published fee records.",
         "According to Call Reports, service charge revenue fell 3.6% year over year.",
-        "The 75th percentile sits at $38 per fees_published.",
+        "The 75th percentile sits at $38 per published fee records.",
         "FRED series FEDFUNDS shows a 5.3% federal funds rate.",
         "Beige Book commentary notes tightening consumer credit across 6 districts.",
-        "Fifth Third Bank reports a $37 NSF fee per fees_published.",
+        "Fifth Third Bank reports a $37 NSF fee per published fee records.",
       ].join("\n"),
       usage: { inputTokens: 100, outputTokens: 200 },
     });
@@ -171,7 +171,7 @@ describe("POST /api/research/hamilton — citation gate", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("ok");
-    expect(body.text).toContain("fees_published");
+    expect(body.text).toContain("published fee records");
     expect(body.metrics.citations).toBeGreaterThanOrEqual(5);
   });
 

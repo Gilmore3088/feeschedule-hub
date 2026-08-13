@@ -477,11 +477,11 @@ async function recordDiscoveryResult(
      WHERE id = ${result.institutionId}
   `;
   await db`
-    INSERT INTO discovery_cache
-      (crawl_target_id, discovery_method, attempted_at, result, found_url, error_message)
+    INSERT INTO agent_url_discovery_attempts
+      (institution_id, discovery_method, attempted_at, result, found_url, error_message)
     VALUES
       (${result.institutionId}, ${DISCOVERY_METHOD}, NOW(), ${result.outcome}, ${result.url}, ${result.outcome === "discovered" ? null : result.reason})
-    ON CONFLICT (crawl_target_id, discovery_method)
+    ON CONFLICT (institution_id, discovery_method)
     DO UPDATE SET
       attempted_at = EXCLUDED.attempted_at,
       result = EXCLUDED.result,

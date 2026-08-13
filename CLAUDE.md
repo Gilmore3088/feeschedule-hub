@@ -28,8 +28,8 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   fetched HTML/text and extractable PDF text, while scanned/image-only PDFs are
   marked `needs_ocr`; Knox extracts conservative raw fee observations and
   performs conservative ready-review; Darwin verifies canonical-hinted raw rows;
-  Hamilton publishes eligible verified rows into `fees_published`.
-  Product/report/research fee reads use `published_fee_observations`.
+  Hamilton publishes eligible verified observations into published fee records.
+  Product/report/research fee reads use `published_fee_catalog`.
   Scanned-PDF OCR, provider-assisted extraction, adversarial handling for
   ambiguous rows, report rendering, and durable queue fan-out remain explicit
   follow-up work.
@@ -49,7 +49,7 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   site instead of the App Router pages.
 - Do not read `extracted_fees` for product, report, Scout, public API,
   research, market, peer, state, or analytics data. Those reads must use
-  `published_fee_observations`. `extracted_fees` is only a temporary staged
+  `published_fee_catalog`. `extracted_fees` is only a temporary staged
   review bridge for Knox ready-review, fee review actions, and explicit review
   queue diagnostics.
 - Do not query historical source tables directly from app code. `source-read-model-kill`

@@ -154,7 +154,7 @@ export type MessageThread = {
 
 /**
  * Recent published fee for the Lineage picker (UAT Gap 6b).
- * Sourced from fees_published ORDER BY published_at DESC LIMIT 10.
+ * Sourced from published fee records ordered by published_at DESC.
  */
 export type RecentPublishedFee = {
   fee_published_id: number;

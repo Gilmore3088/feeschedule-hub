@@ -24,7 +24,7 @@ export async function getPublicStats(): Promise<PublicStats> {
         COUNT(DISTINCT ef.fee_category) as total_categories,
         COUNT(DISTINCT ct.state_code) as total_states
       FROM institution_sources ct
-      JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
+      JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
       WHERE ct.state_code IN ${sql(validCodes)}
         AND ef.review_status != 'rejected'`;
     return {
@@ -44,7 +44,7 @@ export async function getStats(): Promise<CollectionStats> {
   const [cus] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources WHERE charter_type='credit_union'`;
   const [withUrl] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources WHERE website_url IS NOT NULL`;
   const [withFee] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources WHERE fee_schedule_url IS NOT NULL`;
-  const [fees] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM published_fee_observations`;
+  const [fees] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM published_fee_catalog`;
   const [runs] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM source_collection_runs`;
 
   return {
@@ -64,7 +64,7 @@ export async function getInstitutionsWithFees(): Promise<InstitutionSummary[]> {
            ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type,
            COUNT(ef.id) as fee_count
     FROM institution_sources ct
-    LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
     WHERE ct.fee_schedule_url IS NOT NULL
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
              ct.asset_size, ct.website_url, ct.fee_schedule_url, ct.document_type
@@ -77,7 +77,7 @@ export async function getFeesByInstitution(targetId: number): Promise<ExtractedF
     SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
-    FROM published_fee_observations ef
+    FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     WHERE ef.crawl_target_id = ${targetId}
     ORDER BY ef.fee_name
@@ -113,7 +113,7 @@ export async function getAllFees(
 
   const countResult = await sql.unsafe<{ cnt: number }[]>(
     `SELECT COUNT(*) as cnt
-     FROM published_fee_observations ef
+     FROM published_fee_catalog ef
      JOIN institution_sources ct ON ef.crawl_target_id = ct.id
      ${where}`,
     params,
@@ -125,7 +125,7 @@ export async function getAllFees(
     `SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
            ct.institution_name, ef.crawl_target_id
-    FROM published_fee_observations ef
+    FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.crawl_target_id = ct.id
     ${where}
     ORDER BY ct.institution_name, ef.fee_name
@@ -179,7 +179,7 @@ export async function getInstitutionsByFilter(filters: {
     SELECT COUNT(*) as cnt FROM (
       SELECT ct.id
       FROM institution_sources ct
-      LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
+      LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
         AND ef.review_status != 'rejected'
       ${where}
       GROUP BY ct.id
@@ -195,7 +195,7 @@ export async function getInstitutionsByFilter(filters: {
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM institution_sources ct
-    LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
       AND ef.review_status != 'rejected'
     ${where}
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
@@ -216,7 +216,7 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
            ct.website_url, ct.fee_schedule_url,
            COUNT(ef.id) as fee_count
     FROM institution_sources ct
-    LEFT JOIN published_fee_observations ef ON ct.id = ef.crawl_target_id
+    LEFT JOIN published_fee_catalog ef ON ct.id = ef.crawl_target_id
     WHERE ct.id = ${id}
     GROUP BY ct.id, ct.institution_name, ct.state_code, ct.charter_type,
              ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
@@ -267,7 +267,7 @@ export async function getDistrictCounts(): Promise<{ district: number; count: nu
 
 export async function getDistinctFeeTypes(): Promise<string[]> {
   const rows = await sql<{ fee_name: string }[]>`
-    SELECT DISTINCT fee_name FROM published_fee_observations ORDER BY fee_name
+    SELECT DISTINCT fee_name FROM published_fee_catalog ORDER BY fee_name
   `;
   return rows.map((r) => r.fee_name);
 }
@@ -282,7 +282,7 @@ export interface CategoryMedian {
 export async function getCategoryMedians(): Promise<Record<string, CategoryMedian>> {
   const rows = await sql<{ fee_category: string; amount: number }[]>`
     SELECT fee_category, amount
-    FROM published_fee_observations
+    FROM published_fee_catalog
     WHERE fee_category IS NOT NULL
       AND amount IS NOT NULL
       AND amount > 0
@@ -331,11 +331,11 @@ export async function getDataFreshness(): Promise<DataFreshness> {
   `;
 
   const [fee] = await sql<{ last_at: string | Date | null }[]>`
-    SELECT MAX(created_at) as last_at FROM published_fee_observations
+    SELECT MAX(created_at) as last_at FROM published_fee_catalog
   `;
 
   const [count] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*) as cnt FROM published_fee_observations WHERE review_status != 'rejected'
+    SELECT COUNT(*) as cnt FROM published_fee_catalog WHERE review_status != 'rejected'
   `;
 
   // Normalize Date objects (Postgres) to ISO strings

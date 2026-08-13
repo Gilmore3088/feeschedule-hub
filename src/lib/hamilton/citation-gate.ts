@@ -2,7 +2,7 @@
  * Hamilton Citation Density Gate
  *
  * Refuses to render reports that make too many quantified claims without citing
- * their source. Pipeline-verified fees (fees_published) are the backbone of
+ * their source. Published fee records are the backbone of
  * Hamilton's authority — an uncited report violates the "All data in reports
  * must trace to pipeline-verified fees" constraint in CLAUDE.md.
  *
@@ -76,24 +76,24 @@ const RANKING_RE =
  * A citation is an explicit hook back to the pipeline or an authoritative
  * source. We detect, in priority order:
  *   - Markdown footnotes: [^1], [^id]
- *   - Bracketed source tags: [fees_published:abc123], [source: call_reports]
- *   - Inline source references: "per fees_published", "via Call Report",
+ *   - Bracketed source tags: [published_fee_records:abc123], [source: call_reports]
+ *   - Inline source references: "per published fee records", "via Call Report",
  *     "from Beige Book", "FRED series X"
  *   - Named institution anchors: specific bank/CU names followed by a figure
  *     (e.g. "JPMorgan charges $35") — weak signal, requires a numeric
  *     nearby
- *   - Data-source mentions: "pipeline", "fees_published", "Call Report",
+ *   - Data-source mentions: "pipeline", "published fee records", "Call Report",
  *     "Beige Book", "FRED", "CFPB complaints"
  *
  * A sentence is "cited" if any of the above signals are present.
  */
 const FOOTNOTE_RE = /\[\^[^\]]+\]/;
 const BRACKETED_SOURCE_RE =
-  /\[(?:source|src|fees_published|call_report|beige_book|fred|cfpb)[:\s][^\]]+\]/i;
+  /\[(?:source|src|published_fee_records|call_report|beige_book|fred|cfpb)[:\s][^\]]+\]/i;
 const SOURCE_PHRASE_RE =
-  /\b(?:per|via|from|according to|source:|cited in|reported by)\s+(?:the\s+)?(?:fees_published|call report|beige book|fred|cfpb|pipeline|bank fee index|bfi)/i;
+  /\b(?:per|via|from|according to|source:|cited in|reported by)\s+(?:the\s+)?(?:published fee records|published_fee_records|call report|beige book|fred|cfpb|pipeline|bank fee index|bfi)/i;
 const DATA_SOURCE_MENTION_RE =
-  /\b(fees_published|call reports?|beige book|fred(?:\s+series)?|cfpb\s+complaints?|h\.8\s+release|ncua\s+5300|ffiec\s+\d{3})\b/i;
+  /\b(published fee records|published_fee_records|call reports?|beige book|fred(?:\s+series)?|cfpb\s+complaints?|h\.8\s+release|ncua\s+5300|ffiec\s+\d{3})\b/i;
 const INSTITUTION_ANCHOR_RE =
   /\b(?:[A-Z][a-zA-Z&.'-]+(?:\s+[A-Z][a-zA-Z&.'-]+){0,4})\s+(?:Bank|Credit Union|Federal Credit Union|FCU|N\.A\.|Savings|Financial|Trust|Corp|Inc)\b/;
 /**
