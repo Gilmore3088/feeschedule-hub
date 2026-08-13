@@ -532,7 +532,7 @@ describe("agentic run store", () => {
       }),
     );
     expect(txMock.unsafe).not.toHaveBeenCalledWith(
-      expect.stringContaining("FROM fees_raw"),
+      expect.stringContaining("FROM raw_fee_observations"),
     );
   });
 
@@ -577,7 +577,7 @@ describe("agentic run store", () => {
       }),
     );
     expect(txMock.unsafe).not.toHaveBeenCalledWith(
-      expect.stringContaining("FROM fees_verified"),
+      expect.stringContaining("FROM verified_fee_observations"),
     );
   });
 
@@ -631,7 +631,7 @@ describe("agentic run store", () => {
       }),
     );
     expect(txMock.unsafe).not.toHaveBeenCalledWith(
-      expect.stringContaining("FROM fees_published"),
+      expect.stringContaining("FROM published_fee_records"),
     );
   });
 

@@ -11,13 +11,13 @@ function templateText(strings: unknown): string {
 function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
   const db = vi.fn((strings: TemplateStringsArray) => {
     const text = templateText(strings);
-    if (text.includes("INSERT INTO fees_published")) {
+    if (text.includes("INSERT INTO published_fee_records")) {
       return Promise.resolve([{ fee_published_id: db.mock.calls.length + 1200 }]);
     }
     return Promise.resolve([]);
   }) as DbMock;
   db.unsafe = vi.fn((query: string) => {
-    if (query.includes("FROM fees_verified")) return Promise.resolve(rows);
+    if (query.includes("FROM verified_fee_observations")) return Promise.resolve(rows);
     return Promise.resolve([]);
   });
   return db;
@@ -45,7 +45,7 @@ const verifiedFee = {
 };
 
 describe("Hamilton agentic publish", () => {
-  it("publishes eligible Darwin-verified rows to fees_published", async () => {
+  it("publishes eligible Darwin-verified rows to published_fee_records", async () => {
     const db = createDbMock([verifiedFee]);
 
     const result = await runHamiltonPublish({
@@ -73,13 +73,13 @@ describe("Hamilton agentic publish", () => {
     });
 
     const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
-    expect(unsafeSql).toContain("FROM fees_verified");
-    expect(unsafeSql).toContain("JOIN fees_raw");
+    expect(unsafeSql).toContain("FROM verified_fee_observations");
+    expect(unsafeSql).toContain("JOIN raw_fee_observations");
     expect(unsafeSql).toContain("NOT EXISTS");
-    expect(unsafeSql).toContain("fees_published");
+    expect(unsafeSql).toContain("published_fee_records");
 
     const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(insertSql).toContain("INSERT INTO fees_published");
+    expect(insertSql).toContain("INSERT INTO published_fee_records");
     expect(insertSql).toContain("batch_id");
     expect(insertSql).toContain("ON CONFLICT DO NOTHING");
     expect(insertSql).not.toContain("promote_to_tier3");

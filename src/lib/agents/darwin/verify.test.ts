@@ -11,13 +11,13 @@ function templateText(strings: unknown): string {
 function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
   const db = vi.fn((strings: TemplateStringsArray) => {
     const text = templateText(strings);
-    if (text.includes("INSERT INTO fees_verified")) {
+    if (text.includes("INSERT INTO verified_fee_observations")) {
       return Promise.resolve([{ fee_verified_id: db.mock.calls.length + 1200 }]);
     }
     return Promise.resolve([]);
   }) as DbMock;
   db.unsafe = vi.fn((query: string) => {
-    if (query.includes("FROM fees_raw")) return Promise.resolve(rows);
+    if (query.includes("FROM raw_fee_observations")) return Promise.resolve(rows);
     return Promise.resolve([]);
   });
   return db;
@@ -41,7 +41,7 @@ const rawFee = {
 };
 
 describe("Darwin agentic verification", () => {
-  it("verifies Knox raw rows with canonical hints into fees_verified", async () => {
+  it("verifies Knox raw rows with canonical hints into verified_fee_observations", async () => {
     const db = createDbMock([rawFee]);
 
     const result = await runDarwinVerify({
@@ -67,11 +67,11 @@ describe("Darwin agentic verification", () => {
     });
 
     const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
-    expect(unsafeSql).toContain("FROM fees_raw");
+    expect(unsafeSql).toContain("FROM raw_fee_observations");
     expect(unsafeSql).toContain("fr.outlier_flags ? 'needs_darwin_verification'");
 
     const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(insertSql).toContain("INSERT INTO fees_verified");
+    expect(insertSql).toContain("INSERT INTO verified_fee_observations");
     expect(insertSql).toContain("ON CONFLICT DO NOTHING");
     expect(insertSql).not.toContain("promote_to_tier2");
     expect(insertSql).not.toContain("agent_events");

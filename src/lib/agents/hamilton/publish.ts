@@ -167,14 +167,14 @@ async function selectVerifiedFees(
              fv.amount,
              fv.frequency,
              fr.agent_event_id AS raw_agent_event_id
-        FROM fees_verified fv
-        JOIN fees_raw fr ON fr.fee_raw_id = fv.fee_raw_id
+        FROM verified_fee_observations fv
+        JOIN raw_fee_observations fr ON fr.fee_raw_id = fv.fee_raw_id
        WHERE fv.review_status IN ('verified', 'approved')
          AND fv.outlier_flags ? 'agentic_darwin_verified'
          ${targetFilter}
          AND NOT EXISTS (
            SELECT 1
-             FROM fees_published fp
+             FROM published_fee_records fp
             WHERE fp.lineage_ref = fv.fee_verified_id
               AND fp.rolled_back_at IS NULL
          )
@@ -201,7 +201,7 @@ async function insertPublishedFee(
     `hamilton:${options.runId}:${feeVerifiedId}:${options.row.canonical_fee_key}`,
   );
   const inserted = await db`
-    INSERT INTO fees_published (
+    INSERT INTO published_fee_records (
       lineage_ref,
       institution_id,
       canonical_fee_key,

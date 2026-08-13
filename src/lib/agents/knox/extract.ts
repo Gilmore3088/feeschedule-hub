@@ -278,9 +278,9 @@ async function selectTextArtifacts(
          ${targetFilter}
          AND NOT EXISTS (
            SELECT 1
-             FROM fees_raw fr
+             FROM raw_fee_observations fr
             WHERE fr.source = 'knox'
-              AND fr.crawl_event_id = adt.source_document_id
+              AND fr.source_document_id = adt.source_document_id
          )
        ORDER BY adt.updated_at DESC, adt.id DESC
        LIMIT $1
@@ -309,9 +309,9 @@ async function insertCandidate(
     `canonical_hint=${options.candidate.canonicalHint}; text_hash=${options.row.text_hash ?? "unknown"}; ` +
     `excerpt="${options.candidate.excerpt.slice(0, 180)}"`;
   const inserted = await db`
-    INSERT INTO fees_raw (
+    INSERT INTO raw_fee_observations (
       institution_id,
-      crawl_event_id,
+      source_document_id,
       document_r2_key,
       source_url,
       extraction_confidence,

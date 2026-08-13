@@ -39,6 +39,7 @@ Make Fee Insight run through one visible agentic system:
 | Agent source paths | Magellan discovery/fetch, Rosetta read, and Atlas/run-store inventory now use semantic source views instead of historical source tables. |
 | App source paths | Reporting, admin queries, data-store modules, Scout, institution commands, submit-fees lookups, alerts, and report APIs now use semantic source views; `source-read-model-kill` scans all of `src/`. |
 | Agent document path | Magellan fetch, Rosetta read, Knox extract, and Atlas run receipts now use semantic `institution_id` / `source_document_id`; `agent-source-contract-kill` guards the path. |
+| Agent fee tiers | Knox, Darwin, Hamilton, and Atlas run receipts now use semantic fee-tier views; `fee-tier-contract-kill` guards the path. |
 | FMD audit | Rechecked the workspace; no `.fmd` or `*fmd*` files are present to audit. |
 
 ## Verification Gates

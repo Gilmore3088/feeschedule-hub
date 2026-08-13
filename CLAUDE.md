@@ -21,6 +21,9 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
   source/institution/document/text access. The historical physical table names
   are schema-storage details until the dedicated physical rename/baseline
   cleanup.
+- Knox, Darwin, and Hamilton use `raw_fee_observations`,
+  `verified_fee_observations`, and `published_fee_records` as their fee-tier
+  write/read boundaries. Physical tier table names are storage details.
 - Atlas creates visible runs; Magellan discovers/fetches; Rosetta reads
   fetched HTML/text and extractable PDF text, while scanned/image-only PDFs are
   marked `needs_ocr`; Knox extracts conservative raw fee observations and
@@ -54,6 +57,9 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 - Document agents must use `institution_id`, `source_document_id`, and
   `agent_source_texts`. `agent-source-contract-kill` blocks crawler-era source
   column names in Magellan fetch, Rosetta read, Knox extract, and Atlas run-store.
+- Fee-tier agents must use semantic tier views. `fee-tier-contract-kill` blocks
+  direct `fees_raw`, `fees_verified`, `fees_published`, and `crawl_event_id`
+  usage in Knox extract, Darwin verify, Hamilton publish, and Atlas run-store.
 
 ## Current Source Of Truth
 

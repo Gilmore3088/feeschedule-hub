@@ -130,13 +130,13 @@ async function selectRawFees(
              fr.frequency,
              fr.outlier_flags,
              fr.conditions
-        FROM fees_raw fr
+        FROM raw_fee_observations fr
        WHERE fr.source = 'knox'
          AND fr.outlier_flags ? 'needs_darwin_verification'
          ${targetFilter}
          AND NOT EXISTS (
            SELECT 1
-             FROM fees_verified fv
+             FROM verified_fee_observations fv
             WHERE fv.fee_raw_id = fr.fee_raw_id
          )
        ORDER BY fr.created_at ASC, fr.fee_raw_id ASC
@@ -160,7 +160,7 @@ async function insertVerifiedFee(
   const eventId = stableUuid(`darwin:${options.runId}:${feeRawId}:${options.canonicalFeeKey}`);
   const flags = ["agentic_darwin_verified"];
   const inserted = await db`
-    INSERT INTO fees_verified (
+    INSERT INTO verified_fee_observations (
       fee_raw_id,
       institution_id,
       source_url,

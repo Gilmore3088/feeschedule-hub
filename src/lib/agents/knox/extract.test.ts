@@ -11,7 +11,7 @@ function templateText(strings: unknown): string {
 function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
   const db = vi.fn((strings: TemplateStringsArray) => {
     const text = templateText(strings);
-    if (text.includes("INSERT INTO fees_raw")) {
+    if (text.includes("INSERT INTO raw_fee_observations")) {
       return Promise.resolve([{ fee_raw_id: db.mock.calls.length + 900 }]);
     }
     return Promise.resolve([]);
@@ -77,7 +77,7 @@ describe("Knox agentic extraction", () => {
     expect(unsafeSql).toContain("fr.source = 'knox'");
 
     const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
-    expect(insertSql).toContain("INSERT INTO fees_raw");
+    expect(insertSql).toContain("INSERT INTO raw_fee_observations");
     expect(insertSql).toContain("ON CONFLICT DO NOTHING");
     expect(JSON.stringify(db.mock.calls)).toContain("needs_darwin_verification");
     expect(JSON.stringify(db.mock.calls)).not.toContain("No fee for e-statements");
