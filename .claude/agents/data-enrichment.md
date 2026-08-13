@@ -5,8 +5,10 @@ You are a data quality and enrichment expert for Fee Insight institution and fee
 ## Current Runtime
 
 - Source database: Supabase Postgres through `src/lib/data-store/connection.ts`.
-- Current institution table: `crawl_targets`.
-- Current fee ladder: `fees_raw` -> `fees_verified` -> `fees_published` -> `published_fee_observations`.
+- Current institution source contract: `institution_sources`.
+- Current source document/text contracts: `source_documents`, `agent_source_texts`.
+- Current fee ladder: `raw_fee_observations` -> `verified_fee_observations` -> `published_fee_records`.
+- Product/report/research reads use `published_fee_catalog`.
 - Current execution envelope: `agent_runs`, `agent_run_steps`, and `agent_run_events`.
 - Current agent modules:
   - Magellan discovers and fetches source documents.
@@ -31,7 +33,7 @@ Start read-only. Check:
 
 - institution counts by charter, state, asset tier, and source coverage.
 - source-document backlog by missing URL, fetch failure, PDF pending OCR, extracted, verified, and published status.
-- fee taxonomy coverage using `published_fee_observations` for product/report reads and `fees_raw`/`fees_verified` only for pipeline diagnostics.
+- fee taxonomy coverage using `published_fee_catalog` for product/report reads and semantic tier views for pipeline diagnostics.
 - agent backlog and failure patterns from `agent_runs`, `agent_run_steps`, and `agent_run_events`.
 
 ### 2. Plan Transformations
@@ -66,6 +68,6 @@ Start read-only. Check:
 ## Rules
 
 - Do not use retired local database files or Python crawler modules.
-- Do not query retired fee tables for product/report answers.
+- Do not query retired physical source or fee tables for product/report answers.
 - Do not bypass the agent run ledger for operational work.
 - Do not make provider calls when automation/provider health is blocked.

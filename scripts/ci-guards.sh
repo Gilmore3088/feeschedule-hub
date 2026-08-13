@@ -323,7 +323,7 @@ prompt_kill() {
     ".claude/commands"
     ".claude/skills"
   )
-  local pattern='fee_crawler|python3? -m fee_crawler|\bextracted_fees\b|crawler-db|data/crawler\.db|SQLite database|\bops_jobs\b|\bops_job_id\b|\bmodal_call_id\b|modalCallId|modal\.run'
+  local pattern='fee_crawler|python3? -m fee_crawler|\bextracted_fees\b|crawler-db|data/crawler\.db|SQLite database|\bops_jobs\b|\bops_job_id\b|\bmodal_call_id\b|modalCallId|modal\.run|\bcrawl_targets\b|\bcrawl_results\b|\bcrawl_runs\b|\bcrawl_target_id\b|\bcrawl_result_id\b|\bagent_document_texts\b|\bfees_raw\b|\bfees_verified\b|\bfees_published\b|\bpublished_fee_observations\b'
   local hits=""
 
   if git rev-parse --git-dir >/dev/null 2>&1; then
@@ -554,7 +554,7 @@ catalog_contract_kill() {
 
 legacy_data_contract_kill() {
   local hits=""
-  local pattern='\bcrawl_target_id\b|\bcrawlTargetId\b|\b(institution_financials|institution_complaints|branch_deposits|fee_change_events|fee_snapshots|analysis_results|fee_alert_subscriptions|agent_run_results|gold_standard_fees)\b'
+  local pattern='\bcrawl_(target|result|run|event)_id\b|\bcrawl(Target|Result|Run|Event)Id\b|\b(institution_financials|institution_complaints|branch_deposits|fee_change_events|fee_snapshots|analysis_results|fee_alert_subscriptions|agent_run_results|gold_standard_fees)\b'
 
   if git rev-parse --git-dir >/dev/null 2>&1; then
     hits=$(git grep --untracked -nE "$pattern" -- \

@@ -49,7 +49,7 @@ export interface InstitutionFee {
 
 export interface InstitutionCrawl {
   id: number;
-  crawl_run_id: number | null;
+  source_collection_run_id: number | null;
   status: string;
   document_url: string | null;
   fees_extracted: number;
@@ -160,7 +160,7 @@ export async function getInstitutionCrawlHistory(
   try {
     const rows = await sql`
       SELECT
-        id, crawl_run_id, status, document_url,
+        id, source_collection_run_id, status, document_url,
         COALESCE(fees_extracted, 0) as fees_extracted,
         error_message, crawled_at
       FROM source_documents
@@ -170,7 +170,9 @@ export async function getInstitutionCrawlHistory(
     `;
     return rows.map((r) => ({
       id: Number(r.id),
-      crawl_run_id: r.crawl_run_id != null ? Number(r.crawl_run_id) : null,
+      source_collection_run_id: r.source_collection_run_id != null
+        ? Number(r.source_collection_run_id)
+        : null,
       status: String(r.status),
       document_url: r.document_url ? String(r.document_url) : null,
       fees_extracted: Number(r.fees_extracted),

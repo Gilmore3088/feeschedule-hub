@@ -4,8 +4,8 @@ You are auditing Fee Insight fee categorization and publication quality. Your jo
 
 ## Current Model
 
-- Product/report reads use `published_fee_observations`.
-- Pipeline diagnostics may inspect `fees_raw`, `fees_verified`, `fees_published`, `agent_runs`, `agent_run_steps`, and `agent_run_events`.
+- Product/report reads use `published_fee_catalog`.
+- Pipeline diagnostics use `raw_fee_observations`, `verified_fee_observations`, `published_fee_records`, `agent_runs`, `agent_run_steps`, and `agent_run_events`.
 - Taxonomy logic lives in TypeScript under `src/lib/fee-taxonomy.ts` and agent modules under `src/lib/agents/*`.
 - Repair work should be implemented in TypeScript modules or review decisions, then surfaced through visible agent runs.
 
@@ -16,8 +16,8 @@ You are auditing Fee Insight fee categorization and publication quality. Your jo
 For major categories, find likely bad published amounts.
 
 ```sql
-SELECT canonical_fee_key, fee_name, amount, crawl_target_id, source_url
-FROM published_fee_observations
+SELECT canonical_fee_key, fee_name, amount, institution_id, source_url
+FROM published_fee_catalog
 WHERE canonical_fee_key = '{category}' AND amount > 0
 ORDER BY amount DESC
 LIMIT 25;
@@ -33,8 +33,8 @@ Red flags:
 ### 2. Cap And Policy Leakage
 
 ```sql
-SELECT canonical_fee_key, fee_name, amount, crawl_target_id
-FROM published_fee_observations
+SELECT canonical_fee_key, fee_name, amount, institution_id
+FROM published_fee_catalog
 WHERE canonical_fee_key IN ('overdraft', 'nsf', 'continuous_od')
   AND (
     LOWER(fee_name) LIKE '%cap%'
@@ -52,11 +52,11 @@ Any results should be routed to Knox/Darwin review logic or direct admin review,
 
 ```sql
 SELECT
-  (SELECT COUNT(*) FROM crawl_targets) AS institutions,
-  (SELECT COUNT(DISTINCT crawl_target_id) FROM published_fee_observations) AS institutions_with_published_fees,
-  (SELECT COUNT(*) FROM fees_raw) AS raw_rows,
-  (SELECT COUNT(*) FROM fees_verified) AS verified_rows,
-  (SELECT COUNT(*) FROM published_fee_observations) AS published_rows;
+  (SELECT COUNT(*) FROM institution_sources) AS institutions,
+  (SELECT COUNT(DISTINCT institution_id) FROM published_fee_catalog) AS institutions_with_published_fees,
+  (SELECT COUNT(*) FROM raw_fee_observations) AS raw_rows,
+  (SELECT COUNT(*) FROM verified_fee_observations) AS verified_rows,
+  (SELECT COUNT(*) FROM published_fee_records) AS published_rows;
 ```
 
 ### 4. Review Pressure
@@ -75,9 +75,9 @@ Use run/step/event evidence to determine whether the right fix is Magellan sourc
 Inspect raw/verified pipeline rows only when diagnosing the pipeline, then fix the responsible agent rule.
 
 ```sql
-SELECT canonical_fee_key, fee_name, amount, crawl_target_id, confidence
-FROM fees_raw
-WHERE canonical_fee_key IS NULL OR confidence < 0.7
+SELECT canonical_fee_key, fee_name, amount, institution_id, extraction_confidence
+FROM raw_fee_observations
+WHERE canonical_fee_key IS NULL OR extraction_confidence < 0.7
 ORDER BY created_at DESC
 LIMIT 50;
 ```
