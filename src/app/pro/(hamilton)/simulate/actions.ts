@@ -1,9 +1,9 @@
 "use server";
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { getNationalIndex } from "@/lib/crawler-db/fee-index";
+import { getNationalIndex } from "@/lib/data-store/fee-index";
 import { computeConfidenceTier, canSimulate } from "@/lib/hamilton/confidence";
 import type { DistributionData } from "@/lib/hamilton/simulation";
 import type { ConfidenceTier } from "@/lib/hamilton/confidence";

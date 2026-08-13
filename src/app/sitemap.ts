@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_CODES } from "@/lib/us-states";
-import { getInstitutionIdsWithFees, getCitiesInState } from "@/lib/crawler-db";
+import { getInstitutionIdsWithFees, getCitiesInState } from "@/lib/data-store";
 import { GUIDES } from "@/lib/guides";
-import { getSql } from "@/lib/crawler-db/connection";
+import { getSql } from "@/lib/data-store/connection";
 
 import { SITE_URL } from "@/lib/constants";
 

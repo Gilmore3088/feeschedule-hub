@@ -1,4 +1,4 @@
-import type { InstitutionFee } from "@/lib/crawler-db/institution";
+import type { InstitutionFee } from "@/lib/data-store/institution";
 
 interface Props {
   fees: InstitutionFee[];

@@ -38,7 +38,7 @@ Make the public/admin product run through one understandable agentic system:
 ### Legacy Or Confusing Material Still Present
 
 - Historical Supabase migrations still mention or temporarily depend on `ops_jobs` before the later migration drops it. This is migration history, not an active runtime call, but it makes fresh-schema reasoning fragile.
-- `src/lib/crawler-db/*` is current Postgres data access, but the name still says "crawler" and should be renamed after import coverage is mapped.
+- Current Postgres data access now lives under `src/lib/data-store/*`; the retired crawler-named data module is guard-blocked in active code and planning docs.
 - `.claude/skills/*` is currently loaded by `src/lib/research/skills.ts`; it is current app prompt content unless we move it to first-class app config.
 - `Hamilton-Design/` and `Reports/` are reference/design assets, not executable code. They should be moved to `docs/reference/` or external storage, not silently deleted.
 - Direct Anthropic model usage in Hamilton/Scout/research surfaces now flows through `src/lib/ai-provider.ts`, and `provider-kill` blocks direct SDK/provider imports elsewhere.
@@ -50,6 +50,7 @@ Make the public/admin product run through one understandable agentic system:
 - Stale Docker ignore comments that described `fee_crawler` as needed.
 - Added `artifact-kill` to `npm run guard:legacy` so tracked local worktrees, stale tool output, crawler packages, caches, and local DB files fail CI.
 - Added `provider-kill` to `npm run guard:legacy` so direct Anthropic SDK/model construction fails CI outside `src/lib/ai-provider.ts`.
+- Renamed the retired crawler-named data module to `src/lib/data-store` and added `legacy-name-kill` so active source/planning docs cannot reintroduce the old boundary name.
 
 ## Retirement Plan
 
@@ -60,6 +61,7 @@ Status: implemented for current runtime source and config.
 - Keep `npm run guard:legacy` in CI.
 - Keep `artifact-kill` in the guard chain.
 - Keep `provider-kill` in the guard chain.
+- Keep `legacy-name-kill` in the guard chain.
 - Add a lightweight architecture assertion test that checks:
   - `vercel.json` has only `/api/admin/agents/tick`.
   - runtime source does not import `job-runner`.
@@ -143,7 +145,7 @@ Target: a fresh database should not recreate retired execution infrastructure ju
 
 Target: reduce cognitive load without breaking working code.
 
-- Rename `src/lib/crawler-db` to `src/lib/data-store` after import mapping and tests.
+- Keep `src/lib/data-store` as the current data access boundary; do not reintroduce the retired crawler-named module.
 - Move `Hamilton-Design/` to `docs/reference/hamilton-design/` or external design storage.
 - Move `Reports/` PDFs to external storage unless a tracked fixture is required.
 - Keep `.claude/skills` only if product Hamilton skills continue to load from disk; otherwise move skills into app-owned prompt templates.

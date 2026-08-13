@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getDistrictMetrics, getPublicStats } from "@/lib/crawler-db";
+import { getDistrictMetrics, getPublicStats } from "@/lib/data-store";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";

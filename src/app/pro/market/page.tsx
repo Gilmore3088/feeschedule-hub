@@ -8,13 +8,13 @@ import {
   getNationalIndexCached,
   getPublicStats,
   getDataFreshness,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import {
   getBeigeBookHeadlines,
   getBeigeBookEditions,
   getRecentSpeeches,
-} from "@/lib/crawler-db/fed";
-import { getPublishedArticles } from "@/lib/crawler-db/articles";
+} from "@/lib/data-store/fed";
+import { getPublishedArticles } from "@/lib/data-store/articles";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";

@@ -18,7 +18,7 @@
 
 import { NextResponse } from 'next/server';
 import { getCurrentUser, hasPermission } from '@/lib/auth';
-import { getSql } from '@/lib/crawler-db/connection';
+import { getSql } from '@/lib/data-store/connection';
 import { checkFreshness } from '@/lib/report-engine/freshness';
 import { triggerReportJob } from '@/lib/report-agent-runs';
 import type { ReportType } from '@/lib/report-engine/types';

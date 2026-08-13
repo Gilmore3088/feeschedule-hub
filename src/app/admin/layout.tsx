@@ -7,7 +7,7 @@ import { getCurrentUser, type User } from "@/lib/auth";
 import { LogoutButton } from "./logout-button";
 import { AdminNav, AdminNavInline } from "./admin-nav";
 import { JobStatusBadge } from "./job-status-badge";
-import { getKnoxReviewCounts } from "@/lib/crawler-db/knox-reviews";
+import { getKnoxReviewCounts } from "@/lib/data-store/knox-reviews";
 import {
   CommandPalette,
   CommandPaletteTrigger,

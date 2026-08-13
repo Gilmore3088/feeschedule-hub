@@ -6,7 +6,7 @@ import {
   getDataFreshness,
   getStatesWithFeeData,
   getPeerIndex,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { getDisplayName, getSpotlightCategories } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 

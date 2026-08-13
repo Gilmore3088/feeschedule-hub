@@ -8,7 +8,7 @@ import {
   getDistrictStats,
   getBeigeBookHeadline,
   getLatestBeigeBook,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import {
   getDisplayName,
   isFeaturedFee,
@@ -28,7 +28,7 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const { hasData } = await import("@/lib/crawler-db/connection");
+  const { hasData } = await import("@/lib/data-store/connection");
   if (!(await hasData())) return [];
   return Array.from({ length: 12 }, (_, i) => ({ id: String(i + 1) }));
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 interface VerificationEntry {
   fee_id: number;

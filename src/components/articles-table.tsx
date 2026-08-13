@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { SortableTable, type Column } from "@/components/sortable-table";
 import { timeAgo } from "@/lib/format";
-import type { Article } from "@/lib/crawler-db/articles";
+import type { Article } from "@/lib/data-store/articles";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-500 dark:bg-white/[0.08] dark:text-gray-400",

@@ -10,7 +10,7 @@
  * Decision refs: D-01 through D-09 (see 18-CONTEXT.md)
  */
 
-import { getSql } from '@/lib/crawler-db/connection';
+import { getSql } from '@/lib/data-store/connection';
 import { generateSection, generateGlobalThesis } from '@/lib/hamilton/generate';
 import { validateNumerics } from '@/lib/hamilton/validate';
 import { assembleNationalQuarterly, buildThesisSummary } from '@/lib/report-assemblers/national-quarterly';

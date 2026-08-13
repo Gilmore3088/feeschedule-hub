@@ -6,7 +6,7 @@
  * @deprecated Dev-only utility. Not called from production pages.
  */
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 const SEED_SIGNALS = [
   {

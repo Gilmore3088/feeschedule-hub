@@ -6,7 +6,7 @@ import {
   getNationalIndex,
   getPeerIndex,
   getStateStats,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import {
   getDisplayName,
   isFeaturedFee,
@@ -26,7 +26,7 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const { hasData } = await import("@/lib/crawler-db/connection");
+  const { hasData } = await import("@/lib/data-store/connection");
   if (!(await hasData())) return [];
   return STATE_CODES.map((code) => ({ code }));
 }

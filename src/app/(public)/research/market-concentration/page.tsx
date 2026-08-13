@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import {
   getMarketConcentration,
-} from "@/lib/crawler-db/financial";
+} from "@/lib/data-store/financial";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";

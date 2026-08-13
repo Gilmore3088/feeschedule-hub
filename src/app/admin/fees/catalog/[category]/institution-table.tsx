@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronRight, ChevronDown } from "lucide-react";
-import type { FeeInstance } from "@/lib/crawler-db";
+import type { FeeInstance } from "@/lib/data-store";
 import { formatAmount, formatAssets } from "@/lib/format";
 
 interface InstitutionGroup {

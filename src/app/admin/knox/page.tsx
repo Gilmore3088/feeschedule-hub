@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { requireAuth } from "@/lib/auth";
-import { getKnoxReviewCounts } from "@/lib/crawler-db/knox-reviews";
+import { getKnoxReviewCounts } from "@/lib/data-store/knox-reviews";
 import { KnoxDecisionsView } from "../agents/knox/reviews/page";
 import { GoldStandardView } from "../verify/page";
 

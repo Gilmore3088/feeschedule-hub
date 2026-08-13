@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import type { DimensionBreakdown } from "@/lib/crawler-db";
+import type { DimensionBreakdown } from "@/lib/data-store";
 
 interface BreakdownChartProps {
   title: string;

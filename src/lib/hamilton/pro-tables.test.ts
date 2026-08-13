@@ -12,7 +12,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 // Mock the DB connection to prevent connection attempt at import time
-vi.mock("@/lib/crawler-db/connection", () => ({ sql: {} }));
+vi.mock("@/lib/data-store/connection", () => ({ sql: {} }));
 
 import { ensureHamiltonProTables } from "./pro-tables";
 

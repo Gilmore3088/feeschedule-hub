@@ -9,7 +9,7 @@
  *   hamilton_signals         — Monitor screen: detected fee change signals
  *   hamilton_priority_alerts — Monitor screen: user-specific alert instances from signals
  *
- * All queries use the shared postgres sql client from crawler-db/connection.
+ * All queries use the shared postgres sql client from data-store/connection.
  * UUID primary keys match Supabase gen_random_uuid() convention.
  *
  * Soft-delete: analyses and scenarios have archived_at + status columns (D-07, D-08).
@@ -18,7 +18,7 @@
  * Report status: 'generated' (user-created, private) | 'published' (BFI-authored, public to all pro users)
  */
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import type { ReportSummaryResponse } from "@/lib/hamilton/types";
 
 /**

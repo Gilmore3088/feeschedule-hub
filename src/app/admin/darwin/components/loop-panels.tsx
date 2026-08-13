@@ -1,4 +1,4 @@
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 interface LogEvent {
   event_id: string;

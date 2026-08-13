@@ -9,7 +9,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSql } from "@/lib/crawler-db/connection";
+import { getSql } from "@/lib/data-store/connection";
 import type { ReportType } from "@/lib/report-engine/types";
 import { EmailGate } from "./email-gate";
 import { SITE_URL } from "@/lib/constants";

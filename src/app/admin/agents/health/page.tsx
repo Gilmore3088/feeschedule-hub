@@ -3,7 +3,7 @@ import {
   getAgentHealthSparkline,
   HEALTH_METRICS,
   type AgentHealthTile,
-} from "@/lib/crawler-db/agent-console";
+} from "@/lib/data-store/agent-console";
 import { Tiles } from "../overview/tiles";
 
 export const dynamic = "force-dynamic";

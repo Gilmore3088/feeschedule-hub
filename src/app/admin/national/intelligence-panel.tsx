@@ -1,4 +1,4 @@
-import { listIntelligence, type ExternalIntelligence } from "@/lib/crawler-db/intelligence";
+import { listIntelligence, type ExternalIntelligence } from "@/lib/data-store/intelligence";
 import { IntelligenceAddForm } from "./intelligence-add-form";
 import { IntelligenceDeleteButton } from "./intelligence-delete-button";
 

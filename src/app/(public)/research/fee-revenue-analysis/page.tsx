@@ -5,7 +5,7 @@ import {
   getFeeRevenueData,
   getTierFeeRevenueSummary,
   getCharterFeeRevenueSummary,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";

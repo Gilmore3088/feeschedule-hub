@@ -6,7 +6,7 @@ const { sqlMock, controlMock, stopMock } = vi.hoisted(() => ({
   stopMock: vi.fn(),
 }));
 
-vi.mock("./crawler-db/connection", () => ({ sql: sqlMock }));
+vi.mock("./data-store/connection", () => ({ sql: sqlMock }));
 vi.mock("./automation-control", () => ({
   assertAutomationEnabled: controlMock,
   engageEmergencyStop: stopMock,

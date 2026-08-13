@@ -1,9 +1,9 @@
 import type { ToolSet } from "ai";
 import { publicTools } from "./tools";
 import { internalTools } from "./tools-internal";
-import { getPublicStats } from "../crawler-db";
-import { sql } from "../crawler-db/connection";
-import { getKnoxReviewCounts } from "../crawler-db/knox-reviews";
+import { getPublicStats } from "../data-store";
+import { sql } from "../data-store/connection";
+import { getKnoxReviewCounts } from "../data-store/knox-reviews";
 import { HAMILTON_SYSTEM_PROMPT } from "../hamilton/voice";
 
 export interface AgentConfig {

@@ -1,6 +1,6 @@
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
-import type { IndexEntry } from "@/lib/crawler-db/fee-index";
+import type { IndexEntry } from "@/lib/data-store/fee-index";
 
 interface BriefOptions {
   title: string;

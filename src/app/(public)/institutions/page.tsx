@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { searchInstitutions } from "@/lib/crawler-db/search";
-import { getPublicStats } from "@/lib/crawler-db/core";
+import { searchInstitutions } from "@/lib/data-store/search";
+import { getPublicStats } from "@/lib/data-store/core";
 import { InstitutionSearchBar } from "./search-bar";
 import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";

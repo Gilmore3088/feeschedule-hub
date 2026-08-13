@@ -10,7 +10,7 @@
  * treated as age=999 days — always stale. Never publish empty-data reports.
  */
 
-import { getSql } from '@/lib/crawler-db/connection';
+import { getSql } from '@/lib/data-store/connection';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 

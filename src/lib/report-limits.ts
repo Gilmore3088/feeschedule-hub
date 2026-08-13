@@ -5,7 +5,7 @@
  * This prevents DoS via repeated report generation and controls API cost.
  */
 
-import { getSql } from '@/lib/crawler-db/connection';
+import { getSql } from '@/lib/data-store/connection';
 
 export const REPORT_DAILY_LIMITS: Record<string, number> = {
   admin: 200,

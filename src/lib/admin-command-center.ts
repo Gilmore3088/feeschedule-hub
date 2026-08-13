@@ -1,7 +1,7 @@
-import { sql } from "./crawler-db/connection";
+import { sql } from "./data-store/connection";
 import { getAutomationControl, type AutomationControlState } from "./automation-control";
 import { getJobFreshness } from "./admin-queries";
-import { getKnoxReviewCounts } from "./crawler-db/knox-reviews";
+import { getKnoxReviewCounts } from "./data-store/knox-reviews";
 import type { AdminAgent, AgentRunStatus } from "./agents/types";
 import { toISO } from "./pg-helpers";
 

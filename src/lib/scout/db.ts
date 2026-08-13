@@ -1,4 +1,4 @@
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import type { InstitutionRow, ExtractedFeeRow, CrawlResultRow } from "./types";
 
 export async function searchInstitutions(

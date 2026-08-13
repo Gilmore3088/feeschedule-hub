@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCitiesInState } from "@/lib/crawler-db";
+import { getCitiesInState } from "@/lib/data-store";
 import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
@@ -12,7 +12,7 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const { hasData } = await import("@/lib/crawler-db/connection");
+  const { hasData } = await import("@/lib/data-store/connection");
   if (!(await hasData())) return [];
   return STATE_CODES.map((code) => ({ state: code.toLowerCase() }));
 }

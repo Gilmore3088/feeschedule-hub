@@ -8,7 +8,7 @@ import {
   getNationalIndex,
   getPeerIndex,
   getPublicStats,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS, FDIC_TIER_ORDER } from "@/lib/fed-districts";

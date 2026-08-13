@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
-import { getInstitutionsByFilter } from "@/lib/crawler-db";
+import { getInstitutionsByFilter } from "@/lib/data-store";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Pagination } from "@/components/pagination";
 import { formatAssets } from "@/lib/format";

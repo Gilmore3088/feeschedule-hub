@@ -1,8 +1,8 @@
-import { getRevenueTrend } from "@/lib/crawler-db/call-reports";
-import { getNationalEconomicSummary, type RichIndicator } from "@/lib/crawler-db/fed";
-import { getIndustryHealthMetrics } from "@/lib/crawler-db/health";
-import { getBeigeBookHeadlines } from "@/lib/crawler-db/fed";
-import { getRevenueConcentration, getFeeDependencyTrend, type RevenueConcentration, type FeeDependencyTrend } from "@/lib/crawler-db/derived-analytics";
+import { getRevenueTrend } from "@/lib/data-store/call-reports";
+import { getNationalEconomicSummary, type RichIndicator } from "@/lib/data-store/fed";
+import { getIndustryHealthMetrics } from "@/lib/data-store/health";
+import { getBeigeBookHeadlines } from "@/lib/data-store/fed";
+import { getRevenueConcentration, getFeeDependencyTrend, type RevenueConcentration, type FeeDependencyTrend } from "@/lib/data-store/derived-analytics";
 import { formatAmount } from "@/lib/format";
 import { Sparkline } from "@/components/sparkline";
 import { ConcentrationChart } from "./concentration-chart";

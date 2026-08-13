@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkline } from "@/components/sparkline";
-import type { FeeDependencyTrend } from "@/lib/crawler-db/derived-analytics";
+import type { FeeDependencyTrend } from "@/lib/data-store/derived-analytics";
 
 function TrendArrow({ trend }: { trend: "rising" | "falling" | "stable" }) {
   if (trend === "rising") {

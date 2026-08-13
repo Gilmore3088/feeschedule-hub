@@ -7,8 +7,8 @@ import { ensureHamiltonProTables } from "@/lib/hamilton/pro-tables";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
 import { HamiltonShell } from "@/components/hamilton/layout/HamiltonShell";
 import { HamiltonUpgradeGate } from "@/components/hamilton/layout/HamiltonUpgradeGate";
-import { sql } from "@/lib/crawler-db/connection";
-import { getSavedPeerSets } from "@/lib/crawler-db/saved-peers";
+import { sql } from "@/lib/data-store/connection";
+import { getSavedPeerSets } from "@/lib/data-store/saved-peers";
 
 export const metadata: Metadata = {
   title: {

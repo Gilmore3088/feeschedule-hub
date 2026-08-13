@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import { getPublicStats, getDataFreshness } from "@/lib/crawler-db/core";
+import { getPublicStats, getDataFreshness } from "@/lib/data-store/core";
 import { LandingHero } from "./landing-hero";
 import { LandingTrustStats } from "./landing-trust-stats";
 import { CustomerFooter } from "@/components/customer-footer";

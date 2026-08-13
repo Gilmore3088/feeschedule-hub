@@ -1,7 +1,7 @@
 "use client";
 
 import { formatAmount } from "@/lib/format";
-import type { IndexEntry } from "@/lib/crawler-db/fee-index";
+import type { IndexEntry } from "@/lib/data-store/fee-index";
 import { ChevronDown } from "lucide-react";
 
 interface FeeRow {

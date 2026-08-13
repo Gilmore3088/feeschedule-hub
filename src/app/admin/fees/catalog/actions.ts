@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { getFeeCategorySummaries } from "@/lib/crawler-db";
+import { getFeeCategorySummaries } from "@/lib/data-store";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 
 export async function exportCatalogCsv(): Promise<string> {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { getFeeCategorySummaries, getFeeCategoryDetail } from "@/lib/crawler-db";
+import { getFeeCategorySummaries, getFeeCategoryDetail } from "@/lib/data-store";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 import { getCurrentUser } from "@/lib/auth";
 import { canExportData } from "@/lib/access";

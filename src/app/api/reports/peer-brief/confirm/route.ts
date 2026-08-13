@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { canAccessPremium } from '@/lib/access';
-import { getPeerIndex } from '@/lib/crawler-db/fee-index';
+import { getPeerIndex } from '@/lib/data-store/fee-index';
 
 export const dynamic = 'force-dynamic';
 

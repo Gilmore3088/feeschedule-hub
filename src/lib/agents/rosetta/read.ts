@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import sanitizeHtml from "sanitize-html";
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 type SqlTag = typeof sql;
 type Fetcher = typeof fetch;

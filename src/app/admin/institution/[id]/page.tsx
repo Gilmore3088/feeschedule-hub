@@ -11,10 +11,10 @@ import {
   getInstitutionFees,
   getInstitutionCrawlHistory,
   getInstitutionAgentResults,
-} from "@/lib/crawler-db/institution";
+} from "@/lib/data-store/institution";
 import { InstitutionActions } from "./institution-actions";
-import { getInstitutionPeerRanking } from "@/lib/crawler-db/call-reports";
-import { getFinancialsByInstitution } from "@/lib/crawler-db/financial";
+import { getInstitutionPeerRanking } from "@/lib/data-store/call-reports";
+import { getFinancialsByInstitution } from "@/lib/data-store/financial";
 import { HeroCards } from "./hero-cards";
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import {
   getReasoningTrace,
   type ReasoningTraceRow,
-} from "@/lib/crawler-db/agent-console";
+} from "@/lib/data-store/agent-console";
 import { Timeline } from "./timeline";
 
 export const dynamic = "force-dynamic";

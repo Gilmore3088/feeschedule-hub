@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SettingsForm } from "./SettingsForm";
 import { PeerSetManager } from "./PeerSetManager";
-import { getSavedPeerSets } from "@/lib/crawler-db/saved-peers";
+import { getSavedPeerSets } from "@/lib/data-store/saved-peers";
 import { getIntelligenceSnapshot } from "./actions";
 import { FeatureToggles } from "./FeatureToggles";
 import { ManageBillingButton } from "@/components/hamilton/settings/ManageBillingButton";

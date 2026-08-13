@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateArticleAction, deleteArticleAction } from "./actions";
-import type { Article } from "@/lib/crawler-db/articles";
+import type { Article } from "@/lib/data-store/articles";
 
 export function ArticleActions({ article }: { article: Article }) {
   const [pending, startTransition] = useTransition();

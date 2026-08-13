@@ -1,6 +1,6 @@
 // src/lib/scout/audit-db.ts
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import type { InstitutionRow } from "./types";
 
 export async function ensureAuditTables() {

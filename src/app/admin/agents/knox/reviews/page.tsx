@@ -10,7 +10,7 @@ import {
   listKnoxRejections,
   KNOX_REASON_CATEGORIES,
   type KnoxReasonCategory,
-} from "@/lib/crawler-db/knox-reviews";
+} from "@/lib/data-store/knox-reviews";
 import { ConfirmButton, OverrideButton, SkipButton } from "./review-actions";
 import { KnoxKeyboardNav } from "./keyboard-nav";
 import { buildAdminRedirectPath, type AdminSearchParams } from "@/lib/admin-redirect-path";

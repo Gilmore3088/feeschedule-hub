@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CrawlHealth } from "@/lib/crawler-db";
+import type { CrawlHealth } from "@/lib/data-store";
 import { timeAgo } from "@/lib/format";
 
 interface CrawlStatusStripProps {

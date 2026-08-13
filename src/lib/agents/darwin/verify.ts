@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { CANONICAL_KEY_MAP } from "@/lib/fee-taxonomy";
 
 type SqlTag = typeof sql;

@@ -1,7 +1,7 @@
 import { formatAmount } from "@/lib/format";
 import { getDisplayName, getSpotlightCategories } from "@/lib/fee-taxonomy";
 import { MaturityBadge } from "@/app/admin/index/maturity-badge";
-import type { MarketIndexEntry } from "@/lib/crawler-db";
+import type { MarketIndexEntry } from "@/lib/data-store";
 
 const HERO_CATEGORIES = getSpotlightCategories();
 

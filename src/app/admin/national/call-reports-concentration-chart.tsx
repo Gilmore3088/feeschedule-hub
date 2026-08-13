@@ -1,7 +1,7 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import type { ConcentrationEntry } from "@/lib/crawler-db/derived-analytics";
+import type { ConcentrationEntry } from "@/lib/data-store/derived-analytics";
 
 interface CallReportsConcentrationChartProps {
   data: ConcentrationEntry[];

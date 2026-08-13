@@ -73,7 +73,7 @@ export async function fetchDarwinReasoning(feeRawId: number): Promise<{
   created_at: string | null;
 }> {
   await requireAuth("view");
-  const { sql } = await import("@/lib/crawler-db/connection");
+  const { sql } = await import("@/lib/data-store/connection");
   const rows = await sql`
     SELECT reasoning_prompt_text, reasoning_output_text, reasoning_r2_key, created_at::text AS created_at
       FROM agent_events

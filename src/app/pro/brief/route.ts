@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
+import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
 import { generatePeerBrief } from "@/lib/brief-generator";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 

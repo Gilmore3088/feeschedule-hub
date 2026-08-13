@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "./auth";
-import { sql, withTransaction } from "./crawler-db/connection";
+import { sql, withTransaction } from "./data-store/connection";
 import { startAgentRun } from "./agents/run-store";
 
 export interface InstitutionCommandResult {

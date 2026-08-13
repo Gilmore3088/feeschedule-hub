@@ -10,7 +10,7 @@ import {
   getSourceCounts,
   TOPIC_LABELS,
   SOURCE_LABELS,
-} from "@/lib/crawler-db/news";
+} from "@/lib/data-store/news";
 import { NewsFeed } from "./news-feed";
 
 export const metadata: Metadata = {

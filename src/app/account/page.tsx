@@ -11,7 +11,7 @@ import { STATE_NAMES } from "@/lib/us-states";
 import { CustomerNav } from "@/components/customer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
-import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
+import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import type { Metadata } from "next";
@@ -40,7 +40,7 @@ export default async function AccountPage({
         limit: 1,
       });
       if (subs.data.length > 0) {
-        const { sql: sqlConn } = await import("@/lib/crawler-db/connection");
+        const { sql: sqlConn } = await import("@/lib/data-store/connection");
         await sqlConn`
           UPDATE users SET subscription_status = 'active', role = 'premium'
           WHERE id = ${user.id} AND role NOT IN ('admin')`;

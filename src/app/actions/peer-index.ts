@@ -1,7 +1,7 @@
 "use server";
 
-import { getPeerIndex, getNationalIndex } from "@/lib/crawler-db";
-import type { IndexEntry } from "@/lib/crawler-db/fee-index";
+import { getPeerIndex, getNationalIndex } from "@/lib/data-store";
+import type { IndexEntry } from "@/lib/data-store/fee-index";
 
 const PREVIEW_CATEGORIES = [
   "monthly_maintenance",

@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { withTransaction } from "@/lib/crawler-db/connection";
+import { withTransaction } from "@/lib/data-store/connection";
 
 const MAX_ROWS = 500;
 const BLOCKED_KEYWORDS = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "ATTACH", "DETACH"];

@@ -1,8 +1,8 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth";
-import { getNationalIndex } from "@/lib/crawler-db/fee-index";
-import { sql } from "@/lib/crawler-db/connection";
+import { getNationalIndex } from "@/lib/data-store/fee-index";
+import { sql } from "@/lib/data-store/connection";
 import { generateSection } from "@/lib/hamilton/generate";
 import {
   saveHamiltonReport,

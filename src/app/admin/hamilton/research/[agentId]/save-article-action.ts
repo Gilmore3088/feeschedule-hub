@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
-import { createArticle, getArticles } from "@/lib/crawler-db/articles";
+import { createArticle, getArticles } from "@/lib/data-store/articles";
 import { ensureResearchTables } from "@/lib/research/history";
 import { toISO } from "@/lib/pg-helpers";
 

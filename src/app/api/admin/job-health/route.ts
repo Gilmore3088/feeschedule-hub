@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 import { getJobFreshness } from "@/lib/admin-queries";
 import { getAutomationControl } from "@/lib/automation-control";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { isJobHealthDegraded } from "@/lib/job-health";
 
 export const dynamic = "force-dynamic";

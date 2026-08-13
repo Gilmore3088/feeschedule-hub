@@ -12,7 +12,7 @@ import { checkFreshness } from './freshness';
 
 // ─── Mock the DB connection ───────────────────────────────────────────────
 
-vi.mock('@/lib/crawler-db/connection', () => {
+vi.mock('@/lib/data-store/connection', () => {
   const mockSql = vi.fn();
   // Make the mock callable as a tagged template literal
   const sqlProxy = new Proxy(mockSql, {
@@ -38,7 +38,7 @@ function makeQueryResult(medianAge: number | null) {
 
 /** Re-import getSql after mocking. */
 async function getMockSql() {
-  const { getSql } = await import('@/lib/crawler-db/connection');
+  const { getSql } = await import('@/lib/data-store/connection');
   return getSql() as unknown as ReturnType<typeof vi.fn>;
 }
 

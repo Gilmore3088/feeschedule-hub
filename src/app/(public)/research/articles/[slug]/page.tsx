@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getArticleBySlug, incrementViewCount, getPublishedArticles } from "@/lib/crawler-db/articles";
+import { getArticleBySlug, incrementViewCount, getPublishedArticles } from "@/lib/data-store/articles";
 import { ensureResearchTables } from "@/lib/research/history";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 

@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import {
   getSavedPeerSets,
   savePeerSet,
   deletePeerSet,
-} from "@/lib/crawler-db/saved-peers";
+} from "@/lib/data-store/saved-peers";
 
 const ProfileSchema = z.object({
   institution_name: z.string().min(1).max(200).trim(),

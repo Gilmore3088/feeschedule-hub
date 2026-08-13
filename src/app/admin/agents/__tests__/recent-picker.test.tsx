@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { RecentPicker } from "../lineage/recent-picker";
-import type { RecentPublishedFee } from "@/lib/crawler-db/agent-console-types";
+import type { RecentPublishedFee } from "@/lib/data-store/agent-console-types";
 
 afterEach(() => {
   cleanup();

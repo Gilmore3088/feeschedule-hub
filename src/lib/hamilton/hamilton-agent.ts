@@ -13,7 +13,7 @@ import { z } from "zod";
 import { HAMILTON_SYSTEM_PROMPT } from "@/lib/hamilton/voice";
 import { publicTools } from "@/lib/research/tools";
 import { internalTools } from "@/lib/research/tools-internal";
-import { searchExternalIntelligence } from "@/lib/crawler-db/intelligence";
+import { searchExternalIntelligence } from "@/lib/data-store/intelligence";
 
 // Allowlist for report types passed to the report engine (T-17-01)
 const VALID_REPORT_TYPES = new Set([

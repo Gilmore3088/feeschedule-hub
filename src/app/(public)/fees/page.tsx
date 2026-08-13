@@ -5,7 +5,7 @@ import {
   getFeeCategorySummaries,
   getStats,
   getDataFreshness,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import {
   getDisplayName,
   getFeeFamily,

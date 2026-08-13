@@ -1,5 +1,5 @@
-import { getRevenueTrend, getTopRevenueInstitutions } from "@/lib/crawler-db/call-reports";
-import { getRevenueConcentration } from "@/lib/crawler-db/derived-analytics";
+import { getRevenueTrend, getTopRevenueInstitutions } from "@/lib/data-store/call-reports";
+import { getRevenueConcentration } from "@/lib/data-store/derived-analytics";
 import { formatAmount } from "@/lib/format";
 import { RevenueTrendChart } from "./revenue-trend-chart";
 import { CallReportsConcentrationChart } from "./call-reports-concentration-chart";

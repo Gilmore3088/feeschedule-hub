@@ -8,7 +8,7 @@ import {
   getStateSummary,
   getStateAgentRuns,
   getStateUrlResolutionQueue,
-} from "@/lib/crawler-db/states";
+} from "@/lib/data-store/states";
 import { UrlResolutionRow } from "./url-resolution-row";
 import { SortableInstitutionTable } from "./sortable-institution-table";
 

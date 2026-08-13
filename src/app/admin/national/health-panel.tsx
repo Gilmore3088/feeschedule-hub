@@ -5,7 +5,7 @@ import {
   getHealthMetricsByCharter,
   type IndustryHealthMetrics,
   type RichIndicator,
-} from "@/lib/crawler-db/health";
+} from "@/lib/data-store/health";
 import { Sparkline } from "@/components/sparkline";
 import { GrowthChart } from "./growth-chart";
 

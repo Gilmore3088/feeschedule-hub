@@ -430,6 +430,14 @@ export async function getSodMarketShare(stateFips?: string): Promise<{
   branch_count: number | null;
   year: number;
 }[]> {
+  type SodMarketShareRow = {
+    institution_name: string;
+    state_fips: string;
+    total_deposits: number | null;
+    branch_count: number | null;
+    year: number;
+  };
+
   try {
     if (stateFips) {
       return await sql`
@@ -438,14 +446,14 @@ export async function getSodMarketShare(stateFips?: string): Promise<{
         WHERE state_fips = ${stateFips}
         ORDER BY total_deposits DESC NULLS LAST
         LIMIT 10
-      ` as any[];
+      ` as SodMarketShareRow[];
     }
     return await sql`
       SELECT institution_name, state_fips, total_deposits, branch_count, year
       FROM sod_deposits
       ORDER BY total_deposits DESC NULLS LAST
       LIMIT 10
-    ` as any[];
+    ` as SodMarketShareRow[];
   } catch {
     return [];
   }
@@ -460,6 +468,14 @@ export async function getNyFedData(limit = 20): Promise<{
   value: number | null;
   units: string | null;
 }[]> {
+  type NyFedDataRow = {
+    series_id: string;
+    series_title: string | null;
+    observation_date: string;
+    value: number | null;
+    units: string | null;
+  };
+
   try {
     return await sql`
       SELECT DISTINCT ON (series_id)
@@ -467,7 +483,7 @@ export async function getNyFedData(limit = 20): Promise<{
       FROM nyfed_data
       ORDER BY series_id, observation_date DESC
       LIMIT ${limit}
-    ` as any[];
+    ` as NyFedDataRow[];
   } catch {
     return [];
   }
@@ -482,6 +498,14 @@ export async function getOfrData(limit = 20): Promise<{
   value: number | null;
   description: string | null;
 }[]> {
+  type OfrDataRow = {
+    series_id: string;
+    series_title: string | null;
+    observation_date: string;
+    value: number | null;
+    description: string | null;
+  };
+
   try {
     return await sql`
       SELECT DISTINCT ON (series_id)
@@ -489,7 +513,7 @@ export async function getOfrData(limit = 20): Promise<{
       FROM ofr_data
       ORDER BY series_id, observation_date DESC
       LIMIT ${limit}
-    ` as any[];
+    ` as OfrDataRow[];
   } catch {
     return [];
   }

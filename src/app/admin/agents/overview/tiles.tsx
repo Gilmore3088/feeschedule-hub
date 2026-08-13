@@ -9,7 +9,7 @@ import {
   HEALTH_METRIC_THRESHOLDS,
   type AgentHealthTile,
   type HealthMetric,
-} from "@/lib/crawler-db/agent-console-types";
+} from "@/lib/data-store/agent-console-types";
 
 type Props = {
   data: AgentHealthTile[];

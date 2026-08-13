@@ -5,7 +5,7 @@
  */
 
 import type { Metadata } from "next";
-import { getSql } from "@/lib/crawler-db/connection";
+import { getSql } from "@/lib/data-store/connection";
 import type { PublishedReport, ReportType } from "@/lib/report-engine/types";
 import { timeAgo } from "@/lib/format";
 

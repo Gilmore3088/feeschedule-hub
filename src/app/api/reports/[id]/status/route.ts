@@ -13,7 +13,7 @@
 
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getSql, withTransaction } from '@/lib/crawler-db/connection';
+import { getSql, withTransaction } from '@/lib/data-store/connection';
 import { generatePresignedUrl } from '@/lib/report-engine/presign';
 import type { ReportJob } from '@/lib/report-engine/types';
 

@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getSql } from "@/lib/crawler-db/connection";
+import { getSql } from "@/lib/data-store/connection";
 import type { PublishedReport, ReportType } from "@/lib/report-engine/types";
 
 export const dynamic = "force-dynamic";

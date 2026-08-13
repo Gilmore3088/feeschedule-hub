@@ -6,8 +6,8 @@ import {
   getFeeCategorySummaries,
   getFeeCategoryDetail,
   getDataFreshness,
-} from "@/lib/crawler-db";
-import { computeStats } from "@/lib/crawler-db";
+} from "@/lib/data-store";
+import { computeStats } from "@/lib/data-store";
 import {
   getDisplayName,
   getFeeFamily,
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export async function generateStaticParams() {
-  const { hasData } = await import("@/lib/crawler-db/connection");
+  const { hasData } = await import("@/lib/data-store/connection");
   if (!(await hasData())) return [];
   return Object.keys(DISPLAY_NAMES).map((category) => ({ category }));
 }

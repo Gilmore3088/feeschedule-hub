@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { ReasoningTraceRow } from "@/lib/crawler-db/agent-console-types";
+import type { ReasoningTraceRow } from "@/lib/data-store/agent-console-types";
 
 type Props = {
   rows: ReasoningTraceRow[];
@@ -49,7 +49,7 @@ export function Timeline({ rows }: Props) {
   }
 
   // Rows arrive pre-sorted by created_at ASC from get_reasoning_trace() (see
-  // src/lib/crawler-db/agent-console-server.ts). Trust the query.
+  // src/lib/data-store/agent-console-server.ts). Trust the query.
 
   return (
     <ol className="flex flex-col gap-2">

@@ -2,7 +2,7 @@
 
 import { getStripe } from "@/lib/stripe";
 import { hashPassword } from "@/lib/passwords";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 

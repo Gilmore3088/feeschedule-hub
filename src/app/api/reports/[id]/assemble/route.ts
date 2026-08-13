@@ -10,7 +10,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getSql } from '@/lib/crawler-db/connection';
+import { getSql } from '@/lib/data-store/connection';
 import { assembleAndRender } from '@/lib/report-engine/assemble-and-render';
 import type { ReportType } from '@/lib/report-engine/types';
 

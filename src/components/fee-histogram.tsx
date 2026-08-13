@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import type { FeeInstance } from "@/lib/crawler-db";
+import type { FeeInstance } from "@/lib/data-store";
 
 interface FeeHistogramProps {
   fees: FeeInstance[];

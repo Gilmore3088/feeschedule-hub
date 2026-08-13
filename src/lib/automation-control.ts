@@ -1,4 +1,4 @@
-import { sql, withTransaction } from "./crawler-db/connection";
+import { sql, withTransaction } from "./data-store/connection";
 
 export interface AutomationControlState {
   enabled: boolean;

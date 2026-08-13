@@ -1,4 +1,4 @@
-import { getDataFreshness } from "@/lib/crawler-db";
+import { getDataFreshness } from "@/lib/data-store";
 
 export async function DataFreshness() {
   const freshness = await getDataFreshness();

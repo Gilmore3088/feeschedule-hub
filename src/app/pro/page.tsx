@@ -8,7 +8,7 @@ import {
   getPeerIndex,
   getCharterFeeRevenueSummary,
   getTierFeeRevenueSummary,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import {
   getDisplayName,
   getFeaturedCategories,

@@ -7,11 +7,11 @@ import {
   getDistrictContent,
   getDistrictIndicators,
   getDistrictMetrics,
-} from "@/lib/crawler-db";
-import { getDistrictEconomicSummary, getBeigeBookThemes } from "@/lib/crawler-db/fed";
-import { getDistrictFeeRevenue } from "@/lib/crawler-db/call-reports";
-import { getDistrictComplaintSummary } from "@/lib/crawler-db/complaints";
-import { getDistrictFeeMedians } from "@/lib/crawler-db/fee-index";
+} from "@/lib/data-store";
+import { getDistrictEconomicSummary, getBeigeBookThemes } from "@/lib/data-store/fed";
+import { getDistrictFeeRevenue } from "@/lib/data-store/call-reports";
+import { getDistrictComplaintSummary } from "@/lib/data-store/complaints";
+import { getDistrictFeeMedians } from "@/lib/data-store/fee-index";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { timeAgo, formatAmount } from "@/lib/format";

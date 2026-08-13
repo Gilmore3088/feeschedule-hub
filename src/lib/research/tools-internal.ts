@@ -1,16 +1,16 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getDistrictStats, getStateStats } from "@/lib/crawler-db/geographic";
-import { getLatestBeigeBook } from "@/lib/crawler-db/fed";
+import { getDistrictStats, getStateStats } from "@/lib/data-store/geographic";
+import { getLatestBeigeBook } from "@/lib/data-store/fed";
 import {
   getFeeRevenueData,
   getTierFeeRevenueSummary,
   getCharterFeeRevenueSummary,
-} from "@/lib/crawler-db/fee-revenue";
-import { getStats } from "@/lib/crawler-db/core";
-import { getCrawlHealth } from "@/lib/crawler-db/dashboard";
-import { sql } from "@/lib/crawler-db/connection";
-import { getKnoxReviewCounts } from "@/lib/crawler-db/knox-reviews";
+} from "@/lib/data-store/fee-revenue";
+import { getStats } from "@/lib/data-store/core";
+import { getCrawlHealth } from "@/lib/data-store/dashboard";
+import { sql } from "@/lib/data-store/connection";
+import { getKnoxReviewCounts } from "@/lib/data-store/knox-reviews";
 import { startAgentRun } from "@/lib/agents/run-store";
 import type { AdminAgent } from "@/lib/agents/types";
 
@@ -20,7 +20,7 @@ import {
   getTopRevenueInstitutions,
   getRevenueByTier,
   getDistrictFeeRevenue,
-} from "@/lib/crawler-db/call-reports";
+} from "@/lib/data-store/call-reports";
 import {
   getNationalEconomicSummary,
   getBeigeBookThemes,
@@ -28,32 +28,32 @@ import {
   getDistrictEconomicSummary,
   getDistrictContent,
   getRecentSpeeches,
-} from "@/lib/crawler-db/fed";
+} from "@/lib/data-store/fed";
 import {
   getIndustryHealthMetrics,
   getHealthMetricsByCharter,
   getDepositGrowthTrend,
   getLoanGrowthTrend,
   getInstitutionCountTrends,
-} from "@/lib/crawler-db/health";
+} from "@/lib/data-store/health";
 import {
   getStateDemographics,
   getLatestIndicators,
   getSodMarketShare,
   getNyFedData,
   getOfrData,
-} from "@/lib/crawler-db/financial";
-import { getDistrictComplaintSummary, getNationalComplaintSummary } from "@/lib/crawler-db/complaints";
-import { getIndexSnapshot, getPeerIndex } from "@/lib/crawler-db/fee-index";
+} from "@/lib/data-store/financial";
+import { getDistrictComplaintSummary, getNationalComplaintSummary } from "@/lib/data-store/complaints";
+import { getIndexSnapshot, getPeerIndex } from "@/lib/data-store/fee-index";
 import {
   getRevenueConcentration,
   getFeeDependencyTrend,
   getRevenuePerInstitutionTrend,
-} from "@/lib/crawler-db/derived-analytics";
+} from "@/lib/data-store/derived-analytics";
 import {
   searchExternalIntelligence,
   listIntelligence,
-} from "@/lib/crawler-db/intelligence";
+} from "@/lib/data-store/intelligence";
 
 /**
  * Admin-only tools for Fee Analyst and Custom Query agents.

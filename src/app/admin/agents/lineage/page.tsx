@@ -4,7 +4,7 @@ import {
   type LineageError,
   type LineageGraph,
   type RecentPublishedFee,
-} from "@/lib/crawler-db/agent-console";
+} from "@/lib/data-store/agent-console";
 import { RecentPicker } from "./recent-picker";
 import { TreeView } from "./tree-view";
 

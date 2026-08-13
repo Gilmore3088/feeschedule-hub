@@ -28,6 +28,10 @@ Provider behavior: provider SDK/model construction is centralized in
 `src/lib/ai-provider-usage.ts`; `npm run guard:legacy` blocks direct Anthropic
 imports outside the provider boundary.
 
+Data access behavior: current Postgres read/write modules live under
+`src/lib/data-store`; the retired crawler-named data module is blocked from
+active source and planning docs.
+
 ## Active References
 
 - `docs/plans/agentic-codebase-cleanup-2026-08-13.md`

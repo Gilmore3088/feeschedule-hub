@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { getFeeCategorySummaries } from "@/lib/crawler-db";
+import { getFeeCategorySummaries } from "@/lib/data-store";
 import {
   getDisplayName,
   getFeeTier,

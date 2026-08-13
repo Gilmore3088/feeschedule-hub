@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { PublicStats, DataFreshness } from "@/lib/crawler-db/core";
+import type { PublicStats, DataFreshness } from "@/lib/data-store/core";
 
 interface LandingTrustStatsProps {
   stats: PublicStats;

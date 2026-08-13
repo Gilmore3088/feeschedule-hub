@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 
 export const dynamic = "force-dynamic";

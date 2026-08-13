@@ -14,7 +14,7 @@ import {
   Clock,
   CheckCircle2,
 } from "lucide-react";
-import { getPublicStats } from "@/lib/crawler-db/core";
+import { getPublicStats } from "@/lib/data-store/core";
 import { CustomerFooter } from "@/components/customer-footer";
 
 export const metadata: Metadata = {

@@ -8,14 +8,14 @@ import {
   getFinancialsByInstitution,
   getNationalIndex,
   getInstitutionIdsWithFees,
-} from "@/lib/crawler-db";
-import { getFeesForCategory } from "@/lib/crawler-db/market";
+} from "@/lib/data-store";
+import { getFeesForCategory } from "@/lib/data-store/market";
 import { InstitutionHistogram } from "./fee-distribution";
-import { getMarketConcentrationForInstitution } from "@/lib/crawler-db/financial";
+import { getMarketConcentrationForInstitution } from "@/lib/data-store/financial";
 import {
   getInstitutionRevenueTrend,
   getInstitutionPeerRanking,
-} from "@/lib/crawler-db/call-reports";
+} from "@/lib/data-store/call-reports";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { formatAmount, formatAssets } from "@/lib/format";
@@ -29,7 +29,7 @@ import {
   deriveStrengthsAndWatch,
   generateInterpretation,
 } from "@/lib/institution-rating";
-import type { IndexEntry } from "@/lib/crawler-db/fee-index";
+import type { IndexEntry } from "@/lib/data-store/fee-index";
 import { FeeGroup } from "./fee-group";
 import {
   MapPin,
@@ -208,7 +208,7 @@ async function getRelatedReports(inst: {
   fed_district: number | null;
 }): Promise<{ slug: string; title: string }[]> {
   try {
-    const { getSql } = await import("@/lib/crawler-db/connection");
+    const { getSql } = await import("@/lib/data-store/connection");
     const db = getSql();
     const rows = await db<{ slug: string; title: string }[]>`
       SELECT slug, title FROM published_reports

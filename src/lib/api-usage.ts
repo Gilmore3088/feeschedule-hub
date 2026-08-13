@@ -1,4 +1,4 @@
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 export async function logApiUsage(
   organizationId: number | null,

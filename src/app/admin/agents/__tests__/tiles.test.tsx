@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { Tiles } from "../overview/tiles";
-import type { AgentHealthTile } from "@/lib/crawler-db/agent-console-types";
+import type { AgentHealthTile } from "@/lib/data-store/agent-console-types";
 
 afterEach(() => {
   cleanup();

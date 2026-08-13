@@ -5,10 +5,10 @@
  * Per D-11: signal/alert queries are NOT cached — fresh on every load.
  */
 
-import { getNationalIndexCached } from "@/lib/crawler-db/fee-index";
+import { getNationalIndexCached } from "@/lib/data-store/fee-index";
 import { getSpotlightCategories } from "@/lib/fee-taxonomy";
 import { DISPLAY_NAMES } from "@/lib/fee-taxonomy";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { generateGlobalThesis } from "./generate";
 import type { ThesisOutput, ThesisSummaryPayload } from "./types";
 

@@ -9,7 +9,7 @@
  */
 
 import { createHash } from "crypto";
-import { getNationalIndex, getNationalIndexCached } from "@/lib/crawler-db/fee-index";
+import { getNationalIndex, getNationalIndexCached } from "@/lib/data-store/fee-index";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import type { DataManifest } from "@/lib/report-engine/types";
 

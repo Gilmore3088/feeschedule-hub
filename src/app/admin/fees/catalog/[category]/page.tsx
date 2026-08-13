@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import {
   getFeeCategoryDetail,
   type DimensionBreakdown,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { formatAmount } from "@/lib/format";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {

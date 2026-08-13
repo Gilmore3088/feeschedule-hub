@@ -2,7 +2,7 @@
 
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { FEEDS, storeArticles } from "@/lib/crawler-db/news";
+import { FEEDS, storeArticles } from "@/lib/data-store/news";
 
 interface FeedEntry {
   title?: string;

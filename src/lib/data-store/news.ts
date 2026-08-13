@@ -1,4 +1,4 @@
-import { sql } from "./connection";
+import { sql, withTransaction } from "./connection";
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -238,7 +238,7 @@ export async function storeArticles(
   await ensureNewsTable();
 
   let inserted = 0;
-  await sql.begin(async (tx: any) => {
+  await withTransaction(async (tx) => {
     for (const a of articles) {
       const topic = classify(a.title);
       const result = await tx`

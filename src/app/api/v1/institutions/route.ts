@@ -3,7 +3,7 @@ import {
   getInstitutionById,
   getFeesByInstitution,
   getInstitutionsByFilter,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;

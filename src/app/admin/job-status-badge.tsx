@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 async function getJobCounts(): Promise<{ running: number; failed: number }> {
   try {

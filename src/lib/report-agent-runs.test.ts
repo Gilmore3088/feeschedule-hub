@@ -6,7 +6,7 @@ const { sqlMock, startAgentRunMock, assertAutomationEnabledMock } = vi.hoisted((
   assertAutomationEnabledMock: vi.fn(),
 }));
 
-vi.mock("./crawler-db/connection", () => ({
+vi.mock("./data-store/connection", () => ({
   sql: sqlMock,
 }));
 vi.mock("./automation-control", () => ({

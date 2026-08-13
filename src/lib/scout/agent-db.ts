@@ -1,6 +1,6 @@
 // src/lib/scout/agent-db.ts
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import type { AgentRun, AgentRunResult } from "./agent-types";
 
 export async function getAgentRun(id: number): Promise<AgentRun | null> {

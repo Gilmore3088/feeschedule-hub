@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
-import type { InstitutionSummary } from "@/lib/crawler-db";
+import type { InstitutionSummary } from "@/lib/data-store";
 import { formatAssets } from "@/lib/format";
 
 type SortKey = "institution_name" | "state_code" | "asset_size" | "fee_count";

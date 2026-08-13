@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { SavedPeerSet } from "@/lib/crawler-db";
+import type { SavedPeerSet } from "@/lib/data-store";
 import { createPeerSet, removePeerSet } from "@/app/admin/peers/actions";
 import {
   Dialog,

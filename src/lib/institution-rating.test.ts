@@ -4,7 +4,7 @@ import {
   deriveStrengthsAndWatch,
   generateInterpretation,
 } from "./institution-rating";
-import type { IndexEntry } from "./crawler-db/fee-index";
+import type { IndexEntry } from "./data-store/fee-index";
 
 // ---------------------------------------------------------------------------
 // Fixtures

@@ -3,13 +3,13 @@ import { z } from "zod";
 import {
   getFeeCategorySummaries,
   getFeeCategoryDetail,
-} from "@/lib/crawler-db";
-import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
+} from "@/lib/data-store";
+import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
 import {
   getInstitutionById,
   getFeesByInstitution,
   getInstitutionsByFilter,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 
 /**

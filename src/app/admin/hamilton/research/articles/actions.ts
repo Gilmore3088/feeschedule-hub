@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
-import { createArticle, updateArticle, deleteArticle } from "@/lib/crawler-db/articles";
+import { createArticle, updateArticle, deleteArticle } from "@/lib/data-store/articles";
 
 export async function saveArticle(data: {
   title: string;

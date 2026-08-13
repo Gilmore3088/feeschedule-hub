@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock all crawler-db modules before importing the tool
-vi.mock("@/lib/crawler-db/call-reports", () => ({
+// Mock all data-store modules before importing the tool
+vi.mock("@/lib/data-store/call-reports", () => ({
   getRevenueTrend: vi.fn().mockResolvedValue({ quarters: [], latest: null }),
   getTopRevenueInstitutions: vi.fn().mockResolvedValue([]),
   getRevenueByTier: vi.fn().mockResolvedValue([]),
   getDistrictFeeRevenue: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("@/lib/crawler-db/fed", () => ({
+vi.mock("@/lib/data-store/fed", () => ({
   getNationalEconomicSummary: vi.fn().mockResolvedValue({}),
   getBeigeBookThemes: vi.fn().mockResolvedValue([]),
   getFredSummary: vi.fn().mockResolvedValue({}),
@@ -18,7 +18,7 @@ vi.mock("@/lib/crawler-db/fed", () => ({
   getRecentSpeeches: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("@/lib/crawler-db/health", () => ({
+vi.mock("@/lib/data-store/health", () => ({
   getIndustryHealthMetrics: vi.fn().mockResolvedValue({}),
   getHealthMetricsByCharter: vi.fn().mockResolvedValue({}),
   getDepositGrowthTrend: vi.fn().mockResolvedValue([]),
@@ -26,12 +26,12 @@ vi.mock("@/lib/crawler-db/health", () => ({
   getInstitutionCountTrends: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("@/lib/crawler-db/complaints", () => ({
+vi.mock("@/lib/data-store/complaints", () => ({
   getDistrictComplaintSummary: vi.fn().mockResolvedValue({}),
   getNationalComplaintSummary: vi.fn().mockResolvedValue({ total_complaints: 0, fee_related_pct: 0, average_per_institution: 0 }),
 }));
 
-vi.mock("@/lib/crawler-db/financial", () => ({
+vi.mock("@/lib/data-store/financial", () => ({
   getStateDemographics: vi.fn().mockResolvedValue({}),
   getLatestIndicators: vi.fn().mockResolvedValue([]),
   getSodMarketShare: vi.fn().mockResolvedValue([]),
@@ -39,42 +39,42 @@ vi.mock("@/lib/crawler-db/financial", () => ({
   getOfrData: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("@/lib/crawler-db/fee-index", () => ({
+vi.mock("@/lib/data-store/fee-index", () => ({
   getNationalIndex: vi.fn().mockResolvedValue([]),
   getPeerIndex: vi.fn().mockResolvedValue([]),
   getIndexSnapshot: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("@/lib/crawler-db/derived-analytics", () => ({
+vi.mock("@/lib/data-store/derived-analytics", () => ({
   getRevenueConcentration: vi.fn().mockResolvedValue({ dollar_volume: [], institution_prevalence: [], summary: {} }),
   getFeeDependencyTrend: vi.fn().mockResolvedValue({ trend: [], signals: {} }),
   getRevenuePerInstitutionTrend: vi.fn().mockResolvedValue({ current: {}, trend: [], signals: {} }),
 }));
 
 // Mock other deps used by tools-internal.ts
-vi.mock("@/lib/crawler-db/geographic", () => ({
+vi.mock("@/lib/data-store/geographic", () => ({
   getDistrictStats: vi.fn().mockResolvedValue({}),
   getStateStats: vi.fn().mockResolvedValue({}),
 }));
-vi.mock("@/lib/crawler-db/fee-revenue", () => ({
+vi.mock("@/lib/data-store/fee-revenue", () => ({
   getFeeRevenueData: vi.fn().mockResolvedValue([]),
   getTierFeeRevenueSummary: vi.fn().mockResolvedValue([]),
   getCharterFeeRevenueSummary: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("@/lib/crawler-db/core", () => ({
+vi.mock("@/lib/data-store/core", () => ({
   getOutlierFlaggedFees: vi.fn().mockResolvedValue({ total: 0, fees: [] }),
   getReviewStats: vi.fn().mockResolvedValue({}),
   getStats: vi.fn().mockResolvedValue({}),
 }));
-vi.mock("@/lib/crawler-db/dashboard", () => ({
+vi.mock("@/lib/data-store/dashboard", () => ({
   getCrawlHealth: vi.fn().mockResolvedValue({}),
 }));
-vi.mock("@/lib/crawler-db/intelligence", () => ({
+vi.mock("@/lib/data-store/intelligence", () => ({
   searchExternalIntelligence: vi.fn().mockResolvedValue([]),
   listIntelligence: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 }));
 
-vi.mock("@/lib/crawler-db/connection", () => ({
+vi.mock("@/lib/data-store/connection", () => ({
   sql: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("@/lib/agents/run-store", () => ({
@@ -84,13 +84,13 @@ vi.mock("@/lib/agents/run-store", () => ({
 import { internalTools } from "./tools-internal";
 
 // Import mocked modules so we can check calls
-import * as callReports from "@/lib/crawler-db/call-reports";
-import * as fed from "@/lib/crawler-db/fed";
-import * as health from "@/lib/crawler-db/health";
-import * as complaints from "@/lib/crawler-db/complaints";
-import * as feeIndex from "@/lib/crawler-db/fee-index";
-import * as derivedAnalytics from "@/lib/crawler-db/derived-analytics";
-import * as intelligence from "@/lib/crawler-db/intelligence";
+import * as callReports from "@/lib/data-store/call-reports";
+import * as fed from "@/lib/data-store/fed";
+import * as health from "@/lib/data-store/health";
+import * as complaints from "@/lib/data-store/complaints";
+import * as feeIndex from "@/lib/data-store/fee-index";
+import * as derivedAnalytics from "@/lib/data-store/derived-analytics";
+import * as intelligence from "@/lib/data-store/intelligence";
 
 describe("queryNationalData", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

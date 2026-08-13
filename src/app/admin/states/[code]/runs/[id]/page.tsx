@@ -4,8 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { getAgentRunDetail } from "@/lib/crawler-db/states";
-import type { AgentRunResult } from "@/lib/crawler-db/states";
+import { getAgentRunDetail } from "@/lib/data-store/states";
+import type { AgentRunResult } from "@/lib/data-store/states";
 
 // ---------------------------------------------------------------------------
 // Types

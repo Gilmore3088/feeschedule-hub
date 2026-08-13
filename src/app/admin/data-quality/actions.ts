@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { requireAuth } from "@/lib/auth";
 import { startAgentRun } from "@/lib/agents/run-store";
 

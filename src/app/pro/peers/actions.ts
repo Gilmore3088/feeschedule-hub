@@ -6,7 +6,7 @@ import {
   savePeerSet,
   deletePeerSet,
   getSavedPeerSets,
-} from "@/lib/crawler-db/saved-peers";
+} from "@/lib/data-store/saved-peers";
 import { revalidatePath } from "next/cache";
 
 export interface SavedGroup {

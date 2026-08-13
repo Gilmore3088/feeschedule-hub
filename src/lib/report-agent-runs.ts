@@ -1,4 +1,4 @@
-import { sql } from "./crawler-db/connection";
+import { sql } from "./data-store/connection";
 import { assertAutomationEnabled } from "./automation-control";
 import { startAgentRun } from "./agents/run-store";
 import type { ReportType } from "./report-engine/types";

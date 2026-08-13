@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPublicStats, getDataFreshness } from "@/lib/crawler-db";
+import { getPublicStats, getDataFreshness } from "@/lib/data-store";
 import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 
 export const metadata: Metadata = {

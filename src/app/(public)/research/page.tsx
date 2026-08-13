@@ -7,7 +7,7 @@ import {
   getStats,
   getDataFreshness,
   getFeeCategorySummaries,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES, US_STATES_ONLY, US_TERRITORIES } from "@/lib/us-states";
 import { UsStateMap } from "@/components/public/us-state-map";

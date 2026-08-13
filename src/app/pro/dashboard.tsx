@@ -4,7 +4,7 @@ import {
   getPublicStats,
   getDataFreshness,
   getPeerIndex,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import {
   getDisplayName,
   TAXONOMY_COUNT,

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { getSpotlightCategories, getDisplayName } from "@/lib/fee-taxonomy";
 import { WelcomeSteps } from "./welcome-steps";

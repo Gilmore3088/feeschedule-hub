@@ -1,4 +1,4 @@
-import { getSql } from "@/lib/crawler-db/connection";
+import { getSql } from "@/lib/data-store/connection";
 import type { ReportJob } from "@/lib/report-engine/types";
 import { ReportControls } from "../report-controls";
 import { publishReport, retryReport, cancelReport, cancelAllPending } from "../actions";

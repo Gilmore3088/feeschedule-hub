@@ -3,7 +3,7 @@
 import { requireAuth } from "@/lib/auth";
 import { startAgentRun } from "@/lib/agents/run-store";
 import { getExecutionBackendStatus } from "@/lib/execution-backend";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import type { MagellanStatus } from "./types";
 
 export async function fetchMagellanStatus(): Promise<MagellanStatus> {

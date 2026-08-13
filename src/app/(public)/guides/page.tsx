@@ -6,7 +6,7 @@ import {
   getFeeCategorySummaries,
   getStats,
   getDataFreshness,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { getDisplayName } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";

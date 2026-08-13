@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { PeerPreviewStats, PeerTopCategory, BeigeBookSection } from "@/lib/crawler-db";
+import type { PeerPreviewStats, PeerTopCategory, BeigeBookSection } from "@/lib/data-store";
 import { formatAmount, formatPct } from "@/lib/format";
 import { getDisplayName, getFeeFamily, getFamilyColor } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";

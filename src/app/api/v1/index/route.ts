@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
+import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 import { validateApiKey } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/api-rate-limit";

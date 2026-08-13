@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getSql } from "@/lib/crawler-db/connection";
+import { getSql } from "@/lib/data-store/connection";
 import { generatePresignedUrl } from "@/lib/report-engine/presign";
 
 export const dynamic = "force-dynamic";

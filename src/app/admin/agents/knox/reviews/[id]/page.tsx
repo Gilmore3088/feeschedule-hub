@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { requireAuth } from "@/lib/auth";
 import { formatAmount } from "@/lib/format";
-import { getKnoxRejectionById } from "@/lib/crawler-db/knox-reviews";
+import { getKnoxRejectionById } from "@/lib/data-store/knox-reviews";
 import {
   ConfirmButton,
   OverrideButton,

@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
-import { sql } from "@/lib/crawler-db/connection";
-import { clearKnoxReviewCountsCache } from "@/lib/crawler-db/knox-reviews";
+import { sql } from "@/lib/data-store/connection";
+import { clearKnoxReviewCountsCache } from "@/lib/data-store/knox-reviews";
 
 const idSchema = z.string().uuid();
 const noteSchema = z.string().trim().max(2000).optional();

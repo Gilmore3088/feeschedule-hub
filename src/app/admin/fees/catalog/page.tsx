@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import {
   getFeeCategorySummaries,
   type FeeCategorySummary,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { formatAmount } from "@/lib/format";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ServerSortableTable, type ServerColumn } from "@/components/server-sortable-table";

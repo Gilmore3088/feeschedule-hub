@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { autocompleteInstitutions } from "@/lib/crawler-db/search";
+import { autocompleteInstitutions } from "@/lib/data-store/search";
 
 // Simple in-memory rate limiter for autocomplete: 60 requests/minute per IP
 const searchBuckets = new Map<string, { count: number; resetAt: number }>();

@@ -10,7 +10,7 @@
  * before any comparison.
  */
 
-import type { IndexEntry } from "./crawler-db/fee-index";
+import type { IndexEntry } from "./data-store/fee-index";
 
 // ---------------------------------------------------------------------------
 // Constants

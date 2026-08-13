@@ -6,7 +6,7 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 /**
  * Add an institution to the user's watchlist.

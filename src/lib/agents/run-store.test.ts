@@ -33,7 +33,7 @@ const {
   };
 });
 
-vi.mock("@/lib/crawler-db/connection", () => ({
+vi.mock("@/lib/data-store/connection", () => ({
   sql: sqlMock,
   withTransaction: withTransactionMock,
 }));

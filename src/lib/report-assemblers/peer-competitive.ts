@@ -6,15 +6,15 @@
  * The report backend calls generateSection() on each sections[] entry.
  *
  * Key links:
- *   - getPeerIndex() / getNationalIndex() from crawler-db/fee-index.ts
- *   - getFeeChangeEvents() from crawler-db/fee-changes.ts
+ *   - getPeerIndex() / getNationalIndex() from data-store/fee-index.ts
+ *   - getFeeChangeEvents() from data-store/fee-changes.ts
  *   - PeerCompetitiveData from hamilton/types.ts
  *   - DataManifest from report-engine/types.ts
  */
 
 import { createHash } from "crypto";
-import { getPeerIndex, getNationalIndex } from "@/lib/crawler-db/fee-index";
-import { getFeeChangeEvents } from "@/lib/crawler-db/fee-changes";
+import { getPeerIndex, getNationalIndex } from "@/lib/data-store/fee-index";
+import { getFeeChangeEvents } from "@/lib/data-store/fee-changes";
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import type { PeerCompetitiveData, SectionType } from "@/lib/hamilton/types";

@@ -5,7 +5,7 @@
  * and provide try/catch with safe fallbacks.
  */
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { toDateStr, safeJsonb } from "@/lib/pg-helpers";
 
 // ---------------------------------------------------------------------------

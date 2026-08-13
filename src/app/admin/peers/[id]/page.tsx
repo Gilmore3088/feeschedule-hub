@@ -7,7 +7,7 @@ import {
   getFinancialsByInstitution,
   getComplaintsByInstitution,
   getBeigeBookHeadline,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatAssets, formatAmount, timeAgo } from "@/lib/format";
 import { FeeUrlActions } from "./fee-url-actions";

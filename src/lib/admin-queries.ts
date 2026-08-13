@@ -9,7 +9,7 @@
  * - Returns plain objects (string | number | boolean only)
  */
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { toDateStr } from "@/lib/pg-helpers";
 
 // ---------------------------------------------------------------------------

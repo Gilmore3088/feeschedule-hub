@@ -1,7 +1,7 @@
 import { Sparkline } from "@/components/sparkline";
 import { formatAmount, formatAssets } from "@/lib/format";
-import type { InstitutionFinancial } from "@/lib/crawler-db/financial";
-import type { PeerRanking } from "@/lib/crawler-db/call-reports";
+import type { InstitutionFinancial } from "@/lib/data-store/financial";
+import type { PeerRanking } from "@/lib/data-store/call-reports";
 
 // ---------------------------------------------------------------------------
 // Types

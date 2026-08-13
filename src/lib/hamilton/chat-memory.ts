@@ -5,14 +5,14 @@
  *   hamilton_conversations — one row per conversation session
  *   hamilton_messages     — one row per turn (user or assistant)
  *
- * All queries use the shared postgres sql client from crawler-db/connection.
+ * All queries use the shared postgres sql client from data-store/connection.
  * UUID primary keys match Supabase gen_random_uuid() convention.
  *
  * Security: loadConversationHistory is scoped to (conversation_id, user_id)
  * to prevent cross-user history access (T-17-04).
  */
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 
 export interface ConversationSummary {
   id: string;

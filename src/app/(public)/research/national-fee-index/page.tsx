@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getNationalIndexCached, getCpiContext } from "@/lib/crawler-db";
+import { getNationalIndexCached, getCpiContext } from "@/lib/data-store";
 import {
   getDisplayName,
   FEE_FAMILIES,

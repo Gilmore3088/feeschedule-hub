@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useRef } from "react";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
-import type { DistrictMetric } from "@/lib/crawler-db";
+import type { DistrictMetric } from "@/lib/data-store";
 import { US_STATES } from "@/lib/us-map-paths";
 
 interface DistrictMapSelectProps {

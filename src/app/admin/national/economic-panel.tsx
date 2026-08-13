@@ -3,12 +3,12 @@ import {
   getDistrictBeigeBookSummaries,
   getBeigeBookHeadlines,
   type RichIndicator,
-} from "@/lib/crawler-db/fed";
+} from "@/lib/data-store/fed";
 import {
   getDistrictComplaintSummary,
   getNationalComplaintSummary,
   type DistrictComplaintSummary,
-} from "@/lib/crawler-db/complaints";
+} from "@/lib/data-store/complaints";
 import { Sparkline } from "@/components/sparkline";
 
 const DISTRICT_NAMES: Record<number, string> = {

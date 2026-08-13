@@ -8,7 +8,7 @@ import {
   getDistrictMetrics,
   getBeigeBookHeadlines,
   getPublicStats,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 
 export const metadata: Metadata = {

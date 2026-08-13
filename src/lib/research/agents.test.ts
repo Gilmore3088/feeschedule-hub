@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // vi.mock is hoisted — factories must be inline with no references to outer vars
 
-vi.mock("@/lib/crawler-db", () => ({
+vi.mock("@/lib/data-store", () => ({
   getPublicStats: vi.fn().mockResolvedValue({
     total_observations: 125000,
     total_institutions: 4200,
@@ -11,11 +11,11 @@ vi.mock("@/lib/crawler-db", () => ({
   }),
 }));
 
-vi.mock("@/lib/crawler-db/connection", () => ({
+vi.mock("@/lib/data-store/connection", () => ({
   sql: vi.fn().mockImplementation(() => Promise.resolve([])),
 }));
 
-// Mock fee-taxonomy to break transitive import chain through crawler-db barrel
+// Mock fee-taxonomy to break transitive import chain through data-store barrel
 vi.mock("@/lib/fee-taxonomy", () => ({
   getDisplayName: vi.fn((s: string) => s),
   getFeeFamily: vi.fn(() => "account"),

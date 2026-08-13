@@ -5,7 +5,7 @@ import {
   insertIntelligence,
   deleteIntelligence,
   type InsertIntelligenceParams,
-} from "@/lib/crawler-db/intelligence";
+} from "@/lib/data-store/intelligence";
 import { revalidatePath } from "next/cache";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };

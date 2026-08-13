@@ -1,7 +1,7 @@
 "use server";
 
 import { logout, getCurrentUser } from "@/lib/auth";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import crypto from "crypto";
 
 export async function logoutAction() {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { RecentPublishedFee } from "@/lib/crawler-db/agent-console-types";
+import type { RecentPublishedFee } from "@/lib/data-store/agent-console-types";
 
 type Props = {
   items: RecentPublishedFee[];

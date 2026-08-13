@@ -1,5 +1,5 @@
 import { getStripe, getWebhookSecret } from "@/lib/stripe";
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { headers } from "next/headers";
 import type Stripe from "stripe";
 

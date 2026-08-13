@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { getNationalIndex, getPeerIndex } from "@/lib/crawler-db";
+import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 
 export async function exportIndexCsv(

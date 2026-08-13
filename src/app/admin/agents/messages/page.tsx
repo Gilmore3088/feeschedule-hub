@@ -2,7 +2,7 @@ import Link from "next/link";
 import {
   listRecentThreads,
   type MessageThread,
-} from "@/lib/crawler-db/agent-console";
+} from "@/lib/data-store/agent-console";
 
 export const dynamic = "force-dynamic";
 

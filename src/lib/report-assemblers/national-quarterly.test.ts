@@ -10,14 +10,14 @@ import { describe, it, expect, vi } from "vitest";
 
 // Mock DB modules before importing national-quarterly.ts
 // buildThesisSummary is pure — these mocks are never called.
-vi.mock("@/lib/crawler-db/fee-index", () => ({
+vi.mock("@/lib/data-store/fee-index", () => ({
   getNationalIndex: vi.fn(),
   getPeerIndex: vi.fn(),
 }));
-vi.mock("@/lib/crawler-db/call-reports", () => ({
+vi.mock("@/lib/data-store/call-reports", () => ({
   getRevenueTrend: vi.fn(),
 }));
-vi.mock("@/lib/crawler-db/fed", () => ({
+vi.mock("@/lib/data-store/fed", () => ({
   getBeigeBookHeadlines: vi.fn(),
   getBeigeBookThemes: vi.fn(),
   getFredSummary: vi.fn(),

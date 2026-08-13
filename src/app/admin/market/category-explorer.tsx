@@ -15,7 +15,7 @@ import {
 } from "@/lib/fee-taxonomy";
 import { MaturityBadge } from "@/app/admin/index/maturity-badge";
 import { DeltaPill } from "./hero-cards";
-import type { MarketIndexEntry } from "@/lib/crawler-db";
+import type { MarketIndexEntry } from "@/lib/data-store";
 
 interface CategoryExplorerProps {
   entries: MarketIndexEntry[];

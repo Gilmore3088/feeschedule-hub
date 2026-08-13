@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { DistrictMapSelect } from "@/components/district-map-select";
-import type { DistrictMetric } from "@/lib/crawler-db";
+import type { DistrictMetric } from "@/lib/data-store";
 
 interface DistrictMapPanelProps {
   districtMetrics: DistrictMetric[];

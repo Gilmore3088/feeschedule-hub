@@ -1,6 +1,6 @@
 "use server";
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { headers } from "next/headers";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute

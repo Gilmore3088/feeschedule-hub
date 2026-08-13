@@ -6,7 +6,7 @@ import {
   getCityInstitutions,
   getCityFeeAverages,
   getNationalIndex,
-} from "@/lib/crawler-db";
+} from "@/lib/data-store";
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";

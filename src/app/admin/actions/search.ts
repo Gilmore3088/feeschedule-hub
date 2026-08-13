@@ -1,6 +1,6 @@
 "use server";
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import { requireAuth } from "@/lib/auth";
 
 export interface SearchResult {

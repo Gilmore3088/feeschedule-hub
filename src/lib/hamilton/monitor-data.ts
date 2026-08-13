@@ -5,7 +5,7 @@
  * All DB calls wrapped in try/catch, degrade gracefully to empty state.
  */
 
-import { sql } from "@/lib/crawler-db/connection";
+import { sql } from "@/lib/data-store/connection";
 import type { SignalEntry, AlertEntry } from "@/lib/hamilton/home-data";
 
 // ---------------------------------------------------------------------------
