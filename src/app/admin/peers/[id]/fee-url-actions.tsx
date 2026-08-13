@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
 import { triggerAgentRunExecution } from "@/lib/agents/client-execution";
-import { updateFeeScheduleUrl, crawlInstitution } from "../actions";
+import { updateFeeScheduleUrl, extractInstitution } from "../actions";
 
 interface FeeUrlActionsProps {
   institutionId: number;
@@ -15,7 +15,7 @@ export function FeeUrlActions({ institutionId, currentUrl, institutionName }: Fe
   const [url, setUrl] = useState(currentUrl || "");
   const [savedUrl, setSavedUrl] = useState(currentUrl || "");
   const [saving, setSaving] = useState(false);
-  const [crawling, setCrawling] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [queuedJob, setQueuedJob] = useState<{ id: number; reused: boolean } | null>(null);
 
@@ -33,7 +33,7 @@ export function FeeUrlActions({ institutionId, currentUrl, institutionName }: Fe
     }
   }
 
-  async function handleCrawl() {
+  async function handleExtract() {
     if (!url.trim()) {
       setMessage({ type: "error", text: "Set a fee schedule URL first" });
       return;
@@ -48,10 +48,10 @@ export function FeeUrlActions({ institutionId, currentUrl, institutionName }: Fe
       }
       setSavedUrl(url);
     }
-    setCrawling(true);
+    setExtracting(true);
     setMessage(null);
-    const result = await crawlInstitution(institutionId);
-    setCrawling(false);
+    const result = await extractInstitution(institutionId);
+    setExtracting(false);
     if (result.success) {
       if (typeof result.jobId === "number") {
         setQueuedJob({ id: result.jobId, reused: Boolean(result.reused) });
@@ -70,7 +70,7 @@ export function FeeUrlActions({ institutionId, currentUrl, institutionName }: Fe
         setMessage({ type: "success", text: `Extraction queued for ${institutionName}` });
       }
     } else {
-      setMessage({ type: "error", text: result.error || "Failed to start crawl" });
+      setMessage({ type: "error", text: result.error || "Failed to start extraction" });
     }
   }
 
@@ -111,11 +111,11 @@ export function FeeUrlActions({ institutionId, currentUrl, institutionName }: Fe
             {saving ? "..." : "Save"}
           </button>
           <button
-            onClick={handleCrawl}
-            disabled={crawling || !url.trim()}
+            onClick={handleExtract}
+            disabled={extracting || !url.trim()}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition-colors"
           >
-            {crawling ? "Queuing..." : "Extract this institution"}
+            {extracting ? "Queuing..." : "Extract this institution"}
           </button>
         </div>
 

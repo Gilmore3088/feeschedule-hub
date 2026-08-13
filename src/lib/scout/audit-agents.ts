@@ -397,7 +397,7 @@ export async function aiScout(
     };
   }
 
-  emit(`Found ${links.length} links — sending to Claude...`);
+  emit(`Found ${links.length} links — sending to URL scoring model...`);
 
   const model = "claude-sonnet-4-20250514";
   const client = getAnthropicMessagesClient("Magellan fee URL audit");

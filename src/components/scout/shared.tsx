@@ -11,7 +11,7 @@ export const STEPS: { id: AgentId; n: string; label: string; desc: string }[] = 
   { id: "scout",      n: "01", label: "Database Lookup",    desc: "Searches Bank Fee Index for this institution" },
   { id: "classifier", n: "02", label: "Data Quality Check", desc: "Assesses completeness and freshness" },
   { id: "extractor",  n: "03", label: "Fee Structuring",    desc: "Maps database records to report schema" },
-  { id: "analyst",    n: "04", label: "Report Synthesis",   desc: "Claude generates intelligence report" },
+  { id: "analyst",    n: "04", label: "Report Synthesis",   desc: "AI analyst generates intelligence report" },
 ];
 
 export const AUDIT_AGENT_IDS: AuditAgentId[] = ["validator", "discoverer", "ai_scout", "reporter"];
@@ -19,7 +19,7 @@ export const AUDIT_AGENT_IDS: AuditAgentId[] = ["validator", "discoverer", "ai_s
 export const AUDIT_STEPS: { id: AuditAgentId; n: string; label: string; desc: string }[] = [
   { id: "validator",  n: "01", label: "URL Validation",       desc: "Checks if existing URL is a real fee schedule" },
   { id: "discoverer", n: "02", label: "Heuristic Discovery",  desc: "Runs 6-method cascade to find fee schedule URL" },
-  { id: "ai_scout",   n: "03", label: "AI Scout",             desc: "Claude evaluates homepage links for fee schedules" },
+  { id: "ai_scout",   n: "03", label: "AI Scout",             desc: "AI scorer evaluates homepage links for fee schedules" },
   { id: "reporter",   n: "04", label: "Reporter",             desc: "Summarizes audit results and changes" },
 ];
 
@@ -486,7 +486,7 @@ function ScoutDetail({ data }: { data: Record<string, unknown> }) {
           ["State", inst?.state as string],
           ["Charter", inst?.charter_type as string],
           ["Fees", String((data.fees as unknown[])?.length || 0)],
-          ["Crawls", String((data.crawlResults as unknown[])?.length || 0)],
+          ["Source reads", String((data.crawlResults as unknown[])?.length || 0)],
         ]}
       />
       {(targets?.length ?? 0) > 1 && (

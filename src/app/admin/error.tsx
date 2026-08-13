@@ -8,8 +8,7 @@ export default function AdminError({
   reset: () => void;
 }) {
   const isDbError = error.message?.includes("unable to open database") ||
-                    error.message?.includes("no such table") ||
-                    error.message?.includes("SQLITE");
+                    error.message?.includes("no such table");
 
   return (
     <div className="text-center py-16">
@@ -18,7 +17,7 @@ export default function AdminError({
       </h2>
       <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">
         {isDbError
-          ? "The crawler database could not be loaded. Make sure the data pipeline has been run."
+          ? "The application data store could not be loaded. Make sure the database migrations and agentic data pipeline have run."
           : error.message}
       </p>
       <button

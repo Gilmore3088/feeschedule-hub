@@ -16,7 +16,7 @@ const NEXT_STEPS = [
   {
     href: "/admin/magellan",
     label: "Extract fee schedules",
-    detail: "Open Magellan when source URLs or stale crawls need rescue.",
+    detail: "Open Magellan when source URLs or stale collection attempts need rescue.",
   },
   {
     href: "/admin/darwin",

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const DATA_SOURCES = [
   {
     name: "Fee Schedule Extractions",
-    description: "Bank and credit union fee schedules extracted via LLM from published PDFs and web pages.",
+    description: "Bank and credit union fee observations extracted from published PDFs and web pages with source lineage and review gates.",
     agency: "Bank Fee Index",
     cadence: "Weekly",
     key: null as string | null,

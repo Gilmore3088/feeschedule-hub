@@ -155,7 +155,7 @@ async function opsContext(): Promise<string> {
          AND run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
     `) as { cnt: number }[];
     const parts: string[] = [];
-    if (lastCrawl?.completed_at) parts.push(`Last crawl: ${lastCrawl.completed_at}`);
+    if (lastCrawl?.completed_at) parts.push(`Last collection: ${lastCrawl.completed_at}`);
     if (knoxReview.pending > 0) parts.push(`${knoxReview.pending} Knox decisions pending review`);
     if (activeRuns.cnt > 0) parts.push(`${activeRuns.cnt} agent runs active`);
     return parts.length > 0 ? `\n\nOperational status: ${parts.join(". ")}.` : "";

@@ -182,7 +182,7 @@ export function footnote(text: string): string {
 
 /**
  * Wraps Hamilton's AI-generated prose with a subtle terracotta left rule.
- * escapeHtml applied defensively — Claude output should be plain text
+ * escapeHtml applied defensively — generated prose should be plain text
  * but this prevents XSS if the prose is ever served in a browser frame.
  */
 export function hamiltonNarrativeBlock(prose: string): string {

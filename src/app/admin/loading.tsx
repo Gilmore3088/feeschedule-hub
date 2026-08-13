@@ -10,7 +10,7 @@ export default function Loading() {
         ))}
       </div>
 
-      {/* Row 1: Command center + crawl strip */}
+      {/* Row 1: Command center + source freshness strip */}
       <div className="space-y-3">
         <div className="admin-card px-6 py-5 space-y-3">
           <Skeleton className="h-3 w-24" />

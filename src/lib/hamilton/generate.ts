@@ -1,6 +1,6 @@
 /**
  * Hamilton AI Analyst — Section Generator
- * Calls Claude with strict data grounding and voice enforcement.
+ * Calls the centralized provider with strict data grounding and voice enforcement.
  */
 
 import {
@@ -59,7 +59,7 @@ function countWords(text: string): number {
  *
  * @param input - Section type, title, and source data
  * @returns Structured section output with usage metrics
- * @throws Error if API key is missing or the Claude API call fails
+ * @throws Error if API key is missing or the provider call fails
  */
 export async function generateSection(input: SectionInput): Promise<SectionOutput> {
   const client = getAnthropicMessagesClient("Hamilton section generation");

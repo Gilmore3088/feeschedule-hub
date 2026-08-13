@@ -1,8 +1,8 @@
 /**
- * Editor Review Module — Second Claude pass on Hamilton drafts.
+ * Editor Review Module — second model pass on Hamilton drafts.
  *
  * The editor is a critic, not a writer (per D-12).
- * It uses a distinct system prompt and a cheap haiku model.
+ * It uses a distinct system prompt and a lower-cost editor model.
  * Flagged sections with severity 'major' block the job from reaching 'complete'.
  *
  * Threat T-13-08: JSON parse failure defaults to approved=false (fail-safe).
@@ -39,7 +39,7 @@ export interface FlaggedSection {
 }
 
 export interface EditorReviewResult {
-  /** False if any flaggedSection has severity='major', or if Claude response is unparseable. */
+  /** False if any flaggedSection has severity='major', or if the model response is unparseable. */
   approved: boolean;
   flaggedSections: FlaggedSection[];
   /** One-sentence overall assessment from the editor. */

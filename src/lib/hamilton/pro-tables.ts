@@ -250,7 +250,7 @@ export async function seedPublishedReports(): Promise<void> {
     recommendation:
       "Institutions with ATM fees above $3.50 should benchmark against their specific peer set before the next review cycle. Wire fee reductions are a low-risk competitive signal for institutions actively pursuing small business growth — the revenue impact is modest but the perception value is measurable in onboarding surveys.",
     implementationNotes: [
-      "Pulse data reflects fee schedule changes detected by the BFI crawler pipeline in March 2026",
+      "Pulse data reflects fee schedule changes detected by the BFI agentic collection pipeline in March 2026",
       "Movement figures represent institutions with confirmed fee schedule updates, not the full 4,200+ universe",
       "Hamilton Intelligence — Bank Fee Index Monthly Pulse, March 2026",
     ],

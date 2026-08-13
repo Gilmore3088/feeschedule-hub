@@ -84,7 +84,7 @@ function initialLiveJob(job: CommandCenterJob) {
 
 function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>) {
   const missingUrls = Math.max(0, center.metrics.url.denominator - center.metrics.url.numerator);
-  const staleOrMissingCrawls = Math.max(0, center.metrics.fresh.denominator - center.metrics.fresh.numerator);
+  const staleOrMissingSources = Math.max(0, center.metrics.fresh.denominator - center.metrics.fresh.numerator);
   const unverified = Math.max(0, center.metrics.verified.denominator - center.metrics.verified.numerator);
   const reviewWork = center.attention.find((item) => item.id.startsWith("review:"));
 
@@ -111,8 +111,8 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       id: "extract" as const,
       title: "Extract fee schedules",
       owner: "magellan",
-      metric: `${number(staleOrMissingCrawls)} stale or uncollected`,
-      detail: "Collect fee rows from institutions that still need a fresh crawl.",
+      metric: `${number(staleOrMissingSources)} stale or uncollected`,
+      detail: "Collect fee rows from institutions that still need a fresh source read.",
       commandLabel: "fetch + read + extract",
       href: "/admin/magellan",
     },
@@ -508,7 +508,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
 
 function AgentRail({ schedules }: { schedules: JobFreshness[] }) {
   const stages = [
-    { name: "Magellan", role: "Discover + collect", href: "/admin/magellan", icon: Compass, jobs: ["run_discovery", "run_pdf_extraction", "run_browser_extraction", "magellan_rescue"] },
+    { name: "Magellan", role: "Discover + collect", href: "/admin/magellan", icon: Compass, jobs: ["discover", "fetch", "read", "rescue"] },
     { name: "Darwin", role: "Classify", href: "/admin/darwin", icon: Dna, jobs: ["darwin_drain"] },
     { name: "Knox", role: "Adversarial review", href: "/admin/knox", icon: ShieldCheck, jobs: ["knox_review"] },
     { name: "Publish", role: "Verified index", href: "/admin/data", icon: Orbit, jobs: ["daily_pipeline"] },

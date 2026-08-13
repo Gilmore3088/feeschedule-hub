@@ -661,7 +661,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
           <li>
             <span className="font-medium text-[#5A5347]">Coverage.</span>{" "}
             The dataset currently includes thousands of U.S. financial institutions
-            and is updated continuously through automated crawling.
+            and is updated continuously through visible agentic collection.
           </li>
         </ul>
       </div>

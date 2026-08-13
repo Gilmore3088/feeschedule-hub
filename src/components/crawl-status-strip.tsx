@@ -51,7 +51,7 @@ export function CrawlStatusStrip({ health }: CrawlStatusStripProps) {
     <div className="admin-card px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
       <Indicator
         status={health.last_run_status === "completed" ? "green" : "amber"}
-        label="Last crawl"
+        label="Last collection"
         value={health.last_run_at ? timeAgo(health.last_run_at) : "Never"}
       />
       <Indicator

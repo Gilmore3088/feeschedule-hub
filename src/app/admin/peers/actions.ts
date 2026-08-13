@@ -44,7 +44,7 @@ export async function updateFeeScheduleUrl(
   return setInstitutionFeeUrl(institutionId, url);
 }
 
-export async function crawlInstitution(
+export async function extractInstitution(
   institutionId: number,
 ): Promise<{ success: boolean; jobId?: number; reused?: boolean; error?: string }> {
   return extractInstitutionCommand(institutionId);

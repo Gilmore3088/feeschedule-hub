@@ -53,7 +53,7 @@ export async function runMagellanRepair(
       agent: "magellan",
       kind: "workflow_lane",
       title: "Magellan fee URL rescue",
-      params: { size, batches, limit: size * batches, source: "admin.magellan_rescue" },
+      params: { size, batches, limit: size * batches, source: "admin.magellan.rescue" },
       triggeredBy: user.username,
       triggerSource: "admin",
       idempotencyKey: "magellan:rescue",

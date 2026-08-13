@@ -185,7 +185,7 @@ export async function analyst(
   emit(
     `Synthesising report — ${extractorResult.fees.length} fees | confidence ${Math.round(extractorResult.confidence * 100)}%`
   );
-  emit("Sending to Claude Sonnet...");
+  emit("Sending to report model...");
 
   const payload = {
     institution_name: scoutResult.institution.institution_name,

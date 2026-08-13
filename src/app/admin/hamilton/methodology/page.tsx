@@ -122,7 +122,7 @@ export default async function MethodologyPage() {
           PDF, HTML page, or downloadable document published on the institution&apos;s public website.
           Fee schedules are the primary source of record. We do not use estimated or third-party
           fee data — every observation in the index traces to a specific document at a specific URL,
-          crawled at a specific date.
+          collected at a specific date.
         </p>
         <div className="my-4 overflow-x-auto">
           <table className="w-full text-xs border-collapse">
@@ -137,7 +137,7 @@ export default async function MethodologyPage() {
               {[
                 ["FDIC API", "~4,500 insured commercial banks", "Quarterly re-seed"],
                 ["NCUA API", "~4,800 credit unions", "Quarterly re-seed"],
-                ["Institution websites", "Fee schedules (PDF, HTML)", "Continuous crawl"],
+                ["Institution websites", "Fee schedules (PDF, HTML)", "Continuous agent collection"],
                 ["FRED (Federal Reserve)", "District economic indicators", "Monthly"],
                 ["Fed Beige Book", "Regional economic commentary", "8x per year"],
               ].map(([source, coverage, cadence]) => (
@@ -253,7 +253,7 @@ export default async function MethodologyPage() {
             <span className="font-medium text-gray-800 dark:text-gray-200">Peer review for anomalies.</span>{" "}
             Institutions with fee schedules that produce an unusually high or low number of
             extractions relative to peers in the same asset tier are flagged for investigation.
-            This catches cases where the crawler found a promotional document rather than the
+            This catches cases where discovery found a promotional document rather than the
             standard fee schedule.
           </li>
           <li>
@@ -316,10 +316,10 @@ export default async function MethodologyPage() {
         </p>
         <ul className="space-y-2 mb-4">
           {[
-            ["Point-in-time snapshots", "Each observation reflects the fee schedule as of the crawl date. Fee changes between crawl cycles are not captured until the next scheduled run. For recently changed institutions, the index may lag by up to 90 days."],
+            ["Point-in-time snapshots", "Each observation reflects the fee schedule as of the collection date. Fee changes between collection cycles are not captured until the next scheduled run. For recently changed institutions, the index may lag by up to 90 days."],
             ["Published vs. actual fees", "This index tracks published fee schedules, not fees actually charged. Many institutions waive fees for qualifying customers, offer relationship pricing, or apply undocumented discretionary exceptions. Published fees represent the ceiling, not the average realized charge."],
-            ["Crawl failures", "A subset of institutions publish fee schedules in formats that resist automated extraction: scanned PDFs, image-based documents, or fee information embedded in account agreement PDFs without structured layout. These institutions are tracked but may have zero or incomplete observations."],
-            ["Fee schedule obfuscation", "Some institutions do not publish fee schedules accessible to web crawlers. This is more common among large national banks, which may direct customers to branch or call-center disclosures. The index may systematically underrepresent fees at the largest institutions."],
+            ["Collection failures", "A subset of institutions publish fee schedules in formats that resist automated extraction: scanned PDFs, image-based documents, or fee information embedded in account agreement PDFs without structured layout. These institutions are tracked but may have zero or incomplete observations."],
+            ["Fee schedule obfuscation", "Some institutions do not publish fee schedules accessible to automated collection. This is more common among large national banks, which may direct customers to branch or call-center disclosures. The index may systematically underrepresent fees at the largest institutions."],
             ["Categorization ambiguity", "Not all fees map cleanly to the 49-category taxonomy. Fees with conditional pricing (e.g., \"$12 if balance below $500\") are captured at the stated amount but may not reflect the fee applicable to all customers."],
           ].map(([title, content]) => (
             <li key={title} className="flex gap-2">

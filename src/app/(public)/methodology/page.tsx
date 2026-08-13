@@ -26,7 +26,7 @@ const jsonLdData = {
 export const metadata: Metadata = {
   title: "Methodology — How Bank Fee Index Works",
   description:
-    "Bank Fee Index collects fee schedules from 4,000+ banks and credit unions using automated crawling, AI extraction, and statistical validation. Learn how our data is collected, categorized, and verified.",
+    "Bank Fee Index collects fee schedules from 4,000+ banks and credit unions using visible agent runs, deterministic extraction, and statistical validation. Learn how our data is collected, categorized, and verified.",
   alternates: {
     canonical: METHODOLOGY_URL,
   },
@@ -87,24 +87,24 @@ export default function MethodologyPage() {
         {/* Section 2: Collection Process */}
         <Section
           label="Collection Process"
-          title="Automated crawling locates and retrieves fee schedules at scale"
+          title="Agentic collection locates and retrieves fee schedules at scale"
           body={[
-            "Fee schedules are collected through an automated pipeline that runs on a scheduled basis. The pipeline has three stages: discovery, retrieval, and extraction.",
+            "Fee schedules are collected through a visible agent pipeline that runs on a scheduled basis. The pipeline has three stages: discovery, retrieval, and extraction.",
             "Discovery identifies the URL of each institution's fee schedule through a combination of structured URL pattern matching (most institutions follow predictable URL conventions such as /fee-schedule.pdf or /disclosures/fees) and semantic search against the institution's main website. Discovery success rate varies significantly by institution size: large regional banks publish fee schedules reliably, while community banks and credit unions are more variable. Our current discovery coverage is approximately 68% of tracked institutions.",
-            "Retrieval downloads the located fee schedule document. Both HTML pages and PDF documents are supported. PDF extraction uses a combination of digital text extraction (for text-based PDFs) and OCR (for scanned documents). HTML extraction uses structured parsing with fallback to raw text. Retrieval captures the full document, stores a hash for change detection, and records the crawl timestamp.",
-            "Re-crawls run on a rolling schedule. Institutions with frequent fee changes are crawled more often than those with stable fee structures. The crawl system detects unchanged documents via content hash comparison and skips re-extraction when the document has not changed — preserving historical fee data without creating duplicate records.",
+            "Retrieval reads the located fee schedule document. HTML pages, plain-text documents, and PDFs with embedded text are supported. Image-only PDFs are tracked separately for OCR instead of being mixed into the general review queue. Retrieval stores source metadata, a content hash for change detection, and a collection timestamp.",
+            "Refreshes run on a rolling schedule. Institutions with frequent fee changes are checked more often than those with stable fee structures. The collection system detects unchanged documents via content hash comparison and skips duplicate extraction when the source has not changed.",
           ]}
         />
 
         {/* Section 3: Extraction */}
         <Section
           label="Extraction"
-          title="AI-assisted extraction identifies fee types and amounts with confidence scoring"
+          title="Conservative extraction identifies fee types and amounts with review gates"
           body={[
-            "Fee extraction is performed by a large language model (Claude Haiku) operating against the full text of each retrieved fee schedule. The model is prompted to identify fee names, amounts, and any applicable conditions (such as fee waivers, tiered pricing, or periodic changes).",
-            "Each extracted fee is assigned a confidence score between 0.0 and 1.0. Confidence reflects the model's certainty about the fee's identity and amount — a score above 0.85 indicates high confidence that the fee name and amount are correctly identified. Scores below 0.70 are flagged for human review.",
-            "The extraction prompt does not ask the model to infer or estimate fees. If a fee amount is not explicitly stated in the document, the model does not generate one. This is the primary safeguard against hallucination in the extraction layer: the prompt instructs the model to identify fees present in the document, not to synthesize a fee schedule from general knowledge.",
-            "Extracted fees are stored with their source document reference, crawl timestamp, and confidence score — enabling a full audit trail from published fee schedule to index entry.",
+            "Fee extraction runs against the readable text of each retrieved fee schedule. The extraction layer identifies fee names, amounts, and applicable conditions such as waivers, tiered pricing, or periodic charges.",
+            "Each extracted fee is assigned a confidence and review status. High-confidence rows can move forward automatically, while low-confidence rows, anomalies, and policy conflicts are held for analyst review.",
+            "The extraction layer does not infer or estimate fees. If a fee amount is not explicitly stated in the document, the system does not synthesize one. This is the primary safeguard against invented fee data.",
+            "Extracted fees are stored with their source document reference, collection timestamp, and review state, enabling a full audit trail from published fee schedule to index entry.",
           ]}
         />
 
@@ -140,7 +140,7 @@ export default function MethodologyPage() {
             "Bank Fee Index tracks published fee schedules, not actual fee revenue or transaction-level data. A published fee of $35 does not mean a given institution collected $35 for every overdraft — waiver programs, promotional rates, and negotiated terms affect realized fees. Our data reflects disclosed rates, which are the standard of comparison for regulatory purposes and consumer research.",
             "Our coverage is strongest for retail deposit account fees (maintenance, overdraft, NSF, wire, ATM) and weakest for business account fees, loan fees, and investment-account fees. Fee schedules for these product types are less consistently published in machine-readable formats.",
             "Geographic coverage is reasonably uniform at the state level but skewed toward states with higher institution density (Texas, California, Illinois, Ohio, New York). Fed District 4 (Cleveland), District 7 (Chicago), and District 11 (Dallas) have the strongest coverage. District 10 (Kansas City) and District 12 (San Francisco, excluding California) have the largest gaps relative to institution population.",
-            "Crawl freshness varies by institution and schedule. The national index represents a rolling snapshot of fee schedules collected over the trailing 120 days. State-level indexes use a 90-day window. Fees older than these thresholds are excluded from the live index to prevent stale data from distorting benchmarks.",
+            "Source freshness varies by institution and schedule. The national index represents a rolling snapshot of fee schedules collected over the trailing 120 days. State-level indexes use a 90-day window. Fees older than these thresholds are excluded from the live index to prevent stale data from distorting benchmarks.",
           ]}
         />
 
