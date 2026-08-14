@@ -1,7 +1,7 @@
 "use server";
 
 import { login } from "@/lib/auth";
-import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
+import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
 
 export async function loginAction(
   formData: FormData,
@@ -21,17 +21,8 @@ export async function loginAction(
 
   const destination = sanitizeInternalRedirect(redirectTo, "/account");
 
-  // Preserve admin bookmarks without allowing an external redirect or sending
-  // a non-admin user into the protected operator console.
-  if (user.role === "admin" || user.role === "analyst") {
-    return {
-      success: true,
-      redirect: destination.startsWith("/admin") ? destination : "/admin",
-    };
-  }
-
   return {
     success: true,
-    redirect: destination.startsWith("/admin") ? "/account" : destination,
+    redirect: resolvePostLoginRedirect(destination, user.role),
   };
 }

@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { LoginForm } from "./login-form";
 import type { Metadata } from "next";
-import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
+import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -20,10 +20,7 @@ export default async function LoginPage({
   const destination = sanitizeInternalRedirect(params.from, "/account");
 
   if (user) {
-    if (user.role === "admin" || user.role === "analyst") {
-      redirect(destination.startsWith("/admin") ? destination : "/admin");
-    }
-    redirect(destination.startsWith("/admin") ? "/account" : destination);
+    redirect(resolvePostLoginRedirect(destination, user.role));
   }
 
   return (

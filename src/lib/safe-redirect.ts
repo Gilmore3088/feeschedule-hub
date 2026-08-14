@@ -13,3 +13,16 @@ export function sanitizeInternalRedirect(
     return fallback;
   }
 }
+
+export function resolvePostLoginRedirect(
+  destination: string,
+  role: string | null | undefined,
+): string {
+  if (role === "admin" || role === "analyst") {
+    return destination.startsWith("/admin") || destination.startsWith("/pro")
+      ? destination
+      : "/admin";
+  }
+
+  return destination.startsWith("/admin") ? "/account" : destination;
+}
