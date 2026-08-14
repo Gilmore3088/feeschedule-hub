@@ -174,7 +174,7 @@ async function loadFees(targetIds: number[]): Promise<FeeData[]> {
     SELECT institution_id, fee_category, amount
     FROM published_fee_catalog
     WHERE institution_id IN ${sql(targetIds)}
-      AND review_status != 'rejected'
+      AND review_status = 'approved'
       AND fee_category IS NOT NULL
       AND amount IS NOT NULL
       AND amount > 0

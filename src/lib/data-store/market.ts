@@ -118,7 +118,7 @@ export async function getFeesForCategory(
     asset_tiers?: string[];
     fed_districts?: number[];
   },
-  approvedOnly = false
+  approvedOnly = true
 ): Promise<{ amount: number; charter_type: string; institution_name: string }[]> {
   const conditions = [
     "ef.fee_category = $1",
@@ -186,7 +186,7 @@ export async function getSegmentOutliers(
 ): Promise<SegmentOutlier[]> {
   const conditions = [
     "ef.fee_category IS NOT NULL",
-    "ef.review_status != 'rejected'",
+    "ef.review_status = 'approved'",
     "ef.amount IS NOT NULL",
     "ef.amount > 0",
   ];
@@ -248,10 +248,31 @@ export async function getSegmentOutliers(
     amount: number;
   }[];
 
-  const flaggedConditions = [
-    ...conditions.filter((c) => c !== "ef.amount IS NOT NULL" && c !== "ef.amount > 0"),
-    "ef.review_status = 'flagged'",
-  ];
+  const flaggedConditions = ["ef.fee_category IS NOT NULL", "ef.review_status = 'flagged'"];
+  const flaggedParams: (string | number)[] = [];
+  let flaggedParamIdx = 0;
+  if (filters.charter_type) {
+    flaggedParamIdx++;
+    flaggedConditions.push(`ct.charter_type = $${flaggedParamIdx}`);
+    flaggedParams.push(filters.charter_type);
+  }
+  if (filters.asset_tiers && filters.asset_tiers.length > 0) {
+    const placeholders = filters.asset_tiers.map(() => {
+      flaggedParamIdx++;
+      return `$${flaggedParamIdx}`;
+    }).join(",");
+    flaggedConditions.push(`ct.asset_size_tier IN (${placeholders})`);
+    flaggedParams.push(...filters.asset_tiers);
+  }
+  if (filters.fed_districts && filters.fed_districts.length > 0) {
+    const placeholders = filters.fed_districts.map(() => {
+      flaggedParamIdx++;
+      return `$${flaggedParamIdx}`;
+    }).join(",");
+    flaggedConditions.push(`ct.fed_district IN (${placeholders})`);
+    flaggedParams.push(...filters.fed_districts);
+  }
+  const flaggedLimitIdx = flaggedParamIdx + 1;
 
   const flagged = await sql.unsafe(
     `SELECT ef.fee_category, ct.institution_name, ct.id as institution_id,
@@ -260,8 +281,8 @@ export async function getSegmentOutliers(
      JOIN institution_sources ct ON ef.institution_id = ct.id
      WHERE ${flaggedConditions.join(" AND ")}
      ORDER BY ef.amount DESC
-     LIMIT $${limitIdx}`,
-    [...params, limit]
+     LIMIT $${flaggedLimitIdx}`,
+    [...flaggedParams, limit]
   ) as {
     fee_category: string;
     institution_name: string;

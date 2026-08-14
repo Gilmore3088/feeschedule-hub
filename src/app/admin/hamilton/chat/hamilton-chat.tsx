@@ -29,21 +29,10 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Ref to hold latest conversationId so the body function always sends the current value
-  const conversationIdRef = useRef<string | null>(null);
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    conversationIdRef.current = conversationId;
-  }, [conversationId]);
 
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/hamilton/chat",
-      // D-05: Pass conversation_id for session continuity via body function
-      body: () => ({
-        conversation_id: conversationIdRef.current ?? undefined,
-      }),
     }),
     onError: (err) => {
       const msg = err?.message || "";
@@ -73,13 +62,6 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
     inputRef.current?.focus();
   }, []);
 
-  // Detect desktop width on mount to show sidebar
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-      setShowSidebar(true);
-    }
-  }, []);
-
   // Refresh conversation list when streaming completes
   useEffect(() => {
     if (status === "ready" && messages.length > 0) {
@@ -107,7 +89,6 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
         const newId = data.id ?? data.conversation_id;
         if (newId) {
           setConversationId(newId);
-          conversationIdRef.current = newId;
           return newId;
         }
       }
@@ -119,15 +100,21 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     setError(null);
-    await ensureConversation();
-    sendMessage({ text: input });
+    const activeConversationId = await ensureConversation();
+    sendMessage(
+      { text: input },
+      { body: { conversation_id: activeConversationId ?? undefined } },
+    );
     setInput("");
   }
 
   async function handleSuggestion(q: string) {
     setError(null);
-    await ensureConversation();
-    sendMessage({ text: q });
+    const activeConversationId = await ensureConversation();
+    sendMessage(
+      { text: q },
+      { body: { conversation_id: activeConversationId ?? undefined } },
+    );
   }
 
   function handleNewChat() {
@@ -138,7 +125,10 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
 
   function handleGenerateReport() {
     setError(null);
-    sendMessage({ text: "Generate a formal report for this analysis" });
+    sendMessage(
+      { text: "Generate a formal report for this analysis" },
+      { body: { conversation_id: conversationId ?? undefined } },
+    );
   }
 
   async function handleLoadConversation(convId: string) {

@@ -26,6 +26,17 @@ import {
   findOfferedSkill,
 } from "@/lib/research/skills";
 import { canAccessPremium } from "@/lib/access";
+import {
+  getFeesByInstitution,
+  getFinancialsByInstitution,
+  getInstitutionById,
+} from "@/lib/data-store";
+import {
+  getInstitutionPeerRanking,
+  getInstitutionRevenueTrend,
+} from "@/lib/data-store/call-reports";
+import { getInstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
+import { getFeePublicationStatusLabel } from "@/lib/institution-quality";
 
 export const maxDuration = 30;
 
@@ -54,6 +65,95 @@ function estimateCostCents(
   return Math.round(
     (inputTokens * inputRate + outputTokens * outputRate) / 1_000_000
   );
+}
+
+async function buildSelectedInstitutionContext(institutionId: number): Promise<string | null> {
+  const [inst, fees, financials, revenueTrend, peerRanking, evidence] = await Promise.all([
+    getInstitutionById(institutionId),
+    getFeesByInstitution(institutionId).catch(() => []),
+    getFinancialsByInstitution(institutionId).catch(() => []),
+    getInstitutionRevenueTrend(institutionId).catch(() => []),
+    getInstitutionPeerRanking(institutionId).catch(() => null),
+    getInstitutionFeeScheduleEvidence(institutionId).catch(() => null),
+  ]);
+
+  if (!inst) return null;
+
+  const visibleFees = fees.filter((fee) => fee.review_status !== "rejected");
+  const verifiedFees = visibleFees.filter((fee) => fee.review_status === "approved");
+  const provisionalFees = visibleFees.filter((fee) => fee.review_status !== "approved");
+  const feeRows = [...verifiedFees.slice(0, 12), ...provisionalFees.slice(0, 12)].map((fee) => ({
+    name: fee.fee_name,
+    category: fee.fee_category ?? null,
+    amount: fee.amount,
+    frequency: fee.frequency,
+    conditions: fee.conditions,
+    status: fee.review_status === "approved" ? "verified" : "provisional",
+    confidence: fee.extraction_confidence,
+  }));
+  const pipelineFeeRows =
+    feeRows.length === 0 && evidence
+      ? [
+          ...evidence.verified_fee_preview
+            .filter((fee) => fee.review_status !== "rejected")
+            .map((fee) => ({
+              name: fee.fee_name,
+              category: fee.canonical_fee_key,
+              amount: fee.amount,
+              frequency: fee.frequency,
+              conditions: null,
+              status: "provisional",
+              confidence: fee.extraction_confidence,
+              pipeline_stage: "verified_unpublished",
+            })),
+          ...evidence.raw_fee_preview.map((fee) => ({
+            name: fee.fee_name,
+            category: null,
+            amount: fee.amount,
+            frequency: fee.frequency,
+            conditions: fee.conditions,
+            status: "provisional",
+            confidence: fee.extraction_confidence,
+            pipeline_stage: "raw_unverified",
+          })),
+        ].slice(0, 18)
+      : [];
+  const latestFinancial = financials[0] ?? null;
+  const status = inst.fee_publication_status ?? "unavailable";
+
+  return `\n\nSELECTED INSTITUTION CONTEXT FROM URL (treat this as the active institution; do not ask the user to identify it again):
+- Institution ID: ${inst.id}
+- Name: ${inst.institution_name}
+- Location: ${[inst.city, inst.state_code].filter(Boolean).join(", ") || "unknown"}
+- Charter: ${inst.charter_type ?? "unknown"}
+- Asset tier: ${inst.asset_size_tier ?? "unknown"}; assets: ${inst.asset_size ?? "unknown"}
+- Fed district: ${inst.fed_district ?? "unknown"}
+- Public fee publication status: ${getFeePublicationStatusLabel(status)} (${status})
+- Verified fee count: ${inst.published_fee_count ?? 0}
+- Provisional fee count: ${inst.provisional_fee_count ?? 0}
+- Quality label: ${inst.quality_label ?? "unknown"}
+- Quality signals: ${(inst.quality_signals ?? []).map((signal) => `${signal.code}: ${signal.label}`).join("; ") || "none"}
+- Latest source status: ${inst.latest_source_status ?? "unknown"}; collected at: ${inst.latest_source_collected_at ?? "unknown"}
+- Visible fee rows sample: ${JSON.stringify(feeRows.length > 0 ? feeRows : pipelineFeeRows)}
+- Latest financial record: ${latestFinancial ? JSON.stringify({
+    report_date: latestFinancial.report_date,
+    source: latestFinancial.source,
+    total_assets: latestFinancial.total_assets,
+    total_deposits: latestFinancial.total_deposits,
+    service_charge_income: latestFinancial.service_charge_income,
+    total_revenue: latestFinancial.total_revenue,
+    fee_income_ratio: latestFinancial.fee_income_ratio,
+    roa: latestFinancial.roa,
+    branch_count: latestFinancial.branch_count,
+  }) : "none"}
+- Revenue trend: ${JSON.stringify(revenueTrend.slice(0, 8))}
+- Peer ranking: ${peerRanking ? JSON.stringify(peerRanking) : "none"}
+
+Analysis rules for this selected institution:
+- Separate verified evidence from provisional evidence.
+- Do not use provisional fee rows in verified benchmark or score conclusions unless explicitly labeled as provisional/directional.
+- When data quality is weak, state the gap and give concrete diligence steps instead of filling in generic analysis.
+- Prefer investor-grade, consulting-grade synthesis: implications, peer positioning, risks, data caveats, and next decisions.\n`;
 }
 
 export async function POST(request: Request) {
@@ -139,6 +239,9 @@ export async function POST(request: Request) {
   let messages: UIMessage[];
   let mode: string | undefined;
   let analysisFocus: string | undefined;
+  let institutionId: number | null = null;
+  let intent: string | null = null;
+  let evidencePolicy: string | null = null;
   // Opt-in citation-density gate. Default false preserves the streaming chat
   // UX (useChat); callers that need a vetted report (report runner, export)
   // set `gate_citations: true` and receive a buffered JSON response that can
@@ -149,7 +252,17 @@ export async function POST(request: Request) {
     messages = body.messages;
     mode = body.mode;
     analysisFocus = body.analysisFocus;
+    intent = typeof body.intent === "string" ? body.intent : null;
+    evidencePolicy =
+      typeof body.evidencePolicy === "string" ? body.evidencePolicy : null;
     gateCitations = body.gate_citations === true;
+    if (body.institutionId !== undefined && body.institutionId !== null) {
+      const parsed = Number(body.institutionId);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        return Response.json({ error: "Invalid institutionId" }, { status: 400 });
+      }
+      institutionId = parsed;
+    }
     if (!Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: "Messages required" }, { status: 400 });
     }
@@ -168,6 +281,18 @@ export async function POST(request: Request) {
       .join(" ") || "";
 
   let systemPrompt = agent.systemPrompt;
+
+  if (institutionId !== null) {
+    const selectedInstitutionContext = await buildSelectedInstitutionContext(institutionId);
+    if (!selectedInstitutionContext) {
+      return Response.json({ error: "Institution not found" }, { status: 404 });
+    }
+    systemPrompt += selectedInstitutionContext;
+    systemPrompt += `\nURL-SEEDED WORKFLOW:
+- Intent: ${intent ?? "analyze"}
+- Evidence policy: ${evidencePolicy ?? "provisional-first"}
+- If evidence is empty, answer with an insufficient-evidence diligence path. Do not produce a generic competitive brief, pricing recommendation, or false benchmark conclusion.\n`;
+  }
 
   // Inject the authenticated user's institution context so Hamilton doesn't
   // ask "what's your institution?" for every analysis (the screenshot showed

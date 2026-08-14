@@ -117,7 +117,7 @@ export default async function ForInstitutionsPage() {
                 $15K consulting fees
               </p>
               <p className="mt-1 text-[13px] text-warm-600">
-                For a pricing study that's already stale by the time it's delivered
+                For a pricing study that&apos;s already stale by the time it&apos;s delivered
               </p>
             </div>
           </div>
@@ -305,7 +305,7 @@ export default async function ForInstitutionsPage() {
               </p>
               <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
                 Annual pricing studies in hours, not months. Real-time peer
-                comparison instead of last year's survey data.
+                comparison instead of last year&apos;s survey data.
               </p>
             </div>
             <div className="text-center">

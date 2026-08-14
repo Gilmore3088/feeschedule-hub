@@ -2,210 +2,116 @@
 
 import Link from "next/link";
 import { InstitutionSearchBar } from "@/app/(public)/institutions/search-bar";
-import {
-  BarChart2,
-  BookOpen,
-  Brain,
-  FileText,
-  Search,
-  Users,
-} from "lucide-react";
+import { BarChart2, Brain, FileText, Search, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 
 interface LandingHeroProps {
   totalInstitutions: number;
 }
 
 export function LandingHero({ totalInstitutions }: LandingHeroProps) {
-  // Palette: warm-* (light context) and warm-ink-* (dark context) tokens are
-  // defined in globals.css @theme. They produce real Tailwind utilities so
-  // they work in any route, no .consumer-brand wrapper required. The terra
-  // accent is the brand terracotta. Hover-opacity modifiers (terra/40, etc.)
-  // also work since Tailwind v4 supports the / opacity syntax on theme colors.
   return (
-    <section className="relative">
-      {/* Two-tone hero background */}
-      <div className="absolute inset-0 hidden lg:flex">
-        <div className="w-1/2 bg-warm-100" />
-        <div className="w-1/2 bg-warm-ink-900" />
-      </div>
-      <div className="absolute inset-0 lg:hidden bg-warm-100" />
-
-      <div className="relative mx-auto max-w-6xl px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2">
-
-          {/* ═══ Consumer Side (light context — slate-* via .consumer-brand wrapper) ═══ */}
-          <div className="flex flex-col py-14 lg:py-16 lg:pr-12">
-            {/* Row 1: Label */}
-            <span className="text-[11px] font-normal uppercase tracking-[0.15em] text-slate-400">
-              For Consumers
-            </span>
-
-            {/* Row 2: Headline */}
+    <section className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] lg:items-end">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
+              Public Evidence Layer
+            </p>
             <h1
-              className="mt-4 text-slate-900 leading-[1.05] tracking-[-0.02em]"
-              style={{
-                fontFamily: "var(--font-newsreader), Georgia, serif",
-                fontSize: "clamp(30px, 4.5vw, 42px)",
-                fontWeight: 400,
-              }}
+              className="mt-3 max-w-3xl text-5xl font-normal leading-[0.98] text-[#1A1815] sm:text-6xl"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
             >
-              What is your bank{" "}
-              <em className="text-amber-400">really</em>{" "}
-              charging you?
+              Bank Fee Index
             </h1>
-
-            {/* Row 3: Description */}
-            <p className="mt-3 text-[15px] leading-relaxed text-slate-600">
-              Look up any bank or credit union and see exactly what they charge
-              -- compared to {totalInstitutions.toLocaleString()}+ institutions nationwide.
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#5A5347]">
+              Search a bank or credit union to see fee evidence status, verified rows,
+              provisional source signals, financial context, and the next validation step.
             </p>
 
-            {/* Row 4: Action (search bar) */}
-            <div className="mt-6" aria-label="Search for a bank or credit union">
+            <div className="mt-6 max-w-2xl" aria-label="Search for a bank or credit union">
               <InstitutionSearchBar />
             </div>
-            <p className="mt-2 text-[12px] text-slate-400">
-              Free. No account required.
-            </p>
-
-            {/* Spacer pushes cards to bottom */}
-            <div className="flex-1 min-h-6" />
-
-            {/* Row 5: Cards (pinned to bottom).
-                Hover border opacity (/40) and group-hover state colors stay
-                raw because the .consumer-brand wrapper doesn't currently
-                remap those modifier variants. */}
-            <div className="grid grid-cols-3 gap-3">
-              <Link
-                href="/institutions"
-                className="group rounded-xl border border-slate-200 bg-white/80 px-3 py-3.5 hover:border-terra/40 hover:shadow-sm transition-all"
-              >
-                <Search className="h-4 w-4 text-amber-400 mb-2" />
-                <p className="text-[13px] font-bold text-slate-900 group-hover:text-terra transition-colors">
-                  Fee Scout
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Compare your bank&apos;s fees
-                </p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#7A7062]">
+              <span>{totalInstitutions.toLocaleString()}+ institutions tracked</span>
+              <span className="hidden h-1 w-1 rounded-full bg-[#C44B2E] sm:inline-block" />
+              <Link href="/institutions" className="font-semibold text-[#1A1815] hover:text-[#C44B2E]">
+                Browse institution directory
               </Link>
-              <Link
-                href="/fees"
-                className="group rounded-xl border border-slate-200 bg-white/80 px-3 py-3.5 hover:border-terra/40 hover:shadow-sm transition-all"
-              >
-                <BarChart2 className="h-4 w-4 text-amber-400 mb-2" />
-                <p className="text-[13px] font-bold text-slate-900 group-hover:text-terra transition-colors">
-                  Benchmarks
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  49 fee categories ranked
-                </p>
-              </Link>
-              <Link
-                href="/guides"
-                className="group rounded-xl border border-slate-200 bg-white/80 px-3 py-3.5 hover:border-terra/40 hover:shadow-sm transition-all"
-              >
-                <BookOpen className="h-4 w-4 text-amber-400 mb-2" />
-                <p className="text-[13px] font-bold text-slate-900 group-hover:text-terra transition-colors">
-                  Fee Guides
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Plain-language explainers
-                </p>
+              <span className="hidden h-1 w-1 rounded-full bg-[#C44B2E] sm:inline-block" />
+              <Link href="/submit-fees" className="font-semibold text-[#1A1815] hover:text-[#C44B2E]">
+                Submit a fee source
               </Link>
             </div>
           </div>
 
-          {/* ═══ Institutional Side ═══
-              Below lg: bleeds edge-to-edge via -mx-6 (parent has px-6) and adds
-              its own px-6 back so content stays aligned. The 6-px top border
-              makes the consumer→institutional transition deliberate rather than
-              accidental on narrow viewports. */}
-          <div className="flex flex-col py-14 lg:py-16 lg:pl-12 bg-warm-ink-900 lg:bg-transparent -mx-6 px-6 lg:mx-0 lg:px-0 border-t-[6px] border-terra lg:border-t-0">
-            {/* Row 1: Label */}
-            <span className="text-[11px] font-normal uppercase tracking-[0.15em] text-terra">
-              For Financial Industry Professionals
-            </span>
-
-            {/* Row 2: Headline */}
-            <h2
-              className="mt-4 text-warm-ink-50 leading-[1.05] tracking-[-0.02em]"
-              style={{
-                fontFamily: "var(--font-newsreader), Georgia, serif",
-                fontSize: "clamp(30px, 4.5vw, 42px)",
-                fontWeight: 400,
-              }}
-            >
-              Replace your $15K pricing study
-            </h2>
-
-            {/* Row 3: Description */}
-            <p className="mt-3 text-[15px] leading-relaxed text-warm-ink-300">
-              Peer benchmarking, AI-powered research, and board-ready reports
-              -- built on {totalInstitutions.toLocaleString()}+ institutions
-              and 5 federal data sources.
+          <div className="rounded-lg border border-[#E8DFD1] bg-white p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
+              Pro Intelligence Workspace
             </p>
-
-            {/* Row 4: Action (search-as-onboarding) */}
-            <div className="mt-6" aria-label="Search your institution to see its peer comparison">
-              <InstitutionSearchBar
-                variant="dark"
-                placeholder="Type your institution name..."
+            <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">
+              Start with the institution, then run the consulting workflow.
+            </h2>
+            <div className="mt-5 divide-y divide-[#E8DFD1]">
+              <WorkflowStep
+                icon={Search}
+                title="Find or claim"
+                detail="Identify your institution, known sources, and data gaps."
+              />
+              <WorkflowStep
+                icon={BarChart2}
+                title="Benchmark"
+                detail="Separate verified benchmarks from provisional direction."
+              />
+              <WorkflowStep
+                icon={Brain}
+                title="Analyze"
+                detail="Use Hamilton for peer, risk, and revenue implications."
+              />
+              <WorkflowStep
+                icon={FileText}
+                title="Report"
+                detail="Generate diligence-aware, board-ready briefs."
               />
             </div>
-            <p className="mt-2 text-[12px] text-warm-ink-300">
-              See your peer comparison instantly.{" "}
+            <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <Link
                 href="/for-institutions"
-                className="text-warm-ink-50 hover:text-terra underline-offset-2 hover:underline transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-[#1A1815] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2C2822]"
               >
-                What you get with Pro
-              </Link>{" "}
-              ·{" "}
+                <Users className="h-4 w-4" />
+                See Pro workflow
+              </Link>
               <Link
                 href="/subscribe"
-                className="text-warm-ink-50 hover:text-terra underline-offset-2 hover:underline transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D5CBBF] px-3 py-2 text-sm font-semibold text-[#1A1815] hover:border-[#C44B2E] hover:text-[#C44B2E]"
               >
-                Plans from $199/mo
+                <ShieldCheck className="h-4 w-4" />
+                Pricing
               </Link>
-            </p>
-            <p className="mt-1 text-[11px] text-warm-700 italic">
-              About what a single McKinsey associate-day costs — for an entire seat-month.
-            </p>
-
-            {/* Spacer pushes cards to bottom */}
-            <div className="flex-1 min-h-6" />
-
-            {/* Row 5: Capability cards (decorative — search bar above is the
-                primary CTA). Hover state acknowledges the cursor without
-                becoming competing nav. Subtle border-warm + bg-lift + icon
-                micro-shift, ~180ms ease — fast enough not to feel sluggish,
-                slow enough to register as polish. */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="group rounded-xl border border-warm-ink-700 bg-warm-ink-800/80 px-3 py-3.5 transition-all duration-[180ms] hover:border-terra/60 hover:bg-warm-ink-700">
-                <Brain className="h-4 w-4 text-terra mb-2 transition-transform duration-[180ms] group-hover:translate-x-0.5" />
-                <p className="text-[13px] font-bold text-warm-ink-50">Hamilton AI</p>
-                <p className="text-[11px] text-warm-ink-500 mt-0.5 transition-colors duration-[180ms] group-hover:text-warm-500">
-                  AI-powered fee analyst
-                </p>
-              </div>
-              <div className="group rounded-xl border border-warm-ink-700 bg-warm-ink-800/80 px-3 py-3.5 transition-all duration-[180ms] hover:border-terra/60 hover:bg-warm-ink-700">
-                <Users className="h-4 w-4 text-terra mb-2 transition-transform duration-[180ms] group-hover:translate-x-0.5" />
-                <p className="text-[13px] font-bold text-warm-ink-50">Peer Groups</p>
-                <p className="text-[11px] text-warm-ink-500 mt-0.5 transition-colors duration-[180ms] group-hover:text-warm-500">
-                  Custom peer benchmarks
-                </p>
-              </div>
-              <div className="group rounded-xl border border-warm-ink-700 bg-warm-ink-800/80 px-3 py-3.5 transition-all duration-[180ms] hover:border-terra/60 hover:bg-warm-ink-700">
-                <FileText className="h-4 w-4 text-terra mb-2 transition-transform duration-[180ms] group-hover:translate-x-0.5" />
-                <p className="text-[13px] font-bold text-warm-ink-50">Reports & Data</p>
-                <p className="text-[11px] text-warm-ink-500 mt-0.5 transition-colors duration-[180ms] group-hover:text-warm-500">
-                  Board-ready, built for you
-                </p>
-              </div>
             </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function WorkflowStep({
+  icon: Icon,
+  title,
+  detail,
+}: {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="flex gap-3 py-3 first:pt-0 last:pb-0">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#C44B2E]" />
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-[#1A1815]">{title}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-[#7A7062]">{detail}</p>
+      </div>
+    </div>
   );
 }

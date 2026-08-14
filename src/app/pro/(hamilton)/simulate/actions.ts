@@ -17,7 +17,7 @@ export async function getDistributionForCategory(
   feeCategory: string
 ): Promise<{ distribution: DistributionData; confidenceTier: ConfidenceTier } | { error: string }> {
   try {
-    const index = await getNationalIndex(false);
+    const index = await getNationalIndex();
     const entry = index.find((e) => e.fee_category === feeCategory);
 
     if (!entry) {
@@ -61,13 +61,18 @@ export async function getInstitutionFee(
   feeCategory: string
 ): Promise<{ amount: number } | null> {
   if (!institutionId) return null;
+  const numericInstitutionId = Number(institutionId);
 
   try {
     const rows = await sql<{ amount: string }[]>`
       SELECT ef.amount::text
       FROM published_fee_catalog ef
       JOIN institution_sources ct ON ef.institution_id = ct.id
-      WHERE ct.institution_name ILIKE ${`%${institutionId.replace(/-/g, ' ')}%`}
+      WHERE ${
+        Number.isInteger(numericInstitutionId) && numericInstitutionId > 0
+          ? sql`ct.id = ${numericInstitutionId}`
+          : sql`ct.institution_name ILIKE ${`%${institutionId.replace(/-/g, ' ')}%`}`
+      }
         AND ef.fee_category = ${feeCategory}
         AND ef.review_status = 'approved'
         AND ef.amount IS NOT NULL
@@ -202,7 +207,7 @@ export async function getSimulationCategories(): Promise<
   }>
 > {
   try {
-    const index = await getNationalIndex(false);
+    const index = await getNationalIndex();
     return index
       .filter(
         (e) =>

@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -6,7 +5,7 @@ import { BarChart3, ExternalLink } from "lucide-react";
 import { getCurrentUser, type User } from "@/lib/auth";
 import { LogoutButton } from "./logout-button";
 import { AdminNav, AdminNavInline } from "./admin-nav";
-import { JobStatusBadge } from "./job-status-badge";
+import { getSourceSubmissionCounts } from "@/lib/admin-queries";
 import { getKnoxReviewCounts } from "@/lib/data-store/knox-reviews";
 import {
   CommandPalette,
@@ -19,11 +18,7 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <Suspense fallback={null}>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
-    </Suspense>
-  );
+  return <AdminLayoutInner>{children}</AdminLayoutInner>;
 }
 
 async function AdminLayoutInner({
@@ -61,9 +56,14 @@ async function AdminLayoutInner({
         : "bg-gray-500/10 text-gray-500 dark:text-gray-400";
 
   let knoxPending = 0;
+  let trustPending = 0;
   try {
-    const counts = await getKnoxReviewCounts();
-    knoxPending = counts.pending;
+    const [knoxCounts, sourceCounts] = await Promise.all([
+      getKnoxReviewCounts(),
+      getSourceSubmissionCounts(),
+    ]);
+    knoxPending = knoxCounts.pending;
+    trustPending = sourceCounts.pending;
   } catch {
     // DB unavailable; drop the badge silently.
   }
@@ -80,11 +80,12 @@ async function AdminLayoutInner({
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/90 dark:bg-[oklch(0.16_0_0)]/90 backdrop-blur-xl border-b border-black/[0.04] dark:border-white/[0.05]">
-        <div className="flex items-center justify-between h-[var(--admin-nav-h)] px-4">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center justify-between h-[var(--admin-nav-h)] px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Link
               href="/admin"
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              prefetch={false}
+              className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity"
               aria-label="Bank Fee Index — Dashboard"
             >
               <BarChart3
@@ -99,7 +100,7 @@ async function AdminLayoutInner({
             <AdminNavInline />
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <CommandPaletteTrigger />
             <DarkModeToggle />
             <div className="hidden sm:block h-3.5 w-px bg-gray-200/80 dark:bg-white/[0.06] mx-1" />
@@ -122,14 +123,12 @@ async function AdminLayoutInner({
         {/* Sidebar */}
         <aside className="hidden md:flex flex-col w-[180px] shrink-0 sticky top-[var(--admin-nav-h)] h-[calc(100vh-var(--admin-nav-h))] border-r border-black/[0.04] dark:border-white/[0.04] bg-white/60 dark:bg-[oklch(0.15_0_0)]/60 backdrop-blur-sm overflow-y-auto">
           <nav aria-label="Admin navigation" className="flex-1 py-2.5">
-            <AdminNav badges={{ knoxPending }} />
-            <Suspense fallback={null}>
-              <JobStatusBadge />
-            </Suspense>
+            <AdminNav badges={{ knoxPending, trustPending }} />
           </nav>
           <div className="border-t border-black/[0.04] dark:border-white/[0.04] px-3 py-2.5">
             <Link
               href="/"
+              prefetch={false}
               className="flex items-center gap-2 text-[11px] text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors font-medium"
             >
               <ExternalLink className="size-3" strokeWidth={1.5} />

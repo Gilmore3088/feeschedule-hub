@@ -1,6 +1,6 @@
 import { sql } from "./data-store/connection";
 import { getAutomationControl, type AutomationControlState } from "./automation-control";
-import { getJobFreshness } from "./admin-queries";
+import { getJobFreshness, getSourceSubmissionCounts } from "./admin-queries";
 import { getKnoxReviewCounts } from "./data-store/knox-reviews";
 import type { AdminAgent, AgentRunStatus } from "./agents/types";
 import { toISO } from "./pg-helpers";
@@ -347,8 +347,8 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     sql`
       WITH verified AS (
         SELECT DISTINCT institution_id
-          FROM verified_fee_observations
-         WHERE review_status != 'rejected'
+          FROM published_fee_catalog
+         WHERE review_status = 'approved'
       ), fresh AS (
         SELECT DISTINCT institution_id
           FROM source_documents
@@ -385,8 +385,9 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     getJobFreshness(),
   ]);
 
-  const [knoxCounts, automation, apiUsage, agentHealth] = await Promise.all([
+  const [knoxCounts, sourceSubmissionCounts, automation, apiUsage, agentHealth] = await Promise.all([
     getKnoxReviewCounts(),
+    getSourceSubmissionCounts(),
     getAutomationControl().catch((error) => {
       console.error("Atlas automation control query failed", error);
       return {
@@ -485,6 +486,17 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
       detail: "Confirm correct rejections or override false positives.",
       href: "/admin/knox?queue=decisions",
       action: "Review Knox decisions",
+    });
+  }
+  if (sourceSubmissionCounts.pending > 0) {
+    attention.push({
+      id: "trust:source-submissions",
+      severity: "work",
+      owner: "atlas",
+      title: `${sourceSubmissionCounts.pending.toLocaleString()} submitted sources need review`,
+      detail: "Accept usable official fee schedules or reject unusable submissions before downstream extraction.",
+      href: "/admin/quality?submissions=pending&state=submitted_source_pending_review",
+      action: "Review sources",
     });
   }
   if (eligible - withUrl > 0) {

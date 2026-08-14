@@ -32,6 +32,8 @@ describe("autocompleteInstitutions", () => {
         fee_schedule_url:
           "https://www.jpmorganchase.com/ir/news/2021/chase-helps-more-than-two-million-customers-avoid-overdraft-service-fees",
         fee_count: "0",
+        published_fee_count: "0",
+        provisional_fee_count: "0",
         latest_source_status: "failed",
         latest_extracted_fee_count: "0",
         latest_source_error: null,
@@ -46,7 +48,52 @@ describe("autocompleteInstitutions", () => {
       id: 1,
       quality_status: "needs_review",
       quality_label: "Fee schedule under review",
+      fee_publication_status: "under_review",
+      fee_publication_label: "Fee data under review",
+      insight_readiness: "under_review",
+      source_needed_reason: "latest_source_failed",
+      published_fee_count: 0,
+      provisional_fee_count: 0,
       fee_count: 0,
+    });
+  });
+
+  it("surfaces provisional fee counts separately from approved fee counts", async () => {
+    unsafeMock.mockResolvedValueOnce([
+      {
+        id: 2945,
+        institution_name: "1st Advantage Bank",
+        city: "Saint Peters",
+        state_code: "MO",
+        charter_type: "bank",
+        asset_size_tier: "community",
+        asset_size: "208795",
+        source: "fdic",
+        cert_number: "2945",
+        website_url: "https://example.com",
+        fee_schedule_url: "https://example.com/fees.pdf",
+        fee_count: "7",
+        published_fee_count: "0",
+        provisional_fee_count: "7",
+        latest_source_status: "success",
+        latest_extracted_fee_count: "7",
+        latest_source_error: null,
+        latest_source_collected_at: "2026-08-01T12:00:00Z",
+      },
+    ]);
+
+    const rows = await autocompleteInstitutions("1st");
+
+    expect(rows[0]).toMatchObject({
+      id: 2945,
+      fee_count: 7,
+      published_fee_count: 0,
+      provisional_fee_count: 7,
+      fee_publication_status: "provisional",
+      fee_publication_label: "Provisional fees",
+      insight_readiness: "directional",
+      source_needed_reason: "not_applicable",
+      quality_status: "needs_review",
     });
   });
 });

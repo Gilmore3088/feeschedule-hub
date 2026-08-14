@@ -13,7 +13,7 @@ import {
   Cell,
 } from "recharts";
 import { simpleMarkdown, extractTableData, extractMetrics } from "@/lib/research/markdown";
-import { extractChartData, type ChartData } from "@/lib/research/chart-utils";
+import { extractChartData } from "@/lib/research/chart-utils";
 import {
   markdownTablesToCsv,
   hasMarkdownTable,
@@ -40,6 +40,32 @@ interface AnalystHubProps {
   queriesToday: number;
   dailyLimit: number;
   queryMonth: number;
+  institutionContext?: ResearchInstitutionContext | null;
+  institutionError?: string | null;
+  initialAction?: ResearchPromptAction | null;
+}
+
+export type ResearchPromptAction = "competitive-brief" | "institution";
+
+export interface ResearchInstitutionContext {
+  id: number;
+  name: string;
+  city: string | null;
+  stateCode: string | null;
+  charterType: string | null;
+  assetSize: number | null;
+  assetSizeLabel: string | null;
+  assetTier: string | null;
+  assetTierLabel: string | null;
+  fedDistrict: number | null;
+  districtName: string | null;
+  feePublicationStatus: "verified" | "provisional" | "under_review" | "unavailable";
+  feePublicationLabel: string;
+  publishedFeeCount: number;
+  provisionalFeeCount: number;
+  qualityLabel: string | null;
+  latestSourceStatus: string | null;
+  latestSourceCollectedAt: string | null;
 }
 
 type OutputTab = "chart" | "report" | "slides";
@@ -79,24 +105,87 @@ const SUGGESTIONS = [
   "How do credit union NSF fees in the Southeast compare to bank NSF fees?",
 ];
 
+function buildInstitutionPrompt(
+  context: ResearchInstitutionContext,
+  action: ResearchPromptAction,
+): string {
+  const descriptor = [
+    context.city,
+    context.stateCode,
+    context.charterType?.replace(/_/g, " "),
+    context.assetTierLabel,
+    context.districtName,
+  ].filter(Boolean).join("; ");
+
+  if (action === "competitive-brief") {
+    return `Generate an investor-grade competitive brief for ${context.name} (institution ID ${context.id}${descriptor ? `; ${descriptor}` : ""}). Start from the selected institution context. Use the institution tool for identity, verified and provisional fee rows, financials, revenue trend, peer ranking, and quality signals. Clearly separate verified evidence from provisional evidence, exclude provisional rows from benchmark conclusions unless labeled, and end with diligence questions an analyst should resolve next.`;
+  }
+
+  return `Analyze ${context.name} (institution ID ${context.id}) using the selected institution context. Summarize fee data status, available verified or provisional fee observations, financial context, peer positioning, data quality caveats, and the most useful next questions for this institution.`;
+}
+
+function contextSuggestions(context: ResearchInstitutionContext | null | undefined): string[] {
+  if (!context) return SUGGESTIONS;
+  return [
+    `What fee observations are available for ${context.name}, and which are verified versus provisional?`,
+    `How does ${context.name}'s service charge income compare with its peer group?`,
+    `Generate a diligence checklist for validating ${context.name}'s fee schedule evidence.`,
+    `What would a competitor brief for ${context.name} emphasize to a bank strategy team?`,
+  ];
+}
+
+function contextStatusClass(status: ResearchInstitutionContext["feePublicationStatus"]): string {
+  switch (status) {
+    case "verified":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "provisional":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "under_review":
+      return "border-warm-200 bg-warm-100 text-warm-700";
+    case "unavailable":
+      return "border-warm-200 bg-white text-warm-500";
+  }
+}
+
 export function AnalystHub({
-  agentId,
   agentName,
   conversations,
   queriesToday,
   dailyLimit,
   queryMonth,
+  institutionContext = null,
+  institutionError = null,
+  initialAction = null,
 }: AnalystHubProps) {
-  const [input, setInput] = useState("");
+  const seedPrompt =
+    institutionContext && initialAction
+      ? buildInstitutionPrompt(institutionContext, initialAction)
+      : "";
+  const [input, setInput] = useState(() =>
+    initialAction === "institution" ? seedPrompt : "",
+  );
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<OutputTab>("chart");
+  const [activeTab, setActiveTab] = useState<OutputTab>(() =>
+    initialAction === "competitive-brief" ? "report" : "chart",
+  );
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const seededRef = useRef(false);
+  const selectedInstitutionId = institutionContext?.id ?? null;
+  const suggestions = useMemo(() => contextSuggestions(institutionContext), [institutionContext]);
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/research/hamilton",
+        body: selectedInstitutionId ? { institutionId: selectedInstitutionId } : {},
+      }),
+    [selectedInstitutionId],
+  );
 
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/research/hamilton" }),
+    transport,
     onError: (err) => {
       const msg = err?.message || "";
       if (msg.includes("429")) setError("Rate limit exceeded. Please wait.");
@@ -107,6 +196,17 @@ export function AnalystHub({
   });
 
   const isLoading = status === "streaming" || status === "submitted";
+
+  useEffect(() => {
+    if (!institutionContext || !initialAction || seededRef.current) return;
+    seededRef.current = true;
+
+    if (initialAction === "competitive-brief") {
+      sendMessage({ text: seedPrompt });
+    } else {
+      inputRef.current?.focus();
+    }
+  }, [initialAction, institutionContext, seedPrompt, sendMessage]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -286,15 +386,59 @@ export function AnalystHub({
           </span>
         </div>
 
+        {(institutionContext || institutionError) && (
+          <div className="border-b border-warm-200 bg-white px-4 py-3">
+            {institutionContext ? (
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold ${contextStatusClass(institutionContext.feePublicationStatus)}`}>
+                      {institutionContext.feePublicationLabel}
+                    </span>
+                    <span className="text-[12px] font-semibold text-warm-900 break-words">
+                      {institutionContext.name}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-warm-500">
+                    {[institutionContext.city, institutionContext.stateCode].filter(Boolean).length > 0 && (
+                      <span>{[institutionContext.city, institutionContext.stateCode].filter(Boolean).join(", ")}</span>
+                    )}
+                    {institutionContext.assetTierLabel && <span>{institutionContext.assetTierLabel}</span>}
+                    {institutionContext.districtName && <span>{institutionContext.districtName}</span>}
+                    <span>{institutionContext.publishedFeeCount} verified</span>
+                    <span>{institutionContext.provisionalFeeCount} provisional</span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-[11px] text-warm-500">
+                  Action:{" "}
+                  <span className="font-medium text-warm-700">
+                    {initialAction === "competitive-brief"
+                      ? "Competitive brief"
+                      : initialAction === "institution"
+                        ? "Institution analysis"
+                        : "Open research"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                {institutionError}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <p className="text-[14px] text-warm-600 mb-6">
-                Ask a question to get started, or try one of these:
+                {institutionContext
+                  ? `Hamilton is focused on ${institutionContext.name}. Ask a question, or try one of these:`
+                  : "Ask a question to get started, or try one of these:"}
               </p>
               <div className="flex flex-col gap-2 max-w-xl">
-                {SUGGESTIONS.map((s) => (
+                {suggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => {

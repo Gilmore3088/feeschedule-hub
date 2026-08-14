@@ -89,6 +89,7 @@ export function HeroCards({ financials, peerRanking }: HeroCardsProps) {
 
   // Staleness check: days since latest report_date
   const daysSince =
+    // eslint-disable-next-line react-hooks/purity -- Server-rendered freshness is intentionally computed at render time.
     (Date.now() - new Date(latest.report_date).getTime()) / (1000 * 60 * 60 * 24);
   const isStale = daysSince > 95;
 

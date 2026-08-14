@@ -91,7 +91,7 @@ export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
     SELECT ef.fee_category, ef.amount, ef.institution_id, ct.charter_type
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
-    WHERE ef.fee_category IS NOT NULL AND ef.review_status != 'rejected'
+    WHERE ef.fee_category IS NOT NULL AND ef.review_status = 'approved'
   ` as {
     fee_category: string;
     amount: number | null;
@@ -154,7 +154,7 @@ export async function getFeeCategoryDetail(category: string): Promise<{
            ef.canonical_fee_key, ef.variant_type
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
-    WHERE ef.fee_category = ${category} AND ef.review_status != 'rejected'
+    WHERE ef.fee_category = ${category} AND ef.review_status = 'approved'
     ORDER BY ef.amount DESC NULLS LAST
   ` as FeeInstance[];
 
@@ -203,7 +203,9 @@ export async function getFeeCategoryDetail(category: string): Promise<{
     SELECT ct.fed_district, ef.amount
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
-    WHERE ef.fee_category = ${category} AND ct.fed_district IS NOT NULL
+    WHERE ef.fee_category = ${category}
+      AND ef.review_status = 'approved'
+      AND ct.fed_district IS NOT NULL
   ` as { fed_district: number; amount: number | null }[];
 
   const districtGroups = new Map<number, number[]>();

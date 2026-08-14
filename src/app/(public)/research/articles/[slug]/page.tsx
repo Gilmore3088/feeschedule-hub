@@ -104,12 +104,12 @@ export default async function ArticlePage({
               Get a custom competitive analysis for your bank or credit union with peer comparisons, percentile rankings, and actionable insights.
             </p>
             <div className="mt-3">
-              <a
+              <Link
                 href="/#request-access"
                 className="inline-flex items-center rounded-md bg-[#C44B2E] px-4 py-2 text-[12px] font-semibold text-white hover:bg-[#C44B2E]/90 transition-colors"
               >
                 Request Custom Analysis
-              </a>
+              </Link>
             </div>
           </div>
         </article>
@@ -184,7 +184,7 @@ export default async function ArticlePage({
 
 function MarkdownContent({ content }: { content: string }) {
   // Escape raw HTML first to prevent XSS
-  let safe = content
+  const safe = content
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");

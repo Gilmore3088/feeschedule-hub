@@ -2,6 +2,10 @@ import { sql } from "./connection";
 import { VALID_US_CODES } from "../us-states";
 import {
   classifyInstitutionQuality,
+  getFeePublicationStatus,
+  getInstitutionConfidenceSummary,
+  getInstitutionInsightReadiness,
+  getInstitutionSourceNeededReason,
   getPublicInstitutionQualityLabel,
 } from "@/lib/institution-quality";
 import type {
@@ -30,7 +34,7 @@ export async function getPublicStats(): Promise<PublicStats> {
       FROM institution_sources ct
       JOIN published_fee_catalog ef ON ct.id = ef.institution_id
       WHERE ct.state_code IN ${sql(validCodes)}
-        AND ef.review_status != 'rejected'`;
+        AND ef.review_status = 'approved'`;
     return {
       total_observations: Number(row.total_observations),
       total_institutions: Number(row.total_institutions),
@@ -80,6 +84,8 @@ export async function getFeesByInstitution(targetId: number): Promise<ExtractedF
   const rows = await sql<ExtractedFee[]>`
     SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
+           ef.validation_flags, ef.fee_category, ef.fee_family,
+           ef.source_url, ef.created_at,
            ct.institution_name, ef.institution_id
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
@@ -218,10 +224,44 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
     latest_source_error?: string | null;
     latest_source_collected_at?: string | Date | null;
   })[]>`
-    WITH fee_counts AS (
-      SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+    WITH catalog_counts AS (
+      SELECT
+        institution_id,
+        COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count,
+        COUNT(*) FILTER (WHERE review_status <> 'approved' AND review_status <> 'rejected')::int AS catalog_provisional_fee_count,
+        COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS visible_fee_count
       FROM published_fee_catalog
+      WHERE institution_id = ${id}
       GROUP BY institution_id
+    ),
+    verified_unpublished_counts AS (
+      SELECT
+        fv.institution_id,
+        COUNT(*)::int AS verified_unpublished_fee_count
+      FROM verified_fee_observations fv
+      WHERE fv.institution_id = ${id}
+        AND fv.review_status <> 'rejected'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM published_fee_catalog pfc
+          WHERE pfc.fee_verified_id = fv.fee_verified_id
+            AND pfc.review_status <> 'rejected'
+        )
+      GROUP BY fv.institution_id
+    ),
+    raw_unverified_counts AS (
+      SELECT
+        fr.institution_id,
+        COUNT(*)::int AS raw_unverified_fee_count
+      FROM raw_fee_observations fr
+      WHERE fr.institution_id = ${id}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM verified_fee_observations fv
+          WHERE fv.fee_raw_id = fr.fee_raw_id
+            AND fv.review_status <> 'rejected'
+        )
+      GROUP BY fr.institution_id
     ),
     latest_docs AS (
       SELECT DISTINCT ON (institution_id)
@@ -231,20 +271,32 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
         error_message AS latest_source_error,
         crawled_at AS latest_source_collected_at
       FROM source_documents
+      WHERE institution_id = ${id}
       ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
     )
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.document_type,
            ct.website_url, ct.fee_schedule_url,
-           COALESCE(fc.published_fee_count, 0) as fee_count,
-           COALESCE(fc.published_fee_count, 0) as published_fee_count,
+           (
+             COALESCE(cc.visible_fee_count, 0)
+             + COALESCE(vuc.verified_unpublished_fee_count, 0)
+             + COALESCE(ruc.raw_unverified_fee_count, 0)
+           ) as fee_count,
+           COALESCE(cc.published_fee_count, 0) as published_fee_count,
+           (
+             COALESCE(cc.catalog_provisional_fee_count, 0)
+             + COALESCE(vuc.verified_unpublished_fee_count, 0)
+             + COALESCE(ruc.raw_unverified_fee_count, 0)
+           ) as provisional_fee_count,
            ld.latest_source_status,
            COALESCE(ld.latest_extracted_fee_count, 0) as latest_extracted_fee_count,
            ld.latest_source_error,
            ld.latest_source_collected_at
     FROM institution_sources ct
-    LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+    LEFT JOIN catalog_counts cc ON cc.institution_id = ct.id
+    LEFT JOIN verified_unpublished_counts vuc ON vuc.institution_id = ct.id
+    LEFT JOIN raw_unverified_counts ruc ON ruc.institution_id = ct.id
     LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
     WHERE ct.id = ${id}
   `;
@@ -256,7 +308,10 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
       : latestSourceCollectedAtRaw
         ? String(latestSourceCollectedAtRaw)
         : null;
-  const publishedFeeCount = Number(row.published_fee_count ?? row.fee_count ?? 0);
+  const visibleFeeCount = Number(row.fee_count ?? 0);
+  const publishedFeeCount = Number(row.published_fee_count ?? 0);
+  const provisionalFeeCount = Number(row.provisional_fee_count ?? 0);
+  const latestExtractedFeeCount = Number(row.latest_extracted_fee_count ?? 0);
   const quality = classifyInstitutionQuality({
     source: row.source ?? null,
     certNumber: row.cert_number ?? null,
@@ -266,18 +321,38 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
     feeScheduleUrl: row.fee_schedule_url,
     publishedFeeCount,
     latestSourceStatus: row.latest_source_status ?? null,
-    latestExtractedFeeCount: Number(row.latest_extracted_fee_count ?? 0),
+    latestExtractedFeeCount,
     latestSourceError: row.latest_source_error ?? null,
     latestSourceCollectedAt,
   });
+  const feePublicationStatus = getFeePublicationStatus({
+    publishedFeeCount,
+    provisionalFeeCount,
+    latestExtractedFeeCount,
+    latestSourceStatus: row.latest_source_status ?? null,
+    feeScheduleUrl: row.fee_schedule_url,
+  });
+  const readinessInput = {
+    publishedFeeCount,
+    provisionalFeeCount,
+    latestExtractedFeeCount,
+    latestSourceStatus: row.latest_source_status ?? null,
+    feeScheduleUrl: row.fee_schedule_url,
+    feePublicationStatus,
+  };
   return {
     ...row,
     id: Number(row.id),
     asset_size: row.asset_size !== null ? Number(row.asset_size) : null,
     fed_district: row.fed_district !== null ? Number(row.fed_district) : null,
-    fee_count: publishedFeeCount,
+    fee_count: visibleFeeCount,
     published_fee_count: publishedFeeCount,
-    latest_extracted_fee_count: Number(row.latest_extracted_fee_count ?? 0),
+    provisional_fee_count: provisionalFeeCount,
+    fee_publication_status: feePublicationStatus,
+    insight_readiness: getInstitutionInsightReadiness(readinessInput),
+    source_needed_reason: getInstitutionSourceNeededReason(readinessInput),
+    confidence_summary: getInstitutionConfidenceSummary(readinessInput),
+    latest_extracted_fee_count: latestExtractedFeeCount,
     latest_source_collected_at: latestSourceCollectedAt,
     quality_status: quality.quality_status,
     quality_signals: quality.quality_signals,
@@ -385,10 +460,11 @@ export async function getDataFreshness(): Promise<DataFreshness> {
 
   const [fee] = await sql<{ last_at: string | Date | null }[]>`
     SELECT MAX(created_at) as last_at FROM published_fee_catalog
+    WHERE review_status = 'approved'
   `;
 
   const [count] = await sql<{ cnt: number }[]>`
-    SELECT COUNT(*) as cnt FROM published_fee_catalog WHERE review_status != 'rejected'
+    SELECT COUNT(*) as cnt FROM published_fee_catalog WHERE review_status = 'approved'
   `;
 
   // Normalize Date objects (Postgres) to ISO strings

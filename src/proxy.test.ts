@@ -18,6 +18,18 @@ describe("proxy", () => {
     expect(response.headers.get("content-type")).toBeNull();
   });
 
+  it("forwards the requested path to App Router layouts", () => {
+    const response = proxy(
+      request("https://feeinsight.com/pro/research?prompt=competitive-brief&instId=2945"),
+    );
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("x-middleware-request-x-invoke-path")).toBe(
+      "/pro/research?prompt=competitive-brief&instId=2945",
+    );
+    expect(response.headers.get("x-middleware-request-x-pathname")).toBe("/pro/research");
+  });
+
   it("redirects retired public domains to feeinsight.com", () => {
     const response = proxy(request("https://bankfeeindex.com/fees?category=wire"));
 

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
@@ -37,7 +38,13 @@ async function ProLayoutInner({
   }
 
   if (!user) {
-    redirect("/login");
+    const headersList = await headers();
+    const pathname =
+      headersList.get("x-invoke-path") ||
+      headersList.get("x-next-url") ||
+      headersList.get("x-pathname") ||
+      "/pro";
+    redirect(`/login?from=${encodeURIComponent(pathname)}`);
   }
 
   if (!canAccessPremium(user)) {

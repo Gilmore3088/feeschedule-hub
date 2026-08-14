@@ -26,7 +26,7 @@ describe("CircuitBanner", () => {
         onReset={vi.fn()}
       />
     );
-    expect(screen.getByText(/Agent halted/)).toBeInTheDocument();
+    expect(screen.getByText(/Work is paused for this agent/)).toBeInTheDocument();
     expect(screen.getByText(/error_rate/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /reset/i })).toBeInTheDocument();
   });

@@ -6,5 +6,5 @@ export default async function RedirectDataQualityPage({
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  redirect(buildAdminRedirectPath("/admin", await searchParams));
+  redirect(buildAdminRedirectPath("/admin/quality", await searchParams));
 }

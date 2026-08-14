@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 describe("DecisionStream", () => {
   it("shows empty state when no decisions", () => {
     render(<DecisionStream decisions={[]} />);
-    expect(screen.getByText(/No decisions yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No live classification rows/)).toBeInTheDocument();
   });
 
   it("renders rows with colored outcomes", () => {
@@ -26,7 +26,24 @@ describe("DecisionStream", () => {
 
 describe("rowFromEvent", () => {
   it("returns null for non-row events", () => {
-    expect(rowFromEvent({ type: "done", result: {} as any })).toBeNull();
+    expect(
+      rowFromEvent({
+        type: "done",
+        result: {
+          processed: 0,
+          cache_hits: 0,
+          llm_calls: 0,
+          promoted: 0,
+          cached_low_conf: 0,
+          rejected: 0,
+          failures: 0,
+          cost_usd: 0,
+          duration_s: 0,
+          circuit_tripped: false,
+          halt_reason: null,
+        },
+      }),
+    ).toBeNull();
   });
 
   it("maps row_complete to a Decision", () => {

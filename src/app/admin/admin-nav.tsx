@@ -9,6 +9,7 @@ import {
   ContactRound,
   Database,
   Dna,
+  FileCheck2,
   Orbit,
   ShieldCheck,
 } from "lucide-react";
@@ -33,6 +34,14 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Pipeline",
     items: [
+      {
+        href: "/admin/quality",
+        label: "Trust",
+        role: "0 Validate sources",
+        icon: FileCheck2,
+        badgeKey: "trustPending",
+        activePrefixes: ["/admin/data-quality"],
+      },
       {
         href: "/admin/magellan",
         label: "Magellan",
@@ -101,6 +110,7 @@ export function AdminNav({ badges }: { badges?: Record<string, number> }) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 aria-current={active ? "page" : undefined}
                 className={`relative flex min-h-10 items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
                   active
@@ -134,13 +144,14 @@ export function AdminNav({ badges }: { badges?: Record<string, number> }) {
 export function AdminNavInline() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Admin sections" className="admin-nav-inline relative flex items-center gap-0.5 overflow-x-auto md:hidden">
+    <nav aria-label="Admin sections" className="admin-nav-inline relative flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto md:hidden">
       {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
         const active = isItemActive(pathname, item);
         return (
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             aria-current={active ? "page" : undefined}
             aria-label={`${item.label}: ${item.role}`}
             className={`inline-flex min-h-9 items-center whitespace-nowrap rounded-md px-2.5 py-2 text-[11px] font-semibold transition-colors ${

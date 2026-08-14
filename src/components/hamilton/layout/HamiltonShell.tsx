@@ -27,6 +27,10 @@ interface HamiltonShellProps {
     type: string | null;
     assetTier: string | null;
     fedDistrict: number | null;
+    feePublicationLabel?: string | null;
+    publishedFeeCount?: number | null;
+    provisionalFeeCount?: number | null;
+    selectedFromUrl?: boolean;
   };
   activeHref: string;
   savedAnalyses?: SavedAnalysis[];
@@ -37,7 +41,7 @@ interface HamiltonShellProps {
 }
 
 /**
- * HamiltonShell — Client component (owns left rail collapse state).
+ * HamiltonShell - Client component (owns left rail collapse state).
  * Outer shell wrapper applying .hamilton-shell CSS isolation boundary.
  * Composes: admin bar, HamiltonTopNav, HamiltonContextBar, HamiltonLeftRail, and main content.
  * Per D-13, ARCH-01: .hamilton-shell class scopes all editorial design tokens.
@@ -59,10 +63,10 @@ export function HamiltonShell({
       className="hamilton-shell min-h-screen"
       style={{ backgroundColor: "var(--hamilton-surface)" }}
     >
-      {/* Admin mode bar — only for admin/analyst users (T-40-05) */}
+      {/* Admin mode bar - only for admin/analyst users (T-40-05) */}
       {isAdmin && (
         <div className="bg-gray-900 text-white flex items-center justify-between px-4 py-1.5 text-xs">
-          <span className="text-gray-400">Admin Mode — viewing Hamilton Pro</span>
+          <span className="text-gray-400">Admin Mode - viewing Hamilton Pro</span>
           <Link
             href="/admin"
             className="text-blue-400 hover:text-blue-300 font-medium no-underline"
@@ -81,7 +85,7 @@ export function HamiltonShell({
       {/* Two-column layout: left rail + main content */}
       <div className="flex" style={{ minHeight: "calc(100vh - 120px)" }}>
         <HamiltonLeftRail savedAnalyses={savedAnalyses} recentScenarios={recentScenarios} pinnedInstitutions={pinnedInstitutions} peerSets={peerSets} />
-        <main className="flex-1 min-w-0" style={{ padding: "2rem 2.5rem 3rem" }}>{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</main>
       </div>
     </div>
   );

@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
+function requestHeadersWithPath(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  const pathWithSearch = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  requestHeaders.set("x-invoke-path", pathWithSearch);
+  requestHeaders.set("x-next-url", pathWithSearch);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  return requestHeaders;
+}
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
@@ -20,7 +29,7 @@ export function proxy(request: NextRequest) {
 
   // Skip login page itself
   if (pathname === "/admin/login") {
-    const requestHeaders = new Headers(request.headers);
+    const requestHeaders = requestHeadersWithPath(request);
     requestHeaders.set("x-bfi-admin-login-route", "1");
     return NextResponse.next({
       request: { headers: requestHeaders },
@@ -37,7 +46,9 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: { headers: requestHeadersWithPath(request) },
+  });
 }
 
 export const config = {

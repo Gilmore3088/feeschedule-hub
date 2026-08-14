@@ -53,7 +53,7 @@ export function ApiKeySection({ existingKeyPrefix, callCount, monthlyLimit }: Ap
       {newKey && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
           <p className="text-xs font-semibold text-amber-800 mb-1">
-            Copy your API key now -- it won't be shown again
+            Copy your API key now -- it won&apos;t be shown again
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs bg-white border border-amber-200 rounded px-2 py-1.5 font-mono break-all text-[#1A1815]">

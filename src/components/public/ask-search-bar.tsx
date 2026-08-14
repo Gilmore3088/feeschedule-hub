@@ -9,7 +9,6 @@ export function AskSearchBar() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [hasResult, setHasResult] = useState(false);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: "/api/research/ask" }),
@@ -26,15 +25,12 @@ export function AskSearchBar() {
   });
 
   const isLoading = status === "streaming" || status === "submitted";
+  const hasResult = messages.length > 0;
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
-
-  useEffect(() => {
-    if (messages.length > 0) setHasResult(true);
   }, [messages]);
 
   function handleSubmit(e: React.FormEvent) {

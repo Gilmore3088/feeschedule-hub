@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
 import { FDIC_TIER_LABELS, FDIC_TIER_ORDER, DISTRICT_NAMES } from "@/lib/fed-districts";
 
 const selectClasses =
@@ -23,26 +22,23 @@ export function PeerFiltersBar() {
     ? district.split(",").map((d) => parseInt(d, 10))
     : [];
 
-  const updateParams = useCallback(
-    (updates: Record<string, string>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      for (const [key, value] of Object.entries(updates)) {
-        if (value) {
-          params.set(key, value);
-        } else {
-          params.delete(key);
-        }
+  function updateParams(updates: Record<string, string>) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
       }
-      router.push(`/admin?${params.toString()}`);
-    },
-    [router, searchParams]
-  );
+    }
+    router.push(`/admin?${params.toString()}`);
+  }
 
   const hasFilters = charter || tier || district || range;
 
-  const resetAll = useCallback(() => {
+  function resetAll() {
     router.push("/admin");
-  }, [router]);
+  }
 
   const activeCount = [charter, tier, district, range].filter(Boolean).length;
 

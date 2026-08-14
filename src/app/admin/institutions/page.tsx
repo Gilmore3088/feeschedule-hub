@@ -162,8 +162,9 @@ const COLUMNS: ServerColumn<InstitutionRow>[] = [
           {r.latest_source_collected_at ? ` at ${r.latest_source_collected_at}` : ""}
         </div>
         <div className="tabular-nums">
-          Extracted {r.latest_extracted_fee_count.toLocaleString()} / Published{" "}
-          {r.published_fee_count.toLocaleString()}
+          Extracted {r.latest_extracted_fee_count.toLocaleString()} / Verified{" "}
+          {r.published_fee_count.toLocaleString()} / Provisional{" "}
+          {r.provisional_fee_count.toLocaleString()}
         </div>
       </div>
     ),
