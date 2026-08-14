@@ -11,6 +11,25 @@ type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 25;
 
+function SortIcon({
+  column,
+  sortKey,
+  sortDir,
+}: {
+  column: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}) {
+  if (sortKey !== column) {
+    return <ArrowUpDown className="h-3 w-3 text-gray-400" />;
+  }
+  return sortDir === "asc" ? (
+    <ArrowUp className="h-3 w-3 text-blue-600" />
+  ) : (
+    <ArrowDown className="h-3 w-3 text-blue-600" />
+  );
+}
+
 export function InstitutionTable({
   institutions,
 }: {
@@ -67,17 +86,6 @@ export function InstitutionTable({
       setSortKey(key);
       setSortDir(key === "institution_name" || key === "state_code" ? "asc" : "desc");
     }
-  }
-
-  function SortIcon({ column }: { column: SortKey }) {
-    if (sortKey !== column) {
-      return <ArrowUpDown className="h-3 w-3 text-gray-400" />;
-    }
-    return sortDir === "asc" ? (
-      <ArrowUp className="h-3 w-3 text-blue-600" />
-    ) : (
-      <ArrowDown className="h-3 w-3 text-blue-600" />
-    );
   }
 
   return (
@@ -137,7 +145,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("institution_name")}
                   className="flex items-center gap-1 hover:text-gray-900"
                 >
-                  Institution <SortIcon column="institution_name" />
+                  Institution <SortIcon column="institution_name" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium">
@@ -145,7 +153,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("state_code")}
                   className="flex items-center gap-1 hover:text-gray-900"
                 >
-                  State <SortIcon column="state_code" />
+                  State <SortIcon column="state_code" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium">Type</th>
@@ -154,7 +162,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("asset_size")}
                   className="flex items-center gap-1 ml-auto hover:text-gray-900"
                 >
-                  Assets <SortIcon column="asset_size" />
+                  Assets <SortIcon column="asset_size" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-4 py-2 font-medium text-center">Doc</th>
@@ -163,7 +171,7 @@ export function InstitutionTable({
                   onClick={() => handleSort("fee_count")}
                   className="flex items-center gap-1 ml-auto hover:text-gray-900"
                 >
-                  Fees <SortIcon column="fee_count" />
+                  Fees <SortIcon column="fee_count" sortKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
             </tr>

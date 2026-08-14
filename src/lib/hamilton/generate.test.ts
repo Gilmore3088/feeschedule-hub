@@ -177,7 +177,7 @@ describe("generateGlobalThesis", () => {
     const input = makeThesisInput("quarterly");
 
     await expect(generateGlobalThesis(input)).rejects.toThrow(
-      "ANTHROPIC_API_KEY is not set",
+      "Hamilton thesis generation: AI service not configured. Set ANTHROPIC_API_KEY.",
     );
   });
 

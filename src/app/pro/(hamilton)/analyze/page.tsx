@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { AnalyzeWorkspace } from "@/components/hamilton/analyze/AnalyzeWorkspace";
 import { loadAnalysis } from "./actions";
+import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
 
 export const metadata: Metadata = { title: "Analyze" };
 
@@ -19,23 +20,29 @@ export const metadata: Metadata = { title: "Analyze" };
 export default async function AnalyzePage({
   searchParams,
 }: {
-  searchParams: Promise<{ analysis?: string }>;
+  searchParams: Promise<{ analysis?: string; instId?: string; intent?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
-  const { analysis: analysisId } = await searchParams;
+  const params = await searchParams;
+  const analysisId = params.analysis;
   const initialAnalysis = analysisId ? await loadAnalysis(analysisId) : null;
+  const { institution: selectedInstitution } = await getHamiltonInstitutionContext(params.instId);
 
   // institution_id is not yet on the User type; derive a stable identifier
   // from institution_name if available, otherwise pass null
-  const institutionId = (user.institution_name ?? "").toLowerCase().replace(/\s+/g, "-") || null;
+  const institutionId =
+    selectedInstitution?.id.toString() ??
+    ((user.institution_name ?? "").toLowerCase().replace(/\s+/g, "-") || null);
 
   return (
     <AnalyzeWorkspace
       userId={user.id}
       institutionId={institutionId}
       initialAnalysis={initialAnalysis}
+      selectedInstitution={selectedInstitution}
+      initialIntent={params.intent ?? null}
     />
   );
 }

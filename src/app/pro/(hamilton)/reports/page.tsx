@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedReports } from "@/lib/hamilton/pro-tables";
 import { ReportWorkspace } from "@/components/hamilton/reports/ReportWorkspace";
+import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
 
 export const metadata: Metadata = { title: "Report Builder" };
 
@@ -20,25 +21,31 @@ export const metadata: Metadata = { title: "Report Builder" };
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ scenario_id?: string }>;
+  searchParams: Promise<{ scenario_id?: string; instId?: string; intent?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
-  const { scenario_id } = await searchParams;
+  const params = await searchParams;
   const publishedReports = await getPublishedReports();
+  const { institution: selectedInstitution } = await getHamiltonInstitutionContext(params.instId);
 
   // Pull the user's real institution name (audit H-4 round 2) so the
   // Configuration sidebar shows it instead of the hardcoded "Your Institution".
   const institutionName =
-    user.institution_name?.trim() || user.display_name || "Your institution";
+    selectedInstitution?.name ||
+    user.institution_name?.trim() ||
+    user.display_name ||
+    "Your institution";
 
   return (
     <ReportWorkspace
       userId={user.id}
       institutionName={institutionName}
       publishedReports={publishedReports}
-      initialScenarioId={scenario_id ?? null}
+      initialScenarioId={params.scenario_id ?? null}
+      selectedInstitution={selectedInstitution}
+      initialIntent={params.intent ?? null}
     />
   );
 }

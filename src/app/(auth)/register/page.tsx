@@ -3,6 +3,7 @@ import { RegisterForm } from "./register-form";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Create Account | Bank Fee Index",
@@ -29,7 +30,7 @@ export default async function RegisterPage() {
 
         <div className="relative z-10 max-w-md">
           {/* Logo */}
-          <a href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline mb-10">
+          <Link href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline mb-10">
             <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px] text-[#C44B2E]" stroke="currentColor" strokeWidth="1.5">
               <rect x="4" y="13" width="4" height="8" rx="1" />
               <rect x="10" y="8" width="4" height="13" rx="1" />
@@ -38,7 +39,7 @@ export default async function RegisterPage() {
             <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
               Bank Fee Index
             </span>
-          </a>
+          </Link>
 
           {/* Accent line */}
           <div className="w-10 h-[3px] bg-[#C44B2E] rounded-full mb-6" />
@@ -87,7 +88,7 @@ export default async function RegisterPage() {
         <div className="w-full max-w-md">
           {/* Mobile header */}
           <div className="flex items-center justify-between mb-8 lg:hidden">
-            <a href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline">
+            <Link href="/" className="inline-flex items-center gap-2 text-[#1A1815] no-underline">
               <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px] text-[#C44B2E]" stroke="currentColor" strokeWidth="1.5">
                 <rect x="4" y="13" width="4" height="8" rx="1" />
                 <rect x="10" y="8" width="4" height="13" rx="1" />
@@ -96,10 +97,10 @@ export default async function RegisterPage() {
               <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
                 Bank Fee Index
               </span>
-            </a>
-            <a href="/login" className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors">
+            </Link>
+            <Link href="/login" className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors">
               Sign in
-            </a>
+            </Link>
           </div>
 
           <div className="lg:bg-white lg:rounded-xl lg:p-8">
@@ -117,9 +118,9 @@ export default async function RegisterPage() {
             <RegisterForm />
             <p className="mt-4 text-center text-sm text-[#7A7062]">
               Already have an account?{" "}
-              <a href="/login" className="text-[#1A1815] font-medium hover:underline">
+              <Link href="/login" className="text-[#1A1815] font-medium hover:underline">
                 Sign in
-              </a>
+              </Link>
             </p>
           </div>
         </div>

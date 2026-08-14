@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export default function RootError({
   reset,
 }: {
@@ -30,7 +32,7 @@ export default function RootError({
       >
         Try again
       </button>
-      <a
+      <Link
         href="/"
         style={{
           padding: "10px 24px",
@@ -44,7 +46,7 @@ export default function RootError({
         }}
       >
         Go home
-      </a>
+      </Link>
     </div>
   );
 }

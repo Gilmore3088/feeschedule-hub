@@ -29,7 +29,23 @@ describe("RescueStream", () => {
 
 describe("rowFromEvent", () => {
   it("returns null for non-row events", () => {
-    expect(rowFromEvent({ type: "done", result: {} as any })).toBeNull();
+    expect(
+      rowFromEvent({
+        type: "done",
+        result: {
+          processed: 0,
+          rescued: 0,
+          dead: 0,
+          needs_human: 0,
+          retry_after: 0,
+          failures: 0,
+          cost_usd: 0,
+          duration_s: 0,
+          circuit_tripped: false,
+          halt_reason: null,
+        },
+      }),
+    ).toBeNull();
   });
 
   it("maps row_complete to Row", () => {

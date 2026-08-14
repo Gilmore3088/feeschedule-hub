@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { updateProfile, generateApiKey } from "../actions";
 
 interface WelcomeStepsProps {
@@ -221,12 +222,12 @@ export function WelcomeSteps({ userName, user, feePreview, districtName, distric
             >
               Continue
             </button>
-            <a
+            <Link
               href="/fees"
               className="flex-1 text-center rounded-md border border-[#D5CBBF] px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
             >
               Explore Fee Benchmarks
-            </a>
+            </Link>
           </div>
         </div>
       )}
@@ -282,24 +283,24 @@ export function WelcomeSteps({ userName, user, feePreview, districtName, distric
             className="text-2xl font-normal tracking-tight text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
-            You're all set
+            You&apos;re all set
           </h1>
           <p className="text-sm text-[#7A7062] mb-8">
             Your account is ready. Start exploring fee intelligence data.
           </p>
           <div className="flex gap-3 justify-center">
-            <a
+            <Link
               href="/account"
               className="rounded-md bg-[#C44B2E] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors"
             >
               Go to Dashboard
-            </a>
-            <a
+            </Link>
+            <Link
               href="/fees"
               className="rounded-md border border-[#D5CBBF] px-6 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
             >
               Browse Fees
-            </a>
+            </Link>
           </div>
         </div>
       )}

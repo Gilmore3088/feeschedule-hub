@@ -22,7 +22,7 @@ export interface IndexEntry {
   last_updated: string | null;
 }
 
-export async function getNationalIndex(approvedOnly = false): Promise<IndexEntry[]> {
+export async function getNationalIndex(approvedOnly = true): Promise<IndexEntry[]> {
   const statusFilter = approvedOnly
     ? "ef.review_status = 'approved'"
     : "ef.review_status != 'rejected'";
@@ -52,7 +52,7 @@ export async function getPeerIndex(
     fed_districts?: number[];
     state_code?: string;
   },
-  approvedOnly = false
+  approvedOnly = true
 ): Promise<IndexEntry[]> {
   const conditions = ["ef.fee_category IS NOT NULL"];
   const params: (string | number)[] = [];
@@ -132,7 +132,7 @@ export async function getDistrictMedianByCategory(
 ): Promise<{ district: number; median_amount: number | null; institution_count: number }[]> {
   const conditions = [
     "ef.fee_category = $1",
-    "ef.review_status != 'rejected'",
+    "ef.review_status = 'approved'",
     "ct.fed_district IS NOT NULL",
   ];
   const params: (string | number)[] = [category];
@@ -204,7 +204,7 @@ export async function getDistrictFeeMedians(
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
     WHERE ct.fed_district = ${district}
-      AND ef.review_status != 'rejected'
+      AND ef.review_status = 'approved'
       AND ef.amount IS NOT NULL
       AND ef.amount > 0
     GROUP BY ef.fee_category

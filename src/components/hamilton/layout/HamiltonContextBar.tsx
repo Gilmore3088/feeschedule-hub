@@ -5,6 +5,10 @@ interface InstitutionContext {
   type: string | null;
   assetTier: string | null;
   fedDistrict: number | null;
+  feePublicationLabel?: string | null;
+  publishedFeeCount?: number | null;
+  provisionalFeeCount?: number | null;
+  selectedFromUrl?: boolean;
 }
 
 interface HamiltonContextBarProps {
@@ -12,18 +16,27 @@ interface HamiltonContextBarProps {
 }
 
 /**
- * HamiltonContextBar — Server component.
+ * HamiltonContextBar - Server component.
  * Matches HTML prototype: Institution selector + Horizon dropdown + Analysis Focus pills.
  * Per D-07 and D-14: institution context flows from user profile.
  */
 export function HamiltonContextBar({ institutionContext }: HamiltonContextBarProps) {
-  const { name, type, assetTier, fedDistrict } = institutionContext;
+  const {
+    name,
+    type,
+    assetTier,
+    fedDistrict,
+    feePublicationLabel,
+    publishedFeeCount,
+    provisionalFeeCount,
+    selectedFromUrl,
+  } = institutionContext;
   const hasInstitution = !!name;
   const institutionName = name ?? "Global Private Bank";
 
   return (
     <div
-      className="flex items-center gap-10 px-12 py-3 border-b"
+      className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-4 py-3 sm:px-6 lg:px-10"
       style={{
         backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
         borderColor: "rgba(216,194,184,0.1)",
@@ -31,7 +44,7 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
       }}
     >
       {/* Institution selector */}
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-[1_1_260px] flex-col">
         <label
           className="text-[9px] uppercase tracking-[0.1em] font-bold mb-0.5"
           style={{ color: "var(--hamilton-text-tertiary)" }}
@@ -40,13 +53,24 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
         </label>
         {hasInstitution ? (
           <span
-            className="text-xs font-bold"
+            className="min-w-0 text-xs font-bold"
             style={{ color: "var(--hamilton-text-primary)" }}
           >
-            {institutionName}
+            <span className="inline-block max-w-full truncate align-bottom">{institutionName}</span>
             {type && (
               <span className="font-normal ml-1.5" style={{ color: "var(--hamilton-text-secondary)" }}>
-                — {type}
+                - {type}
+              </span>
+            )}
+            {selectedFromUrl && (
+              <span
+                className="ml-2 rounded px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em]"
+                style={{
+                  backgroundColor: "var(--hamilton-accent-subtle)",
+                  color: "var(--hamilton-text-accent)",
+                }}
+              >
+                selected
               </span>
             )}
           </span>
@@ -62,7 +86,29 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
       </div>
 
       {/* Divider */}
-      <div className="h-6 w-px" style={{ backgroundColor: "rgba(216,194,184,0.3)" }} />
+      <div className="hidden h-6 w-px sm:block" style={{ backgroundColor: "rgba(216,194,184,0.3)" }} />
+
+      {/* Evidence state */}
+      {feePublicationLabel && (
+        <>
+          <div className="flex min-w-0 flex-[1_1_220px] flex-col">
+            <label
+              className="text-[9px] uppercase tracking-[0.1em] font-bold mb-0.5"
+              style={{ color: "var(--hamilton-text-tertiary)" }}
+            >
+              Evidence
+            </label>
+            <span className="min-w-0 text-xs font-bold" style={{ color: "var(--hamilton-text-primary)" }}>
+              <span className="inline-block max-w-full truncate align-bottom">{feePublicationLabel}</span>
+              <span className="font-normal ml-1.5" style={{ color: "var(--hamilton-text-secondary)" }}>
+                {publishedFeeCount ?? 0} verified / {provisionalFeeCount ?? 0} provisional
+              </span>
+            </span>
+          </div>
+
+          <div className="hidden h-6 w-px sm:block" style={{ backgroundColor: "rgba(216,194,184,0.3)" }} />
+        </>
+      )}
 
       {/* Horizon selector */}
       <div className="flex flex-col">
@@ -77,9 +123,9 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
         </span>
       </div>
 
-      {/* Asset tier / district chips — pushed right */}
+      {/* Asset tier / district chips */}
       {(assetTier || fedDistrict) && (
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:ml-auto">
           {assetTier && (
             <span
               className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded"

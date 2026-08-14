@@ -1,6 +1,9 @@
 import type {
+  FeePublicationStatus,
+  InstitutionInsightReadiness,
   InstitutionQualitySignal,
   InstitutionQualityStatus,
+  InstitutionSourceNeededReason,
 } from "@/lib/institution-quality";
 
 export interface InstitutionSummary {
@@ -26,6 +29,10 @@ export interface ExtractedFee {
   validation_flags: unknown;
   institution_name: string;
   institution_id: number;
+  fee_category?: string | null;
+  fee_family?: string | null;
+  source_url?: string | null;
+  created_at?: string | Date;
 }
 
 export interface ReviewableFee extends ExtractedFee {
@@ -75,6 +82,11 @@ export interface InstitutionDetail {
   fee_schedule_url: string | null;
   fee_count: number;
   published_fee_count?: number;
+  provisional_fee_count?: number;
+  fee_publication_status?: FeePublicationStatus;
+  insight_readiness?: InstitutionInsightReadiness;
+  source_needed_reason?: InstitutionSourceNeededReason;
+  confidence_summary?: string;
   latest_source_status?: string | null;
   latest_extracted_fee_count?: number;
   latest_source_collected_at?: string | null;

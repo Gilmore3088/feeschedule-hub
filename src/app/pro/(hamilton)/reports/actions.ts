@@ -2,7 +2,17 @@
 
 import { getCurrentUser } from "@/lib/auth";
 import { getNationalIndex } from "@/lib/data-store/fee-index";
+import {
+  getFeesByInstitution,
+  getFinancialsByInstitution,
+  getInstitutionById,
+} from "@/lib/data-store";
 import { sql } from "@/lib/data-store/connection";
+import {
+  getInstitutionPeerRanking,
+  getInstitutionRevenueTrend,
+} from "@/lib/data-store/call-reports";
+import { getInstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
 import { generateSection } from "@/lib/hamilton/generate";
 import {
   saveHamiltonReport,
@@ -11,6 +21,8 @@ import {
   getHamiltonReportById,
   getHamiltonScenarioById,
 } from "@/lib/hamilton/pro-tables";
+import { formatAssets, formatCompactDollars } from "@/lib/format";
+import { getFeePublicationStatusLabel } from "@/lib/institution-quality";
 import type { ReportSummaryResponse } from "@/lib/hamilton/types";
 
 export type ReportTemplateType =
@@ -26,6 +38,9 @@ export interface GenerateReportParams {
   peerSetId?: string;
   scenarioId?: string;
   focusCategory?: string;
+  institutionId?: number;
+  selectedInstitutionName?: string;
+  evidencePolicy?: "provisional-first" | string;
 }
 
 export type GenerateReportResult =
@@ -45,6 +60,80 @@ const TEMPLATE_TITLES: Record<ReportTemplateType, string> = {
   category_deep_dive: "Category Deep Dive",
   competitive_positioning: "Competitive Positioning",
 };
+
+function buildInsufficientEvidenceReport(params: {
+  institutionName: string;
+  period: string;
+  statusLabel: string;
+  verifiedCount: number;
+  provisionalCount: number;
+  assetSize: number | null;
+  latestSourceStatus: string | null;
+  latestFinancial: {
+    report_date: string;
+    total_assets: number | null;
+    service_charge_income: number | null;
+  } | null;
+}): ReportSummaryResponse {
+  const financialSummary = params.latestFinancial
+    ? `Financial context is available through ${params.latestFinancial.report_date}: assets are ${formatCompactDollars(params.latestFinancial.total_assets)} and reported service charge income is ${formatCompactDollars(params.latestFinancial.service_charge_income)}.`
+    : "Financial context is not available in the current dataset.";
+
+  return {
+    title: `Data Readiness Brief - ${params.institutionName}`,
+    executiveSummary: [
+      `${params.institutionName} is tracked, but Hamilton does not have verified or provisional fee rows sufficient for a competitive fee brief.`,
+      financialSummary,
+      "A consulting-grade brief should start with source acquisition and validation before drawing pricing, peer-positioning, or revenue conclusions.",
+    ],
+    snapshot: [
+      {
+        label: "Fee evidence",
+        current: `${params.verifiedCount} verified / ${params.provisionalCount} provisional`,
+        proposed: "Submit and validate official source",
+      },
+      {
+        label: "Publication status",
+        current: params.statusLabel,
+        proposed: "Ready or directional",
+      },
+      {
+        label: "Assets",
+        current: params.assetSize ? formatAssets(params.assetSize) : "N/A",
+        proposed: "Use for peer-set selection",
+      },
+    ],
+    strategicRationale:
+      `${params.institutionName} should not receive a generic competitive position when fee evidence is empty. ` +
+      "The next high-value work is deterministic: confirm the official fee schedule, extract rows, label evidence tier and confidence, then rerun peer deltas once benchmark-eligible rows exist.",
+    tradeoffs: [
+      {
+        label: "Use now",
+        value: "Identity, asset tier, financial context, and source diligence",
+      },
+      {
+        label: "Do not use yet",
+        value: "Fee benchmark score, pricing recommendations, or peer fee deltas",
+      },
+      {
+        label: "Next diligence",
+        value: "Official fee schedule URL, account type coverage, effective date, and row-level source labels",
+      },
+    ],
+    recommendation:
+      "Submit the official fee schedule, validate source coverage, classify extracted rows, then rerun a competitive positioning report with provisional-first evidence labels. Until then, keep the output as a diligence brief.",
+    implementationNotes: [
+      `Analysis period requested: ${params.period}`,
+      `Latest source status: ${params.latestSourceStatus ?? "no source record"}`,
+      "No provider generation was used for this empty-evidence report.",
+      "Verified benchmark conclusions must exclude provisional rows unless explicitly labeled otherwise.",
+    ],
+    exportControls: {
+      pdfEnabled: true,
+      shareEnabled: false,
+    },
+  };
+}
 
 /**
  * Build context string for the executive summary section by template type.
@@ -191,7 +280,23 @@ export async function generateReport(
 
   try {
     // 1. Fetch fee index data as grounding for Hamilton
-    const indexData = await getNationalIndex(false);
+    const [
+      indexData,
+      selectedInstitution,
+      selectedFees,
+      selectedFinancials,
+      selectedRevenueTrend,
+      selectedPeerRanking,
+      selectedEvidence,
+    ] = await Promise.all([
+      getNationalIndex(),
+      params.institutionId ? getInstitutionById(params.institutionId).catch(() => null) : null,
+      params.institutionId ? getFeesByInstitution(params.institutionId).catch(() => []) : [],
+      params.institutionId ? getFinancialsByInstitution(params.institutionId).catch(() => []) : [],
+      params.institutionId ? getInstitutionRevenueTrend(params.institutionId).catch(() => []) : [],
+      params.institutionId ? getInstitutionPeerRanking(params.institutionId).catch(() => null) : null,
+      params.institutionId ? getInstitutionFeeScheduleEvidence(params.institutionId).catch(() => null) : null,
+    ]);
     const allCategories = indexData.filter((e) => e.institution_count >= 5);
 
     // For category_deep_dive, filter to focus category if provided
@@ -203,9 +308,95 @@ export async function generateReport(
             .slice(0, 10)
         : allCategories.slice(0, 15);
 
-    const institutionName = user.institution_name ?? "Your Institution";
-    const reportTitle = `${TEMPLATE_TITLES[params.templateType]} — ${params.dateFrom} to ${params.dateTo}`;
+    const institutionName =
+      selectedInstitution?.institution_name ??
+      params.selectedInstitutionName ??
+      user.institution_name ??
+      "Your Institution";
+    const reportTitle = `${TEMPLATE_TITLES[params.templateType]} - ${institutionName} - ${params.dateFrom} to ${params.dateTo}`;
     const period = `${params.dateFrom} to ${params.dateTo}`;
+    const selectedVisibleFees = selectedFees.filter((fee) => fee.review_status !== "rejected");
+    const selectedVerifiedFees = selectedVisibleFees.filter((fee) => fee.review_status === "approved");
+    const selectedProvisionalFees = selectedVisibleFees.filter((fee) => fee.review_status !== "approved");
+    const pipelineCounts = selectedEvidence?.pipeline_counts ?? null;
+    const pipelineFeeCount =
+      Number(pipelineCounts?.raw_fee_count ?? 0) +
+      Number(pipelineCounts?.verified_fee_count ?? 0);
+    const hasSelectedInstitutionEvidence =
+      selectedVerifiedFees.length > 0 ||
+      selectedProvisionalFees.length > 0 ||
+      pipelineFeeCount > 0;
+    const latestFinancial = selectedFinancials[0] ?? null;
+
+    if (params.institutionId && selectedInstitution && !hasSelectedInstitutionEvidence) {
+      const report = buildInsufficientEvidenceReport({
+        institutionName,
+        period,
+        statusLabel: getFeePublicationStatusLabel(
+          selectedInstitution.fee_publication_status ?? "unavailable",
+        ),
+        verifiedCount: selectedInstitution.published_fee_count ?? 0,
+        provisionalCount: selectedInstitution.provisional_fee_count ?? 0,
+        assetSize: selectedInstitution.asset_size,
+        latestSourceStatus: selectedInstitution.latest_source_status ?? null,
+        latestFinancial: latestFinancial
+          ? {
+              report_date: latestFinancial.report_date,
+              total_assets: latestFinancial.total_assets,
+              service_charge_income: latestFinancial.service_charge_income,
+            }
+          : null,
+      });
+      const reportId = await saveHamiltonReport({
+        userId: user.id,
+        institutionId: selectedInstitution.id.toString(),
+        reportType: params.templateType,
+        reportJson: report,
+        scenarioId: params.scenarioId ?? null,
+      });
+      return { success: true, reportId, report };
+    }
+
+    const selectedInstitutionData = selectedInstitution
+      ? {
+          id: selectedInstitution.id,
+          name: selectedInstitution.institution_name,
+          status: selectedInstitution.fee_publication_status ?? "unavailable",
+          status_label: getFeePublicationStatusLabel(
+            selectedInstitution.fee_publication_status ?? "unavailable",
+          ),
+          insight_readiness: selectedInstitution.insight_readiness ?? "source_needed",
+          confidence_summary: selectedInstitution.confidence_summary ?? null,
+          verified_fee_count: selectedInstitution.published_fee_count ?? 0,
+          provisional_fee_count: selectedInstitution.provisional_fee_count ?? 0,
+          latest_source_status: selectedInstitution.latest_source_status ?? null,
+          financials: latestFinancial
+            ? {
+                report_date: latestFinancial.report_date,
+                total_assets: latestFinancial.total_assets,
+                total_deposits: latestFinancial.total_deposits,
+                service_charge_income: latestFinancial.service_charge_income,
+                total_revenue: latestFinancial.total_revenue,
+                fee_income_ratio: latestFinancial.fee_income_ratio,
+                roa: latestFinancial.roa,
+              }
+            : null,
+          fee_rows: selectedVisibleFees.slice(0, 25).map((fee) => ({
+            fee_name: fee.fee_name,
+            fee_category: fee.fee_category ?? null,
+            amount: fee.amount,
+            frequency: fee.frequency,
+            evidence_tier: fee.review_status === "approved" ? "verified" : "provisional",
+            excluded_from_verified_benchmark: fee.review_status !== "approved",
+            confidence: fee.extraction_confidence,
+            source_url: fee.source_url ?? null,
+          })),
+          pipeline_counts: pipelineCounts,
+          revenue_trend: selectedRevenueTrend.slice(0, 8),
+          peer_ranking: selectedPeerRanking,
+          evidence_policy: params.evidencePolicy ?? "provisional-first",
+        }
+      : null;
 
     // 2-4. Generate the three sections in parallel — they're independent
     // (no shared state, no ordering constraint). Was sequential and took
@@ -220,6 +411,7 @@ export async function generateReport(
             report_type: params.templateType,
             period,
             institution_name: institutionName,
+            selected_institution: selectedInstitutionData,
             focus_category: params.focusCategory ?? null,
             categories: topCategories.map((c) => ({
               fee_category: c.fee_category,
@@ -238,6 +430,8 @@ export async function generateReport(
           data: {
             report_type: params.templateType,
             period,
+            institution_name: institutionName,
+            selected_institution: selectedInstitutionData,
             focus_category: params.focusCategory ?? null,
             top_fees: topCategories.slice(0, 5).map((c) => ({
               fee_category: c.fee_category,
@@ -260,6 +454,7 @@ export async function generateReport(
             report_type: params.templateType,
             institution_name: institutionName,
             period,
+            selected_institution: selectedInstitutionData,
             focus_category: params.focusCategory ?? null,
             peer_anchored_fees: topCategories.slice(0, 5).map((c) => ({
               fee_category: c.fee_category,
@@ -294,7 +489,10 @@ export async function generateReport(
         `Report generated ${new Date().toLocaleDateString()}`,
         `Analysis period: ${period}`,
         `Data covers ${indexData.length} fee categories across the national index`,
-        "All figures are pipeline-verified from published fee schedules",
+        selectedInstitution
+          ? `Selected institution evidence policy: ${params.evidencePolicy ?? "provisional-first"}`
+          : "All figures are pipeline-verified from published fee schedules",
+        "Verified benchmark conclusions exclude provisional rows unless explicitly labeled otherwise.",
       ],
       exportControls: {
         pdfEnabled: true,
@@ -304,6 +502,7 @@ export async function generateReport(
 
     // 6. Save to hamilton_reports
     const institutionId =
+      selectedInstitution?.id.toString() ||
       (user.institution_name ?? "").toLowerCase().replace(/\s+/g, "-") ||
       "unknown";
     const reportId = await saveHamiltonReport({

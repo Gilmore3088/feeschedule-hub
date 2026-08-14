@@ -2,7 +2,7 @@
 
 import { getStripe } from "@/lib/stripe";
 import { hashPassword } from "@/lib/passwords";
-import { sql } from "@/lib/data-store/connection";
+import { withTransaction } from "@/lib/data-store/connection";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 
@@ -72,9 +72,8 @@ export async function register(formData: FormData): Promise<{
   const expiresAt = expiresDate.toISOString();
 
   try {
-    let userId: number;
     try {
-      const result = await sql.begin(async (tx: any) => {
+      await withTransaction(async (tx) => {
         const [insertRow] = await tx`
           INSERT INTO users (username, email, password_hash, display_name, role,
            stripe_customer_id, subscription_status, is_active, created_at,
@@ -90,10 +89,7 @@ export async function register(formData: FormData): Promise<{
           INSERT INTO sessions (id, user_id, expires_at)
           VALUES (${sessionId}, ${insertRow.id}, ${expiresAt})
         `;
-
-        return Number(insertRow.id);
       });
-      userId = result;
     } catch (e: unknown) {
       try {
         const stripe = getStripe();

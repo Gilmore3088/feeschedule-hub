@@ -8,8 +8,11 @@ const RATE_LIMIT_MAX = 5; // max submissions per window per IP
 const recentSubmissions = new Map<string, number[]>();
 
 interface SubmitFeeInput {
+  institution_id?: number | null;
   institution_name: string;
   source_url: string;
+  submitter_role?: string | null;
+  notes?: string | null;
   fees: {
     fee_name: string;
     fee_category: string;
@@ -17,6 +20,10 @@ interface SubmitFeeInput {
     frequency: string;
   }[];
 }
+
+type NormalizedFeeSubmission = SubmitFeeInput["fees"][number] & {
+  submission_kind: "fee_row" | "source_intake";
+};
 
 interface SubmitResult {
   success: boolean;
@@ -36,15 +43,35 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+async function getSubmissionContextColumnSupport(): Promise<boolean> {
+  const rows = await sql<{ column_name: string }[]>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'community_fee_submissions'
+      AND column_name IN ('submitter_role', 'notes', 'submission_kind')
+  `;
+  const columns = new Set(rows.map((row) => row.column_name));
+  return (
+    columns.has("submitter_role") &&
+    columns.has("notes") &&
+    columns.has("submission_kind")
+  );
+}
+
+async function hasSubmissionEventTable(): Promise<boolean> {
+  const rows = await sql<{ exists: boolean }[]>`
+    SELECT to_regclass('public.community_fee_submission_events') IS NOT NULL AS exists
+  `;
+  return rows[0]?.exists === true;
+}
+
 export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
   if (!input.institution_name?.trim()) {
     return { success: false, message: "Institution name is required" };
   }
   if (!input.source_url?.trim()) {
     return { success: false, message: "Source URL is required" };
-  }
-  if (!input.fees || input.fees.length === 0) {
-    return { success: false, message: "At least one fee is required" };
   }
   if (input.fees.length > 20) {
     return { success: false, message: "Maximum 20 fees per submission" };
@@ -63,30 +90,82 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
   }
 
   try {
-    const [target] = await sql<{ id: number }[]>`
-      SELECT id FROM institution_sources
-      WHERE LOWER(institution_name) = LOWER(${input.institution_name.trim()})
-      LIMIT 1
-    `;
-    const targetId = target?.id ?? null;
+    let targetId = input.institution_id ?? null;
+    if (!targetId) {
+      const [target] = await sql<{ id: number }[]>`
+        SELECT id FROM institution_sources
+        WHERE LOWER(institution_name) = LOWER(${input.institution_name.trim()})
+        LIMIT 1
+      `;
+      targetId = target?.id ?? null;
+    }
+
+    const normalizedFees: NormalizedFeeSubmission[] =
+      input.fees.filter((fee) => fee.fee_name?.trim()).length > 0
+        ? input.fees
+            .filter((fee) => fee.fee_name?.trim())
+            .map((fee) => ({ ...fee, submission_kind: "fee_row" as const }))
+        : [
+            {
+              fee_name: "Official source submitted for review",
+              fee_category: "source_intake",
+              amount: null,
+              frequency: "source_url",
+              submission_kind: "source_intake",
+            },
+          ];
+    const supportsContextColumns = await getSubmissionContextColumnSupport().catch(() => false);
+    const supportsReviewEvents = await hasSubmissionEventTable().catch(() => false);
 
     await withTransaction(async (tx) => {
-      for (const fee of input.fees) {
+      for (const fee of normalizedFees) {
         if (!fee.fee_name?.trim()) continue;
-        await tx`
-          INSERT INTO community_fee_submissions
-            (institution_id, institution_name, fee_name, fee_category, amount, frequency, source_url, submitter_ip)
-          VALUES (${targetId}, ${input.institution_name.trim()}, ${fee.fee_name.trim()},
-                  ${fee.fee_category || null}, ${fee.amount}, ${fee.frequency || "per_occurrence"},
-                  ${input.source_url.trim()}, ${ip})
-        `;
+        let inserted: { id: number }[] = [];
+        if (supportsContextColumns) {
+          inserted = await tx<{ id: number }[]>`
+            INSERT INTO community_fee_submissions
+              (institution_id, institution_name, fee_name, fee_category, amount, frequency,
+               source_url, submitter_ip, submitter_role, notes, submission_kind)
+            VALUES (${targetId}, ${input.institution_name.trim()}, ${fee.fee_name.trim()},
+                    ${fee.fee_category || null}, ${fee.amount}, ${fee.frequency || "per_occurrence"},
+                    ${input.source_url.trim()}, ${ip}, ${input.submitter_role || null},
+                    ${input.notes || null}, ${fee.submission_kind})
+            RETURNING id
+          `;
+        } else {
+          inserted = await tx<{ id: number }[]>`
+            INSERT INTO community_fee_submissions
+              (institution_id, institution_name, fee_name, fee_category, amount, frequency, source_url, submitter_ip)
+            VALUES (${targetId}, ${input.institution_name.trim()}, ${fee.fee_name.trim()},
+                    ${fee.fee_category || null}, ${fee.amount}, ${fee.frequency || "per_occurrence"},
+                    ${input.source_url.trim()}, ${ip})
+            RETURNING id
+          `;
+        }
+        const submissionId = inserted[0]?.id;
+        if (supportsReviewEvents && submissionId) {
+          await tx`
+            INSERT INTO community_fee_submission_events
+              (submission_id, event_type, new_status, notes, metadata)
+            VALUES
+              (${submissionId}, 'submitted', 'pending', ${input.notes || null},
+               ${sql.json({
+                 institution_id: targetId,
+                 submission_kind: fee.submission_kind,
+                 submitter_role: input.submitter_role || null,
+               })})
+          `;
+        }
       }
     });
 
     return {
       success: true,
-      message: `Submitted ${input.fees.length} fee(s) for review. Thank you!`,
-      count: input.fees.length,
+      message:
+        normalizedFees.length === 1 && normalizedFees[0].fee_category === "source_intake"
+          ? "Submitted the official source for review. Thank you!"
+          : `Submitted ${normalizedFees.length} fee(s) for review. Thank you!`,
+      count: normalizedFees.length,
     };
   } catch (e) {
     console.error("Fee submission error:", e);

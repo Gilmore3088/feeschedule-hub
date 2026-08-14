@@ -20,7 +20,7 @@ describe("StatusPanel", () => {
     expect(screen.getByText("965")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("Pending")).toBeInTheDocument();
-    expect(screen.getByText("Rescued")).toBeInTheDocument();
+    expect(screen.getByText("Waiting for rescue")).toBeInTheDocument();
+    expect(screen.getByText("Resolved")).toBeInTheDocument();
   });
 });

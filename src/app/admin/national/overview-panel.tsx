@@ -17,6 +17,7 @@ function FreshnessBadge({ dateStr }: { dateStr: string | null }) {
     );
   }
 
+  // eslint-disable-next-line react-hooks/purity -- Freshness badge is intentionally computed from current time.
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
 
   let cls: string;

@@ -8,6 +8,8 @@ import {
 } from "@/lib/fee-taxonomy";
 import { FDIC_TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
+import { getInstitutionById } from "@/lib/data-store";
+import { getFeePublicationStatusLabel } from "@/lib/institution-quality";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,6 +32,7 @@ interface FeeRow {
   frequency: string | null;
   conditions: string | null;
   fee_category: string | null;
+  review_status?: string | null;
 }
 
 interface PeerFeeRow {
@@ -117,6 +120,55 @@ async function loadApprovedFees(targetId: number): Promise<FeeRow[]> {
   `;
 }
 
+async function loadVisibleFees(targetId: number): Promise<FeeRow[]> {
+  return await sql<FeeRow[]>`
+    SELECT fee_name, amount::float8 AS amount, frequency, conditions, fee_category, review_status
+    FROM published_fee_catalog
+    WHERE institution_id = ${targetId}
+      AND review_status <> 'rejected'
+      AND amount IS NOT NULL
+      AND amount > 0
+    UNION ALL
+    SELECT
+      fv.fee_name,
+      fv.amount::float8 AS amount,
+      fv.frequency,
+      NULL::text AS conditions,
+      fv.canonical_fee_key AS fee_category,
+      'provisional' AS review_status
+    FROM verified_fee_observations fv
+    WHERE fv.institution_id = ${targetId}
+      AND fv.review_status <> 'rejected'
+      AND fv.amount IS NOT NULL
+      AND fv.amount > 0
+      AND NOT EXISTS (
+        SELECT 1
+        FROM published_fee_catalog pfc
+        WHERE pfc.fee_verified_id = fv.fee_verified_id
+          AND pfc.review_status <> 'rejected'
+      )
+    UNION ALL
+    SELECT
+      fr.fee_name,
+      fr.amount::float8 AS amount,
+      fr.frequency,
+      fr.conditions,
+      NULL::text AS fee_category,
+      'provisional' AS review_status
+    FROM raw_fee_observations fr
+    WHERE fr.institution_id = ${targetId}
+      AND fr.amount IS NOT NULL
+      AND fr.amount > 0
+      AND NOT EXISTS (
+        SELECT 1
+        FROM verified_fee_observations fv
+        WHERE fv.fee_raw_id = fr.fee_raw_id
+          AND fv.review_status <> 'rejected'
+      )
+    ORDER BY fee_name
+  `;
+}
+
 async function loadPeerFees(
   inst: InstitutionRow,
   limit: number,
@@ -147,7 +199,7 @@ async function loadPeerFees(
     SELECT fee_category, amount::float8 AS amount
     FROM published_fee_catalog
     WHERE institution_id IN ${sql(peerIds)}
-      AND review_status != 'rejected'
+      AND review_status = 'approved'
       AND fee_category IS NOT NULL
       AND amount IS NOT NULL
       AND amount > 0
@@ -804,6 +856,83 @@ function generateHtml(
 </html>`;
 }
 
+function generateStatusHtml(
+  inst: InstitutionRow,
+  fees: FeeRow[],
+  statusLabel: string,
+): string {
+  const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
+  const stateName = inst.state_code ? STATE_NAMES[inst.state_code] ?? inst.state_code : null;
+  const generatedAt = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const rows = fees.map((fee) => `
+    <tr>
+      <td>${escapeHtml(getDisplayName(fee.fee_category ?? fee.fee_name))}</td>
+      <td class="right">${fmt(fee.amount)}</td>
+      <td>${escapeHtml(fee.frequency ?? "Not specified")}</td>
+      <td><span class="pill">${fee.review_status === "approved" ? "Verified" : "Provisional"}</span></td>
+    </tr>
+  `).join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fee Report Card Status - ${escapeHtml(inst.institution_name)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: #FAF7F2; color: #1A1815; line-height: 1.5; }
+    .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 56px; }
+    .eyebrow { color: #C44B2E; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 10px 0 8px; font-family: Georgia, serif; font-size: 34px; font-weight: 400; line-height: 1.1; }
+    .meta { color: #7A7062; font-size: 14px; }
+    .status { margin-top: 24px; border: 1px solid #E8DFD1; border-left: 4px solid #C44B2E; background: #FFFDF9; border-radius: 8px; padding: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+    .metric { border: 1px solid #E8DFD1; background: #fff; border-radius: 8px; padding: 14px; }
+    .label { color: #A69D90; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .value { margin-top: 4px; font-size: 18px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-top: 28px; background: #fff; border: 1px solid #E8DFD1; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #F0EBE3; text-align: left; font-size: 13px; vertical-align: top; }
+    th { background: #FAF7F2; color: #A69D90; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    .right { text-align: right; font-variant-numeric: tabular-nums; }
+    .pill { display: inline-block; border: 1px solid #F2C66D; background: #FFF8EC; color: #8A5A00; border-radius: 6px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
+    .note { margin-top: 28px; color: #7A7062; font-size: 12px; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } .page { padding: 28px 16px 40px; } table { display: block; overflow-x: auto; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="eyebrow">Bank Fee Index Report Card</div>
+    <h1>${escapeHtml(inst.institution_name)}</h1>
+    <div class="meta">${[inst.city, stateName].filter(Boolean).join(", ") || "Location unavailable"} · ${charterLabel} · Generated ${generatedAt}</div>
+
+    <section class="status">
+      <div class="label">Publication Status</div>
+      <div class="value">${escapeHtml(statusLabel)}</div>
+      <p class="meta">No approved fee rows are available for a verified benchmark report. Provisional rows, when present, are shown for directional review and excluded from verified score calculations.</p>
+    </section>
+
+    <div class="grid">
+      <div class="metric"><div class="label">Visible fee rows</div><div class="value">${fees.length}</div></div>
+      <div class="metric"><div class="label">Assets</div><div class="value">${fmtAssets(inst.asset_size)}</div></div>
+      <div class="metric"><div class="label">Benchmark score</div><div class="value">Not scored</div></div>
+    </div>
+
+    ${fees.length > 0 ? `<table>
+      <thead><tr><th>Fee</th><th class="right">Amount</th><th>Frequency</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : `<p class="note">No public fee observations are available yet for this institution.</p>`}
+
+    <p class="note">Methodology: verified fee benchmarks use approved rows only. Provisional data is source-backed but still pending review.</p>
+  </main>
+</body>
+</html>`;
+}
+
 // ---------------------------------------------------------------------------
 // JSON response shape
 // ---------------------------------------------------------------------------
@@ -909,10 +1038,42 @@ export async function GET(
 
     const fees = await loadApprovedFees(instId);
     if (fees.length === 0) {
-      return NextResponse.json(
-        { error: "No approved fees found for this institution" },
-        { status: 404 },
-      );
+      const detail = await getInstitutionById(instId).catch(() => null);
+      const visibleFees = await loadVisibleFees(instId);
+      const status = detail?.fee_publication_status ?? (visibleFees.length > 0 ? "provisional" : "unavailable");
+
+      if (format === "json") {
+        return NextResponse.json({
+          institution: {
+            id: inst.id,
+            name: inst.institution_name,
+            charter_type: inst.charter_type,
+            state: inst.state_code,
+            city: inst.city,
+            asset_size: inst.asset_size,
+            asset_tier: inst.asset_size_tier,
+            fed_district: inst.fed_district,
+          },
+          generated_at: new Date().toISOString(),
+          status,
+          status_label: getFeePublicationStatusLabel(status),
+          summary: {
+            approved_fees: 0,
+            visible_fees: visibleFees.length,
+            benchmarked_fees: 0,
+            competitive_score: null,
+          },
+          fees: visibleFees,
+        });
+      }
+
+      const html = generateStatusHtml(inst, visibleFees, getFeePublicationStatusLabel(status));
+      return new NextResponse(html, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=900, s-maxage=900",
+        },
+      });
     }
 
     const peerData = await loadPeerFees(inst, PEER_LIMIT);

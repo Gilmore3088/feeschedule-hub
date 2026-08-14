@@ -13,6 +13,7 @@ import {
   type ReportTemplateType,
 } from "@/app/pro/(hamilton)/reports/actions";
 import type { ReportSummaryResponse } from "@/lib/hamilton/types";
+import type { HamiltonSelectedInstitutionContext } from "@/lib/hamilton/institution-context";
 import { getSpotlightCategories, getDisplayName } from "@/lib/fee-taxonomy";
 
 type NarrativeTone = "consulting" | "academic" | "executive" | "technical";
@@ -70,6 +71,8 @@ interface ReportWorkspaceProps {
     report_json: ReportSummaryResponse;
   }>;
   initialScenarioId: string | null;
+  selectedInstitution?: HamiltonSelectedInstitutionContext | null;
+  initialIntent?: string | null;
 }
 
 export function ReportWorkspace({
@@ -77,14 +80,17 @@ export function ReportWorkspace({
   institutionName,
   publishedReports,
   initialScenarioId,
+  selectedInstitution,
+  initialIntent,
 }: ReportWorkspaceProps) {
   // Spotlight categories are the 6 most-used fees — the ones a banker is
   // most likely to want to drill into for Category Deep Dive. The default
   // is the first one (typically monthly_maintenance) so the focusArea is
   // always a real fee_category key, not a generic placeholder.
   const SPOTLIGHT = getSpotlightCategories();
-  const [selectedTemplate, setSelectedTemplate] =
-    useState<ReportTemplateType | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplateType | null>(() =>
+    initialIntent === "competitive-brief" ? "competitive_positioning" : null,
+  );
   const [focusArea, setFocusArea] = useState<string>(SPOTLIGHT[0] ?? "monthly_maintenance");
   const [narrativeTone, setNarrativeTone] = useState<NarrativeTone>("consulting");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -158,6 +164,9 @@ export function ReportWorkspace({
       // focusArea is already a real fee_category key — no transform needed
       focusCategory: selectedTemplate === "category_deep_dive" ? focusArea : undefined,
       scenarioId: initialScenarioId ?? undefined,
+      institutionId: selectedInstitution?.id,
+      selectedInstitutionName: selectedInstitution?.name,
+      evidencePolicy: "provisional-first",
     });
 
     setIsGenerating(false);
@@ -216,6 +225,36 @@ export function ReportWorkspace({
           Synthesize market intelligence into board-ready narratives. Select a
           framework or create a custom inquiry from the institutional data lake.
         </p>
+        {selectedInstitution && (
+          <div
+            className="mt-5 flex flex-wrap items-center gap-2 rounded-md px-4 py-3 text-xs"
+            style={{
+              backgroundColor: "var(--hamilton-surface-container-lowest)",
+              border: "1px solid rgba(216,194,184,0.35)",
+            }}
+          >
+            <span
+              className="font-semibold"
+              style={{ color: "var(--hamilton-on-surface)" }}
+            >
+              {selectedInstitution.name}
+            </span>
+            <span style={{ color: "var(--hamilton-secondary)" }}>
+              {selectedInstitution.feePublicationLabel}
+            </span>
+            <span style={{ color: "var(--hamilton-secondary)" }}>
+              {selectedInstitution.publishedFeeCount.toLocaleString()} verified
+            </span>
+            <span style={{ color: "var(--hamilton-secondary)" }}>
+              {selectedInstitution.provisionalFeeCount.toLocaleString()} provisional
+            </span>
+            {selectedInstitution.assetSizeLabel && (
+              <span style={{ color: "var(--hamilton-secondary)" }}>
+                {selectedInstitution.assetSizeLabel} assets
+              </span>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Error banner */}

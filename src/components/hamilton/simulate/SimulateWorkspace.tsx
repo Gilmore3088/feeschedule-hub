@@ -51,7 +51,7 @@ function formatCategory(cat: string): string {
   return DISPLAY_NAMES[cat] ?? cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function SimulateWorkspace({ userId: _userId, institutionId, institutionContext, initialCategory }: Props) {
+export function SimulateWorkspace({ institutionId, institutionContext, initialCategory }: Props) {
   const router = useRouter();
 
   // ─── Category + Distribution ───────────────────────────────────────────────
@@ -130,7 +130,6 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
 
   // ─── Initialization ───────────────────────────────────────────────────────
   useEffect(() => {
-    setLoadingCategories(true);
     getSimulationCategories()
       .then((cats) => {
         setCategories(cats);
@@ -256,9 +255,11 @@ export function SimulateWorkspace({ userId: _userId, institutionId, institutionC
       scenarioId = await handleSave();
     }
     if (scenarioId) {
-      router.push(`/pro/reports?scenario_id=${scenarioId}`);
+      const query = new URLSearchParams({ scenario_id: scenarioId });
+      if (institutionId) query.set("instId", institutionId);
+      router.push(`/pro/reports?${query.toString()}`);
     }
-  }, [savedScenarioId, handleSave, router]);
+  }, [savedScenarioId, handleSave, institutionId, router]);
 
   // ─── Restore Scenario ─────────────────────────────────────────────────────
   const handleScenarioSelect = useCallback(

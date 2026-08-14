@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   classifyAgentFailure,
   classifyInstitutionQuality,
+  getFeePublicationStatus,
+  getFeePublicationStatusLabel,
+  getInstitutionConfidenceSummary,
+  getInstitutionInsightReadiness,
+  getInstitutionSourceNeededReason,
   getPublicInstitutionQualityLabel,
   repairHrefForQualitySignal,
 } from "./institution-quality";
@@ -77,5 +82,102 @@ describe("classifyInstitutionQuality", () => {
 
     expect(result.quality_status).toBe("verified");
     expect(result.primary_signal.code).toBe("verified");
+  });
+
+  it("does not mark a complete institution with zero published fees as verified", () => {
+    const result = classifyInstitutionQuality({
+      source: "fdic",
+      certNumber: "2945",
+      websiteUrl: "https://examplebank.com",
+      feeScheduleUrl: null,
+      publishedFeeCount: 0,
+      latestSourceStatus: null,
+      latestExtractedFeeCount: 0,
+    });
+
+    expect(result.quality_status).toBe("needs_review");
+    expect(result.primary_signal.code).toBe("no_published_fees");
+    expect(getPublicInstitutionQualityLabel(result.quality_signals)).toBe(
+      "Fee data unavailable",
+    );
+  });
+});
+
+describe("getFeePublicationStatus", () => {
+  it("classifies approved, provisional, under-review, and unavailable public states", () => {
+    expect(getFeePublicationStatus({ publishedFeeCount: 2 })).toBe("verified");
+    expect(
+      getFeePublicationStatus({ publishedFeeCount: 0, provisionalFeeCount: 3 }),
+    ).toBe("provisional");
+    expect(
+      getFeePublicationStatus({
+        publishedFeeCount: 0,
+        provisionalFeeCount: 0,
+        latestExtractedFeeCount: 4,
+      }),
+    ).toBe("under_review");
+    expect(
+      getFeePublicationStatus({
+        publishedFeeCount: 0,
+        provisionalFeeCount: 0,
+        latestExtractedFeeCount: 0,
+      }),
+    ).toBe("unavailable");
+  });
+
+  it("provides explicit public labels", () => {
+    expect(getFeePublicationStatusLabel("verified")).toBe("Verified fees");
+    expect(getFeePublicationStatusLabel("provisional")).toBe("Provisional fees");
+    expect(getFeePublicationStatusLabel("under_review")).toBe("Fee data under review");
+    expect(getFeePublicationStatusLabel("unavailable")).toBe("Fee data unavailable");
+  });
+});
+
+describe("institution readiness", () => {
+  it("treats verified, provisional, review, and empty states as distinct readiness levels", () => {
+    expect(
+      getInstitutionInsightReadiness({
+        publishedFeeCount: 4,
+        provisionalFeeCount: 0,
+      }),
+    ).toBe("ready");
+
+    expect(
+      getInstitutionInsightReadiness({
+        publishedFeeCount: 0,
+        provisionalFeeCount: 4,
+      }),
+    ).toBe("directional");
+
+    expect(
+      getInstitutionInsightReadiness({
+        publishedFeeCount: 0,
+        provisionalFeeCount: 0,
+        feeScheduleUrl: "https://bank.example/fees.pdf",
+      }),
+    ).toBe("under_review");
+
+    expect(
+      getInstitutionInsightReadiness({
+        publishedFeeCount: 0,
+        provisionalFeeCount: 0,
+        latestExtractedFeeCount: 0,
+      }),
+    ).toBe("source_needed");
+  });
+
+  it("explains why empty public profiles need a source", () => {
+    const input = {
+      publishedFeeCount: 0,
+      provisionalFeeCount: 0,
+      latestExtractedFeeCount: 0,
+      latestSourceStatus: null,
+      feeScheduleUrl: null,
+    };
+
+    expect(getInstitutionSourceNeededReason(input)).toBe("official_source_missing");
+    expect(getInstitutionConfidenceSummary(input)).toBe(
+      "Official source evidence is needed before fee claims can be made.",
+    );
   });
 });

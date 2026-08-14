@@ -13,6 +13,7 @@ import { ExploreFurtherPanel } from "./ExploreFurtherPanel";
 import { AnalyzeCTABar } from "./AnalyzeCTABar";
 import { AnalysisInputBar } from "./AnalysisInputBar";
 import type { AnalyzeResponse } from "@/lib/hamilton/types";
+import type { HamiltonSelectedInstitutionContext } from "@/lib/hamilton/institution-context";
 
 // ─── Section Parsing ─────────────────────────────────────────────────────────
 
@@ -100,6 +101,8 @@ function extractTextFromMessage(message: { parts?: Array<{ type: string; text?: 
 interface AnalyzeWorkspaceProps {
   userId: number;
   institutionId: string | null;
+  selectedInstitution?: HamiltonSelectedInstitutionContext | null;
+  initialIntent?: string | null;
   /** Pre-populated analysis loaded from hamilton_saved_analyses via ?analysis= searchParam */
   initialAnalysis?: AnalyzeResponse | null;
 }
@@ -117,8 +120,14 @@ interface AnalyzeWorkspaceProps {
  * When initialAnalysis is provided (via ?analysis= searchParam), parsedResponse
  * is pre-populated so the full analysis UI renders immediately on page load.
  */
-export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: AnalyzeWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
+export function AnalyzeWorkspace({
+  userId,
+  institutionId,
+  selectedInstitution,
+  initialIntent,
+  initialAnalysis,
+}: AnalyzeWorkspaceProps) {
+  const [activeTab] = useState<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
   const [parsedResponse, setParsedResponse] = useState<ParsedResponse | null>(() => {
     if (!initialAnalysis) return null;
     return {
@@ -131,7 +140,16 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
   });
   // If restoring a saved analysis, mark it already saved to prevent duplicate auto-save
   const [isSaved, setIsSaved] = useState(!!initialAnalysis);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    if (!selectedInstitution || initialAnalysis) return "";
+    if (selectedInstitution.insightReadiness === "source_needed") {
+      return `Build a diligence path for ${selectedInstitution.name}. Explain what is known, what is missing, and what source evidence is needed before making fee claims.`;
+    }
+    if (initialIntent === "institution") {
+      return `Analyze ${selectedInstitution.name}'s fee readiness, peer position, financial context, risks, and next diligence questions.`;
+    }
+    return "";
+  });
   const [isExporting, setIsExporting] = useState(false);
 
   // Ref to always have latest activeTab inside async callbacks
@@ -147,6 +165,9 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
       body: () => ({
         mode: "analyze",
         analysisFocus: activeTabRef.current,
+        institutionId: selectedInstitution?.id ?? null,
+        intent: initialIntent ?? "analyze",
+        evidencePolicy: "provisional-first",
       }),
     }),
     onFinish: async ({ message }) => {
@@ -158,7 +179,7 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
       // Auto-save if user context is available
       if (userId) {
         const result = await saveAnalysis({
-          institutionId: institutionId ?? "",
+          institutionId: selectedInstitution?.id.toString() ?? institutionId ?? "",
           analysisFocus: activeTabRef.current,
           prompt: lastPromptRef.current,
           responseJson: {
@@ -177,13 +198,6 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
   });
 
   const isLoading = status === "streaming" || status === "submitted";
-
-  function handleTabChange(tab: AnalysisFocus) {
-    setActiveTab(tab);
-    setParsedResponse(null);
-    setIsSaved(false);
-    setMessages([]);
-  }
 
   const handleAnalysisSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -282,14 +296,75 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
 
       {/* Empty state */}
       {!displayedResponse && !isLoading && messages.length === 0 && (
-        <div className="text-center py-16" style={{ color: "var(--hamilton-text-secondary)" }}>
-          <p className="text-base mb-1" style={{ fontFamily: "var(--hamilton-font-serif)" }}>
-            Ask Hamilton to analyze a fee category or competitive position
-          </p>
-          <p className="text-sm">
-            Currently viewing:{" "}
-            <span style={{ color: "var(--hamilton-accent)" }}>{activeTab}</span> analysis
-          </p>
+        <div className="py-8">
+          {selectedInstitution ? (
+            <div
+              className="mx-auto max-w-4xl rounded-xl border p-5 text-left"
+              style={{
+                backgroundColor: "var(--hamilton-surface-container-lowest, #ffffff)",
+                borderColor: "rgba(216,194,184,0.35)",
+              }}
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p
+                    className="text-[10px] uppercase tracking-[0.18em]"
+                    style={{ color: "var(--hamilton-text-tertiary)" }}
+                  >
+                    Selected Institution
+                  </p>
+                  <h1
+                    className="mt-1 text-3xl italic tracking-tight"
+                    style={{
+                      fontFamily: "var(--hamilton-font-serif)",
+                      color: "var(--hamilton-text-primary)",
+                    }}
+                  >
+                    {selectedInstitution.name}
+                  </h1>
+                  <p className="mt-2 text-sm" style={{ color: "var(--hamilton-text-secondary)" }}>
+                    {selectedInstitution.confidenceSummary}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 md:min-w-[360px]">
+                  <ContextStat label="Status" value={selectedInstitution.feePublicationLabel} />
+                  <ContextStat label="Verified" value={selectedInstitution.publishedFeeCount.toLocaleString()} />
+                  <ContextStat label="Provisional" value={selectedInstitution.provisionalFeeCount.toLocaleString()} />
+                  <ContextStat label="Assets" value={selectedInstitution.assetSizeLabel ?? "N/A"} />
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {[
+                  `Summarize ${selectedInstitution.name}'s fee evidence and data caveats.`,
+                  `Compare ${selectedInstitution.name}'s service charge income and peer position.`,
+                  `List the diligence questions needed before a board-ready brief for ${selectedInstitution.name}.`,
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => setInput(prompt)}
+                    className="rounded-full px-3 py-1.5 text-xs transition-colors"
+                    style={{
+                      border: "1px solid rgba(216,194,184,0.5)",
+                      color: "var(--hamilton-text-primary)",
+                    }}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-16" style={{ color: "var(--hamilton-text-secondary)" }}>
+              <p className="text-base mb-1" style={{ fontFamily: "var(--hamilton-font-serif)" }}>
+                Ask Hamilton to analyze a fee category or competitive position
+              </p>
+              <p className="text-sm">
+                Currently viewing:{" "}
+                <span style={{ color: "var(--hamilton-accent)" }}>{activeTab}</span> analysis
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -366,6 +441,29 @@ export function AnalyzeWorkspace({ userId, institutionId, initialAnalysis }: Ana
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function ContextStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="rounded-md px-3 py-2"
+      style={{ backgroundColor: "var(--hamilton-surface-container-low)" }}
+    >
+      <p
+        className="text-[9px] uppercase tracking-[0.14em]"
+        style={{ color: "var(--hamilton-text-tertiary)" }}
+      >
+        {label}
+      </p>
+      <p
+        className="mt-1 truncate font-semibold"
+        style={{ color: "var(--hamilton-text-primary)" }}
+        title={value}
+      >
+        {value}
+      </p>
     </div>
   );
 }

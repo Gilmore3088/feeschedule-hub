@@ -8,6 +8,7 @@
  */
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSql } from "@/lib/data-store/connection";
 import type { ReportType } from "@/lib/report-engine/types";
@@ -136,9 +137,9 @@ export default async function ReportPage({
 
         {/* Breadcrumb */}
         <nav style={{ marginBottom: "32px", fontSize: "13px", color: "#A09788" }}>
-          <a href="/reports" style={{ color: "#5A5347", textDecoration: "none" }}>
+          <Link href="/reports" style={{ color: "#5A5347", textDecoration: "none" }}>
             Research Reports
-          </a>
+          </Link>
           <span style={{ margin: "0 8px" }}>/</span>
           <span style={{ color: "#1A1815" }}>{report.title}</span>
         </nav>

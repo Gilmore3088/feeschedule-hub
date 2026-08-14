@@ -92,7 +92,7 @@ export async function getRevenueConcentration(
       FROM published_fee_catalog
       WHERE fee_category IS NOT NULL
         AND amount > 0
-        AND review_status != 'rejected'
+        AND review_status = 'approved'
       GROUP BY fee_category
       ORDER BY total_fee_dollars DESC
     `;
@@ -100,7 +100,7 @@ export async function getRevenueConcentration(
     const totalRow = await sql`
       SELECT COUNT(DISTINCT institution_id) as total
       FROM published_fee_catalog
-      WHERE review_status != 'rejected'
+      WHERE review_status = 'approved'
     `;
 
     if (rows.length === 0) {

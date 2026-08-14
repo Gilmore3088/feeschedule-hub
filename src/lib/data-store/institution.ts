@@ -155,6 +155,31 @@ export interface InstitutionFeeScheduleEvidence {
   verified_fee_preview: InstitutionVerifiedFeePreview[];
 }
 
+export type InstitutionSubmissionStatus =
+  | "none"
+  | "pending"
+  | "accepted"
+  | "needs_info"
+  | "rejected";
+
+export interface InstitutionSubmissionState {
+  status: InstitutionSubmissionStatus;
+  label: string;
+  submission_count: number;
+  pending_count: number;
+  accepted_count: number;
+  rejected_count: number;
+  needs_info_count: number;
+  latest_submission: {
+    id: number;
+    source_url: string;
+    review_status: string;
+    submission_kind: string;
+    created_at: string;
+    reviewed_at: string | null;
+  } | null;
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -165,7 +190,7 @@ export async function getInstitution(
   try {
     const rows = await sql`
       WITH fee_counts AS (
-        SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+        SELECT institution_id, COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count
         FROM published_fee_catalog
         GROUP BY institution_id
       ),
@@ -378,7 +403,7 @@ export async function getInstitutionFeeScheduleEvidence(
             SELECT COUNT(*)::int
             FROM published_fee_catalog pfc
             WHERE pfc.institution_id = ${id}
-              AND pfc.review_status <> 'rejected'
+              AND pfc.review_status = 'approved'
           ) AS published_fee_count,
           (
             SELECT COUNT(*)::int
@@ -515,6 +540,97 @@ export async function getInstitutionFeeScheduleEvidence(
     };
   } catch (e) {
     console.error("getInstitutionFeeScheduleEvidence failed:", e);
+    return empty;
+  }
+}
+
+export async function getInstitutionSubmissionState(
+  id: number,
+): Promise<InstitutionSubmissionState> {
+  const empty: InstitutionSubmissionState = {
+    status: "none",
+    label: "No source submission recorded.",
+    submission_count: 0,
+    pending_count: 0,
+    accepted_count: 0,
+    rejected_count: 0,
+    needs_info_count: 0,
+    latest_submission: null,
+  };
+
+  try {
+    const [summaryRows, latestRows] = await Promise.all([
+      sql<Record<string, unknown>[]>`
+        SELECT
+          COUNT(*)::int AS submission_count,
+          COUNT(*) FILTER (WHERE review_status = 'pending')::int AS pending_count,
+          COUNT(*) FILTER (WHERE review_status = 'accepted')::int AS accepted_count,
+          COUNT(*) FILTER (WHERE review_status = 'rejected')::int AS rejected_count,
+          COUNT(*) FILTER (WHERE review_status = 'needs_info')::int AS needs_info_count
+        FROM community_fee_submissions
+        WHERE institution_id = ${id}
+      `,
+      sql<Record<string, unknown>[]>`
+        SELECT id, source_url, review_status, submission_kind, created_at, reviewed_at
+        FROM community_fee_submissions
+        WHERE institution_id = ${id}
+        ORDER BY created_at DESC NULLS LAST, id DESC
+        LIMIT 1
+      `,
+    ]);
+
+    const summary = summaryRows[0] ?? {};
+    const pendingCount = Number(summary.pending_count ?? 0);
+    const acceptedCount = Number(summary.accepted_count ?? 0);
+    const needsInfoCount = Number(summary.needs_info_count ?? 0);
+    const rejectedCount = Number(summary.rejected_count ?? 0);
+    const submissionCount = Number(summary.submission_count ?? 0);
+
+    const status: InstitutionSubmissionStatus =
+      pendingCount > 0
+        ? "pending"
+        : acceptedCount > 0
+          ? "accepted"
+          : needsInfoCount > 0
+            ? "needs_info"
+            : rejectedCount > 0
+              ? "rejected"
+              : "none";
+    const label =
+      status === "pending"
+        ? "Source submitted, pending review."
+        : status === "accepted"
+          ? "Source accepted, awaiting validation."
+          : status === "needs_info"
+            ? "More source detail requested."
+            : status === "rejected"
+              ? "Submitted source was not usable."
+              : "No source submission recorded.";
+    const latest = latestRows[0] ?? null;
+
+    return {
+      status,
+      label,
+      submission_count: submissionCount,
+      pending_count: pendingCount,
+      accepted_count: acceptedCount,
+      rejected_count: rejectedCount,
+      needs_info_count: needsInfoCount,
+      latest_submission: latest
+        ? {
+            id: Number(latest.id),
+            source_url: String(latest.source_url),
+            review_status: String(latest.review_status ?? "pending"),
+            submission_kind: String(latest.submission_kind ?? "fee_row"),
+            created_at: toDateStr(latest.created_at as string | Date | null),
+            reviewed_at: latest.reviewed_at
+              ? toDateStr(latest.reviewed_at as string | Date)
+              : null,
+          }
+        : null,
+    };
+  } catch (e) {
+    console.error("getInstitutionSubmissionState failed:", e);
     return empty;
   }
 }

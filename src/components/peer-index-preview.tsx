@@ -47,10 +47,10 @@ export function PeerIndexPreview({ initialData }: Props) {
   const [isPending, startTransition] = useTransition();
 
   const hasFilters = charter || tier || district;
+  const displayData = hasFilters ? data : initialData;
 
   useEffect(() => {
     if (!hasFilters) {
-      setData(initialData);
       return;
     }
 
@@ -175,7 +175,7 @@ export function PeerIndexPreview({ initialData }: Props) {
             {hasFilters ? "Peer Comparison" : "National Index"}
           </p>
           <p className="text-[11px] text-slate-500">
-            {data.label}
+            {displayData.label}
           </p>
         </div>
         <table className="w-full text-[13px]">
@@ -195,10 +195,10 @@ export function PeerIndexPreview({ initialData }: Props) {
             </tr>
           </thead>
           <tbody className="bg-white">
-            {data.entries.map((entry, i) => (
+            {displayData.entries.map((entry, i) => (
               <tr
                 key={entry.category}
-                className={i < data.entries.length - 1 ? "border-b border-slate-100" : ""}
+                className={i < displayData.entries.length - 1 ? "border-b border-slate-100" : ""}
               >
                 <td className="px-5 py-2.5 text-slate-700">
                   {entry.displayName}

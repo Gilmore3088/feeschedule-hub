@@ -5,6 +5,7 @@
  */
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getSql } from "@/lib/data-store/connection";
 import type { PublishedReport, ReportType } from "@/lib/report-engine/types";
 import { timeAgo } from "@/lib/format";
@@ -187,7 +188,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           </button>
 
           {(typeFilter || rawRange) && (
-            <a
+            <Link
               href="/reports"
               style={{
                 display: "inline-flex",
@@ -202,7 +203,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               }}
             >
               Clear filters
-            </a>
+            </Link>
           )}
         </form>
 

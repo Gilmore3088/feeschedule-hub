@@ -33,7 +33,7 @@ export async function getFeeRevenueData(): Promise<FeeRevenueCorrelation[]> {
     FROM institution_sources ct
     JOIN published_fee_catalog ef ON ct.id = ef.institution_id
     JOIN institution_financial_records ifin ON ct.id = ifin.institution_id
-    WHERE ef.review_status != 'rejected'
+    WHERE ef.review_status = 'approved'
       AND ef.amount IS NOT NULL
       AND ef.amount > 0
       AND ifin.report_date = (
@@ -80,7 +80,7 @@ export async function getTierFeeRevenueSummary(): Promise<TierFeeRevenueSummary[
     JOIN (
       SELECT institution_id, AVG(amount) as avg_fee
       FROM published_fee_catalog
-      WHERE review_status != 'rejected' AND amount IS NOT NULL AND amount > 0
+      WHERE review_status = 'approved' AND amount IS NOT NULL AND amount > 0
       GROUP BY institution_id
       HAVING COUNT(*) >= 3
     ) ef_avg ON ct.id = ef_avg.institution_id
@@ -129,7 +129,7 @@ export async function getCharterFeeRevenueSummary(): Promise<CharterFeeRevenueSu
     JOIN (
       SELECT institution_id, AVG(amount) as avg_fee
       FROM published_fee_catalog
-      WHERE review_status != 'rejected' AND amount IS NOT NULL AND amount > 0
+      WHERE review_status = 'approved' AND amount IS NOT NULL AND amount > 0
       GROUP BY institution_id
       HAVING COUNT(*) >= 3
     ) ef_avg ON ct.id = ef_avg.institution_id

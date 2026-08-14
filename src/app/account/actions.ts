@@ -1,7 +1,7 @@
 "use server";
 
 import { logout, getCurrentUser } from "@/lib/auth";
-import { sql } from "@/lib/data-store/connection";
+import { sql, withTransaction } from "@/lib/data-store/connection";
 import crypto from "crypto";
 
 export async function logoutAction() {
@@ -48,7 +48,7 @@ export async function generateApiKey(): Promise<{
   const keyPrefix = rawKey.slice(0, 16) + "...";
 
   try {
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       await tx`UPDATE api_keys SET is_active = 0 WHERE user_id = ${user.id}`;
       await tx`
         INSERT INTO api_keys (user_id, key_hash, key_prefix, tier, monthly_limit)

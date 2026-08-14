@@ -1,126 +1,102 @@
 export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getInstitutionById,
+  AlertTriangle,
+  ArrowRight,
+  BarChart2,
+  Building2,
+  CheckCircle2,
+  Clock3,
+  ClipboardCheck,
+  Database,
+  ExternalLink,
+  FileText,
+  Landmark,
+  MapPin,
+  MessageSquareText,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
+import {
   getFeesByInstitution,
   getFinancialsByInstitution,
-  getNationalIndex,
+  getInstitutionById,
   getInstitutionIdsWithFees,
+  getNationalIndex,
 } from "@/lib/data-store";
-import { getFeesForCategory } from "@/lib/data-store/market";
-import { InstitutionHistogram } from "./fee-distribution";
-import { getMarketConcentrationForInstitution } from "@/lib/data-store/financial";
 import {
-  getInstitutionRevenueTrend,
   getInstitutionPeerRanking,
+  getInstitutionRevenueTrend,
 } from "@/lib/data-store/call-reports";
+import {
+  getInstitutionFeeScheduleEvidence,
+  getInstitutionSubmissionState,
+} from "@/lib/data-store/institution";
 import { getDisplayName } from "@/lib/fee-taxonomy";
-import { DISTRICT_NAMES } from "@/lib/fed-districts";
-import { formatAmount, formatAssets } from "@/lib/format";
+import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
+import {
+  formatAmount,
+  formatAssets,
+  formatCompactDollars,
+  formatStoredPercent,
+} from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
-import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium } from "@/lib/access";
 import {
   computeInstitutionRating,
   generateInterpretation,
 } from "@/lib/institution-rating";
-import type { IndexEntry } from "@/lib/data-store/fee-index";
-import { FeeGroup } from "./fee-group";
 import {
-  MapPin,
-  Building2,
-  Landmark,
-  ExternalLink,
-  FileText,
-  Info,
-  CheckCircle2,
-  TrendingUp,
-  BarChart2,
-  SlidersHorizontal,
-  AlertTriangle,
-  ArrowRight,
-  ShieldCheck,
-} from "lucide-react";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+  getFeePublicationStatusLabel,
+  getInstitutionSourceNeededReasonLabel,
+  type FeePublicationStatus,
+} from "@/lib/institution-quality";
+import { getAutomationControl } from "@/lib/automation-control";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-type FeeGroupName =
-  | "Overdraft & NSF"
-  | "Account Maintenance"
-  | "Wire Transfers"
-  | "ATM"
-  | "Other Fees";
-
-const GROUP_ORDER: FeeGroupName[] = [
-  "Overdraft & NSF",
-  "Account Maintenance",
-  "Wire Transfers",
-  "ATM",
-  "Other Fees",
-];
-
-const PRIMARY_GROUPS = new Set<FeeGroupName>(["Overdraft & NSF", "Wire Transfers"]);
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function detectGroup(feeName: string): FeeGroupName {
-  const n = feeName.toLowerCase();
-  if (n.includes("overdraft") || n.includes("od ") || n.startsWith("od_") || n === "od") return "Overdraft & NSF";
-  if (n.includes("nsf") || n.includes("returned") || n.includes("insufficient")) return "Overdraft & NSF";
-  if (n.includes("maintenance") || n.includes("monthly") || n.includes("service charge")) return "Account Maintenance";
-  if (n.includes("wire")) return "Wire Transfers";
-  if (n.includes("atm")) return "ATM";
-  return "Other Fees";
+interface DisplayFee {
+  id: string;
+  feeName: string;
+  feeCategory: string | null;
+  amount: number | null;
+  frequency: string | null;
+  conditions: string | null;
+  status: "verified" | "provisional";
+  extractionConfidence: number | null;
+  sourceUrl: string | null;
 }
 
-// Rating color config matching the mockup's color scheme
-const RATING_CONFIG = {
-  green:  { bg: "rgba(76,175,80,0.08)", border: "#4caf50", badge: "#4caf50", labelColor: "#2e7d32", bulletIconOk: true },
-  yellow: { bg: "rgba(251,192,45,0.15)", border: "#fbc02d", badge: "#fbc02d", labelColor: "#a47e13", bulletIconOk: false },
-  red:    { bg: "rgba(244,67,54,0.08)", border: "#f44336", badge: "#f44336", labelColor: "#c62828", bulletIconOk: false },
+const STATUS_COPY: Record<FeePublicationStatus, string> = {
+  verified:
+    "Approved fee observations are available. Benchmark scores on this page use verified rows only.",
+  provisional:
+    "Fee observations are available but have not cleared verification. They are shown for directional exploration and excluded from verified benchmark scores.",
+  under_review:
+    "A fee source or extraction attempt is on record, but no public fee row has cleared review yet.",
+  unavailable:
+    "This institution is tracked, but no usable public consumer fee data is available yet.",
 };
 
-function getBulletIcon(bullet: string, color: "green" | "yellow" | "red"): "check_circle" | "trending_up" | "info" {
-  const lower = bullet.toLowerCase();
-  if (color === "green") return "check_circle";
-  if (lower.includes("above") || lower.includes("higher") || lower.includes("%")) {
-    if (lower.includes("below") || lower.includes("lower")) return "check_circle";
-    if (lower.includes("above") || lower.includes("higher")) return "trending_up";
-  }
-  if (color === "red") return "trending_up";
-  return "info";
-}
+const STATUS_TONE: Record<FeePublicationStatus, string> = {
+  verified: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  provisional: "border-amber-200 bg-amber-50 text-amber-900",
+  under_review: "border-[#E8DFD1] bg-[#FFF8EC] text-[#6B4A12]",
+  unavailable: "border-[#E8DFD1] bg-white text-[#7A7062]",
+};
 
-const BULLET_ICON_MAP = {
-  check_circle: CheckCircle2,
-  trending_up: TrendingUp,
-  info: Info,
-} as const;
-
-function getBulletIconColor(bullet: string, color: "green" | "yellow" | "red"): string {
-  if (color === "green") return "#4caf50";
-  if (color === "red") return "#f44336";
-  const lower = bullet.toLowerCase();
-  if (lower.includes("above") || lower.includes("higher")) return "#f44336";
-  if (lower.includes("below") || lower.includes("lower")) return "#4caf50";
-  return "var(--hamilton-on-surface-variant)";
-}
-
-// ---------------------------------------------------------------------------
-// Static params + metadata
-// ---------------------------------------------------------------------------
+const STATUS_ICON = {
+  verified: CheckCircle2,
+  provisional: AlertTriangle,
+  under_review: Clock3,
+  unavailable: Database,
+} satisfies Record<FeePublicationStatus, LucideIcon>;
 
 export async function generateStaticParams() {
   try {
@@ -138,15 +114,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
-  const hasPublishedFees = inst.fee_count > 0;
+  const verifiedCount = inst.published_fee_count ?? 0;
+  const provisionalCount = inst.provisional_fee_count ?? 0;
+  const status = inst.fee_publication_status ?? "unavailable";
 
   return {
-    title: hasPublishedFees
-      ? `${inst.institution_name} Fees - ${charterLabel} Fee Schedule`
-      : `${inst.institution_name} Fee Schedule Status`,
-    description: hasPublishedFees
-      ? `Fee schedule for ${inst.institution_name}${stateName ? ` in ${stateName}` : ""}. ${inst.fee_count} fees extracted and benchmarked against national medians.`
-      : `${inst.institution_name}${stateName ? ` in ${stateName}` : ""} is tracked by Bank Fee Index, but its consumer fee schedule has not been verified for publication yet.`,
+    title:
+      status === "verified"
+        ? `${inst.institution_name} Fee Report Card`
+        : `${inst.institution_name} Fee Data Status`,
+    description:
+      status === "verified"
+        ? `${inst.institution_name}${stateName ? ` in ${stateName}` : ""} has ${verifiedCount} verified public fee observations in Bank Fee Index.`
+        : `${inst.institution_name}${stateName ? ` in ${stateName}` : ""} is tracked by Bank Fee Index with ${provisionalCount} provisional fee observations and ${verifiedCount} verified observations.`,
     keywords: [
       inst.institution_name,
       `${inst.institution_name} fees`,
@@ -156,766 +136,603 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// ---------------------------------------------------------------------------
-// Pro helpers
-// ---------------------------------------------------------------------------
-
-function computeScorecard(
-  fees: { id: number; fee_name: string; amount: number | null }[],
-  indexEntries: IndexEntry[]
-) {
-  const indexMap = new Map(indexEntries.map((e) => [e.fee_category, e]));
-  return fees
-    .filter((f) => f.amount && f.amount > 0)
-    .map((f) => {
-      const entry = indexMap.get(f.fee_name);
-      if (!entry || entry.median_amount === null) return null;
-      return {
-        name: f.fee_name,
-        amount: f.amount!,
-        median: entry.median_amount,
-        p25: entry.p25_amount ?? entry.median_amount,
-        p75: entry.p75_amount ?? entry.median_amount,
-        min: entry.min_amount ?? 0,
-        max: entry.max_amount ?? entry.median_amount * 2,
-        delta: ((f.amount! - entry.median_amount) / entry.median_amount) * 100,
-        indexEntry: entry,
-      };
-    })
-    .filter(Boolean) as Array<{
-      name: string; amount: number; median: number;
-      p25: number; p75: number; min: number; max: number;
-      delta: number; indexEntry: IndexEntry;
-    }>;
-}
-
-function estimatePercentile(
-  amount: number,
-  entry: { p25_amount: number | null; p75_amount: number | null; min_amount: number | null; max_amount: number | null; median_amount: number | null }
-): number {
-  const median = entry.median_amount ?? 0;
-  const p25 = entry.p25_amount ?? median;
-  const p75 = entry.p75_amount ?? median;
-  const min = entry.min_amount ?? 0;
-  const max = entry.max_amount ?? median * 2;
-  if (amount <= min) return 1;
-  if (amount >= max) return 99;
-  if (amount <= p25) return Math.max(1, Math.round((25 * (amount - min)) / Math.max(p25 - min, 0.01)));
-  if (amount <= median) return Math.round(25 + (25 * (amount - p25)) / Math.max(median - p25, 0.01));
-  if (amount <= p75) return Math.round(50 + (25 * (amount - median)) / Math.max(p75 - median, 0.01));
-  return Math.min(99, Math.round(75 + (25 * (amount - p75)) / Math.max(max - p75, 0.01)));
-}
-
-async function getRelatedReports(inst: {
-  charter_type: string | null;
-  asset_size_tier: string | null;
-  fed_district: number | null;
-}): Promise<{ slug: string; title: string }[]> {
-  try {
-    const { getSql } = await import("@/lib/data-store/connection");
-    const db = getSql();
-    const rows = await db<{ slug: string; title: string }[]>`
-      SELECT slug, title FROM published_reports
-      WHERE is_public = true ORDER BY published_at DESC LIMIT 20
-    `;
-    const keywords: string[] = [];
-    if (inst.charter_type) keywords.push(inst.charter_type === "bank" ? "bank" : "credit union");
-    if (inst.fed_district) keywords.push(`district ${inst.fed_district}`);
-    if (inst.asset_size_tier) keywords.push(inst.asset_size_tier);
-    return rows.filter((r) => keywords.some((kw) => r.title.toLowerCase().includes(kw.toLowerCase()))).slice(0, 5);
-  } catch {
-    return [];
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export default async function InstitutionProfilePage({ params }: PageProps) {
   const { id } = await params;
   const instId = parseInt(id, 10);
-  if (isNaN(instId)) notFound();
+  if (Number.isNaN(instId)) notFound();
 
-  const [user, inst] = await Promise.all([
-    getCurrentUser().catch(() => null),
-    getInstitutionById(instId),
-  ]);
+  const inst = await getInstitutionById(instId);
   if (!inst) notFound();
 
-  const isPro = canAccessPremium(user);
-  const fees = (await getFeesByInstitution(instId)).filter((f) => f.review_status !== "rejected");
-  const hasVerifiedFees = fees.length > 0;
+  const [allFees, financials, revenueTrend, peerRanking, evidence, submissionState, automationControl] = await Promise.all([
+    withDeadline(getFeesByInstitution(instId), [], "published fee rows", 3_500),
+    withDeadline(getFinancialsByInstitution(instId), [], "financial context", 3_500),
+    withDeadline(getInstitutionRevenueTrend(instId), [], "revenue trend", 2_500),
+    withDeadline(getInstitutionPeerRanking(instId), null, "peer ranking", 4_000),
+    withDeadline(getInstitutionFeeScheduleEvidence(instId), null, "fee evidence", 3_500),
+    withDeadline(getInstitutionSubmissionState(instId), {
+      status: "none" as const,
+      label: "No source submission recorded.",
+      submission_count: 0,
+      pending_count: 0,
+      accepted_count: 0,
+      rejected_count: 0,
+      needs_info_count: 0,
+      latest_submission: null,
+    }, "source submissions", 1_500),
+    withDeadline(getAutomationControl(), null, "automation state", 1_500),
+  ]);
 
-  let financials: Awaited<ReturnType<typeof getFinancialsByInstitution>> = [];
-  let nationalIndex: Awaited<ReturnType<typeof getNationalIndex>> = [];
-  let revenueTrend: Awaited<ReturnType<typeof getInstitutionRevenueTrend>> = [];
-  let peerRanking: Awaited<ReturnType<typeof getInstitutionPeerRanking>> = null;
+  const visibleFees = allFees.filter((fee) => fee.review_status !== "rejected");
+  const verifiedFees = visibleFees.filter((fee) => fee.review_status === "approved");
+  const provisionalFees = visibleFees.filter((fee) => fee.review_status !== "approved");
+  const catalogFeeRows: DisplayFee[] = visibleFees.map((fee) => ({
+    id: `catalog-${fee.id}`,
+    feeName: fee.fee_name,
+    feeCategory: fee.fee_category ?? null,
+    amount: fee.amount,
+    frequency: fee.frequency,
+    conditions: fee.conditions,
+    status: fee.review_status === "approved" ? "verified" : "provisional",
+    extractionConfidence: fee.extraction_confidence,
+    sourceUrl: fee.source_url ?? null,
+  }));
+  const pipelineProvisionalRows: DisplayFee[] =
+    catalogFeeRows.length === 0 && evidence
+      ? [
+          ...evidence.verified_fee_preview
+            .filter((fee) => fee.review_status !== "rejected")
+            .map((fee) => ({
+              id: `verified-${fee.fee_verified_id}`,
+              feeName: fee.fee_name,
+              feeCategory: fee.canonical_fee_key,
+              amount: fee.amount,
+              frequency: fee.frequency,
+              conditions: null,
+              status: "provisional" as const,
+              extractionConfidence: fee.extraction_confidence,
+              sourceUrl: fee.source_url,
+            })),
+          ...evidence.raw_fee_preview.map((fee) => ({
+            id: `raw-${fee.fee_raw_id}`,
+            feeName: fee.fee_name,
+            feeCategory: null,
+            amount: fee.amount,
+            frequency: fee.frequency,
+            conditions: fee.conditions,
+            status: "provisional" as const,
+            extractionConfidence: fee.extraction_confidence,
+            sourceUrl: fee.source_url,
+          })),
+        ].slice(0, 18)
+      : [];
+  const feeRows = [...catalogFeeRows, ...pipelineProvisionalRows];
 
-  if (hasVerifiedFees || isPro) {
-    [financials, nationalIndex, revenueTrend, peerRanking] = await Promise.all([
-      getFinancialsByInstitution(instId).catch(() => []),
-      getNationalIndex(),
-      getInstitutionRevenueTrend(instId).catch(() => []),
-      getInstitutionPeerRanking(instId).catch(() => null),
-    ]);
-  }
-
-  const indexMap = new Map(nationalIndex.map((e) => [e.fee_category, e]));
-  const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
-  const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
-  const latestFinancial = financials[0] ?? null;
-  const districtName = inst.fed_district ? DISTRICT_NAMES[inst.fed_district] : null;
-  const qualitySignals = inst.quality_signals ?? [];
-  const qualityLabel = inst.quality_label ?? (fees.length > 0 ? "Verified fees" : "Fee schedule not verified");
-  const disclosureUnderReview = Boolean(
-    inst.fee_schedule_url &&
-    (
-      fees.length === 0 ||
-      qualitySignals.some((signal) =>
-        [
-          "bad_or_suspect_url",
-          "url_but_zero_published",
-          "extracted_not_published",
-          "latest_source_failed",
-          "provider_failure",
-        ].includes(signal.code)
-      )
-    )
+  const nationalIndex = verifiedFees.length > 0 ? await getNationalIndex().catch(() => []) : [];
+  const rating = verifiedFees.length > 0 ? computeInstitutionRating(verifiedFees, nationalIndex) : null;
+  const overdraftFee = verifiedFees.find(
+    (fee) => fee.fee_name.toLowerCase().includes("overdraft") && fee.amount !== null,
   );
-  const showQualityNotice = fees.length === 0 || disclosureUnderReview;
-
-  // Rating engine
-  const rating = hasVerifiedFees ? computeInstitutionRating(fees, nationalIndex) : null;
-  const ratingConfig = rating ? RATING_CONFIG[rating.color] : null;
-  const overdraftFee = hasVerifiedFees
-    ? fees.find((f) => f.fee_name.toLowerCase().includes("overdraft") && f.amount !== null)
-    : null;
   const interpretation = rating
     ? generateInterpretation({
         rating,
-        feeCount: fees.length,
+        feeCount: verifiedFees.length,
         overdraftAmount: overdraftFee?.amount ?? null,
         charterType: inst.charter_type,
       })
     : null;
 
-  // Group fees for schedule
-  const grouped = new Map<FeeGroupName, typeof fees>();
-  for (const g of GROUP_ORDER) grouped.set(g, []);
-  for (const f of fees) grouped.get(detectGroup(f.fee_name))!.push(f);
-
-  // Build fee rows with display names + index entries for each group.
-  // ExtractedFee has no fee_category field — look up by fee_name directly.
-  const groupedRows = new Map<FeeGroupName, {
-    id: number;
-    fee_name: string;
-    amount: number | null;
-    frequency: string | null;
-    conditions: string | null;
-    displayName: string;
-    indexEntry: IndexEntry | null;
-  }[]>();
-
-  for (const [group, groupFees] of grouped.entries()) {
-    groupedRows.set(group, groupFees.map((f) => ({
-      id: f.id,
-      fee_name: f.fee_name,
-      amount: f.amount,
-      frequency: f.frequency ?? null,
-      conditions: f.conditions ?? null,
-      displayName: getDisplayName(f.fee_name),
-      indexEntry: indexMap.get(f.fee_name) ?? null,
-    })));
-  }
-
-  // Pro-only data
-  const marketConcentration = isPro ? await getMarketConcentrationForInstitution(instId) : null;
-  const relatedReports = isPro ? await getRelatedReports(inst) : [];
-
-  const SPOTLIGHT_CATEGORIES = ["overdraft", "nsf", "monthly_maintenance", "atm_non_network", "wire_domestic_outgoing", "card_foreign_txn"];
-  const instSpotlightFees = fees.filter((f) => SPOTLIGHT_CATEGORIES.includes(f.fee_name) && f.amount && f.amount > 0);
-  const distributionData = isPro
-    ? await Promise.all(instSpotlightFees.map(async (f) => {
-        const allFees = await getFeesForCategory(f.fee_name, {});
-        return { category: f.fee_name, institutionAmount: f.amount!, allFees };
-      }))
-    : [];
-
-  const scorecardComparisons = isPro ? computeScorecard(fees, nationalIndex) : [];
-
-  // Website and disclosure links — InstitutionDetail includes these fields
-  const websiteUrl = inst.website_url ?? null;
-  const disclosureUrl = inst.fee_schedule_url ?? null;
+  const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
+  const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
+  const districtName = inst.fed_district ? DISTRICT_NAMES[inst.fed_district] : null;
+  const tierLabel = inst.asset_size_tier
+    ? FDIC_TIER_LABELS[inst.asset_size_tier] ?? inst.asset_size_tier
+    : null;
+  const latestFinancial = financials[0] ?? null;
+  const status = inst.fee_publication_status ?? "unavailable";
+  const statusLabel = getFeePublicationStatusLabel(status);
+  const StatusIcon = STATUS_ICON[status];
+  const latestCollected = formatDate(inst.latest_source_collected_at ?? null);
+  const submitSourceHref = `/submit-fees?institutionId=${instId}&institutionName=${encodeURIComponent(inst.institution_name)}`;
+  const analyzeHref = `/pro/analyze?instId=${instId}&intent=institution`;
+  const briefHref = `/pro/reports?instId=${instId}&intent=competitive-brief`;
+  const scenarioHref = `/pro/simulate?instId=${instId}`;
+  const sourceNeeded =
+    inst.insight_readiness === "source_needed" || status === "unavailable";
+  const sourceReasonLabel = getInstitutionSourceNeededReasonLabel(
+    inst.source_needed_reason ?? "official_source_missing",
+  );
+  const validationNeeded = sourceNeeded || status === "under_review";
+  const hasSubmittedSource = submissionState.status !== "none";
+  const trustQueueLabel = hasSubmittedSource ? submissionState.label : sourceReasonLabel;
+  const automationPaused = automationControl ? !automationControl.enabled : false;
+  const verifiedCount = inst.published_fee_count ?? verifiedFees.length;
+  const provisionalCount = inst.provisional_fee_count ?? provisionalFees.length;
+  const rowPreviewUnavailable = feeRows.length === 0 && provisionalCount > 0;
+  const pipelineCounts = evidence?.pipeline_counts ?? null;
+  const hasSourceEvidence = Boolean(
+    inst.fee_schedule_url ||
+      evidence?.latest_document ||
+      inst.latest_source_status ||
+      latestCollected ||
+      hasSubmittedSource,
+  );
+  const hasExtractionEvidence = Boolean(
+    feeRows.length > 0 ||
+      (inst.latest_extracted_fee_count ?? 0) > 0 ||
+      (pipelineCounts?.raw_fee_count ?? 0) > 0 ||
+      (pipelineCounts?.verified_fee_count ?? 0) > 0,
+  );
+  const hasReviewEvidence = Boolean(
+    verifiedCount > 0 ||
+      provisionalCount > 0 ||
+      (pipelineCounts?.verified_fee_count ?? 0) > 0,
+  );
+  const readinessSteps = [
+    {
+      label: "Source",
+      value: hasSourceEvidence ? (hasSubmittedSource && !inst.fee_schedule_url ? "Submitted" : "Found") : "Needed",
+      complete: hasSourceEvidence,
+    },
+    {
+      label: "Extraction",
+      value: hasExtractionEvidence ? "Rows detected" : "Waiting",
+      complete: hasExtractionEvidence,
+    },
+    {
+      label: "Review",
+      value: hasReviewEvidence ? statusLabel : "Not started",
+      complete: hasReviewEvidence,
+    },
+    {
+      label: "Benchmark",
+      value: verifiedCount > 0 ? "Scored" : "Withheld",
+      complete: verifiedCount > 0,
+    },
+  ];
 
   return (
     <>
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
-          { name: "Fee Index", href: "/fees" },
+          { name: "Institutions", href: "/institutions" },
           { name: inst.institution_name, href: `/institution/${instId}` },
         ]}
       />
 
-      <div className="bg-[var(--hamilton-surface)] text-[var(--hamilton-on-surface)] min-h-screen">
-        <main className="max-w-4xl mx-auto px-6 md:px-16 py-12">
-
-          {/* ── Institution Header ───────────────────────────────── */}
-          <header className="mb-16">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div>
-                <span className="font-sans text-[11px] uppercase tracking-widest text-terra mb-2 block">
-                  Institution Intelligence
-                </span>
+      <main className="min-h-screen bg-[#FAF7F2] text-[#1A1815]">
+        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
+          <header className="fi-reveal mb-5">
+            <div className="grid gap-5 border-b border-[#D8CBB8] pb-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+              <div className="min-w-0">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <StatusBadge status={status} label={statusLabel} />
+                  {tierLabel && (
+                    <span className="rounded-md border border-[#E8DFD1] bg-white px-2 py-1 text-[11px] font-medium text-[#7A7062]">
+                      {tierLabel}
+                    </span>
+                  )}
+                </div>
                 <h1
-                  className="text-5xl md:text-6xl tracking-tighter text-[var(--hamilton-on-surface)] mb-4"
+                  className="max-w-4xl break-words text-4xl font-normal leading-[1.02] tracking-tight text-[#1A1815] sm:text-5xl"
                   style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
                 >
                   {inst.institution_name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-[var(--hamilton-on-surface-variant)] font-sans text-sm">
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#7A7062]">
                   {(inst.city || stateName) && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-[18px] w-[18px]" />
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4" />
                       {inst.city && stateName ? `${inst.city}, ${stateName}` : inst.city ?? stateName}
-                    </div>
+                    </span>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="h-[18px] w-[18px]" />
-                    Charter: {charterLabel}
-                  </div>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4" />
+                    {charterLabel}
+                  </span>
                   {districtName && (
-                    <div className="flex items-center gap-1.5">
-                      <Landmark className="h-[18px] w-[18px]" />
-                      Fed District: {districtName}
-                    </div>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Landmark className="h-4 w-4" />
+                      {districtName}
+                    </span>
                   )}
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                {websiteUrl && (
-                  <a
-                    href={websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-terra font-medium hover:underline text-xs uppercase tracking-wider"
-                  >
-                    Website <ExternalLink className="h-[14px] w-[14px]" />
-                  </a>
-                )}
-                {disclosureUrl && (
-                  disclosureUnderReview ? (
-                    <span className="flex items-center gap-2 text-[#A69D90] font-medium text-xs uppercase tracking-wider">
-                      Disclosure under review <FileText className="h-[14px] w-[14px]" />
-                    </span>
-                  ) : (
+              <div className="min-w-0 border-t border-[#E8DFD1] pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
+                  Evidence Snapshot
+                </p>
+                <div className="mt-3 grid grid-cols-3 divide-x divide-[#E8DFD1] border-y border-[#E8DFD1] bg-[#FFFDF9]">
+                  <SnapshotFact label="Verified" value={verifiedCount.toLocaleString()} tone="verified" />
+                  <SnapshotFact label="Provisional" value={provisionalCount.toLocaleString()} tone="provisional" />
+                  <SnapshotFact label="Score" value={rating ? rating.label : "Withheld"} />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {inst.website_url && (
                     <a
-                      href={disclosureUrl}
+                      href={inst.website_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-terra font-medium hover:underline text-xs uppercase tracking-wider"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#D5CBBF] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
                     >
-                      Full Disclosure <FileText className="h-[14px] w-[14px]" />
+                      Website
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-                  )
-                )}
+                  )}
+                  {inst.fee_schedule_url && (
+                    <a
+                      href={inst.fee_schedule_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#D5CBBF] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
+                    >
+                      Source disclosure
+                      <FileText className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </header>
 
-          {showQualityNotice && (
-            <section className="mb-12 rounded-lg border border-[#E8DFD1] bg-[#FFF8EC] p-5">
-              <div className="flex gap-3">
-                <div className="mt-0.5 text-[#A15C00]">
-                  <AlertTriangle className="h-5 w-5" />
+          <section className={`fi-reveal fi-reveal-delay-1 mb-0 border-y px-0 py-4 ${STATUS_TONE[status]}`}>
+            <div className="flex gap-3">
+              <StatusIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold">{statusLabel}</p>
+                <p className="mt-1 max-w-3xl text-sm leading-relaxed">{STATUS_COPY[status]}</p>
+                {latestCollected && (
+                  <p className="mt-2 text-xs font-medium">
+                    Latest source collection: {latestCollected}
+                  </p>
+                )}
+                {hasSubmittedSource && (
+                  <p className="mt-2 text-xs font-medium">
+                    {submissionState.label}
+                    {submissionState.latest_submission
+                      ? ` Submitted ${formatDate(submissionState.latest_submission.created_at) ?? submissionState.latest_submission.created_at}.`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="fi-reveal fi-reveal-delay-1 mb-6 border-b border-[#E8DFD1] py-4">
+            <div className="grid gap-2 sm:grid-cols-4">
+              {readinessSteps.map((step, index) => (
+                <ReadinessStep
+                  key={step.label}
+                  label={step.label}
+                  value={step.value}
+                  complete={step.complete}
+                  showArrow={index < readinessSteps.length - 1}
+                />
+              ))}
+            </div>
+          </section>
+
+          {validationNeeded && (
+            <section className="fi-reveal fi-reveal-delay-2 mb-5 border border-[#E8DFD1] bg-white p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <ClipboardCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#C44B2E]" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#1A1815]">
+                      {trustQueueLabel}
+                    </p>
+                    <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[#5A5347]">
+                      {hasSubmittedSource
+                        ? "This profile has a submitted source in the trust workflow. The public page will update after review and validation."
+                        : sourceNeeded
+                        ? "This profile has identity and financial context, but no usable official fee source. Submit a fee schedule URL or claim the profile so review can start."
+                        : "A source or extraction attempt exists, but the fee evidence still needs validation before Hamilton can make benchmark-grade conclusions."}
+                    </p>
+                    {automationPaused && (
+                      <p className="mt-2 text-xs font-medium text-[#7A7062]">
+                        Automated extraction is paused; submitted sources are queued for deterministic review and later extraction.
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="font-sans text-sm font-bold text-[#1A1815]">
-                    Fee schedule not verified yet
-                  </p>
-                  <p className="mt-1 max-w-2xl font-sans text-sm leading-relaxed text-[#7A7062]">
-                    {fees.length === 0
-                      ? "This institution profile is available, but its consumer fee schedule has not been verified into the fee database yet."
-                      : "This institution has fee records, but the current disclosure evidence is still under review."}
-                  </p>
-                  <p className="mt-2 font-sans text-xs font-medium text-[#A15C00]">
-                    Current status: {qualityLabel}
-                  </p>
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
+                  <Link
+                    href={submitSourceHref}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-[#C44B2E] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#A83D25]"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    {hasSubmittedSource ? "Add another source" : "Submit official source"}
+                  </Link>
+                  <Link
+                    href={`/contact?source=claim&institutionId=${instId}&institution=${encodeURIComponent(inst.institution_name)}`}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
+                  >
+                    Claim or validate
+                  </Link>
                 </div>
               </div>
             </section>
           )}
 
-          {/* ── Rating & Interpretation Grid ─────────────────────── */}
-          {rating && ratingConfig && interpretation ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-16">
-
-              {/* Rating Card */}
-              <div
-                className="md:col-span-5 p-8 rounded-lg border-l-4 flex flex-col justify-between"
-                style={{
-                  backgroundColor: `${ratingConfig.bg}`,
-                  borderLeftColor: ratingConfig.border,
-                }}
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-6">
-                    <span
-                      className="font-sans text-[11px] uppercase tracking-widest"
-                      style={{ color: ratingConfig.labelColor }}
-                    >
-                      Fee Profile
-                    </span>
-                    <div
-                      className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter text-white"
-                      style={{ backgroundColor: ratingConfig.badge }}
-                    >
-                      {rating.label}
-                    </div>
-                  </div>
-
-                  {overdraftFee && overdraftFee.amount !== null && (
-                    <div className="mb-8">
-                      <span className="font-sans text-xs text-[var(--hamilton-on-surface-variant)] uppercase">Key Indicator</span>
-                      <div
-                        className="text-5xl text-[var(--hamilton-on-surface)]"
-                        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                      >
-                        {formatAmount(overdraftFee.amount)}
-                      </div>
-                      <p className="text-sm text-[var(--hamilton-on-surface-variant)] mt-1 font-sans">
-                        {getDisplayName(overdraftFee.fee_name)}
-                      </p>
-                    </div>
-                  )}
-
-                  <ul className="space-y-4">
-                    {rating.bullets.map((bullet, i) => {
-                      const iconKey = getBulletIcon(bullet, rating.color);
-                      const IconComponent = BULLET_ICON_MAP[iconKey];
-                      return (
-                        <li key={i} className="flex items-start gap-3">
-                          <IconComponent
-                            className="h-[18px] w-[18px] mt-0.5 flex-shrink-0"
-                            style={{ color: getBulletIconColor(bullet, rating.color) }}
-                          />
-                          <span className="text-sm font-sans leading-relaxed text-[var(--hamilton-on-surface)]">
-                            {bullet}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Interpretation & Stats */}
-              <div className="md:col-span-7 flex flex-col justify-between py-2">
-                <div className="space-y-6">
-                  <h3
-                    className="text-2xl italic text-[var(--hamilton-on-surface)]"
-                    style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                  >
-                    &ldquo;{interpretation}&rdquo;
-                  </h3>
-
-                  <InstitutionFactGrid
-                    charterLabel={charterLabel}
-                    assetSize={inst.asset_size}
-                    feeCount={fees.length}
-                  />
-                </div>
-
-                {/* Mini CTA */}
-                <div className="mt-8 p-6 bg-[var(--hamilton-surface-container-highest)]/50 rounded-lg flex items-center gap-6">
-                  <div className="text-terra flex-shrink-0">
-                    <BarChart2 className="h-[36px] w-[36px]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-sans text-[var(--hamilton-on-surface-variant)] leading-relaxed">
-                      <span className="font-bold text-[var(--hamilton-on-surface)]">Financial professionals</span>{" "}
-                      get access to peer benchmarking, competitive intelligence, and AI-powered research.{" "}
-                      <Link href="/pro" className="text-terra font-bold hover:underline">
-                        Learn More
-                      </Link>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <UnverifiedInstitutionSummary
-              institutionName={inst.institution_name}
-              charterLabel={charterLabel}
-              assetSize={inst.asset_size}
-              feeCount={fees.length}
-              qualityLabel={qualityLabel}
-              stateName={stateName}
-              websiteUrl={websiteUrl}
-            />
-          )}
-
-          {/* ── Fee Schedule ──────────────────────────────────────── */}
-          <section className="mt-20">
-            <h2
-              className="text-3xl mb-10 pb-4 border-b border-[var(--hamilton-outline-variant)]/30"
-              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-            >
-              Schedule of Fees
-            </h2>
-
-            <div className="space-y-8">
-              {fees.length === 0 ? (
-                <div className="rounded-lg border border-[var(--hamilton-outline-variant)]/40 bg-[var(--hamilton-surface-container-low)] p-6">
-                  <div className="flex gap-3">
-                    <ShieldCheck className="mt-0.5 h-5 w-5 text-[var(--hamilton-on-surface-variant)]" />
-                    <div>
-                      <p className="font-sans text-sm font-bold text-[var(--hamilton-on-surface)]">
-                        No verified fee schedule is available yet.
-                      </p>
-                      <p className="mt-1 font-sans text-sm leading-relaxed text-[var(--hamilton-on-surface-variant)]">
-                        We are tracking this institution, but its fee observations have not cleared review for publication.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                GROUP_ORDER.map((group) => {
-                  const rows = groupedRows.get(group) ?? [];
-                  if (rows.length === 0) return null;
-
-                  return (
-                    <FeeGroup
-                      key={group}
-                      groupName={group}
-                      fees={rows}
-                      isPrimary={PRIMARY_GROUPS.has(group)}
-                      defaultOpen={PRIMARY_GROUPS.has(group)}
-                    />
-                  );
-                })
-              )}
+          <section className="fi-reveal fi-reveal-delay-2 mb-6 overflow-hidden border border-[#E8DFD1] bg-white">
+            <div className="grid divide-y divide-[#E8DFD1] sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+              <Metric label="Verified fee rows" value={verifiedCount.toLocaleString()} tone="verified" />
+              <Metric label="Provisional fee rows" value={provisionalCount.toLocaleString()} tone="provisional" />
+              <Metric label="Assets" value={inst.asset_size ? formatAssets(inst.asset_size) : "N/A"} />
+              <Metric label="Fee benchmark score" value={rating ? rating.label : "Not scored"} />
             </div>
           </section>
 
-          {/* ── Pro Sections (below fee schedule for logged-in pro users) ── */}
-          {isPro && (
-            <>
-              {/* Financial Snapshot */}
-              {latestFinancial && (
-                <ProSection title="Financial Snapshot" subtitle={`From ${latestFinancial.source.toUpperCase()} call report — ${latestFinancial.report_date}`}>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {latestFinancial.total_deposits !== null && <Stat label="Total Deposits" value={formatAssets(latestFinancial.total_deposits)} />}
-                    {latestFinancial.service_charge_income !== null && <Stat label="Service Charge Income" value={formatAssets(latestFinancial.service_charge_income)} />}
-                    {latestFinancial.branch_count !== null && <Stat label="Branches" value={latestFinancial.branch_count.toLocaleString()} />}
-                    {latestFinancial.roa !== null && <Stat label="Return on Assets" value={`${latestFinancial.roa.toFixed(2)}%`} />}
-                    {latestFinancial.fee_income_ratio !== null && <Stat label="Fee Income Ratio" value={`${(latestFinancial.fee_income_ratio * 100).toFixed(1)}%`} />}
-                    {latestFinancial.total_revenue !== null && <Stat label="Total Revenue" value={formatAssets(latestFinancial.total_revenue)} />}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+            <div className="min-w-0 space-y-6">
+              {rating && interpretation && (
+                <section className="border border-[#E8DFD1] bg-white p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                        Verified Fee Profile
+                      </p>
+                      <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">
+                        {rating.label}
+                      </h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#5A5347]">
+                        {interpretation}
+                      </p>
+                    </div>
+                    {overdraftFee?.amount !== null && overdraftFee?.amount !== undefined && (
+                      <div className="rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] px-4 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                          Overdraft
+                        </p>
+                        <p
+                          className="mt-1 text-3xl text-[#1A1815]"
+                          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+                        >
+                          {formatAmount(overdraftFee.amount)}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </ProSection>
-              )}
-
-              {/* Market Context */}
-              {marketConcentration && (
-                <ProSection title="Market Context" subtitle={`Deposit market competition in ${marketConcentration.msa_name || "this metro area"}`}>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <Stat label="Market HHI" value={marketConcentration.hhi.toLocaleString()} />
-                    <Stat label="Banks in Market" value={marketConcentration.institution_count.toLocaleString()} />
-                    <Stat label="Top 3 Share" value={`${marketConcentration.top3_share.toFixed(0)}%`} />
-                    <Stat label="Concentration" value={marketConcentration.hhi >= 2500 ? "High" : marketConcentration.hhi >= 1500 ? "Moderate" : "Competitive"} />
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    {rating.bullets.map((bullet) => (
+                      <div key={bullet} className="rounded-md border border-[#E8DFD1] bg-[#FFFDF9] px-3 py-2 text-sm text-[#5A5347]">
+                        {bullet}
+                      </div>
+                    ))}
                   </div>
-                </ProSection>
+                </section>
               )}
 
-              {/* Competitive Scorecard */}
-              {scorecardComparisons.length >= 2 && (
-                <ProSection title="Competitive Position" subtitle={`${scorecardComparisons.length} fees benchmarked against national medians.`}>
-                  {(() => {
-                    const below = scorecardComparisons.filter((c) => c.delta < -0.5);
-                    const above = scorecardComparisons.filter((c) => c.delta > 0.5);
-                    const atMedian = scorecardComparisons.filter((c) => Math.abs(c.delta) <= 0.5);
-                    const score = Math.round(((below.length + atMedian.length) / scorecardComparisons.length) * 100);
-                    const scoreColor = score >= 70 ? "text-emerald-600" : score >= 40 ? "text-amber-600" : "text-red-600";
-                    const sorted = [...scorecardComparisons].sort((a, b) => a.delta - b.delta);
-
-                    return (
-                      <>
-                        <div className="grid grid-cols-4 gap-3 mb-5">
-                          <div className="rounded-lg bg-white/70 px-3 py-2 text-center">
-                            <p className={`text-[24px] font-bold tabular-nums ${scoreColor}`}>{score}</p>
-                            <p className={`text-[10px] font-semibold uppercase ${scoreColor}`}>
-                              {score >= 70 ? "Competitive" : score >= 40 ? "Mixed" : "Above Market"}
-                            </p>
-                          </div>
-                          <div className="rounded-lg bg-emerald-50/40 px-3 py-2 text-center">
-                            <p className="text-[20px] font-bold tabular-nums text-emerald-600">{below.length}</p>
-                            <p className="text-[10px] text-emerald-600/70">Below median</p>
-                          </div>
-                          <div className="rounded-lg bg-[var(--hamilton-surface-container-low)]/40 px-3 py-2 text-center">
-                            <p className="text-[20px] font-bold tabular-nums text-[var(--hamilton-on-surface-variant)]">{atMedian.length}</p>
-                            <p className="text-[10px] text-[var(--hamilton-text-tertiary)]">At median</p>
-                          </div>
-                          <div className="rounded-lg bg-red-50/40 px-3 py-2 text-center">
-                            <p className="text-[20px] font-bold tabular-nums text-red-600">{above.length}</p>
-                            <p className="text-[10px] text-red-600/70">Above median</p>
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-white/70 px-4 py-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)]">Fee-by-Fee Positioning</p>
-                            <div className="flex items-center gap-3 text-[9px] text-[var(--hamilton-text-tertiary)]">
-                              <span className="flex items-center gap-1"><span className="inline-block w-4 h-[4px] rounded-full bg-[var(--hamilton-outline-variant)]" />P25-P75</span>
-                              <span className="flex items-center gap-1"><span className="inline-block w-[2px] h-2.5 bg-[var(--hamilton-text-tertiary)] rounded-full" />Median</span>
-                              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[var(--hamilton-on-surface-variant)]" />This institution</span>
-                            </div>
-                          </div>
-                          <div className="divide-y divide-[var(--hamilton-outline-variant)]/30">
-                            {sorted.map((comp) => {
-                              const rangeMax = Math.max(comp.max, comp.amount);
-                              const span = rangeMax - comp.min || 1;
-                              const pctP25 = ((comp.p25 - comp.min) / span) * 100;
-                              const pctP75 = ((comp.p75 - comp.min) / span) * 100;
-                              const pctMedian = ((comp.median - comp.min) / span) * 100;
-                              const pctFee = Math.max(0, Math.min(100, ((comp.amount - comp.min) / span) * 100));
-                              const isBelow = comp.delta < -0.5;
-                              const isAbove = comp.delta > 0.5;
-                              const pct = estimatePercentile(comp.amount, comp.indexEntry);
-                              const pctLabel = pct < 50 ? `top ${pct}%` : pct > 50 ? `bottom ${100 - pct}%` : "50th pct";
-                              const pctColor = pct < 50 ? "text-emerald-600" : pct > 50 ? "text-red-600" : "text-[var(--hamilton-text-tertiary)]";
-
-                              return (
-                                <div key={comp.name} className="flex items-center gap-3 py-2">
-                                  <span className="w-[120px] sm:w-[140px] shrink-0 text-[12px] text-[var(--hamilton-on-surface-variant)] truncate">{getDisplayName(comp.name)}</span>
-                                  <div className="flex-1 relative h-5">
-                                    <div className="absolute inset-y-0 left-0 right-0 flex items-center"><div className="w-full h-[3px] rounded-full bg-[var(--hamilton-outline-variant)]/60" /></div>
-                                    <div className="absolute top-1/2 -translate-y-1/2 h-[6px] rounded-full bg-[var(--hamilton-outline-variant)]" style={{ left: `${pctP25}%`, width: `${Math.max(pctP75 - pctP25, 1)}%` }} />
-                                    <div className="absolute top-1/2 -translate-y-1/2 w-[2px] h-3 bg-[var(--hamilton-text-tertiary)] rounded-full" style={{ left: `${pctMedian}%` }} />
-                                    <div className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${isBelow ? "bg-emerald-500" : isAbove ? "bg-red-500" : "bg-[var(--hamilton-on-surface-variant)]"}`} style={{ left: `${pctFee}%` }} />
-                                  </div>
-                                  <span className="w-[52px] shrink-0 text-right text-[11px] tabular-nums font-medium text-[var(--hamilton-on-surface)]">{formatAmount(comp.amount)}</span>
-                                  <span className={`w-[44px] shrink-0 text-right text-[10px] tabular-nums font-semibold ${isBelow ? "text-emerald-600" : isAbove ? "text-red-600" : "text-[var(--hamilton-text-tertiary)]"}`}>
-                                    {isAbove ? "+" : ""}{comp.delta.toFixed(0)}%
-                                  </span>
-                                  <span className={`w-[60px] shrink-0 text-right text-[10px] tabular-nums font-medium ${pctColor}`}>{pctLabel}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </ProSection>
-              )}
-
-              {/* Financial Context */}
-              {(revenueTrend.length > 0 || peerRanking) && (
-                <ProSection title="Financial Context" subtitle="Call Report data — service charge income, fee dependency, and peer benchmarking.">
-                  {peerRanking && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                      <Stat label="SC Income" value={formatAmount(peerRanking.sc_income)} />
-                      <Stat label={`Rank in ${peerRanking.tier} Peers`} value={`#${peerRanking.sc_rank} of ${peerRanking.peer_count}`} />
-                      <Stat label="Peer Median SC" value={formatAmount(peerRanking.peer_median_sc)} />
-                      <Stat label="Fee Dependency" value={peerRanking.fee_income_ratio !== null ? `${peerRanking.fee_income_ratio.toFixed(1)}%${peerRanking.peer_median_fee_ratio !== null ? ` vs ${peerRanking.peer_median_fee_ratio.toFixed(1)}% median` : ""}` : "N/A"} />
+              <section className="border border-[#E8DFD1] bg-white">
+                <div className="border-b border-[#E8DFD1] px-4 py-3 sm:px-5">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                        Fee Schedule
+                      </p>
+                      <h2 className="text-lg font-semibold text-[#1A1815]">
+                        Public fee observations
+                      </h2>
                     </div>
-                  )}
-                  {revenueTrend.length > 0 && (
-                    <div className="overflow-x-auto rounded-lg bg-white/60">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-[var(--hamilton-surface-container-low)] border-b border-[var(--hamilton-outline-variant)]/20">
-                            <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">Quarter</th>
-                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">SC Income</th>
-                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">Fee Ratio</th>
-                            <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--hamilton-text-tertiary)]">YoY</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {revenueTrend.map((q) => (
-                            <tr key={q.quarter} className="border-b border-[var(--hamilton-outline-variant)]/20 hover:bg-[var(--hamilton-surface-container-low)]/50 transition-colors">
-                              <td className="px-4 py-2 font-medium text-[var(--hamilton-on-surface)]">{q.quarter}</td>
-                              <td className="px-4 py-2 text-right tabular-nums text-[var(--hamilton-on-surface)]">{formatAmount(q.service_charge_income)}</td>
-                              <td className="px-4 py-2 text-right tabular-nums text-[var(--hamilton-on-surface-variant)]">
-                                {q.fee_income_ratio !== null ? `${q.fee_income_ratio.toFixed(1)}%` : <span className="text-[var(--hamilton-text-tertiary)]">&mdash;</span>}
-                              </td>
-                              <td className="px-4 py-2 text-right tabular-nums">
-                                {q.yoy_change_pct !== null ? (
-                                  <span className={q.yoy_change_pct >= 0 ? "text-red-600" : "text-emerald-600"}>
-                                    {q.yoy_change_pct >= 0 ? "+" : ""}{q.yoy_change_pct.toFixed(1)}%
-                                  </span>
-                                ) : <span className="text-[var(--hamilton-text-tertiary)]">&mdash;</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </ProSection>
-              )}
-
-              {/* Fee Distribution */}
-              {distributionData.length >= 2 && (
-                <ProSection title="Fee Distribution" subtitle={`Where ${inst.institution_name}'s fees sit in the national distribution.`}>
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    {distributionData.map((d) => {
-                      const indexEntry = nationalIndex.find((e) => e.fee_category === d.category);
-                      return (
-                        <InstitutionHistogram
-                          key={d.category}
-                          categoryName={getDisplayName(d.category)}
-                          institutionName={inst.institution_name}
-                          institutionAmount={d.institutionAmount}
-                          fees={d.allFees}
-                          median={indexEntry?.median_amount ?? null}
-                        />
-                      );
-                    })}
-                  </div>
-                </ProSection>
-              )}
-
-              {/* Intelligence & Reports */}
-              <ProSection title="Intelligence & Reports" subtitle="Reports and analysis for this institution's peer group.">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)] mb-2">Related Reports</p>
-                    <div className="flex flex-wrap gap-2">
-                      {relatedReports.length > 0 ? (
-                        relatedReports.map((r) => (
-                          <Link key={r.slug} href={`/reports/${r.slug}`} className="rounded-full px-4 py-2 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] bg-[var(--hamilton-surface-container)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors">
-                            {r.title}
-                          </Link>
-                        ))
-                      ) : (
-                        <p className="text-[13px] text-[var(--hamilton-text-tertiary)]">No peer reports published yet for this segment.</p>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)] mb-2">Ask Hamilton</p>
-                    <div className="flex flex-wrap gap-2">
-                      <Link href={`/pro/research?prompt=competitive-brief&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-terra/10 px-4 py-2 text-[12px] font-bold text-terra hover:bg-terra/20 transition-colors">
-                        Generate a competitive brief
-                      </Link>
-                      <Link href={`/pro/research?prompt=institution&instId=${instId}`} className="inline-flex items-center gap-2 rounded-full bg-terra/10 px-4 py-2 text-[12px] font-bold text-terra hover:bg-terra/20 transition-colors">
-                        Ask about this institution
-                      </Link>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <a href={`/api/reports/institution/${instId}?format=html`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[var(--hamilton-surface-container)] px-4 py-1.5 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors no-underline">
-                        Fee Report Card
-                      </a>
-                      {inst.state_code && stateName && (
-                        <Link href={`/research/state/${inst.state_code}`} className="rounded-full bg-[var(--hamilton-surface-container)] px-4 py-1.5 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors no-underline">
-                          {stateName} State Report
-                        </Link>
-                      )}
-                      {inst.fed_district && (
-                        <Link href={`/research/district/${inst.fed_district}`} className="rounded-full bg-[var(--hamilton-surface-container)] px-4 py-1.5 text-[12px] font-medium text-[var(--hamilton-on-surface-variant)] hover:bg-[var(--hamilton-surface-container-high)] transition-colors no-underline">
-                          District {inst.fed_district} Report
-                        </Link>
-                      )}
-                    </div>
+                    <p className="text-xs text-[#7A7062]">
+                      Verified rows power benchmarks; provisional rows do not.
+                    </p>
                   </div>
                 </div>
-              </ProSection>
-            </>
-          )}
 
-          {/* ── Professional CTA Section (hidden for pro users) ──── */}
-          {!isPro && hasVerifiedFees && <div className="mt-20 p-10 bg-[var(--hamilton-surface-container-low)] rounded-lg">
-            <div className="max-w-3xl mx-auto">
-              <h3
-                className="text-3xl text-[var(--hamilton-on-surface)] mb-4"
-                style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-              >
-                For Financial Professionals
-              </h3>
-              <p className="font-sans text-[var(--hamilton-on-surface-variant)] mb-8 text-lg leading-relaxed">
-                Go beyond fee listings and understand how this institution compares across peers,
-                pricing strategy, and regulatory risk.
-              </p>
-              <ul className="space-y-4 mb-10">
-                <li className="flex items-center gap-3">
-                  <BarChart2 className="h-[20px] w-[20px] text-terra" />
-                  <span className="font-sans text-[var(--hamilton-on-surface)]">Peer benchmarking &amp; percentile positioning</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <SlidersHorizontal className="h-[20px] w-[20px] text-terra" />
-                  <span className="font-sans text-[var(--hamilton-on-surface)]">Scenario simulation &mdash; what-if fee modeling</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <AlertTriangle className="h-[20px] w-[20px] text-terra" />
-                  <span className="font-sans text-[var(--hamilton-on-surface)]">Complaint-aligned risk signals</span>
-                </li>
-              </ul>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                <Link
-                  href="/pro"
-                  className="bg-terra hover:bg-terra-dark text-white px-8 py-3 rounded font-medium transition-all inline-flex items-center gap-2"
-                >
-                  View Professional Analysis
-                  <ArrowRight className="h-[18px] w-[18px]" />
-                </Link>
-                <p className="text-xs font-sans text-[var(--hamilton-on-surface-variant)]/60 italic">
-                  Built for banks, credit unions, and financial analysts
-                </p>
-              </div>
+                {status === "provisional" && (
+                  <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:px-5">
+                    Provisional amounts may change after review. Use them as source-backed context, not final benchmark evidence.
+                  </div>
+                )}
+
+                {feeRows.length > 0 ? (
+                  <div className="divide-y divide-[#E8DFD1]">
+                    {feeRows.map((fee) => (
+                      <FeeObservationRow
+                        key={fee.id}
+                        fee={fee}
+                        disclosureUrl={inst.fee_schedule_url}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-8 sm:px-5">
+                    <div className="flex gap-3 rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] p-4">
+                      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#7A7062]" />
+                      <div>
+                        <p className="text-sm font-semibold text-[#1A1815]">
+                          {rowPreviewUnavailable
+                            ? "Fee row preview is temporarily unavailable."
+                            : "No public fee rows are available yet."}
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed text-[#7A7062]">
+                          {rowPreviewUnavailable
+                            ? "This profile has provisional fee evidence, but the detailed row preview did not resolve quickly enough for this page load. The status and counts remain visible; refresh or continue into Pro for deeper analysis."
+                            : "This profile is still useful for identity and financial context, but fee comparisons are intentionally withheld until fee observations clear review."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="border border-[#E8DFD1] bg-white p-5">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                      Financial Context
+                    </p>
+                    <h2 className="text-lg font-semibold text-[#1A1815]">
+                      Revenue and peer signal
+                    </h2>
+                  </div>
+                  {latestFinancial && (
+                    <p className="text-xs text-[#7A7062]">
+                      {latestFinancial.source.toUpperCase()} report: {latestFinancial.report_date}
+                    </p>
+                  )}
+                </div>
+
+                {latestFinancial ? (
+                  <>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <Metric framed label="Total assets" value={formatCompactDollars(latestFinancial.total_assets)} />
+                      <Metric framed label="Total deposits" value={formatCompactDollars(latestFinancial.total_deposits)} />
+                      <Metric framed label="Service charge income" value={formatCompactDollars(latestFinancial.service_charge_income)} />
+                      <Metric framed label="Fee income ratio" value={formatFinancialRatio(latestFinancial.fee_income_ratio)} />
+                      <Metric framed label="ROA" value={formatStoredPercent(latestFinancial.roa, 2)} />
+                      <Metric framed label="Branches" value={latestFinancial.branch_count?.toLocaleString() ?? "N/A"} />
+                    </div>
+
+                    {(peerRanking || revenueTrend.length > 0) && (
+                      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                        {peerRanking && (
+                          <div className="rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] p-4">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                              Peer ranking
+                            </p>
+                            <p className="mt-2 text-sm text-[#5A5347]">
+                              Service charge income ranks{" "}
+                              <span className="font-semibold text-[#1A1815]">
+                                #{peerRanking.sc_rank} of {peerRanking.peer_count}
+                              </span>{" "}
+                              in the {peerRanking.tier} peer set.
+                            </p>
+                            <p className="mt-2 text-xs text-[#7A7062]">
+                              Peer median service charge income: {formatCompactDollars(peerRanking.peer_median_sc)}
+                            </p>
+                          </div>
+                        )}
+
+                        {revenueTrend.length > 0 && (
+                          <div className="rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] p-4">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                              Recent revenue trend
+                            </p>
+                            <div className="mt-3 space-y-2">
+                              {revenueTrend.slice(0, 4).map((quarter) => (
+                                <div key={quarter.quarter} className="flex items-center justify-between gap-3 text-sm">
+                                  <span className="font-medium text-[#1A1815]">{quarter.quarter}</span>
+                                  <span className="tabular-nums text-[#5A5347]">
+                                    {formatCompactDollars(quarter.service_charge_income)}
+                                  </span>
+                                  <span className="w-16 text-right text-xs tabular-nums text-[#7A7062]">
+                                    {formatTrendPercent(quarter.yoy_change_pct)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-4 rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] p-4 text-sm text-[#7A7062]">
+                    Financial context is not available for this institution in the current dataset.
+                  </p>
+                )}
+              </section>
             </div>
-          </div>}
 
-          {/* ── Methodology Footer ───────────────────────────────── */}
-          <footer className="mt-32 pt-12 border-t border-[var(--hamilton-outline-variant)]/20 opacity-60">
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-[18px] w-[18px]" />
-                <span className="font-sans text-[10px] uppercase tracking-widest font-bold">
-                  Data Methodology Disclosure
-                </span>
-              </div>
-              {hasVerifiedFees ? (
-                <p className="font-sans text-xs leading-relaxed max-w-2xl">
-                  Fee data is extracted from publicly available Deposit Account Agreements and Fee Schedules.
-                  Rates are current as of the last filing period and may vary by specific account tier or regional promotion.
-                  Bank Fee Index uses a proprietary normalization engine to compare disparate banking terms against national benchmarks.
-                  Financial data from{" "}
-                  {inst.charter_type === "bank" ? "FDIC Call Reports" : "NCUA 5300 Reports"}.
+            <aside className="min-w-0 space-y-6 lg:sticky lg:top-6">
+              <section className="border border-[#E8DFD1] bg-white p-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                  Key Facts
                 </p>
-              ) : (
-                <p className="font-sans text-xs leading-relaxed max-w-2xl">
-                  This page is an institution identity profile. Fee observations appear only after source evidence clears review and publication.
-                  Financial data from{" "}
-                  {inst.charter_type === "bank" ? "FDIC Call Reports" : "NCUA 5300 Reports"} is available in professional views.
-                </p>
-              )}
-              <p className="font-sans text-[10px] italic">
-                Source: Federal Reserve System Call Reports &amp; Institutional Disclosure Documents.
-              </p>
-            </div>
-          </footer>
+                <div className="mt-4 space-y-3 text-sm">
+                  <Fact label="Charter" value={charterLabel} />
+                  <Fact label="Location" value={[inst.city, stateName].filter(Boolean).join(", ") || "N/A"} />
+                  <Fact label="Asset tier" value={tierLabel ?? "N/A"} />
+                  <Fact label="Fed district" value={districtName ?? "N/A"} />
+                  <Fact label="Verified rows" value={(inst.published_fee_count ?? 0).toLocaleString()} />
+                  <Fact label="Provisional rows" value={(inst.provisional_fee_count ?? 0).toLocaleString()} />
+                  <Fact label="Source submission" value={hasSubmittedSource ? submissionState.label : "None recorded"} />
+                  <Fact label="Source status" value={inst.latest_source_status ?? "N/A"} />
+                  <Fact label="Last collected" value={latestCollected ?? "N/A"} />
+                </div>
+              </section>
 
-        </main>
-      </div>
+              <section className="border border-[#1A1815] bg-[#1A1815] p-5 text-white">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#D4A574]">
+                  Pro Preview
+                </p>
+                <h2 className="mt-2 text-lg font-semibold">
+                  Institution-aware analysis
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-[#E8DFD1]">
+                  Hamilton will start with this institution selected, including fee status, asset tier, district, financials, peer ranking, and quality signals.
+                </p>
+                <div className="mt-4 grid gap-2">
+                  <Link
+                    href={briefHref}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-[#C44B2E] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#A83D25]"
+                  >
+                    <BarChart2 className="h-4 w-4" />
+                    Generate competitive brief
+                  </Link>
+                  <Link
+                    href={analyzeHref}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#5A5347] px-3 py-2 text-sm font-semibold text-white transition-colors hover:border-[#D4A574]"
+                  >
+                    <MessageSquareText className="h-4 w-4" />
+                    Ask about this institution
+                  </Link>
+                  <Link
+                    href={scenarioHref}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#5A5347] px-3 py-2 text-sm font-semibold text-white transition-colors hover:border-[#D4A574]"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Run scenario
+                  </Link>
+                  {sourceNeeded && (
+                    <Link
+                      href={submitSourceHref}
+                      className="inline-flex items-center justify-center gap-2 rounded-md border border-[#5A5347] px-3 py-2 text-sm font-semibold text-white transition-colors hover:border-[#D4A574]"
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
+                      Add source
+                    </Link>
+                  )}
+                </div>
+              </section>
+
+              <section className="border border-[#E8DFD1] bg-white p-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                  Methodology
+                </p>
+                <div className="mt-3 space-y-3 text-sm leading-relaxed text-[#5A5347]">
+                  <p>
+                    Verified fee rows have cleared review and may be used in Bank Fee Index benchmark calculations.
+                  </p>
+                  <p>
+                    Provisional rows are visible for exploration with confidence and source labels, but are excluded from verified benchmark scores until approved.
+                  </p>
+                  <p>
+                    Financial metrics come from public call-report style records. Percent metrics are displayed as stored, without automatic multiplication.
+                  </p>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </main>
 
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
-            "@type": "FinancialProduct",
+            "@type": "FinancialService",
             name: inst.institution_name,
-            description: hasVerifiedFees
-              ? `Fee schedule for ${inst.institution_name}`
-              : `Fee schedule verification status for ${inst.institution_name}`,
+            description: `${statusLabel} profile for ${inst.institution_name}`,
             url: `${SITE_URL}/institution/${instId}`,
-            provider: {
-              "@type": "FinancialService",
-              name: inst.institution_name,
-              ...(stateName && { address: { "@type": "PostalAddress", addressRegion: inst.state_code } }),
-            },
+            address: inst.state_code
+              ? { "@type": "PostalAddress", addressRegion: inst.state_code }
+              : undefined,
           }).replace(/</g, "\\u003c"),
         }}
       />
@@ -923,175 +740,231 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Shared tiny components
-// ---------------------------------------------------------------------------
-
-function InstitutionFactGrid({
-  charterLabel,
-  assetSize,
-  feeCount,
+function StatusBadge({
+  status,
+  label,
 }: {
-  charterLabel: string;
-  assetSize: number | null;
-  feeCount: number;
+  status: FeePublicationStatus;
+  label: string;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 pt-8 sm:grid-cols-3">
-      <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
-        <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
-          Charter
-        </span>
-        <span
-          className="text-xl text-[var(--hamilton-on-surface)]"
-          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-        >
-          {charterLabel}
-        </span>
-      </div>
-      <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
-        <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
-          Assets
-        </span>
-        <span
-          className="text-xl text-[var(--hamilton-on-surface)]"
-          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-        >
-          {assetSize ? formatAssets(assetSize) : "N/A"}
-        </span>
-      </div>
-      <div className="bg-[var(--hamilton-surface-container-low)] p-6 rounded-lg">
-        <span className="font-sans text-[10px] uppercase tracking-widest text-[var(--hamilton-on-surface-variant)] mb-1 block">
-          Published Fees
-        </span>
-        <span
-          className="text-xl text-[var(--hamilton-on-surface)]"
-          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-        >
-          {feeCount}
-        </span>
-      </div>
+    <span className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold ${STATUS_TONE[status]}`}>
+      {label}
+    </span>
+  );
+}
+
+function SnapshotFact({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "verified" | "provisional";
+}) {
+  const valueClass =
+    tone === "verified"
+      ? "text-emerald-700"
+      : tone === "provisional"
+        ? "text-amber-800"
+        : "text-[#1A1815]";
+
+  return (
+    <div className="min-w-0 px-3 py-2">
+      <p className="truncate text-[9px] font-bold uppercase tracking-[0.14em] text-[#A69D90]">
+        {label}
+      </p>
+      <p className={`mt-1 truncate text-sm font-semibold tabular-nums ${valueClass}`} title={value}>
+        {value}
+      </p>
     </div>
   );
 }
 
-function UnverifiedInstitutionSummary({
-  institutionName,
-  charterLabel,
-  assetSize,
-  feeCount,
-  qualityLabel,
-  stateName,
-  websiteUrl,
+function ReadinessStep({
+  label,
+  value,
+  complete,
+  showArrow,
 }: {
-  institutionName: string;
-  charterLabel: string;
-  assetSize: number | null;
-  feeCount: number;
-  qualityLabel: string;
-  stateName: string | null;
-  websiteUrl: string | null;
+  label: string;
+  value: string;
+  complete: boolean;
+  showArrow: boolean;
 }) {
   return (
-    <section className="mb-16 rounded-lg border border-[var(--hamilton-outline-variant)]/40 bg-[var(--hamilton-surface-container-low)] p-6 sm:p-8">
-      <div className="grid gap-8 md:grid-cols-12 md:items-start">
-        <div className="md:col-span-7">
-          <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-[#FFF8EC] text-[#A15C00]">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <span className="font-sans text-[11px] uppercase tracking-widest text-terra">
-            Public data status
-          </span>
-          <h2
-            className="mt-3 text-3xl text-[var(--hamilton-on-surface)]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            No public fee score yet
-          </h2>
-          <p className="mt-4 max-w-2xl font-sans text-sm leading-relaxed text-[var(--hamilton-on-surface-variant)]">
-            {institutionName} is tracked in the institution directory, but Bank Fee Index has not published a verified consumer fee schedule for this profile. We show identity and coverage status here so incomplete fee data is not presented as a benchmark.
-          </p>
-
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link
-              href="/institutions"
-              className="inline-flex items-center justify-center gap-2 rounded bg-terra px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-terra-dark"
-            >
-              Browse verified institutions
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/submit-fees"
-              className="inline-flex items-center justify-center gap-2 rounded border border-[var(--hamilton-outline-variant)]/60 px-5 py-3 text-sm font-medium text-[var(--hamilton-on-surface)] transition-colors hover:bg-[var(--hamilton-surface-container)]"
-            >
-              Submit a fee schedule
-              <FileText className="h-4 w-4" />
-            </Link>
-            {websiteUrl && (
-              <a
-                href={websiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded border border-transparent px-5 py-3 text-sm font-medium text-terra transition-colors hover:bg-terra/10"
-              >
-                Institution website
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            )}
-          </div>
-        </div>
-
-        <div className="md:col-span-5">
-          <div className="rounded-lg border border-[var(--hamilton-outline-variant)]/40 bg-[var(--hamilton-surface)] p-5">
-            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)]">
-              Verification state
-            </p>
-            <p className="mt-3 font-sans text-base font-semibold text-[var(--hamilton-on-surface)]">
-              {qualityLabel}
-            </p>
-            <div className="mt-5 space-y-3 border-t border-[var(--hamilton-outline-variant)]/30 pt-5 font-sans text-sm text-[var(--hamilton-on-surface-variant)]">
-              <div className="flex items-center justify-between gap-4">
-                <span>Region</span>
-                <span className="font-medium text-[var(--hamilton-on-surface)]">{stateName ?? "Unknown"}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>Published fees</span>
-                <span className="font-medium text-[var(--hamilton-on-surface)]">{feeCount}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>Benchmark status</span>
-                <span className="font-medium text-[var(--hamilton-on-surface)]">Unavailable</span>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="relative min-w-0 border border-[#E8DFD1] bg-[#FFFDF9] px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${
+            complete ? "bg-[#C44B2E]" : "border border-[#C4B89F] bg-white"
+          }`}
+        />
+        <p className="truncate text-[10px] font-bold uppercase tracking-[0.13em] text-[#A69D90]">
+          {label}
+        </p>
+        {showArrow && (
+          <ArrowRight className="ml-auto hidden h-3.5 w-3.5 text-[#C4B89F] sm:block" />
+        )}
       </div>
-
-      <InstitutionFactGrid charterLabel={charterLabel} assetSize={assetSize} feeCount={feeCount} />
-    </section>
+      <p className="mt-1 truncate text-sm font-semibold text-[#1A1815]" title={value}>
+        {value}
+      </p>
+    </div>
   );
 }
 
-function ProSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Metric({
+  label,
+  value,
+  tone,
+  framed = false,
+}: {
+  label: string;
+  value: string;
+  tone?: "verified" | "provisional";
+  framed?: boolean;
+}) {
+  const valueClass =
+    tone === "verified"
+      ? "text-emerald-700"
+      : tone === "provisional"
+        ? "text-amber-800"
+        : "text-[#1A1815]";
+
   return (
-    <section className="mt-10">
-      <h2
-        className="text-2xl text-[var(--hamilton-on-surface)]"
+    <div className={`min-w-0 px-4 py-3 ${framed ? "border border-[#E8DFD1] bg-[#FFFDF9]" : ""}`}>
+      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+        {label}
+      </p>
+      <p className={`mt-1 truncate text-lg font-semibold tabular-nums ${valueClass}`} title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function FeeObservationRow({
+  fee,
+  disclosureUrl,
+}: {
+  fee: DisplayFee;
+  disclosureUrl: string | null;
+}) {
+  const isVerified = fee.status === "verified";
+  const label = isVerified ? "Verified" : "Provisional";
+  const sourceUrl = fee.sourceUrl ?? disclosureUrl;
+  const confidence = confidenceLabel(fee.extractionConfidence);
+
+  return (
+    <div className="fi-row-interaction grid gap-3 border-l-2 border-l-transparent px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,1.5fr)_110px_minmax(0,1fr)_130px] md:items-start">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="min-w-0 break-words text-sm font-semibold text-[#1A1815]">
+            {getDisplayName(fee.feeCategory ?? fee.feeName)}
+          </p>
+          <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${isVerified ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+            {label}
+          </span>
+        </div>
+        {fee.conditions && (
+          <p className="mt-1 break-words text-xs leading-relaxed text-[#7A7062]">
+            {fee.conditions}
+          </p>
+        )}
+      </div>
+      <p
+        className="text-2xl text-[#1A1815] tabular-nums md:text-right"
         style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
       >
-        {title}
-      </h2>
-      {subtitle && <p className="mt-1 text-[13px] text-[var(--hamilton-on-surface-variant)]">{subtitle}</p>}
-      <div className="mt-4">{children}</div>
-    </section>
+        {formatAmount(fee.amount)}
+      </p>
+      <div className="min-w-0 text-xs text-[#7A7062]">
+        <p className="font-medium text-[#5A5347]">{fee.frequency ?? "Frequency not specified"}</p>
+        <p className="mt-1">{confidence}</p>
+      </div>
+      <div className="md:text-right">
+        {sourceUrl ? (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[#C44B2E] hover:text-[#A83D25]"
+          >
+            Source
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        ) : (
+          <span className="text-xs text-[#A69D90]">Source pending</span>
+        )}
+      </div>
+    </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-[var(--hamilton-surface-container-low)] px-3 py-2.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--hamilton-text-tertiary)]">{label}</p>
-      <p className="mt-1 text-[14px] font-medium tabular-nums text-[var(--hamilton-on-surface)]">{value}</p>
+    <div className="flex items-start justify-between gap-4 border-b border-[#F0EBE3] pb-3 last:border-0 last:pb-0">
+      <span className="text-[#7A7062]">{label}</span>
+      <span className="max-w-[55%] break-words text-right font-semibold text-[#1A1815]">
+        {value}
+      </span>
     </div>
   );
+}
+
+function confidenceLabel(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return "Confidence not scored";
+  }
+  const pct = value <= 1 ? value * 100 : value;
+  if (pct >= 90) return `High confidence (${pct.toFixed(0)}%)`;
+  if (pct >= 70) return `Medium confidence (${pct.toFixed(0)}%)`;
+  return `Low confidence (${pct.toFixed(0)}%)`;
+}
+
+function formatDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatFinancialRatio(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "N/A";
+  return formatStoredPercent(value, Math.abs(value) < 1 ? 2 : 1);
+}
+
+function formatTrendPercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "N/A";
+  if (Math.abs(value) > 1_000) return "Review";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function withDeadline<T>(
+  promise: Promise<T>,
+  fallback: T,
+  label: string,
+  timeoutMs: number,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout>;
+  const handledPromise = promise.catch((error) => {
+    console.error(`Institution page ${label} failed:`, error);
+    return fallback;
+  });
+
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeout = setTimeout(() => {
+      resolve(fallback);
+    }, timeoutMs);
+  });
+
+  return Promise.race([handledPromise, timeoutPromise]).finally(() => {
+    clearTimeout(timeout);
+  });
 }

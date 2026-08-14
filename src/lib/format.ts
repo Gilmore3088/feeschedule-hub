@@ -13,6 +13,22 @@ export function formatAssets(assets: number | null): string {
   return `$${assets}K`;
 }
 
+export function formatCompactDollars(amount: number | null): string {
+  if (amount === null || !Number.isFinite(amount)) return "N/A";
+  const sign = amount < 0 ? "-" : "";
+  const abs = Math.abs(amount);
+  if (abs >= 1_000_000_000_000) return `${sign}$${(abs / 1_000_000_000_000).toFixed(1)}T`;
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+export function formatStoredPercent(value: number | null, decimals = 1): string {
+  if (value === null || !Number.isFinite(value)) return "N/A";
+  return `${value.toFixed(decimals)}%`;
+}
+
 export function timeAgo(dateString: string): string {
   if (!dateString) return "";
   const now = Date.now();

@@ -20,6 +20,12 @@ import {
 } from "@/lib/institution-quality";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
+import {
+  DATA_TRUST_QUEUE_STATES,
+  classifyDataTrustQueue,
+  type DataTrustQueueDecision,
+  type DataTrustQueueState,
+} from "@/lib/data-trust";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -150,6 +156,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         COUNT(*) FILTER (WHERE EXISTS (
           SELECT 1 FROM published_fee_catalog ef
            WHERE ef.institution_id = ct.id
+             AND ef.review_status = 'approved'
         ))::int AS with_fees
       FROM institution_sources ct
       WHERE status = 'active'
@@ -187,6 +194,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
     const [goodRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
         SELECT institution_id FROM published_fee_catalog
+        WHERE review_status = 'approved'
         GROUP BY institution_id HAVING COUNT(*) >= 6
       ) sub`;
 
@@ -194,6 +202,7 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
     const [incompleteRow] = await sql`
       SELECT COUNT(*) as cnt FROM (
         SELECT institution_id FROM published_fee_catalog
+        WHERE review_status = 'approved'
         GROUP BY institution_id HAVING COUNT(*) BETWEEN 1 AND 5
       ) sub`;
 
@@ -202,7 +211,9 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
         SELECT COUNT(*) as cnt FROM institution_sources ct
         WHERE ct.fee_schedule_url IS NOT NULL AND ct.status = 'active'
           AND NOT EXISTS (
-          SELECT 1 FROM published_fee_catalog ef WHERE ef.institution_id = ct.id
+          SELECT 1 FROM published_fee_catalog ef
+          WHERE ef.institution_id = ct.id
+            AND ef.review_status = 'approved'
         )`;
 
     // No URL at all (addressable)
@@ -228,7 +239,8 @@ export async function getDataQualityStats(): Promise<DataQualityStats> {
           'legal_process','notary_fee','safe_deposit_box','coin_counting','bill_pay',
           'mobile_deposit','zelle_fee','night_deposit','account_research',
           'account_verification','balance_inquiry','appraisal_fee','loan_origination'
-        )`;
+        )
+        AND review_status = 'approved'`;
 
     const [rejectedRow] = await sql`SELECT 0::int as cnt`;
 
@@ -289,7 +301,9 @@ export async function getCoverageByState(): Promise<StateCoverage[]> {
         COUNT(DISTINCT t.id) as total,
         COUNT(DISTINCT e.institution_id) as with_fees
       FROM institution_sources t
-      LEFT JOIN published_fee_catalog e ON e.institution_id = t.id
+      LEFT JOIN published_fee_catalog e
+        ON e.institution_id = t.id
+       AND e.review_status = 'approved'
       WHERE t.state_code IS NOT NULL
         AND t.status = 'active'
         AND COALESCE(t.document_type, '') NOT IN ('offline', 'no_website')
@@ -316,7 +330,7 @@ export async function getStateOverview(): Promise<StateOverviewRow[]> {
   try {
     const rows = await sql`
       WITH fee_counts AS (
-        SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+        SELECT institution_id, COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count
         FROM published_fee_catalog
         GROUP BY institution_id
       ),
@@ -1125,6 +1139,8 @@ export interface InstitutionRow {
   has_fee_url: boolean;
   fee_count: number;
   published_fee_count: number;
+  provisional_fee_count: number;
+  visible_fee_count: number;
   latest_source_status: string | null;
   latest_extracted_fee_count: number;
   latest_source_error: string | null;
@@ -1149,14 +1165,29 @@ const INSTITUTIONS_SORT_SQL: Record<string, string> = {
   charter_type: "ct.charter_type",
   asset_size: "ct.asset_size",
   has_fee_url: "(ct.fee_schedule_url IS NOT NULL)",
-  fee_count: "COALESCE(fc.published_fee_count, 0)",
+  fee_count: "(COALESCE(fc.published_fee_count, 0) + COALESCE(fc.catalog_provisional_fee_count, 0) + COALESCE(vuc.verified_unpublished_fee_count, 0))",
 };
 
 const INSTITUTION_QUALITY_CTE = `
   WITH fee_counts AS (
-    SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+    SELECT
+      institution_id,
+      COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count,
+      COUNT(*) FILTER (WHERE review_status <> 'approved' AND review_status <> 'rejected')::int AS catalog_provisional_fee_count
     FROM published_fee_catalog
     GROUP BY institution_id
+  ),
+  verified_unpublished_counts AS (
+    SELECT fv.institution_id, COUNT(*)::int AS verified_unpublished_fee_count
+    FROM verified_fee_observations fv
+    WHERE fv.review_status <> 'rejected'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM published_fee_catalog pfc
+        WHERE pfc.fee_verified_id = fv.fee_verified_id
+          AND pfc.review_status <> 'rejected'
+      )
+    GROUP BY fv.institution_id
   ),
   latest_docs AS (
     SELECT DISTINCT ON (institution_id)
@@ -1258,6 +1289,7 @@ export async function searchInstitutions(
       SELECT COUNT(*) as cnt
       FROM institution_sources ct
       LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+      LEFT JOIN verified_unpublished_counts vuc ON vuc.institution_id = ct.id
       LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
       ${where}
       `,
@@ -1272,8 +1304,16 @@ export async function searchInstitutions(
              ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.website_url,
              ct.fee_schedule_url, ct.document_type,
              ${HAS_FEE_URL_SQL} as has_fee_url,
-             COALESCE(fc.published_fee_count, 0) as fee_count,
              COALESCE(fc.published_fee_count, 0) as published_fee_count,
+             (
+               COALESCE(fc.catalog_provisional_fee_count, 0)
+               + COALESCE(vuc.verified_unpublished_fee_count, 0)
+             ) as provisional_fee_count,
+             (
+               COALESCE(fc.published_fee_count, 0)
+               + COALESCE(fc.catalog_provisional_fee_count, 0)
+               + COALESCE(vuc.verified_unpublished_fee_count, 0)
+             ) as visible_fee_count,
              ld.latest_source_status,
              COALESCE(ld.latest_extracted_fee_count, 0) as latest_extracted_fee_count,
              ld.latest_source_error,
@@ -1287,6 +1327,7 @@ export async function searchInstitutions(
              END as last_agent_failure_class
       FROM institution_sources ct
       LEFT JOIN fee_counts fc ON fc.institution_id = ct.id
+      LEFT JOIN verified_unpublished_counts vuc ON vuc.institution_id = ct.id
       LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
       ${where}
       ORDER BY ${orderBy}
@@ -1309,7 +1350,9 @@ function mapInstitutionRow(r: Record<string, unknown>): InstitutionRow {
   const latestSourceCollectedAt = r.latest_source_collected_at
     ? toDateStr(r.latest_source_collected_at as string | Date)
     : null;
-  const publishedFeeCount = Number(r.published_fee_count ?? r.fee_count ?? 0);
+  const publishedFeeCount = Number(r.published_fee_count ?? 0);
+  const provisionalFeeCount = Number(r.provisional_fee_count ?? 0);
+  const visibleFeeCount = Number(r.visible_fee_count ?? (publishedFeeCount + provisionalFeeCount));
   const lastAgentFailureClass = String(r.last_agent_failure_class ?? "none") as AgentFailureClass;
   const quality = classifyInstitutionQuality({
     source: r.source ? String(r.source) : null,
@@ -1341,8 +1384,10 @@ function mapInstitutionRow(r: Record<string, unknown>): InstitutionRow {
     fee_schedule_url: r.fee_schedule_url ? String(r.fee_schedule_url) : null,
     document_type: r.document_type ? String(r.document_type) : null,
     has_fee_url: Boolean(r.has_fee_url),
-    fee_count: publishedFeeCount,
+    fee_count: visibleFeeCount,
     published_fee_count: publishedFeeCount,
+    provisional_fee_count: provisionalFeeCount,
+    visible_fee_count: visibleFeeCount,
     latest_source_status: r.latest_source_status ? String(r.latest_source_status) : null,
     latest_extracted_fee_count: Number(r.latest_extracted_fee_count ?? 0),
     latest_source_error: r.latest_source_error ? String(r.latest_source_error) : null,
@@ -1352,6 +1397,587 @@ function mapInstitutionRow(r: Record<string, unknown>): InstitutionRow {
     quality_signals: quality.quality_signals,
     recommended_action: quality.recommended_action,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Data Trust Workbench
+// ---------------------------------------------------------------------------
+
+export type SourceSubmissionReviewStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "needs_info"
+  | "all";
+
+export interface SourceSubmissionCounts {
+  pending: number;
+  accepted: number;
+  rejected: number;
+  needs_info: number;
+  total: number;
+}
+
+export interface SourceSubmissionRow {
+  id: number;
+  institution_id: number | null;
+  institution_name: string;
+  linked_institution_name: string | null;
+  city: string | null;
+  state_code: string | null;
+  source_url: string;
+  fee_name: string;
+  fee_category: string | null;
+  amount: number | null;
+  frequency: string | null;
+  submitter_role: string | null;
+  notes: string | null;
+  submission_kind: string;
+  review_status: string;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewer_id: number | null;
+  reviewer_name: string | null;
+  review_notes: string | null;
+  resolution: string | null;
+  source_document_id: number | null;
+  agent_run_id: number | null;
+}
+
+export interface DataTrustQueueRow extends DataTrustQueueDecision {
+  id: number;
+  institution_name: string;
+  city: string | null;
+  state_code: string | null;
+  charter_type: string | null;
+  asset_size: number | null;
+  asset_size_tier: string | null;
+  fed_district: number | null;
+  website_url: string | null;
+  fee_schedule_url: string | null;
+  verified_fee_count: number;
+  provisional_fee_count: number;
+  visible_fee_count: number;
+  raw_fee_count: number;
+  raw_without_verified_count: number;
+  verified_without_published_count: number;
+  latest_source_status: string | null;
+  latest_source_error: string | null;
+  latest_source_collected_at: string | null;
+  latest_extracted_fee_count: number;
+  submission_count: number;
+  pending_submission_count: number;
+  accepted_submission_count: number;
+  rejected_submission_count: number;
+  needs_info_submission_count: number;
+  latest_submission_id: number | null;
+  latest_submission_status: string | null;
+  latest_submission_source_url: string | null;
+  latest_submission_created_at: string | null;
+  validation_queue_count: number;
+  latest_validation_queue_status: string | null;
+  latest_validation_mode: string | null;
+  knox_pending_count: number;
+}
+
+export interface DataTrustQueueResult {
+  rows: DataTrustQueueRow[];
+  total: number;
+  counts: Record<DataTrustQueueState, number>;
+}
+
+export interface ProviderFailureRow {
+  id: number;
+  provider: string;
+  model: string;
+  agent: string;
+  operation: string;
+  status: string;
+  error: string;
+  created_at: string;
+}
+
+function emptyTrustCounts(): Record<DataTrustQueueState, number> {
+  return DATA_TRUST_QUEUE_STATES.reduce((acc, state) => {
+    acc[state] = 0;
+    return acc;
+  }, {} as Record<DataTrustQueueState, number>);
+}
+
+function mapSourceSubmissionRow(r: Record<string, unknown>): SourceSubmissionRow {
+  return {
+    id: Number(r.id),
+    institution_id: r.institution_id != null ? Number(r.institution_id) : null,
+    institution_name: String(r.institution_name),
+    linked_institution_name: r.linked_institution_name
+      ? String(r.linked_institution_name)
+      : null,
+    city: r.city ? String(r.city) : null,
+    state_code: r.state_code ? String(r.state_code) : null,
+    source_url: String(r.source_url),
+    fee_name: String(r.fee_name),
+    fee_category: r.fee_category ? String(r.fee_category) : null,
+    amount: r.amount != null ? Number(r.amount) : null,
+    frequency: r.frequency ? String(r.frequency) : null,
+    submitter_role: r.submitter_role ? String(r.submitter_role) : null,
+    notes: r.notes ? String(r.notes) : null,
+    submission_kind: String(r.submission_kind ?? "fee_row"),
+    review_status: String(r.review_status ?? "pending"),
+    created_at: toDateStr(r.created_at as string | Date | null),
+    reviewed_at: r.reviewed_at ? toDateStr(r.reviewed_at as string | Date) : null,
+    reviewer_id: r.reviewer_id != null ? Number(r.reviewer_id) : null,
+    reviewer_name: r.reviewer_name ? String(r.reviewer_name) : null,
+    review_notes: r.review_notes ? String(r.review_notes) : null,
+    resolution: r.resolution ? String(r.resolution) : null,
+    source_document_id: r.source_document_id != null ? Number(r.source_document_id) : null,
+    agent_run_id: r.agent_run_id != null ? Number(r.agent_run_id) : null,
+  };
+}
+
+export async function getSourceSubmissionCounts(): Promise<SourceSubmissionCounts> {
+  try {
+    const rows = await sql<{ review_status: string; count: string }[]>`
+      SELECT review_status, COUNT(*) AS count
+      FROM community_fee_submissions
+      GROUP BY review_status
+    `;
+    const counts: SourceSubmissionCounts = {
+      pending: 0,
+      accepted: 0,
+      rejected: 0,
+      needs_info: 0,
+      total: 0,
+    };
+    for (const row of rows) {
+      const value = Number(row.count ?? 0);
+      if (row.review_status === "pending") counts.pending = value;
+      else if (row.review_status === "accepted") counts.accepted = value;
+      else if (row.review_status === "rejected") counts.rejected = value;
+      else if (row.review_status === "needs_info") counts.needs_info = value;
+      counts.total += value;
+    }
+    return counts;
+  } catch (e) {
+    console.error("getSourceSubmissionCounts failed:", e);
+    return { pending: 0, accepted: 0, rejected: 0, needs_info: 0, total: 0 };
+  }
+}
+
+export async function listSourceSubmissions({
+  status = "pending",
+  page = 1,
+  pageSize = 25,
+}: {
+  status?: SourceSubmissionReviewStatus;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<{ rows: SourceSubmissionRow[]; total: number; page: number; pageSize: number }> {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.min(100, Math.max(5, pageSize));
+  const offset = (safePage - 1) * safePageSize;
+  const statusFilter =
+    status === "all" ? sql`TRUE` : sql`cfs.review_status = ${status}`;
+
+  try {
+    const countRows = await sql<{ count: string }[]>`
+      SELECT COUNT(*) AS count
+      FROM community_fee_submissions cfs
+      WHERE ${statusFilter}
+    `;
+    const rows = await sql<Record<string, unknown>[]>`
+      SELECT
+        cfs.id,
+        cfs.institution_id,
+        cfs.institution_name,
+        inst.institution_name AS linked_institution_name,
+        inst.city,
+        inst.state_code,
+        cfs.source_url,
+        cfs.fee_name,
+        cfs.fee_category,
+        cfs.amount,
+        cfs.frequency,
+        cfs.submitter_role,
+        cfs.notes,
+        cfs.submission_kind,
+        cfs.review_status,
+        cfs.created_at,
+        cfs.reviewed_at,
+        cfs.reviewer_id,
+        reviewer.username AS reviewer_name,
+        cfs.review_notes,
+        cfs.resolution,
+        cfs.source_document_id,
+        cfs.agent_run_id
+      FROM community_fee_submissions cfs
+      LEFT JOIN institution_sources inst ON inst.id = cfs.institution_id
+      LEFT JOIN users reviewer ON reviewer.id = cfs.reviewer_id
+      WHERE ${statusFilter}
+      ORDER BY
+        CASE WHEN cfs.review_status = 'pending' THEN 0 ELSE 1 END,
+        cfs.created_at DESC,
+        cfs.id DESC
+      LIMIT ${safePageSize} OFFSET ${offset}
+    `;
+
+    return {
+      rows: rows.map(mapSourceSubmissionRow),
+      total: Number(countRows[0]?.count ?? 0),
+      page: safePage,
+      pageSize: safePageSize,
+    };
+  } catch (e) {
+    console.error("listSourceSubmissions failed:", e);
+    return { rows: [], total: 0, page: safePage, pageSize: safePageSize };
+  }
+}
+
+export async function getDataTrustQueueRows({
+  state,
+  query,
+  page = 1,
+  pageSize = 50,
+  automationEnabled,
+}: {
+  state?: DataTrustQueueState | "all";
+  query?: string;
+  page?: number;
+  pageSize?: number;
+  automationEnabled?: boolean | null;
+} = {}): Promise<DataTrustQueueResult> {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.min(100, Math.max(10, pageSize));
+  const queryFilter = query?.trim()
+    ? sql`ct.institution_name ILIKE ${`%${query.trim()}%`}`
+    : sql`TRUE`;
+  const stateFilter =
+    state && state !== "all" ? sql`trust_state = ${state}` : sql`TRUE`;
+  const offset = (safePage - 1) * safePageSize;
+
+  try {
+    const resultRows = await sql<{
+      rows_json: Record<string, unknown>[] | string | null;
+      counts_json: Record<string, number> | string | null;
+      filtered_total: number | string | null;
+    }[]>`
+      WITH catalog_counts AS (
+        SELECT
+          institution_id,
+          COUNT(*) FILTER (WHERE review_status = 'approved')::int AS verified_fee_count,
+          COUNT(*) FILTER (WHERE review_status <> 'approved' AND review_status <> 'rejected')::int AS catalog_provisional_fee_count
+        FROM published_fee_catalog
+        GROUP BY institution_id
+      ),
+      verified_unpublished_counts AS (
+        SELECT fv.institution_id, COUNT(*)::int AS verified_without_published_count
+        FROM verified_fee_observations fv
+        WHERE fv.review_status <> 'rejected'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM published_fee_catalog pfc
+            WHERE pfc.fee_verified_id = fv.fee_verified_id
+              AND pfc.review_status <> 'rejected'
+          )
+        GROUP BY fv.institution_id
+      ),
+      raw_counts AS (
+        SELECT
+          fr.institution_id,
+          COUNT(*)::int AS raw_fee_count,
+          COUNT(*) FILTER (
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM verified_fee_observations fv
+              WHERE fv.fee_raw_id = fr.fee_raw_id
+                AND fv.review_status <> 'rejected'
+            )
+          )::int AS raw_without_verified_count
+        FROM raw_fee_observations fr
+        GROUP BY fr.institution_id
+      ),
+      latest_docs AS (
+        SELECT DISTINCT ON (institution_id)
+          institution_id,
+          status AS latest_source_status,
+          COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count,
+          error_message AS latest_source_error,
+          crawled_at AS latest_source_collected_at
+        FROM source_documents
+        ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
+      ),
+      submission_counts AS (
+        SELECT
+          institution_id,
+          COUNT(*)::int AS submission_count,
+          COUNT(*) FILTER (WHERE review_status = 'pending')::int AS pending_submission_count,
+          COUNT(*) FILTER (WHERE review_status = 'accepted')::int AS accepted_submission_count,
+          COUNT(*) FILTER (WHERE review_status = 'rejected')::int AS rejected_submission_count,
+          COUNT(*) FILTER (WHERE review_status = 'needs_info')::int AS needs_info_submission_count
+        FROM community_fee_submissions
+        WHERE institution_id IS NOT NULL
+        GROUP BY institution_id
+      ),
+      latest_submissions AS (
+        SELECT DISTINCT ON (institution_id)
+          institution_id,
+          id AS latest_submission_id,
+          review_status AS latest_submission_status,
+          source_url AS latest_submission_source_url,
+          created_at AS latest_submission_created_at
+        FROM community_fee_submissions
+        WHERE institution_id IS NOT NULL
+        ORDER BY institution_id, created_at DESC, id DESC
+      ),
+      validation_queue AS (
+        SELECT
+          institution_id,
+          COUNT(*) FILTER (WHERE queue_status NOT IN ('completed', 'canceled'))::int AS validation_queue_count,
+          (ARRAY_AGG(queue_status ORDER BY updated_at DESC, id DESC))[1] AS latest_validation_queue_status,
+          (ARRAY_AGG(validation_mode ORDER BY updated_at DESC, id DESC))[1] AS latest_validation_mode
+        FROM source_validation_queue
+        GROUP BY institution_id
+      ),
+      knox_pending AS (
+        SELECT fv.institution_id, COUNT(*)::int AS knox_pending_count
+        FROM agent_messages am
+        LEFT JOIN knox_overrides ko ON ko.rejection_msg_id = am.message_id
+        JOIN verified_fee_observations fv
+          ON fv.fee_verified_id = NULLIF(am.payload->>'fee_verified_id','')::bigint
+        WHERE am.sender_agent = 'knox'
+          AND am.intent = 'reject'
+          AND ko.id IS NULL
+        GROUP BY fv.institution_id
+      ),
+      base AS (
+          SELECT
+            ct.id,
+            ct.institution_name,
+            ct.city,
+            ct.state_code,
+            ct.charter_type,
+            ct.asset_size,
+            ct.asset_size_tier,
+            ct.fed_district,
+            ct.website_url,
+            ct.fee_schedule_url,
+            COALESCE(cc.verified_fee_count, 0) AS verified_fee_count,
+            (
+              COALESCE(cc.catalog_provisional_fee_count, 0)
+              + COALESCE(vuc.verified_without_published_count, 0)
+              + COALESCE(rc.raw_without_verified_count, 0)
+            ) AS provisional_fee_count,
+            (
+              COALESCE(cc.verified_fee_count, 0)
+              + COALESCE(cc.catalog_provisional_fee_count, 0)
+              + COALESCE(vuc.verified_without_published_count, 0)
+              + COALESCE(rc.raw_without_verified_count, 0)
+            ) AS visible_fee_count,
+            COALESCE(rc.raw_fee_count, 0) AS raw_fee_count,
+            COALESCE(rc.raw_without_verified_count, 0) AS raw_without_verified_count,
+            COALESCE(vuc.verified_without_published_count, 0) AS verified_without_published_count,
+            ld.latest_source_status,
+            ld.latest_source_error,
+            ld.latest_source_collected_at,
+            COALESCE(ld.latest_extracted_fee_count, 0) AS latest_extracted_fee_count,
+            COALESCE(sc.submission_count, 0) AS submission_count,
+            COALESCE(sc.pending_submission_count, 0) AS pending_submission_count,
+            COALESCE(sc.accepted_submission_count, 0) AS accepted_submission_count,
+            COALESCE(sc.rejected_submission_count, 0) AS rejected_submission_count,
+            COALESCE(sc.needs_info_submission_count, 0) AS needs_info_submission_count,
+            ls.latest_submission_id,
+            ls.latest_submission_status,
+            ls.latest_submission_source_url,
+            ls.latest_submission_created_at,
+            COALESCE(vq.validation_queue_count, 0) AS validation_queue_count,
+            vq.latest_validation_queue_status,
+            vq.latest_validation_mode,
+            COALESCE(kp.knox_pending_count, 0) AS knox_pending_count
+          FROM institution_sources ct
+          LEFT JOIN catalog_counts cc ON cc.institution_id = ct.id
+          LEFT JOIN verified_unpublished_counts vuc ON vuc.institution_id = ct.id
+          LEFT JOIN raw_counts rc ON rc.institution_id = ct.id
+          LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
+          LEFT JOIN submission_counts sc ON sc.institution_id = ct.id
+          LEFT JOIN latest_submissions ls ON ls.institution_id = ct.id
+          LEFT JOIN validation_queue vq ON vq.institution_id = ct.id
+          LEFT JOIN knox_pending kp ON kp.institution_id = ct.id
+          WHERE ct.status = 'active'
+            AND COALESCE(ct.document_type, '') NOT IN ('offline', 'no_website')
+            AND ${queryFilter}
+        ),
+        classified AS (
+          SELECT
+            base.*,
+            CASE
+              WHEN pending_submission_count > 0
+                THEN 'submitted_source_pending_review'
+              WHEN (accepted_submission_count > 0 OR validation_queue_count > 0)
+                AND latest_source_status IS DISTINCT FROM 'success'
+                AND verified_fee_count = 0
+                THEN 'source_accepted_awaiting_validation'
+              WHEN latest_source_status = 'failed'
+                THEN 'source_failed'
+              WHEN raw_without_verified_count > 0
+                OR (latest_extracted_fee_count > 0 AND verified_fee_count = 0)
+                THEN 'extracted_rows_pending_classification'
+              WHEN verified_without_published_count > 0
+                THEN 'extracted_rows_pending_classification'
+              WHEN knox_pending_count > 0
+                THEN 'knox_decisions_pending'
+              WHEN verified_fee_count > 0
+                THEN 'verified_public_ready'
+              WHEN COALESCE(btrim(fee_schedule_url), '') = ''
+                THEN 'source_needed'
+              ELSE 'source_accepted_awaiting_validation'
+            END AS trust_state,
+            CASE
+              WHEN pending_submission_count > 0 THEN 0
+              WHEN latest_source_status = 'failed' THEN 1
+              WHEN knox_pending_count > 0 THEN 2
+              WHEN raw_without_verified_count > 0 THEN 3
+              WHEN verified_fee_count = 0 THEN 4
+              ELSE 5
+            END AS sort_bucket
+          FROM base
+        ),
+        filtered AS (
+          SELECT *
+          FROM classified
+          WHERE ${stateFilter}
+        ),
+        paged AS (
+          SELECT *
+          FROM filtered
+          ORDER BY sort_bucket, asset_size DESC NULLS LAST, institution_name ASC
+          LIMIT ${safePageSize} OFFSET ${offset}
+        )
+        SELECT
+          COALESCE(jsonb_agg(to_jsonb(paged) ORDER BY paged.sort_bucket, paged.asset_size DESC NULLS LAST, paged.institution_name ASC), '[]'::jsonb) AS rows_json,
+          (
+            SELECT COALESCE(jsonb_object_agg(trust_state, state_count), '{}'::jsonb)
+            FROM (
+              SELECT trust_state, COUNT(*)::int AS state_count
+              FROM classified
+              GROUP BY trust_state
+            ) counts
+          ) AS counts_json,
+          (SELECT COUNT(*)::int FROM filtered) AS filtered_total
+        FROM paged
+    `;
+
+    const result = resultRows[0];
+    const rowsValue = result?.rows_json ?? [];
+    const countsValue = result?.counts_json ?? {};
+    const rows = Array.isArray(rowsValue)
+      ? rowsValue
+      : JSON.parse(String(rowsValue)) as Record<string, unknown>[];
+    const countsJson = typeof countsValue === "string"
+      ? JSON.parse(countsValue) as Record<string, number>
+      : countsValue;
+
+    const mapped = rows.map((row) => {
+      const decision = classifyDataTrustQueue({
+        feeScheduleUrl: row.fee_schedule_url ? String(row.fee_schedule_url) : null,
+        verifiedFeeCount: Number(row.verified_fee_count ?? 0),
+        provisionalFeeCount: Number(row.provisional_fee_count ?? 0),
+        rawFeeCount: Number(row.raw_fee_count ?? 0),
+        rawWithoutVerifiedCount: Number(row.raw_without_verified_count ?? 0),
+        verifiedWithoutPublishedCount: Number(row.verified_without_published_count ?? 0),
+        latestSourceStatus: row.latest_source_status ? String(row.latest_source_status) : null,
+        latestExtractedFeeCount: Number(row.latest_extracted_fee_count ?? 0),
+        pendingSubmissionCount: Number(row.pending_submission_count ?? 0),
+        acceptedSubmissionCount: Number(row.accepted_submission_count ?? 0),
+        validationQueueCount: Number(row.validation_queue_count ?? 0),
+        knoxPendingCount: Number(row.knox_pending_count ?? 0),
+        automationEnabled,
+      });
+      return {
+        ...decision,
+        id: Number(row.id),
+        institution_name: String(row.institution_name),
+        city: row.city ? String(row.city) : null,
+        state_code: row.state_code ? String(row.state_code) : null,
+        charter_type: row.charter_type ? String(row.charter_type) : null,
+        asset_size: row.asset_size != null ? Number(row.asset_size) : null,
+        asset_size_tier: row.asset_size_tier ? String(row.asset_size_tier) : null,
+        fed_district: row.fed_district != null ? Number(row.fed_district) : null,
+        website_url: row.website_url ? String(row.website_url) : null,
+        fee_schedule_url: row.fee_schedule_url ? String(row.fee_schedule_url) : null,
+        verified_fee_count: Number(row.verified_fee_count ?? 0),
+        provisional_fee_count: Number(row.provisional_fee_count ?? 0),
+        visible_fee_count: Number(row.visible_fee_count ?? 0),
+        raw_fee_count: Number(row.raw_fee_count ?? 0),
+        raw_without_verified_count: Number(row.raw_without_verified_count ?? 0),
+        verified_without_published_count: Number(row.verified_without_published_count ?? 0),
+        latest_source_status: row.latest_source_status ? String(row.latest_source_status) : null,
+        latest_source_error: row.latest_source_error ? String(row.latest_source_error) : null,
+        latest_source_collected_at: row.latest_source_collected_at
+          ? toDateStr(row.latest_source_collected_at as string | Date)
+          : null,
+        latest_extracted_fee_count: Number(row.latest_extracted_fee_count ?? 0),
+        submission_count: Number(row.submission_count ?? 0),
+        pending_submission_count: Number(row.pending_submission_count ?? 0),
+        accepted_submission_count: Number(row.accepted_submission_count ?? 0),
+        rejected_submission_count: Number(row.rejected_submission_count ?? 0),
+        needs_info_submission_count: Number(row.needs_info_submission_count ?? 0),
+        latest_submission_id: row.latest_submission_id != null ? Number(row.latest_submission_id) : null,
+        latest_submission_status: row.latest_submission_status ? String(row.latest_submission_status) : null,
+        latest_submission_source_url: row.latest_submission_source_url ? String(row.latest_submission_source_url) : null,
+        latest_submission_created_at: row.latest_submission_created_at
+          ? toDateStr(row.latest_submission_created_at as string | Date)
+          : null,
+        validation_queue_count: Number(row.validation_queue_count ?? 0),
+        latest_validation_queue_status: row.latest_validation_queue_status
+          ? String(row.latest_validation_queue_status)
+          : null,
+        latest_validation_mode: row.latest_validation_mode
+          ? String(row.latest_validation_mode)
+          : null,
+        knox_pending_count: Number(row.knox_pending_count ?? 0),
+      } satisfies DataTrustQueueRow;
+    });
+
+    const counts = emptyTrustCounts();
+    for (const item of DATA_TRUST_QUEUE_STATES) {
+      counts[item] = Number(countsJson?.[item] ?? 0);
+    }
+
+    return {
+      rows: mapped,
+      total: Number(result?.filtered_total ?? 0),
+      counts,
+    };
+  } catch (e) {
+    console.error("getDataTrustQueueRows failed:", e);
+    return { rows: [], total: 0, counts: emptyTrustCounts() };
+  }
+}
+
+export async function getRecentProviderFailures(limit = 5): Promise<ProviderFailureRow[]> {
+  try {
+    const rows = await sql<Record<string, unknown>[]>`
+      SELECT id, provider, model, agent_name, operation, status,
+             COALESCE(error_summary, 'No provider error detail recorded') AS error_summary,
+             created_at
+      FROM ai_api_usage_events
+      WHERE status IN ('failed', 'blocked')
+      ORDER BY created_at DESC
+      LIMIT ${Math.min(20, Math.max(1, limit))}
+    `;
+    return rows.map((row) => ({
+      id: Number(row.id),
+      provider: String(row.provider),
+      model: String(row.model),
+      agent: String(row.agent_name),
+      operation: String(row.operation),
+      status: String(row.status),
+      error: String(row.error_summary).replace(/\s+/g, " ").slice(0, 500),
+      created_at: toDateStr(row.created_at as string | Date | null),
+    }));
+  } catch (e) {
+    console.error("getRecentProviderFailures failed:", e);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1492,7 +2118,7 @@ export async function getDistrictOverview(): Promise<DistrictOverviewRow[]> {
   try {
     const rows = await sql`
       WITH fee_counts AS (
-        SELECT institution_id, COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS published_fee_count
+        SELECT institution_id, COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count
         FROM published_fee_catalog
         GROUP BY institution_id
       ),
@@ -1874,7 +2500,9 @@ export async function getGoldStandardCandidates(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM institution_sources ct
-      JOIN published_fee_catalog ef ON ef.institution_id = ct.id
+      JOIN published_fee_catalog ef
+        ON ef.institution_id = ct.id
+       AND ef.review_status = 'approved'
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url
       ORDER BY ct.asset_size DESC NULLS LAST
@@ -1908,7 +2536,9 @@ export async function getGoldStandardCandidate(
              ct.fee_schedule_url,
              COUNT(ef.id) as fee_count
       FROM institution_sources ct
-      JOIN published_fee_catalog ef ON ef.institution_id = ct.id
+      JOIN published_fee_catalog ef
+        ON ef.institution_id = ct.id
+       AND ef.review_status = 'approved'
       WHERE ct.id = ${id}
       GROUP BY ct.id, ct.institution_name, ct.state_code,
                ct.asset_size_tier, ct.asset_size, ct.fee_schedule_url

@@ -4,11 +4,30 @@ export type InstitutionQualityCode =
   | "extracted_not_published"
   | "latest_source_failed"
   | "provider_failure"
+  | "no_published_fees"
   | "identity_gap"
   | "verified";
 
 export type InstitutionQualitySeverity = "ok" | "info" | "warning" | "critical";
 export type InstitutionQualityStatus = "verified" | "needs_review";
+export type FeePublicationStatus =
+  | "verified"
+  | "provisional"
+  | "under_review"
+  | "unavailable";
+
+export type InstitutionInsightReadiness =
+  | "ready"
+  | "directional"
+  | "under_review"
+  | "source_needed";
+
+export type InstitutionSourceNeededReason =
+  | "not_applicable"
+  | "official_source_missing"
+  | "source_needs_extraction"
+  | "latest_source_failed"
+  | "review_needed";
 
 export type InstitutionQualityFilter =
   | "needs_review"
@@ -55,6 +74,18 @@ export interface InstitutionQualityResult {
   quality_signals: InstitutionQualitySignal[];
   primary_signal: InstitutionQualitySignal;
   recommended_action: string;
+}
+
+export interface FeePublicationStatusInput {
+  publishedFeeCount: number | null;
+  provisionalFeeCount?: number | null;
+  latestExtractedFeeCount?: number | null;
+  latestSourceStatus?: string | null;
+  feeScheduleUrl?: string | null;
+}
+
+export interface InstitutionReadinessInput extends FeePublicationStatusInput {
+  feePublicationStatus?: FeePublicationStatus;
 }
 
 export const INSTITUTION_QUALITY_FILTERS: InstitutionQualityFilter[] = [
@@ -115,6 +146,8 @@ export function repairHrefForQualitySignal(
       return "/admin/darwin";
     case "provider_failure":
       return "/admin#agent-failures";
+    case "no_published_fees":
+      return "/admin/magellan";
     case "identity_gap":
       return "/admin/data";
     case "verified":
@@ -131,7 +164,126 @@ export function getPublicInstitutionQualityLabel(
   if (primary.code === "bad_or_suspect_url") return "Fee schedule under review";
   if (primary.code === "url_but_zero_published") return "Fee schedule not verified";
   if (primary.code === "extracted_not_published") return "Fee data pending review";
+  if (primary.code === "no_published_fees") return "Fee data unavailable";
   return "Fee schedule under review";
+}
+
+export function getFeePublicationStatus(
+  input: FeePublicationStatusInput,
+): FeePublicationStatus {
+  const publishedFeeCount = Number(input.publishedFeeCount ?? 0);
+  const provisionalFeeCount = Number(input.provisionalFeeCount ?? 0);
+  const latestExtractedFeeCount = Number(input.latestExtractedFeeCount ?? 0);
+  const hasFeeUrl = hasValue(input.feeScheduleUrl);
+  const hasSourceAttempt = hasValue(input.latestSourceStatus);
+
+  if (publishedFeeCount > 0) return "verified";
+  if (provisionalFeeCount > 0) return "provisional";
+  if (latestExtractedFeeCount > 0 || hasFeeUrl || hasSourceAttempt) return "under_review";
+  return "unavailable";
+}
+
+export function getFeePublicationStatusLabel(
+  status: FeePublicationStatus,
+): string {
+  switch (status) {
+    case "verified":
+      return "Verified fees";
+    case "provisional":
+      return "Provisional fees";
+    case "under_review":
+      return "Fee data under review";
+    case "unavailable":
+      return "Fee data unavailable";
+  }
+}
+
+export function getInstitutionInsightReadiness(
+  input: InstitutionReadinessInput,
+): InstitutionInsightReadiness {
+  const status =
+    input.feePublicationStatus ??
+    getFeePublicationStatus({
+      publishedFeeCount: input.publishedFeeCount,
+      provisionalFeeCount: input.provisionalFeeCount,
+      latestExtractedFeeCount: input.latestExtractedFeeCount,
+      latestSourceStatus: input.latestSourceStatus,
+      feeScheduleUrl: input.feeScheduleUrl,
+    });
+
+  switch (status) {
+    case "verified":
+      return "ready";
+    case "provisional":
+      return "directional";
+    case "under_review":
+      return "under_review";
+    case "unavailable":
+      return "source_needed";
+  }
+}
+
+export function getInstitutionSourceNeededReason(
+  input: InstitutionReadinessInput,
+): InstitutionSourceNeededReason {
+  const status =
+    input.feePublicationStatus ??
+    getFeePublicationStatus({
+      publishedFeeCount: input.publishedFeeCount,
+      provisionalFeeCount: input.provisionalFeeCount,
+      latestExtractedFeeCount: input.latestExtractedFeeCount,
+      latestSourceStatus: input.latestSourceStatus,
+      feeScheduleUrl: input.feeScheduleUrl,
+    });
+
+  if (status === "verified" || status === "provisional") return "not_applicable";
+  if (input.latestSourceStatus === "failed") return "latest_source_failed";
+
+  const latestExtractedFeeCount = Number(input.latestExtractedFeeCount ?? 0);
+  const hasFeeUrl = hasValue(input.feeScheduleUrl);
+  const hasSourceAttempt = hasValue(input.latestSourceStatus);
+
+  if (!hasFeeUrl && !hasSourceAttempt && latestExtractedFeeCount === 0) {
+    return "official_source_missing";
+  }
+  if (hasFeeUrl && latestExtractedFeeCount === 0) {
+    return "source_needs_extraction";
+  }
+  return "review_needed";
+}
+
+export function getInstitutionConfidenceSummary(
+  input: InstitutionReadinessInput,
+): string {
+  const readiness = getInstitutionInsightReadiness(input);
+
+  switch (readiness) {
+    case "ready":
+      return "Verified fee evidence supports benchmark comparisons.";
+    case "directional":
+      return "Provisional evidence supports directional analysis, but not verified benchmark scoring.";
+    case "under_review":
+      return "Source or extraction evidence exists, but public fee conclusions require review.";
+    case "source_needed":
+      return "Official source evidence is needed before fee claims can be made.";
+  }
+}
+
+export function getInstitutionSourceNeededReasonLabel(
+  reason: InstitutionSourceNeededReason,
+): string {
+  switch (reason) {
+    case "not_applicable":
+      return "No source gap";
+    case "official_source_missing":
+      return "Official fee schedule needed";
+    case "source_needs_extraction":
+      return "Source needs extraction";
+    case "latest_source_failed":
+      return "Latest source collection failed";
+    case "review_needed":
+      return "Evidence needs review";
+  }
 }
 
 export function classifyInstitutionQuality(
@@ -212,6 +364,18 @@ export function classifyInstitutionQuality(
       evidence: { published_fee_count: publishedFeeCount, fee_schedule_url: input.feeScheduleUrl ?? null },
       last_seen_at: input.latestSourceCollectedAt ?? null,
       recommended_action: "Run Magellan fetch and Darwin classification for this URL.",
+    });
+  }
+
+  if (!hasFeeUrl && latestExtractedFeeCount === 0 && publishedFeeCount === 0) {
+    signals.push({
+      code: "no_published_fees",
+      severity: "info",
+      label: "No published fees",
+      detail: "No approved consumer fee observations are published for this institution.",
+      evidence: { published_fee_count: publishedFeeCount },
+      last_seen_at: input.latestSourceCollectedAt ?? null,
+      recommended_action: "Discover a durable fee schedule source, then route observations through review.",
     });
   }
 

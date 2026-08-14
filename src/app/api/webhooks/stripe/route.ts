@@ -1,5 +1,5 @@
 import { getStripe, getWebhookSecret } from "@/lib/stripe";
-import { sql } from "@/lib/data-store/connection";
+import { withTransaction } from "@/lib/data-store/connection";
 import { headers } from "next/headers";
 import type Stripe from "stripe";
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   console.log(`[stripe-webhook] Received ${event.type} (${event.id})`);
 
   try {
-    await sql.begin(async (tx: any) => {
+    await withTransaction(async (tx) => {
       // Atomic idempotency: INSERT ON CONFLICT DO NOTHING
       const result = await tx`
         INSERT INTO stripe_events (id, event_type, stripe_customer_id, payload_json)
