@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_CODES } from "@/lib/us-states";
 import { getInstitutionIdsWithFees, getCitiesInState } from "@/lib/data-store";
-import { GUIDES } from "@/lib/guides";
+import { loadGuides } from "@/lib/guides/source";
 import { getSql } from "@/lib/data-store/connection";
 
 import { SITE_URL } from "@/lib/constants";
@@ -87,11 +87,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const guidePages: MetadataRoute.Sitemap = GUIDES.map((g) => ({
-    url: `${BASE_URL}/guides/${g.slug}`,
-    lastModified: now,
+  // Consumer guides live at /guides/[slug]; professional guides at /guides/pro/[slug],
+  // where the body is gated. Both are indexable — the professional pages show title,
+  // description and an upgrade prompt — but the free ones carry the higher priority.
+  const allGuides = await loadGuides();
+  const guidePages: MetadataRoute.Sitemap = allGuides.map((g) => ({
+    url:
+      g.audience === "professional"
+        ? `${BASE_URL}/guides/pro/${g.slug}`
+        : `${BASE_URL}/guides/${g.slug}`,
+    lastModified: g.reviewedAt ? new Date(g.reviewedAt) : now,
     changeFrequency: "monthly" as const,
-    priority: 0.7,
+    priority: g.audience === "professional" ? 0.4 : 0.7,
   }));
 
   // City fee pages (state directories + top city pages)
