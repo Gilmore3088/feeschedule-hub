@@ -156,7 +156,7 @@ export default async function StateDetailPage({
       </div>
 
       {/* State Lane Health */}
-      <div className="mb-8">
+      <section id="state-lane-health" className="mb-8 scroll-mt-24">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
             Atlas State Lane
@@ -214,7 +214,7 @@ export default async function StateDetailPage({
             />
           </div>
         )}
-      </div>
+      </section>
 
       {/* Source Memory */}
       <SourceMemoryTable
@@ -238,7 +238,7 @@ export default async function StateDetailPage({
       />
 
       {/* Agent Run History */}
-      <div className="admin-card overflow-hidden mb-8">
+      <section id="agent-run-history" className="admin-card mb-8 scroll-mt-24 overflow-hidden">
         <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
           <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
             Agent Run History
@@ -304,11 +304,11 @@ export default async function StateDetailPage({
             No agent runs yet. Use Run State Lane to create the first Atlas-led state run.
           </div>
         )}
-      </div>
+      </section>
 
       {/* URL Resolution */}
       {urlResolutionQueue.length > 0 && (
-        <div className="admin-card overflow-hidden">
+        <section id="url-resolution" className="admin-card scroll-mt-24 overflow-hidden">
           <div className="px-4 py-2.5 border-b border-gray-100 dark:border-white/[0.04]">
             <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em]">
               Magellan URL Resolution ({urlResolutionQueue.length} institutions)
@@ -334,7 +334,7 @@ export default async function StateDetailPage({
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
       )}
     </>
   );
@@ -417,7 +417,7 @@ function SourceMemoryTable({
   canCorrect: boolean;
 }) {
   return (
-    <div className="admin-card mb-8 overflow-hidden">
+    <section id="source-memory" className="admin-card mb-8 scroll-mt-24 overflow-hidden">
       <div className="flex flex-col gap-1 border-b border-gray-100 px-4 py-2.5 dark:border-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">
@@ -532,7 +532,7 @@ function SourceMemoryTable({
           No source memory profiles are available for this state lane.
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -668,7 +668,7 @@ function PublicDiscoveryFindingsTable({
   canReview: boolean;
 }) {
   return (
-    <div className="admin-card mb-8 overflow-hidden">
+    <section id="public-discovery-findings" className="admin-card mb-8 scroll-mt-24 overflow-hidden">
       <div className="flex flex-col gap-1 border-b border-gray-100 px-4 py-2.5 dark:border-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">
@@ -785,7 +785,7 @@ function PublicDiscoveryFindingsTable({
           No open public discovery findings for this state lane.
         </div>
       )}
-    </div>
+    </section>
   );
 }
 

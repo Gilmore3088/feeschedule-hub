@@ -94,6 +94,26 @@ function publicFindingCopy(row: AtlasStateLaneDispatchRow): string {
   return number(row.publicFindings);
 }
 
+function repairTarget(row: AtlasStateLaneDispatchRow): { href: string; label: string } {
+  const stateHref = `/admin/states/${row.stateCode}`;
+  if (row.criticalPublicFindings > 0) {
+    return { href: `${stateHref}#public-discovery-findings`, label: "Review pages" };
+  }
+  if (row.publicFindings > 0) {
+    return { href: `${stateHref}#public-discovery-findings`, label: "Review findings" };
+  }
+  if (row.backlogMissingUrls > 0) {
+    return { href: `${stateHref}#url-resolution`, label: "Resolve URLs" };
+  }
+  if (row.failures > 0 || row.backlogOcr > 0 || row.backlogManualReview > 0 || row.backlogStaleSources > 0) {
+    return { href: `${stateHref}#source-memory`, label: "Fix sources" };
+  }
+  if (row.status === "running" && row.activeRunId) {
+    return { href: `${stateHref}/runs/${row.activeRunId}`, label: "Open run" };
+  }
+  return { href: `${stateHref}#state-lane-health`, label: "Open lane" };
+}
+
 function runDetail(runId: number, stateCode: string, reused: boolean): CustomEvent {
   return new CustomEvent("atlas:started", {
     detail: {
@@ -319,56 +339,67 @@ export function AtlasStateLaneDispatchPanel({
               <th className="text-right">Public</th>
               <th>Last success</th>
               <th>Next run</th>
-              <th className="text-right">Action</th>
+              <th className="text-right">Next action</th>
             </tr>
           </thead>
           <tbody>
-            {dispatch.rows.map((row) => (
-              <tr key={row.stateCode}>
-                <td>
-                  <Link href={`/admin/states/${row.stateCode}`} className="font-semibold text-gray-900 transition-colors hover:text-blue-600 dark:text-gray-100">
-                    {row.stateCode}
-                  </Link>
-                  <span className="ml-2 text-gray-500">{row.name}</span>
-                </td>
-                <td>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>
-                    {statusCopy(row.status)}
-                  </span>
-                  {row.activeRunId && (
-                    <span className="ml-2 font-mono text-[10px] text-gray-400">#{row.activeRunId}</span>
-                  )}
-                  <span className="mt-1 block text-[10px] text-gray-400">
-                    {laneReason(row)}
-                  </span>
-                </td>
-                <td className="text-right tabular-nums">
-                  {number(backlogTotal(row))}
-                  <span className="ml-1 text-gray-400">items</span>
-                </td>
-                <td className={`text-right tabular-nums ${row.failures > 0 ? "font-semibold text-red-700 dark:text-red-400" : "text-gray-500"}`}>
-                  {number(row.failures)}
-                </td>
-                <td className={`text-right tabular-nums ${row.criticalPublicFindings > 0 ? "font-semibold text-red-700 dark:text-red-400" : row.publicFindings > 0 ? "font-semibold text-amber-700 dark:text-amber-400" : "text-gray-500"}`}>
-                  {publicFindingCopy(row)}
-                  {row.criticalPublicFindings > 0 && (
-                    <span className="ml-1 text-[10px] text-gray-400">critical/open</span>
-                  )}
-                </td>
-                <td className="tabular-nums text-gray-500">{formatAdminDateTime(row.lastSuccessAt)}</td>
-                <td className="tabular-nums text-gray-500">{formatAdminDateTime(row.nextRunAfter)}</td>
-                <td className="text-right">
-                  <button
-                    type="button"
-                    onClick={() => runSelectedState(row.stateCode)}
-                    disabled={controlsDisabled || pendingCommand === row.stateCode}
-                    className="inline-flex min-h-8 items-center justify-center rounded-md border border-gray-200 px-2.5 text-[11px] font-semibold text-gray-600 transition-colors hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-gray-300 dark:hover:border-blue-900/60 dark:hover:text-blue-300"
-                  >
-                    {pendingCommand === row.stateCode ? "Queueing" : "Run"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {dispatch.rows.map((row) => {
+              const target = repairTarget(row);
+              return (
+                <tr key={row.stateCode}>
+                  <td>
+                    <Link href={`/admin/states/${row.stateCode}`} className="font-semibold text-gray-900 transition-colors hover:text-blue-600 dark:text-gray-100">
+                      {row.stateCode}
+                    </Link>
+                    <span className="ml-2 text-gray-500">{row.name}</span>
+                  </td>
+                  <td>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>
+                      {statusCopy(row.status)}
+                    </span>
+                    {row.activeRunId && (
+                      <span className="ml-2 font-mono text-[10px] text-gray-400">#{row.activeRunId}</span>
+                    )}
+                    <span className="mt-1 block text-[10px] text-gray-400">
+                      {laneReason(row)}
+                    </span>
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {number(backlogTotal(row))}
+                    <span className="ml-1 text-gray-400">items</span>
+                  </td>
+                  <td className={`text-right tabular-nums ${row.failures > 0 ? "font-semibold text-red-700 dark:text-red-400" : "text-gray-500"}`}>
+                    {number(row.failures)}
+                  </td>
+                  <td className={`text-right tabular-nums ${row.criticalPublicFindings > 0 ? "font-semibold text-red-700 dark:text-red-400" : row.publicFindings > 0 ? "font-semibold text-amber-700 dark:text-amber-400" : "text-gray-500"}`}>
+                    {publicFindingCopy(row)}
+                    {row.criticalPublicFindings > 0 && (
+                      <span className="ml-1 text-[10px] text-gray-400">critical/open</span>
+                    )}
+                  </td>
+                  <td className="tabular-nums text-gray-500">{formatAdminDateTime(row.lastSuccessAt)}</td>
+                  <td className="tabular-nums text-gray-500">{formatAdminDateTime(row.nextRunAfter)}</td>
+                  <td className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Link
+                        href={target.href}
+                        className="inline-flex min-h-8 items-center justify-center rounded-md border border-blue-200 px-2.5 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30"
+                      >
+                        {target.label}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => runSelectedState(row.stateCode)}
+                        disabled={controlsDisabled || pendingCommand === row.stateCode}
+                        className="inline-flex min-h-8 items-center justify-center rounded-md border border-gray-200 px-2.5 text-[11px] font-semibold text-gray-600 transition-colors hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-gray-300 dark:hover:border-blue-900/60 dark:hover:text-blue-300"
+                      >
+                        {pendingCommand === row.stateCode ? "Queueing" : "Run"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
             {dispatch.rows.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-6 text-center text-gray-400">

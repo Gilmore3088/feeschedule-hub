@@ -33,14 +33,14 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/admin", label: "Atlas", role: "Command center", icon: Orbit, exact: true },
       {
         href: "/admin/states",
-        label: "Atlas Lanes",
-        role: "State partitions",
+        label: "State Lanes",
+        role: "Atlas partitions",
         icon: Map,
       },
       {
         href: "/admin/quality",
-        label: "Atlas Trust",
-        role: "Source review",
+        label: "Trust Review",
+        role: "Human validation",
         icon: FileCheck2,
         badgeKey: "trustPending",
         activePrefixes: ["/admin/data-quality"],
