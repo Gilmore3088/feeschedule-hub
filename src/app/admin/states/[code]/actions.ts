@@ -22,6 +22,15 @@ const decisionSchema = z.enum(["verified", "dismissed"]);
 const sourceKindSchema = z.enum(["pdf", "html", "scanned_pdf", "unknown", "offline"]);
 const readStrategySchema = z.enum(["", "pdf_text", "html_dom", "browser_render", "ocr", "manual_review"]);
 
+export type SourceMemoryCorrectionActionState = {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  institutionId?: number;
+  stateCode?: string;
+  correctionVersion?: number;
+};
+
 export async function setFeeScheduleUrl(
   institutionId: number,
   url: string,
@@ -88,15 +97,23 @@ export async function decidePublicDiscoveryFinding(formData: FormData): Promise<
   revalidatePath(`/admin/states/${stateCode.data}`);
 }
 
-export async function correctStateSourceMemory(formData: FormData): Promise<void> {
+export async function correctStateSourceMemory(
+  _previousState: SourceMemoryCorrectionActionState | null,
+  formData: FormData,
+): Promise<SourceMemoryCorrectionActionState> {
   const user = await requireAuth("approve");
   const institutionId = institutionIdSchema.safeParse(formData.get("institution_id"));
   const stateCode = stateCodeSchema.safeParse(formData.get("state_code"));
   const sourceKind = sourceKindSchema.safeParse(formData.get("source_kind"));
   const readStrategy = readStrategySchema.safeParse(formData.get("read_strategy"));
-  if (!institutionId.success || !stateCode.success || !sourceKind.success || !readStrategy.success) return;
+  if (!institutionId.success || !stateCode.success || !sourceKind.success || !readStrategy.success) {
+    return {
+      ok: false,
+      error: "Check the institution, state, source kind, and read strategy before locking the correction.",
+    };
+  }
 
-  await applyStateSourceMemoryCorrection({
+  const result = await applyStateSourceMemoryCorrection({
     institutionId: institutionId.data,
     stateCode: stateCode.data,
     canonicalSourceUrl: String(formData.get("canonical_source_url") ?? ""),
@@ -106,7 +123,24 @@ export async function correctStateSourceMemory(formData: FormData): Promise<void
     correctedBy: user.username ?? `user:${user.id}`,
   });
 
+  if (!result.success) {
+    return {
+      ok: false,
+      institutionId: institutionId.data,
+      stateCode: stateCode.data,
+      error: result.error ?? "Atlas could not lock this source correction.",
+    };
+  }
+
   revalidatePath("/admin");
   revalidatePath("/admin/states");
   revalidatePath(`/admin/states/${stateCode.data}`);
+
+  return {
+    ok: true,
+    institutionId: institutionId.data,
+    stateCode: stateCode.data,
+    correctionVersion: result.correctionVersion,
+    message: `Locked source memory for ${stateCode.data}${result.correctionVersion ? ` · v${result.correctionVersion}` : ""}.`,
+  };
 }
