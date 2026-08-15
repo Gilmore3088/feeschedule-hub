@@ -56,8 +56,14 @@ export interface AtlasCommandCenter {
   attention: AttentionItem[];
   automation: AutomationControlState;
   provider: ProviderReadiness;
+  trustReview: TrustReviewOverview;
   apiUsage: ApiUsageOverview;
   agentHealth: AgentFailureOverview;
+}
+
+export interface TrustReviewOverview {
+  sourceSubmissionsPending: number;
+  totalPending: number;
 }
 
 export interface ProviderReadiness {
@@ -483,6 +489,10 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     ["queued", "running", "cancel_requested"].includes(job.status),
   );
   const provider = buildProviderReadiness(automation, apiUsage);
+  const trustReview: TrustReviewOverview = {
+    sourceSubmissionsPending: sourceSubmissionCounts.pending,
+    totalPending: sourceSubmissionCounts.pending,
+  };
   const attention: AttentionItem[] = [];
 
   if (provider.status === "missing_key" || provider.status === "circuit_open") {
@@ -624,6 +634,7 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     attention: attention.slice(0, 8),
     automation,
     provider,
+    trustReview,
     apiUsage,
     agentHealth,
   };

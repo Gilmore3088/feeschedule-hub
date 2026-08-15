@@ -21,6 +21,7 @@ import { getAtlasStateLaneDispatch } from "@/lib/agents/state-lane-memory";
 import { getExecutionBackendStatus, type ExecutionBackendStatus } from "@/lib/execution-backend";
 import type { JobFreshness } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { AtlasCommandMap } from "./atlas-command-map";
 import { AtlasEmergencyControl } from "./atlas-emergency-control";
 import { AtlasLiveStatus } from "./atlas-live-status";
 import { AtlasResumeControl } from "./atlas-resume-control";
@@ -378,6 +379,11 @@ export default async function AtlasCommandPage() {
         center={center}
         stateLaneDispatch={stateLaneDispatch}
         execution={execution}
+      />
+
+      <AtlasCommandMap
+        center={center}
+        stateLaneDispatch={stateLaneDispatch}
       />
 
       <AtlasLiveStatus

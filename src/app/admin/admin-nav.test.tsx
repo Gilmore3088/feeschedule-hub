@@ -32,7 +32,9 @@ describe("AdminNav", () => {
     render(<AdminNav badges={{ trustPending: 3 }} />);
 
     expect(screen.getByText("State Lanes")).toBeInTheDocument();
+    expect(screen.getByText("State queues")).toBeInTheDocument();
     expect(screen.getByText("Trust Review")).toBeInTheDocument();
+    expect(screen.getByText("Source review")).toBeInTheDocument();
     expect(screen.getByText("Atlas")).toBeInTheDocument();
     expect(screen.queryByText("Atlas Lanes")).not.toBeInTheDocument();
     expect(screen.queryByText("Atlas Trust")).not.toBeInTheDocument();
