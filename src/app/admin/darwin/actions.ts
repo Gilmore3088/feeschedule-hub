@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
+import { assertAtlasDispatchReady } from "@/lib/agents/dispatch-readiness";
 import { startAgentRun } from "@/lib/agents/run-store";
 import { getExecutionBackendStatus } from "@/lib/execution-backend";
 import type { DarwinStatus } from "./types";
@@ -32,6 +33,7 @@ export async function runDarwinRepair(
     return { success: false, error: "Invalid classification batch request" };
   }
   try {
+    await assertAtlasDispatchReady();
     const result = await startAgentRun({
       agent: "darwin",
       kind: "workflow_lane",

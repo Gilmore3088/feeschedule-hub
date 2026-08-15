@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/data-store/connection";
 import { requireAuth } from "@/lib/auth";
+import { assertAtlasDispatchReady } from "@/lib/agents/dispatch-readiness";
 import { startAgentRun } from "@/lib/agents/run-store";
 
 export async function rerunCategorization(): Promise<{
@@ -12,6 +13,7 @@ export async function rerunCategorization(): Promise<{
 }> {
   const user = await requireAuth("trigger_jobs");
   try {
+    await assertAtlasDispatchReady();
     const result = await startAgentRun({
       agent: "darwin",
       kind: "manual_repair",
@@ -48,6 +50,7 @@ export async function republishIndex(): Promise<{
 }> {
   const user = await requireAuth("trigger_jobs");
   try {
+    await assertAtlasDispatchReady();
     const result = await startAgentRun({
       agent: "hamilton",
       kind: "manual_repair",

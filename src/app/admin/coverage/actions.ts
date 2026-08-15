@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
+import { assertAtlasDispatchReady } from "@/lib/agents/dispatch-readiness";
 import { startAgentRun } from "@/lib/agents/run-store";
 import { getExecutionBackendStatus } from "@/lib/execution-backend";
 import { sql } from "@/lib/data-store/connection";
@@ -49,6 +50,7 @@ export async function runMagellanRepair(
     return { success: false, error: "Invalid repair batch request" };
   }
   try {
+    await assertAtlasDispatchReady();
     const result = await startAgentRun({
       agent: "magellan",
       kind: "workflow_lane",
