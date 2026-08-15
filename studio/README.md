@@ -55,52 +55,67 @@ them would only double the words.
 
 ### Generating it
 
-`vo/lines.json` holds the `{t, text}` cues. `narrate.mjs` synthesises each line
-separately with Piper and places it at its exact cue time via ffmpeg `adelay`.
-
-**Cues are pinned to the film, not concatenated.** A line that runs long
-overlaps the next rather than shifting everything after it — the visuals are
-fixed, so the audio has to be nailed to them. Check for overruns before
-rendering.
+`vo/lines.json` holds the `{t, text}` cues. `narrate.py` synthesises each line
+with **Kokoro v1.0** (Python-only, hence the split); `narrate.mjs` places each
+one at its exact cue time via ffmpeg `adelay`, masters the result, and reports
+any cue that overruns its slot.
 
 ```bash
-node narrate.mjs                          # → vo/narration.wav
+npm run narrate                           # → vo/narration.wav
+npm run narrate -- --voice af_heart       # different voice
+npm run narrate -- --speed 0.92           # slower read
+npm run narrate:remix                     # re-mix existing parts, no re-synthesis
 npm run render -- --vo vo/narration.wav   # muxes as AAC
 ```
 
-### Getting a voice model
+**Cues are pinned to the film, not concatenated.** A line that runs long
+overlaps the next rather than shifting everything after it — the visuals are
+fixed, so the audio has to be nailed to them. `narrate.mjs` prints per-cue slack
+and flags overruns; fix one by shortening the line, raising `--speed`, or moving
+the cue in `vo/lines.json` **and** the matching `CAPTIONS` entry in `scene.html`.
 
-**HuggingFace is blocked through the agent proxy (403), but GitHub is not.**
-Piper's older releases bundle voices as tarballs, which is the way in:
+### Pronunciation
+
+`lines.json` carries a `pronunciation` map applied to the spoken text only, so
+captions keep the readable form. Initialisms are the usual offender — `PDF` is
+rewritten to `P D F` so it is spelled out rather than attempted as a word. Any
+cue can also carry an explicit `say` field that overrides its spoken form
+entirely. Em dashes are converted to commas automatically; the phonemiser
+otherwise swallows the following word.
+
+### Getting the models
+
+**HuggingFace is blocked through the agent proxy (403), but GitHub is not** —
+GitHub releases are the way in:
 
 ```bash
 mkdir -p voices && cd voices
-curl -sSLO https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-high.tar.gz
-tar xzf voice-en-us-ryan-high.tar.gz
+curl -sSLO https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+curl -sSLO https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
 ```
 
-Also available at that tag: `voice-en-us-libritts-high`, `voice-en-gb-alan-low`.
-`voice-en-us-lessac-high` 404s there.
+Kokoro ships ~50 voices — `am_michael` (default), `am_onyx`, `am_eric`,
+`bm_george`, `af_heart`, `bf_emma` and more; list them with
+`Kokoro.get_voices()`.
 
-Raw TTS is bone dry and mid-heavy, which is most of what reads as robotic, so
-`narrate.mjs` applies EQ, compression and a short room reflection. That helps.
-**It does not make Piper sound human**, and it will not pass in front of a bank
-executive.
+One environment quirk: `espeakng-loader` ships a library with a build-machine
+data path compiled in, so phonemisation fails with a missing `phontab`.
+`narrate.py` sets `ESPEAK_DATA_PATH`; if the library still ignores it, symlink
+the shipped data to the path it demands.
 
-### For anything customer-facing
+### Still a synthetic voice
 
-In rough order of cost:
+Kokoro is far closer to human than the older open models and reads the script
+cleanly, but it is not a voice actor. For anything customer-facing:
 
 | Option | Cost | Quality |
 | --- | --- | --- |
 | **Record it yourself** | free | Genuine and on-brand; a quiet room and a decent mic beat any synthetic voice |
-| **Hire a VO artist** (Voice123, Voices.com, Fiverr Pro) | ~$150–400 for 70s | Broadcast |
-| **ElevenLabs / OpenAI TTS / PlayHT** | ~$5–30/mo | Very close to human; needs an API key this container does not have |
+| **Hire a VO artist** (Voice123, Voices.com) | ~$150–400 for 70s | Broadcast |
+| **ElevenLabs / OpenAI TTS** | ~$5–30/mo | Best synthetic available; needs an API key this container does not have |
 
-Piper is a 2022-era model. The gap to current commercial TTS is large, and no
-amount of post-processing closes it. Treat the generated track as a **scratch
-VO** — genuinely useful for locking timing and pacing — and replace it before
-launch.
+Swapping in a human read changes nothing but the WAV — the cue timings, captions
+and render command all stay as they are.
 
 ## Music
 

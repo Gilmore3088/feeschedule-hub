@@ -9,7 +9,8 @@
     "stills": "node render.mjs --stills 3,9,17,29,45,57,67,77",
     "proof": "node render.mjs --scale 0.5 --out out/proof.mp4",
     "narrate": "node narrate.mjs",
-    "render:vo": "node render.mjs --vo vo/narration.wav"
+    "render:vo": "node render.mjs --vo vo/narration.wav",
+    "narrate:remix": "node narrate.mjs --skip-synth"
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0"
