@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAuth } from "@/lib/auth";
-import { startStateLaneRun } from "@/lib/agents/state-lane-scheduler";
+import { runAtlasStateLane } from "@/app/admin/atlas-actions";
 import {
   extractInstitutionCommand,
   markInstitutionOfflineCommand,
@@ -35,27 +34,20 @@ export async function triggerExtract(institutionId: number) {
 }
 
 export async function runStateLane(stateCode: string) {
-  const user = await requireAuth("trigger_jobs");
-  try {
-    const result = await startStateLaneRun({
-      stateCode,
-      triggeredBy: user.username,
-      triggerSource: "admin",
-      source: "admin.state_lane",
-    });
+  const result = await runAtlasStateLane(stateCode);
+  if (result.success && result.stateCode && result.runId) {
     revalidatePath(`/admin/states/${result.stateCode}`);
     revalidatePath("/admin");
     return {
       ok: true,
-      runId: result.run.id,
+      runId: result.runId,
       reused: result.reused,
       message: result.reused
-        ? `Reusing active Atlas ${result.stateCode} lane #${result.run.id}`
-        : `Atlas ${result.stateCode} lane #${result.run.id} created`,
+        ? `Reusing active Atlas ${result.stateCode} lane #${result.runId}`
+        : `Atlas ${result.stateCode} lane #${result.runId} created`,
     };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) };
   }
+  return { error: result.error ?? "Atlas state lane could not be scheduled." };
 }
 
 export async function runStateLaneFormAction(stateCode: string): Promise<void> {

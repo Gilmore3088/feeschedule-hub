@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
+import { getAutomationControl } from "@/lib/automation-control";
+import { getExecutionBackendStatus } from "@/lib/execution-backend";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   getStateInstitutions,
@@ -67,13 +69,20 @@ export default async function StateDetailPage({
   const stateName = STATE_NAMES[stateCode] ?? stateCode;
   const runStateLaneForState = runStateLaneFormAction.bind(null, stateCode);
 
-  const [summary, institutions, agentRuns, urlResolutionQueue, laneHealth] = await Promise.all([
+  const [summary, institutions, agentRuns, urlResolutionQueue, laneHealth, automation, execution] = await Promise.all([
     getStateSummary(stateCode),
     getStateInstitutions(stateCode),
     getStateAgentRuns(stateCode),
     getStateUrlResolutionQueue(stateCode),
     getStateLaneHealth(stateCode),
+    getAutomationControl(),
+    Promise.resolve(getExecutionBackendStatus()),
   ]);
+  const stateLaneBlockedReason = !automation.enabled
+    ? automation.reason ?? "Automation safety stop is active."
+    : !execution.enabled
+      ? execution.detail
+      : null;
 
   return (
     <>
@@ -97,10 +106,17 @@ export default async function StateDetailPage({
         <form action={runStateLaneForState}>
           <button
             type="submit"
-            className="rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200"
+            disabled={Boolean(stateLaneBlockedReason)}
+            title={stateLaneBlockedReason ?? "Schedule this state lane"}
+            className="rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200"
           >
-            Run State Lane
+            {stateLaneBlockedReason ? "State Lane Paused" : "Run State Lane"}
           </button>
+          {stateLaneBlockedReason && (
+            <p className="mt-1 max-w-xs text-right text-[10px] font-medium text-amber-700 dark:text-amber-300">
+              {stateLaneBlockedReason}
+            </p>
+          )}
         </form>
       </div>
 
