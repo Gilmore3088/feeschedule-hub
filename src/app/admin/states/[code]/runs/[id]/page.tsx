@@ -3,9 +3,12 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
+import { formatAdminDateTime } from "@/lib/admin-time";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { getAgentRunDetail } from "@/lib/data-store/states";
 import type { AgentRunResult } from "@/lib/data-store/states";
+import { getAgentRun, getAgentRunEvents, getAgentRunSteps } from "@/lib/agents/run-store";
+import type { AgentRunEventSnapshot, AgentRunSnapshot, AgentRunStepSnapshot } from "@/lib/agents/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,6 +84,10 @@ function truncate(s: string, max = 60): string {
   return s.length > max ? s.slice(0, max) + "..." : s;
 }
 
+function dateTime(value: string | null | undefined): string {
+  return formatAdminDateTime(value ?? null, { seconds: true });
+}
+
 function duration(start: string, end: string): string {
   if (start === "-" || end === "-") return "-";
   const ms =
@@ -109,7 +116,12 @@ export default async function AgentRunDetailPage({
 
   if (isNaN(runId)) notFound();
 
-  const { run, results } = await getAgentRunDetail(runId);
+  const [{ run, results }, ledgerRun, ledgerSteps, ledgerEvents] = await Promise.all([
+    getAgentRunDetail(runId),
+    getAgentRun(runId),
+    getAgentRunSteps(runId),
+    getAgentRunEvents(runId, 50),
+  ]);
   if (!run || run.state_code !== stateCode) notFound();
 
   const rows = buildInstitutionRows(results);
@@ -156,6 +168,12 @@ export default async function AgentRunDetailPage({
           alert={run.failed > 0}
         />
       </div>
+
+      <AgentRunLedger
+        run={ledgerRun}
+        steps={ledgerSteps}
+        events={ledgerEvents}
+      />
 
       {/* Per-institution Results */}
       <div className="admin-card overflow-hidden mb-8">
@@ -282,6 +300,171 @@ export default async function AgentRunDetailPage({
 // ---------------------------------------------------------------------------
 // Helper Components
 // ---------------------------------------------------------------------------
+
+function AgentRunLedger({
+  run,
+  steps,
+  events,
+}: {
+  run: AgentRunSnapshot | null;
+  steps: AgentRunStepSnapshot[];
+  events: AgentRunEventSnapshot[];
+}) {
+  if (!run && steps.length === 0 && events.length === 0) return null;
+
+  return (
+    <section aria-labelledby="agent-ledger-heading" className="mb-8">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 id="agent-ledger-heading" className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">
+          Atlas Run Ledger
+        </h2>
+        {run && (
+          <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold capitalize text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+            {run.runKind.replace("_", " ")}
+          </span>
+        )}
+      </div>
+
+      {run && (
+        <div className="mb-4 grid gap-3 border-y border-black/[0.06] py-4 text-xs sm:grid-cols-2 lg:grid-cols-5 dark:border-white/[0.06]">
+          <LedgerDatum label="Title" value={run.title} />
+          <LedgerDatum label="Owner" value={run.agent} capitalize />
+          <LedgerDatum label="Backend" value={run.backend} />
+          <LedgerDatum label="Progress" value={`${run.progressCurrent} / ${run.progressTotal}`} />
+          <LedgerDatum label="Current step" value={run.currentStage ?? "Terminal"} />
+          <LedgerDatum label="Trigger" value={run.triggerSource} capitalize />
+          <LedgerDatum label="Started" value={dateTime(run.startedAt)} />
+          <LedgerDatum label="Updated" value={dateTime(run.updatedAt)} />
+          <LedgerDatum label="Completed" value={dateTime(run.completedAt)} />
+          <LedgerDatum label="Correlation" value={run.correlationId || "-"} mono />
+        </div>
+      )}
+
+      {steps.length > 0 ? (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {steps.map((step) => (
+            <LedgerStepCard key={step.id} step={step} />
+          ))}
+        </div>
+      ) : (
+        <div className="border-y border-black/[0.06] py-5 text-xs text-gray-400 dark:border-white/[0.06]">
+          No step ledger rows are attached to this run.
+        </div>
+      )}
+
+      <div className="mt-4 overflow-hidden rounded-md border border-black/[0.06] dark:border-white/[0.06]">
+        <div className="border-b border-black/[0.06] px-3 py-2 dark:border-white/[0.06]">
+          <p className="admin-label">Event stream</p>
+        </div>
+        {events.length > 0 ? (
+          <div className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+            {events.map((event) => (
+              <div key={event.id} className="grid gap-2 px-3 py-2 text-xs sm:grid-cols-[160px_1fr_auto] sm:items-center">
+                <div>
+                  <p className="font-mono text-[10px] text-gray-500">{event.eventType}</p>
+                  <p className="mt-1 tabular-nums text-[10px] text-gray-400">{dateTime(event.createdAt)}</p>
+                </div>
+                <p className="text-gray-700 dark:text-gray-300">{event.message}</p>
+                <LedgerStatusBadge status={event.status} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-3 py-5 text-xs text-gray-400">
+            No events are attached to this run.
+          </div>
+        )}
+      </div>
+
+      {run?.summary && (
+        <div className="mt-4 rounded-md border border-black/[0.06] bg-gray-50 px-3 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+          <p className="admin-label">Run summary</p>
+          <p className="mt-1 text-xs text-gray-700 dark:text-gray-300">{run.summary}</p>
+        </div>
+      )}
+
+      {run?.error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-red-900 dark:border-red-950 dark:bg-red-950/25 dark:text-red-200">
+          <p className="text-[10px] font-bold uppercase tracking-wide">Run error</p>
+          <p className="mt-1 text-xs">{run.error}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LedgerDatum({
+  label,
+  value,
+  capitalize,
+  mono,
+}: {
+  label: string;
+  value: string;
+  capitalize?: boolean;
+  mono?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="admin-label">{label}</p>
+      <p className={`mt-1 truncate font-medium text-gray-900 dark:text-gray-100 ${capitalize ? "capitalize" : ""} ${mono ? "font-mono text-[10px]" : ""}`} title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function LedgerStepCard({ step }: { step: AgentRunStepSnapshot }) {
+  const completed = step.status === "completed" || step.status === "skipped";
+  const active = step.status === "running" || step.status === "queued";
+  const blocked = step.status === "blocked" || step.status === "failed";
+  const tone = completed
+    ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-200"
+    : active
+      ? "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-950 dark:bg-blue-950/20 dark:text-blue-200"
+      : blocked
+        ? "border-red-200 bg-red-50 text-red-900 dark:border-red-950 dark:bg-red-950/20 dark:text-red-200"
+        : "border-black/[0.06] bg-white text-gray-600 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-gray-300";
+
+  return (
+    <div className={`min-h-28 rounded-md border px-3 py-3 ${tone}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide">{step.agent}</p>
+          <p className="mt-1 truncate text-xs font-semibold" title={step.title}>{step.title}</p>
+        </div>
+        <LedgerStatusBadge status={step.status} />
+      </div>
+      <p className="mt-2 font-mono text-[10px] opacity-80">
+        {step.sequence}. {step.stepKey}
+      </p>
+      {(step.error || step.summary) && (
+        <p className="mt-2 line-clamp-2 text-[11px] opacity-90" title={step.error ?? step.summary ?? undefined}>
+          {step.error ?? step.summary}
+        </p>
+      )}
+      <p className="mt-2 text-[10px] opacity-70">
+        Updated {dateTime(step.updatedAt)}
+      </p>
+    </div>
+  );
+}
+
+function LedgerStatusBadge({ status }: { status: string }) {
+  const cls = status === "completed" || status === "success" || status === "ok"
+    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+    : status === "queued" || status === "running"
+      ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200"
+      : status === "skipped" || status === "cancelled"
+        ? "bg-gray-100 text-gray-700 dark:bg-white/[0.08] dark:text-gray-300"
+        : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-200";
+
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${cls}`}>
+      {status.replace("_", " ")}
+    </span>
+  );
+}
 
 function StatCard({
   label,
