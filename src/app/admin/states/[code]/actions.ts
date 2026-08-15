@@ -22,6 +22,15 @@ const decisionSchema = z.enum(["verified", "dismissed"]);
 const sourceKindSchema = z.enum(["pdf", "html", "scanned_pdf", "unknown", "offline"]);
 const readStrategySchema = z.enum(["", "pdf_text", "html_dom", "browser_render", "ocr", "manual_review"]);
 
+export type StateLaneRunActionState = {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  stateCode?: string;
+  runId?: number;
+  reused?: boolean;
+};
+
 export type SourceMemoryCorrectionActionState = {
   ok: boolean;
   message?: string;
@@ -65,13 +74,19 @@ export async function triggerExtract(institutionId: number) {
     : { error: result.error };
 }
 
-export async function runStateLane(stateCode: string) {
-  const result = await runAtlasStateLane(stateCode);
+export async function runStateLane(stateCode: string): Promise<StateLaneRunActionState> {
+  const parsedState = stateCodeSchema.safeParse(stateCode);
+  if (!parsedState.success) {
+    return { ok: false, error: "Check the state code before scheduling this Atlas lane." };
+  }
+
+  const result = await runAtlasStateLane(parsedState.data);
   if (result.success && result.stateCode && result.runId) {
     revalidatePath(`/admin/states/${result.stateCode}`);
     revalidatePath("/admin");
     return {
       ok: true,
+      stateCode: result.stateCode,
       runId: result.runId,
       reused: result.reused,
       message: result.reused
@@ -79,11 +94,22 @@ export async function runStateLane(stateCode: string) {
         : `Atlas ${result.stateCode} lane #${result.runId} created`,
     };
   }
-  return { error: result.error ?? "Atlas state lane could not be scheduled." };
+  return {
+    ok: false,
+    stateCode: parsedState.data,
+    error: result.error ?? "Atlas state lane could not be scheduled.",
+  };
 }
 
-export async function runStateLaneFormAction(stateCode: string): Promise<void> {
-  await runStateLane(stateCode);
+export async function runStateLaneFormAction(
+  _previousState: StateLaneRunActionState | null,
+  formData: FormData,
+): Promise<StateLaneRunActionState> {
+  const stateCode = stateCodeSchema.safeParse(formData.get("state_code"));
+  if (!stateCode.success) {
+    return { ok: false, error: "Check the state code before scheduling this Atlas lane." };
+  }
+  return runStateLane(stateCode.data);
 }
 
 export async function decidePublicDiscoveryFinding(

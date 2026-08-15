@@ -52,6 +52,72 @@ describe("state lane admin actions", () => {
     mocks.setInstitutionFeeUrl.mockReset();
   });
 
+  it("returns visible run metadata after scheduling a state lane", async () => {
+    const { runStateLaneFormAction } = await import("./actions");
+    mocks.runAtlasStateLane.mockResolvedValue({
+      success: true,
+      stateCode: "OH",
+      runId: 456,
+      reused: false,
+    });
+
+    const result = await runStateLaneFormAction(
+      null,
+      form({
+        state_code: "oh",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      stateCode: "OH",
+      runId: 456,
+      reused: false,
+      message: "Atlas OH lane #456 created",
+    });
+    expect(mocks.runAtlasStateLane).toHaveBeenCalledWith("OH");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/states/OH");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin");
+  });
+
+  it("returns state lane scheduling errors without pretending a run exists", async () => {
+    const { runStateLaneFormAction } = await import("./actions");
+    mocks.runAtlasStateLane.mockResolvedValue({
+      success: false,
+      error: "Automation is stopped.",
+    });
+
+    const result = await runStateLaneFormAction(
+      null,
+      form({
+        state_code: "OH",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      stateCode: "OH",
+      error: "Automation is stopped.",
+    });
+  });
+
+  it("rejects invalid state lane scheduling input before touching Atlas", async () => {
+    const { runStateLaneFormAction } = await import("./actions");
+
+    const result = await runStateLaneFormAction(
+      null,
+      form({
+        state_code: "ohio",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Check the state code before scheduling this Atlas lane.",
+    });
+    expect(mocks.runAtlasStateLane).not.toHaveBeenCalled();
+  });
+
   it("returns visible success metadata after locking source memory", async () => {
     const { correctStateSourceMemory } = await import("./actions");
     mocks.applyStateSourceMemoryCorrection.mockResolvedValue({
