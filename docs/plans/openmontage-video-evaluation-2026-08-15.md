@@ -86,6 +86,12 @@ feature.** Fee Insight stays a pure Next.js/TypeScript app.
 
 ## 3. Proposed Architecture
 
+> **Scope note.** The v1 deliverable (§4) is an evergreen brand explainer with
+> **no data binding** — it needs none of the payload plumbing below. The
+> architecture is recorded here because it is what a later data-driven video
+> would use, and because it defines the AGPL boundary that applies either way.
+
+
 ```
 feeschedule-hub (this repo, unchanged)
   └── report assemblers already emit typed JSON
@@ -131,28 +137,77 @@ the expensive half already exists.
 
 ---
 
-## 4. Video Products, Mapped To Existing Skills
+## 4. The Deliverable — A General Brand Explainer
 
-Every Fee Insight content skill has a natural video counterpart. Ranked by
-effort-to-value:
+**Direction (confirmed): a general add to highlight the feature and value.**
+This is top-of-funnel marketing, not a subscriber deliverable and not
+per-institution automation. That simplifies the build considerably — one
+evergreen hero video plus cut-downs, rather than a recurring render pipeline.
 
-| # | Product | Source | Length | Cadence |
-| --- | --- | --- | --- | --- |
-| 1 | **Monthly Pulse motion graphic** — "what moved in bank fees this month" | `monthly-pulse` assembler | 45–75s | Monthly |
-| 2 | **Consumer explainer shorts** — "Why did I get a $35 overdraft fee?" | `consumer-guide` skill | 30–60s vertical | Weekly, evergreen |
-| 3 | **Quarterly National Index report film** | `national-quarterly` assembler | 3–5 min | Quarterly |
-| 4 | **Institution/peer benchmark clips** — auto-rendered per bank | `peer-competitive` assembler | 30s | On demand, sales |
-| 5 | **District economic outlook** — Fed district maps + fee overlays | `district-economic-outlook` skill | 2–3 min | Quarterly |
-| 6 | **Methodology trust film** — how Atlas→Hamilton verifies a fee | agent run ledger | 90s | Once, evergreen |
+### Spec
 
-\#1 is the recommended pilot: highest recurrence, fully automatable, and the
-data contract is already typed and tested.
+| | |
+| --- | --- |
+| **Primary** | 60–90s landing-page hero explainer, 16:9, muted-autoplay-safe |
+| **Cuts** | 30s vertical (9:16) for social; 15s teaser for paid/retargeting |
+| **Placement** | `src/app/page.tsx` hero, `/for-institutions`, YouTube, LinkedIn |
+| **Constraint** | Must read with **sound off** — captions burned in, story carried by motion + type |
+| **Render** | Remotion only. No generative video model needed |
 
-\#6 deserves note — the agent pipeline (Atlas discovers, Magellan fetches,
-Rosetta reads, Knox extracts, Darwin verifies, Hamilton publishes) is a genuinely
-differentiating story. Most fee-data vendors cannot show their provenance chain.
-An animated walkthrough of a single fee's journey from PDF to published record
-is a credibility asset for the `for-institutions` funnel.
+### Script beats (grounded in existing site copy)
+
+Every claim below already exists on the site — nothing invented.
+
+1. **The problem (0–12s).** Bank fees are published, but scattered across
+   thousands of PDFs in inconsistent formats. Nobody can compare them.
+   *Visual: a wall of mismatched fee-schedule PDFs.*
+2. **The positioning (12–22s).** "Public Evidence Layer." The Bank Fee Index.
+   *Visual: the chaos resolves into one clean indexed table.*
+3. **The scale (22–38s).** Institutions tracked · **49** fee categories ·
+   **50** states · verified fee observations.
+   *Visual: the four counters from `landing-trust-stats.tsx`, animating up.*
+4. **The differentiator (38–60s) — the strongest beat.** How a fee becomes a
+   verified record: Atlas discovers → Magellan fetches → Rosetta reads → Knox
+   extracts → Darwin verifies → Hamilton publishes.
+   *Visual: one real fee traced from source PDF to published row.*
+5. **The value, per audience (60–78s).** Consumers search free. Institutions get
+   the Pro workflow — Find or claim → Benchmark → Analyze → Report.
+   *Visual: split screen, the four `WorkflowStep` items from `landing-hero.tsx`.*
+6. **CTA (78–90s).** Search your institution. `FeeInsight.com`.
+
+Beat 4 is the one to spend the most frames on. Your own code comment says it:
+*"Bankers buy on provenance, not on testimonials."* The agent chain is the
+proof, and no competitor can show an equivalent. Most fee-data vendors cannot
+show provenance at all. A video is the ideal medium for it — a six-stage
+pipeline is tedious as prose and immediately legible as motion.
+
+### Brand style guide (from `src/app/globals.css`)
+
+The video must match the site or it undercuts the credibility it is selling.
+
+| Token | Hex | Use in video |
+| --- | --- | --- |
+| `warm-100` | `#FAF7F2` | Background |
+| `warm-900` | `#1A1815` | Headlines |
+| `warm-700` | `#5A5347` | Body / subtitles |
+| `warm-500` | `#A09788` | Eyebrow labels, uppercase tracked |
+| `warm-300` | `#E0D7C9` | Dividers, table rules |
+| `terra` | `#C44B2E` | Accent — highlights, the single moving element |
+| `terra-soft` | `#FDF0ED` | Tinted panel fills |
+
+Type: **Newsreader** serif for headlines (`--font-newsreader`, as in the H1),
+Geist Sans for body, Geist Mono for figures and fee amounts. Motion should be
+restrained and editorial — this is a research brand, not a fintech ad.
+
+### One practical warning
+
+Do **not** burn live counts into the video. `total_institutions` and
+`total_observations` are dynamic props, so a hardcoded "12,431 institutions"
+dates the film the week it ships and quietly becomes a false claim. Either
+render the counters as rounded, durable framing ("thousands of institutions",
+"all 50 states"), or keep them in a single isolated scene that can be
+re-rendered cheaply when the numbers move. The static facts — **49** categories,
+**50** states — are safe to burn in.
 
 ### Cost posture
 
@@ -166,6 +221,12 @@ A realistic pilot budget is **$0 in API spend**, with the only cost being setup
 time and optionally ~$50–200/mo for ElevenLabs-grade narration if the Piper
 voice is judged too synthetic for a financial-research brand.
 
+For a sound-off hero explainer, narration may not be needed at all — burned-in
+captions and motion carry the whole story. That removes the only line item
+worth paying for, and removes the risk of a synthetic voice undercutting a
+research brand. Recommend shipping v1 silent (music bed optional) and adding
+voice only if the cut-downs demand it.
+
 ---
 
 ## 5. Recommendation
@@ -177,17 +238,21 @@ Suggested sequencing:
 1. Fork OpenMontage to a private repo, **pinned to a reviewed commit**. Do not
    track `main`; re-review before each bump, with attention to the markdown
    skill diffs.
-2. Run it in a container with no Fee Insight credentials mounted. It needs a
-   JSON payload and nothing else — not the database, not Supabase keys.
+2. Run it in a container with no Fee Insight credentials mounted. A brand
+   explainer needs no live data at all — not the database, not Supabase keys.
 3. Remove or neuter the `npx --yes` cache-warm and vendor `hyperframes` at a
    pinned version, or skip HyperFrames entirely and use only Remotion (which is
-   already pinned in `package.json` and is the better fit for chart-driven work).
-4. Build one Remotion composition against a **checked-in sample**
-   `MonthlyPulsePayload` fixture. No live data, no network.
-5. Render one Monthly Pulse video end to end. Judge quality before investing
-   further.
-6. If it holds up, add a thin export step so a published Monthly Pulse writes
-   its payload JSON to the studio repo's input directory.
+   already pinned in `package.json` and is the better fit for typographic and
+   chart-driven work).
+4. Port the brand tokens from §4 into a Remotion theme file, then build the
+   six beats as compositions against **static copy** — no data binding.
+5. Render the 60–90s hero cut. Judge quality before investing further.
+6. If it holds up, produce the 9:16 and 15s cut-downs from the same
+   compositions, and drop the MP4 into the landing hero.
+
+Because the explainer is evergreen and data-free, steps 4–6 are a one-time
+build. There is no recurring render pipeline to maintain, no export step from
+this repo, and no ongoing coupling between the two codebases.
 
 ### What this does not change
 
@@ -196,11 +261,16 @@ Suggested sequencing:
 - No change to `published_fee_catalog` reads or the agent run ledger.
 - If the pilot fails, the sunk cost is one throwaway repo.
 
-### Open questions for the user
+### Later, if v1 lands
 
-- Is video for **top-of-funnel marketing** (consumer shorts, SEO, social) or
-  **product deliverable** (subscriber-facing report companions)? The answer
-  changes which product from §4 to pilot, and whether renders must be
-  per-institution automated or hand-curated.
-- Is a synthetic narration voice acceptable for a research brand, or is
-  human/premium voice required from the start?
+The report assemblers described in §3 stay the natural second phase — a
+recurring **Monthly Pulse** motion graphic driven by `assembleMonthlyPulse()`,
+reusing the same brand theme and compositions built for the explainer. That is
+the point at which the JSON handoff becomes worth wiring. It is explicitly
+out of scope for this pass.
+
+### Open question
+
+- Silent-with-captions or narrated? Recommendation is silent for v1 (see cost
+  posture). If narration is wanted, the follow-on question is whether Piper's
+  free offline voice is acceptable or premium TTS is required.
