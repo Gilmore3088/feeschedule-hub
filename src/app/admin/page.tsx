@@ -27,6 +27,7 @@ import { AtlasLiveStatus } from "./atlas-live-status";
 import { AtlasResumeControl } from "./atlas-resume-control";
 import { AtlasRunControl } from "./atlas-run-control";
 import { AtlasStateLaneDispatchPanel } from "./atlas-state-lane-dispatch";
+import { AtlasTickControl } from "./atlas-tick-control";
 import { AtlasWorkflowLauncher } from "./atlas-workflow-launcher";
 
 function number(value: number): string {
@@ -384,6 +385,17 @@ export default async function AtlasCommandPage() {
       <AtlasCommandMap
         center={center}
         stateLaneDispatch={stateLaneDispatch}
+      />
+
+      <AtlasTickControl
+        disabled={!center.automation.enabled || !execution.enabled}
+        disabledReason={
+          !center.automation.enabled
+            ? "Automation safety stop is active."
+            : !execution.enabled
+              ? execution.detail
+              : undefined
+        }
       />
 
       <AtlasLiveStatus
