@@ -1,10 +1,12 @@
-import { sql } from "@/lib/data-store/connection";
+import { sql, withTransaction } from "@/lib/data-store/connection";
 import { safeJsonb, toISO } from "@/lib/pg-helpers";
 import { STATE_NAMES } from "@/lib/us-states";
 
 type SqlTag = typeof sql;
 
 export type AtlasStateLaneStatus = "running" | "due" | "attention" | "scheduled";
+export type StateSourceKind = "pdf" | "html" | "scanned_pdf" | "unknown" | "offline";
+export type StateReadStrategy = "pdf_text" | "html_dom" | "browser_render" | "ocr" | "manual_review";
 
 export interface StateLaneMemorySyncResult {
   stateCode: string | null;
@@ -84,8 +86,8 @@ export interface StateSourceMemoryProfile {
   websiteUrl: string | null;
   feeScheduleUrl: string | null;
   canonicalSourceUrl: string | null;
-  sourceKind: "pdf" | "html" | "scanned_pdf" | "unknown" | "offline";
-  readStrategy: "pdf_text" | "html_dom" | "browser_render" | "ocr" | "manual_review" | null;
+  sourceKind: StateSourceKind;
+  readStrategy: StateReadStrategy | null;
   lockedByCorrection: boolean;
   correctionVersion: number;
   correctionCount: number;
@@ -107,6 +109,15 @@ export interface PublicDiscoveryFindingDecisionResult {
   findingId?: number;
   stateCode?: string;
   status?: PublicDiscoveryFindingDecision;
+  error?: string;
+}
+
+export interface StateSourceMemoryCorrectionResult {
+  success: boolean;
+  institutionId?: number;
+  stateCode?: string;
+  correctionId?: number;
+  correctionVersion?: number;
   error?: string;
 }
 
@@ -232,7 +243,7 @@ function safeVerifiedStatus(value: unknown): StatePublicDiscoveryFinding["verifi
   return "unverified";
 }
 
-function safeSourceKind(value: unknown): StateSourceMemoryProfile["sourceKind"] {
+function safeSourceKind(value: unknown): StateSourceKind {
   if (
     value === "pdf" ||
     value === "html" ||
@@ -245,7 +256,7 @@ function safeSourceKind(value: unknown): StateSourceMemoryProfile["sourceKind"] 
   return "unknown";
 }
 
-function safeReadStrategy(value: unknown): StateSourceMemoryProfile["readStrategy"] {
+function safeReadStrategy(value: unknown): StateReadStrategy | null {
   if (
     value === "pdf_text" ||
     value === "html_dom" ||
@@ -282,6 +293,35 @@ export function readStrategyFromDocumentType(value: string | null | undefined): 
   if (value === "pdf") return "pdf_text";
   if (value === "html" || value === "text") return "html_dom";
   return null;
+}
+
+function normalizeCorrectionUrl(value: string | null | undefined): string | null {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function correctionTypeForSourceMemory({
+  sourceKind,
+  readStrategy,
+  canonicalSourceUrl,
+}: {
+  sourceKind: StateSourceKind;
+  readStrategy: StateReadStrategy | null;
+  canonicalSourceUrl: string | null;
+}): "canonical_source_url" | "source_kind" | "read_strategy" | "offline" | "manual_review" {
+  if (sourceKind === "offline") return "offline";
+  if (readStrategy === "manual_review") return "manual_review";
+  if (canonicalSourceUrl) return "canonical_source_url";
+  if (readStrategy) return "read_strategy";
+  return "source_kind";
 }
 
 export async function syncStateLaneProfiles(
@@ -639,6 +679,213 @@ export async function getStateSourceMemoryProfiles(
     if (isMissingStateLaneSchemaError(error)) return [];
     console.error("getStateSourceMemoryProfiles failed:", error);
     return [];
+  }
+}
+
+export async function applyStateSourceMemoryCorrection({
+  institutionId,
+  stateCode,
+  canonicalSourceUrl,
+  sourceKind,
+  readStrategy,
+  reason,
+  correctedBy,
+  db,
+}: {
+  institutionId: number;
+  stateCode: string;
+  canonicalSourceUrl?: string | null;
+  sourceKind: StateSourceKind;
+  readStrategy?: StateReadStrategy | "" | null;
+  reason?: string | null;
+  correctedBy: string;
+  db?: SqlTag;
+}): Promise<StateSourceMemoryCorrectionResult> {
+  const normalizedState = normalizeStateCode(stateCode);
+  if (!Number.isInteger(institutionId) || institutionId <= 0) {
+    return { success: false, error: "Invalid institution id." };
+  }
+  if (!normalizedState) {
+    return { success: false, error: "Invalid state code." };
+  }
+  if (safeSourceKind(sourceKind) !== sourceKind) {
+    return { success: false, error: "Invalid source kind." };
+  }
+  const normalizedReadStrategy = readStrategy == null || readStrategy === ""
+    ? null
+    : safeReadStrategy(readStrategy);
+  if (readStrategy && normalizedReadStrategy !== readStrategy) {
+    return { success: false, error: "Invalid read strategy." };
+  }
+  const normalizedUrl = normalizeCorrectionUrl(canonicalSourceUrl);
+  if (canonicalSourceUrl && !normalizedUrl) {
+    return { success: false, error: "Canonical source URL must be a valid http(s) URL." };
+  }
+
+  const finalSourceKind = sourceKind;
+  const finalReadStrategy = finalSourceKind === "offline"
+    ? "manual_review"
+    : normalizedReadStrategy;
+  const finalCanonicalUrl = finalSourceKind === "offline" ? null : normalizedUrl;
+  if (!finalCanonicalUrl && finalSourceKind !== "offline" && finalReadStrategy !== "manual_review") {
+    return {
+      success: false,
+      error: "Canonical source URL is required unless the source is offline or marked for manual review.",
+    };
+  }
+  const correctionType = correctionTypeForSourceMemory({
+    sourceKind: finalSourceKind,
+    readStrategy: finalReadStrategy,
+    canonicalSourceUrl: finalCanonicalUrl,
+  });
+  const cleanedReason = String(reason ?? "").trim() || null;
+  const cleanedCorrectedBy = String(correctedBy || "atlas").trim().slice(0, 120) || "atlas";
+
+  const run = async (tx: SqlTag): Promise<StateSourceMemoryCorrectionResult> => {
+    const [current] = await tx`
+      SELECT
+        inst.id,
+        upper(btrim(inst.state_code)) AS state_code,
+        inst.fee_schedule_url,
+        inst.document_type,
+        profile.canonical_source_url,
+        profile.source_kind,
+        profile.read_strategy,
+        profile.correction_version
+      FROM public.institution_sources inst
+      LEFT JOIN public.institution_source_profiles profile
+        ON profile.institution_id = inst.id
+      WHERE inst.id = ${institutionId}
+        AND upper(btrim(inst.state_code)) = ${normalizedState}
+      LIMIT 1
+    `;
+    if (!current) {
+      return {
+        success: false,
+        error: "Institution source profile was not found for this state lane.",
+      };
+    }
+
+    const beforeValue = {
+      fee_schedule_url: current.fee_schedule_url ?? null,
+      document_type: current.document_type ?? null,
+      canonical_source_url: current.canonical_source_url ?? null,
+      source_kind: current.source_kind ?? null,
+      read_strategy: current.read_strategy ?? null,
+      correction_version: numberFrom(current.correction_version),
+    };
+    const afterValue = {
+      canonical_source_url: finalCanonicalUrl,
+      source_kind: finalSourceKind,
+      read_strategy: finalReadStrategy,
+      locked_by_correction: true,
+      source: "atlas_state_lane",
+    };
+
+    const [profile] = await tx`
+      INSERT INTO public.institution_source_profiles (
+        institution_id,
+        state_code,
+        canonical_source_url,
+        source_kind,
+        read_strategy,
+        correction_version,
+        locked_by_correction,
+        consecutive_failures,
+        last_failure_at,
+        last_failure_reason,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${institutionId},
+        ${normalizedState},
+        ${finalCanonicalUrl},
+        ${finalSourceKind},
+        ${finalReadStrategy},
+        1,
+        TRUE,
+        0,
+        NULL,
+        NULL,
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (institution_id) DO UPDATE SET
+        state_code = EXCLUDED.state_code,
+        canonical_source_url = EXCLUDED.canonical_source_url,
+        source_kind = EXCLUDED.source_kind,
+        read_strategy = EXCLUDED.read_strategy,
+        correction_version = public.institution_source_profiles.correction_version + 1,
+        locked_by_correction = TRUE,
+        consecutive_failures = 0,
+        last_failure_at = NULL,
+        last_failure_reason = NULL,
+        updated_at = NOW()
+      RETURNING correction_version
+    `;
+
+    await tx`
+      UPDATE public.institution_sources
+         SET fee_schedule_url = ${finalCanonicalUrl},
+             document_type = CASE
+               WHEN ${finalSourceKind} = 'scanned_pdf' THEN 'pdf'
+               WHEN ${finalSourceKind} = 'unknown' THEN document_type
+               ELSE ${finalSourceKind}
+             END,
+             failure_reason = NULL,
+             failure_reason_note = NULL,
+             failure_reason_updated_at = NULL,
+             consecutive_failures = 0
+       WHERE id = ${institutionId}
+         AND upper(btrim(state_code)) = ${normalizedState}
+    `;
+
+    const [correction] = await tx`
+      INSERT INTO public.institution_source_corrections (
+        institution_id,
+        correction_type,
+        before_value,
+        after_value,
+        reason,
+        corrected_by,
+        confidence,
+        accepted,
+        created_at
+      )
+      VALUES (
+        ${institutionId},
+        ${correctionType},
+        ${JSON.stringify(beforeValue)}::jsonb,
+        ${JSON.stringify(afterValue)}::jsonb,
+        ${cleanedReason},
+        ${cleanedCorrectedBy},
+        1,
+        TRUE,
+        NOW()
+      )
+      RETURNING id
+    `;
+
+    await syncStateLaneProfiles(tx, normalizedState);
+
+    return {
+      success: true,
+      institutionId,
+      stateCode: normalizedState,
+      correctionId: Number(correction.id),
+      correctionVersion: numberFrom(profile?.correction_version),
+    };
+  };
+
+  try {
+    return await (db ? run(db) : withTransaction(run));
+  } catch (error) {
+    if (isMissingStateLaneSchemaError(error)) {
+      return { success: false, error: "State lane source memory schema is not available." };
+    }
+    console.error("applyStateSourceMemoryCorrection failed:", error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

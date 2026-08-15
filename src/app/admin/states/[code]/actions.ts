@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
 import { runAtlasStateLane } from "@/app/admin/atlas-actions";
 import {
+  applyStateSourceMemoryCorrection,
   updatePublicDiscoveryFindingDecision,
   type PublicDiscoveryFindingDecision,
 } from "@/lib/agents/state-lane-memory";
@@ -15,8 +16,11 @@ import {
 } from "@/lib/institution-commands";
 
 const findingIdSchema = z.coerce.number().int().positive();
+const institutionIdSchema = z.coerce.number().int().positive();
 const stateCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z]{2,3}$/);
 const decisionSchema = z.enum(["verified", "dismissed"]);
+const sourceKindSchema = z.enum(["pdf", "html", "scanned_pdf", "unknown", "offline"]);
+const readStrategySchema = z.enum(["", "pdf_text", "html_dom", "browser_render", "ocr", "manual_review"]);
 
 export async function setFeeScheduleUrl(
   institutionId: number,
@@ -77,6 +81,29 @@ export async function decidePublicDiscoveryFinding(formData: FormData): Promise<
     status: status.data as PublicDiscoveryFindingDecision,
     decidedByUserId: user.id,
     decidedByUsername: user.username,
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/states");
+  revalidatePath(`/admin/states/${stateCode.data}`);
+}
+
+export async function correctStateSourceMemory(formData: FormData): Promise<void> {
+  const user = await requireAuth("approve");
+  const institutionId = institutionIdSchema.safeParse(formData.get("institution_id"));
+  const stateCode = stateCodeSchema.safeParse(formData.get("state_code"));
+  const sourceKind = sourceKindSchema.safeParse(formData.get("source_kind"));
+  const readStrategy = readStrategySchema.safeParse(formData.get("read_strategy"));
+  if (!institutionId.success || !stateCode.success || !sourceKind.success || !readStrategy.success) return;
+
+  await applyStateSourceMemoryCorrection({
+    institutionId: institutionId.data,
+    stateCode: stateCode.data,
+    canonicalSourceUrl: String(formData.get("canonical_source_url") ?? ""),
+    sourceKind: sourceKind.data,
+    readStrategy: readStrategy.data === "" ? null : readStrategy.data,
+    reason: String(formData.get("reason") ?? ""),
+    correctedBy: user.username ?? `user:${user.id}`,
   });
 
   revalidatePath("/admin");

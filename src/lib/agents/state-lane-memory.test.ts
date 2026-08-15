@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  applyStateSourceMemoryCorrection,
   getAtlasStateLaneDispatch,
   getStatePublicDiscoveryFindings,
   getStateSourceMemoryProfiles,
@@ -170,6 +171,81 @@ describe("state lane memory", () => {
     expect(sqlText).toContain("finding.state_code = lane.state_code");
     expect(sqlText).toContain("finding.verified_status = 'unverified'");
     expect(sqlText).toContain("critical_public_findings");
+  });
+
+  it("locks corrected source memory and appends correction history within one state", async () => {
+    const db = vi.fn((strings: TemplateStringsArray) => {
+      const text = templateText(strings);
+      if (text.includes("FROM public.institution_sources inst") && text.includes("LEFT JOIN public.institution_source_profiles")) {
+        return Promise.resolve([{
+          id: "42",
+          state_code: "CA",
+          fee_schedule_url: "https://old.example/fees",
+          document_type: "html",
+          canonical_source_url: "https://old.example/fees",
+          source_kind: "html",
+          read_strategy: "html_dom",
+          correction_version: "1",
+        }]);
+      }
+      if (text.includes("INSERT INTO public.institution_source_profiles")) {
+        return Promise.resolve([{ correction_version: "2" }]);
+      }
+      if (text.includes("UPDATE public.institution_sources")) return Promise.resolve([]);
+      if (text.includes("INSERT INTO public.institution_source_corrections")) {
+        return Promise.resolve([{ id: "8001" }]);
+      }
+      if (text.includes("INSERT INTO public.agent_state_lanes")) return Promise.resolve([]);
+      if (text.includes("UPDATE public.agent_state_lanes")) return Promise.resolve([]);
+      if (text.includes("FROM public.agent_state_lanes")) {
+        return Promise.resolve([{
+          missing_urls: "0",
+          stale_sources: "0",
+          ocr_backlog: "0",
+          manual_backlog: "0",
+          failures: "0",
+          corrections: "1",
+        }]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await applyStateSourceMemoryCorrection({
+      institutionId: 42,
+      stateCode: "ca",
+      canonicalSourceUrl: "https://new.example/fees.pdf#page=2",
+      sourceKind: "pdf",
+      readStrategy: "pdf_text",
+      reason: "Official fee PDF found by operator",
+      correctedBy: "atlas.admin",
+      db: asStateLaneDb(db),
+    });
+
+    expect(result).toEqual({
+      success: true,
+      institutionId: 42,
+      stateCode: "CA",
+      correctionId: 8001,
+      correctionVersion: 2,
+    });
+    const calls = db.mock.calls as unknown as Array<unknown[]>;
+    const sqlText = calls.map((call) => templateText(call[0])).join("\n");
+    expect(sqlText).toContain("WHERE inst.id =");
+    expect(sqlText).toContain("AND upper(btrim(inst.state_code)) =");
+    expect(sqlText).toContain("locked_by_correction");
+    expect(sqlText).toContain("INSERT INTO public.institution_source_corrections");
+    expect(sqlText).toContain("before_value");
+    expect(sqlText).toContain("after_value");
+    expect(sqlText).toContain("UPDATE public.institution_sources");
+    expect(sqlText).toContain("INSERT INTO public.agent_state_lanes");
+    expect(calls[0]?.[1]).toBe(42);
+    expect(calls[0]?.[2]).toBe("CA");
+    expect(calls[1]?.[3]).toBe("https://new.example/fees.pdf");
+    expect(calls[1]?.[4]).toBe("pdf");
+    expect(calls[1]?.[5]).toBe("pdf_text");
+    expect(calls[3]?.[2]).toBe("canonical_source_url");
+    expect(calls[3]?.[5]).toBe("Official fee PDF found by operator");
+    expect(calls[3]?.[6]).toBe("atlas.admin");
   });
 
   it("loads open public discovery findings for one state lane", async () => {

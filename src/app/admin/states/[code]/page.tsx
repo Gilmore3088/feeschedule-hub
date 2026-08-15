@@ -15,10 +15,12 @@ import {
   getStateLaneHealth,
   getStatePublicDiscoveryFindings,
   getStateSourceMemoryProfiles,
+  type StateReadStrategy,
   type StatePublicDiscoveryFinding,
   type StateSourceMemoryProfile,
+  type StateSourceKind,
 } from "@/lib/agents/state-lane-memory";
-import { decidePublicDiscoveryFinding, runStateLaneFormAction } from "./actions";
+import { correctStateSourceMemory, decidePublicDiscoveryFinding, runStateLaneFormAction } from "./actions";
 import { UrlResolutionRow } from "./url-resolution-row";
 import { SortableInstitutionTable } from "./sortable-institution-table";
 
@@ -90,6 +92,7 @@ export default async function StateDetailPage({
   const stateName = STATE_NAMES[stateCode] ?? stateCode;
   const runStateLaneForState = runStateLaneFormAction.bind(null, stateCode);
   const canReviewPublicFindings = hasPermission(user, "approve");
+  const canCorrectSourceMemory = hasPermission(user, "approve");
 
   const [summary, institutions, agentRuns, urlResolutionQueue, laneHealth, sourceMemory, publicFindings, automation, execution] = await Promise.all([
     getStateSummary(stateCode),
@@ -215,8 +218,10 @@ export default async function StateDetailPage({
 
       {/* Source Memory */}
       <SourceMemoryTable
+        stateCode={stateCode}
         rows={sourceMemory}
         totalProfiles={laneHealth?.profileCount ?? sourceMemory.length}
+        canCorrect={canCorrectSourceMemory}
       />
 
       {/* Public Discovery Findings */}
@@ -401,11 +406,15 @@ function LaneMiniSummary({
 }
 
 function SourceMemoryTable({
+  stateCode,
   rows,
   totalProfiles,
+  canCorrect,
 }: {
+  stateCode: string;
   rows: StateSourceMemoryProfile[];
   totalProfiles: number;
+  canCorrect: boolean;
 }) {
   return (
     <div className="admin-card mb-8 overflow-hidden">
@@ -434,6 +443,7 @@ function SourceMemoryTable({
                 <th>Read</th>
                 <th>Memory</th>
                 <th>Last Activity</th>
+                {canCorrect && <th>Correction</th>}
               </tr>
             </thead>
             <tbody>
@@ -507,6 +517,11 @@ function SourceMemoryTable({
                       Updated {formatDateTime(row.updatedAt)}
                     </span>
                   </td>
+                  {canCorrect && (
+                    <td className="min-w-[340px]">
+                      <SourceMemoryCorrectionForm stateCode={stateCode} row={row} />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -518,6 +533,86 @@ function SourceMemoryTable({
         </div>
       )}
     </div>
+  );
+}
+
+const SOURCE_KIND_OPTIONS: Array<{ value: StateSourceKind; label: string }> = [
+  { value: "pdf", label: "PDF" },
+  { value: "html", label: "HTML" },
+  { value: "scanned_pdf", label: "Scanned PDF" },
+  { value: "unknown", label: "Unknown" },
+  { value: "offline", label: "Offline" },
+];
+
+const READ_STRATEGY_OPTIONS: Array<{ value: "" | StateReadStrategy; label: string }> = [
+  { value: "", label: "Infer" },
+  { value: "pdf_text", label: "PDF text" },
+  { value: "html_dom", label: "HTML DOM" },
+  { value: "browser_render", label: "Browser render" },
+  { value: "ocr", label: "OCR" },
+  { value: "manual_review", label: "Manual review" },
+];
+
+function SourceMemoryCorrectionForm({
+  stateCode,
+  row,
+}: {
+  stateCode: string;
+  row: StateSourceMemoryProfile;
+}) {
+  return (
+    <form action={correctStateSourceMemory} className="grid gap-2">
+      <input type="hidden" name="institution_id" value={row.institutionId} />
+      <input type="hidden" name="state_code" value={stateCode} />
+      <label className="sr-only" htmlFor={`source-url-${row.institutionId}`}>Canonical source URL</label>
+      <input
+        id={`source-url-${row.institutionId}`}
+        name="canonical_source_url"
+        type="url"
+        defaultValue={row.canonicalSourceUrl ?? row.feeScheduleUrl ?? ""}
+        placeholder="https://institution.example/fees.pdf"
+        className="min-h-8 rounded border border-gray-200 bg-white px-2 font-mono text-[10px] text-gray-700 outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-[oklch(0.18_0_0)] dark:text-gray-100"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <label className="sr-only" htmlFor={`source-kind-${row.institutionId}`}>Source kind</label>
+        <select
+          id={`source-kind-${row.institutionId}`}
+          name="source_kind"
+          defaultValue={row.sourceKind}
+          className="min-h-8 rounded border border-gray-200 bg-white px-2 text-[10px] font-semibold text-gray-700 outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-[oklch(0.18_0_0)] dark:text-gray-100"
+        >
+          {SOURCE_KIND_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor={`read-strategy-${row.institutionId}`}>Read strategy</label>
+        <select
+          id={`read-strategy-${row.institutionId}`}
+          name="read_strategy"
+          defaultValue={row.readStrategy ?? ""}
+          className="min-h-8 rounded border border-gray-200 bg-white px-2 text-[10px] font-semibold text-gray-700 outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-[oklch(0.18_0_0)] dark:text-gray-100"
+        >
+          {READ_STRATEGY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <label className="sr-only" htmlFor={`correction-reason-${row.institutionId}`}>Correction reason</label>
+        <input
+          id={`correction-reason-${row.institutionId}`}
+          name="reason"
+          placeholder="Correction note"
+          className="min-h-8 rounded border border-gray-200 bg-white px-2 text-[10px] text-gray-700 outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-[oklch(0.18_0_0)] dark:text-gray-100"
+        />
+        <button
+          type="submit"
+          className="min-h-8 rounded border border-blue-200 px-2 text-[10px] font-semibold text-blue-700 transition-colors hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30"
+        >
+          Lock
+        </button>
+      </div>
+    </form>
   );
 }
 
