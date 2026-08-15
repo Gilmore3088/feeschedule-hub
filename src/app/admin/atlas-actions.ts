@@ -10,7 +10,7 @@ import {
 import { cancelAgentRun, cancelAllActiveAgentRuns, startAgentRun } from "@/lib/agents/run-store";
 import type { AgentRunStepDefinition, AdminAgent } from "@/lib/agents/types";
 
-export type AtlasWorkflowId = "enhance" | "discover" | "extract" | "classify" | "review";
+export type AtlasWorkflowId = "enhance" | "discover" | "fetch" | "read" | "extract" | "classify" | "publish" | "review";
 
 const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
   {
@@ -41,7 +41,7 @@ const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
   {
     key: "classify",
     agent: "darwin",
-    title: "Classify and verify fee observations",
+    title: "Verify fee observations",
   },
   {
     key: "review",
@@ -154,10 +154,10 @@ const WORKFLOW_JOBS: Record<AtlasWorkflowId, {
       },
     ],
   },
-  extract: {
-    title: "Extract fee schedules",
+  fetch: {
+    title: "Fetch source documents",
     agent: "magellan",
-    idempotencyKey: "magellan:quick-extract-gaps",
+    idempotencyKey: "magellan:quick-fetch-sources",
     steps: [
       {
         key: "fetch",
@@ -165,28 +165,57 @@ const WORKFLOW_JOBS: Record<AtlasWorkflowId, {
         title: "Fetch source fee documents",
         input: { limit: 500, skip_with_fees: true },
       },
+    ],
+  },
+  read: {
+    title: "Read source documents",
+    agent: "rosetta",
+    idempotencyKey: "rosetta:quick-read-sources",
+    steps: [
       {
         key: "read",
         agent: "rosetta",
         title: "Read PDFs, HTML, and OCR candidates",
+        input: { limit: 50 },
       },
+    ],
+  },
+  extract: {
+    title: "Extract raw fee observations",
+    agent: "knox",
+    idempotencyKey: "knox:quick-extract-raw-fees",
+    steps: [
       {
         key: "extract",
         agent: "knox",
         title: "Extract fee observations from normalized text",
+        input: { limit: 500 },
       },
     ],
   },
   classify: {
-    title: "Classify raw fees",
+    title: "Verify raw fees",
     agent: "darwin",
     idempotencyKey: "darwin:quick-classify",
     steps: [
       {
         key: "classify",
         agent: "darwin",
-        title: "Classify and verify staged fee observations",
+        title: "Verify staged fee observations",
         input: { batch_size: 500, batches: 1 },
+      },
+    ],
+  },
+  publish: {
+    title: "Publish verified fee intelligence",
+    agent: "hamilton",
+    idempotencyKey: "hamilton:quick-publish",
+    steps: [
+      {
+        key: "publish",
+        agent: "hamilton",
+        title: "Publish clean fee intelligence",
+        input: { limit: 500 },
       },
     ],
   },

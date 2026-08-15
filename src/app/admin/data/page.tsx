@@ -30,10 +30,10 @@ export default async function DataPage() {
   return (
     <div className="space-y-8">
       <header>
-        <Breadcrumbs items={[{ label: "Atlas", href: "/admin" }, { label: "Data" }]} />
-        <p className="admin-eyebrow mt-3">Workspace · Publish + explore</p>
-        <h1 className="admin-display-title mt-1">Data</h1>
-        <p className="admin-lede mt-2">Start institution enhancement, then inspect institutional, benchmark, taxonomy, and market views.</p>
+        <Breadcrumbs items={[{ label: "Atlas", href: "/admin" }, { label: "Published Data" }]} />
+        <p className="admin-eyebrow mt-3">Output · Hamilton publish + explore</p>
+        <h1 className="admin-display-title mt-1">Published Data</h1>
+        <p className="admin-lede mt-2">Inspect the product read models Hamilton publishes into: institutions, benchmarks, taxonomy, states, and market views.</p>
       </header>
 
       <DataOperations />

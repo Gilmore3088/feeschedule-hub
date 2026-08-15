@@ -1,4 +1,9 @@
 import { sql } from "@/lib/data-store/connection";
+import {
+  normalizeStateCode,
+  readStrategyFromDocumentType,
+  sourceKindFromDocumentType,
+} from "@/lib/agents/state-lane-memory";
 
 type SqlTag = typeof sql;
 type Fetcher = typeof fetch;
@@ -94,6 +99,10 @@ interface DiscoveryCandidateRow {
   website_url: string | null;
   asset_size: number | string | null;
   rescue_status: string | null;
+  profile_canonical_source_url?: string | null;
+  profile_source_kind?: string | null;
+  profile_read_strategy?: string | null;
+  profile_locked_by_correction?: boolean | string | null;
 }
 
 interface LinkCandidate {
@@ -109,6 +118,7 @@ type DiscoveryOutcome = "discovered" | "dead" | "needs_human" | "retry_after" | 
 interface CandidateDiscoveryResult {
   institutionId: number;
   institutionName: string;
+  stateCode: string | null;
   outcome: DiscoveryOutcome;
   url: string | null;
   documentType: string | null;
@@ -123,6 +133,7 @@ export interface RunMagellanDiscoveryOptions {
   mode?: "discover" | "rescue";
   limit?: number;
   dryRun?: boolean;
+  stateCode?: string;
   db?: SqlTag;
   fetchImpl?: Fetcher;
 }
@@ -160,6 +171,29 @@ function normalizeWebsiteUrl(value: string | null): URL | null {
     }
   }
   return null;
+}
+
+function normalizeHttpUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function lockedByCorrection(row: DiscoveryCandidateRow): boolean {
+  return row.profile_locked_by_correction === true ||
+    String(row.profile_locked_by_correction ?? "").toLowerCase() === "true";
+}
+
+function profileDocumentType(row: DiscoveryCandidateRow): string | null {
+  return row.profile_source_kind === "pdf" || row.profile_source_kind === "html"
+    ? row.profile_source_kind
+    : null;
 }
 
 function cleanText(value: string): string {
@@ -327,11 +361,31 @@ async function discoverForInstitution(
 ): Promise<CandidateDiscoveryResult> {
   const institutionId = Number(row.id);
   const institutionName = String(row.institution_name);
+  const stateCode = normalizeStateCode(row.state_code);
+  const correctedUrl = lockedByCorrection(row)
+    ? normalizeHttpUrl(row.profile_canonical_source_url)
+    : null;
+  if (correctedUrl) {
+    return {
+      institutionId,
+      institutionName,
+      stateCode,
+      outcome: "discovered",
+      url: correctedUrl,
+      documentType: profileDocumentType(row),
+      confidence: 1,
+      reason: "Locked source correction supplied canonical source URL",
+      method: DISCOVERY_METHOD,
+      attemptedUrls: 0,
+    };
+  }
+
   const baseUrl = normalizeWebsiteUrl(row.website_url);
   if (!baseUrl) {
     return {
       institutionId,
       institutionName,
+      stateCode,
       outcome: "needs_human",
       url: null,
       documentType: null,
@@ -349,6 +403,7 @@ async function discoverForInstitution(
     return {
       institutionId,
       institutionName,
+      stateCode,
       outcome: "retry_after",
       url: null,
       documentType: null,
@@ -363,6 +418,7 @@ async function discoverForInstitution(
     return {
       institutionId,
       institutionName,
+      stateCode,
       outcome: "retry_after",
       url: null,
       documentType: null,
@@ -379,6 +435,7 @@ async function discoverForInstitution(
     return {
       institutionId,
       institutionName,
+      stateCode,
       outcome: "dead",
       url: null,
       documentType: null,
@@ -400,6 +457,7 @@ async function discoverForInstitution(
         return {
           institutionId,
           institutionName,
+          stateCode,
           outcome: "discovered",
           url: candidate.url,
           documentType: validation.documentType,
@@ -417,6 +475,7 @@ async function discoverForInstitution(
   return {
     institutionId,
     institutionName,
+    stateCode,
     outcome: "dead",
     url: null,
     documentType: null,
@@ -427,25 +486,46 @@ async function discoverForInstitution(
   };
 }
 
-async function selectCandidates(db: SqlTag, limit: number): Promise<DiscoveryCandidateRow[]> {
+async function selectCandidates(
+  db: SqlTag,
+  limit: number,
+  stateCode?: string,
+): Promise<DiscoveryCandidateRow[]> {
+  const normalizedState = normalizeStateCode(stateCode);
   return db<DiscoveryCandidateRow[]>`
-    SELECT id, institution_name, state_code, website_url, asset_size, rescue_status
-      FROM institution_sources
-     WHERE COALESCE(status, 'active') = 'active'
-       AND (fee_schedule_url IS NULL OR btrim(fee_schedule_url) = '')
-       AND website_url IS NOT NULL
-       AND btrim(website_url) <> ''
-       AND COALESCE(rescue_status, 'pending') IN ('pending', 'retry_after')
+    SELECT inst.id,
+           inst.institution_name,
+           inst.state_code,
+           inst.website_url,
+           inst.asset_size,
+           inst.rescue_status,
+           profile.canonical_source_url AS profile_canonical_source_url,
+           profile.source_kind AS profile_source_kind,
+           profile.read_strategy AS profile_read_strategy,
+           profile.locked_by_correction AS profile_locked_by_correction
+      FROM institution_sources inst
+      LEFT JOIN institution_source_profiles profile
+        ON profile.institution_id = inst.id
+     WHERE COALESCE(inst.status, 'active') = 'active'
+       AND (inst.fee_schedule_url IS NULL OR btrim(inst.fee_schedule_url) = '')
+       AND inst.website_url IS NOT NULL
+       AND btrim(inst.website_url) <> ''
+       AND COALESCE(inst.rescue_status, 'pending') IN ('pending', 'retry_after')
+       AND (${normalizedState}::text IS NULL OR upper(btrim(inst.state_code)) = ${normalizedState})
+       AND COALESCE(profile.source_kind, 'unknown') <> 'offline'
+       AND COALESCE(profile.read_strategy, '') <> 'manual_review'
        AND (
-         last_rescue_attempt_at IS NULL
-         OR last_rescue_attempt_at < NOW() - INTERVAL '12 hours'
+         profile.locked_by_correction IS TRUE
+         OR inst.last_rescue_attempt_at IS NULL
+         OR inst.last_rescue_attempt_at < NOW() - INTERVAL '12 hours'
        )
      ORDER BY
-       CASE WHEN last_rescue_attempt_at IS NULL THEN 0 ELSE 1 END,
-       last_rescue_attempt_at NULLS FIRST,
-       CASE WHEN rescue_status = 'retry_after' THEN 1 ELSE 0 END,
-       asset_size DESC NULLS LAST,
-       id ASC
+       CASE WHEN profile.locked_by_correction IS TRUE AND profile.canonical_source_url IS NOT NULL THEN 0 ELSE 1 END,
+       CASE WHEN inst.last_rescue_attempt_at IS NULL THEN 0 ELSE 1 END,
+       inst.last_rescue_attempt_at NULLS FIRST,
+       CASE WHEN inst.rescue_status = 'retry_after' THEN 1 ELSE 0 END,
+       inst.asset_size DESC NULLS LAST,
+       inst.id ASC
      LIMIT ${limit}
   `;
 }
@@ -488,6 +568,71 @@ async function recordDiscoveryResult(
       found_url = EXCLUDED.found_url,
       error_message = EXCLUDED.error_message
   `;
+  await db`
+    INSERT INTO institution_source_profiles (
+      institution_id,
+      state_code,
+      canonical_source_url,
+      source_kind,
+      read_strategy,
+      last_success_at,
+      last_failure_at,
+      last_failure_reason,
+      consecutive_failures,
+      created_at,
+      updated_at
+    )
+    SELECT
+      inst.id,
+      upper(btrim(inst.state_code)),
+      ${result.url},
+      ${result.outcome === "discovered" ? sourceKindFromDocumentType(result.documentType) : "unknown"},
+      ${result.outcome === "discovered" ? readStrategyFromDocumentType(result.documentType) : null},
+      CASE WHEN ${result.outcome} = 'discovered' THEN NOW() ELSE NULL END,
+      CASE WHEN ${result.outcome} = 'discovered' THEN NULL ELSE NOW() END,
+      ${result.outcome === "discovered" ? null : result.reason},
+      CASE WHEN ${result.outcome} = 'discovered' THEN 0 ELSE 1 END,
+      NOW(),
+      NOW()
+    FROM institution_sources inst
+    WHERE inst.id = ${result.institutionId}
+    ON CONFLICT (institution_id) DO UPDATE SET
+      state_code = EXCLUDED.state_code,
+      canonical_source_url = CASE
+        WHEN institution_source_profiles.locked_by_correction
+          THEN institution_source_profiles.canonical_source_url
+        ELSE COALESCE(EXCLUDED.canonical_source_url, institution_source_profiles.canonical_source_url)
+      END,
+      source_kind = CASE
+        WHEN institution_source_profiles.locked_by_correction
+          THEN institution_source_profiles.source_kind
+        WHEN ${result.outcome} = 'discovered' THEN EXCLUDED.source_kind
+        ELSE institution_source_profiles.source_kind
+      END,
+      read_strategy = CASE
+        WHEN institution_source_profiles.locked_by_correction
+          THEN institution_source_profiles.read_strategy
+        WHEN ${result.outcome} = 'discovered' THEN EXCLUDED.read_strategy
+        ELSE institution_source_profiles.read_strategy
+      END,
+      last_success_at = CASE
+        WHEN ${result.outcome} = 'discovered' THEN NOW()
+        ELSE institution_source_profiles.last_success_at
+      END,
+      last_failure_at = CASE
+        WHEN ${result.outcome} = 'discovered' THEN NULL
+        ELSE NOW()
+      END,
+      last_failure_reason = CASE
+        WHEN ${result.outcome} = 'discovered' THEN NULL
+        ELSE EXCLUDED.last_failure_reason
+      END,
+      consecutive_failures = CASE
+        WHEN ${result.outcome} = 'discovered' THEN 0
+        ELSE institution_source_profiles.consecutive_failures + 1
+      END,
+      updated_at = NOW()
+  `;
 }
 
 export async function runMagellanDiscovery(
@@ -497,7 +642,7 @@ export async function runMagellanDiscovery(
   const fetchImpl = options.fetchImpl ?? fetch;
   const limit = boundedLimit(options.limit);
   const dryRun = Boolean(options.dryRun);
-  const rows = await selectCandidates(db, limit);
+  const rows = await selectCandidates(db, limit, options.stateCode);
 
   const results: CandidateDiscoveryResult[] = [];
   for (const row of rows) {

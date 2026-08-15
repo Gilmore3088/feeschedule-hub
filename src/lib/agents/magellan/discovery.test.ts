@@ -144,10 +144,60 @@ describe("Magellan agentic discovery", () => {
     });
 
     const sqlText = templateText(db.mock.calls[0][0]);
-    expect(sqlText).toContain("COALESCE(rescue_status, 'pending') IN ('pending', 'retry_after')");
-    expect(sqlText).toContain("last_rescue_attempt_at < NOW() - INTERVAL '12 hours'");
-    expect(sqlText).toContain("CASE WHEN last_rescue_attempt_at IS NULL THEN 0 ELSE 1 END");
-    expect(sqlText).toContain("last_rescue_attempt_at NULLS FIRST");
-    expect(sqlText).toContain("CASE WHEN rescue_status = 'retry_after' THEN 1 ELSE 0 END");
+    expect(sqlText).toContain("COALESCE(inst.rescue_status, 'pending') IN ('pending', 'retry_after')");
+    expect(sqlText).toContain("inst.last_rescue_attempt_at < NOW() - INTERVAL '12 hours'");
+    expect(sqlText).toContain("CASE WHEN inst.last_rescue_attempt_at IS NULL THEN 0 ELSE 1 END");
+    expect(sqlText).toContain("inst.last_rescue_attempt_at NULLS FIRST");
+    expect(sqlText).toContain("CASE WHEN inst.rescue_status = 'retry_after' THEN 1 ELSE 0 END");
+  });
+
+  it("filters discovery candidates by state lane", async () => {
+    const db = createDbMock([]);
+    const fetchImpl = vi.fn();
+
+    await runMagellanDiscovery({
+      runId: 105,
+      stateCode: "CA",
+      db: asDiscoveryDb(db),
+      fetchImpl,
+    });
+
+    const sqlText = templateText(db.mock.calls[0][0]);
+    expect(sqlText).toContain("upper(btrim(inst.state_code))");
+    expect(sqlText).toContain("institution_source_profiles");
+    expect(sqlText).toContain("COALESCE(profile.read_strategy, '') <> 'manual_review'");
+    expect(sqlText).toContain("COALESCE(profile.source_kind, 'unknown') <> 'offline'");
+  });
+
+  it("uses a locked corrected source URL before crawling the homepage", async () => {
+    const db = createDbMock([
+      {
+        id: 45,
+        institution_name: "Corrected Bank",
+        website_url: "https://corrected.example",
+        state_code: "CA",
+        asset_size: "100",
+        rescue_status: null,
+        profile_canonical_source_url: "https://corrected.example/fees.pdf",
+        profile_source_kind: "pdf",
+        profile_locked_by_correction: true,
+      },
+    ]);
+    const fetchImpl = vi.fn();
+
+    const result = await runMagellanDiscovery({
+      runId: 106,
+      db: asDiscoveryDb(db),
+      fetchImpl,
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result.results[0]).toMatchObject({
+      institutionId: 45,
+      outcome: "discovered",
+      url: "https://corrected.example/fees.pdf",
+      documentType: "pdf",
+      confidence: 1,
+    });
   });
 });

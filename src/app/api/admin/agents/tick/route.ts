@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { executeQueuedAgentRuns } from "@/lib/agents/run-store";
+import { scheduleDueStateLaneRuns } from "@/lib/agents/state-lane-scheduler";
 import { matchesConfiguredCronSecret } from "@/lib/cron-secret";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,13 @@ export async function GET(request: NextRequest) {
 
   const runLimit = parsePositiveInt(request.nextUrl.searchParams.get("runLimit"), 2, 10);
   const maxStepsPerRun = parsePositiveInt(request.nextUrl.searchParams.get("maxStepsPerRun"), 1, 5);
+  const stateLaneLimit = parsePositiveInt(request.nextUrl.searchParams.get("stateLaneLimit"), 2, 10);
+  const scheduledStateLanes = await scheduleDueStateLaneRuns({
+    limit: stateLaneLimit,
+    triggeredBy: "api.admin.agents.tick",
+  });
   const result = await executeQueuedAgentRuns({ runLimit, maxStepsPerRun });
-  return NextResponse.json({ ok: true, ...result });
+  return NextResponse.json({ ok: true, scheduledStateLanes, ...result });
 }
 
 export async function POST(request: NextRequest) {

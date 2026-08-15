@@ -147,9 +147,27 @@ describe("Magellan agentic fetch", () => {
 
     const sqlText = templateText(db.mock.calls[0][0]);
     expect(sqlText).not.toContain("OR consecutive_failures > 0");
-    expect(sqlText).toContain("WHEN COALESCE(consecutive_failures, 0) >= 3 THEN INTERVAL '7 days'");
-    expect(sqlText).toContain("WHEN COALESCE(consecutive_failures, 0) > 0 THEN INTERVAL '24 hours'");
-    expect(sqlText).toContain("last_crawl_at ASC NULLS FIRST");
-    expect(sqlText).toContain("COALESCE(consecutive_failures, 0) ASC");
+    expect(sqlText).toContain("WHEN COALESCE(inst.consecutive_failures, 0) >= 3 THEN INTERVAL '7 days'");
+    expect(sqlText).toContain("WHEN COALESCE(inst.consecutive_failures, 0) > 0 THEN INTERVAL '24 hours'");
+    expect(sqlText).toContain("inst.last_crawl_at ASC NULLS FIRST");
+    expect(sqlText).toContain("COALESCE(inst.consecutive_failures, 0) ASC");
+  });
+
+  it("filters fetch candidates by state lane and profile memory", async () => {
+    const db = createDbMock([]);
+    const fetchImpl = vi.fn();
+
+    await runMagellanFetch({
+      runId: 105,
+      stateCode: "WA",
+      db: asFetchDb(db),
+      fetchImpl,
+    });
+
+    const sqlText = templateText(db.mock.calls[0][0]);
+    expect(sqlText).toContain("upper(btrim(inst.state_code))");
+    expect(sqlText).toContain("institution_source_profiles");
+    expect(sqlText).toContain("profile.canonical_source_url IS NOT NULL");
+    expect(sqlText).toContain("COALESCE(profile.read_strategy, '') <> 'manual_review'");
   });
 });

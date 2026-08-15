@@ -32,27 +32,27 @@ export default async function MagellanPage() {
         steps={[
           {
             label: "Input",
-            title: "Enhanced institutions",
-            detail: "Refresh attributes and source fields before discovery.",
-            href: "/admin/data",
+            title: "Source trust + state lanes",
+            detail: "Use accepted sources, state memory, and institution attributes before discovery.",
+            href: "/admin/quality",
           },
           {
             label: "Current",
-            title: "Magellan extracts",
-            detail: "Find fee URLs and rescue institutions with stale or missing collection.",
+            title: "Magellan discovers + fetches",
+            detail: "Find fee URLs and collect fresh source documents.",
             href: "/admin/magellan",
             current: true,
           },
           {
             label: "Next",
-            title: "Darwin classifies",
-            detail: "Promote extracted raw fee rows into verified categories.",
-            href: "/admin/darwin",
+            title: "Rosetta reads",
+            detail: "Normalize fetched PDFs and HTML into text artifacts.",
+            href: "/admin/rosetta",
           },
           {
-            label: "Review",
-            title: "Knox resolves exceptions",
-            detail: "Work flagged fees and rejected classification decisions.",
+            label: "Extract",
+            title: "Knox extracts",
+            detail: "Create conservative raw fee observations from Rosetta text.",
             href: "/admin/knox",
           },
         ]}
@@ -60,8 +60,8 @@ export default async function MagellanPage() {
       <div className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
         <div className="grid gap-4 sm:grid-cols-3">
           <Step number="1" title="Find fee URL" detail="Resolve eligible institutions without a usable fee schedule URL." />
-          <Step number="2" title="Extract institution" detail="Queue collection through the agentic run ledger." />
-          <Step number="3" title="Hand off to Darwin" detail="Send collected fee rows into classification." />
+          <Step number="2" title="Fetch source document" detail="Collect PDFs, HTML, or text through the agentic run ledger." />
+          <Step number="3" title="Hand off to Rosetta" detail="Send fetched documents into source-text normalization." />
         </div>
       </div>
       <MagellanConsole initialStatus={status} />

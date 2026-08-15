@@ -15,13 +15,23 @@ type QueuedJob = {
 const NEXT_STEPS = [
   {
     href: "/admin/magellan",
-    label: "Extract fee schedules",
+    label: "Discover + fetch",
     detail: "Open Magellan when source URLs or stale collection attempts need rescue.",
   },
   {
+    href: "/admin/rosetta",
+    label: "Read sources",
+    detail: "Open Rosetta when fetched PDFs or HTML need normalized text artifacts.",
+  },
+  {
+    href: "/admin/knox",
+    label: "Extract raw fees",
+    detail: "Open Knox when Rosetta text is ready for fee observation extraction or exception review.",
+  },
+  {
     href: "/admin/darwin",
-    label: "Classify raw fees",
-    detail: "Open Darwin when collected rows need verified categories.",
+    label: "Verify raw fees",
+    detail: "Open Darwin when raw observations need verified categories, lineage checks, and amount checks.",
   },
   {
     href: "/admin/index",

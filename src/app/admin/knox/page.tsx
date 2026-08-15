@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { AgentHandoffStrip } from "@/components/agent-console/agent-handoff-strip";
 import { requireAuth } from "@/lib/auth";
 import { getKnoxReviewCounts } from "@/lib/data-store/knox-reviews";
 import { KnoxDecisionsView } from "../agents/knox/reviews/page";
@@ -54,10 +55,42 @@ export default async function KnoxPage({
     <div>
       <header className="mb-5">
         <Breadcrumbs items={[{ label: "Atlas", href: "/admin" }, { label: "Knox" }]} />
-        <p className="admin-eyebrow mt-3">Agent · Review</p>
+        <p className="admin-eyebrow mt-3">Agent · Extract + Review</p>
         <h1 className="admin-display-title mt-1">Knox</h1>
-        <p className="admin-lede mt-2">Human work is anomaly-only: adjudicate Knox rejection decisions and maintain the gold standard. Routine fee movement stays inside the agentic pipeline.</p>
+        <p className="admin-lede mt-2">Knox extracts conservative raw fee observations from Rosetta text and keeps human work anomaly-only.</p>
       </header>
+
+      <div className="mb-7">
+        <AgentHandoffStrip
+          steps={[
+            {
+              label: "Input",
+              title: "Rosetta text",
+              detail: "Normalized source artifacts provide stable extraction input.",
+              href: "/admin/rosetta",
+            },
+            {
+              label: "Current",
+              title: "Knox extracts",
+              detail: "Create conservative raw observations and surface anomaly decisions.",
+              href: "/admin/knox",
+              current: true,
+            },
+            {
+              label: "Next",
+              title: "Darwin verifies",
+              detail: "Promote source-grounded rows into verified observations.",
+              href: "/admin/darwin",
+            },
+            {
+              label: "Publish",
+              title: "Hamilton publishes",
+              detail: "Move eligible verified rows into product read models.",
+              href: "/admin/data",
+            },
+          ]}
+        />
+      </div>
 
       <section aria-labelledby="knox-work-heading" className="mb-7 border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
         <div className="grid gap-5 lg:grid-cols-[minmax(220px,0.8fr)_1.2fr]">

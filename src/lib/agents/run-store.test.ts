@@ -70,7 +70,12 @@ vi.mock("@/lib/agents/rosetta/read", () => ({
   runRosettaRead: runRosettaReadMock,
 }));
 
-import { cancelAgentRun, executeAgentRun, startAgentRun } from "./run-store";
+import {
+  cancelAgentRun,
+  executeAgentRun,
+  executeQueuedAgentRuns,
+  startAgentRun,
+} from "./run-store";
 
 const runRow = {
   id: 101,
@@ -447,6 +452,47 @@ describe("agentic run store", () => {
     );
   });
 
+  it("passes state lane scope into worker execution", async () => {
+    getExecutionBackendMock.mockReturnValue("agentic_v1");
+    const fetchStepRows = [
+      {
+        ...queuedStepRows[0],
+        step_key: "fetch",
+        title: "Fetch state source documents",
+      },
+    ];
+    const fetchRunRow = {
+      ...runRow,
+      run_kind: "workflow_lane",
+      state_code: "CA",
+      params_json: { scope: "state", state_code: "CA", fetch_limit: 1 },
+    };
+    installSqlMocks({ finalRun: fetchRunRow, finalSteps: fetchStepRows });
+    installTxMocks(fetchStepRows, fetchRunRow);
+
+    const result = await startAgentRun({
+      agent: "atlas",
+      kind: "workflow_lane",
+      title: "Atlas CA state lane",
+      stateCode: "CA",
+      params: { scope: "state", fetch_limit: 1 },
+      triggeredBy: "admin",
+      idempotencyKey: "atlas:state-lane:CA:2026-08-15",
+      steps: [{ key: "fetch", agent: "magellan", title: "Fetch state source documents" }],
+    });
+
+    expect(result.reused).toBe(false);
+    await executeAgentRun(101);
+    expect(runMagellanFetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 101,
+        dryRun: false,
+        limit: 1,
+        stateCode: "CA",
+      }),
+    );
+  });
+
   it("runs Rosetta read through the agentic worker instead of measuring only", async () => {
     getExecutionBackendMock.mockReturnValue("agentic_v1");
     const readStepRows = [
@@ -668,5 +714,32 @@ describe("agentic run store", () => {
     expect(combinedSql).toContain("UPDATE agent_runs");
     expect(combinedSql).toContain("UPDATE agent_run_steps");
     expect(combinedSql).not.toContain("ops_jobs");
+  });
+
+  it("picks up legacy state_agent queued runs during queue drain", async () => {
+    const legacyRunRow = {
+      ...runRow,
+      run_kind: "state_agent",
+      state_code: "CA",
+      params_json: { state_code: "CA" },
+    };
+    sqlMock.mockImplementation((strings: TemplateStringsArray) => {
+      const text = templateText(strings);
+      if (text.includes("SELECT id") && text.includes("status = 'queued'")) {
+        return Promise.resolve([{ id: 101 }]);
+      }
+      if (text.includes("FROM agent_runs")) return Promise.resolve([legacyRunRow]);
+      if (text.includes("FROM agent_run_steps")) return Promise.resolve(queuedStepRows);
+      return Promise.resolve([]);
+    });
+    installTxMocks(queuedStepRows, legacyRunRow);
+
+    const result = await executeQueuedAgentRuns({ runLimit: 1, maxStepsPerRun: 1 });
+
+    expect(result).toMatchObject({
+      selected: 1,
+      results: [{ runId: 101, status: "blocked" }],
+    });
+    expect(JSON.stringify(sqlMock.mock.calls[0])).toContain("state_agent");
   });
 });

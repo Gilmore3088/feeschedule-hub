@@ -8,11 +8,18 @@ function templateText(strings: unknown): string {
   return Array.isArray(strings) ? strings.join(" ") : String(strings);
 }
 
-function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
+function createDbMock(
+  rows: Array<Record<string, unknown>>,
+  priorPublishedRows: Array<Record<string, unknown>> = [],
+): DbMock {
+  let nextPublishedId = 1201;
   const db = vi.fn((strings: TemplateStringsArray) => {
     const text = templateText(strings);
     if (text.includes("INSERT INTO published_fee_records")) {
-      return Promise.resolve([{ fee_published_id: db.mock.calls.length + 1200 }]);
+      return Promise.resolve([{ fee_published_id: nextPublishedId++ }]);
+    }
+    if (text.includes("FROM published_fee_records")) {
+      return Promise.resolve(priorPublishedRows);
     }
     return Promise.resolve([]);
   }) as DbMock;
@@ -42,6 +49,13 @@ const verifiedFee = {
   amount: "35.00",
   frequency: "per_item",
   raw_agent_event_id: "00000000-0000-4000-8000-000000000701",
+};
+
+const priorPublishedFee = {
+  fee_published_id: 601,
+  amount: "30.00",
+  fee_name: "Overdraft fee",
+  published_at: "2026-07-01T00:00:00.000Z",
 };
 
 describe("Hamilton agentic publish", () => {
@@ -80,10 +94,44 @@ describe("Hamilton agentic publish", () => {
 
     const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
     expect(insertSql).toContain("INSERT INTO published_fee_records");
+    expect(insertSql).toContain("INSERT INTO hamilton_signals");
     expect(insertSql).toContain("batch_id");
     expect(insertSql).toContain("ON CONFLICT DO NOTHING");
     expect(insertSql).not.toContain("promote_to_tier3");
     expect(insertSql).not.toContain("agent_events");
+    expect(JSON.stringify(db.mock.calls)).toContain("hamilton_publication_completed");
+    expect(JSON.stringify(db.mock.calls)).toContain("published_public_ready");
+    expect(JSON.stringify(db.mock.calls)).toContain("refresh_recommended");
+  });
+
+  it("emits a fee movement signal when a published amount changes from the prior live catalog row", async () => {
+    const db = createDbMock([verifiedFee], [priorPublishedFee]);
+
+    const result = await runHamiltonPublish({
+      runId: 106,
+      db: asPublishDb(db),
+    });
+
+    expect(result.publishedFees).toBe(1);
+    expect(result.results[0]).toMatchObject({
+      previousFeePublishedId: 601,
+      previousAmount: 30,
+      amountDelta: 5,
+      movementDirection: "increase",
+    });
+
+    const selectSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(selectSql).toContain("FROM published_fee_records");
+    expect(selectSql).toContain("COALESCE(variant_type");
+    expect(selectSql).toContain("COALESCE(frequency");
+    expect(selectSql).toContain("rolled_back_at IS NULL");
+
+    const callsJson = JSON.stringify(db.mock.calls);
+    expect(callsJson).toContain("hamilton_publication_completed");
+    expect(callsJson).toContain("hamilton_fee_movement_detected");
+    expect(callsJson).toContain("published_fee_movement");
+    expect(callsJson).toContain("amount_delta");
+    expect(callsJson).toContain(":5");
   });
 
   it("keeps dry runs read-only while still reporting publishable rows", async () => {
@@ -144,5 +192,19 @@ describe("Hamilton agentic publish", () => {
     expect(result.skippedFees).toBe(1);
     expect(result.results[0].reason).toBe("Blocking flag: needs_human");
     expect(db).not.toHaveBeenCalled();
+  });
+
+  it("filters publish candidates by state lane", async () => {
+    const db = createDbMock([]);
+
+    await runHamiltonPublish({
+      runId: 105,
+      stateCode: "CA",
+      db: asPublishDb(db),
+    });
+
+    const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(unsafeSql).toContain("JOIN institution_sources inst ON inst.id = fv.institution_id");
+    expect(unsafeSql).toContain("upper(btrim(inst.state_code))");
   });
 });

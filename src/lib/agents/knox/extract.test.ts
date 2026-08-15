@@ -31,6 +31,7 @@ const textArtifact = {
   document_text_id: 701,
   source_document_id: 501,
   institution_id: 42,
+  institution_name: "Test Bank",
   source_url: "https://testbank.example/fees",
   text_hash: "text-hash",
   normalized_text: [
@@ -78,8 +79,11 @@ describe("Knox agentic extraction", () => {
 
     const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
     expect(insertSql).toContain("INSERT INTO raw_fee_observations");
+    expect(insertSql).toContain("INSERT INTO hamilton_signals");
     expect(insertSql).toContain("ON CONFLICT DO NOTHING");
     expect(JSON.stringify(db.mock.calls)).toContain("needs_darwin_verification");
+    expect(JSON.stringify(db.mock.calls)).toContain("knox_extraction_completed");
+    expect(JSON.stringify(db.mock.calls)).toContain("raw_observations_pending_verification");
     expect(JSON.stringify(db.mock.calls)).not.toContain("No fee for e-statements");
   });
 
@@ -121,6 +125,24 @@ describe("Knox agentic extraction", () => {
       insertedFees: 0,
       skippedFees: 0,
     });
-    expect(db).not.toHaveBeenCalled();
+    const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(insertSql).not.toContain("INSERT INTO raw_fee_observations");
+    expect(insertSql).toContain("INSERT INTO hamilton_signals");
+    expect(JSON.stringify(db.mock.calls)).toContain("knox_extraction_needs_review");
+    expect(JSON.stringify(db.mock.calls)).toContain("extraction_needs_review");
+  });
+
+  it("filters extraction candidates by state lane", async () => {
+    const db = createDbMock([]);
+
+    await runKnoxExtract({
+      runId: 104,
+      stateCode: "CA",
+      db: asExtractDb(db),
+    });
+
+    const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(unsafeSql).toContain("JOIN institution_sources inst ON inst.id = adt.institution_id");
+    expect(unsafeSql).toContain("upper(btrim(inst.state_code))");
   });
 });

@@ -2,6 +2,11 @@ import { createHash } from "crypto";
 import sanitizeHtml from "sanitize-html";
 
 import { sql } from "@/lib/data-store/connection";
+import {
+  normalizeStateCode,
+  readStrategyFromDocumentType,
+  sourceKindFromDocumentType,
+} from "@/lib/agents/state-lane-memory";
 
 type SqlTag = typeof sql;
 type Fetcher = typeof fetch;
@@ -50,6 +55,7 @@ export interface RunRosettaReadOptions {
   runId: number;
   limit?: number;
   institutionId?: number;
+  stateCode?: string;
   dryRun?: boolean;
   db?: SqlTag;
   fetchImpl?: Fetcher;
@@ -395,9 +401,19 @@ async function selectCandidates(
   db: SqlTag,
   limit: number,
   institutionId?: number,
+  stateCode?: string,
 ): Promise<ReadCandidateRow[]> {
-  const targetFilter = institutionId ? "AND cr.institution_id = $2" : "";
-  const params = institutionId ? [limit, institutionId] : [limit];
+  const params: Array<number | string> = [limit];
+  const filters: string[] = [];
+  if (institutionId) {
+    params.push(institutionId);
+    filters.push(`AND cr.institution_id = $${params.length}`);
+  }
+  const normalizedState = normalizeStateCode(stateCode);
+  if (normalizedState) {
+    params.push(normalizedState);
+    filters.push(`AND upper(btrim(ct.state_code)) = $${params.length}`);
+  }
   return db.unsafe<ReadCandidateRow[]>(
     `
       SELECT cr.id AS source_document_id,
@@ -407,9 +423,16 @@ async function selectCandidates(
              cr.content_hash
         FROM source_documents cr
         JOIN institution_sources ct ON ct.id = cr.institution_id
+        LEFT JOIN institution_source_profiles profile
+          ON profile.institution_id = ct.id
        WHERE cr.status = 'success'
          AND cr.document_url IS NOT NULL
-         ${targetFilter}
+         ${filters.join("\n         ")}
+         AND COALESCE(profile.source_kind, 'unknown') <> 'offline'
+         AND (
+           profile.read_strategy IS NULL
+           OR profile.read_strategy IN ('pdf_text', 'html_dom')
+         )
          AND NOT EXISTS (
            SELECT 1
              FROM agent_source_texts adt
@@ -424,13 +447,26 @@ async function selectCandidates(
   );
 }
 
+function readStrategyForResult(result: ReadResult): "pdf_text" | "html_dom" | "browser_render" | "ocr" | "manual_review" | null {
+  if (result.status === "needs_ocr") return "ocr";
+  if (result.status === "empty" && result.documentType === "html") return "browser_render";
+  if (result.status === "skipped") return "manual_review";
+  if (result.status === "completed") return readStrategyFromDocumentType(result.documentType);
+  return readStrategyFromDocumentType(result.documentType);
+}
+
+function sourceKindForResult(result: ReadResult): "pdf" | "html" | "scanned_pdf" | "unknown" {
+  if (result.status === "needs_ocr") return "scanned_pdf";
+  return sourceKindFromDocumentType(result.documentType);
+}
+
 async function recordReadResult(
   db: SqlTag,
   runId: number,
   result: ReadResult,
   normalizedText: string | null,
 ): Promise<void> {
-  await db`
+  const [textArtifact] = await db`
     INSERT INTO agent_source_texts
       (agent_run_id, source_document_id, institution_id, source_url,
        document_type, content_type, source_hash, status, normalized_text,
@@ -453,6 +489,82 @@ async function recordReadResult(
       char_count = EXCLUDED.char_count,
       error_message = EXCLUDED.error_message,
       updated_at = NOW()
+    RETURNING id
+  `;
+  const textArtifactId = textArtifact?.id == null ? null : Number(textArtifact.id);
+  const readStrategy = readStrategyForResult(result);
+  const sourceKind = sourceKindForResult(result);
+  const terminalBacklog = result.status === "needs_ocr" || result.status === "empty" || result.status === "skipped";
+  const failed = result.status === "failed";
+
+  await db`
+    INSERT INTO institution_source_profiles (
+      institution_id,
+      state_code,
+      canonical_source_url,
+      source_kind,
+      read_strategy,
+      last_source_hash,
+      last_successful_text_id,
+      last_success_at,
+      last_failure_at,
+      last_failure_reason,
+      consecutive_failures,
+      created_at,
+      updated_at
+    )
+    SELECT
+      inst.id,
+      upper(btrim(inst.state_code)),
+      ${result.sourceUrl},
+      ${sourceKind},
+      ${readStrategy},
+      ${result.sourceHash},
+      ${result.status === "completed" ? textArtifactId : null},
+      CASE WHEN ${result.status} = 'completed' THEN NOW() ELSE NULL END,
+      CASE WHEN ${result.status} = 'completed' THEN NULL ELSE NOW() END,
+      CASE WHEN ${result.status} = 'completed' THEN NULL ELSE ${result.error} END,
+      CASE WHEN ${result.status} = 'completed' OR ${terminalBacklog} THEN 0 ELSE 1 END,
+      NOW(),
+      NOW()
+    FROM institution_sources inst
+    WHERE inst.id = ${result.institutionId}
+    ON CONFLICT (institution_id) DO UPDATE SET
+      state_code = EXCLUDED.state_code,
+      canonical_source_url = CASE
+        WHEN institution_source_profiles.locked_by_correction
+          THEN institution_source_profiles.canonical_source_url
+        ELSE COALESCE(EXCLUDED.canonical_source_url, institution_source_profiles.canonical_source_url)
+      END,
+      source_kind = CASE
+        WHEN institution_source_profiles.locked_by_correction
+          THEN institution_source_profiles.source_kind
+        ELSE EXCLUDED.source_kind
+      END,
+      read_strategy = CASE
+        WHEN institution_source_profiles.locked_by_correction
+          THEN institution_source_profiles.read_strategy
+        ELSE EXCLUDED.read_strategy
+      END,
+      last_source_hash = COALESCE(EXCLUDED.last_source_hash, institution_source_profiles.last_source_hash),
+      last_successful_text_id = COALESCE(EXCLUDED.last_successful_text_id, institution_source_profiles.last_successful_text_id),
+      last_success_at = CASE
+        WHEN ${result.status} = 'completed' THEN NOW()
+        ELSE institution_source_profiles.last_success_at
+      END,
+      last_failure_at = CASE
+        WHEN ${result.status} = 'completed' THEN NULL
+        ELSE NOW()
+      END,
+      last_failure_reason = CASE
+        WHEN ${result.status} = 'completed' THEN NULL
+        ELSE EXCLUDED.last_failure_reason
+      END,
+      consecutive_failures = CASE
+        WHEN ${failed} THEN institution_source_profiles.consecutive_failures + 1
+        ELSE 0
+      END,
+      updated_at = NOW()
   `;
 }
 
@@ -464,7 +576,7 @@ export async function runRosettaRead(
   const pdfTextExtractor = options.pdfTextExtractor ?? extractPdfText;
   const limit = boundedLimit(options.limit);
   const dryRun = Boolean(options.dryRun);
-  const rows = await selectCandidates(db, limit, options.institutionId);
+  const rows = await selectCandidates(db, limit, options.institutionId, options.stateCode);
 
   const results: ReadResult[] = [];
   for (const row of rows) {

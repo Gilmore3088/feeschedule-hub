@@ -32,36 +32,36 @@ export default async function DarwinPage() {
         steps={[
           {
             label: "Input",
-            title: "Extracted raw fees",
-            detail: "Magellan creates rows that still need normalized categories.",
-            href: "/admin/magellan",
+            title: "Knox raw observations",
+            detail: "Knox creates source-grounded rows that need verification.",
+            href: "/admin/knox",
           },
           {
             label: "Current",
-            title: "Darwin classifies",
-            detail: "Apply cache, model checks, and budget guardrails to raw fee rows.",
+            title: "Darwin verifies",
+            detail: "Check canonical hints, lineage, duplicates, and amount reasonableness.",
             href: "/admin/darwin",
             current: true,
           },
           {
             label: "Next",
-            title: "Knox reviews exceptions",
-            detail: "Resolve flagged fees and rejected classification decisions.",
-            href: "/admin/knox",
+            title: "Hamilton publishes",
+            detail: "Publish eligible verified rows into product read models.",
+            href: "/admin/data",
           },
           {
-            label: "Publish",
-            title: "Inspect the index",
-            detail: "Review benchmark output once fees are verified and published.",
-            href: "/admin/index",
+            label: "Exceptions",
+            title: "Knox reviews",
+            detail: "Resolve anomaly-only decisions without blocking clean verified rows.",
+            href: "/admin/knox",
           },
         ]}
       />
       <div className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
         <div className="grid gap-4 sm:grid-cols-3">
-          <Step number="1" title="Read raw fees" detail="Pull unclassified rows from the extraction queue." />
-          <Step number="2" title="Classify safely" detail="Apply cache and model checks within the active budget guard." />
-          <Step number="3" title="Send exceptions" detail="Promote confident rows and hand uncertain cases to Knox." />
+          <Step number="1" title="Read raw fees" detail="Pull source-grounded rows from the Knox extraction queue." />
+          <Step number="2" title="Verify safely" detail="Apply canonical, amount, duplicate, and lineage checks." />
+          <Step number="3" title="Publish or route" detail="Promote clean rows and keep suspicious rows reviewable." />
         </div>
       </div>
       <DarwinConsole initialStatus={status} />

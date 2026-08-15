@@ -72,10 +72,13 @@ describe("Darwin agentic verification", () => {
 
     const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
     expect(insertSql).toContain("INSERT INTO verified_fee_observations");
+    expect(insertSql).toContain("INSERT INTO hamilton_signals");
     expect(insertSql).toContain("ON CONFLICT DO NOTHING");
     expect(insertSql).not.toContain("promote_to_tier2");
     expect(insertSql).not.toContain("agent_events");
     expect(JSON.stringify(db.mock.calls)).toContain("agentic_darwin_verified");
+    expect(JSON.stringify(db.mock.calls)).toContain("darwin_verification_completed");
+    expect(JSON.stringify(db.mock.calls)).toContain("verified_unpublished");
   });
 
   it("keeps dry runs read-only while still reporting verified candidates", async () => {
@@ -120,6 +123,25 @@ describe("Darwin agentic verification", () => {
       status: "skipped",
       reason: "Missing or invalid canonical hint",
     });
-    expect(db).not.toHaveBeenCalled();
+    const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(insertSql).not.toContain("INSERT INTO verified_fee_observations");
+    expect(insertSql).toContain("INSERT INTO hamilton_signals");
+    expect(JSON.stringify(db.mock.calls)).toContain("darwin_verification_needs_review");
+    expect(JSON.stringify(db.mock.calls)).toContain("verification_needs_review");
+    expect(JSON.stringify(db.mock.calls)).toContain("Missing or invalid canonical hint");
+  });
+
+  it("filters raw verification candidates by state lane", async () => {
+    const db = createDbMock([]);
+
+    await runDarwinVerify({
+      runId: 104,
+      stateCode: "WA",
+      db: asVerifyDb(db),
+    });
+
+    const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(unsafeSql).toContain("JOIN institution_sources inst ON inst.id = fr.institution_id");
+    expect(unsafeSql).toContain("upper(btrim(inst.state_code))");
   });
 });

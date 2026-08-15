@@ -1,7 +1,9 @@
 import { createHash } from "crypto";
 
 import { sql } from "@/lib/data-store/connection";
+import { normalizeStateCode } from "@/lib/agents/state-lane-memory";
 import { CANONICAL_KEY_MAP } from "@/lib/fee-taxonomy";
+import { recordHamiltonMonitorSignal } from "@/lib/hamilton/monitor-signals";
 
 type SqlTag = typeof sql;
 
@@ -36,6 +38,14 @@ interface VerifiedFeeRow {
   amount: number | string | null;
   frequency: string | null;
   raw_agent_event_id: string | null;
+  institution_name?: string | null;
+}
+
+interface PriorPublishedFeeRow {
+  fee_published_id: number | string;
+  amount: number | string | null;
+  fee_name: string;
+  published_at: string | Date;
 }
 
 export interface HamiltonPublishResult {
@@ -47,12 +57,17 @@ export interface HamiltonPublishResult {
   status: "published" | "skipped";
   reason: string | null;
   feePublishedId: number | null;
+  previousFeePublishedId: number | null;
+  previousAmount: number | null;
+  amountDelta: number | null;
+  movementDirection: "increase" | "decrease" | null;
 }
 
 export interface RunHamiltonPublishOptions {
   runId: number;
   limit?: number;
   institutionId?: number;
+  stateCode?: string;
   minConfidence?: number;
   dryRun?: boolean;
   db?: SqlTag;
@@ -148,9 +163,19 @@ async function selectVerifiedFees(
   db: SqlTag,
   limit: number,
   institutionId?: number,
+  stateCode?: string,
 ): Promise<VerifiedFeeRow[]> {
-  const targetFilter = institutionId ? "AND fv.institution_id = $2" : "";
-  const params = institutionId ? [limit, institutionId] : [limit];
+  const params: Array<number | string> = [limit];
+  const filters: string[] = [];
+  if (institutionId) {
+    params.push(institutionId);
+    filters.push(`AND fv.institution_id = $${params.length}`);
+  }
+  const normalizedState = normalizeStateCode(stateCode);
+  if (normalizedState) {
+    params.push(normalizedState);
+    filters.push(`AND upper(btrim(inst.state_code)) = $${params.length}`);
+  }
   return db.unsafe<VerifiedFeeRow[]>(
     `
       SELECT fv.fee_verified_id,
@@ -166,12 +191,14 @@ async function selectVerifiedFees(
              fv.fee_name,
              fv.amount,
              fv.frequency,
-             fr.agent_event_id AS raw_agent_event_id
+             fr.agent_event_id AS raw_agent_event_id,
+             inst.institution_name
         FROM verified_fee_observations fv
         JOIN raw_fee_observations fr ON fr.fee_raw_id = fv.fee_raw_id
+        JOIN institution_sources inst ON inst.id = fv.institution_id
        WHERE fv.review_status IN ('verified', 'approved')
          AND fv.outlier_flags ? 'agentic_darwin_verified'
-         ${targetFilter}
+         ${filters.join("\n         ")}
          AND NOT EXISTS (
            SELECT 1
              FROM published_fee_records fp
@@ -241,6 +268,200 @@ async function insertPublishedFee(
   return inserted[0]?.fee_published_id == null ? null : Number(inserted[0].fee_published_id);
 }
 
+async function selectPriorPublishedFee(
+  db: SqlTag,
+  row: VerifiedFeeRow,
+): Promise<PriorPublishedFeeRow | null> {
+  try {
+    const rows = await db<PriorPublishedFeeRow[]>`
+      SELECT fee_published_id,
+             amount,
+             fee_name,
+             published_at
+        FROM published_fee_records
+       WHERE institution_id = ${Number(row.institution_id)}
+         AND canonical_fee_key = ${row.canonical_fee_key}
+         AND COALESCE(variant_type, '') = COALESCE(${row.variant_type}, '')
+         AND COALESCE(frequency, '') = COALESCE(${row.frequency}, '')
+         AND rolled_back_at IS NULL
+       ORDER BY published_at DESC, fee_published_id DESC
+       LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (error) {
+    console.error("selectPriorPublishedFee failed:", error);
+    return null;
+  }
+}
+
+function institutionLabel(row: Pick<VerifiedFeeRow, "institution_id" | "institution_name">): string {
+  return row.institution_name?.trim() || `Institution ${row.institution_id}`;
+}
+
+function rowCountLabel(count: number): string {
+  return `${count} verified fee row${count === 1 ? "" : "s"}`;
+}
+
+function movementFor(
+  prior: PriorPublishedFeeRow | null,
+  row: VerifiedFeeRow,
+): Pick<
+  HamiltonPublishResult,
+  "previousFeePublishedId" | "previousAmount" | "amountDelta" | "movementDirection"
+> {
+  const previousFeePublishedId =
+    prior?.fee_published_id == null ? null : Number(prior.fee_published_id);
+  const previousAmount = normalizedAmount(prior?.amount ?? null);
+  const currentAmount = normalizedAmount(row.amount);
+  if (
+    previousFeePublishedId == null ||
+    previousAmount == null ||
+    currentAmount == null ||
+    Math.abs(currentAmount - previousAmount) < 0.01
+  ) {
+    return {
+      previousFeePublishedId,
+      previousAmount,
+      amountDelta: null,
+      movementDirection: null,
+    };
+  }
+  const amountDelta = Math.round((currentAmount - previousAmount) * 100) / 100;
+  return {
+    previousFeePublishedId,
+    previousAmount,
+    amountDelta,
+    movementDirection: amountDelta > 0 ? "increase" : "decrease",
+  };
+}
+
+async function recordPublicationSignals(
+  db: SqlTag,
+  runId: number,
+  batchId: string,
+  results: HamiltonPublishResult[],
+  rowByVerifiedFeeId: Map<number, VerifiedFeeRow>,
+): Promise<void> {
+  const grouped = new Map<number, {
+    institutionName: string;
+    feeVerifiedIds: number[];
+    feePublishedIds: number[];
+    canonicalFeeKeys: string[];
+  }>();
+  const movementGroups = new Map<number, {
+    institutionName: string;
+    movements: Array<{
+      canonical_fee_key: string;
+      fee_name: string;
+      previous_fee_published_id: number;
+      new_fee_published_id: number;
+      previous_amount: number;
+      new_amount: number;
+      amount_delta: number;
+      direction: "increase" | "decrease";
+    }>;
+  }>();
+
+  results.forEach((result) => {
+    if (result.status !== "published" || !result.feePublishedId) return;
+    const row = rowByVerifiedFeeId.get(result.feeVerifiedId);
+    const institutionId = result.institutionId;
+    const group = grouped.get(institutionId) ?? {
+      institutionName: row ? institutionLabel(row) : `Institution ${institutionId}`,
+      feeVerifiedIds: [],
+      feePublishedIds: [],
+      canonicalFeeKeys: [],
+    };
+    group.feeVerifiedIds.push(result.feeVerifiedId);
+    group.feePublishedIds.push(result.feePublishedId);
+    group.canonicalFeeKeys.push(result.canonicalFeeKey);
+    grouped.set(institutionId, group);
+
+    if (
+      result.previousFeePublishedId &&
+      result.previousAmount != null &&
+      result.amountDelta != null &&
+      result.movementDirection
+    ) {
+      const movementGroup = movementGroups.get(institutionId) ?? {
+        institutionName: row ? institutionLabel(row) : `Institution ${institutionId}`,
+        movements: [],
+      };
+      movementGroup.movements.push({
+        canonical_fee_key: result.canonicalFeeKey,
+        fee_name: result.feeName,
+        previous_fee_published_id: result.previousFeePublishedId,
+        new_fee_published_id: result.feePublishedId,
+        previous_amount: result.previousAmount,
+        new_amount: result.amount ?? 0,
+        amount_delta: result.amountDelta,
+        direction: result.movementDirection,
+      });
+      movementGroups.set(institutionId, movementGroup);
+    }
+  });
+
+  for (const [institutionId, group] of grouped) {
+    const count = group.feePublishedIds.length;
+    await recordHamiltonMonitorSignal(
+      {
+        institutionId,
+        signalType: "hamilton_publication_completed",
+        severity: "high",
+        title: `${group.institutionName} - ${rowCountLabel(count)} published`,
+        body:
+          `Hamilton published ${rowCountLabel(count)} into the verified fee catalog. ` +
+          "Refresh competitive briefs, scenarios, and watchlist analysis for this institution.",
+        sourceJson: {
+          source: "hamilton_publication",
+          run_id: runId,
+          batch_id: batchId,
+          pipeline_stage: "published_public_ready",
+          published_fee_ids: group.feePublishedIds,
+          verified_fee_ids: group.feeVerifiedIds,
+          canonical_fee_keys: Array.from(new Set(group.canonicalFeeKeys)),
+          published_fee_count: count,
+          refresh_recommended: ["reports", "scenarios", "watchlist"],
+          provider_call_queued: false,
+        },
+      },
+      db,
+    ).catch((error) => {
+      console.error("recordHamiltonPublicationSignal failed:", error);
+    });
+  }
+
+  for (const [institutionId, group] of movementGroups) {
+    const count = group.movements.length;
+    const increases = group.movements.filter((movement) => movement.direction === "increase").length;
+    const severity = increases > 0 ? "high" : "medium";
+    await recordHamiltonMonitorSignal(
+      {
+        institutionId,
+        signalType: "hamilton_fee_movement_detected",
+        severity,
+        title: `${group.institutionName} - ${count} published fee movement${count === 1 ? "" : "s"} detected`,
+        body:
+          `Hamilton detected ${count} published fee movement${count === 1 ? "" : "s"} against prior live catalog rows. ` +
+          "Refresh competitive briefs, scenarios, and watchlist analysis before using this institution in current recommendations.",
+        sourceJson: {
+          source: "hamilton_publication",
+          run_id: runId,
+          batch_id: batchId,
+          pipeline_stage: "published_fee_movement",
+          movements: group.movements,
+          movement_count: count,
+          refresh_recommended: ["reports", "scenarios", "watchlist"],
+          provider_call_queued: false,
+        },
+      },
+      db,
+    ).catch((error) => {
+      console.error("recordHamiltonFeeMovementSignal failed:", error);
+    });
+  }
+}
+
 export async function runHamiltonPublish(
   options: RunHamiltonPublishOptions,
 ): Promise<RunHamiltonPublishResult> {
@@ -249,7 +470,8 @@ export async function runHamiltonPublish(
   const minConfidence = boundedConfidence(options.minConfidence);
   const dryRun = Boolean(options.dryRun);
   const batchId = `agentic-run-${options.runId}`;
-  const rows = await selectVerifiedFees(db, limit, options.institutionId);
+  const rows = await selectVerifiedFees(db, limit, options.institutionId, options.stateCode);
+  const rowByVerifiedFeeId = new Map(rows.map((row) => [Number(row.fee_verified_id), row]));
   const results: HamiltonPublishResult[] = [];
 
   for (const row of rows) {
@@ -264,13 +486,26 @@ export async function runHamiltonPublish(
         status: "skipped",
         reason: skipReason,
         feePublishedId: null,
+        previousFeePublishedId: null,
+        previousAmount: null,
+        amountDelta: null,
+        movementDirection: null,
       });
       continue;
     }
 
+    const priorPublishedFee = dryRun ? null : await selectPriorPublishedFee(db, row);
     const feePublishedId = dryRun
       ? null
       : await insertPublishedFee(db, { runId: options.runId, batchId, row });
+    const movement = feePublishedId
+      ? movementFor(priorPublishedFee, row)
+      : {
+          previousFeePublishedId: null,
+          previousAmount: null,
+          amountDelta: null,
+          movementDirection: null,
+        };
     results.push({
       feeVerifiedId: Number(row.fee_verified_id),
       institutionId: Number(row.institution_id),
@@ -280,7 +515,12 @@ export async function runHamiltonPublish(
       status: feePublishedId || dryRun ? "published" : "skipped",
       reason: feePublishedId || dryRun ? null : "Duplicate published row",
       feePublishedId,
+      ...movement,
     });
+  }
+
+  if (!dryRun) {
+    await recordPublicationSignals(db, options.runId, batchId, results, rowByVerifiedFeeId);
   }
 
   return {

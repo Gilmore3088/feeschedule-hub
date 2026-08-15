@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   DatabaseZap,
   FileSearch,
+  FileText,
   RotateCw,
   ScanLine,
   ShieldCheck,
   Tags,
+  UploadCloud,
   type LucideIcon,
 } from "lucide-react";
 import { JobLaunchReceipt } from "@/components/agent-console/job-launch-receipt";
@@ -40,8 +42,11 @@ type QueuedWorkflow = {
 const ICONS: Record<AtlasWorkflowId, LucideIcon> = {
   enhance: DatabaseZap,
   discover: FileSearch,
+  fetch: UploadCloud,
+  read: FileText,
   extract: ScanLine,
   classify: Tags,
+  publish: CheckCircle2,
   review: ShieldCheck,
 };
 

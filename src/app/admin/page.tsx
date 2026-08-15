@@ -9,6 +9,7 @@ import {
   Clock3,
   Compass,
   Dna,
+  FileText,
   Orbit,
   ShieldCheck,
   TriangleAlert,
@@ -96,7 +97,7 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       metric: `${number(center.metrics.eligible)} eligible institutions`,
       detail: "Refresh source attributes before discovery, extraction, and benchmarks.",
       commandLabel: "enrich",
-      href: "/admin/data",
+      href: "/admin/states",
     },
     {
       id: "discover" as const,
@@ -108,22 +109,49 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       href: "/admin/magellan",
     },
     {
-      id: "extract" as const,
-      title: "Extract fee schedules",
+      id: "fetch" as const,
+      title: "Fetch source documents",
       owner: "magellan",
       metric: `${number(staleOrMissingSources)} stale or uncollected`,
-      detail: "Collect fee rows from institutions that still need a fresh source read.",
-      commandLabel: "fetch + read + extract",
+      detail: "Collect fresh source PDFs and HTML for institutions with usable fee URLs.",
+      commandLabel: "fetch",
       href: "/admin/magellan",
     },
     {
+      id: "read" as const,
+      title: "Read source documents",
+      owner: "rosetta",
+      metric: "PDF + HTML text queue",
+      detail: "Normalize fetched source documents into text artifacts Knox can trust.",
+      commandLabel: "read",
+      href: "/admin/rosetta",
+    },
+    {
+      id: "extract" as const,
+      title: "Extract raw fee observations",
+      owner: "knox",
+      metric: "Rosetta text artifacts",
+      detail: "Extract conservative source-grounded fee observations from normalized text.",
+      commandLabel: "extract",
+      href: "/admin/knox",
+    },
+    {
       id: "classify" as const,
-      title: "Classify raw fees",
+      title: "Verify raw fees",
       owner: "darwin",
       metric: `${number(unverified)} without verified fees`,
       detail: "Promote raw fee rows into the canonical verified fee table.",
-      commandLabel: "classify",
+      commandLabel: "verify",
       href: "/admin/darwin",
+    },
+    {
+      id: "publish" as const,
+      title: "Publish verified fee intelligence",
+      owner: "hamilton",
+      metric: "Verified rows ready",
+      detail: "Publish eligible verified rows into product read models.",
+      commandLabel: "publish",
+      href: "/admin/data",
     },
     {
       id: "review" as const,
@@ -146,7 +174,8 @@ export default async function AtlasCommandPage() {
     + center.schedules.never_ran_count;
   const healthy = problemSchedules === 0
     && center.agentHealth.errors24h === 0
-    && center.automation.enabled;
+    && center.automation.enabled
+    && center.provider.status === "ready";
 
   return (
     <div className="space-y-9 pb-10">
@@ -176,6 +205,7 @@ export default async function AtlasCommandPage() {
       </header>
 
       <ExecutionBackendBanner status={execution} />
+      <ProviderReadinessBanner readiness={center.provider} />
 
       <AtlasEmergencyControl
         enabled={center.automation.enabled}
@@ -451,6 +481,37 @@ function ExecutionBackendBanner({ status }: { status: ExecutionBackendStatus }) 
   );
 }
 
+function ProviderReadinessBanner({
+  readiness,
+}: {
+  readiness: Awaited<ReturnType<typeof getAtlasCommandCenter>>["provider"];
+}) {
+  const tone = readiness.status === "ready"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-950 dark:bg-emerald-950/25 dark:text-emerald-100"
+    : readiness.status === "automation_stopped"
+      ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-950 dark:bg-amber-950/25 dark:text-amber-100"
+      : "border-red-200 bg-red-50 text-red-950 dark:border-red-950 dark:bg-red-950/25 dark:text-red-100";
+
+  return (
+    <section id="provider-readiness" aria-label="Provider readiness" className={`rounded-md border px-4 py-3 ${tone}`}>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide">{readiness.label}</p>
+          <p className="mt-1 text-sm">{readiness.detail}</p>
+        </div>
+        <span className="font-mono text-[11px] uppercase tracking-wide">
+          ANTHROPIC_API_KEY={readiness.apiKeyConfigured ? "configured" : "missing"}
+        </span>
+      </div>
+      {readiness.lastCreditFailureAt && (
+        <p className="mt-2 text-xs">
+          Last provider credit failure: {dateTime(readiness.lastCreditFailureAt)}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Metric({ label, value, metric }: { label: string; value: number; metric: { numerator: number; denominator: number; definition: string } }) {
   return (
     <div title={metric.definition}>
@@ -508,19 +569,21 @@ function AttentionRow({ item }: { item: AttentionItem }) {
 
 function AgentRail({ schedules }: { schedules: JobFreshness[] }) {
   const stages = [
-    { name: "Magellan", role: "Discover + collect", href: "/admin/magellan", icon: Compass, jobs: ["discover", "fetch", "read", "rescue"] },
-    { name: "Darwin", role: "Classify", href: "/admin/darwin", icon: Dna, jobs: ["darwin_drain"] },
-    { name: "Knox", role: "Adversarial review", href: "/admin/knox", icon: ShieldCheck, jobs: ["knox_review"] },
-    { name: "Publish", role: "Verified index", href: "/admin/data", icon: Orbit, jobs: ["daily_pipeline"] },
+    { name: "Atlas", role: "Schedule + observe", href: "/admin", icon: Orbit, jobs: ["daily_pipeline"] },
+    { name: "Magellan", role: "Discover + fetch", href: "/admin/magellan", icon: Compass, jobs: ["discover", "fetch", "rescue"] },
+    { name: "Rosetta", role: "Read sources", href: "/admin/rosetta", icon: FileText, jobs: ["read", "daily_pipeline"] },
+    { name: "Knox", role: "Extract + exceptions", href: "/admin/knox", icon: ShieldCheck, jobs: ["knox_review"] },
+    { name: "Darwin", role: "Verify", href: "/admin/darwin", icon: Dna, jobs: ["darwin_drain"] },
+    { name: "Hamilton", role: "Publish", href: "/admin/data", icon: BookOpenText, jobs: ["daily_pipeline"] },
   ];
   return (
-    <div className="grid overflow-hidden rounded-lg border border-black/[0.06] bg-white sm:grid-cols-4 dark:border-white/[0.06] dark:bg-[oklch(0.19_0_0)]">
+    <div className="grid overflow-hidden rounded-lg border border-black/[0.06] bg-white sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 dark:border-white/[0.06] dark:bg-[oklch(0.19_0_0)]">
       {stages.map((stage, index) => {
         const related = schedules.filter((job) => stage.jobs.includes(job.job_name));
         const state = related.some((job) => job.status !== "ok") ? "attention" : "ready";
         const Icon = stage.icon;
         return (
-          <Link key={stage.name} href={stage.href} className="group relative flex min-h-32 flex-col justify-between border-b border-black/[0.06] p-4 transition-colors hover:bg-gray-50 sm:border-b-0 sm:border-r sm:last:border-r-0 dark:border-white/[0.06] dark:hover:bg-white/[0.03]">
+          <Link key={stage.name} href={stage.href} className="group relative flex min-h-32 flex-col justify-between border-b border-black/[0.06] p-4 transition-colors hover:bg-gray-50 sm:border-r xl:border-b-0 xl:last:border-r-0 dark:border-white/[0.06] dark:hover:bg-white/[0.03]">
             <div className="flex items-center justify-between">
               <Icon className="h-5 w-5 text-gray-500 transition-colors group-hover:text-[var(--brand-primary)]" />
               <span className={`h-2 w-2 rounded-full ${state === "ready" ? "bg-emerald-500" : "bg-amber-500"}`} />
@@ -532,9 +595,9 @@ function AgentRail({ schedules }: { schedules: JobFreshness[] }) {
           </Link>
         );
       })}
-      <div className="sm:col-span-4 flex items-center gap-3 border-t border-black/[0.06] px-4 py-3 dark:border-white/[0.06]">
+      <div className="sm:col-span-2 lg:col-span-3 xl:col-span-6 flex items-center gap-3 border-t border-black/[0.06] px-4 py-3 dark:border-white/[0.06]">
         <BookOpenText className="h-4 w-4 text-gray-400" />
-        <p className="text-xs text-gray-600 dark:text-gray-400"><strong className="text-gray-800 dark:text-gray-200">Hamilton</strong> reads published data; it does not write into the fee pipeline.</p>
+        <p className="text-xs text-gray-600 dark:text-gray-400"><strong className="text-gray-800 dark:text-gray-200">Hamilton</strong> publishes eligible verified rows and powers the analysis surfaces from published/read-model data.</p>
       </div>
     </div>
   );

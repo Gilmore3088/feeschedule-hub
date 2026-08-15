@@ -8,6 +8,7 @@ import { runMagellanDiscovery } from "@/lib/agents/magellan/discovery";
 import { runMagellanFetch } from "@/lib/agents/magellan/fetch";
 import { runRosettaRead } from "@/lib/agents/rosetta/read";
 import { assertAutomationEnabled } from "@/lib/automation-control";
+import { normalizeStateCode, syncStateLaneProfiles } from "./state-lane-memory";
 import type {
   AdminAgent,
   AgentRunEventSnapshot,
@@ -21,7 +22,7 @@ import type {
 } from "./types";
 
 const ACTIVE_STATUSES = ["queued", "running", "cancel_requested"];
-const RUN_KINDS_WITH_LEDGER = ["workflow", "workflow_lane", "report", "manual_repair", "dry_run"] as const;
+const RUN_KINDS_WITH_LEDGER = ["workflow", "workflow_lane", "state_agent", "report", "manual_repair", "dry_run"] as const;
 const AGENTIC_SUMMARY =
   "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs and fetch source documents; Rosetta can normalize HTML/text/PDF source documents and route scanned PDFs to OCR; Knox can extract conservative raw fee observations and surface rejection decisions for anomaly-only human review; Darwin can verify canonical-hinted raw rows; Hamilton can publish eligible verified rows into the Tier-3 ledger. Durable queues, scanned-PDF OCR, provider extraction, and adversarial review depth remain gated until each agent module is implemented.";
 
@@ -201,20 +202,70 @@ function numericRunParam(
   return undefined;
 }
 
+function stringRunParam(
+  params: Record<string, unknown>,
+  keys: string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = params[key];
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return undefined;
+}
+
+async function countInstitutionRows(
+  tx: SqlTag,
+  stateCode?: string,
+): Promise<{ total: number; missingWebsite: number }> {
+  if (stateCode) {
+    const [row] = await tx`
+      SELECT COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE website_url IS NULL OR btrim(website_url) = '')::int AS missing_website
+        FROM institution_sources
+       WHERE upper(btrim(state_code)) = ${stateCode}
+    `;
+    return {
+      total: Number(row?.total ?? 0),
+      missingWebsite: Number(row?.missing_website ?? 0),
+    };
+  }
+
+  return {
+    total: await countRows(tx, "institution_sources"),
+    missingWebsite: await countRows(tx, "institution_sources", "website_url IS NULL"),
+  };
+}
+
 async function executeAgenticStep(
   tx: SqlTag,
   run: AgentRunSnapshot,
   step: AgentRunStepSnapshot,
 ): Promise<AgenticStepExecution> {
   const params = runParamsForStep(run, step);
+  const stateCode = normalizeStateCode(
+    stringRunParam(params, ["state_code", "stateCode", "state"]),
+  ) ?? undefined;
   switch (step.stepKey) {
     case "enhance": {
-      const total = await countRows(tx, "institution_sources");
-      const missingWebsite = await countRows(tx, "institution_sources", "website_url IS NULL");
+      const memory = await syncStateLaneProfiles(tx, stateCode);
+      const { total, missingWebsite } = await countInstitutionRows(tx, stateCode);
       return {
         status: "completed",
-        summary: `Profile inventory checked: ${total.toLocaleString()} institutions, ${missingWebsite.toLocaleString()} missing websites.`,
-        detail: { total_institutions: total, missing_website_url: missingWebsite },
+        summary: `Profile inventory checked${stateCode ? ` for ${stateCode}` : ""}: ${total.toLocaleString()} institutions, ${missingWebsite.toLocaleString()} missing websites, ${memory.backlogMissingUrls.toLocaleString()} missing fee URLs.`,
+        detail: {
+          state_code: stateCode ?? null,
+          total_institutions: total,
+          missing_website_url: missingWebsite,
+          profiles_touched: memory.profilesTouched,
+          backlog_missing_urls: memory.backlogMissingUrls,
+          backlog_stale_sources: memory.backlogStaleSources,
+          backlog_ocr: memory.backlogOcr,
+          backlog_manual_review: memory.backlogManualReview,
+          failures: memory.failures,
+          corrections: memory.corrections,
+        },
       };
     }
     case "discover":
@@ -224,6 +275,7 @@ async function executeAgenticStep(
         mode: step.stepKey === "rescue" ? "rescue" : "discover",
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["discovery_limit", "rescue_limit", "limit", "size"]),
+        stateCode,
       });
       return {
         status: "completed",
@@ -255,6 +307,7 @@ async function executeAgenticStep(
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["fetch_limit", "limit", "size"]),
         institutionId: numericRunParam(params, ["institution_id"]),
+        stateCode,
       });
       return {
         status: "completed",
@@ -286,6 +339,7 @@ async function executeAgenticStep(
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["read_limit", "limit", "size"]),
         institutionId: numericRunParam(params, ["institution_id"]),
+        stateCode,
       });
       return {
         status: "completed",
@@ -321,6 +375,7 @@ async function executeAgenticStep(
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["extract_limit", "limit", "size"]),
         institutionId: numericRunParam(params, ["institution_id"]),
+        stateCode,
         db: tx,
       });
       return {
@@ -360,6 +415,7 @@ async function executeAgenticStep(
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["verify_limit", "classify_limit", "limit", "size"]),
         institutionId: numericRunParam(params, ["institution_id"]),
+        stateCode,
         db: tx,
       });
       return {
@@ -407,6 +463,7 @@ async function executeAgenticStep(
         dryRun: run.runKind === "dry_run",
         limit: numericRunParam(params, ["publish_limit", "limit", "size"]),
         institutionId: numericRunParam(params, ["institution_id"]),
+        stateCode,
         minConfidence: numericRunParam(params, [
           "publish_min_confidence",
           "min_confidence",
@@ -788,6 +845,7 @@ async function finishAgenticStep(
          ${AGENTIC_SUMMARY},
          ${JSON.stringify({ completed_steps: completed, total_steps: total })}::jsonb)
     `;
+    await updateStateLaneTerminalStatus(tx, runId, "completed");
     return {
       runId,
       status: "completed",
@@ -796,6 +854,49 @@ async function finishAgenticStep(
       message: "Agentic run completed.",
     };
   });
+}
+
+async function updateStateLaneTerminalStatus(
+  tx: SqlTag,
+  runId: number,
+  status: "completed" | "failed",
+): Promise<void> {
+  try {
+    await tx`
+      WITH run_scope AS (
+        SELECT COALESCE(
+                 NULLIF(upper(btrim(state_code)), ''),
+                 NULLIF(upper(btrim(params_json->>'state_code')), '')
+               ) AS state_code
+          FROM agent_runs
+         WHERE id = ${runId}
+           AND run_kind IN ('workflow_lane', 'state_agent')
+      )
+      UPDATE public.agent_state_lanes lane
+         SET last_success_at = CASE
+               WHEN ${status} = 'completed' THEN NOW()
+               ELSE lane.last_success_at
+             END,
+             failure_count = CASE
+               WHEN ${status} = 'failed' THEN lane.failure_count + 1
+               ELSE lane.failure_count
+             END,
+             next_run_after = CASE
+               WHEN ${status} = 'completed' THEN NOW() + (lane.freshness_target_hours * INTERVAL '1 hour')
+               ELSE NOW() + INTERVAL '1 hour'
+             END,
+             lease_token = NULL,
+             lease_expires_at = NULL,
+             updated_at = NOW()
+        FROM run_scope
+       WHERE lane.state_code = run_scope.state_code
+    `;
+  } catch (error) {
+    const message = String(error instanceof Error ? error.message : error).toLowerCase();
+    if (!message.includes("agent_state_lanes") && !message.includes("does not exist")) {
+      throw error;
+    }
+  }
 }
 
 async function failAgenticStep(
@@ -845,6 +946,7 @@ async function failAgenticStep(
          ${message},
          ${JSON.stringify({ failed_step: step.stepKey, completed_steps: completed })}::jsonb)
     `;
+    await updateStateLaneTerminalStatus(tx, runId, "failed");
   });
   return {
     runId,
@@ -1023,7 +1125,7 @@ export async function listAgentRuns(limit = 20): Promise<AgentRunSnapshot[]> {
            progress_current, progress_total, current_stage, error_summary,
            summary, params_json
       FROM agent_runs
-     WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+     WHERE run_kind = ANY(${[...RUN_KINDS_WITH_LEDGER]})
      ORDER BY started_at DESC, id DESC
      LIMIT ${safeLimit}
   `;
@@ -1037,7 +1139,7 @@ export async function listActiveAgentRuns(): Promise<AgentRunSnapshot[]> {
            progress_current, progress_total, current_stage, error_summary,
            summary, params_json
       FROM agent_runs
-     WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+     WHERE run_kind = ANY(${[...RUN_KINDS_WITH_LEDGER]})
        AND status = ANY(${ACTIVE_STATUSES})
      ORDER BY started_at DESC, id DESC
      LIMIT 20
@@ -1105,7 +1207,7 @@ export async function cancelAllActiveAgentRuns(
   const activeRuns = await sql`
     SELECT id
       FROM agent_runs
-     WHERE run_kind IN ('workflow', 'workflow_lane', 'report', 'manual_repair', 'dry_run')
+     WHERE run_kind = ANY(${[...RUN_KINDS_WITH_LEDGER]})
        AND status IN ('queued', 'running', 'cancel_requested')
      ORDER BY started_at ASC, id ASC
   `;
@@ -1129,7 +1231,10 @@ export async function cancelAllActiveAgentRuns(
 }
 
 export async function startAgentRun(input: StartAgentRunInput): Promise<StartAgentRunResult> {
-  const params = input.params ?? {};
+  const normalizedStateCode = normalizeStateCode(input.stateCode ?? input.params?.state_code);
+  const params = normalizedStateCode
+    ? { ...(input.params ?? {}), state_code: normalizedStateCode }
+    : (input.params ?? {});
   const triggerSource = input.triggerSource ?? "admin";
   const progressTotal = input.steps.length;
   const firstStage = input.steps[0]?.key ?? null;
@@ -1159,7 +1264,7 @@ export async function startAgentRun(input: StartAgentRunInput): Promise<StartAge
          trigger_source, triggered_by, idempotency_key, backend,
          progress_current, progress_total, current_stage, started_at, updated_at)
       VALUES
-        (${input.agent}, ${input.kind}, ${input.stateCode ?? null}, ${input.title}, ${input.summary ?? null},
+        (${input.agent}, ${input.kind}, ${normalizedStateCode}, ${input.title}, ${input.summary ?? null},
          'queued', ${JSON.stringify(params)}::jsonb, ${triggerSource},
          ${input.triggeredBy}, ${input.idempotencyKey ?? null}, 'agentic_v1',
          0, ${progressTotal}, ${firstStage}, NOW(), NOW())

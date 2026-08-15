@@ -1,7 +1,9 @@
 import { createHash } from "crypto";
 
 import { sql } from "@/lib/data-store/connection";
+import { normalizeStateCode } from "@/lib/agents/state-lane-memory";
 import { CANONICAL_KEY_MAP } from "@/lib/fee-taxonomy";
+import { recordHamiltonMonitorSignal } from "@/lib/hamilton/monitor-signals";
 
 type SqlTag = typeof sql;
 
@@ -21,6 +23,7 @@ interface TextArtifactRow {
   source_url: string | null;
   normalized_text: string;
   text_hash: string | null;
+  institution_name?: string | null;
 }
 
 export interface ExtractedFeeCandidate {
@@ -47,6 +50,7 @@ export interface RunKnoxExtractOptions {
   runId: number;
   limit?: number;
   institutionId?: number;
+  stateCode?: string;
   dryRun?: boolean;
   db?: SqlTag;
 }
@@ -260,9 +264,19 @@ async function selectTextArtifacts(
   db: SqlTag,
   limit: number,
   institutionId?: number,
+  stateCode?: string,
 ): Promise<TextArtifactRow[]> {
-  const targetFilter = institutionId ? "AND adt.institution_id = $2" : "";
-  const params = institutionId ? [limit, institutionId] : [limit];
+  const params: Array<number | string> = [limit];
+  const filters: string[] = [];
+  if (institutionId) {
+    params.push(institutionId);
+    filters.push(`AND adt.institution_id = $${params.length}`);
+  }
+  const normalizedState = normalizeStateCode(stateCode);
+  if (normalizedState) {
+    params.push(normalizedState);
+    filters.push(`AND upper(btrim(inst.state_code)) = $${params.length}`);
+  }
   return db.unsafe<TextArtifactRow[]>(
     `
       SELECT adt.id AS document_text_id,
@@ -270,12 +284,14 @@ async function selectTextArtifacts(
              adt.institution_id,
              adt.source_url,
              adt.normalized_text,
-             adt.text_hash
+             adt.text_hash,
+             inst.institution_name
         FROM agent_source_texts adt
+        JOIN institution_sources inst ON inst.id = adt.institution_id
        WHERE adt.status = 'completed'
          AND adt.normalized_text IS NOT NULL
          AND adt.char_count > 0
-         ${targetFilter}
+         ${filters.join("\n         ")}
          AND NOT EXISTS (
            SELECT 1
              FROM raw_fee_observations fr
@@ -343,13 +359,136 @@ async function insertCandidate(
   return inserted.length > 0;
 }
 
+function institutionLabel(row: Pick<TextArtifactRow, "institution_id" | "institution_name">): string {
+  return row.institution_name?.trim() || `Institution ${row.institution_id}`;
+}
+
+function rawObservationCountLabel(count: number): string {
+  return `${count} raw observation${count === 1 ? "" : "s"}`;
+}
+
+function documentCountLabel(count: number): string {
+  return `${count} normalized source document${count === 1 ? "" : "s"}`;
+}
+
+async function recordExtractionSignals(
+  db: SqlTag,
+  runId: number,
+  results: KnoxExtractDocumentResult[],
+  rowByDocumentTextId: Map<number, TextArtifactRow>,
+): Promise<void> {
+  const insertedGroups = new Map<number, {
+    institutionName: string;
+    sourceDocumentIds: number[];
+    documentTextIds: number[];
+    canonicalFeeKeys: string[];
+    insertedObservationCount: number;
+  }>();
+  const needsReviewGroups = new Map<number, {
+    institutionName: string;
+    sourceDocumentIds: number[];
+    documentTextIds: number[];
+    reviewedDocumentCount: number;
+  }>();
+
+  results.forEach((result) => {
+    const row = rowByDocumentTextId.get(result.documentTextId);
+    const institutionName = row ? institutionLabel(row) : `Institution ${result.institutionId}`;
+
+    if (result.inserted > 0) {
+      const group = insertedGroups.get(result.institutionId) ?? {
+        institutionName,
+        sourceDocumentIds: [],
+        documentTextIds: [],
+        canonicalFeeKeys: [],
+        insertedObservationCount: 0,
+      };
+      group.sourceDocumentIds.push(result.sourceDocumentId);
+      group.documentTextIds.push(result.documentTextId);
+      group.canonicalFeeKeys.push(...result.candidates.map((candidate) => candidate.canonicalHint));
+      group.insertedObservationCount += result.inserted;
+      insertedGroups.set(result.institutionId, group);
+      return;
+    }
+
+    if (result.extracted === 0) {
+      const group = needsReviewGroups.get(result.institutionId) ?? {
+        institutionName,
+        sourceDocumentIds: [],
+        documentTextIds: [],
+        reviewedDocumentCount: 0,
+      };
+      group.sourceDocumentIds.push(result.sourceDocumentId);
+      group.documentTextIds.push(result.documentTextId);
+      group.reviewedDocumentCount += 1;
+      needsReviewGroups.set(result.institutionId, group);
+    }
+  });
+
+  for (const [institutionId, group] of insertedGroups) {
+    const count = group.insertedObservationCount;
+    await recordHamiltonMonitorSignal(
+      {
+        institutionId,
+        signalType: "knox_extraction_completed",
+        severity: "medium",
+        title: `${group.institutionName} - ${rawObservationCountLabel(count)} extracted`,
+        body:
+          `Knox extracted ${rawObservationCountLabel(count)} from Rosetta-normalized source text. ` +
+          "Darwin verification is still required before benchmark scoring or public-ready analysis changes.",
+        sourceJson: {
+          source: "knox_extraction",
+          run_id: runId,
+          pipeline_stage: "raw_observations_pending_verification",
+          source_document_ids: Array.from(new Set(group.sourceDocumentIds)),
+          document_text_ids: Array.from(new Set(group.documentTextIds)),
+          canonical_fee_keys: Array.from(new Set(group.canonicalFeeKeys)),
+          extracted_observation_count: count,
+          provider_call_queued: false,
+        },
+      },
+      db,
+    ).catch((error) => {
+      console.error("recordKnoxExtractionSignal failed:", error);
+    });
+  }
+
+  for (const [institutionId, group] of needsReviewGroups) {
+    const count = group.reviewedDocumentCount;
+    await recordHamiltonMonitorSignal(
+      {
+        institutionId,
+        signalType: "knox_extraction_needs_review",
+        severity: "medium",
+        title: `${group.institutionName} - source text needs manual fee review`,
+        body:
+          `Knox found no source-grounded fee candidates in ${documentCountLabel(count)}. ` +
+          "Review the source quality before relying on institution-specific fee conclusions.",
+        sourceJson: {
+          source: "knox_extraction",
+          run_id: runId,
+          pipeline_stage: "extraction_needs_review",
+          source_document_ids: Array.from(new Set(group.sourceDocumentIds)),
+          document_text_ids: Array.from(new Set(group.documentTextIds)),
+          reviewed_document_count: count,
+          provider_call_queued: false,
+        },
+      },
+      db,
+    ).catch((error) => {
+      console.error("recordKnoxExtractionReviewSignal failed:", error);
+    });
+  }
+}
+
 export async function runKnoxExtract(
   options: RunKnoxExtractOptions,
 ): Promise<RunKnoxExtractResult> {
   const db = options.db ?? sql;
   const limit = boundedLimit(options.limit);
   const dryRun = Boolean(options.dryRun);
-  const rows = await selectTextArtifacts(db, limit, options.institutionId);
+  const rows = await selectTextArtifacts(db, limit, options.institutionId, options.stateCode);
+  const rowByDocumentTextId = new Map(rows.map((row) => [Number(row.document_text_id), row]));
 
   const results: KnoxExtractDocumentResult[] = [];
   for (const row of rows) {
@@ -370,6 +509,10 @@ export async function runKnoxExtract(
       skipped: dryRun ? candidates.length : candidates.length - inserted,
       candidates,
     });
+  }
+
+  if (!dryRun) {
+    await recordExtractionSignals(db, options.runId, results, rowByDocumentTextId);
   }
 
   return {

@@ -10,6 +10,8 @@ import {
   Database,
   Dna,
   FileCheck2,
+  FileText,
+  Map,
   Orbit,
   ShieldCheck,
 } from "lucide-react";
@@ -29,50 +31,57 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Control",
     items: [
       { href: "/admin", label: "Atlas", role: "Command center", icon: Orbit, exact: true },
-    ],
-  },
-  {
-    label: "Pipeline",
-    items: [
+      {
+        href: "/admin/states",
+        label: "State Lanes",
+        role: "State work partitions",
+        icon: Map,
+      },
       {
         href: "/admin/quality",
-        label: "Trust",
-        role: "0 Validate sources",
+        label: "Source Trust",
+        role: "Validate sources",
         icon: FileCheck2,
         badgeKey: "trustPending",
         activePrefixes: ["/admin/data-quality"],
       },
+    ],
+  },
+  {
+    label: "Agent Lane",
+    items: [
       {
         href: "/admin/magellan",
         label: "Magellan",
-        role: "1 Discover + extract",
+        role: "1 Discover + fetch",
         icon: Compass,
         activePrefixes: ["/admin/coverage"],
       },
-      { href: "/admin/darwin", label: "Darwin", role: "2 Classify fees", icon: Dna },
+      { href: "/admin/rosetta", label: "Rosetta", role: "2 Read sources", icon: FileText },
       {
         href: "/admin/knox",
         label: "Knox",
-        role: "3 Human exceptions",
+        role: "3 Extract + exceptions",
         icon: ShieldCheck,
         badgeKey: "knoxPending",
         activePrefixes: ["/admin/review", "/admin/verify", "/admin/agents/knox"],
       },
-      {
-        href: "/admin/data",
-        label: "Data",
-        role: "4 Publish + explore",
-        icon: Database,
-        activePrefixes: [
-          "/admin/institutions", "/admin/institution", "/admin/index", "/admin/market",
-          "/admin/peers", "/admin/fees", "/admin/states", "/admin/districts", "/admin/query", "/admin/national",
-        ],
-      },
+      { href: "/admin/darwin", label: "Darwin", role: "4 Verify fees", icon: Dna },
     ],
   },
   {
-    label: "Workspace",
+    label: "Output",
     items: [
+      {
+        href: "/admin/data",
+        label: "Published Data",
+        role: "Hamilton output",
+        icon: Database,
+        activePrefixes: [
+          "/admin/institutions", "/admin/institution", "/admin/index", "/admin/market",
+          "/admin/peers", "/admin/fees", "/admin/districts", "/admin/query", "/admin/national",
+        ],
+      },
       {
         href: "/admin/hamilton",
         label: "Hamilton",

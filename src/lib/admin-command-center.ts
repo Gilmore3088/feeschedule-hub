@@ -4,6 +4,7 @@ import { getJobFreshness, getSourceSubmissionCounts } from "./admin-queries";
 import { getKnoxReviewCounts } from "./data-store/knox-reviews";
 import type { AdminAgent, AgentRunStatus } from "./agents/types";
 import { toISO } from "./pg-helpers";
+import { hasAnthropicApiKey } from "./ai-provider";
 
 export interface CoverageMetric {
   value: number;
@@ -54,8 +55,18 @@ export interface AtlasCommandCenter {
   recentJobs: CommandCenterJob[];
   attention: AttentionItem[];
   automation: AutomationControlState;
+  provider: ProviderReadiness;
   apiUsage: ApiUsageOverview;
   agentHealth: AgentFailureOverview;
+}
+
+export interface ProviderReadiness {
+  provider: "anthropic";
+  apiKeyConfigured: boolean;
+  status: "ready" | "missing_key" | "automation_stopped" | "circuit_open";
+  label: string;
+  detail: string;
+  lastCreditFailureAt: string | null;
 }
 
 export interface ApiUsageBreakdown {
@@ -129,6 +140,66 @@ function operatorError(error: unknown): string {
     return "Provider credit balance is too low. Automation is stopped until billing is fixed or this route is moved to another provider.";
   }
   return message.replace(/\s+/g, " ").slice(0, 500);
+}
+
+function isCreditFailureMessage(value: string | null | undefined): boolean {
+  const message = String(value ?? "").toLowerCase();
+  return message.includes("credit balance is too low") ||
+    message.includes("insufficient credits") ||
+    message.includes("purchase credits") ||
+    message.includes("plans & billing");
+}
+
+function buildProviderReadiness(
+  automation: AutomationControlState,
+  apiUsage: ApiUsageOverview,
+): ProviderReadiness {
+  const apiKeyConfigured = hasAnthropicApiKey();
+  const creditFailure = apiUsage.recentFailures.find((failure) =>
+    failure.provider === "anthropic" && isCreditFailureMessage(failure.error),
+  );
+
+  if (!apiKeyConfigured) {
+    return {
+      provider: "anthropic",
+      apiKeyConfigured,
+      status: "missing_key",
+      label: "Anthropic API key missing",
+      detail: "Set ANTHROPIC_API_KEY in the server environment, then restart/redeploy before provider-backed agent work can run.",
+      lastCreditFailureAt: null,
+    };
+  }
+
+  if (!automation.enabled) {
+    return {
+      provider: "anthropic",
+      apiKeyConfigured,
+      status: "automation_stopped",
+      label: "Provider key configured, automation stopped",
+      detail: automation.reason ?? "Provider calls are blocked by the global automation safety control.",
+      lastCreditFailureAt: creditFailure?.createdAt ?? null,
+    };
+  }
+
+  if (creditFailure) {
+    return {
+      provider: "anthropic",
+      apiKeyConfigured,
+      status: "circuit_open",
+      label: "Provider circuit needs attention",
+      detail: "A recent Anthropic billing or credit failure is holding provider-backed work. Update billing/API access, then resume automation.",
+      lastCreditFailureAt: creditFailure.createdAt,
+    };
+  }
+
+  return {
+    provider: "anthropic",
+    apiKeyConfigured,
+    status: "ready",
+    label: "Provider key configured",
+    detail: "ANTHROPIC_API_KEY is present and no recent credit circuit is blocking provider-backed work. The key is validated on the next guarded provider call.",
+    lastCreditFailureAt: null,
+  };
 }
 
 function parseJobArgs(params: unknown): string[] {
@@ -411,7 +482,20 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
   const activeJobs = jobs.filter((job) =>
     ["queued", "running", "cancel_requested"].includes(job.status),
   );
+  const provider = buildProviderReadiness(automation, apiUsage);
   const attention: AttentionItem[] = [];
+
+  if (provider.status === "missing_key" || provider.status === "circuit_open") {
+    attention.push({
+      id: `provider:${provider.status}`,
+      severity: "critical",
+      owner: "atlas",
+      title: provider.label,
+      detail: provider.detail,
+      href: "/admin#provider-readiness",
+      action: "Inspect provider",
+    });
+  }
 
   if (!automation.enabled) {
     attention.push({
@@ -539,6 +623,7 @@ export async function getAtlasCommandCenter(): Promise<AtlasCommandCenter> {
     recentJobs: jobs.filter((job) => !activeJobs.includes(job)).slice(0, 10),
     attention: attention.slice(0, 8),
     automation,
+    provider,
     apiUsage,
     agentHealth,
   };

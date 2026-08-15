@@ -241,4 +241,21 @@ describe("Rosetta agentic read", () => {
     const sqlText = db.mock.calls.map((call) => templateText(call[0])).join("\n");
     expect(sqlText).toContain("INSERT INTO agent_source_texts");
   });
+
+  it("filters read candidates by state lane and source profile strategy", async () => {
+    const db = createDbMock([]);
+    const fetchImpl = vi.fn();
+
+    await runRosettaRead({
+      runId: 107,
+      stateCode: "OR",
+      db: asReadDb(db),
+      fetchImpl,
+    });
+
+    const unsafeSql = db.unsafe.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(unsafeSql).toContain("upper(btrim(ct.state_code))");
+    expect(unsafeSql).toContain("institution_source_profiles");
+    expect(unsafeSql).toContain("profile.read_strategy IN ('pdf_text', 'html_dom')");
+  });
 });
