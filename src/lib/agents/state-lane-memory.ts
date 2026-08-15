@@ -77,6 +77,16 @@ export interface StatePublicDiscoveryFinding {
   systemicCandidate: boolean;
 }
 
+export type PublicDiscoveryFindingDecision = "verified" | "dismissed";
+
+export interface PublicDiscoveryFindingDecisionResult {
+  success: boolean;
+  findingId?: number;
+  stateCode?: string;
+  status?: PublicDiscoveryFindingDecision;
+  error?: string;
+}
+
 export interface AtlasStateLaneDispatchRow {
   stateCode: string;
   name: string;
@@ -565,6 +575,80 @@ export async function getStatePublicDiscoveryFindings(
     if (isMissingStateLaneSchemaError(error)) return [];
     console.error("getStatePublicDiscoveryFindings failed:", error);
     return [];
+  }
+}
+
+export async function updatePublicDiscoveryFindingDecision({
+  findingId,
+  stateCode,
+  status,
+  decidedByUserId,
+  decidedByUsername,
+  db = sql,
+}: {
+  findingId: number;
+  stateCode: string;
+  status: PublicDiscoveryFindingDecision;
+  decidedByUserId: number;
+  decidedByUsername?: string | null;
+  db?: SqlTag;
+}): Promise<PublicDiscoveryFindingDecisionResult> {
+  const normalizedState = normalizeStateCode(stateCode);
+  if (!Number.isInteger(findingId) || findingId <= 0) {
+    return { success: false, error: "Invalid public discovery finding id." };
+  }
+  if (!normalizedState) {
+    return { success: false, error: "Invalid state code." };
+  }
+  if (status !== "verified" && status !== "dismissed") {
+    return { success: false, error: "Invalid public discovery finding decision." };
+  }
+
+  try {
+    const [row] = await db`
+      UPDATE public.public_discovery_findings
+         SET verified_status = ${status},
+             evidence = (
+               CASE
+                 WHEN jsonb_typeof(evidence) = 'object' THEN evidence
+                 ELSE '{}'::jsonb
+               END
+             ) || jsonb_build_object(
+               'operator_decision',
+               jsonb_build_object(
+                 'status', ${status}::text,
+                 'decided_at', NOW(),
+                 'decided_by_user_id', ${decidedByUserId}::integer,
+                 'decided_by_username', ${decidedByUsername ?? null}::text,
+                 'source', 'atlas_state_lane'
+               )
+             ),
+             updated_at = NOW()
+       WHERE id = ${findingId}
+         AND state_code = ${normalizedState}
+         AND verified_status = 'unverified'
+       RETURNING id, state_code, verified_status
+    `;
+
+    if (!row) {
+      return {
+        success: false,
+        error: "Public discovery finding was not found, was already reviewed, or belongs to another state.",
+      };
+    }
+
+    return {
+      success: true,
+      findingId: Number(row.id),
+      stateCode: String(row.state_code),
+      status: safeVerifiedStatus(row.verified_status) as PublicDiscoveryFindingDecision,
+    };
+  } catch (error) {
+    if (isMissingStateLaneSchemaError(error)) {
+      return { success: false, error: "Public discovery schema is not available." };
+    }
+    console.error("updatePublicDiscoveryFindingDecision failed:", error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

@@ -5,6 +5,13 @@ import { normalizeStateCode } from "./state-lane-memory";
 type SqlTag = typeof sql;
 type FetchImpl = typeof fetch;
 
+function jsonParam(value: unknown): ReturnType<typeof sql.json> | string {
+  const json = (sql as unknown as { json?: (input: unknown) => unknown }).json;
+  return typeof json === "function"
+    ? json.call(sql, value) as ReturnType<typeof sql.json>
+    : JSON.stringify(value);
+}
+
 export type PublicFindingCode =
   | "horizontal_overflow"
   | "visible_error"
@@ -375,7 +382,7 @@ export async function recordPublicDiscoveryObservation(
       ${boundedNonnegativeInt(input.consoleErrorCount)},
       ${boundedNonnegativeInt(input.consoleWarningCount)},
       ${input.screenshotPath ?? null},
-      ${JSON.stringify(detail)}::jsonb
+      ${jsonParam(detail)}
     )
     RETURNING id
   `;
@@ -405,12 +412,12 @@ export async function recordPublicDiscoveryObservation(
         ${finding.severity},
         'unverified',
         ${finding.message},
-        ${JSON.stringify({
+        ${jsonParam({
           status_code: input.statusCode ?? null,
           final_url: input.finalUrl ?? null,
           viewport: input.viewport ?? "desktop",
           detail,
-        })}::jsonb
+        })}
       )
     `;
   }
