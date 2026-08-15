@@ -12,20 +12,27 @@ Evaluation and rationale: `docs/plans/openmontage-video-evaluation-2026-08-15.md
 Sound-off by design: the story is carried by motion and type, so it works as a
 muted-autoplay landing hero.
 
-Seven beats. The index and its data are the subject; the agent pipeline is
-deliberately not shown — it appears only as a footnote line under the table.
+Seven beats. Each middle beat shows a product surface rather than describing
+one; the agent pipeline is deliberately not shown at all.
 
-| Time | Beat |
-| --- | --- |
-| 0:00 | Fees are published, but scattered across mismatched PDFs |
-| 0:10 | They resolve into one indexed record — the Bank Fee Index |
-| 0:21 | Coverage — 49 categories, 14 families, 50 states |
-| 0:32 | **The spread** — one fee, priced very differently across institutions |
-| 0:52 | **The index table** — categories against medians and typical ranges |
-| 1:08 | Two audiences — free consumer search, and peer benchmarking |
-| 1:16 | Call to action |
+| Time | Beat | Shows |
+| --- | --- | --- |
+| 0:00 | Fees are published, but scattered across mismatched PDFs | — |
+| 0:09 | They resolve into one indexed record — the Bank Fee Index | — |
+| 0:19 | **Institution data** — a bank profile with its fee schedule | Per-fee amounts with peer deltas and a verified badge |
+| 0:32 | **Peer comparison** — one fee, priced very differently | Distribution plot, P25 / median / P75 |
+| 0:45 | **State data** — what you pay depends on where you bank | 50-state tile cartogram shaded by median |
+| 0:59 | **Reports** — board-ready, straight from the index | Four report types, and a report's real section list |
+| 1:12 | Call to action | — |
 
-Beats 4 and 5 carry the film — 36 of its 83 seconds.
+Four of the seven beats are product surfaces. Headlines animate word by word
+(`typeIn()`), so type carries motion rather than sitting still and fading.
+
+The state map is a **tile-grid cartogram** — one square per state on an 11×8
+lattice, which is standard editorial practice for state choropleths. It reads
+at a glance, gives small states equal visual weight, and needs no geographic
+boundary data (nothing can be fetched at render time anyway). The lattice is
+in `TILES`.
 
 ## Running it
 

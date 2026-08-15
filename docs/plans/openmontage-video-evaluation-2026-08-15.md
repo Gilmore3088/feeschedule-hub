@@ -162,34 +162,39 @@ credibility, but it is not what a prospect is shopping for, and spending the
 longest beat on it sells the machinery instead of the product. It survives as a
 single line of footnote text under the index table, not as a beat.
 
-1. **The problem (0–10.6s).** Bank fees are published, but scattered across
-   thousands of PDFs in inconsistent formats. Nobody can compare them.
+**Each middle beat shows a product surface instead of describing one.** Counts
+and category lists were cut: "49 fee categories" is a statistic about the
+product, not the product. A viewer who sees an institution profile, a state
+map, and a report understands the offering without being told its dimensions.
+
+1. **The problem (0–9.6s).** Bank fees are published, but scattered across
+   thousands of PDFs in inconsistent formats.
    *Visual: a wall of mismatched fee-schedule PDFs.*
-2. **The index (10.2–21.4s).** "Public Evidence Layer." The Bank Fee Index.
+2. **The index (9.2–19.4s).** "Public Evidence Layer." The Bank Fee Index.
    *Visual: the chaos resolves into aligned, priced index rows.*
-3. **What it covers (21–32.4s).** **49** categories · **14** families ·
-   **50** states, then the fee families themselves.
-   *Visual: three counters, then the family names from `FEE_FAMILIES`.*
-4. **The spread (32–52.4s) — the strongest beat.** One fee, priced very
-   differently depending on where you bank. A dot per institution across a
-   dollar axis, then the interquartile band and median laid over it.
-   *Visual: distribution plot with P25 / median / P75.*
-5. **The index table (52–68.4s).** Real category names against medians and
-   typical ranges, populating row by row.
-   *Footnote: "49 categories tracked · every figure traced to a published fee
-   schedule" — provenance, stated once, without a pipeline diagram.*
-6. **The value, per audience (68–76.4s).** Consumers search free. Institutions
-   benchmark against peers — Find or claim → Benchmark → Analyze → Report.
-7. **CTA (76–83s).** Search your institution. `FeeInsight.com`.
+3. **Institution data (19–32.4s).** Every bank, on the record.
+   *Visual: an institution profile — charter, state, assets, branches, then its
+   fee schedule filling in row by row, each with a peer delta (+$3.00 vs peers /
+   at peer median), then a verified badge.*
+4. **Peer comparison (32–45.4s).** The same fee, very different prices.
+   *Visual: a dot per institution across a dollar axis, then the interquartile
+   band and median laid over it.*
+5. **State data (45–59.4s).** What you pay depends on where you bank.
+   *Visual: a 50-state tile cartogram, tiles dropping in and then taking their
+   colour from the state median, with a legend ramp.*
+6. **Reports (59–72.4s).** Board-ready, straight from the index.
+   *Visual: the four report types fanning in — National Fee Index, State Fee
+   Index, Peer Brief, Monthly Pulse — beside a real report's section list.*
+7. **CTA (72–79s).** Search your institution. `FeeInsight.com`.
 
-Beats 4 and 5 carry the film — 36 of its 83 seconds. Beat 4 is the argument
-that a fee index needs to exist at all: if every bank charged the same, there
-would be nothing to index. Showing the dispersion makes the product's reason
-for existing visible in about four seconds.
+Four of seven beats are product surfaces. Headlines animate word by word rather
+than fading in as blocks, so the type itself carries motion.
 
-Category names, family names, and the counts 49 / 14 / 50 come from
-`src/lib/fee-taxonomy.ts` and are real. **The dollar figures are placeholders**
-— see the warning below.
+Real and verbatim from the codebase: fee category names
+(`src/lib/fee-taxonomy.ts`), the four report types
+(`src/app/api/reports/catalog/route.ts`), and the report section titles
+(`src/lib/report-engine/assemble-and-render.ts`). **The dollar figures, the
+per-state values, and the institution profile are placeholders** — see below.
 
 ### Brand style guide (from `src/app/globals.css`)
 
