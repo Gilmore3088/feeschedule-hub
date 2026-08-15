@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Fee Insight — Brand Explainer</title>
+<title>Fee Insight — Institutional Explainer</title>
 <style>
   :root {
     --warm-50:#FDFBF8; --warm-100:#FAF7F2; --warm-150:#F5EFE6; --warm-200:#EDE5D8;
     --warm-300:#E0D7C9; --warm-400:#C4B89F; --warm-500:#A09788; --warm-600:#7A7062;
     --warm-700:#5A5347; --warm-800:#3D3830; --warm-900:#1A1815;
     --terra:#C44B2E; --terra-dark:#A93D25; --terra-soft:#FDF0ED;
+    --green:#3F6B4A;
     --display:"Bitstream Charter","Liberation Serif",Georgia,serif;
     --sans:"Liberation Sans","DejaVu Sans",sans-serif;
     --mono:"DejaVu Sans Mono",monospace;
@@ -23,100 +24,97 @@
               letter-spacing:.28em; text-transform:uppercase; color:var(--warm-500); }
   #progress-track { position:absolute; left:0; bottom:0; width:1920px; height:4px; background:var(--warm-300); z-index:60; }
   #progress-fill { height:4px; width:0; background:var(--terra); }
+  #cap { position:absolute; left:0; top:930px; width:1920px; z-index:55; text-align:center; padding:0 160px; }
+  #cap-in { display:inline-block; font-size:30px; line-height:1.35; color:var(--warm-900);
+            background:rgba(250,247,242,.94); padding:12px 26px; max-width:1500px; }
 
-  /* burned-in caption band — the film must read with sound off */
-  #cap { position:absolute; left:0; top:934px; width:1920px; z-index:55; text-align:center; padding:0 200px; }
-  #cap-in { display:inline-block; font-size:31px; line-height:1.35; color:var(--warm-900);
-            background:rgba(250,247,242,.94); padding:12px 26px; max-width:1380px; }
-
-  .eyebrow { font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--terra); }
-  .kicker  { font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--warm-500); }
-  h1 { font-family:var(--display); font-weight:400; color:var(--warm-900); letter-spacing:-.018em; line-height:1.04; }
+  .kicker { font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--warm-500); }
+  .eyebrow{ font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--terra); }
+  h1 { font-family:var(--display); font-weight:400; color:var(--warm-900); letter-spacing:-.018em; line-height:1.05; }
   .w { display:inline-block; white-space:pre; }
-  .lede { font-size:29px; line-height:1.5; color:var(--warm-700); }
 
-  /* S1 hook */
-  .price { font-family:var(--display); font-size:190px; line-height:.9; color:var(--warm-900);
-           font-variant-numeric:tabular-nums; letter-spacing:-.035em; }
-  .price-sub { margin-top:18px; font-size:21px; letter-spacing:.16em; text-transform:uppercase; color:var(--warm-500); font-weight:700; }
-  #gap-rule { position:absolute; height:1px; background:var(--warm-400); }
-  #gap-lab { position:absolute; font-family:var(--mono); font-size:30px; font-weight:700; color:var(--terra);
-             transform:translateX(-50%); background:var(--warm-100); padding:0 20px; }
+  /* S1 — the 49-price grid */
+  .cellbox { position:absolute; }
+  .cell { position:absolute; background:var(--warm-200); }
 
-  /* S2 documents */
-  .doc { position:absolute; background:var(--warm-50); border:1px solid var(--warm-300);
-         box-shadow:0 18px 40px -28px rgba(26,24,21,.5); padding:16px 14px; }
-  .doc .bar { background:var(--warm-200); height:6px; margin-bottom:8px; }
-  .doc .bar.hd { background:var(--warm-400); height:8px; width:58%; margin-bottom:12px; }
+  /* S2 — two-sided risk */
+  .pole { position:absolute; width:520px; }
+  .pole .pk { font-size:15px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; }
+  .pole .pt { font-family:var(--display); font-size:44px; color:var(--warm-900); margin-top:14px; line-height:1.14; }
+  .pole .pd { font-size:22px; color:var(--warm-600); margin-top:14px; line-height:1.45; }
+  #beam { position:absolute; height:2px; background:var(--warm-300); }
+  #qmark { position:absolute; font-family:var(--display); font-size:96px; color:var(--terra);
+           transform:translateX(-50%); }
+  #qlab { position:absolute; font-size:21px; color:var(--warm-600); transform:translateX(-50%); white-space:nowrap; }
 
-  /* S3 index rows */
-  .row { position:absolute; display:flex; align-items:center; background:var(--warm-50);
-         border:1px solid var(--warm-300); height:50px; width:820px; padding:0 22px; gap:18px; }
-  .row .nm { flex:none; height:9px; background:var(--warm-300); margin-right:auto; }
-  .row .amt { font-family:var(--mono); font-size:17px; color:var(--warm-800); font-variant-numeric:tabular-nums; }
-
-  /* S4 institution */
-  #inst { position:absolute; left:280px; top:300px; width:1360px; background:var(--warm-50);
-          border:1px solid var(--warm-300); box-shadow:0 40px 90px -60px rgba(26,24,21,.5); }
-  #inst-hd { display:flex; align-items:flex-start; gap:24px; padding:30px 38px 24px; border-bottom:1px solid var(--warm-200); }
-  #inst-mark { width:60px; height:60px; background:var(--terra); color:#fff; flex:none;
-               display:flex; align-items:center; justify-content:center; font-family:var(--display); font-size:28px; }
-  .inst-name { font-family:var(--display); font-size:40px; color:var(--warm-900); line-height:1.1; }
-  .inst-meta { margin-top:8px; font-size:18px; color:var(--warm-600); }
-  .badge { display:inline-flex; align-items:center; gap:8px; padding:7px 14px; background:var(--terra-soft);
-           border:1px solid rgba(196,75,46,.35); color:var(--terra); font-size:14px; font-weight:700;
-           letter-spacing:.06em; text-transform:uppercase; }
-  .irow { display:flex; align-items:center; height:64px; padding:0 38px; border-bottom:1px solid var(--warm-200); }
-  .irow:last-child { border-bottom:none; }
-  .irow .k { flex:1; font-size:24px; color:var(--warm-800); }
-  .irow .v { width:170px; text-align:right; font-family:var(--mono); font-size:26px; font-weight:700;
-             color:var(--warm-900); font-variant-numeric:tabular-nums; }
-  .irow .d { width:220px; text-align:right; font-family:var(--mono); font-size:18px; font-variant-numeric:tabular-nums; }
-  .up { color:var(--terra); } .dn { color:#3F6B4A; } .eq { color:var(--warm-500); }
-
-  /* S5 distribution */
-  #axis { position:absolute; left:260px; top:632px; width:1400px; height:2px; background:var(--warm-300); }
-  .tick { position:absolute; width:1px; height:15px; background:var(--warm-400); }
-  .ticklab { position:absolute; font-family:var(--mono); font-size:16px; color:var(--warm-500);
+  /* S3 — your position */
+  #axis { position:absolute; left:280px; top:600px; width:1360px; height:2px; background:var(--warm-300); }
+  .tick { position:absolute; width:1px; height:14px; background:var(--warm-400); }
+  .ticklab { position:absolute; font-family:var(--mono); font-size:15px; color:var(--warm-500);
              transform:translateX(-50%); font-variant-numeric:tabular-nums; }
   .dot { position:absolute; width:11px; height:11px; border-radius:50%; background:var(--warm-400); }
-  #band { position:absolute; background:var(--terra-soft); border-left:1px solid rgba(196,75,46,.42);
-          border-right:1px solid rgba(196,75,46,.42); }
-  #median { position:absolute; width:2.5px; background:var(--terra); }
-  .mlab { position:absolute; font-family:var(--mono); font-size:17px; font-weight:700; color:var(--terra);
+  #band { position:absolute; background:var(--terra-soft); }
+  #median { position:absolute; width:2px; background:var(--warm-600); }
+  .mlab { position:absolute; font-family:var(--mono); font-size:16px; color:var(--warm-600);
           transform:translateX(-50%); white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .plab { position:absolute; font-family:var(--mono); font-size:15px; color:var(--warm-600);
-          transform:translateX(-50%); white-space:nowrap; font-variant-numeric:tabular-nums; }
-  #spread { position:absolute; left:260px; top:768px; width:1400px; text-align:center; font-size:28px; color:var(--warm-700); }
-  #spread b { font-family:var(--mono); font-size:32px; color:var(--terra); font-weight:700; }
+  #youdot { position:absolute; width:26px; height:26px; border-radius:50%; background:var(--terra);
+            box-shadow:0 0 0 7px rgba(196,75,46,.16); }
+  #youlab { position:absolute; transform:translateX(-50%); text-align:center; white-space:nowrap; }
+  #youlab .yn { font-size:19px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--terra); }
+  #youlab .yv { font-family:var(--mono); font-size:34px; font-weight:700; color:var(--warm-900); margin-top:6px; }
+  #delta { position:absolute; font-family:var(--mono); font-size:26px; font-weight:700; color:var(--terra);
+           transform:translateX(-50%); white-space:nowrap; }
 
-  /* S6 states */
-  .st { position:absolute; display:flex; align-items:center; justify-content:center;
-        font-family:var(--mono); font-size:14px; font-weight:700; }
-  #legend { position:absolute; left:0; top:838px; width:1920px; display:flex; justify-content:center;
-            align-items:center; gap:15px; font-size:16px; color:var(--warm-600); }
-  #ramp { width:280px; height:11px; background:linear-gradient(90deg,#EDE5D8,#C44B2E); }
+  /* S4 — the arithmetic */
+  #calc { position:absolute; left:0; top:296px; width:1920px; }
+  .crow { display:flex; align-items:baseline; justify-content:center; gap:34px; margin-bottom:26px; }
+  .crow .cop { width:44px; text-align:right; font-family:var(--mono); font-size:38px; color:var(--warm-500); }
+  .crow .cnum { width:330px; text-align:right; font-family:var(--mono); font-size:54px; font-weight:700;
+                color:var(--warm-900); font-variant-numeric:tabular-nums; }
+  .crow .clab { width:380px; text-align:left; font-size:26px; color:var(--warm-600); }
+  #crule { height:2px; background:var(--warm-400); width:920px; margin:16px auto 30px; }
+  #total { text-align:center; }
+  #total .tv { font-family:var(--display); font-size:132px; color:var(--terra); line-height:1;
+               font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  #total .tl { font-size:27px; color:var(--warm-700); margin-top:20px; }
+  #multi { position:absolute; left:0; top:806px; width:1920px; text-align:center;
+           font-size:31px; color:var(--warm-900); }
 
-  /* S7 reports */
-  .rcard { position:absolute; width:230px; height:306px; background:var(--warm-50);
-           border:1px solid var(--warm-300); box-shadow:0 30px 60px -44px rgba(26,24,21,.55); padding:24px 22px; }
-  .rcard .rk { font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--terra); }
-  .rcard .rt { font-family:var(--display); font-size:28px; color:var(--warm-900); line-height:1.12; margin-top:14px; }
-  .rcard .rl { margin-top:20px; display:flex; flex-direction:column; gap:8px; }
+  /* S5 — full schedule */
+  #inst { position:absolute; left:300px; top:262px; width:1320px; background:var(--warm-50);
+          border:1px solid var(--warm-300); box-shadow:0 40px 90px -60px rgba(26,24,21,.5); }
+  #inst-hd { display:flex; align-items:center; gap:22px; padding:26px 36px; border-bottom:1px solid var(--warm-200); }
+  #inst-hd .t { flex:1; font-family:var(--display); font-size:36px; color:var(--warm-900); }
+  #inst-hd .s { font-size:18px; color:var(--warm-600); }
+  .irow { display:flex; align-items:center; height:62px; padding:0 36px; border-bottom:1px solid var(--warm-200); }
+  .irow:last-child { border-bottom:none; }
+  .irow .k { flex:1; font-size:23px; color:var(--warm-800); }
+  .irow .v { width:160px; text-align:right; font-family:var(--mono); font-size:25px; font-weight:700;
+             color:var(--warm-900); font-variant-numeric:tabular-nums; }
+  .irow .d { width:250px; text-align:right; font-family:var(--mono); font-size:19px; font-variant-numeric:tabular-nums; }
+  .up { color:var(--terra); } .dn { color:var(--green); } .eq { color:var(--warm-500); }
+  #srcnote { position:absolute; left:300px; top:846px; width:1320px; text-align:center;
+             font-size:20px; color:var(--warm-500); }
+
+  /* S6 — reports */
+  .rcard { position:absolute; width:224px; height:296px; background:var(--warm-50);
+           border:1px solid var(--warm-300); box-shadow:0 30px 60px -44px rgba(26,24,21,.55); padding:22px 20px; }
+  .rcard .rk { font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--terra); }
+  .rcard .rt { font-family:var(--display); font-size:27px; color:var(--warm-900); line-height:1.12; margin-top:13px; }
+  .rcard .rl { margin-top:18px; display:flex; flex-direction:column; gap:8px; }
   .rcard .rl i { display:block; height:6px; background:var(--warm-200); }
-  .sect { display:flex; align-items:baseline; gap:18px; margin-bottom:17px; }
+  .sect { display:flex; align-items:baseline; gap:16px; margin-bottom:16px; }
   .sect .sn { font-family:var(--mono); font-size:13px; color:var(--terra); font-weight:700; width:24px; flex:none; }
-  .sect .stx { font-size:24px; color:var(--warm-800); }
+  .sect .stx { font-size:23px; color:var(--warm-800); }
 
-  /* S8 proof + CTA */
-  #chain-proof { display:flex; align-items:center; justify-content:center; gap:22px; }
-  .pchip { display:flex; align-items:center; gap:12px; padding:14px 22px; background:var(--warm-50);
-           border:1px solid var(--warm-300); font-size:21px; color:var(--warm-700); }
-  .pchip b { font-family:var(--mono); font-size:19px; color:var(--terra); }
-  .arrow { color:var(--warm-400); font-size:22px; }
-  .cta-col { text-align:center; }
-  .cta-col .ck { font-size:14px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--warm-500); }
-  .cta-col .cv { margin-top:12px; font-size:29px; color:var(--warm-900); }
+  /* S7 — the close */
+  #price { font-family:var(--display); font-size:158px; color:var(--warm-900); line-height:1;
+           font-variant-numeric:tabular-nums; letter-spacing:-.025em; }
+  #priceper { font-size:29px; color:var(--warm-600); margin-top:20px; }
+  #anchor { margin-top:52px; display:inline-flex; align-items:center; gap:20px;
+            border:1px solid var(--terra); background:var(--terra-soft); padding:18px 32px; }
+  #anchor .a1 { font-size:26px; color:var(--warm-900); }
+  #anchor .a2 { font-size:26px; color:var(--terra); font-weight:700; }
 </style>
 </head>
 <body>
@@ -125,111 +123,95 @@
 
   <!-- S1 HOOK -->
   <div class="scene" id="s1">
-    <div style="position:absolute;left:0;top:250px;width:1920px;text-align:center;">
-      <div class="kicker" id="h-lab">One overdraft fee</div>
+    <div style="position:absolute;left:0;top:214px;width:1920px;text-align:center;">
+      <h1 id="s1h" style="font-size:82px;">You set 49 prices.</h1>
+      <h1 id="s1h2" style="font-size:82px;margin-top:14px;color:var(--terra);">You benchmark three.</h1>
     </div>
-    <div id="h-a" style="position:absolute;left:340px;top:352px;width:520px;text-align:center;">
-      <div class="price">$35</div><div class="price-sub">At one bank</div>
-    </div>
-    <div id="h-b" style="position:absolute;left:1060px;top:352px;width:520px;text-align:center;">
-      <div class="price">$5</div><div class="price-sub">At another</div>
-    </div>
-    <div id="gap-rule"></div>
-    <div id="gap-lab"></div>
+    <div class="cellbox" id="cells"></div>
   </div>
 
-  <!-- S2 PROBLEM -->
+  <!-- S2 STAKES -->
   <div class="scene" id="s2">
-    <div id="docs"></div>
-    <div id="s2veil" style="position:absolute;inset:0;pointer-events:none;"></div>
+    <div id="beam"></div>
+    <div class="pole" id="poleL" style="left:190px;top:330px;">
+      <div class="pk" style="color:var(--terra);">Priced too high</div>
+      <div class="pt">You're the outlier<br>when the examiner asks.</div>
+      <div class="pd">Reputational exposure, and accounts that leave quietly.</div>
+    </div>
+    <div class="pole" id="poleR" style="left:1210px;top:330px;">
+      <div class="pk" style="color:var(--green);">Priced too low</div>
+      <div class="pt">You're giving away<br>fee income, permanently.</div>
+      <div class="pd">Revenue you will never invoice and never recover.</div>
+    </div>
+    <div id="qmark">?</div>
+    <div id="qlab">You don't know which one you are.</div>
   </div>
 
-  <!-- S3 INDEX -->
+  <!-- S3 POSITION -->
   <div class="scene" id="s3">
-    <div id="rows"></div>
-    <div style="position:absolute;left:1050px;top:318px;width:760px;">
-      <div class="eyebrow" id="s3e">Public Evidence Layer</div>
-      <h1 id="s3h" style="font-size:88px;margin-top:24px;">The Bank Fee Index</h1>
-      <div class="lede" id="s3l" style="margin-top:28px;">What American banks actually charge — in one comparable record.</div>
+    <div style="position:absolute;left:0;top:140px;width:1920px;text-align:center;">
+      <div class="eyebrow" id="s3e">Your position</div>
+      <h1 id="s3h" style="font-size:64px;margin-top:20px;">Where you sit, against the peers you compete with.</h1>
     </div>
-  </div>
-
-  <!-- S4 INSTITUTION -->
-  <div class="scene" id="s4">
-    <div style="position:absolute;left:280px;top:158px;width:1360px;">
-      <div class="kicker" id="s4k">Institution data</div>
-      <h1 id="s4h" style="font-size:60px;margin-top:18px;">Every bank, on the record.</h1>
-    </div>
-    <div id="inst">
-      <div id="inst-hd">
-        <div id="inst-mark">F</div>
-        <div style="flex:1;">
-          <div class="inst-name">First National Bank</div>
-          <div class="inst-meta">Commercial bank · Ohio · $2.4B assets · 38 branches</div>
-        </div>
-        <div class="badge" id="inst-badge"><span>✓</span><span>Verified</span></div>
-      </div>
-      <div id="inst-rows"></div>
-    </div>
-  </div>
-
-  <!-- S5 SPREAD -->
-  <div class="scene" id="s5">
-    <div style="position:absolute;left:0;top:150px;width:1920px;text-align:center;">
-      <div class="eyebrow" id="s5e">Peer comparison</div>
-      <h1 id="s5h" style="font-size:70px;margin-top:20px;">One fee, priced across the market.</h1>
-    </div>
-    <div id="s5cat" style="position:absolute;left:260px;top:436px;width:1400px;">
-      <div style="font-size:22px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm-500);font-weight:700;" id="s5catname"></div>
+    <div id="s3cat" style="position:absolute;left:280px;top:352px;width:1360px;">
+      <div style="font-size:21px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm-500);font-weight:700;">Overdraft (OD) · 214 peer institutions</div>
     </div>
     <div id="plot" style="position:absolute;inset:0;"></div>
     <div id="axis"></div>
-    <div id="spread"></div>
+    <div id="youdot"></div>
+    <div id="youlab"><div class="yn">You</div><div class="yv">$35.00</div></div>
+    <div id="delta"></div>
   </div>
 
-  <!-- S6 STATES -->
+  <!-- S4 THE MATH -->
+  <div class="scene" id="s4">
+    <div style="position:absolute;left:0;top:172px;width:1920px;text-align:center;">
+      <div class="kicker" id="s4k">One fee, one gap</div>
+    </div>
+    <div id="calc">
+      <div class="crow" id="cr0"><div class="cop"></div><div class="cnum">12,000</div><div class="clab">accounts paying it</div></div>
+      <div class="crow" id="cr1"><div class="cop">×</div><div class="cnum">$3.00</div><div class="clab">under peer median</div></div>
+      <div class="crow" id="cr2"><div class="cop">×</div><div class="cnum">12</div><div class="clab">months</div></div>
+      <div id="crule"></div>
+      <div id="total"><div class="tv">$432,000</div><div class="tl">forgone every year, on a single fee</div></div>
+    </div>
+    <div id="multi">And you have <b>48 more</b>.</div>
+  </div>
+
+  <!-- S5 FULL SCHEDULE -->
+  <div class="scene" id="s5">
+    <div style="position:absolute;left:300px;top:146px;width:1320px;">
+      <div class="kicker" id="s5k">Every fee you charge</div>
+      <h1 id="s5h" style="font-size:56px;margin-top:16px;">Defensible enough for your board.</h1>
+    </div>
+    <div id="inst">
+      <div id="inst-hd">
+        <div class="t">Your institution</div>
+        <div class="s">Peer set · commercial banks · $1–5B assets · Midwest</div>
+      </div>
+      <div id="inst-rows"></div>
+    </div>
+    <div id="srcnote">Every figure traced to the competitor's own published fee schedule.</div>
+  </div>
+
+  <!-- S6 REPORTS -->
   <div class="scene" id="s6">
-    <div style="position:absolute;left:0;top:118px;width:1920px;text-align:center;">
-      <div class="kicker" id="s6k">State data</div>
-      <h1 id="s6h" style="font-size:60px;margin-top:18px;">Every state, side by side.</h1>
-    </div>
-    <div id="grid" style="position:absolute;inset:0;"></div>
-    <div id="legend">
-      <span>Lower</span><div id="ramp"></div><span>Higher</span>
-      <span style="margin-left:20px;color:var(--warm-500);">Median overdraft fee by state</span>
-    </div>
-  </div>
-
-  <!-- S7 REPORTS -->
-  <div class="scene" id="s7">
-    <div style="position:absolute;left:180px;top:140px;width:1560px;">
-      <div class="kicker" id="s7k">Reports</div>
-      <h1 id="s7h" style="font-size:60px;margin-top:18px;">Board-ready in minutes.</h1>
+    <div style="position:absolute;left:180px;top:150px;width:1560px;">
+      <div class="kicker" id="s6k">Reports</div>
+      <h1 id="s6h" style="font-size:58px;margin-top:16px;">Board-ready the day you need it.</h1>
     </div>
     <div id="cards" style="position:absolute;inset:0;"></div>
-    <div id="sections" style="position:absolute;left:1080px;top:392px;width:700px;"></div>
+    <div id="sections" style="position:absolute;left:1070px;top:400px;width:720px;"></div>
   </div>
 
-  <!-- S8 PROOF + CTA -->
-  <div class="scene" id="s8">
-    <div id="proof-wrap" style="position:absolute;left:0;top:236px;width:1920px;text-align:center;">
-      <h1 id="s8h" style="font-size:58px;">Every figure traced to its source.</h1>
-      <div id="chain-proof" style="margin-top:44px;">
-        <div class="pchip"><b>PDF</b><span>published schedule</span></div>
-        <span class="arrow">→</span>
-        <div class="pchip"><b>✓</b><span>verified</span></div>
-        <span class="arrow">→</span>
-        <div class="pchip"><b>$</b><span>comparable record</span></div>
-      </div>
-    </div>
-    <div id="cta-wrap" style="position:absolute;left:0;top:510px;width:1920px;text-align:center;">
-      <div style="display:flex;justify-content:center;gap:150px;">
-        <div class="cta-col" id="cta1"><div class="ck">Consumers</div><div class="cv">Search any bank, free.</div></div>
-        <div class="cta-col" id="cta2"><div class="ck">Institutions</div><div class="cv">Benchmark against peers.</div></div>
-      </div>
-      <div style="position:relative;display:inline-block;margin-top:70px;">
-        <div id="s8url" style="font-family:var(--display);font-size:64px;color:var(--terra);">FeeInsight.com</div>
-        <div id="s8rule" style="height:4px;background:var(--terra);width:0;margin-top:14px;"></div>
+  <!-- S7 CLOSE -->
+  <div class="scene" id="s7">
+    <div style="position:absolute;left:0;top:262px;width:1920px;text-align:center;">
+      <div id="price">$5,000</div>
+      <div id="priceper">per year, per seat</div>
+      <div id="anchor"><span class="a1">Less than one analyst-week —</span><span class="a2">and an analyst can't do this.</span></div>
+      <div style="position:relative;display:inline-block;margin-top:64px;width:100%;">
+        <div id="s7url" style="font-family:var(--display);font-size:56px;color:var(--terra);">FeeInsight.com</div>
       </div>
     </div>
   </div>
@@ -243,27 +225,26 @@
 
 /* ═══════════════════════════════════════════════════════════════════════
    DATA — ⚠️ PLACEHOLDER FIGURES. NOT FEE INSIGHT DATA.
-   Dollar amounts, per-state values and the institution profile are
-   illustrative and were NOT read from the database. Replace from
-   getNationalIndex() before any public showing.
+   Dollar amounts, the peer count, and the worked example are illustrative
+   and were NOT read from the database. Replace from getNationalIndex()
+   before any public showing or sales use.
 
-   Real and verbatim from the codebase:
-     · fee category names    — src/lib/fee-taxonomy.ts
-     · report types          — src/app/api/reports/catalog/route.ts
-     · report section titles — src/lib/report-engine/assemble-and-render.ts
+   $5,000/year per seat IS real — src/app/subscribe/page.tsx.
+   Fee category names are real — src/lib/fee-taxonomy.ts.
+   Report types are real — src/app/api/reports/catalog/route.ts.
    ═══════════════════════════════════════════════════════════════════════ */
 const DATA = {
-  hook: { high:"$35", low:"$5", gap:"$30 apart" },
-  institution: {
-    fees: [
-      { k:"Overdraft (OD)",               v:"$35.00", d:"+$3.00 vs peers", cls:"up" },
-      { k:"NSF / Returned Item",          v:"$32.00", d:"at peer median",  cls:"eq" },
-      { k:"Monthly Maintenance",          v:"$8.00",  d:"−$4.00 vs peers", cls:"dn" },
-      { k:"Non-Network ATM",              v:"$3.00",  d:"at peer median",  cls:"eq" },
-      { k:"Wire Transfer (Domestic Out)", v:"$30.00", d:"+$5.00 vs peers", cls:"up" }
-    ]
-  },
-  spotlight: { label:"Overdraft (OD)", axisMax:50, min:10, p25:30, p50:35, p75:38, max:40 },
+  position: { label:"Overdraft (OD)", axisMax:50, min:12, p25:30, p50:38, p75:42, max:48,
+              you:35, delta:"−$3.00 vs peer median", peers:214 },
+  math: { accounts:"12,000", gap:"$3.00", months:"12", total:"$432,000", others:48 },
+  fees: [
+    { k:"Overdraft (OD)",               v:"$35.00", d:"−$3.00 vs peers", cls:"dn" },
+    { k:"NSF / Returned Item",          v:"$32.00", d:"at peer median",  cls:"eq" },
+    { k:"Monthly Maintenance",          v:"$8.00",  d:"−$4.00 vs peers", cls:"dn" },
+    { k:"Non-Network ATM",              v:"$3.00",  d:"at peer median",  cls:"eq" },
+    { k:"Wire Transfer (Domestic Out)", v:"$30.00", d:"+$5.00 vs peers", cls:"up" },
+    { k:"Cashier's Check",              v:"$10.00", d:"−$2.00 vs peers", cls:"dn" }
+  ],
   reports: [
     { kind:"National", title:"National Fee Index" }, { kind:"State", title:"State Fee Index" },
     { kind:"Peer", title:"Peer Brief" },             { kind:"Monthly", title:"Monthly Pulse" }
@@ -275,147 +256,96 @@ const DATA = {
   ]
 };
 
-/* Caption track — MUST stay in sync with vo-script.md */
+/* Caption track — keep in sync with vo-script.md */
 const CAPTIONS = [
-  [0.3,  4.2,  "The same overdraft fee costs $35 at one bank, and $5 at another."],
-  [4.4,  7.0,  "Both prices are public."],
-  [7.4,  11.0, "Both are buried in a PDF almost nobody reads."],
-  [11.2, 15.0, "No two banks publish fees the same way — so almost no one compares them."],
-  [15.4, 19.0, "Fee Insight is the Bank Fee Index."],
-  [19.2, 23.0, "One structured record of what American banks actually charge."],
-  [23.4, 28.0, "Look up any institution and see its full fee schedule."],
-  [28.2, 33.0, "Every fee measured against its peers."],
-  [33.4, 38.0, "See how a single fee is priced across the entire market."],
-  [38.2, 42.0, "The spread is wider than most banks think."],
-  [42.4, 46.0, "Compare any state against the rest of the country."],
-  [46.2, 50.0, "What you pay depends on where you bank."],
-  [50.4, 55.0, "Turn any of it into a board-ready brief in minutes."],
-  [55.4, 59.0, "Every figure traced to the published schedule it came from."],
-  // No closing caption: the URL is already on screen at 64px, and captioning
-  // what the frame already says large is redundant.
-  [59.4, 63.4, "Consumers search free. Institutions benchmark against their peers."]
+  [0.4,  6.0,  "You set 49 prices. Most banks benchmark three."],
+  [9.6,  15.0, "Price too high, and you're the outlier when the examiner asks."],
+  [15.2, 19.8, "Price too low, and you're giving away fee income you'll never see."],
+  [20.6, 25.4, "Fee Insight shows you exactly where you sit."],
+  [25.6, 32.6, "Every fee, against the peer set you actually compete with."],
+  [33.6, 42.2, "$3 under median, across 12,000 accounts, is $432,000 a year."],
+  [42.4, 45.0, "That's one fee."],
+  [45.6, 55.6, "Every figure traced to a competitor's published schedule — so it holds up in front of your board."],
+  [56.6, 63.6, "Board-ready the day you need it."]
+  // No caption over the close: the price, the anchor and the URL are all on
+  // screen at display size. Captioning them again just doubles the words.
 ];
 
-const TILES = [
-  ["AK",0,0],["ME",0,10],["VT",1,9],["NH",1,10],
-  ["WA",2,0],["ID",2,1],["MT",2,2],["ND",2,3],["MN",2,4],["IL",2,5],["WI",2,6],["MI",2,7],["NY",2,8],["CT",2,9],["MA",2,10],
-  ["OR",3,0],["NV",3,1],["WY",3,2],["SD",3,3],["IA",3,4],["IN",3,5],["OH",3,6],["PA",3,7],["NJ",3,8],["RI",3,9],
-  ["CA",4,0],["UT",4,1],["CO",4,2],["NE",4,3],["MO",4,4],["KY",4,5],["WV",4,6],["VA",4,7],["MD",4,8],["DE",4,9],
-  ["AZ",5,1],["NM",5,2],["KS",5,3],["AR",5,4],["TN",5,5],["NC",5,6],["SC",5,7],
-  ["OK",6,3],["LA",6,4],["MS",6,5],["AL",6,6],["GA",6,7],
-  ["HI",7,0],["TX",7,3],["FL",7,8]
-];
-
-const DURATION = 66, W = 1920;
+const DURATION = 72, W = 1920;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-const clamp01 = v => v<0?0:v>1?1:v;
-const eOut  = p => 1 - Math.pow(1-p,3);
-const eOutQ = p => 1 - Math.pow(1-p,4);
-const eInOut= p => p<.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2,3)/2;
-const seg = (t,a,b) => clamp01((t-a)/(b-a));
-function env(t,s,e,fi,fo){ if(t<s||t>e) return 0; return Math.min(clamp01((t-s)/fi), clamp01((e-t)/fo)); }
-const px = v => v.toFixed(2)+"px";
-function lerpHex(a,b,t){
-  const p = h => [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
-  const [r1,g1,b1]=p(a),[r2,g2,b2]=p(b), m=(x,y)=>Math.round(x+(y-x)*t);
-  return "rgb("+m(r1,r2)+","+m(g1,g2)+","+m(b1,b2)+")";
-}
+const clamp01=v=>v<0?0:v>1?1:v;
+const eOut=p=>1-Math.pow(1-p,3);
+const eOutQ=p=>1-Math.pow(1-p,4);
+const eInOut=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+const seg=(t,a,b)=>clamp01((t-a)/(b-a));
+function env(t,s,e,fi,fo){ if(t<s||t>e) return 0; return Math.min(clamp01((t-s)/fi),clamp01((e-t)/fo)); }
+const px=v=>v.toFixed(2)+"px";
 function words(el){
-  const parts = el.textContent.split(/(\s+)/); el.textContent = ""; const out = [];
-  parts.forEach(p => {
-    if (!p.trim()){ el.appendChild(document.createTextNode(p)); return; }
-    const s = document.createElement("span"); s.className = "w"; s.textContent = p;
-    el.appendChild(s); out.push(s);
-  });
+  const parts=el.textContent.split(/(\s+)/); el.textContent=""; const out=[];
+  parts.forEach(p=>{ if(!p.trim()){el.appendChild(document.createTextNode(p));return;}
+    const s=document.createElement("span"); s.className="w"; s.textContent=p; el.appendChild(s); out.push(s); });
   return out;
 }
-function typeIn(spans, lt, start, step, dur){
-  spans.forEach((s,i) => {
-    const p = seg(lt, start+i*step, start+i*step+dur);
-    s.style.opacity = p.toFixed(3);
-    s.style.transform = "translateY("+px(24*(1-eOut(p)))+")";
-  });
+function typeIn(spans,lt,start,step,dur){
+  spans.forEach((s,i)=>{ const p=seg(lt,start+i*step,start+i*step+dur);
+    s.style.opacity=p.toFixed(3); s.style.transform="translateY("+px(24*(1-eOut(p)))+")"; });
 }
 
-const rnd = mulberry32(20260815);
+const rnd=mulberry32(20260815);
 
-/* builders */
-const DOCS = [];
+/* S1 — 49 cells, 7x7. Three of them are the ones anybody actually benchmarks. */
+const CELLS=[], LIT=new Set([9,24,38]);
 (function(){
-  const host = document.getElementById("docs");
-  for (let i=0;i<15;i++){
-    const w=168+Math.floor(rnd()*120), h=214+Math.floor(rnd()*140);
-    const d=document.createElement("div"); d.className="doc";
-    d.style.width=w+"px"; d.style.height=h+"px";
-    let inner='<div class="bar hd"></div>';
-    const lines=4+Math.floor(rnd()*5);
-    for(let j=0;j<lines;j++) inner+='<div class="bar" style="width:'+(45+Math.floor(rnd()*50))+'%"></div>';
-    d.innerHTML=inner; host.appendChild(d);
-    DOCS.push({el:d,x:40+rnd()*(W-w-80),y:60+rnd()*(880-h),rot:(rnd()*2-1)*17,delay:rnd()*1.3,drift:(rnd()*2-1)*12});
+  const host=document.getElementById("cells");
+  const CS=64, G=11, N=7;
+  const gw=N*CS+(N-1)*G, gx=(W-gw)/2, gy=470;
+  host.style.left="0px"; host.style.top="0px"; host.style.width=W+"px"; host.style.height="1080px";
+  for(let i=0;i<49;i++){
+    const r=Math.floor(i/N), c=i%N;
+    const d=document.createElement("div"); d.className="cell";
+    d.style.left=px(gx+c*(CS+G)); d.style.top=px(gy+r*(CS+G));
+    d.style.width=px(CS); d.style.height=px(CS);
+    host.appendChild(d);
+    CELLS.push({el:d,i,delay:rnd()*0.9});
   }
 })();
 
-const ROWS = [];
-(function(){
-  const host=document.getElementById("rows");
-  const amounts=["$35.00","$12.00","$3.00","$30.00","$2.50","$25.00","$15.00"];
-  for(let i=0;i<7;i++){
-    const r=document.createElement("div"); r.className="row";
-    r.innerHTML='<div class="nm" style="width:'+(150+Math.floor(rnd()*120))+'px"></div><div class="amt">'+amounts[i]+'</div>';
-    host.appendChild(r);
-    ROWS.push({el:r,ty:268+i*64,fx:(rnd()*2-1)*520,fy:(rnd()*2-1)*280,frot:(rnd()*2-1)*16,delay:i*0.08});
-  }
-})();
-
-const IROWS = [];
-(function(){
-  const host=document.getElementById("inst-rows");
-  DATA.institution.fees.forEach(f=>{
-    const d=document.createElement("div"); d.className="irow";
-    d.innerHTML='<div class="k">'+f.k+'</div><div class="v">'+f.v+'</div><div class="d '+f.cls+'">'+f.d+'</div>';
-    host.appendChild(d); IROWS.push(d);
-  });
-})();
-
-const SP = DATA.spotlight;
-const AX = { left:260, width:1400, y:632 };
-const xOf = v => AX.left + (v/SP.axisMax)*AX.width;
-const DOTS = [];
+/* S3 — peer distribution */
+const P=DATA.position;
+const AX={left:280,width:1360,y:600};
+const xOf=v=>AX.left+(v/P.axisMax)*AX.width;
+const DOTS=[];
 (function(){
   const host=document.getElementById("plot");
-  for(let v=0;v<=SP.axisMax;v+=10){
+  for(let v=0;v<=P.axisMax;v+=10){
     const t=document.createElement("div"); t.className="tick";
     t.style.left=px(xOf(v)); t.style.top=px(AX.y-7); host.appendChild(t);
     const l=document.createElement("div"); l.className="ticklab";
     l.style.left=px(xOf(v)); l.style.top=px(AX.y+18); l.textContent="$"+v; host.appendChild(l);
   }
   ["band","median"].forEach(id=>{const d=document.createElement("div"); d.id=id; host.appendChild(d);});
-  ["mlab","p25lab","p75lab"].forEach((id,i)=>{
-    const d=document.createElement("div"); d.id=id; d.className=i?"plab":"mlab"; host.appendChild(d);
-  });
-  const Q=[[SP.min,SP.p25],[SP.p25,SP.p50],[SP.p50,SP.p75],[SP.p75,SP.max]];
+  const ml=document.createElement("div"); ml.className="mlab"; ml.id="mlab"; host.appendChild(ml);
+  const Q=[[P.min,P.p25],[P.p25,P.p50],[P.p50,P.p75],[P.p75,P.max]];
   for(let i=0;i<96;i++){
     const [lo,hi]=Q[i%4];
     const d=document.createElement("div"); d.className="dot"; host.appendChild(d);
-    DOTS.push({el:d,v:lo+rnd()*(hi-lo),lane:Math.floor(rnd()*9),delay:rnd()*1.1,jitter:(rnd()*2-1)*4});
+    DOTS.push({el:d,v:lo+rnd()*(hi-lo),lane:Math.floor(rnd()*9),delay:rnd()*1.0,jitter:(rnd()*2-1)*4});
   }
 })();
 
-const CELL=64, GAP=7;
-const GRID_W=11*CELL+10*GAP, GRID_X=(W-GRID_W)/2, GRID_Y=250;
-const TILEEL=[];
+/* S5 rows */
+const IROWS=[];
 (function(){
-  const host=document.getElementById("grid");
-  TILES.forEach(([ab,r,c])=>{
-    const d=document.createElement("div"); d.className="st"; d.textContent=ab;
-    d.style.left=px(GRID_X+c*(CELL+GAP)); d.style.top=px(GRID_Y+r*(CELL+GAP));
-    d.style.width=px(CELL); d.style.height=px(CELL);
-    host.appendChild(d);
-    TILEEL.push({el:d,v:rnd(),delay:(r*0.05)+rnd()*0.26});
+  const host=document.getElementById("inst-rows");
+  DATA.fees.forEach(f=>{
+    const d=document.createElement("div"); d.className="irow";
+    d.innerHTML='<div class="k">'+f.k+'</div><div class="v">'+f.v+'</div><div class="d '+f.cls+'">'+f.d+'</div>';
+    host.appendChild(d); IROWS.push(d);
   });
 })();
 
+/* S6 cards + sections */
 const RCARDS=[], SECTS=[];
 (function(){
   const host=document.getElementById("cards");
@@ -423,8 +353,7 @@ const RCARDS=[], SECTS=[];
     const d=document.createElement("div"); d.className="rcard";
     let lines=""; for(let j=0;j<6;j++) lines+='<i style="width:'+(52+Math.floor(rnd()*46))+'%"></i>';
     d.innerHTML='<div class="rk">'+r.kind+'</div><div class="rt">'+r.title+'</div><div class="rl">'+lines+'</div>';
-    host.appendChild(d);
-    RCARDS.push({el:d,x:180+i*196,y:392+i*18,rot:-6+i*2.8});
+    host.appendChild(d); RCARDS.push({el:d,x:180+i*192,y:400+i*17,rot:-6+i*2.8});
   });
   const sh=document.getElementById("sections");
   DATA.sections.forEach((s,i)=>{
@@ -434,205 +363,177 @@ const RCARDS=[], SECTS=[];
   });
 })();
 
-const $ = id => document.getElementById(id);
-const S = {}; for (let i=1;i<=8;i++) S["s"+i] = $("s"+i);
-const WIN = {
-  s1:[0,7.4], s2:[7.0,15.4], s3:[15.0,23.4], s4:[23.0,33.4],
-  s5:[33.0,42.4], s6:[42.0,50.4], s7:[50.0,58.4], s8:[58.0,66]
-};
-const HW = { s3h:words($("s3h")), s4h:words($("s4h")), s5h:words($("s5h")),
-             s6h:words($("s6h")), s7h:words($("s7h")), s8h:words($("s8h")) };
+const $=id=>document.getElementById(id);
+const S={}; for(let i=1;i<=7;i++) S["s"+i]=$("s"+i);
+const WIN={ s1:[0,9.4], s2:[9.0,20.4], s3:[20.0,33.4], s4:[33.0,45.4],
+            s5:[45.0,56.4], s6:[56.0,64.4], s7:[64.0,72] };
+const HW={ s1h:words($("s1h")), s1h2:words($("s1h2")), s3h:words($("s3h")),
+           s5h:words($("s5h")), s6h:words($("s6h")) };
 
-window.seek = function(t){
-  $("progress-fill").style.width = px(clamp01(t/DURATION)*W);
-  for (const k in WIN){ const [a,b]=WIN[k]; S[k].style.opacity = env(t,a,b,0.45,0.45).toFixed(4); }
-  $("wordmark").style.opacity = clamp01(seg(t,16.4,17.6)).toFixed(3);
+window.seek=function(t){
+  $("progress-fill").style.width=px(clamp01(t/DURATION)*W);
+  for(const k in WIN){ const [a,b]=WIN[k]; S[k].style.opacity=env(t,a,b,0.45,0.45).toFixed(4); }
+  $("wordmark").style.opacity=clamp01(seg(t,21.0,22.2)).toFixed(3);
 
-  /* captions */
-  {
-    let cur=null, a=0;
-    for (const [s,e,txt] of CAPTIONS){
-      const o = env(t, s, e, 0.28, 0.28);
-      if (o > a){ a = o; cur = txt; }
-    }
-    $("cap-in").textContent = cur || "";
-    $("cap").style.opacity = a.toFixed(3);
+  { let cur=null,a=0;
+    for(const [s,e,txt] of CAPTIONS){ const o=env(t,s,e,0.28,0.28); if(o>a){a=o;cur=txt;} }
+    $("cap-in").textContent=cur||""; $("cap").style.opacity=a.toFixed(3);
   }
 
-  /* S1 — hook */
+  /* S1 — 49 prices, 3 benchmarked */
   {
-    const lt = t - WIN.s1[0];
-    $("h-lab").style.opacity = seg(lt,0.2,1.0).toFixed(3);
-    [["h-a",0.7],["h-b",1.5]].forEach(([id,d])=>{
-      const p = seg(lt,d,d+0.75);
-      $(id).style.opacity = p.toFixed(3);
-      $(id).style.transform = "scale("+(1.14-0.14*eOutQ(p)).toFixed(4)+")";
-    });
-    // the gap between them is the point — draw it, then name it
-    const g = eInOut(seg(lt,2.5,3.6));
-    const x1 = 860, x2 = 1060, y = 452;
-    $("gap-rule").style.opacity = g.toFixed(3);
-    $("gap-rule").style.left = px(x1); $("gap-rule").style.top = px(y);
-    $("gap-rule").style.width = px((x2-x1)*g);
-    // label sits above the rule, not across it — a dimension line, not a strikethrough
-    const gl = seg(lt,3.4,4.3);
-    $("gap-lab").style.opacity = gl.toFixed(3);
-    $("gap-lab").style.left = px((x1+x2)/2); $("gap-lab").style.top = px(y-58);
-    $("gap-lab").textContent = DATA.hook.gap;
-  }
-
-  /* S2 — problem */
-  {
-    const lt = t - WIN.s2[0];
-    DOCS.forEach(d=>{
-      const p = eOut(clamp01((lt-d.delay)/1.4));
-      const dy = d.drift*Math.sin((lt+d.delay*3)*0.55);
-      d.el.style.opacity = (p*0.98).toFixed(3);
-      d.el.style.transform = "translate("+px(d.x)+","+px(d.y+dy+(1-p)*26)+") rotate("+(d.rot*(0.35+0.65*p)).toFixed(2)+"deg) scale("+(0.94+0.06*p).toFixed(3)+")";
+    const lt=t-WIN.s1[0];
+    typeIn(HW.s1h, lt, 0.3, 0.075, 0.8);
+    typeIn(HW.s1h2, lt, 2.9, 0.075, 0.8);
+    CELLS.forEach(c=>{
+      const p=eOut(clamp01((lt-1.0-c.delay)/0.9));
+      c.el.style.opacity=p.toFixed(3);
+      c.el.style.transform="scale("+(0.6+0.4*p).toFixed(3)+")";
+      // the three anyone actually checks light up; the other 46 stay dark
+      const lit = LIT.has(c.i) ? eInOut(seg(lt,3.6,4.8)) : 0;
+      c.el.style.background = lit>0
+        ? "rgb("+Math.round(237+(196-237)*lit)+","+Math.round(229+(75-229)*lit)+","+Math.round(216+(46-216)*lit)+")"
+        : "var(--warm-200)";
     });
   }
 
-  /* S3 — the index */
+  /* S2 — two-sided risk */
   {
-    const lt = t - WIN.s3[0];
-    ROWS.forEach(r=>{
-      const p = eInOut(clamp01((lt-r.delay)/1.7));
-      r.el.style.opacity = (0.25+0.75*p).toFixed(3);
-      r.el.style.transform = "translate("+px(150+r.fx*(1-p))+","+px(r.ty+r.fy*(1-p))+") rotate("+(r.frot*(1-p)).toFixed(2)+"deg)";
-      r.el.style.borderColor = p>0.97 ? "var(--warm-300)" : "var(--warm-200)";
-    });
-    const e = seg(lt,1.7,2.6), l = seg(lt,3.2,4.3);
-    $("s3e").style.opacity = e.toFixed(3);
-    $("s3e").style.transform = "translateY("+px(16*(1-eOut(e)))+")";
-    typeIn(HW.s3h, lt, 2.0, 0.08, 0.8);
-    $("s3l").style.opacity = l.toFixed(3);
-    $("s3l").style.transform = "translateY("+px(18*(1-eOut(l)))+")";
+    const lt=t-WIN.s2[0];
+    const bm=eInOut(seg(lt,0.4,1.8));
+    $("beam").style.opacity=bm.toFixed(3);
+    $("beam").style.left=px(190); $("beam").style.top=px(300);
+    $("beam").style.width=px(1540*bm);
+    const L=seg(lt,1.2,2.4), R=seg(lt,3.4,4.6);
+    $("poleL").style.opacity=L.toFixed(3);
+    $("poleL").style.transform="translateY("+px(20*(1-eOut(L)))+")";
+    $("poleR").style.opacity=R.toFixed(3);
+    $("poleR").style.transform="translateY("+px(20*(1-eOut(R)))+")";
+    const q=seg(lt,6.0,7.2);
+    $("qmark").style.opacity=q.toFixed(3);
+    $("qmark").style.left=px(960); $("qmark").style.top=px(378);
+    $("qmark").style.transform="translateX(-50%) scale("+(0.8+0.2*eOut(q)).toFixed(3)+")";
+    const ql=seg(lt,6.8,8.0);
+    $("qlab").style.opacity=ql.toFixed(3);
+    $("qlab").style.left=px(960); $("qlab").style.top=px(506);
   }
 
-  /* S4 — institution */
+  /* S3 — your position in the peer cloud */
   {
-    const lt = t - WIN.s4[0];
-    $("s4k").style.opacity = seg(lt,0.3,1.2).toFixed(3);
-    typeIn(HW.s4h, lt, 0.6, 0.07, 0.75);
-    const c = seg(lt,1.5,2.6);
-    $("inst").style.opacity = c.toFixed(3);
-    $("inst").style.transform = "translateY("+px(34*(1-eOut(c)))+") scale("+(0.986+0.014*eOut(c)).toFixed(4)+")";
-    IROWS.forEach((el,i)=>{
-      const p = seg(lt, 2.7+i*0.38, 3.4+i*0.38);
-      el.style.opacity = p.toFixed(3);
-      el.style.transform = "translateX("+px(-20*(1-eOut(p)))+")";
-      const d = el.querySelector(".d");
-      d.style.opacity = seg(lt, 3.3+i*0.38, 4.0+i*0.38).toFixed(3);
-    });
-    const b = seg(lt,5.4,6.3);
-    $("inst-badge").style.opacity = b.toFixed(3);
-    $("inst-badge").style.transform = "scale("+(0.9+0.1*eOut(b)).toFixed(3)+")";
-  }
-
-  /* S5 — the spread */
-  {
-    const lt = t - WIN.s5[0];
-    $("s5e").style.opacity = seg(lt,0.3,1.2).toFixed(3);
-    typeIn(HW.s5h, lt, 0.55, 0.055, 0.75);
-    $("s5catname").textContent = SP.label;
-    $("s5cat").style.opacity = seg(lt,1.7,2.5).toFixed(3);
-    const ax = eInOut(seg(lt,1.9,3.1));
-    $("axis").style.opacity = ax.toFixed(3); $("axis").style.width = px(AX.width*ax);
-    const tv = seg(lt,2.4,3.4).toFixed(3);
-    document.querySelectorAll(".tick,.ticklab").forEach(el=>{ el.style.opacity = tv; });
+    const lt=t-WIN.s3[0];
+    $("s3e").style.opacity=seg(lt,0.3,1.2).toFixed(3);
+    typeIn(HW.s3h, lt, 0.6, 0.05, 0.75);
+    $("s3cat").style.opacity=seg(lt,1.8,2.7).toFixed(3);
+    const ax=eInOut(seg(lt,2.0,3.2));
+    $("axis").style.opacity=ax.toFixed(3); $("axis").style.width=px(AX.width*ax);
+    const tv=seg(lt,2.5,3.5).toFixed(3);
+    document.querySelectorAll(".tick,.ticklab").forEach(el=>{el.style.opacity=tv;});
     DOTS.forEach(d=>{
-      const p = eOut(clamp01((lt-2.9-d.delay)/1.3));
-      d.el.style.opacity = (p*0.72).toFixed(3);
-      d.el.style.transform = "translate("+px(xOf(d.v)-5.5)+","+px((AX.y-22-d.lane*15+d.jitter)-84*(1-p))+")";
+      const p=eOut(clamp01((lt-3.0-d.delay)/1.3));
+      d.el.style.opacity=(p*0.62).toFixed(3);
+      d.el.style.transform="translate("+px(xOf(d.v)-5.5)+","+px((AX.y-22-d.lane*15+d.jitter)-80*(1-p))+")";
     });
-    const bp = eInOut(seg(lt,4.8,6.0));
-    const bx1 = xOf(SP.p25), bx2 = xOf(SP.p75);
-    const band = $("band");
-    band.style.opacity = bp.toFixed(3);
-    band.style.left = px(bx1); band.style.width = px((bx2-bx1)*bp);
-    band.style.top = px(AX.y-150); band.style.height = px(150);
-    const mp = eInOut(seg(lt,5.8,6.9));
-    const med = $("median");
-    med.style.opacity = mp.toFixed(3);
-    med.style.left = px(xOf(SP.p50)-1.25);
-    med.style.top = px(AX.y-172*mp); med.style.height = px(172*mp);
-    const ml = $("mlab");
-    ml.textContent = "Median $"+SP.p50.toFixed(2);
-    ml.style.opacity = seg(lt,6.4,7.3).toFixed(3);
-    ml.style.left = px(xOf(SP.p50)); ml.style.top = px(AX.y-212);
-    const pq = seg(lt,6.8,7.7);
-    const pl1=$("p25lab"), pl2=$("p75lab");
-    pl1.textContent="P25 $"+SP.p25.toFixed(2); pl2.textContent="P75 $"+SP.p75.toFixed(2);
-    pl1.style.opacity=pq.toFixed(3); pl1.style.left=px(bx1); pl1.style.top=px(AX.y-182);
-    pl2.style.opacity=pq.toFixed(3); pl2.style.left=px(bx2); pl2.style.top=px(AX.y-182);
-    const sp = seg(lt,7.4,8.4);
-    $("spread").style.opacity = sp.toFixed(3);
-    $("spread").style.transform = "translateY("+px(16*(1-eOut(sp)))+")";
-    $("spread").innerHTML = "On one fee, the gap between banks is <b>$"+(SP.max-SP.min).toFixed(0)+"</b>.";
+    const bp=eInOut(seg(lt,4.9,6.0));
+    const bx1=xOf(P.p25), bx2=xOf(P.p75);
+    $("band").style.opacity=(bp*0.9).toFixed(3);
+    $("band").style.left=px(bx1); $("band").style.width=px((bx2-bx1)*bp);
+    $("band").style.top=px(AX.y-150); $("band").style.height=px(150);
+    const mp=eInOut(seg(lt,5.6,6.6));
+    $("median").style.opacity=mp.toFixed(3);
+    $("median").style.left=px(xOf(P.p50)-1);
+    $("median").style.top=px(AX.y-160*mp); $("median").style.height=px(160*mp);
+    const ml=$("mlab");
+    ml.textContent="Peer median $"+P.p50.toFixed(2);
+    ml.style.opacity=seg(lt,6.2,7.2).toFixed(3);
+    // labels clear the band top (AX.y-150) so they never sit over the dot cloud
+    ml.style.left=px(xOf(P.p50)); ml.style.top=px(AX.y-248);
+
+    // the viewer's own bank — the only terra mark in the cloud
+    const yp=seg(lt,7.4,8.6);
+    $("youdot").style.opacity=yp.toFixed(3);
+    $("youdot").style.left=px(xOf(P.you)-13);
+    $("youdot").style.top=px(AX.y-13-70*eOut(yp));
+    $("youlab").style.opacity=seg(lt,8.0,9.0).toFixed(3);
+    $("youlab").style.left=px(xOf(P.you)); $("youlab").style.top=px(AX.y-212);
+    const dl=seg(lt,9.2,10.2);
+    $("delta").style.opacity=dl.toFixed(3);
+    $("delta").textContent=P.delta;
+    $("delta").style.left=px((xOf(P.you)+xOf(P.p50))/2); $("delta").style.top=px(AX.y+58);
   }
 
-  /* S6 — states */
+  /* S4 — the arithmetic that justifies the line item */
   {
-    const lt = t - WIN.s6[0];
-    $("s6k").style.opacity = seg(lt,0.3,1.2).toFixed(3);
-    typeIn(HW.s6h, lt, 0.55, 0.05, 0.75);
-    TILEEL.forEach(s=>{
-      const p = eOut(clamp01((lt-1.7-s.delay)/0.8));
-      const fill = eInOut(clamp01((lt-3.3-s.delay*0.8)/1.3));
-      s.el.style.opacity = p.toFixed(3);
-      s.el.style.transform = "translateY("+px(18*(1-p))+") scale("+(0.86+0.14*p).toFixed(3)+")";
-      s.el.style.background = lerpHex("#EDE5D8","#C44B2E", s.v*fill);
-      s.el.style.color = (s.v*fill) > 0.55 ? "#FDFBF8" : "#7A7062";
+    const lt=t-WIN.s4[0];
+    $("s4k").style.opacity=seg(lt,0.3,1.2).toFixed(3);
+    [0,1,2].forEach(i=>{
+      const p=seg(lt,1.0+i*0.85,1.9+i*0.85);
+      const el=$("cr"+i);
+      el.style.opacity=p.toFixed(3);
+      el.style.transform="translateY("+px(18*(1-eOut(p)))+")";
     });
-    const lg = seg(lt,5.0,6.0);
-    $("legend").style.opacity = lg.toFixed(3);
-    $("legend").style.transform = "translateY("+px(12*(1-eOut(lg)))+")";
+    const ru=eInOut(seg(lt,3.7,4.5));
+    $("crule").style.opacity=ru.toFixed(3);
+    $("crule").style.width=px(920*ru);
+    const tp=seg(lt,4.5,5.6);
+    $("total").style.opacity=tp.toFixed(3);
+    $("total").style.transform="scale("+(0.9+0.1*eOutQ(tp)).toFixed(4)+")";
+    const mp=seg(lt,8.0,9.2);
+    $("multi").style.opacity=mp.toFixed(3);
+    $("multi").style.transform="translateY("+px(16*(1-eOut(mp)))+")";
+    $("multi").innerHTML='And you have <b style="color:var(--terra);">'+DATA.math.others+' more</b>.';
   }
 
-  /* S7 — reports */
+  /* S5 — the full schedule */
   {
-    const lt = t - WIN.s7[0];
-    $("s7k").style.opacity = seg(lt,0.3,1.2).toFixed(3);
-    typeIn(HW.s7h, lt, 0.55, 0.055, 0.75);
+    const lt=t-WIN.s5[0];
+    $("s5k").style.opacity=seg(lt,0.3,1.2).toFixed(3);
+    typeIn(HW.s5h, lt, 0.6, 0.06, 0.75);
+    const c=seg(lt,1.5,2.6);
+    $("inst").style.opacity=c.toFixed(3);
+    $("inst").style.transform="translateY("+px(30*(1-eOut(c)))+")";
+    IROWS.forEach((el,i)=>{
+      const p=seg(lt,2.6+i*0.36,3.3+i*0.36);
+      el.style.opacity=p.toFixed(3);
+      el.style.transform="translateX("+px(-18*(1-eOut(p)))+")";
+      el.querySelector(".d").style.opacity=seg(lt,3.2+i*0.36,3.9+i*0.36).toFixed(3);
+    });
+    $("srcnote").style.opacity=seg(lt,6.4,7.6).toFixed(3);
+  }
+
+  /* S6 — reports */
+  {
+    const lt=t-WIN.s6[0];
+    $("s6k").style.opacity=seg(lt,0.3,1.2).toFixed(3);
+    typeIn(HW.s6h, lt, 0.6, 0.055, 0.75);
     RCARDS.forEach((c,i)=>{
-      const p = seg(lt, 1.5+i*0.26, 2.4+i*0.26);
-      c.el.style.opacity = p.toFixed(3);
-      c.el.style.transform = "translate("+px(c.x)+","+px(c.y+42*(1-eOut(p)))+") rotate("+(c.rot*eOut(p)).toFixed(2)+"deg)";
+      const p=seg(lt,1.4+i*0.24,2.3+i*0.24);
+      c.el.style.opacity=p.toFixed(3);
+      c.el.style.transform="translate("+px(c.x)+","+px(c.y+38*(1-eOut(p)))+") rotate("+(c.rot*eOut(p)).toFixed(2)+"deg)";
     });
     SECTS.forEach((el,i)=>{
-      const p = seg(lt, 3.4+i*0.34, 4.1+i*0.34);
-      el.style.opacity = p.toFixed(3);
-      el.style.transform = "translateX("+px(22*(1-eOut(p)))+")";
+      const p=seg(lt,2.9+i*0.30,3.6+i*0.30);
+      el.style.opacity=p.toFixed(3);
+      el.style.transform="translateX("+px(20*(1-eOut(p)))+")";
     });
   }
 
-  /* S8 — proof, then the CTA */
+  /* S7 — price, anchored */
   {
-    const lt = t - WIN.s8[0];
-    typeIn(HW.s8h, lt, 0.4, 0.07, 0.8);
-    document.querySelectorAll("#chain-proof .pchip, #chain-proof .arrow").forEach((el,i)=>{
-      const p = seg(lt, 1.4+i*0.22, 2.1+i*0.22);
-      el.style.opacity = p.toFixed(3);
-      el.style.transform = "translateY("+px(14*(1-eOut(p)))+")";
-    });
-    // proof lifts away, CTA takes the frame
-    const hand = eInOut(seg(lt, 3.4, 4.4));
-    $("proof-wrap").style.opacity = (1-hand).toFixed(3);
-    $("proof-wrap").style.transform = "translateY("+px(-28*hand)+")";
-    const c1 = seg(lt,3.8,4.8), c2 = seg(lt,4.1,5.1);
-    $("cta-wrap").style.transform = "translateY("+px(-70*eInOut(seg(lt,3.8,5.0)))+")";
-    $("cta1").style.opacity = c1.toFixed(3);
-    $("cta1").style.transform = "translateY("+px(16*(1-eOut(c1)))+")";
-    $("cta2").style.opacity = c2.toFixed(3);
-    $("cta2").style.transform = "translateY("+px(16*(1-eOut(c2)))+")";
-    $("s8url").style.opacity = seg(lt,4.8,5.8).toFixed(3);
-    $("s8rule").style.width = px(450*eInOut(seg(lt,5.4,6.8)));
+    const lt=t-WIN.s7[0];
+    const p=seg(lt,0.4,1.6);
+    $("price").style.opacity=p.toFixed(3);
+    $("price").style.transform="scale("+(1.1-0.1*eOutQ(p)).toFixed(4)+")";
+    $("priceper").style.opacity=seg(lt,1.2,2.2).toFixed(3);
+    const a=seg(lt,2.4,3.6);
+    $("anchor").style.opacity=a.toFixed(3);
+    $("anchor").style.transform="translateY("+px(18*(1-eOut(a)))+")";
+    $("s7url").style.opacity=seg(lt,4.6,5.8).toFixed(3);
   }
 };
 
-window.DURATION = DURATION;
+window.DURATION=DURATION;
 window.seek(0);
-window.__ready = true;
+window.__ready=true;
 </script>
 </body>
 </html>

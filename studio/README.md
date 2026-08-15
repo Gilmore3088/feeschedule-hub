@@ -1,60 +1,61 @@
 # Fee Insight Studio — brand explainer renderer
 
-Renders the 81-second Fee Insight brand explainer to MP4. **This is not part of
-the Next.js application.** It is a standalone build tool that happens to be
-parked in this repo so the source is not lost; see *Where this belongs* below.
+Renders the 72-second Fee Insight institutional explainer to MP4. **This is not
+part of the Next.js application.** It is a standalone build tool that happens to
+be parked in this repo so the source is not lost; see *Where this belongs* below.
 
 Evaluation and rationale: `docs/plans/openmontage-video-evaluation-2026-08-15.md`.
 
 ## What it produces
 
-`out/feeinsight-explainer.mp4` — 1920×1080, H.264, 30fps, silent, ~2.5 MB.
-Sound-off by design: the story is carried by motion and type, so it works as a
-muted-autoplay landing hero.
+`out/feeinsight-explainer.mp4` — 1920×1080, H.264, 30fps, silent, ~2.2 MB.
+Sound-off by design: the story is carried by motion, type and burned-in
+captions, so it works muted on a landing page or in a sales deck.
 
-Eight beats on a marketing arc — hook, stakes, resolution, proof, credibility,
-segmented CTA — rather than a capability tour.
+Seven beats aimed at **the buyer, not the end user** — a retail/deposit
+executive or CFO deciding on a $5,000/year seat. They do not shop for fees;
+they set them.
 
 | Time | Beat | Role |
 | --- | --- | --- |
-| 0:00 | Two prices for one overdraft fee, $30 apart | **Hook** — a number in tension, not a definition |
-| 0:07 | Both public, both buried in PDFs nobody reads | Stakes |
-| 0:15 | The Bank Fee Index | Resolution |
-| 0:23 | Institution profile with per-fee peer deltas | Proof |
-| 0:33 | One fee priced across the market | Proof |
-| 0:42 | 50-state tile cartogram | Proof |
-| 0:50 | Four report types and a report's section list | Proof |
-| 0:58 | Every figure traced to its source → segmented CTA | **Credibility, then the ask** |
+| 0:00 | "You set 49 prices. You benchmark three." | **Hook** — an accusation about their own practice |
+| 0:09 | Priced too high vs priced too low | Two-sided stakes |
+| 0:20 | Your dot in the peer cloud, against the median | Where you actually sit |
+| 0:33 | 12,000 x $3.00 x 12 = **$432,000** | **The sale** — arithmetic, not adjectives |
+| 0:45 | Your full schedule vs peers, traced to source | Defensibility |
+| 0:56 | Four report types | Board-readiness |
+| 1:04 | **$5,000/year** — "less than one analyst-week" | Price, anchored |
 
-Why this shape:
+Why this shape, and why the earlier consumer cut failed:
 
-- **The hook is the whole gamble.** Muted autoplay buys about two seconds. The
-  film opens on a concrete price gap because a number in tension is the only
-  thing that earns the next five. The earlier cut opened on "Every bank
-  publishes its fees" — a fact nobody disputes, carrying no tension.
-- **The credibility line is the close.** Provenance is the only differentiation
-  claim in the film, so it gets its own beat immediately before the CTA rather
-  than sitting as a footnote.
-- **The CTA is segmented.** The film serves consumers and institutions, whose
-  intents are opposite. Naming both lets each viewer self-select instead of
-  guessing which half was meant for them.
-- **66 seconds, not 83.** Retention on a landing hero collapses well before a
-  minute and a half.
+- **The hook must indict, not inform.** The previous cut opened on "the same
+  overdraft fee costs $35 at one bank and $5 at another" — a shopper's
+  observation, useless to the person setting the price. "You set 49 prices,
+  you benchmark three" is uncomfortable because the viewer knows it is true of
+  their own shop.
+- **Stakes are two-sided deliberately.** Over-priced is an examiner and
+  attrition problem; under-priced is forgone revenue. Naming only one halves
+  the audience.
+- **The arithmetic beat is the whole sale.** $432,000 against $5,000 is an 86x
+  return, shown as a calculation rather than claimed as a benefit. If one beat
+  survives editing, it is this one.
+- **The price is said out loud and anchored.** "$5,000" alone is a purchase;
+  "less than one analyst-week, and an analyst can't do this" reframes it as
+  cheaper than the status quo — a junior analyst hand-collecting competitor
+  PDFs, which costs more and goes stale on delivery.
+- **The institution card says "Your institution"**, not a fictional bank, so
+  the viewer projects themselves into it.
 
-Headlines animate word by word (`typeIn()`), so type carries motion rather than
-fading in as blocks.
-
-The state map is a **tile-grid cartogram** — one square per state on an 11×8
-lattice, which is standard editorial practice for state choropleths. It reads
-at a glance, gives small states equal visual weight, and needs no geographic
-boundary data (nothing can be fetched at render time anyway). The lattice is
-in `TILES`.
+Headlines animate word by word (`typeIn()`), so type carries motion rather
+than fading in as blocks.
 
 ## Voice-over
 
-The script lives in [`vo-script.md`](vo-script.md) — 143 words, timed line by
-line. Every line is also burned into the film as a caption, so the cut works
-with sound off and the VO drops on top without re-timing.
+The script lives in [`vo-script.md`](vo-script.md) — 118 words at ~110 wpm,
+timed line by line. Deliberately slower than consumer video: executives are
+persuaded by arithmetic delivered calmly, and the pauses are where the numbers
+land. Every line is burned into the film as a caption, so the cut works with
+sound off and the VO drops on top without re-timing.
 
 **There is no audio track yet.** The build container cannot reach a voice
 model: HuggingFace (where Piper voices are hosted) returns 403 through the
@@ -116,23 +117,30 @@ installed where this is next run.
 
 ## ⚠️ The dollar figures are placeholders
 
-**This video must not be published as-is.** Every dollar amount in it — the
-medians, the ranges, the P25/P75 marks — is an illustrative industry-typical
-value used to build and prove the layout. **None of it was read from the Fee
-Insight database.**
+**This video must not be shown to a prospect as-is.** Every dollar amount — the
+peer median, the P25/P75 marks, the "you" position, the 214 peer count, and the
+whole 12,000 × $3.00 × 12 worked example — is illustrative. **None of it was
+read from the Fee Insight database.**
 
-Replace the `DATA` object at the top of `scene.html` with real output from
-`getNationalIndex()` before this goes anywhere public. Publishing invented
-medians on a site whose proposition is *verified* fee data would undercut the
-exact claim the film is making.
+This matters more in this cut than in any earlier one. The film now closes a
+$5,000 sale on a specific arithmetic claim; if a bank executive checks that
+arithmetic against their own book and it does not hold, the credibility loss is
+larger than the deal. Replace the `DATA` object at the top of `scene.html` with
+real output from `getNationalIndex()` before any sales use.
 
-Real and safe to keep: category display names and family names (copied from
-`src/lib/fee-taxonomy.ts`), and the counts 49 categories / 14 families /
-50 states.
+Ideally the worked example is re-derived per prospect: their account count,
+their gap against their own peer set. That turns a generic claim into a
+personalised one, which is what actually closes.
+
+Real and safe to keep: the **$5,000/year per seat** price
+(`src/app/subscribe/page.tsx`), category display names
+(`src/lib/fee-taxonomy.ts`), the report types
+(`src/app/api/reports/catalog/route.ts`), the report section titles
+(`src/lib/report-engine/`), and the count of 49 fee categories.
 
 Also **do not burn live counts into the film.** Institution and observation
 totals are dynamic props, so a hardcoded figure dates the video the week it
-ships. They are deliberately absent from the current cut.
+ships. They are deliberately absent.
 
 The distribution dots are generated from the quartiles themselves — an even
 quarter of the dots in each quartile band — so the cloud a viewer sees always

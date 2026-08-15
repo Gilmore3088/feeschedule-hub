@@ -1,63 +1,73 @@
-# Fee Insight brand explainer — voice-over script
+# Fee Insight explainer — voice-over script
 
-**Runtime:** 66s · **Word count:** 143 · **Pace:** ~145 wpm (measured, editorial —
-not announcer). **Read:** calm, factual, unhurried. This is a research brand;
-the numbers do the persuading, so the delivery should not.
+**Audience:** the buyer, not the end user. A retail/deposit executive, CFO, or
+pricing lead at a community or mid-size bank deciding on a **$5,000/year**
+seat. They are not shopping for a checking account — they *set* these prices.
 
-Every line below is also burned into the film as a caption, so the cut works
-with sound off. Caption timings live in `CAPTIONS` in `scene.html` and must
-stay in sync with this script.
+**Runtime:** 72s · **Words:** 118 · **Pace:** ~110 wpm — slower than consumer
+video on purpose. Executives are persuaded by arithmetic delivered calmly, and
+the pauses are where the numbers land.
+
+**Read:** peer-to-peer. Never salesy, never urgent. The film's job is to make
+one uncomfortable gap obvious and then price the fix below the threshold where
+anyone needs approval to buy it.
 
 ---
 
 | In | Out | Line | On screen |
 | --- | --- | --- | --- |
-| 0:00 | 0:04 | The same overdraft fee costs thirty-five dollars at one bank, and five at another. | Two prices, same fee label |
-| 0:04 | 0:07 | Both prices are public. | Prices hold |
-| 0:07 | 0:11 | Both are buried in a PDF almost nobody reads. | PDFs scatter across frame |
-| 0:11 | 0:15 | No two banks publish fees the same way — so almost no one ever compares them. | Clutter intensifies |
-| 0:15 | 0:19 | Fee Insight is the Bank Fee Index. | Clutter resolves into rows |
-| 0:19 | 0:23 | One structured record of what American banks actually charge. | Index title |
-| 0:23 | 0:28 | Look up any institution and see its full fee schedule. | Institution profile |
-| 0:28 | 0:33 | Every fee measured against its peers. | Peer deltas land |
-| 0:33 | 0:38 | See how a single fee is priced across the entire market. | Distribution plot |
-| 0:38 | 0:42 | The spread is wider than most banks think. | Median and quartiles |
-| 0:42 | 0:46 | Compare any state against the rest of the country. | State cartogram |
-| 0:46 | 0:50 | What you pay depends on where you bank. | Map completes |
-| 0:50 | 0:55 | Turn any of it into a board-ready brief in minutes. | Report cards fan in |
-| 0:55 | 0:59 | Every figure traced to the published schedule it came from. | Credibility beat |
-| 0:59 | 1:03 | Consumers search free. Institutions benchmark against their peers. | Two CTAs |
-| 1:03 | 1:06 | Fee Insight dot com. | Wordmark + URL |
+| 0:00 | 0:06 | You set forty-nine prices. Most banks benchmark three. | 49-cell grid, 3 lit |
+| 0:06 | 0:12 | Price too high, and you're the outlier when the examiner asks. | Risk pole |
+| 0:12 | 0:19 | Price too low, and you're giving away fee income you'll never see. | Revenue pole |
+| 0:19 | 0:25 | Fee Insight shows you exactly where you sit. | Your dot in the peer cloud |
+| 0:25 | 0:32 | Every fee, against the peer set you actually compete with. | Median + delta callout |
+| 0:32 | 0:42 | Three dollars under median, across twelve thousand accounts, is four hundred and thirty-two thousand dollars a year. | Calculation builds |
+| 0:42 | 0:47 | That's one fee. You have forty-eight more. | Total holds |
+| 0:47 | 0:56 | Every figure traced to a competitor's published schedule — so it holds up in front of your board. | Full schedule vs peers |
+| 0:56 | 1:03 | Board-ready the day you need it. | Report types |
+| 1:03 | 1:09 | Five thousand dollars a year. Less than one analyst-week — and an analyst can't do this. | Price + anchor |
+| 1:09 | 1:12 | — (silent) | Wordmark and URL |
 
 ---
 
-## Direction notes
+## Why this script and not the last one
 
-**The hook is the whole gamble.** Muted autoplay gives roughly two seconds. The
-film opens on a concrete price gap rather than a definition, because a number
-in tension is the only thing that earns the next five seconds. Do not soften
-this line into "fees vary widely" — the specificity is the hook.
+The previous cut opened on "the same overdraft fee costs $35 at one bank and $5
+at another." That is a *consumer's* insight — interesting to someone choosing a
+bank, worthless to someone setting the price. It gave the buyer nothing to
+take to a budget conversation.
 
-**Do not let the VO narrate the visuals.** Where the screen already shows a
-state map, the line is about what it means ("what you pay depends on where you
-bank"), not what it is ("this is a map of state medians"). Redundant narration
-is the most common failure in product video.
+**The hook is now an accusation about their own practice.** "You set
+forty-nine prices. Most banks benchmark three." An executive cannot dismiss
+this, because they know it is true of their own shop. Discomfort earns the
+next five seconds far better than a fact about the market.
 
-**The credibility line at 0:55 is the close, not a footnote.** It is the only
-differentiation claim in the film — the reason to trust these numbers over
-anyone else's — and it earns its own beat immediately before the CTA.
+**The stakes are two-sided on purpose.** Priced high is an examiner and
+attrition problem; priced low is forgone revenue. Naming only one halves the
+audience — some viewers are over-priced and some under-priced, and both need to
+see themselves.
 
-**Segment the CTA.** The film serves two audiences with opposite intents.
-Naming both in one line lets each viewer self-select instead of guessing.
+**The arithmetic beat is the sale.** 12,000 × $3 × 12 = $432,000 against a
+$5,000 line item is an 86× return, shown rather than claimed. Everything before
+it is setup; everything after is reassurance. If one beat survives editing,
+this is it.
+
+**The price is stated out loud, with an anchor.** $5,000 sounds like a
+purchase. "Less than one analyst-week" reframes it as cheaper than the status
+quo — because the alternative is a junior analyst manually collecting
+competitor PDFs, which costs more, takes weeks, and goes stale on delivery.
+
+**"You have forty-eight more" is the multiplier.** It stops the viewer
+computing a single $432k and starts them computing a portfolio.
 
 ## Recording
 
-Prefer a human read. If synthesising, the pipeline expects a single mono WAV or
-MP3 at `studio/vo/narration.wav`, timed to the table above:
+Prefer a human read — a synthetic voice on a research brand undercuts the
+credibility being sold. Place a mono WAV at `studio/vo/narration.wav`, then:
 
 ```bash
 npm run render -- --vo vo/narration.wav
 ```
 
-The renderer muxes it as AAC and leaves the video stream untouched, so
-re-rendering audio does not require re-rendering frames.
+Caption timings live in `CAPTIONS` in `scene.html` and must stay in sync with
+the table above.
