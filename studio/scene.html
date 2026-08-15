@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Fee Insight — Institutional Explainer</title>
+<title>Fee Insight — Annual Fee Review</title>
 <style>
   :root {
     --warm-50:#FDFBF8; --warm-100:#FAF7F2; --warm-150:#F5EFE6; --warm-200:#EDE5D8;
     --warm-300:#E0D7C9; --warm-400:#C4B89F; --warm-500:#A09788; --warm-600:#7A7062;
     --warm-700:#5A5347; --warm-800:#3D3830; --warm-900:#1A1815;
     --terra:#C44B2E; --terra-dark:#A93D25; --terra-soft:#FDF0ED;
-    --green:#3F6B4A;
+    --green:#3F6B4A; --green-soft:#ECF2EC; --amber:#8A6220; --amber-soft:#F7F0E1;
     --display:"Bitstream Charter","Liberation Serif",Georgia,serif;
     --sans:"Liberation Sans","DejaVu Sans",sans-serif;
     --mono:"DejaVu Sans Mono",monospace;
@@ -20,101 +20,98 @@
   #stage { position:relative; width:1920px; height:1080px; background:var(--warm-100); overflow:hidden; }
   .scene { position:absolute; inset:0; opacity:0; }
 
-  #wordmark { position:absolute; left:96px; top:70px; z-index:60; font-size:15px; font-weight:700;
+  #wordmark { position:absolute; left:96px; top:68px; z-index:60; font-size:15px; font-weight:700;
               letter-spacing:.28em; text-transform:uppercase; color:var(--warm-500); }
   #progress-track { position:absolute; left:0; bottom:0; width:1920px; height:4px; background:var(--warm-300); z-index:60; }
   #progress-fill { height:4px; width:0; background:var(--terra); }
-  #cap { position:absolute; left:0; top:930px; width:1920px; z-index:55; text-align:center; padding:0 160px; }
+  #cap { position:absolute; left:0; top:936px; width:1920px; z-index:55; text-align:center; padding:0 160px; }
   #cap-in { display:inline-block; font-size:30px; line-height:1.35; color:var(--warm-900);
-            background:rgba(250,247,242,.94); padding:12px 26px; max-width:1500px; }
+            background:rgba(250,247,242,.94); padding:11px 26px; max-width:1500px; }
 
   .kicker { font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--warm-500); }
   .eyebrow{ font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--terra); }
   h1 { font-family:var(--display); font-weight:400; color:var(--warm-900); letter-spacing:-.018em; line-height:1.05; }
   .w { display:inline-block; white-space:pre; }
 
-  /* S1 — the 49-price grid */
-  .cellbox { position:absolute; }
-  .cell { position:absolute; background:var(--warm-200); }
+  /* S1 — the list that has to be reviewed */
+  .fee-line { position:absolute; display:flex; align-items:center; gap:26px; width:560px;
+              font-size:25px; color:var(--warm-600); }
+  .fee-line .fl-n { flex:1; }
+  .fee-line .fl-v { font-family:var(--mono); font-size:22px; color:var(--warm-500); }
+  #s1scrim { position:absolute; inset:0; pointer-events:none; }
 
-  /* S2 — two-sided risk */
-  .pole { position:absolute; width:520px; }
-  .pole .pk { font-size:15px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; }
-  .pole .pt { font-family:var(--display); font-size:44px; color:var(--warm-900); margin-top:14px; line-height:1.14; }
-  .pole .pd { font-size:22px; color:var(--warm-600); margin-top:14px; line-height:1.45; }
-  #beam { position:absolute; height:2px; background:var(--warm-300); }
-  #qmark { position:absolute; font-family:var(--display); font-size:96px; color:var(--terra);
-           transform:translateX(-50%); }
-  #qlab { position:absolute; font-size:21px; color:var(--warm-600); transform:translateX(-50%); white-space:nowrap; }
+  /* S2 — the manual slog */
+  .pdf { position:absolute; width:150px; height:196px; background:var(--warm-50);
+         border:1px solid var(--warm-300); box-shadow:0 14px 30px -22px rgba(26,24,21,.55); }
+  .pdf i { display:block; height:5px; background:var(--warm-200); margin:14px 14px 0; }
+  .pdf i:first-child { background:var(--warm-400); width:56%; margin-top:18px; }
+  #weekwrap { position:absolute; right:250px; top:352px; width:520px; text-align:center; }
+  #weeknum { font-family:var(--display); font-size:210px; color:var(--warm-900); line-height:.9;
+             font-variant-numeric:tabular-nums; }
+  #weeklab { font-size:23px; letter-spacing:.2em; text-transform:uppercase; color:var(--warm-500);
+             font-weight:700; margin-top:18px; }
+  #stale { display:inline-block; margin-top:40px; border:2px solid var(--terra); color:var(--terra);
+           font-size:26px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+           padding:14px 26px; transform:rotate(-4deg); }
 
-  /* S3 — your position */
-  #axis { position:absolute; left:280px; top:600px; width:1360px; height:2px; background:var(--warm-300); }
+  /* S3 — the turn */
+  .row { position:absolute; display:flex; align-items:center; background:var(--warm-50);
+         border:1px solid var(--warm-300); height:52px; width:760px; padding:0 22px; gap:18px; }
+  .row .nm { flex:1; font-size:21px; color:var(--warm-700); }
+  .row .amt { font-family:var(--mono); font-size:19px; color:var(--warm-900); font-variant-numeric:tabular-nums; }
+
+  /* S4 — benchmark + simulate */
+  #axis { position:absolute; left:300px; top:606px; width:1320px; height:2px; background:var(--warm-300); }
   .tick { position:absolute; width:1px; height:14px; background:var(--warm-400); }
   .ticklab { position:absolute; font-family:var(--mono); font-size:15px; color:var(--warm-500);
              transform:translateX(-50%); font-variant-numeric:tabular-nums; }
   .dot { position:absolute; width:11px; height:11px; border-radius:50%; background:var(--warm-400); }
   #band { position:absolute; background:var(--terra-soft); }
   #median { position:absolute; width:2px; background:var(--warm-600); }
-  .mlab { position:absolute; font-family:var(--mono); font-size:16px; color:var(--warm-600);
-          transform:translateX(-50%); white-space:nowrap; font-variant-numeric:tabular-nums; }
-  #youdot { position:absolute; width:26px; height:26px; border-radius:50%; background:var(--terra);
-            box-shadow:0 0 0 7px rgba(196,75,46,.16); }
+  #medlab { position:absolute; font-family:var(--mono); font-size:16px; color:var(--warm-600);
+            transform:translateX(-50%); white-space:nowrap; }
+  #youdot { position:absolute; width:28px; height:28px; border-radius:50%; background:var(--terra);
+            box-shadow:0 0 0 8px rgba(196,75,46,.15); }
   #youlab { position:absolute; transform:translateX(-50%); text-align:center; white-space:nowrap; }
-  #youlab .yn { font-size:19px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--terra); }
-  #youlab .yv { font-family:var(--mono); font-size:34px; font-weight:700; color:var(--warm-900); margin-top:6px; }
-  #delta { position:absolute; font-family:var(--mono); font-size:26px; font-weight:700; color:var(--terra);
-           transform:translateX(-50%); white-space:nowrap; }
+  #youlab .yn { font-size:17px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--terra); }
+  #youlab .yv { font-family:var(--mono); font-size:40px; font-weight:700; color:var(--warm-900); margin-top:4px;
+                font-variant-numeric:tabular-nums; }
+  #tiles { position:absolute; left:300px; top:702px; width:1320px; display:flex; gap:22px; }
+  .tile { flex:1; background:var(--warm-50); border:1px solid var(--warm-300); padding:22px 26px; }
+  .tile .tk { font-size:13px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--warm-500); }
+  .tile .tv { font-family:var(--mono); font-size:40px; font-weight:700; color:var(--warm-900); margin-top:12px;
+              font-variant-numeric:tabular-nums; }
+  .tile .tn { font-size:17px; color:var(--warm-600); margin-top:8px; }
+  .chip { display:inline-block; font-size:22px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+          padding:7px 16px; margin-top:10px; }
+  .chip.low  { background:var(--green-soft); color:var(--green); border:1px solid rgba(63,107,74,.4); }
+  .chip.med  { background:var(--amber-soft); color:var(--amber); border:1px solid rgba(138,98,32,.4); }
+  .chip.high { background:var(--terra-soft); color:var(--terra); border:1px solid rgba(196,75,46,.4); }
+  #simbadge { position:absolute; left:300px; top:452px; display:inline-flex; align-items:center; gap:14px;
+              border:1px solid var(--terra); background:var(--terra-soft); padding:11px 20px; }
+  #simbadge .sb1 { font-size:14px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--terra); }
+  #simbadge .sb2 { font-family:var(--mono); font-size:19px; color:var(--warm-800); }
 
-  /* S4 — the arithmetic */
-  #calc { position:absolute; left:0; top:296px; width:1920px; }
-  .crow { display:flex; align-items:baseline; justify-content:center; gap:34px; margin-bottom:26px; }
-  .crow .cop { width:44px; text-align:right; font-family:var(--mono); font-size:38px; color:var(--warm-500); }
-  .crow .cnum { width:330px; text-align:right; font-family:var(--mono); font-size:54px; font-weight:700;
-                color:var(--warm-900); font-variant-numeric:tabular-nums; }
-  .crow .clab { width:380px; text-align:left; font-size:26px; color:var(--warm-600); }
-  #crule { height:2px; background:var(--warm-400); width:920px; margin:16px auto 30px; }
-  #total { text-align:center; }
-  #total .tv { font-family:var(--display); font-size:132px; color:var(--terra); line-height:1;
-               font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
-  #total .tl { font-size:27px; color:var(--warm-700); margin-top:20px; }
-  #multi { position:absolute; left:0; top:806px; width:1920px; text-align:center;
-           font-size:31px; color:var(--warm-900); }
+  /* S5 — Hamilton */
+  #ham-left { position:absolute; left:180px; top:296px; width:700px; }
+  .hmode { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
+  .hmode .hm-n { font-family:var(--mono); font-size:13px; color:var(--terra); font-weight:700;
+                 border:1px solid var(--terra); width:34px; height:34px; flex:none;
+                 display:flex; align-items:center; justify-content:center; }
+  .hmode .hm-t { font-size:27px; color:var(--warm-800); }
+  #hamdoc { position:absolute; left:1000px; top:250px; width:640px; background:var(--warm-50);
+            border:1px solid var(--warm-300); box-shadow:0 40px 90px -58px rgba(26,24,21,.55); padding:44px 48px; }
+  #hamdoc .hk { font-size:12px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--terra); }
+  #hamdoc .ht { font-family:var(--display); font-size:42px; color:var(--warm-900); margin-top:16px; line-height:1.1; }
+  .hsec { display:flex; align-items:baseline; gap:16px; margin-top:20px; }
+  .hsec .hn { font-family:var(--mono); font-size:12px; color:var(--terra); font-weight:700; width:22px; flex:none; }
+  .hsec .hx { font-size:21px; color:var(--warm-700); }
+  #hamcite { margin-top:34px; padding-top:22px; border-top:1px solid var(--warm-200);
+             font-size:17px; color:var(--warm-500); }
 
-  /* S5 — full schedule */
-  #inst { position:absolute; left:300px; top:262px; width:1320px; background:var(--warm-50);
-          border:1px solid var(--warm-300); box-shadow:0 40px 90px -60px rgba(26,24,21,.5); }
-  #inst-hd { display:flex; align-items:center; gap:22px; padding:26px 36px; border-bottom:1px solid var(--warm-200); }
-  #inst-hd .t { flex:1; font-family:var(--display); font-size:36px; color:var(--warm-900); }
-  #inst-hd .s { font-size:18px; color:var(--warm-600); }
-  .irow { display:flex; align-items:center; height:62px; padding:0 36px; border-bottom:1px solid var(--warm-200); }
-  .irow:last-child { border-bottom:none; }
-  .irow .k { flex:1; font-size:23px; color:var(--warm-800); }
-  .irow .v { width:160px; text-align:right; font-family:var(--mono); font-size:25px; font-weight:700;
-             color:var(--warm-900); font-variant-numeric:tabular-nums; }
-  .irow .d { width:250px; text-align:right; font-family:var(--mono); font-size:19px; font-variant-numeric:tabular-nums; }
-  .up { color:var(--terra); } .dn { color:var(--green); } .eq { color:var(--warm-500); }
-  #srcnote { position:absolute; left:300px; top:846px; width:1320px; text-align:center;
-             font-size:20px; color:var(--warm-500); }
-
-  /* S6 — reports */
-  .rcard { position:absolute; width:224px; height:296px; background:var(--warm-50);
-           border:1px solid var(--warm-300); box-shadow:0 30px 60px -44px rgba(26,24,21,.55); padding:22px 20px; }
-  .rcard .rk { font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--terra); }
-  .rcard .rt { font-family:var(--display); font-size:27px; color:var(--warm-900); line-height:1.12; margin-top:13px; }
-  .rcard .rl { margin-top:18px; display:flex; flex-direction:column; gap:8px; }
-  .rcard .rl i { display:block; height:6px; background:var(--warm-200); }
-  .sect { display:flex; align-items:baseline; gap:16px; margin-bottom:16px; }
-  .sect .sn { font-family:var(--mono); font-size:13px; color:var(--terra); font-weight:700; width:24px; flex:none; }
-  .sect .stx { font-size:23px; color:var(--warm-800); }
-
-  /* S7 — the close */
-  #price { font-family:var(--display); font-size:158px; color:var(--warm-900); line-height:1;
-           font-variant-numeric:tabular-nums; letter-spacing:-.025em; }
-  #priceper { font-size:29px; color:var(--warm-600); margin-top:20px; }
-  #anchor { margin-top:52px; display:inline-flex; align-items:center; gap:20px;
-            border:1px solid var(--terra); background:var(--terra-soft); padding:18px 32px; }
-  #anchor .a1 { font-size:26px; color:var(--warm-900); }
-  #anchor .a2 { font-size:26px; color:var(--terra); font-weight:700; }
+  /* S6 — close */
+  #closeline { font-family:var(--display); font-size:82px; color:var(--warm-900); line-height:1.1; }
+  #closeurl { font-family:var(--display); font-size:58px; color:var(--terra); margin-top:56px; }
 </style>
 </head>
 <body>
@@ -123,96 +120,79 @@
 
   <!-- S1 HOOK -->
   <div class="scene" id="s1">
-    <div style="position:absolute;left:0;top:214px;width:1920px;text-align:center;">
-      <h1 id="s1h" style="font-size:82px;">You set 49 prices.</h1>
-      <h1 id="s1h2" style="font-size:82px;margin-top:14px;color:var(--terra);">You benchmark three.</h1>
+    <div id="feelist"></div>
+    <div id="s1scrim"></div>
+    <div style="position:absolute;left:0;top:0;width:1920px;text-align:center;" id="s1text">
+      <h1 id="s1h" style="font-size:78px;">It's time for the annual fee review.</h1>
+      <h1 id="s1h2" style="font-size:78px;margin-top:18px;color:var(--terra);">Who's going to benchmark every fee?</h1>
     </div>
-    <div class="cellbox" id="cells"></div>
   </div>
 
-  <!-- S2 STAKES -->
+  <!-- S2 SLOG -->
   <div class="scene" id="s2">
-    <div id="beam"></div>
-    <div class="pole" id="poleL" style="left:190px;top:330px;">
-      <div class="pk" style="color:var(--terra);">Priced too high</div>
-      <div class="pt">You're the outlier<br>when the examiner asks.</div>
-      <div class="pd">Reputational exposure, and accounts that leave quietly.</div>
+    <div id="pdfs"></div>
+    <div id="weekwrap">
+      <div id="weeknum">1</div>
+      <div id="weeklab">Weeks in</div>
+      <div id="stale">Stale on arrival</div>
     </div>
-    <div class="pole" id="poleR" style="left:1210px;top:330px;">
-      <div class="pk" style="color:var(--green);">Priced too low</div>
-      <div class="pt">You're giving away<br>fee income, permanently.</div>
-      <div class="pd">Revenue you will never invoice and never recover.</div>
-    </div>
-    <div id="qmark">?</div>
-    <div id="qlab">You don't know which one you are.</div>
   </div>
 
-  <!-- S3 POSITION -->
+  <!-- S3 TURN -->
   <div class="scene" id="s3">
-    <div style="position:absolute;left:0;top:140px;width:1920px;text-align:center;">
-      <div class="eyebrow" id="s3e">Your position</div>
-      <h1 id="s3h" style="font-size:64px;margin-top:20px;">Where you sit, against the peers you compete with.</h1>
+    <div id="rows"></div>
+    <div style="position:absolute;left:1080px;top:378px;width:720px;">
+      <div class="eyebrow" id="s3e">With Fee Insight</div>
+      <h1 id="s3h" style="font-size:84px;margin-top:24px;">It's already done.</h1>
+      <div id="s3l" style="margin-top:30px;font-size:28px;line-height:1.5;color:var(--warm-700);">
+        Every fee, collected and standardised across the market — before you ask.
+      </div>
     </div>
-    <div id="s3cat" style="position:absolute;left:280px;top:352px;width:1360px;">
-      <div style="font-size:21px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm-500);font-weight:700;">Overdraft (OD) · 214 peer institutions</div>
+  </div>
+
+  <!-- S4 BENCHMARK + SIMULATE -->
+  <div class="scene" id="s4">
+    <div style="position:absolute;left:300px;top:150px;width:1320px;">
+      <div class="eyebrow" id="s4e">Benchmark</div>
+      <h1 id="s4h" style="font-size:62px;margin-top:18px;">Where every fee sits against your peers.</h1>
     </div>
+    <div id="s4cat" style="position:absolute;left:300px;top:376px;width:1320px;
+         font-size:21px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm-500);font-weight:700;">
+      Overdraft (OD) · benchmarked against your peer set
+    </div>
+    <div id="simbadge"><span class="sb1">Simulate</span><span class="sb2" id="simval"></span></div>
     <div id="plot" style="position:absolute;inset:0;"></div>
     <div id="axis"></div>
     <div id="youdot"></div>
-    <div id="youlab"><div class="yn">You</div><div class="yv">$35.00</div></div>
-    <div id="delta"></div>
+    <div id="youlab"><div class="yn">You</div><div class="yv" id="youval">$35.00</div></div>
+    <div id="tiles">
+      <div class="tile" id="tile1"><div class="tk">Peer percentile</div><div class="tv" id="tv1">41st</div><div class="tn">of institutions in your peer set</div></div>
+      <div class="tile" id="tile2"><div class="tk">Gap to median</div><div class="tv" id="tv2">−$3.00</div><div class="tn" id="tn2">below the peer median</div></div>
+      <div class="tile" id="tile3"><div class="tk">Risk profile</div><div class="chip low" id="tv3">Low</div><div class="tn">based on peer percentile</div></div>
+      <div class="tile" id="tile4"><div class="tk">Revenue impact</div><div class="tv" id="tv4">—</div><div class="tn">annualised, at current volume</div></div>
+    </div>
   </div>
 
-  <!-- S4 THE MATH -->
-  <div class="scene" id="s4">
-    <div style="position:absolute;left:0;top:172px;width:1920px;text-align:center;">
-      <div class="kicker" id="s4k">One fee, one gap</div>
-    </div>
-    <div id="calc">
-      <div class="crow" id="cr0"><div class="cop"></div><div class="cnum">12,000</div><div class="clab">accounts paying it</div></div>
-      <div class="crow" id="cr1"><div class="cop">×</div><div class="cnum">$3.00</div><div class="clab">under peer median</div></div>
-      <div class="crow" id="cr2"><div class="cop">×</div><div class="cnum">12</div><div class="clab">months</div></div>
-      <div id="crule"></div>
-      <div id="total"><div class="tv">$432,000</div><div class="tl">forgone every year, on a single fee</div></div>
-    </div>
-    <div id="multi">And you have <b>48 more</b>.</div>
-  </div>
-
-  <!-- S5 FULL SCHEDULE -->
+  <!-- S5 HAMILTON -->
   <div class="scene" id="s5">
-    <div style="position:absolute;left:300px;top:146px;width:1320px;">
-      <div class="kicker" id="s5k">Every fee you charge</div>
-      <h1 id="s5h" style="font-size:56px;margin-top:16px;">Defensible enough for your board.</h1>
+    <div style="position:absolute;left:180px;top:158px;width:1560px;">
+      <div class="eyebrow" id="s5e">Hamilton</div>
+      <h1 id="s5h" style="font-size:62px;margin-top:18px;">Then let Hamilton write it up.</h1>
     </div>
-    <div id="inst">
-      <div id="inst-hd">
-        <div class="t">Your institution</div>
-        <div class="s">Peer set · commercial banks · $1–5B assets · Midwest</div>
-      </div>
-      <div id="inst-rows"></div>
+    <div id="ham-left"></div>
+    <div id="hamdoc">
+      <div class="hk">Peer Brief</div>
+      <div class="ht">Annual Fee Review</div>
+      <div id="hamsecs"></div>
+      <div id="hamcite">Every figure traced to a competitor's published fee schedule.</div>
     </div>
-    <div id="srcnote">Every figure traced to the competitor's own published fee schedule.</div>
   </div>
 
-  <!-- S6 REPORTS -->
+  <!-- S6 CLOSE -->
   <div class="scene" id="s6">
-    <div style="position:absolute;left:180px;top:150px;width:1560px;">
-      <div class="kicker" id="s6k">Reports</div>
-      <h1 id="s6h" style="font-size:58px;margin-top:16px;">Board-ready the day you need it.</h1>
-    </div>
-    <div id="cards" style="position:absolute;inset:0;"></div>
-    <div id="sections" style="position:absolute;left:1070px;top:400px;width:720px;"></div>
-  </div>
-
-  <!-- S7 CLOSE -->
-  <div class="scene" id="s7">
-    <div style="position:absolute;left:0;top:262px;width:1920px;text-align:center;">
-      <div id="price">$5,000</div>
-      <div id="priceper">per year, per seat</div>
-      <div id="anchor"><span class="a1">Less than one analyst-week —</span><span class="a2">and an analyst can't do this.</span></div>
-      <div style="position:relative;display:inline-block;margin-top:64px;width:100%;">
-        <div id="s7url" style="font-family:var(--display);font-size:56px;color:var(--terra);">FeeInsight.com</div>
-      </div>
+    <div style="position:absolute;left:0;top:376px;width:1920px;text-align:center;">
+      <div id="closeline">Your annual fee review,<br>in an afternoon.</div>
+      <div id="closeurl">FeeInsight.com</div>
     </div>
   </div>
 
@@ -225,53 +205,55 @@
 
 /* ═══════════════════════════════════════════════════════════════════════
    DATA — ⚠️ PLACEHOLDER FIGURES. NOT FEE INSIGHT DATA.
-   Dollar amounts, the peer count, and the worked example are illustrative
-   and were NOT read from the database. Replace from getNationalIndex()
-   before any public showing or sales use.
+   The distribution, the position, the account volume and every derived
+   number are illustrative. None were read from the database. Replace from
+   getNationalIndex() / Hamilton's own simulation before any sales use.
 
-   $5,000/year per seat IS real — src/app/subscribe/page.tsx.
-   Fee category names are real — src/lib/fee-taxonomy.ts.
-   Report types are real — src/app/api/reports/catalog/route.ts.
+   Real and verbatim from the codebase:
+     · fee display names   — src/lib/fee-taxonomy.ts (DISPLAY_NAMES)
+     · Hamilton's modes    — src/lib/hamilton/modes.ts
+     · percentile + risk   — mirrors src/lib/hamilton/simulation.ts
+     · report section list — src/lib/report-engine/
    ═══════════════════════════════════════════════════════════════════════ */
 const DATA = {
-  position: { label:"Overdraft (OD)", axisMax:50, min:12, p25:30, p50:38, p75:42, max:48,
-              you:35, delta:"−$3.00 vs peer median", peers:214 },
-  math: { accounts:"12,000", gap:"$3.00", months:"12", total:"$432,000", others:48 },
+  /* real display names, used to fill the review list */
   fees: [
-    { k:"Overdraft (OD)",               v:"$35.00", d:"−$3.00 vs peers", cls:"dn" },
-    { k:"NSF / Returned Item",          v:"$32.00", d:"at peer median",  cls:"eq" },
-    { k:"Monthly Maintenance",          v:"$8.00",  d:"−$4.00 vs peers", cls:"dn" },
-    { k:"Non-Network ATM",              v:"$3.00",  d:"at peer median",  cls:"eq" },
-    { k:"Wire Transfer (Domestic Out)", v:"$30.00", d:"+$5.00 vs peers", cls:"up" },
-    { k:"Cashier's Check",              v:"$10.00", d:"−$2.00 vs peers", cls:"dn" }
+    ["Monthly Maintenance","$12.00"],["Overdraft (OD)","$35.00"],["NSF / Returned Item","$32.00"],
+    ["Non-Network ATM","$3.00"],["Foreign Transaction","3.00%"],["Wire Transfer (Domestic Out)","$30.00"],
+    ["Wire Transfer (Domestic In)","$15.00"],["Cashier's Check","$10.00"],["Stop Payment","$32.00"],
+    ["Paper Statement","$3.00"],["Dormant Account","$5.00"],["Early Account Closure","$25.00"],
+    ["Debit Card Replacement","$10.00"],["Rush Card Delivery","$35.00"],["Money Order","$5.00"],
+    ["Check Printing","$25.00"],["Coin Counting","$0.00"],["Account Research","$30.00"],
+    ["Continuous Overdraft","$8.00"],["OD Protection Transfer","$12.00"],["International ATM","$5.00"],
+    ["Check Cashing","$8.00"],["ACH Origination","$0.25"],["Bill Pay","$0.00"],
+    ["Mobile Deposit","$0.00"],["Night Deposit","$15.00"],["Minimum Balance","$10.00"],
+    ["Card Dispute","$0.00"],["Counter/Temporary Check","$2.00"],["Deposited Item Return","$12.00"]
   ],
-  reports: [
-    { kind:"National", title:"National Fee Index" }, { kind:"State", title:"State Fee Index" },
-    { kind:"Peer", title:"Peer Brief" },             { kind:"Monthly", title:"Monthly Pulse" }
-  ],
-  sections: [
-    "5 Truths About Banking Fees", "The Illusion of Fee Differentiation",
-    "Banks vs Credit Unions: Two Models", "Where the Money Actually Comes From",
-    "The Industry Blind Spot", "The Future of Fee Strategy"
-  ]
+  /* peer distribution for the benchmarked fee */
+  dist: { min:12, p25:30, p50:38, p75:42, max:48, axisMax:50 },
+  sim: { from:35, to:41, accounts:12000 },
+  hamiltonModes: [["Analyze","Where you sit, and why"],["Simulate","What a price change moves"],
+                  ["Report","Board-ready, with citations"],["Monitor","When a peer moves first"]],
+  sections: ["Position against peer set","Fee-by-fee benchmark","Revenue and risk implications",
+             "Recommended adjustments","Sources and methodology"]
 };
 
 /* Caption track — keep in sync with vo-script.md */
+// No captions over the open or the close: those lines are already set as
+// display headlines on screen. Captioning them again just doubles the words.
 const CAPTIONS = [
-  [0.4,  6.0,  "You set 49 prices. Most banks benchmark three."],
-  [9.6,  15.0, "Price too high, and you're the outlier when the examiner asks."],
-  [15.2, 19.8, "Price too low, and you're giving away fee income you'll never see."],
-  [20.6, 25.4, "Fee Insight shows you exactly where you sit."],
-  [25.6, 32.6, "Every fee, against the peer set you actually compete with."],
-  [33.6, 42.2, "$3 under median, across 12,000 accounts, is $432,000 a year."],
-  [42.4, 45.0, "That's one fee."],
-  [45.6, 55.6, "Every figure traced to a competitor's published schedule — so it holds up in front of your board."],
-  [56.6, 63.6, "Board-ready the day you need it."]
-  // No caption over the close: the price, the anchor and the URL are all on
-  // screen at display size. Captioning them again just doubles the words.
+  [9.8,  16.2, "Today that means collecting competitor schedules by hand, PDF by PDF, for weeks."],
+  [16.6, 19.0, "And it's stale before you present it."],
+  [19.8, 25.8, "With Fee Insight, it's already done."],
+  [26.8, 32.2, "Every fee you charge, positioned against the peers you compete with."],
+  [32.6, 37.8, "Percentile. Gap to median. Risk profile."],
+  [38.6, 43.8, "Move a price, and watch what moves with it."],
+  [44.2, 50.8, "Revenue, percentile and risk — before you commit."],
+  [51.8, 56.2, "Then let Hamilton write it up."],
+  [56.6, 61.8, "Board-ready, every figure traced to a competitor's published schedule."]
 ];
 
-const DURATION = 72, W = 1920;
+const DURATION = 70, W = 1920;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const clamp01=v=>v<0?0:v>1?1:v;
@@ -281,6 +263,8 @@ const eInOut=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
 const seg=(t,a,b)=>clamp01((t-a)/(b-a));
 function env(t,s,e,fi,fo){ if(t<s||t>e) return 0; return Math.min(clamp01((t-s)/fi),clamp01((e-t)/fo)); }
 const px=v=>v.toFixed(2)+"px";
+const money=n=>"$"+Math.round(n).toLocaleString("en-US");
+function ord(n){ const s=["th","st","nd","rd"], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 function words(el){
   const parts=el.textContent.split(/(\s+)/); el.textContent=""; const out=[];
   parts.forEach(p=>{ if(!p.trim()){el.appendChild(document.createTextNode(p));return;}
@@ -292,242 +276,265 @@ function typeIn(spans,lt,start,step,dur){
     s.style.opacity=p.toFixed(3); s.style.transform="translateY("+px(24*(1-eOut(p)))+")"; });
 }
 
+/* mirrors src/lib/hamilton/simulation.ts — piecewise across the quartiles */
+const D = DATA.dist;
+function pctOf(fee){
+  if (fee <= D.min) return 0;
+  if (fee <= D.p25) return 25*(fee-D.min)/(D.p25-D.min);
+  if (fee <= D.p50) return 25 + 25*(fee-D.p25)/(D.p50-D.p25);
+  if (fee <= D.p75) return 50 + 25*(fee-D.p50)/(D.p75-D.p50);
+  if (fee <= D.max) return 75 + 25*(fee-D.p75)/(D.max-D.p75);
+  return 100;
+}
+const riskOf = p => p < 50 ? ["Low","low"] : p < 75 ? ["Medium","med"] : ["High","high"];
+
 const rnd=mulberry32(20260815);
 
-/* S1 — 49 cells, 7x7. Three of them are the ones anybody actually benchmarks. */
-const CELLS=[], LIT=new Set([9,24,38]);
+/* S1 — the review list */
+const FEELINES=[];
 (function(){
-  const host=document.getElementById("cells");
-  const CS=64, G=11, N=7;
-  const gw=N*CS+(N-1)*G, gx=(W-gw)/2, gy=470;
-  host.style.left="0px"; host.style.top="0px"; host.style.width=W+"px"; host.style.height="1080px";
-  for(let i=0;i<49;i++){
-    const r=Math.floor(i/N), c=i%N;
-    const d=document.createElement("div"); d.className="cell";
-    d.style.left=px(gx+c*(CS+G)); d.style.top=px(gy+r*(CS+G));
-    d.style.width=px(CS); d.style.height=px(CS);
+  const host=document.getElementById("feelist");
+  const COLS=3, ROWS=10, colW=560, gapX=60;
+  const totalW=COLS*colW+(COLS-1)*gapX, x0=(W-totalW)/2;
+  DATA.fees.slice(0,COLS*ROWS).forEach((f,i)=>{
+    const c=Math.floor(i/ROWS), r=i%ROWS;
+    const d=document.createElement("div"); d.className="fee-line";
+    d.innerHTML='<span class="fl-n">'+f[0]+'</span><span class="fl-v">'+f[1]+'</span>';
+    d.style.left=px(x0+c*(colW+gapX)); d.style.top=px(150+r*74);
     host.appendChild(d);
-    CELLS.push({el:d,i,delay:rnd()*0.9});
+    FEELINES.push({el:d, delay:(r*0.055)+(c*0.10)+rnd()*0.12});
+  });
+})();
+
+/* S2 — accumulating PDFs */
+const PDFS=[];
+(function(){
+  const host=document.getElementById("pdfs");
+  for(let i=0;i<22;i++){
+    const d=document.createElement("div"); d.className="pdf";
+    d.innerHTML='<i></i><i></i><i></i><i></i><i></i><i></i>';
+    host.appendChild(d);
+    const col=i%5, row=Math.floor(i/5);
+    PDFS.push({el:d, x:210+col*128+(rnd()*2-1)*10, y:270+row*92+(rnd()*2-1)*8,
+               rot:(rnd()*2-1)*7, delay:i*0.30});
   }
 })();
 
-/* S3 — peer distribution */
-const P=DATA.position;
-const AX={left:280,width:1360,y:600};
-const xOf=v=>AX.left+(v/P.axisMax)*AX.width;
+/* S3 — standardised rows */
+const ROWS3=[];
+(function(){
+  const host=document.getElementById("rows");
+  DATA.fees.slice(0,8).forEach((f,i)=>{
+    const d=document.createElement("div"); d.className="row";
+    d.innerHTML='<span class="nm">'+f[0]+'</span><span class="amt">'+f[1]+'</span>';
+    host.appendChild(d);
+    ROWS3.push({el:d, ty:250+i*64, fx:(rnd()*2-1)*480, fy:(rnd()*2-1)*260,
+                frot:(rnd()*2-1)*14, delay:i*0.075});
+  });
+})();
+
+/* S4 — plot */
+const AX={left:300,width:1320,y:606};
+const xOf=v=>AX.left+(v/D.axisMax)*AX.width;
 const DOTS=[];
 (function(){
   const host=document.getElementById("plot");
-  for(let v=0;v<=P.axisMax;v+=10){
+  for(let v=0;v<=D.axisMax;v+=10){
     const t=document.createElement("div"); t.className="tick";
     t.style.left=px(xOf(v)); t.style.top=px(AX.y-7); host.appendChild(t);
     const l=document.createElement("div"); l.className="ticklab";
     l.style.left=px(xOf(v)); l.style.top=px(AX.y+18); l.textContent="$"+v; host.appendChild(l);
   }
   ["band","median"].forEach(id=>{const d=document.createElement("div"); d.id=id; host.appendChild(d);});
-  const ml=document.createElement("div"); ml.className="mlab"; ml.id="mlab"; host.appendChild(ml);
-  const Q=[[P.min,P.p25],[P.p25,P.p50],[P.p50,P.p75],[P.p75,P.max]];
-  for(let i=0;i<96;i++){
+  const ml=document.createElement("div"); ml.id="medlab"; host.appendChild(ml);
+  const Q=[[D.min,D.p25],[D.p25,D.p50],[D.p50,D.p75],[D.p75,D.max]];
+  for(let i=0;i<88;i++){
     const [lo,hi]=Q[i%4];
     const d=document.createElement("div"); d.className="dot"; host.appendChild(d);
-    DOTS.push({el:d,v:lo+rnd()*(hi-lo),lane:Math.floor(rnd()*9),delay:rnd()*1.0,jitter:(rnd()*2-1)*4});
+    DOTS.push({el:d,v:lo+rnd()*(hi-lo),lane:Math.floor(rnd()*7),delay:rnd()*1.0,jitter:(rnd()*2-1)*4});
   }
 })();
 
-/* S5 rows */
-const IROWS=[];
+/* S5 — Hamilton modes + report sections */
+const HMODES=[], HSECS=[];
 (function(){
-  const host=document.getElementById("inst-rows");
-  DATA.fees.forEach(f=>{
-    const d=document.createElement("div"); d.className="irow";
-    d.innerHTML='<div class="k">'+f.k+'</div><div class="v">'+f.v+'</div><div class="d '+f.cls+'">'+f.d+'</div>';
-    host.appendChild(d); IROWS.push(d);
+  const host=document.getElementById("ham-left");
+  DATA.hamiltonModes.forEach((m,i)=>{
+    const d=document.createElement("div"); d.className="hmode";
+    d.innerHTML='<div class="hm-n">'+String(i+1).padStart(2,"0")+'</div><div class="hm-t"><b style="color:var(--warm-900)">'+m[0]+'</b> — '+m[1]+'</div>';
+    host.appendChild(d); HMODES.push(d);
   });
-})();
-
-/* S6 cards + sections */
-const RCARDS=[], SECTS=[];
-(function(){
-  const host=document.getElementById("cards");
-  DATA.reports.forEach((r,i)=>{
-    const d=document.createElement("div"); d.className="rcard";
-    let lines=""; for(let j=0;j<6;j++) lines+='<i style="width:'+(52+Math.floor(rnd()*46))+'%"></i>';
-    d.innerHTML='<div class="rk">'+r.kind+'</div><div class="rt">'+r.title+'</div><div class="rl">'+lines+'</div>';
-    host.appendChild(d); RCARDS.push({el:d,x:180+i*192,y:400+i*17,rot:-6+i*2.8});
-  });
-  const sh=document.getElementById("sections");
+  const sh=document.getElementById("hamsecs");
   DATA.sections.forEach((s,i)=>{
-    const d=document.createElement("div"); d.className="sect";
-    d.innerHTML='<div class="sn">'+String(i+1).padStart(2,"0")+'</div><div class="stx">'+s+'</div>';
-    sh.appendChild(d); SECTS.push(d);
+    const d=document.createElement("div"); d.className="hsec";
+    d.innerHTML='<div class="hn">'+String(i+1).padStart(2,"0")+'</div><div class="hx">'+s+'</div>';
+    sh.appendChild(d); HSECS.push(d);
   });
 })();
 
 const $=id=>document.getElementById(id);
-const S={}; for(let i=1;i<=7;i++) S["s"+i]=$("s"+i);
-const WIN={ s1:[0,9.4], s2:[9.0,20.4], s3:[20.0,33.4], s4:[33.0,45.4],
-            s5:[45.0,56.4], s6:[56.0,64.4], s7:[64.0,72] };
+const S={}; for(let i=1;i<=6;i++) S["s"+i]=$("s"+i);
+const WIN={ s1:[0,9.4], s2:[9.0,19.4], s3:[19.0,26.4], s4:[26.0,51.4], s5:[51.0,62.4], s6:[62.0,70] };
 const HW={ s1h:words($("s1h")), s1h2:words($("s1h2")), s3h:words($("s3h")),
-           s5h:words($("s5h")), s6h:words($("s6h")) };
+           s4h:words($("s4h")), s5h:words($("s5h")) };
 
 window.seek=function(t){
   $("progress-fill").style.width=px(clamp01(t/DURATION)*W);
   for(const k in WIN){ const [a,b]=WIN[k]; S[k].style.opacity=env(t,a,b,0.45,0.45).toFixed(4); }
-  $("wordmark").style.opacity=clamp01(seg(t,21.0,22.2)).toFixed(3);
+  $("wordmark").style.opacity=clamp01(seg(t,20.4,21.6)).toFixed(3);
 
   { let cur=null,a=0;
     for(const [s,e,txt] of CAPTIONS){ const o=env(t,s,e,0.28,0.28); if(o>a){a=o;cur=txt;} }
     $("cap-in").textContent=cur||""; $("cap").style.opacity=a.toFixed(3);
   }
 
-  /* S1 — 49 prices, 3 benchmarked */
+  /* S1 — the whole schedule, waiting to be reviewed */
   {
     const lt=t-WIN.s1[0];
-    typeIn(HW.s1h, lt, 0.3, 0.075, 0.8);
-    typeIn(HW.s1h2, lt, 2.9, 0.075, 0.8);
-    CELLS.forEach(c=>{
-      const p=eOut(clamp01((lt-1.0-c.delay)/0.9));
-      c.el.style.opacity=p.toFixed(3);
-      c.el.style.transform="scale("+(0.6+0.4*p).toFixed(3)+")";
-      // the three anyone actually checks light up; the other 46 stay dark
-      const lit = LIT.has(c.i) ? eInOut(seg(lt,3.6,4.8)) : 0;
-      c.el.style.background = lit>0
-        ? "rgb("+Math.round(237+(196-237)*lit)+","+Math.round(229+(75-229)*lit)+","+Math.round(216+(46-216)*lit)+")"
-        : "var(--warm-200)";
+    FEELINES.forEach(f=>{
+      const p=eOut(clamp01((lt-0.2-f.delay)/0.7));
+      f.el.style.opacity=(p*0.85).toFixed(3);
+      f.el.style.transform="translateY("+px(16*(1-p))+")";
     });
+    // type sits over the list, so the list dims behind it
+    const a1=env(lt,0.5,4.4,0.7,0.5), a2=env(lt,4.7,9.4,0.7,0.6);
+    const veil=Math.max(a1,a2);
+    $("s1scrim").style.background="radial-gradient(ellipse 74% 34% at 50% 47%, rgba(250,247,242,"+(0.99*veil).toFixed(3)+") 0%, rgba(250,247,242,"+(0.95*veil).toFixed(3)+") 48%, rgba(250,247,242,0) 100%)";
+    $("s1text").style.transform="translateY("+px(392)+")";
+    $("s1h").style.opacity=a1.toFixed(3);
+    $("s1h2").style.opacity=a2.toFixed(3);
+    typeIn(HW.s1h, lt, 0.6, 0.055, 0.7);
+    if (a2>0) typeIn(HW.s1h2, lt, 4.9, 0.05, 0.7);
   }
 
-  /* S2 — two-sided risk */
+  /* S2 — doing it by hand */
   {
     const lt=t-WIN.s2[0];
-    const bm=eInOut(seg(lt,0.4,1.8));
-    $("beam").style.opacity=bm.toFixed(3);
-    $("beam").style.left=px(190); $("beam").style.top=px(300);
-    $("beam").style.width=px(1540*bm);
-    const L=seg(lt,1.2,2.4), R=seg(lt,3.4,4.6);
-    $("poleL").style.opacity=L.toFixed(3);
-    $("poleL").style.transform="translateY("+px(20*(1-eOut(L)))+")";
-    $("poleR").style.opacity=R.toFixed(3);
-    $("poleR").style.transform="translateY("+px(20*(1-eOut(R)))+")";
-    const q=seg(lt,6.0,7.2);
-    $("qmark").style.opacity=q.toFixed(3);
-    $("qmark").style.left=px(960); $("qmark").style.top=px(378);
-    $("qmark").style.transform="translateX(-50%) scale("+(0.8+0.2*eOut(q)).toFixed(3)+")";
-    const ql=seg(lt,6.8,8.0);
-    $("qlab").style.opacity=ql.toFixed(3);
-    $("qlab").style.left=px(960); $("qlab").style.top=px(506);
+    PDFS.forEach(p=>{
+      const q=eOut(clamp01((lt-0.4-p.delay)/0.55));
+      p.el.style.opacity=q.toFixed(3);
+      p.el.style.transform="translate("+px(p.x)+","+px(p.y-30*(1-q))+") rotate("+(p.rot*q).toFixed(2)+"deg) scale("+(0.9+0.1*q).toFixed(3)+")";
+    });
+    const wk=seg(lt,0.6,7.0);
+    $("weeknum").textContent=String(Math.max(1,Math.ceil(wk*6)));
+    $("weekwrap").style.opacity=seg(lt,0.5,1.5).toFixed(3);
+    const st=seg(lt,7.2,8.4);
+    $("stale").style.opacity=st.toFixed(3);
+    $("stale").style.transform="rotate(-4deg) scale("+(1.12-0.12*eOutQ(st)).toFixed(3)+")";
   }
 
-  /* S3 — your position in the peer cloud */
+  /* S3 — the turn */
   {
     const lt=t-WIN.s3[0];
-    $("s3e").style.opacity=seg(lt,0.3,1.2).toFixed(3);
-    typeIn(HW.s3h, lt, 0.6, 0.05, 0.75);
-    $("s3cat").style.opacity=seg(lt,1.8,2.7).toFixed(3);
-    const ax=eInOut(seg(lt,2.0,3.2));
-    $("axis").style.opacity=ax.toFixed(3); $("axis").style.width=px(AX.width*ax);
-    const tv=seg(lt,2.5,3.5).toFixed(3);
-    document.querySelectorAll(".tick,.ticklab").forEach(el=>{el.style.opacity=tv;});
-    DOTS.forEach(d=>{
-      const p=eOut(clamp01((lt-3.0-d.delay)/1.3));
-      d.el.style.opacity=(p*0.62).toFixed(3);
-      d.el.style.transform="translate("+px(xOf(d.v)-5.5)+","+px((AX.y-22-d.lane*15+d.jitter)-80*(1-p))+")";
+    ROWS3.forEach(r=>{
+      const p=eInOut(clamp01((lt-r.delay)/1.5));
+      r.el.style.opacity=(0.3+0.7*p).toFixed(3);
+      r.el.style.transform="translate("+px(190+r.fx*(1-p))+","+px(r.ty+r.fy*(1-p))+") rotate("+(r.frot*(1-p)).toFixed(2)+"deg)";
     });
-    const bp=eInOut(seg(lt,4.9,6.0));
-    const bx1=xOf(P.p25), bx2=xOf(P.p75);
-    $("band").style.opacity=(bp*0.9).toFixed(3);
-    $("band").style.left=px(bx1); $("band").style.width=px((bx2-bx1)*bp);
-    $("band").style.top=px(AX.y-150); $("band").style.height=px(150);
-    const mp=eInOut(seg(lt,5.6,6.6));
-    $("median").style.opacity=mp.toFixed(3);
-    $("median").style.left=px(xOf(P.p50)-1);
-    $("median").style.top=px(AX.y-160*mp); $("median").style.height=px(160*mp);
-    const ml=$("mlab");
-    ml.textContent="Peer median $"+P.p50.toFixed(2);
-    ml.style.opacity=seg(lt,6.2,7.2).toFixed(3);
-    // labels clear the band top (AX.y-150) so they never sit over the dot cloud
-    ml.style.left=px(xOf(P.p50)); ml.style.top=px(AX.y-248);
-
-    // the viewer's own bank — the only terra mark in the cloud
-    const yp=seg(lt,7.4,8.6);
-    $("youdot").style.opacity=yp.toFixed(3);
-    $("youdot").style.left=px(xOf(P.you)-13);
-    $("youdot").style.top=px(AX.y-13-70*eOut(yp));
-    $("youlab").style.opacity=seg(lt,8.0,9.0).toFixed(3);
-    $("youlab").style.left=px(xOf(P.you)); $("youlab").style.top=px(AX.y-212);
-    const dl=seg(lt,9.2,10.2);
-    $("delta").style.opacity=dl.toFixed(3);
-    $("delta").textContent=P.delta;
-    $("delta").style.left=px((xOf(P.you)+xOf(P.p50))/2); $("delta").style.top=px(AX.y+58);
+    const e=seg(lt,1.4,2.3), l=seg(lt,3.0,4.1);
+    $("s3e").style.opacity=e.toFixed(3);
+    $("s3e").style.transform="translateY("+px(14*(1-eOut(e)))+")";
+    typeIn(HW.s3h, lt, 1.7, 0.08, 0.8);
+    $("s3l").style.opacity=l.toFixed(3);
+    $("s3l").style.transform="translateY("+px(16*(1-eOut(l)))+")";
   }
 
-  /* S4 — the arithmetic that justifies the line item */
+  /* S4 — benchmark, then simulate on the same axis */
   {
     const lt=t-WIN.s4[0];
-    $("s4k").style.opacity=seg(lt,0.3,1.2).toFixed(3);
-    [0,1,2].forEach(i=>{
-      const p=seg(lt,1.0+i*0.85,1.9+i*0.85);
-      const el=$("cr"+i);
-      el.style.opacity=p.toFixed(3);
-      el.style.transform="translateY("+px(18*(1-eOut(p)))+")";
+    $("s4e").style.opacity=seg(lt,0.3,1.2).toFixed(3);
+    typeIn(HW.s4h, lt, 0.6, 0.05, 0.75);
+    $("s4cat").style.opacity=seg(lt,1.7,2.6).toFixed(3);
+
+    const ax=eInOut(seg(lt,1.9,3.1));
+    $("axis").style.opacity=ax.toFixed(3); $("axis").style.width=px(AX.width*ax);
+    const tv=seg(lt,2.4,3.4).toFixed(3);
+    document.querySelectorAll(".tick,.ticklab").forEach(el=>{el.style.opacity=tv;});
+    DOTS.forEach(d=>{
+      const p=eOut(clamp01((lt-2.8-d.delay)/1.2));
+      d.el.style.opacity=(p*0.6).toFixed(3);
+      d.el.style.transform="translate("+px(xOf(d.v)-5.5)+","+px((AX.y-22-d.lane*15+d.jitter)-76*(1-p))+")";
     });
-    const ru=eInOut(seg(lt,3.7,4.5));
-    $("crule").style.opacity=ru.toFixed(3);
-    $("crule").style.width=px(920*ru);
-    const tp=seg(lt,4.5,5.6);
-    $("total").style.opacity=tp.toFixed(3);
-    $("total").style.transform="scale("+(0.9+0.1*eOutQ(tp)).toFixed(4)+")";
-    const mp=seg(lt,8.0,9.2);
-    $("multi").style.opacity=mp.toFixed(3);
-    $("multi").style.transform="translateY("+px(16*(1-eOut(mp)))+")";
-    $("multi").innerHTML='And you have <b style="color:var(--terra);">'+DATA.math.others+' more</b>.';
+    const bp=eInOut(seg(lt,4.4,5.5));
+    $("band").style.opacity=(bp*0.9).toFixed(3);
+    $("band").style.left=px(xOf(D.p25)); $("band").style.width=px((xOf(D.p75)-xOf(D.p25))*bp);
+    $("band").style.top=px(AX.y-124); $("band").style.height=px(124);
+    const mp=eInOut(seg(lt,5.1,6.1));
+    $("median").style.opacity=mp.toFixed(3);
+    $("median").style.left=px(xOf(D.p50)-1);
+    $("median").style.top=px(AX.y-142*mp); $("median").style.height=px(142*mp);
+    $("medlab").textContent="Peer median $"+D.p50.toFixed(2);
+    $("medlab").style.opacity=seg(lt,5.7,6.6).toFixed(3);
+    $("medlab").style.left=px(xOf(D.p50)); $("medlab").style.top=px(AX.y-234);
+
+    /* the simulated fee — held, then moved */
+    const SIM_START=12.6, SIM_END=18.4;
+    const k=eInOut(seg(lt,SIM_START,SIM_END));
+    const fee=DATA.sim.from + (DATA.sim.to-DATA.sim.from)*k;
+    const pct=pctOf(fee);
+    const [rLabel,rCls]=riskOf(pct);
+    const gap=fee-D.p50;
+    const rev=(fee-DATA.sim.from)*DATA.sim.accounts*12;
+
+    const yp=seg(lt,6.6,7.8);
+    $("youdot").style.opacity=yp.toFixed(3);
+    $("youdot").style.left=px(xOf(fee)-14);
+    $("youdot").style.top=px(AX.y-14-64*eOut(yp));
+    $("youlab").style.opacity=seg(lt,7.2,8.2).toFixed(3);
+    $("youlab").style.left=px(xOf(fee)); $("youlab").style.top=px(AX.y-196);
+    $("youval").textContent="$"+fee.toFixed(2);
+
+    // tiles populate, then track the simulation live
+    [["tile1",8.6],["tile2",9.1],["tile3",9.6],["tile4",10.1]].forEach(([id,d])=>{
+      const p=seg(lt,d,d+0.9);
+      $(id).style.opacity=p.toFixed(3);
+      $(id).style.transform="translateY("+px(16*(1-eOut(p)))+")";
+    });
+    $("tv1").textContent=ord(Math.round(pct));
+    $("tv2").textContent=(gap>=0?"+":"−")+"$"+Math.abs(gap).toFixed(2);
+    $("tv2").style.color = gap>=0 ? "var(--terra)" : "var(--warm-900)";
+    // the note tracks the sign — a "+$3.00" reading "below the peer median"
+    // is the kind of contradiction that costs the room
+    $("tn2").textContent = Math.abs(gap) < 0.005 ? "at the peer median"
+                         : gap > 0 ? "above the peer median" : "below the peer median";
+    $("tv3").textContent=rLabel;
+    $("tv3").className="chip "+rCls;
+    $("tv4").textContent = k>0.02 ? "+"+money(rev) : "—";
+    $("tv4").style.color = k>0.02 ? "var(--green)" : "var(--warm-400)";
+
+    const sb=seg(lt,11.6,12.6);
+    $("simbadge").style.opacity=sb.toFixed(3);
+    $("simval").textContent="$"+DATA.sim.from.toFixed(2)+"  →  $"+fee.toFixed(2);
   }
 
-  /* S5 — the full schedule */
+  /* S5 — Hamilton */
   {
     const lt=t-WIN.s5[0];
-    $("s5k").style.opacity=seg(lt,0.3,1.2).toFixed(3);
+    $("s5e").style.opacity=seg(lt,0.3,1.2).toFixed(3);
     typeIn(HW.s5h, lt, 0.6, 0.06, 0.75);
-    const c=seg(lt,1.5,2.6);
-    $("inst").style.opacity=c.toFixed(3);
-    $("inst").style.transform="translateY("+px(30*(1-eOut(c)))+")";
-    IROWS.forEach((el,i)=>{
-      const p=seg(lt,2.6+i*0.36,3.3+i*0.36);
+    HMODES.forEach((el,i)=>{
+      const p=seg(lt,1.6+i*0.38,2.4+i*0.38);
       el.style.opacity=p.toFixed(3);
-      el.style.transform="translateX("+px(-18*(1-eOut(p)))+")";
-      el.querySelector(".d").style.opacity=seg(lt,3.2+i*0.36,3.9+i*0.36).toFixed(3);
+      el.style.transform="translateX("+px(-20*(1-eOut(p)))+")";
     });
-    $("srcnote").style.opacity=seg(lt,6.4,7.6).toFixed(3);
+    const dp=seg(lt,3.4,4.6);
+    $("hamdoc").style.opacity=dp.toFixed(3);
+    $("hamdoc").style.transform="translateY("+px(34*(1-eOut(dp)))+")";
+    HSECS.forEach((el,i)=>{
+      const p=seg(lt,4.6+i*0.34,5.3+i*0.34);
+      el.style.opacity=p.toFixed(3);
+      el.style.transform="translateX("+px(16*(1-eOut(p)))+")";
+    });
+    $("hamcite").style.opacity=seg(lt,6.8,7.9).toFixed(3);
   }
 
-  /* S6 — reports */
+  /* S6 — close */
   {
     const lt=t-WIN.s6[0];
-    $("s6k").style.opacity=seg(lt,0.3,1.2).toFixed(3);
-    typeIn(HW.s6h, lt, 0.6, 0.055, 0.75);
-    RCARDS.forEach((c,i)=>{
-      const p=seg(lt,1.4+i*0.24,2.3+i*0.24);
-      c.el.style.opacity=p.toFixed(3);
-      c.el.style.transform="translate("+px(c.x)+","+px(c.y+38*(1-eOut(p)))+") rotate("+(c.rot*eOut(p)).toFixed(2)+"deg)";
-    });
-    SECTS.forEach((el,i)=>{
-      const p=seg(lt,2.9+i*0.30,3.6+i*0.30);
-      el.style.opacity=p.toFixed(3);
-      el.style.transform="translateX("+px(20*(1-eOut(p)))+")";
-    });
-  }
-
-  /* S7 — price, anchored */
-  {
-    const lt=t-WIN.s7[0];
-    const p=seg(lt,0.4,1.6);
-    $("price").style.opacity=p.toFixed(3);
-    $("price").style.transform="scale("+(1.1-0.1*eOutQ(p)).toFixed(4)+")";
-    $("priceper").style.opacity=seg(lt,1.2,2.2).toFixed(3);
-    const a=seg(lt,2.4,3.6);
-    $("anchor").style.opacity=a.toFixed(3);
-    $("anchor").style.transform="translateY("+px(18*(1-eOut(a)))+")";
-    $("s7url").style.opacity=seg(lt,4.6,5.8).toFixed(3);
+    const c=seg(lt,0.5,1.9);
+    $("closeline").style.opacity=c.toFixed(3);
+    $("closeline").style.transform="translateY("+px(24*(1-eOut(c)))+")";
+    $("closeurl").style.opacity=seg(lt,2.4,3.6).toFixed(3);
   }
 };
 

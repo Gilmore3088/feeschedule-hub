@@ -1,6 +1,6 @@
 # Fee Insight Studio — brand explainer renderer
 
-Renders the 72-second Fee Insight institutional explainer to MP4. **This is not
+Renders the 70-second Fee Insight institutional explainer to MP4. **This is not
 part of the Next.js application.** It is a standalone build tool that happens to
 be parked in this repo so the source is not lost; see *Where this belongs* below.
 
@@ -8,54 +8,50 @@ Evaluation and rationale: `docs/plans/openmontage-video-evaluation-2026-08-15.md
 
 ## What it produces
 
-`out/feeinsight-explainer.mp4` — 1920×1080, H.264, 30fps, silent, ~2.2 MB.
+`out/feeinsight-explainer.mp4` — 1920×1080, H.264, 30fps, silent, ~3.5 MB.
 Sound-off by design: the story is carried by motion, type and burned-in
 captions, so it works muted on a landing page or in a sales deck.
 
-Seven beats aimed at **the buyer, not the end user** — a retail/deposit
-executive or CFO deciding on a $5,000/year seat. They do not shop for fees;
-they set them.
+Six beats aimed at **the buyer** — a retail/deposit executive or CFO who does
+not shop for fees but has to defend every one of them once a year.
 
 | Time | Beat | Role |
 | --- | --- | --- |
-| 0:00 | "You set 49 prices. You benchmark three." | **Hook** — an accusation about their own practice |
-| 0:09 | Priced too high vs priced too low | Two-sided stakes |
-| 0:20 | Your dot in the peer cloud, against the median | Where you actually sit |
-| 0:33 | 12,000 x $3.00 x 12 = **$432,000** | **The sale** — arithmetic, not adjectives |
-| 0:45 | Your full schedule vs peers, traced to source | Defensibility |
-| 0:56 | Four report types | Board-readiness |
-| 1:04 | **$5,000/year** — "less than one analyst-week" | Price, anchored |
+| 0:00 | "It's time for the annual fee review. Who's going to benchmark every fee?" | **Hook** — a meeting they have actually sat in |
+| 0:09 | PDFs piling up, week counter climbing, "stale on arrival" | The cost of doing it by hand |
+| 0:19 | "With Fee Insight — it's already done." | The turn |
+| 0:26 | Peer distribution, your position, live metric tiles | **Benchmark, then simulate** |
+| 0:51 | Hamilton's four modes and a cited Peer Brief | The deliverable |
+| 1:02 | "Your annual fee review, in an afternoon." | Close |
 
-Why this shape, and why the earlier consumer cut failed:
+Rules this cut follows:
 
-- **The hook must indict, not inform.** The previous cut opened on "the same
-  overdraft fee costs $35 at one bank and $5 at another" — a shopper's
-  observation, useless to the person setting the price. "You set 49 prices,
-  you benchmark three" is uncomfortable because the viewer knows it is true of
-  their own shop.
-- **Stakes are two-sided deliberately.** Over-priced is an examiner and
-  attrition problem; under-priced is forgone revenue. Naming only one halves
-  the audience.
-- **The arithmetic beat is the whole sale.** $432,000 against $5,000 is an 86x
-  return, shown as a calculation rather than claimed as a benefit. If one beat
-  survives editing, it is this one.
-- **The price is said out loud and anchored.** "$5,000" alone is a purchase;
-  "less than one analyst-week, and an analyst can't do this" reframes it as
-  cheaper than the status quo — a junior analyst hand-collecting competitor
-  PDFs, which costs more and goes stale on delivery.
-- **The institution card says "Your institution"**, not a fictional bank, so
-  the viewer projects themselves into it.
+- **Never quote a count.** No "49 fees", no "48 more". Counts invite arithmetic
+  about the product rather than the decision, and they date the film the moment
+  the taxonomy changes. Say "every fee" and let the frame show the volume.
+- **The simulate beat is the demonstration.** It is the only place the product
+  visibly *does* something — the fee moves, the dot travels the axis, the
+  percentile climbs, the risk chip flips Low to Medium, the revenue figure
+  resolves. Percentile and risk mirror `src/lib/hamilton/simulation.ts`
+  (`estimatePercentile`, `classifyRisk`), so what the film shows is the model
+  the product actually runs.
+- **No pricing.** The film sells the afternoon, not the invoice.
+- **Hamilton is named**, with its real modes — Analyze, Simulate, Report,
+  Monitor (`src/lib/hamilton/modes.ts`).
+- **Don't caption what the frame already says.** The open and close are display
+  headlines and carry no caption.
 
 Headlines animate word by word (`typeIn()`), so type carries motion rather
 than fading in as blocks.
 
 ## Voice-over
 
-The script lives in [`vo-script.md`](vo-script.md) — 118 words at ~110 wpm,
-timed line by line. Deliberately slower than consumer video: executives are
-persuaded by arithmetic delivered calmly, and the pauses are where the numbers
-land. Every line is burned into the film as a caption, so the cut works with
-sound off and the VO drops on top without re-timing.
+The script lives in [`vo-script.md`](vo-script.md) — 116 words at ~110 wpm,
+timed line by line. Deliberately slower than consumer video: the pauses are
+where the numbers land. Most lines are burned into the film as captions, so the
+cut works with sound off and the VO drops on top without re-timing. The open
+and close are the exception — they are set as display headlines, so captioning
+them would only double the words.
 
 **There is no audio track yet.** The build container cannot reach a voice
 model: HuggingFace (where Piper voices are hosted) returns 403 through the
@@ -118,29 +114,27 @@ installed where this is next run.
 ## ⚠️ The dollar figures are placeholders
 
 **This video must not be shown to a prospect as-is.** Every dollar amount — the
-peer median, the P25/P75 marks, the "you" position, the 214 peer count, and the
-whole 12,000 × $3.00 × 12 worked example — is illustrative. **None of it was
-read from the Fee Insight database.**
+peer distribution, the median, the simulated position, the account volume and
+the revenue figure it produces — is illustrative. **None of it was read from
+the Fee Insight database.**
 
-This matters more in this cut than in any earlier one. The film now closes a
-$5,000 sale on a specific arithmetic claim; if a bank executive checks that
-arithmetic against their own book and it does not hold, the credibility loss is
-larger than the deal. Replace the `DATA` object at the top of `scene.html` with
-real output from `getNationalIndex()` before any sales use.
+The simulate beat is where this bites. It is the most persuasive thing in the
+film precisely because it looks like live output, so a prospect who checks the
+numbers against their own book and finds them hollow loses more than the deal.
+Replace the `DATA` object at the top of `scene.html` with real
+`getNationalIndex()` output before any sales use.
 
-Ideally the worked example is re-derived per prospect: their account count,
-their gap against their own peer set. That turns a generic claim into a
-personalised one, which is what actually closes.
+Better still, re-derive the simulation per prospect: their fee, their peer set,
+their account volume. The math already runs live off `DATA.dist` and
+`DATA.sim`, so a personalised cut is a data swap, not a re-edit.
 
-Real and safe to keep: the **$5,000/year per seat** price
-(`src/app/subscribe/page.tsx`), category display names
-(`src/lib/fee-taxonomy.ts`), the report types
-(`src/app/api/reports/catalog/route.ts`), the report section titles
-(`src/lib/report-engine/`), and the count of 49 fee categories.
+Real and safe to keep: fee display names (`src/lib/fee-taxonomy.ts`), Hamilton's
+modes (`src/lib/hamilton/modes.ts`), and the percentile/risk model, which
+mirrors `src/lib/hamilton/simulation.ts`.
 
-Also **do not burn live counts into the film.** Institution and observation
-totals are dynamic props, so a hardcoded figure dates the video the week it
-ships. They are deliberately absent.
+**No counts anywhere.** No "49 fees", no "48 more", no institution or
+observation totals. Counts date the film and invite arithmetic about the
+product instead of the decision. Keep it that way.
 
 The distribution dots are generated from the quartiles themselves — an even
 quarter of the dots in each quartile band — so the cloud a viewer sees always

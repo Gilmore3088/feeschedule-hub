@@ -1,73 +1,73 @@
 # Fee Insight explainer — voice-over script
 
-**Audience:** the buyer, not the end user. A retail/deposit executive, CFO, or
-pricing lead at a community or mid-size bank deciding on a **$5,000/year**
-seat. They are not shopping for a checking account — they *set* these prices.
+**Audience:** the buyer. A retail/deposit executive, CFO, or pricing lead at a
+community or mid-size bank. They do not shop for fees — they set them, and once
+a year they have to defend every one of them.
 
-**Runtime:** 72s · **Words:** 118 · **Pace:** ~110 wpm — slower than consumer
-video on purpose. Executives are persuaded by arithmetic delivered calmly, and
-the pauses are where the numbers land.
+**Runtime:** 70s · **Words:** 116 · **Pace:** ~110 wpm — slower than consumer
+video on purpose. The pauses are where the numbers land.
 
-**Read:** peer-to-peer. Never salesy, never urgent. The film's job is to make
-one uncomfortable gap obvious and then price the fix below the threshold where
-anyone needs approval to buy it.
+**Read:** peer-to-peer. Never salesy, never urgent.
 
 ---
 
 | In | Out | Line | On screen |
 | --- | --- | --- | --- |
-| 0:00 | 0:06 | You set forty-nine prices. Most banks benchmark three. | 49-cell grid, 3 lit |
-| 0:06 | 0:12 | Price too high, and you're the outlier when the examiner asks. | Risk pole |
-| 0:12 | 0:19 | Price too low, and you're giving away fee income you'll never see. | Revenue pole |
-| 0:19 | 0:25 | Fee Insight shows you exactly where you sit. | Your dot in the peer cloud |
-| 0:25 | 0:32 | Every fee, against the peer set you actually compete with. | Median + delta callout |
-| 0:32 | 0:42 | Three dollars under median, across twelve thousand accounts, is four hundred and thirty-two thousand dollars a year. | Calculation builds |
-| 0:42 | 0:47 | That's one fee. You have forty-eight more. | Total holds |
-| 0:47 | 0:56 | Every figure traced to a competitor's published schedule — so it holds up in front of your board. | Full schedule vs peers |
-| 0:56 | 1:03 | Board-ready the day you need it. | Report types |
-| 1:03 | 1:09 | Five thousand dollars a year. Less than one analyst-week — and an analyst can't do this. | Price + anchor |
-| 1:09 | 1:12 | — (silent) | Wordmark and URL |
+| 0:00 | 0:04 | It's time for the annual fee review. | The whole schedule, filling the frame |
+| 0:04 | 0:09 | Who's going to benchmark every fee? | Question lands over the list |
+| 0:10 | 0:16 | Today that means collecting competitor schedules by hand. PDF by PDF. For weeks. | PDFs pile up, week counter climbing |
+| 0:16 | 0:19 | And it's stale before you present it. | "Stale on arrival" |
+| 0:20 | 0:26 | With Fee Insight, it's already done. | Clutter resolves into the standardised index |
+| 0:27 | 0:32 | Every fee you charge, positioned against the peers you compete with. | Peer distribution, your position |
+| 0:33 | 0:38 | Percentile. Gap to median. Risk profile. | Metric tiles populate |
+| 0:39 | 0:44 | Move a price, and watch what moves with it. | Fee slides; the dot travels the axis |
+| 0:44 | 0:51 | Revenue, percentile and risk — before you commit. | Tiles update live; risk flips Low → Medium |
+| 0:52 | 0:56 | Then let Hamilton write it up. | Hamilton's four modes |
+| 0:57 | 1:02 | Board-ready, every figure traced to a competitor's published schedule. | Peer Brief assembling |
+| 1:03 | 1:08 | Your annual fee review, in an afternoon. | Close |
 
 ---
 
-## Why this script and not the last one
+## Direction notes
 
-The previous cut opened on "the same overdraft fee costs $35 at one bank and $5
-at another." That is a *consumer's* insight — interesting to someone choosing a
-bank, worthless to someone setting the price. It gave the buyer nothing to
-take to a budget conversation.
+**The open is a calendar event, not a market fact.** "It's time for the annual
+fee review" is a sentence the buyer has heard in a real meeting, and the
+follow-up — "who's going to benchmark every fee?" — is the question nobody in
+that meeting wants to answer. That recognition is the hook. Earlier cuts opened
+on price dispersion, which is a consumer's observation and gave the buyer
+nothing.
 
-**The hook is now an accusation about their own practice.** "You set
-forty-nine prices. Most banks benchmark three." An executive cannot dismiss
-this, because they know it is true of their own shop. Discomfort earns the
-next five seconds far better than a fact about the market.
+**Never quote a count.** No "forty-nine fees," no "forty-eight more." Counts
+invite arithmetic about the product instead of about the decision, and they
+date the film the moment the taxonomy changes. Say "every fee" and let the
+frame show the volume.
 
-**The stakes are two-sided on purpose.** Priced high is an examiner and
-attrition problem; priced low is forgone revenue. Naming only one halves the
-audience — some viewers are over-priced and some under-priced, and both need to
-see themselves.
+**The simulate beat is the demonstration and the proof at once.** It is the
+only place the product visibly *does* something: the fee moves, the dot travels,
+the percentile climbs, the risk chip flips from Low to Medium, and the revenue
+figure resolves. Do not cut it short — the credibility comes from watching the
+numbers respond, not from being told they would.
 
-**The arithmetic beat is the sale.** 12,000 × $3 × 12 = $432,000 against a
-$5,000 line item is an 86× return, shown rather than claimed. Everything before
-it is setup; everything after is reassurance. If one beat survives editing,
-this is it.
+**Do not narrate the arithmetic.** The screen shows the calculation. The VO
+says what it means. If the line and the frame say the same words, cut the line.
 
-**The price is stated out loud, with an anchor.** $5,000 sounds like a
-purchase. "Less than one analyst-week" reframes it as cheaper than the status
-quo — because the alternative is a junior analyst manually collecting
-competitor PDFs, which costs more, takes weeks, and goes stale on delivery.
+**No price in this cut.** The film sells the afternoon, not the invoice.
+Pricing is a conversation for the page it links to, and naming a number here
+would invite the viewer to evaluate cost before they have felt the problem.
 
-**"You have forty-eight more" is the multiplier.** It stops the viewer
-computing a single $432k and starts them computing a portfolio.
+**Hamilton is named, deliberately.** A named analyst that produces a cited,
+board-ready brief is more concrete than "reporting features," and the four
+modes — Analyze, Simulate, Report, Monitor — are the real ones.
 
 ## Recording
 
-Prefer a human read — a synthetic voice on a research brand undercuts the
+Prefer a human read; a synthetic voice on a research brand undercuts the
 credibility being sold. Place a mono WAV at `studio/vo/narration.wav`, then:
 
 ```bash
 npm run render -- --vo vo/narration.wav
 ```
 
-Caption timings live in `CAPTIONS` in `scene.html` and must stay in sync with
-the table above.
+Caption timings live in `CAPTIONS` in `scene.html`. Note that the open and the
+close are **not** captioned — those lines are set as display headlines on
+screen, and captioning them again just doubles the words.
