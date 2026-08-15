@@ -171,6 +171,28 @@ function operatorMode({
     };
   }
 
+  if (stateLaneDispatch.totalCriticalPublicFindings > 0) {
+    return {
+      tone: "danger" as const,
+      label: "Public",
+      title: `${stateLaneDispatch.totalCriticalPublicFindings.toLocaleString()} critical public page finding${stateLaneDispatch.totalCriticalPublicFindings === 1 ? "" : "s"}`,
+      detail: "Darwin has not cleared these public discovery findings yet. Review the affected state lanes before treating public coverage as healthy.",
+      action: "Review lanes",
+      href: "/admin/states",
+    };
+  }
+
+  if (stateLaneDispatch.totalPublicFindings > 0) {
+    return {
+      tone: "warning" as const,
+      label: "Public",
+      title: `${stateLaneDispatch.totalPublicFindings.toLocaleString()} public discovery finding${stateLaneDispatch.totalPublicFindings === 1 ? "" : "s"} open`,
+      detail: "Public page audit findings are recorded and waiting for verification or diagnosis.",
+      action: "Review lanes",
+      href: "/admin/states",
+    };
+  }
+
   if (center.attention[0]) {
     return {
       tone: center.attention[0].severity === "critical" ? "danger" as const : "warning" as const,
@@ -192,11 +214,17 @@ function operatorMode({
   };
 }
 
-function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>) {
+function workflowLanes(
+  center: Awaited<ReturnType<typeof getAtlasCommandCenter>>,
+  stateLaneDispatch: Awaited<ReturnType<typeof getAtlasStateLaneDispatch>>,
+) {
   const missingUrls = Math.max(0, center.metrics.url.denominator - center.metrics.url.numerator);
   const staleOrMissingSources = Math.max(0, center.metrics.fresh.denominator - center.metrics.fresh.numerator);
   const unverified = Math.max(0, center.metrics.verified.denominator - center.metrics.verified.numerator);
   const reviewWork = center.attention.find((item) => item.id.startsWith("review:"));
+  const publicFindingMetric = stateLaneDispatch.totalCriticalPublicFindings > 0
+    ? `${number(stateLaneDispatch.totalCriticalPublicFindings)} critical / ${number(stateLaneDispatch.totalPublicFindings)} open`
+    : `${number(stateLaneDispatch.totalPublicFindings)} open findings`;
 
   return [
     {
@@ -275,7 +303,7 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       id: "public-discovery" as const,
       title: "Audit public discovery pages",
       owner: "atlas",
-      metric: "Route inventory + page findings",
+      metric: publicFindingMetric,
       detail: "Check public routes for not-found pages, visible errors, and accessible form issues; browser screenshots remain a follow-up renderer.",
       commandLabel: "audit public pages",
       href: "/admin/states",
@@ -295,8 +323,18 @@ export default async function AtlasCommandPage() {
     + center.schedules.never_ran_count;
   const healthy = problemSchedules === 0
     && center.agentHealth.errors24h === 0
+    && stateLaneDispatch.totalCriticalPublicFindings === 0
     && center.automation.enabled
     && center.provider.status === "ready";
+  const healthStatusText = healthy
+    ? "Automation and scheduled systems are healthy"
+    : !center.automation.enabled
+      ? "Automation is stopped"
+      : center.agentHealth.errors24h > 0
+        ? `${center.agentHealth.errors24h.toLocaleString()} agent failures need attention`
+        : stateLaneDispatch.totalCriticalPublicFindings > 0
+          ? `${stateLaneDispatch.totalCriticalPublicFindings.toLocaleString()} critical public discovery findings need attention`
+          : `${problemSchedules} scheduled checks need attention`;
 
   return (
     <div className="space-y-9 pb-10">
@@ -364,13 +402,7 @@ export default async function AtlasCommandPage() {
                 {healthy && <span className="live-pulse absolute inset-0 rounded-full bg-emerald-400" />}
               </span>
               <p className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-                {healthy
-                  ? "Automation and scheduled systems are healthy"
-                  : !center.automation.enabled
-                    ? "Automation is stopped"
-                    : center.agentHealth.errors24h > 0
-                      ? `${center.agentHealth.errors24h.toLocaleString()} agent failures need attention`
-                      : `${problemSchedules} scheduled checks need attention`}
+                {healthStatusText}
               </p>
             </div>
             <p className="admin-meta mt-2">Checked {dateTime(center.generatedAt)}</p>
@@ -382,7 +414,7 @@ export default async function AtlasCommandPage() {
       </section>
 
       <AtlasWorkflowLauncher
-        lanes={workflowLanes(center)}
+        lanes={workflowLanes(center, stateLaneDispatch)}
         automationEnabled={center.automation.enabled}
         activeJobCount={center.activeJobs.length}
         executionEnabled={execution.enabled}

@@ -91,6 +91,8 @@ export interface AtlasStateLaneDispatch {
   totalManualBacklog: number;
   totalFailures: number;
   totalCorrections: number;
+  totalPublicFindings: number;
+  totalCriticalPublicFindings: number;
   nextDueAfter: string | null;
   latestRunAt: string | null;
   rows: AtlasStateLaneDispatchRow[];
@@ -144,6 +146,8 @@ function emptyDispatch(schemaReady = true): AtlasStateLaneDispatch {
     totalManualBacklog: 0,
     totalFailures: 0,
     totalCorrections: 0,
+    totalPublicFindings: 0,
+    totalCriticalPublicFindings: 0,
     nextDueAfter: null,
     latestRunAt: null,
     rows: [],
@@ -467,6 +471,17 @@ export async function getAtlasStateLaneDispatch(
         COALESCE(SUM(backlog_manual_review), 0)::int AS total_manual_backlog,
         COALESCE(SUM(failure_count), 0)::int AS total_failures,
         COALESCE(SUM(correction_count), 0)::int AS total_corrections,
+        (
+          SELECT COUNT(*)::int
+            FROM public.public_discovery_findings
+           WHERE verified_status = 'unverified'
+        ) AS total_public_findings,
+        (
+          SELECT COUNT(*)::int
+            FROM public.public_discovery_findings
+           WHERE severity = 'critical'
+             AND verified_status = 'unverified'
+        ) AS total_critical_public_findings,
         MIN(next_run_after) AS next_due_after,
         MAX(last_run_at) AS latest_run_at
       FROM lane_base
@@ -536,6 +551,8 @@ export async function getAtlasStateLaneDispatch(
       totalManualBacklog: numberFrom(summary?.total_manual_backlog),
       totalFailures: numberFrom(summary?.total_failures),
       totalCorrections: numberFrom(summary?.total_corrections),
+      totalPublicFindings: numberFrom(summary?.total_public_findings),
+      totalCriticalPublicFindings: numberFrom(summary?.total_critical_public_findings),
       nextDueAfter: toISO(summary?.next_due_after as string | Date | null),
       latestRunAt: toISO(summary?.latest_run_at as string | Date | null),
       rows: rows.map((row) => {

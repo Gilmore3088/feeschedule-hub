@@ -143,18 +143,20 @@ export default async function StateDetailPage({
             </Link>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
           <StatCard label="Missing URLs" value={formatNumber(laneHealth?.backlogMissingUrls ?? 0)} />
           <StatCard label="Stale Sources" value={formatNumber(laneHealth?.backlogStaleSources ?? 0)} />
           <StatCard label="OCR Backlog" value={formatNumber(laneHealth?.backlogOcr ?? 0)} />
           <StatCard label="Manual Review" value={formatNumber(laneHealth?.backlogManualReview ?? 0)} />
           <StatCard label="Failures" value={formatNumber(laneHealth?.failures ?? 0)} />
           <StatCard label="Corrections" value={formatNumber(laneHealth?.corrections ?? 0)} />
+          <StatCard label="Public Findings" value={formatNumber(laneHealth?.publicFindings.unverified ?? 0)} />
+          <StatCard label="Critical Pages" value={formatNumber(laneHealth?.publicFindings.critical ?? 0)} />
           <StatCard label="Last Success" value={formatDateTime(laneHealth?.lastSuccessAt ?? null)} />
           <StatCard label="Next Run" value={formatDateTime(laneHealth?.nextRunAfter ?? null)} />
         </div>
         {laneHealth && (
-          <div className="mt-3 grid gap-2.5 md:grid-cols-2">
+          <div className="mt-3 grid gap-2.5 md:grid-cols-3">
             <LaneMiniSummary
               title="Source Kinds"
               items={[
@@ -173,6 +175,14 @@ export default async function StateDetailPage({
                 ["Browser", laneHealth.readStrategies.browserRender],
                 ["OCR", laneHealth.readStrategies.ocr],
                 ["Manual", laneHealth.readStrategies.manualReview],
+              ]}
+            />
+            <LaneMiniSummary
+              title="Public Discovery"
+              items={[
+                ["Open", laneHealth.publicFindings.unverified],
+                ["Verified", laneHealth.publicFindings.verified],
+                ["Critical", laneHealth.publicFindings.critical],
               ]}
             />
           </div>

@@ -200,11 +200,13 @@ export function AtlasStateLaneDispatchPanel({
             <DispatchMetric label="Running" value={number(dispatch.runningLanes)} icon={Activity} tone={dispatch.runningLanes > 0 ? "active" : "default"} />
             <DispatchMetric label="Need attention" value={number(dispatch.attentionLanes)} icon={AlertTriangle} tone={dispatch.attentionLanes > 0 ? "danger" : "default"} />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <SmallMetric label="Missing URLs" value={number(dispatch.totalMissingUrls)} />
             <SmallMetric label="Stale sources" value={number(dispatch.totalStaleSources)} />
             <SmallMetric label="OCR/manual" value={number(dispatch.totalOcrBacklog + dispatch.totalManualBacklog)} />
             <SmallMetric label="Corrections" value={number(dispatch.totalCorrections)} />
+            <SmallMetric label="Public findings" value={number(dispatch.totalPublicFindings)} />
+            <SmallMetric label="Critical pages" value={number(dispatch.totalCriticalPublicFindings)} />
           </div>
           <p className="admin-meta mt-3">
             Next due {formatAdminDateTime(dispatch.nextDueAfter)} · latest lane run {formatAdminDateTime(dispatch.latestRunAt)}

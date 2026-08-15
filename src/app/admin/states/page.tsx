@@ -32,13 +32,13 @@ export default async function StatesPage() {
     <div className="space-y-6">
       <header>
         <Breadcrumbs
-          items={[{ label: "Atlas", href: "/admin" }, { label: "State Lanes" }]}
+          items={[{ label: "Atlas", href: "/admin" }, { label: "Atlas Lanes" }]}
         />
         <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-          State Lanes
+          Atlas Lanes
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          State-sized work partitions for source memory, coverage, publication status, and repair backlog.
+          State-sized Atlas work partitions for source memory, public discovery, coverage, publication status, and repair backlog.
         </p>
         <div className="mt-3">
           <Link
