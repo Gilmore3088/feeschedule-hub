@@ -11,7 +11,12 @@ import { InstitutionSearchBar } from "./search-bar";
 import { StateDirectoryMap } from "./state-directory-map";
 import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
+import { FEE_FAMILIES, getDisplayName } from "@/lib/fee-taxonomy";
+import { formatAmount } from "@/lib/format";
+import { getCachedFeeCategorySummaries } from "@/lib/data-store/fee-cache";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
+
+const TAXONOMY_CATEGORIES = new Set(Object.values(FEE_FAMILIES).flat());
 
 export const metadata: Metadata = {
   title: "Find Your Bank - Search 8,000+ Institutions",
@@ -25,6 +30,8 @@ interface PageProps {
     state?: string;
     charter?: string;
     page?: string;
+    /** Optional fee category to surface per institution, e.g. from a consumer guide. */
+    fee?: string;
   }>;
 }
 
@@ -48,10 +55,16 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   const charterType = params.charter || "";
   const page = parseInt(params.page || "1", 10);
 
+  // Only honour a fee category that actually exists, so a stale or hand-edited link
+  // degrades to the plain directory rather than to an empty column.
+  const requestedFee = (params.fee || "").trim();
+  const focusCategory = TAXONOMY_CATEGORIES.has(requestedFee) ? requestedFee : "";
+  const focusLabel = focusCategory ? getDisplayName(focusCategory) : "";
+
   const hasQuery = query.trim().length >= 2;
   const hasState = Boolean(stateCode);
   const shouldShowResults = hasQuery || hasState;
-  const [stats, stateSummaries, results] = await Promise.all([
+  const [stats, stateSummaries, results, summaries] = await Promise.all([
     getPublicStats(),
     getInstitutionStateDirectorySummaries({
       charter_type: charterType || undefined,
@@ -61,11 +74,28 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
           query: hasQuery ? query : undefined,
           state_code: stateCode || undefined,
           charter_type: charterType || undefined,
+          fee_category: focusCategory || undefined,
           page,
           pageSize: 25,
         })
       : Promise.resolve({ rows: [], total: 0 }),
+    focusCategory ? getCachedFeeCategorySummaries() : Promise.resolve([]),
   ]);
+
+  const focusMedian = focusCategory
+    ? (summaries.find((s) => s.fee_category === focusCategory)?.median_amount ?? null)
+    : null;
+
+  /** Pagination that preserves every active filter, including the fee focus. */
+  const pageHref = (target: number) => {
+    const search = new URLSearchParams();
+    if (query) search.set("q", query);
+    if (stateCode) search.set("state", stateCode);
+    if (charterType) search.set("charter", charterType);
+    if (focusCategory) search.set("fee", focusCategory);
+    search.set("page", String(target));
+    return `/institutions?${search.toString()}`;
+  };
 
   const totalPages = Math.ceil(results.total / 25);
   const mappedInstitutionCount = stateSummaries.reduce(
@@ -77,6 +107,33 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   return (
     <main className="min-h-screen bg-[#FAF7F2] text-[#1A1815]">
       <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-9">
+        {focusCategory && (
+          <div className="fi-reveal mb-6 rounded-xl border border-[#C44B2E]/20 bg-white px-5 py-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#C44B2E]/70">
+              Comparing {focusLabel}
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-[#5A5347]">
+              Search your institution below and its published {focusLabel.toLowerCase()}{" "}
+              appears alongside the national median
+              {focusMedian !== null && (
+                <>
+                  {" "}
+                  of{" "}
+                  <span className="font-semibold tabular-nums text-[#1A1815]">
+                    {formatAmount(focusMedian)}
+                  </span>
+                </>
+              )}
+              .{" "}
+              <Link
+                href={`/fees/${focusCategory}`}
+                className="font-medium text-[#C44B2E] hover:underline"
+              >
+                See the full {focusLabel.toLowerCase()} analysis
+              </Link>
+            </p>
+          </div>
+        )}
         <section className="fi-reveal border-b border-[#D8CBB8] pb-6">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div className="min-w-0">
@@ -192,6 +249,11 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                   <th className="hidden md:table-cell px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">
                     Type
                   </th>
+                  {focusCategory && (
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">
+                      {focusLabel}
+                    </th>
+                  )}
                   <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">
                     Fee rows
                   </th>
@@ -208,7 +270,11 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                   >
                     <td className="px-4 py-3">
                       <Link
-                        href={`/institution/${r.id}`}
+                        href={
+                          focusCategory
+                            ? `/institution/${r.id}?fee=${focusCategory}#fee-${focusCategory}`
+                            : `/institution/${r.id}`
+                        }
                         className="group flex min-w-0 items-center gap-2 break-words font-medium text-[#1A1815] transition-colors hover:text-[#C44B2E]"
                       >
                         <span className="min-w-0 break-words">{r.institution_name}</span>
@@ -238,6 +304,28 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                         </span>
                       )}
                     </td>
+                    {focusCategory && (
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {r.focus_fee_amount === null || r.focus_fee_amount === undefined ? (
+                          <span className="text-[11px] text-[#A69D90]">Not published</span>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-[#1A1815]">
+                              {formatAmount(r.focus_fee_amount)}
+                            </span>
+                            {focusMedian !== null && (
+                              <div className="text-[10px] text-[#A69D90]">
+                                {r.focus_fee_amount > focusMedian
+                                  ? `${formatAmount(r.focus_fee_amount - focusMedian)} above median`
+                                  : r.focus_fee_amount < focusMedian
+                                    ? `${formatAmount(focusMedian - r.focus_fee_amount)} below median`
+                                    : "at the median"}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right tabular-nums">
                       {r.published_fee_count > 0 ? (
                         <div>
@@ -273,7 +361,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
             <div className="flex items-center justify-center gap-2 mt-6">
               {page > 1 && (
                 <Link
-                  href={`/institutions?q=${query}&state=${stateCode}&charter=${charterType}&page=${page - 1}`}
+                  href={pageHref(page - 1)}
                   className="inline-flex items-center gap-1.5 rounded-md border border-[#D5CBBF] px-3 py-1.5 text-xs font-medium text-[#1A1815] transition-colors hover:border-[#1A1815]"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
@@ -285,7 +373,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
               </span>
               {page < totalPages && (
                 <Link
-                  href={`/institutions?q=${query}&state=${stateCode}&charter=${charterType}&page=${page + 1}`}
+                  href={pageHref(page + 1)}
                   className="inline-flex items-center gap-1.5 rounded-md border border-[#D5CBBF] px-3 py-1.5 text-xs font-medium text-[#1A1815] transition-colors hover:border-[#1A1815]"
                 >
                   Next

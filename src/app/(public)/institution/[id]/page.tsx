@@ -59,6 +59,8 @@ import { getAutomationControl } from "@/lib/automation-control";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  /** `?fee=` lets a guide hand the reader straight to the fee they came for. */
+  searchParams?: Promise<{ fee?: string }>;
 }
 
 interface DisplayFee {
@@ -136,7 +138,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function InstitutionProfilePage({ params }: PageProps) {
+export default async function InstitutionProfilePage({ params, searchParams }: PageProps) {
+  const focusFeeCategory = (await searchParams)?.fee?.trim() || null;
   const { id } = await params;
   const instId = parseInt(id, 10);
   if (Number.isNaN(instId)) notFound();
@@ -535,6 +538,10 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                         key={fee.id}
                         fee={fee}
                         disclosureUrl={inst.fee_schedule_url}
+                        focused={
+                          focusFeeCategory !== null &&
+                          fee.feeCategory === focusFeeCategory
+                        }
                       />
                     ))}
                   </div>
@@ -848,9 +855,11 @@ function Metric({
 function FeeObservationRow({
   fee,
   disclosureUrl,
+  focused = false,
 }: {
   fee: DisplayFee;
   disclosureUrl: string | null;
+  focused?: boolean;
 }) {
   const isVerified = fee.status === "verified";
   const label = isVerified ? "Verified" : "Provisional";
@@ -858,7 +867,12 @@ function FeeObservationRow({
   const confidence = confidenceLabel(fee.extractionConfidence);
 
   return (
-    <div className="fi-row-interaction grid gap-3 border-l-2 border-l-transparent px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,1.5fr)_110px_minmax(0,1fr)_130px] md:items-start">
+    <div
+      id={fee.feeCategory ? `fee-${fee.feeCategory}` : undefined}
+      className={`fi-row-interaction grid scroll-mt-24 gap-3 border-l-2 px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,1.5fr)_110px_minmax(0,1fr)_130px] md:items-start ${
+        focused ? "border-l-[#C44B2E] bg-[#C44B2E]/[0.035]" : "border-l-transparent"
+      }`}
+    >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="min-w-0 break-words text-sm font-semibold text-[#1A1815]">
