@@ -121,6 +121,8 @@ export interface AtlasStateLaneDispatchRow {
   backlogManualReview: number;
   failures: number;
   corrections: number;
+  publicFindings: number;
+  criticalPublicFindings: number;
   lastAgentRunId: number | null;
   lastRunAt: string | null;
   lastSuccessAt: string | null;
@@ -809,10 +811,20 @@ export async function getAtlasStateLaneDispatch(
           lane.correction_count,
           lane.last_run_at,
           lane.next_run_after,
-          run.status AS active_run_status
+          run.status AS active_run_status,
+          COALESCE(public_counts.public_findings, 0)::int AS public_findings,
+          COALESCE(public_counts.critical_public_findings, 0)::int AS critical_public_findings
         FROM public.agent_state_lanes lane
         LEFT JOIN public.agent_runs run
           ON run.id = lane.last_agent_run_id
+        LEFT JOIN LATERAL (
+          SELECT
+            COUNT(*)::int AS public_findings,
+            COUNT(*) FILTER (WHERE finding.severity = 'critical')::int AS critical_public_findings
+          FROM public.public_discovery_findings finding
+          WHERE finding.state_code = lane.state_code
+            AND finding.verified_status = 'unverified'
+        ) public_counts ON TRUE
       )
       SELECT
         COUNT(*)::int AS total_lanes,
@@ -820,7 +832,12 @@ export async function getAtlasStateLaneDispatch(
         COUNT(*) FILTER (
           WHERE active_run_status IN ('queued', 'running', 'cancel_requested')
         )::int AS running_lanes,
-        COUNT(*) FILTER (WHERE failure_count > 0)::int AS attention_lanes,
+        COUNT(*) FILTER (
+          WHERE failure_count > 0
+             OR backlog_ocr > 0
+             OR backlog_manual_review > 0
+             OR public_findings > 0
+        )::int AS attention_lanes,
         COALESCE(SUM(backlog_missing_urls), 0)::int AS total_missing_urls,
         COALESCE(SUM(backlog_stale_sources), 0)::int AS total_stale_sources,
         COALESCE(SUM(backlog_ocr), 0)::int AS total_ocr_backlog,
@@ -853,6 +870,8 @@ export async function getAtlasStateLaneDispatch(
         lane.backlog_manual_review,
         lane.failure_count,
         lane.correction_count,
+        COALESCE(public_counts.public_findings, 0)::int AS public_findings,
+        COALESCE(public_counts.critical_public_findings, 0)::int AS critical_public_findings,
         lane.last_agent_run_id,
         lane.last_run_at,
         lane.last_success_at,
@@ -867,22 +886,43 @@ export async function getAtlasStateLaneDispatch(
         END AS active_run_status,
         CASE
           WHEN run.status IN ('queued', 'running', 'cancel_requested') THEN 'running'
-          WHEN lane.next_run_after <= NOW() THEN 'due'
+          WHEN COALESCE(public_counts.critical_public_findings, 0) > 0 THEN 'attention'
           WHEN lane.failure_count > 0 THEN 'attention'
+          WHEN lane.backlog_ocr > 0 OR lane.backlog_manual_review > 0 THEN 'attention'
+          WHEN COALESCE(public_counts.public_findings, 0) > 0 THEN 'attention'
+          WHEN lane.next_run_after <= NOW() THEN 'due'
           ELSE 'scheduled'
         END AS lane_status
       FROM public.agent_state_lanes lane
       LEFT JOIN public.agent_runs run
         ON run.id = lane.last_agent_run_id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*)::int AS public_findings,
+          COUNT(*) FILTER (WHERE finding.severity = 'critical')::int AS critical_public_findings
+        FROM public.public_discovery_findings finding
+        WHERE finding.state_code = lane.state_code
+          AND finding.verified_status = 'unverified'
+      ) public_counts ON TRUE
       ORDER BY
         CASE
           WHEN run.status IN ('queued', 'running', 'cancel_requested') THEN 0
-          WHEN lane.next_run_after <= NOW() THEN 1
+          WHEN COALESCE(public_counts.critical_public_findings, 0) > 0 THEN 1
           WHEN lane.failure_count > 0 THEN 2
-          ELSE 3
+          WHEN lane.backlog_ocr > 0 OR lane.backlog_manual_review > 0 THEN 3
+          WHEN COALESCE(public_counts.public_findings, 0) > 0 THEN 4
+          WHEN lane.next_run_after <= NOW() THEN 5
+          ELSE 6
         END ASC,
         lane.priority_score DESC,
-        (lane.backlog_missing_urls + lane.backlog_stale_sources + lane.backlog_ocr + lane.backlog_manual_review + lane.failure_count) DESC,
+        (
+          lane.backlog_missing_urls
+          + lane.backlog_stale_sources
+          + lane.backlog_ocr
+          + lane.backlog_manual_review
+          + lane.failure_count
+          + COALESCE(public_counts.public_findings, 0)
+        ) DESC,
         lane.next_run_after ASC,
         lane.state_code ASC
       LIMIT 10
@@ -924,6 +964,8 @@ export async function getAtlasStateLaneDispatch(
           backlogManualReview: numberFrom(row.backlog_manual_review),
           failures: numberFrom(row.failure_count),
           corrections: numberFrom(row.correction_count),
+          publicFindings: numberFrom(row.public_findings),
+          criticalPublicFindings: numberFrom(row.critical_public_findings),
           lastAgentRunId: row.last_agent_run_id == null ? null : Number(row.last_agent_run_id),
           lastRunAt: toISO(row.last_run_at as string | Date | null),
           lastSuccessAt: toISO(row.last_success_at as string | Date | null),

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  getAtlasStateLaneDispatch,
   getStatePublicDiscoveryFindings,
   getStateSourceMemoryProfiles,
   updatePublicDiscoveryFindingDecision,
@@ -86,6 +87,89 @@ describe("state lane memory", () => {
     expect(sqlText).toContain("profile.locked_by_correction IS TRUE");
     expect(calls.at(-1)?.[1]).toBe("CA");
     expect(calls.at(-1)?.[2]).toBe(4);
+  });
+
+  it("surfaces per-state public discovery counts in Atlas lane dispatch", async () => {
+    const now = new Date("2026-08-15T20:00:00.000Z");
+    const db = vi.fn((strings: TemplateStringsArray) => {
+      const text = templateText(strings);
+      if (text.includes("WITH lane_base AS")) {
+        return Promise.resolve([{
+          total_lanes: "2",
+          due_lanes: "1",
+          running_lanes: "0",
+          attention_lanes: "1",
+          total_missing_urls: "3",
+          total_stale_sources: "4",
+          total_ocr_backlog: "1",
+          total_manual_backlog: "2",
+          total_failures: "5",
+          total_corrections: "6",
+          total_public_findings: "8",
+          total_critical_public_findings: "2",
+          next_due_after: now,
+          latest_run_at: now,
+        }]);
+      }
+      if (text.includes("AS lane_status")) {
+        return Promise.resolve([
+          {
+            state_code: "CA",
+            priority_score: "90",
+            backlog_missing_urls: "3",
+            backlog_stale_sources: "4",
+            backlog_ocr: "1",
+            backlog_manual_review: "2",
+            failure_count: "5",
+            correction_count: "6",
+            public_findings: "8",
+            critical_public_findings: "2",
+            last_agent_run_id: "700",
+            last_run_at: now,
+            last_success_at: now,
+            next_run_after: now,
+            active_run_id: null,
+            active_run_status: null,
+            lane_status: "attention",
+          },
+        ]);
+      }
+      if (text.includes("SELECT state_code")) {
+        return Promise.resolve([{ state_code: "CA" }, { state_code: "WA" }]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const dispatch = await getAtlasStateLaneDispatch(asStateLaneDb(db));
+
+    expect(dispatch).toMatchObject({
+      schemaReady: true,
+      totalLanes: 2,
+      dueLanes: 1,
+      attentionLanes: 1,
+      totalPublicFindings: 8,
+      totalCriticalPublicFindings: 2,
+      rows: [
+        expect.objectContaining({
+          stateCode: "CA",
+          status: "attention",
+          publicFindings: 8,
+          criticalPublicFindings: 2,
+          failures: 5,
+        }),
+      ],
+      stateOptions: [
+        { stateCode: "CA", name: "California" },
+        { stateCode: "WA", name: "Washington" },
+      ],
+    });
+    const calls = db.mock.calls as unknown as Array<unknown[]>;
+    const sqlText = calls.map((call) => templateText(call[0])).join("\n");
+    expect(sqlText).toContain("LEFT JOIN LATERAL");
+    expect(sqlText).toContain("public.public_discovery_findings finding");
+    expect(sqlText).toContain("finding.state_code = lane.state_code");
+    expect(sqlText).toContain("finding.verified_status = 'unverified'");
+    expect(sqlText).toContain("critical_public_findings");
   });
 
   it("loads open public discovery findings for one state lane", async () => {

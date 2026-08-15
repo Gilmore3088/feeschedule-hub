@@ -57,7 +57,41 @@ function backlogTotal(row: AtlasStateLaneDispatchRow): number {
     + row.backlogStaleSources
     + row.backlogOcr
     + row.backlogManualReview
-    + row.failures;
+    + row.failures
+    + row.publicFindings;
+}
+
+function laneReason(row: AtlasStateLaneDispatchRow): string {
+  if (row.criticalPublicFindings > 0) {
+    return `${number(row.criticalPublicFindings)} critical public page${row.criticalPublicFindings === 1 ? "" : "s"}`;
+  }
+  if (row.failures > 0) {
+    return `${number(row.failures)} failed source/profile task${row.failures === 1 ? "" : "s"}`;
+  }
+  const readBacklog = row.backlogOcr + row.backlogManualReview;
+  if (readBacklog > 0) {
+    return `${number(readBacklog)} OCR/manual source${readBacklog === 1 ? "" : "s"}`;
+  }
+  if (row.publicFindings > 0) {
+    return `${number(row.publicFindings)} public discovery finding${row.publicFindings === 1 ? "" : "s"}`;
+  }
+  if (row.backlogMissingUrls > 0) {
+    return `${number(row.backlogMissingUrls)} missing fee URL${row.backlogMissingUrls === 1 ? "" : "s"}`;
+  }
+  if (row.backlogStaleSources > 0) {
+    return `${number(row.backlogStaleSources)} stale source${row.backlogStaleSources === 1 ? "" : "s"}`;
+  }
+  if (row.status === "running" && row.activeRunId) return `Run #${row.activeRunId} is active`;
+  if (row.status === "due") return "Scheduled lane is due";
+  return "No open lane blockers";
+}
+
+function publicFindingCopy(row: AtlasStateLaneDispatchRow): string {
+  if (row.publicFindings === 0) return "0";
+  if (row.criticalPublicFindings > 0) {
+    return `${number(row.criticalPublicFindings)} / ${number(row.publicFindings)}`;
+  }
+  return number(row.publicFindings);
 }
 
 function runDetail(runId: number, stateCode: string, reused: boolean): CustomEvent {
@@ -282,6 +316,7 @@ export function AtlasStateLaneDispatchPanel({
               <th>Status</th>
               <th className="text-right">Backlog</th>
               <th className="text-right">Failures</th>
+              <th className="text-right">Public</th>
               <th>Last success</th>
               <th>Next run</th>
               <th className="text-right">Action</th>
@@ -303,6 +338,9 @@ export function AtlasStateLaneDispatchPanel({
                   {row.activeRunId && (
                     <span className="ml-2 font-mono text-[10px] text-gray-400">#{row.activeRunId}</span>
                   )}
+                  <span className="mt-1 block text-[10px] text-gray-400">
+                    {laneReason(row)}
+                  </span>
                 </td>
                 <td className="text-right tabular-nums">
                   {number(backlogTotal(row))}
@@ -310,6 +348,12 @@ export function AtlasStateLaneDispatchPanel({
                 </td>
                 <td className={`text-right tabular-nums ${row.failures > 0 ? "font-semibold text-red-700 dark:text-red-400" : "text-gray-500"}`}>
                   {number(row.failures)}
+                </td>
+                <td className={`text-right tabular-nums ${row.criticalPublicFindings > 0 ? "font-semibold text-red-700 dark:text-red-400" : row.publicFindings > 0 ? "font-semibold text-amber-700 dark:text-amber-400" : "text-gray-500"}`}>
+                  {publicFindingCopy(row)}
+                  {row.criticalPublicFindings > 0 && (
+                    <span className="ml-1 text-[10px] text-gray-400">critical/open</span>
+                  )}
                 </td>
                 <td className="tabular-nums text-gray-500">{formatAdminDateTime(row.lastSuccessAt)}</td>
                 <td className="tabular-nums text-gray-500">{formatAdminDateTime(row.nextRunAfter)}</td>
@@ -327,7 +371,7 @@ export function AtlasStateLaneDispatchPanel({
             ))}
             {dispatch.rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-gray-400">
+                <td colSpan={8} className="py-6 text-center text-gray-400">
                   {dispatch.schemaReady ? "No state lanes available." : "State lane schema is not available in this database."}
                 </td>
               </tr>
