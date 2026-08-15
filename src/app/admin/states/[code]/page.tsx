@@ -11,7 +11,11 @@ import {
   getStateAgentRuns,
   getStateUrlResolutionQueue,
 } from "@/lib/data-store/states";
-import { getStateLaneHealth } from "@/lib/agents/state-lane-memory";
+import {
+  getStateLaneHealth,
+  getStatePublicDiscoveryFindings,
+  type StatePublicDiscoveryFinding,
+} from "@/lib/agents/state-lane-memory";
 import { runStateLaneFormAction } from "./actions";
 import { UrlResolutionRow } from "./url-resolution-row";
 import { SortableInstitutionTable } from "./sortable-institution-table";
@@ -54,6 +58,13 @@ function formatDateTime(value: string | null): string {
   });
 }
 
+function formatIssueCode(value: string): string {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -69,12 +80,13 @@ export default async function StateDetailPage({
   const stateName = STATE_NAMES[stateCode] ?? stateCode;
   const runStateLaneForState = runStateLaneFormAction.bind(null, stateCode);
 
-  const [summary, institutions, agentRuns, urlResolutionQueue, laneHealth, automation, execution] = await Promise.all([
+  const [summary, institutions, agentRuns, urlResolutionQueue, laneHealth, publicFindings, automation, execution] = await Promise.all([
     getStateSummary(stateCode),
     getStateInstitutions(stateCode),
     getStateAgentRuns(stateCode),
     getStateUrlResolutionQueue(stateCode),
     getStateLaneHealth(stateCode),
+    getStatePublicDiscoveryFindings(stateCode),
     getAutomationControl(),
     Promise.resolve(getExecutionBackendStatus()),
   ]);
@@ -188,6 +200,13 @@ export default async function StateDetailPage({
           </div>
         )}
       </div>
+
+      {/* Public Discovery Findings */}
+      <PublicDiscoveryFindingsTable
+        stateCode={stateCode}
+        findings={publicFindings}
+        totalOpen={laneHealth?.publicFindings.unverified ?? publicFindings.length}
+      />
 
       {/* Institution Table */}
       <SortableInstitutionTable
@@ -359,5 +378,131 @@ function LaneMiniSummary({
         ))}
       </div>
     </div>
+  );
+}
+
+function PublicDiscoveryFindingsTable({
+  stateCode,
+  findings,
+  totalOpen,
+}: {
+  stateCode: string;
+  findings: StatePublicDiscoveryFinding[];
+  totalOpen: number;
+}) {
+  return (
+    <div className="admin-card mb-8 overflow-hidden">
+      <div className="flex flex-col gap-1 border-b border-gray-100 px-4 py-2.5 dark:border-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">
+            Public Discovery Findings
+          </h2>
+          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+            Open deterministic page findings for this Atlas lane
+          </p>
+        </div>
+        <span className="text-[11px] font-semibold tabular-nums text-gray-500 dark:text-gray-400">
+          Showing {formatNumber(findings.length)} of {formatNumber(totalOpen)}
+        </span>
+      </div>
+
+      {findings.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="admin-table w-full text-xs">
+            <thead>
+              <tr className="text-left">
+                <th>Route</th>
+                <th>Issue</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Cluster</th>
+                <th>Observed</th>
+                <th className="text-right">Run</th>
+              </tr>
+            </thead>
+            <tbody>
+              {findings.map((finding) => (
+                <tr key={finding.id}>
+                  <td className="min-w-[280px]">
+                    <a
+                      href={finding.finalUrl ?? finding.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-gray-900 transition-colors hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-300"
+                    >
+                      {finding.routeTemplate ?? "Public route"}
+                    </a>
+                    <span className="mt-1 block max-w-md truncate font-mono text-[10px] text-gray-400">
+                      {finding.url}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                      {formatIssueCode(finding.issueCode)}
+                    </span>
+                    <span className="mt-1 block max-w-sm text-[11px] text-gray-500 dark:text-gray-400">
+                      {finding.message}
+                    </span>
+                  </td>
+                  <td>
+                    <SeverityBadge severity={finding.severity} />
+                  </td>
+                  <td className="tabular-nums text-gray-600 dark:text-gray-300">
+                    {finding.statusCode ?? "n/a"}
+                    {finding.viewport && (
+                      <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                        {finding.viewport}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {finding.systemicCandidate || finding.clusterSize > 1 ? (
+                      <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                        {finding.clusterSize} in template
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Single</span>
+                    )}
+                  </td>
+                  <td className="tabular-nums text-gray-500">
+                    {formatDateTime(finding.observedAt ?? finding.createdAt)}
+                  </td>
+                  <td className="text-right">
+                    {finding.agentRunId ? (
+                      <Link
+                        href={`/admin/states/${stateCode}/runs/${finding.agentRunId}`}
+                        className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                      >
+                        #{finding.agentRunId}
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="px-4 py-5 text-xs text-gray-400">
+          No open public discovery findings for this state lane.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeverityBadge({ severity }: { severity: StatePublicDiscoveryFinding["severity"] }) {
+  const cls = severity === "critical"
+    ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+    : severity === "warning"
+      ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+      : "bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400";
+
+  return (
+    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${cls}`}>
+      {severity}
+    </span>
   );
 }

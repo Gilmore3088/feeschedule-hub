@@ -54,6 +54,29 @@ export interface StateLaneHealth {
   };
 }
 
+export interface StatePublicDiscoveryFinding {
+  id: number;
+  stateCode: string | null;
+  routeTemplate: string | null;
+  url: string;
+  issueCode: string;
+  severity: "info" | "warning" | "critical";
+  verifiedStatus: "unverified" | "verified" | "dismissed";
+  message: string;
+  agentRunId: number | null;
+  observationId: number | null;
+  statusCode: number | null;
+  finalUrl: string | null;
+  viewport: string | null;
+  h1: string | null;
+  title: string | null;
+  observedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  clusterSize: number;
+  systemicCandidate: boolean;
+}
+
 export interface AtlasStateLaneDispatchRow {
   stateCode: string;
   name: string;
@@ -157,6 +180,35 @@ function emptyDispatch(schemaReady = true): AtlasStateLaneDispatch {
 
 function stateName(stateCode: string): string {
   return STATE_NAMES[stateCode] ?? stateCode;
+}
+
+function boundedLimit(value: number | undefined, fallback: number, max: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(1, Math.min(max, Math.trunc(Number(value))));
+}
+
+function safeSeverity(value: unknown): StatePublicDiscoveryFinding["severity"] {
+  if (value === "critical" || value === "warning" || value === "info") return value;
+  return "warning";
+}
+
+function safeVerifiedStatus(value: unknown): StatePublicDiscoveryFinding["verifiedStatus"] {
+  if (value === "verified" || value === "dismissed" || value === "unverified") return value;
+  return "unverified";
+}
+
+function publicDiscoveryEvidence(value: unknown): Record<string, unknown> {
+  const parsed = safeJsonb<Record<string, unknown>>(value);
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+}
+
+function publicFindingClusterSize(evidence: Record<string, unknown>): number {
+  const value = Number(evidence.darwin_cluster_size ?? 1);
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 1;
+}
+
+function publicFindingSystemicCandidate(evidence: Record<string, unknown>): boolean {
+  return evidence.systemic_candidate === true || evidence.systemic_candidate === "true";
 }
 
 export function sourceKindFromDocumentType(value: string | null | undefined): "pdf" | "html" | "unknown" {
@@ -434,6 +486,85 @@ export async function getStateLaneHealth(
   } catch (error) {
     console.error("getStateLaneHealth failed:", error);
     return null;
+  }
+}
+
+export async function getStatePublicDiscoveryFindings(
+  stateCode: string,
+  options: { limit?: number } = {},
+  db: SqlTag = sql,
+): Promise<StatePublicDiscoveryFinding[]> {
+  const normalizedState = normalizeStateCode(stateCode);
+  if (!normalizedState) return [];
+  const limit = boundedLimit(options.limit, 12, 50);
+
+  try {
+    const rows = await db`
+      SELECT
+        finding.id,
+        finding.state_code,
+        finding.route_template,
+        finding.url,
+        finding.issue_code,
+        finding.severity,
+        finding.verified_status,
+        finding.message,
+        finding.evidence,
+        finding.agent_run_id,
+        finding.observation_id,
+        finding.created_at,
+        finding.updated_at,
+        observation.status_code,
+        observation.final_url,
+        observation.viewport,
+        observation.h1,
+        observation.title,
+        observation.observed_at
+      FROM public.public_discovery_findings finding
+      LEFT JOIN public.public_discovery_observations observation
+        ON observation.id = finding.observation_id
+      WHERE finding.state_code = ${normalizedState}
+        AND finding.verified_status = 'unverified'
+      ORDER BY
+        CASE finding.severity
+          WHEN 'critical' THEN 0
+          WHEN 'warning' THEN 1
+          ELSE 2
+        END ASC,
+        finding.created_at DESC,
+        finding.id DESC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((row) => {
+      const evidence = publicDiscoveryEvidence(row.evidence);
+      return {
+        id: Number(row.id),
+        stateCode: row.state_code == null ? null : String(row.state_code),
+        routeTemplate: row.route_template == null ? null : String(row.route_template),
+        url: String(row.url),
+        issueCode: String(row.issue_code),
+        severity: safeSeverity(row.severity),
+        verifiedStatus: safeVerifiedStatus(row.verified_status),
+        message: String(row.message),
+        agentRunId: row.agent_run_id == null ? null : Number(row.agent_run_id),
+        observationId: row.observation_id == null ? null : Number(row.observation_id),
+        statusCode: row.status_code == null ? null : Number(row.status_code),
+        finalUrl: row.final_url == null ? null : String(row.final_url),
+        viewport: row.viewport == null ? null : String(row.viewport),
+        h1: row.h1 == null ? null : String(row.h1),
+        title: row.title == null ? null : String(row.title),
+        observedAt: toISO(row.observed_at as string | Date | null),
+        createdAt: toISO(row.created_at as string | Date | null),
+        updatedAt: toISO(row.updated_at as string | Date | null),
+        clusterSize: publicFindingClusterSize(evidence),
+        systemicCandidate: publicFindingSystemicCandidate(evidence),
+      };
+    });
+  } catch (error) {
+    if (isMissingStateLaneSchemaError(error)) return [];
+    console.error("getStatePublicDiscoveryFindings failed:", error);
+    return [];
   }
 }
 
