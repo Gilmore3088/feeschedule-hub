@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fee Insight — Brand Explainer</title>
+<style>
+  /* Brand tokens lifted verbatim from src/app/globals.css */
+  :root {
+    --warm-50:#FDFBF8; --warm-100:#FAF7F2; --warm-150:#F5EFE6; --warm-200:#EDE5D8;
+    --warm-300:#E0D7C9; --warm-400:#C4B89F; --warm-500:#A09788; --warm-600:#7A7062;
+    --warm-700:#5A5347; --warm-800:#3D3830; --warm-900:#1A1815;
+    --terra:#C44B2E; --terra-dark:#A93D25; --terra-soft:#FDF0ED;
+    --display:"Bitstream Charter","Liberation Serif",Georgia,serif;
+    --sans:"Liberation Sans","DejaVu Sans",sans-serif;
+    --mono:"DejaVu Sans Mono",monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1920px; height:1080px; overflow:hidden; background:var(--warm-100); }
+  body {
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:geometricPrecision;
+  }
+  #stage { position:relative; width:1920px; height:1080px; background:var(--warm-100); overflow:hidden; }
+  .scene { position:absolute; inset:0; opacity:0; }
+
+  /* persistent chrome */
+  #wordmark {
+    position:absolute; left:96px; top:74px; z-index:60;
+    font-size:15px; font-weight:700; letter-spacing:.28em; text-transform:uppercase;
+    color:var(--warm-500);
+  }
+  #progress-track { position:absolute; left:0; bottom:0; width:1920px; height:4px; background:var(--warm-300); z-index:60; }
+  #progress-fill { height:4px; width:0; background:var(--terra); }
+
+  .eyebrow { font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--terra); }
+  .kicker  { font-size:16px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--warm-500); }
+  h1 { font-family:var(--display); font-weight:400; color:var(--warm-900); letter-spacing:-.018em; line-height:1.02; }
+  .lede { font-size:30px; line-height:1.5; color:var(--warm-700); font-weight:400; }
+
+  /* ── S1: scattered documents ── */
+  .doc {
+    position:absolute; background:var(--warm-50);
+    border:1px solid var(--warm-300);
+    box-shadow:0 18px 40px -28px rgba(26,24,21,.5);
+    padding:16px 14px;
+  }
+  .doc .bar { background:var(--warm-200); height:6px; margin-bottom:8px; }
+  .doc .bar.hd { background:var(--warm-400); height:8px; width:58%; margin-bottom:12px; }
+
+  /* ── S2: index rows ── */
+  .row {
+    position:absolute; display:flex; align-items:center;
+    background:var(--warm-50); border:1px solid var(--warm-300);
+    height:52px; width:840px; padding:0 22px; gap:18px;
+  }
+  .row .nm { flex:none; height:9px; background:var(--warm-300); margin-right:auto; }
+  .row .amt { font-family:var(--mono); font-size:17px; color:var(--warm-800); font-variant-numeric:tabular-nums; }
+
+  /* ── S3: figures ── */
+  .figure { font-family:var(--display); font-size:250px; line-height:.86; color:var(--warm-900); font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+  .figlabel { font-size:21px; letter-spacing:.14em; text-transform:uppercase; color:var(--warm-600); font-weight:700; margin-top:22px; }
+
+  /* ── S4: pipeline ── */
+  .node { position:absolute; top:0; width:220px; }
+  .node .chip {
+    height:74px; display:flex; align-items:center; justify-content:center;
+    border:1.5px solid var(--warm-300); background:var(--warm-50);
+    font-family:var(--mono); font-size:21px; font-weight:700; color:var(--warm-500);
+    letter-spacing:.01em;
+  }
+  .node .role {
+    margin-top:14px; text-align:center; font-size:15px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--warm-500); font-weight:700;
+  }
+  .conn { position:absolute; height:1.5px; background:var(--warm-300); }
+  .conn .lit { height:1.5px; width:0; background:var(--terra); }
+
+  .record {
+    position:absolute; display:flex; align-items:center; gap:26px;
+    background:var(--warm-50); border:1.5px solid var(--terra);
+    padding:0 34px; height:96px; width:900px;
+    box-shadow:0 24px 60px -40px rgba(196,75,46,.6);
+  }
+  .record .tick {
+    width:34px; height:34px; border-radius:50%; background:var(--terra);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    font-size:19px; font-weight:700; flex:none;
+  }
+  .record .lbl { font-size:27px; color:var(--warm-900); font-weight:600; flex:1; }
+  .record .val { font-family:var(--mono); font-size:31px; color:var(--warm-900); font-weight:700; font-variant-numeric:tabular-nums; }
+  .record .src { font-size:15px; color:var(--warm-600); letter-spacing:.05em; }
+
+  /* ── S5: audiences ── */
+  .col { position:absolute; top:0; width:660px; }
+  .divider { position:absolute; width:1px; background:var(--warm-300); }
+  .step { display:flex; align-items:flex-start; gap:20px; margin-bottom:30px; }
+  .step .n {
+    font-family:var(--mono); font-size:14px; font-weight:700; color:var(--terra);
+    border:1px solid var(--terra); width:30px; height:30px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .step .tx { font-size:25px; color:var(--warm-800); line-height:1.3; padding-top:1px; }
+  .bigsearch {
+    display:flex; align-items:center; gap:22px; background:var(--warm-50);
+    border:1.5px solid var(--warm-300); height:86px; padding:0 30px; width:620px;
+  }
+  .bigsearch .ph { font-size:24px; color:var(--warm-500); }
+  .caret { width:2px; height:34px; background:var(--terra); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wordmark">Fee&nbsp;Insight</div>
+
+  <!-- S1 -->
+  <div class="scene" id="s1">
+    <div id="docs"></div>
+    <div id="s1veil" style="position:absolute;inset:0;pointer-events:none;"></div>
+    <div id="s1text" style="position:absolute;left:0;top:0;width:1920px;text-align:center;">
+      <h1 id="s1a" style="font-size:104px;"></h1>
+    </div>
+  </div>
+
+  <!-- S2 -->
+  <div class="scene" id="s2">
+    <div id="rows"></div>
+    <div id="s2text" style="position:absolute;left:1060px;top:330px;width:760px;">
+      <div class="eyebrow" id="s2e">Public Evidence Layer</div>
+      <h1 id="s2h" style="font-size:96px;margin-top:26px;">The Bank<br>Fee Index</h1>
+      <div class="lede" id="s2l" style="margin-top:34px;">One structured, comparable record of what American banks actually charge.</div>
+    </div>
+  </div>
+
+  <!-- S3 -->
+  <div class="scene" id="s3">
+    <div style="position:absolute;left:0;top:248px;width:1920px;text-align:center;">
+      <div class="kicker" id="s3k">Coverage</div>
+    </div>
+    <div id="s3f1" style="position:absolute;left:250px;top:368px;width:480px;text-align:center;">
+      <div class="figure" id="n1">0</div>
+      <div class="figlabel">Fee categories</div>
+    </div>
+    <div id="s3f2" style="position:absolute;left:1190px;top:368px;width:480px;text-align:center;">
+      <div class="figure" id="n2">0</div>
+      <div class="figlabel">U.S. states</div>
+    </div>
+    <div id="s3rule" style="position:absolute;left:960px;top:398px;width:1px;height:280px;background:var(--warm-300);"></div>
+    <div id="s3sub" style="position:absolute;left:0;top:762px;width:1920px;text-align:center;">
+      <div class="lede" style="font-size:33px;">Every observation traced to a primary source document.</div>
+    </div>
+  </div>
+
+  <!-- S4 -->
+  <div class="scene" id="s4">
+    <div style="position:absolute;left:0;top:146px;width:1920px;text-align:center;">
+      <div class="eyebrow" id="s4e">The difference</div>
+      <h1 id="s4h" style="font-size:86px;margin-top:24px;">How a fee becomes evidence</h1>
+    </div>
+    <div id="chain" style="position:absolute;left:0;top:446px;width:1920px;height:170px;"></div>
+    <div id="rec" class="record" style="left:510px;top:742px;">
+      <div class="tick">✓</div>
+      <div style="flex:1;">
+        <div class="lbl">Overdraft fee</div>
+        <div class="src">Traced to source document · verified · published</div>
+      </div>
+      <div class="val">$35.00</div>
+    </div>
+  </div>
+
+  <!-- S5 -->
+  <div class="scene" id="s5">
+    <div class="divider" id="s5div" style="left:960px;top:286px;height:452px;"></div>
+    <div class="col" id="s5L" style="left:180px;top:316px;">
+      <div class="kicker">For consumers</div>
+      <h1 style="font-size:62px;margin-top:24px;">Free to search.</h1>
+      <div class="lede" style="margin-top:26px;font-size:26px;">Look up any bank or credit union and see what it charges.</div>
+      <div class="bigsearch" id="s5search" style="margin-top:44px;">
+        <div class="ph" id="s5q">Search a bank</div><div class="caret" id="s5caret"></div>
+      </div>
+    </div>
+    <div class="col" id="s5R" style="left:1090px;top:316px;">
+      <div class="kicker">For institutions</div>
+      <h1 style="font-size:62px;margin-top:24px;">The Pro workflow.</h1>
+      <div id="s5steps" style="margin-top:40px;"></div>
+    </div>
+  </div>
+
+  <!-- S6 -->
+  <div class="scene" id="s6">
+    <div style="position:absolute;left:0;top:396px;width:1920px;text-align:center;">
+      <h1 id="s6h" style="font-size:112px;">Search your institution.</h1>
+      <div style="position:relative;display:inline-block;margin-top:66px;">
+        <div id="s6url" style="font-family:var(--display);font-size:62px;color:var(--terra);letter-spacing:-.01em;">FeeInsight.com</div>
+        <div id="s6rule" style="height:4px;background:var(--terra);width:0;margin-top:16px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="progress-track"><div id="progress-fill"></div></div>
+</div>
+
+<script>
+"use strict";
+const DURATION = 81;
+const W = 1920;
+
+/* ── deterministic helpers ───────────────────────────────── */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const eOut  = p => 1 - Math.pow(1 - p, 3);
+const eOutQ = p => 1 - Math.pow(1 - p, 4);
+const eInOut= p => p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3)/2;
+/* progress of t across [a,b] */
+const seg = (t,a,b) => clamp01((t - a) / (b - a));
+/* opacity envelope with fade in/out */
+function env(t, start, end, fi, fo){
+  if (t < start || t > end) return 0;
+  return Math.min(clamp01((t - start)/fi), clamp01((end - t)/fo));
+}
+const px = v => v.toFixed(2) + "px";
+
+/* ── build DOM once ──────────────────────────────────────── */
+const rnd = mulberry32(20260815);
+
+// S1 scattered documents
+const DOCS = [];
+(function(){
+  const host = document.getElementById("docs");
+  for (let i = 0; i < 15; i++){
+    const w = 168 + Math.floor(rnd()*120);
+    const h = 214 + Math.floor(rnd()*140);
+    const d = document.createElement("div");
+    d.className = "doc";
+    d.style.width = w + "px"; d.style.height = h + "px";
+    let inner = '<div class="bar hd"></div>';
+    const lines = 4 + Math.floor(rnd()*5);
+    for (let j = 0; j < lines; j++) inner += '<div class="bar" style="width:'+(45+Math.floor(rnd()*50))+'%"></div>';
+    d.innerHTML = inner;
+    host.appendChild(d);
+    DOCS.push({
+      el:d,
+      x: 40 + rnd()*(W - w - 80),
+      y: 70 + rnd()*(1080 - h - 150),
+      rot: (rnd()*2 - 1) * 17,
+      delay: rnd()*1.5,
+      drift: (rnd()*2 - 1) * 12
+    });
+  }
+})();
+
+// S2 index rows
+const ROWS = [];
+(function(){
+  const host = document.getElementById("rows");
+  const amounts = ["$35.00","$12.00","$3.00","$30.00","$2.50","$25.00","$15.00"];
+  for (let i = 0; i < 7; i++){
+    const r = document.createElement("div");
+    r.className = "row";
+    r.innerHTML = '<div class="nm" style="width:'+(150+Math.floor(rnd()*120))+'px"></div><div class="amt">'+amounts[i]+'</div>';
+    host.appendChild(r);
+    ROWS.push({ el:r, ty:280 + i*66, fx:(rnd()*2-1)*520, fy:(rnd()*2-1)*300, frot:(rnd()*2-1)*16, delay:i*0.09 });
+  }
+})();
+
+// S4 pipeline
+const STAGES = [
+  ["Atlas","discovers"], ["Magellan","fetches"], ["Rosetta","reads"],
+  ["Knox","extracts"],   ["Darwin","verifies"],  ["Hamilton","publishes"]
+];
+const NODES = [], CONNS = [];
+(function(){
+  const host = document.getElementById("chain");
+  const nW = 220, gap = 48;
+  const total = STAGES.length*nW + (STAGES.length-1)*gap;   // 1560
+  const x0 = (W - total)/2;                                  // 180
+  STAGES.forEach((s, i) => {
+    const x = x0 + i*(nW + gap);
+    const n = document.createElement("div");
+    n.className = "node";
+    n.style.left = x + "px";
+    n.innerHTML = '<div class="chip">'+s[0]+'</div><div class="role">'+s[1]+'</div>';
+    host.appendChild(n);
+    NODES.push({ el:n, chip:n.querySelector(".chip"), role:n.querySelector(".role"), x });
+    if (i < STAGES.length - 1){
+      const c = document.createElement("div");
+      c.className = "conn";
+      c.style.left = (x + nW) + "px"; c.style.top = "37px"; c.style.width = gap + "px";
+      c.innerHTML = '<div class="lit"></div>';
+      host.appendChild(c);
+      CONNS.push({ el:c, lit:c.querySelector(".lit"), w:gap });
+    }
+  });
+})();
+
+// S5 workflow steps
+const STEPS = ["Find or claim","Benchmark","Analyze","Report"];
+const STEPEL = [];
+(function(){
+  const host = document.getElementById("s5steps");
+  STEPS.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "step";
+    d.innerHTML = '<div class="n">'+(i+1)+'</div><div class="tx">'+s+'</div>';
+    host.appendChild(d);
+    STEPEL.push(d);
+  });
+})();
+
+const $ = id => document.getElementById(id);
+const S = { s1:$("s1"), s2:$("s2"), s3:$("s3"), s4:$("s4"), s5:$("s5"), s6:$("s6") };
+
+/* scene windows [start, end] — 0.5s cross-fades */
+const WIN = { s1:[0,12.4], s2:[12,23.4], s3:[23,37.4], s4:[37,60.4], s5:[60,73.4], s6:[73,81] };
+
+/* ── the deterministic renderer ──────────────────────────── */
+window.seek = function(t){
+  $("progress-fill").style.width = px(clamp01(t/DURATION) * W);
+
+  for (const k in WIN){
+    const [a,b] = WIN[k];
+    S[k].style.opacity = env(t, a, b, 0.5, 0.5).toFixed(4);
+  }
+  // wordmark holds off until the index is named, then stays
+  $("wordmark").style.opacity = clamp01(seg(t, 13.4, 14.6)).toFixed(3);
+
+  /* ── S1 — the problem ── */
+  {
+    const lt = t - WIN.s1[0];
+    DOCS.forEach(d => {
+      const p = eOut(clamp01((lt - d.delay)/1.5));
+      const dy = d.drift * Math.sin((lt + d.delay*3) * 0.55);
+      d.el.style.opacity = (p * 0.98).toFixed(3);
+      d.el.style.transform =
+        "translate("+px(d.x)+","+px(d.y + dy + (1-p)*26)+") rotate("+(d.rot*(0.35+0.65*p)).toFixed(2)+"deg) scale("+(0.94+0.06*p).toFixed(3)+")";
+    });
+    // veil behind the type so headlines stay legible over the clutter
+    const a1 = env(lt, 1.1, 5.6, 0.7, 0.5);
+    const a2 = env(lt, 6.0, 12.4, 0.7, 0.6);
+    const el = $("s1a");
+    if (a2 > 0){
+      el.textContent = "No two publish them the same way.";
+      el.style.opacity = a2.toFixed(3);
+      el.parentElement.style.transform = "translateY("+px(430 - 14*eOut(seg(lt,6.0,7.4)))+")";
+    } else {
+      el.textContent = "Every bank publishes its fees.";
+      el.style.opacity = a1.toFixed(3);
+      el.parentElement.style.transform = "translateY("+px(444 - 14*eOut(seg(lt,1.1,2.6)))+")";
+    }
+    // veil sits above the documents and below the type, so headlines stay legible
+    const veil = Math.max(a1, a2);
+    $("s1veil").style.background =
+      "radial-gradient(ellipse 62% 26% at 50% 45%, rgba(250,247,242,"+(1.0*veil).toFixed(3)+") 0%, rgba(250,247,242,"+(0.98*veil).toFixed(3)+") 46%, rgba(250,247,242,"+(0.5*veil).toFixed(3)+") 74%, rgba(250,247,242,0) 100%)";
+  }
+
+  /* ── S2 — the index resolves ── */
+  {
+    const lt = t - WIN.s2[0];
+    ROWS.forEach(r => {
+      const p = eInOut(clamp01((lt - r.delay)/1.9));
+      const x = 150 + r.fx*(1-p);
+      const y = r.ty + r.fy*(1-p);
+      r.el.style.opacity = (0.25 + 0.75*p).toFixed(3);
+      r.el.style.transform = "translate("+px(x)+","+px(y)+") rotate("+(r.frot*(1-p)).toFixed(2)+"deg)";
+      r.el.style.borderColor = p > 0.97 ? "var(--warm-300)" : "var(--warm-200)";
+    });
+    const rise = q => "translateY("+px(18*(1-eOut(q)))+")";
+    const e = seg(lt, 2.1, 3.1), h = seg(lt, 2.5, 3.8), l = seg(lt, 3.4, 4.6);
+    $("s2e").style.opacity = e.toFixed(3); $("s2e").style.transform = rise(e);
+    $("s2h").style.opacity = h.toFixed(3); $("s2h").style.transform = rise(h);
+    $("s2l").style.opacity = l.toFixed(3); $("s2l").style.transform = rise(l);
+  }
+
+  /* ── S3 — coverage ── */
+  {
+    const lt = t - WIN.s3[0];
+    $("s3k").style.opacity = seg(lt, 0.5, 1.5).toFixed(3);
+    const c1 = eOutQ(seg(lt, 1.2, 4.2)), c2 = eOutQ(seg(lt, 1.6, 4.6));
+    $("n1").textContent = Math.round(49 * c1);
+    $("n2").textContent = Math.round(50 * c2);
+    const f1 = seg(lt, 1.0, 2.0), f2 = seg(lt, 1.4, 2.4);
+    $("s3f1").style.opacity = f1.toFixed(3);
+    $("s3f1").style.transform = "translateY("+px(24*(1-eOut(f1)))+")";
+    $("s3f2").style.opacity = f2.toFixed(3);
+    $("s3f2").style.transform = "translateY("+px(24*(1-eOut(f2)))+")";
+    const rl = eInOut(seg(lt, 1.8, 3.4));
+    $("s3rule").style.opacity = rl.toFixed(3);
+    $("s3rule").style.height = px(280*rl);
+    const sb = seg(lt, 5.0, 6.4);
+    $("s3sub").style.opacity = sb.toFixed(3);
+    $("s3sub").style.transform = "translateY("+px(20*(1-eOut(sb)))+")";
+  }
+
+  /* ── S4 — the pipeline (hero beat) ── */
+  {
+    const lt = t - WIN.s4[0];
+    const e = seg(lt, 0.5, 1.6), h = seg(lt, 0.9, 2.2);
+    $("s4e").style.opacity = e.toFixed(3);
+    $("s4h").style.opacity = h.toFixed(3);
+    $("s4h").style.transform = "translateY("+px(20*(1-eOut(h)))+")";
+
+    const T0 = 3.1, STEP = 2.35;           // node i lights at T0 + i*STEP
+    NODES.forEach((n, i) => {
+      const app = seg(lt, 2.4 + i*0.16, 3.2 + i*0.16);
+      n.el.style.opacity = app.toFixed(3);
+      n.el.style.transform = "translateY("+px(16*(1-eOut(app)))+")";
+      const lit = eOut(seg(lt, T0 + i*STEP, T0 + i*STEP + 0.55));
+      if (lit > 0){
+        n.chip.style.borderColor = "var(--terra)";
+        n.chip.style.color = lit > .55 ? "#FFFFFF" : "var(--terra)";
+        n.chip.style.background = "rgba(196,75,46," + lit.toFixed(3) + ")";
+        n.role.style.color = lit > .5 ? "var(--terra)" : "var(--warm-500)";
+        const pop = 1 + 0.045*Math.sin(Math.PI*clamp01((lt - (T0+i*STEP))/0.55));
+        n.chip.style.transform = "scale("+pop.toFixed(4)+")";
+      } else {
+        n.chip.style.borderColor = "var(--warm-300)";
+        n.chip.style.color = "var(--warm-500)";
+        n.chip.style.background = "var(--warm-50)";
+        n.role.style.color = "var(--warm-500)";
+        n.chip.style.transform = "scale(1)";
+      }
+    });
+    CONNS.forEach((c, i) => {
+      const a = T0 + i*STEP + 0.5;
+      c.lit.style.width = px(c.w * eInOut(seg(lt, a, a + STEP*0.72)));
+    });
+
+    // the published record lands after the last agent
+    const rp = seg(lt, T0 + 5*STEP + 0.9, T0 + 5*STEP + 2.2);
+    $("rec").style.opacity = rp.toFixed(3);
+    $("rec").style.transform = "translateY("+px(30*(1-eOut(rp)))+") scale("+(0.97+0.03*eOut(rp)).toFixed(4)+")";
+  }
+
+  /* ── S5 — two audiences ── */
+  {
+    const lt = t - WIN.s5[0];
+    const dv = eInOut(seg(lt, 0.6, 2.0));
+    $("s5div").style.opacity = dv.toFixed(3);
+    $("s5div").style.height = px(660*dv);
+    const L = seg(lt, 0.8, 2.0), R = seg(lt, 1.5, 2.7);
+    $("s5L").style.opacity = L.toFixed(3);
+    $("s5L").style.transform = "translateY("+px(22*(1-eOut(L)))+")";
+    $("s5R").style.opacity = R.toFixed(3);
+    $("s5R").style.transform = "translateY("+px(22*(1-eOut(R)))+")";
+    STEPEL.forEach((el, i) => {
+      const p = seg(lt, 3.0 + i*0.55, 3.8 + i*0.55);
+      el.style.opacity = p.toFixed(3);
+      el.style.transform = "translateX("+px(-18*(1-eOut(p)))+")";
+    });
+    // typed query, then a blinking caret
+    const word = "First National";
+    const typed = Math.floor(clamp01((lt - 4.2)/2.4) * word.length);
+    $("s5q").textContent = lt < 4.2 ? "Search a bank" : (typed ? word.slice(0, typed) : "Search a bank");
+    $("s5q").style.color = lt < 4.2 ? "var(--warm-500)" : "var(--warm-900)";
+    $("s5caret").style.opacity = (Math.floor(lt*1.6) % 2 === 0 ? 1 : 0.15).toFixed(2);
+    $("s5search").style.borderColor = lt > 4.2 ? "var(--terra)" : "var(--warm-300)";
+  }
+
+  /* ── S6 — call to action ── */
+  {
+    const lt = t - WIN.s6[0];
+    const h = seg(lt, 0.5, 1.8);
+    $("s6h").style.opacity = h.toFixed(3);
+    $("s6h").style.transform = "translateY("+px(22*(1-eOut(h)))+")";
+    const u = seg(lt, 1.6, 2.8);
+    $("s6url").style.opacity = u.toFixed(3);
+    $("s6rule").style.width = px(430 * eInOut(seg(lt, 2.4, 3.8)));
+  }
+};
+
+window.seek(0);
+window.__ready = true;
+</script>
+</body>
+</html>

@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "test-results/**",
     "next-env.d.ts",
+    // Standalone video renderer — a build tool, not application code. See studio/README.md.
+    "studio/**",
   ]),
 ]);
 
