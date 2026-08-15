@@ -60,7 +60,7 @@ export default async function RegisterPage() {
           <ul className="space-y-4">
             {[
               "Search 8,000+ institutions",
-              "49 fee categories",
+              "The full fee catalog",
               "Plain-language guides",
               "3 free AI research queries/day",
             ].map((feature) => (

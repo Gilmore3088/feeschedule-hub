@@ -222,7 +222,7 @@ export default function ApiDocsPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-[#5A5347]">
         Programmatic access to fee benchmarking data for U.S. banks and credit
-        unions. 49 fee categories, national and peer medians, percentile ranges,
+        unions. A curated catalog of fee categories, national and peer medians, percentile ranges,
         and institution-level detail -- all via a simple REST API.
       </p>
 
@@ -334,7 +334,7 @@ export default function ApiDocsPage() {
           method="GET"
           path="/fees"
           summary="List all fee categories"
-          description="Returns all 49 fee categories with national median, P25/P75 percentiles, min/max, and institution counts. Free tier returns 6 spotlight categories."
+          description="Returns every fee category in the catalog with national median, P25/P75 percentiles, min/max, and institution counts. Free tier returns the spotlight categories."
           params={[
             {
               name: "format",
@@ -608,7 +608,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
           highlighted
           features={[
             "10,000 requests/month",
-            "All 49 fee categories",
+            "The full fee catalog",
             "Peer group filtering",
             "Category detail breakdowns",
             "Institution-level data",
@@ -655,7 +655,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
           </li>
           <li>
             <span className="font-medium text-[#5A5347]">Tier system.</span>{" "}
-            49 categories are organized into 4 tiers: spotlight (6), core (9),
+            Categories are organized into 4 tiers: spotlight, core,
             extended (15), and comprehensive (19). The Free API tier returns only spotlight categories.
           </li>
           <li>

@@ -526,7 +526,7 @@ export default async function ProHomePage() {
             {[
               {
                 title: "Fee Indexing",
-                desc: "National and peer-level medians across 49 categories with P25/P75 ranges and maturity tiers.",
+                desc: "National and peer-level medians across the full fee catalog with P25/P75 ranges and maturity tiers.",
                 href: "/research/national-fee-index",
                 accent: "border-warm-300",
               },

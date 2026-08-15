@@ -23,9 +23,9 @@ import { UpgradeGate } from "@/components/upgrade-gate";
 import { getSpotlightCategories } from "@/lib/fee-taxonomy";
 
 export const metadata: Metadata = {
-  title: "Fee Index - All 49 Bank Fee Categories",
+  title: "Fee Index - Bank & Credit Union Fee Categories",
   description:
-    "Compare bank and credit union fees across 49 categories. National medians, ranges, and institution counts for overdraft, NSF, ATM, wire transfer, and more.",
+    "Compare bank and credit union fees across our full catalog of categories. National medians, ranges, and institution counts for overdraft, NSF, ATM, wire transfer, and more.",
 };
 
 const TIER_LABELS: Record<string, string> = {

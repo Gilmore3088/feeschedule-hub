@@ -184,7 +184,7 @@ export default async function AccountPage({
                   Unlock the full platform
                 </h2>
                 <p className="text-[13px] text-[#7A7062] mt-1">
-                  All 49 fee categories, peer benchmarks, AI research, data exports, and API access.
+                  The full fee catalog, peer benchmarks, AI research, data exports, and API access.
                 </p>
               </div>
               <a

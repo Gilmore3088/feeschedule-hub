@@ -48,7 +48,7 @@ export default async function ForInstitutionsPage() {
             </h1>
             <p className="mt-5 text-[16px] leading-relaxed text-warm-500 max-w-lg">
               {stats.total_institutions.toLocaleString()}+ institutions.
-              49 fee categories. Call Reports, FRED data, and Beige Book
+              every fee category we benchmark. Call Reports, FRED data, and Beige Book
               commentary -- cross-referenced by an AI analyst that answers
               in seconds, not weeks.
             </p>
