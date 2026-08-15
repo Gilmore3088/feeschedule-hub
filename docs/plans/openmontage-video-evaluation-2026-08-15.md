@@ -154,32 +154,42 @@ evergreen hero video plus cut-downs, rather than a recurring render pipeline.
 | **Constraint** | Must read with **sound off** — captions burned in, story carried by motion + type |
 | **Render** | Remotion only. No generative video model needed |
 
-### Script beats (grounded in existing site copy)
+### Script beats — data-forward
 
-Every claim below already exists on the site — nothing invented.
+**Direction: the index and the data are the story; the agent pipeline is not.**
+The Atlas→Hamilton chain is an internal implementation detail. It buys
+credibility, but it is not what a prospect is shopping for, and spending the
+longest beat on it sells the machinery instead of the product. It survives as a
+single line of footnote text under the index table, not as a beat.
 
-1. **The problem (0–12s).** Bank fees are published, but scattered across
+1. **The problem (0–10.6s).** Bank fees are published, but scattered across
    thousands of PDFs in inconsistent formats. Nobody can compare them.
    *Visual: a wall of mismatched fee-schedule PDFs.*
-2. **The positioning (12–22s).** "Public Evidence Layer." The Bank Fee Index.
-   *Visual: the chaos resolves into one clean indexed table.*
-3. **The scale (22–38s).** Institutions tracked · **49** fee categories ·
-   **50** states · verified fee observations.
-   *Visual: the four counters from `landing-trust-stats.tsx`, animating up.*
-4. **The differentiator (38–60s) — the strongest beat.** How a fee becomes a
-   verified record: Atlas discovers → Magellan fetches → Rosetta reads → Knox
-   extracts → Darwin verifies → Hamilton publishes.
-   *Visual: one real fee traced from source PDF to published row.*
-5. **The value, per audience (60–78s).** Consumers search free. Institutions get
-   the Pro workflow — Find or claim → Benchmark → Analyze → Report.
-   *Visual: split screen, the four `WorkflowStep` items from `landing-hero.tsx`.*
-6. **CTA (78–90s).** Search your institution. `FeeInsight.com`.
+2. **The index (10.2–21.4s).** "Public Evidence Layer." The Bank Fee Index.
+   *Visual: the chaos resolves into aligned, priced index rows.*
+3. **What it covers (21–32.4s).** **49** categories · **14** families ·
+   **50** states, then the fee families themselves.
+   *Visual: three counters, then the family names from `FEE_FAMILIES`.*
+4. **The spread (32–52.4s) — the strongest beat.** One fee, priced very
+   differently depending on where you bank. A dot per institution across a
+   dollar axis, then the interquartile band and median laid over it.
+   *Visual: distribution plot with P25 / median / P75.*
+5. **The index table (52–68.4s).** Real category names against medians and
+   typical ranges, populating row by row.
+   *Footnote: "49 categories tracked · every figure traced to a published fee
+   schedule" — provenance, stated once, without a pipeline diagram.*
+6. **The value, per audience (68–76.4s).** Consumers search free. Institutions
+   benchmark against peers — Find or claim → Benchmark → Analyze → Report.
+7. **CTA (76–83s).** Search your institution. `FeeInsight.com`.
 
-Beat 4 is the one to spend the most frames on. Your own code comment says it:
-*"Bankers buy on provenance, not on testimonials."* The agent chain is the
-proof, and no competitor can show an equivalent. Most fee-data vendors cannot
-show provenance at all. A video is the ideal medium for it — a six-stage
-pipeline is tedious as prose and immediately legible as motion.
+Beats 4 and 5 carry the film — 36 of its 83 seconds. Beat 4 is the argument
+that a fee index needs to exist at all: if every bank charged the same, there
+would be nothing to index. Showing the dispersion makes the product's reason
+for existing visible in about four seconds.
+
+Category names, family names, and the counts 49 / 14 / 50 come from
+`src/lib/fee-taxonomy.ts` and are real. **The dollar figures are placeholders**
+— see the warning below.
 
 ### Brand style guide (from `src/app/globals.css`)
 
@@ -199,15 +209,30 @@ Type: **Newsreader** serif for headlines (`--font-newsreader`, as in the H1),
 Geist Sans for body, Geist Mono for figures and fee amounts. Motion should be
 restrained and editorial — this is a research brand, not a fintech ad.
 
-### One practical warning
+### The figures are placeholders — this blocks publication
 
-Do **not** burn live counts into the video. `total_institutions` and
-`total_observations` are dynamic props, so a hardcoded "12,431 institutions"
-dates the film the week it ships and quietly becomes a false claim. Either
-render the counters as rounded, durable framing ("thousands of institutions",
-"all 50 states"), or keep them in a single isolated scene that can be
-re-rendered cheaply when the numbers move. The static facts — **49** categories,
-**50** states — are safe to burn in.
+Turning the film data-forward means it now shows dollar amounts, and **those
+amounts were not read from the database.** Supabase is not authorized in the
+session that built this, so the medians and ranges in `studio/scene.html` are
+illustrative industry-typical values used to prove the layout.
+
+They must be replaced from `getNationalIndex()` before the video is shown
+anywhere public. Publishing invented medians on a site whose entire proposition
+is *verified* fee data would be a self-inflicted credibility wound — precisely
+the claim the film spends 83 seconds making.
+
+The renderer is built for this: every figure lives in a single `DATA` object at
+the top of `scene.html`, marked with a blocking comment. Swapping it is a
+paste, then `npm run render`.
+
+What is already real and needs no change: category display names and family
+names (from `src/lib/fee-taxonomy.ts`), and the counts **49** categories /
+**14** families / **50** states.
+
+Separately, do **not** burn live counts into the video. `total_institutions`
+and `total_observations` are dynamic props, so a hardcoded "12,431
+institutions" dates the film the week it ships. They are deliberately absent
+from the current cut.
 
 ### Cost posture
 

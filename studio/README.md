@@ -12,16 +12,20 @@ Evaluation and rationale: `docs/plans/openmontage-video-evaluation-2026-08-15.md
 Sound-off by design: the story is carried by motion and type, so it works as a
 muted-autoplay landing hero.
 
-Six beats, all grounded in existing site copy:
+Seven beats. The index and its data are the subject; the agent pipeline is
+deliberately not shown — it appears only as a footnote line under the table.
 
 | Time | Beat |
 | --- | --- |
 | 0:00 | Fees are published, but scattered across mismatched PDFs |
-| 0:12 | They resolve into one indexed record — the Bank Fee Index |
-| 0:23 | Coverage — 49 fee categories, 50 states |
-| 0:37 | **Provenance** — Atlas → Magellan → Rosetta → Knox → Darwin → Hamilton |
-| 1:00 | Two audiences — free consumer search, and the Pro workflow |
-| 1:13 | Call to action |
+| 0:10 | They resolve into one indexed record — the Bank Fee Index |
+| 0:21 | Coverage — 49 categories, 14 families, 50 states |
+| 0:32 | **The spread** — one fee, priced very differently across institutions |
+| 0:52 | **The index table** — categories against medians and typical ranges |
+| 1:08 | Two audiences — free consumer search, and peer benchmarking |
+| 1:16 | Call to action |
+
+Beats 4 and 5 carry the film — 36 of its 83 seconds.
 
 ## Running it
 
@@ -66,10 +70,31 @@ the site. Headlines set in Bitstream Charter, the closest editorial serif
 available to the render container — substitute Newsreader if the font is
 installed where this is next run.
 
-**Do not burn live counts into the film.** Institution and observation totals are
-dynamic, so a hardcoded figure dates the video and becomes a false claim on a
-site that sells verified data. Only 49 and 50 are hardcoded; both are static
-facts. The `$35.00` overdraft row is illustrative and names no institution.
+## ⚠️ The dollar figures are placeholders
+
+**This video must not be published as-is.** Every dollar amount in it — the
+medians, the ranges, the P25/P75 marks — is an illustrative industry-typical
+value used to build and prove the layout. **None of it was read from the Fee
+Insight database.**
+
+Replace the `DATA` object at the top of `scene.html` with real output from
+`getNationalIndex()` before this goes anywhere public. Publishing invented
+medians on a site whose proposition is *verified* fee data would undercut the
+exact claim the film is making.
+
+Real and safe to keep: category display names and family names (copied from
+`src/lib/fee-taxonomy.ts`), and the counts 49 categories / 14 families /
+50 states.
+
+Also **do not burn live counts into the film.** Institution and observation
+totals are dynamic props, so a hardcoded figure dates the video the week it
+ships. They are deliberately absent from the current cut.
+
+The distribution dots are generated from the quartiles themselves — an even
+quarter of the dots in each quartile band — so the cloud a viewer sees always
+agrees with the P25/median/P75 marks drawn over it. Keep that property when
+swapping in real data; a scatter that contradicts its own summary statistics is
+worse than no scatter.
 
 ## Where this belongs
 
