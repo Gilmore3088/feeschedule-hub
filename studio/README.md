@@ -12,27 +12,64 @@ Evaluation and rationale: `docs/plans/openmontage-video-evaluation-2026-08-15.md
 Sound-off by design: the story is carried by motion and type, so it works as a
 muted-autoplay landing hero.
 
-Seven beats. Each middle beat shows a product surface rather than describing
-one; the agent pipeline is deliberately not shown at all.
+Eight beats on a marketing arc — hook, stakes, resolution, proof, credibility,
+segmented CTA — rather than a capability tour.
 
-| Time | Beat | Shows |
+| Time | Beat | Role |
 | --- | --- | --- |
-| 0:00 | Fees are published, but scattered across mismatched PDFs | — |
-| 0:09 | They resolve into one indexed record — the Bank Fee Index | — |
-| 0:19 | **Institution data** — a bank profile with its fee schedule | Per-fee amounts with peer deltas and a verified badge |
-| 0:32 | **Peer comparison** — one fee, priced very differently | Distribution plot, P25 / median / P75 |
-| 0:45 | **State data** — what you pay depends on where you bank | 50-state tile cartogram shaded by median |
-| 0:59 | **Reports** — board-ready, straight from the index | Four report types, and a report's real section list |
-| 1:12 | Call to action | — |
+| 0:00 | Two prices for one overdraft fee, $30 apart | **Hook** — a number in tension, not a definition |
+| 0:07 | Both public, both buried in PDFs nobody reads | Stakes |
+| 0:15 | The Bank Fee Index | Resolution |
+| 0:23 | Institution profile with per-fee peer deltas | Proof |
+| 0:33 | One fee priced across the market | Proof |
+| 0:42 | 50-state tile cartogram | Proof |
+| 0:50 | Four report types and a report's section list | Proof |
+| 0:58 | Every figure traced to its source → segmented CTA | **Credibility, then the ask** |
 
-Four of the seven beats are product surfaces. Headlines animate word by word
-(`typeIn()`), so type carries motion rather than sitting still and fading.
+Why this shape:
+
+- **The hook is the whole gamble.** Muted autoplay buys about two seconds. The
+  film opens on a concrete price gap because a number in tension is the only
+  thing that earns the next five. The earlier cut opened on "Every bank
+  publishes its fees" — a fact nobody disputes, carrying no tension.
+- **The credibility line is the close.** Provenance is the only differentiation
+  claim in the film, so it gets its own beat immediately before the CTA rather
+  than sitting as a footnote.
+- **The CTA is segmented.** The film serves consumers and institutions, whose
+  intents are opposite. Naming both lets each viewer self-select instead of
+  guessing which half was meant for them.
+- **66 seconds, not 83.** Retention on a landing hero collapses well before a
+  minute and a half.
+
+Headlines animate word by word (`typeIn()`), so type carries motion rather than
+fading in as blocks.
 
 The state map is a **tile-grid cartogram** — one square per state on an 11×8
 lattice, which is standard editorial practice for state choropleths. It reads
 at a glance, gives small states equal visual weight, and needs no geographic
 boundary data (nothing can be fetched at render time anyway). The lattice is
 in `TILES`.
+
+## Voice-over
+
+The script lives in [`vo-script.md`](vo-script.md) — 143 words, timed line by
+line. Every line is also burned into the film as a caption, so the cut works
+with sound off and the VO drops on top without re-timing.
+
+**There is no audio track yet.** The build container cannot reach a voice
+model: HuggingFace (where Piper voices are hosted) returns 403 through the
+agent proxy, and the offline packages reachable from npm and PyPI phonemise
+but do not synthesise. Adding narration is one command once a track exists:
+
+```bash
+npm run render -- --vo vo/narration.wav
+```
+
+That muxes the audio as AAC. Prefer a human read — a synthetic voice on a
+research brand undercuts the credibility the film is selling.
+
+If the caption timings in `scene.html` (`CAPTIONS`) change, update
+`vo-script.md` to match. They are the same script in two forms.
 
 ## Running it
 

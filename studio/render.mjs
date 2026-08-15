@@ -60,18 +60,28 @@ if (STILLS) {
 const TOTAL = Math.round(DURATION * FPS);
 console.log(`rendering ${TOTAL} frames · ${DURATION}s @ ${FPS}fps · ${W}x${H}`);
 
+// Optional narration track. Absent by default — the cut is designed to read
+// silent, with the VO lines burned in as captions.
+const VO = flag("vo", null);
+if (VO && !fs.existsSync(path.resolve(HERE, VO))) {
+  console.error(`voice-over not found: ${VO}`);
+  process.exit(1);
+}
 const ff = spawn(ffmpegPath, [
   "-y",
   "-f", "image2pipe", "-framerate", String(FPS), "-i", "pipe:0",
+  ...(VO ? ["-i", path.resolve(HERE, VO)] : []),
   "-c:v", "libx264",
   "-preset", "slow",
   "-crf", "17",
   "-pix_fmt", "yuv420p",
   "-vf", `scale=${W}:${H}:flags=lanczos`,
+  ...(VO ? ["-c:a", "aac", "-b:a", "192k", "-shortest", "-map", "0:v:0", "-map", "1:a:0"] : []),
   "-movflags", "+faststart",
   "-r", String(FPS),
   OUT,
 ], { stdio: ["pipe", "ignore", "pipe"] });
+if (VO) console.log(`muxing narration: ${VO}`);
 
 let ffErr = "";
 ff.stderr.on("data", (d) => { ffErr += d.toString(); if (ffErr.length > 40000) ffErr = ffErr.slice(-20000); });
