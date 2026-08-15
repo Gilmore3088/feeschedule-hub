@@ -53,20 +53,72 @@ cut works with sound off and the VO drops on top without re-timing. The open
 and close are the exception — they are set as display headlines, so captioning
 them would only double the words.
 
-**There is no audio track yet.** The build container cannot reach a voice
-model: HuggingFace (where Piper voices are hosted) returns 403 through the
-agent proxy, and the offline packages reachable from npm and PyPI phonemise
-but do not synthesise. Adding narration is one command once a track exists:
+### Generating it
+
+`vo/lines.json` holds the `{t, text}` cues. `narrate.mjs` synthesises each line
+separately with Piper and places it at its exact cue time via ffmpeg `adelay`.
+
+**Cues are pinned to the film, not concatenated.** A line that runs long
+overlaps the next rather than shifting everything after it — the visuals are
+fixed, so the audio has to be nailed to them. Check for overruns before
+rendering.
 
 ```bash
-npm run render -- --vo vo/narration.wav
+node narrate.mjs                          # → vo/narration.wav
+npm run render -- --vo vo/narration.wav   # muxes as AAC
 ```
 
-That muxes the audio as AAC. Prefer a human read — a synthetic voice on a
-research brand undercuts the credibility the film is selling.
+### Getting a voice model
+
+**HuggingFace is blocked through the agent proxy (403), but GitHub is not.**
+Piper's older releases bundle voices as tarballs, which is the way in:
+
+```bash
+mkdir -p voices && cd voices
+curl -sSLO https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-high.tar.gz
+tar xzf voice-en-us-ryan-high.tar.gz
+```
+
+Also available at that tag: `voice-en-us-libritts-high`, `voice-en-gb-alan-low`.
+`voice-en-us-lessac-high` 404s there.
+
+Raw TTS is bone dry and mid-heavy, which is most of what reads as robotic, so
+`narrate.mjs` applies EQ, compression and a short room reflection. That helps.
+**It does not make Piper sound human**, and it will not pass in front of a bank
+executive.
+
+### For anything customer-facing
+
+In rough order of cost:
+
+| Option | Cost | Quality |
+| --- | --- | --- |
+| **Record it yourself** | free | Genuine and on-brand; a quiet room and a decent mic beat any synthetic voice |
+| **Hire a VO artist** (Voice123, Voices.com, Fiverr Pro) | ~$150–400 for 70s | Broadcast |
+| **ElevenLabs / OpenAI TTS / PlayHT** | ~$5–30/mo | Very close to human; needs an API key this container does not have |
+
+Piper is a 2022-era model. The gap to current commercial TTS is large, and no
+amount of post-processing closes it. Treat the generated track as a **scratch
+VO** — genuinely useful for locking timing and pacing — and replace it before
+launch.
+
+## Music
+
+```bash
+npm run render -- --vo vo/narration.wav --music music/bed.mp3
+```
+
+The bed is trimmed to length, faded at both ends, and **ducked by a sidechain
+compressor keyed off the narration**, so speech always sits on top without
+anyone riding a fader. Level defaults to −21 dB; override with `--music-db`.
+
+No track is committed — music needs a licence, and an unlicensed bed on a
+commercial video is a liability. Sources that are safe for commercial use:
+YouTube Audio Library (free), Epidemic Sound, Artlist, Musicbed. Keep it sparse
+and low; this is a research brand, not an ad.
 
 If the caption timings in `scene.html` (`CAPTIONS`) change, update
-`vo-script.md` to match. They are the same script in two forms.
+`vo/lines.json` and `vo-script.md` to match. They are one script in three forms.
 
 ## Running it
 

@@ -60,28 +60,64 @@ if (STILLS) {
 const TOTAL = Math.round(DURATION * FPS);
 console.log(`rendering ${TOTAL} frames · ${DURATION}s @ ${FPS}fps · ${W}x${H}`);
 
-// Optional narration track. Absent by default — the cut is designed to read
-// silent, with the VO lines burned in as captions.
-const VO = flag("vo", null);
-if (VO && !fs.existsSync(path.resolve(HERE, VO))) {
-  console.error(`voice-over not found: ${VO}`);
-  process.exit(1);
+// Optional audio, both absent by default — the cut is designed to read silent,
+// with the spoken lines burned in as captions.
+//   --vo    vo/narration.wav   narration
+//   --music music/bed.mp3      music bed, ducked under the narration
+const VO       = flag("vo", null);
+const MUSIC    = flag("music", null);
+const MUSIC_DB = Number(flag("music-db", -21));   // bed level before ducking
+
+for (const [name, p] of [["voice-over", VO], ["music", MUSIC]]) {
+  if (p && !fs.existsSync(path.resolve(HERE, p))) {
+    console.error(`${name} not found: ${p}`);
+    process.exit(1);
+  }
 }
+
+const audioIn = [];
+if (VO)    audioIn.push("-i", path.resolve(HERE, VO));
+if (MUSIC) audioIn.push("-stream_loop", "-1", "-i", path.resolve(HERE, MUSIC));
+
+/* With both tracks the bed is trimmed to length, faded at each end, then ducked
+   by a sidechain keyed off the narration — so speech always sits on top without
+   anyone riding a fader by hand. */
+const bed = (idx) =>
+  `[${idx}:a]volume=${MUSIC_DB}dB,atrim=0:${DURATION},afade=t=in:d=2,` +
+  `afade=t=out:st=${(DURATION - 3).toFixed(2)}:d=3`;
+
+let audioArgs = [];
+if (VO && MUSIC) {
+  audioArgs = [
+    "-filter_complex",
+    `${bed(2)}[bed];[1:a]asplit=2[vo][key];` +
+    `[bed][key]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck];` +
+    `[vo][duck]amix=inputs=2:normalize=0:dropout_transition=0[aout]`,
+    "-map", "0:v:0", "-map", "[aout]", "-c:a", "aac", "-b:a", "192k", "-shortest",
+  ];
+} else if (VO) {
+  audioArgs = ["-map", "0:v:0", "-map", "1:a:0", "-c:a", "aac", "-b:a", "192k", "-shortest"];
+} else if (MUSIC) {
+  audioArgs = ["-filter_complex", `${bed(1)}[aout]`,
+               "-map", "0:v:0", "-map", "[aout]", "-c:a", "aac", "-b:a", "192k", "-shortest"];
+}
+
 const ff = spawn(ffmpegPath, [
   "-y",
   "-f", "image2pipe", "-framerate", String(FPS), "-i", "pipe:0",
-  ...(VO ? ["-i", path.resolve(HERE, VO)] : []),
+  ...audioIn,
   "-c:v", "libx264",
   "-preset", "slow",
   "-crf", "17",
   "-pix_fmt", "yuv420p",
   "-vf", `scale=${W}:${H}:flags=lanczos`,
-  ...(VO ? ["-c:a", "aac", "-b:a", "192k", "-shortest", "-map", "0:v:0", "-map", "1:a:0"] : []),
+  ...audioArgs,
   "-movflags", "+faststart",
   "-r", String(FPS),
   OUT,
 ], { stdio: ["pipe", "ignore", "pipe"] });
-if (VO) console.log(`muxing narration: ${VO}`);
+if (VO)    console.log(`muxing narration: ${VO}`);
+if (MUSIC) console.log(`muxing music bed: ${MUSIC} at ${MUSIC_DB}dB, ducked under VO`);
 
 let ffErr = "";
 ff.stderr.on("data", (d) => { ffErr += d.toString(); if (ffErr.length > 40000) ffErr = ffErr.slice(-20000); });

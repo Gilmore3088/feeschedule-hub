@@ -1,0 +1,18 @@
+{
+  "duration": 70,
+  "_note": "Cue times must match CAPTIONS in scene.html and the table in vo-script.md.",
+  "cues": [
+    { "t": 0.4,  "text": "It's time for the annual fee review." },
+    { "t": 4.6,  "text": "Who's going to benchmark every fee?" },
+    { "t": 10.0, "text": "Today that means collecting competitor schedules by hand. PDF by PDF. For weeks." },
+    { "t": 16.6, "text": "And it's stale before you present it." },
+    { "t": 20.2, "text": "With Fee Insight, it's already done." },
+    { "t": 27.0, "text": "Every fee you charge, positioned against the peers you compete with." },
+    { "t": 33.2, "text": "Percentile. Gap to median. Risk profile." },
+    { "t": 39.0, "text": "Move a price, and watch what moves with it." },
+    { "t": 44.4, "text": "Revenue, percentile and risk — before you commit." },
+    { "t": 52.0, "text": "Then let Hamilton write it up." },
+    { "t": 56.8, "text": "Board-ready, every figure traced to a competitor's published schedule." },
+    { "t": 63.0, "text": "Your annual fee review, in an afternoon." }
+  ]
+}
