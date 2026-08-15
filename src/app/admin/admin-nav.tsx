@@ -28,19 +28,19 @@ interface NavItem {
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
-    label: "Control",
+    label: "Atlas Control",
     items: [
       { href: "/admin", label: "Atlas", role: "Command center", icon: Orbit, exact: true },
       {
         href: "/admin/states",
-        label: "State Lanes",
-        role: "State work partitions",
+        label: "Atlas Lanes",
+        role: "State partitions",
         icon: Map,
       },
       {
         href: "/admin/quality",
-        label: "Source Trust",
-        role: "Validate sources",
+        label: "Atlas Trust",
+        role: "Source review",
         icon: FileCheck2,
         badgeKey: "trustPending",
         activePrefixes: ["/admin/data-quality"],

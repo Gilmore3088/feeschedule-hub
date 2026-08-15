@@ -53,7 +53,7 @@ export function AtlasEmergencyControl({
 
   if (!enabled) {
     return (
-      <section className="border-y border-red-300 bg-red-50/70 px-4 py-4 dark:border-red-900/70 dark:bg-red-950/20" aria-label="Emergency stop status">
+      <section id="atlas-safety" className="border-y border-red-300 bg-red-50/70 px-4 py-4 dark:border-red-900/70 dark:bg-red-950/20" aria-label="Emergency stop status">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex gap-3">
             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-700 dark:text-red-400" />
@@ -86,7 +86,7 @@ export function AtlasEmergencyControl({
   }
 
   return (
-    <section className="border-y border-black/[0.06] py-3 dark:border-white/[0.06]" aria-label="Emergency stop control">
+    <section id="atlas-safety" className="border-y border-black/[0.06] py-3 dark:border-white/[0.06]" aria-label="Emergency stop control">
       {!confirming ? (
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>

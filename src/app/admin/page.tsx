@@ -85,6 +85,113 @@ function initialLiveJob(job: CommandCenterJob) {
   };
 }
 
+function operatorMode({
+  center,
+  stateLaneDispatch,
+  execution,
+}: {
+  center: Awaited<ReturnType<typeof getAtlasCommandCenter>>;
+  stateLaneDispatch: Awaited<ReturnType<typeof getAtlasStateLaneDispatch>>;
+  execution: ExecutionBackendStatus;
+}) {
+  if (!stateLaneDispatch.schemaReady) {
+    return {
+      tone: "danger" as const,
+      label: "Schema",
+      title: "Atlas state-lane memory is unavailable",
+      detail: "Apply the state-lane memory migration before scheduled or manual state work can run.",
+      action: "Inspect state lanes",
+      href: "/admin/states",
+    };
+  }
+
+  if (!center.provider.apiKeyConfigured) {
+    return {
+      tone: "danger" as const,
+      label: "Provider",
+      title: "Provider key is missing",
+      detail: "Set ANTHROPIC_API_KEY in production, redeploy, then return here to resume agent work.",
+      action: "Provider readiness",
+      href: "#provider-readiness",
+    };
+  }
+
+  if (center.provider.status === "circuit_open") {
+    return {
+      tone: "danger" as const,
+      label: "Provider",
+      title: "Provider access needs attention",
+      detail: center.provider.detail,
+      action: "Provider readiness",
+      href: "#provider-readiness",
+    };
+  }
+
+  if (!center.automation.enabled) {
+    return {
+      tone: "warning" as const,
+      label: "Paused",
+      title: "Automation is stopped",
+      detail: center.automation.reason ?? "Provider-backed workers are held by the global safety control.",
+      action: "Review stop",
+      href: "#atlas-safety",
+    };
+  }
+
+  if (!execution.enabled) {
+    return {
+      tone: "warning" as const,
+      label: "Backend",
+      title: "Agent execution backend is off",
+      detail: execution.detail,
+      action: "Backend status",
+      href: "#atlas-execution",
+    };
+  }
+
+  if (center.activeJobs.length > 0) {
+    return {
+      tone: "active" as const,
+      label: "Running",
+      title: `${center.activeJobs.length.toLocaleString()} Atlas run${center.activeJobs.length === 1 ? "" : "s"} active`,
+      detail: "Let the active run finish; failures and repair actions will surface in the live status and attention queue.",
+      action: "Live status",
+      href: "#atlas-live-status",
+    };
+  }
+
+  if (stateLaneDispatch.dueLanes > 0) {
+    return {
+      tone: "warning" as const,
+      label: "Due",
+      title: `${stateLaneDispatch.dueLanes.toLocaleString()} state lane${stateLaneDispatch.dueLanes === 1 ? "" : "s"} due`,
+      detail: "Run due lanes from Atlas; each state run writes the shared run ledger and specialist step events.",
+      action: "Run lanes",
+      href: "#state-lane-dispatch-heading",
+    };
+  }
+
+  if (center.attention[0]) {
+    return {
+      tone: center.attention[0].severity === "critical" ? "danger" as const : "warning" as const,
+      label: center.attention[0].owner,
+      title: center.attention[0].title,
+      detail: center.attention[0].detail,
+      action: center.attention[0].action,
+      href: center.attention[0].href,
+    };
+  }
+
+  return {
+    tone: "ready" as const,
+    label: "Ready",
+    title: "Atlas is ready",
+    detail: "Scheduled state lanes can run on cron, and manual state refreshes use the same ledger.",
+    action: "State lanes",
+    href: "/admin/states",
+  };
+}
+
 function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>) {
   const missingUrls = Math.max(0, center.metrics.url.denominator - center.metrics.url.numerator);
   const staleOrMissingSources = Math.max(0, center.metrics.fresh.denominator - center.metrics.fresh.numerator);
@@ -218,6 +325,12 @@ export default async function AtlasCommandPage() {
         changedBy={center.automation.changedBy}
         changedAtLabel={dateTime(center.automation.changedAt)}
         activeJobCount={center.activeJobs.length}
+      />
+
+      <AtlasOperatorPath
+        center={center}
+        stateLaneDispatch={stateLaneDispatch}
+        execution={execution}
       />
 
       <AtlasLiveStatus
@@ -480,7 +593,7 @@ function ExecutionBackendBanner({ status }: { status: ExecutionBackendStatus }) 
     : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-950 dark:bg-amber-950/25 dark:text-amber-100";
 
   return (
-    <section aria-label="Execution backend" className={`rounded-md border px-4 py-3 ${tone}`}>
+    <section id="atlas-execution" aria-label="Execution backend" className={`rounded-md border px-4 py-3 ${tone}`}>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide">{status.label}</p>
@@ -489,6 +602,94 @@ function ExecutionBackendBanner({ status }: { status: ExecutionBackendStatus }) 
         <span className="font-mono text-[11px] uppercase tracking-wide">
           EXECUTION_BACKEND={status.backend}
         </span>
+      </div>
+    </section>
+  );
+}
+
+function AtlasOperatorPath({
+  center,
+  stateLaneDispatch,
+  execution,
+}: {
+  center: Awaited<ReturnType<typeof getAtlasCommandCenter>>;
+  stateLaneDispatch: Awaited<ReturnType<typeof getAtlasStateLaneDispatch>>;
+  execution: ExecutionBackendStatus;
+}) {
+  const mode = operatorMode({ center, stateLaneDispatch, execution });
+  const toneClass = mode.tone === "danger"
+    ? "border-red-200 bg-red-50 text-red-950 dark:border-red-950 dark:bg-red-950/25 dark:text-red-100"
+    : mode.tone === "warning"
+      ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-950 dark:bg-amber-950/25 dark:text-amber-100"
+      : mode.tone === "active"
+        ? "border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-950 dark:bg-blue-950/25 dark:text-blue-100"
+        : "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-950 dark:bg-emerald-950/25 dark:text-emerald-100";
+  const steps = [
+    {
+      title: "Readiness",
+      detail: center.provider.apiKeyConfigured
+        ? center.automation.enabled ? "Provider and automation are open" : "Provider key present; automation paused"
+        : "Provider key missing",
+      state: center.provider.apiKeyConfigured && center.automation.enabled ? "ready" : "attention",
+      href: "#provider-readiness",
+    },
+    {
+      title: "State lanes",
+      detail: `${number(stateLaneDispatch.dueLanes)} due · ${number(stateLaneDispatch.attentionLanes)} attention`,
+      state: stateLaneDispatch.dueLanes > 0 || stateLaneDispatch.attentionLanes > 0 ? "attention" : "ready",
+      href: "#state-lane-dispatch-heading",
+    },
+    {
+      title: "Specialists",
+      detail: "Magellan, Rosetta, Knox, Darwin",
+      state: center.agentHealth.errors24h > 0 ? "attention" : "ready",
+      href: "#pipeline-heading",
+    },
+    {
+      title: "Output",
+      detail: "Hamilton publish and data reads",
+      state: center.metrics.verified.value > 0 ? "ready" : "attention",
+      href: "/admin/data",
+    },
+  ];
+
+  return (
+    <section aria-labelledby="atlas-operator-path-heading" className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+        <div className={`rounded-md border px-4 py-3 ${toneClass}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide">{mode.label}</p>
+              <h2 id="atlas-operator-path-heading" className="mt-1 text-base font-semibold tracking-tight">
+                {mode.title}
+              </h2>
+              <p className="mt-1 text-sm opacity-90">{mode.detail}</p>
+            </div>
+            <Link
+              href={mode.href}
+              className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md bg-white/75 px-3 text-xs font-semibold text-gray-900 transition-colors hover:bg-white dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+            >
+              {mode.action}<ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-4">
+          {steps.map((step, index) => (
+            <Link
+              key={step.title}
+              href={step.href}
+              className="group rounded-md border border-black/[0.06] px-3 py-3 transition-colors hover:border-blue-200 hover:bg-blue-50/50 dark:border-white/[0.06] dark:hover:border-blue-950 dark:hover:bg-blue-950/20"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="admin-label">{index + 1}</span>
+                <span className={`h-2 w-2 rounded-full ${step.state === "ready" ? "bg-emerald-500" : "bg-amber-500"}`} />
+              </div>
+              <p className="mt-3 text-xs font-semibold text-gray-900 dark:text-gray-100">{step.title}</p>
+              <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-400">{step.detail}</p>
+            </Link>
+          ))}
+        </div>
       </div>
     </section>
   );
