@@ -8,6 +8,7 @@ import {
   resumeAutomation,
 } from "@/lib/automation-control";
 import { cancelAgentRun, cancelAllActiveAgentRuns, startAgentRun } from "@/lib/agents/run-store";
+import { scheduleDueStateLaneRuns, startStateLaneRun } from "@/lib/agents/state-lane-scheduler";
 import type { AgentRunStepDefinition, AdminAgent } from "@/lib/agents/types";
 
 export type AtlasWorkflowId = "enhance" | "discover" | "fetch" | "read" | "extract" | "classify" | "publish" | "review";
@@ -264,6 +265,77 @@ export async function runAtlasWorkflow(workflowId: AtlasWorkflowId): Promise<{
       success: true,
       runId: result.run.id,
       title: workflow.title,
+      reused: result.reused,
+    };
+  } catch (error) {
+    revalidatePath("/admin");
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function runAtlasDueStateLanes(limit = 2): Promise<{
+  success: boolean;
+  selected?: number;
+  scheduled?: number;
+  reused?: number;
+  runs?: Array<{ stateCode: string; runId: number; status: string; reused: boolean }>;
+  failed?: Array<{ stateCode: string; error: string }>;
+  error?: string;
+}> {
+  const user = await requireAuth("trigger_jobs");
+  const safeLimit = Math.min(Math.max(Math.floor(Number(limit) || 2), 1), 10);
+
+  try {
+    const result = await scheduleDueStateLaneRuns({
+      limit: safeLimit,
+      triggeredBy: user.username,
+    });
+    revalidatePath("/admin");
+    revalidatePath("/admin/states");
+    return {
+      success: true,
+      selected: result.selected,
+      scheduled: result.scheduled,
+      reused: result.reused,
+      runs: result.results.map((run) => ({
+        stateCode: run.stateCode,
+        runId: run.runId,
+        status: run.status,
+        reused: run.reused,
+      })),
+      failed: result.failed,
+    };
+  } catch (error) {
+    revalidatePath("/admin");
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function runAtlasStateLane(stateCode: string): Promise<{
+  success: boolean;
+  stateCode?: string;
+  runId?: number;
+  status?: string;
+  reused?: boolean;
+  error?: string;
+}> {
+  const user = await requireAuth("trigger_jobs");
+
+  try {
+    const result = await startStateLaneRun({
+      stateCode,
+      triggeredBy: user.username,
+      triggerSource: "admin",
+      source: "admin.state_lane",
+    });
+    revalidatePath("/admin");
+    revalidatePath("/admin/states");
+    revalidatePath(`/admin/states/${result.stateCode}`);
+    return {
+      success: true,
+      stateCode: result.stateCode,
+      runId: result.run.id,
+      status: result.run.status,
       reused: result.reused,
     };
   } catch (error) {

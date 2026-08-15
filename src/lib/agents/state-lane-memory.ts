@@ -1,7 +1,10 @@
 import { sql } from "@/lib/data-store/connection";
 import { safeJsonb, toISO } from "@/lib/pg-helpers";
+import { STATE_NAMES } from "@/lib/us-states";
 
 type SqlTag = typeof sql;
+
+export type AtlasStateLaneStatus = "running" | "due" | "attention" | "scheduled";
 
 export interface StateLaneMemorySyncResult {
   stateCode: string | null;
@@ -51,6 +54,49 @@ export interface StateLaneHealth {
   };
 }
 
+export interface AtlasStateLaneDispatchRow {
+  stateCode: string;
+  name: string;
+  status: AtlasStateLaneStatus;
+  priorityScore: number;
+  backlogMissingUrls: number;
+  backlogStaleSources: number;
+  backlogOcr: number;
+  backlogManualReview: number;
+  failures: number;
+  corrections: number;
+  lastAgentRunId: number | null;
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  nextRunAfter: string | null;
+  activeRunId: number | null;
+  activeRunStatus: string | null;
+}
+
+export interface AtlasStateLaneOption {
+  stateCode: string;
+  name: string;
+}
+
+export interface AtlasStateLaneDispatch {
+  schemaReady: boolean;
+  generatedAt: string;
+  totalLanes: number;
+  dueLanes: number;
+  runningLanes: number;
+  attentionLanes: number;
+  totalMissingUrls: number;
+  totalStaleSources: number;
+  totalOcrBacklog: number;
+  totalManualBacklog: number;
+  totalFailures: number;
+  totalCorrections: number;
+  nextDueAfter: string | null;
+  latestRunAt: string | null;
+  rows: AtlasStateLaneDispatchRow[];
+  stateOptions: AtlasStateLaneOption[];
+}
+
 export function normalizeStateCode(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toUpperCase();
@@ -82,6 +128,31 @@ function emptySyncResult(stateCode: string | null): StateLaneMemorySyncResult {
     failures: 0,
     corrections: 0,
   };
+}
+
+function emptyDispatch(schemaReady = true): AtlasStateLaneDispatch {
+  return {
+    schemaReady,
+    generatedAt: new Date().toISOString(),
+    totalLanes: 0,
+    dueLanes: 0,
+    runningLanes: 0,
+    attentionLanes: 0,
+    totalMissingUrls: 0,
+    totalStaleSources: 0,
+    totalOcrBacklog: 0,
+    totalManualBacklog: 0,
+    totalFailures: 0,
+    totalCorrections: 0,
+    nextDueAfter: null,
+    latestRunAt: null,
+    rows: [],
+    stateOptions: [],
+  };
+}
+
+function stateName(stateCode: string): string {
+  return STATE_NAMES[stateCode] ?? stateCode;
 }
 
 export function sourceKindFromDocumentType(value: string | null | undefined): "pdf" | "html" | "unknown" {
@@ -359,6 +430,144 @@ export async function getStateLaneHealth(
   } catch (error) {
     console.error("getStateLaneHealth failed:", error);
     return null;
+  }
+}
+
+export async function getAtlasStateLaneDispatch(
+  db: SqlTag = sql,
+): Promise<AtlasStateLaneDispatch> {
+  try {
+    const [summary] = await db`
+      WITH lane_base AS (
+        SELECT
+          lane.state_code,
+          lane.backlog_missing_urls,
+          lane.backlog_stale_sources,
+          lane.backlog_ocr,
+          lane.backlog_manual_review,
+          lane.failure_count,
+          lane.correction_count,
+          lane.last_run_at,
+          lane.next_run_after,
+          run.status AS active_run_status
+        FROM public.agent_state_lanes lane
+        LEFT JOIN public.agent_runs run
+          ON run.id = lane.last_agent_run_id
+      )
+      SELECT
+        COUNT(*)::int AS total_lanes,
+        COUNT(*) FILTER (WHERE next_run_after <= NOW())::int AS due_lanes,
+        COUNT(*) FILTER (
+          WHERE active_run_status IN ('queued', 'running', 'cancel_requested')
+        )::int AS running_lanes,
+        COUNT(*) FILTER (WHERE failure_count > 0)::int AS attention_lanes,
+        COALESCE(SUM(backlog_missing_urls), 0)::int AS total_missing_urls,
+        COALESCE(SUM(backlog_stale_sources), 0)::int AS total_stale_sources,
+        COALESCE(SUM(backlog_ocr), 0)::int AS total_ocr_backlog,
+        COALESCE(SUM(backlog_manual_review), 0)::int AS total_manual_backlog,
+        COALESCE(SUM(failure_count), 0)::int AS total_failures,
+        COALESCE(SUM(correction_count), 0)::int AS total_corrections,
+        MIN(next_run_after) AS next_due_after,
+        MAX(last_run_at) AS latest_run_at
+      FROM lane_base
+    `;
+
+    const rows = await db`
+      SELECT
+        lane.state_code,
+        lane.priority_score,
+        lane.backlog_missing_urls,
+        lane.backlog_stale_sources,
+        lane.backlog_ocr,
+        lane.backlog_manual_review,
+        lane.failure_count,
+        lane.correction_count,
+        lane.last_agent_run_id,
+        lane.last_run_at,
+        lane.last_success_at,
+        lane.next_run_after,
+        CASE
+          WHEN run.status IN ('queued', 'running', 'cancel_requested') THEN run.id
+          ELSE NULL
+        END AS active_run_id,
+        CASE
+          WHEN run.status IN ('queued', 'running', 'cancel_requested') THEN run.status
+          ELSE NULL
+        END AS active_run_status,
+        CASE
+          WHEN run.status IN ('queued', 'running', 'cancel_requested') THEN 'running'
+          WHEN lane.next_run_after <= NOW() THEN 'due'
+          WHEN lane.failure_count > 0 THEN 'attention'
+          ELSE 'scheduled'
+        END AS lane_status
+      FROM public.agent_state_lanes lane
+      LEFT JOIN public.agent_runs run
+        ON run.id = lane.last_agent_run_id
+      ORDER BY
+        CASE
+          WHEN run.status IN ('queued', 'running', 'cancel_requested') THEN 0
+          WHEN lane.next_run_after <= NOW() THEN 1
+          WHEN lane.failure_count > 0 THEN 2
+          ELSE 3
+        END ASC,
+        lane.priority_score DESC,
+        (lane.backlog_missing_urls + lane.backlog_stale_sources + lane.backlog_ocr + lane.backlog_manual_review + lane.failure_count) DESC,
+        lane.next_run_after ASC,
+        lane.state_code ASC
+      LIMIT 10
+    `;
+
+    const options = await db`
+      SELECT state_code
+        FROM public.agent_state_lanes
+       ORDER BY state_code ASC
+    `;
+
+    return {
+      schemaReady: true,
+      generatedAt: new Date().toISOString(),
+      totalLanes: numberFrom(summary?.total_lanes),
+      dueLanes: numberFrom(summary?.due_lanes),
+      runningLanes: numberFrom(summary?.running_lanes),
+      attentionLanes: numberFrom(summary?.attention_lanes),
+      totalMissingUrls: numberFrom(summary?.total_missing_urls),
+      totalStaleSources: numberFrom(summary?.total_stale_sources),
+      totalOcrBacklog: numberFrom(summary?.total_ocr_backlog),
+      totalManualBacklog: numberFrom(summary?.total_manual_backlog),
+      totalFailures: numberFrom(summary?.total_failures),
+      totalCorrections: numberFrom(summary?.total_corrections),
+      nextDueAfter: toISO(summary?.next_due_after as string | Date | null),
+      latestRunAt: toISO(summary?.latest_run_at as string | Date | null),
+      rows: rows.map((row) => {
+        const stateCode = String(row.state_code);
+        return {
+          stateCode,
+          name: stateName(stateCode),
+          status: String(row.lane_status ?? "scheduled") as AtlasStateLaneStatus,
+          priorityScore: numberFrom(row.priority_score),
+          backlogMissingUrls: numberFrom(row.backlog_missing_urls),
+          backlogStaleSources: numberFrom(row.backlog_stale_sources),
+          backlogOcr: numberFrom(row.backlog_ocr),
+          backlogManualReview: numberFrom(row.backlog_manual_review),
+          failures: numberFrom(row.failure_count),
+          corrections: numberFrom(row.correction_count),
+          lastAgentRunId: row.last_agent_run_id == null ? null : Number(row.last_agent_run_id),
+          lastRunAt: toISO(row.last_run_at as string | Date | null),
+          lastSuccessAt: toISO(row.last_success_at as string | Date | null),
+          nextRunAfter: toISO(row.next_run_after as string | Date | null),
+          activeRunId: row.active_run_id == null ? null : Number(row.active_run_id),
+          activeRunStatus: row.active_run_status == null ? null : String(row.active_run_status),
+        };
+      }),
+      stateOptions: options.map((row) => {
+        const stateCode = String(row.state_code);
+        return { stateCode, name: stateName(stateCode) };
+      }),
+    };
+  } catch (error) {
+    if (isMissingStateLaneSchemaError(error)) return emptyDispatch(false);
+    console.error("getAtlasStateLaneDispatch failed:", error);
+    return emptyDispatch(true);
   }
 }
 

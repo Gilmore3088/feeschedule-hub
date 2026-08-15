@@ -17,6 +17,7 @@ import {
 import { requireAuth } from "@/lib/auth";
 import { formatAdminDateTime } from "@/lib/admin-time";
 import { getAtlasCommandCenter, type AttentionItem, type CommandCenterJob } from "@/lib/admin-command-center";
+import { getAtlasStateLaneDispatch } from "@/lib/agents/state-lane-memory";
 import { getExecutionBackendStatus, type ExecutionBackendStatus } from "@/lib/execution-backend";
 import type { JobFreshness } from "@/lib/admin-queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -24,6 +25,7 @@ import { AtlasEmergencyControl } from "./atlas-emergency-control";
 import { AtlasLiveStatus } from "./atlas-live-status";
 import { AtlasResumeControl } from "./atlas-resume-control";
 import { AtlasRunControl } from "./atlas-run-control";
+import { AtlasStateLaneDispatchPanel } from "./atlas-state-lane-dispatch";
 import { AtlasWorkflowLauncher } from "./atlas-workflow-launcher";
 
 function number(value: number): string {
@@ -167,7 +169,10 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
 
 export default async function AtlasCommandPage() {
   await requireAuth("view");
-  const center = await getAtlasCommandCenter();
+  const [center, stateLaneDispatch] = await Promise.all([
+    getAtlasCommandCenter(),
+    getAtlasStateLaneDispatch(),
+  ]);
   const execution = getExecutionBackendStatus();
   const problemSchedules = center.schedules.failed_count
     + center.schedules.stale_count
@@ -218,6 +223,14 @@ export default async function AtlasCommandPage() {
       <AtlasLiveStatus
         initialActiveJobs={center.activeJobs.map(initialLiveJob)}
         initialGeneratedAt={center.generatedAt}
+      />
+
+      <AtlasStateLaneDispatchPanel
+        dispatch={stateLaneDispatch}
+        automationEnabled={center.automation.enabled}
+        activeJobCount={center.activeJobs.length}
+        executionEnabled={execution.enabled}
+        executionBlockedReason={execution.detail}
       />
 
       <section aria-labelledby="health-heading" className="border-y border-black/[0.06] py-5 dark:border-white/[0.06]">
