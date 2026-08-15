@@ -4,14 +4,31 @@ import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import {
   engageEmergencyStop,
+  getAutomationControl,
   recordEmergencyStopOutcome,
   resumeAutomation,
 } from "@/lib/automation-control";
 import { cancelAgentRun, cancelAllActiveAgentRuns, startAgentRun } from "@/lib/agents/run-store";
 import { scheduleDueStateLaneRuns, startStateLaneRun } from "@/lib/agents/state-lane-scheduler";
 import type { AgentRunStepDefinition, AdminAgent } from "@/lib/agents/types";
+import { getExecutionBackendStatus } from "@/lib/execution-backend";
 
 export type AtlasWorkflowId = "enhance" | "discover" | "fetch" | "read" | "extract" | "classify" | "publish" | "review";
+
+async function assertAtlasDispatchReady(): Promise<void> {
+  const [automation, execution] = await Promise.all([
+    getAutomationControl(),
+    Promise.resolve(getExecutionBackendStatus()),
+  ]);
+  if (!automation.enabled) {
+    throw new Error(automation.reason
+      ? `Automation is stopped: ${automation.reason}`
+      : "Automation is stopped.");
+  }
+  if (!execution.enabled) {
+    throw new Error(execution.detail);
+  }
+}
 
 const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
   {
@@ -286,6 +303,7 @@ export async function runAtlasDueStateLanes(limit = 2): Promise<{
   const safeLimit = Math.min(Math.max(Math.floor(Number(limit) || 2), 1), 10);
 
   try {
+    await assertAtlasDispatchReady();
     const result = await scheduleDueStateLaneRuns({
       limit: safeLimit,
       triggeredBy: user.username,
@@ -322,6 +340,7 @@ export async function runAtlasStateLane(stateCode: string): Promise<{
   const user = await requireAuth("trigger_jobs");
 
   try {
+    await assertAtlasDispatchReady();
     const result = await startStateLaneRun({
       stateCode,
       triggeredBy: user.username,

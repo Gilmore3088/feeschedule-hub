@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { executeQueuedAgentRuns } from "@/lib/agents/run-store";
 import { scheduleDueStateLaneRuns } from "@/lib/agents/state-lane-scheduler";
+import { getAutomationControl } from "@/lib/automation-control";
 import { matchesConfiguredCronSecret } from "@/lib/cron-secret";
+import { getExecutionBackendStatus } from "@/lib/execution-backend";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,6 +26,40 @@ function parsePositiveInt(value: string | null, fallback: number, max: number): 
 export async function GET(request: NextRequest) {
   if (!(await isAuthorized(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const [automation, execution] = await Promise.all([
+    getAutomationControl(),
+    Promise.resolve(getExecutionBackendStatus()),
+  ]);
+  if (!automation.enabled || !execution.enabled) {
+    return NextResponse.json({
+      ok: true,
+      paused: true,
+      pauseReason: !automation.enabled
+        ? automation.reason ?? "Automation safety stop is active."
+        : execution.detail,
+      automation: {
+        enabled: automation.enabled,
+        reason: automation.reason,
+        changedAt: automation.changedAt,
+        changedBy: automation.changedBy,
+      },
+      execution: {
+        backend: execution.backend,
+        enabled: execution.enabled,
+        detail: execution.detail,
+      },
+      scheduledStateLanes: {
+        selected: 0,
+        scheduled: 0,
+        reused: 0,
+        failed: [],
+        results: [],
+      },
+      selected: 0,
+      results: [],
+    });
   }
 
   const runLimit = parsePositiveInt(request.nextUrl.searchParams.get("runLimit"), 2, 10);
