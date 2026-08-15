@@ -189,6 +189,16 @@ export interface AgentRunResult {
   created_at: string;
 }
 
+function isMissingAgentRunResultsSchemaError(error: unknown): boolean {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code)
+    : "";
+  const message = String(error instanceof Error ? error.message : error).toLowerCase();
+  return code === "42P01" ||
+    (message.includes("agent_institution_run_results") &&
+      (message.includes("does not exist") || message.includes("undefined_table")));
+}
+
 export async function getAgentRunDetail(runId: number): Promise<{
   run: AgentRunDetail | null;
   results: AgentRunResult[];
@@ -206,7 +216,7 @@ export async function getAgentRunDetail(runId: number): Promise<{
     const r = runRows[0];
     const run: AgentRunDetail = {
       id: Number(r.id),
-      state_code: String(r.state_code),
+      state_code: r.state_code ? String(r.state_code).toUpperCase() : "",
       status: String(r.status),
       discovered: Number(r.discovered),
       classified: Number(r.classified),
@@ -217,14 +227,21 @@ export async function getAgentRunDetail(runId: number): Promise<{
       completed_at: toDateStr(r.completed_at as string | Date | null),
     };
 
-    const resultRows = await sql`
-      SELECT arr.id, arr.institution_id, ct.institution_name,
-             arr.stage, arr.status, arr.detail, arr.created_at
-      FROM agent_institution_run_results arr
-      JOIN institution_sources ct ON ct.id = arr.institution_id
-      WHERE arr.agent_run_id = ${runId}
-      ORDER BY ct.institution_name, arr.created_at
-    `;
+    let resultRows: Record<string, unknown>[] = [];
+    try {
+      resultRows = await sql`
+        SELECT arr.id, arr.institution_id, ct.institution_name,
+               arr.stage, arr.status, arr.detail, arr.created_at
+        FROM agent_institution_run_results arr
+        JOIN institution_sources ct ON ct.id = arr.institution_id
+        WHERE arr.agent_run_id = ${runId}
+        ORDER BY ct.institution_name, arr.created_at
+      `;
+    } catch (error) {
+      if (!isMissingAgentRunResultsSchemaError(error)) {
+        console.error("getAgentRunDetail results query failed:", error);
+      }
+    }
 
     const results: AgentRunResult[] = resultRows.map((row) => ({
       id: Number(row.id),

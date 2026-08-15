@@ -9,6 +9,7 @@ import { getAgentRunDetail } from "@/lib/data-store/states";
 import type { AgentRunResult } from "@/lib/data-store/states";
 import { getAgentRun, getAgentRunEvents, getAgentRunSteps } from "@/lib/agents/run-store";
 import type { AgentRunEventSnapshot, AgentRunSnapshot, AgentRunStepSnapshot } from "@/lib/agents/types";
+import { buildRunSummaryStats, isLedgerOnlyRun } from "./run-detail-helpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,8 +89,8 @@ function dateTime(value: string | null | undefined): string {
   return formatAdminDateTime(value ?? null, { seconds: true });
 }
 
-function duration(start: string, end: string): string {
-  if (start === "-" || end === "-") return "-";
+function duration(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start || !end || start === "-" || end === "-") return "-";
   const ms =
     new Date(end).getTime() - new Date(start).getTime();
   if (isNaN(ms) || ms < 0) return "-";
@@ -127,6 +128,12 @@ export default async function AgentRunDetailPage({
   const rows = buildInstitutionRows(results);
   const stageFailures = failuresByStage(results);
   const reasons = commonFailureReasons(results);
+  const summaryStats = buildRunSummaryStats({ legacyRun: run, steps: ledgerSteps });
+  const ledgerOnly = isLedgerOnlyRun({ results, steps: ledgerSteps });
+  const title = ledgerRun?.title ?? `Agent Run #${run.id}`;
+  const status = ledgerRun?.status ?? run.status;
+  const startedAt = ledgerRun?.startedAt ?? (run.started_at === "-" ? null : run.started_at);
+  const completedAt = ledgerRun?.completedAt ?? (run.completed_at === "-" ? null : run.completed_at);
 
   return (
     <>
@@ -142,15 +149,15 @@ export default async function AgentRunDetailPage({
         />
         <div className="flex items-center gap-3 mt-1">
           <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-            Agent Run #{run.id}
+            {title}
           </h1>
-          <StatusBadge status={run.status} />
+          <StatusBadge status={status} />
         </div>
         <p className="text-[11px] text-gray-400 mt-0.5">
-          {run.started_at}
-          {run.completed_at !== "-" && (
+          Run #{run.id} · {dateTime(startedAt)}
+          {completedAt && (
             <span>
-              {" "}&mdash; {run.completed_at} ({duration(run.started_at, run.completed_at)})
+              {" "}&mdash; {dateTime(completedAt)} ({duration(startedAt, completedAt)})
             </span>
           )}
         </p>
@@ -158,15 +165,14 @@ export default async function AgentRunDetailPage({
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 mb-8">
-        <StatCard label="Discovered" value={run.discovered} />
-        <StatCard label="Classified" value={run.classified} />
-        <StatCard label="Extracted" value={run.extracted} />
-        <StatCard label="Validated" value={run.validated} />
-        <StatCard
-          label="Failed"
-          value={run.failed}
-          alert={run.failed > 0}
-        />
+        {summaryStats.map((stat) => (
+          <StatCard
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            alert={stat.alert}
+          />
+        ))}
       </div>
 
       <AgentRunLedger
@@ -227,7 +233,9 @@ export default async function AgentRunDetailPage({
           </div>
         ) : (
           <div className="p-6 text-xs text-gray-400 text-center">
-            No results recorded for this run
+            {ledgerOnly
+              ? "This Atlas run uses the shared step ledger. No per-institution legacy result rows were recorded."
+              : "No results recorded for this run"}
           </div>
         )}
       </div>
@@ -495,12 +503,18 @@ function StatCard({
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
+    queued:
+      "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     completed:
       "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     running:
       "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    blocked:
+      "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     failed:
       "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    cancelled:
+      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   };
   const cls =
     styles[status] ??
