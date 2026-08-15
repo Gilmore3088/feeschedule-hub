@@ -96,6 +96,91 @@ describe("state lane admin actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/states/OH");
   });
 
+  it("returns visible success metadata after reviewing a public discovery finding", async () => {
+    const { decidePublicDiscoveryFinding } = await import("./actions");
+    mocks.updatePublicDiscoveryFindingDecision.mockResolvedValue({
+      success: true,
+      findingId: 91,
+      stateCode: "CA",
+      status: "verified",
+    });
+
+    const result = await decidePublicDiscoveryFinding(
+      null,
+      form({
+        finding_id: "91",
+        state_code: "ca",
+        status: "verified",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      findingId: 91,
+      stateCode: "CA",
+      status: "verified",
+      message: "Confirmed public finding #91.",
+    });
+    expect(mocks.requireAuth).toHaveBeenCalledWith("approve");
+    expect(mocks.updatePublicDiscoveryFindingDecision).toHaveBeenCalledWith({
+      findingId: 91,
+      stateCode: "CA",
+      status: "verified",
+      decidedByUserId: 7,
+      decidedByUsername: "atlas-operator",
+    });
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/states");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/states/CA");
+  });
+
+  it("returns public finding decision errors without revalidating the Atlas surfaces", async () => {
+    const { decidePublicDiscoveryFinding } = await import("./actions");
+    mocks.updatePublicDiscoveryFindingDecision.mockResolvedValue({
+      success: false,
+      error: "Public discovery finding was not found, was already reviewed, or belongs to another state.",
+    });
+
+    const result = await decidePublicDiscoveryFinding(
+      null,
+      form({
+        finding_id: "91",
+        state_code: "CA",
+        status: "dismissed",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      findingId: 91,
+      stateCode: "CA",
+      status: "dismissed",
+      error: "Public discovery finding was not found, was already reviewed, or belongs to another state.",
+    });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid public finding decisions before touching finding storage", async () => {
+    const { decidePublicDiscoveryFinding } = await import("./actions");
+
+    const result = await decidePublicDiscoveryFinding(
+      null,
+      form({
+        finding_id: "91",
+        state_code: "CA",
+        status: "bad",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Check the finding, state, and decision before reviewing this public page finding.",
+    });
+    expect(mocks.updatePublicDiscoveryFindingDecision).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
   it("returns helper errors without revalidating the Atlas surfaces", async () => {
     const { correctStateSourceMemory } = await import("./actions");
     mocks.applyStateSourceMemoryCorrection.mockResolvedValue({

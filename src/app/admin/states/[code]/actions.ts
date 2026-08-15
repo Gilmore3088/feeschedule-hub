@@ -31,6 +31,15 @@ export type SourceMemoryCorrectionActionState = {
   correctionVersion?: number;
 };
 
+export type PublicDiscoveryFindingDecisionActionState = {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  findingId?: number;
+  stateCode?: string;
+  status?: PublicDiscoveryFindingDecision;
+};
+
 export async function setFeeScheduleUrl(
   institutionId: number,
   url: string,
@@ -77,14 +86,22 @@ export async function runStateLaneFormAction(stateCode: string): Promise<void> {
   await runStateLane(stateCode);
 }
 
-export async function decidePublicDiscoveryFinding(formData: FormData): Promise<void> {
+export async function decidePublicDiscoveryFinding(
+  _previousState: PublicDiscoveryFindingDecisionActionState | null,
+  formData: FormData,
+): Promise<PublicDiscoveryFindingDecisionActionState> {
   const user = await requireAuth("approve");
   const findingId = findingIdSchema.safeParse(formData.get("finding_id"));
   const stateCode = stateCodeSchema.safeParse(formData.get("state_code"));
   const status = decisionSchema.safeParse(formData.get("status"));
-  if (!findingId.success || !stateCode.success || !status.success) return;
+  if (!findingId.success || !stateCode.success || !status.success) {
+    return {
+      ok: false,
+      error: "Check the finding, state, and decision before reviewing this public page finding.",
+    };
+  }
 
-  await updatePublicDiscoveryFindingDecision({
+  const result = await updatePublicDiscoveryFindingDecision({
     findingId: findingId.data,
     stateCode: stateCode.data,
     status: status.data as PublicDiscoveryFindingDecision,
@@ -92,9 +109,29 @@ export async function decidePublicDiscoveryFinding(formData: FormData): Promise<
     decidedByUsername: user.username,
   });
 
+  if (!result.success) {
+    return {
+      ok: false,
+      findingId: findingId.data,
+      stateCode: stateCode.data,
+      status: status.data as PublicDiscoveryFindingDecision,
+      error: result.error ?? "Atlas could not review this public discovery finding.",
+    };
+  }
+
   revalidatePath("/admin");
   revalidatePath("/admin/states");
   revalidatePath(`/admin/states/${stateCode.data}`);
+
+  return {
+    ok: true,
+    findingId: result.findingId,
+    stateCode: result.stateCode,
+    status: result.status,
+    message: result.status === "verified"
+      ? `Confirmed public finding #${result.findingId}.`
+      : `Dismissed public finding #${result.findingId}.`,
+  };
 }
 
 export async function correctStateSourceMemory(

@@ -18,7 +18,8 @@ import {
   type StatePublicDiscoveryFinding,
   type StateSourceMemoryProfile,
 } from "@/lib/agents/state-lane-memory";
-import { decidePublicDiscoveryFinding, runStateLaneFormAction } from "./actions";
+import { runStateLaneFormAction } from "./actions";
+import { PublicFindingDecisionForm } from "./public-finding-decision-form";
 import { SourceMemoryCorrectionForm } from "./source-memory-correction-form";
 import { UrlResolutionRow } from "./url-resolution-row";
 import { SortableInstitutionTable } from "./sortable-institution-table";
@@ -678,20 +679,7 @@ function PublicDiscoveryFindingsTable({
                   </td>
                   {canReview && (
                     <td className="text-right">
-                      <div className="flex justify-end gap-1.5">
-                        <PublicFindingDecisionButton
-                          findingId={finding.id}
-                          stateCode={stateCode}
-                          status="verified"
-                          label="Confirm"
-                        />
-                        <PublicFindingDecisionButton
-                          findingId={finding.id}
-                          stateCode={stateCode}
-                          status="dismissed"
-                          label="Dismiss"
-                        />
-                      </div>
+                      <PublicFindingDecisionForm findingId={finding.id} stateCode={stateCode} />
                     </td>
                   )}
                 </tr>
@@ -705,36 +693,6 @@ function PublicDiscoveryFindingsTable({
         </div>
       )}
     </section>
-  );
-}
-
-function PublicFindingDecisionButton({
-  findingId,
-  stateCode,
-  status,
-  label,
-}: {
-  findingId: number;
-  stateCode: string;
-  status: "verified" | "dismissed";
-  label: string;
-}) {
-  const className = status === "verified"
-    ? "border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
-    : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-300 dark:hover:bg-white/[0.04]";
-
-  return (
-    <form action={decidePublicDiscoveryFinding}>
-      <input type="hidden" name="finding_id" value={findingId} />
-      <input type="hidden" name="state_code" value={stateCode} />
-      <input type="hidden" name="status" value={status} />
-      <button
-        type="submit"
-        className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${className}`}
-      >
-        {label}
-      </button>
-    </form>
   );
 }
 
