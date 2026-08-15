@@ -13,6 +13,7 @@ const {
   runKnoxExtractMock,
   runMagellanDiscoveryMock,
   runMagellanFetchMock,
+  runPublicDiscoveryAuditMock,
   runRosettaReadMock,
 } = vi.hoisted(() => {
   const tx = vi.fn() as TxMock;
@@ -29,6 +30,7 @@ const {
     runKnoxExtractMock: vi.fn(),
     runMagellanDiscoveryMock: vi.fn(),
     runMagellanFetchMock: vi.fn(),
+    runPublicDiscoveryAuditMock: vi.fn(),
     runRosettaReadMock: vi.fn(),
   };
 });
@@ -64,6 +66,24 @@ vi.mock("@/lib/agents/magellan/discovery", () => ({
 
 vi.mock("@/lib/agents/magellan/fetch", () => ({
   runMagellanFetch: runMagellanFetchMock,
+}));
+
+vi.mock("@/lib/agents/public-discovery", () => ({
+  clusterPublicDiscoveryFindings: vi.fn(async () => ({
+    clusters: 0,
+    systemicCandidates: 0,
+    findingsTagged: 0,
+    criticalFindings: 0,
+    summaryRows: [],
+  })),
+  runPublicDiscoveryAudit: runPublicDiscoveryAuditMock,
+  summarizePublicDiscoveryDiagnosis: vi.fn(async () => ({
+    findings: 0,
+    criticalFindings: 0,
+    systemicCandidates: 0,
+    topIssue: null,
+    summary: "Public discovery found no deterministic public page findings in this run.",
+  })),
 }));
 
 vi.mock("@/lib/agents/rosetta/read", () => ({
@@ -253,6 +273,19 @@ describe("agentic run store", () => {
       limit: 10,
       dryRun: false,
       results: [],
+    });
+    runPublicDiscoveryAuditMock.mockReset().mockResolvedValue({
+      selected: 4,
+      processed: 4,
+      observed: 3,
+      failed: 1,
+      findings: 2,
+      criticalFindings: 1,
+      warningFindings: 1,
+      routeTemplates: 3,
+      limit: 20,
+      dryRun: false,
+      routes: [],
     });
     runRosettaReadMock.mockReset().mockResolvedValue({
       selected: 4,
@@ -489,6 +522,49 @@ describe("agentic run store", () => {
         dryRun: false,
         limit: 1,
         stateCode: "CA",
+      }),
+    );
+  });
+
+  it("runs public discovery through the agentic worker with state scope", async () => {
+    getExecutionBackendMock.mockReturnValue("agentic_v1");
+    const auditStepRows = [
+      {
+        ...queuedStepRows[0],
+        step_key: "public-discovery",
+        agent_name: "magellan",
+        title: "Inventory and check state public discovery pages",
+      },
+    ];
+    const auditRunRow = {
+      ...runRow,
+      run_kind: "workflow_lane",
+      state_code: "CA",
+      params_json: { scope: "state", state_code: "CA", public_discovery_limit: 12 },
+    };
+    installSqlMocks({ finalRun: auditRunRow, finalSteps: auditStepRows });
+    installTxMocks(auditStepRows, auditRunRow);
+
+    const result = await startAgentRun({
+      agent: "atlas",
+      kind: "workflow_lane",
+      title: "Atlas CA public discovery lane",
+      stateCode: "CA",
+      params: { scope: "state", state_code: "CA", public_discovery_limit: 12 },
+      triggeredBy: "admin",
+      idempotencyKey: "atlas:public-discovery:CA:2026-08-15",
+      steps: [{ key: "public-discovery", agent: "magellan", title: "Inventory public routes" }],
+    });
+
+    expect(result.reused).toBe(false);
+    await executeAgentRun(101);
+    expect(runPublicDiscoveryAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 101,
+        dryRun: false,
+        limit: 12,
+        stateCode: "CA",
+        db: sqlMock,
       }),
     );
   });

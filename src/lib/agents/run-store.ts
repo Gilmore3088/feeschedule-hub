@@ -6,6 +6,11 @@ import { runHamiltonPublish } from "@/lib/agents/hamilton/publish";
 import { runKnoxExtract } from "@/lib/agents/knox/extract";
 import { runMagellanDiscovery } from "@/lib/agents/magellan/discovery";
 import { runMagellanFetch } from "@/lib/agents/magellan/fetch";
+import {
+  clusterPublicDiscoveryFindings,
+  runPublicDiscoveryAudit,
+  summarizePublicDiscoveryDiagnosis,
+} from "@/lib/agents/public-discovery";
 import { runRosettaRead } from "@/lib/agents/rosetta/read";
 import { assertAutomationEnabled } from "@/lib/automation-control";
 import { normalizeStateCode, syncStateLaneProfiles } from "./state-lane-memory";
@@ -24,7 +29,7 @@ import type {
 const ACTIVE_STATUSES = ["queued", "running", "cancel_requested"];
 const RUN_KINDS_WITH_LEDGER = ["workflow", "workflow_lane", "state_agent", "report", "manual_repair", "dry_run"] as const;
 const AGENTIC_SUMMARY =
-  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs and fetch source documents; Rosetta can normalize HTML/text/PDF source documents and route scanned PDFs to OCR; Knox can extract conservative raw fee observations and surface rejection decisions for anomaly-only human review; Darwin can verify canonical-hinted raw rows; Hamilton can publish eligible verified rows into the Tier-3 ledger. Durable queues, scanned-PDF OCR, provider extraction, and adversarial review depth remain gated until each agent module is implemented.";
+  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs, fetch source documents, and inventory public discovery routes; Rosetta can normalize HTML/text/PDF source documents and route scanned PDFs to OCR; Knox can extract conservative raw fee observations and classify public page findings; Darwin can verify canonical-hinted raw rows and cluster public findings; Hamilton can publish eligible verified rows into the Tier-3 ledger and summarize public discovery diagnosis. Durable queues, scanned-PDF OCR, provider extraction, browser-render screenshots, and adversarial review depth remain gated until each agent module is implemented.";
 
 type SqlTag = typeof sql;
 
@@ -493,6 +498,71 @@ async function executeAgenticStep(
             reason: result.reason,
             fee_published_id: result.feePublishedId,
           })),
+        },
+      };
+    }
+    case "public-discovery":
+    case "public-audit": {
+      const audit = await runPublicDiscoveryAudit({
+        runId: run.id,
+        dryRun: run.runKind === "dry_run",
+        limit: numericRunParam(params, ["public_discovery_limit", "route_limit", "limit", "size"]),
+        stateCode,
+        db: tx,
+      });
+      return {
+        status: "completed",
+        summary: `Atlas public discovery checked ${audit.processed.toLocaleString()} of ${audit.selected.toLocaleString()} selected routes (${audit.findings.toLocaleString()} findings, ${audit.criticalFindings.toLocaleString()} critical).`,
+        detail: {
+          selected_routes: audit.selected,
+          processed_routes: audit.processed,
+          observed_routes: audit.observed,
+          failed_routes: audit.failed,
+          public_findings: audit.findings,
+          critical_public_findings: audit.criticalFindings,
+          warning_public_findings: audit.warningFindings,
+          route_templates: audit.routeTemplates,
+          public_discovery_limit: audit.limit,
+          state_code: stateCode ?? null,
+          dry_run: audit.dryRun,
+          sample_results: audit.routes.slice(0, 10),
+        },
+      };
+    }
+    case "public-cluster": {
+      const clusters = await clusterPublicDiscoveryFindings({
+        runId: run.id,
+        stateCode,
+        db: tx,
+      });
+      return {
+        status: "completed",
+        summary: `Darwin grouped public discovery into ${clusters.clusters.toLocaleString()} route-template cluster${clusters.clusters === 1 ? "" : "s"} (${clusters.systemicCandidates.toLocaleString()} systemic candidates).`,
+        detail: {
+          public_discovery_clusters: clusters.clusters,
+          systemic_candidates: clusters.systemicCandidates,
+          findings_tagged: clusters.findingsTagged,
+          critical_public_findings: clusters.criticalFindings,
+          state_code: stateCode ?? null,
+          sample_clusters: clusters.summaryRows,
+        },
+      };
+    }
+    case "public-diagnose": {
+      const diagnosis = await summarizePublicDiscoveryDiagnosis({
+        runId: run.id,
+        stateCode,
+        db: tx,
+      });
+      return {
+        status: "completed",
+        summary: diagnosis.summary,
+        detail: {
+          public_findings: diagnosis.findings,
+          critical_public_findings: diagnosis.criticalFindings,
+          systemic_candidates: diagnosis.systemicCandidates,
+          top_issue: diagnosis.topIssue,
+          state_code: stateCode ?? null,
         },
       };
     }
@@ -1035,7 +1105,9 @@ export async function executeAgentRun(
         step.stepKey === "discover" ||
         step.stepKey === "rescue" ||
         step.stepKey === "fetch" ||
-        step.stepKey === "read"
+        step.stepKey === "read" ||
+        step.stepKey === "public-discovery" ||
+        step.stepKey === "public-audit"
           ? await executeAgenticStep(sql, run, step)
           : await withTransaction((tx) => executeAgenticStep(tx, run, step));
       lastResult = await finishAgenticStep(runId, step, outcome);

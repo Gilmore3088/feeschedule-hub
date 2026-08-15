@@ -9,6 +9,7 @@ import {
   DatabaseZap,
   FileSearch,
   FileText,
+  Globe2,
   RotateCw,
   ScanLine,
   ShieldCheck,
@@ -48,6 +49,7 @@ const ICONS: Record<AtlasWorkflowId, LucideIcon> = {
   classify: Tags,
   publish: CheckCircle2,
   review: ShieldCheck,
+  "public-discovery": Globe2,
 };
 
 const ACTIVE_JOB_LIMIT = 3;

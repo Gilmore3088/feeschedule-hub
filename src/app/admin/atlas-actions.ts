@@ -12,7 +12,16 @@ import { cancelAgentRun, cancelAllActiveAgentRuns, startAgentRun } from "@/lib/a
 import { scheduleDueStateLaneRuns, startStateLaneRun } from "@/lib/agents/state-lane-scheduler";
 import type { AgentRunStepDefinition, AdminAgent } from "@/lib/agents/types";
 
-export type AtlasWorkflowId = "enhance" | "discover" | "fetch" | "read" | "extract" | "classify" | "publish" | "review";
+export type AtlasWorkflowId =
+  | "enhance"
+  | "discover"
+  | "fetch"
+  | "read"
+  | "extract"
+  | "classify"
+  | "publish"
+  | "review"
+  | "public-discovery";
 
 const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
   {
@@ -54,6 +63,22 @@ const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
     key: "publish",
     agent: "hamilton",
     title: "Publish clean fee intelligence for product reads",
+  },
+  {
+    key: "public-discovery",
+    agent: "magellan",
+    title: "Inventory and check public discovery pages",
+    input: { public_discovery_limit: 20 },
+  },
+  {
+    key: "public-cluster",
+    agent: "darwin",
+    title: "Cluster public discovery findings",
+  },
+  {
+    key: "public-diagnose",
+    agent: "hamilton",
+    title: "Summarize public discovery diagnosis",
   },
 ];
 
@@ -231,6 +256,29 @@ const WORKFLOW_JOBS: Record<AtlasWorkflowId, {
         key: "review",
         agent: "knox",
         title: "Summarize anomaly-only Knox decisions",
+      },
+    ],
+  },
+  "public-discovery": {
+    title: "Audit public discovery pages",
+    agent: "atlas",
+    idempotencyKey: "atlas:quick-public-discovery",
+    steps: [
+      {
+        key: "public-discovery",
+        agent: "magellan",
+        title: "Inventory and check public discovery routes",
+        input: { public_discovery_limit: 20 },
+      },
+      {
+        key: "public-cluster",
+        agent: "darwin",
+        title: "Cluster public discovery findings",
+      },
+      {
+        key: "public-diagnose",
+        agent: "hamilton",
+        title: "Summarize public discovery diagnosis",
       },
     ],
   },

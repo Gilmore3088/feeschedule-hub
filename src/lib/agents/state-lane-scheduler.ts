@@ -42,6 +42,22 @@ export const STATE_LANE_STEPS: AgentRunStepDefinition[] = [
     agent: "hamilton",
     title: "Publish verified state fee intelligence",
   },
+  {
+    key: "public-discovery",
+    agent: "magellan",
+    title: "Inventory and check state public discovery pages",
+    input: { public_discovery_limit: 20 },
+  },
+  {
+    key: "public-cluster",
+    agent: "darwin",
+    title: "Cluster state public discovery findings",
+  },
+  {
+    key: "public-diagnose",
+    agent: "hamilton",
+    title: "Summarize state public discovery diagnosis",
+  },
 ];
 
 export interface StateLaneStartInput {

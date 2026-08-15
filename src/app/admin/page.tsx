@@ -271,6 +271,15 @@ function workflowLanes(center: Awaited<ReturnType<typeof getAtlasCommandCenter>>
       commandLabel: "review decisions",
       href: "/admin/knox",
     },
+    {
+      id: "public-discovery" as const,
+      title: "Audit public discovery pages",
+      owner: "atlas",
+      metric: "Route inventory + page findings",
+      detail: "Check public routes for not-found pages, visible errors, and accessible form issues; browser screenshots remain a follow-up renderer.",
+      commandLabel: "audit public pages",
+      href: "/admin/states",
+    },
   ];
 }
 
