@@ -14,7 +14,9 @@ import {
 import {
   getStateLaneHealth,
   getStatePublicDiscoveryFindings,
+  getStateSourceMemoryProfiles,
   type StatePublicDiscoveryFinding,
+  type StateSourceMemoryProfile,
 } from "@/lib/agents/state-lane-memory";
 import { decidePublicDiscoveryFinding, runStateLaneFormAction } from "./actions";
 import { UrlResolutionRow } from "./url-resolution-row";
@@ -65,6 +67,14 @@ function formatIssueCode(value: string): string {
     .join(" ");
 }
 
+function formatToken(value: string | null): string {
+  if (!value) return "Unknown";
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -81,12 +91,13 @@ export default async function StateDetailPage({
   const runStateLaneForState = runStateLaneFormAction.bind(null, stateCode);
   const canReviewPublicFindings = hasPermission(user, "approve");
 
-  const [summary, institutions, agentRuns, urlResolutionQueue, laneHealth, publicFindings, automation, execution] = await Promise.all([
+  const [summary, institutions, agentRuns, urlResolutionQueue, laneHealth, sourceMemory, publicFindings, automation, execution] = await Promise.all([
     getStateSummary(stateCode),
     getStateInstitutions(stateCode),
     getStateAgentRuns(stateCode),
     getStateUrlResolutionQueue(stateCode),
     getStateLaneHealth(stateCode),
+    getStateSourceMemoryProfiles(stateCode),
     getStatePublicDiscoveryFindings(stateCode),
     getAutomationControl(),
     Promise.resolve(getExecutionBackendStatus()),
@@ -201,6 +212,12 @@ export default async function StateDetailPage({
           </div>
         )}
       </div>
+
+      {/* Source Memory */}
+      <SourceMemoryTable
+        rows={sourceMemory}
+        totalProfiles={laneHealth?.profileCount ?? sourceMemory.length}
+      />
 
       {/* Public Discovery Findings */}
       <PublicDiscoveryFindingsTable
@@ -380,6 +397,167 @@ function LaneMiniSummary({
         ))}
       </div>
     </div>
+  );
+}
+
+function SourceMemoryTable({
+  rows,
+  totalProfiles,
+}: {
+  rows: StateSourceMemoryProfile[];
+  totalProfiles: number;
+}) {
+  return (
+    <div className="admin-card mb-8 overflow-hidden">
+      <div className="flex flex-col gap-1 border-b border-gray-100 px-4 py-2.5 dark:border-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">
+            Source Memory
+          </h2>
+          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+            Institution source profiles prioritized by corrections, read backlog, failures, and unknown sources
+          </p>
+        </div>
+        <span className="text-[11px] font-semibold tabular-nums text-gray-500 dark:text-gray-400">
+          Showing {formatNumber(rows.length)} of {formatNumber(totalProfiles)}
+        </span>
+      </div>
+
+      {rows.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="admin-table w-full text-xs">
+            <thead>
+              <tr className="text-left">
+                <th>Institution</th>
+                <th>Source</th>
+                <th>Kind</th>
+                <th>Read</th>
+                <th>Memory</th>
+                <th>Last Activity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.institutionId}>
+                  <td className="min-w-[220px]">
+                    <Link
+                      href={`/admin/institution/${row.institutionId}`}
+                      className="font-semibold text-gray-900 transition-colors hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-300"
+                    >
+                      {row.institutionName}
+                    </Link>
+                    <span className="mt-1 block text-[11px] text-gray-400">
+                      {row.city ?? "No city"} · #{row.institutionId}
+                    </span>
+                  </td>
+                  <td className="min-w-[260px]">
+                    {row.canonicalSourceUrl || row.feeScheduleUrl ? (
+                      <a
+                        href={row.canonicalSourceUrl ?? row.feeScheduleUrl ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block max-w-sm truncate font-mono text-[10px] font-medium text-blue-700 hover:text-blue-800 dark:text-blue-300"
+                      >
+                        {row.canonicalSourceUrl ?? row.feeScheduleUrl}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">No fee source</span>
+                    )}
+                    {row.websiteUrl && (
+                      <a
+                        href={row.websiteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 block max-w-sm truncate font-mono text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        {row.websiteUrl}
+                      </a>
+                    )}
+                  </td>
+                  <td>
+                    <SourceMemoryBadge value={formatToken(row.sourceKind)} tone={sourceKindTone(row.sourceKind)} />
+                  </td>
+                  <td>
+                    <SourceMemoryBadge value={formatToken(row.readStrategy)} tone={readStrategyTone(row.readStrategy)} />
+                  </td>
+                  <td>
+                    <div className="flex flex-wrap gap-1.5">
+                      {row.lockedByCorrection && <SourceMemoryBadge value="Locked" tone="blue" />}
+                      {row.correctionCount > 0 && (
+                        <SourceMemoryBadge value={`${formatNumber(row.correctionCount)} corrections`} tone="gray" />
+                      )}
+                      {row.consecutiveFailures > 0 && (
+                        <SourceMemoryBadge value={`${formatNumber(row.consecutiveFailures)} failures`} tone="red" />
+                      )}
+                    </div>
+                    {row.latestCorrectionType && (
+                      <span className="mt-1 block text-[10px] text-gray-400">
+                        Latest: {formatToken(row.latestCorrectionType)}
+                      </span>
+                    )}
+                    {row.lastFailureReason && (
+                      <span className="mt-1 block max-w-xs truncate text-[10px] text-red-600 dark:text-red-300">
+                        {row.lastFailureReason}
+                      </span>
+                    )}
+                  </td>
+                  <td className="tabular-nums text-gray-500">
+                    <span className="block">Success {formatDateTime(row.lastSuccessAt)}</span>
+                    <span className="mt-1 block text-[10px] text-gray-400">
+                      Updated {formatDateTime(row.updatedAt)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="px-4 py-5 text-xs text-gray-400">
+          No source memory profiles are available for this state lane.
+        </div>
+      )}
+    </div>
+  );
+}
+
+type SourceMemoryTone = "gray" | "blue" | "green" | "amber" | "red";
+
+function sourceKindTone(value: StateSourceMemoryProfile["sourceKind"]): SourceMemoryTone {
+  if (value === "pdf" || value === "html") return "green";
+  if (value === "scanned_pdf") return "amber";
+  if (value === "offline") return "red";
+  return "gray";
+}
+
+function readStrategyTone(value: StateSourceMemoryProfile["readStrategy"]): SourceMemoryTone {
+  if (value === "pdf_text" || value === "html_dom") return "green";
+  if (value === "browser_render") return "blue";
+  if (value === "ocr" || value === "manual_review") return "amber";
+  return "gray";
+}
+
+function SourceMemoryBadge({
+  value,
+  tone,
+}: {
+  value: string;
+  tone: SourceMemoryTone;
+}) {
+  const cls = tone === "green"
+    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+    : tone === "blue"
+      ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300"
+      : tone === "amber"
+        ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+        : tone === "red"
+          ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+          : "bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400";
+
+  return (
+    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${cls}`}>
+      {value}
+    </span>
   );
 }
 

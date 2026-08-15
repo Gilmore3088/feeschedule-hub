@@ -77,6 +77,29 @@ export interface StatePublicDiscoveryFinding {
   systemicCandidate: boolean;
 }
 
+export interface StateSourceMemoryProfile {
+  institutionId: number;
+  institutionName: string;
+  city: string | null;
+  websiteUrl: string | null;
+  feeScheduleUrl: string | null;
+  canonicalSourceUrl: string | null;
+  sourceKind: "pdf" | "html" | "scanned_pdf" | "unknown" | "offline";
+  readStrategy: "pdf_text" | "html_dom" | "browser_render" | "ocr" | "manual_review" | null;
+  lockedByCorrection: boolean;
+  correctionVersion: number;
+  correctionCount: number;
+  latestCorrectionType: string | null;
+  latestCorrectionAt: string | null;
+  consecutiveFailures: number;
+  lastFailureReason: string | null;
+  lastFailureAt: string | null;
+  lastSuccessAt: string | null;
+  lastSuccessfulSourceDocumentId: number | null;
+  lastSuccessfulTextId: number | null;
+  updatedAt: string | null;
+}
+
 export type PublicDiscoveryFindingDecision = "verified" | "dismissed";
 
 export interface PublicDiscoveryFindingDecisionResult {
@@ -205,6 +228,32 @@ function safeSeverity(value: unknown): StatePublicDiscoveryFinding["severity"] {
 function safeVerifiedStatus(value: unknown): StatePublicDiscoveryFinding["verifiedStatus"] {
   if (value === "verified" || value === "dismissed" || value === "unverified") return value;
   return "unverified";
+}
+
+function safeSourceKind(value: unknown): StateSourceMemoryProfile["sourceKind"] {
+  if (
+    value === "pdf" ||
+    value === "html" ||
+    value === "scanned_pdf" ||
+    value === "offline" ||
+    value === "unknown"
+  ) {
+    return value;
+  }
+  return "unknown";
+}
+
+function safeReadStrategy(value: unknown): StateSourceMemoryProfile["readStrategy"] {
+  if (
+    value === "pdf_text" ||
+    value === "html_dom" ||
+    value === "browser_render" ||
+    value === "ocr" ||
+    value === "manual_review"
+  ) {
+    return value;
+  }
+  return null;
 }
 
 function publicDiscoveryEvidence(value: unknown): Record<string, unknown> {
@@ -496,6 +545,98 @@ export async function getStateLaneHealth(
   } catch (error) {
     console.error("getStateLaneHealth failed:", error);
     return null;
+  }
+}
+
+export async function getStateSourceMemoryProfiles(
+  stateCode: string,
+  options: { limit?: number } = {},
+  db: SqlTag = sql,
+): Promise<StateSourceMemoryProfile[]> {
+  const normalizedState = normalizeStateCode(stateCode);
+  if (!normalizedState) return [];
+  const limit = boundedLimit(options.limit, 15, 75);
+
+  try {
+    await syncStateLaneProfiles(db, normalizedState);
+    const rows = await db`
+      SELECT
+        inst.id AS institution_id,
+        inst.institution_name,
+        inst.city,
+        inst.website_url,
+        inst.fee_schedule_url,
+        profile.canonical_source_url,
+        profile.source_kind,
+        profile.read_strategy,
+        profile.locked_by_correction,
+        profile.correction_version,
+        profile.consecutive_failures,
+        profile.last_failure_reason,
+        profile.last_failure_at,
+        profile.last_success_at,
+        profile.last_successful_source_document_id,
+        profile.last_successful_text_id,
+        profile.updated_at,
+        COALESCE(corrections.correction_count, 0)::int AS correction_count,
+        corrections.latest_correction_type,
+        corrections.latest_correction_at
+      FROM public.institution_source_profiles profile
+      JOIN public.institution_sources inst
+        ON inst.id = profile.institution_id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*)::int AS correction_count,
+          (ARRAY_AGG(correction.correction_type ORDER BY correction.created_at DESC, correction.id DESC))[1] AS latest_correction_type,
+          MAX(correction.created_at) AS latest_correction_at
+        FROM public.institution_source_corrections correction
+        WHERE correction.institution_id = profile.institution_id
+          AND correction.accepted IS TRUE
+      ) corrections ON TRUE
+      WHERE profile.state_code = ${normalizedState}
+      ORDER BY
+        CASE WHEN profile.locked_by_correction IS TRUE THEN 0 ELSE 1 END ASC,
+        CASE WHEN profile.read_strategy IN ('ocr', 'manual_review') THEN 0 ELSE 1 END ASC,
+        CASE WHEN profile.consecutive_failures > 0 THEN 0 ELSE 1 END ASC,
+        CASE WHEN profile.source_kind IN ('unknown', 'scanned_pdf', 'offline') THEN 0 ELSE 1 END ASC,
+        profile.consecutive_failures DESC,
+        corrections.latest_correction_at DESC NULLS LAST,
+        profile.updated_at DESC,
+        inst.institution_name ASC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((row) => ({
+      institutionId: Number(row.institution_id),
+      institutionName: String(row.institution_name),
+      city: row.city == null ? null : String(row.city),
+      websiteUrl: row.website_url == null ? null : String(row.website_url),
+      feeScheduleUrl: row.fee_schedule_url == null ? null : String(row.fee_schedule_url),
+      canonicalSourceUrl: row.canonical_source_url == null ? null : String(row.canonical_source_url),
+      sourceKind: safeSourceKind(row.source_kind),
+      readStrategy: safeReadStrategy(row.read_strategy),
+      lockedByCorrection: row.locked_by_correction === true ||
+        String(row.locked_by_correction ?? "").toLowerCase() === "true",
+      correctionVersion: numberFrom(row.correction_version),
+      correctionCount: numberFrom(row.correction_count),
+      latestCorrectionType: row.latest_correction_type == null ? null : String(row.latest_correction_type),
+      latestCorrectionAt: toISO(row.latest_correction_at as string | Date | null),
+      consecutiveFailures: numberFrom(row.consecutive_failures),
+      lastFailureReason: row.last_failure_reason == null ? null : String(row.last_failure_reason),
+      lastFailureAt: toISO(row.last_failure_at as string | Date | null),
+      lastSuccessAt: toISO(row.last_success_at as string | Date | null),
+      lastSuccessfulSourceDocumentId: row.last_successful_source_document_id == null
+        ? null
+        : Number(row.last_successful_source_document_id),
+      lastSuccessfulTextId: row.last_successful_text_id == null
+        ? null
+        : Number(row.last_successful_text_id),
+      updatedAt: toISO(row.updated_at as string | Date | null),
+    }));
+  } catch (error) {
+    if (isMissingStateLaneSchemaError(error)) return [];
+    console.error("getStateSourceMemoryProfiles failed:", error);
+    return [];
   }
 }
 

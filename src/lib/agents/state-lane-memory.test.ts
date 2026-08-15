@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   getStatePublicDiscoveryFindings,
+  getStateSourceMemoryProfiles,
   updatePublicDiscoveryFindingDecision,
 } from "./state-lane-memory";
 
@@ -16,6 +17,77 @@ function asStateLaneDb(db: DbMock): NonNullable<Parameters<typeof getStatePublic
 }
 
 describe("state lane memory", () => {
+  it("loads state source memory with correction history and attention-first selectors", async () => {
+    const updatedAt = new Date("2026-08-15T19:00:00.000Z");
+    const db = vi.fn((strings: TemplateStringsArray) => {
+      const text = templateText(strings);
+      if (text.includes("INSERT INTO public.agent_state_lanes")) return Promise.resolve([]);
+      if (text.includes("INSERT INTO public.institution_source_profiles")) return Promise.resolve([]);
+      if (text.includes("UPDATE public.agent_state_lanes")) return Promise.resolve([]);
+      if (text.includes("FROM public.agent_state_lanes")) {
+        return Promise.resolve([{
+          missing_urls: "0",
+          stale_sources: "0",
+          ocr_backlog: "0",
+          manual_backlog: "0",
+          failures: "0",
+          corrections: "0",
+        }]);
+      }
+      return Promise.resolve([
+        {
+          institution_id: "42",
+          institution_name: "Test Bank",
+          city: "Los Angeles",
+          website_url: "https://bank.test",
+          fee_schedule_url: "https://bank.test/fees",
+          canonical_source_url: "https://bank.test/fees.pdf",
+          source_kind: "pdf",
+          read_strategy: "pdf_text",
+          locked_by_correction: true,
+          correction_version: "2",
+          consecutive_failures: "1",
+          last_failure_reason: "timeout",
+          last_failure_at: updatedAt,
+          last_success_at: updatedAt,
+          last_successful_source_document_id: "701",
+          last_successful_text_id: "801",
+          updated_at: updatedAt,
+          correction_count: "2",
+          latest_correction_type: "canonical_source_url",
+          latest_correction_at: updatedAt,
+        },
+      ]);
+    });
+
+    const rows = await getStateSourceMemoryProfiles("ca", { limit: 4 }, asStateLaneDb(db));
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        institutionId: 42,
+        institutionName: "Test Bank",
+        sourceKind: "pdf",
+        readStrategy: "pdf_text",
+        lockedByCorrection: true,
+        correctionVersion: 2,
+        correctionCount: 2,
+        latestCorrectionType: "canonical_source_url",
+        consecutiveFailures: 1,
+        lastSuccessfulSourceDocumentId: 701,
+        lastSuccessfulTextId: 801,
+      }),
+    ]);
+    const calls = db.mock.calls as unknown as Array<unknown[]>;
+    const sqlText = calls.map((call) => templateText(call[0])).join("\n");
+    expect(sqlText).toContain("FROM public.institution_source_profiles profile");
+    expect(sqlText).toContain("LEFT JOIN LATERAL");
+    expect(sqlText).toContain("public.institution_source_corrections");
+    expect(sqlText).toContain("WHERE profile.state_code =");
+    expect(sqlText).toContain("profile.locked_by_correction IS TRUE");
+    expect(calls.at(-1)?.[1]).toBe("CA");
+    expect(calls.at(-1)?.[2]).toBe(4);
+  });
+
   it("loads open public discovery findings for one state lane", async () => {
     const observedAt = new Date("2026-08-15T18:00:00.000Z");
     const db = vi.fn(() => Promise.resolve([
