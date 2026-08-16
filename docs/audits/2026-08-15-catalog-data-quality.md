@@ -1,5 +1,15 @@
 # Catalog Data-Quality Audit — 2026-08-15 (read-only)
 
+> **EXECUTED 2026-08-16 (user-approved):** dedupe DELETE removed 9,576 rows from
+> `published_fee_records` (13,317 → 3,741 live); the 5 verified names corrected in
+> `institution_sources`; Hamilton content-dedupe guard + distinct-count stats
+> committed; all 25 packs regenerated and reports re-rendered (renamed PDFs for
+> Emblem/Bay Cities/Union Square/Redwood). Backups retained:
+> `backup_published_fee_catalog_20260815`, `backup_institution_sources_names_20260815`.
+> Still open: provenance backfill/unpublish decision for the 11,129 legacy
+> no-source rows (7192 fully unsourced — HOLD stands), `is_fee_cap` view fix,
+> unique constraint via migration workflow, 1675 $50 verification.
+
 Direct read-only queries against `published_fee_catalog` and `institution_sources`.
 No data was modified. Every finding below is reproducible with the SQL noted.
 

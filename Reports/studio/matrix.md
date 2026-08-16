@@ -25,7 +25,7 @@ Status flow: selected → pulled → written → rendered → reviewed → SENT
 | 2 | 4802 | Georgia Heritage FCU | cu | comm_small | 6 | Savannah GA | 13/15 | DRAFT READY — review + send |
 | 3 | 2813 | Riverside Bank of Dublin | bank | comm_small | 4 | Dublin OH | 12/15 | DRAFT READY — review + send |
 | 4 | 8485 | First Credit Union (name corrected) | cu | comm_mid | 11 | Chandler AZ | 12/15 | DRAFT READY — review + send |
-| 5 | 8434 | Bay Cities FCU | cu | comm_small | 12 | Hayward CA | 12/15 | DRAFT READY — review + send |
+| 5 | 8434 | Bay Cities CU | cu | comm_small | 12 | Hayward CA | 12/15 | DRAFT READY — review + send |
 | 6 | 1422 | PB&T Bank | bank | comm_mid | 10 | Pueblo CO | 12/15 | DRAFT READY — review + send |
 | 7 | 2033 | Community Bank of Santa Maria | bank | comm_mid | 12 | Santa Maria CA | 12/15 | DRAFT READY — review + send |
 | 8 | 303 | HomeTrust Bank | bank | comm_large | 5 | Asheville NC | 12/15 | DRAFT READY — review + send |
@@ -39,13 +39,13 @@ Status flow: selected → pulled → written → rendered → reviewed → SENT
 | 16 | 2466 | Gateway Bank | bank | comm_mid | 9 | Mendota Hts MN | 10/15 | DRAFT READY — review + send |
 | 17 | 5759 | Coopers Cave FCU | cu | comm_small | 2 | Glens Falls NY | 10/15 | DRAFT READY — review + send |
 | 18 | 6400 | Brockport FCU | cu | comm_small | 2 | Brockport NY | 10/15 | DRAFT READY — review + send |
-| 19 | 7192 | Redwood FCU | cu | comm_large | 12 | Santa Rosa CA | 10/15 | **HOLD** — institution name likely mislabeled (matches Redwood Credit Union); verify + fix in pipeline before send |
+| 19 | 7192 | Redwood CU | cu | comm_large | 12 | Santa Rosa CA | 10/15 | **HOLD** — institution name likely mislabeled (matches Redwood Credit Union); verify + fix in pipeline before send |
 | 20 | 1391 | First Bank | bank | comm_mid | 11 | Burkburnett TX | 9/15 | DRAFT READY — review + send |
 | 21 | 2050 | Kentland Bank | bank | comm_mid | 7 | Kentland IN | 9/15 | DRAFT READY — review + send |
-| 22 | 8595 | Union Square FCU | cu | comm_mid | 11 | Wichita Falls TX | 9/15 | DRAFT READY — review + send |
+| 22 | 8595 | Union Square CU | cu | comm_mid | 11 | Wichita Falls TX | 9/15 | DRAFT READY — review + send |
 | 23 | 6185 | Peoples FCU | cu | comm_small | 4 | Nitro WV | 9/15 | DRAFT READY — review + send |
 | 24 | 203 | Forbright Bank | bank | comm_large | 5 | Potomac MD | 9/15 | DRAFT READY — review + send |
-| 25 | 8101 | Emblem FCU | cu | comm_mid | 6 | Gadsden AL | 9/15 | DRAFT READY — review + send |
+| 25 | 8101 | Emblem CU | cu | comm_mid | 6 | Gadsden AL | 9/15 | DRAFT READY — review + send |
 
 Spread: 13 banks / 12 CUs · districts 2,4,5,6,7,9,10,11,12 · tiers small/mid/large.
 
