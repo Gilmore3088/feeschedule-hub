@@ -25,7 +25,7 @@ export function CustomerFooter() {
                 className="text-[14px] font-medium tracking-tight text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                FeeInsight
+                Fee Insight
               </span>
             </Link>
             <p className="mt-3 text-[12px] leading-relaxed text-[#A09788] max-w-xs">
@@ -141,7 +141,7 @@ export function CustomerFooter() {
 
         {/* Bottom bar */}
         <div className="mt-8 pt-6 border-t border-[#E8DFD1]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#B0A89C]">
-          <span>FeeInsight &copy; {new Date().getFullYear()}</span>
+          <span>Fee Insight &copy; {new Date().getFullYear()}</span>
           <span>
             hello@bankfeeindex.com
           </span>

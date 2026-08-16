@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "FeeInsight — The Bank Fee Index";
+export const alt = "Fee Insight — The Bank Fee Index";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -48,7 +48,7 @@ export default async function OGImage() {
           >
             $
           </div>
-          <span>FeeInsight</span>
+          <span>Fee Insight</span>
         </div>
 
         <div

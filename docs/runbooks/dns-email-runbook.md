@@ -1,8 +1,16 @@
 # DNS & Email Runbook — bankfeeindex.com / feeinsight.com
 
-Status as measured 2026-08-15 (dig). These records are edited at the DNS host
-(where each domain's nameservers point — likely GoDaddy for bankfeeindex.com).
-Claude cannot change DNS; these are user actions.
+Status as measured 2026-08-15 (dig). Records live at GoDaddy for bankfeeindex.com.
+
+**UPDATE 2026-08-15 (late evening): Fix 1 DNS steps are DONE** — SPF now
+`v=spf1 include:spf.protection.outlook.com -all`, and both DKIM CNAMEs
+(selector1/selector2._domainkey → …NETORGFT20495808.onmicrosoft.com) are live on
+authoritative NS (verified via dig against ns69/ns70.domaincontrol.com).
+**REMAINING: enable DKIM signing in the Microsoft Defender portal**
+(security.microsoft.com → Email authentication settings → DKIM →
+bankfeeindex.com → enable; if it errors "CNAME not found", DNS cache — retry
+within the hour). Then run the Gmail "Show original" test: SPF/DKIM/DMARC all PASS.
+Fix 2 (feeinsight.com alias domain) still open.
 
 ## Current state (verified)
 
@@ -34,7 +42,7 @@ land in spam.
 4. **Verify**: send a test to a Gmail account → open "Show original" → confirm
    SPF=pass, DKIM=pass, DMARC=pass.
 
-## Fix 2 — mail on feeinsight.com (when the FeeInsight brand goes primary)
+## Fix 2 — mail on feeinsight.com (when the Fee Insight brand goes primary)
 
 Cheapest path: in Microsoft 365 admin, add feeinsight.com as an **alias domain**
 of the existing tenant. M365 will supply MX + SPF + DKIM records to add at
@@ -45,6 +53,6 @@ Until this is done, ALL public copy must keep using hello@bankfeeindex.com
 
 ## Standing decision
 
-- Company brand: **FeeInsight** (feeinsight.com). Product: **Bank Fee Index**
+- Company brand: **Fee Insight** (feeinsight.com). Product: **Bank Fee Index**
   (bankfeeindex.com redirects in — correct, keep).
 - Single contact address until Fix 2 lands: **hello@bankfeeindex.com**.

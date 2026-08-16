@@ -15,7 +15,7 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] lg:items-end">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
-              FeeInsight
+              Fee Insight
             </p>
             <h1
               className="mt-3 max-w-3xl text-5xl font-normal leading-[0.98] text-[#1A1815] sm:text-6xl"
@@ -47,7 +47,7 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
 
           <div className="rounded-lg border border-[#E8DFD1] bg-white p-5">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
-              FeeInsight Pro
+              Fee Insight Pro
             </p>
             <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">
               Start with the institution, then run the full workflow.

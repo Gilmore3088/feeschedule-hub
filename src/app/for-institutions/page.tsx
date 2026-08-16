@@ -33,7 +33,7 @@ export default async function ForInstitutionsPage() {
         <div className="mx-auto max-w-6xl px-6 pt-16 pb-14 lg:pt-20 lg:pb-16">
           <div className="max-w-2xl">
             <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-terra">
-              FeeInsight Pro
+              Fee Insight Pro
             </span>
             <h1
               className="mt-4 text-warm-150 leading-[1.1] tracking-[-0.02em]"
@@ -338,7 +338,7 @@ export default async function ForInstitutionsPage() {
         <div className="mx-auto max-w-6xl px-6 py-14">
           <div className="max-w-3xl">
             <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-terra">
-              FeeInsight Advisory
+              Fee Insight Advisory
             </span>
             <h2
               className="mt-3 text-warm-900 text-[28px]"

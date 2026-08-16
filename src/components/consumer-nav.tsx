@@ -33,7 +33,7 @@ export async function ConsumerNav() {
             <Link
               href={user ? "/account" : "/"}
               className="flex items-center gap-2 text-[#1A1815] no-underline"
-              aria-label="FeeInsight home"
+              aria-label="Fee Insight home"
             >
               <svg
                 viewBox="0 0 24 24"

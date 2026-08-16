@@ -14,7 +14,7 @@ Status flow: selected → pulled → written → rendered → reviewed → SENT
 
 > **2026-08-15: ALL 25 at "rendered", NONE reviewed. User ruled the PDFs not ready
 > to send; nothing sends until the user's review pass clears them (and never by
-> Claude).** Reports re-rendered under FeeInsight brand architecture (FeeInsight =
+> Claude).** Reports re-rendered under Fee Insight brand architecture (Fee Insight =
 > company, Bank Fee Index = product, printed domain feeinsight.com). Outreach is
 > additionally blocked by email deliverability — see
 > `docs/runbooks/dns-email-runbook.md` (SPF/DKIM fixes required first).
