@@ -93,7 +93,57 @@ const sourceList = (pack.sources ?? []).map((s) =>
   `<li>${esc(s.url)} <span class="muted">(${s.n_fees} fee lines)</span></li>`).join("\n")
   || `<li>Source URLs available on request.</li>`;
 
+// Revenue lens (FDIC/NCUA Call Report data)
+const fin = pack.financials ?? {};
+const fl = fin.latest ?? {}, fy = fin.last_full_year ?? {}, fc = fin.cohort ?? {};
+const isCU = inst.charter_type === "credit_union";
+const kUSD = (v) => { // values filed in $thousands
+  if (v === null || v === undefined) return "—";
+  const d = v * 1000;
+  if (d >= 1e9) return `$${(d / 1e9).toFixed(2)}B`;
+  if (d >= 1e6) return `$${(d / 1e6).toFixed(1)}M`;
+  return `$${Math.round(d).toLocaleString()}`;
+};
+const pct = (v, d = 2) => (v === null || v === undefined) ? "—" : `${(v * 100).toFixed(d)}%`;
+const card = (lbl, val, cmp = "") =>
+  `<div class="statcard"><div class="lbl">${lbl}</div><div class="val">${val}</div>${cmp ? `<div class="cmp">${cmp}</div>` : ""}</div>`;
+
+const scRatio = fy.sc_per_assets, scMed = fc.sc_per_assets_median;
+const intensity = (scRatio != null && scMed != null && scMed > 0) ? scRatio / scMed : null;
+const finCards = [
+  card("Total assets", kUSD(fl.total_assets)),
+  card("Total deposits", kUSD(fl.total_deposits)),
+  card(isCU ? "Members" : "Employees",
+    (isCU ? fl.member_count : fl.employee_count)?.toLocaleString?.() ?? "—",
+    fl.branch_count ? `${fl.branch_count} branches` : ""),
+  card("Service-charge income", kUSD(fy.service_charge_income),
+    fy.fee_income_ratio != null ? `${pct(fy.fee_income_ratio, 1)} of revenue` : "as filed"),
+  card("Fee-income intensity", pct(scRatio, 3),
+    scMed != null ? `cohort median <b>${pct(scMed, 3)}</b> of assets` : "of assets"),
+  card("Return on assets", fl.roa != null ? `${fl.roa}%` : "—",
+    fc.roa_median != null ? `cohort median <b>${fc.roa_median}%</b>` : ""),
+].join("\n");
+
+let finNarr = "";
+if (intensity != null) {
+  const rel = intensity >= 1.15 ? `about ${intensity.toFixed(1)}× the cohort median — fee income is doing more work in your P&amp;L than at most comparable institutions, which raises the stakes on every outlier flagged in this report`
+    : intensity <= 0.7 ? `well below the cohort median (${(intensity * 100).toFixed(0)}% of it) — you are earning less from fees than most comparable institutions even where your posted prices run high, which suggests the pricing conversation is really a volume, waiver, or mix conversation`
+    : `roughly in line with the cohort median — your fee earnings match your peers', so the position questions in this report are about risk and story, not missing revenue`;
+  finNarr = `<p class="narrative" style="margin-top:8pt">Joining your posted fee schedule to your regulatory filings: your service-charge income runs ${rel}.</p>`;
+}
+const dep = pack.deposits ?? {};
+const depositLine = (dep.branch_rows > 0)
+  ? `<p class="small muted" style="margin-top:6pt">Deposit footprint (FDIC Summary of Deposits, ${dep.sod_year}): ${dep.branch_rows} branch locations across ${dep.counties} counties holding ${kUSD(dep.total_branch_deposits)} in deposits.</p>`
+  : "";
+
 const repl = {
+  FIN_CARDS: finCards,
+  FIN_NARRATIVE: finNarr,
+  DEPOSIT_LINE: depositLine,
+  FIN_SOURCE_LABEL: (fl.source ?? "fdic").toUpperCase() + " Call Reports",
+  FIN_LATEST_DATE: fl.report_date ?? "—",
+  FIN_YEAR_DATE: fy.report_date ?? "—",
+  FIN_COHORT_N: fc.n ?? "—",
   SOURCE_LIST: sourceList,
   ALL_FEES_ROWS: allFeesRows,
   ALL_FEES_COUNT: allFees.length,

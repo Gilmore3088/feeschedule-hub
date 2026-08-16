@@ -91,6 +91,18 @@
     display:flex; justify-content:space-between;
     page-break-inside:avoid; page-break-before:avoid; }
 
+  /* Stat cards — Hamilton stat-card language */
+  .statgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:10pt; margin:12pt 0; }
+  .statcard { background:var(--section); border:1pt solid var(--border); border-radius:6pt;
+    padding:12pt 12pt 10pt; page-break-inside:avoid; }
+  .statcard .lbl { font-family:var(--sans); font-size:6.8pt; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.1em; color:var(--text2); margin-bottom:5pt; }
+  .statcard .val { font-family:var(--sans); font-size:16pt; font-weight:700;
+    color:var(--text); font-variant-numeric:tabular-nums; line-height:1.1; }
+  .statcard .cmp { font-family:var(--sans); font-size:7.5pt; color:var(--text2);
+    margin-top:4pt; font-variant-numeric:tabular-nums; }
+  .statcard .cmp b { color:var(--accent); }
+
   /* Narrative body — Hamilton report-narrative */
   .narrative { font-size:10pt; line-height:1.7; }
   .narrative p { margin:0 0 10pt; }
@@ -156,6 +168,25 @@
   <h2>Where you diverge from your market</h2>
   <hr class="rule">
   {{CALLOUTS}}
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+</div>
+
+<!-- 4b. REVENUE LENS (Call Report data) -->
+<div class="page">
+  <div class="kicker">The Revenue Lens</div>
+  <h2>What fees actually mean to your bottom line</h2>
+  <hr class="rule">
+  <p class="small muted">Public regulatory filings ({{FIN_SOURCE_LABEL}}) joined with your
+  fee position — the comparison your fee schedule never shows you.</p>
+  <div class="statgrid">
+    {{FIN_CARDS}}
+  </div>
+  {{FIN_NARRATIVE}}
+  {{DEPOSIT_LINE}}
+  <p class="small muted" style="margin-top:12pt">Financial figures as filed
+  ({{FIN_LATEST_DATE}} snapshot; revenue from {{FIN_YEAR_DATE}} full-year filing).
+  Cohort medians computed across {{FIN_COHORT_N}} same-charter, same-tier institutions'
+  latest full-year filings.</p>
   <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
 </div>
 

@@ -98,6 +98,42 @@ all_fees AS (
   WHERE institution_id = :inst AND amount IS NOT NULL
   ORDER BY lower(fee_name), amount
 ),
+-- Call Report financials (FDIC/NCUA public data): latest snapshot + last full year
+fin_latest AS (
+  SELECT * FROM institution_financial_records
+  WHERE institution_id = :inst ORDER BY report_date DESC LIMIT 1
+),
+fin_year AS (
+  SELECT * FROM institution_financial_records
+  WHERE institution_id = :inst AND extract(month FROM report_date::date) = 12
+  ORDER BY report_date DESC LIMIT 1
+),
+-- cohort financial benchmarks: latest Dec-31 record per same charter+tier institution
+fin_cohort AS (
+  SELECT DISTINCT ON (r.institution_id) r.institution_id, r.service_charge_income,
+         r.total_assets, r.roa, r.efficiency_ratio,
+         CASE WHEN r.total_assets > 0
+              THEN r.service_charge_income::float / r.total_assets ELSE NULL END AS sc_per_assets
+  FROM institution_financial_records r
+  JOIN institution_sources s ON s.id = r.institution_id
+  JOIN target t ON s.charter_type = t.charter_type
+              AND s.asset_size_tier = t.asset_size_tier
+  WHERE extract(month FROM r.report_date::date) = 12
+  ORDER BY r.institution_id, r.report_date DESC
+),
+fin_cohort_stats AS (
+  SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY sc_per_assets) AS sc_per_assets_median,
+         percentile_cont(0.5) WITHIN GROUP (ORDER BY roa) AS roa_median,
+         percentile_cont(0.5) WITHIN GROUP (ORDER BY efficiency_ratio) AS efficiency_median,
+         count(*) AS n
+  FROM fin_cohort WHERE sc_per_assets IS NOT NULL
+),
+-- deposit market presence (FDIC Summary of Deposits), when available
+deposits AS (
+  SELECT count(*) AS branch_rows, sum(NULLIF(deposits, 0)) AS total_branch_deposits,
+         count(DISTINCT county_fips) AS counties, max(year) AS sod_year
+  FROM institution_branch_deposits WHERE institution_id = :inst AND year = (SELECT max(year) FROM institution_branch_deposits WHERE institution_id = :inst)
+),
 -- provenance: the actual source documents the fees were extracted from
 sources AS (
   SELECT coalesce(document_url, source_url) AS url, count(*) AS n_fees
@@ -111,6 +147,25 @@ SELECT jsonb_build_object(
   'peers', (SELECT jsonb_agg(to_jsonb(p)) FROM peer_table p),
   'all_fees', (SELECT jsonb_agg(to_jsonb(a) ORDER BY a.fee_name) FROM all_fees a),
   'sources', (SELECT jsonb_agg(to_jsonb(s)) FROM sources s),
+  'financials', jsonb_build_object(
+     'latest', (SELECT jsonb_build_object('report_date', report_date, 'source', source,
+        'total_assets', total_assets, 'total_deposits', total_deposits,
+        'branch_count', branch_count, 'employee_count', employee_count,
+        'member_count', member_count, 'roa', round(roa::numeric,2),
+        'efficiency_ratio', round(efficiency_ratio::numeric,1)) FROM fin_latest),
+     'last_full_year', (SELECT jsonb_build_object('report_date', report_date,
+        'service_charge_income', service_charge_income,
+        'fee_income_ratio', fee_income_ratio,
+        'sc_per_assets', CASE WHEN total_assets > 0
+           THEN round((service_charge_income::float/total_assets)::numeric, 5) END)
+        FROM fin_year),
+     'cohort', (SELECT jsonb_build_object(
+        'sc_per_assets_median', round(sc_per_assets_median::numeric, 5),
+        'roa_median', round(roa_median::numeric, 2),
+        'efficiency_median', round(efficiency_median::numeric, 1),
+        'n', n) FROM fin_cohort_stats)
+  ),
+  'deposits', (SELECT to_jsonb(d) FROM deposits d),
   'meta', jsonb_build_object(
      'pull_date', now()::date,
      'cohort', (SELECT charter_type || ' / ' || asset_size_tier FROM target),
