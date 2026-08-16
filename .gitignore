@@ -56,9 +56,15 @@ next-env.d.ts
 supabase/.temp/
 
 # local agent/workspace artifacts
+/tmp/
 .worktrees/
 .claude/worktrees/
 .superpowers/
 .pytest_cache/
 .ruff_cache/
 Reports/
+
+# Studio: track source, ignore generated packs/PDFs
+!reports/studio/
+reports/studio/packs/
+reports/studio/out/
