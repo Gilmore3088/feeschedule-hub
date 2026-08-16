@@ -6,13 +6,14 @@ their market. Why us: live verified fee data (published_fee_catalog) + banking d
 expertise. Kept fully separate from the CSI day job.
 
 ## Status
-ACTIVE (slot 1 of 1). Milestone: Report Studio built (reports/studio/) — pilot PDF
-rendered for Bank of the Pacific. Distance to first dollar: 25 reports out the door,
-replies define the paid product.
+ACTIVE (slot 1 of 1). Milestone: all 25 competitive fee reports RENDERED
+(Reports/studio/out/, brand-matched to Hamilton system). Distance to first dollar:
+your review pass + finding contacts + sending.
 
 ## Next action
-Review pilot PDF (reports/studio/out/), fix contact email in narratives/, then
-produce reports 2–25 per reports/studio/matrix.md.
+Review the 25 PDFs in Reports/studio/out/ (flag any narrative to fix), then find one
+contact per institution and send using Reports/studio/outreach-template.md. Log
+everything in outreach-log.md.
 
 # Agent Guidance
 
