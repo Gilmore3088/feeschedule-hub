@@ -301,6 +301,85 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
     WHERE ct.id = ${id}
   `;
   if (!row) return null;
+  return mapInstitutionDetailRow(row);
+}
+
+export async function getPublicInstitutionById(id: number): Promise<InstitutionDetail | null> {
+  const [row] = await sql<(InstitutionDetail & {
+    latest_source_error?: string | null;
+    latest_source_collected_at?: string | Date | null;
+  })[]>`
+    WITH catalog_counts AS (
+      SELECT
+        institution_id,
+        COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count,
+        COUNT(*) FILTER (WHERE review_status <> 'approved' AND review_status <> 'rejected')::int AS catalog_provisional_fee_count,
+        COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS visible_fee_count
+      FROM published_fee_catalog
+      WHERE institution_id = ${id}
+      GROUP BY institution_id
+    ),
+    latest_docs AS (
+      SELECT DISTINCT ON (institution_id)
+        institution_id,
+        status AS latest_source_status,
+        COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count,
+        error_message AS latest_source_error,
+        crawled_at AS latest_source_collected_at
+      FROM source_documents
+      WHERE institution_id = ${id}
+      ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
+    )
+    SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
+           ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
+           ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.document_type,
+           ct.website_url, ct.fee_schedule_url,
+           COALESCE(cc.visible_fee_count, 0) as fee_count,
+           COALESCE(cc.published_fee_count, 0) as published_fee_count,
+           COALESCE(cc.catalog_provisional_fee_count, 0) as provisional_fee_count,
+           ld.latest_source_status,
+           COALESCE(ld.latest_extracted_fee_count, 0) as latest_extracted_fee_count,
+           ld.latest_source_error,
+           ld.latest_source_collected_at
+    FROM institution_sources ct
+    LEFT JOIN catalog_counts cc ON cc.institution_id = ct.id
+    LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
+    WHERE ct.id = ${id}
+  `;
+  if (!row) return null;
+  return mapInstitutionDetailRow(row);
+}
+
+export async function getInstitutionMetadataById(
+  id: number,
+): Promise<Pick<
+  InstitutionDetail,
+  "id" | "institution_name" | "state_code" | "charter_type"
+> | null> {
+  const [row] = await sql<Array<{
+    id: number | string;
+    institution_name: string;
+    state_code: string | null;
+    charter_type: string;
+  }>>`
+    SELECT id, institution_name, state_code, charter_type
+    FROM institution_sources
+    WHERE id = ${id}
+  `;
+
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    institution_name: row.institution_name,
+    state_code: row.state_code,
+    charter_type: row.charter_type,
+  };
+}
+
+function mapInstitutionDetailRow(row: InstitutionDetail & {
+  latest_source_error?: string | null;
+  latest_source_collected_at?: string | Date | null;
+}): InstitutionDetail {
   const latestSourceCollectedAtRaw: unknown = row.latest_source_collected_at;
   const latestSourceCollectedAt =
     latestSourceCollectedAtRaw instanceof Date

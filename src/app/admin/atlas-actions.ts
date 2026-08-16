@@ -1,7 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAuth } from "@/lib/auth";
+import {
+  ADMIN_ATLAS_COMMAND_CENTER_CACHE_TAG,
+  ADMIN_ATLAS_STATE_LANE_DISPATCH_CACHE_TAG,
+} from "@/lib/admin-dashboard-cache";
 import {
   engageEmergencyStop,
   recordEmergencyStopOutcome,
@@ -82,6 +86,12 @@ const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
   },
 ];
 
+function refreshAtlasDashboard(): void {
+  updateTag(ADMIN_ATLAS_COMMAND_CENTER_CACHE_TAG);
+  updateTag(ADMIN_ATLAS_STATE_LANE_DISPATCH_CACHE_TAG);
+  revalidatePath("/admin");
+}
+
 export async function stopAllAutomation(reason: string): Promise<{
   success: boolean;
   cancelled?: number;
@@ -94,7 +104,7 @@ export async function stopAllAutomation(reason: string): Promise<{
     await engageEmergencyStop(user.username, reason);
     const cancellations = await cancelAllActiveAgentRuns(user.username);
     await recordEmergencyStopOutcome(user.username, cancellations);
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return {
       success: true,
       cancelled: cancellations.cancelled,
@@ -102,7 +112,7 @@ export async function stopAllAutomation(reason: string): Promise<{
       cancellationFailures: cancellations.failed,
     };
   } catch (error) {
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -114,7 +124,7 @@ export async function resumeAllAutomation(reason: string): Promise<{
   const user = await requireAuth("trigger_jobs");
   try {
     await resumeAutomation(user.username, reason);
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -145,7 +155,7 @@ export async function runAtlasCycle(): Promise<{
       steps: FULL_CYCLE_STEPS,
       summary: "Agentic run accepted. Watch Atlas live status for step events.",
     });
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return { success: true, runId: result.run.id, reused: result.reused };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -311,7 +321,7 @@ export async function runAtlasWorkflow(workflowId: AtlasWorkflowId): Promise<{
       steps: workflow.steps,
       summary: "Agentic run accepted. Watch Atlas live status for step events.",
     });
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return {
       success: true,
       runId: result.run.id,
@@ -319,7 +329,7 @@ export async function runAtlasWorkflow(workflowId: AtlasWorkflowId): Promise<{
       reused: result.reused,
     };
   } catch (error) {
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -342,7 +352,7 @@ export async function runAtlasDueStateLanes(limit = 2): Promise<{
       limit: safeLimit,
       triggeredBy: user.username,
     });
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     revalidatePath("/admin/states");
     return {
       success: true,
@@ -358,7 +368,7 @@ export async function runAtlasDueStateLanes(limit = 2): Promise<{
       failed: result.failed,
     };
   } catch (error) {
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -381,7 +391,7 @@ export async function runAtlasStateLane(stateCode: string): Promise<{
       triggerSource: "admin",
       source: "admin.state_lane",
     });
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     revalidatePath("/admin/states");
     revalidatePath(`/admin/states/${result.stateCode}`);
     return {
@@ -392,7 +402,7 @@ export async function runAtlasStateLane(stateCode: string): Promise<{
       reused: result.reused,
     };
   } catch (error) {
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -403,7 +413,7 @@ export async function cancelAtlasRun(runId: number): Promise<{
 }> {
   const user = await requireAuth("cancel_jobs");
   const result = await cancelAgentRun(runId, user.username);
-  revalidatePath("/admin");
+  refreshAtlasDashboard();
   return result;
 }
 
@@ -434,7 +444,7 @@ export async function resumeAtlasCycle(runId: number): Promise<{
       steps: FULL_CYCLE_STEPS,
       summary: "Agentic repair run accepted. Watch Atlas live status for step events.",
     });
-    revalidatePath("/admin");
+    refreshAtlasDashboard();
     return { success: true, runId: result.run.id, reused: result.reused };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };

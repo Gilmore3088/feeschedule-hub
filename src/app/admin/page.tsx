@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import {
   ArrowRight,
   BookOpenText,
@@ -16,6 +17,11 @@ import {
 } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { formatAdminDateTime } from "@/lib/admin-time";
+import {
+  ADMIN_ATLAS_COMMAND_CENTER_CACHE_TAG,
+  ADMIN_ATLAS_DASHBOARD_REVALIDATE_SECONDS,
+  ADMIN_ATLAS_STATE_LANE_DISPATCH_CACHE_TAG,
+} from "@/lib/admin-dashboard-cache";
 import { getAtlasCommandCenter, type AttentionItem, type CommandCenterJob } from "@/lib/admin-command-center";
 import { getAtlasStateLaneDispatch } from "@/lib/agents/state-lane-memory";
 import { getExecutionBackendStatus, type ExecutionBackendStatus } from "@/lib/execution-backend";
@@ -35,6 +41,24 @@ function number(value: number): string {
 }
 
 const dateTime = formatAdminDateTime;
+
+const getCachedAtlasCommandCenter = unstable_cache(
+  getAtlasCommandCenter,
+  ["admin", "atlas-command-center"],
+  {
+    revalidate: ADMIN_ATLAS_DASHBOARD_REVALIDATE_SECONDS,
+    tags: [ADMIN_ATLAS_COMMAND_CENTER_CACHE_TAG],
+  },
+);
+
+const getCachedAtlasStateLaneDispatch = unstable_cache(
+  () => getAtlasStateLaneDispatch(),
+  ["admin", "atlas-state-lane-dispatch"],
+  {
+    revalidate: ADMIN_ATLAS_DASHBOARD_REVALIDATE_SECONDS,
+    tags: [ADMIN_ATLAS_STATE_LANE_DISPATCH_CACHE_TAG],
+  },
+);
 
 function estimatedUsd(microusd: number): string {
   const dollars = microusd / 1_000_000;
@@ -316,8 +340,8 @@ function workflowLanes(
 export default async function AtlasCommandPage() {
   await requireAuth("view");
   const [center, stateLaneDispatch] = await Promise.all([
-    getAtlasCommandCenter(),
-    getAtlasStateLaneDispatch(),
+    getCachedAtlasCommandCenter(),
+    getCachedAtlasStateLaneDispatch(),
   ]);
   const execution = getExecutionBackendStatus();
   const problemSchedules = center.schedules.failed_count

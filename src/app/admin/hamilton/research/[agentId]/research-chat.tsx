@@ -168,7 +168,7 @@ export function ResearchChat({
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
           <div className="flex items-center gap-3">
             <Link
-              href="/admin/research"
+              href="/admin/hamilton/research"
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -456,7 +456,7 @@ export function ResearchChat({
             <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[12px] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 flex items-center justify-between">
               <span>
                 Draft saved.{" "}
-                <Link href="/admin/research/articles" className="font-semibold underline hover:no-underline">
+                <Link href="/admin/hamilton/research/articles" className="font-semibold underline hover:no-underline">
                   View articles
                 </Link>
               </span>

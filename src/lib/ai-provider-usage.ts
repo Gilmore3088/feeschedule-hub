@@ -4,6 +4,15 @@ import {
   EmergencyStopActiveError,
   engageEmergencyStop,
 } from "./automation-control";
+import {
+  assertProviderBudgetAllowed,
+  ProviderBudgetBlockedError,
+  providerBudgetDecisionToError,
+} from "./api-hardening/budget";
+import { getApiRoutePolicy } from "./api-hardening/policies";
+import { recordApiRouteAuditEvent } from "./api-hardening/audit";
+
+export { ProviderBudgetBlockedError } from "./api-hardening/budget";
 
 type ProviderStatus = "completed" | "failed" | "blocked";
 
@@ -19,7 +28,11 @@ export interface ProviderCallContext {
   model: string;
   agent: string;
   operation: string;
+  routeId?: string;
   agentRunId?: number;
+  userId?: number | null;
+  subjectKey?: string | null;
+  budgetPolicyId?: number | null;
   requestCount?: number;
   metadata?: Record<string, unknown>;
 }
@@ -98,6 +111,46 @@ async function maybeEngageProviderCreditStop(
   await engageProviderCreditStop(context);
 }
 
+async function recordProviderRouteAudit(
+  context: ProviderCallContext,
+  status: ProviderStatus,
+  options: { latencyMs?: number; error?: string } = {},
+): Promise<void> {
+  if (!context.routeId) return;
+  try {
+    const policy = getApiRoutePolicy(context.routeId);
+    const reasonCode = typeof context.metadata?.budget_reason_code === "string"
+      ? context.metadata.budget_reason_code
+      : status === "blocked"
+        ? "provider_guard_blocked"
+        : status === "failed"
+          ? "provider_call_failed"
+          : null;
+    await recordApiRouteAuditEvent({
+      policy,
+      method: "POST",
+      path: policy.routeTemplate,
+      statusCode: status === "completed" ? 200 : status === "blocked" ? 423 : 500,
+      outcome: status === "completed" ? "success" : status === "blocked" ? "blocked" : "error",
+      latencyMs: options.latencyMs,
+      userId: context.userId ?? null,
+      subjectKey: context.subjectKey ?? null,
+      budgetPolicyId: context.budgetPolicyId ?? null,
+      provider: context.provider,
+      model: context.model,
+      agentName: context.agent,
+      operation: context.operation,
+      reasonCode,
+      metadata: {
+        error: options.error?.slice(0, 1000) ?? null,
+        ...(context.metadata ?? {}),
+      },
+    });
+  } catch (error) {
+    console.error("Provider route audit write failed", error);
+  }
+}
+
 async function assertProviderCircuitHealthy(context: ProviderCallContext): Promise<void> {
   if (context.provider !== "anthropic") return;
 
@@ -162,19 +215,42 @@ export async function recordProviderUsage(
         (provider, model, agent_name, operation, status, request_count,
          input_tokens, output_tokens, cache_read_input_tokens,
          cache_creation_input_tokens, estimated_cost_microusd, latency_ms,
-         agent_run_id, error_summary, metadata)
+         agent_run_id, route_id, budget_policy_id, user_id, subject_key,
+         error_summary, metadata)
       VALUES
         (${context.provider}, ${context.model}, ${context.agent}, ${context.operation},
          ${status}, ${context.requestCount ?? 1}, ${nonNegative(usage.inputTokens)},
          ${nonNegative(usage.outputTokens)}, ${nonNegative(usage.cacheReadInputTokens)},
          ${nonNegative(usage.cacheCreationInputTokens)}, ${estimatedCost},
          ${options.latencyMs ?? null}, ${context.agentRunId ?? null},
+         ${context.routeId ?? null}, ${context.budgetPolicyId ?? null},
+         ${context.userId ?? null}, ${context.subjectKey ?? null},
          ${options.error?.slice(0, 1000) ?? null},
-         ${JSON.stringify(context.metadata ?? {})})
+         ${JSON.stringify({
+           ...(context.metadata ?? {}),
+           route_id: context.routeId ?? null,
+           budget_policy_id: context.budgetPolicyId ?? null,
+           user_id: context.userId ?? null,
+           subject_key: context.subjectKey ?? null,
+         })}::jsonb)
     `;
   } catch (error) {
     console.error("AI provider usage write failed", error);
   }
+  if (context.agentRunId && status === "completed") {
+    try {
+      await sql`
+        UPDATE agent_runs
+           SET actual_provider_calls = actual_provider_calls + ${context.requestCount ?? 1},
+               actual_estimated_cost_microusd = actual_estimated_cost_microusd + ${estimatedCost ?? 0},
+               updated_at = NOW()
+         WHERE id = ${context.agentRunId}
+      `;
+    } catch (error) {
+      console.error("AI provider run budget metadata update failed", error);
+    }
+  }
+  await recordProviderRouteAudit(context, status, options);
   await maybeEngageProviderCreditStop(context, status, options.error);
 }
 
@@ -185,9 +261,24 @@ export async function guardProviderCall(
   try {
     await assertAutomationEnabled(`${context.agent} ${context.operation}`);
     await assertProviderCircuitHealthy(context);
+    const budgetDecision = await assertProviderBudgetAllowed(context);
+    if (!budgetDecision.allowed) {
+      context.budgetPolicyId = budgetDecision.policyId ?? context.budgetPolicyId;
+      context.metadata = {
+        ...(context.metadata ?? {}),
+        budget_reason_code: budgetDecision.reasonCode ?? "budget_lookup_failed",
+        budget_policy_key: budgetDecision.policyKey ?? null,
+      };
+      throw providerBudgetDecisionToError(budgetDecision);
+    }
+    context.budgetPolicyId = budgetDecision.policyId ?? context.budgetPolicyId;
     return startedAt;
   } catch (error) {
-    if (error instanceof EmergencyStopActiveError || error instanceof ProviderCircuitOpenError) {
+    if (
+      error instanceof EmergencyStopActiveError
+      || error instanceof ProviderCircuitOpenError
+      || error instanceof ProviderBudgetBlockedError
+    ) {
       await recordProviderUsage(context, "blocked", {}, { error: error.message });
     }
     throw error;

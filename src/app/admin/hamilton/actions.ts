@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth";
 import { cancelAgentRun } from "@/lib/agents/run-store";
 import { triggerReportJob } from "@/lib/report-agent-runs";
 import type { ReportType } from "@/lib/report-engine/types";
+import { assertLegacyGeneratableReportType } from "@/lib/report-engine/legacy-generation-policy";
 
 // Slug generation helper — title to URL-safe slug
 function generateSlug(title: string): string {
@@ -166,6 +167,11 @@ export async function retryReport(
     }
 
     const { report_type, params } = rows[0];
+    const reportPolicy = assertLegacyGeneratableReportType(report_type as ReportType);
+    if (!reportPolicy.ok) {
+      return { success: false, error: reportPolicy.error };
+    }
+
     const newRows = await sql<Array<{ id: string }>>`
       INSERT INTO report_jobs (report_type, status, params)
       VALUES (${report_type}, 'pending', ${JSON.stringify(params ?? {})})

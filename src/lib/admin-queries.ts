@@ -1418,6 +1418,14 @@ export interface SourceSubmissionCounts {
   total: number;
 }
 
+const SOURCE_SUBMISSION_COUNTS_CACHE_TTL_MS = 30_000;
+let sourceSubmissionCountsCache: { value: SourceSubmissionCounts; expiresAt: number } | null = null;
+let sourceSubmissionCountsInFlight: Promise<SourceSubmissionCounts> | null = null;
+
+export function clearSourceSubmissionCountsCache(): void {
+  sourceSubmissionCountsCache = null;
+}
+
 export interface SourceSubmissionRow {
   id: number;
   institution_id: number | null;
@@ -1442,6 +1450,38 @@ export interface SourceSubmissionRow {
   resolution: string | null;
   source_document_id: number | null;
   agent_run_id: number | null;
+}
+
+export type InstitutionClaimReviewStatus = "pending" | "accepted" | "rejected" | "needs_info" | "all";
+
+export interface InstitutionClaimCounts {
+  pending: number;
+  accepted: number;
+  rejected: number;
+  needs_info: number;
+  total: number;
+}
+
+export interface InstitutionClaimRow {
+  id: number;
+  institution_id: number;
+  institution_name: string;
+  city: string | null;
+  state_code: string | null;
+  claimant_user_id: number;
+  claimant_name: string;
+  claimant_email: string | null;
+  claimant_role: string | null;
+  claim_notes: string | null;
+  source_submission_id: number | null;
+  review_status: string;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+  reviewer_id: number | null;
+  reviewer_name: string | null;
+  review_notes: string | null;
+  resolution: string | null;
 }
 
 export interface DataTrustQueueRow extends DataTrustQueueDecision {
@@ -1534,14 +1574,83 @@ function mapSourceSubmissionRow(r: Record<string, unknown>): SourceSubmissionRow
   };
 }
 
+function mapInstitutionClaimRow(r: Record<string, unknown>): InstitutionClaimRow {
+  return {
+    id: Number(r.id),
+    institution_id: Number(r.institution_id),
+    institution_name: String(r.institution_name),
+    city: r.city ? String(r.city) : null,
+    state_code: r.state_code ? String(r.state_code) : null,
+    claimant_user_id: Number(r.claimant_user_id),
+    claimant_name: r.claimant_name ? String(r.claimant_name) : "Unknown user",
+    claimant_email: r.claimant_email ? String(r.claimant_email) : null,
+    claimant_role: r.claimant_role ? String(r.claimant_role) : null,
+    claim_notes: r.claim_notes ? String(r.claim_notes) : null,
+    source_submission_id: r.source_submission_id != null ? Number(r.source_submission_id) : null,
+    review_status: String(r.review_status ?? "pending"),
+    created_at: toDateStr(r.created_at as string | Date | null),
+    updated_at: toDateStr(r.updated_at as string | Date | null),
+    reviewed_at: r.reviewed_at ? toDateStr(r.reviewed_at as string | Date) : null,
+    reviewer_id: r.reviewer_id != null ? Number(r.reviewer_id) : null,
+    reviewer_name: r.reviewer_name ? String(r.reviewer_name) : null,
+    review_notes: r.review_notes ? String(r.review_notes) : null,
+    resolution: r.resolution ? String(r.resolution) : null,
+  };
+}
+
 export async function getSourceSubmissionCounts(): Promise<SourceSubmissionCounts> {
+  const now = Date.now();
+  if (sourceSubmissionCountsCache && sourceSubmissionCountsCache.expiresAt > now) {
+    return sourceSubmissionCountsCache.value;
+  }
+  if (sourceSubmissionCountsInFlight) return sourceSubmissionCountsInFlight;
+
+  sourceSubmissionCountsInFlight = (async () => {
+    try {
+      const rows = await sql<{ review_status: string; count: string }[]>`
+        SELECT review_status, COUNT(*) AS count
+        FROM community_fee_submissions
+        GROUP BY review_status
+      `;
+      const counts: SourceSubmissionCounts = {
+        pending: 0,
+        accepted: 0,
+        rejected: 0,
+        needs_info: 0,
+        total: 0,
+      };
+      for (const row of rows) {
+        const value = Number(row.count ?? 0);
+        if (row.review_status === "pending") counts.pending = value;
+        else if (row.review_status === "accepted") counts.accepted = value;
+        else if (row.review_status === "rejected") counts.rejected = value;
+        else if (row.review_status === "needs_info") counts.needs_info = value;
+        counts.total += value;
+      }
+      sourceSubmissionCountsCache = {
+        value: counts,
+        expiresAt: Date.now() + SOURCE_SUBMISSION_COUNTS_CACHE_TTL_MS,
+      };
+      return counts;
+    } catch (e) {
+      console.error("getSourceSubmissionCounts failed:", e);
+      return { pending: 0, accepted: 0, rejected: 0, needs_info: 0, total: 0 };
+    } finally {
+      sourceSubmissionCountsInFlight = null;
+    }
+  })();
+
+  return sourceSubmissionCountsInFlight;
+}
+
+export async function getInstitutionClaimCounts(): Promise<InstitutionClaimCounts> {
   try {
     const rows = await sql<{ review_status: string; count: string }[]>`
       SELECT review_status, COUNT(*) AS count
-      FROM community_fee_submissions
+      FROM institution_claims
       GROUP BY review_status
     `;
-    const counts: SourceSubmissionCounts = {
+    const counts: InstitutionClaimCounts = {
       pending: 0,
       accepted: 0,
       rejected: 0,
@@ -1558,7 +1667,7 @@ export async function getSourceSubmissionCounts(): Promise<SourceSubmissionCount
     }
     return counts;
   } catch (e) {
-    console.error("getSourceSubmissionCounts failed:", e);
+    console.error("getInstitutionClaimCounts failed:", e);
     return { pending: 0, accepted: 0, rejected: 0, needs_info: 0, total: 0 };
   }
 }
@@ -1628,6 +1737,72 @@ export async function listSourceSubmissions({
     };
   } catch (e) {
     console.error("listSourceSubmissions failed:", e);
+    return { rows: [], total: 0, page: safePage, pageSize: safePageSize };
+  }
+}
+
+export async function listInstitutionClaims({
+  status = "pending",
+  page = 1,
+  pageSize = 12,
+}: {
+  status?: InstitutionClaimReviewStatus;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<{ rows: InstitutionClaimRow[]; total: number; page: number; pageSize: number }> {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.min(100, Math.max(5, pageSize));
+  const offset = (safePage - 1) * safePageSize;
+  const statusFilter =
+    status === "all" ? sql`TRUE` : sql`ic.review_status = ${status}`;
+
+  try {
+    const countRows = await sql<{ count: string }[]>`
+      SELECT COUNT(*) AS count
+      FROM institution_claims ic
+      WHERE ${statusFilter}
+    `;
+    const rows = await sql<Record<string, unknown>[]>`
+      SELECT
+        ic.id,
+        ic.institution_id,
+        inst.institution_name,
+        inst.city,
+        inst.state_code,
+        ic.claimant_user_id,
+        COALESCE(claimant.display_name, claimant.username) AS claimant_name,
+        claimant.email AS claimant_email,
+        ic.claimant_role,
+        ic.claim_notes,
+        ic.source_submission_id,
+        ic.review_status,
+        ic.created_at,
+        ic.updated_at,
+        ic.reviewed_at,
+        ic.reviewer_id,
+        reviewer.username AS reviewer_name,
+        ic.review_notes,
+        ic.resolution
+      FROM institution_claims ic
+      JOIN institution_sources inst ON inst.id = ic.institution_id
+      JOIN users claimant ON claimant.id = ic.claimant_user_id
+      LEFT JOIN users reviewer ON reviewer.id = ic.reviewer_id
+      WHERE ${statusFilter}
+      ORDER BY
+        CASE WHEN ic.review_status = 'pending' THEN 0 ELSE 1 END,
+        ic.updated_at DESC,
+        ic.id DESC
+      LIMIT ${safePageSize} OFFSET ${offset}
+    `;
+
+    return {
+      rows: rows.map(mapInstitutionClaimRow),
+      total: Number(countRows[0]?.count ?? 0),
+      page: safePage,
+      pageSize: safePageSize,
+    };
+  } catch (e) {
+    console.error("listInstitutionClaims failed:", e);
     return { rows: [], total: 0, page: safePage, pageSize: safePageSize };
   }
 }

@@ -161,13 +161,25 @@ export async function getInstitutionRevenueTrend(
   try {
     const rows = await sql.unsafe(
       `SELECT
-         TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
-         inf.service_charge_income,
-         inf.fee_income_ratio
-       FROM institution_financial_records inf
-       WHERE inf.institution_id = $1
-         AND inf.service_charge_income IS NOT NULL
-       ORDER BY inf.report_date DESC
+         quarter,
+         service_charge_income,
+         fee_income_ratio
+       FROM (
+         SELECT
+           TO_CHAR(DATE_TRUNC('quarter', inf.report_date::date), 'YYYY-"Q"Q') AS quarter,
+           inf.report_date::date AS report_date,
+           inf.service_charge_income,
+           inf.fee_income_ratio,
+           ROW_NUMBER() OVER (
+             PARTITION BY DATE_TRUNC('quarter', inf.report_date::date)
+             ORDER BY inf.report_date::date DESC, inf.id DESC
+           ) AS quarter_rank
+         FROM institution_financial_records inf
+         WHERE inf.institution_id = $1
+           AND inf.service_charge_income IS NOT NULL
+       ) ranked
+       WHERE quarter_rank = 1
+       ORDER BY report_date DESC
        LIMIT $2`,
       [targetId, quarterCount]
     ) as { quarter: string; service_charge_income: string; fee_income_ratio: string | null }[];

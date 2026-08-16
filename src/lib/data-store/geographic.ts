@@ -103,9 +103,59 @@ export interface CitySummary {
   with_fees: number;
 }
 
+interface RawCityInstitutionRow {
+  id: number | string;
+  institution_name: string;
+  charter_type: string;
+  asset_size: number | string | null;
+  fee_count: number | string | null;
+  overdraft: number | string | null;
+  monthly_maintenance: number | string | null;
+  nsf: number | string | null;
+  atm_non_network: number | string | null;
+}
+
+interface RawCitySummaryRow {
+  city: string;
+  state_code: string;
+  institution_count: number | string | null;
+  with_fees: number | string | null;
+}
+
+function numberOrNull(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function normalizeCityInstitutionRow(
+  row: RawCityInstitutionRow,
+): CityInstitution {
+  return {
+    ...row,
+    id: Number(row.id),
+    asset_size: numberOrNull(row.asset_size),
+    fee_count: Number(row.fee_count ?? 0),
+    overdraft: numberOrNull(row.overdraft),
+    monthly_maintenance: numberOrNull(row.monthly_maintenance),
+    nsf: numberOrNull(row.nsf),
+    atm_non_network: numberOrNull(row.atm_non_network),
+  };
+}
+
+export function normalizeCitySummaryRow(
+  row: RawCitySummaryRow,
+): CitySummary {
+  return {
+    ...row,
+    institution_count: Number(row.institution_count ?? 0),
+    with_fees: Number(row.with_fees ?? 0),
+  };
+}
+
 export async function getCityInstitutions(city: string, stateCode: string): Promise<CityInstitution[]> {
   const upperState = stateCode.toUpperCase();
-  return await sql`
+  const rows = await sql`
     SELECT ct.id, ct.institution_name, ct.charter_type, ct.asset_size,
            COALESCE(fc.fee_count, 0) as fee_count,
            (SELECT ef.amount FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'overdraft' AND ef.review_status = 'approved' LIMIT 1) as overdraft,
@@ -121,7 +171,9 @@ export async function getCityInstitutions(city: string, stateCode: string): Prom
     WHERE LOWER(ct.city) = LOWER(${city}) AND ct.state_code = ${upperState}
     AND fc.fee_count > 0
     ORDER BY ct.asset_size DESC NULLS LAST
-  ` as CityInstitution[];
+  ` as RawCityInstitutionRow[];
+
+  return rows.map(normalizeCityInstitutionRow);
 }
 
 export async function getCityFeeAverages(city: string, stateCode: string): Promise<CityFeeAverage[]> {
@@ -150,7 +202,7 @@ export async function getCityFeeAverages(city: string, stateCode: string): Promi
 
 export async function getCitiesInState(stateCode: string): Promise<CitySummary[]> {
   const upperState = stateCode.toUpperCase();
-  return await sql`
+  const rows = await sql`
     SELECT ct.city, ct.state_code,
            COUNT(*) as institution_count,
            COUNT(DISTINCT CASE WHEN fc.fee_count > 0 THEN ct.id END) as with_fees
@@ -164,7 +216,9 @@ export async function getCitiesInState(stateCode: string): Promise<CitySummary[]
     GROUP BY LOWER(ct.city), ct.city, ct.state_code
     HAVING COUNT(DISTINCT CASE WHEN fc.fee_count > 0 THEN ct.id END) > 0
     ORDER BY COUNT(DISTINCT CASE WHEN fc.fee_count > 0 THEN ct.id END) DESC, COUNT(*) DESC
-  ` as CitySummary[];
+  ` as RawCitySummaryRow[];
+
+  return rows.map(normalizeCitySummaryRow);
 }
 
 export async function getCityAutocomplete(query: string, limit: number = 10): Promise<{ city: string; state_code: string; count: number }[]> {

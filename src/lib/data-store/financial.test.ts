@@ -30,6 +30,10 @@ function resetMock(mock: MockSql) {
   mock.unsafe = vi.fn();
 }
 
+function templateText(strings: unknown): string {
+  return Array.isArray(strings) ? strings.join(" ") : String(strings);
+}
+
 // ── dollarOrNull helper ───────────────────────────────────────────────────────
 
 describe("dollarOrNull (passthrough — DB stores whole dollars since migration 023)", () => {
@@ -56,12 +60,12 @@ describe("dollarOrNull (passthrough — DB stores whole dollars since migration 
 
 // ── numOrNull (ratios) should NOT be multiplied ──────────────────────────────
 
-describe("getFinancialsByInstitution - thousands scaling", () => {
+describe("getFinancialsByInstitution - stored financial values", () => {
   beforeEach(() => {
     resetMock(getMock());
   });
 
-  it("multiplies dollar columns by 1000", async () => {
+  it("passes dollar columns through unchanged", async () => {
     const dbRow = {
       institution_id: 1,
       report_date: "2024-09-30",
@@ -203,6 +207,25 @@ describe("getFinancialsByInstitution - thousands scaling", () => {
     expect(r.service_charge_income).toBeNull();
     expect(r.overdraft_revenue).toBeNull();
     expect(r.roa).toBeNull();
+  });
+
+  it("limits institution financial history by default to keep public profiles fast", async () => {
+    getMock().mockResolvedValue([]);
+
+    await getFinancialsByInstitution(123);
+
+    const call = getMock().mock.calls[0];
+    expect(templateText(call[0])).toContain("LIMIT");
+    expect(call).toContain(123);
+    expect(call).toContain(8);
+  });
+
+  it("clamps requested institution financial history limits", async () => {
+    getMock().mockResolvedValue([]);
+
+    await getFinancialsByInstitution(123, 500);
+
+    expect(getMock().mock.calls[0]).toContain(40);
   });
 });
 

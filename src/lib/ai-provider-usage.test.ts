@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { sqlMock, controlMock, stopMock } = vi.hoisted(() => ({
+const { sqlMock, controlMock, stopMock, budgetMock } = vi.hoisted(() => ({
   sqlMock: vi.fn(),
   controlMock: vi.fn(),
   stopMock: vi.fn(),
+  budgetMock: vi.fn(),
 }));
 
 vi.mock("./data-store/connection", () => ({ sql: sqlMock }));
@@ -12,6 +13,36 @@ vi.mock("./automation-control", () => ({
   engageEmergencyStop: stopMock,
   EmergencyStopActiveError: class EmergencyStopActiveError extends Error {},
 }));
+vi.mock("./api-hardening/budget", () => {
+  class ProviderBudgetBlockedError extends Error {
+    reasonCode: string;
+    policyId?: number;
+    policyKey?: string;
+
+    constructor(reasonCode: string, message: string, policy?: { id?: number; policy_key?: string } | null) {
+      super(message);
+      this.name = "ProviderBudgetBlockedError";
+      this.reasonCode = reasonCode;
+      this.policyId = policy?.id;
+      this.policyKey = policy?.policy_key;
+    }
+  }
+
+  return {
+    ProviderBudgetBlockedError,
+    assertProviderBudgetAllowed: budgetMock,
+    providerBudgetDecisionToError: (decision: {
+      reasonCode?: string;
+      message?: string;
+      policyId?: number;
+      policyKey?: string;
+    }) => new ProviderBudgetBlockedError(
+      decision.reasonCode ?? "budget_lookup_failed",
+      decision.message ?? "blocked",
+      decision.policyId ? { id: decision.policyId, policy_key: decision.policyKey } : null,
+    ),
+  };
+});
 
 import {
   estimateAnthropicCostMicrousd,
@@ -30,6 +61,7 @@ describe("AI provider usage", () => {
     sqlMock.mockReset().mockResolvedValue([]);
     controlMock.mockReset().mockResolvedValue({ enabled: true });
     stopMock.mockReset().mockResolvedValue({ enabled: false });
+    budgetMock.mockReset().mockResolvedValue({ allowed: true, policyId: 1 });
   });
 
   it("estimates model-family spend in microdollars", () => {
@@ -161,5 +193,33 @@ describe("AI provider usage", () => {
     );
     expect(insertCall).toBeTruthy();
     expect(JSON.stringify(insertCall)).toContain("blocked");
+  });
+
+  it("records blocked events when the budget guard denies provider calls", async () => {
+    budgetMock.mockResolvedValueOnce({
+      allowed: false,
+      reasonCode: "budget_policy_disabled",
+      policyId: 7,
+      policyKey: "route:api.hamilton.chat",
+      message: "Provider budget policy is disabled.",
+    });
+
+    const request = vi.fn();
+
+    await expect(trackAnthropicRequest(
+      { model: "claude-sonnet-4-5", agent: "hamilton", operation: "chat" },
+      request,
+    )).rejects.toMatchObject({
+      name: "ProviderBudgetBlockedError",
+      message: "Provider budget policy is disabled.",
+    });
+
+    expect(request).not.toHaveBeenCalled();
+    const insertCall = sqlMock.mock.calls.find((call) =>
+      templateText(call[0]).includes("INSERT INTO ai_api_usage_events"),
+    );
+    expect(insertCall).toBeTruthy();
+    expect(JSON.stringify(insertCall)).toContain("blocked");
+    expect(JSON.stringify(insertCall)).toContain("Provider budget policy is disabled.");
   });
 });

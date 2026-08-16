@@ -18,10 +18,10 @@ export default async function ResearchUsagePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            Research Usage
+            Hamilton Research Usage
           </h1>
           <p className="mt-1 text-[13px] text-gray-500">
-            Query volume, cost tracking, and usage analytics for AI research
+            Query volume, cost tracking, and usage analytics for Hamilton research
             agents.
           </p>
         </div>
@@ -29,7 +29,7 @@ export default async function ResearchUsagePage() {
           href="/admin/hamilton/research"
           className="rounded-md border border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
         >
-          Back to Research Hub
+          Back to Hamilton Research
         </Link>
       </div>
 

@@ -15,9 +15,9 @@ describe("getInstitutionFeeScheduleEvidence", () => {
   });
 
   it("returns source, text, raw, verified, and published pipeline evidence", async () => {
-    sqlMock
-      .mockResolvedValueOnce([
-        {
+    sqlMock.mockResolvedValueOnce([
+      {
+        latest_document: {
           id: "501",
           source_collection_run_id: "77",
           status: "success",
@@ -29,9 +29,7 @@ describe("getInstitutionFeeScheduleEvidence", () => {
           crawled_at: "2026-08-13T12:00:00Z",
           status_code: "200",
         },
-      ])
-      .mockResolvedValueOnce([
-        {
+        latest_text: {
           id: "44",
           agent_run_id: "88",
           source_document_id: "501",
@@ -45,44 +43,43 @@ describe("getInstitutionFeeScheduleEvidence", () => {
           updated_at: "2026-08-13T12:03:00Z",
           text_excerpt: "Schedule of Fees",
         },
-      ])
-      .mockResolvedValueOnce([
-        {
+        pipeline_counts: {
           raw_fee_count: "12",
           verified_fee_count: "8",
           published_fee_count: "5",
           raw_without_verified_count: "4",
           verified_without_published_count: "3",
         },
-      ])
-      .mockResolvedValueOnce([
-        {
-          fee_raw_id: "9001",
-          source_document_id: "501",
-          fee_name: "Monthly maintenance fee",
-          amount: "7.50",
-          frequency: "monthly",
-          conditions: "Waived with direct deposit",
-          extraction_confidence: "0.91",
-          source_url: "https://bank.example/fees.pdf",
-          source: "knox",
-          created_at: "2026-08-13T12:04:00Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          fee_verified_id: "7001",
-          fee_raw_id: "9001",
-          canonical_fee_key: "monthly_maintenance",
-          fee_name: "Monthly maintenance fee",
-          amount: "7.50",
-          frequency: "monthly",
-          review_status: "verified",
-          extraction_confidence: "0.91",
-          source_url: "https://bank.example/fees.pdf",
-          created_at: "2026-08-13T12:05:00Z",
-        },
-      ]);
+        raw_fee_preview: [
+          {
+            fee_raw_id: "9001",
+            source_document_id: "501",
+            fee_name: "Monthly maintenance fee",
+            amount: "7.50",
+            frequency: "monthly",
+            conditions: "Waived with direct deposit",
+            extraction_confidence: "0.91",
+            source_url: "https://bank.example/fees.pdf",
+            source: "knox",
+            created_at: "2026-08-13T12:04:00Z",
+          },
+        ],
+        verified_fee_preview: [
+          {
+            fee_verified_id: "7001",
+            fee_raw_id: "9001",
+            canonical_fee_key: "monthly_maintenance",
+            fee_name: "Monthly maintenance fee",
+            amount: "7.50",
+            frequency: "monthly",
+            review_status: "verified",
+            extraction_confidence: "0.91",
+            source_url: "https://bank.example/fees.pdf",
+            created_at: "2026-08-13T12:05:00Z",
+          },
+        ],
+      },
+    ]);
 
     const evidence = await getInstitutionFeeScheduleEvidence(1);
     const issuedSql = sqlMock.mock.calls
