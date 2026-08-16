@@ -120,8 +120,11 @@ const finCards = [
     fy.fee_income_ratio != null ? `${pct(fy.fee_income_ratio, 1)} of revenue` : "as filed"),
   card("Fee-income intensity", pct(scRatio, 3),
     scMed != null ? `cohort median <b>${pct(scMed, 3)}</b> of assets` : "of assets"),
-  card("Return on assets", fl.roa != null ? `${fl.roa}%` : "—",
-    fc.roa_median != null ? `cohort median <b>${fc.roa_median}%</b>` : ""),
+  // NCUA filings often lack ROA — only show the card when both sides are real
+  (fl.roa && fc.roa_median)
+    ? card("Return on assets", `${fl.roa}%`, `cohort median <b>${fc.roa_median}%</b>`)
+    : card("Fee schedule", `${fees.filter((x) => x.their_value !== null).length} of 15`,
+        "featured categories published"),
 ].join("\n");
 
 let finNarr = "";
@@ -152,7 +155,7 @@ const repl = {
   CHARTER_LABEL: inst.charter_type === "credit_union" ? "Credit Union" : "Bank",
   TIER_LABEL: TIERS[inst.asset_size_tier] ?? inst.asset_size_tier,
   PULL_DATE: pack.meta.pull_date,
-  COHORT_LABEL: pack.meta.cohort.replace("community_", "community "),
+  COHORT_LABEL: pack.meta.cohort.replaceAll("_", " ").replace("credit union", "credit unions"),
   COHORT_SIZE: pack.meta.cohort_size,
   TOTAL_INSTITUTIONS: narr.total_institutions ?? "1,100+",
   CONTACT_EMAIL: narr.contact_email,
