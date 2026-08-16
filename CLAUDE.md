@@ -1,3 +1,19 @@
+# feeschedule-hub — Bank Fee Index
+
+## Money-Thesis
+A bank/CU marketing or product manager pays ~$300 for a competitive fee report for
+their market. Why us: live verified fee data (published_fee_catalog) + banking domain
+expertise. Kept fully separate from the CSI day job.
+
+## Status
+ACTIVE (slot 1 of 1). Milestone: Report Studio built (reports/studio/) — pilot PDF
+rendered for Bank of the Pacific. Distance to first dollar: 25 reports out the door,
+replies define the paid product.
+
+## Next action
+Review pilot PDF (reports/studio/out/), fix contact email in narratives/, then
+produce reports 2–25 per reports/studio/matrix.md.
+
 # Agent Guidance
 
 This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
