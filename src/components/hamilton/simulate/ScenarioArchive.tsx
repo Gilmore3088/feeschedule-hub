@@ -5,9 +5,17 @@ import { timeAgo } from "@/lib/format";
 export interface ScenarioListItem {
   id: string;
   fee_category: string;
+  institution_id: string;
   current_value: string;
   proposed_value: string;
   confidence_tier: string;
+  peer_set_id?: string | null;
+  evidence_policy?: string | null;
+  peer_baseline_source?: string | null;
+  peer_baseline_label?: string | null;
+  peer_fallback_reason?: string | null;
+  selected_source?: string | null;
+  selected_source_label?: string | null;
   created_at: string;
 }
 
@@ -91,6 +99,21 @@ export function ScenarioArchive({ scenarios, selectedId, onSelect }: Props) {
                     {timeAgo(scenario.created_at)}
                   </span>
                 </div>
+                {scenario.peer_baseline_label && (
+                  <p
+                    className="mt-1 truncate text-[11px]"
+                    title={[
+                      scenario.peer_baseline_label,
+                      scenario.peer_baseline_source,
+                      scenario.peer_fallback_reason,
+                      scenario.selected_source_label,
+                    ].filter(Boolean).join(" · ")}
+                    style={{ color: "var(--hamilton-text-tertiary)" }}
+                  >
+                    {scenario.peer_baseline_label}
+                    {scenario.selected_source_label ? ` · ${scenario.selected_source_label}` : ""}
+                  </p>
+                )}
               </button>
             );
           })}

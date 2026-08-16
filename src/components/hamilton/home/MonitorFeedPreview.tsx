@@ -6,14 +6,20 @@
 
 import Link from "next/link";
 import { timeAgo } from "@/lib/format";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 import type { SignalEntry } from "@/lib/hamilton/home-data";
 
 interface MonitorFeedPreviewProps {
   signals: SignalEntry[];
+  selectedInstitutionId?: string | null;
 }
 
-export function MonitorFeedPreview({ signals }: MonitorFeedPreviewProps) {
+export function MonitorFeedPreview({
+  signals,
+  selectedInstitutionId = null,
+}: MonitorFeedPreviewProps) {
   const hasSignals = signals.length > 0;
+  const monitorHref = hrefWithInstitutionContext("/pro/monitor", selectedInstitutionId);
 
   return (
     <div
@@ -72,7 +78,7 @@ export function MonitorFeedPreview({ signals }: MonitorFeedPreviewProps) {
               margin: 0,
             }}
           >
-            Your signal feed will show competitive intelligence here. <a href="/pro/monitor" style={{ color: "var(--hamilton-primary)", textDecoration: "none", fontWeight: 500 }}>Open Watchlist</a> to configure tracked institutions.
+            Your signal feed will show competitive intelligence here. <Link href={monitorHref} style={{ color: "var(--hamilton-primary)", textDecoration: "none", fontWeight: 500 }}>Open Watchlist</Link> to configure tracked institutions.
           </p>
         ) : (
           signals.map((signal, i) => (
@@ -156,7 +162,7 @@ export function MonitorFeedPreview({ signals }: MonitorFeedPreviewProps) {
         }}
       >
         <Link
-          href="/pro/monitor"
+          href={monitorHref}
           style={{
             fontSize: "0.8125rem",
             fontWeight: 500,

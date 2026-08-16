@@ -10,11 +10,16 @@ import {
   generateReport,
   loadActiveScenarios,
   loadScenarioById,
+  previewReportPeerCoverage,
   type ReportTemplateType,
 } from "@/app/pro/(hamilton)/reports/actions";
-import type { ReportSummaryResponse } from "@/lib/hamilton/types";
+import type { ReportArtifactMetadata, ReportSummaryResponse } from "@/lib/hamilton/types";
 import type { HamiltonSelectedInstitutionContext } from "@/lib/hamilton/institution-context";
+import type { HamiltonContextSource } from "@/lib/hamilton/context-source";
+import type { ReportPeerCoveragePreview } from "@/lib/hamilton/report-evidence";
+import type { HamiltonReportLibraryItem } from "@/lib/hamilton/pro-tables";
 import { getSpotlightCategories, getDisplayName } from "@/lib/fee-taxonomy";
+import type { HamiltonPeerSetOption } from "@/components/hamilton/PeerBaselineSelector";
 
 type NarrativeTone = "consulting" | "academic" | "executive" | "technical";
 
@@ -65,23 +70,56 @@ interface ReportWorkspaceProps {
   institutionName: string;
   publishedReports: Array<{
     id: string;
+    institution_id: string | null;
     report_type: string;
     title: string;
     created_at: string;
     report_json: ReportSummaryResponse;
+    artifact_metadata: ReportArtifactMetadata;
   }>;
+  savedReports: HamiltonReportLibraryItem[];
+  initialReport?: Pick<
+    HamiltonReportLibraryItem,
+    "report_type" | "report_json" | "artifact_metadata"
+  > | null;
   initialScenarioId: string | null;
   selectedInstitution?: HamiltonSelectedInstitutionContext | null;
   initialIntent?: string | null;
+  initialPeerSetId?: string | null;
+  savedPeerSets: HamiltonPeerSetOption[];
+  selectedSource?: HamiltonContextSource;
+  selectedSourceLabel?: string | null;
+  legacyPeerFilterLabel?: string | null;
+}
+
+function getInitialTemplateFromIntent(
+  intent: string | null | undefined,
+): ReportTemplateType | null {
+  switch (intent) {
+    case "competitive-brief":
+    case "executive-briefing":
+      return "competitive_positioning";
+    case "peer-brief":
+      return "peer_benchmarking";
+    default:
+      return null;
+  }
 }
 
 export function ReportWorkspace({
   userId,
   institutionName,
   publishedReports,
+  savedReports,
+  initialReport,
   initialScenarioId,
   selectedInstitution,
   initialIntent,
+  initialPeerSetId,
+  savedPeerSets,
+  selectedSource,
+  selectedSourceLabel,
+  legacyPeerFilterLabel,
 }: ReportWorkspaceProps) {
   // Spotlight categories are the 6 most-used fees — the ones a banker is
   // most likely to want to drill into for Category Deep Dive. The default
@@ -89,16 +127,25 @@ export function ReportWorkspace({
   // always a real fee_category key, not a generic placeholder.
   const SPOTLIGHT = getSpotlightCategories();
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplateType | null>(() =>
-    initialIntent === "competitive-brief" ? "competitive_positioning" : null,
+    getInitialTemplateFromIntent(initialIntent),
   );
   const [focusArea, setFocusArea] = useState<string>(SPOTLIGHT[0] ?? "monthly_maintenance");
   const [narrativeTone, setNarrativeTone] = useState<NarrativeTone>("consulting");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPdfExporting, setIsPdfExporting] = useState(false);
   const [generatedReport, setGeneratedReport] =
-    useState<ReportSummaryResponse | null>(null);
-  const [generatedReportType, setGeneratedReportType] = useState<string>("");
+    useState<ReportSummaryResponse | null>(initialReport?.report_json ?? null);
+  const [generatedReportType, setGeneratedReportType] = useState<string>(
+    initialReport?.report_type ?? "",
+  );
+  const [generatedReportMetadata, setGeneratedReportMetadata] =
+    useState<ReportArtifactMetadata | null>(initialReport?.artifact_metadata ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [peerSetId, setPeerSetId] = useState<string | null>(initialPeerSetId ?? null);
+  const [peerCoveragePreview, setPeerCoveragePreview] =
+    useState<ReportPeerCoveragePreview | null>(null);
+  const [isPeerCoverageLoading, setIsPeerCoverageLoading] = useState(false);
+  const [peerCoverageError, setPeerCoverageError] = useState<string | null>(null);
 
   // Load scenarios on mount (kept for future scenario linking)
   useEffect(() => {
@@ -117,12 +164,64 @@ export function ReportWorkspace({
       // — pass it through directly without the underscore-to-space transform
       // that the prior version did (which silently broke the lookup downstream).
       setFocusArea(scenario.fee_category);
+      setPeerSetId(scenario.peer_set_id ?? null);
     });
     return () => { cancelled = true; };
   }, [initialScenarioId]);
 
+  useEffect(() => {
+    if (!selectedTemplate) {
+      setPeerCoveragePreview(null);
+      setPeerCoverageError(null);
+      setIsPeerCoverageLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsPeerCoverageLoading(true);
+    setPeerCoverageError(null);
+
+    previewReportPeerCoverage({
+      templateType: selectedTemplate,
+      focusCategory: selectedTemplate === "category_deep_dive" ? focusArea : undefined,
+      institutionId: selectedInstitution?.id,
+      peerSetId: peerSetId ?? undefined,
+      evidencePolicy: "provisional-first",
+    })
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) {
+          setPeerCoveragePreview(result.preview);
+          setPeerCoverageError(null);
+        } else {
+          setPeerCoveragePreview(null);
+          setPeerCoverageError(result.error);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setPeerCoveragePreview(null);
+        setPeerCoverageError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setIsPeerCoverageLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTemplate, focusArea, selectedInstitution?.id, peerSetId]);
+
   function handleTemplateClick(type: ReportTemplateType) {
     setSelectedTemplate((prev) => (prev === type ? null : type));
+  }
+
+  function handlePeerSetChange(nextPeerSetId: string | null) {
+    setPeerSetId(nextPeerSetId);
+    setGeneratedReport(null);
+    setGeneratedReportType("");
+    setGeneratedReportMetadata(null);
+    setError(null);
   }
 
   /**
@@ -131,10 +230,12 @@ export function ReportWorkspace({
    */
   function handleViewPublishedReport(
     report: ReportSummaryResponse,
-    reportType: string
+    reportType: string,
+    artifactMetadata: ReportArtifactMetadata | null,
   ) {
     setGeneratedReport(report);
     setGeneratedReportType(reportType);
+    setGeneratedReportMetadata(artifactMetadata);
     setError(null);
     setIsGenerating(false);
     // Scroll the preview area into view
@@ -151,6 +252,7 @@ export function ReportWorkspace({
     setIsGenerating(true);
     setError(null);
     setGeneratedReport(null);
+    setGeneratedReportMetadata(null);
 
     const today = new Date().toISOString().split("T")[0];
     const threeMonthsAgo = new Date();
@@ -166,7 +268,10 @@ export function ReportWorkspace({
       scenarioId: initialScenarioId ?? undefined,
       institutionId: selectedInstitution?.id,
       selectedInstitutionName: selectedInstitution?.name,
+      peerSetId: peerSetId ?? undefined,
       evidencePolicy: "provisional-first",
+      selectedSource,
+      selectedSourceLabel,
     });
 
     setIsGenerating(false);
@@ -174,6 +279,7 @@ export function ReportWorkspace({
     if (result.success) {
       setGeneratedReport(result.report);
       setGeneratedReportType(selectedTemplate);
+      setGeneratedReportMetadata(result.artifactMetadata);
     } else {
       setError(result.error);
     }
@@ -189,6 +295,7 @@ export function ReportWorkspace({
         body: JSON.stringify({
           report: generatedReport,
           reportType: generatedReportType,
+          artifactMetadata: generatedReportMetadata,
         }),
       });
       if (!res.ok) throw new Error("PDF generation failed");
@@ -210,9 +317,20 @@ export function ReportWorkspace({
   }
 
   const reportGenerated = generatedReport !== null;
+  const selectedPeerSet = peerSetId
+    ? savedPeerSets.find((peerSet) => String(peerSet.id) === peerSetId)
+    : null;
+  const defaultPeerSetLabel = selectedInstitution
+    ? `${selectedInstitution.stateCode ?? "Regional"} ${selectedInstitution.charterType.replace(/_/g, " ")} peer default`
+    : "Verified national index";
+  const peerSetLabel = selectedPeerSet
+    ? selectedPeerSet.name
+    : peerSetId
+      ? `Saved peer set #${peerSetId}`
+      : defaultPeerSetLabel;
 
   return (
-    <div className="px-6 pb-20">
+    <div className="min-w-0 pb-20 sm:px-6">
       {/* Page header */}
       <header className="mb-12">
         <h1 className="font-headline text-6xl italic tracking-tighter text-on-surface mb-2">
@@ -274,9 +392,9 @@ export function ReportWorkspace({
       {/* Generate New Report — primary workflow above the fold (audit H-1).
           Page is named "Report Builder" — the build affordance must be the
           dominant action. Published library appears below as recent-history. */}
-      <div className="grid grid-cols-12 gap-12 items-start">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-12 lg:items-start lg:gap-12">
         {/* Left: Template Gallery + Preview */}
-        <section className="col-span-12 lg:col-span-8">
+        <section className="min-w-0 lg:col-span-8">
           {/* Section label — "Generate New Report" per D-02 */}
           <div className="mb-6">
             <h2
@@ -285,6 +403,21 @@ export function ReportWorkspace({
               Generate New Report
             </h2>
           </div>
+
+          {legacyPeerFilterLabel && (
+            <div
+              className="mb-6 rounded-md border px-4 py-3 text-[12px] leading-relaxed"
+              style={{
+                borderColor: "rgba(133,77,14,0.22)",
+                backgroundColor: "rgba(133,77,14,0.08)",
+                color: "var(--hamilton-on-surface)",
+              }}
+            >
+              Legacy peer filters detected: <strong>{legacyPeerFilterLabel}</strong>.
+              Hamilton reports now use saved peer sets for repeatable board-ready
+              outputs; select the matching peer set in the sidebar before generating.
+            </div>
+          )}
 
           {/* 2×2 template card grid */}
           <div
@@ -368,6 +501,7 @@ export function ReportWorkspace({
               <ReportOutput
                 report={generatedReport}
                 reportType={generatedReportType}
+                artifactMetadata={generatedReportMetadata}
               />
             )}
 
@@ -412,12 +546,20 @@ export function ReportWorkspace({
         {/* Configuration sidebar — right side for now, moves to left rail in v8.2 */}
         <ConfigSidebar
           selectedTemplate={selectedTemplate}
+          selectedInstitutionId={selectedInstitution?.id?.toString() ?? null}
           institutionName={institutionName}
-          peerSetLabel="National Index"
+          peerSetLabel={peerSetLabel}
+          peerSetId={peerSetId}
+          defaultPeerSetLabel={defaultPeerSetLabel}
+          savedPeerSets={savedPeerSets}
           narrativeTone={narrativeTone}
           isGenerating={isGenerating}
+          onPeerSetChange={handlePeerSetChange}
           onNarrativeToneChange={setNarrativeTone}
           onGenerate={handleGenerate}
+          peerCoveragePreview={peerCoveragePreview}
+          isPeerCoverageLoading={isPeerCoverageLoading}
+          peerCoverageError={peerCoverageError}
         />
       </div>
 
@@ -427,10 +569,22 @@ export function ReportWorkspace({
         style={{ borderTop: "1px solid rgba(216,194,184,0.2)" }}
       />
 
+      {/* User-owned generated reports — reusable consulting artifacts. */}
+      <ReportLibrary
+        reports={savedReports}
+        title="Your Reports"
+        subtitle="Saved Hamilton consulting briefs and board-ready exports"
+        emptyCopy="Generated reports will appear here after Hamilton saves them."
+        getReportHref={(report) => `/pro/reports?report_id=${report.id}`}
+        onViewReport={handleViewPublishedReport}
+      />
+
       {/* Published Reports library — recent-history reference, below the
           generator (audit H-1 reordering). */}
       <ReportLibrary
         reports={publishedReports}
+        title="Published Reports"
+        subtitle="Curated Hamilton intelligence publications"
         onViewReport={handleViewPublishedReport}
       />
     </div>

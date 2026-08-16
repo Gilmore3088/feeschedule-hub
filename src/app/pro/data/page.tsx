@@ -7,10 +7,10 @@ import { canAccessPremium } from "@/lib/access";
 import { searchInstitutions } from "@/lib/data-store/search";
 import { getPublicStats, getDataFreshness } from "@/lib/data-store";
 import { getStatesWithFeeData } from "@/lib/data-store";
-import { FDIC_TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
+import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
-import { formatAssets } from "@/lib/format";
 import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
+import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
   title: "Data Explorer | Bank Fee Index",
@@ -27,11 +27,20 @@ interface PageProps {
 }
 
 export default async function ProDataPage({ searchParams }: PageProps) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?from=/pro/data");
-  if (!canAccessPremium(user)) redirect("/subscribe");
-
   const params = await searchParams;
+  const returnParams = new URLSearchParams();
+  for (const key of ["q", "state", "charter", "tier", "page"] as const) {
+    const value = params[key];
+    if (value) returnParams.set(key, value);
+  }
+  const returnPath = returnParams.toString()
+    ? `/pro/data?${returnParams.toString()}`
+    : "/pro/data";
+
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?from=${encodeURIComponent(returnPath)}`);
+  if (!canAccessPremium(user)) redirect(`/subscribe?from=${encodeURIComponent(returnPath)}`);
+
   const query = params.q || "";
   const stateCode = params.state || "";
   const charterType = params.charter || "";
@@ -89,6 +98,8 @@ export default async function ProDataPage({ searchParams }: PageProps) {
         with {stats.total_observations.toLocaleString()} fee observations across {TAXONOMY_COUNT} categories.
         <span className="ml-2 text-warm-500">Updated {lastUpdated}</span>
       </p>
+
+      <ProReferenceWorkflowBanner userId={user.id} surface="data" />
 
       {/* Stat cards */}
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -291,7 +302,7 @@ export default async function ProDataPage({ searchParams }: PageProps) {
           {[
             { label: "Fee Index", desc: `All ${TAXONOMY_COUNT} categories`, href: "/fees" },
             { label: "National Benchmarks", desc: "Medians & percentiles", href: "/research/national-fee-index" },
-            { label: "AI Research", desc: "Analyst hub", href: "/pro/research" },
+            { label: "Hamilton", desc: "Analysis workspace", href: "/pro/analyze" },
             { label: "State Reports", desc: `${statesData.length} states`, href: "/research" },
           ].map((item) => (
             <Link

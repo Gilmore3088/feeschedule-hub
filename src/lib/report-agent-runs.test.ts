@@ -69,4 +69,21 @@ describe("agentic report job envelope", () => {
     expect(startAgentRunMock).not.toHaveBeenCalled();
     expect(sqlMock).not.toHaveBeenCalled();
   });
+
+  it("does not create legacy peer brief runs outside Hamilton Reports", async () => {
+    await expect(triggerReportJob(
+      "report-3",
+      "peer_brief",
+      {},
+      "admin",
+    )).resolves.toEqual({
+      success: false,
+      error:
+        "Legacy peer brief generation has moved to Hamilton Reports because peer briefs require a selected institution, evidence policy, and peer baseline. Use /pro/reports?intent=peer-brief instead.",
+    });
+
+    expect(assertAutomationEnabledMock).not.toHaveBeenCalled();
+    expect(startAgentRunMock).not.toHaveBeenCalled();
+    expect(sqlMock).not.toHaveBeenCalled();
+  });
 });

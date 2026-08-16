@@ -48,8 +48,8 @@ export function UpgradeGate({
       </h3>
       <p className="text-sm text-[#7A7062] mb-4">
         {count
-          ? `${count} more categories with peer filters, CSV exports, AI research, and full API access.`
-          : "Unlock all 49 fee categories, peer benchmarks by charter/tier/district, data exports, and AI-powered research."}
+          ? `${count} more categories with peer filters, signed-in CSV exports, Hamilton analysis, and managed data options.`
+          : "Unlock all 49 fee categories, peer benchmarks by charter/tier/district, data exports, and Hamilton workflows."}
       </p>
       <div className="text-[11px] text-[#A09788] mt-2 mb-4">
         Based on 60,000+ fee observations from 8,000+ institutions

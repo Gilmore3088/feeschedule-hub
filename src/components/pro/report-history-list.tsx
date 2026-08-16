@@ -70,7 +70,7 @@ function ActionCell({ report }: { report: ReportRow }) {
   if (report.status === 'failed') {
     return (
       <Link
-        href="/pro/reports/new"
+        href="/pro/reports?intent=peer-brief"
         className="text-sm text-[#7A7265] hover:text-[#1A1815] transition-colors"
       >
         Retry
@@ -112,7 +112,7 @@ export function ReportHistoryList({ reports }: ReportHistoryListProps) {
           Generate your first report to see it here.
         </p>
         <Link
-          href="/pro/reports/new"
+          href="/pro/reports?intent=peer-brief"
           className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-[#C44B2E] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#B03E24] transition-colors"
         >
           Generate Report

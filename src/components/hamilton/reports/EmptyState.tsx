@@ -21,7 +21,7 @@ export function EmptyState() {
         className="text-[15px] leading-relaxed max-w-sm"
         style={{ color: "var(--hamilton-text-secondary)" }}
       >
-        Choose a template, configure your scope, and Hamilton will generate a McKinsey-grade executive summary.
+        Choose a template, configure your scope, and Hamilton will build an evidence-labeled brief with board-ready summary, caveats, and diligence questions.
       </p>
     </div>
   );

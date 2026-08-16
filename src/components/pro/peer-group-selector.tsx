@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { DISTRICT_NAMES, FDIC_TIER_LABELS, FDIC_TIER_ORDER } from '@/lib/fed-districts';
-import { BriefStatusPoller } from './brief-status-poller';
 
 interface PeerPreview {
   institution_count: number;
@@ -17,7 +16,6 @@ export function PeerGroupSelector() {
   const [districts, setDistricts] = useState<number[]>([]);
   const [preview, setPreview] = useState<PeerPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -73,26 +71,14 @@ export function PeerGroupSelector() {
     setGenerateError(null);
 
     try {
-      const res = await fetch('/api/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          report_type: 'peer_brief',
-          params: {
-            charter_type: charter || undefined,
-            asset_tiers: tiers.length > 0 ? tiers : undefined,
-            fed_districts: districts.length > 0 ? districts : undefined,
-          },
-        }),
+      const params = new URLSearchParams({
+        intent: 'peer-brief',
+        legacyPeerFilters: '1',
       });
-
-      if (res.status === 202) {
-        const data = await res.json() as { jobId: string };
-        setJobId(data.jobId);
-      } else {
-        const data = await res.json() as { error?: string };
-        setGenerateError(data.error ?? 'Generation failed. Please try again.');
-      }
+      if (charter) params.set('charter', charter);
+      if (tiers.length > 0) params.set('tier', tiers.join(','));
+      if (districts.length > 0) params.set('district', districts.join(','));
+      window.location.assign(`/pro/reports?${params.toString()}`);
     } catch {
       setGenerateError('Network error. Please check your connection and try again.');
     } finally {
@@ -214,8 +200,8 @@ export function PeerGroupSelector() {
             {/* Thin group warning */}
             {preview.thin && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-                Peer group has fewer than 5 institutions — results may have limited
-                statistical confidence. Generation is still allowed.
+                Peer group has fewer than 5 institutions — Hamilton Reports will
+                show the evidence caveat before producing a board-ready output.
               </div>
             )}
 
@@ -236,22 +222,17 @@ export function PeerGroupSelector() {
         )}
 
         {/* Generate button */}
-        {!jobId && (
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors bg-[#C44B2E] hover:bg-[#A83D25] disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {generating ? 'Generating...' : 'Generate Brief'}
-            </button>
-          </div>
-        )}
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors bg-[#C44B2E] hover:bg-[#A83D25] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {generating ? 'Opening...' : 'Open Hamilton Reports'}
+          </button>
+        </div>
       </div>
-
-      {/* Live status poller — mounts after generate returns a jobId */}
-      {jobId && <BriefStatusPoller jobId={jobId} />}
     </div>
   );
 }

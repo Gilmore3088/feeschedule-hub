@@ -6,25 +6,26 @@ import { SubscribeButton } from "./subscribe-button";
 import { CustomerNav } from "@/components/customer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
+import { getPendingWorkspaceInvitationsForEmail } from "@/lib/hamilton/institution-membership";
+import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Pricing | Bank Fee Index",
   description:
-    "Access the most comprehensive bank fee benchmarking platform. Seat licenses, annual plans, and custom research reports.",
+    "Access the most comprehensive bank fee benchmarking platform. Seat licenses, annual plans, and Hamilton report workflows.",
 };
 
 const MONTHLY_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "";
 const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID || "";
-const REPORT_PRICE_ID = process.env.STRIPE_REPORT_PRICE_ID || "";
 
 const FEATURES = [
   "Full dataset: all 49 fee categories, 8,000+ institutions",
   "Peer comparison by charter type, asset tier, Fed district",
   "National and regional fee index with percentiles",
   "CSV and bulk data exports",
-  "AI research agent for custom analysis",
-  "Executive research reports",
+  "Hamilton analysis workflows",
+  "Executive Hamilton reports",
   "Fed district economic context and Beige Book summaries",
   "CFPB complaint correlation data",
   "Daily-updated economic indicators (FRED, BLS, NY Fed)",
@@ -33,16 +34,40 @@ const FEATURES = [
 export default async function SubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ success?: string; invite?: string; from?: string }>;
 }) {
   const user = await getCurrentUser();
   const params = await searchParams;
+  const returnTo = params.from
+    ? sanitizeInternalRedirect(params.from, "/account/welcome")
+    : null;
 
   if (user && canAccessPremium(user)) {
-    redirect("/account");
+    redirect(returnTo && returnTo !== "/account/welcome" ? returnTo : "/account");
   }
 
   const isLoggedIn = !!user;
+  const pendingInvitations =
+    user && !canAccessPremium(user)
+      ? await getPendingWorkspaceInvitationsForEmail(user.email ?? user.username, 5).catch(() => [])
+      : [];
+  const inviteMode = params.invite === "workspace" || pendingInvitations.length > 0;
+  const subscribeParams = new URLSearchParams();
+  if (inviteMode) subscribeParams.set("invite", "workspace");
+  if (returnTo && returnTo !== "/account/welcome") subscribeParams.set("from", returnTo);
+  const subscribeReturnPath = subscribeParams.toString()
+    ? `/subscribe?${subscribeParams.toString()}`
+    : "/subscribe";
+  const registerHref = inviteMode
+    ? `/register?from=${encodeURIComponent(subscribeReturnPath)}`
+    : returnTo
+      ? `/register?from=${encodeURIComponent(subscribeReturnPath)}`
+      : "/register";
+  const loginHref = inviteMode
+    ? `/login?from=${encodeURIComponent(subscribeReturnPath)}`
+    : returnTo
+      ? `/login?from=${encodeURIComponent(subscribeReturnPath)}`
+      : "/login";
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -52,6 +77,26 @@ export default async function SubscribePage({
         {params.success && (
           <div className="mb-6 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3 text-center">
             Subscription activated! You now have full access.
+          </div>
+        )}
+
+        {inviteMode && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-semibold">Workspace invitation pending</p>
+            <p className="mt-1">
+              Activate a Pro seat with the invited email and Hamilton will attach the delegated
+              institution workspace automatically.
+            </p>
+            {pendingInvitations.length > 0 && (
+              <div className="mt-3 grid gap-2">
+                {pendingInvitations.map((invitation) => (
+                  <div key={invitation.id} className="rounded-md border border-amber-200 bg-white/60 px-3 py-2">
+                    <span className="font-semibold">{invitation.institutionName}</span>
+                    <span className="text-amber-800"> · {invitation.role} access</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -96,12 +141,13 @@ export default async function SubscribePage({
               <SubscribeButton
                 priceId={MONTHLY_PRICE_ID}
                 mode="subscription"
+                returnTo={returnTo ?? undefined}
                 label="Start Monthly -- $499.99/mo"
                 className="w-full rounded-md bg-[#1A1815] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#2A2825] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               />
             ) : (
               <a
-                href="/register"
+                href={registerHref}
                 className="block w-full text-center rounded-md bg-[#1A1815] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#2A2825] transition-colors"
               >
                 Create account
@@ -144,12 +190,13 @@ export default async function SubscribePage({
               <SubscribeButton
                 priceId={ANNUAL_PRICE_ID}
                 mode="subscription"
+                returnTo={returnTo ?? undefined}
                 label="Start Annual -- $5,000/year"
                 className="w-full rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               />
             ) : (
               <a
-                href="/register"
+                href={registerHref}
                 className="block w-full text-center rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors"
               >
                 Create account
@@ -222,7 +269,7 @@ export default async function SubscribePage({
         {!isLoggedIn && (
           <p className="text-center text-xs text-[#A69D90] mt-8">
             Already have an account?{" "}
-            <a href="/login" className="text-[#7A7062] hover:underline">
+            <a href={loginHref} className="text-[#7A7062] hover:underline">
               Sign in
             </a>
           </p>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { User } from "@/lib/auth";
+import type { HamiltonContextSource } from "@/lib/hamilton/context-source";
 import { HamiltonTopNav } from "./HamiltonTopNav";
 import { HamiltonContextBar } from "./HamiltonContextBar";
 import { HamiltonLeftRail } from "./HamiltonLeftRail";
@@ -10,12 +11,14 @@ interface SavedAnalysis {
   id: string;
   title: string;
   analysis_focus: string;
+  institution_id: string | null;
   updated_at: string;
 }
 
 interface RecentScenario {
   id: string;
   fee_category: string;
+  institution_id: string | null;
   updated_at: string;
 }
 
@@ -30,8 +33,10 @@ interface HamiltonShellProps {
     feePublicationLabel?: string | null;
     publishedFeeCount?: number | null;
     provisionalFeeCount?: number | null;
+    selectedSource?: HamiltonContextSource;
     selectedFromUrl?: boolean;
   };
+  selectedInstitutionId?: string | null;
   activeHref: string;
   savedAnalyses?: SavedAnalysis[];
   recentScenarios?: RecentScenario[];
@@ -51,6 +56,7 @@ export function HamiltonShell({
   user,
   isAdmin,
   institutionContext,
+  selectedInstitutionId,
   activeHref,
   savedAnalyses,
   recentScenarios,
@@ -77,14 +83,28 @@ export function HamiltonShell({
       )}
 
       {/* Top navigation */}
-      <HamiltonTopNav isAdmin={isAdmin} activeHref={activeHref} user={user} />
+      <HamiltonTopNav
+        isAdmin={isAdmin}
+        activeHref={activeHref}
+        user={user}
+        selectedInstitutionId={selectedInstitutionId}
+      />
 
       {/* Institution context bar */}
-      <HamiltonContextBar institutionContext={institutionContext} />
+      <HamiltonContextBar
+        institutionContext={institutionContext}
+        selectedInstitutionId={selectedInstitutionId}
+      />
 
       {/* Two-column layout: left rail + main content */}
       <div className="flex" style={{ minHeight: "calc(100vh - 120px)" }}>
-        <HamiltonLeftRail savedAnalyses={savedAnalyses} recentScenarios={recentScenarios} pinnedInstitutions={pinnedInstitutions} peerSets={peerSets} />
+        <HamiltonLeftRail
+          savedAnalyses={savedAnalyses}
+          recentScenarios={recentScenarios}
+          pinnedInstitutions={pinnedInstitutions}
+          peerSets={peerSets}
+          selectedInstitutionId={selectedInstitutionId}
+        />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</main>
       </div>
     </div>

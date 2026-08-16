@@ -1,62 +1,87 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 
 const FEATURES = [
-  { key: "benchmarking", label: "Fee Benchmarking", description: "Peer-to-peer fee comparisons", alwaysOn: true },
-  { key: "peer_comparison", label: "Peer Comparison", description: "Cross-institution analysis", alwaysOn: true },
-  { key: "scenario_modeling", label: "Scenario Modeling", description: "What-if fee simulations", alwaysOn: false },
-  { key: "report_generation", label: "Report Generation", description: "Executive-ready reports", alwaysOn: false },
-  { key: "market_monitor", label: "Market Monitor", description: "Continuous surveillance", alwaysOn: false },
+  {
+    key: "analysis",
+    label: "Institution Analysis",
+    status: "Active",
+    href: "/pro/analyze",
+    description: "Provisional-first Hamilton analysis with verified-only benchmark caveats.",
+  },
+  {
+    key: "benchmarking",
+    label: "Peer Benchmarking",
+    status: "Active",
+    href: "/pro/analyze?intent=benchmark",
+    description: "Verified medians exclude provisional evidence unless a workflow labels it separately.",
+  },
+  {
+    key: "reports",
+    label: "Consulting Reports",
+    status: "Evidence gated",
+    href: "/pro/reports",
+    description: "Briefs use selected-institution evidence; thin profiles return diligence next steps.",
+  },
+  {
+    key: "scenario_modeling",
+    label: "Scenario Modeling",
+    status: "Active",
+    href: "/pro/simulate",
+    description: "Saved scenarios retain evidence policy, peer baseline, and selected institution context.",
+  },
+  {
+    key: "market_monitor",
+    label: "Market Monitor",
+    status: "Context scoped",
+    href: "/pro/monitor",
+    description: "Alerts and refresh actions stay tied to selected or watchlisted institutions.",
+  },
 ];
 
-export function FeatureToggles() {
-  const [toggles, setToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(FEATURES.map((f) => [f.key, true]))
-  );
+interface FeatureTogglesProps {
+  selectedInstitutionId?: string | null;
+}
 
-  function handleToggle(key: string) {
-    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
-
+export function FeatureToggles({ selectedInstitutionId = null }: FeatureTogglesProps) {
   return (
     <div className="space-y-3">
-      {FEATURES.map((feature) => {
-        const isOn = feature.alwaysOn || toggles[feature.key];
-        return (
-          <div key={feature.key} className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium" style={{ color: "var(--hamilton-text-primary)" }}>
+      {FEATURES.map((feature) => (
+        <Link
+          key={feature.key}
+          href={hrefWithInstitutionContext(feature.href, selectedInstitutionId)}
+          className="block rounded-md border px-3 py-2 no-underline transition-colors hover:bg-white"
+          style={{
+            borderColor: "var(--hamilton-border)",
+            backgroundColor: "var(--hamilton-surface-container-lowest, #fffdf9)",
+          }}
+        >
+          <span className="flex items-start justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm font-medium" style={{ color: "var(--hamilton-text-primary)" }}>
                 {feature.label}
-              </p>
-              <p className="text-xs" style={{ color: "var(--hamilton-text-tertiary)" }}>
+              </span>
+              <span className="mt-0.5 block text-xs leading-5" style={{ color: "var(--hamilton-text-tertiary)" }}>
                 {feature.description}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => !feature.alwaysOn && handleToggle(feature.key)}
-              disabled={feature.alwaysOn}
-              className="relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none disabled:cursor-default"
+              </span>
+            </span>
+            <span
+              className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
               style={{
-                backgroundColor: isOn ? "var(--hamilton-accent)" : "var(--hamilton-surface-container-high)",
+                borderColor: "var(--hamilton-border)",
+                color: "var(--hamilton-text-secondary)",
+                backgroundColor: "var(--hamilton-surface-elevated)",
               }}
-              aria-checked={isOn}
-              role="switch"
             >
-              <span
-                className="inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200"
-                style={{
-                  transform: isOn ? "translateX(1.25rem)" : "translateX(0.125rem)",
-                  marginTop: "0.125rem",
-                }}
-              />
-            </button>
-          </div>
-        );
-      })}
-      <p className="text-[10px] mt-2" style={{ color: "var(--hamilton-text-tertiary)" }}>
-        Toggle preferences are visual only. Persistence coming in a future update.
+              {feature.status}
+            </span>
+          </span>
+        </Link>
+      ))}
+      <p className="text-[10px] leading-4" style={{ color: "var(--hamilton-text-tertiary)" }}>
+        Hamilton capabilities are governed by selected institution context, evidence tier, and workspace access.
       </p>
     </div>
   );

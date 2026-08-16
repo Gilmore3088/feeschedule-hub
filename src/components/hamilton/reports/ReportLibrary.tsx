@@ -1,19 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import type { ReportSummaryResponse } from "@/lib/hamilton/types";
+import Link from "next/link";
+import type { ReportArtifactMetadata, ReportSummaryResponse } from "@/lib/hamilton/types";
+import type { HamiltonReportLibraryItem } from "@/lib/hamilton/pro-tables";
 
-interface PublishedReport {
-  id: string;
-  report_type: string;
-  title: string;
-  created_at: string;
-  report_json: ReportSummaryResponse;
-}
+type ReportLibraryItem = HamiltonReportLibraryItem;
 
 interface ReportLibraryProps {
-  reports: PublishedReport[];
-  onViewReport: (report: ReportSummaryResponse, reportType: string) => void;
+  reports: ReportLibraryItem[];
+  title?: string;
+  subtitle?: string;
+  emptyCopy?: string;
+  getReportHref?: (report: ReportLibraryItem) => string;
+  onViewReport: (
+    report: ReportSummaryResponse,
+    reportType: string,
+    artifactMetadata: ReportArtifactMetadata | null,
+  ) => void;
 }
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
@@ -57,10 +61,23 @@ function getCardSnippet(json: ReportSummaryResponse): string {
   return "";
 }
 
-export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
+function formatPolicy(policy: ReportArtifactMetadata["evidencePolicy"]): string {
+  if (policy === "verified-only") return "Verified only";
+  if (policy === "source-diligence") return "Source diligence";
+  return "Provisional first";
+}
+
+export function ReportLibrary({
+  reports,
+  title = "Published Reports",
+  subtitle = "Curated Hamilton intelligence publications",
+  emptyCopy = "No published reports available yet.",
+  getReportHref,
+  onViewReport,
+}: ReportLibraryProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  async function handleDownloadPdf(report: PublishedReport) {
+  async function handleDownloadPdf(report: ReportLibraryItem) {
     setDownloadingId(report.id);
     try {
       const res = await fetch("/api/pro/report-pdf", {
@@ -69,6 +86,7 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
         body: JSON.stringify({
           report: report.report_json,
           reportType: report.report_type,
+          artifactMetadata: report.artifact_metadata ?? null,
         }),
       });
       if (!res.ok) throw new Error("PDF generation failed");
@@ -96,20 +114,20 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
           <h2
             className="font-headline text-3xl italic text-on-surface mb-1"
           >
-            Published Reports
+            {title}
           </h2>
           <p
             className="text-xs"
             style={{ color: "var(--hamilton-secondary)" }}
           >
-            Curated Hamilton intelligence publications
+            {subtitle}
           </p>
         </div>
         <p
           className="text-sm"
           style={{ color: "var(--hamilton-secondary)" }}
         >
-          No published reports available yet.
+          {emptyCopy}
         </p>
       </section>
     );
@@ -117,29 +135,25 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
 
   return (
     <section className="mb-16">
-      {/* Section header — "View full archive" link moved here from the
-          generator section (audit M-1). It belongs with the library. */}
+      {/* Section header with report count. */}
       <div className="mb-8 flex items-end justify-between gap-4">
         <div>
           <h2 className="font-headline text-3xl italic text-on-surface mb-1">
-            Published Reports
+            {title}
           </h2>
           <p
             className="text-xs"
             style={{ color: "var(--hamilton-secondary)" }}
           >
-            Curated Hamilton intelligence publications
+            {subtitle}
           </p>
         </div>
-        {reports.length > 0 && (
-          <button
-            type="button"
-            className="text-xs underline cursor-pointer hover:opacity-70 transition-opacity shrink-0"
-            style={{ color: "var(--hamilton-secondary)" }}
-          >
-            View full archive
-          </button>
-        )}
+        <span
+          className="shrink-0 text-[11px] tabular-nums"
+          style={{ color: "var(--hamilton-secondary)" }}
+        >
+          {reports.length} {reports.length === 1 ? "report" : "reports"}
+        </span>
       </div>
 
       {/* Report card grid */}
@@ -189,7 +203,7 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
 
               {/* Metadata row — snapshot count (peer rows covered) + full date */}
               <div
-                className="flex items-center gap-3 mb-5 text-[11px] tabular-nums"
+                className="flex flex-wrap items-center gap-3 mb-5 text-[11px] tabular-nums"
                 style={{ color: "var(--hamilton-secondary)" }}
               >
                 {snapshotCount > 0 && (
@@ -199,13 +213,53 @@ export function ReportLibrary({ reports, onViewReport }: ReportLibraryProps) {
                 )}
                 {snapshotCount > 0 && <span aria-hidden="true">·</span>}
                 <span>{formatDate(report.created_at)}</span>
+                {report.artifact_metadata && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{formatPolicy(report.artifact_metadata.evidencePolicy)}</span>
+                    {report.artifact_metadata.selectedSourceLabel && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>{report.artifact_metadata.selectedSourceLabel}</span>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
+
+              {report.artifact_metadata?.peerBaselineLabel && (
+                <p
+                  className="mb-5 truncate text-[11px]"
+                  title={[
+                    report.artifact_metadata.peerBaselineLabel,
+                    report.artifact_metadata.peerFallbackReason,
+                  ].filter(Boolean).join(" · ")}
+                  style={{ color: "var(--hamilton-secondary)" }}
+                >
+                  Baseline: {report.artifact_metadata.peerBaselineLabel}
+                </p>
+              )}
 
               {/* Action buttons — pinned to bottom for consistent card heights */}
               <div className="flex items-center gap-6 mt-auto">
+                {getReportHref && (
+                  <Link
+                    href={getReportHref(report)}
+                    className="text-primary text-xs uppercase tracking-widest font-bold hover:opacity-70 transition-opacity no-underline"
+                  >
+                    Open
+                  </Link>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => onViewReport(report.report_json, report.report_type)}
+                  onClick={() =>
+                    onViewReport(
+                      report.report_json,
+                      report.report_type,
+                      report.artifact_metadata ?? null,
+                    )
+                  }
                   className="text-primary text-xs uppercase tracking-widest font-bold hover:opacity-70 transition-opacity"
                 >
                   Read

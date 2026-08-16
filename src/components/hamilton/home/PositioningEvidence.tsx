@@ -4,11 +4,14 @@
  * Server component — no "use client".
  */
 
+import Link from "next/link";
 import type { PositioningEntry } from "@/lib/hamilton/home-data";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 import { formatAmount } from "@/lib/format";
 
 interface PositioningEvidenceProps {
   entries: PositioningEntry[];
+  selectedInstitutionId?: string | null;
 }
 
 const MATURITY_LABELS: Record<string, string> = {
@@ -23,7 +26,10 @@ const MATURITY_COLORS: Record<string, string> = {
   insufficient: "var(--hamilton-error)",
 };
 
-export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
+export function PositioningEvidence({
+  entries,
+  selectedInstitutionId = null,
+}: PositioningEvidenceProps) {
   const first = entries[0] ?? null;
 
   const marketMedian = first?.medianAmount != null ? formatAmount(first.medianAmount) : null;
@@ -31,13 +37,18 @@ export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
   const p75 = first?.p75Amount != null ? formatAmount(first.p75Amount) : null;
   const maturityTier = first?.maturityTier ?? null;
   const institutionCount = first?.institutionCount ?? null;
+  const distributionHref = first
+    ? hrefWithInstitutionContext(
+        `/pro/simulate?category=${encodeURIComponent(first.feeCategory)}`,
+        selectedInstitutionId,
+      )
+    : "/pro/simulate";
 
   return (
     <div
-      className="editorial-shadow"
+      className="editorial-shadow p-5 sm:p-8"
       style={{
         backgroundColor: "var(--hamilton-surface-container-lowest)",
-        padding: "2rem",
         borderRadius: "var(--hamilton-radius-lg)",
       }}
     >
@@ -69,9 +80,9 @@ export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
           Configure your institution in Settings to see positioning data
         </p>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "3rem" }}>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-12">
           {/* Market Median */}
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div className="min-w-0" style={{ display: "flex", flexDirection: "column" }}>
             <span
               className="font-label"
               style={{
@@ -111,7 +122,7 @@ export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
           </div>
 
           {/* P25 / P75 Range */}
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div className="min-w-0" style={{ display: "flex", flexDirection: "column" }}>
             <span
               className="font-label"
               style={{
@@ -151,7 +162,7 @@ export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
           </div>
 
           {/* Coverage / Maturity */}
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div className="min-w-0" style={{ display: "flex", flexDirection: "column" }}>
             <span
               className="font-label"
               style={{
@@ -203,8 +214,8 @@ export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
             justifyContent: "flex-end",
           }}
         >
-          <a
-            href="#"
+          <Link
+            href={distributionHref}
             style={{
               fontSize: "0.75rem",
               fontWeight: 700,
@@ -214,7 +225,7 @@ export function PositioningEvidence({ entries }: PositioningEvidenceProps) {
             }}
           >
             View full distribution &rarr;
-          </a>
+          </Link>
         </div>
       )}
     </div>

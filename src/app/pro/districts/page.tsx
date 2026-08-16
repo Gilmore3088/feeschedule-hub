@@ -10,6 +10,7 @@ import {
   getPublicStats,
 } from "@/lib/data-store";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
+import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
   title: "District Intelligence | Bank Fee Index",
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
 export default async function ProDistrictsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?from=/pro/districts");
-  if (!canAccessPremium(user)) redirect("/subscribe");
+  if (!canAccessPremium(user)) redirect("/subscribe?from=/pro/districts");
 
   const metrics = await getDistrictMetrics();
   const headlines = await getBeigeBookHeadlines();
@@ -46,6 +47,8 @@ export default async function ProDistrictsPage() {
         {stats.total_institutions.toLocaleString()} institutions and{" "}
         {stats.total_observations.toLocaleString()} fee observations.
       </p>
+
+      <ProReferenceWorkflowBanner userId={user.id} surface="districts" />
 
       {/* District grid */}
       <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 
 interface HamiltonTopNavProps {
   isAdmin: boolean;
   activeHref: string;
+  selectedInstitutionId?: string | null;
   user: {
     display_name: string;
     email: string | null;
@@ -25,9 +27,11 @@ interface HamiltonTopNavProps {
  * 2026-04-17 by UX audit H-4 — labels updated, lookups via that constant).
  * Per D-02: Settings link only in avatar dropdown, not in main nav.
  */
-export function HamiltonTopNav({ isAdmin, activeHref, user }: HamiltonTopNavProps) {
+export function HamiltonTopNav({ isAdmin, activeHref, selectedInstitutionId, user }: HamiltonTopNavProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const currentPath = pathname || activeHref;
+  const activeInstitutionId = searchParams.get("instId") ?? selectedInstitutionId;
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -60,16 +64,16 @@ export function HamiltonTopNav({ isAdmin, activeHref, user }: HamiltonTopNavProp
 
   return (
     <header
-      className="sticky top-0 z-40 flex items-center justify-between px-6"
+      className="sticky top-0 z-40 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 sm:px-6"
       style={{
         backgroundColor: "var(--hamilton-surface)",
         borderBottom: "1px solid var(--hamilton-border)",
-        height: "56px",
+        minHeight: "56px",
       }}
     >
       {/* Hamilton wordmark */}
       <span
-        className="text-xl font-bold tracking-tight select-none"
+        className="min-w-0 shrink-0 text-xl font-bold tracking-tight select-none"
         style={{
           fontFamily: "var(--hamilton-font-serif)",
           color: "var(--hamilton-text-primary)",
@@ -79,7 +83,10 @@ export function HamiltonTopNav({ isAdmin, activeHref, user }: HamiltonTopNavProp
       </span>
 
       {/* Nav items */}
-      <nav className="flex items-center gap-1">
+      <nav
+        className="order-3 flex w-full min-w-0 flex-wrap items-center gap-1 pb-0.5 md:order-none md:w-auto md:flex-nowrap md:pb-0"
+        aria-label="Hamilton workspace"
+      >
         {HAMILTON_NAV.map((item) => {
           if (item.label === "Admin" && !isAdmin) return null;
 
@@ -88,8 +95,8 @@ export function HamiltonTopNav({ isAdmin, activeHref, user }: HamiltonTopNavProp
           return (
             <Link
               key={item.href}
-              href={item.href}
-              className="px-3 py-1.5 rounded text-xs font-medium uppercase tracking-wide no-underline transition-colors"
+              href={hrefWithInstitutionContext(item.href, activeInstitutionId)}
+              className="shrink-0 rounded px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-wide no-underline transition-colors sm:px-3 sm:text-xs"
               style={{
                 fontFamily: "var(--hamilton-font-sans)",
                 color: active
@@ -107,7 +114,7 @@ export function HamiltonTopNav({ isAdmin, activeHref, user }: HamiltonTopNavProp
       </nav>
 
       {/* Avatar dropdown */}
-      <div className="relative" ref={dropdownRef}>
+      <div className="relative shrink-0" ref={dropdownRef}>
         <button
           type="button"
           onClick={() => setDropdownOpen((prev) => !prev)}
@@ -153,7 +160,7 @@ export function HamiltonTopNav({ isAdmin, activeHref, user }: HamiltonTopNavProp
             {/* Settings link */}
             <div className="py-1">
               <Link
-                href="/pro/settings"
+                href={hrefWithInstitutionContext("/pro/settings", activeInstitutionId)}
                 className="flex items-center px-4 py-2 text-sm no-underline transition-colors hover:opacity-80"
                 style={{ color: "var(--hamilton-text-primary)" }}
                 onClick={() => setDropdownOpen(false)}

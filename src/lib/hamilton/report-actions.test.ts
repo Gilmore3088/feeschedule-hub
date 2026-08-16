@@ -1,0 +1,370 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SectionInput } from "@/lib/hamilton/types";
+
+const mocks = vi.hoisted(() => ({
+  getCurrentUser: vi.fn(),
+  getInstitutionById: vi.fn(),
+  getFeesByInstitution: vi.fn(),
+  getFinancialsByInstitution: vi.fn(),
+  getInstitutionRevenueTrend: vi.fn(),
+  getInstitutionPeerRanking: vi.fn(),
+  getInstitutionFeeScheduleEvidence: vi.fn(),
+  generateSection: vi.fn(),
+  resolveHamiltonPeerIndex: vi.fn(),
+  saveHamiltonReport: vi.fn(),
+  getRecentHamiltonReports: vi.fn(),
+  getActiveScenarios: vi.fn(),
+  getHamiltonReportById: vi.fn(),
+  getHamiltonScenarioById: vi.fn(),
+  completeHamiltonRefreshJobsForInstitution: vi.fn(),
+  sql: Object.assign(vi.fn(), { json: vi.fn((value: unknown) => ({ json: value })) }),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  getCurrentUser: mocks.getCurrentUser,
+}));
+
+vi.mock("@/lib/data-store", () => ({
+  getInstitutionById: mocks.getInstitutionById,
+  getFeesByInstitution: mocks.getFeesByInstitution,
+  getFinancialsByInstitution: mocks.getFinancialsByInstitution,
+}));
+
+vi.mock("@/lib/data-store/connection", () => ({
+  sql: mocks.sql,
+}));
+
+vi.mock("@/lib/data-store/call-reports", () => ({
+  getInstitutionRevenueTrend: mocks.getInstitutionRevenueTrend,
+  getInstitutionPeerRanking: mocks.getInstitutionPeerRanking,
+}));
+
+vi.mock("@/lib/data-store/institution", () => ({
+  getInstitutionFeeScheduleEvidence: mocks.getInstitutionFeeScheduleEvidence,
+}));
+
+vi.mock("@/lib/hamilton/generate", () => ({
+  generateSection: mocks.generateSection,
+}));
+
+vi.mock("@/lib/hamilton/peer-index", () => ({
+  resolveHamiltonPeerIndex: mocks.resolveHamiltonPeerIndex,
+}));
+
+vi.mock("@/lib/hamilton/refresh-jobs", () => ({
+  completeHamiltonRefreshJobsForInstitution: mocks.completeHamiltonRefreshJobsForInstitution,
+}));
+
+vi.mock("@/lib/hamilton/pro-tables", () => ({
+  saveHamiltonReport: mocks.saveHamiltonReport,
+  getRecentHamiltonReports: mocks.getRecentHamiltonReports,
+  getActiveScenarios: mocks.getActiveScenarios,
+  getHamiltonReportById: mocks.getHamiltonReportById,
+  getHamiltonScenarioById: mocks.getHamiltonScenarioById,
+}));
+
+function selectedInstitution(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 2945,
+    institution_name: "Hamilton Federal Credit Union",
+    fee_publication_status: "provisional",
+    insight_readiness: "directional_analysis",
+    confidence_summary: "Official source accepted; rows are pending approval.",
+    published_fee_count: 0,
+    provisional_fee_count: 1,
+    asset_size: 1_500_000_000,
+    latest_source_status: "accepted",
+    ...overrides,
+  };
+}
+
+function peerIndex() {
+  return {
+    entries: [
+      {
+        fee_category: "wire_transfer",
+        median_amount: 20,
+        p25_amount: 15,
+        p75_amount: 25,
+        institution_count: 40,
+        maturity_tier: "strong",
+      },
+      {
+        fee_category: "overdraft",
+        median_amount: 30,
+        p25_amount: 25,
+        p75_amount: 35,
+        institution_count: 80,
+        maturity_tier: "strong",
+      },
+    ],
+    source: "saved-peer-set",
+    label: "Custom CU peers",
+    filters: { state_code: "TN" },
+    peerSetId: "peer-set-1",
+    fallbackReason: null,
+  };
+}
+
+function reportParams() {
+  return {
+    templateType: "competitive_positioning" as const,
+    dateFrom: "2026-01-01",
+    dateTo: "2026-06-30",
+    institutionId: 2945,
+    peerSetId: "peer-set-1",
+    evidencePolicy: "provisional-first" as const,
+    selectedSource: "url" as const,
+    selectedSourceLabel: "URL selected",
+  };
+}
+
+describe("Hamilton Reports generateReport", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+
+    mocks.getCurrentUser.mockResolvedValue({
+      id: 7,
+      role: "premium",
+      institution_name: "Fallback Bank",
+    });
+    mocks.getInstitutionById.mockResolvedValue(selectedInstitution());
+    mocks.getFeesByInstitution.mockResolvedValue([]);
+    mocks.getFinancialsByInstitution.mockResolvedValue([
+      {
+        report_date: "2026-06-30",
+        total_assets: 1_500_000_000,
+        total_deposits: 1_200_000_000,
+        service_charge_income: 1_500_000,
+        total_revenue: 25_000_000,
+        fee_income_ratio: 0.06,
+        roa: 0.8,
+      },
+    ]);
+    mocks.getInstitutionRevenueTrend.mockResolvedValue([{ quarter: "2026Q2" }]);
+    mocks.getInstitutionPeerRanking.mockResolvedValue({ rank: 4, count: 19 });
+    mocks.getInstitutionFeeScheduleEvidence.mockResolvedValue(null);
+    mocks.resolveHamiltonPeerIndex.mockResolvedValue(peerIndex());
+    mocks.saveHamiltonReport.mockResolvedValue("report-1");
+    mocks.completeHamiltonRefreshJobsForInstitution.mockResolvedValue(undefined);
+    mocks.generateSection.mockImplementation(async (input: SectionInput) => ({
+      narrative:
+        input.type === "recommendation"
+          ? "Treat the $35 domestic wire row as provisional. Do not use it as a verified benchmark score."
+          : `${input.title} uses the $35 domestic wire row and the $20 Custom CU peers median with provisional labeling.`,
+      wordCount: 18,
+      model: "mock",
+      usage: { inputTokens: 10, outputTokens: 8 },
+    }));
+  });
+
+  it("returns a readiness report and skips provider generation when selected-institution evidence is empty", async () => {
+    const { generateReport } = await import("@/app/pro/(hamilton)/reports/actions");
+
+    const result = await generateReport(reportParams());
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error(result.error);
+
+    expect(mocks.generateSection).not.toHaveBeenCalled();
+    expect(result.report.title).toBe("Data Readiness Brief - Hamilton Federal Credit Union");
+    expect(result.report.implementationNotes).toContain(
+      "No provider generation was used for this thin-or-empty-evidence report.",
+    );
+    expect(result.artifactMetadata).toMatchObject({
+      evidencePolicy: "source-diligence",
+      selectedSource: "url",
+      selectedSourceLabel: "URL selected",
+      peerBaselineSource: "saved-peer-set",
+      peerBaselineLabel: "Custom CU peers",
+      selectedVerifiedFeeCount: 0,
+      selectedProvisionalFeeCount: 0,
+      selectedFeeDeltaCount: 0,
+    });
+    expect(mocks.saveHamiltonReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidencePolicy: "source-diligence",
+        selectedFeeDeltaCount: 0,
+      }),
+    );
+  });
+
+  it("normalizes transient saved-artifact source before persisting a new report", async () => {
+    const { generateReport } = await import("@/app/pro/(hamilton)/reports/actions");
+
+    const result = await generateReport({
+      ...reportParams(),
+      selectedSource: "artifact",
+      selectedSourceLabel: "Saved artifact",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error(result.error);
+
+    expect(mocks.saveHamiltonReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedSource: "manual",
+        selectedSourceLabel: "Manual",
+      }),
+    );
+  });
+
+  it("passes provisional-only selected-institution evidence into every provider section with benchmark caveats", async () => {
+    const { generateReport } = await import("@/app/pro/(hamilton)/reports/actions");
+    mocks.getFeesByInstitution.mockResolvedValue([
+      {
+        fee_name: "Domestic wire",
+        fee_category: "wire_transfer",
+        amount: 35,
+        frequency: "per wire",
+        review_status: "pending",
+        extraction_confidence: 0.76,
+        source_url: "https://example.com/fees",
+      },
+    ]);
+    mocks.getInstitutionFeeScheduleEvidence.mockResolvedValue({
+      pipeline_counts: { raw_fee_count: 0, verified_fee_count: 1 },
+      verified_fee_preview: [
+        {
+          fee_name: "Cashier check",
+          canonical_fee_key: "cashiers_check",
+          amount: 10,
+          frequency: "per check",
+          review_status: "pending_review",
+          extraction_confidence: 0.67,
+          source_url: "https://example.com/fees",
+        },
+      ],
+      raw_fee_preview: [],
+    });
+
+    const result = await generateReport(reportParams());
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error(result.error);
+
+    expect(mocks.generateSection).toHaveBeenCalledTimes(3);
+    const calls = mocks.generateSection.mock.calls.map(([input]) => input as SectionInput);
+    for (const input of calls) {
+      expect(input.context).toContain("Provisional rows are directional only");
+      expect(input.context).toContain("do not treat it as a verified benchmark score");
+      expect(input.data.selected_institution).toMatchObject({
+        id: 2945,
+        evidence_policy: "provisional-first",
+        benchmark_scope: "Custom CU peers",
+        can_generate_verified_benchmark_conclusions: false,
+      });
+    }
+
+    const selectedPayload = calls[0].data.selected_institution as {
+      fee_rows: Array<Record<string, unknown>>;
+      pipeline_fee_rows: Array<Record<string, unknown>>;
+      fee_peer_deltas: Array<Record<string, unknown>>;
+      financials: Record<string, unknown>;
+    };
+    expect(selectedPayload.fee_rows[0]).toMatchObject({
+      fee_name: "Domestic wire",
+      evidence_tier: "provisional",
+      excluded_from_verified_benchmark: true,
+    });
+    expect(selectedPayload.pipeline_fee_rows[0]).toMatchObject({
+      fee_name: "Cashier check",
+      evidence_tier: "provisional",
+      pipeline_stage: "verified_unpublished",
+    });
+    expect(selectedPayload.fee_peer_deltas[0]).toMatchObject({
+      fee_category: "wire_transfer",
+      institution_amount: 35,
+      peer_median: 20,
+      evidence_tier: "provisional",
+      excluded_from_verified_benchmark: true,
+    });
+    expect(selectedPayload.financials.service_charge_income).toBe(1_500_000);
+
+    const recommendationInput = calls.find((input) => input.type === "recommendation");
+    expect(recommendationInput?.data.peer_anchored_fees).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fee_category: "wire_transfer",
+          evidence_tier: "provisional",
+          excluded_from_verified_benchmark: true,
+        }),
+      ]),
+    );
+    expect(result.report.snapshot).toContainEqual({
+      label: "wire transfer",
+      current: "$35.00 provisional",
+      proposed: "$20.00 Custom CU peers median",
+    });
+    expect(result.report.implementationNotes).toEqual(
+      expect.arrayContaining([
+        "Selected institution evidence policy: provisional-first",
+        "Selected institution deterministic fee deltas available: 1",
+        "Verified benchmark conclusions exclude provisional rows unless explicitly labeled otherwise.",
+      ]),
+    );
+    expect(result.artifactMetadata).toMatchObject({
+      evidencePolicy: "provisional-first",
+      peerSetId: "peer-set-1",
+      selectedProvisionalFeeCount: 1,
+      selectedFeeDeltaCount: 1,
+    });
+  });
+
+  it("rejects generated provider output that fails the report artifact quality gate", async () => {
+    const { generateReport } = await import("@/app/pro/(hamilton)/reports/actions");
+    mocks.getFeesByInstitution.mockResolvedValue([
+      {
+        fee_name: "Domestic wire",
+        fee_category: "wire_transfer",
+        amount: 35,
+        frequency: "per wire",
+        review_status: "pending",
+        extraction_confidence: 0.76,
+        source_url: "https://example.com/fees",
+      },
+    ]);
+    mocks.generateSection.mockImplementation(async (input: SectionInput) => ({
+      narrative:
+        input.type === "recommendation"
+          ? "This $35 wire fee creates sustainable competitive advantage."
+          : `${input.title} cites the $35 domestic wire row and the $20 peer median as provisional evidence.`,
+      wordCount: 18,
+      model: "mock",
+      usage: { inputTokens: 10, outputTokens: 8 },
+    }));
+
+    const result = await generateReport(reportParams());
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        'Report artifact failed quality gate: generic phrase "sustainable competitive advantage" is not allowed.',
+    });
+    expect(mocks.saveHamiltonReport).not.toHaveBeenCalled();
+    expect(mocks.completeHamiltonRefreshJobsForInstitution).not.toHaveBeenCalled();
+  });
+
+  it("does not persist profile-name slugs for reports without a selected institution", async () => {
+    const { generateReport } = await import("@/app/pro/(hamilton)/reports/actions");
+
+    const result = await generateReport({
+      templateType: "peer_benchmarking",
+      dateFrom: "2026-01-01",
+      dateTo: "2026-06-30",
+      evidencePolicy: "provisional-first",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error(result.error);
+
+    expect(mocks.saveHamiltonReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        institutionId: "",
+        selectedSource: "profile",
+        selectedFeeDeltaCount: 0,
+      }),
+    );
+    expect(mocks.completeHamiltonRefreshJobsForInstitution).not.toHaveBeenCalled();
+  });
+});

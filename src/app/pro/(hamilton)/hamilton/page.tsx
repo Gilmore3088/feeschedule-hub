@@ -1,8 +1,11 @@
 import { Suspense } from "react";
 import { unstable_cache, unstable_noStore } from "next/cache";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { fetchHomeBriefingData, fetchHomeBriefingSignals } from "@/lib/hamilton/home-data";
 import { getCurrentUser } from "@/lib/auth";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
+import { resolveHamiltonInstitutionContext } from "@/lib/hamilton/workspace-context";
 import { HamiltonViewCard } from "@/components/hamilton/home/HamiltonViewCard";
 import { PositioningEvidence } from "@/components/hamilton/home/PositioningEvidence";
 import { WhatChangedCard } from "@/components/hamilton/home/WhatChangedCard";
@@ -20,6 +23,13 @@ const getCachedHomeBriefing = unstable_cache(
 );
 
 export const metadata: Metadata = { title: "Executive Briefing" };
+
+interface HamiltonHomePageProps {
+  searchParams: Promise<{
+    instId?: string;
+    intent?: string;
+  }>;
+}
 
 /**
  * Skeleton placeholder for fresh-data signal components while loading.
@@ -43,7 +53,11 @@ function SignalsSkeleton() {
  * BriefingSignals — fetches time-sensitive signal/alert data fresh on every load.
  * Per D-11: unstable_noStore() opts this async component out of ISR caching.
  */
-async function BriefingSignals() {
+async function BriefingSignals({
+  selectedInstitutionId,
+}: {
+  selectedInstitutionId: string | null;
+}) {
   unstable_noStore();
 
   let signals: HomeBriefingSignals = {
@@ -55,7 +69,9 @@ async function BriefingSignals() {
   try {
     const user = await getCurrentUser();
     if (user) {
-      signals = await fetchHomeBriefingSignals(user.id);
+      signals = await fetchHomeBriefingSignals(user.id, {
+        institutionIds: selectedInstitutionId ? [selectedInstitutionId] : [],
+      });
     }
   } catch {
     // Auth or DB unavailable — render empty states
@@ -71,18 +87,54 @@ async function BriefingSignals() {
           gap: "2rem",
         }}
       >
-        <WhatChangedCard signals={signals.whatChanged} />
+        <WhatChangedCard
+          signals={signals.whatChanged}
+          selectedInstitutionId={selectedInstitutionId}
+        />
         <PriorityAlertsCard alerts={signals.priorityAlerts} />
       </div>
 
       {/* Monitor Feed — full-width timeline */}
-      <MonitorFeedPreview signals={signals.monitorFeed} />
+      <MonitorFeedPreview
+        signals={signals.monitorFeed}
+        selectedInstitutionId={selectedInstitutionId}
+      />
     </>
   );
 }
 
-export default async function HamiltonHomePage() {
+async function resolveSelectedInstitutionId(params: {
+  instId?: string;
+  intent?: string;
+}): Promise<string | null> {
+  if (params.instId) return params.instId;
+
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
+
+    const { institution } = await resolveHamiltonInstitutionContext({
+      userId: user.id,
+      instId: null,
+      intent: params.intent,
+    });
+    return institution?.id.toString() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function HamiltonHomePage({
+  searchParams,
+}: HamiltonHomePageProps) {
+  const params = await searchParams;
   const data = await getCachedHomeBriefing();
+  const selectedInstitutionId = await resolveSelectedInstitutionId(params);
+  const reportsHref = hrefWithInstitutionContext(
+    "/pro/reports?intent=executive-briefing",
+    selectedInstitutionId,
+  );
+  const monitorHref = hrefWithInstitutionContext("/pro/monitor", selectedInstitutionId);
 
   return (
     <div>
@@ -90,8 +142,10 @@ export default async function HamiltonHomePage() {
       <header
         style={{
           display: "flex",
+          flexWrap: "wrap",
           justifyContent: "space-between",
           alignItems: "flex-end",
+          gap: "1rem",
           marginBottom: "3rem",
         }}
       >
@@ -124,8 +178,10 @@ export default async function HamiltonHomePage() {
           </span>
         </div>
 
-        <div style={{ display: "flex", gap: "1rem", flexShrink: 0 }}>
-          <button
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", flexShrink: 1 }}>
+          <Link
+            href={reportsHref}
+            className="no-underline"
             style={{
               padding: "0.5rem 1rem",
               backgroundColor: "var(--hamilton-surface-container-high)",
@@ -133,46 +189,52 @@ export default async function HamiltonHomePage() {
               fontSize: "0.875rem",
               fontWeight: 500,
               borderRadius: "var(--hamilton-radius-lg)",
-              border: "none",
-              cursor: "pointer",
+              border: "1px solid var(--hamilton-border)",
             }}
           >
-            Export PDF
-          </button>
-          <button
-            className="burnished-cta editorial-shadow"
+            Generate Brief
+          </Link>
+          <Link
+            href={monitorHref}
+            className="burnished-cta editorial-shadow no-underline"
             style={{
               padding: "0.5rem 1rem",
               color: "var(--hamilton-on-primary)",
               fontSize: "0.875rem",
               fontWeight: 500,
               borderRadius: "var(--hamilton-radius-lg)",
-              border: "none",
-              cursor: "pointer",
             }}
           >
-            Full Dashboard
-          </button>
+            Open Watchlist
+          </Link>
         </div>
       </header>
 
       {/* Content grid */}
       <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
         {/* Row 1: Hamilton's View — full width */}
-        <HamiltonViewCard thesis={data.thesis} confidence={data.confidence} />
+        <HamiltonViewCard
+          thesis={data.thesis}
+          confidence={data.confidence}
+          selectedInstitutionId={selectedInstitutionId}
+        />
 
         {/* Row 2: Positioning Evidence — full width */}
-        <PositioningEvidence entries={data.positioning} />
+        <PositioningEvidence
+          entries={data.positioning}
+          selectedInstitutionId={selectedInstitutionId}
+        />
 
         {/* Row 3: Recommended Action — full width */}
         <RecommendedActionCard
           recommendedCategory={data.recommendedCategory}
           thesisExists={data.thesis !== null}
+          selectedInstitutionId={selectedInstitutionId}
         />
 
         {/* Fresh signal rows via Suspense (WhatChanged + PriorityAlerts + MonitorFeed) */}
         <Suspense fallback={<SignalsSkeleton />}>
-          <BriefingSignals />
+          <BriefingSignals selectedInstitutionId={selectedInstitutionId} />
         </Suspense>
       </div>
     </div>

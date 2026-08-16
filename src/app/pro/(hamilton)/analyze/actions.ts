@@ -3,7 +3,13 @@
 import { sql } from "@/lib/data-store/connection";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
+import { normalizeCanonicalInstitutionId } from "@/lib/hamilton/context-link";
 import type { AnalyzeResponse } from "@/lib/hamilton/types";
+
+export interface LoadedAnalysisRecord {
+  responseJson: AnalyzeResponse;
+  institutionId: string | null;
+}
 
 /**
  * Save a completed analysis to hamilton_saved_analyses.
@@ -28,6 +34,7 @@ export async function saveAnalysis(params: {
     params.title?.trim() ||
     params.responseJson.title ||
     params.prompt.slice(0, 60).trim() + (params.prompt.length > 60 ? "…" : "");
+  const institutionId = normalizeCanonicalInstitutionId(params.institutionId) ?? "";
 
   try {
     const rows = await sql<{ id: string }[]>`
@@ -41,7 +48,7 @@ export async function saveAnalysis(params: {
         status
       ) VALUES (
         ${user.id},
-        ${params.institutionId || ""},
+        ${institutionId},
         ${title},
         ${params.analysisFocus},
         ${params.prompt},
@@ -96,19 +103,13 @@ export async function listSavedAnalyses(limit = 10): Promise<
   }
 }
 
-/**
- * Load a single saved analysis by ID for the current user.
- * Scoped by user_id — cannot load another user's analysis (T-51-02).
- * UUID cast on id rejects malformed strings before they reach the DB (T-51-03).
- * Returns the stored AnalyzeResponse or null if not found or unauthorized.
- */
-export async function loadAnalysis(id: string): Promise<AnalyzeResponse | null> {
+export async function loadAnalysisRecord(id: string): Promise<LoadedAnalysisRecord | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
   try {
-    const rows = await sql<Array<{ response_json: string }>>`
-      SELECT response_json::text
+    const rows = await sql<Array<{ response_json: string; institution_id: string | null }>>`
+      SELECT response_json::text, institution_id
       FROM hamilton_saved_analyses
       WHERE id = ${id}::uuid
         AND user_id = ${user.id}
@@ -116,8 +117,22 @@ export async function loadAnalysis(id: string): Promise<AnalyzeResponse | null> 
       LIMIT 1
     `;
     if (!rows[0]) return null;
-    return JSON.parse(rows[0].response_json) as AnalyzeResponse;
+    return {
+      responseJson: JSON.parse(rows[0].response_json) as AnalyzeResponse,
+      institutionId: normalizeCanonicalInstitutionId(rows[0].institution_id),
+    };
   } catch {
     return null;
   }
+}
+
+/**
+ * Load a single saved analysis by ID for the current user.
+ * Scoped by user_id — cannot load another user's analysis (T-51-02).
+ * UUID cast on id rejects malformed strings before they reach the DB (T-51-03).
+ * Returns the stored AnalyzeResponse or null if not found or unauthorized.
+ */
+export async function loadAnalysis(id: string): Promise<AnalyzeResponse | null> {
+  const record = await loadAnalysisRecord(id);
+  return record?.responseJson ?? null;
 }

@@ -5,8 +5,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { AnalyzeWorkspace } from "@/components/hamilton/analyze/AnalyzeWorkspace";
-import { loadAnalysis } from "./actions";
-import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
+import { loadAnalysisRecord } from "./actions";
+import { resolveHamiltonInstitutionContext } from "@/lib/hamilton/workspace-context";
+import {
+  resolveArtifactContextInstitutionId,
+  shouldPersistUrlInstitutionSelection,
+} from "@/lib/hamilton/artifact-context";
 
 export const metadata: Metadata = { title: "Analyze" };
 
@@ -27,20 +31,27 @@ export default async function AnalyzePage({
 
   const params = await searchParams;
   const analysisId = params.analysis;
-  const initialAnalysis = analysisId ? await loadAnalysis(analysisId) : null;
-  const { institution: selectedInstitution } = await getHamiltonInstitutionContext(params.instId);
+  const initialAnalysisRecord = analysisId ? await loadAnalysisRecord(analysisId) : null;
+  const contextInstitutionId = resolveArtifactContextInstitutionId({
+    urlInstitutionId: params.instId,
+    artifactInstitutionId: initialAnalysisRecord?.institutionId,
+  });
+  const isArtifactContext = !params.instId && Boolean(contextInstitutionId);
+  const { institution: selectedInstitution } = await resolveHamiltonInstitutionContext({
+    userId: user.id,
+    instId: contextInstitutionId,
+    intent: params.intent ?? "analyze",
+    persistUrlSelection: shouldPersistUrlInstitutionSelection(params.instId),
+    transientSource: isArtifactContext ? "artifact" : undefined,
+  });
 
-  // institution_id is not yet on the User type; derive a stable identifier
-  // from institution_name if available, otherwise pass null
-  const institutionId =
-    selectedInstitution?.id.toString() ??
-    ((user.institution_name ?? "").toLowerCase().replace(/\s+/g, "-") || null);
+  const institutionId = selectedInstitution?.id.toString() ?? null;
 
   return (
     <AnalyzeWorkspace
       userId={user.id}
       institutionId={institutionId}
-      initialAnalysis={initialAnalysis}
+      initialAnalysis={initialAnalysisRecord?.responseJson ?? null}
       selectedInstitution={selectedInstitution}
       initialIntent={params.intent ?? null}
     />

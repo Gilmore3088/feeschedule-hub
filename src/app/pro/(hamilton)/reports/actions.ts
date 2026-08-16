@@ -1,7 +1,6 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth";
-import { getNationalIndex } from "@/lib/data-store/fee-index";
 import {
   getFeesByInstitution,
   getFinancialsByInstitution,
@@ -15,15 +14,37 @@ import {
 import { getInstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
 import { generateSection } from "@/lib/hamilton/generate";
 import {
+  buildReportPeerCoveragePreview,
+  buildSelectedInstitutionFeeDeltas,
+  type ReportPeerCoveragePreview,
+} from "@/lib/hamilton/report-evidence";
+import { buildInsufficientEvidenceReport } from "@/lib/hamilton/report-readiness";
+import {
+  buildSelectedInstitutionReportData,
+  buildSelectedInstitutionReportRules,
+} from "@/lib/hamilton/report-synthesis";
+import { validateHamiltonReportArtifact } from "@/lib/hamilton/report-quality";
+import { resolveHamiltonPeerIndex } from "@/lib/hamilton/peer-index";
+import { completeHamiltonRefreshJobsForInstitution } from "@/lib/hamilton/refresh-jobs";
+import {
   saveHamiltonReport,
   getRecentHamiltonReports,
   getActiveScenarios,
   getHamiltonReportById,
   getHamiltonScenarioById,
 } from "@/lib/hamilton/pro-tables";
-import { formatAssets, formatCompactDollars } from "@/lib/format";
+import { formatAmount } from "@/lib/format";
 import { getFeePublicationStatusLabel } from "@/lib/institution-quality";
-import type { ReportSummaryResponse } from "@/lib/hamilton/types";
+import {
+  getHamiltonContextSourceLabel,
+  normalizeHamiltonContextSource,
+  normalizeHamiltonPersistedContextSource,
+  type HamiltonContextSource,
+  type HamiltonPersistedContextSource,
+} from "@/lib/hamilton/context-source";
+import { normalizeCanonicalInstitutionId } from "@/lib/hamilton/context-link";
+import type { ReportArtifactMetadata, ReportSummaryResponse } from "@/lib/hamilton/types";
+import type { HamiltonEvidencePolicy } from "@/lib/hamilton/request-contract";
 
 export type ReportTemplateType =
   | "peer_benchmarking"
@@ -40,7 +61,9 @@ export interface GenerateReportParams {
   focusCategory?: string;
   institutionId?: number;
   selectedInstitutionName?: string;
-  evidencePolicy?: "provisional-first" | string;
+  evidencePolicy?: HamiltonEvidencePolicy;
+  selectedSource?: HamiltonContextSource;
+  selectedSourceLabel?: string | null;
 }
 
 export type GenerateReportResult =
@@ -48,6 +71,25 @@ export type GenerateReportResult =
       success: true;
       reportId: string;
       report: ReportSummaryResponse;
+      artifactMetadata: ReportArtifactMetadata;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
+export interface PreviewReportPeerCoverageParams {
+  templateType: ReportTemplateType;
+  peerSetId?: string;
+  focusCategory?: string;
+  institutionId?: number;
+  evidencePolicy?: HamiltonEvidencePolicy;
+}
+
+export type PreviewReportPeerCoverageResult =
+  | {
+      success: true;
+      preview: ReportPeerCoveragePreview;
     }
   | {
       success: false;
@@ -61,78 +103,79 @@ const TEMPLATE_TITLES: Record<ReportTemplateType, string> = {
   competitive_positioning: "Competitive Positioning",
 };
 
-function buildInsufficientEvidenceReport(params: {
-  institutionName: string;
-  period: string;
-  statusLabel: string;
-  verifiedCount: number;
-  provisionalCount: number;
-  assetSize: number | null;
-  latestSourceStatus: string | null;
-  latestFinancial: {
-    report_date: string;
-    total_assets: number | null;
-    service_charge_income: number | null;
-  } | null;
-}): ReportSummaryResponse {
-  const financialSummary = params.latestFinancial
-    ? `Financial context is available through ${params.latestFinancial.report_date}: assets are ${formatCompactDollars(params.latestFinancial.total_assets)} and reported service charge income is ${formatCompactDollars(params.latestFinancial.service_charge_income)}.`
-    : "Financial context is not available in the current dataset.";
+function formatSignedAmount(amount: number): string {
+  const sign = amount >= 0 ? "+" : "-";
+  return `${sign}${formatAmount(Math.abs(amount))}`;
+}
 
+function resolveReportSelectedSource(params: GenerateReportParams): {
+  selectedSource: HamiltonPersistedContextSource;
+  selectedSourceLabel: string | null;
+} {
+  const fallback: HamiltonPersistedContextSource = params.institutionId ? "manual" : "profile";
+  const rawSource = normalizeHamiltonContextSource(params.selectedSource, fallback);
+  const selectedSource = normalizeHamiltonPersistedContextSource(rawSource, fallback);
   return {
-    title: `Data Readiness Brief - ${params.institutionName}`,
-    executiveSummary: [
-      `${params.institutionName} is tracked, but Hamilton does not have verified or provisional fee rows sufficient for a competitive fee brief.`,
-      financialSummary,
-      "A consulting-grade brief should start with source acquisition and validation before drawing pricing, peer-positioning, or revenue conclusions.",
-    ],
-    snapshot: [
-      {
-        label: "Fee evidence",
-        current: `${params.verifiedCount} verified / ${params.provisionalCount} provisional`,
-        proposed: "Submit and validate official source",
-      },
-      {
-        label: "Publication status",
-        current: params.statusLabel,
-        proposed: "Ready or directional",
-      },
-      {
-        label: "Assets",
-        current: params.assetSize ? formatAssets(params.assetSize) : "N/A",
-        proposed: "Use for peer-set selection",
-      },
-    ],
-    strategicRationale:
-      `${params.institutionName} should not receive a generic competitive position when fee evidence is empty. ` +
-      "The next high-value work is deterministic: confirm the official fee schedule, extract rows, label evidence tier and confidence, then rerun peer deltas once benchmark-eligible rows exist.",
-    tradeoffs: [
-      {
-        label: "Use now",
-        value: "Identity, asset tier, financial context, and source diligence",
-      },
-      {
-        label: "Do not use yet",
-        value: "Fee benchmark score, pricing recommendations, or peer fee deltas",
-      },
-      {
-        label: "Next diligence",
-        value: "Official fee schedule URL, account type coverage, effective date, and row-level source labels",
-      },
-    ],
-    recommendation:
-      "Submit the official fee schedule, validate source coverage, classify extracted rows, then rerun a competitive positioning report with provisional-first evidence labels. Until then, keep the output as a diligence brief.",
-    implementationNotes: [
-      `Analysis period requested: ${params.period}`,
-      `Latest source status: ${params.latestSourceStatus ?? "no source record"}`,
-      "No provider generation was used for this empty-evidence report.",
-      "Verified benchmark conclusions must exclude provisional rows unless explicitly labeled otherwise.",
-    ],
-    exportControls: {
-      pdfEnabled: true,
-      shareEnabled: false,
-    },
+    selectedSource,
+    selectedSourceLabel:
+      rawSource === selectedSource && params.selectedSourceLabel
+        ? params.selectedSourceLabel
+        : getHamiltonContextSourceLabel(selectedSource),
   };
+}
+
+export async function previewReportPeerCoverage(
+  params: PreviewReportPeerCoverageParams,
+): Promise<PreviewReportPeerCoverageResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "Authentication required" };
+
+  try {
+    const [selectedInstitution, selectedFees, selectedEvidence] = await Promise.all([
+      params.institutionId ? getInstitutionById(params.institutionId).catch(() => null) : null,
+      params.institutionId ? getFeesByInstitution(params.institutionId).catch(() => []) : [],
+      params.institutionId
+        ? getInstitutionFeeScheduleEvidence(params.institutionId).catch(() => null)
+        : null,
+    ]);
+
+    if (params.institutionId && !selectedInstitution) {
+      return { success: false, error: "Selected institution not found" };
+    }
+
+    const peerIndex = await resolveHamiltonPeerIndex({
+      userId: user.id,
+      peerSetId: params.peerSetId ?? null,
+      selectedInstitution,
+      approvedOnly: true,
+      minUsableCategories: 3,
+    });
+    const pipelineCounts = selectedEvidence?.pipeline_counts ?? null;
+    const pipelineFeeCount =
+      Number(pipelineCounts?.raw_fee_count ?? 0) +
+      Number(pipelineCounts?.verified_fee_count ?? 0);
+
+    return {
+      success: true,
+      preview: buildReportPeerCoveragePreview({
+        hasSelectedInstitution: Boolean(selectedInstitution),
+        selectedFees,
+        indexEntries: peerIndex.entries,
+        evidencePolicy: params.evidencePolicy ?? "provisional-first",
+        peerBaselineSource: peerIndex.source,
+        peerBaselineLabel: peerIndex.label,
+        peerFallbackReason: peerIndex.fallbackReason,
+        pipelineFeeCount,
+        focusCategory:
+          params.templateType === "category_deep_dive"
+            ? params.focusCategory ?? null
+            : null,
+      }),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, error: `Peer preview failed: ${message}` };
+  }
 }
 
 /**
@@ -181,7 +224,7 @@ function buildExecutiveSummaryContext(
     }
   })();
 
-  return `${head}\n\n${NO_FLUFF_RULES}`;
+  return `${head}\n\n${NO_FLUFF_RULES}\n\n${buildSelectedInstitutionReportRules(params)}`.trim();
 }
 
 /**
@@ -208,7 +251,7 @@ function buildStrategicContext(
     }
   })();
 
-  return `${head}\n\n${NO_FLUFF_RULES}`;
+  return `${head}\n\n${NO_FLUFF_RULES}\n\n${buildSelectedInstitutionReportRules(params)}`.trim();
 }
 
 /**
@@ -246,7 +289,7 @@ function buildRecommendationContext(
     }
   })();
 
-  return `${head}\n\n${RECOMMENDATION_RULES}`;
+  return `${head}\n\n${RECOMMENDATION_RULES}\n\n${buildSelectedInstitutionReportRules(params)}`.trim();
 }
 
 /**
@@ -279,9 +322,8 @@ export async function generateReport(
   if (!user) return { success: false, error: "Authentication required" };
 
   try {
-    // 1. Fetch fee index data as grounding for Hamilton
+    // 1. Fetch selected institution data as grounding for Hamilton
     const [
-      indexData,
       selectedInstitution,
       selectedFees,
       selectedFinancials,
@@ -289,7 +331,6 @@ export async function generateReport(
       selectedPeerRanking,
       selectedEvidence,
     ] = await Promise.all([
-      getNationalIndex(),
       params.institutionId ? getInstitutionById(params.institutionId).catch(() => null) : null,
       params.institutionId ? getFeesByInstitution(params.institutionId).catch(() => []) : [],
       params.institutionId ? getFinancialsByInstitution(params.institutionId).catch(() => []) : [],
@@ -297,6 +338,14 @@ export async function generateReport(
       params.institutionId ? getInstitutionPeerRanking(params.institutionId).catch(() => null) : null,
       params.institutionId ? getInstitutionFeeScheduleEvidence(params.institutionId).catch(() => null) : null,
     ]);
+    const peerIndex = await resolveHamiltonPeerIndex({
+      userId: user.id,
+      peerSetId: params.peerSetId ?? null,
+      selectedInstitution,
+      approvedOnly: true,
+      minUsableCategories: 3,
+    });
+    const indexData = peerIndex.entries;
     const allCategories = indexData.filter((e) => e.institution_count >= 5);
 
     // For category_deep_dive, filter to focus category if provided
@@ -318,6 +367,13 @@ export async function generateReport(
     const selectedVisibleFees = selectedFees.filter((fee) => fee.review_status !== "rejected");
     const selectedVerifiedFees = selectedVisibleFees.filter((fee) => fee.review_status === "approved");
     const selectedProvisionalFees = selectedVisibleFees.filter((fee) => fee.review_status !== "approved");
+    const evidencePolicy = params.evidencePolicy ?? "provisional-first";
+    const selectedSourceContext = resolveReportSelectedSource(params);
+    const selectedFeeDeltas = buildSelectedInstitutionFeeDeltas({
+      selectedFees: selectedVisibleFees,
+      indexEntries: indexData,
+      evidencePolicy,
+    });
     const pipelineCounts = selectedEvidence?.pipeline_counts ?? null;
     const pipelineFeeCount =
       Number(pipelineCounts?.raw_fee_count ?? 0) +
@@ -328,7 +384,11 @@ export async function generateReport(
       pipelineFeeCount > 0;
     const latestFinancial = selectedFinancials[0] ?? null;
 
-    if (params.institutionId && selectedInstitution && !hasSelectedInstitutionEvidence) {
+    if (
+      params.institutionId &&
+      selectedInstitution &&
+      (!hasSelectedInstitutionEvidence || selectedFeeDeltas.length === 0)
+    ) {
       const report = buildInsufficientEvidenceReport({
         institutionName,
         period,
@@ -347,56 +407,64 @@ export async function generateReport(
             }
           : null,
       });
+      const artifactMetadata: ReportArtifactMetadata = {
+        evidencePolicy: selectedFeeDeltas.length > 0 ? evidencePolicy : "source-diligence",
+        selectedSource: selectedSourceContext.selectedSource,
+        selectedSourceLabel: selectedSourceContext.selectedSourceLabel,
+        peerSetId: peerIndex.peerSetId,
+        peerBaselineSource: peerIndex.source,
+        peerBaselineLabel: peerIndex.label,
+        peerFallbackReason: peerIndex.fallbackReason,
+        selectedVerifiedFeeCount: selectedVerifiedFees.length,
+        selectedProvisionalFeeCount: selectedProvisionalFees.length,
+        selectedFeeDeltaCount: selectedFeeDeltas.length,
+      };
       const reportId = await saveHamiltonReport({
         userId: user.id,
         institutionId: selectedInstitution.id.toString(),
         reportType: params.templateType,
         reportJson: report,
         scenarioId: params.scenarioId ?? null,
+        evidencePolicy: artifactMetadata.evidencePolicy,
+        peerSetId: artifactMetadata.peerSetId,
+        peerBaselineSource: artifactMetadata.peerBaselineSource,
+        peerBaselineLabel: artifactMetadata.peerBaselineLabel,
+        peerFallbackReason: artifactMetadata.peerFallbackReason,
+        selectedSource: artifactMetadata.selectedSource,
+        selectedSourceLabel: artifactMetadata.selectedSourceLabel,
+        selectedVerifiedFeeCount: artifactMetadata.selectedVerifiedFeeCount,
+        selectedProvisionalFeeCount: artifactMetadata.selectedProvisionalFeeCount,
+        selectedFeeDeltaCount: artifactMetadata.selectedFeeDeltaCount,
       });
-      return { success: true, reportId, report };
+      await completeHamiltonRefreshJobsForInstitution({
+        institutionId: selectedInstitution.id,
+        jobTypes: ["report_refresh"],
+        completedByUserId: user.id,
+      }).catch(() => {});
+      return { success: true, reportId, report, artifactMetadata };
     }
 
-    const selectedInstitutionData = selectedInstitution
-      ? {
-          id: selectedInstitution.id,
-          name: selectedInstitution.institution_name,
-          status: selectedInstitution.fee_publication_status ?? "unavailable",
-          status_label: getFeePublicationStatusLabel(
-            selectedInstitution.fee_publication_status ?? "unavailable",
-          ),
-          insight_readiness: selectedInstitution.insight_readiness ?? "source_needed",
-          confidence_summary: selectedInstitution.confidence_summary ?? null,
-          verified_fee_count: selectedInstitution.published_fee_count ?? 0,
-          provisional_fee_count: selectedInstitution.provisional_fee_count ?? 0,
-          latest_source_status: selectedInstitution.latest_source_status ?? null,
-          financials: latestFinancial
-            ? {
-                report_date: latestFinancial.report_date,
-                total_assets: latestFinancial.total_assets,
-                total_deposits: latestFinancial.total_deposits,
-                service_charge_income: latestFinancial.service_charge_income,
-                total_revenue: latestFinancial.total_revenue,
-                fee_income_ratio: latestFinancial.fee_income_ratio,
-                roa: latestFinancial.roa,
-              }
-            : null,
-          fee_rows: selectedVisibleFees.slice(0, 25).map((fee) => ({
-            fee_name: fee.fee_name,
-            fee_category: fee.fee_category ?? null,
-            amount: fee.amount,
-            frequency: fee.frequency,
-            evidence_tier: fee.review_status === "approved" ? "verified" : "provisional",
-            excluded_from_verified_benchmark: fee.review_status !== "approved",
-            confidence: fee.extraction_confidence,
-            source_url: fee.source_url ?? null,
-          })),
-          pipeline_counts: pipelineCounts,
-          revenue_trend: selectedRevenueTrend.slice(0, 8),
-          peer_ranking: selectedPeerRanking,
-          evidence_policy: params.evidencePolicy ?? "provisional-first",
-        }
-      : null;
+    const selectedInstitutionData = buildSelectedInstitutionReportData({
+      selectedInstitution,
+      latestFinancial: latestFinancial
+        ? {
+            report_date: latestFinancial.report_date,
+            total_assets: latestFinancial.total_assets,
+            total_deposits: latestFinancial.total_deposits,
+            service_charge_income: latestFinancial.service_charge_income,
+            total_revenue: latestFinancial.total_revenue,
+            fee_income_ratio: latestFinancial.fee_income_ratio,
+            roa: latestFinancial.roa,
+          }
+        : null,
+      selectedVisibleFees,
+      selectedEvidence,
+      selectedFeeDeltas,
+      peerIndex,
+      selectedRevenueTrend,
+      selectedPeerRanking,
+      evidencePolicy,
+    });
 
     // 2-4. Generate the three sections in parallel — they're independent
     // (no shared state, no ordering constraint). Was sequential and took
@@ -456,18 +524,41 @@ export async function generateReport(
             period,
             selected_institution: selectedInstitutionData,
             focus_category: params.focusCategory ?? null,
-            peer_anchored_fees: topCategories.slice(0, 5).map((c) => ({
-              fee_category: c.fee_category,
-              peer_median: c.median_amount,
-              peer_p25: c.p25_amount,
-              peer_p75: c.p75_amount,
-              institution_count: c.institution_count,
-              maturity: c.maturity_tier,
-            })),
+            peer_anchored_fees: selectedInstitution
+              ? selectedFeeDeltas.slice(0, 5)
+              : topCategories.slice(0, 5).map((c) => ({
+                  fee_category: c.fee_category,
+                  peer_median: c.median_amount,
+                  peer_p25: c.p25_amount,
+                  peer_p75: c.p75_amount,
+                  institution_count: c.institution_count,
+                  maturity: c.maturity_tier,
+                })),
           },
           context: buildRecommendationContext(params, institutionName),
         }),
       ]);
+
+    const snapshotRows = selectedFeeDeltas.slice(0, 5).map((delta) => ({
+      label: delta.fee_category.replace(/_/g, " "),
+      current: `${formatAmount(delta.institution_amount)} ${delta.evidence_tier}`,
+      proposed: `${formatAmount(delta.peer_median)} ${peerIndex.label} median`,
+    }));
+    const tradeoffRows =
+      selectedInstitution && selectedFeeDeltas.length > 0
+        ? selectedFeeDeltas.slice(0, 3).map((delta) => ({
+            label: delta.fee_category.replace(/_/g, " "),
+            value:
+              `${formatAmount(delta.institution_amount)} vs ${formatAmount(delta.peer_median)} ${peerIndex.label} median ` +
+              `(${formatSignedAmount(delta.delta_amount)})`,
+          }))
+        : topCategories.slice(0, 3).map((c) => ({
+            label: c.fee_category.replace(/_/g, " "),
+            value:
+              c.median_amount != null
+                ? `$${c.median_amount.toFixed(2)} median`
+                : "Insufficient data",
+          }));
 
     // 5. Assemble ReportSummaryResponse
     const report: ReportSummaryResponse = {
@@ -475,23 +566,22 @@ export async function generateReport(
       executiveSummary: summarySection.narrative
         .split("\n\n")
         .filter((p) => p.trim().length > 0),
-      snapshot: [],
+      snapshot: snapshotRows,
       strategicRationale: strategicSection.narrative,
-      tradeoffs: topCategories.slice(0, 3).map((c) => ({
-        label: c.fee_category.replace(/_/g, " "),
-        value:
-          c.median_amount != null
-            ? `$${c.median_amount.toFixed(2)} median`
-            : "Insufficient data",
-      })),
+      tradeoffs: tradeoffRows,
       recommendation: recommendationSection.narrative,
       implementationNotes: [
         `Report generated ${new Date().toLocaleDateString()}`,
         `Analysis period: ${period}`,
-        `Data covers ${indexData.length} fee categories across the national index`,
+        `Peer baseline: ${peerIndex.label}`,
+        peerIndex.fallbackReason ? `Peer fallback: ${peerIndex.fallbackReason}` : "Peer baseline did not require fallback",
+        `Data covers ${indexData.length} fee categories across the selected peer baseline`,
         selectedInstitution
-          ? `Selected institution evidence policy: ${params.evidencePolicy ?? "provisional-first"}`
+          ? `Selected institution evidence policy: ${evidencePolicy}`
           : "All figures are pipeline-verified from published fee schedules",
+        selectedInstitution
+          ? `Selected institution deterministic fee deltas available: ${selectedFeeDeltas.length}`
+          : "No selected institution deltas were requested",
         "Verified benchmark conclusions exclude provisional rows unless explicitly labeled otherwise.",
       ],
       exportControls: {
@@ -499,21 +589,58 @@ export async function generateReport(
         shareEnabled: false,
       },
     };
+    const artifactQuality = validateHamiltonReportArtifact({
+      report,
+      selectedInstitutionId: selectedInstitution?.id ?? null,
+      selectedFeeDeltas,
+      canGenerateVerifiedBenchmarkConclusions:
+        selectedInstitutionData?.can_generate_verified_benchmark_conclusions ?? false,
+    });
+    if (!artifactQuality.ok) {
+      return { success: false, error: artifactQuality.error };
+    }
 
     // 6. Save to hamilton_reports
     const institutionId =
-      selectedInstitution?.id.toString() ||
-      (user.institution_name ?? "").toLowerCase().replace(/\s+/g, "-") ||
-      "unknown";
+      normalizeCanonicalInstitutionId(selectedInstitution?.id) ?? "";
+    const artifactMetadata: ReportArtifactMetadata = {
+      evidencePolicy,
+      selectedSource: selectedSourceContext.selectedSource,
+      selectedSourceLabel: selectedSourceContext.selectedSourceLabel,
+      peerSetId: peerIndex.peerSetId,
+      peerBaselineSource: peerIndex.source,
+      peerBaselineLabel: peerIndex.label,
+      peerFallbackReason: peerIndex.fallbackReason,
+      selectedVerifiedFeeCount: selectedVerifiedFees.length,
+      selectedProvisionalFeeCount: selectedProvisionalFees.length,
+      selectedFeeDeltaCount: selectedFeeDeltas.length,
+    };
     const reportId = await saveHamiltonReport({
       userId: user.id,
       institutionId,
       reportType: params.templateType,
       reportJson: report,
       scenarioId: params.scenarioId ?? null,
+      evidencePolicy: artifactMetadata.evidencePolicy,
+      peerSetId: artifactMetadata.peerSetId,
+      peerBaselineSource: artifactMetadata.peerBaselineSource,
+      peerBaselineLabel: artifactMetadata.peerBaselineLabel,
+      peerFallbackReason: artifactMetadata.peerFallbackReason,
+      selectedSource: artifactMetadata.selectedSource,
+      selectedSourceLabel: artifactMetadata.selectedSourceLabel,
+      selectedVerifiedFeeCount: artifactMetadata.selectedVerifiedFeeCount,
+      selectedProvisionalFeeCount: artifactMetadata.selectedProvisionalFeeCount,
+      selectedFeeDeltaCount: artifactMetadata.selectedFeeDeltaCount,
     });
+    if (selectedInstitution) {
+      await completeHamiltonRefreshJobsForInstitution({
+        institutionId: selectedInstitution.id,
+        jobTypes: ["report_refresh"],
+        completedByUserId: user.id,
+      }).catch(() => {});
+    }
 
-    return { success: true, reportId, report };
+    return { success: true, reportId, report, artifactMetadata };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { success: false, error: `Report generation failed: ${message}` };
@@ -566,12 +693,43 @@ export async function loadPublishedReport(reportId: string) {
   const user = await getCurrentUser();
   if (!user) return null;
   const rows = await sql`
-    SELECT id, report_type, report_json, created_at
+    SELECT
+      id,
+      report_type,
+      report_json,
+      evidence_policy,
+      peer_set_id,
+      peer_baseline_source,
+      peer_baseline_label,
+      peer_fallback_reason,
+      selected_source,
+      selected_source_label,
+      selected_verified_fee_count,
+      selected_provisional_fee_count,
+      selected_fee_delta_count,
+      created_at
     FROM hamilton_reports
     WHERE id = ${reportId}
       AND status = 'published'
     LIMIT 1
   `;
   if (!rows[0]) return null;
-  return rows[0];
+  return {
+    id: rows[0].id as string,
+    report_type: rows[0].report_type as string,
+    report_json: rows[0].report_json as ReportSummaryResponse,
+    created_at: rows[0].created_at as string,
+    artifact_metadata: {
+      evidencePolicy: rows[0].evidence_policy as HamiltonEvidencePolicy,
+      selectedSource: rows[0].selected_source as ReportArtifactMetadata["selectedSource"],
+      selectedSourceLabel: rows[0].selected_source_label as string | null,
+      peerSetId: rows[0].peer_set_id as string | null,
+      peerBaselineSource: rows[0].peer_baseline_source as ReportArtifactMetadata["peerBaselineSource"],
+      peerBaselineLabel: rows[0].peer_baseline_label as string | null,
+      peerFallbackReason: rows[0].peer_fallback_reason as string | null,
+      selectedVerifiedFeeCount: Number(rows[0].selected_verified_fee_count ?? 0),
+      selectedProvisionalFeeCount: Number(rows[0].selected_provisional_fee_count ?? 0),
+      selectedFeeDeltaCount: Number(rows[0].selected_fee_delta_count ?? 0),
+    },
+  };
 }

@@ -12,13 +12,27 @@ import { CustomerNav } from "@/components/customer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
 import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
-import { getDisplayName } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
+import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
+import { getHamiltonWorkspaceContext } from "@/lib/hamilton/workspace-context";
+import {
+  buildAccountQuickActions,
+  buildHamiltonAccountHref,
+} from "@/lib/hamilton/account-actions";
+import {
+  acceptPendingWorkspaceInvitationsForUser,
+  getUserInstitutionClaimHistory,
+  getUserInstitutionMemberships,
+  getPendingWorkspaceInvitationsForEmail,
+} from "@/lib/hamilton/institution-membership";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Account | Bank Fee Index",
 };
+
+const VERIFIED_BENCHMARK_POLICY = "Verified-only benchmark medians";
+const PROVISIONAL_ANALYSIS_POLICY = "Provisional-first Hamilton analysis";
 
 export default async function AccountPage({
   searchParams,
@@ -43,9 +57,15 @@ export default async function AccountPage({
         const { sql: sqlConn } = await import("@/lib/data-store/connection");
         await sqlConn`
           UPDATE users SET subscription_status = 'active', role = 'premium'
-          WHERE id = ${user.id} AND role NOT IN ('admin')`;
+          WHERE id = ${user.id} AND role NOT IN ('admin', 'analyst')`;
+        await acceptPendingWorkspaceInvitationsForUser({
+          userId: user.id,
+          email: user.email ?? user.username,
+        }).catch(() => []);
         user.subscription_status = "active";
-        user.role = "premium";
+        if (user.role !== "admin" && user.role !== "analyst") {
+          user.role = "premium";
+        }
       }
     } catch {
       // Stripe not configured or error -- continue with current status
@@ -53,9 +73,51 @@ export default async function AccountPage({
   }
 
   const isPro = canAccessPremium(user);
+  const pendingWorkspaceInvitations = !isPro
+    ? await getPendingWorkspaceInvitationsForEmail(user.email ?? user.username, 5).catch(() => [])
+    : [];
   const district = user.state_code ? STATE_TO_DISTRICT[user.state_code] : null;
   const districtName = district ? DISTRICT_NAMES[district] : null;
   const stateName = user.state_code ? STATE_NAMES[user.state_code] : null;
+  const selectedWorkspaceContext = isPro
+    ? await getHamiltonWorkspaceContext(user.id).catch(() => null)
+    : null;
+  const selectedInstitution = selectedWorkspaceContext?.selectedInstitutionId
+    ? (
+        await getHamiltonInstitutionContext(
+          selectedWorkspaceContext.selectedInstitutionId,
+        ).catch(() => ({ institution: null }))
+      ).institution
+    : null;
+  const [institutionMemberships, claimHistory] = isPro
+    ? await Promise.all([
+        getUserInstitutionMemberships(user.id).catch(() => []),
+        getUserInstitutionClaimHistory(user.id, 5).catch(() => []),
+      ])
+    : [[], []];
+  const selectedMembership = selectedInstitution
+    ? institutionMemberships.find((membership) => membership.institutionId === selectedInstitution.id)
+    : null;
+
+  function hamiltonHref(path: string, params?: Record<string, string>): string {
+    return buildHamiltonAccountHref({
+      isPro,
+      path,
+      params,
+      selectedInstitutionId: selectedInstitution?.id ?? null,
+    });
+  }
+
+  const selectedContextSourceLabel =
+    selectedWorkspaceContext?.selectedSource === "url"
+      ? "URL selected"
+      : selectedWorkspaceContext?.selectedSource === "manual"
+        ? "Manual"
+        : selectedWorkspaceContext?.selectedSource === "profile"
+          ? "Profile"
+          : selectedWorkspaceContext?.selectedSource === "watchlist"
+            ? "Watchlist"
+            : null;
 
   // Personalized fee insight
   let feeInsight: { category: string; stateMedian: number | null; nationalMedian: number | null } | null = null;
@@ -77,59 +139,20 @@ export default async function AccountPage({
     }
   }
 
-  // Build personalized quick action links
-  const peerParams = new URLSearchParams();
-  if (user.state_code) peerParams.set("state", user.state_code);
-  if (user.institution_type === "bank") peerParams.set("charter", "bank");
-  if (user.institution_type === "credit_union") peerParams.set("charter", "credit_union");
-  if (user.asset_tier) peerParams.set("tier", user.asset_tier);
-
-  const quickActions = [
-    {
-      label: "Research Agent",
-      description: isPro ? "Ask questions about fee data with AI" : "3 free queries/day",
-      href: "/pro/research",
-      icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
-      premium: false,
-    },
-    {
-      label: "Fee Benchmarks",
-      description: user.state_code ? `Fees in ${user.state_code}` : "National fee data",
-      href: user.state_code ? `/research/state/${user.state_code}` : "/fees",
-      icon: "M3 13h4v8H3zM10 8h4v13h-4zM17 3h4v18h-4z",
-      premium: false,
-    },
-    {
-      label: "Peer Analysis",
-      description: "Compare against your peer group",
-      href: isPro ? `/research/national-fee-index${peerParams.toString() ? "?" + peerParams.toString() : ""}` : "/subscribe",
-      icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m14 0v-6a2 2 0 00-2-2h-2a2 2 0 00-2 2v6m14-10V9a2 2 0 00-2-2h-2a2 2 0 00-2 2v4",
-      premium: true,
-    },
-    {
-      label: "District Report",
-      description: districtName ? `${districtName} district` : "Fed district data",
-      href: isPro ? (district ? `/research/district/${district}` : "/research") : "/subscribe",
-      icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064",
-      premium: true,
-    },
-    {
-      label: "Export Data",
-      description: "Download CSV reports",
-      href: isPro ? "/api/v1/fees?format=csv" : "/subscribe",
-      icon: "M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-      premium: true,
-    },
-    {
-      label: "API Docs",
-      description: "Integrate with your systems",
-      href: "/api-docs",
-      icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
-      premium: false,
-    },
-  ];
+  const quickActions = buildAccountQuickActions({
+    isPro,
+    userStateCode: user.state_code,
+    districtName,
+    selectedInstitution: selectedInstitution
+      ? { id: selectedInstitution.id, name: selectedInstitution.name }
+      : null,
+  });
 
   const userInitial = (user.institution_name?.[0] || user.email?.[0] || user.username?.[0] || "U").toUpperCase();
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return "Not reviewed";
+    return new Date(value).toLocaleDateString();
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -184,11 +207,25 @@ export default async function AccountPage({
                   Unlock the full platform
                 </h2>
                 <p className="text-[13px] text-[#7A7062] mt-1">
-                  All 49 fee categories, peer benchmarks, AI research, data exports, and API access.
+                  {pendingWorkspaceInvitations.length > 0
+                    ? "Activate Pro to accept delegated Hamilton workspace access for your invited institution."
+                    : "All 49 fee categories, peer benchmarks, Hamilton analysis, data exports, and report workflows."}
                 </p>
+                {pendingWorkspaceInvitations.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {pendingWorkspaceInvitations.map((invitation) => (
+                      <span
+                        key={invitation.id}
+                        className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
+                      >
+                        {invitation.institutionName} · {invitation.role}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <a
-                href="/subscribe"
+                href={pendingWorkspaceInvitations.length > 0 ? "/subscribe?invite=workspace" : "/subscribe"}
                 className="mt-4 md:mt-0 inline-flex items-center gap-2 rounded-full bg-[#C44B2E] px-6 py-2.5 text-[13px] font-semibold text-white shadow-sm shadow-[#C44B2E]/15 hover:shadow-md hover:shadow-[#C44B2E]/25 transition-all flex-shrink-0 no-underline"
               >
                 View Plans
@@ -253,6 +290,9 @@ export default async function AccountPage({
                       : null
                   }
                 </p>
+                <p className="mt-1 text-[11px] text-[#A09788]">
+                  {VERIFIED_BENCHMARK_POLICY}; provisional rows are excluded from this benchmark.
+                </p>
               </div>
             </div>
           </div>
@@ -263,6 +303,136 @@ export default async function AccountPage({
           <ProfileForm user={user} />
         </div>
 
+        {isPro && (
+          <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                  Hamilton Context
+                </p>
+                <p className="mt-1 text-[15px] font-semibold text-[#1A1815] truncate">
+                  {selectedInstitution?.name ?? "No selected institution"}
+                </p>
+                <p className="mt-1 text-[12px] text-[#7A7062]">
+                  {selectedInstitution
+                    ? `ID ${selectedInstitution.id} · ${selectedContextSourceLabel ?? "Selected"} · ${selectedInstitution.feePublicationLabel} · ${selectedInstitution.publishedFeeCount} verified / ${selectedInstitution.provisionalFeeCount} provisional · ${PROVISIONAL_ANALYSIS_POLICY}`
+                    : "Set an institution once and Hamilton will carry it through Analyze, Reports, Scenarios, and Monitor."}
+                </p>
+                {selectedInstitution && (
+                  <p className="mt-1 text-[11px] text-[#A09788]">
+                    Verified benchmark scores use approved rows only; provisional evidence stays labeled for directional analysis.
+                  </p>
+                )}
+                {selectedMembership && (
+                  <p className="mt-2 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+                    Verified workspace {selectedMembership.role}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={hamiltonHref("/pro/settings")}
+                  className="inline-flex items-center justify-center rounded-full border border-[#D8CDBD] px-4 py-2 text-[12px] font-semibold text-[#1A1815] no-underline hover:border-[#C44B2E]/40"
+                >
+                  Set Context
+                </a>
+                <a
+                  href={hamiltonHref("/pro/analyze")}
+                  className="inline-flex items-center justify-center rounded-full bg-[#1A1815] px-4 py-2 text-[12px] font-semibold text-white no-underline"
+                >
+                  Analyze
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isPro && (
+          <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                  Institution Authority
+                </p>
+                <h2
+                  className="mt-1 text-[18px] font-medium text-[#1A1815]"
+                  style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+                >
+                  {institutionMemberships.length > 0
+                    ? "Verified workspace access"
+                    : "No verified institution authority yet"}
+                </h2>
+                <p className="mt-1 text-[13px] text-[#7A7062]">
+                  Accepted claims grant workspace authority for Hamilton context, claim badges, and institution-specific workflows.
+                </p>
+              </div>
+              <a
+                href={hamiltonHref("/pro/settings")}
+                className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#D8CDBD] px-4 py-2 text-[12px] font-semibold text-[#1A1815] no-underline hover:border-[#C44B2E]/40"
+              >
+                Manage Claims
+              </a>
+            </div>
+
+            {institutionMemberships.length > 0 && (
+              <div className="mt-4 grid gap-2">
+                {institutionMemberships.slice(0, 3).map((membership) => (
+                  <div
+                    key={membership.id}
+                    className="flex flex-col gap-2 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[#1A1815]">
+                        {membership.institutionName}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-[#7A7062]">
+                        ID {membership.institutionId}
+                        {[membership.city, membership.stateCode].filter(Boolean).length > 0
+                          ? ` · ${[membership.city, membership.stateCode].filter(Boolean).join(", ")}`
+                          : ""}{" "}
+                        · {membership.role} · granted {formatDate(membership.grantedAt)}
+                      </p>
+                    </div>
+                    <a
+                      href={`/pro/analyze?instId=${membership.institutionId}`}
+                      className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#1A1815] px-3 py-1.5 text-[11px] font-semibold text-white no-underline"
+                    >
+                      Analyze
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {claimHistory.length > 0 && (
+              <div className="mt-5">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                  Claim History
+                </p>
+                <div className="divide-y divide-[#E8DFD1] overflow-hidden rounded-lg border border-[#E8DFD1]">
+                  {claimHistory.map((claim) => (
+                    <div key={claim.id} className="grid gap-1 bg-white/60 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                      <div className="min-w-0">
+                        <p className="truncate text-[12px] font-semibold text-[#1A1815]">
+                          {claim.institutionName}
+                        </p>
+                        <p className="text-[11px] text-[#7A7062]">
+                          Submitted {formatDate(claim.createdAt)}
+                          {claim.reviewedAt ? ` · reviewed ${formatDate(claim.reviewedAt)}` : ""}
+                          {claim.resolution ? ` · ${claim.resolution.replaceAll("_", " ")}` : ""}
+                        </p>
+                      </div>
+                      <span className="inline-flex w-fit rounded-full border border-[#D8CDBD] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                        {claim.reviewStatus.replace("_", " ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Quick Actions ── */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
@@ -271,7 +441,7 @@ export default async function AccountPage({
             </span>
             <span className="h-px flex-1 bg-[#E8DFD1]" />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {quickActions.map((action) => (
               <a
                 key={action.label}
@@ -307,18 +477,56 @@ export default async function AccountPage({
 
         {/* ── API Access ── */}
         <div className="mb-8">
-          <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 opacity-50">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
-                API Access
-              </span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#E8DFD1]/60 text-[#7A7062] uppercase">
-                Soon
-              </span>
+          <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                    API and Exports
+                  </span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-600 uppercase">
+                    Active
+                  </span>
+                </div>
+                <p className="text-[13px] text-[#7A7062]">
+                  REST endpoints and verified-only CSV exports are available now. Managed account API keys remain disabled in this account surface until key lifecycle and rate-limit ownership are reconciled.
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <a
+                  href="/api-docs"
+                  className="inline-flex items-center justify-center rounded-full border border-[#D8CDBD] px-3 py-1.5 text-[11px] font-semibold text-[#1A1815] no-underline hover:border-[#C44B2E]/40"
+                >
+                  API Docs
+                </a>
+                <a
+                  href={isPro ? "/api/v1/fees?format=csv" : "/subscribe"}
+                  className="inline-flex items-center justify-center rounded-full bg-[#1A1815] px-3 py-1.5 text-[11px] font-semibold text-white no-underline"
+                >
+                  {isPro ? "Export CSV" : "Upgrade to Export"}
+                </a>
+              </div>
             </div>
-            <p className="text-[13px] text-[#7A7062]">
-              Programmatic access to fee data is coming soon.
-            </p>
+            <div className="mt-4 grid gap-2 text-[12px] text-[#7A7062] sm:grid-cols-3">
+              <div className="rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-2">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#A09788]">
+                  API Docs
+                </span>
+                Public REST reference and OpenAPI schema.
+              </div>
+              <div className="rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-2">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#A09788]">
+                  CSV Export
+                </span>
+                Seat License export of verified-only fee medians.
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-amber-800">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                  API Keys
+                </span>
+                Not exposed until key storage, revocation, and usage ownership are aligned.
+              </div>
+            </div>
           </div>
         </div>
       </div>

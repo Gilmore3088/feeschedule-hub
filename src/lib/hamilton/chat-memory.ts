@@ -1,12 +1,12 @@
 /**
- * Hamilton Chat Memory — Supabase conversation persistence.
+ * Hamilton Chat Memory — migration-backed conversation persistence.
  *
  * Tables:
  *   hamilton_conversations — one row per conversation session
  *   hamilton_messages     — one row per turn (user or assistant)
  *
+ * Schema changes live in Supabase migrations.
  * All queries use the shared postgres sql client from data-store/connection.
- * UUID primary keys match Supabase gen_random_uuid() convention.
  *
  * Security: loadConversationHistory is scoped to (conversation_id, user_id)
  * to prevent cross-user history access (T-17-04).
@@ -18,49 +18,6 @@ export interface ConversationSummary {
   id: string;
   title: string | null;
   updatedAt: string;
-}
-
-/**
- * Create Hamilton tables if they do not already exist.
- * Safe to call repeatedly (IF NOT EXISTS).
- * Called at cold start in the API route — errors are swallowed to keep
- * the route alive even if the DB schema hasn't been applied yet.
- */
-export async function ensureHamiltonTables(): Promise<void> {
-  try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS hamilton_conversations (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id INTEGER NOT NULL,
-        title TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `;
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS hamilton_messages (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        conversation_id UUID NOT NULL REFERENCES hamilton_conversations(id) ON DELETE CASCADE,
-        role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-        content TEXT NOT NULL,
-        token_count INTEGER,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `;
-
-    await sql`
-      CREATE INDEX IF NOT EXISTS idx_hamilton_conv_user
-        ON hamilton_conversations(user_id, updated_at DESC)
-    `;
-
-    await sql`
-      CREATE INDEX IF NOT EXISTS idx_hamilton_msg_conv
-        ON hamilton_messages(conversation_id, created_at ASC)
-    `;
-  } catch (err) {
-    console.error("[hamilton] ensureHamiltonTables failed:", err);
-  }
 }
 
 /**
@@ -85,10 +42,14 @@ export async function appendMessage(
   content: string,
   tokenCount?: number
 ): Promise<void> {
-  await sql`
-    INSERT INTO hamilton_messages (conversation_id, role, content, token_count)
-    VALUES (${conversationId}, ${role}, ${content}, ${tokenCount ?? null})
+  const rows = await sql<Array<{ id: string }>>`
+    INSERT INTO hamilton_messages (conversation_id, user_id, role, content, token_count)
+    SELECT id, user_id, ${role}, ${content}, ${tokenCount ?? null}
+      FROM hamilton_conversations
+     WHERE id = ${conversationId}
+    RETURNING id
   `;
+  if (rows.length === 0) throw new Error("Conversation not found");
 
   await sql`
     UPDATE hamilton_conversations

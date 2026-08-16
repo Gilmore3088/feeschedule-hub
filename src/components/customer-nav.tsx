@@ -3,6 +3,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { MobileNav } from "./mobile-nav";
 import { SearchTrigger } from "./search-trigger";
+import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
+
+const PRO_NAV_ITEMS = HAMILTON_NAV.filter((item) => item.label !== "Admin");
 
 export async function CustomerNav() {
   let user = null;
@@ -15,16 +18,7 @@ export async function CustomerNav() {
   }
 
   const navItems = isPro
-    ? [
-        { label: "Dashboard", href: "/pro" },
-        { label: "Market", href: "/pro/market" },
-        { label: "Peers", href: "/pro/peers" },
-        { label: "Categories", href: "/pro/categories" },
-        { label: "Districts", href: "/pro/districts" },
-        { label: "Data", href: "/pro/data" },
-        { label: "Wire", href: "/pro/news" },
-        { label: "AI Research", href: "/pro/research" },
-      ]
+    ? PRO_NAV_ITEMS
     : [
         { label: "Find Your Institution", href: "/institutions" },
         { label: "Fee Benchmarks", href: "/fees" },

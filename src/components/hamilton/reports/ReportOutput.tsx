@@ -1,10 +1,11 @@
-import type { ReportSummaryResponse } from "@/lib/hamilton/types";
+import type { ReportArtifactMetadata, ReportSummaryResponse } from "@/lib/hamilton/types";
 import { ReportSection } from "./ReportSection";
 import { StatCalloutBox } from "./StatCalloutBox";
 
 interface ReportOutputProps {
   report: ReportSummaryResponse;
   reportType: string;
+  artifactMetadata?: ReportArtifactMetadata | null;
 }
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
@@ -14,7 +15,13 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
   state_index: "State Index",
 };
 
-export function ReportOutput({ report, reportType }: ReportOutputProps) {
+function formatPolicy(policy: ReportArtifactMetadata["evidencePolicy"]): string {
+  if (policy === "verified-only") return "Verified only";
+  if (policy === "source-diligence") return "Source diligence";
+  return "Provisional first";
+}
+
+export function ReportOutput({ report, reportType, artifactMetadata }: ReportOutputProps) {
   const typeLabel = REPORT_TYPE_LABELS[reportType] ?? reportType;
 
   return (
@@ -52,6 +59,29 @@ export function ReportOutput({ report, reportType }: ReportOutputProps) {
         >
           This report is read-only. Use Export PDF to save.
         </p>
+
+        {artifactMetadata && (
+          <div
+            className="mt-4 grid grid-cols-1 gap-2 rounded-md border p-3 text-[11px] sm:grid-cols-3"
+            style={{
+              borderColor: "var(--hamilton-border)",
+              backgroundColor: "var(--hamilton-surface-elevated)",
+              color: "var(--hamilton-text-secondary)",
+            }}
+          >
+            <span>
+              <strong style={{ color: "var(--hamilton-text-primary)" }}>
+                {formatPolicy(artifactMetadata.evidencePolicy)}
+              </strong>
+            </span>
+            <span>
+              Baseline: {artifactMetadata.peerBaselineLabel ?? "Not recorded"}
+            </span>
+            <span>
+              {artifactMetadata.selectedSourceLabel ?? "Context source not recorded"} · {artifactMetadata.selectedFeeDeltaCount} deltas · {artifactMetadata.selectedVerifiedFeeCount} verified · {artifactMetadata.selectedProvisionalFeeCount} provisional
+            </span>
+          </div>
+        )}
       </header>
 
       {/* Executive Summary */}

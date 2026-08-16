@@ -12,6 +12,7 @@ import { EvidencePanel } from "./EvidencePanel";
 import { ExploreFurtherPanel } from "./ExploreFurtherPanel";
 import { AnalyzeCTABar } from "./AnalyzeCTABar";
 import { AnalysisInputBar } from "./AnalysisInputBar";
+import { normalizeCanonicalInstitutionId } from "@/lib/hamilton/context-link";
 import type { AnalyzeResponse } from "@/lib/hamilton/types";
 import type { HamiltonSelectedInstitutionContext } from "@/lib/hamilton/institution-context";
 
@@ -178,8 +179,11 @@ export function AnalyzeWorkspace({
 
       // Auto-save if user context is available
       if (userId) {
+        const canonicalInstitutionId = normalizeCanonicalInstitutionId(
+          selectedInstitution?.id ?? institutionId,
+        );
         const result = await saveAnalysis({
-          institutionId: selectedInstitution?.id.toString() ?? institutionId ?? "",
+          institutionId: canonicalInstitutionId ?? "",
           analysisFocus: activeTabRef.current,
           prompt: lastPromptRef.current,
           responseJson: {
@@ -395,6 +399,7 @@ export function AnalyzeWorkspace({
           {/* CTA row — shown after stream completes */}
           <AnalyzeCTABar
             isVisible={analysisComplete}
+            institutionId={normalizeCanonicalInstitutionId(selectedInstitution?.id ?? institutionId)}
             onExportPdf={handleExportPdf}
             isExporting={isExporting}
           />

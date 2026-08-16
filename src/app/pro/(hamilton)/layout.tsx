@@ -3,13 +3,18 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { ensureHamiltonProTables } from "@/lib/hamilton/pro-tables";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
 import { HamiltonShell } from "@/components/hamilton/layout/HamiltonShell";
 import { HamiltonUpgradeGate } from "@/components/hamilton/layout/HamiltonUpgradeGate";
 import { sql } from "@/lib/data-store/connection";
 import { getSavedPeerSets } from "@/lib/data-store/saved-peers";
-import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
+import { resolveHamiltonInstitutionContext } from "@/lib/hamilton/workspace-context";
+import {
+  getHamiltonArtifactContextLookup,
+  resolveArtifactContextInstitutionId,
+  shouldPersistUrlInstitutionSelection,
+} from "@/lib/hamilton/artifact-context";
+import { getHamiltonArtifactInstitutionId } from "@/lib/hamilton/artifact-context-store";
 
 export const metadata: Metadata = {
   title: {
@@ -49,9 +54,6 @@ async function HamiltonLayoutInner({
     return <HamiltonUpgradeGate />;
   }
 
-  // Fire-and-forget: ensure Hamilton Pro tables exist (non-blocking per D-15)
-  ensureHamiltonProTables().catch(() => {});
-
   const isAdmin = user.role === "admin" || user.role === "analyst";
 
   // Derive activeHref server-side from request headers so the initial HTML
@@ -64,11 +66,30 @@ async function HamiltonLayoutInner({
     "/pro/monitor";
   const pathname = requestPath.split("?")[0] || requestPath;
   const queryString = requestPath.includes("?") ? requestPath.split("?")[1] : "";
-  const selectedInstId = queryString
-    ? new URLSearchParams(queryString).get("instId")
-    : null;
-  const { institution: selectedInstitution } =
-    await getHamiltonInstitutionContext(selectedInstId);
+  const requestSearchParams = new URLSearchParams(queryString);
+  const selectedInstId = requestSearchParams.get("instId");
+  const selectedIntent = requestSearchParams.get("intent");
+  const artifactInstitutionId = await getHamiltonArtifactInstitutionId({
+    userId: user.id,
+    lookup: getHamiltonArtifactContextLookup({
+      pathname,
+      searchParams: requestSearchParams,
+    }),
+  }).catch(() => null);
+  const contextInstitutionId = resolveArtifactContextInstitutionId({
+    urlInstitutionId: selectedInstId,
+    artifactInstitutionId,
+  });
+  const isArtifactContext = !selectedInstId && Boolean(artifactInstitutionId);
+  const { institution: selectedInstitution, source: selectedSource } =
+    await resolveHamiltonInstitutionContext({
+      userId: user.id,
+      instId: contextInstitutionId,
+      intent: selectedIntent,
+      persistUrlSelection: shouldPersistUrlInstitutionSelection(selectedInstId),
+      transientSource: isArtifactContext ? "artifact" : undefined,
+    });
+  const selectedInstitutionId = selectedInstitution?.id.toString() ?? null;
   const institutionContext = selectedInstitution
     ? {
         name: selectedInstitution.name,
@@ -78,7 +99,8 @@ async function HamiltonLayoutInner({
         feePublicationLabel: selectedInstitution.feePublicationLabel,
         publishedFeeCount: selectedInstitution.publishedFeeCount,
         provisionalFeeCount: selectedInstitution.provisionalFeeCount,
-        selectedFromUrl: true,
+        selectedSource,
+        selectedFromUrl: selectedSource === "url",
       }
     : {
         name: user.institution_name,
@@ -88,6 +110,7 @@ async function HamiltonLayoutInner({
         feePublicationLabel: null,
         publishedFeeCount: null,
         provisionalFeeCount: null,
+        selectedSource: user.institution_name ? ("profile" as const) : ("none" as const),
         selectedFromUrl: false,
       };
   const activeHref =
@@ -100,11 +123,12 @@ async function HamiltonLayoutInner({
     id: string;
     title: string;
     analysis_focus: string;
+    institution_id: string | null;
     updated_at: string;
   }> = [];
   try {
     const rows = await sql`
-      SELECT id, title, analysis_focus, updated_at
+      SELECT id, title, analysis_focus, institution_id, updated_at
       FROM hamilton_saved_analyses
       WHERE user_id = ${user.id} AND status = 'active'
       ORDER BY updated_at DESC
@@ -114,6 +138,7 @@ async function HamiltonLayoutInner({
       id: String(r.id),
       title: r.title as string,
       analysis_focus: r.analysis_focus as string,
+      institution_id: r.institution_id == null ? null : String(r.institution_id),
       updated_at: String(r.updated_at),
     }));
   } catch {
@@ -124,11 +149,12 @@ async function HamiltonLayoutInner({
   let recentScenarios: Array<{
     id: string;
     fee_category: string;
+    institution_id: string | null;
     updated_at: string;
   }> = [];
   try {
     const rows = await sql`
-      SELECT id, fee_category, updated_at
+      SELECT id, fee_category, institution_id, updated_at
       FROM hamilton_scenarios
       WHERE user_id = ${user.id} AND status = 'active'
       ORDER BY updated_at DESC
@@ -137,6 +163,7 @@ async function HamiltonLayoutInner({
     recentScenarios = rows.map((r) => ({
       id: String(r.id),
       fee_category: r.fee_category as string,
+      institution_id: r.institution_id == null ? null : String(r.institution_id),
       updated_at: String(r.updated_at),
     }));
   } catch {
@@ -147,12 +174,15 @@ async function HamiltonLayoutInner({
   let pinnedInstitutions: string[] = [];
   try {
     const rows = await sql`
-      SELECT institution_id
+      SELECT institution_ids
       FROM hamilton_watchlists
       WHERE user_id = ${user.id}
-      ORDER BY created_at DESC
+      ORDER BY updated_at DESC
+      LIMIT 1
     `;
-    pinnedInstitutions = rows.map((r) => r.institution_id as string);
+    pinnedInstitutions = Array.isArray(rows[0]?.institution_ids)
+      ? (rows[0].institution_ids as unknown[]).map((id) => String(id))
+      : [];
   } catch {
     // Table may not have data yet — empty array is fine
   }
@@ -171,6 +201,7 @@ async function HamiltonLayoutInner({
       user={user}
       isAdmin={isAdmin}
       institutionContext={institutionContext}
+      selectedInstitutionId={selectedInstitutionId}
       activeHref={activeHref}
       savedAnalyses={savedAnalyses}
       recentScenarios={recentScenarios}

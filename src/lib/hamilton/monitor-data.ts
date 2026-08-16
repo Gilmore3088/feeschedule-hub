@@ -6,7 +6,15 @@
  */
 
 import { sql } from "@/lib/data-store/connection";
+import {
+  getHamiltonInstitutionContext,
+  type HamiltonSelectedInstitutionContext,
+} from "@/lib/hamilton/institution-context";
 import type { SignalEntry, AlertEntry } from "@/lib/hamilton/home-data";
+import {
+  fetchQueuedHamiltonRefreshJobs,
+  type HamiltonRefreshJobEntry,
+} from "@/lib/hamilton/refresh-jobs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,9 +34,15 @@ export interface MonitorPageData {
     newSignals: number;
     highPriorityAlerts: number;
   };
+  monitoringScope: {
+    institutionIds: string[];
+    isScoped: boolean;
+    label: string;
+  };
   topAlert: AlertEntry | null;
   signalFeed: SignalEntry[];
   watchlist: WatchlistEntry[];
+  refreshJobs: HamiltonRefreshJobEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +56,36 @@ function deriveDisplayName(institutionId: string): string {
     .join(" ");
 }
 
+export function deriveWatchlistStatus(
+  feePublicationStatus: string | null | undefined,
+  insightReadiness: string | null | undefined,
+): WatchlistEntry["status"] {
+  if (feePublicationStatus === "verified" || insightReadiness === "public_ready") {
+    return "current";
+  }
+  if (
+    feePublicationStatus === "unavailable" ||
+    insightReadiness === "source_needed" ||
+    insightReadiness === "under_review"
+  ) {
+    return "review_due";
+  }
+  return "unknown";
+}
+
+export function createWatchlistEntryFromInstitution(
+  institution: HamiltonSelectedInstitutionContext,
+): WatchlistEntry {
+  return {
+    institutionId: String(institution.id),
+    displayName: institution.name,
+    status: deriveWatchlistStatus(
+      institution.feePublicationStatus,
+      institution.insightReadiness,
+    ),
+  };
+}
+
 function deriveOverallStatus(
   newSignals: number,
   highAlerts: number,
@@ -52,73 +96,175 @@ function deriveOverallStatus(
   return "stable";
 }
 
+function normalizeInstitutionScope(
+  ids: Array<string | number | null | undefined>,
+): string[] {
+  const seen = new Set<string>();
+  ids.forEach((id) => {
+    if (id === null || id === undefined || id === "") return;
+    const value = String(id).trim();
+    if (!/^[1-9]\d*$/.test(value)) return;
+    seen.add(value);
+  });
+  return Array.from(seen);
+}
+
+function buildScopeLabel(institutionIds: string[], watchlistCount: number): string {
+  if (institutionIds.length === 0) {
+    return watchlistCount > 0
+      ? "Showing the global signal sample until the watchlist uses matched institution IDs."
+      : "Showing the global signal sample until a watchlist or selected institution is configured.";
+  }
+  if (institutionIds.length === 1) {
+    return watchlistCount > 0
+      ? "Monitoring 1 watchlisted institution."
+      : "Monitoring the selected institution.";
+  }
+  return `Monitoring ${institutionIds.length} selected and watchlisted institutions.`;
+}
+
 // ---------------------------------------------------------------------------
 // DB queries
 // ---------------------------------------------------------------------------
 
-async function fetchSignalFeed(limit: number): Promise<SignalEntry[]> {
+async function fetchSignalFeed(
+  limit: number,
+  institutionIds: string[] = [],
+): Promise<SignalEntry[]> {
   try {
-    const rows = await sql`
-      SELECT id, institution_id, signal_type, severity, title, body, created_at
-      FROM hamilton_signals
-      ORDER BY created_at DESC
-      LIMIT ${limit}
-    `;
+    const rows = institutionIds.length > 0
+      ? await sql`
+          SELECT
+            id,
+            institution_id,
+            signal_type,
+            severity,
+            title,
+            body,
+            created_at,
+            source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_signals
+          WHERE institution_id = ANY(${institutionIds}::text[])
+          ORDER BY created_at DESC
+          LIMIT ${limit}
+        `
+      : await sql`
+          SELECT
+            id,
+            institution_id,
+            signal_type,
+            severity,
+            title,
+            body,
+            created_at,
+            source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_signals
+          ORDER BY created_at DESC
+          LIMIT ${limit}
+        `;
     return rows.map((r) => ({
       id: String(r.id),
+      institutionId: r.institution_id == null ? null : String(r.institution_id),
       signalType: String(r.signal_type),
       severity: String(r.severity),
       title: String(r.title),
       body: String(r.body),
       createdAt: String(r.created_at),
+      evidencePolicy: r.evidence_policy == null ? null : String(r.evidence_policy) as SignalEntry["evidencePolicy"],
+      providerCallQueued: r.provider_call_queued === true,
     }));
   } catch {
     return [];
   }
 }
 
-async function fetchTopAlert(userId: number): Promise<AlertEntry | null> {
+async function fetchTopAlert(
+  userId: number,
+  institutionIds: string[] = [],
+): Promise<AlertEntry | null> {
   try {
-    const rows = await sql`
-      SELECT
-        pa.id,
-        pa.signal_id,
-        pa.status,
-        pa.created_at,
-        s.severity,
-        s.title,
-        s.body
-      FROM hamilton_priority_alerts pa
-      JOIN hamilton_signals s ON pa.signal_id = s.id
-      WHERE pa.user_id = ${userId}
-        AND pa.status = 'active'
-      ORDER BY
-        CASE s.severity
-          WHEN 'high'   THEN 1
-          WHEN 'medium' THEN 2
-          WHEN 'low'    THEN 3
-          ELSE 4
-        END ASC,
-        pa.created_at DESC
-      LIMIT 1
-    `;
+    const rows = institutionIds.length > 0
+      ? await sql`
+          SELECT
+            pa.id,
+            pa.signal_id,
+            pa.status,
+            pa.created_at,
+            s.institution_id,
+            s.signal_type,
+            s.severity,
+            s.title,
+            s.body,
+            s.source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((s.source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_priority_alerts pa
+          JOIN hamilton_signals s ON pa.signal_id = s.id
+          WHERE pa.user_id = ${userId}
+            AND pa.status = 'active'
+            AND s.institution_id = ANY(${institutionIds}::text[])
+          ORDER BY
+            CASE s.severity
+              WHEN 'high'   THEN 1
+              WHEN 'medium' THEN 2
+              WHEN 'low'    THEN 3
+              ELSE 4
+            END ASC,
+            pa.created_at DESC
+          LIMIT 1
+        `
+      : await sql`
+          SELECT
+            pa.id,
+            pa.signal_id,
+            pa.status,
+            pa.created_at,
+            s.institution_id,
+            s.signal_type,
+            s.severity,
+            s.title,
+            s.body,
+            s.source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((s.source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_priority_alerts pa
+          JOIN hamilton_signals s ON pa.signal_id = s.id
+          WHERE pa.user_id = ${userId}
+            AND pa.status = 'active'
+          ORDER BY
+            CASE s.severity
+              WHEN 'high'   THEN 1
+              WHEN 'medium' THEN 2
+              WHEN 'low'    THEN 3
+              ELSE 4
+            END ASC,
+            pa.created_at DESC
+          LIMIT 1
+        `;
     if (rows.length === 0) return null;
     const r = rows[0];
     return {
       id: String(r.id),
       signalId: String(r.signal_id),
+      institutionId: r.institution_id == null ? null : String(r.institution_id),
+      signalType: String(r.signal_type),
       severity: String(r.severity),
       title: String(r.title),
       body: String(r.body),
       status: String(r.status),
       createdAt: String(r.created_at),
+      evidencePolicy: r.evidence_policy == null ? null : String(r.evidence_policy) as AlertEntry["evidencePolicy"],
+      providerCallQueued: r.provider_call_queued === true,
     };
   } catch {
     return null;
   }
 }
 
-async function fetchStatusMetrics(userId: number): Promise<{
+async function fetchStatusMetrics(
+  userId: number,
+  institutionIds: string[] = [],
+): Promise<{
   newSignals: number;
   highPriorityAlerts: number;
   recentHighSignals: number;
@@ -126,27 +272,52 @@ async function fetchStatusMetrics(userId: number): Promise<{
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [newRows, alertRows, recentHighRows] = await Promise.all([
-      sql`
-        SELECT COUNT(*)::int AS count
-        FROM hamilton_signals
-        WHERE created_at >= ${cutoff}
-      `,
-      sql`
-        SELECT COUNT(*)::int AS count
-        FROM hamilton_priority_alerts pa
-        JOIN hamilton_signals s ON pa.signal_id = s.id
-        WHERE pa.user_id = ${userId}
-          AND pa.status = 'active'
-          AND s.severity = 'high'
-      `,
-      sql`
-        SELECT COUNT(*)::int AS count
-        FROM hamilton_signals
-        WHERE severity = 'high'
-          AND created_at >= ${cutoff}
-      `,
-    ]);
+    const [newRows, alertRows, recentHighRows] = institutionIds.length > 0
+      ? await Promise.all([
+          sql`
+            SELECT COUNT(*)::int AS count
+            FROM hamilton_signals
+            WHERE created_at >= ${cutoff}
+              AND institution_id = ANY(${institutionIds}::text[])
+          `,
+          sql`
+            SELECT COUNT(*)::int AS count
+            FROM hamilton_priority_alerts pa
+            JOIN hamilton_signals s ON pa.signal_id = s.id
+            WHERE pa.user_id = ${userId}
+              AND pa.status = 'active'
+              AND s.severity = 'high'
+              AND s.institution_id = ANY(${institutionIds}::text[])
+          `,
+          sql`
+            SELECT COUNT(*)::int AS count
+            FROM hamilton_signals
+            WHERE severity = 'high'
+              AND created_at >= ${cutoff}
+              AND institution_id = ANY(${institutionIds}::text[])
+          `,
+        ])
+      : await Promise.all([
+          sql`
+            SELECT COUNT(*)::int AS count
+            FROM hamilton_signals
+            WHERE created_at >= ${cutoff}
+          `,
+          sql`
+            SELECT COUNT(*)::int AS count
+            FROM hamilton_priority_alerts pa
+            JOIN hamilton_signals s ON pa.signal_id = s.id
+            WHERE pa.user_id = ${userId}
+              AND pa.status = 'active'
+              AND s.severity = 'high'
+          `,
+          sql`
+            SELECT COUNT(*)::int AS count
+            FROM hamilton_signals
+            WHERE severity = 'high'
+              AND created_at >= ${cutoff}
+          `,
+        ]);
 
     return {
       newSignals: Number(newRows[0]?.count ?? 0),
@@ -172,11 +343,28 @@ async function fetchWatchlist(userId: number): Promise<WatchlistEntry[]> {
       ? (rows[0].institution_ids as string[])
       : [];
 
-    return ids.map((id) => ({
-      institutionId: String(id),
-      displayName: deriveDisplayName(String(id)),
-      status: "unknown" as const,
-    }));
+    return Promise.all(
+      ids.map(async (id) => {
+        const institutionId = String(id);
+        const { institution } = await getHamiltonInstitutionContext(institutionId).catch(() => ({
+          institution: null,
+        }));
+        if (institution) return createWatchlistEntryFromInstitution(institution);
+        return {
+          institutionId,
+          displayName: deriveDisplayName(institutionId),
+          status: "unknown" as const,
+        };
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRefreshJobs(institutionIds: string[]): Promise<HamiltonRefreshJobEntry[]> {
+  try {
+    return await fetchQueuedHamiltonRefreshJobs({ institutionIds, limit: 8 });
   } catch {
     return [];
   }
@@ -187,13 +375,20 @@ async function fetchWatchlist(userId: number): Promise<WatchlistEntry[]> {
 // ---------------------------------------------------------------------------
 
 export async function fetchMonitorPageData(
-  userId: number
+  userId: number,
+  options: { selectedInstitutionId?: string | number | null } = {},
 ): Promise<MonitorPageData> {
-  const [signalFeed, topAlert, metrics, watchlist] = await Promise.all([
-    fetchSignalFeed(20),
-    fetchTopAlert(userId),
-    fetchStatusMetrics(userId),
-    fetchWatchlist(userId),
+  const watchlist = await fetchWatchlist(userId);
+  const institutionIds = normalizeInstitutionScope([
+    options.selectedInstitutionId,
+    ...watchlist.map((entry) => entry.institutionId),
+  ]);
+
+  const [signalFeed, topAlert, metrics, refreshJobs] = await Promise.all([
+    fetchSignalFeed(20, institutionIds),
+    fetchTopAlert(userId, institutionIds),
+    fetchStatusMetrics(userId, institutionIds),
+    fetchRefreshJobs(institutionIds),
   ]);
 
   const overall = deriveOverallStatus(
@@ -208,8 +403,14 @@ export async function fetchMonitorPageData(
       newSignals: metrics.newSignals,
       highPriorityAlerts: metrics.highPriorityAlerts,
     },
+    monitoringScope: {
+      institutionIds,
+      isScoped: institutionIds.length > 0,
+      label: buildScopeLabel(institutionIds, watchlist.length),
+    },
     topAlert,
     signalFeed,
     watchlist,
+    refreshJobs,
   };
 }

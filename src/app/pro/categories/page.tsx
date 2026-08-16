@@ -12,6 +12,7 @@ import {
   TAXONOMY_COUNT,
 } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
+import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
   title: "Fee Categories | Bank Fee Index",
@@ -51,14 +52,10 @@ const FAMILY_DOT_COLORS: Record<string, string> = {
 export default async function ProCategoriesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?from=/pro/categories");
-  if (!canAccessPremium(user)) redirect("/subscribe");
+  if (!canAccessPremium(user)) redirect("/subscribe?from=/pro/categories");
 
   const summaries = await getFeeCategorySummaries();
   const summaryMap = new Map(summaries.map((s) => [s.fee_category, s]));
-  const totalObservations = summaries.reduce(
-    (acc, s) => acc + s.total_observations,
-    0
-  );
   const familyNames = Object.keys(FEE_FAMILIES);
 
   return (
@@ -82,6 +79,8 @@ export default async function ProCategoriesPage() {
         with statistical distributions and institutional coverage.
       </p>
 
+      <ProReferenceWorkflowBanner userId={user.id} surface="categories" />
+
       {/* Family grid — matches districts card layout */}
       <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {familyNames.map((family) => {
@@ -92,10 +91,6 @@ export default async function ProCategoriesPage() {
             .filter(Boolean);
           const familyObservations = familyStats.reduce(
             (acc, s) => acc + (s?.total_observations ?? 0),
-            0
-          );
-          const familyInstitutions = familyStats.reduce(
-            (acc, s) => acc + (s?.institution_count ?? 0),
             0
           );
           const withData = familyStats.filter(

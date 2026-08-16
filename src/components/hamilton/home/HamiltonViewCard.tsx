@@ -6,10 +6,12 @@
 
 import Link from "next/link";
 import type { ThesisOutput } from "@/lib/hamilton/types";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 
 interface HamiltonViewCardProps {
   thesis: ThesisOutput | null;
   confidence: "high" | "medium" | "low";
+  selectedInstitutionId?: string | null;
 }
 
 function PriorityBadge({ confidence }: { confidence: "high" | "medium" | "low" }) {
@@ -105,31 +107,19 @@ function PriorityBadge({ confidence }: { confidence: "high" | "medium" | "low" }
   );
 }
 
-function EmptyState() {
-  return (
-    <div style={{ padding: "2rem 0", color: "var(--hamilton-on-surface-variant)" }}>
-      <p
-        style={{
-          fontFamily: "var(--hamilton-font-serif)",
-          fontSize: "1.5rem",
-          fontStyle: "italic",
-          lineHeight: 1.5,
-          color: "var(--hamilton-on-surface-variant)",
-          marginBottom: "0.5rem",
-        }}
-      >
-        Hamilton is preparing your first briefing.
-      </p>
-      <p style={{ fontSize: "0.8125rem", color: "var(--hamilton-text-tertiary)" }}>
-        Analysis will appear here once the index has sufficient data.
-      </p>
-    </div>
-  );
-}
-
-export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) {
+export function HamiltonViewCard({
+  thesis,
+  confidence,
+  selectedInstitutionId,
+}: HamiltonViewCardProps) {
   const thesisText = thesis?.core_thesis ?? null;
   const recommendedText = thesis?.narrative_summary ?? null;
+  const simulateHref = hrefWithInstitutionContext("/pro/simulate", selectedInstitutionId);
+  const reportsHref = hrefWithInstitutionContext(
+    "/pro/reports?intent=executive-briefing",
+    selectedInstitutionId,
+  );
+  const analyzeHref = hrefWithInstitutionContext("/pro/analyze", selectedInstitutionId);
 
   const confidenceLabel =
     confidence === "high"
@@ -183,7 +173,7 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
               lineHeight: 1.6,
             }}
           >
-            AI analysis temporarily unavailable. Positioning data below is current.
+            Hamilton analysis is temporarily unavailable. Positioning data below is current.
           </p>
         </div>
       ) : (
@@ -266,7 +256,7 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
         }}
       >
         <Link
-          href="/pro/simulate"
+          href={simulateHref}
           className="burnished-cta editorial-shadow no-underline"
           style={{
             padding: "0.75rem 2rem",
@@ -282,7 +272,7 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
           Simulate Change
         </Link>
         <Link
-          href="/pro/reports"
+          href={reportsHref}
           className="no-underline"
           style={{
             padding: "0.75rem 2rem",
@@ -296,7 +286,7 @@ export function HamiltonViewCard({ thesis, confidence }: HamiltonViewCardProps) 
           Generate Board Brief
         </Link>
         <Link
-          href="/pro/analyze"
+          href={analyzeHref}
           className="no-underline"
           style={{
             padding: "0.75rem 2rem",

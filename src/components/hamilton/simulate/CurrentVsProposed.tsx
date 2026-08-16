@@ -32,7 +32,6 @@ function riskColor(profile: "low" | "medium" | "high"): string {
 }
 
 export function CurrentVsProposed({
-  feeCategory: _feeCategory,
   currentFee,
   proposedFee,
   currentPosition,

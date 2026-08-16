@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 
 /**
  * HamiltonUpgradeGate — Server component.
@@ -6,7 +8,16 @@ import Link from "next/link";
  * Renders within .hamilton-shell scope for correct CSS token inheritance.
  * Per D-09: upgrade gate is inside the shell aesthetic (warm parchment tones).
  */
-export function HamiltonUpgradeGate() {
+export async function HamiltonUpgradeGate() {
+  const headersList = await headers();
+  const requestPath =
+    headersList.get("x-invoke-path") ||
+    headersList.get("x-next-url") ||
+    headersList.get("x-pathname") ||
+    "/pro";
+  const returnTo = sanitizeInternalRedirect(requestPath, "/pro");
+  const subscribeHref = `/subscribe?plan=hamilton&from=${encodeURIComponent(returnTo)}`;
+
   return (
     <div
       className="hamilton-shell min-h-screen flex flex-col items-center justify-center px-8 py-24"
@@ -60,7 +71,7 @@ export function HamiltonUpgradeGate() {
         </p>
 
         <Link
-          href="/subscribe?plan=hamilton"
+          href={subscribeHref}
           className="mt-6 inline-flex items-center justify-center rounded-lg px-8 py-3 text-sm font-semibold text-white no-underline transition-opacity hover:opacity-90"
           style={{ background: "var(--hamilton-gradient-cta)" }}
         >

@@ -12,6 +12,7 @@ import {
   SOURCE_LABELS,
 } from "@/lib/data-store/news";
 import { NewsFeed } from "./news-feed";
+import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
   title: "Regulatory Wire",
@@ -22,10 +23,23 @@ export default async function NewsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await getCurrentUser();
-  if (!user || !canAccessPremium(user)) redirect("/subscribe");
-
   const params = await searchParams;
+  const returnParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.forEach((item) => returnParams.append(key, item));
+    } else if (value) {
+      returnParams.set(key, value);
+    }
+  }
+  const returnPath = returnParams.toString()
+    ? `/pro/news?${returnParams.toString()}`
+    : "/pro/news";
+
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?from=${encodeURIComponent(returnPath)}`);
+  if (!canAccessPremium(user)) redirect(`/subscribe?from=${encodeURIComponent(returnPath)}`);
+
   const source = typeof params.source === "string" ? params.source : undefined;
   const topic = typeof params.topic === "string" ? params.topic : undefined;
 
@@ -69,6 +83,8 @@ export default async function NewsPage({
       <p className="mt-1 text-[13px] text-[#7A7062]">
         Real-time regulatory updates from the Federal Reserve, FDIC, OCC, and CFPB.
       </p>
+
+      <ProReferenceWorkflowBanner userId={user.id} surface="news" />
 
       <NewsFeed
         articles={articles}
