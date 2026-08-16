@@ -12,6 +12,13 @@ closed membership), Angelina Savings (district-11 overweight, lowest coverage).
 
 Status flow: selected → pulled → written → rendered → reviewed → SENT
 
+> **2026-08-15: ALL 25 at "rendered", NONE reviewed. User ruled the PDFs not ready
+> to send; nothing sends until the user's review pass clears them (and never by
+> Claude).** Reports re-rendered under FeeInsight brand architecture (FeeInsight =
+> company, Bank Fee Index = product, printed domain feeinsight.com). Outreach is
+> additionally blocked by email deliverability — see
+> `docs/runbooks/dns-email-runbook.md` (SPF/DKIM fixes required first).
+
 | # | ID | Institution | Charter | Tier | Dist | Loc | Cov | Status |
 |---|----|-------------|---------|------|------|-----|-----|--------|
 | 1 | 860 | Bank of the Pacific | bank | comm_large | 12 | Aberdeen WA | 14/15 | **PILOT** — DRAFT READY — review + send |
@@ -42,4 +49,9 @@ Status flow: selected → pulled → written → rendered → reviewed → SENT
 
 Spread: 13 banks / 12 CUs · districts 2,4,5,6,7,9,10,11,12 · tiers small/mid/large.
 
-**Data-quality follow-ups for the pipeline:** 7192 and 8485 institution names appear mislabeled in institution_sources; Redwood Capital Bank (1675) has a suspicious $50 ATM fee datapoint (50x median) — verify against source document.
+**Data-quality follow-ups for the pipeline:**
+- 7192 and 8485 institution names appear mislabeled in institution_sources.
+- Redwood Capital Bank (1675): suspicious $50 ATM fee datapoint (50x median) — verify against source document.
+- Bank of the Pacific (860) appendix shows contradictory duplicate lines: "Notary $0.00 FREE" AND "Notary service $10.00" — likely one is notary-for-customers vs general; needs dedupe/labeling rule in Darwin/Hamilton. Audit other institutions for same pattern.
+- 860 "Maximum overdraft/NSF fee $384.00 · daily" reads like an extraction error — it is the daily cap (12 × $32); frequency/terms phrasing should say "daily maximum" for cap-type lines.
+- Registry names can arrive fully uppercase (FIDELITY BANK) — display-layer title-casing added in fill.mjs 2026-08-15; fix casing at source when convenient.
