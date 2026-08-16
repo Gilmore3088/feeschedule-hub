@@ -76,6 +76,24 @@ NCUA's public charter lookup by cert_number settles each in seconds.
 review_status=approved. Confirms: approved+published with no provenance.
 Either find it in 1675's source doc or pull the datapoint.
 
+## Backfill feasibility (measured 2026-08-16)
+
+Of the 2,861 unsourced published rows: **166 are backfillable purely from
+existing sourced raw observations** (same institution + fee name + amount —
+include in the guards batch below), and **2,740 (96%) belong to institutions
+whose fee_schedule_url is already on file** — i.e. the API-pilot re-extraction
+has a known document to work from for nearly every gap. The pilot needs only a
+spend cap to start.
+
+## Pending guards batch (prepared, awaiting user approval to run)
+
+1. Soft-unpublish 136 null-amount rows (rolled_back_reason stamped, reversible).
+2. `is_fee_cap` column on published_fee_records + backfill (fee_name ilike 'max%')
+   + view replace exposing it (renderer already cap-aware).
+3. CHECK (amount >= 0) NOT VALID.
+4. Unique partial index on the content key — makes duplicates impossible.
+5. SQL-only provenance backfill of the 166 matchable rows.
+
 ## Recommended fix order (next working session)
 1. One-time dedupe of published_fee_catalog + unique constraint.
 2. Provenance gate in Hamilton: publish requires source_url (or explicit override).
