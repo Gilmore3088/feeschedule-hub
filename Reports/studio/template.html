@@ -193,10 +193,34 @@
     {{PULL_DATE}}. Figures reflect the lowest published consumer-facing amount per
     category and may not capture account-specific waivers.
   </p>
+  <h3 style="margin-top:14pt">Your source documents</h3>
+  <p class="small muted" style="margin-top:4pt">Every figure attributed to
+  {{INSTITUTION_NAME}} in this report was extracted from your own published documents:</p>
+  <ul class="small muted" style="margin:6pt 0 0 16pt; line-height:1.7">
+    {{SOURCE_LIST}}
+  </ul>
   <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
 </div>
 
-<!-- 7. BACK -->
+<!-- 7. APPENDIX: FULL SCHEDULE -->
+<div class="page">
+  <div class="kicker">Appendix</div>
+  <h2>Your complete published fee schedule</h2>
+  <hr class="rule">
+  <p class="small muted">Every distinct fee line the Bank Fee Index has extracted and
+  verified from {{INSTITUTION_NAME}}'s published documents ({{ALL_FEES_COUNT}} lines,
+  as of {{PULL_DATE}}). This is the schedule your customers — and your competitors —
+  can see.</p>
+  <table style="margin-top:10pt">
+    <thead><tr><th>Published fee line</th><th class="r">Amount</th><th>Frequency / terms</th></tr></thead>
+    <tbody>
+      {{ALL_FEES_ROWS}}
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+</div>
+
+<!-- 8. BACK -->
 <div class="page back">
   <div class="brand" style="font-family:var(--sans);font-size:9pt;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);font-weight:700">Bank Fee Index</div>
   <h2 style="margin-top:14pt">This report is yours, with our compliments.</h2>

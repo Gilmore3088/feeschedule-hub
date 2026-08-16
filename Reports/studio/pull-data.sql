@@ -89,11 +89,28 @@ peer_table AS (
   WHERE c.institution_id != :inst
   GROUP BY s.id, s.institution_name, s.city, s.state_code
   ORDER BY n_cats DESC LIMIT 8
+),
+-- complete published schedule (appendix): every distinct published fee line
+all_fees AS (
+  SELECT DISTINCT ON (lower(fee_name), amount)
+         fee_name, amount, frequency, conditions
+  FROM published_fee_catalog
+  WHERE institution_id = :inst AND amount IS NOT NULL
+  ORDER BY lower(fee_name), amount
+),
+-- provenance: the actual source documents the fees were extracted from
+sources AS (
+  SELECT coalesce(document_url, source_url) AS url, count(*) AS n_fees
+  FROM published_fee_catalog
+  WHERE institution_id = :inst AND coalesce(document_url, source_url) IS NOT NULL
+  GROUP BY 1 ORDER BY n_fees DESC LIMIT 6
 )
 SELECT jsonb_build_object(
   'institution', (SELECT to_jsonb(t) FROM target t),
   'fees', (SELECT jsonb_agg(to_jsonb(f) ORDER BY f.category) FROM fee_rows f),
   'peers', (SELECT jsonb_agg(to_jsonb(p)) FROM peer_table p),
+  'all_fees', (SELECT jsonb_agg(to_jsonb(a) ORDER BY a.fee_name) FROM all_fees a),
+  'sources', (SELECT jsonb_agg(to_jsonb(s)) FROM sources s),
   'meta', jsonb_build_object(
      'pull_date', now()::date,
      'cohort', (SELECT charter_type || ' / ' || asset_size_tier FROM target),

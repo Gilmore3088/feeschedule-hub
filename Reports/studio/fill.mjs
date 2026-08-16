@@ -53,10 +53,12 @@ const positionRows = fees.map((f) => {
     <td>${bar}${p === null ? "" : `<span class="small muted"> P${p}</span>`}</td><td>${tag}</td></tr>`;
 }).join("\n");
 
-// Exec findings (3 numbers) from narratives
-const execFindings = narr.findings.map((f) =>
-  `<div class="finding"><div class="num">${esc(f.stat)}<small>${esc(f.stat_label)}</small></div>
-   <p><b>${esc(f.headline)}</b><br>${esc(f.body)}</p></div>`).join("\n");
+// Exec findings (3 numbers) from narratives; shrink long stats so the column holds
+const execFindings = narr.findings.map((f) => {
+  const size = f.stat.length > 12 ? "12pt" : f.stat.length > 8 ? "16pt" : "21pt";
+  return `<div class="finding"><div class="num" style="font-size:${size}">${esc(f.stat)}<small>${esc(f.stat_label)}</small></div>
+   <p><b>${esc(f.headline)}</b><br>${esc(f.body)}</p></div>`;
+}).join("\n");
 
 // Callout cards
 const callouts = narr.callouts.map((c) =>
@@ -75,7 +77,26 @@ const peerRows = (pack.peers ?? []).map((p) =>
   `<tr><td>${esc(p.institution_name)} <span class="small muted">(${esc(p.city)}, ${esc(p.state_code)})</span></td>` +
   HEADLINE.map((k) => `<td class="r">${money(p.fees?.[k])}</td>`).join("") + `</tr>`).join("\n");
 
+// Appendix: complete published schedule
+const allFees = pack.all_fees ?? [];
+const FREQ = { per_occurrence: "per occurrence", one_time: "one-time", monthly: "monthly",
+  annual: "annual", daily: "daily", per_item: "per item", per_page: "per page" };
+const allFeesRows = allFees.map((a) => {
+  const freq = FREQ[a.frequency] ?? (a.frequency ?? "").replaceAll("_", " ");
+  const terms = [freq, a.conditions].filter(Boolean).join(" · ");
+  return `<tr><td>${esc(a.fee_name)}</td><td class="r"><b>${money(a.amount)}</b></td>
+    <td class="small muted">${esc(terms || "—")}</td></tr>`;
+}).join("\n");
+
+// Provenance: source documents
+const sourceList = (pack.sources ?? []).map((s) =>
+  `<li>${esc(s.url)} <span class="muted">(${s.n_fees} fee lines)</span></li>`).join("\n")
+  || `<li>Source URLs available on request.</li>`;
+
 const repl = {
+  SOURCE_LIST: sourceList,
+  ALL_FEES_ROWS: allFeesRows,
+  ALL_FEES_COUNT: allFees.length,
   INSTITUTION_NAME: esc(inst.institution_name),
   CITY_STATE: `${esc(inst.city)}, ${esc(inst.state_code)}`,
   CHARTER_LABEL: inst.charter_type === "credit_union" ? "Credit Union" : "Bank",
