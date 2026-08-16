@@ -78,6 +78,9 @@ This repo no longer uses the Python `fee_crawler` runtime, Modal workers,
 
 ## Current Source Of Truth
 
+- `AGENTS.md` (agent roster, data boundaries, product rules, verification gates)
+- `src/lib/agents/AGENTS.md` and per-agent `AGENTS.md` files (pipeline architecture:
+  Atlas -> Magellan -> Rosetta -> Knox -> Darwin -> Hamilton)
 - `docs/plans/agentic-codebase-cleanup-2026-08-13.md`
 - `src/lib/agents/run-store.ts`
 - `src/lib/ai-provider.ts`
