@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { formatAssets, formatCompactDollars, formatStoredPercent } from "./format";
+import {
+  formatAmount,
+  formatAssets,
+  formatCompactDollars,
+  formatStoredPercent,
+} from "./format";
+
+describe("formatAmount", () => {
+  it("renders Postgres numeric strings as dollar amounts", () => {
+    expect(formatAmount("35.00")).toBe("$35.00");
+    expect(formatAmount("0.35")).toBe("$0.35");
+  });
+
+  it("renders invalid or missing amounts as unavailable", () => {
+    expect(formatAmount(null)).toBe("-");
+    expect(formatAmount(undefined)).toBe("-");
+    expect(formatAmount("not-a-number")).toBe("-");
+  });
+});
 
 describe("formatAssets", () => {
   it("renders trillion-scale FDIC asset values without collapsing to billions", () => {

@@ -23,6 +23,10 @@ export default async function LoginPage({
     redirect(resolvePostLoginRedirect(destination, user.role));
   }
 
+  const registerHref = params.from
+    ? `/register?from=${encodeURIComponent(params.from)}`
+    : "/register";
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left panel - hidden on mobile */}
@@ -110,7 +114,7 @@ export default async function LoginPage({
             <LoginForm redirectTo={params.from || "/account"} />
             <p className="mt-4 text-center text-sm text-[#7A7062]">
               Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-[#1A1815] font-medium hover:underline">
+              <Link href={registerHref} className="text-[#1A1815] font-medium hover:underline">
                 Create one
               </Link>
             </p>

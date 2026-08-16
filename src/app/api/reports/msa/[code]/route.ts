@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/data-store/connection";
 import { getDisplayName } from "@/lib/fee-taxonomy";
@@ -811,7 +812,7 @@ function buildJson(
 // Route handler
 // ---------------------------------------------------------------------------
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ code: string }> },
 ) {
@@ -872,3 +873,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.reports.msa", "GET", handleGET);

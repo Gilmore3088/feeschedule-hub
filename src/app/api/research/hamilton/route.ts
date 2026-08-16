@@ -1,6 +1,8 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { streamText, generateText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import {
   guardProviderCall,
+  ProviderBudgetBlockedError,
   ProviderCircuitOpenError,
   recordProviderUsage,
   trackAnthropicRequest,
@@ -13,11 +15,8 @@ import {
 import { getHamilton, buildAnalyzeModeSuffix, buildMonitorModeSuffix, type HamiltonRole } from "@/lib/research/agents";
 import { evaluateCitationDensity } from "@/lib/hamilton/citation-gate";
 import { getCurrentUser, type User } from "@/lib/auth";
-import {
-  checkPublicRateLimit,
-  checkAdminRateLimit,
-} from "@/lib/research/rate-limit";
-import { getDailyCostCents, logUsage } from "@/lib/research/history";
+import { checkAdminRateLimit } from "@/lib/research/rate-limit";
+import { logUsage } from "@/lib/research/history";
 import {
   detectSkill,
   buildSkillInjection,
@@ -26,22 +25,16 @@ import {
   findOfferedSkill,
 } from "@/lib/research/skills";
 import { canAccessPremium } from "@/lib/access";
+import { buildHamiltonInstitutionBriefing } from "@/lib/hamilton/institution-briefing";
 import {
-  getFeesByInstitution,
-  getFinancialsByInstitution,
-  getInstitutionById,
-} from "@/lib/data-store";
-import {
-  getInstitutionPeerRanking,
-  getInstitutionRevenueTrend,
-} from "@/lib/data-store/call-reports";
-import { getInstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
-import { getFeePublicationStatusLabel } from "@/lib/institution-quality";
+  buildHamiltonRequestContractPrompt,
+  parseHamiltonRequestContract,
+  type HamiltonAudience,
+  type HamiltonRequestContract,
+} from "@/lib/hamilton/request-contract";
+import { getRequestSubjectKey } from "@/lib/api-hardening/audit";
 
 export const maxDuration = 30;
-
-// Daily cost circuit breaker thresholds (in cents)
-const DAILY_COST_LIMIT_CENTS = 5000; // $50/day
 
 // Cost per 1M tokens (in cents) for estimation
 const COST_PER_M_INPUT: Record<string, number> = {
@@ -67,123 +60,27 @@ function estimateCostCents(
   );
 }
 
-async function buildSelectedInstitutionContext(institutionId: number): Promise<string | null> {
-  const [inst, fees, financials, revenueTrend, peerRanking, evidence] = await Promise.all([
-    getInstitutionById(institutionId),
-    getFeesByInstitution(institutionId).catch(() => []),
-    getFinancialsByInstitution(institutionId).catch(() => []),
-    getInstitutionRevenueTrend(institutionId).catch(() => []),
-    getInstitutionPeerRanking(institutionId).catch(() => null),
-    getInstitutionFeeScheduleEvidence(institutionId).catch(() => null),
-  ]);
-
-  if (!inst) return null;
-
-  const visibleFees = fees.filter((fee) => fee.review_status !== "rejected");
-  const verifiedFees = visibleFees.filter((fee) => fee.review_status === "approved");
-  const provisionalFees = visibleFees.filter((fee) => fee.review_status !== "approved");
-  const feeRows = [...verifiedFees.slice(0, 12), ...provisionalFees.slice(0, 12)].map((fee) => ({
-    name: fee.fee_name,
-    category: fee.fee_category ?? null,
-    amount: fee.amount,
-    frequency: fee.frequency,
-    conditions: fee.conditions,
-    status: fee.review_status === "approved" ? "verified" : "provisional",
-    confidence: fee.extraction_confidence,
-  }));
-  const pipelineFeeRows =
-    feeRows.length === 0 && evidence
-      ? [
-          ...evidence.verified_fee_preview
-            .filter((fee) => fee.review_status !== "rejected")
-            .map((fee) => ({
-              name: fee.fee_name,
-              category: fee.canonical_fee_key,
-              amount: fee.amount,
-              frequency: fee.frequency,
-              conditions: null,
-              status: "provisional",
-              confidence: fee.extraction_confidence,
-              pipeline_stage: "verified_unpublished",
-            })),
-          ...evidence.raw_fee_preview.map((fee) => ({
-            name: fee.fee_name,
-            category: null,
-            amount: fee.amount,
-            frequency: fee.frequency,
-            conditions: fee.conditions,
-            status: "provisional",
-            confidence: fee.extraction_confidence,
-            pipeline_stage: "raw_unverified",
-          })),
-        ].slice(0, 18)
-      : [];
-  const latestFinancial = financials[0] ?? null;
-  const status = inst.fee_publication_status ?? "unavailable";
-
-  return `\n\nSELECTED INSTITUTION CONTEXT FROM URL (treat this as the active institution; do not ask the user to identify it again):
-- Institution ID: ${inst.id}
-- Name: ${inst.institution_name}
-- Location: ${[inst.city, inst.state_code].filter(Boolean).join(", ") || "unknown"}
-- Charter: ${inst.charter_type ?? "unknown"}
-- Asset tier: ${inst.asset_size_tier ?? "unknown"}; assets: ${inst.asset_size ?? "unknown"}
-- Fed district: ${inst.fed_district ?? "unknown"}
-- Public fee publication status: ${getFeePublicationStatusLabel(status)} (${status})
-- Verified fee count: ${inst.published_fee_count ?? 0}
-- Provisional fee count: ${inst.provisional_fee_count ?? 0}
-- Quality label: ${inst.quality_label ?? "unknown"}
-- Quality signals: ${(inst.quality_signals ?? []).map((signal) => `${signal.code}: ${signal.label}`).join("; ") || "none"}
-- Latest source status: ${inst.latest_source_status ?? "unknown"}; collected at: ${inst.latest_source_collected_at ?? "unknown"}
-- Visible fee rows sample: ${JSON.stringify(feeRows.length > 0 ? feeRows : pipelineFeeRows)}
-- Latest financial record: ${latestFinancial ? JSON.stringify({
-    report_date: latestFinancial.report_date,
-    source: latestFinancial.source,
-    total_assets: latestFinancial.total_assets,
-    total_deposits: latestFinancial.total_deposits,
-    service_charge_income: latestFinancial.service_charge_income,
-    total_revenue: latestFinancial.total_revenue,
-    fee_income_ratio: latestFinancial.fee_income_ratio,
-    roa: latestFinancial.roa,
-    branch_count: latestFinancial.branch_count,
-  }) : "none"}
-- Revenue trend: ${JSON.stringify(revenueTrend.slice(0, 8))}
-- Peer ranking: ${peerRanking ? JSON.stringify(peerRanking) : "none"}
-
-Analysis rules for this selected institution:
-- Separate verified evidence from provisional evidence.
-- Do not use provisional fee rows in verified benchmark or score conclusions unless explicitly labeled as provisional/directional.
-- When data quality is weak, state the gap and give concrete diligence steps instead of filling in generic analysis.
-- Prefer investor-grade, consulting-grade synthesis: implications, peer positioning, risks, data caveats, and next decisions.\n`;
-}
-
-export async function POST(request: Request) {
-  // Check API key
-  if (!hasAnthropicApiKey()) {
-    return Response.json(
-      { error: MISSING_ANTHROPIC_API_KEY_MESSAGE },
-      { status: 503 }
-    );
-  }
-
-  // Daily cost circuit breaker
-  try {
-    const dailyCost = await getDailyCostCents();
-    if (dailyCost >= DAILY_COST_LIMIT_CENTS) {
-      return Response.json(
-        { error: "Daily cost limit reached. AI research is temporarily disabled." },
-        { status: 503 }
-      );
-    }
-  } catch {
-    // Tables may not exist yet — allow through
-  }
-
+async function handlePOST(request: Request) {
   // Resolve role from session
   let user: User | null = null;
-  let ip = "unknown";
+  const subjectKey = getRequestSubjectKey(request);
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
   let role: HamiltonRole = "consumer";
 
   user = await getCurrentUser();
+  if (!user) {
+    return Response.json(
+      {
+        error: "Authentication required",
+        code: "public_ai_disabled",
+        message: "Public Hamilton AI is disabled. Sign in with a Seat License to run provider-backed analysis.",
+      },
+      { status: 401 },
+    );
+  }
 
   if (user) {
     if (user.role === "admin" || user.role === "analyst") {
@@ -221,51 +118,50 @@ export async function POST(request: Request) {
       );
     }
   } else {
-    // Consumer (unauthenticated or viewer) — rate limit by IP
-    ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
+    return Response.json(
+      {
+        error: "Active subscription required",
+        code: "public_ai_disabled",
+        message: "Public Hamilton AI is disabled. Use deterministic institution evidence publicly or sign in with a Seat License.",
+      },
+      { status: 403 },
+    );
+  }
 
-    const rateResult = checkPublicRateLimit(ip);
-    if (!rateResult.allowed) {
-      return Response.json(
-        { error: "Rate limit exceeded. Please try again later.", resetAt: rateResult.resetAt },
-        { status: 429 }
-      );
-    }
+  if (!hasAnthropicApiKey()) {
+    return Response.json(
+      { error: MISSING_ANTHROPIC_API_KEY_MESSAGE },
+      { status: 503 }
+    );
   }
 
   let messages: UIMessage[];
   let mode: string | undefined;
   let analysisFocus: string | undefined;
   let institutionId: number | null = null;
-  let intent: string | null = null;
-  let evidencePolicy: string | null = null;
   // Opt-in citation-density gate. Default false preserves the streaming chat
   // UX (useChat); callers that need a vetted report (report runner, export)
   // set `gate_citations: true` and receive a buffered JSON response that can
   // be `{ status: "ok" }` or `{ status: "refused", reason: "insufficient_citations" }`.
   let gateCitations = false;
+  const audience: HamiltonAudience = role;
+  let contract: HamiltonRequestContract;
   try {
     const body = await request.json();
-    messages = body.messages;
-    mode = body.mode;
-    analysisFocus = body.analysisFocus;
-    intent = typeof body.intent === "string" ? body.intent : null;
-    evidencePolicy =
-      typeof body.evidencePolicy === "string" ? body.evidencePolicy : null;
-    gateCitations = body.gate_citations === true;
-    if (body.institutionId !== undefined && body.institutionId !== null) {
-      const parsed = Number(body.institutionId);
-      if (!Number.isInteger(parsed) || parsed <= 0) {
-        return Response.json({ error: "Invalid institutionId" }, { status: 400 });
-      }
-      institutionId = parsed;
+    const parsed = parseHamiltonRequestContract(body, {
+      audience,
+      defaultIntent: "analyze",
+      allowGateCitations: true,
+    });
+    if (!parsed.ok) {
+      return Response.json({ error: parsed.error }, { status: parsed.status });
     }
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return Response.json({ error: "Messages required" }, { status: 400 });
-    }
+    contract = parsed.contract;
+    messages = contract.messages;
+    mode = contract.mode;
+    analysisFocus = contract.analysisFocus;
+    institutionId = contract.institutionId;
+    gateCitations = contract.gateCitations;
   } catch {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
@@ -281,17 +177,14 @@ export async function POST(request: Request) {
       .join(" ") || "";
 
   let systemPrompt = agent.systemPrompt;
+  systemPrompt += buildHamiltonRequestContractPrompt(contract);
 
   if (institutionId !== null) {
-    const selectedInstitutionContext = await buildSelectedInstitutionContext(institutionId);
+    const selectedInstitutionContext = await buildHamiltonInstitutionBriefing(contract);
     if (!selectedInstitutionContext) {
       return Response.json({ error: "Institution not found" }, { status: 404 });
     }
     systemPrompt += selectedInstitutionContext;
-    systemPrompt += `\nURL-SEEDED WORKFLOW:
-- Intent: ${intent ?? "analyze"}
-- Evidence policy: ${evidencePolicy ?? "provisional-first"}
-- If evidence is empty, answer with an insufficient-evidence diligence path. Do not produce a generic competitive brief, pricing recommendation, or false benchmark conclusion.\n`;
   }
 
   // Inject the authenticated user's institution context so Hamilton doesn't
@@ -300,7 +193,7 @@ export async function POST(request: Request) {
   // identification in the response). Only injected when we actually have it
   // — for anonymous/public users this block is omitted, preserving the
   // model's current generic-mode behavior.
-  if (user && (user.institution_name || user.display_name)) {
+  if (institutionId === null && user && (user.institution_name || user.display_name)) {
     const inst = user.institution_name?.trim() || user.display_name;
     const tier = user.asset_tier ? ` (asset tier ${user.asset_tier})` : "";
     const charter = user.institution_type ? `, ${user.institution_type.replace(/_/g, " ")}` : "";
@@ -350,6 +243,9 @@ export async function POST(request: Request) {
     model: agent.model,
     agent: "hamilton",
     operation: gateCitations ? "research_with_citation_gate" : "research_stream",
+    routeId: "api.research.hamilton",
+    userId: user.id,
+    subjectKey,
   };
   let providerStartedAt: number | null = null;
   let providerFailed = false;
@@ -465,7 +361,11 @@ export async function POST(request: Request) {
       });
     }
 
-    if (err instanceof ProviderCircuitOpenError || message.includes("Emergency stop")) {
+    if (
+      err instanceof ProviderCircuitOpenError
+      || err instanceof ProviderBudgetBlockedError
+      || message.includes("Emergency stop")
+    ) {
       return Response.json({ error: message }, { status: 423 });
     }
 
@@ -488,3 +388,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiRoutePolicy("api.research.hamilton", "POST", handlePOST);

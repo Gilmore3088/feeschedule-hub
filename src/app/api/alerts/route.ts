@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/data-store/connection";
 import { getCurrentUser } from "@/lib/auth";
@@ -6,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
  * GET /api/alerts
  * List the current user's active alert subscriptions.
  */
-export async function GET() {
+async function handleGET() {
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -40,7 +41,7 @@ export async function GET() {
  * Add an alert subscription for the current user.
  * Body: { institution_id: number, fee_categories?: string[] }
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
  * Remove (deactivate) an alert subscription.
  * Body: { institution_id: number }
  */
-export async function DELETE(request: NextRequest) {
+async function handleDELETE(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -137,3 +138,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withApiRoutePolicy("api.alerts", "GET", handleGET);
+export const POST = withApiRoutePolicy("api.alerts", "POST", handlePOST);
+export const DELETE = withApiRoutePolicy("api.alerts", "DELETE", handleDELETE);

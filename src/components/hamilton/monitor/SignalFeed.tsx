@@ -7,11 +7,14 @@
  * Server component — no "use client".
  */
 
+import Link from "next/link";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 import type { SignalEntry, AlertEntry } from "@/lib/hamilton/home-data";
 
 interface SignalFeedProps {
   signals: SignalEntry[];
   topAlert?: AlertEntry | null;
+  selectedInstitutionId?: string | null;
 }
 
 const SEVERITY_BORDER: Record<string, string> = {
@@ -22,12 +25,21 @@ const SEVERITY_BORDER: Record<string, string> = {
 
 /** Derive a display institution name from signalType + title for seeded demo data */
 function deriveInstitutionName(signal: SignalEntry): string {
+  const titleInstitutionName = titlePrefixInstitutionName(signal.title);
+  if (titleInstitutionName) return titleInstitutionName;
+
   const titleWords = signal.title.split(/\s+/);
-  // If title looks like "Capital Trust & Co. — overdraft fee raised", extract the institution part
-  const dashIdx = signal.title.indexOf("—");
-  if (dashIdx > 0) return signal.title.slice(0, dashIdx).trim();
   // Otherwise use the first 3–4 title words as institution proxy
   return titleWords.slice(0, Math.min(4, titleWords.length)).join(" ");
+}
+
+function titlePrefixInstitutionName(title: string): string | null {
+  const separators = [" - ", "\u2014"];
+  for (const separator of separators) {
+    const index = title.indexOf(separator);
+    if (index > 0) return title.slice(0, index).trim();
+  }
+  return null;
 }
 
 /** Derive "what changed" from body (first sentence) */
@@ -50,6 +62,14 @@ function formatSignalType(signalType: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function formatEvidencePolicy(policy: SignalEntry["evidencePolicy"]): string | null {
+  if (!policy) return null;
+  if (policy === "verified-only") return "Verified-only";
+  if (policy === "provisional-first") return "Provisional-first";
+  if (policy === "source-diligence") return "Source diligence";
+  return null;
+}
+
 /** Format createdAt as short time string */
 function formatTime(dateStr: string): string {
   try {
@@ -64,6 +84,91 @@ function formatTime(dateStr: string): string {
   }
 }
 
+function actionForSignal(signal: SignalEntry): { href: string; label: string } {
+  const institutionId = signal.institutionId?.trim();
+  const hasInstitutionId = !!institutionId && /^[1-9]\d*$/.test(institutionId);
+  const signalType = signal.signalType.toLowerCase();
+
+  if (signalType === "source_accepted") {
+    const params = new URLSearchParams({ intent: "source-refresh" });
+    if (hasInstitutionId) params.set("instId", institutionId);
+    return { href: `/pro/reports?${params.toString()}`, label: "Build Report" };
+  }
+
+  if (signalType === "hamilton_publication_completed") {
+    const params = new URLSearchParams({ intent: "report-refresh" });
+    if (hasInstitutionId) params.set("instId", institutionId);
+    return { href: `/pro/reports?${params.toString()}`, label: "Refresh Report" };
+  }
+
+  if (signalType === "hamilton_fee_movement_detected") {
+    const params = new URLSearchParams({ intent: "fee-movement" });
+    if (hasInstitutionId) params.set("instId", institutionId);
+    return { href: `/pro/reports?${params.toString()}`, label: "Rerun Brief" };
+  }
+
+  if (signalType === "darwin_verification_completed") {
+    const params = new URLSearchParams({ intent: "verification-refresh" });
+    if (hasInstitutionId) params.set("instId", institutionId);
+    return { href: `/pro/analyze?${params.toString()}`, label: "Review Evidence" };
+  }
+
+  if (signalType === "darwin_verification_needs_review") {
+    const params = new URLSearchParams({ intent: "verification-review" });
+    if (hasInstitutionId) params.set("instId", institutionId);
+    return { href: `/pro/analyze?${params.toString()}`, label: "Review Evidence" };
+  }
+
+  if (signalType === "knox_extraction_completed") {
+    const params = new URLSearchParams({ intent: "extraction-review" });
+    if (hasInstitutionId) params.set("instId", institutionId);
+    return { href: `/pro/analyze?${params.toString()}`, label: "Review Evidence" };
+  }
+
+  if (signalType === "knox_extraction_needs_review") {
+    const params = new URLSearchParams({
+      source: "monitor",
+      submitterRole: "institution_employee",
+      notes: "Follow up from Hamilton Monitor extraction-review signal.",
+    });
+    const institutionName = titlePrefixInstitutionName(signal.title);
+    if (hasInstitutionId) params.set("institutionId", institutionId);
+    if (institutionName) params.set("institutionName", institutionName);
+    return { href: `/submit-fees?${params.toString()}`, label: "Review Source" };
+  }
+
+  if (signalType.startsWith("claim_")) {
+    const params = new URLSearchParams();
+    if (hasInstitutionId) params.set("instId", institutionId);
+    const query = params.toString();
+    return { href: query ? `/pro/settings?${query}` : "/pro/settings", label: "Open Settings" };
+  }
+
+  if (signalType.startsWith("source_")) {
+    const params = new URLSearchParams({
+      source: "monitor",
+      submitterRole: "institution_employee",
+      notes: "Follow up from Hamilton Monitor source-status signal.",
+    });
+    const institutionName = titlePrefixInstitutionName(signal.title);
+    if (hasInstitutionId) params.set("institutionId", institutionId);
+    if (institutionName) params.set("institutionName", institutionName);
+    return { href: `/submit-fees?${params.toString()}`, label: "Submit Source" };
+  }
+
+  if (signalType.includes("scenario")) {
+    const params = new URLSearchParams({ intent: "watch-signal" });
+    if (hasInstitutionId) params.set("instId", institutionId);
+    return { href: `/pro/simulate?${params.toString()}`, label: "Run Scenario" };
+  }
+
+  const params = new URLSearchParams({ intent: "watch-signal" });
+  if (institutionId && /^[1-9]\d*$/.test(institutionId)) {
+    params.set("instId", institutionId);
+  }
+  return { href: `/pro/analyze?${params.toString()}`, label: "Analyze" };
+}
+
 function SignalCard({ signal, isPriority }: { signal: SignalEntry; isPriority?: boolean }) {
   const borderColor = SEVERITY_BORDER[signal.severity.toLowerCase()] ?? SEVERITY_BORDER.low;
   const isHighSeverity = signal.severity.toLowerCase() === "high";
@@ -71,6 +176,8 @@ function SignalCard({ signal, isPriority }: { signal: SignalEntry; isPriority?: 
   const whatChanged = deriveWhatChanged(signal.body);
   const whyItMatters = deriveWhyItMatters(signal.body);
   const timeLabel = formatTime(signal.createdAt);
+  const action = actionForSignal(signal);
+  const evidencePolicyLabel = formatEvidencePolicy(signal.evidencePolicy);
 
   return (
     <article
@@ -93,23 +200,50 @@ function SignalCard({ signal, isPriority }: { signal: SignalEntry; isPriority?: 
       >
         <div>
           {/* Signal type label */}
-          <span
-            className="font-label"
+          <div
             style={{
-              display: "block",
-              fontFamily: "var(--hamilton-font-sans)",
-              fontSize: "0.625rem",
-              fontWeight: 700,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: isHighSeverity
-                ? "var(--hamilton-primary)"
-                : "var(--hamilton-text-tertiary)",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "0.5rem",
               marginBottom: "0.375rem",
             }}
           >
-            {isPriority ? formatSignalType(signal.signalType) : formatSignalType(signal.signalType)}
-          </span>
+            <span
+              className="font-label"
+              style={{
+                display: "block",
+                fontFamily: "var(--hamilton-font-sans)",
+                fontSize: "0.625rem",
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: isHighSeverity
+                  ? "var(--hamilton-primary)"
+                  : "var(--hamilton-text-tertiary)",
+              }}
+            >
+              {isPriority ? formatSignalType(signal.signalType) : formatSignalType(signal.signalType)}
+            </span>
+            {evidencePolicyLabel && (
+              <span
+                className="font-label"
+                style={{
+                  border: "1px solid var(--hamilton-outline-variant, rgba(216,194,184,0.45))",
+                  borderRadius: "999px",
+                  color: "var(--hamilton-text-tertiary)",
+                  fontFamily: "var(--hamilton-font-sans)",
+                  fontSize: "0.5625rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  padding: "0.125rem 0.375rem",
+                  textTransform: "uppercase",
+                }}
+              >
+                {evidencePolicyLabel}
+              </span>
+            )}
+          </div>
 
           {/* Institution name — large serif */}
           <h3
@@ -245,7 +379,8 @@ function SignalCard({ signal, isPriority }: { signal: SignalEntry; isPriority?: 
             </p>
           </div>
 
-          <button
+          <Link
+            href={action.href}
             className="burnished-cta"
             style={{
               padding: "0.5rem 1.5rem",
@@ -262,10 +397,11 @@ function SignalCard({ signal, isPriority }: { signal: SignalEntry; isPriority?: 
               cursor: "pointer",
               flexShrink: 0,
               marginLeft: "1.5rem",
+              textDecoration: "none",
             }}
           >
-            Execute
-          </button>
+            {action.label}
+          </Link>
         </div>
       </div>
     </article>
@@ -441,7 +577,13 @@ function ComplaintRiskCard({ signal }: { signal: SignalEntry }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({
+  selectedInstitutionId,
+}: {
+  selectedInstitutionId?: string | null;
+}) {
+  const settingsHref = hrefWithInstitutionContext("/pro/settings", selectedInstitutionId);
+
   return (
     <div
       style={{
@@ -495,8 +637,8 @@ function EmptyState() {
           Hamilton monitors fee movements, regulatory shifts, and competitive signals
           across your watchlist. Add institutions to start receiving intelligence.
         </p>
-        <a
-          href="/pro/settings"
+        <Link
+          href={settingsHref}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -515,27 +657,36 @@ function EmptyState() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
-        </a>
+        </Link>
       </div>
     </div>
   );
 }
 
-export function SignalFeed({ signals, topAlert }: SignalFeedProps) {
+export function SignalFeed({
+  signals,
+  topAlert,
+  selectedInstitutionId = null,
+}: SignalFeedProps) {
   // Merge topAlert into feed if present and not already included
   const allSignals: SignalEntry[] = [...signals];
   if (topAlert && !allSignals.find((s) => s.id === topAlert.signalId)) {
     allSignals.unshift({
       id: topAlert.signalId,
-      signalType: "institutional_deviation",
+      institutionId: topAlert.institutionId ?? null,
+      signalType: topAlert.signalType,
       severity: topAlert.severity,
       title: topAlert.title,
       body: topAlert.body,
       createdAt: topAlert.createdAt,
+      evidencePolicy: topAlert.evidencePolicy ?? null,
+      providerCallQueued: topAlert.providerCallQueued ?? false,
     });
   }
 
-  if (allSignals.length === 0) return <EmptyState />;
+  if (allSignals.length === 0) {
+    return <EmptyState selectedInstitutionId={selectedInstitutionId} />;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>

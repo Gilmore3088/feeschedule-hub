@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * POST /api/reports/[id]/assemble
  * Internal endpoint called by the report generation backend (server-to-server).
@@ -24,7 +25,7 @@ const VALID_REPORT_TYPES: ReadonlySet<string> = new Set([
   'monthly_pulse',
 ]);
 
-export async function POST(
+async function handlePOST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -88,3 +89,5 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = withApiRoutePolicy("api.reports.assemble", "POST", handlePOST);

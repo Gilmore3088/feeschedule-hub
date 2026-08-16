@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * GET /api/hamilton/conversations/[id]/messages
  *
@@ -12,7 +13,7 @@ import { loadConversationHistory } from "@/lib/hamilton/chat-memory";
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export async function GET(
+async function handleGET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -42,3 +43,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.hamilton.conversation.messages", "GET", handleGET);

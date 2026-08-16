@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * POST /api/reports/email-gate
  * Lead capture + presigned PDF download URL.
@@ -24,7 +25,7 @@ interface ReportArtifactRow {
   artifact_key: string | null;
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
@@ -122,3 +123,5 @@ export async function POST(request: Request) {
     }
   );
 }
+
+export const POST = withApiRoutePolicy("api.reports.email_gate", "POST", handlePOST);

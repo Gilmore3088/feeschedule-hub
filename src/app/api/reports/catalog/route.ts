@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * GET /api/reports/catalog
  * Returns published reports where is_public=true.
@@ -18,7 +19,7 @@ const VALID_REPORT_TYPES: Set<string> = new Set<ReportType>([
   "monthly_pulse",
 ]);
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const typeFilter = searchParams.get("type");
@@ -57,3 +58,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.reports.catalog", "GET", handleGET);

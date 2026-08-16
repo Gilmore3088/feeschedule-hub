@@ -68,7 +68,12 @@ export async function generateSection(input: SectionInput): Promise<SectionOutpu
   let response: Awaited<ReturnType<typeof client.messages.create>>;
   try {
     response = await trackAnthropicRequest(
-      { model: MODEL, agent: "hamilton", operation: "generate_report_section" },
+      {
+        model: MODEL,
+        agent: "hamilton",
+        operation: "generate_report_section",
+        routeId: "api.reports.generate",
+      },
       () => client.messages.create(
         {
           model: MODEL,
@@ -190,7 +195,12 @@ export async function generateGlobalThesis(input: ThesisInput): Promise<ThesisOu
   let response: Awaited<ReturnType<typeof client.messages.create>>;
   try {
     response = await trackAnthropicRequest(
-      { model: MODEL, agent: "hamilton", operation: "generate_report_thesis" },
+      {
+        model: MODEL,
+        agent: "hamilton",
+        operation: "generate_report_thesis",
+        routeId: "api.reports.generate",
+      },
       () => client.messages.create(
         {
           model: MODEL,

@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { autocompleteInstitutions } from "@/lib/data-store/search";
 
@@ -25,7 +26,7 @@ function checkSearchRateLimit(ip: string): boolean {
   return true;
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     "unknown";
@@ -38,3 +39,5 @@ export async function GET(request: NextRequest) {
   const results = await autocompleteInstitutions(q, 8);
   return NextResponse.json(results);
 }
+
+export const GET = withApiRoutePolicy("api.institutions", "GET", handleGET);

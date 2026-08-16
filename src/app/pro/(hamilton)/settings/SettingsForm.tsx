@@ -65,28 +65,27 @@ export function SettingsForm({ initialValues }: SettingsFormProps) {
           />
         </div>
 
-        {/* CERT Number (placeholder) */}
+        {/* Canonical institution identity */}
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="cert_number"
+          <p
             className="text-[11px] font-semibold uppercase tracking-wider"
             style={{ color: "var(--hamilton-text-secondary)" }}
           >
-            CERT Number
-          </label>
-          <input
-            id="cert_number"
-            name="cert_number"
-            type="text"
-            disabled
-            placeholder="Coming soon"
-            className="rounded-md px-3 py-2 text-sm border cursor-not-allowed opacity-50"
+            Canonical Institution ID
+          </p>
+          <div
+            className="rounded-md border px-3 py-2 text-sm"
             style={{
               backgroundColor: "var(--hamilton-surface-elevated)",
               borderColor: "var(--hamilton-border)",
               color: "var(--hamilton-text-secondary)",
             }}
-          />
+          >
+            Managed by Selected Hamilton Institution
+          </div>
+          <p className="text-[10px] leading-4" style={{ color: "var(--hamilton-text-tertiary)" }}>
+            Hamilton claims and workflows use the selected canonical institution; these profile fields personalize the account only.
+          </p>
         </div>
 
         {/* Asset Size */}

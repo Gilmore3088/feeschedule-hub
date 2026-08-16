@@ -233,7 +233,12 @@ Only reference fees provided. Do not invent data.`;
   const model = "claude-sonnet-4-20250514";
   const client = getAnthropicMessagesClient("Hamilton institution fee report");
   const response = await trackAnthropicRequest(
-    { model, agent: "hamilton", operation: "build_institution_fee_report" },
+    {
+      model,
+      agent: "hamilton",
+      operation: "build_institution_fee_report",
+      routeId: "api.scout.agent",
+    },
     () => client.messages.create(
       {
         model,

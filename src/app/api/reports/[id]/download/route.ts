@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * GET /api/reports/[id]/download
  * Phase 13-03: D-09 implementation
@@ -23,7 +24,7 @@ export const dynamic = 'force-dynamic';
 // TTL per D-04: 1 hour
 const PRESIGNED_TTL_SECONDS = 3600;
 
-export async function GET(
+async function handleGET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -78,3 +79,5 @@ export async function GET(
   // 302 redirect — client follows to R2 directly (not 200 with URL in body)
   return NextResponse.redirect(presignedUrl, { status: 302 });
 }
+
+export const GET = withApiRoutePolicy("api.reports.download", "GET", handleGET);

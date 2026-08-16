@@ -19,6 +19,7 @@ import { getDisplayName } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";
 import { timeAgo } from "@/lib/format";
+import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
   title: "Market Intelligence | Bank Fee Index",
@@ -29,7 +30,7 @@ const SPOTLIGHT_CATS = ["overdraft", "nsf", "monthly_maintenance", "atm_non_netw
 export default async function ProMarketPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?from=/pro/market");
-  if (!canAccessPremium(user)) redirect("/subscribe");
+  if (!canAccessPremium(user)) redirect("/subscribe?from=/pro/market");
 
   const allEntries = await getNationalIndexCached();
   const stats = await getPublicStats();
@@ -93,6 +94,8 @@ export default async function ProMarketPage() {
         Curated intelligence from the Federal Reserve, published research, and live fee benchmarks.
         <span className="ml-2 text-warm-500">Updated {lastUpdated}</span>
       </p>
+
+      <ProReferenceWorkflowBanner userId={user.id} surface="market" />
 
       {/* Fee ticker strip */}
       <div className="mt-6 flex items-center gap-4 overflow-x-auto scrollbar-none rounded-xl border border-warm-200/80 bg-white/70 backdrop-blur-sm px-5 py-3">
@@ -329,7 +332,7 @@ export default async function ProMarketPage() {
                 { label: "All Categories", href: "/pro/categories" },
                 { label: "District Intelligence", href: "/pro/districts" },
                 { label: "Institution Database", href: "/pro/data" },
-                { label: "AI Analyst", href: "/pro/research" },
+                { label: "Hamilton Analyze", href: "/pro/analyze" },
               ].map((link) => (
                 <Link
                   key={link.href}

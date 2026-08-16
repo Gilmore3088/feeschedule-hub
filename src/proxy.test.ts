@@ -2,10 +2,15 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { proxy } from "./proxy";
 
-function request(url: string, host = new URL(url).host) {
+function request(
+  url: string,
+  host = new URL(url).host,
+  headers: Record<string, string> = {},
+) {
   return new NextRequest(url, {
     headers: {
       host,
+      ...headers,
     },
   });
 }
@@ -20,7 +25,9 @@ describe("proxy", () => {
 
   it("forwards the requested path to App Router layouts", () => {
     const response = proxy(
-      request("https://feeinsight.com/pro/research?prompt=competitive-brief&instId=2945"),
+      request("https://feeinsight.com/pro/research?prompt=competitive-brief&instId=2945", undefined, {
+        cookie: "fsh_session=present",
+      }),
     );
 
     expect(response.headers.get("x-middleware-next")).toBe("1");
@@ -44,5 +51,28 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBe(
       "https://feeinsight.com/admin/login?from=%2Fadmin%2Fknox%3Fqueue%3Dfees",
     );
+  });
+
+  it("does not treat similarly named public routes as admin routes", () => {
+    const response = proxy(request("https://feeinsight.com/administer"));
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("redirects unauthenticated Pro routes to login with the full return path", () => {
+    const response = proxy(
+      request("https://feeinsight.com/pro/analyze?instId=2945&intent=institution"),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://feeinsight.com/login?from=%2Fpro%2Fanalyze%3FinstId%3D2945%26intent%3Dinstitution",
+    );
+  });
+
+  it("does not treat similarly named public routes as Pro routes", () => {
+    const response = proxy(request("https://feeinsight.com/products"));
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 });

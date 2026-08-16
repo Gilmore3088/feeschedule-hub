@@ -2,19 +2,29 @@
 
 import { Loader2 } from "lucide-react";
 import type { ReportTemplateType } from "@/app/pro/(hamilton)/reports/actions";
+import type { ReportPeerCoveragePreview } from "@/lib/hamilton/report-evidence";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
+import {
+  PeerBaselineSelector,
+  type HamiltonPeerSetOption,
+} from "@/components/hamilton/PeerBaselineSelector";
 
 type NarrativeTone = "consulting" | "academic" | "executive" | "technical";
 
 interface ConfigSidebarProps {
   selectedTemplate: ReportTemplateType | null;
+  selectedInstitutionId?: string | null;
   institutionName: string;
-  /**
-   * Peer set label — kept in props for context display but no longer
-   * surfaced as an editable field (manage at /pro/peers instead).
-   */
   peerSetLabel: string;
+  peerSetId: string | null;
+  defaultPeerSetLabel: string;
+  savedPeerSets: HamiltonPeerSetOption[];
   narrativeTone: NarrativeTone;
   isGenerating: boolean;
+  peerCoveragePreview: ReportPeerCoveragePreview | null;
+  isPeerCoverageLoading: boolean;
+  peerCoverageError: string | null;
+  onPeerSetChange: (peerSetId: string | null) => void;
   onNarrativeToneChange: (v: NarrativeTone) => void;
   onGenerate: () => void;
 }
@@ -32,21 +42,63 @@ const AUDIENCES: Array<{ value: NarrativeTone; label: string; hint: string }> = 
   { value: "academic",   label: "Research",     hint: "Deep context, citations" },
 ];
 
+function formatEvidenceCounts(preview: ReportPeerCoveragePreview): string {
+  return `${preview.selectedVerifiedFeeCount} verified / ${preview.selectedProvisionalFeeCount} provisional`;
+}
+
+function formatReadinessTone(readiness: ReportPeerCoveragePreview["readiness"]): {
+  color: string;
+  backgroundColor: string;
+} {
+  switch (readiness) {
+    case "verified_comparison_ready":
+      return {
+        color: "#166534",
+        backgroundColor: "rgba(22,101,52,0.08)",
+      };
+    case "directional_comparison_ready":
+      return {
+        color: "#854d0e",
+        backgroundColor: "rgba(133,77,14,0.09)",
+      };
+    case "peer_index_only":
+      return {
+        color: "var(--hamilton-on-surface)",
+        backgroundColor: "var(--hamilton-surface-container-lowest)",
+      };
+    case "source_diligence":
+    case "source_needed":
+      return {
+        color: "#991b1b",
+        backgroundColor: "rgba(153,27,27,0.08)",
+      };
+  }
+}
+
 export function ConfigSidebar({
   selectedTemplate,
+  selectedInstitutionId = null,
   institutionName,
   peerSetLabel,
+  peerSetId,
+  defaultPeerSetLabel,
+  savedPeerSets,
   narrativeTone,
   isGenerating,
+  peerCoveragePreview,
+  isPeerCoverageLoading,
+  peerCoverageError,
+  onPeerSetChange,
   onNarrativeToneChange,
   onGenerate,
 }: ConfigSidebarProps) {
   const canGenerate = selectedTemplate !== null && !isGenerating;
   const activeAudience = AUDIENCES.find((a) => a.value === narrativeTone) ?? AUDIENCES[0];
+  const settingsHref = hrefWithInstitutionContext("/pro/settings", selectedInstitutionId);
 
   return (
-    <aside className="col-span-12 lg:col-span-4 sticky top-32">
-      <div className="bg-surface-container-low p-8">
+    <aside className="min-w-0 lg:sticky lg:top-32 lg:col-span-4">
+      <div className="bg-surface-container-low p-5 sm:p-8">
         <div className="mb-8">
           <h2 className="font-headline text-3xl italic mb-1">Audience</h2>
           <p
@@ -109,6 +161,146 @@ export function ConfigSidebar({
           </div>
 
           {/* CTA */}
+          <div className="pt-7">
+            <PeerBaselineSelector
+              id="report-peer-baseline"
+              value={peerSetId}
+              defaultLabel={defaultPeerSetLabel}
+              peerSets={savedPeerSets}
+              disabled={isGenerating}
+              onChange={onPeerSetChange}
+            />
+          </div>
+
+          <div
+            className="mt-6 border-t pt-5"
+            style={{ borderColor: "rgba(216,194,184,0.24)" }}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span
+                className="text-[10px] uppercase tracking-[0.2em]"
+                style={{ color: "var(--hamilton-secondary)" }}
+              >
+                Evidence Preview
+              </span>
+              {isPeerCoverageLoading && (
+                <span
+                  className="text-[10px] uppercase tracking-[0.16em]"
+                  style={{ color: "var(--hamilton-secondary)" }}
+                >
+                  Checking
+                </span>
+              )}
+            </div>
+
+            {peerCoverageError && (
+              <p
+                className="text-[11px] leading-relaxed"
+                style={{ color: "#991b1b" }}
+              >
+                Coverage unavailable: {peerCoverageError}
+              </p>
+            )}
+
+            {!peerCoverageError && !peerCoveragePreview && !isPeerCoverageLoading && (
+              <p
+                className="text-[11px] leading-relaxed"
+                style={{ color: "var(--hamilton-secondary)" }}
+              >
+                No template selected.
+              </p>
+            )}
+
+            {!peerCoverageError && peerCoveragePreview && (
+              <div className="space-y-3">
+                <div
+                  className="rounded-md px-3 py-2 text-[12px] font-semibold"
+                  style={formatReadinessTone(peerCoveragePreview.readiness)}
+                >
+                  {peerCoveragePreview.readinessLabel}
+                </div>
+
+                <dl className="grid grid-cols-2 gap-3 text-[11px]">
+                  <div>
+                    <dt style={{ color: "var(--hamilton-secondary)" }}>
+                      Baseline
+                    </dt>
+                    <dd
+                      className="mt-0.5 font-medium leading-snug"
+                      style={{ color: "var(--hamilton-on-surface)" }}
+                    >
+                      {peerCoveragePreview.peerBaselineLabel ?? "Not resolved"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt style={{ color: "var(--hamilton-secondary)" }}>
+                      Peer categories
+                    </dt>
+                    <dd
+                      className="mt-0.5 font-medium"
+                      style={{ color: "var(--hamilton-on-surface)" }}
+                    >
+                      {peerCoveragePreview.usablePeerCategoryCount}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt style={{ color: "var(--hamilton-secondary)" }}>
+                      Institution deltas
+                    </dt>
+                    <dd
+                      className="mt-0.5 font-medium"
+                      style={{ color: "var(--hamilton-on-surface)" }}
+                    >
+                      {peerCoveragePreview.selectedFeeDeltaCount}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt style={{ color: "var(--hamilton-secondary)" }}>
+                      Evidence
+                    </dt>
+                    <dd
+                      className="mt-0.5 font-medium"
+                      style={{ color: "var(--hamilton-on-surface)" }}
+                    >
+                      {formatEvidenceCounts(peerCoveragePreview)}
+                    </dd>
+                  </div>
+                </dl>
+
+                <p
+                  className="text-[11px] leading-relaxed"
+                  style={{ color: "var(--hamilton-secondary)" }}
+                >
+                  {peerCoveragePreview.readinessDetail}
+                </p>
+
+                {peerCoveragePreview.peerFallbackReason && (
+                  <p
+                    className="rounded-md px-3 py-2 text-[11px] leading-relaxed"
+                    style={{
+                      backgroundColor: "rgba(133,77,14,0.08)",
+                      color: "#854d0e",
+                    }}
+                  >
+                    {peerCoveragePreview.peerFallbackReason}
+                  </p>
+                )}
+
+                {peerCoveragePreview.focusCategoryCovered === false && (
+                  <p
+                    className="rounded-md px-3 py-2 text-[11px] leading-relaxed"
+                    style={{
+                      backgroundColor: "rgba(153,27,27,0.08)",
+                      color: "#991b1b",
+                    }}
+                  >
+                    Focus category has insufficient verified peer coverage.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="pt-8">
             <button
               type="submit"
@@ -142,7 +334,7 @@ export function ConfigSidebar({
               {peerSetLabel || "national peers"}
               {" · "}
               <a
-                href="/pro/settings"
+                href={settingsHref}
                 className="underline underline-offset-2 hover:opacity-70"
               >
                 change defaults

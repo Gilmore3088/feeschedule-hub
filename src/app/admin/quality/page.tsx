@@ -20,16 +20,23 @@ import {
 } from "@/lib/data-trust";
 import {
   getDataTrustQueueRows,
+  getInstitutionClaimCounts,
   getSourceSubmissionCounts,
+  listInstitutionClaims,
   listSourceSubmissions,
   type DataTrustQueueRow,
+  type InstitutionClaimReviewStatus,
+  type InstitutionClaimRow,
   type SourceSubmissionReviewStatus,
   type SourceSubmissionRow,
 } from "@/lib/admin-queries";
 import { formatAssets } from "@/lib/format";
 import {
   acceptSourceSubmission,
+  acceptInstitutionClaim,
   rejectSourceSubmission,
+  rejectInstitutionClaim,
+  requestInstitutionClaimInfo,
   requestSourceSubmissionInfo,
 } from "./actions";
 
@@ -44,6 +51,14 @@ const QUEUE_LABELS: Record<DataTrustQueueState, string> = {
 };
 
 const SUBMISSION_TABS: Array<{ value: SourceSubmissionReviewStatus; label: string }> = [
+  { value: "pending", label: "Pending" },
+  { value: "accepted", label: "Accepted" },
+  { value: "needs_info", label: "Needs info" },
+  { value: "rejected", label: "Rejected" },
+  { value: "all", label: "All" },
+];
+
+const CLAIM_TABS: Array<{ value: InstitutionClaimReviewStatus; label: string }> = [
   { value: "pending", label: "Pending" },
   { value: "accepted", label: "Accepted" },
   { value: "needs_info", label: "Needs info" },
@@ -155,14 +170,19 @@ export default async function DataTrustWorkbench({
   const submissionsStatus = SUBMISSION_TABS.some((tab) => tab.value === submissionParam)
     ? (submissionParam as SourceSubmissionReviewStatus)
     : "pending";
+  const claimParam = typeof params.claims === "string" ? params.claims : "pending";
+  const claimsStatus = CLAIM_TABS.some((tab) => tab.value === claimParam)
+    ? (claimParam as InstitutionClaimReviewStatus)
+    : "pending";
   const query = typeof params.q === "string" ? params.q : "";
   const page = Math.max(1, Number(params.page) || 1);
   const submissionPage = Math.max(1, Number(params.submissionPage) || 1);
+  const claimPage = Math.max(1, Number(params.claimPage) || 1);
   const selectedId = typeof params.selected === "string" ? Number(params.selected) : null;
 
   const loadWarnings: string[] = [];
   const automation = await getAutomationControl().catch(() => null);
-  const [queue, submissionCounts, submissions] = await Promise.all([
+  const [queue, submissionCounts, submissions, claimCounts, claims] = await Promise.all([
     guardedLoad({
       label: "institution trust queue",
       warnings: loadWarnings,
@@ -188,6 +208,22 @@ export default async function DataTrustWorkbench({
       promise: listSourceSubmissions({
         status: submissionsStatus,
         page: submissionPage,
+        pageSize: 12,
+      }),
+    }),
+    guardedLoad({
+      label: "institution claim counts",
+      warnings: loadWarnings,
+      fallback: { pending: 0, accepted: 0, rejected: 0, needs_info: 0, total: 0 },
+      promise: getInstitutionClaimCounts(),
+    }),
+    guardedLoad({
+      label: "institution claims",
+      warnings: loadWarnings,
+      fallback: { rows: [], total: 0, page: claimPage, pageSize: 12 },
+      promise: listInstitutionClaims({
+        status: claimsStatus,
+        page: claimPage,
         pageSize: 12,
       }),
     }),
@@ -241,9 +277,10 @@ export default async function DataTrustWorkbench({
         </div>
       </header>
 
-      <section aria-label="Data trust summary" className="grid gap-x-6 gap-y-4 border-y border-black/[0.06] py-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 dark:border-white/[0.06]">
+      <section aria-label="Data trust summary" className="grid gap-x-6 gap-y-4 border-y border-black/[0.06] py-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 dark:border-white/[0.06]">
         <SummaryMetric label="Profiles in queue" value={number(queueTotal)} />
         <SummaryMetric label="Pending sources" value={number(submissionCounts.pending)} tone={submissionCounts.pending > 0 ? "work" : "default"} />
+        <SummaryMetric label="Pending claims" value={number(claimCounts.pending)} tone={claimCounts.pending > 0 ? "work" : "default"} />
         <SummaryMetric label="Accepted sources" value={number(submissionCounts.accepted)} />
         <SummaryMetric label="Source needed" value={number(queue.counts.source_needed)} tone="warning" />
         <SummaryMetric label="Failed source" value={number(queue.counts.source_failed)} tone={queue.counts.source_failed > 0 ? "critical" : "default"} />
@@ -411,6 +448,53 @@ export default async function DataTrustWorkbench({
           <EvidenceInspector row={selected} />
           <ProviderFailuresDeferred />
         </aside>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-2 border-t border-black/[0.06] pt-5 sm:flex-row sm:items-end sm:justify-between dark:border-white/[0.06]">
+          <div>
+            <p className="admin-section-title">Institution claim requests</p>
+            <p className="admin-meta mt-1">
+              Authenticated users can request institution authority review. Accepting a claim grants workspace authority; it still does not publish fee data.
+            </p>
+          </div>
+          <p className="admin-meta">
+            {number(claims.total)} claim{claims.total === 1 ? "" : "s"} in this filter
+          </p>
+        </div>
+
+        <nav aria-label="Institution claim filters" className="flex gap-1 overflow-x-auto border-b border-black/[0.06] dark:border-white/[0.06]">
+          {CLAIM_TABS.map((tab) => (
+            <QueueTab
+              key={tab.value}
+              href={buildHref({
+                state: state === "all" ? undefined : state,
+                q: query,
+                submissions: submissionsStatus,
+                claims: tab.value,
+              })}
+              active={claimsStatus === tab.value}
+              label={tab.label}
+              count={
+                tab.value === "all"
+                  ? claimCounts.total
+                  : claimCounts[tab.value]
+              }
+            />
+          ))}
+        </nav>
+
+        <div className="grid gap-3">
+          {claims.rows.length === 0 ? (
+            <div className="border border-black/[0.06] bg-white px-4 py-10 text-center text-sm text-gray-500 dark:border-white/[0.06] dark:bg-white/[0.02]">
+              No institution claims match this filter.
+            </div>
+          ) : (
+            claims.rows.map((claim) => (
+              <InstitutionClaimItem key={claim.id} claim={claim} />
+            ))
+          )}
+        </div>
       </section>
 
       <section className="space-y-4">
@@ -814,6 +898,109 @@ function ProviderFailuresDeferred() {
         Provider diagnostics are deferred so source validation never waits on usage-log reads.
       </p>
     </section>
+  );
+}
+
+function InstitutionClaimItem({ claim }: { claim: InstitutionClaimRow }) {
+  const canReview = claim.review_status === "pending" || claim.review_status === "needs_info";
+  return (
+    <article className="grid gap-4 border border-black/[0.06] bg-white p-4 lg:grid-cols-[minmax(0,1fr)_360px] dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold ${statusClass(claim.review_status)}`}>
+            {claim.review_status.replace("_", " ")}
+          </span>
+          <span className="text-[11px] text-gray-500">{claim.updated_at}</span>
+        </div>
+        <h3 className="mt-2 break-words text-sm font-semibold text-gray-900 dark:text-gray-100">
+          {claim.institution_name}
+        </h3>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {[claim.city, claim.state_code].filter(Boolean).join(", ") || "No linked institution location"}
+        </p>
+        <div className="mt-3 grid gap-2 text-xs text-gray-600 sm:grid-cols-3 dark:text-gray-400">
+          <InspectorFact label="Claimant" value={claim.claimant_name} />
+          <InspectorFact label="Email" value={claim.claimant_email ?? "N/A"} />
+          <InspectorFact label="Role" value={claim.claimant_role ?? "N/A"} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={`/admin/institution/${claim.institution_id}`}
+            prefetch={false}
+            className="inline-flex min-h-8 items-center rounded-md border border-gray-200 px-2.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.04]"
+          >
+            Admin profile
+          </Link>
+          <Link
+            href={`/institution/${claim.institution_id}`}
+            prefetch={false}
+            className="inline-flex min-h-8 items-center rounded-md border border-gray-200 px-2.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/[0.1] dark:text-gray-300 dark:hover:bg-white/[0.04]"
+          >
+            Public page
+          </Link>
+          {claim.source_submission_id && (
+            <span className="inline-flex min-h-8 items-center rounded-md border border-blue-200 px-2.5 text-[11px] font-semibold text-blue-700 dark:border-blue-900/50 dark:text-blue-300">
+              Source submission {claim.source_submission_id}
+            </span>
+          )}
+        </div>
+        {(claim.claim_notes || claim.review_notes) && (
+          <div className="mt-3 grid gap-2 text-xs lg:grid-cols-2">
+            {claim.claim_notes && (
+              <p className="rounded-md bg-gray-50 p-3 leading-relaxed text-gray-600 dark:bg-white/[0.04] dark:text-gray-400">
+                {claim.claim_notes}
+              </p>
+            )}
+            {claim.review_notes && (
+              <p className="rounded-md bg-gray-50 p-3 leading-relaxed text-gray-600 dark:bg-white/[0.04] dark:text-gray-400">
+                {claim.review_notes}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <form className="space-y-2" action={acceptInstitutionClaim}>
+        <input type="hidden" name="claim_id" value={claim.id} />
+        <textarea
+          name="review_notes"
+          rows={3}
+          placeholder="Claim review notes"
+          className="w-full resize-y rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-gray-100 dark:focus:ring-white/[0.2]"
+        />
+        <div className="grid gap-2 sm:grid-cols-3">
+          <button
+            type="submit"
+            disabled={!canReview}
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-white/[0.08]"
+          >
+            <Check className="size-3.5" />
+            Accept
+          </button>
+          <button
+            formAction={requestInstitutionClaimInfo}
+            disabled={!canReview}
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-blue-200 px-3 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 dark:border-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-950/25 dark:disabled:border-white/[0.08] dark:disabled:text-gray-500"
+          >
+            <MessageSquareMore className="size-3.5" />
+            Info
+          </button>
+          <button
+            formAction={rejectInstitutionClaim}
+            disabled={!canReview}
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/25 dark:disabled:border-white/[0.08] dark:disabled:text-gray-500"
+          >
+            <X className="size-3.5" />
+            Reject
+          </button>
+        </div>
+        {!canReview && (
+          <p className="text-[11px] text-gray-500">
+            Reviewed claims are locked for audit. Request a new claim or add a future event rather than overwriting the verdict.
+          </p>
+        )}
+      </form>
+    </article>
   );
 }
 

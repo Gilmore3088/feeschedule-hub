@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * GET /api/hamilton/conversations
  *
@@ -8,7 +9,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { listConversations, createConversation } from "@/lib/hamilton/chat-memory";
 
-export async function GET() {
+async function handleGET() {
   const user = await getCurrentUser();
   if (!user) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
@@ -28,7 +29,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function handlePOST() {
   const user = await getCurrentUser();
   if (!user) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
@@ -47,3 +48,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.hamilton.conversations", "GET", handleGET);
+export const POST = withApiRoutePolicy("api.hamilton.conversations", "POST", handlePOST);

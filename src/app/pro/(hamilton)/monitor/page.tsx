@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { fetchMonitorPageData } from "@/lib/hamilton/monitor-data";
+import { resolveHamiltonInstitutionContext } from "@/lib/hamilton/workspace-context";
 import { StatusStrip } from "@/components/hamilton/monitor/StatusStrip";
 import { SignalFeed } from "@/components/hamilton/monitor/SignalFeed";
 import { WatchlistPanel } from "@/components/hamilton/monitor/WatchlistPanel";
@@ -12,11 +13,29 @@ export const metadata: Metadata = { title: "Institutional Monitor" };
 // No ISR — fresh signal data on every page load
 export const dynamic = "force-dynamic";
 
-export default async function MonitorPage() {
+export default async function MonitorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ instId?: string }>;
+}) {
+  const params = await searchParams;
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const returnPath = params.instId
+      ? `/pro/monitor?instId=${encodeURIComponent(params.instId)}`
+      : "/pro/monitor";
+    redirect(`/login?from=${encodeURIComponent(returnPath)}`);
+  }
 
-  const data = await fetchMonitorPageData(user.id);
+  const { institution: selectedInstitution } = await resolveHamiltonInstitutionContext({
+    userId: user.id,
+    instId: params.instId,
+    intent: "monitor",
+  });
+
+  const data = await fetchMonitorPageData(user.id, {
+    selectedInstitutionId: selectedInstitution?.id ?? null,
+  });
 
   return (
     <>
@@ -59,6 +78,18 @@ export default async function MonitorPage() {
           >
             Continuous surveillance of high-priority counterparts and fee
             structures to preserve long-term recurring value.
+          </p>
+          <p
+            style={{
+              fontFamily: "var(--hamilton-font-sans)",
+              fontSize: "0.8125rem",
+              color: "var(--hamilton-text-tertiary)",
+              maxWidth: "42rem",
+              lineHeight: 1.5,
+              marginTop: "0.75rem",
+            }}
+          >
+            {data.monitoringScope.label}
           </p>
         </header>
 
@@ -113,12 +144,20 @@ export default async function MonitorPage() {
               </span>
             </div>
 
-            <SignalFeed signals={data.signalFeed} topAlert={data.topAlert} />
+            <SignalFeed
+              signals={data.signalFeed}
+              topAlert={data.topAlert}
+              selectedInstitutionId={selectedInstitution?.id.toString() ?? null}
+            />
           </section>
 
           {/* Right sidebar */}
           <aside>
-            <WatchlistPanel entries={data.watchlist} userId={user.id} />
+            <WatchlistPanel
+              entries={data.watchlist}
+              refreshJobs={data.refreshJobs}
+              selectedInstitution={selectedInstitution}
+            />
           </aside>
         </div>
       </main>

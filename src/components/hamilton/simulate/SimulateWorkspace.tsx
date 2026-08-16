@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useCompletion } from "@ai-sdk/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Share2 } from "lucide-react";
 import {
   computeFeePosition,
   computeTradeoffs,
@@ -16,6 +18,7 @@ import {
   getSimulationCategories,
   getDistributionForCategory,
   getInstitutionFee,
+  getScenario,
   saveScenario,
   listScenarios,
 } from "@/app/pro/(hamilton)/simulate/actions";
@@ -28,6 +31,12 @@ import { HamiltonInterpretation } from "./HamiltonInterpretation";
 import { ScenarioArchive, type ScenarioListItem } from "./ScenarioArchive";
 import { InsufficientConfidenceGate } from "./InsufficientConfidenceGate";
 import { GenerateBoardSummaryButton } from "./GenerateBoardSummaryButton";
+import {
+  PeerBaselineSelector,
+  type HamiltonPeerSetOption,
+} from "@/components/hamilton/PeerBaselineSelector";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
+import type { HamiltonContextSource } from "@/lib/hamilton/context-source";
 
 interface InstitutionContext {
   name?: string;
@@ -41,6 +50,11 @@ interface Props {
   institutionId: string | null;
   institutionContext: InstitutionContext;
   initialCategory?: string;
+  initialScenarioId?: string;
+  peerSetId?: string | null;
+  savedPeerSets: HamiltonPeerSetOption[];
+  selectedSource?: HamiltonContextSource;
+  selectedSourceLabel?: string | null;
 }
 
 function formatDollar(v: number): string {
@@ -51,7 +65,23 @@ function formatCategory(cat: string): string {
   return DISPLAY_NAMES[cat] ?? cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function SimulateWorkspace({ institutionId, institutionContext, initialCategory }: Props) {
+function peerSourceLabel(source: DistributionData["peer_source"] | undefined): string {
+  if (source === "saved-peer-set") return "Saved peer set";
+  if (source === "selected-institution-default") return "Selected-institution peers";
+  if (source === "national") return "National index";
+  return "Peer baseline";
+}
+
+export function SimulateWorkspace({
+  institutionId,
+  institutionContext,
+  initialCategory,
+  initialScenarioId,
+  peerSetId,
+  savedPeerSets,
+  selectedSource,
+  selectedSourceLabel,
+}: Props) {
   const router = useRouter();
 
   // ─── Category + Distribution ───────────────────────────────────────────────
@@ -73,6 +103,11 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
   const [isSaving, setIsSaving] = useState(false);
   const [scenarios, setScenarios] = useState<ScenarioListItem[]>([]);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
+  const [scenarioPeerSetId, setScenarioPeerSetId] = useState<string | null | undefined>(undefined);
+  const activePeerSetId = scenarioPeerSetId === undefined ? peerSetId ?? null : scenarioPeerSetId;
+  const defaultPeerSetLabel = institutionId
+    ? "Selected institution peer default"
+    : "Verified national index";
 
   // ─── Streaming Interpretation ────────────────────────────────────────────
   const { complete, completion, isLoading: isStreaming } = useCompletion({
@@ -98,16 +133,24 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
       : "";
 
   const canGenerateSummary = !isStreaming && completion.length > 0 && !simulationBlocked;
+  const collaborateHref = hrefWithInstitutionContext(
+    "/pro/settings#workspace-access",
+    institutionId,
+  );
 
   // ─── Category Selection ───────────────────────────────────────────────────
-  const handleCategorySelect = useCallback(async (feeCategory: string) => {
+  const handleCategorySelect = useCallback(async (feeCategory: string, peerSetOverride?: string | null) => {
+    const effectivePeerSetId = peerSetOverride === undefined ? activePeerSetId : peerSetOverride;
     setSelectedCategory(feeCategory);
     setLoadingCategory(true);
     setError(null);
     setSavedScenarioId(null);
     setSelectedScenarioId(null);
 
-    const result = await getDistributionForCategory(feeCategory);
+    const result = await getDistributionForCategory(feeCategory, {
+      institutionId,
+      peerSetId: effectivePeerSetId,
+    });
     if ("error" in result) {
       setError(result.error);
       setDistribution(null);
@@ -116,7 +159,7 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
       setDistribution(result.distribution);
       setConfidenceTier(result.confidenceTier);
 
-      // Use institution's actual fee if available, otherwise national median
+      // Use institution's actual fee if available, otherwise the selected peer median.
       const instFee = institutionId ? await getInstitutionFee(institutionId, feeCategory) : null;
       const hasInstFee = instFee !== null;
       const startingFee = hasInstFee ? Math.round(instFee.amount) : result.distribution.median_amount;
@@ -126,11 +169,21 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
     }
 
     setLoadingCategory(false);
-  }, [institutionId]);
+  }, [institutionId, activePeerSetId]);
+
+  const handlePeerSetChange = useCallback((nextPeerSetId: string | null) => {
+    setScenarioPeerSetId(nextPeerSetId);
+    setSavedScenarioId(null);
+    setSelectedScenarioId(null);
+    setError(null);
+    if (selectedCategory) {
+      void handleCategorySelect(selectedCategory, nextPeerSetId);
+    }
+  }, [selectedCategory, handleCategorySelect]);
 
   // ─── Initialization ───────────────────────────────────────────────────────
   useEffect(() => {
-    getSimulationCategories()
+    getSimulationCategories({ institutionId, peerSetId: activePeerSetId })
       .then((cats) => {
         setCategories(cats);
         if (initialCategory && cats.some((c) => c.fee_category === initialCategory)) {
@@ -143,7 +196,7 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
     listScenarios()
       .then(setScenarios)
       .catch(() => {});
-  }, [initialCategory, handleCategorySelect]);
+  }, [initialCategory, handleCategorySelect, institutionId, activePeerSetId]);
 
   // ─── Slider Handlers ──────────────────────────────────────────────────────
   const handleSliderChange = useCallback((value: number[]) => {
@@ -169,6 +222,11 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
           proposedFee: proposed,
           distributionData: distribution,
           institutionContext,
+          peerContext: {
+            label: distribution.peer_label,
+            source: distribution.peer_source,
+            fallbackReason: distribution.peer_fallback_reason,
+          },
         },
       });
     },
@@ -194,6 +252,11 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
         proposedFee,
         distributionData: distribution,
         institutionContext,
+        peerContext: {
+          label: distribution.peer_label,
+          source: distribution.peer_source,
+          fallbackReason: distribution.peer_fallback_reason,
+        },
       },
     });
   }, [distribution, selectedCategory, currentFee, proposedFee, institutionContext, complete]);
@@ -214,9 +277,21 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
         proposedFee,
         currentPosition,
         proposedPosition,
+        peerContext: {
+          label: distribution.peer_label,
+          source: distribution.peer_source,
+          fallbackReason: distribution.peer_fallback_reason,
+        },
         interpretation: completion,
       },
       confidenceTier,
+      peerSetId: distribution.peer_set_id ?? activePeerSetId ?? null,
+      evidencePolicy: "verified-only",
+      peerBaselineSource: distribution.peer_source ?? null,
+      peerBaselineLabel: distribution.peer_label ?? null,
+      peerFallbackReason: distribution.peer_fallback_reason ?? null,
+      selectedSource,
+      selectedSourceLabel,
     });
 
     setIsSaving(false);
@@ -240,6 +315,9 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
     proposedFee,
     currentPosition,
     completion,
+    activePeerSetId,
+    selectedSource,
+    selectedSourceLabel,
   ]);
 
   const handleReset = useCallback(() => {
@@ -247,6 +325,68 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
     setProposedFee(distribution.median_amount);
     setSavedScenarioId(null);
   }, [distribution]);
+
+  const handleExportData = useCallback(() => {
+    if (!selectedCategory || !distribution || !currentPosition || !proposedPosition || !tradeoffs) {
+      return;
+    }
+
+    const rows = [
+      ["field", "value"],
+      ["institution", institutionContext.name ?? ""],
+      ["fee_category", selectedCategory],
+      ["current_fee", String(currentFee)],
+      ["proposed_fee", String(proposedFee)],
+      ["current_percentile", String(currentPosition.percentile)],
+      ["proposed_percentile", String(proposedPosition.percentile)],
+      ["current_median_gap", String(currentPosition.medianGap)],
+      ["proposed_median_gap", String(proposedPosition.medianGap)],
+      ["current_risk_profile", currentPosition.riskProfile],
+      ["proposed_risk_profile", proposedPosition.riskProfile],
+      ["median", String(distribution.median_amount)],
+      ["p25", String(distribution.p25_amount)],
+      ["p75", String(distribution.p75_amount)],
+      ["approved_count", String(distribution.approved_count)],
+      ["peer_label", distribution.peer_label ?? ""],
+      ["peer_source", distribution.peer_source ?? ""],
+      ["peer_fallback_reason", distribution.peer_fallback_reason ?? ""],
+      ["evidence_policy", "verified-only"],
+      ["selected_source", selectedSource ?? ""],
+      ["selected_source_label", selectedSourceLabel ?? ""],
+      ["confidence_tier", confidenceTier ?? ""],
+      ["revenue_impact", tradeoffs.revenueImpact.value],
+      ["peer_risk_exposure", tradeoffs.riskMitigation.value],
+      ["risk_profile_shift", tradeoffs.operationalImpact.value],
+    ];
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${cell.replace(/"/g, '""')}"`)
+          .join(","),
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `hamilton-scenario-${selectedCategory}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, [
+    selectedCategory,
+    distribution,
+    currentPosition,
+    proposedPosition,
+    tradeoffs,
+    institutionContext.name,
+    currentFee,
+    proposedFee,
+    confidenceTier,
+    selectedSource,
+    selectedSourceLabel,
+  ]);
 
   // ─── Generate Board Summary ───────────────────────────────────────────────
   const handleGenerateSummary = useCallback(async () => {
@@ -257,39 +397,70 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
     if (scenarioId) {
       const query = new URLSearchParams({ scenario_id: scenarioId });
       if (institutionId) query.set("instId", institutionId);
+      const scenarioPeerSetId = distribution?.peer_set_id ?? activePeerSetId;
+      if (scenarioPeerSetId) query.set("peerSetId", scenarioPeerSetId);
       router.push(`/pro/reports?${query.toString()}`);
     }
-  }, [savedScenarioId, handleSave, institutionId, router]);
+  }, [savedScenarioId, handleSave, institutionId, distribution?.peer_set_id, activePeerSetId, router]);
 
   // ─── Restore Scenario ─────────────────────────────────────────────────────
   const handleScenarioSelect = useCallback(
     async (scenario: ScenarioListItem) => {
-      setSelectedScenarioId(scenario.id);
-      setSavedScenarioId(scenario.id);
+      const scenarioPeerSetId = scenario.peer_set_id ?? null;
+      setScenarioPeerSetId(scenarioPeerSetId);
 
-      if (scenario.fee_category !== selectedCategory) {
-        await handleCategorySelect(scenario.fee_category);
+      if (scenario.fee_category !== selectedCategory || scenarioPeerSetId !== activePeerSetId) {
+        await handleCategorySelect(scenario.fee_category, scenarioPeerSetId);
       }
 
       const current = parseFloat(scenario.current_value);
       const proposed = parseFloat(scenario.proposed_value);
       if (!isNaN(current)) setCurrentFee(current);
       if (!isNaN(proposed)) setProposedFee(proposed);
+      setSelectedScenarioId(scenario.id);
+      setSavedScenarioId(scenario.id);
     },
-    [selectedCategory, handleCategorySelect]
+    [selectedCategory, activePeerSetId, handleCategorySelect]
   );
+
+  useEffect(() => {
+    if (!initialScenarioId) return;
+    let cancelled = false;
+
+    getScenario(initialScenarioId)
+      .then((scenario) => {
+        if (!scenario || cancelled) return;
+        void handleScenarioSelect(scenario);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Could not restore the selected scenario.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialScenarioId, handleScenarioSelect]);
 
   // ─── Derived display values ────────────────────────────────────────────────
   const categoryLabel = selectedCategory ? formatCategory(selectedCategory) : "Fee Simulation";
   const hasDistribution = distribution && confidenceTier && !loadingCategory;
   const hasSimulation = hasDistribution && !simulationBlocked && currentPosition && proposedPosition;
+  const activePeerLabel = distribution?.peer_label ?? "Peer baseline";
+  const benchmarkPosture = distribution
+    ? `${distribution.approved_count} approved peer rows · ${peerSourceLabel(distribution.peer_source)}`
+    : "Choose a category to load the approved-row peer baseline.";
+  const currentPointPosture = distribution
+    ? usingInstitutionFee
+      ? "Current point uses the selected institution's approved fee row."
+      : "Current point starts from the peer median because no approved selected-institution fee row is available."
+    : "No selected category loaded.";
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "var(--hamilton-surface)" }}>
 
       {/* Page Header ─────────────────────────────────────────────────────── */}
-      <div className="mb-8 flex justify-between items-end">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1
             className="font-headline text-4xl leading-tight tracking-tight mb-1"
@@ -298,29 +469,22 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
             {selectedCategory ? `Fee Simulation: ${categoryLabel}` : "Fee Simulation"}
           </h1>
           <p className="font-label text-[10px] uppercase tracking-widest" style={{ color: "var(--hamilton-on-surface-variant)" }}>
-            Reference: HAM-2024-OD-09 &bull; Last Live Sync: 12s ago
+            Verified-only benchmark &bull; Provisional rows excluded from scoring
           </p>
         </div>
         <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
+          className="flex flex-col items-start gap-1 rounded border px-3 py-2 text-left sm:items-end sm:text-right"
           style={{
             color: "var(--hamilton-primary)",
             background: "color-mix(in srgb, var(--hamilton-primary) 5%, transparent)",
             borderColor: "color-mix(in srgb, var(--hamilton-primary) 10%, transparent)",
           }}
         >
-          <span className="relative flex h-2 w-2">
-            <span
-              className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
-              style={{ background: "var(--hamilton-primary)" }}
-            />
-            <span
-              className="relative inline-flex rounded-full h-2 w-2"
-              style={{ background: "var(--hamilton-primary)" }}
-            />
-          </span>
           <span className="font-label text-[9px] font-bold uppercase tracking-widest">
-            Live Simulation Mode
+            Manual Scenario Mode
+          </span>
+          <span className="text-[11px]" style={{ color: "var(--hamilton-on-surface-variant)" }}>
+            No provider automation queued
           </span>
         </div>
       </div>
@@ -330,6 +494,33 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
           {error}
         </p>
       )}
+      {distribution?.peer_fallback_reason && (
+        <p className="mb-4 rounded border px-3 py-2 text-xs" style={{ color: "rgb(146 64 14)", borderColor: "rgb(245 158 11)", background: "rgb(255 251 235)" }}>
+          {distribution.peer_fallback_reason}
+        </p>
+      )}
+
+      <div className="mb-5 max-w-xl">
+        <PeerBaselineSelector
+          id="simulate-peer-baseline"
+          value={activePeerSetId}
+          defaultLabel={defaultPeerSetLabel}
+          peerSets={savedPeerSets}
+          disabled={loadingCategories || loadingCategory}
+          onChange={handlePeerSetChange}
+        />
+        <div
+          className="mt-3 rounded border px-3 py-2 text-xs leading-relaxed"
+          style={{
+            borderColor: "rgb(231 229 228)",
+            background: "rgb(250 249 248)",
+            color: "var(--hamilton-on-surface-variant)",
+          }}
+        >
+          <strong style={{ color: "var(--hamilton-on-surface)" }}>Evidence posture:</strong>{" "}
+          Verified-only distribution. {benchmarkPosture} {currentPointPosture}
+        </div>
+      </div>
 
       {/* Section 1: Scenario Setup ─────────────────────────────────────────── */}
       <section
@@ -360,7 +551,7 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
           {/* Current Point */}
           <div className="flex flex-col border-r pr-8" style={{ borderColor: "rgb(245 245 244)" }}>
             <label className="font-label text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--hamilton-on-surface-variant)" }}>
-              {usingInstitutionFee ? "Your Current Fee" : "National Median"}
+              {usingInstitutionFee ? "Your Current Fee" : `${activePeerLabel} Median`}
             </label>
             <div
               className="font-headline text-2xl"
@@ -482,10 +673,10 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
 
       {/* Fixed Action Bar ──────────────────────────────────────────────────── */}
       <div
-        className="fixed bottom-0 left-0 right-0 bg-white border-t flex items-center justify-between z-40 px-12 py-4"
+        className="fixed bottom-0 left-0 right-0 bg-white border-t flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between z-40 px-4 py-3 sm:px-12 sm:py-4"
         style={{ borderColor: "rgb(231 229 228)" }}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:gap-4">
           <button
             onClick={handleSave}
             disabled={isSaving || !hasSimulation}
@@ -511,9 +702,12 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
             Reset Simulation
           </button>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex w-full flex-wrap items-center gap-4 sm:w-auto sm:gap-6">
           <button
-            className="flex items-center gap-2 font-label text-[10px] uppercase tracking-widest font-bold transition-all hover:opacity-80"
+            type="button"
+            onClick={handleExportData}
+            disabled={!hasSimulation}
+            className="flex items-center gap-2 font-label text-[10px] uppercase tracking-widest font-bold transition-all hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: "var(--hamilton-primary)" }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -523,19 +717,14 @@ export function SimulateWorkspace({ institutionId, institutionContext, initialCa
             </svg>
             Export Data
           </button>
-          <button
+          <Link
+            href={collaborateHref}
             className="flex items-center gap-2 font-label text-[10px] uppercase tracking-widest font-bold transition-all hover:opacity-80"
             style={{ color: "var(--hamilton-primary)" }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="18" cy="5" r="3"/>
-              <circle cx="6" cy="12" r="3"/>
-              <circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
+            <Share2 className="h-[18px] w-[18px]" strokeWidth={1.5} aria-hidden="true" />
             Collaborate
-          </button>
+          </Link>
         </div>
       </div>
     </div>

@@ -5,6 +5,11 @@ interface BreadcrumbItem {
   href: string;
 }
 
+function absoluteHref(href: string): string {
+  if (/^https?:\/\//i.test(href)) return href;
+  return `${SITE_URL}${href.startsWith("/") ? href : `/${href}`}`;
+}
+
 export function BreadcrumbJsonLd({ items }: { items: BreadcrumbItem[] }) {
   const jsonLd = {
     "@context": "https://schema.org",
@@ -13,7 +18,7 @@ export function BreadcrumbJsonLd({ items }: { items: BreadcrumbItem[] }) {
       "@type": "ListItem",
       position: i + 1,
       name: item.name,
-      item: `${SITE_URL}${item.href}`,
+      item: absoluteHref(item.href),
     })),
   };
 

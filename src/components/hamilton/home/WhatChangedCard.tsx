@@ -5,10 +5,13 @@
  */
 
 import { timeAgo } from "@/lib/format";
+import Link from "next/link";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 import type { SignalEntry } from "@/lib/hamilton/home-data";
 
 interface WhatChangedCardProps {
   signals: SignalEntry[];
+  selectedInstitutionId?: string | null;
 }
 
 function SignalTypeLabel({ label }: { label: string }) {
@@ -28,8 +31,12 @@ function SignalTypeLabel({ label }: { label: string }) {
   );
 }
 
-export function WhatChangedCard({ signals }: WhatChangedCardProps) {
+export function WhatChangedCard({
+  signals,
+  selectedInstitutionId = null,
+}: WhatChangedCardProps) {
   if (signals.length === 0) {
+    const settingsHref = hrefWithInstitutionContext("/pro/settings", selectedInstitutionId);
     return (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
         <div
@@ -47,7 +54,7 @@ export function WhatChangedCard({ signals }: WhatChangedCardProps) {
               margin: 0,
             }}
           >
-            Hamilton tracks fee movements across your watchlist. <a href="/pro/settings" style={{ color: "var(--hamilton-primary)", textDecoration: "none", fontWeight: 500 }}>Add institutions</a> to see what changed.
+            Hamilton tracks fee movements across your watchlist. <Link href={settingsHref} style={{ color: "var(--hamilton-primary)", textDecoration: "none", fontWeight: 500 }}>Add institutions</Link> to see what changed.
           </p>
         </div>
       </div>

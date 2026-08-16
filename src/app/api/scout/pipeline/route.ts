@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { searchInstitutions, getExtractedFees, getCrawlResults } from "@/lib/scout/db";
@@ -6,7 +7,7 @@ import type { SSEEvent, AgentId } from "@/lib/scout/types";
 
 export const maxDuration = 120;
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "research")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -154,3 +155,5 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = withApiRoutePolicy("api.scout.pipeline", "POST", handlePOST);

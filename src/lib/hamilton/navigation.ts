@@ -36,10 +36,23 @@ export const LEFT_RAIL_CONFIG: Record<HamiltonScreen, {
   "My Bank":          { primaryAction: "Simulate Change",          sections: ["Saved Analyses", "Recent Work"] },
   "Peer Compare":     { primaryAction: "Simulate a Change",        sections: ["Saved Analyses", "Recent Work", "Pinned Institutions"] },
   "Scenarios":        { primaryAction: "Generate Board Summary",   sections: ["Scenarios", "Saved Analyses"] },
-  "Reports & Briefs": { primaryAction: "Export PDF",               sections: ["Report History", "Templates"] },
+  "Reports & Briefs": { primaryAction: "Generate Brief",           sections: ["Your Reports", "Templates"] },
   "Watchlist":        { primaryAction: "Review Pricing",           sections: ["Watchlist", "Signal Feed"] },
   "Admin":            { primaryAction: "",                         sections: [] },
 } as const;
+
+export const PRIMARY_ACTION_HREF: Record<HamiltonScreen, string> = {
+  "My Bank": "/pro/simulate",
+  "Peer Compare": "/pro/simulate",
+  "Scenarios": "/pro/reports",
+  "Reports & Briefs": "/pro/reports",
+  "Watchlist": "/pro/analyze",
+  "Admin": "/admin",
+} as const;
+
+export function getPrimaryActionHref(screen: HamiltonScreen): string {
+  return PRIMARY_ACTION_HREF[screen];
+}
 
 /** CTA hierarchy per screen (per 09-copy-and-ux-rules.md) */
 export const CTA_HIERARCHY: Record<Exclude<HamiltonScreen, "Admin">, {
@@ -49,7 +62,7 @@ export const CTA_HIERARCHY: Record<Exclude<HamiltonScreen, "Admin">, {
   "My Bank":          { primary: "Simulate Change",                 secondary: [] },
   "Peer Compare":     { primary: "Simulate a Change",               secondary: ["Show Peer Distribution", "View Risk Drivers"] },
   "Scenarios":        { primary: "Generate Board Scenario Summary", secondary: [] },
-  "Reports & Briefs": { primary: "Export PDF",                      secondary: [] },
+  "Reports & Briefs": { primary: "Generate Brief",                  secondary: [] },
   "Watchlist":        { primary: "Review Pricing",                  secondary: ["Run Scenario"] },
 } as const;
 

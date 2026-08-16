@@ -1,6 +1,6 @@
 import type { User } from "@/lib/auth";
 
-/** Full premium access (all data, exports, API keys). */
+/** Full premium access for app data, exports, and Hamilton workflows. */
 export function canAccessPremium(user: User | null): boolean {
   if (!user) return false;
   if (user.role === "admin" || user.role === "analyst") return true;
@@ -22,9 +22,10 @@ export function canExportData(user: User | null): boolean {
   return canAccessPremium(user);
 }
 
-/** Can generate/use API keys. */
+/** Self-serve account API-key controls are disabled while keys require manual workspace setup. */
 export function canAccessApiKey(user: User | null): boolean {
-  return canAccessPremium(user);
+  void user;
+  return false;
 }
 
 /** Can see full district data (Beige Book, indicators, speeches). */
@@ -37,7 +38,7 @@ export function getVisibleCategoryCount(user: User | null): number {
   return canAccessPremium(user) ? 49 : 6;
 }
 
-/** Daily AI research query limit. */
+/** Daily Hamilton analysis query limit. */
 export function getResearchQueryLimit(user: User | null): number {
   if (!user) return 0;
   if (user.role === "admin") return 200;

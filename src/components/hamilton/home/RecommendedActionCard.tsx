@@ -6,10 +6,12 @@
  */
 
 import Link from "next/link";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 
 interface RecommendedActionCardProps {
   recommendedCategory: string | null;
   thesisExists: boolean;
+  selectedInstitutionId?: string | null;
 }
 
 function deriveDisplayName(category: string): string {
@@ -21,9 +23,15 @@ function deriveDisplayName(category: string): string {
 export function RecommendedActionCard({
   recommendedCategory,
   thesisExists,
+  selectedInstitutionId = null,
 }: RecommendedActionCardProps) {
   const category = recommendedCategory ?? "overdraft";
   const displayName = deriveDisplayName(category);
+  const simulateHref = hrefWithInstitutionContext(
+    `/pro/simulate?category=${encodeURIComponent(category)}`,
+    selectedInstitutionId,
+  );
+  const settingsHref = hrefWithInstitutionContext("/pro/settings", selectedInstitutionId);
 
   return (
     <div
@@ -63,7 +71,7 @@ export function RecommendedActionCard({
 
       {thesisExists ? (
         <Link
-          href={`/pro/simulate?category=${category}`}
+          href={simulateHref}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -84,7 +92,7 @@ export function RecommendedActionCard({
         </Link>
       ) : (
         <Link
-          href="/pro/settings"
+          href={settingsHref}
           style={{
             display: "inline-flex",
             alignItems: "center",

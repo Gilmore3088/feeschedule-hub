@@ -1,4 +1,9 @@
 import Link from "next/link";
+import {
+  getHamiltonContextSourceLabel,
+  type HamiltonContextSource,
+} from "@/lib/hamilton/context-source";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 
 interface InstitutionContext {
   name: string | null;
@@ -8,11 +13,13 @@ interface InstitutionContext {
   feePublicationLabel?: string | null;
   publishedFeeCount?: number | null;
   provisionalFeeCount?: number | null;
+  selectedSource?: HamiltonContextSource;
   selectedFromUrl?: boolean;
 }
 
 interface HamiltonContextBarProps {
   institutionContext: InstitutionContext;
+  selectedInstitutionId?: string | null;
 }
 
 /**
@@ -20,7 +27,10 @@ interface HamiltonContextBarProps {
  * Matches HTML prototype: Institution selector + Horizon dropdown + Analysis Focus pills.
  * Per D-07 and D-14: institution context flows from user profile.
  */
-export function HamiltonContextBar({ institutionContext }: HamiltonContextBarProps) {
+export function HamiltonContextBar({
+  institutionContext,
+  selectedInstitutionId = null,
+}: HamiltonContextBarProps) {
   const {
     name,
     type,
@@ -29,10 +39,13 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
     feePublicationLabel,
     publishedFeeCount,
     provisionalFeeCount,
+    selectedSource,
     selectedFromUrl,
   } = institutionContext;
   const hasInstitution = !!name;
   const institutionName = name ?? "Global Private Bank";
+  const sourceLabel = getHamiltonContextSourceLabel(selectedSource, selectedFromUrl);
+  const settingsHref = hrefWithInstitutionContext("/pro/settings", selectedInstitutionId);
 
   return (
     <div
@@ -62,7 +75,7 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
                 - {type}
               </span>
             )}
-            {selectedFromUrl && (
+            {sourceLabel && (
               <span
                 className="ml-2 rounded px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em]"
                 style={{
@@ -70,13 +83,13 @@ export function HamiltonContextBar({ institutionContext }: HamiltonContextBarPro
                   color: "var(--hamilton-text-accent)",
                 }}
               >
-                selected
+                {sourceLabel}
               </span>
             )}
           </span>
         ) : (
           <Link
-            href="/pro/settings"
+            href={settingsHref}
             className="text-xs font-bold no-underline transition-colors hover:opacity-80"
             style={{ color: "var(--hamilton-text-accent)" }}
           >

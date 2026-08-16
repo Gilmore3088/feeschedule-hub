@@ -1131,9 +1131,15 @@ export async function executeAgentRun(
 export async function executeQueuedAgentRuns({
   runLimit = 2,
   maxStepsPerRun = 1,
+  budgetPolicyId = null,
+  maxProviderCallsPerRun = null,
+  maxEstimatedCostMicrousd = null,
 }: {
   runLimit?: number;
   maxStepsPerRun?: number;
+  budgetPolicyId?: number | null;
+  maxProviderCallsPerRun?: number | null;
+  maxEstimatedCostMicrousd?: number | null;
 } = {}): Promise<ExecuteQueuedAgentRunsResult> {
   const safeRunLimit = Math.min(Math.max(Math.floor(runLimit), 1), 10);
   const rows = await sql`
@@ -1146,7 +1152,18 @@ export async function executeQueuedAgentRuns({
   `;
   const results: AgentRunExecutionResult[] = [];
   for (const row of rows) {
-    results.push(await executeAgentRun(Number(row.id), { maxSteps: maxStepsPerRun }));
+    const runId = Number(row.id);
+    if (budgetPolicyId !== null || maxProviderCallsPerRun !== null || maxEstimatedCostMicrousd !== null) {
+      await sql`
+        UPDATE agent_runs
+           SET budget_policy_id = COALESCE(${budgetPolicyId}, budget_policy_id),
+               max_provider_calls = COALESCE(${maxProviderCallsPerRun}, max_provider_calls),
+               max_estimated_cost_microusd = COALESCE(${maxEstimatedCostMicrousd}, max_estimated_cost_microusd),
+               updated_at = NOW()
+         WHERE id = ${runId}
+      `;
+    }
+    results.push(await executeAgentRun(runId, { maxSteps: maxStepsPerRun }));
   }
   return { selected: rows.length, results };
 }

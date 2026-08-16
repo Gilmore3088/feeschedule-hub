@@ -180,6 +180,12 @@ export interface InstitutionSubmissionState {
   } | null;
 }
 
+const INSTITUTION_EVIDENCE_CACHE_TTL_MS = 60_000;
+const institutionEvidenceCache = new Map<number, {
+  expiresAt: number;
+  value: InstitutionFeeScheduleEvidence;
+}>();
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -341,16 +347,20 @@ export async function getInstitutionFeeScheduleEvidence(
     raw_fee_preview: [],
     verified_fee_preview: [],
   };
+  const cached = institutionEvidenceCache.get(id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
 
   try {
-    const [
-      documentRows,
-      textRows,
-      countRows,
-      rawRows,
-      verifiedRows,
-    ] = await Promise.all([
-      sql`
+    const query = sql<Array<{
+      latest_document: unknown;
+      latest_text: unknown;
+      pipeline_counts: unknown;
+      raw_fee_preview: unknown;
+      verified_fee_preview: unknown;
+    }>>`
+      WITH latest_document AS (
         SELECT
           id,
           source_collection_run_id,
@@ -366,8 +376,8 @@ export async function getInstitutionFeeScheduleEvidence(
         WHERE institution_id = ${id}
         ORDER BY crawled_at DESC NULLS LAST, id DESC
         LIMIT 1
-      `,
-      sql`
+      ),
+      latest_text AS (
         SELECT
           id,
           agent_run_id,
@@ -385,8 +395,8 @@ export async function getInstitutionFeeScheduleEvidence(
         WHERE institution_id = ${id}
         ORDER BY updated_at DESC NULLS LAST, id DESC
         LIMIT 1
-      `,
-      sql`
+      ),
+      pipeline_counts AS (
         SELECT
           (
             SELECT COUNT(*)::int
@@ -428,8 +438,8 @@ export async function getInstitutionFeeScheduleEvidence(
                   AND pfc.review_status <> 'rejected'
               )
           ) AS verified_without_published_count
-      `,
-      sql`
+      ),
+      raw_fee_preview AS (
         SELECT
           fee_raw_id,
           source_document_id,
@@ -445,8 +455,8 @@ export async function getInstitutionFeeScheduleEvidence(
         WHERE institution_id = ${id}
         ORDER BY created_at DESC NULLS LAST, fee_raw_id DESC
         LIMIT 12
-      `,
-      sql`
+      ),
+      verified_fee_preview AS (
         SELECT
           fee_verified_id,
           fee_raw_id,
@@ -462,14 +472,35 @@ export async function getInstitutionFeeScheduleEvidence(
         WHERE institution_id = ${id}
         ORDER BY created_at DESC NULLS LAST, fee_verified_id DESC
         LIMIT 12
-      `,
-    ]);
+      )
+      SELECT
+        (SELECT row_to_json(latest_document) FROM latest_document) AS latest_document,
+        (SELECT row_to_json(latest_text) FROM latest_text) AS latest_text,
+        (SELECT row_to_json(pipeline_counts) FROM pipeline_counts) AS pipeline_counts,
+        COALESCE(
+          (SELECT json_agg(row_to_json(raw_fee_preview) ORDER BY created_at DESC NULLS LAST, fee_raw_id DESC) FROM raw_fee_preview),
+          '[]'::json
+        ) AS raw_fee_preview,
+        COALESCE(
+          (SELECT json_agg(row_to_json(verified_fee_preview) ORDER BY created_at DESC NULLS LAST, fee_verified_id DESC) FROM verified_fee_preview),
+          '[]'::json
+        ) AS verified_fee_preview
+    `;
+    const [row]: Array<{
+      latest_document: unknown;
+      latest_text: unknown;
+      pipeline_counts: unknown;
+      raw_fee_preview: unknown;
+      verified_fee_preview: unknown;
+    }> = await query;
 
-    const documentRow = documentRows[0];
-    const textRow = textRows[0];
-    const countRow = countRows[0];
+    const documentRow = safeJsonb<Record<string, unknown>>(row?.latest_document) ?? null;
+    const textRow = safeJsonb<Record<string, unknown>>(row?.latest_text) ?? null;
+    const countRow = safeJsonb<Record<string, unknown>>(row?.pipeline_counts) ?? {};
+    const rawRows = safeJsonb<Record<string, unknown>[]>(row?.raw_fee_preview) ?? [];
+    const verifiedRows = safeJsonb<Record<string, unknown>[]>(row?.verified_fee_preview) ?? [];
 
-    return {
+    const evidence = {
       latest_document: documentRow
         ? {
             id: Number(documentRow.id),
@@ -538,6 +569,11 @@ export async function getInstitutionFeeScheduleEvidence(
         created_at: toDateStr(r.created_at as string | Date | null),
       })),
     };
+    institutionEvidenceCache.set(id, {
+      value: evidence,
+      expiresAt: Date.now() + INSTITUTION_EVIDENCE_CACHE_TTL_MS,
+    });
+    return evidence;
   } catch (e) {
     console.error("getInstitutionFeeScheduleEvidence failed:", e);
     return empty;

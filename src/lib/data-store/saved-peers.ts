@@ -34,6 +34,20 @@ export async function getSavedPeerSets(userId: string): Promise<SavedPeerSet[]> 
   ` as SavedPeerSet[];
 }
 
+export async function getSavedPeerSetById(
+  id: number,
+  userId: string,
+): Promise<SavedPeerSet | null> {
+  await ensureSavedPeerSetsTable();
+  const rows = await sql`
+    SELECT id, name, tiers, districts, charter_type, created_by, created_at
+    FROM saved_peer_sets
+    WHERE id = ${id} AND created_by = ${userId}
+    LIMIT 1
+  ` as SavedPeerSet[];
+  return rows[0] ?? null;
+}
+
 export async function savePeerSet(
   name: string,
   filters: { charter_type?: string; asset_tiers?: string[]; fed_districts?: number[] },

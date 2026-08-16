@@ -21,7 +21,7 @@ export async function getSavedGroups(): Promise<SavedGroup[]> {
   const user = await getCurrentUser();
   if (!user || !canAccessPremium(user)) return [];
 
-  const sets = await getSavedPeerSets(user.username);
+  const sets = await getSavedPeerSets(String(user.id));
   return sets.map((s) => ({
     id: s.id,
     name: s.name,
@@ -41,7 +41,7 @@ export async function saveGroup(
   if (!name.trim()) throw new Error("Name is required");
 
   // Check max 10
-  const existing = await getSavedPeerSets(user.username);
+  const existing = await getSavedPeerSets(String(user.id));
   if (existing.length >= 10) throw new Error("Maximum 10 saved peer groups");
 
   const id = await savePeerSet(
@@ -51,7 +51,7 @@ export async function saveGroup(
       asset_tiers: filters.tiers,
       fed_districts: filters.districts,
     },
-    user.username
+    String(user.id)
   );
 
   revalidatePath("/pro/peers");
@@ -62,6 +62,6 @@ export async function deleteGroup(id: number): Promise<void> {
   const user = await getCurrentUser();
   if (!user || !canAccessPremium(user)) throw new Error("Unauthorized");
 
-  await deletePeerSet(id, user.username);
+  await deletePeerSet(id, String(user.id));
   revalidatePath("/pro/peers");
 }

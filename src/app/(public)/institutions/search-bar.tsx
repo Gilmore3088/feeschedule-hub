@@ -23,6 +23,7 @@ type Variant = "light" | "dark";
 
 interface InstitutionSearchBarProps {
   autoFocus?: boolean;
+  ariaLabel?: string;
   /**
    * Visual variant. "light" (default) is the consumer/parchment background.
    * "dark" is for the institutional landing's dark column.
@@ -33,6 +34,7 @@ interface InstitutionSearchBarProps {
 
 export function InstitutionSearchBar({
   autoFocus = false,
+  ariaLabel = "Search institutions",
   variant = "light",
   placeholder = "Search your bank or credit union...",
 }: InstitutionSearchBarProps) {
@@ -95,6 +97,7 @@ export function InstitutionSearchBar({
         />
         <input
           type="text"
+          aria-label={ariaLabel}
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => results.length > 0 && setShowResults(true)}

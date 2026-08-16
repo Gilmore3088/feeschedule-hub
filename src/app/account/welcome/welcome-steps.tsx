@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { updateProfile, generateApiKey } from "../actions";
+import { updateProfile } from "../actions";
+import type {
+  InstitutionWorkspaceInvitation,
+  InstitutionWorkspaceMembership,
+} from "@/lib/hamilton/institution-membership";
 
 interface WelcomeStepsProps {
   userName: string;
@@ -16,6 +20,9 @@ interface WelcomeStepsProps {
   feePreview: { category: string; displayName: string; median: number }[];
   districtName: string | null;
   districtId: number | null;
+  isPro: boolean;
+  pendingWorkspaceInvitations: InstitutionWorkspaceInvitation[];
+  workspaceMemberships: InstitutionWorkspaceMembership[];
 }
 
 const INSTITUTION_TYPES = [
@@ -57,36 +64,44 @@ const US_STATES = [
 
 const TOOLS = [
   {
-    name: "AI Research Agent",
-    description: "Ask any question about bank fees and get instant analysis backed by 65,000+ data points.",
+    name: "Hamilton Analyze",
+    description: "Analyze fee evidence, peer position, and strategy questions in Hamilton.",
     icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
-    href: "/pro/research",
+    href: "/pro/analyze",
+    requiresPro: true,
   },
   {
     name: "Peer Analysis",
     description: "Compare your institution against peers by charter type, asset tier, and Fed district.",
     icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m14 0v-6a2 2 0 00-2-2h-2a2 2 0 00-2 2v6",
-    href: "/research/national-fee-index",
+    href: "/pro/analyze",
+    requiresPro: true,
   },
   {
     name: "Data Exports",
     description: "Download CSV reports for board presentations, compliance reviews, and internal analysis.",
     icon: "M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
     href: "/api/v1/fees?format=csv",
+    requiresPro: true,
   },
   {
-    name: "API Access",
-    description: "Integrate fee benchmarking data directly into your systems. Coming soon.",
+    name: "API and Exports",
+    description: "Review public REST docs; Seat License users can export verified-only CSV data.",
     icon: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
     href: "/api-docs",
-    comingSoon: true,
   },
 ];
 
-export function WelcomeSteps({ userName, user, feePreview, districtName, districtId }: WelcomeStepsProps) {
+export function WelcomeSteps({
+  userName,
+  user,
+  feePreview,
+  isPro,
+  pendingWorkspaceInvitations,
+  workspaceMemberships,
+}: WelcomeStepsProps) {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [apiKey, setApiKey] = useState<string | null>(null);
   const [showBankFields, setShowBankFields] = useState(
     user.institution_type === "bank" || user.institution_type === "credit_union"
   );
@@ -102,15 +117,55 @@ export function WelcomeSteps({ userName, user, feePreview, districtName, distric
     setStep(2);
   }
 
-  async function handleGenerateKey() {
-    const result = await generateApiKey();
-    if (result.success && result.key) {
-      setApiKey(result.key);
-    }
-  }
-
   return (
     <div className="max-w-2xl mx-auto">
+      {pendingWorkspaceInvitations.length > 0 && !isPro && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">Workspace invitation ready after Pro activation</p>
+          <p className="mt-1">
+            Your email has delegated Hamilton access waiting. Activate a Pro seat to attach:
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {pendingWorkspaceInvitations.map((invitation) => (
+              <span
+                key={invitation.id}
+                className="rounded-full border border-amber-200 bg-white/70 px-2.5 py-1 text-xs font-semibold"
+              >
+                {invitation.institutionName} · {invitation.role}
+              </span>
+            ))}
+          </div>
+          <Link
+            href="/subscribe?invite=workspace"
+            className="mt-4 inline-flex rounded-full bg-[#C44B2E] px-4 py-2 text-xs font-semibold text-white no-underline"
+          >
+            Activate Pro Seat
+          </Link>
+        </div>
+      )}
+
+      {workspaceMemberships.length > 0 && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-semibold">Hamilton workspace access is active</p>
+          <div className="mt-3 grid gap-2">
+            {workspaceMemberships.slice(0, 3).map((membership) => (
+              <div key={membership.id} className="rounded-lg border border-emerald-100 bg-white/70 px-3 py-2">
+                <p className="font-semibold text-[#1A1815]">{membership.institutionName}</p>
+                <p className="text-xs text-[#7A7062]">
+                  {membership.role} access · institution ID {membership.institutionId}
+                </p>
+              </div>
+            ))}
+          </div>
+          <Link
+            href={`/pro/analyze?instId=${workspaceMemberships[0].institutionId}`}
+            className="mt-4 inline-flex rounded-full bg-[#1A1815] px-4 py-2 text-xs font-semibold text-white no-underline"
+          >
+            Open Hamilton
+          </Link>
+        </div>
+      )}
+
       {/* Progress */}
       <div className="flex items-center gap-2 mb-8">
         {[1, 2, 3, 4].map((s) => (
@@ -246,20 +301,28 @@ export function WelcomeSteps({ userName, user, feePreview, districtName, distric
           </p>
 
           <div className="grid grid-cols-2 gap-3 mb-6">
-            {TOOLS.map((tool) => (
-              <div key={tool.name} className={`bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-4 ${(tool as { comingSoon?: boolean }).comingSoon ? "opacity-60" : ""}`}>
-                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-[#C44B2E] mb-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={tool.icon} />
-                </svg>
-                <h3 className="text-sm font-medium text-[#1A1815] mb-1">
-                  {tool.name}
-                  {(tool as { comingSoon?: boolean }).comingSoon && (
-                    <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#E8DFD1] text-[#7A7062] uppercase">Soon</span>
-                  )}
-                </h3>
-                <p className="text-xs text-[#7A7062] leading-relaxed">{tool.description}</p>
-              </div>
-            ))}
+            {TOOLS.map((tool) => {
+              const href = tool.requiresPro && !isPro ? "/subscribe" : tool.href;
+
+              return (
+                <Link
+                  key={tool.name}
+                  href={href}
+                  className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-4 no-underline transition-colors hover:border-[#C44B2E]/30 hover:bg-white"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-[#C44B2E] mb-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d={tool.icon} />
+                  </svg>
+                  <h3 className="text-sm font-medium text-[#1A1815] mb-1">
+                    {tool.name}
+                    {tool.requiresPro && !isPro && (
+                      <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#E8DFD1] text-[#7A7062] uppercase">Pro</span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-[#7A7062] leading-relaxed">{tool.description}</p>
+                </Link>
+              );
+            })}
           </div>
 
           <button
@@ -290,10 +353,10 @@ export function WelcomeSteps({ userName, user, feePreview, districtName, distric
           </p>
           <div className="flex gap-3 justify-center">
             <Link
-              href="/account"
+              href={isPro ? "/pro/hamilton" : "/account"}
               className="rounded-md bg-[#C44B2E] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors"
             >
-              Go to Dashboard
+              {isPro ? "Open Hamilton" : "Go to Account"}
             </Link>
             <Link
               href="/fees"

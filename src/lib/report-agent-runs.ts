@@ -2,6 +2,7 @@ import { sql } from "./data-store/connection";
 import { assertAutomationEnabled } from "./automation-control";
 import { startAgentRun } from "./agents/run-store";
 import type { ReportType } from "./report-engine/types";
+import { assertLegacyGeneratableReportType } from "./report-engine/legacy-generation-policy";
 
 export async function triggerReportJob(
   reportJobId: string,
@@ -10,6 +11,11 @@ export async function triggerReportJob(
   triggeredBy: string,
   triggerSource: "admin" | "api" | "schedule" = "admin",
 ): Promise<{ success: boolean; agentRunId?: number; error?: string }> {
+  const reportPolicy = assertLegacyGeneratableReportType(reportType);
+  if (!reportPolicy.ok) {
+    return { success: false, error: reportPolicy.error };
+  }
+
   try {
     await assertAutomationEnabled("Hamilton report generation");
   } catch (error) {

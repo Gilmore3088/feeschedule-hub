@@ -8,9 +8,11 @@ import {
   HAMILTON_NAV,
   HAMILTON_BASE,
   LEFT_RAIL_CONFIG,
+  PRIMARY_ACTION_HREF,
   CTA_HIERARCHY,
   ANALYSIS_FOCUS_TABS,
   HAMILTON_LABELS,
+  getPrimaryActionHref,
 } from "./navigation";
 import type { HamiltonScreen } from "./navigation";
 
@@ -73,6 +75,18 @@ describe("LEFT_RAIL_CONFIG", () => {
       expect(Array.isArray(config.sections)).toBe(true);
     }
   });
+
+  it("routes primary actions to the matching Hamilton workflow", () => {
+    expect(getPrimaryActionHref("My Bank")).toBe("/pro/simulate");
+    expect(getPrimaryActionHref("Peer Compare")).toBe("/pro/simulate");
+    expect(getPrimaryActionHref("Scenarios")).toBe("/pro/reports");
+    expect(getPrimaryActionHref("Reports & Briefs")).toBe("/pro/reports");
+    expect(getPrimaryActionHref("Watchlist")).toBe("/pro/analyze");
+    expect(getPrimaryActionHref("Admin")).toBe("/admin");
+    expect(Object.keys(PRIMARY_ACTION_HREF).sort()).toEqual(
+      HAMILTON_NAV.map((item) => item.label).sort(),
+    );
+  });
 });
 
 describe("CTA_HIERARCHY", () => {
@@ -98,8 +112,8 @@ describe("CTA_HIERARCHY", () => {
     expect(CTA_HIERARCHY["Scenarios"].primary).toBe("Generate Board Scenario Summary");
   });
 
-  it("Reports & Briefs primary CTA is 'Export PDF'", () => {
-    expect(CTA_HIERARCHY["Reports & Briefs"].primary).toBe("Export PDF");
+  it("Reports & Briefs primary CTA is 'Generate Brief'", () => {
+    expect(CTA_HIERARCHY["Reports & Briefs"].primary).toBe("Generate Brief");
   });
 
   it("each entry has primary string and secondary array", () => {

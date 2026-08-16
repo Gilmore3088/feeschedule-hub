@@ -173,7 +173,7 @@ export default async function ResearchHubPage() {
               Peer benchmarking &amp; API
             </p>
             <p className="mt-0.5 text-[11px] text-[#7A7062]">
-              Custom analysis, exports, AI research
+              Custom analysis, exports, Hamilton workflows
             </p>
           </Link>
         </div>
@@ -714,7 +714,7 @@ export default async function ResearchHubPage() {
                 Pro
               </p>
               <p className="mt-1.5 text-[13px] font-semibold text-white">
-                Professional research tools
+                Hamilton Pro workflows
               </p>
               <ul className="mt-2.5 space-y-1.5 text-[12px] text-[#A09788]">
                 <li className="flex items-start gap-1.5">
@@ -727,11 +727,11 @@ export default async function ResearchHubPage() {
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="mt-0.5 text-emerald-400">&#10003;</span>
-                  AI-powered fee analyst
+                  Evidence-labeled analysis, reports, and scenarios
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="mt-0.5 text-emerald-400">&#10003;</span>
-                  CSV exports &amp; API access
+                  CSV exports &amp; managed data options
                 </li>
               </ul>
               <Link

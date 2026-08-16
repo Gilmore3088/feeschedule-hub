@@ -50,7 +50,7 @@ export function ManageBillingButton({
     startTransition(async () => {
       try {
         await createPortalSession();
-      } catch (err) {
+      } catch {
         setError("Unable to open billing portal. Please try again.");
       }
     });

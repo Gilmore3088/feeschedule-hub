@@ -5,6 +5,7 @@
  */
 
 import Link from "next/link";
+import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 import type { AlertEntry } from "@/lib/hamilton/home-data";
 
 interface PriorityAlertCardProps {
@@ -58,6 +59,11 @@ function EmptyState() {
 }
 
 export function PriorityAlertCard({ alert }: PriorityAlertCardProps) {
+  const recommendedHref = hrefWithInstitutionContext(
+    "/pro/analyze",
+    alert?.institutionId ?? null,
+  );
+
   return (
     <div className="hamilton-card" style={{ padding: "1.25rem" }}>
       {/* Section label */}
@@ -115,7 +121,7 @@ export function PriorityAlertCard({ alert }: PriorityAlertCardProps) {
 
           {/* Recommended next move CTA */}
           <Link
-            href="/pro/analyze"
+            href={recommendedHref}
             style={{
               fontSize: "0.8125rem",
               fontWeight: 500,

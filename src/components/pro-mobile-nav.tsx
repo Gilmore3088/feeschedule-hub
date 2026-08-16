@@ -4,17 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { PersonalizationContext } from "@/lib/personalization";
+import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
 
-const PRO_NAV_ITEMS = [
-  { label: "Dashboard", href: "/pro" },
-  { label: "Market", href: "/pro/market" },
-  { label: "Peers", href: "/pro/peers" },
-  { label: "Categories", href: "/pro/categories" },
-  { label: "Districts", href: "/pro/districts" },
-  { label: "Data", href: "/pro/data" },
-  { label: "Wire", href: "/pro/news" },
-  { label: "AI Research", href: "/pro/research" },
-];
+const PRO_NAV_ITEMS = HAMILTON_NAV.filter((item) => item.label !== "Admin");
 
 interface ProMobileNavProps {
   user: {

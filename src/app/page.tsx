@@ -10,7 +10,7 @@ import { CustomerFooter } from "@/components/customer-footer";
 export const metadata: Metadata = {
   title: "Bank Fee Index -- Fee Intelligence for Consumers & Institutions",
   description:
-    "Compare fees across 8,000+ banks and credit unions. Consumers: look up your bank free. Institutions: peer benchmarking, AI research, and board-ready reports.",
+    "Compare fees across 8,000+ banks and credit unions. Consumers: look up your bank free. Institutions: peer benchmarking, Hamilton analysis, and board-ready reports.",
   openGraph: {
     title: "Bank Fee Index -- Fee Intelligence for Consumers & Institutions",
     description:

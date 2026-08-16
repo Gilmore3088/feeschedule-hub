@@ -1,10 +1,11 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 // src/app/api/scout/agent/[id]/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getAgentRun, getAgentRunResults } from "@/lib/scout/agent-db";
 
-export async function GET(
+async function handleGET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -28,3 +29,5 @@ export async function GET(
 
   return NextResponse.json({ ...run, results });
 }
+
+export const GET = withApiRoutePolicy("api.scout.agent.detail", "GET", handleGET);

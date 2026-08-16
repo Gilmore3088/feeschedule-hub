@@ -62,8 +62,10 @@ export async function getFinancialStats(): Promise<FinancialStats> {
 }
 
 export async function getFinancialsByInstitution(
-  targetId: number
+  targetId: number,
+  limit = 8,
 ): Promise<InstitutionFinancial[]> {
+  const rowLimit = Math.min(Math.max(Math.floor(limit), 1), 40);
   const rows = [...await sql`
     SELECT institution_id, report_date, source,
            total_assets, total_deposits, total_loans,
@@ -74,7 +76,8 @@ export async function getFinancialsByInstitution(
            total_revenue, fee_income_ratio, overdraft_revenue
     FROM institution_financial_records
     WHERE institution_id = ${targetId}
-    ORDER BY report_date DESC`];
+    ORDER BY report_date DESC
+    LIMIT ${rowLimit}`];
 
   return rows.map((r: Record<string, unknown>) => ({
     institution_id: Number(r.institution_id),

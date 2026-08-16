@@ -41,7 +41,7 @@ const US_STATES = [
   "VT","VA","WA","WV","WI","WY",
 ];
 
-export function RegisterForm() {
+export function RegisterForm({ redirectTo = "/account" }: { redirectTo?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -57,7 +57,7 @@ export function RegisterForm() {
     setPending(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await register(formData);
+    const result = await register(formData, redirectTo);
 
     if (result.success && result.redirect) {
       router.push(result.redirect);

@@ -3,6 +3,8 @@
  * All report sections are generated through this typed contract.
  */
 
+import type { HamiltonPersistedContextSource } from "@/lib/hamilton/context-source";
+
 export type SectionType =
   | "overview"
   | "findings"
@@ -250,6 +252,29 @@ export interface ReportSummaryResponse {
     pdfEnabled: boolean;
     shareEnabled: boolean;
   };
+}
+
+export type ReportArtifactEvidencePolicy =
+  | "verified-only"
+  | "provisional-first"
+  | "source-diligence";
+
+export type ReportArtifactPeerBaselineSource =
+  | "saved-peer-set"
+  | "selected-institution-default"
+  | "national";
+
+export interface ReportArtifactMetadata {
+  evidencePolicy: ReportArtifactEvidencePolicy;
+  selectedSource: HamiltonPersistedContextSource;
+  selectedSourceLabel: string | null;
+  peerSetId: string | null;
+  peerBaselineSource: ReportArtifactPeerBaselineSource | null;
+  peerBaselineLabel: string | null;
+  peerFallbackReason: string | null;
+  selectedVerifiedFeeCount: number;
+  selectedProvisionalFeeCount: number;
+  selectedFeeDeltaCount: number;
 }
 
 /** Monitor screen response — signals and alerts, no recommendations (ARCH-05) */

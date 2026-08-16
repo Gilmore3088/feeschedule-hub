@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * POST /api/hamilton/chat
  *
@@ -20,17 +21,19 @@ import {
 } from "@/lib/ai-provider";
 import { getCurrentUser } from "@/lib/auth";
 import { checkAdminRateLimit } from "@/lib/research/rate-limit";
-import { getDailyCostCents, logUsage } from "@/lib/research/history";
+import { logUsage } from "@/lib/research/history";
 import { buildHamiltonTools, buildHamiltonSystemPrompt } from "@/lib/hamilton/hamilton-agent";
+import { loadConversationHistory, appendMessage } from "@/lib/hamilton/chat-memory";
+import { buildHamiltonInstitutionBriefing } from "@/lib/hamilton/institution-briefing";
 import {
-  ensureHamiltonTables,
-  loadConversationHistory,
-  appendMessage,
-} from "@/lib/hamilton/chat-memory";
+  buildHamiltonRequestContractPrompt,
+  parseHamiltonRequestContract,
+  type HamiltonRequestContract,
+} from "@/lib/hamilton/request-contract";
+import { getRequestSubjectKey } from "@/lib/api-hardening/audit";
 
 export const maxDuration = 60;
 
-const DAILY_COST_LIMIT_CENTS = 5000; // $50/day
 const HAMILTON_MODEL = "claude-sonnet-4-5-20250929";
 
 // Cost per 1M tokens (in cents)
@@ -57,33 +60,13 @@ function estimateCostCents(
   );
 }
 
-// UUID v4 validation regex (T-17-05)
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export async function POST(request: Request) {
-  // Ensure Hamilton tables exist (idempotent, non-blocking on cold start)
-  ensureHamiltonTables().catch(() => {});
-
+async function handlePOST(request: Request) {
   // Check API key
   if (!hasAnthropicApiKey()) {
     return Response.json(
       { error: MISSING_ANTHROPIC_API_KEY_MESSAGE },
       { status: 503 }
     );
-  }
-
-  // Daily cost circuit breaker
-  try {
-    const dailyCost = await getDailyCostCents();
-    if (dailyCost >= DAILY_COST_LIMIT_CENTS) {
-      return Response.json(
-        { error: "Daily cost limit reached. Hamilton is temporarily unavailable." },
-        { status: 503 }
-      );
-    }
-  } catch {
-    // Non-critical — continue if cost check fails
   }
 
   // Auth check: analyst or admin only (T-17-02)
@@ -113,27 +96,23 @@ export async function POST(request: Request) {
   // Parse request body
   let messages: UIMessage[];
   let conversationId: string | undefined;
+  let contract: HamiltonRequestContract;
 
   try {
     const body = await request.json();
-    messages = body.messages;
-    conversationId = body.conversation_id;
-
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return Response.json({ error: "Messages required" }, { status: 400 });
+    const parsed = parseHamiltonRequestContract(body, {
+      audience: "admin",
+      defaultIntent: "admin-chat",
+      allowConversationId: true,
+    });
+    if (!parsed.ok) {
+      return Response.json({ error: parsed.error }, { status: parsed.status });
     }
+    contract = parsed.contract;
+    messages = contract.messages;
+    conversationId = contract.conversationId;
   } catch {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
-  }
-
-  // T-17-05: Validate conversation_id UUID format
-  if (conversationId !== undefined) {
-    if (typeof conversationId !== "string" || !UUID_REGEX.test(conversationId)) {
-      return Response.json(
-        { error: "Invalid conversation_id format" },
-        { status: 400 }
-      );
-    }
   }
 
   // Prepend conversation history for session continuity (T-17-04: user_id scoped)
@@ -158,11 +137,24 @@ export async function POST(request: Request) {
     }
   }
 
+  let systemPrompt = buildHamiltonSystemPrompt();
+  systemPrompt += buildHamiltonRequestContractPrompt(contract);
+  if (contract.institutionId !== null) {
+    const selectedInstitutionContext = await buildHamiltonInstitutionBriefing(contract);
+    if (!selectedInstitutionContext) {
+      return Response.json({ error: "Institution not found" }, { status: 404 });
+    }
+    systemPrompt += selectedInstitutionContext;
+  }
+
   const providerContext = {
     provider: "anthropic" as const,
     model: HAMILTON_MODEL,
     agent: "hamilton",
     operation: "chat",
+    routeId: "api.hamilton.chat",
+    userId: user.id,
+    subjectKey: getRequestSubjectKey(request),
   };
   let providerStartedAt: number;
   try {
@@ -178,7 +170,7 @@ export async function POST(request: Request) {
   try {
     const result = streamText({
       model: getAnthropicLanguageModel(HAMILTON_MODEL),
-      system: buildHamiltonSystemPrompt(),
+      system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: buildHamiltonTools(),
       maxOutputTokens: 3000,
@@ -262,3 +254,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiRoutePolicy("api.hamilton.chat", "POST", handlePOST);

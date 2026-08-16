@@ -1,0 +1,122 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { HamiltonRequestContract } from "./request-contract";
+
+const mocks = vi.hoisted(() => ({
+  getInstitutionById: vi.fn(),
+  getFeesByInstitution: vi.fn(),
+  getFinancialsByInstitution: vi.fn(),
+  getInstitutionRevenueTrend: vi.fn(),
+  getInstitutionPeerRanking: vi.fn(),
+  getInstitutionFeeScheduleEvidence: vi.fn(),
+}));
+
+vi.mock("@/lib/data-store", () => ({
+  getInstitutionById: mocks.getInstitutionById,
+  getFeesByInstitution: mocks.getFeesByInstitution,
+  getFinancialsByInstitution: mocks.getFinancialsByInstitution,
+}));
+
+vi.mock("@/lib/data-store/call-reports", () => ({
+  getInstitutionRevenueTrend: mocks.getInstitutionRevenueTrend,
+  getInstitutionPeerRanking: mocks.getInstitutionPeerRanking,
+}));
+
+vi.mock("@/lib/data-store/institution", () => ({
+  getInstitutionFeeScheduleEvidence: mocks.getInstitutionFeeScheduleEvidence,
+}));
+
+const contract: Pick<
+  HamiltonRequestContract,
+  "audience" | "intent" | "evidencePolicy" | "institutionId"
+> = {
+  audience: "pro",
+  intent: "competitive-brief",
+  evidencePolicy: "provisional-first",
+  institutionId: 2945,
+};
+
+describe("Hamilton institution briefing", () => {
+  beforeEach(() => {
+    mocks.getInstitutionById.mockResolvedValue({
+      id: 2945,
+      institution_name: "Example Bank",
+      city: "Orlando",
+      state_code: "FL",
+      charter_type: "bank",
+      asset_size_tier: "1b_10b",
+      asset_size: 2500000000,
+      fed_district: 6,
+      fee_publication_status: "provisional",
+      published_fee_count: 1,
+      provisional_fee_count: 2,
+      insight_readiness: "directional",
+      confidence_summary: "Provisional evidence is available.",
+      quality_label: "Provisional fees",
+      quality_signals: [{ code: "extracted_not_published", label: "Fee data pending review" }],
+      latest_source_status: "fetched",
+      latest_source_collected_at: "2026-08-14T00:00:00.000Z",
+    });
+    mocks.getFeesByInstitution.mockResolvedValue([
+      {
+        fee_name: "Overdraft fee",
+        fee_category: "overdraft",
+        amount: 35,
+        frequency: "per item",
+        conditions: "May apply to paid overdrafts",
+        review_status: "approved",
+        extraction_confidence: 0.95,
+      },
+      {
+        fee_name: "Wire transfer",
+        fee_category: "wire",
+        amount: 25,
+        frequency: "per transfer",
+        conditions: null,
+        review_status: "pending",
+        extraction_confidence: 0.72,
+      },
+    ]);
+    mocks.getFinancialsByInstitution.mockResolvedValue([
+      {
+        report_date: "2026-06-30",
+        source: "call_report",
+        total_assets: 2500000000,
+        total_deposits: 1800000000,
+        service_charge_income: 12000000,
+        total_revenue: 90000000,
+        fee_income_ratio: 0.133,
+        roa: 0.011,
+        branch_count: 18,
+      },
+    ]);
+    mocks.getInstitutionRevenueTrend.mockResolvedValue([{ report_date: "2026-06-30", service_charge_income: 12000000 }]);
+    mocks.getInstitutionPeerRanking.mockResolvedValue({ percentile: 82, peer_count: 40 });
+    mocks.getInstitutionFeeScheduleEvidence.mockResolvedValue({
+      verified_fee_preview: [],
+      raw_fee_preview: [],
+    });
+  });
+
+  it("builds a source-aware selected institution briefing", async () => {
+    const { buildHamiltonInstitutionBriefing } = await import("./institution-briefing");
+
+    const prompt = await buildHamiltonInstitutionBriefing(contract);
+
+    expect(prompt).toContain("SELECTED INSTITUTION CONTEXT");
+    expect(prompt).toContain("Institution ID: 2945");
+    expect(prompt).toContain("Example Bank");
+    expect(prompt).toContain("Public fee publication status: Provisional fees (provisional)");
+    expect(prompt).toContain("Verified fee count: 1");
+    expect(prompt).toContain("Provisional fee count: 2");
+    expect(prompt).toContain('"status":"verified"');
+    expect(prompt).toContain('"status":"provisional"');
+    expect(prompt).toContain("Evidence policy: provisional-first");
+  });
+
+  it("returns null when the selected institution does not exist", async () => {
+    mocks.getInstitutionById.mockResolvedValueOnce(null);
+    const { buildHamiltonInstitutionBriefing } = await import("./institution-briefing");
+
+    await expect(buildHamiltonInstitutionBriefing(contract)).resolves.toBeNull();
+  });
+});

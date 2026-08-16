@@ -5,7 +5,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { SimulateWorkspace } from "@/components/hamilton/simulate";
-import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
+import { resolveHamiltonInstitutionContext } from "@/lib/hamilton/workspace-context";
+import { getHamiltonContextSourceLabel } from "@/lib/hamilton/context-source";
+import { getSavedPeerSets } from "@/lib/data-store/saved-peers";
+import { getHamiltonScenarioById } from "@/lib/hamilton/pro-tables";
+import {
+  resolveArtifactContextInstitutionId,
+  shouldPersistUrlInstitutionSelection,
+} from "@/lib/hamilton/artifact-context";
 
 export const metadata: Metadata = { title: "Scenario Modeling" };
 
@@ -18,19 +25,35 @@ export const metadata: Metadata = { title: "Scenario Modeling" };
 export default async function SimulatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; instId?: string }>;
+  searchParams: Promise<{ category?: string; instId?: string; scenario?: string; scenario_id?: string; peerSetId?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
   const params = await searchParams;
   const initialCategory = params.category || undefined;
-  const { institution: selectedInstitution } = await getHamiltonInstitutionContext(params.instId);
+  const initialScenarioId = params.scenario_id || params.scenario || undefined;
+  const [savedPeerSets, savedScenario] = await Promise.all([
+    getSavedPeerSets(String(user.id)).catch(() => []),
+    initialScenarioId
+      ? getHamiltonScenarioById(initialScenarioId, user.id).catch(() => null)
+      : null,
+  ]);
+  const contextInstitutionId = resolveArtifactContextInstitutionId({
+    urlInstitutionId: params.instId,
+    artifactInstitutionId: savedScenario?.institution_id,
+  });
+  const isArtifactContext = !params.instId && Boolean(contextInstitutionId);
+  const { institution: selectedInstitution, source: selectedSource } =
+    await resolveHamiltonInstitutionContext({
+      userId: user.id,
+      instId: contextInstitutionId,
+      intent: "simulate",
+      persistUrlSelection: shouldPersistUrlInstitutionSelection(params.instId),
+      transientSource: isArtifactContext ? "artifact" : undefined,
+    });
 
-  const institutionId =
-    selectedInstitution?.id.toString() ||
-    (user.institution_name ?? "").toLowerCase().replace(/\s+/g, "-") ||
-    null;
+  const institutionId = selectedInstitution?.id.toString() ?? null;
 
   const institutionContext = selectedInstitution
     ? {
@@ -52,6 +75,11 @@ export default async function SimulatePage({
       institutionId={institutionId}
       institutionContext={institutionContext}
       initialCategory={initialCategory}
+      initialScenarioId={initialScenarioId}
+      peerSetId={params.peerSetId ?? null}
+      savedPeerSets={savedPeerSets}
+      selectedSource={selectedSource}
+      selectedSourceLabel={getHamiltonContextSourceLabel(selectedSource)}
     />
   );
 }

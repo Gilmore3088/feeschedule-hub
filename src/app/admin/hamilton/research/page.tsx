@@ -15,10 +15,10 @@ export default async function ResearchHubPage() {
     <div className="admin-content space-y-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-gray-900">
-          Research Hub
+          Hamilton Research Hub
         </h1>
         <p className="mt-1 text-[13px] text-gray-500">
-          AI-powered research with access to the Bank Fee Index database.
+          Internal Hamilton research with access to the Bank Fee Index database.
           Ask questions in natural language.
         </p>
       </div>

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { RegisterForm } from "./register-form";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -10,9 +11,20 @@ export const metadata: Metadata = {
   description: "Create your Bank Fee Index account to access fee benchmarking data",
 };
 
-export default async function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
   const user = await getCurrentUser();
-  if (user) redirect("/account");
+  const params = await searchParams;
+  const destination = sanitizeInternalRedirect(params.from, "/account");
+
+  if (user) redirect(resolvePostLoginRedirect(destination, user.role));
+
+  const loginHref = params.from
+    ? `/login?from=${encodeURIComponent(params.from)}`
+    : "/login";
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -62,7 +74,7 @@ export default async function RegisterPage() {
               "Search 8,000+ institutions",
               "49 fee categories",
               "Plain-language guides",
-              "3 free AI research queries/day",
+              "3 Hamilton analysis queries/day",
             ].map((feature) => (
               <li key={feature} className="flex items-start gap-3">
                 <svg
@@ -98,7 +110,7 @@ export default async function RegisterPage() {
                 Bank Fee Index
               </span>
             </Link>
-            <Link href="/login" className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors">
+            <Link href={loginHref} className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors">
               Sign in
             </Link>
           </div>
@@ -115,10 +127,10 @@ export default async function RegisterPage() {
                 Get access to bank fee benchmarking data
               </p>
             </div>
-            <RegisterForm />
+            <RegisterForm redirectTo={destination} />
             <p className="mt-4 text-center text-sm text-[#7A7062]">
               Already have an account?{" "}
-              <Link href="/login" className="text-[#1A1815] font-medium hover:underline">
+              <Link href={loginHref} className="text-[#1A1815] font-medium hover:underline">
                 Sign in
               </Link>
             </p>

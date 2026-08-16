@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
@@ -32,7 +33,7 @@ function withTimeout<T>(promise: Promise<T>, fallback: T, ms = 3500): Promise<T>
   });
 }
 
-export async function GET(_request: Request, { params }: RouteProps) {
+async function handleGET(_request: Request, { params }: RouteProps) {
   const { id } = await params;
   const institutionId = Number(id);
   if (!Number.isInteger(institutionId) || institutionId <= 0) {
@@ -136,3 +137,5 @@ export async function GET(_request: Request, { params }: RouteProps) {
       : null,
   });
 }
+
+export const GET = withApiRoutePolicy("api.institutions.evidence", "GET", handleGET);

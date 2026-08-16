@@ -1,7 +1,8 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/data-store/connection";
 
-export async function GET() {
+async function handleGET() {
   try {
     const [row] = await sql`SELECT COUNT(*) as cnt FROM published_fee_catalog`;
 
@@ -17,3 +18,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.health", "GET", handleGET);

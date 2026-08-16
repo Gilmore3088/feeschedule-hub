@@ -5,6 +5,7 @@ import { hashPassword } from "@/lib/passwords";
 import { withTransaction } from "@/lib/data-store/connection";
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
 
 const SESSION_TTL_HOURS = 24;
 
@@ -24,7 +25,10 @@ function signSessionId(sessionId: string): string {
   return `${sessionId}.${sig}`;
 }
 
-export async function register(formData: FormData): Promise<{
+export async function register(
+  formData: FormData,
+  redirectTo?: string,
+): Promise<{
   success: boolean;
   error?: string;
   redirect?: string;
@@ -111,7 +115,8 @@ export async function register(formData: FormData): Promise<{
       path: "/",
     });
 
-    return { success: true, redirect: "/account" };
+    const destination = sanitizeInternalRedirect(redirectTo, "/account");
+    return { success: true, redirect: resolvePostLoginRedirect(destination, "viewer") };
   } catch (e) {
     console.error("[register] Error:", e);
     return { success: false, error: "Registration failed. Please try again." };

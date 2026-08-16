@@ -56,6 +56,7 @@ next-env.d.ts
 supabase/.temp/
 
 # local agent/workspace artifacts
+/tmp/
 .worktrees/
 .claude/worktrees/
 .superpowers/

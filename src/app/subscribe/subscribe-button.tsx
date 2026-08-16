@@ -9,6 +9,7 @@ interface SubscribeButtonProps {
   mode?: "subscription" | "payment";
   label: string;
   className?: string;
+  returnTo?: string;
 }
 
 export function SubscribeButton({
@@ -16,6 +17,7 @@ export function SubscribeButton({
   mode = "subscription",
   label,
   className,
+  returnTo,
 }: SubscribeButtonProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -25,7 +27,7 @@ export function SubscribeButton({
     setPending(true);
     setError(null);
     try {
-      const { url } = await createCheckoutSession(priceId, mode);
+      const { url } = await createCheckoutSession(priceId, mode, returnTo);
       if (url) {
         window.location.href = url;
       } else {
@@ -35,7 +37,10 @@ export function SubscribeButton({
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       if (msg.includes("Not authenticated")) {
-        router.push("/register?from=/subscribe");
+        const registerFrom = returnTo
+          ? `/subscribe?from=${encodeURIComponent(returnTo)}`
+          : "/subscribe";
+        router.push(`/register?from=${encodeURIComponent(registerFrom)}`);
       } else {
         setError(msg);
         setPending(false);

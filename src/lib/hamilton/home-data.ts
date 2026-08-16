@@ -11,6 +11,7 @@ import { DISPLAY_NAMES } from "@/lib/fee-taxonomy";
 import { sql } from "@/lib/data-store/connection";
 import { generateGlobalThesis } from "./generate";
 import type { ThesisOutput, ThesisSummaryPayload } from "./types";
+import type { HamiltonEvidencePolicy } from "@/lib/hamilton/request-contract";
 
 // ---------------------------------------------------------------------------
 // Signal/alert types (Plan 02 additions)
@@ -18,21 +19,28 @@ import type { ThesisOutput, ThesisSummaryPayload } from "./types";
 
 export interface SignalEntry {
   id: string;
+  institutionId?: string | null;
   signalType: string;
   severity: string;
   title: string;
   body: string;
   createdAt: string;
+  evidencePolicy?: HamiltonEvidencePolicy | null;
+  providerCallQueued?: boolean;
 }
 
 export interface AlertEntry {
   id: string;
   signalId: string;
+  institutionId?: string | null;
+  signalType: string;
   severity: string;
   title: string;
   body: string;
   status: string;
   createdAt: string;
+  evidencePolicy?: HamiltonEvidencePolicy | null;
+  providerCallQueued?: boolean;
 }
 
 export interface HomeBriefingSignals {
@@ -211,21 +219,64 @@ export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
  * Fetch recent signals from hamilton_signals ordered by created_at DESC.
  * Returns empty array on failure (table may not exist or have data per D-02).
  */
-async function fetchRecentSignals(limit: number): Promise<SignalEntry[]> {
+function normalizeHomeInstitutionScope(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed || !/^[1-9]\d*$/.test(trimmed)) continue;
+    seen.add(trimmed);
+  }
+  return [...seen];
+}
+
+async function fetchRecentSignals(
+  limit: number,
+  institutionIds: string[] = [],
+): Promise<SignalEntry[]> {
   try {
-    const rows = await sql`
-      SELECT id, institution_id, signal_type, severity, title, body, created_at
-      FROM hamilton_signals
-      ORDER BY created_at DESC
-      LIMIT ${limit}
-    `;
+    const scopedInstitutionIds = normalizeHomeInstitutionScope(institutionIds);
+    const rows = scopedInstitutionIds.length > 0
+      ? await sql`
+          SELECT
+            id,
+            institution_id,
+            signal_type,
+            severity,
+            title,
+            body,
+            created_at,
+            source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_signals
+          WHERE institution_id = ANY(${scopedInstitutionIds}::text[])
+          ORDER BY created_at DESC
+          LIMIT ${limit}
+        `
+      : await sql`
+          SELECT
+            id,
+            institution_id,
+            signal_type,
+            severity,
+            title,
+            body,
+            created_at,
+            source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_signals
+          ORDER BY created_at DESC
+          LIMIT ${limit}
+        `;
     return rows.map((r) => ({
       id: String(r.id),
+      institutionId: r.institution_id == null ? null : String(r.institution_id),
       signalType: String(r.signal_type),
       severity: String(r.severity),
       title: String(r.title),
       body: String(r.body),
       createdAt: String(r.created_at),
+      evidencePolicy: r.evidence_policy == null ? null : (String(r.evidence_policy) as HamiltonEvidencePolicy),
+      providerCallQueued: r.provider_call_queued === true,
     }));
   } catch {
     return [];
@@ -239,40 +290,79 @@ async function fetchRecentSignals(limit: number): Promise<SignalEntry[]> {
  */
 async function fetchPriorityAlerts(
   userId: number,
-  limit = 3
+  limit = 3,
+  institutionIds: string[] = [],
 ): Promise<AlertEntry[]> {
   try {
-    const rows = await sql`
-      SELECT
-        pa.id,
-        pa.signal_id,
-        pa.status,
-        pa.created_at,
-        s.severity,
-        s.title,
-        s.body
-      FROM hamilton_priority_alerts pa
-      JOIN hamilton_signals s ON pa.signal_id = s.id
-      WHERE pa.user_id = ${userId}
-        AND pa.status = 'active'
-      ORDER BY
-        CASE s.severity
-          WHEN 'high' THEN 1
-          WHEN 'medium' THEN 2
-          WHEN 'low' THEN 3
-          ELSE 4
-        END ASC,
-        pa.created_at DESC
-      LIMIT ${limit}
-    `;
+    const scopedInstitutionIds = normalizeHomeInstitutionScope(institutionIds);
+    const rows = scopedInstitutionIds.length > 0
+      ? await sql`
+          SELECT
+            pa.id,
+            pa.signal_id,
+            pa.status,
+            pa.created_at,
+            s.institution_id,
+            s.signal_type,
+            s.severity,
+            s.title,
+            s.body,
+            s.source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((s.source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_priority_alerts pa
+          JOIN hamilton_signals s ON pa.signal_id = s.id
+          WHERE pa.user_id = ${userId}
+            AND pa.status = 'active'
+            AND s.institution_id = ANY(${scopedInstitutionIds}::text[])
+          ORDER BY
+            CASE s.severity
+              WHEN 'high' THEN 1
+              WHEN 'medium' THEN 2
+              WHEN 'low' THEN 3
+              ELSE 4
+            END ASC,
+            pa.created_at DESC
+          LIMIT ${limit}
+        `
+      : await sql`
+          SELECT
+            pa.id,
+            pa.signal_id,
+            pa.status,
+            pa.created_at,
+            s.institution_id,
+            s.signal_type,
+            s.severity,
+            s.title,
+            s.body,
+            s.source_json ->> 'evidence_policy' AS evidence_policy,
+            COALESCE((s.source_json ->> 'provider_call_queued')::boolean, false) AS provider_call_queued
+          FROM hamilton_priority_alerts pa
+          JOIN hamilton_signals s ON pa.signal_id = s.id
+          WHERE pa.user_id = ${userId}
+            AND pa.status = 'active'
+          ORDER BY
+            CASE s.severity
+              WHEN 'high' THEN 1
+              WHEN 'medium' THEN 2
+              WHEN 'low' THEN 3
+              ELSE 4
+            END ASC,
+            pa.created_at DESC
+          LIMIT ${limit}
+        `;
     return rows.map((r) => ({
       id: String(r.id),
       signalId: String(r.signal_id),
+      institutionId: r.institution_id == null ? null : String(r.institution_id),
+      signalType: String(r.signal_type),
       severity: String(r.severity),
       title: String(r.title),
       body: String(r.body),
       status: String(r.status),
       createdAt: String(r.created_at),
+      evidencePolicy: r.evidence_policy == null ? null : (String(r.evidence_policy) as HamiltonEvidencePolicy),
+      providerCallQueued: r.provider_call_queued === true,
     }));
   } catch {
     return [];
@@ -285,12 +375,14 @@ async function fetchPriorityAlerts(
  * Parallel fetch for performance (T-42-06: LIMIT clauses prevent unbounded results).
  */
 export async function fetchHomeBriefingSignals(
-  userId: number
+  userId: number,
+  options: { institutionIds?: string[] } = {},
 ): Promise<HomeBriefingSignals> {
+  const institutionIds = normalizeHomeInstitutionScope(options.institutionIds ?? []);
   const [recentFive, alerts, recentThree] = await Promise.all([
-    fetchRecentSignals(5),
-    fetchPriorityAlerts(userId, 3),
-    fetchRecentSignals(3),
+    fetchRecentSignals(5, institutionIds),
+    fetchPriorityAlerts(userId, 3, institutionIds),
+    fetchRecentSignals(3, institutionIds),
   ]);
   return {
     whatChanged: recentFive,

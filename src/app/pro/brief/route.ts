@@ -1,56 +1,36 @@
 import { NextRequest } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium } from "@/lib/access";
-import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
-import { generatePeerBrief } from "@/lib/brief-generator";
-import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user || !canAccessPremium(user)) {
-    return new Response("Unauthorized", { status: 401 });
+function buildHamiltonReportsPath(request: NextRequest): string {
+  const target = request.nextUrl.clone();
+  target.pathname = "/pro/reports";
+  target.search = "";
+  const params = target.searchParams;
+  const sourceParams = request.nextUrl.searchParams;
+
+  params.set("intent", "peer-brief");
+
+  for (const key of ["instId", "peerSetId"]) {
+    const value = sourceParams.get(key);
+    if (value) params.set(key, value);
   }
 
-  const params = request.nextUrl.searchParams;
-  const charter = params.get("charter") || "";
-  const tiers = params.get("tier")?.split(",").filter(Boolean) || [];
-  const districts = params
-    .get("district")
-    ?.split(",")
-    .map(Number)
-    .filter((d) => d >= 1 && d <= 12) || [];
+  for (const key of ["charter", "tier", "district"]) {
+    const value = sourceParams.get(key);
+    if (value) {
+      params.set(key, value);
+      params.set("legacyPeerFilters", "1");
+    }
+  }
 
-  const hasFilters = charter !== "" || tiers.length > 0 || districts.length > 0;
+  return `${target.pathname}${target.search}`;
+}
 
-  const nationalIndex = await getNationalIndex();
-  const peerIndex = hasFilters
-    ? await getPeerIndex({
-        charter_type: charter || undefined,
-        asset_tiers: tiers.length > 0 ? tiers : undefined,
-        fed_districts: districts.length > 0 ? districts : undefined,
-      })
-    : nationalIndex;
-
-  // Build title
-  const parts: string[] = [];
-  if (charter === "bank") parts.push("Banks");
-  else if (charter === "credit_union") parts.push("Credit Unions");
-  if (tiers.length > 0) parts.push(tiers.map((t) => FDIC_TIER_LABELS[t] || t).join(", "));
-  if (districts.length > 0) parts.push(districts.map((d) => `District ${d} (${DISTRICT_NAMES[d]})`).join(", "));
-
-  const segmentLabel = parts.length > 0 ? parts.join(" / ") : "All Institutions";
-
-  const html = generatePeerBrief({
-    title: "Peer Fee Benchmarking Brief",
-    subtitle: segmentLabel,
-    peerIndex,
-    nationalIndex,
-  });
-
-  return new Response(html, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Content-Disposition": `inline; filename="fee-brief-${new Date().toISOString().split("T")[0]}.html"`,
-    },
+export async function GET(request: NextRequest) {
+  // Compatibility route only. Let the canonical Hamilton Reports surface own
+  // auth/subscription handling so selected institution context survives.
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: buildHamiltonReportsPath(request) },
   });
 }

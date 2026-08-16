@@ -5,7 +5,7 @@ import { SITE_URL } from "@/lib/constants";
 export const metadata: Metadata = {
   title: "API Documentation - Bank Fee Index",
   description:
-    "REST API for accessing bank and credit union fee benchmarking data. JSON and CSV endpoints for fee categories, institutions, and the national fee index.",
+    "REST API for accessing bank and credit union fee benchmarking data. JSON endpoints are available with optional manual API keys; CSV exports require a signed-in Seat License.",
 };
 
 /* ---------- small reusable pieces ---------- */
@@ -267,7 +267,7 @@ export default function ApiDocsPage() {
       <SectionHeading id="authentication">Authentication</SectionHeading>
       <div className="rounded-xl border border-[#E8DFD1]/80 bg-white px-6 py-5">
         <p className="text-[13px] text-[#7A7062]">
-          Authenticate requests using an API key. Pass it in the{" "}
+          JSON endpoints can be called without credentials and are rate-limited on the free tier. If Bank Fee Index manually issues an API key for your workspace, pass it in the{" "}
           <code className="rounded bg-[#E8DFD1]/40 px-1 text-[12px]">Authorization</code>{" "}
           header as a Bearer token, or as an{" "}
           <code className="rounded bg-[#E8DFD1]/40 px-1 text-[12px]">api_key</code>{" "}
@@ -280,7 +280,7 @@ export default function ApiDocsPage() {
         <CodeBlock title="Query parameter authentication">{`curl "${BASE}/fees?api_key=YOUR_API_KEY"`}</CodeBlock>
 
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/50 px-4 py-2.5 text-[13px] text-amber-800">
-          Unauthenticated requests are limited to spotlight categories only (6 of 49). Include your API key to access the full dataset.
+          Self-serve account API key creation is not exposed yet. Seat License users should use signed-in CSV exports from Account, and managed API keys require a manual workspace setup.
         </div>
       </div>
 
@@ -288,8 +288,7 @@ export default function ApiDocsPage() {
       <SectionHeading id="rate-limits">Rate Limits</SectionHeading>
       <div className="rounded-xl border border-[#E8DFD1]/80 bg-white px-6 py-5">
         <p className="text-[13px] text-[#7A7062]">
-          Rate limits are enforced per API key. Current window information is
-          returned in response headers.
+          Rate limits are enforced per API key when present and by anonymous request source otherwise. Current window information is returned in response headers.
         </p>
         <div className="mt-3 space-y-1.5 text-[13px]">
           <ResponseField name="X-RateLimit-Limit" type="header" note="Maximum requests in the current window" />
@@ -312,9 +311,9 @@ export default function ApiDocsPage() {
                 <td className="px-4 py-2">10/min</td>
               </tr>
               <tr className="border-t border-[#E8DFD1]/60">
-                <td className="px-4 py-2 font-medium">Pro</td>
+                <td className="px-4 py-2 font-medium">Pro key</td>
                 <td className="px-4 py-2">10,000 requests</td>
-                <td className="px-4 py-2">60/min</td>
+                <td className="px-4 py-2">Manual setup</td>
               </tr>
               <tr className="border-t border-[#E8DFD1]/60">
                 <td className="px-4 py-2">Enterprise</td>
@@ -339,7 +338,7 @@ export default function ApiDocsPage() {
             {
               name: "format",
               type: "string",
-              description: '"csv" for CSV download (Pro/Enterprise only)',
+              description: '"csv" for CSV download from a signed-in Seat License session',
             },
           ]}
           curlExample={`curl -H "Authorization: Bearer YOUR_API_KEY" \\
@@ -443,7 +442,7 @@ export default function ApiDocsPage() {
             {
               name: "format",
               type: "string",
-              description: '"csv" for CSV download',
+              description: '"csv" for CSV download from a signed-in Seat License session',
             },
           ]}
           curlExample={`# National index
@@ -454,9 +453,9 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
 curl -H "Authorization: Bearer YOUR_API_KEY" \\
   "${BASE}/index?state=CA&charter=credit_union"
 
-# Fed District 7, CSV download
+# Fed District 7, JSON response
 curl -H "Authorization: Bearer YOUR_API_KEY" \\
-  "${BASE}/index?district=7&format=csv" -o district7.csv`}
+  "${BASE}/index?district=7"`}
           responseFields={[
             { name: "scope", type: "string", note: '"national" or "filtered"' },
             { name: "filters", type: "object", note: "Applied filter values (null if unused)" },
@@ -607,12 +606,12 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
           price="$200/mo"
           highlighted
           features={[
-            "10,000 requests/month",
+            "Signed-in Seat License exports",
             "All 49 fee categories",
             "Peer group filtering",
             "Category detail breakdowns",
             "Institution-level data",
-            "CSV export",
+            "Managed API key setup by request",
           ]}
           cta="Start 14-day free trial"
         />

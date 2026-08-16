@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/data-store/connection";
 import {
@@ -1014,7 +1015,7 @@ function buildJson(
 
 const PEER_LIMIT = 50;
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -1098,3 +1099,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.reports.institution", "GET", handleGET);

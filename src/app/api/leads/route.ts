@@ -1,7 +1,8 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/data-store/connection";
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, email, company, role, use_case, source } = body;
@@ -42,3 +43,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiRoutePolicy("api.leads", "POST", handlePOST);

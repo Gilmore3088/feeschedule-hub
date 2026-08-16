@@ -6,7 +6,6 @@ import {
   getDataFreshness,
   getStatesWithFeeData,
   getPeerIndex,
-  getCharterFeeRevenueSummary,
   getTierFeeRevenueSummary,
 } from "@/lib/data-store";
 import {
@@ -30,6 +29,7 @@ const TICKER_CATEGORIES = [
   "stop_payment",
   "cashiers_check",
 ];
+const VERIFIED_BENCHMARK_POLICY = "Verified-only benchmark medians";
 
 export default async function ProHomePage() {
   // Pro users get personalized dashboard
@@ -41,7 +41,7 @@ export default async function ProHomePage() {
   }
 
   if (user && canAccessPremium(user)) {
-    redirect("/pro/monitor");
+    redirect("/pro/hamilton");
   }
 
   // Non-pro users get marketing page
@@ -115,6 +115,9 @@ export default async function ProHomePage() {
         <div className="mx-auto max-w-7xl px-6 py-2 flex items-center gap-6 overflow-x-auto scrollbar-none">
           <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.15em] text-terra">
             National Medians
+          </span>
+          <span className="shrink-0 text-[10px] text-warm-400">
+            {VERIFIED_BENCHMARK_POLICY}
           </span>
           <span className="shrink-0 h-3 w-px bg-warm-300" />
           {tickerEntries.map((entry) => (
@@ -230,7 +233,7 @@ export default async function ProHomePage() {
                   National Fee Index
                 </Eyebrow>
                 <span className="text-[10px] text-warm-500">
-                  {allEntries.length} categories
+                  {allEntries.length} categories · {VERIFIED_BENCHMARK_POLICY}
                 </span>
               </div>
               <table className="w-full text-[12px]">
@@ -281,7 +284,7 @@ export default async function ProHomePage() {
               </table>
               <div className="px-5 py-2.5 border-t border-warm-200 flex items-center justify-between">
                 <span className="text-[10px] text-warm-300">
-                  Validated medians from published fee schedules
+                  Approved/published rows only; provisional evidence is excluded from benchmark scoring
                 </span>
                 <Link
                   href="/research/national-fee-index"
@@ -303,7 +306,7 @@ export default async function ProHomePage() {
               <div>
                 <Eyebrow as="h2">Peer Segmentation: Charter Type</Eyebrow>
                 <p className="mt-1 text-[13px] text-warm-600">
-                  National vs. Bank vs. Credit Union medians
+                  National vs. Bank vs. Credit Union medians · {VERIFIED_BENCHMARK_POLICY}
                 </p>
               </div>
               <Link
@@ -461,7 +464,7 @@ export default async function ProHomePage() {
               <div className="px-5 py-2 border-t border-warm-200 bg-warm-100">
                 <p className="text-[10px] text-warm-300">
                   Delta = Bank median minus Credit Union median as % of CU
-                  median. Positive = banks charge more.
+                  median. Positive = banks charge more. Provisional evidence is excluded.
                 </p>
               </div>
             </div>
@@ -544,7 +547,7 @@ export default async function ProHomePage() {
               },
               {
                 title: "Data & API",
-                desc: "RESTful API access, CSV exports, and institutional-grade data feeds for integration.",
+                desc: "API documentation, signed-in verified CSV exports, and managed data-feed options for integration.",
                 href: "/api-docs",
                 accent: "border-warm-300",
               },
@@ -580,7 +583,7 @@ export default async function ProHomePage() {
                 Featured Index
               </Eyebrow>
               <p className="mt-1 text-[13px] text-warm-600">
-                {featuredEntries.length} core categories
+                {featuredEntries.length} core categories · {VERIFIED_BENCHMARK_POLICY}
               </p>
             </div>
             <Link
@@ -740,8 +743,8 @@ export default async function ProHomePage() {
                 Data Subscription
               </p>
               <p className="mt-3 text-[13px] leading-relaxed text-warm-600">
-                Full API access, bulk CSV exports, peer index queries, and
-                district-level data feeds. For institutions and data teams.
+                Signed-in bulk CSV exports, peer index queries, and managed
+                API/data-feed setup. For institutions and data teams.
               </p>
               <Link
                 href="/subscribe"

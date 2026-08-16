@@ -14,14 +14,10 @@ import { HAMILTON_SYSTEM_PROMPT } from "@/lib/hamilton/voice";
 import { publicTools } from "@/lib/research/tools";
 import { internalTools } from "@/lib/research/tools-internal";
 import { searchExternalIntelligence } from "@/lib/data-store/intelligence";
-
-// Allowlist for report types passed to the report engine (T-17-01)
-const VALID_REPORT_TYPES = new Set([
-  "national_index",
-  "state_index",
-  "peer_brief",
-  "monthly_pulse",
-]);
+import {
+  LEGACY_GENERATABLE_REPORT_TYPES,
+  legacyReportTypeError,
+} from "@/lib/report-engine/legacy-generation-policy";
 
 /**
  * Build the Hamilton system prompt for chat context.
@@ -42,7 +38,7 @@ Hamilton has access to tools for querying live fee data, Federal Reserve distric
 RESPONSE FORMAT:
 - Simple factual queries (single fee, single institution, quick comparison): respond conversationally in 2-4 paragraphs.
 - Complex analyses (geographic scope, peer comparison, multi-category trends): produce a structured mini-report in markdown with ### headings, data tables, and a "## Key Finding" pull-quote section at the conclusion.
-- When triggering a report, confirm the report type and parameters before calling triggerReport, then inform the user the report is generating.
+- The triggerReport tool is only for legacy admin publication reports: national index, state index, and monthly pulse. Do not use it for institution, peer, competitive, consulting, or board briefs; those belong in Hamilton Reports where selected institution context and evidence policy are enforced.
 
 EXTERNAL INTELLIGENCE:
 When you use the searchIntelligence tool and reference external sources, ALWAYS cite them inline as [Source: {source_name}, {date}]. Example: "According to the CFPB's annual overdraft study [Source: CFPB Overdraft Fee Study, 2024-12], overdraft revenue declined 7.2% year-over-year." Never present external intelligence as your own analysis — always attribute.
@@ -97,29 +93,24 @@ export function buildHamiltonTools() {
 
   const triggerReport = tool({
     description:
-      "Trigger a structured report for a geographic area or national index. Use when the user asks to generate, create, or produce a report. Returns a jobId — inform the user the report is being generated.",
+      "Trigger a legacy admin publication report for the public report catalog. Only supports national index, state index, and monthly pulse jobs. Do not use for peer briefs, institution briefs, competitive briefs, or consulting reports; those must use Hamilton Reports with selected institution context.",
     inputSchema: z.object({
       report_type: z
-        .enum([
-          "national_index",
-          "state_index",
-          "peer_brief",
-          "monthly_pulse",
-        ])
+        .enum(LEGACY_GENERATABLE_REPORT_TYPES)
         .describe("The type of report to generate"),
       params: z
         .record(z.string(), z.unknown())
         .optional()
         .default({})
         .describe(
-          "Report parameters. For state_index: { state_code: 'TX' }. For peer_brief: { charter: 'bank', tier: 'a' }."
+          "Report parameters. For state_index: { state_code: 'TX' }. Monthly pulse and national index usually use an empty object."
         ),
     }),
     execute: async ({ report_type, params }) => {
       // T-17-01: validate report_type against explicit allowlist
-      if (!VALID_REPORT_TYPES.has(report_type)) {
+      if (!LEGACY_GENERATABLE_REPORT_TYPES.includes(report_type)) {
         return {
-          error: `Invalid report type '${report_type}'. Allowed types: ${[...VALID_REPORT_TYPES].join(", ")}`,
+          error: legacyReportTypeError(),
         };
       }
 

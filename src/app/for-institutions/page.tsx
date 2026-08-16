@@ -20,7 +20,7 @@ import { CustomerFooter } from "@/components/customer-footer";
 export const metadata: Metadata = {
   title: "For Financial Institutions -- Bank Fee Index",
   description:
-    "Fee intelligence, peer benchmarking, and AI-powered research for banking professionals. Replace your $15K pricing study.",
+    "Fee intelligence, peer benchmarking, and Hamilton analysis workflows for banking professionals. Replace your $15K pricing study.",
 };
 
 export default async function ForInstitutionsPage() {
@@ -62,10 +62,10 @@ export default async function ForInstitutionsPage() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/pro"
+                href="/institutions"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-warm-800 px-7 py-3.5 text-[15px] font-normal text-warm-150 hover:border-warm-600 transition-colors"
               >
-                See a Demo
+                Find Your Institution
               </Link>
             </div>
           </div>
@@ -160,7 +160,7 @@ export default async function ForInstitutionsPage() {
                 </li>
                 <li className="flex items-start gap-2 text-[13px] text-warm-600">
                   <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Every answer traceable to verified data
+                  Every answer labels verified vs. provisional evidence
                 </li>
               </ul>
             </div>
@@ -199,8 +199,9 @@ export default async function ForInstitutionsPage() {
               </h3>
               <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
                 Generate competitive briefs, district outlooks, and peer analyses
-                that look like they came from McKinsey. PDF-ready, board-presentable,
-                built from live data -- not a template someone filled in last quarter.
+                with executive summaries, evidence tables, peer deltas, caveats,
+                and diligence questions. PDF-ready, board-presentable, and built
+                from live data -- not a template someone filled in last quarter.
               </p>
               <ul className="mt-4 space-y-2">
                 <li className="flex items-start gap-2 text-[13px] text-warm-600">

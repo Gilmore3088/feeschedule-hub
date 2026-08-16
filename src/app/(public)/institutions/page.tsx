@@ -94,7 +94,11 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                 verified, provisional, under review, or still missing.
               </p>
               <div className="mt-5 max-w-2xl">
-                <InstitutionSearchBar autoFocus placeholder="Search institution name, city, or state..." />
+                <InstitutionSearchBar
+                  autoFocus
+                  ariaLabel="Search institution name, city, or state"
+                  placeholder="Search institution name, city, or state..."
+                />
               </div>
             </div>
 
@@ -118,7 +122,11 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
 
       <form className="fi-reveal fi-reveal-delay-2 flex flex-wrap gap-3 border-b border-[#E8DFD1] py-4" action="/institutions" method="get">
         <input type="hidden" name="q" value={query} />
+        <label className="sr-only" htmlFor="institution-state-filter">
+          Filter by state
+        </label>
         <select
+          id="institution-state-filter"
           name="state"
           defaultValue={stateCode}
           className="rounded-md border border-[#D5CBBF] bg-[#FFFDF9] px-3 py-2 text-sm text-[#1A1815] outline-none focus:border-[#C44B2E]"
@@ -130,7 +138,11 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
             </option>
           ))}
         </select>
+        <label className="sr-only" htmlFor="institution-charter-filter">
+          Filter by institution type
+        </label>
         <select
+          id="institution-charter-filter"
           name="charter"
           defaultValue={charterType}
           className="rounded-md border border-[#D5CBBF] bg-[#FFFDF9] px-3 py-2 text-sm text-[#1A1815] outline-none focus:border-[#C44B2E]"
@@ -180,7 +192,8 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
           </div>
 
           <div className="hidden overflow-hidden border border-[#E8DFD1] bg-[#FFFDF9] sm:block">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
                   <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">
@@ -266,6 +279,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Pagination */}

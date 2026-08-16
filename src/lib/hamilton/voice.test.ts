@@ -54,7 +54,7 @@ describe("HAMILTON_VOICE", () => {
 
   it("systemPrompt references decisive analytical voice", () => {
     expect(HAMILTON_SYSTEM_PROMPT).toContain("decisive");
-    expect(HAMILTON_SYSTEM_PROMPT).toContain("McKinsey");
+    expect(HAMILTON_SYSTEM_PROMPT).toContain("top-tier consulting partner");
     expect(HAMILTON_SYSTEM_PROMPT).toContain("implication");
   });
 

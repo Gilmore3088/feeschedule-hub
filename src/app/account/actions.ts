@@ -1,8 +1,7 @@
 "use server";
 
 import { logout, getCurrentUser } from "@/lib/auth";
-import { sql, withTransaction } from "@/lib/data-store/connection";
-import crypto from "crypto";
+import { sql } from "@/lib/data-store/connection";
 
 export async function logoutAction() {
   await logout();
@@ -32,42 +31,5 @@ export async function updateProfile(formData: FormData): Promise<{
     return { success: true };
   } catch {
     return { success: false, error: "Failed to update profile" };
-  }
-}
-
-export async function generateApiKey(): Promise<{
-  success: boolean;
-  key?: string;
-  error?: string;
-}> {
-  const user = await getCurrentUser();
-  if (!user) return { success: false, error: "Not authenticated" };
-
-  const rawKey = `bfi_live_${crypto.randomBytes(24).toString("hex")}`;
-  const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
-  const keyPrefix = rawKey.slice(0, 16) + "...";
-
-  try {
-    await withTransaction(async (tx) => {
-      await tx`UPDATE api_keys SET is_active = 0 WHERE user_id = ${user.id}`;
-      await tx`
-        INSERT INTO api_keys (user_id, key_hash, key_prefix, tier, monthly_limit)
-        VALUES (${user.id}, ${keyHash}, ${keyPrefix}, 'pro', 5000)`;
-    });
-    return { success: true, key: rawKey };
-  } catch {
-    return { success: false, error: "Failed to generate key" };
-  }
-}
-
-export async function revokeApiKey(): Promise<{ success: boolean; error?: string }> {
-  const user = await getCurrentUser();
-  if (!user) return { success: false, error: "Not authenticated" };
-
-  try {
-    await sql`UPDATE api_keys SET is_active = 0 WHERE user_id = ${user.id}`;
-    return { success: true };
-  } catch {
-    return { success: false, error: "Failed to revoke key" };
   }
 }

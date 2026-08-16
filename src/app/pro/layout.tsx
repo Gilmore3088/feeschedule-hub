@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
+import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -39,16 +40,24 @@ async function ProLayoutInner({
 
   if (!user) {
     const headersList = await headers();
-    const pathname =
+    const requestPath =
       headersList.get("x-invoke-path") ||
       headersList.get("x-next-url") ||
       headersList.get("x-pathname") ||
       "/pro";
-    redirect(`/login?from=${encodeURIComponent(pathname)}`);
+    const returnTo = sanitizeInternalRedirect(requestPath, "/pro");
+    redirect(`/login?from=${encodeURIComponent(returnTo)}`);
   }
 
   if (!canAccessPremium(user)) {
-    redirect("/subscribe");
+    const headersList = await headers();
+    const requestPath =
+      headersList.get("x-invoke-path") ||
+      headersList.get("x-next-url") ||
+      headersList.get("x-pathname") ||
+      "/pro";
+    const returnTo = sanitizeInternalRedirect(requestPath, "/pro");
+    redirect(`/subscribe?from=${encodeURIComponent(returnTo)}`);
   }
 
   // Admins jumping from /admin → /pro lose their admin shell entirely.

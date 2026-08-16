@@ -1,5 +1,6 @@
 "use server";
 
+import { clearSourceSubmissionCountsCache } from "@/lib/admin-queries";
 import { sql, withTransaction } from "@/lib/data-store/connection";
 import { headers } from "next/headers";
 
@@ -158,6 +159,8 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
         }
       }
     });
+
+    clearSourceSubmissionCountsCache();
 
     return {
       success: true,

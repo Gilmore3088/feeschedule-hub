@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * GET /api/reports/[id]/status
  * Phase 13-03: D-08 implementation
@@ -22,7 +23,7 @@ export const dynamic = 'force-dynamic';
 // TTL per D-04: 1 hour
 const PRESIGNED_TTL_SECONDS = 3600;
 
-export async function GET(
+async function handleGET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -85,7 +86,7 @@ export async function GET(
  */
 const VALID_STATUSES = new Set(['assembling', 'rendering', 'complete', 'failed']);
 
-export async function PATCH(
+async function handlePATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -154,3 +155,6 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withApiRoutePolicy("api.reports.status", "GET", handleGET);
+export const PATCH = withApiRoutePolicy("api.reports.status", "PATCH", handlePATCH);

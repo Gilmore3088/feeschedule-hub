@@ -3,14 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { DISTRICT_NAMES, FDIC_TIER_LABELS, FDIC_TIER_ORDER } from '@/lib/fed-districts';
 import { ReportTypeSelector } from './report-type-selector';
-import { BriefStatusPoller } from './brief-status-poller';
-
-// Report type to backend type mapping
-const BACKEND_REPORT_TYPE: Record<string, string> = {
-  peer_brief: 'peer_brief',
-  competitive_snapshot: 'peer_brief',
-  district_outlook: 'state_index',
-};
 
 interface PeerPreview {
   institution_count: number;
@@ -50,7 +42,6 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
   const [previewLoading, setPreviewLoading] = useState(false);
 
   // Generation state
-  const [jobId, setJobId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,7 +96,6 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
 
   function handleTypeSelect(type: string) {
     setSelectedType(type);
-    setJobId(null);
     setError(null);
     setPreview(null);
     setCharter('');
@@ -116,7 +106,6 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
 
   function handleBack() {
     setSelectedType(null);
-    setJobId(null);
     setError(null);
   }
 
@@ -125,45 +114,37 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
     setGenerating(true);
     setError(null);
 
-    const backendType = BACKEND_REPORT_TYPE[selectedType] ?? selectedType;
-
-    let params: Record<string, unknown> = {};
     if (isPeerType) {
-      params = {
-        charter_type: charter || undefined,
-        asset_tiers: tiers.length > 0 ? tiers : undefined,
-        fed_districts: districts.length > 0 ? districts : undefined,
-      };
-    } else if (isDistrictType && outlookDistrict !== null) {
-      params = { fed_district: outlookDistrict };
+      const params = new URLSearchParams({
+        intent: 'peer-brief',
+        legacyPeerFilters: '1',
+      });
+      if (charter) params.set('charter', charter);
+      if (tiers.length > 0) params.set('tier', tiers.join(','));
+      if (districts.length > 0) params.set('district', districts.join(','));
+      window.location.assign(`/pro/reports?${params.toString()}`);
+      setGenerating(false);
+      return;
+    }
+
+    if (isDistrictType && outlookDistrict !== null) {
+      const params = new URLSearchParams({
+        intent: 'executive-briefing',
+        legacyPeerFilters: '1',
+        district: String(outlookDistrict),
+      });
+      window.location.assign(`/pro/reports?${params.toString()}`);
+      setGenerating(false);
+      return;
     }
 
     try {
-      const res = await fetch('/api/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report_type: backendType, params }),
-      });
-
-      if (res.status === 202) {
-        const data = await res.json() as { jobId: string };
-        setJobId(data.jobId);
-      } else if (res.status === 429) {
-        setError('Daily report limit reached. Your limit resets at midnight.');
-      } else {
-        const data = await res.json() as { error?: string };
-        setError(data.error ?? 'Generation failed. Please try again.');
-      }
+      window.location.assign('/pro/reports');
     } catch {
       setError('Network error. Please check your connection and try again.');
     } finally {
       setGenerating(false);
     }
-  }
-
-  // Step 3: Generation in progress or complete
-  if (jobId) {
-    return <BriefStatusPoller jobId={jobId} />;
   }
 
   // Step 1: No type selected — show type selector
@@ -346,8 +327,8 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
 
               {preview.thin && (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-                  Peer group has fewer than 5 institutions — results may have limited
-                  statistical confidence. Generation is still allowed.
+                  Peer group has fewer than 5 institutions — Hamilton Reports will
+                  show the evidence caveat before producing a board-ready output.
                 </div>
               )}
 
@@ -375,12 +356,11 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
           onClick={handleGenerate}
           disabled={
             generating ||
-            limitReached ||
             (isDistrictType && outlookDistrict === null)
           }
           className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-colors bg-[#C44B2E] hover:bg-[#A83D25] disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {generating ? 'Generating...' : 'Generate Report'}
+          {generating ? 'Opening...' : 'Open Hamilton Reports'}
         </button>
       </div>
     </div>

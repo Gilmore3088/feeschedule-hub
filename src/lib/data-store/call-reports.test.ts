@@ -477,6 +477,18 @@ describe("getInstitutionRevenueTrend", () => {
     expect(params).toContain(77);
     expect(params).toContain(6);
   });
+
+  it("keeps only the latest financial filing per quarter in the query", async () => {
+    getMock().unsafe = vi.fn().mockResolvedValue([]);
+
+    await getInstitutionRevenueTrend(77, 6);
+
+    const sqlText = String(getMock().unsafe.mock.calls[0][0]);
+    expect(sqlText).toContain("ROW_NUMBER() OVER");
+    expect(sqlText).toContain("PARTITION BY DATE_TRUNC('quarter', inf.report_date::date)");
+    expect(sqlText).toContain("WHERE quarter_rank = 1");
+    expect(sqlText).toContain("ORDER BY report_date DESC");
+  });
 });
 
 // ── getInstitutionPeerRanking ──────────────────────────────────────────────────

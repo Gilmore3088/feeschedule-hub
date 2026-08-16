@@ -1,9 +1,16 @@
 export const dynamic = "force-dynamic";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, type User } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/data-store/connection";
+import { canAccessPremium } from "@/lib/access";
 import { STATE_TO_DISTRICT, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { getSpotlightCategories, getDisplayName } from "@/lib/fee-taxonomy";
+import {
+  acceptPendingWorkspaceInvitationsForUser,
+  getPendingWorkspaceInvitationsForEmail,
+  getUserInstitutionMemberships,
+} from "@/lib/hamilton/institution-membership";
+import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import { WelcomeSteps } from "./welcome-steps";
 import type { Metadata } from "next";
 
@@ -34,8 +41,10 @@ async function getSpotlightMedians(): Promise<{ category: string; displayName: s
   }
 }
 
-async function activateIfPaid(user: { id: number; email: string | null; subscription_status: string; stripe_customer_id: string | null }) {
-  if (user.subscription_status === "active") return;
+async function activateIfPaid(
+  user: Pick<User, "id" | "username" | "email" | "role" | "subscription_status" | "stripe_customer_id">,
+): Promise<boolean> {
+  if (user.subscription_status === "active") return false;
 
   if (user.stripe_customer_id) {
     try {
@@ -49,23 +58,61 @@ async function activateIfPaid(user: { id: number; email: string | null; subscrip
       if (subs.data.length > 0) {
         await sql`
           UPDATE users SET subscription_status = 'active', role = 'premium'
-          WHERE id = ${user.id} AND role NOT IN ('admin')`;
+          WHERE id = ${user.id} AND role NOT IN ('admin', 'analyst')`;
+        await acceptPendingWorkspaceInvitationsForUser({
+          userId: user.id,
+          email: user.email ?? user.username,
+        }).catch(() => []);
+        return true;
       }
     } catch (e) {
       console.error("[welcome] Failed to verify subscription:", e);
     }
   }
+
+  return false;
 }
 
-export default async function WelcomePage() {
+function shouldResumeAfterCheckout(destination: string | null): destination is string {
+  return !!destination && (
+    destination.startsWith("/pro") ||
+    destination.startsWith("/workspace-invite")
+  );
+}
+
+export default async function WelcomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string; from?: string }>;
+}) {
+  const params = await searchParams;
+  const returnTo = params.from
+    ? sanitizeInternalRedirect(params.from, "/account/welcome")
+    : null;
   const user = await getCurrentUser();
   if (!user) redirect("/login?from=/account/welcome");
 
-  await activateIfPaid(user);
+  const activatedByFallback = await activateIfPaid(user);
+  if (activatedByFallback && user.role !== "admin" && user.role !== "analyst") {
+    user.subscription_status = "active";
+    user.role = "premium";
+  }
 
   const feePreview = await getSpotlightMedians();
   const district = user.state_code ? STATE_TO_DISTRICT[user.state_code] : null;
   const districtName = district ? DISTRICT_NAMES[district] : null;
+  const isPro = canAccessPremium(user);
+  if (params.success === "true" && isPro && shouldResumeAfterCheckout(returnTo)) {
+    redirect(returnTo);
+  }
+  const [pendingWorkspaceInvitations, workspaceMemberships] = await Promise.all([
+    !isPro
+      ? getPendingWorkspaceInvitationsForEmail(user.email ?? user.username, 5).catch(() => [])
+      : Promise.resolve([]),
+    isPro
+      ? getUserInstitutionMemberships(user.id).catch(() => [])
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -91,6 +138,9 @@ export default async function WelcomePage() {
           feePreview={feePreview}
           districtName={districtName}
           districtId={district}
+          isPro={isPro}
+          pendingWorkspaceInvitations={pendingWorkspaceInvitations}
+          workspaceMemberships={workspaceMemberships}
         />
       </div>
     </div>

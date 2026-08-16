@@ -312,7 +312,37 @@ function buildIndexEntries(
  * Read precomputed index from fee_index_cache (materialized by publish-index).
  * Falls back to live computation if cache is empty.
  */
+const NATIONAL_INDEX_CACHE_TTL_MS = 60_000;
+let nationalIndexCache: {
+  expiresAt: number;
+  value: IndexEntry[];
+} | null = null;
+let nationalIndexCachePromise: Promise<IndexEntry[]> | null = null;
+
 export async function getNationalIndexCached(): Promise<IndexEntry[]> {
+  const now = Date.now();
+  if (nationalIndexCache && nationalIndexCache.expiresAt > now) {
+    return nationalIndexCache.value;
+  }
+  if (nationalIndexCachePromise) {
+    return nationalIndexCachePromise;
+  }
+
+  nationalIndexCachePromise = readNationalIndexCached()
+    .then((value) => {
+      nationalIndexCache = {
+        value,
+        expiresAt: Date.now() + NATIONAL_INDEX_CACHE_TTL_MS,
+      };
+      return value;
+    })
+    .finally(() => {
+      nationalIndexCachePromise = null;
+    });
+  return nationalIndexCachePromise;
+}
+
+async function readNationalIndexCached(): Promise<IndexEntry[]> {
   try {
     const rows = await sql`
       SELECT * FROM fee_index_cache ORDER BY institution_count DESC` as {

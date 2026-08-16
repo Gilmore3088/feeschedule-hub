@@ -3,7 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import { sql } from "@/lib/data-store/connection";
+import { canAccessPremium } from "@/lib/access";
+import { sql, withTransaction } from "@/lib/data-store/connection";
+import { sendWorkspaceInviteEmail } from "@/lib/email/workspace-invite";
+import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
+import { setHamiltonWorkspaceContext } from "@/lib/hamilton/workspace-context";
+import {
+  getActiveInstitutionMembership,
+  createInstitutionWorkspaceInvitation,
+  grantInstitutionWorkspaceMembership,
+  revokeInstitutionWorkspaceInvitation,
+  revokeInstitutionWorkspaceMembership,
+  type InstitutionWorkspaceMembershipRole,
+} from "@/lib/hamilton/institution-membership";
 import {
   getSavedPeerSets,
   savePeerSet,
@@ -21,6 +33,39 @@ const ProfileSchema = z.object({
 export type ProfileFormState = {
   success: boolean;
   error?: string;
+};
+
+export type WorkspaceInstitutionState = {
+  success: boolean;
+  error?: string;
+  institutionId?: number;
+  institutionName?: string;
+};
+
+export type InstitutionClaimReviewStatus = "pending" | "accepted" | "rejected" | "needs_info";
+
+export type InstitutionClaimState = {
+  id: number;
+  institutionId: number;
+  reviewStatus: InstitutionClaimReviewStatus;
+  resolution: string | null;
+  reviewNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt: string | null;
+};
+
+export type InstitutionClaimActionState = {
+  success: boolean;
+  error?: string;
+  message?: string;
+  claim?: InstitutionClaimState;
+};
+
+export type WorkspaceAccessActionState = {
+  success: boolean;
+  error?: string;
+  message?: string;
 };
 
 export async function updateInstitutionProfile(
@@ -54,13 +99,6 @@ export async function updateInstitutionProfile(
   const { institution_name, institution_type, asset_tier, state_code, fed_district } =
     parsed.data;
 
-  // Idempotent migration — ensures column exists before write
-  try {
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS fed_district INT`;
-  } catch {
-    // Column may already exist or DB doesn't support IF NOT EXISTS — ignore
-  }
-
   await sql`
     UPDATE users
     SET
@@ -75,6 +113,488 @@ export async function updateInstitutionProfile(
   revalidatePath("/pro");
 
   return { success: true };
+}
+
+const WorkspaceInstitutionSchema = z.object({
+  institution_id: z.coerce.number().int().positive(),
+});
+
+export async function updateWorkspaceInstitution(
+  _prev: WorkspaceInstitutionState,
+  formData: FormData,
+): Promise<WorkspaceInstitutionState> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const parsed = WorkspaceInstitutionSchema.safeParse({
+    institution_id: formData.get("institution_id"),
+  });
+  if (!parsed.success) {
+    return { success: false, error: "Enter a valid institution ID." };
+  }
+
+  const { institution, error } = await getHamiltonInstitutionContext(
+    parsed.data.institution_id,
+  );
+  if (!institution) {
+    return { success: false, error: error ?? "Institution not found." };
+  }
+
+  await setHamiltonWorkspaceContext({
+    userId: user.id,
+    institutionId: institution.id,
+    source: "manual",
+    intent: "settings",
+  });
+
+  revalidatePath("/pro");
+  revalidatePath("/pro/settings");
+
+  return {
+    success: true,
+    institutionId: institution.id,
+    institutionName: institution.name,
+  };
+}
+
+const InstitutionClaimSchema = z.object({
+  institution_id: z.coerce.number().int().positive(),
+  claim_notes: z.string().trim().max(2_000).optional(),
+});
+
+function mapClaimRow(row: Record<string, unknown>): InstitutionClaimState {
+  return {
+    id: Number(row.id),
+    institutionId: Number(row.institution_id),
+    reviewStatus: String(row.review_status ?? "pending") as InstitutionClaimReviewStatus,
+    resolution: row.resolution ? String(row.resolution) : null,
+    reviewNotes: row.review_notes ? String(row.review_notes) : null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    reviewedAt: row.reviewed_at ? String(row.reviewed_at) : null,
+  };
+}
+
+export async function getWorkspaceInstitutionClaimState(
+  institutionId: number | null | undefined,
+): Promise<InstitutionClaimState | null> {
+  if (!institutionId) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  try {
+    const rows = await sql<Record<string, unknown>[]>`
+      SELECT id, institution_id, review_status, resolution, review_notes,
+             created_at, updated_at, reviewed_at
+      FROM institution_claims
+      WHERE claimant_user_id = ${user.id}
+        AND institution_id = ${institutionId}
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 1
+    `;
+    return rows[0] ? mapClaimRow(rows[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestInstitutionClaim(
+  _prev: InstitutionClaimActionState,
+  formData: FormData,
+): Promise<InstitutionClaimActionState> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: "Sign in before requesting claim review." };
+  }
+  if (!canAccessPremium(user)) {
+    return { success: false, error: "Upgrade to request authenticated institution claim review." };
+  }
+
+  const parsed = InstitutionClaimSchema.safeParse({
+    institution_id: formData.get("institution_id"),
+    claim_notes: formData.get("claim_notes") || undefined,
+  });
+  if (!parsed.success) {
+    return { success: false, error: "Select a valid institution before requesting claim review." };
+  }
+
+  const { institution, error } = await getHamiltonInstitutionContext(parsed.data.institution_id);
+  if (!institution) {
+    return { success: false, error: error ?? "Institution not found." };
+  }
+
+  try {
+    let claim: InstitutionClaimState | null = null;
+    let wasResubmitted = false;
+    let previousStatus: string | null = null;
+
+    await withTransaction(async (tx) => {
+      const existing = await tx<{ id: number; review_status: string }[]>`
+        SELECT id, review_status
+        FROM institution_claims
+        WHERE institution_id = ${institution.id}
+          AND claimant_user_id = ${user.id}
+          AND review_status IN ('pending', 'needs_info')
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+      `;
+      if (existing[0]) {
+        wasResubmitted = true;
+        previousStatus = existing[0].review_status;
+      }
+
+      const rows = await tx<Record<string, unknown>[]>`
+        INSERT INTO institution_claims (
+          institution_id,
+          claimant_user_id,
+          claimant_role,
+          claim_notes,
+          review_status,
+          created_at,
+          updated_at
+        ) VALUES (
+          ${institution.id},
+          ${user.id},
+          ${user.job_role || "institution_employee"},
+          ${parsed.data.claim_notes || null},
+          'pending',
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (institution_id, claimant_user_id)
+        WHERE review_status IN ('pending', 'needs_info')
+        DO UPDATE SET
+          claimant_role = EXCLUDED.claimant_role,
+          claim_notes = EXCLUDED.claim_notes,
+          review_status = 'pending',
+          reviewed_at = NULL,
+          reviewer_id = NULL,
+          review_notes = NULL,
+          resolution = NULL,
+          updated_at = NOW()
+        RETURNING id, institution_id, review_status, resolution, review_notes,
+                  created_at, updated_at, reviewed_at
+      `;
+      claim = rows[0] ? mapClaimRow(rows[0]) : null;
+
+      if (claim) {
+        await tx`
+          INSERT INTO institution_claim_events (
+            claim_id,
+            actor_user_id,
+            event_type,
+            previous_status,
+            new_status,
+            notes,
+            metadata
+          ) VALUES (
+            ${claim.id},
+            ${user.id},
+            ${wasResubmitted ? "resubmitted" : "submitted"},
+            ${previousStatus},
+            'pending',
+            ${parsed.data.claim_notes || null},
+            ${sql.json({
+              institution_id: institution.id,
+              claimant_role: user.job_role || "institution_employee",
+              source: "hamilton_settings",
+            })}
+          )
+        `;
+      }
+    });
+
+    await setHamiltonWorkspaceContext({
+      userId: user.id,
+      institutionId: institution.id,
+      source: "manual",
+      intent: "claim-review",
+    }).catch(() => {});
+
+    revalidatePath("/admin/quality");
+    revalidatePath("/pro/settings");
+    revalidatePath(`/institution/${institution.id}`);
+
+    return {
+      success: true,
+      message:
+        wasResubmitted
+          ? "Claim review request updated and returned to the pending queue."
+          : "Claim review request submitted to the Data Trust queue.",
+      claim: claim ?? undefined,
+    };
+  } catch (e) {
+    console.error("requestInstitutionClaim failed:", e);
+    return {
+      success: false,
+      error: "Claim queue is not available yet. Apply the latest migration and try again.",
+    };
+  }
+}
+
+const WorkspaceAccessGrantSchema = z.object({
+  institution_id: z.coerce.number().int().positive(),
+  email: z.string().trim().email().max(320).transform((value) => value.toLowerCase()),
+  role: z.enum(["admin", "analyst", "viewer"]),
+  notes: z.string().trim().max(1_000).optional(),
+});
+
+const WorkspaceAccessRevokeSchema = z.object({
+  institution_id: z.coerce.number().int().positive(),
+  membership_id: z.coerce.number().int().positive(),
+});
+
+const WorkspaceInvitationRevokeSchema = z.object({
+  institution_id: z.coerce.number().int().positive(),
+  invitation_id: z.coerce.number().int().positive(),
+});
+
+async function canManageSelectedInstitution(
+  userId: number,
+  institutionId: number,
+  platformRole: string,
+): Promise<boolean> {
+  if (platformRole === "admin" || platformRole === "analyst") return true;
+  const membership = await getActiveInstitutionMembership({
+    userId,
+    institutionId,
+  }).catch(() => null);
+  return membership?.role === "owner" || membership?.role === "admin";
+}
+
+async function appendWorkspaceInviteDeliveryMessage(
+  baseMessage: string,
+  invitation: NonNullable<Awaited<ReturnType<typeof createInstitutionWorkspaceInvitation>>>,
+) {
+  const delivery = await sendWorkspaceInviteEmail(invitation).catch(() => ({
+    status: "failed" as const,
+    error: "Workspace invite email send failed.",
+  }));
+  if (delivery.status === "sent") {
+    return `${baseMessage} Invite email sent with /workspace-invite.`;
+  }
+  if (delivery.status === "not_configured") {
+    return `${baseMessage} Automated email is not configured yet; use the Email Invite action or send /workspace-invite manually.`;
+  }
+  return `${baseMessage} Automated email delivery failed; use the Email Invite action or send /workspace-invite manually.`;
+}
+
+export async function grantWorkspaceAccess(
+  _prev: WorkspaceAccessActionState,
+  formData: FormData,
+): Promise<WorkspaceAccessActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "Sign in before managing workspace access." };
+  if (!canAccessPremium(user)) {
+    return { success: false, error: "Upgrade before managing workspace access." };
+  }
+
+  const parsed = WorkspaceAccessGrantSchema.safeParse({
+    institution_id: formData.get("institution_id"),
+    email: formData.get("email"),
+    role: formData.get("role"),
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid workspace access request." };
+  }
+
+  const { institution, error } = await getHamiltonInstitutionContext(parsed.data.institution_id);
+  if (!institution) return { success: false, error: error ?? "Institution not found." };
+
+  const canManage = await canManageSelectedInstitution(user.id, institution.id, user.role);
+  if (!canManage) {
+    return { success: false, error: "Only institution owners or admins can manage workspace access." };
+  }
+
+  const granteeRows = await sql<Array<{
+    id: number;
+    display_name: string | null;
+    email: string | null;
+    role: string;
+    subscription_status: string | null;
+  }>>`
+    SELECT id, display_name, email, role, COALESCE(subscription_status, 'none') AS subscription_status
+    FROM users
+    WHERE LOWER(email) = ${parsed.data.email}
+      AND is_active = true
+    LIMIT 1
+  `;
+  const grantee = granteeRows[0];
+  if (!grantee) {
+    const invitation = await createInstitutionWorkspaceInvitation({
+      institutionId: institution.id,
+      email: parsed.data.email,
+      role: parsed.data.role,
+      invitedByUserId: user.id,
+      notes: parsed.data.notes || `Pending ${parsed.data.role} access from Hamilton Settings.`,
+    });
+    if (!invitation) {
+      return { success: false, error: "Workspace invitation could not be queued." };
+    }
+
+    revalidatePath("/pro/settings");
+    return {
+      success: true,
+      message: await appendWorkspaceInviteDeliveryMessage(
+        `${invitation.email} has been queued for ${parsed.data.role} access. Authority activates after they register and activate Pro with that email.`,
+        invitation,
+      ),
+    };
+  }
+  if (grantee.id === user.id) {
+    return { success: false, error: "Your own workspace role is managed through institution claim authority." };
+  }
+  const granteeCanUseHamilton =
+    grantee.role === "admin" ||
+    grantee.role === "analyst" ||
+    grantee.subscription_status === "active";
+  if (!granteeCanUseHamilton) {
+    const invitation = await createInstitutionWorkspaceInvitation({
+      institutionId: institution.id,
+      email: parsed.data.email,
+      role: parsed.data.role,
+      invitedByUserId: user.id,
+      notes: parsed.data.notes || `Pending ${parsed.data.role} access from Hamilton Settings.`,
+    });
+    if (invitation) {
+      revalidatePath("/pro/settings");
+      return {
+        success: true,
+        message: await appendWorkspaceInviteDeliveryMessage(
+          `${invitation.email} has been queued for ${parsed.data.role} access. The invite activates after that user upgrades to Pro.`,
+          invitation,
+        ),
+      };
+    }
+
+    return {
+      success: false,
+      error: "That user needs an active Pro account before delegated Hamilton access can be granted, and the pending invitation could not be queued.",
+    };
+  }
+
+  const membership = await grantInstitutionWorkspaceMembership({
+    institutionId: institution.id,
+    userId: grantee.id,
+    role: parsed.data.role as InstitutionWorkspaceMembershipRole,
+    source: "delegated",
+    grantedByUserId: user.id,
+    notes: parsed.data.notes || `Delegated ${parsed.data.role} access from Hamilton Settings.`,
+  });
+
+  if (!membership) {
+    return { success: false, error: "Workspace access could not be granted." };
+  }
+
+  revalidatePath("/pro/settings");
+  revalidatePath("/account");
+
+  return {
+    success: true,
+    message: `${grantee.display_name ?? grantee.email ?? "User"} now has ${parsed.data.role} access to ${institution.name}.`,
+  };
+}
+
+export async function revokeWorkspaceAccess(
+  _prev: WorkspaceAccessActionState,
+  formData: FormData,
+): Promise<WorkspaceAccessActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "Sign in before managing workspace access." };
+  if (!canAccessPremium(user)) {
+    return { success: false, error: "Upgrade before managing workspace access." };
+  }
+
+  const parsed = WorkspaceAccessRevokeSchema.safeParse({
+    institution_id: formData.get("institution_id"),
+    membership_id: formData.get("membership_id"),
+  });
+  if (!parsed.success) {
+    return { success: false, error: "Invalid workspace member selection." };
+  }
+
+  const { institution, error } = await getHamiltonInstitutionContext(parsed.data.institution_id);
+  if (!institution) return { success: false, error: error ?? "Institution not found." };
+
+  const canManage = await canManageSelectedInstitution(user.id, institution.id, user.role);
+  if (!canManage) {
+    return { success: false, error: "Only institution owners or admins can revoke workspace access." };
+  }
+
+  const rows = await sql<Array<{ user_id: number; membership_role: string }>>`
+    SELECT user_id, membership_role
+    FROM institution_workspace_memberships
+    WHERE id = ${parsed.data.membership_id}
+      AND institution_id = ${institution.id}
+      AND membership_status = 'active'
+    LIMIT 1
+  `;
+  const target = rows[0];
+  if (!target) return { success: false, error: "Active workspace membership not found." };
+  if (target.user_id === user.id) {
+    return { success: false, error: "You cannot revoke your own active workspace access here." };
+  }
+  if (target.membership_role === "owner" && user.role !== "admin") {
+    return { success: false, error: "Only a platform admin can revoke owner workspace authority." };
+  }
+
+  const revoked = await revokeInstitutionWorkspaceMembership({
+    membershipId: parsed.data.membership_id,
+    revokedByUserId: user.id,
+  });
+  if (!revoked) return { success: false, error: "Workspace access could not be revoked." };
+
+  revalidatePath("/pro/settings");
+  revalidatePath("/account");
+
+  return {
+    success: true,
+    message: `${revoked.userDisplayName ?? revoked.userEmail ?? "User"} no longer has ${revoked.role} access to ${institution.name}.`,
+  };
+}
+
+export async function revokeWorkspaceInvitation(
+  _prev: WorkspaceAccessActionState,
+  formData: FormData,
+): Promise<WorkspaceAccessActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "Sign in before managing workspace invitations." };
+  if (!canAccessPremium(user)) {
+    return { success: false, error: "Upgrade before managing workspace invitations." };
+  }
+
+  const parsed = WorkspaceInvitationRevokeSchema.safeParse({
+    institution_id: formData.get("institution_id"),
+    invitation_id: formData.get("invitation_id"),
+  });
+  if (!parsed.success) {
+    return { success: false, error: "Invalid workspace invitation selection." };
+  }
+
+  const { institution, error } = await getHamiltonInstitutionContext(parsed.data.institution_id);
+  if (!institution) return { success: false, error: error ?? "Institution not found." };
+
+  const canManage = await canManageSelectedInstitution(user.id, institution.id, user.role);
+  if (!canManage) {
+    return { success: false, error: "Only institution owners or admins can revoke workspace invitations." };
+  }
+
+  const revoked = await revokeInstitutionWorkspaceInvitation({
+    invitationId: parsed.data.invitation_id,
+    institutionId: institution.id,
+    revokedByUserId: user.id,
+  });
+  if (!revoked) return { success: false, error: "Pending workspace invitation not found." };
+
+  revalidatePath("/pro/settings");
+
+  return {
+    success: true,
+    message: `${revoked.email} no longer has a pending ${revoked.role} invitation for ${institution.name}.`,
+  };
 }
 
 // ─── Peer Set Management (SET-02) ─────────────────────────────────────────────

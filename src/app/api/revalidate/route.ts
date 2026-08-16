@@ -1,9 +1,10 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 const REVALIDATE_TOKEN = process.env.BFI_REVALIDATE_TOKEN || "";
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
 
@@ -24,3 +25,5 @@ export async function POST(request: NextRequest) {
     timestamp: new Date().toISOString(),
   });
 }
+
+export const POST = withApiRoutePolicy("api.revalidate", "POST", handlePOST);

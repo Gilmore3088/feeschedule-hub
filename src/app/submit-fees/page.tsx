@@ -11,6 +11,9 @@ interface PageProps {
     institutionId?: string;
     institutionName?: string;
     sourceUrl?: string;
+    submitterRole?: string;
+    notes?: string;
+    source?: string;
   }>;
 }
 
@@ -22,6 +25,7 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
       ? parsedInstitutionId
       : null;
   const institutionName = params.institutionName ?? "";
+  const isClaimFlow = params.source === "claim";
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#FAF7F2] text-[#1A1815]">
@@ -36,11 +40,12 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
                 className="mt-2 max-w-3xl break-words text-4xl font-normal leading-[1.02] text-[#1A1815] sm:text-5xl"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Submit an official fee schedule.
+                {isClaimFlow ? "Claim or validate this profile." : "Submit an official fee schedule."}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#5A5347]">
-                A public fee schedule URL is enough to open validation. Optional fee rows help reviewers
-                check extraction quality faster.
+                {isClaimFlow
+                  ? "Submit an official source URL and your role so the trust queue can review the profile with institution context."
+                  : "A public fee schedule URL is enough to open validation. Optional fee rows help reviewers check extraction quality faster."}
               </p>
             </div>
 
@@ -67,6 +72,8 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
             initialInstitutionId={institutionId}
             initialInstitutionName={institutionName}
             initialSourceUrl={params.sourceUrl ?? ""}
+            initialSubmitterRole={params.submitterRole}
+            initialNotes={params.notes}
           />
 
           <aside className="min-w-0 border-l border-[#D8CBB8] pl-5">

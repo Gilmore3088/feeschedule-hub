@@ -39,6 +39,8 @@ interface SubmitFormProps {
   initialInstitutionId?: number | null;
   initialInstitutionName?: string;
   initialSourceUrl?: string;
+  initialSubmitterRole?: string;
+  initialNotes?: string;
 }
 
 const EMPTY_FEE: FeeRow = {
@@ -61,12 +63,18 @@ export function SubmitForm({
   initialInstitutionId = null,
   initialInstitutionName = "",
   initialSourceUrl = "",
+  initialSubmitterRole = "consumer",
+  initialNotes = "",
 }: SubmitFormProps) {
   const [institutionId, setInstitutionId] = useState<number | null>(initialInstitutionId);
   const [institutionName, setInstitutionName] = useState(initialInstitutionName);
   const [sourceUrl, setSourceUrl] = useState(initialSourceUrl);
-  const [submitterRole, setSubmitterRole] = useState("consumer");
-  const [notes, setNotes] = useState("");
+  const [submitterRole, setSubmitterRole] = useState(
+    SUBMITTER_ROLES.some((role) => role.value === initialSubmitterRole)
+      ? initialSubmitterRole
+      : "consumer",
+  );
+  const [notes, setNotes] = useState(initialNotes);
   const [fees, setFees] = useState<FeeRow[]>(defaultFeeRows);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);

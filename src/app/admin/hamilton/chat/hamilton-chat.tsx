@@ -6,10 +6,13 @@ import { useState, useRef, useEffect } from "react";
 import { HAMILTON_VERSION } from "@/lib/hamilton/voice";
 import { ChatMessage } from "./chat-message";
 import type { ConversationSummary } from "@/lib/hamilton/chat-memory";
+import type { HamiltonSelectedInstitutionContext } from "@/lib/hamilton/institution-context";
 
 interface HamiltonChatProps {
   initialConversations: ConversationSummary[];
-  userId: number;
+  selectedInstitution?: HamiltonSelectedInstitutionContext | null;
+  selectedInstitutionError?: string | null;
+  initialIntent?: string | null;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -20,7 +23,12 @@ const EXAMPLE_PROMPTS = [
   "Generate a state index report for Texas",
 ];
 
-export function HamiltonChat({ initialConversations, userId: _userId }: HamiltonChatProps) {
+export function HamiltonChat({
+  initialConversations,
+  selectedInstitution,
+  selectedInstitutionError,
+  initialIntent,
+}: HamiltonChatProps) {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>(initialConversations);
@@ -103,7 +111,14 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
     const activeConversationId = await ensureConversation();
     sendMessage(
       { text: input },
-      { body: { conversation_id: activeConversationId ?? undefined } },
+      {
+        body: {
+          conversation_id: activeConversationId ?? undefined,
+          institutionId: selectedInstitution?.id ?? null,
+          intent: initialIntent ?? "admin-chat",
+          evidencePolicy: "provisional-first",
+        },
+      },
     );
     setInput("");
   }
@@ -113,7 +128,14 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
     const activeConversationId = await ensureConversation();
     sendMessage(
       { text: q },
-      { body: { conversation_id: activeConversationId ?? undefined } },
+      {
+        body: {
+          conversation_id: activeConversationId ?? undefined,
+          institutionId: selectedInstitution?.id ?? null,
+          intent: initialIntent ?? "admin-chat",
+          evidencePolicy: "provisional-first",
+        },
+      },
     );
   }
 
@@ -127,7 +149,14 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
     setError(null);
     sendMessage(
       { text: "Generate a formal report for this analysis" },
-      { body: { conversation_id: conversationId ?? undefined } },
+      {
+        body: {
+          conversation_id: conversationId ?? undefined,
+          institutionId: selectedInstitution?.id ?? null,
+          intent: "report",
+          evidencePolicy: "provisional-first",
+        },
+      },
     );
   }
 
@@ -236,6 +265,22 @@ export function HamiltonChat({ initialConversations, userId: _userId }: Hamilton
               <p className="text-[11px] text-gray-400">
                 Senior research analyst — Bank Fee Index
               </p>
+              {selectedInstitution && (
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                  Active institution:{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {selectedInstitution.name}
+                  </span>{" "}
+                  - {selectedInstitution.feePublicationLabel} -{" "}
+                  {selectedInstitution.publishedFeeCount} verified /{" "}
+                  {selectedInstitution.provisionalFeeCount} provisional
+                </p>
+              )}
+              {selectedInstitutionError && (
+                <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                  Institution context unavailable: {selectedInstitutionError}
+                </p>
+              )}
             </div>
           </div>
 

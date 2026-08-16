@@ -226,37 +226,38 @@ export default async function FeeCatalogPage() {
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                        <th scope="col" className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                          Fee
-                        </th>
-                        <th scope="col" className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] lg:table-cell">
-                          Tier
-                        </th>
-                        <th scope="col" className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                          Median
-                        </th>
-                        <th scope="col" className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                          P25
-                        </th>
-                        <th scope="col" className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                          P75
-                        </th>
-                        <th scope="col" className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
-                          Range
-                        </th>
-                        <th scope="col" className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                          Distribution
-                        </th>
-                        <th scope="col" className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                          Inst.
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E8DFD1]/40">
-                      {cats.map((cat) => {
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                          <th scope="col" className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            Fee
+                          </th>
+                          <th scope="col" className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] lg:table-cell">
+                            Tier
+                          </th>
+                          <th scope="col" className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            Median
+                          </th>
+                          <th scope="col" className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                            P25
+                          </th>
+                          <th scope="col" className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                            P75
+                          </th>
+                          <th scope="col" className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
+                            Range
+                          </th>
+                          <th scope="col" className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            Distribution
+                          </th>
+                          <th scope="col" className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            Inst.
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8DFD1]/40">
+                        {cats.map((cat) => {
                         const tier = getFeeTier(cat.fee_category);
                         const barP25 = cat.p25_amount ?? cat.min_amount ?? 0;
                         const barP75 = cat.p75_amount ?? cat.max_amount ?? 0;
@@ -324,9 +325,10 @@ export default async function FeeCatalogPage() {
                             </td>
                           </tr>
                         );
-                      })}
-                    </tbody>
-                  </table>
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </section>
             );

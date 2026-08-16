@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import {
   getCityInstitutions,
   getCityFeeAverages,
-  getNationalIndex,
+  getNationalIndexCached,
 } from "@/lib/data-store";
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { formatAmount, formatAssets } from "@/lib/format";
@@ -55,7 +55,7 @@ export default async function CityFeePage({ params }: PageProps) {
   if (institutions.length === 0) notFound();
 
   const cityAverages = await getCityFeeAverages(cityName, stateCode);
-  const nationalIndex = await getNationalIndex();
+  const nationalIndex = await getNationalIndexCached();
 
   const nationalMedians: Record<string, number> = {};
   for (const entry of nationalIndex) {
@@ -153,7 +153,7 @@ export default async function CityFeePage({ params }: PageProps) {
             </h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
                   <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Institution</th>
@@ -172,7 +172,7 @@ export default async function CityFeePage({ params }: PageProps) {
                     <td className="px-4 py-2.5">
                       <Link
                         href={`/institution/${inst.id}`}
-                        className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
+                        className="block min-w-0 max-w-[260px] break-words font-medium text-[#1A1815] transition-colors hover:text-[#C44B2E]"
                       >
                         {inst.institution_name}
                       </Link>
@@ -216,56 +216,58 @@ export default async function CityFeePage({ params }: PageProps) {
                 Average Fees in {cityName} vs National
               </h2>
             </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Fee Category</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">{cityName} Avg</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">National</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Difference</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Reporting</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E8DFD1]/40">
-                {cityAverages.filter((a) => isFeaturedFee(a.fee_category)).map((avg) => {
-                  const natMedian = nationalMedians[avg.fee_category];
-                  const delta = natMedian ? ((avg.median - natMedian) / natMedian) * 100 : null;
-                  return (
-                    <tr key={avg.fee_category} className="hover:bg-[#FAF7F2]/60 transition-colors">
-                      <td className="px-4 py-2.5">
-                        <Link
-                          href={`/fees/${avg.fee_category}`}
-                          className="text-[#1A1815] hover:text-[#C44B2E] transition-colors font-medium"
-                        >
-                          {getDisplayName(avg.fee_category)}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#1A1815]">
-                        {formatAmount(avg.median)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                        {natMedian !== undefined ? formatAmount(natMedian) : "-"}
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">
-                        {delta !== null ? (
-                          <span className={delta > 0 ? "text-red-500" : "text-emerald-600"}>
-                            {delta > 0 ? "+" : ""}{delta.toFixed(1)}%
-                          </span>
-                        ) : "-"}
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                        {avg.institution_count}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[620px] text-sm">
+                <thead>
+                  <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Fee Category</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">{cityName} Avg</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">National</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Difference</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Reporting</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E8DFD1]/40">
+                  {cityAverages.filter((a) => isFeaturedFee(a.fee_category)).map((avg) => {
+                    const natMedian = nationalMedians[avg.fee_category];
+                    const delta = natMedian ? ((avg.median - natMedian) / natMedian) * 100 : null;
+                    return (
+                      <tr key={avg.fee_category} className="hover:bg-[#FAF7F2]/60 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <Link
+                            href={`/fees/${avg.fee_category}`}
+                            className="font-medium text-[#1A1815] transition-colors hover:text-[#C44B2E]"
+                          >
+                            {getDisplayName(avg.fee_category)}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#1A1815]">
+                          {formatAmount(avg.median)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                          {natMedian !== undefined ? formatAmount(natMedian) : "-"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">
+                          {delta !== null ? (
+                            <span className={delta > 0 ? "text-red-500" : "text-emerald-600"}>
+                              {delta > 0 ? "+" : ""}{delta.toFixed(1)}%
+                            </span>
+                          ) : "-"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                          {avg.institution_count}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* Links */}
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/fees/city/${stateCode.toLowerCase()}`}
             className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"

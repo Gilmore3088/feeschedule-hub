@@ -8,9 +8,22 @@ import { redirect } from "next/navigation";
 import { SettingsForm } from "./SettingsForm";
 import { PeerSetManager } from "./PeerSetManager";
 import { getSavedPeerSets } from "@/lib/data-store/saved-peers";
-import { getIntelligenceSnapshot } from "./actions";
+import {
+  getIntelligenceSnapshot,
+  getWorkspaceInstitutionClaimState,
+} from "./actions";
 import { FeatureToggles } from "./FeatureToggles";
 import { ManageBillingButton } from "@/components/hamilton/settings/ManageBillingButton";
+import { resolveHamiltonInstitutionContext } from "@/lib/hamilton/workspace-context";
+import { WorkspaceInstitutionForm } from "./WorkspaceInstitutionForm";
+import {
+  getActiveInstitutionMembership,
+  getInstitutionWorkspaceMembers,
+  getPendingInstitutionWorkspaceInvitations,
+  type InstitutionWorkspaceMembership,
+  type InstitutionWorkspaceInvitation,
+} from "@/lib/hamilton/institution-membership";
+import { WorkspaceAccessManager } from "./WorkspaceAccessManager";
 
 export const metadata: Metadata = {
   title: "Strategy Settings",
@@ -28,9 +41,25 @@ const PLAN_LABEL: Record<string, string> = {
  * Institution profile form feeds HamiltonContextBar across all screens.
  * Per D-01, D-09: warm parchment aesthetic, serif headers, editorial layout.
  */
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ instId?: string }>;
+}) {
+  const params = await searchParams;
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const returnPath = params.instId
+      ? `/pro/settings?instId=${encodeURIComponent(params.instId)}`
+      : "/pro/settings";
+    redirect(`/login?from=${encodeURIComponent(returnPath)}`);
+  }
+
+  const { institution: selectedInstitution, source: selectedSource } = await resolveHamiltonInstitutionContext({
+    userId: user.id,
+    instId: params.instId,
+    intent: "settings",
+  });
 
   const planLabel = PLAN_LABEL[user.role] ?? "Free";
   const isAdmin = user.role === "admin" || user.role === "analyst";
@@ -40,6 +69,21 @@ export default async function SettingsPage() {
     getSavedPeerSets(String(user.id)).catch(() => []),
     getIntelligenceSnapshot(),
   ]);
+  const [selectedClaim, selectedMembership, workspaceMembers, workspaceInvitations] = selectedInstitution
+    ? await Promise.all([
+        getWorkspaceInstitutionClaimState(selectedInstitution.id),
+        getActiveInstitutionMembership({
+          userId: user.id,
+          institutionId: selectedInstitution.id,
+        }).catch(() => null),
+        getInstitutionWorkspaceMembers(selectedInstitution.id).catch(() => []),
+        getPendingInstitutionWorkspaceInvitations(selectedInstitution.id).catch(() => []),
+      ])
+    : [null, null, [] as InstitutionWorkspaceMembership[], [] as InstitutionWorkspaceInvitation[]] as const;
+  const canManageWorkspaceAccess =
+    isAdmin ||
+    selectedMembership?.role === "owner" ||
+    selectedMembership?.role === "admin";
 
   const cardStyle = {
     backgroundColor: "var(--hamilton-surface-elevated)",
@@ -62,6 +106,12 @@ export default async function SettingsPage() {
     canceled: { bg: "rgb(254, 242, 242)", text: "rgb(220, 38, 38)" },
     none: { bg: "rgb(243, 244, 246)", text: "rgb(107, 114, 128)" },
   };
+  const selectedInstParam = selectedInstitution
+    ? `?instId=${selectedInstitution.id}`
+    : "";
+  const selectedInstAndIntentParam = selectedInstitution
+    ? `?instId=${selectedInstitution.id}&intent=competitive-brief`
+    : "?intent=competitive-brief";
 
   return (
     <div className="pb-16">
@@ -132,8 +182,8 @@ export default async function SettingsPage() {
                 subscriptionStatus={user.subscription_status ?? "none"}
                 className="px-4 py-2 text-xs font-semibold rounded-md border transition-opacity hover:opacity-80"
               />
-              <button
-                type="button"
+              <a
+                href="mailto:support@bankfeeindex.com?subject=Fee%20Insight%20Hamilton%20support"
                 className="px-4 py-2 text-xs font-semibold rounded-md border transition-opacity hover:opacity-80"
                 style={{
                   borderColor: "var(--hamilton-border)",
@@ -142,7 +192,7 @@ export default async function SettingsPage() {
                 }}
               >
                 Contact Support
-              </button>
+              </a>
             </div>
           )}
         </div>
@@ -185,13 +235,27 @@ export default async function SettingsPage() {
             </div>
           </div>
           <Link
-            href="/pro/analyze"
+            href={selectedInstitution ? `/pro/analyze?instId=${selectedInstitution.id}` : "/pro/analyze"}
             className="inline-block mt-4 text-xs font-medium no-underline hover:opacity-80"
             style={{ color: "var(--hamilton-accent)" }}
           >
             View in Analyze
           </Link>
         </div>
+      </div>
+
+      {/* Selected Hamilton Institution */}
+      <div style={cardStyle} className="mb-6">
+        <p style={sectionLabelStyle} className="mb-1">Selected Hamilton Institution</p>
+        <p className="text-xs mb-5" style={{ color: "var(--hamilton-text-tertiary)" }}>
+          This institution anchors Analyze, Reports, Scenarios, and Watchlist when no URL-specific institution is supplied.
+        </p>
+        <WorkspaceInstitutionForm
+          selectedInstitution={selectedInstitution}
+          selectedSource={selectedSource === "artifact" ? "manual" : selectedSource}
+          selectedClaim={selectedClaim}
+          selectedMembership={selectedMembership}
+        />
       </div>
 
       {/* Institution Profile */}
@@ -212,7 +276,7 @@ export default async function SettingsPage() {
       </div>
 
       {/* Peer Set Management (SET-02) */}
-      <div style={cardStyle} className="mb-6">
+      <div id="peer-sets" style={cardStyle} className="mb-6 scroll-mt-24">
         <p style={sectionLabelStyle} className="mb-1">Peer Set Management</p>
         <p className="text-xs mb-4" style={{ color: "var(--hamilton-text-tertiary)" }}>
           Configure peer groups for Simulate and Reports. Peer sets define the comparison universe for your fee analysis.
@@ -243,18 +307,21 @@ export default async function SettingsPage() {
         {/* Feature Access (SET-03) */}
         <div style={cardStyle}>
           <p style={sectionLabelStyle} className="mb-3">Feature Access</p>
-          <FeatureToggles />
+          <FeatureToggles selectedInstitutionId={selectedInstitution ? String(selectedInstitution.id) : null} />
         </div>
       </div>
 
-      {/* Row: Proxy Access + Billing */}
+      {/* Row: Workspace Access + Billing */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
-        {/* Proxy Access */}
-        <div style={cardStyle}>
-          <p style={sectionLabelStyle} className="mb-3">Proxy Access</p>
-          <p className="text-sm" style={{ color: "var(--hamilton-text-tertiary)" }}>
-            Grant read-only access to team members or external advisors. Coming in a future update.
-          </p>
+        {/* Workspace Access */}
+        <div id="workspace-access" style={cardStyle}>
+          <p style={sectionLabelStyle} className="mb-3">Workspace Access</p>
+          <WorkspaceAccessManager
+            institutionId={selectedInstitution?.id ?? null}
+            members={workspaceMembers}
+            invitations={workspaceInvitations}
+            canManage={canManageWorkspaceAccess}
+          />
         </div>
 
         {/* Billing (SET-04) */}
@@ -311,9 +378,9 @@ export default async function SettingsPage() {
         <p style={sectionLabelStyle} className="mb-4">Quick Actions: Continue Working</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { href: "/pro/monitor", label: "Back to Monitor" },
-            { href: "/pro/analyze", label: "Run Analysis" },
-            { href: "/pro/reports", label: "Build Report" },
+            { href: `/pro/monitor${selectedInstParam}`, label: "Back to Monitor" },
+            { href: `/pro/analyze${selectedInstParam}`, label: "Run Analysis" },
+            { href: `/pro/reports${selectedInstAndIntentParam}`, label: "Build Report" },
           ].map((action) => (
             <Link
               key={action.href}
@@ -324,7 +391,6 @@ export default async function SettingsPage() {
                 color: "var(--hamilton-text-primary)",
                 border: "1px solid transparent",
               }}
-              onMouseEnter={() => {}}
             >
               {action.label}
             </Link>

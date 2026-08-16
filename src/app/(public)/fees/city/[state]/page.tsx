@@ -83,39 +83,41 @@ export default async function StateCityDirectory({ params }: PageProps) {
           </p>
         ) : (
           <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">City</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Total Institutions</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">With Fee Data</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E8DFD1]/40">
-                {cities.map((c) => (
-                  <tr key={`${c.city}-${c.state_code}`} className="hover:bg-[#FAF7F2]/60 transition-colors">
-                    <td className="px-4 py-2.5">
-                      <Link
-                        href={`/fees/city/${stateCode.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`}
-                        className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
-                      >
-                        {c.city}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                      {c.institution_count}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                      {c.with_fees}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-sm">
+                <thead>
+                  <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">City</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Total Institutions</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">With Fee Data</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#E8DFD1]/40">
+                  {cities.map((c) => (
+                    <tr key={`${c.city}-${c.state_code}`} className="hover:bg-[#FAF7F2]/60 transition-colors">
+                      <td className="px-4 py-2.5">
+                        <Link
+                          href={`/fees/city/${stateCode.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`}
+                          className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
+                        >
+                          {c.city}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                        {c.institution_count}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                        {c.with_fees}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/research/state/${stateCode.toLowerCase()}`}
             className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"

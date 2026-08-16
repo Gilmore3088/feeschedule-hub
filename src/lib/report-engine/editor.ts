@@ -158,7 +158,12 @@ export async function runEditorReview(
   const userMessage = buildUserMessage(sections, thesis);
 
   const response = await trackAnthropicRequest(
-    { model: EDITOR_MODEL, agent: "hamilton", operation: "review_report_draft" },
+    {
+      model: EDITOR_MODEL,
+      agent: "hamilton",
+      operation: "review_report_draft",
+      routeId: "api.reports.generate",
+    },
     () => client.messages.create({
       model: EDITOR_MODEL,
       max_tokens: MAX_TOKENS,

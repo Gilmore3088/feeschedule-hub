@@ -19,7 +19,7 @@ import {
   hasMarkdownTable,
   downloadFile,
   buildReportHtml,
-} from "@/app/admin/research/[agentId]/export-utils";
+} from "@/app/admin/hamilton/research/[agentId]/export-utils";
 
 const CHART_COLORS = [
   "#C44B2E", "#E8845C", "#D4A574", "#7A7062",
