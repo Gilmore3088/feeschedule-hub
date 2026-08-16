@@ -76,7 +76,7 @@ Expected: Rows in `institution_financials` with `service_charge_income` populate
 - [ ] **Step 4: Verify data exists**
 
 ```bash
-DATABASE_URL="postgresql://postgres:mitryn-2rYvmu-wirbiz@db.rmhwbbjjctzfaqjyhomu.supabase.co:5432/postgres" npx tsx -e "
+DATABASE_URL="postgresql://postgres:<REDACTED>@db.<project-ref>.supabase.co:5432/postgres" npx tsx -e "
 import postgres from 'postgres';
 const sql = postgres(process.env.DATABASE_URL!);
 async function main() {
