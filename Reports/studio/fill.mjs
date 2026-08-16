@@ -118,8 +118,9 @@ const finCards = [
     fl.branch_count ? `${fl.branch_count} branches` : ""),
   card("Service-charge income", kUSD(fy.service_charge_income),
     fy.fee_income_ratio != null ? `${pct(fy.fee_income_ratio, 1)} of revenue` : "as filed"),
-  card("Fee-income intensity", pct(scRatio, 3),
-    scMed != null ? `cohort median <b>${pct(scMed, 3)}</b> of assets` : "of assets"),
+  card("Fee-income intensity",
+    scRatio != null ? `${(scRatio * 10000).toFixed(1)} bps` : "—",
+    scMed != null ? `cohort median <b>${(scMed * 10000).toFixed(1)} bps</b> of assets` : "of assets"),
   // NCUA filings often lack ROA — only show the card when both sides are real
   (fl.roa && fc.roa_median)
     ? card("Return on assets", `${fl.roa}%`, `cohort median <b>${fc.roa_median}%</b>`)
@@ -127,13 +128,60 @@ const finCards = [
         "featured categories published"),
 ].join("\n");
 
-let finNarr = "";
-if (intensity != null) {
-  const rel = intensity >= 1.15 ? `about ${intensity.toFixed(1)}× the cohort median — fee income is doing more work in your P&amp;L than at most comparable institutions, which raises the stakes on every outlier flagged in this report`
-    : intensity <= 0.7 ? `well below the cohort median (${(intensity * 100).toFixed(0)}% of it) — you are earning less from fees than most comparable institutions even where your posted prices run high, which suggests the pricing conversation is really a volume, waiver, or mix conversation`
-    : `roughly in line with the cohort median — your fee earnings match your peers', so the position questions in this report are about risk and story, not missing revenue`;
-  finNarr = `<p class="narrative" style="margin-top:8pt">Joining your posted fee schedule to your regulatory filings: your service-charge income runs ${rel}.</p>`;
+// Fee economics per the fee-revenue-correlation methodology
+const fe = pack.fee_econ ?? {};
+const me = fe.mine ?? {}, co = fe.cohort ?? {};
+const bps = (v) => (v == null) ? "—" : `${Number(v).toFixed(1)} bps`;
+const pc = (v, d = 1) => (v == null) ? "—" : `${(v * 100).toFixed(d)}%`;
+const assess = (mine, med, hiWord, loWord) =>
+  mine == null || med == null ? "—"
+    : mine > med * 1.3 ? hiWord : mine < med * 0.7 ? loWord : "In line";
+const econRow = (metric, you, p25, med, p75, pctile, assessment) =>
+  `<tr><td>${metric}</td><td class="r"><b>${you}</b></td><td class="r">${p25}</td>
+   <td class="r">${med}</td><td class="r">${p75}</td>
+   <td>${pctile != null ? `P${pctile}` : "—"}</td><td>${assessment}</td></tr>`;
+const econTable = [
+  econRow("Service-charge income", kUSD(me.sc), "—", kUSD(co.sc_median), "—", null,
+    assess(me.sc, co.sc_median, "Above cohort", "Below cohort")),
+  econRow("Fee intensity (income / assets)", bps(me.intensity_bps), bps(co.intensity_p25),
+    bps(co.intensity_median), bps(co.intensity_p75), fe.intensity_pctile,
+    assess(me.intensity_bps, co.intensity_median, "Fee-reliant", "Light collector")),
+  econRow("Fee dependency (share of noninterest income)", pc(me.dependency),
+    pc(co.dependency_p25), pc(co.dependency_median), pc(co.dependency_p75),
+    fe.dependency_pctile, assess(me.dependency, co.dependency_median, "Concentrated", "Diversified")),
+  (me.fee_to_ni != null && co.fee_to_ni_median != null)
+    ? econRow("Fee income vs. net income", pc(me.fee_to_ni), "—", pc(co.fee_to_ni_median),
+      "—", null, assess(me.fee_to_ni, co.fee_to_ni_median, "Earnings-exposed", "Modest"))
+    : "",
+].join("\n");
+
+// Discrepancy verdict: posted-price aggressiveness vs realized fee intensity
+const pricePcts = fees.filter((x) => x.percentile != null).map((x) => Number(x.percentile));
+const avgPricePct = pricePcts.length
+  ? Math.round(pricePcts.reduce((a, b) => a + b, 0) / pricePcts.length) : null;
+const iPct = fe.intensity_pctile;
+let verdict = "";
+if (avgPricePct != null && iPct != null) {
+  const v = avgPricePct >= 60 && iPct <= 40
+    ? `Your posted prices average the ${avgPricePct}th percentile of the cohort, but your realized fee income sits at only the ${iPct}th. <b>You carry the optics of high fees without collecting the revenue</b> — the classic signature of heavy waivers, low incidence, or a mix that never touches the headline fees. Every outlier flagged in this report is reputational cost with little offsetting income; aligning them to market would cost less than it appears.`
+    : avgPricePct >= 60 && iPct >= 60
+    ? `Your posted prices (${avgPricePct}th percentile) and realized fee income (${iPct}th percentile) are both top-of-cohort. <b>Fees are a genuine earnings engine here</b> — which cuts both ways: repricing decisions carry real revenue consequences, and regulatory or competitive pressure on fee income lands harder on you than on peers.`
+    : avgPricePct <= 45 && iPct >= 60
+    ? `You post below-market prices (${avgPricePct}th percentile) yet realize top-cohort fee income (${iPct}th percentile). <b>Volume, not price, drives your fee line</b> — an enviable position that makes your customer-friendly schedule affordable to advertise loudly.`
+    : avgPricePct <= 45 && iPct <= 45
+    ? `Both your posted prices (${avgPricePct}th percentile) and realized fee income (${iPct}th percentile) run below the cohort. <b>You are structurally a low-fee institution</b> — the strategic question is whether that is a chosen identity worth marketing or an unexamined default leaving earnings unclaimed.`
+    : `Your posted prices (${avgPricePct}th percentile) and realized fee income (${iPct}th percentile) sit near the cohort middle — <b>fee strategy is neither a risk nor an engine today</b>, which makes the individual outliers in this report the whole story.`;
+  verdict = `<p class="narrative" style="margin-top:10pt">${v}</p>`;
 }
+
+// Trend line from year-end filings
+const hist = pack.fin_history ?? [];
+let trendLine = "";
+if (hist.length >= 2) {
+  const pts = hist.map((h) => `${h.report_date.slice(0, 4)}: ${bps(h.intensity_bps)}`).join(" → ");
+  trendLine = `<p class="small muted" style="margin-top:6pt">Fee-intensity trend (year-end filings): ${pts} · cohort median ${bps(co.intensity_median)}.</p>`;
+}
+const finNarr = "";
 const dep = pack.deposits ?? {};
 const depositLine = (dep.branch_rows > 0)
   ? `<p class="small muted" style="margin-top:6pt">Deposit footprint (FDIC Summary of Deposits, ${dep.sod_year}): ${dep.branch_rows} branch locations across ${dep.counties} counties holding ${kUSD(dep.total_branch_deposits)} in deposits.</p>`
@@ -142,6 +190,9 @@ const depositLine = (dep.branch_rows > 0)
 const repl = {
   FIN_CARDS: finCards,
   FIN_NARRATIVE: finNarr,
+  ECON_TABLE: econTable,
+  ECON_VERDICT: verdict,
+  TREND_LINE: trendLine,
   DEPOSIT_LINE: depositLine,
   FIN_SOURCE_LABEL: (fl.source ?? "fdic").toUpperCase() + " Call Reports",
   FIN_LATEST_DATE: fl.report_date ?? "—",

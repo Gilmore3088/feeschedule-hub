@@ -101,11 +101,13 @@ all_fees AS (
 -- Call Report financials (FDIC/NCUA public data): latest snapshot + last full year
 fin_latest AS (
   SELECT * FROM institution_financial_records
-  WHERE institution_id = :inst ORDER BY report_date DESC LIMIT 1
+  WHERE institution_id = :inst AND source IN ('fdic','ncua')
+  ORDER BY report_date DESC LIMIT 1
 ),
 fin_year AS (
   SELECT * FROM institution_financial_records
-  WHERE institution_id = :inst AND extract(month FROM report_date::date) = 12
+  WHERE institution_id = :inst AND source IN ('fdic','ncua')
+    AND extract(month FROM report_date::date) = 12
   ORDER BY report_date DESC LIMIT 1
 ),
 -- cohort financial benchmarks: latest Dec-31 record per same charter+tier institution
@@ -118,7 +120,7 @@ fin_cohort AS (
   JOIN institution_sources s ON s.id = r.institution_id
   JOIN target t ON s.charter_type = t.charter_type
               AND s.asset_size_tier = t.asset_size_tier
-  WHERE extract(month FROM r.report_date::date) = 12
+  WHERE r.source IN ('fdic','ncua') AND extract(month FROM r.report_date::date) = 12
   ORDER BY r.institution_id, r.report_date DESC
 ),
 fin_cohort_stats AS (
@@ -127,6 +129,60 @@ fin_cohort_stats AS (
          percentile_cont(0.5) WITHIN GROUP (ORDER BY efficiency_ratio) AS efficiency_median,
          count(*) AS n
   FROM fin_cohort WHERE sc_per_assets IS NOT NULL
+),
+-- Fee-economics metrics (per fee-revenue-correlation skill):
+-- dependency = SC / (SC + other noninterest income); intensity = SC / assets (bps);
+-- fee_to_net_income via full-year ROA-derived net income.
+fin_cohort_full AS (
+  SELECT DISTINCT ON (r.institution_id) r.institution_id,
+         r.service_charge_income AS sc, r.total_assets,
+         CASE WHEN r.service_charge_income + coalesce(r.other_noninterest_income,0) > 0
+              THEN r.service_charge_income::float
+                   / (r.service_charge_income + r.other_noninterest_income)
+         END AS dependency,
+         CASE WHEN r.total_assets > 0
+              THEN r.service_charge_income::float / r.total_assets * 10000 END AS intensity_bps,
+         CASE WHEN r.roa IS NOT NULL AND r.roa != 0 AND r.total_assets > 0
+              THEN r.service_charge_income::float / (r.roa/100.0 * r.total_assets)
+         END AS fee_to_ni
+  FROM institution_financial_records r
+  JOIN institution_sources s ON s.id = r.institution_id
+  JOIN target t ON s.charter_type = t.charter_type AND s.asset_size_tier = t.asset_size_tier
+  WHERE r.source IN ('fdic','ncua') AND extract(month FROM r.report_date::date) = 12
+  ORDER BY r.institution_id, r.report_date DESC
+),
+fee_econ AS (
+  SELECT
+    (SELECT to_jsonb(x) FROM fin_cohort_full x WHERE x.institution_id = :inst) AS mine,
+    (SELECT jsonb_build_object(
+      'dependency_p25', percentile_cont(0.25) WITHIN GROUP (ORDER BY dependency),
+      'dependency_median', percentile_cont(0.5) WITHIN GROUP (ORDER BY dependency),
+      'dependency_p75', percentile_cont(0.75) WITHIN GROUP (ORDER BY dependency),
+      'intensity_p25', percentile_cont(0.25) WITHIN GROUP (ORDER BY intensity_bps),
+      'intensity_median', percentile_cont(0.5) WITHIN GROUP (ORDER BY intensity_bps),
+      'intensity_p75', percentile_cont(0.75) WITHIN GROUP (ORDER BY intensity_bps),
+      'fee_to_ni_median', percentile_cont(0.5) WITHIN GROUP (ORDER BY fee_to_ni),
+      'sc_median', percentile_cont(0.5) WITHIN GROUP (ORDER BY sc),
+      'n', count(*)) FROM fin_cohort_full WHERE intensity_bps IS NOT NULL) AS cohort,
+    (SELECT round(100.0 * count(*) FILTER (WHERE c.intensity_bps <=
+        (SELECT intensity_bps FROM fin_cohort_full WHERE institution_id = :inst))
+        / nullif(count(*),0), 0)
+     FROM fin_cohort_full c WHERE c.intensity_bps IS NOT NULL) AS intensity_pctile,
+    (SELECT round(100.0 * count(*) FILTER (WHERE c.dependency <=
+        (SELECT dependency FROM fin_cohort_full WHERE institution_id = :inst))
+        / nullif(count(*),0), 0)
+     FROM fin_cohort_full c WHERE c.dependency IS NOT NULL) AS dependency_pctile
+),
+-- 3-year fee-revenue trend (year-end filings)
+fin_history AS (
+  SELECT report_date, service_charge_income,
+         CASE WHEN total_assets > 0
+              THEN round((service_charge_income::float / total_assets * 10000)::numeric, 1)
+         END AS intensity_bps
+  FROM institution_financial_records
+  WHERE institution_id = :inst AND source IN ('fdic','ncua')
+    AND extract(month FROM report_date::date) = 12
+  ORDER BY report_date DESC LIMIT 3
 ),
 -- deposit market presence (FDIC Summary of Deposits), when available
 deposits AS (
@@ -166,6 +222,10 @@ SELECT jsonb_build_object(
         'n', n) FROM fin_cohort_stats)
   ),
   'deposits', (SELECT to_jsonb(d) FROM deposits d),
+  'fee_econ', (SELECT jsonb_build_object('mine', mine, 'cohort', cohort,
+      'intensity_pctile', intensity_pctile, 'dependency_pctile', dependency_pctile)
+      FROM fee_econ),
+  'fin_history', (SELECT jsonb_agg(to_jsonb(h) ORDER BY h.report_date) FROM fin_history h),
   'meta', jsonb_build_object(
      'pull_date', now()::date,
      'cohort', (SELECT charter_type || ' / ' || asset_size_tier FROM target),
