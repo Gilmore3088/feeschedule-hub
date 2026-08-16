@@ -95,7 +95,9 @@ const allFees = pack.all_fees ?? [];
 const FREQ = { per_occurrence: "per occurrence", one_time: "one-time", monthly: "monthly",
   annual: "annual", daily: "daily", per_item: "per item", per_page: "per page" };
 const allFeesRows = allFees.map((a) => {
-  const freq = FREQ[a.frequency] ?? (a.frequency ?? "").replaceAll("_", " ");
+  let freq = FREQ[a.frequency] ?? (a.frequency ?? "").replaceAll("_", " ");
+  // Caps read as limits, not charges ("daily maximum", not a scary bare "daily")
+  if (a.is_fee_cap) freq = freq ? `${freq} maximum` : "maximum";
   const terms = [freq, a.conditions].filter(Boolean).join(" · ");
   return `<tr><td>${esc(a.fee_name)}</td><td class="r"><b>${money(a.amount)}</b></td>
     <td class="small muted">${esc(terms || "—")}</td></tr>`;

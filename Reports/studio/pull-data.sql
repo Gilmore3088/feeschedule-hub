@@ -93,7 +93,7 @@ peer_table AS (
 -- complete published schedule (appendix): every distinct published fee line
 all_fees AS (
   SELECT DISTINCT ON (lower(fee_name), amount)
-         fee_name, amount, frequency, conditions
+         fee_name, amount, frequency, conditions, is_fee_cap
   FROM published_fee_catalog
   WHERE institution_id = :inst AND amount IS NOT NULL
   ORDER BY lower(fee_name), amount
