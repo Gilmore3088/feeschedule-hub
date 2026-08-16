@@ -18,7 +18,7 @@ import { getPublicStats } from "@/lib/data-store/core";
 import { CustomerFooter } from "@/components/customer-footer";
 
 export const metadata: Metadata = {
-  title: "For Financial Institutions -- FeeInsight",
+  title: "For Financial Institutions",
   description:
     "Fee intelligence, peer benchmarking, and bespoke competitive fee reports for banking professionals, built on the Bank Fee Index.",
 };
