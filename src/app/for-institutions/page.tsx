@@ -18,9 +18,9 @@ import { getPublicStats } from "@/lib/data-store/core";
 import { CustomerFooter } from "@/components/customer-footer";
 
 export const metadata: Metadata = {
-  title: "For Financial Institutions -- Bank Fee Index",
+  title: "For Financial Institutions -- FeeInsight",
   description:
-    "Fee intelligence, peer benchmarking, and Hamilton analysis workflows for banking professionals. Replace your $15K pricing study.",
+    "Fee intelligence, peer benchmarking, and bespoke competitive fee reports for banking professionals, built on the Bank Fee Index.",
 };
 
 export default async function ForInstitutionsPage() {
@@ -33,7 +33,7 @@ export default async function ForInstitutionsPage() {
         <div className="mx-auto max-w-6xl px-6 pt-16 pb-14 lg:pt-20 lg:pb-16">
           <div className="max-w-2xl">
             <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-terra">
-              Bank Fee Index Pro
+              FeeInsight Pro
             </span>
             <h1
               className="mt-4 text-warm-150 leading-[1.1] tracking-[-0.02em]"
@@ -49,16 +49,16 @@ export default async function ForInstitutionsPage() {
             <p className="mt-5 text-[16px] leading-relaxed text-warm-500 max-w-lg">
               {stats.total_institutions.toLocaleString()}+ institutions.
               49 fee categories. Call Reports, FRED data, and Beige Book
-              commentary -- cross-referenced by an AI analyst that answers
-              in seconds, not weeks.
+              commentary -- cross-referenced against published fee schedules,
+              with every figure traceable to a source document.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
               <Link
-                href="/subscribe"
+                href="/contact"
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-terra px-7 py-3.5 text-[15px] font-bold text-white hover:bg-terra-dark transition-colors"
               >
-                Start Free Trial
+                Request Early Access
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
@@ -83,12 +83,12 @@ export default async function ForInstitutionsPage() {
               className="text-warm-900 text-[24px]"
               style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
             >
-              Your pricing team is spending weeks on what Hamilton does in 30 seconds
+              The data your pricing decisions depend on is scattered everywhere
             </h2>
             <p className="mt-4 text-[15px] leading-relaxed text-warm-600">
               Fee schedules are buried across thousands of bank websites. Call Reports
-              are in one place, FRED data in another, Beige Book in a third. Your
-              analysts spend days collecting what we already have organized.
+              are in one place, FRED data in another, Beige Book in a third. We collect,
+              verify, and organize it so your team starts from answers, not raw sources.
             </p>
           </div>
 
@@ -114,10 +114,10 @@ export default async function ForInstitutionsPage() {
             <div className="text-center">
               <FileText className="h-6 w-6 text-terra mx-auto" />
               <p className="mt-3 text-[14px] font-bold text-warm-900">
-                $15K consulting fees
+                Stale benchmarks
               </p>
               <p className="mt-1 text-[13px] text-warm-600">
-                For a pricing study that&apos;s already stale by the time it&apos;s delivered
+                Annual surveys that are outdated before they finish circulating
               </p>
             </div>
           </div>
@@ -146,13 +146,13 @@ export default async function ForInstitutionsPage() {
               <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
                 &quot;What do community banks in District 7 charge for overdraft?&quot;
                 Hamilton pulls from fee schedules, Call Reports, FRED indicators,
-                and Beige Book commentary to answer in seconds. Like having a
-                senior analyst on speed dial.
+                and Beige Book commentary -- like having a senior analyst on
+                speed dial.
               </p>
               <ul className="mt-4 space-y-2">
                 <li className="flex items-start gap-2 text-[13px] text-warm-600">
                   <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  50 queries per day
+                  Ask in plain English, no query language
                 </li>
                 <li className="flex items-start gap-2 text-[13px] text-warm-600">
                   <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
@@ -333,6 +333,41 @@ export default async function ForInstitutionsPage() {
         </div>
       </section>
 
+      {/* Commissioned reports -- the premium tier */}
+      <section className="bg-white border-t border-warm-200">
+        <div className="mx-auto max-w-6xl px-6 py-14">
+          <div className="max-w-3xl">
+            <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-terra">
+              FeeInsight Advisory
+            </span>
+            <h2
+              className="mt-3 text-warm-900 text-[28px]"
+              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            >
+              Or have us prepare it for you
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-warm-600">
+              The Competitive Fee Position report is a print-edition brief prepared
+              for a single institution: your published fees mapped against your
+              true peer cohort, outlier analysis, Call Report fee economics, a
+              named peer comparison, and your complete published schedule --
+              every figure traceable to a source document. Custom competitor
+              sets, board-ready decks, and quarterly refreshes are available
+              on request.
+            </p>
+            <div className="mt-6">
+              <a
+                href="mailto:hello@bankfeeindex.com?subject=Competitive%20Fee%20Position%20report"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-terra px-7 py-3.5 text-[15px] font-bold text-white hover:bg-terra-dark transition-colors"
+              >
+                Commission a Report
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Final CTA */}
       <section className="bg-warm-900">
         <div className="mx-auto max-w-6xl px-6 py-14 text-center">
@@ -340,24 +375,25 @@ export default async function ForInstitutionsPage() {
             className="text-warm-150 text-[28px]"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
-            Ready to stop overpaying for fee intelligence?
+            Ready to see where your fees stand?
           </h2>
           <p className="mt-3 text-[15px] text-warm-500">
-            One subscription. Every tool your pricing team needs.
+            Explore the index, or talk to us about the workspace and
+            commissioned reports.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
             <Link
-              href="/subscribe"
+              href="/institutions"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-terra px-8 py-3.5 text-[15px] font-bold text-white hover:bg-terra-dark transition-colors"
             >
-              Start Free Trial
+              Find Your Institution
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/contact"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-warm-800 px-8 py-3.5 text-[15px] font-normal text-warm-150 hover:border-warm-600 transition-colors"
             >
-              Talk to Sales
+              Talk to Us
             </Link>
           </div>
         </div>

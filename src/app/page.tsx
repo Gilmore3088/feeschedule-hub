@@ -8,13 +8,13 @@ import { LandingTrustStats } from "./landing-trust-stats";
 import { CustomerFooter } from "@/components/customer-footer";
 
 export const metadata: Metadata = {
-  title: "Bank Fee Index -- Fee Intelligence for Consumers & Institutions",
+  title: "FeeInsight -- The Bank Fee Index",
   description:
-    "Compare fees across 8,000+ banks and credit unions. Consumers: look up your bank free. Institutions: peer benchmarking, Hamilton analysis, and board-ready reports.",
+    "Find bank and credit union fees by district, state, size, and type. Consumers: look up your bank free. Institutions: peer benchmarking, analysis, and board-ready reports.",
   openGraph: {
-    title: "Bank Fee Index -- Fee Intelligence for Consumers & Institutions",
+    title: "FeeInsight -- The Bank Fee Index",
     description:
-      "Compare fees across 8,000+ banks and credit unions. Free consumer lookup. Professional-grade intelligence for banking teams.",
+      "Find bank and credit union fees by district, state, size, and type. Free consumer lookup. Professional-grade intelligence for banking teams.",
   },
 };
 

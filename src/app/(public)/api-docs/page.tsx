@@ -613,7 +613,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
             "Institution-level data",
             "Managed API key setup by request",
           ]}
-          cta="Start 14-day free trial"
+          cta="Request early access"
         />
         <TierCard
           name="Enterprise"

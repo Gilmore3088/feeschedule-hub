@@ -11,7 +11,7 @@ const spec = {
       "Programmatic access to bank and credit union fee benchmarking data covering 49 fee categories across thousands of U.S. financial institutions. Data sourced from published fee schedules, FDIC, and NCUA registries. Unauthenticated JSON reads are supported with free-tier rate limits; API keys are manually issued and are not self-serve from Account yet.",
     contact: {
       name: "Bank Fee Index",
-      email: "api@bankfeeindex.com",
+      email: "hello@bankfeeindex.com",
       url: "https://feeinsight.com/api-docs",
     },
     termsOfService: "https://feeinsight.com/terms",

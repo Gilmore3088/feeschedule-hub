@@ -72,7 +72,7 @@ export default async function LoginPage({
           {/* Stats */}
           <div className="flex gap-8">
             <div>
-              <p className="text-lg font-bold text-[#1A1815] tabular-nums">8,000+</p>
+              <p className="text-lg font-bold text-[#1A1815] tabular-nums">1,100+</p>
               <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">Institutions</p>
             </div>
             <div>

@@ -71,7 +71,7 @@ export default async function RegisterPage({
           {/* Feature list */}
           <ul className="space-y-4">
             {[
-              "Search 8,000+ institutions",
+              "Search 1,100+ tracked institutions",
               "49 fee categories",
               "Plain-language guides",
               "3 Hamilton analysis queries/day",

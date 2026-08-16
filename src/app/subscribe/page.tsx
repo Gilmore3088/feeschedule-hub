@@ -20,7 +20,7 @@ const MONTHLY_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "";
 const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID || "";
 
 const FEATURES = [
-  "Full dataset: all 49 fee categories, 8,000+ institutions",
+  "Full dataset: all 49 fee categories, 1,100+ institutions",
   "Peer comparison by charter type, asset tier, Fed district",
   "National and regional fee index with percentiles",
   "CSV and bulk data exports",

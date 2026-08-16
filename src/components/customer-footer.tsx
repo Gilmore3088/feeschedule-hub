@@ -25,13 +25,13 @@ export function CustomerFooter() {
                 className="text-[14px] font-medium tracking-tight text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Bank Fee Index
+                FeeInsight
               </span>
             </Link>
             <p className="mt-3 text-[12px] leading-relaxed text-[#A09788] max-w-xs">
-              The definitive source for US bank and credit union fee
-              intelligence. Data-driven benchmarks for consumers and
-              professionals.
+              Home of the Bank Fee Index -- US bank and credit union fees
+              by district, state, size, and type. Data-driven benchmarks
+              for consumers and professionals.
             </p>
             <div className="mt-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-2">
@@ -141,7 +141,7 @@ export function CustomerFooter() {
 
         {/* Bottom bar */}
         <div className="mt-8 pt-6 border-t border-[#E8DFD1]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#B0A89C]">
-          <span>Bank Fee Index &copy; {new Date().getFullYear()}</span>
+          <span>FeeInsight &copy; {new Date().getFullYear()}</span>
           <span>
             hello@bankfeeindex.com
           </span>

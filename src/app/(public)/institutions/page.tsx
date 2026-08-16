@@ -14,7 +14,7 @@ import { STATE_NAMES } from "@/lib/us-states";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 
 export const metadata: Metadata = {
-  title: "Find Your Bank - Search 8,000+ Institutions",
+  title: "Find Your Bank - Search the Bank Fee Index",
   description:
     "Search banks and credit unions to compare fees against national benchmarks. Free institution lookup for all US financial institutions.",
 };

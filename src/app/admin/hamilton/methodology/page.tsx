@@ -2,11 +2,11 @@ import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export const metadata = {
-  title: "Methodology | Bank Fee Index",
+  title: "Methodology",
 };
 
 const COVERAGE_STATS = {
-  institutions: "8,000+",
+  institutions: "1,100+",
   categories: 49,
   families: 9,
   coverageLeader: "Wyoming (91%)",

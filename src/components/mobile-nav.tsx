@@ -149,7 +149,7 @@ export function MobileNav({ isLoggedIn, isPro = false }: { isLoggedIn: boolean; 
                 <rect x="10" y="8" width="4" height="13" rx="1" />
                 <rect x="16" y="3" width="4" height="18" rx="1" />
               </svg>
-              <span className="text-[11px]">Bank Fee Index</span>
+              <span className="text-[11px]">FeeInsight</span>
             </div>
           </div>
         </div>

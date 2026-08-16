@@ -147,7 +147,7 @@ export default function MethodologyPage() {
         {/* Footer */}
         <div style={{ marginTop: "64px", paddingTop: "24px", borderTop: "1px solid #E8DFD1", fontSize: "12px", color: "#A09788" }}>
           <p>Bank Fee Index is independently operated. Our data collection methodology is designed to comply with the terms of service of the financial institutions we monitor. We collect only publicly disclosed fee information.</p>
-          <p style={{ marginTop: "8px" }}>Questions about our methodology: contact@bankfeeindex.com</p>
+          <p style={{ marginTop: "8px" }}>Questions about our methodology: hello@bankfeeindex.com</p>
         </div>
 
       </div>

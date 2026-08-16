@@ -393,7 +393,7 @@ export function HamiltonLeftRail({
                 <span className="text-[10px] uppercase tracking-widest font-bold">Settings</span>
               </Link>
               <a
-                href="mailto:support@bankfeeindex.com"
+                href="mailto:hello@bankfeeindex.com"
                 className="flex items-center gap-3 no-underline transition-colors"
                 style={{ color: "var(--hamilton-text-tertiary)" }}
               >

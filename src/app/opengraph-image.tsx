@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Bank Fee Index — the national authority on banking fees";
+export const alt = "FeeInsight — The Bank Fee Index";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -48,7 +48,7 @@ export default async function OGImage() {
           >
             $
           </div>
-          <span>Bank Fee Index</span>
+          <span>FeeInsight</span>
         </div>
 
         <div
@@ -67,7 +67,7 @@ export default async function OGImage() {
               letterSpacing: "-0.02em",
             }}
           >
-            The national authority on banking fees.
+            The Bank Fee Index.
           </div>
           <div
             style={{
@@ -77,7 +77,7 @@ export default async function OGImage() {
               lineHeight: 1.3,
             }}
           >
-            Research-grade fee intelligence across 4,000+ banks and credit unions.
+            Find bank and credit union fees by district, state, size, and type.
           </div>
         </div>
 
@@ -93,8 +93,8 @@ export default async function OGImage() {
             textTransform: "uppercase",
           }}
         >
-          <span>bankfeeindex.com</span>
-          <span>Benchmarks · Peer intel · Hamilton research</span>
+          <span>feeinsight.com</span>
+          <span>Benchmarks · Peer intel · Research</span>
         </div>
       </div>
     ),

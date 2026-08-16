@@ -15,17 +15,18 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] lg:items-end">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
-              Public Evidence Layer
+              FeeInsight
             </p>
             <h1
               className="mt-3 max-w-3xl text-5xl font-normal leading-[0.98] text-[#1A1815] sm:text-6xl"
               style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
             >
-              Bank Fee Index
+              The Bank Fee Index
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#5A5347]">
-              Search a bank or credit union to see fee evidence status, verified rows,
-              provisional source signals, financial context, and the next validation step.
+              Find bank and credit union fees by district, state, size, and type --
+              every figure traced to a published source document, with the financial
+              context behind it.
             </p>
 
             <div className="mt-6 max-w-2xl" aria-label="Search for a bank or credit union">
@@ -46,10 +47,10 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
 
           <div className="rounded-lg border border-[#E8DFD1] bg-white p-5">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
-              Pro Intelligence Workspace
+              FeeInsight Pro
             </p>
             <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">
-              Start with the institution, then run the consulting workflow.
+              Start with the institution, then run the full workflow.
             </h2>
             <div className="mt-5 divide-y divide-[#E8DFD1]">
               <WorkflowStep
@@ -65,12 +66,12 @@ export function LandingHero({ totalInstitutions }: LandingHeroProps) {
               <WorkflowStep
                 icon={Brain}
                 title="Analyze"
-                detail="Use Hamilton for peer, risk, and revenue implications."
+                detail="Ask Hamilton, our AI analyst, for peer, risk, and revenue implications."
               />
               <WorkflowStep
                 icon={FileText}
                 title="Report"
-                detail="Generate diligence-aware, board-ready briefs."
+                detail="Generate board-ready competitive briefs."
               />
             </div>
             <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">

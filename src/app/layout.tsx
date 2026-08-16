@@ -28,14 +28,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "./" },
   title: {
-    default: "Bank Fee Index - Fee Intelligence & Benchmarking",
-    template: "%s | Bank Fee Index",
+    default: "FeeInsight -- The Bank Fee Index",
+    template: "%s | FeeInsight",
   },
   description:
-    "The national benchmark for banking fees. Compare fees across 8,000+ banks and credit unions with research-grade data.",
+    "FeeInsight's Bank Fee Index: find bank and credit union fees by district, state, size, and type. Research-grade, source-verified fee intelligence.",
   openGraph: {
     type: "website",
-    siteName: "Bank Fee Index",
+    siteName: "FeeInsight",
   },
   twitter: {
     card: "summary_large_image",

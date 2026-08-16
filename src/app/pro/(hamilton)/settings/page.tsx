@@ -183,7 +183,7 @@ export default async function SettingsPage({
                 className="px-4 py-2 text-xs font-semibold rounded-md border transition-opacity hover:opacity-80"
               />
               <a
-                href="mailto:support@bankfeeindex.com?subject=Fee%20Insight%20Hamilton%20support"
+                href="mailto:hello@bankfeeindex.com?subject=Fee%20Insight%20Hamilton%20support"
                 className="px-4 py-2 text-xs font-semibold rounded-md border transition-opacity hover:opacity-80"
                 style={{
                   borderColor: "var(--hamilton-border)",
