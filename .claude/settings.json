@@ -1,5 +1,26 @@
 {
   "enabledPlugins": {
-    "superpowers-extended-cc@superpowers-extended-cc-marketplace": true
+    "superpowers-extended-cc@superpowers-extended-cc-marketplace": false,
+    "supabase@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true
+  },
+  "permissions": {
+    "ask": [
+      "Bash(git push*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(git branch -D*)",
+      "Bash(vercel --prod*)",
+      "Bash(vercel deploy --prod*)",
+      "Bash(vercel promote*)",
+      "Bash(vercel env rm*)",
+      "Bash(vercel env add*)",
+      "Bash(supabase db push*)",
+      "Bash(supabase db reset*)",
+      "Bash(supabase migration*)",
+      "Bash(npx supabase db push*)",
+      "Bash(npx supabase db reset*)",
+      "Bash(npx supabase migration*)"
+    ]
   }
 }
