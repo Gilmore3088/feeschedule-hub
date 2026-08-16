@@ -65,6 +65,10 @@ supabase/.temp/
 Reports/
 
 # Studio: track source, ignore generated packs/PDFs
+!reports/
 !reports/studio/
+reports/*.pdf
+reports/v3.1/
+reports/v4.2/
 reports/studio/packs/
 reports/studio/out/
