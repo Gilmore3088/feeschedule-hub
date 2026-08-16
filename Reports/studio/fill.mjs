@@ -55,9 +55,9 @@ const positionRows = fees.map((f) => {
 
 // Exec findings (3 numbers) from narratives; shrink long stats so the column holds
 const execFindings = narr.findings.map((f) => {
-  const size = f.stat.length > 12 ? "12pt" : f.stat.length > 8 ? "16pt" : "21pt";
+  const size = f.stat.length > 12 ? "13pt" : f.stat.length > 8 ? "18pt" : "24pt";
   return `<div class="finding"><div class="num" style="font-size:${size}">${esc(f.stat)}<small>${esc(f.stat_label)}</small></div>
-   <p><b>${esc(f.headline)}</b><br>${esc(f.body)}</p></div>`;
+   <p><b>${esc(f.headline)}</b>${esc(f.body)}</p></div>`;
 }).join("\n");
 
 // Callout cards
