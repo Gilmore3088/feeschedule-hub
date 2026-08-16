@@ -1,8 +1,10 @@
-export function formatAmount(amount: number | null): string {
-  if (amount === null) return "-";
-  if (amount === 0) return "$0.00";
+export function formatAmount(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined) return "-";
+  const value = typeof amount === "number" ? amount : Number(amount);
+  if (!Number.isFinite(value)) return "-";
+  if (value === 0) return "$0.00";
   // Removed: was treating $0.35 as "35.0%" -- fees under $1 are just cents
-  return `$${amount.toFixed(2)}`;
+  return `$${value.toFixed(2)}`;
 }
 
 export function formatAssets(assets: number | null): string {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
 
 const PUBLIC_NAV = [
   { label: "Find Your Institution", href: "/institutions" },
@@ -11,16 +12,7 @@ const PUBLIC_NAV = [
   { label: "Guides", href: "/guides" },
 ];
 
-const PRO_NAV = [
-  { label: "Dashboard", href: "/pro" },
-  { label: "Market", href: "/pro/market" },
-  { label: "Peers", href: "/pro/peers" },
-  { label: "Categories", href: "/pro/categories" },
-  { label: "Districts", href: "/pro/districts" },
-  { label: "Data", href: "/pro/data" },
-  { label: "Wire", href: "/pro/news" },
-  { label: "AI Research", href: "/pro/research" },
-];
+const PRO_NAV = HAMILTON_NAV.filter((item) => item.label !== "Admin");
 
 export function MobileNav({ isLoggedIn, isPro = false }: { isLoggedIn: boolean; isPro?: boolean }) {
   const NAV_ITEMS = isPro

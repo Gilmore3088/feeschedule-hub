@@ -47,11 +47,7 @@ export function StateMap({ data, label = "Value", colorScale = "blue", onStateCl
               onMouseLeave={() => setHovered(null)}
               onClick={() => onStateClick?.(state.id)}
             >
-              <title>
-                {state.name}
-                {district ? ` (District ${district})` : ""}
-                {value > 0 ? ` — ${label}: ${value}` : ""}
-              </title>
+              <title>{`${state.name}${district ? ` (District ${district})` : ""}${value > 0 ? ` — ${label}: ${value}` : ""}`}</title>
             </path>
           );
         })}

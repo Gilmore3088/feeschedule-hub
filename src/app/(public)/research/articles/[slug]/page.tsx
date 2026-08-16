@@ -105,10 +105,10 @@ export default async function ArticlePage({
             </p>
             <div className="mt-3">
               <Link
-                href="/#request-access"
+                href="/institutions"
                 className="inline-flex items-center rounded-md bg-[#C44B2E] px-4 py-2 text-[12px] font-semibold text-white hover:bg-[#C44B2E]/90 transition-colors"
               >
-                Request Custom Analysis
+                Find Your Institution
               </Link>
             </div>
           </div>

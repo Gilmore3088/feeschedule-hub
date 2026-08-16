@@ -136,9 +136,7 @@ export function StateDirectoryMap({
                       onMouseEnter={() => setHoveredState(state.id)}
                       onMouseLeave={() => setHoveredState(null)}
                     >
-                      <title>
-                        {state.name}: {formatCount(summary?.institution_count ?? 0)} institutions
-                      </title>
+                      <title>{`${state.name}: ${formatCount(summary?.institution_count ?? 0)} institutions`}</title>
                     </path>
                   </Link>
                 );

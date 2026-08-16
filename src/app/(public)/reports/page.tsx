@@ -42,6 +42,22 @@ const DATE_RANGE_OPTIONS = [
   { value: "365d", label: "Last 12 months" },
 ];
 
+function withDeadline<T>(
+  promise: Promise<T>,
+  fallback: T,
+  timeoutMs: number,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeout = setTimeout(() => resolve(fallback), timeoutMs);
+  });
+
+  return Promise.race([
+    promise.catch(() => fallback),
+    timeoutPromise,
+  ]).finally(() => clearTimeout(timeout));
+}
+
 function dateRangeToIso(range: string): string | null {
   const days: Record<string, number> = {
     "30d": 30,
@@ -71,10 +87,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const fromIso = rawRange ? dateRangeToIso(rawRange) : null;
 
   let reports: PublishedReport[] = [];
+  let reportCatalogUnavailable = false;
 
   try {
     const sql = getSql();
-    reports = await sql<PublishedReport[]>`
+    const reportQuery = sql<PublishedReport[]>`
       SELECT id, report_type, slug, title, published_at
       FROM published_reports
       WHERE is_public = true
@@ -82,10 +99,20 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         ${fromIso ? sql` AND published_at >= ${fromIso}` : sql``}
       ORDER BY published_at DESC
       LIMIT 100
-    `;
+    `.then((rows) => ({
+      reports: [...rows] as PublishedReport[],
+      unavailable: false,
+    }));
+    const result = await withDeadline(reportQuery, {
+      reports: [],
+      unavailable: true,
+    }, 2_500);
+    reports = result.reports;
+    reportCatalogUnavailable = result.unavailable;
   } catch {
     // Render empty state gracefully if DB unavailable at build time
     reports = [];
+    reportCatalogUnavailable = true;
   }
 
   return (
@@ -130,7 +157,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             flexWrap: "wrap",
           }}
         >
+          <label htmlFor="report-type-filter" className="sr-only">
+            Filter by report type
+          </label>
           <select
+            id="report-type-filter"
             name="type"
             defaultValue={typeFilter ?? ""}
             style={{
@@ -151,7 +182,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             ))}
           </select>
 
+          <label htmlFor="report-date-filter" className="sr-only">
+            Filter by date range
+          </label>
           <select
+            id="report-date-filter"
             name="range"
             defaultValue={rawRange ?? ""}
             style={{
@@ -211,7 +246,9 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         {reports.length === 0 ? (
           <div style={{ padding: "48px 0", textAlign: "center" }}>
             <p style={{ color: "#A09788", fontSize: "15px" }}>
-              No reports published yet. Check back soon.
+              {reportCatalogUnavailable
+                ? "Report catalog is temporarily unavailable. Try again shortly."
+                : "No reports published yet. Check back soon."}
             </p>
           </div>
         ) : (

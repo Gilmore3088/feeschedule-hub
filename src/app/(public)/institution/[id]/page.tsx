@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -23,14 +24,9 @@ import {
 import {
   getFeesByInstitution,
   getFinancialsByInstitution,
-  getInstitutionById,
-  getInstitutionIdsWithFees,
-  getNationalIndex,
+  getNationalIndexCached,
+  getPublicInstitutionById,
 } from "@/lib/data-store";
-import {
-  getInstitutionPeerRanking,
-  getInstitutionRevenueTrend,
-} from "@/lib/data-store/call-reports";
 import {
   getInstitutionFeeScheduleEvidence,
   getInstitutionSubmissionState,
@@ -56,6 +52,7 @@ import {
   type FeePublicationStatus,
 } from "@/lib/institution-quality";
 import { getAutomationControl } from "@/lib/automation-control";
+import { buildInstitutionProfileLinks } from "@/lib/institution-profile-links";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -98,35 +95,22 @@ const STATUS_ICON = {
   unavailable: Database,
 } satisfies Record<FeePublicationStatus, LucideIcon>;
 
-export async function generateStaticParams() {
-  try {
-    const ids = await getInstitutionIdsWithFees();
-    return ids.map((id) => ({ id: String(id) }));
-  } catch {
-    return [];
-  }
-}
+const getPublicInstitutionForPage = cache(getPublicInstitutionById);
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const inst = await getInstitutionById(parseInt(id, 10));
+  const instId = parseInt(id, 10);
+  if (Number.isNaN(instId)) return { title: "Institution Not Found" };
+
+  const inst = await getPublicInstitutionForPage(instId);
   if (!inst) return { title: "Institution Not Found" };
 
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const charterLabel = inst.charter_type === "bank" ? "Bank" : "Credit Union";
-  const verifiedCount = inst.published_fee_count ?? 0;
-  const provisionalCount = inst.provisional_fee_count ?? 0;
-  const status = inst.fee_publication_status ?? "unavailable";
 
   return {
-    title:
-      status === "verified"
-        ? `${inst.institution_name} Fee Report Card`
-        : `${inst.institution_name} Fee Data Status`,
-    description:
-      status === "verified"
-        ? `${inst.institution_name}${stateName ? ` in ${stateName}` : ""} has ${verifiedCount} verified public fee observations in Bank Fee Index.`
-        : `${inst.institution_name}${stateName ? ` in ${stateName}` : ""} is tracked by Bank Fee Index with ${provisionalCount} provisional fee observations and ${verifiedCount} verified observations.`,
+    title: `${inst.institution_name} Fee Data Status`,
+    description: `${inst.institution_name}${stateName ? ` in ${stateName}` : ""} is tracked by Bank Fee Index with public fee status, source quality, financial context, and next validation steps.`,
     keywords: [
       inst.institution_name,
       `${inst.institution_name} fees`,
@@ -141,29 +125,69 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const instId = parseInt(id, 10);
   if (Number.isNaN(instId)) notFound();
 
-  const inst = await getInstitutionById(instId);
+  const instPromise = getPublicInstitutionForPage(instId);
+  const financialsPromise = withFallback(
+    getFinancialsByInstitution(instId, 4),
+    [],
+    "financial context",
+  );
+  const inst = await instPromise;
   if (!inst) notFound();
 
-  const [allFees, financials, revenueTrend, peerRanking, evidence, submissionState, automationControl] = await Promise.all([
-    withDeadline(getFeesByInstitution(instId), [], "published fee rows", 3_500),
-    withDeadline(getFinancialsByInstitution(instId), [], "financial context", 3_500),
-    withDeadline(getInstitutionRevenueTrend(instId), [], "revenue trend", 2_500),
-    withDeadline(getInstitutionPeerRanking(instId), null, "peer ranking", 4_000),
-    withDeadline(getInstitutionFeeScheduleEvidence(instId), null, "fee evidence", 3_500),
-    withDeadline(getInstitutionSubmissionState(instId), {
-      status: "none" as const,
-      label: "No source submission recorded.",
-      submission_count: 0,
-      pending_count: 0,
-      accepted_count: 0,
-      rejected_count: 0,
-      needs_info_count: 0,
-      latest_submission: null,
-    }, "source submissions", 1_500),
-    withDeadline(getAutomationControl(), null, "automation state", 1_500),
-  ]);
+  const catalogVisibleFeeCount = Number(inst.fee_count ?? 0);
+  const status = inst.fee_publication_status ?? "unavailable";
+  const statusLabel = getFeePublicationStatusLabel(status);
+  const sourceNeeded =
+    inst.insight_readiness === "source_needed" || status === "unavailable";
+  const sourceReasonLabel = getInstitutionSourceNeededReasonLabel(
+    inst.source_needed_reason ?? "official_source_missing",
+  );
+  const validationNeeded = sourceNeeded || status === "under_review";
+  const emptySubmissionState = {
+    status: "none" as const,
+    label: "No source submission recorded.",
+    submission_count: 0,
+    pending_count: 0,
+    accepted_count: 0,
+    rejected_count: 0,
+    needs_info_count: 0,
+    latest_submission: null,
+  };
 
+  const trustWorkflowPromise = validationNeeded
+    ? Promise.all([
+        withFallback(getInstitutionSubmissionState(instId), emptySubmissionState, "source submissions"),
+        withFallback(getAutomationControl(), null, "automation state"),
+      ])
+    : Promise.resolve([emptySubmissionState, null] as const);
+  const feesPromise = catalogVisibleFeeCount > 0
+    ? withFallback(getFeesByInstitution(instId), [], "published fee rows")
+    : Promise.resolve([]);
+  const shouldLoadPipelineEvidence =
+    catalogVisibleFeeCount === 0 &&
+    Boolean(
+      inst.fee_schedule_url ||
+        inst.latest_source_status ||
+        (inst.latest_extracted_fee_count ?? 0) > 0,
+    );
+  const evidencePromise = shouldLoadPipelineEvidence
+    ? withFallback(getInstitutionFeeScheduleEvidence(instId), null, "fee evidence")
+    : Promise.resolve(null);
+  const [allFees, evidence, financials, [submissionState, automationControl]] = await Promise.all([
+    feesPromise,
+    evidencePromise,
+    financialsPromise,
+    trustWorkflowPromise,
+  ]);
   const visibleFees = allFees.filter((fee) => fee.review_status !== "rejected");
+  const latestFinancial = financials[0] ?? null;
+  const revenueTrend = financials.map((financial) => ({
+    quarter: formatReportQuarter(financial.report_date),
+    service_charge_income: financial.service_charge_income,
+    fee_income_ratio: financial.fee_income_ratio,
+    yoy_change_pct: null,
+  }));
+
   const verifiedFees = visibleFees.filter((fee) => fee.review_status === "approved");
   const provisionalFees = visibleFees.filter((fee) => fee.review_status !== "approved");
   const catalogFeeRows: DisplayFee[] = visibleFees.map((fee) => ({
@@ -207,8 +231,16 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         ].slice(0, 18)
       : [];
   const feeRows = [...catalogFeeRows, ...pipelineProvisionalRows];
+  const pipelineCounts = evidence?.pipeline_counts ?? null;
+  const pipelineProvisionalCount = pipelineCounts
+    ? Math.max(
+        0,
+        (pipelineCounts.raw_without_verified_count ?? 0) +
+          (pipelineCounts.verified_without_published_count ?? 0),
+      )
+    : pipelineProvisionalRows.length;
 
-  const nationalIndex = verifiedFees.length > 0 ? await getNationalIndex().catch(() => []) : [];
+  const nationalIndex = verifiedFees.length > 0 ? await getNationalIndexCached().catch(() => []) : [];
   const rating = verifiedFees.length > 0 ? computeInstitutionRating(verifiedFees, nationalIndex) : null;
   const overdraftFee = verifiedFees.find(
     (fee) => fee.fee_name.toLowerCase().includes("overdraft") && fee.amount !== null,
@@ -228,28 +260,28 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const tierLabel = inst.asset_size_tier
     ? FDIC_TIER_LABELS[inst.asset_size_tier] ?? inst.asset_size_tier
     : null;
-  const latestFinancial = financials[0] ?? null;
-  const status = inst.fee_publication_status ?? "unavailable";
-  const statusLabel = getFeePublicationStatusLabel(status);
   const StatusIcon = STATUS_ICON[status];
   const latestCollected = formatDate(inst.latest_source_collected_at ?? null);
-  const submitSourceHref = `/submit-fees?institutionId=${instId}&institutionName=${encodeURIComponent(inst.institution_name)}`;
-  const analyzeHref = `/pro/analyze?instId=${instId}&intent=institution`;
-  const briefHref = `/pro/reports?instId=${instId}&intent=competitive-brief`;
-  const scenarioHref = `/pro/simulate?instId=${instId}`;
-  const sourceNeeded =
-    inst.insight_readiness === "source_needed" || status === "unavailable";
-  const sourceReasonLabel = getInstitutionSourceNeededReasonLabel(
-    inst.source_needed_reason ?? "official_source_missing",
-  );
-  const validationNeeded = sourceNeeded || status === "under_review";
+  const {
+    submitSourceHref,
+    claimReviewHref,
+    analyzeHref,
+    briefHref,
+    scenarioHref,
+  } = buildInstitutionProfileLinks({
+    institutionId: instId,
+    institutionName: inst.institution_name,
+  });
   const hasSubmittedSource = submissionState.status !== "none";
   const trustQueueLabel = hasSubmittedSource ? submissionState.label : sourceReasonLabel;
   const automationPaused = automationControl ? !automationControl.enabled : false;
   const verifiedCount = inst.published_fee_count ?? verifiedFees.length;
-  const provisionalCount = inst.provisional_fee_count ?? provisionalFees.length;
+  const provisionalCount = Math.max(
+    inst.provisional_fee_count ?? 0,
+    provisionalFees.length,
+    pipelineProvisionalCount,
+  );
   const rowPreviewUnavailable = feeRows.length === 0 && provisionalCount > 0;
-  const pipelineCounts = evidence?.pipeline_counts ?? null;
   const hasSourceEvidence = Boolean(
     inst.fee_schedule_url ||
       evidence?.latest_document ||
@@ -446,7 +478,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                     {hasSubmittedSource ? "Add another source" : "Submit official source"}
                   </Link>
                   <Link
-                    href={`/contact?source=claim&institutionId=${instId}&institution=${encodeURIComponent(inst.institution_name)}`}
+                    href={claimReviewHref}
                     className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
                   >
                     Claim or validate
@@ -566,7 +598,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                       Financial Context
                     </p>
                     <h2 className="text-lg font-semibold text-[#1A1815]">
-                      Revenue and peer signal
+                      Revenue signal
                     </h2>
                   </div>
                   {latestFinancial && (
@@ -587,46 +619,24 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                       <Metric framed label="Branches" value={latestFinancial.branch_count?.toLocaleString() ?? "N/A"} />
                     </div>
 
-                    {(peerRanking || revenueTrend.length > 0) && (
-                      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                        {peerRanking && (
-                          <div className="rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] p-4">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
-                              Peer ranking
-                            </p>
-                            <p className="mt-2 text-sm text-[#5A5347]">
-                              Service charge income ranks{" "}
-                              <span className="font-semibold text-[#1A1815]">
-                                #{peerRanking.sc_rank} of {peerRanking.peer_count}
-                              </span>{" "}
-                              in the {peerRanking.tier} peer set.
-                            </p>
-                            <p className="mt-2 text-xs text-[#7A7062]">
-                              Peer median service charge income: {formatCompactDollars(peerRanking.peer_median_sc)}
-                            </p>
-                          </div>
-                        )}
-
-                        {revenueTrend.length > 0 && (
-                          <div className="rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] p-4">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
-                              Recent revenue trend
-                            </p>
-                            <div className="mt-3 space-y-2">
-                              {revenueTrend.slice(0, 4).map((quarter) => (
-                                <div key={quarter.quarter} className="flex items-center justify-between gap-3 text-sm">
-                                  <span className="font-medium text-[#1A1815]">{quarter.quarter}</span>
-                                  <span className="tabular-nums text-[#5A5347]">
-                                    {formatCompactDollars(quarter.service_charge_income)}
-                                  </span>
-                                  <span className="w-16 text-right text-xs tabular-nums text-[#7A7062]">
-                                    {formatTrendPercent(quarter.yoy_change_pct)}
-                                  </span>
-                                </div>
-                              ))}
+                    {revenueTrend.length > 0 && (
+                      <div className="mt-5 rounded-lg border border-[#E8DFD1] bg-[#FAF7F2] p-4">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+                          Recent revenue trend
+                        </p>
+                        <div className="mt-3 space-y-2">
+                          {revenueTrend.slice(0, 4).map((quarter, index) => (
+                            <div key={`${quarter.quarter}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                              <span className="font-medium text-[#1A1815]">{quarter.quarter}</span>
+                              <span className="tabular-nums text-[#5A5347]">
+                                {formatCompactDollars(quarter.service_charge_income)}
+                              </span>
+                              <span className="w-16 text-right text-xs tabular-nums text-[#7A7062]">
+                                {formatTrendPercent(quarter.yoy_change_pct)}
+                              </span>
                             </div>
-                          </div>
-                        )}
+                          ))}
+                        </div>
                       </div>
                     )}
                   </>
@@ -648,8 +658,8 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   <Fact label="Location" value={[inst.city, stateName].filter(Boolean).join(", ") || "N/A"} />
                   <Fact label="Asset tier" value={tierLabel ?? "N/A"} />
                   <Fact label="Fed district" value={districtName ?? "N/A"} />
-                  <Fact label="Verified rows" value={(inst.published_fee_count ?? 0).toLocaleString()} />
-                  <Fact label="Provisional rows" value={(inst.provisional_fee_count ?? 0).toLocaleString()} />
+                  <Fact label="Verified rows" value={verifiedCount.toLocaleString()} />
+                  <Fact label="Provisional rows" value={provisionalCount.toLocaleString()} />
                   <Fact label="Source submission" value={hasSubmittedSource ? submissionState.label : "None recorded"} />
                   <Fact label="Source status" value={inst.latest_source_status ?? "N/A"} />
                   <Fact label="Last collected" value={latestCollected ?? "N/A"} />
@@ -940,31 +950,25 @@ function formatFinancialRatio(value: number | null): string {
   return formatStoredPercent(value, Math.abs(value) < 1 ? 2 : 1);
 }
 
+function formatReportQuarter(reportDate: string): string {
+  const date = new Date(reportDate);
+  if (Number.isNaN(date.getTime())) return reportDate;
+  return `${date.getUTCFullYear()}-Q${Math.floor(date.getUTCMonth() / 3) + 1}`;
+}
+
 function formatTrendPercent(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "N/A";
   if (Math.abs(value) > 1_000) return "Review";
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
-function withDeadline<T>(
+function withFallback<T>(
   promise: Promise<T>,
   fallback: T,
   label: string,
-  timeoutMs: number,
 ): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout>;
-  const handledPromise = promise.catch((error) => {
+  return promise.catch((error) => {
     console.error(`Institution page ${label} failed:`, error);
     return fallback;
-  });
-
-  const timeoutPromise = new Promise<T>((resolve) => {
-    timeout = setTimeout(() => {
-      resolve(fallback);
-    }, timeoutMs);
-  });
-
-  return Promise.race([handledPromise, timeoutPromise]).finally(() => {
-    clearTimeout(timeout);
   });
 }

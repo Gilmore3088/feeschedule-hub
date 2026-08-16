@@ -39,7 +39,7 @@ export default function PrivacyPage() {
           </p>
           <p className="mt-3">
             <strong>Usage data.</strong> We collect information about how you use
-            Bank Fee Index, including pages visited, features used, and AI research
+            Bank Fee Index, including pages visited, features used, and Hamilton analysis
             queries. This helps us improve the product and understand usage patterns.
           </p>
           <p className="mt-3">
@@ -124,7 +124,7 @@ export default function PrivacyPage() {
           </h2>
           <ul className="list-disc pl-6 space-y-1.5">
             <li><strong>Stripe</strong> for payment processing</li>
-            <li><strong>Anthropic (Claude)</strong> for AI-powered research features</li>
+            <li><strong>Anthropic (Claude)</strong> for Hamilton analysis features</li>
             <li><strong>Fly.io</strong> for application hosting</li>
           </ul>
           <p className="mt-3">

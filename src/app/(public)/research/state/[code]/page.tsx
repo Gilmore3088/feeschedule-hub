@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getNationalIndex,
+  getNationalIndexCached,
   getPeerIndex,
   getStateStats,
 } from "@/lib/data-store";
@@ -78,7 +78,7 @@ export default async function StateReportPage({ params }: PageProps) {
 
   const stats = await getStateStats(stateCode);
   const stateIndex = await getPeerIndex({ state_code: stateCode });
-  const nationalIndex = await getNationalIndex();
+  const nationalIndex = await getNationalIndexCached();
   const district = STATE_TO_DISTRICT[stateCode];
 
   // Build national lookup
@@ -183,7 +183,8 @@ export default async function StateReportPage({ params }: PageProps) {
             How fees compare between banks and credit unions in this state.
           </p>
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
                   <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
@@ -218,6 +219,7 @@ export default async function StateReportPage({ params }: PageProps) {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       )}
@@ -234,7 +236,8 @@ export default async function StateReportPage({ params }: PageProps) {
           </p>
 
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
                   <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
@@ -332,6 +335,7 @@ export default async function StateReportPage({ params }: PageProps) {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       )}

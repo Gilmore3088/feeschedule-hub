@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getNationalIndex,
+  getNationalIndexCached,
   getPeerIndex,
   getDistrictStats,
   getBeigeBookHeadline,
@@ -82,7 +82,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
 
   const stats = await getDistrictStats(districtId);
   const districtIndex = await getPeerIndex({ fed_districts: [districtId] });
-  const nationalIndex = await getNationalIndex();
+  const nationalIndex = await getNationalIndexCached();
   const beigeHeadline = await getBeigeBookHeadline(districtId);
   const beigeSections = await getLatestBeigeBook(districtId);
 
@@ -239,7 +239,8 @@ export default async function DistrictReportPage({ params }: PageProps) {
           </p>
 
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
                   <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
@@ -346,6 +347,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       )}

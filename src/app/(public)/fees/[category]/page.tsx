@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getFeeCategorySummaries,
   getFeeCategoryDetail,
   getDataFreshness,
 } from "@/lib/data-store";
@@ -17,7 +16,7 @@ import {
   DISPLAY_NAMES,
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
-import { formatAmount, formatAssets } from "@/lib/format";
+import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { DistributionChart } from "@/components/public/distribution-chart";
@@ -61,27 +60,31 @@ export async function generateStaticParams() {
 function WarmTable({
   headers,
   children,
+  minWidth = "min-w-[560px]",
 }: {
   headers: string[];
   children: React.ReactNode;
+  minWidth?: string;
 }) {
   return (
     <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-            {headers.map((h, i) => (
-              <th
-                key={h}
-                className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] ${i > 0 ? "text-right" : ""}`}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#E8DFD1]/40">{children}</tbody>
-      </table>
+      <div className="overflow-x-auto">
+        <table className={`w-full text-left text-sm ${minWidth}`}>
+          <thead>
+            <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+              {headers.map((h, i) => (
+                <th
+                  key={h}
+                  className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] ${i > 0 ? "text-right" : ""}`}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#E8DFD1]/40">{children}</tbody>
+        </table>
+      </div>
     </div>
   );
 }

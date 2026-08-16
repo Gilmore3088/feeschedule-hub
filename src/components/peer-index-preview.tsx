@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import Link from "next/link";
 import { getPeerPreview, type PeerPreviewResult } from "@/app/actions/peer-index";
 
 const TIERS = [
@@ -151,12 +152,12 @@ export function PeerIndexPreview({ initialData }: Props) {
           </div>
         </div>
         <div className="mt-8 flex items-center gap-4">
-          <a
-            href="#request-access"
+          <Link
+            href="/institutions"
             className="inline-flex items-center rounded bg-[#0f172a] px-5 py-2.5 text-[13px] font-semibold text-white hover:bg-slate-800 transition-colors"
           >
             Benchmark Your Institution
-          </a>
+          </Link>
           {hasFilters && (
             <button
               onClick={() => { setCharter(null); setTier(null); setDistrict(null); }}

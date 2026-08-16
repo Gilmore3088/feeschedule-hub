@@ -35,14 +35,18 @@ export function EmailSignup() {
   if (status === "success") {
     return (
       <p className="text-[12px] text-emerald-600">
-        You&apos;re on the list. We&apos;ll send updates that matter.
+        You&apos;re on the list.
       </p>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
+      <label htmlFor="footer-newsletter-email" className="sr-only">
+        Email address for Fee Insight updates
+      </label>
       <input
+        id="footer-newsletter-email"
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}

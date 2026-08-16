@@ -321,7 +321,7 @@ export default async function GuidesIndexPage() {
             Want to benchmark your institution?
           </p>
           <p className="mt-0.5 text-[12px] text-[#7A7062]">
-            Pro members get peer comparisons, FDIC financial data, and AI-powered analysis.
+            Pro members get evidence-labeled peer comparisons, FDIC financial data, and Hamilton analysis workflows.
           </p>
         </div>
         <Link

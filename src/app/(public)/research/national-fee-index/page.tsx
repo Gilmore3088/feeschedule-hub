@@ -266,93 +266,95 @@ export default async function NationalFeeIndexPage() {
                 {familyName}
               </h2>
               <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                        Fee Category
-                      </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                        Median
-                      </th>
-                      {isPro && (
-                        <>
-                          <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                            P25
-                          </th>
-                          <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
-                            P75
-                          </th>
-                          <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                            Range
-                          </th>
-                          <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                            Banks
-                          </th>
-                          <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                            CUs
-                          </th>
-                          <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
-                            Institutions
-                          </th>
-                        </>
-                      )}
-                      {!isPro && (
-                        <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
-                          Institutions
+                <div className="overflow-x-auto">
+                  <table className={`w-full text-left text-sm ${isPro ? "min-w-[760px]" : "min-w-[420px]"}`}>
+                    <thead>
+                      <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
+                        <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                          Fee Category
                         </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E8DFD1]/60">
-                    {entries.map((entry) => (
-                      <tr
-                        key={entry.fee_category}
-                        className="hover:bg-[#FAF7F2]/60 transition-colors"
-                      >
-                        <td className="px-4 py-2.5">
-                          <Link
-                            href={`/fees/${entry.fee_category}`}
-                            className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
-                          >
-                            {getDisplayName(entry.fee_category)}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                          {formatAmount(entry.median_amount)}
-                        </td>
+                        <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                          Median
+                        </th>
                         {isPro && (
                           <>
-                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
-                              {formatAmount(entry.p25_amount)}
-                            </td>
-                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
-                              {formatAmount(entry.p75_amount)}
-                            </td>
-                            <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                              {formatAmount(entry.min_amount)} &ndash;{" "}
-                              {formatAmount(entry.max_amount)}
-                            </td>
-                            <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                              {entry.bank_count.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                              {entry.cu_count.toLocaleString()}
-                            </td>
-                            <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
-                              {entry.institution_count.toLocaleString()}
-                            </td>
+                            <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                              P25
+                            </th>
+                            <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                              P75
+                            </th>
+                            <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                              Range
+                            </th>
+                            <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                              Banks
+                            </th>
+                            <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                              CUs
+                            </th>
+                            <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
+                              Institutions
+                            </th>
                           </>
                         )}
                         {!isPro && (
-                          <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                            {entry.institution_count.toLocaleString()}
-                          </td>
+                          <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                            Institutions
+                          </th>
                         )}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-[#E8DFD1]/60">
+                      {entries.map((entry) => (
+                        <tr
+                          key={entry.fee_category}
+                          className="hover:bg-[#FAF7F2]/60 transition-colors"
+                        >
+                          <td className="px-4 py-2.5">
+                            <Link
+                              href={`/fees/${entry.fee_category}`}
+                              className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
+                            >
+                              {getDisplayName(entry.fee_category)}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
+                            {formatAmount(entry.median_amount)}
+                          </td>
+                          {isPro && (
+                            <>
+                              <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
+                                {formatAmount(entry.p25_amount)}
+                              </td>
+                              <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
+                                {formatAmount(entry.p75_amount)}
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                                {formatAmount(entry.min_amount)} &ndash;{" "}
+                                {formatAmount(entry.max_amount)}
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                                {entry.bank_count.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                                {entry.cu_count.toLocaleString()}
+                              </td>
+                              <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] md:table-cell">
+                                {entry.institution_count.toLocaleString()}
+                              </td>
+                            </>
+                          )}
+                          {!isPro && (
+                            <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                              {entry.institution_count.toLocaleString()}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </section>
           );
