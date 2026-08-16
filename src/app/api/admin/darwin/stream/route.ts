@@ -1,6 +1,7 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 
-export async function GET() {
+async function handleGET() {
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "trigger_jobs")) {
     return new Response("forbidden", { status: 403 });
@@ -10,3 +11,5 @@ export async function GET() {
     { status: 410 },
   );
 }
+
+export const GET = withApiRoutePolicy("api.admin.darwin.stream", "GET", handleGET);

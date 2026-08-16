@@ -1,20 +1,29 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
 import { getDisplayName, getFeeFamily, getFeeTier } from "@/lib/fee-taxonomy";
 import { validateApiKey } from "@/lib/api-auth";
-import { checkRateLimit } from "@/lib/api-rate-limit";
+import { checkRateLimitWithTier } from "@/lib/api-rate-limit";
 import { logApiUsage } from "@/lib/api-usage";
+import { getCurrentUser } from "@/lib/auth";
+import { canExportData } from "@/lib/access";
 import crypto from "crypto";
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   // API auth + rate limiting
   const authResult = await validateApiKey(request);
-  if (authResult.valid === false && authResult.error === "Invalid or revoked API key") {
+  if (authResult.error) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const anonId = authResult.organizationId ? null : crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16);
-  const rateResult = await checkRateLimit(authResult.organizationId, anonId);
+  const tier = authResult.valid ? authResult.tier : "free";
+  const rateResult = await checkRateLimitWithTier(
+    authResult.organizationId,
+    anonId,
+    tier,
+    "api.v1.index",
+  );
   if (!rateResult.allowed) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: {
       "X-RateLimit-Limit": String(rateResult.limit),
@@ -27,6 +36,26 @@ export async function GET(request: NextRequest) {
   const charter = searchParams.get("charter");
   const district = searchParams.get("district");
   const format = searchParams.get("format");
+
+  if (format === "csv") {
+    const user = await getCurrentUser();
+    if (!canExportData(user)) {
+      logApiUsage(authResult.organizationId, anonId, "api.v1.index.csv", {
+        status: 403,
+      }).catch(() => {});
+      return NextResponse.json(
+        { error: "CSV export requires a Seat License", upgrade_url: "/subscribe" },
+        {
+          status: 403,
+          headers: {
+            "X-RateLimit-Limit": String(rateResult.limit),
+            "X-RateLimit-Remaining": String(rateResult.remaining),
+            "X-RateLimit-Reset": rateResult.reset.toISOString(),
+          },
+        },
+      );
+    }
+  }
 
   const hasFilters = state || charter || district;
 
@@ -114,3 +143,5 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+
+export const GET = withApiRoutePolicy("api.v1.index", "GET", handleGET);

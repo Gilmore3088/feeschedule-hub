@@ -1,11 +1,59 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import {
   getInstitutionById,
   getFeesByInstitution,
   getInstitutionsByFilter,
 } from "@/lib/data-store";
+import { validateApiKey } from "@/lib/api-auth";
+import { checkRateLimitWithTier } from "@/lib/api-rate-limit";
+import { logApiUsage } from "@/lib/api-usage";
 
-export async function GET(request: NextRequest) {
+function getAnonymousId(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
+  return createHash("sha256").update(ip).digest("hex").slice(0, 16);
+}
+
+function withRateLimitHeaders(
+  response: NextResponse,
+  rateLimit: { limit: number; remaining: number; reset: Date },
+): NextResponse {
+  response.headers.set("X-RateLimit-Limit", String(rateLimit.limit));
+  response.headers.set("X-RateLimit-Remaining", String(rateLimit.remaining));
+  response.headers.set("X-RateLimit-Reset", rateLimit.reset.toISOString());
+  return response;
+}
+
+async function handleGET(request: NextRequest) {
+  const auth = await validateApiKey(request);
+  if (auth.error) {
+    return NextResponse.json({ error: auth.error }, { status: 401 });
+  }
+
+  const organizationId = auth.organizationId;
+  const anonymousId = organizationId ? null : getAnonymousId(request);
+  const tier = auth.valid ? auth.tier : "free";
+  const rateLimit = await checkRateLimitWithTier(
+    organizationId,
+    anonymousId,
+    tier,
+    "api.v1.institutions",
+  );
+
+  if (!rateLimit.allowed) {
+    const response = NextResponse.json(
+      {
+        error: "Rate limit exceeded",
+        limit: rateLimit.limit,
+        reset: rateLimit.reset.toISOString(),
+      },
+      { status: 429 },
+    );
+    return withRateLimitHeaders(response, rateLimit);
+  }
+
   const { searchParams } = request.nextUrl;
   const id = searchParams.get("id");
   const state = searchParams.get("state");
@@ -17,12 +65,18 @@ export async function GET(request: NextRequest) {
   if (id) {
     const instId = parseInt(id, 10);
     if (isNaN(instId)) {
-      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+      const response = NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     const inst = await getInstitutionById(instId);
     if (!inst) {
-      return NextResponse.json({ error: "Institution not found" }, { status: 404 });
+      logApiUsage(organizationId, anonymousId, "api.v1.institutions.detail", {
+        institution_id: instId,
+        status: 404,
+      }).catch(() => {});
+      const response = NextResponse.json({ error: "Institution not found" }, { status: 404 });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     const fees = (await getFeesByInstitution(instId))
@@ -35,7 +89,12 @@ export async function GET(request: NextRequest) {
         review_status: f.review_status,
       }));
 
-    return NextResponse.json({
+    logApiUsage(organizationId, anonymousId, "api.v1.institutions.detail", {
+      institution_id: instId,
+      status: 200,
+    }).catch(() => {});
+
+    const response = NextResponse.json({
       id: inst.id,
       name: inst.institution_name,
       state: inst.state_code,
@@ -47,6 +106,7 @@ export async function GET(request: NextRequest) {
       fee_count: fees.length,
       fees,
     });
+    return withRateLimitHeaders(response, rateLimit);
   }
 
   // List institutions
@@ -66,7 +126,15 @@ export async function GET(request: NextRequest) {
 
   const { rows, total } = await getInstitutionsByFilter(filters);
 
-  return NextResponse.json({
+  logApiUsage(organizationId, anonymousId, "api.v1.institutions.list", {
+    state: filters.state_code ?? null,
+    charter_type: filters.charter_type ?? null,
+    page,
+    page_size: pageSize,
+    status: 200,
+  }).catch(() => {});
+
+  const response = NextResponse.json({
     total,
     page,
     page_size: pageSize,
@@ -83,4 +151,7 @@ export async function GET(request: NextRequest) {
       fee_count: r.fee_count,
     })),
   });
+  return withRateLimitHeaders(response, rateLimit);
 }
+
+export const GET = withApiRoutePolicy("api.v1.institutions", "GET", handleGET);

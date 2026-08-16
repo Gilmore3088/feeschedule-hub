@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * POST /api/pro/report-pdf
  *
@@ -16,9 +17,13 @@ import type { ReactElement, JSXElementConstructor } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { PdfDocument } from "@/components/hamilton/reports/PdfDocument";
 import { AnalysisPdfDocument } from "@/components/hamilton/reports/AnalysisPdfDocument";
-import type { ReportSummaryResponse, AnalyzeResponse } from "@/lib/hamilton/types";
+import type {
+  AnalyzeResponse,
+  ReportArtifactMetadata,
+  ReportSummaryResponse,
+} from "@/lib/hamilton/types";
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function handlePOST(req: NextRequest): Promise<NextResponse> {
   // Auth check
   let user = null;
   try {
@@ -83,12 +88,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // ── Report branch (default) ──────────────────────────────────────────────
   const report = body.report as ReportSummaryResponse;
   const reportType = (body.reportType as string) || "report";
+  const artifactMetadata =
+    body.artifactMetadata && typeof body.artifactMetadata === "object"
+      ? (body.artifactMetadata as ReportArtifactMetadata)
+      : null;
   if (!report || !report.title) {
     return NextResponse.json({ error: "Invalid report data" }, { status: 400 });
   }
 
   try {
-    const element = createElement(PdfDocument, { report, reportType }) as unknown as ReactElement<DocumentProps, string | JSXElementConstructor<unknown>>;
+    const element = createElement(PdfDocument, {
+      report,
+      reportType,
+      artifactMetadata,
+    }) as unknown as ReactElement<DocumentProps, string | JSXElementConstructor<unknown>>;
     const buffer = await renderToBuffer(element);
     const uint8 = new Uint8Array(buffer);
 
@@ -112,3 +125,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+export const POST = withApiRoutePolicy("api.pro.report_pdf", "POST", handlePOST);

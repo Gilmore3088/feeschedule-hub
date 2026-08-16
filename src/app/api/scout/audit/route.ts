@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 // src/app/api/scout/audit/route.ts
 
 import { NextRequest } from "next/server";
@@ -8,7 +9,7 @@ import type { AuditSSEEvent, AuditAgentId, BatchSummary } from "@/lib/scout/audi
 
 export const maxDuration = 120;
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user || user.role !== "admin") {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
@@ -132,3 +133,5 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = withApiRoutePolicy("api.scout.audit", "POST", handlePOST);

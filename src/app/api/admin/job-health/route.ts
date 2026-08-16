@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 // Reliability Roadmap #1 — external cron health endpoint.
 //
 // Returns a JSON summary of whether each expected scheduled job has completed
@@ -17,7 +18,7 @@ import { isJobHealthDegraded } from "@/lib/job-health";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+async function handleGET() {
   const [scheduleHealth, control, counts] = await Promise.all([
     getJobFreshness(),
     getAutomationControl(),
@@ -41,3 +42,5 @@ export async function GET() {
   const degraded = isJobHealthDegraded(health);
   return NextResponse.json(health, { status: degraded ? 503 : 200 });
 }
+
+export const GET = withApiRoutePolicy("api.admin.job_health", "GET", handleGET);

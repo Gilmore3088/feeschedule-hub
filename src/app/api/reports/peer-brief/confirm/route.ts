@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * GET /api/reports/peer-brief/confirm
  * Phase 15-01: Lightweight peer group preview for the brief configuration UI.
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic';
 // T-15-03: allowlist of valid charter values
 const VALID_CHARTERS = new Set(['bank', 'credit_union', '']);
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   // T-15-01: auth required before any DB query
   const user = await getCurrentUser();
   if (!user) {
@@ -81,3 +82,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withApiRoutePolicy("api.reports.peer_brief.confirm", "GET", handleGET);

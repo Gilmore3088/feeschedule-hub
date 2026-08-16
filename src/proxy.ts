@@ -9,6 +9,10 @@ function requestHeadersWithPath(request: NextRequest) {
   return requestHeaders;
 }
 
+function isRouteBranch(pathname: string, branch: string) {
+  return pathname === branch || pathname.startsWith(`${branch}/`);
+}
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
@@ -36,11 +40,22 @@ export function proxy(request: NextRequest) {
     });
   }
 
-  // Check for session cookie on all /admin/* routes
-  if (pathname.startsWith("/admin")) {
+  // Check for session cookie on all /admin routes.
+  if (isRouteBranch(pathname, "/admin")) {
     const session = request.cookies.get("fsh_session");
     if (!session?.value) {
       const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("from", `${pathname}${request.nextUrl.search}`);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // No-session Pro routes should redirect before App Router rendering so
+  // institution-specific return paths do not depend on streamed meta redirects.
+  if (isRouteBranch(pathname, "/pro")) {
+    const session = request.cookies.get("fsh_session");
+    if (!session?.value) {
+      const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("from", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(loginUrl);
     }

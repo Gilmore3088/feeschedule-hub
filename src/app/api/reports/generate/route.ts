@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * POST /api/reports/generate
  * Phase 13-03 + 14-03: report generation endpoint with cron auth support.
@@ -23,28 +24,23 @@ import { checkFreshness } from '@/lib/report-engine/freshness';
 import { triggerReportJob } from '@/lib/report-agent-runs';
 import type { ReportType } from '@/lib/report-engine/types';
 import { matchesConfiguredCronSecret } from '@/lib/cron-secret';
+import {
+  isLegacyGeneratableReportType,
+  legacyReportTypeError,
+} from '@/lib/report-engine/legacy-generation-policy';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-// Allowlist — T-13-13: explicit validation before DB insert
-const VALID_REPORT_TYPES: ReadonlySet<string> = new Set([
-  'national_index',
-  'state_index',
-  'peer_brief',
-  'monthly_pulse',
-]);
-
 // Derive freshness scope from report type
 function getFreshnessScope(
   reportType: ReportType,
-): 'national' | 'state' | 'peer' {
+): 'national' | 'state' {
   if (reportType === 'state_index') return 'state';
-  if (reportType === 'peer_brief') return 'peer';
   return 'national';
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   // T-13-10 / T-14-07: dual auth — session cookie or cron secret header
   const user = await getCurrentUser();
 
@@ -72,17 +68,19 @@ export async function POST(request: Request) {
 
   const { report_type, params } = body;
 
-  // T-13-13: validate report_type against explicit allowlist
-  if (typeof report_type !== 'string' || !VALID_REPORT_TYPES.has(report_type)) {
+  // T-13-13: validate report_type against explicit allowlist. Peer briefs
+  // intentionally do not enter this legacy job queue; Hamilton Reports owns
+  // institution-aware peer briefs with evidence policy and baseline metadata.
+  if (!isLegacyGeneratableReportType(report_type)) {
     return NextResponse.json(
       {
-        error: `Invalid report_type. Must be one of: ${[...VALID_REPORT_TYPES].join(', ')}`,
+        error: legacyReportTypeError(),
       },
       { status: 400 },
     );
   }
 
-  const validatedType = report_type as ReportType;
+  const validatedType = report_type;
   const validatedParams =
     params !== null && typeof params === 'object' && !Array.isArray(params)
       ? (params as Record<string, unknown>)
@@ -145,3 +143,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ jobId }, { status: 202 });
 }
+
+export const POST = withApiRoutePolicy("api.reports.generate", "POST", handlePOST);

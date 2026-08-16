@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { executeQueuedAgentRuns } from "@/lib/agents/run-store";
@@ -5,6 +6,7 @@ import { scheduleDueStateLaneRuns } from "@/lib/agents/state-lane-scheduler";
 import { getAutomationControl } from "@/lib/automation-control";
 import { matchesConfiguredCronSecret } from "@/lib/cron-secret";
 import { getExecutionBackendStatus } from "@/lib/execution-backend";
+import { assertCronTickBudgetAllowed } from "@/lib/api-hardening/budget";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,7 +25,7 @@ function parsePositiveInt(value: string | null, fallback: number, max: number): 
   return Math.min(parsed, max);
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   if (!(await isAuthorized(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -65,14 +67,53 @@ export async function GET(request: NextRequest) {
   const runLimit = parsePositiveInt(request.nextUrl.searchParams.get("runLimit"), 2, 10);
   const maxStepsPerRun = parsePositiveInt(request.nextUrl.searchParams.get("maxStepsPerRun"), 1, 5);
   const stateLaneLimit = parsePositiveInt(request.nextUrl.searchParams.get("stateLaneLimit"), 2, 10);
+  const budget = await assertCronTickBudgetAllowed({
+    routeId: "api.admin.agents.tick",
+    requestedRunLimit: runLimit,
+    requestedMaxStepsPerRun: maxStepsPerRun,
+    requestedStateLaneLimit: stateLaneLimit,
+    triggeredBy: "api.admin.agents.tick",
+  });
+  if (!budget.allowed) {
+    return NextResponse.json({
+      ok: true,
+      paused: true,
+      pauseReason: budget.message ?? "Agent tick budget policy blocks execution.",
+      blockedReason: budget.reasonCode,
+      budget: {
+        policyId: budget.policyId ?? null,
+        configured: false,
+        reasonCode: budget.reasonCode,
+      },
+      scheduledStateLanes: {
+        selected: 0,
+        scheduled: 0,
+        reused: 0,
+        failed: [],
+        results: [],
+      },
+      selected: 0,
+      results: [],
+    }, { status: 423 });
+  }
+
   const scheduledStateLanes = await scheduleDueStateLaneRuns({
     limit: stateLaneLimit,
     triggeredBy: "api.admin.agents.tick",
   });
-  const result = await executeQueuedAgentRuns({ runLimit, maxStepsPerRun });
+  const result = await executeQueuedAgentRuns({
+    runLimit,
+    maxStepsPerRun,
+    budgetPolicyId: budget.policyId ?? null,
+    maxProviderCallsPerRun: budget.maxProviderCalls ?? null,
+    maxEstimatedCostMicrousd: budget.maxEstimatedMicrousd ?? null,
+  });
   return NextResponse.json({ ok: true, scheduledStateLanes, ...result });
 }
 
-export async function POST(request: NextRequest) {
-  return GET(request);
+async function handlePOST(request: NextRequest) {
+  return handleGET(request);
 }
+
+export const GET = withApiRoutePolicy("api.admin.agents.tick", "GET", handleGET);
+export const POST = withApiRoutePolicy("api.admin.agents.tick", "POST", handlePOST);

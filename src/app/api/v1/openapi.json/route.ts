@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextResponse } from "next/server";
 import { SITE_URL } from "@/lib/constants";
 
@@ -7,7 +8,7 @@ const spec = {
     title: "Bank Fee Index API",
     version: "1.0.0",
     description:
-      "Programmatic access to bank and credit union fee benchmarking data covering 49 fee categories across thousands of U.S. financial institutions. Data sourced from published fee schedules, FDIC, and NCUA registries.",
+      "Programmatic access to bank and credit union fee benchmarking data covering 49 fee categories across thousands of U.S. financial institutions. Data sourced from published fee schedules, FDIC, and NCUA registries. Unauthenticated JSON reads are supported with free-tier rate limits; API keys are manually issued and are not self-serve from Account yet.",
     contact: {
       name: "Bank Fee Index",
       email: "api@bankfeeindex.com",
@@ -21,20 +22,20 @@ const spec = {
       description: "Production",
     },
   ],
-  security: [{ BearerAuth: [] }, { ApiKeyQuery: [] }],
+  security: [{}, { BearerAuth: [] }, { ApiKeyQuery: [] }],
   components: {
     securitySchemes: {
       BearerAuth: {
         type: "http",
         scheme: "bearer",
         description:
-          "Pass your API key as a Bearer token in the Authorization header.",
+          "Pass a manually issued API key as a Bearer token in the Authorization header.",
       },
       ApiKeyQuery: {
         type: "apiKey",
         in: "query",
         name: "api_key",
-        description: "Pass your API key as a query parameter.",
+        description: "Pass a manually issued API key as a query parameter.",
       },
     },
     schemas: {
@@ -196,7 +197,7 @@ const spec = {
         name: "format",
         in: "query",
         schema: { type: "string", enum: ["csv"] },
-        description: 'Set to "csv" for CSV download. Requires Pro or Enterprise tier.',
+        description: 'Set to "csv" for CSV download. Requires a signed-in Seat License export session.',
       },
     },
   },
@@ -233,7 +234,7 @@ const spec = {
             },
           },
           "403": {
-            description: "CSV export requires Pro tier",
+            description: "CSV export requires a Seat License",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/Error" },
@@ -503,7 +504,7 @@ const spec = {
   ],
   "x-rateLimit": {
     description:
-      "Rate limits are applied per API key. Free: 100 requests/month. Pro: 10,000 requests/month. Enterprise: custom.",
+      "Rate limits are applied per API key when present and by anonymous request source otherwise. Free: 100 requests/month. Manually issued Pro keys: 10,000 requests/month. Enterprise: custom.",
     headers: {
       "X-RateLimit-Limit": "Maximum requests allowed in the current window",
       "X-RateLimit-Remaining": "Requests remaining in the current window",
@@ -512,7 +513,7 @@ const spec = {
   },
 };
 
-export async function GET() {
+async function handleGET() {
   return NextResponse.json(spec, {
     headers: {
       "Cache-Control": "public, max-age=3600",
@@ -520,3 +521,5 @@ export async function GET() {
     },
   });
 }
+
+export const GET = withApiRoutePolicy("api.v1.openapi", "GET", handleGET);

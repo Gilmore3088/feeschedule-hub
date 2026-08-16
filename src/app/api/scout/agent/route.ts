@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 // src/app/api/scout/agent/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
@@ -5,7 +6,7 @@ import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { getLatestAgentRun, getAgentRunResults } from "@/lib/scout/agent-db";
 import { startAgentRun } from "@/lib/agents/run-store";
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "view")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ run: { ...run, results } });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "trigger_jobs")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -83,3 +84,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.scout.agent", "GET", handleGET);
+export const POST = withApiRoutePolicy("api.scout.agent", "POST", handlePOST);

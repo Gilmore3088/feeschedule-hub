@@ -1,9 +1,11 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { getStripe, getWebhookSecret } from "@/lib/stripe";
 import { withTransaction } from "@/lib/data-store/connection";
+import { acceptPendingWorkspaceInvitationsForUser } from "@/lib/hamilton/institution-membership";
 import { headers } from "next/headers";
 import type Stripe from "stripe";
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const body = await req.text();
   const signature = (await headers()).get("stripe-signature");
 
@@ -48,11 +50,21 @@ export async function POST(req: Request) {
           console.log(`[stripe-webhook] checkout.session.completed: customer=${customerId}, email=${email}, metadata=${JSON.stringify(session.metadata)}`);
 
           if (customerId && email) {
-            const result2 = await tx`
-              UPDATE users SET subscription_status = 'active', role = 'premium', stripe_customer_id = ${customerId}
+            const activatedUsers = await tx<Array<{ id: number; email: string | null }>>`
+              UPDATE users
+              SET subscription_status = 'active',
+                  role = 'premium',
+                  stripe_customer_id = ${customerId}
               WHERE (email = ${email} OR username = ${email}) AND role NOT IN ('admin', 'analyst')
+              RETURNING id, email
             `;
-            console.log(`[stripe-webhook] Updated ${result2.count} user(s) for ${email}`);
+            for (const activatedUser of activatedUsers) {
+              await acceptPendingWorkspaceInvitationsForUser(
+                { userId: activatedUser.id, email: activatedUser.email ?? email },
+                tx,
+              );
+            }
+            console.log(`[stripe-webhook] Updated ${activatedUsers.length} user(s) for ${email}`);
           }
           break;
         }
@@ -62,10 +74,19 @@ export async function POST(req: Request) {
           const customerId =
             typeof sub.customer === "string" ? sub.customer : sub.customer.id;
           const status = mapStripeStatus(sub.status);
-          await tx`
+          const updatedUsers = await tx<Array<{ id: number; email: string | null }>>`
             UPDATE users SET subscription_status = ${status}
             WHERE stripe_customer_id = ${customerId}
+            RETURNING id, email
           `;
+          if (status === "active") {
+            for (const updatedUser of updatedUsers) {
+              await acceptPendingWorkspaceInvitationsForUser(
+                { userId: updatedUser.id, email: updatedUser.email },
+                tx,
+              );
+            }
+          }
           break;
         }
 
@@ -131,3 +152,5 @@ function mapStripeStatus(stripeStatus: string): SubscriptionStatus {
       return "none";
   }
 }
+
+export const POST = withApiRoutePolicy("api.webhooks.stripe", "POST", handlePOST);

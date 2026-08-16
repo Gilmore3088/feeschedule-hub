@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { executeAgentRun } from "@/lib/agents/run-store";
@@ -17,7 +18,7 @@ function parseMaxSteps(value: unknown): number {
   return Math.min(Math.max(Math.floor(parsed), 1), 5);
 }
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
@@ -42,3 +43,5 @@ export async function POST(
   const result = await executeAgentRun(runId, { maxSteps: parseMaxSteps(body.maxSteps) });
   return NextResponse.json(result, { status: result.status === "missing" ? 404 : 202 });
 }
+
+export const POST = withApiRoutePolicy("api.admin.agents.runs.execute", "POST", handlePOST);

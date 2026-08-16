@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 /**
  * POST /api/hamilton/simulate
  *
@@ -10,6 +11,7 @@
  *   proposedFee: number
  *   distributionData: DistributionData (p25/median/p75/min/max/approved_count)
  *   institutionContext: { name?: string; type?: string; assetTier?: string; fedDistrict?: number | null }
+ *   peerContext: optional label/source/fallback metadata for the selected peer baseline
  *
  * Response: data stream — plain text prose interpretation
  * Only the interpretation field streams. Structured fields (tradeoffs, recommendedPosition)
@@ -24,13 +26,13 @@ import { guardProviderCall, recordProviderUsage } from "@/lib/ai-provider-usage"
 import { getAnthropicLanguageModel } from "@/lib/ai-provider";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
-import { getDailyCostCents, logUsage } from "@/lib/research/history";
+import { logUsage } from "@/lib/research/history";
 import type { DistributionData } from "@/lib/hamilton/simulation";
+import { getRequestSubjectKey } from "@/lib/api-hardening/audit";
 
 export const maxDuration = 30;
 
 const HAMILTON_MODEL = "claude-sonnet-4-5-20250929";
-const DAILY_COST_LIMIT_CENTS = 5000; // $50/day
 
 const COST_PER_M_INPUT: Record<string, number> = {
   "claude-haiku-4-5-20251001": 80,
@@ -44,15 +46,10 @@ const COST_PER_M_OUTPUT: Record<string, number> = {
   "claude-opus-4-5-20250514": 7500,
 };
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await getCurrentUser();
   if (!user || !canAccessPremium(user)) {
     return new Response("Unauthorized", { status: 401 });
-  }
-
-  const dailyCost = await getDailyCostCents().catch(() => 0);
-  if (dailyCost >= DAILY_COST_LIMIT_CENTS) {
-    return new Response("Daily cost limit reached", { status: 429 });
   }
 
   let body: {
@@ -66,6 +63,11 @@ export async function POST(request: Request) {
       assetTier?: string;
       fedDistrict?: number | null;
     };
+    peerContext?: {
+      label?: string | null;
+      source?: string | null;
+      fallbackReason?: string | null;
+    };
   };
 
   try {
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const { feeCategory, currentFee, proposedFee, distributionData, institutionContext } = body;
+  const { feeCategory, currentFee, proposedFee, distributionData, institutionContext, peerContext } = body;
 
   if (!feeCategory || typeof currentFee !== "number" || typeof proposedFee !== "number") {
     return new Response("Missing required fields: feeCategory, currentFee, proposedFee", {
@@ -83,6 +85,9 @@ export async function POST(request: Request) {
   }
 
   const { median_amount, p25_amount, p75_amount, approved_count } = distributionData;
+  const peerLabel = peerContext?.label || distributionData.peer_label || "verified peer baseline";
+  const peerSource = peerContext?.source || distributionData.peer_source || "unknown";
+  const peerFallbackReason = peerContext?.fallbackReason || distributionData.peer_fallback_reason || null;
   const direction =
     proposedFee > currentFee
       ? "increasing"
@@ -105,7 +110,7 @@ REQUIRED framing — address these dimensions:
 
 Do NOT provide concrete dollar revenue projections. No "you'll lose $X million" or "revenue impact: -$500K". Frame revenue impact directionally only.
 
-Tone: McKinsey-grade strategic advisor. Confident, not hedging. Data-grounded, not generic.`;
+Tone: Top-tier consulting strategic advisor. Confident, not hedging. Data-grounded, not generic.`;
 
   const institutionLine = institutionContext.name
     ? `Institution: ${institutionContext.name}${institutionContext.type ? ` (${institutionContext.type}` : ""}${institutionContext.assetTier ? `, ${institutionContext.assetTier}` : ""}${institutionContext.type ? ")" : ""}`
@@ -117,7 +122,9 @@ Fee category: ${displayCategory}
 Current fee: $${currentFee.toFixed(2)}
 Proposed fee: $${proposedFee.toFixed(2)} (${direction} by $${changeDollars})
 
-Market distribution (${approved_count} approved observations):
+Peer baseline: ${peerLabel} (${peerSource})
+${peerFallbackReason ? `Peer fallback: ${peerFallbackReason}` : ""}
+Peer distribution (${approved_count} approved observations):
 - P25: $${p25_amount?.toFixed(2) ?? "N/A"}
 - Median: $${median_amount?.toFixed(2) ?? "N/A"}
 - P75: $${p75_amount?.toFixed(2) ?? "N/A"}
@@ -129,6 +136,9 @@ Provide a concise strategic interpretation of this fee change. What does this po
     model: HAMILTON_MODEL,
     agent: "hamilton",
     operation: "simulate_fee_change",
+    routeId: "api.hamilton.simulate",
+    userId: user.id,
+    subjectKey: getRequestSubjectKey(request),
   };
   let providerStartedAt: number;
   try {
@@ -177,3 +187,5 @@ Provide a concise strategic interpretation of this fee change. What does this po
 
   return result.toTextStreamResponse();
 }
+
+export const POST = withApiRoutePolicy("api.hamilton.simulate", "POST", handlePOST);

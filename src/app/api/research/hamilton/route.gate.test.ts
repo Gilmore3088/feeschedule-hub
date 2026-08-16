@@ -42,6 +42,12 @@ vi.mock("@/lib/ai-provider-usage", () => ({
       this.name = "ProviderCircuitOpenError";
     }
   },
+  ProviderBudgetBlockedError: class ProviderBudgetBlockedError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "ProviderBudgetBlockedError";
+    }
+  },
   trackAnthropicRequest: providerUsageMocks.trackAnthropicRequestMock,
   guardProviderCall: providerUsageMocks.guardProviderCallMock,
   recordProviderUsage: providerUsageMocks.recordProviderUsageMock,
@@ -91,6 +97,8 @@ vi.mock("@/lib/research/agents", () => ({
   buildMonitorModeSuffix: () => "",
 }));
 
+import { getCurrentUser } from "@/lib/auth";
+
 // ─── Test-local helper ────────────────────────────────────────────────────────
 
 function makeRequest(body: unknown): Request {
@@ -110,11 +118,42 @@ describe("POST /api/research/hamilton — citation gate", () => {
 
   beforeEach(() => {
     generateTextMock.mockReset();
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: 1,
+      role: "admin",
+      username: "test",
+      display_name: "Test Admin",
+      email: "test@example.com",
+      stripe_customer_id: null,
+      subscription_status: "active",
+      institution_name: null,
+      institution_type: null,
+      asset_tier: null,
+      state_code: null,
+      fed_district: null,
+      job_role: null,
+      interests: null,
+    });
     providerUsageMocks.trackAnthropicRequestMock.mockReset().mockImplementation(
       async (_context: unknown, request: () => Promise<unknown>) => request(),
     );
     providerUsageMocks.guardProviderCallMock.mockReset().mockResolvedValue(Date.now());
     providerUsageMocks.recordProviderUsageMock.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("should_reject_unauthenticated_public_ai_before_provider_guard", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValueOnce(null);
+
+    const { POST } = await import("./route");
+    const res = await POST(makeRequest({
+      messages: [{ role: "user", parts: [{ type: "text", text: "overdraft report" }] }],
+    }));
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.code).toBe("public_ai_disabled");
+    expect(providerUsageMocks.guardProviderCallMock).not.toHaveBeenCalled();
+    expect(providerUsageMocks.trackAnthropicRequestMock).not.toHaveBeenCalled();
   });
 
   it("should_return_refused_when_report_has_no_citations", async () => {

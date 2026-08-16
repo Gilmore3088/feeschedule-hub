@@ -1,8 +1,9 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { autocompleteInstitutions } from "@/lib/scout/db";
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "research")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,3 +22,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withApiRoutePolicy("api.scout.institutions", "GET", handleGET);

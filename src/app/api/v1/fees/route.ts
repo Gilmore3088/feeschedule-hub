@@ -1,3 +1,4 @@
+import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { getFeeCategorySummaries, getFeeCategoryDetail } from "@/lib/data-store";
@@ -24,7 +25,7 @@ function addRateLimitHeaders(
   return response;
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   // --- API key validation (optional — free tier works without) ---
   const auth = await validateApiKey(request);
 
@@ -40,7 +41,12 @@ export async function GET(request: NextRequest) {
   const tier = auth.valid ? auth.tier : "free";
 
   // --- Rate limit check ---
-  const rateLimit = await checkRateLimitWithTier(organizationId, anonymousId, tier);
+  const rateLimit = await checkRateLimitWithTier(
+    organizationId,
+    anonymousId,
+    tier,
+    "api.v1.fees",
+  );
 
   if (!rateLimit.allowed) {
     const res = NextResponse.json(
@@ -161,3 +167,5 @@ export async function GET(request: NextRequest) {
   });
   return addRateLimitHeaders(res, rateLimit);
 }
+
+export const GET = withApiRoutePolicy("api.v1.fees", "GET", handleGET);

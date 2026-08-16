@@ -402,7 +402,12 @@ export async function aiScout(
   const model = "claude-sonnet-4-20250514";
   const client = getAnthropicMessagesClient("Magellan fee URL audit");
   const response = await trackAnthropicRequest(
-    { model, agent: "magellan", operation: "audit_fee_url" },
+    {
+      model,
+      agent: "magellan",
+      operation: "audit_fee_url",
+      routeId: "api.scout.audit",
+    },
     () => client.messages.create(
       {
         model,

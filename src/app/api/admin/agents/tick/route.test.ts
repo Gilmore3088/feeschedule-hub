@@ -8,6 +8,7 @@ const getAutomationControlMock = vi.fn();
 const getExecutionBackendStatusMock = vi.fn();
 const scheduleDueStateLaneRunsMock = vi.fn();
 const executeQueuedAgentRunsMock = vi.fn();
+const assertCronTickBudgetAllowedMock = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   getCurrentUser: getCurrentUserMock,
@@ -32,6 +33,10 @@ vi.mock("@/lib/agents/state-lane-scheduler", () => ({
 
 vi.mock("@/lib/agents/run-store", () => ({
   executeQueuedAgentRuns: executeQueuedAgentRunsMock,
+}));
+
+vi.mock("@/lib/api-hardening/budget", () => ({
+  assertCronTickBudgetAllowed: assertCronTickBudgetAllowedMock,
 }));
 
 function request(url = "https://feeinsight.com/api/admin/agents/tick") {
@@ -66,6 +71,12 @@ describe("/api/admin/agents/tick", () => {
       selected: 1,
       results: [{ runId: 123, status: "queued", terminal: false, executedSteps: 1 }],
     });
+    assertCronTickBudgetAllowedMock.mockResolvedValue({
+      allowed: true,
+      policyId: 42,
+      maxProviderCalls: 3,
+      maxEstimatedMicrousd: 250_000,
+    });
   });
 
   it("schedules due state lanes before draining when Atlas is enabled", async () => {
@@ -84,6 +95,9 @@ describe("/api/admin/agents/tick", () => {
     expect(executeQueuedAgentRunsMock).toHaveBeenCalledWith({
       runLimit: 2,
       maxStepsPerRun: 1,
+      budgetPolicyId: 42,
+      maxProviderCallsPerRun: 3,
+      maxEstimatedCostMicrousd: 250_000,
     });
   });
 
@@ -123,6 +137,25 @@ describe("/api/admin/agents/tick", () => {
     expect(response.status).toBe(200);
     expect(body.paused).toBe(true);
     expect(body.pauseReason).toBe("Agent execution is blocked.");
+    expect(scheduleDueStateLaneRunsMock).not.toHaveBeenCalled();
+    expect(executeQueuedAgentRunsMock).not.toHaveBeenCalled();
+  });
+
+  it("does not schedule or drain when the cron budget policy is not configured", async () => {
+    assertCronTickBudgetAllowedMock.mockResolvedValue({
+      allowed: false,
+      reasonCode: "budget_policy_disabled",
+      policyId: 42,
+      message: "Cron tick policy is disabled.",
+    });
+    const { GET } = await import("./route");
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(423);
+    expect(body.paused).toBe(true);
+    expect(body.blockedReason).toBe("budget_policy_disabled");
     expect(scheduleDueStateLaneRunsMock).not.toHaveBeenCalled();
     expect(executeQueuedAgentRunsMock).not.toHaveBeenCalled();
   });
