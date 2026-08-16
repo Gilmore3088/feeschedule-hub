@@ -16,7 +16,7 @@ coverage actually gets won, classified from live registry state.
 
 | failure_reason | n | sustained (≥5) | Fix |
 |---|---|---|---|
-| (none recorded) | 866 | 96 | Instrumentation gap — Magellan should always stamp a reason; classify these first |
+| (none recorded) | 866 | 96 | Legacy rows only — current Magellan code always stamps `failure_reason` on the sole failure path (verified 2026-08-16); these self-classify on their next crawl cycle |
 | dead_url | 109 | 24 | Re-discovery from website_url |
 | wrong_document:* (other/tis/agreement/rate_sheet) | 58 | 6 | Rosetta doc-classification retraining / alternate link selection |
 | cloudflare_blocked | 3 | 2 | Headless/browser-profile fetch |
