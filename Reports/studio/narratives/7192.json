@@ -1,0 +1,46 @@
+{
+  "contact_email": "hello@bankfeeindex.com",
+  "total_institutions": "1,183",
+  "findings": [
+    {
+      "stat": "$5 vs $25",
+      "stat_label": "card replacement vs peer median",
+      "headline": "You are priced at or below market almost everywhere.",
+      "body": "Card replacement runs $5.00 against a $25.00 peer median (31st percentile), monthly maintenance $1.00 against $7.50 (25th percentile), and deposited-item returns $3.00 against a $25.00 median. Across the published schedule, Redwood prices at or under comparable large credit unions on nearly every line. That is the finding: the schedule is an asset, and it is currently a silent one."
+    },
+    {
+      "stat": "$7 vs $15",
+      "stat_label": "your NSF fee vs peer median",
+      "headline": "Your NSF posture is ahead of the retreat.",
+      "body": "At $7.00 against a $15.00 median (40th percentile among the five peers with published data), your NSF fee already sits below the market that regulatory and reputational pressure is pushing downward. Peers still working out how to exit NSF pricing are headed toward where you already are — a position worth claiming publicly before it becomes ordinary."
+    },
+    {
+      "stat": "$22 vs $15",
+      "stat_label": "stop payment vs peer median",
+      "headline": "The one exception: stop payment.",
+      "body": "Your $22.00 stop-payment fee is the highest among the three peers with published data, against a $15.00 median. The sample is thin, so treat the percentile as directional — but on a schedule priced below market nearly everywhere else, this is the single line above it, and the only candidate for the outlier label."
+    }
+  ],
+  "exec_narrative": "Net position: Redwood Federal Credit Union is priced at market or below almost everywhere — card replacement, monthly maintenance, deposited-item returns, and NSF all sit under their peer medians, and wires and minimum-balance fees hold at or below the middle of the cohort. The lone exception is a $22 stop-payment fee at the top of a small comparison set. One caveat: peer samples in this large-credit-union cohort are thin (one to thirteen institutions per category), so percentiles are directional rather than precise. The strategic agenda is therefore short: decide the one exception, and convert the rest of the schedule from a quiet fact into a marketed advantage.",
+  "callouts": [
+    {
+      "kind": "opportunity",
+      "title": "Everyday fees — below market across the schedule",
+      "stat": "Card replacement $5.00 vs $25.00 median (P31) · Monthly maintenance $1.00 vs $7.50 median (P25) · Deposited item return $3.00 vs $25.00 median",
+      "body": "Three consumer-facing fees price at a fraction of the cohort, and nothing on the schedule contradicts them. 'Lower fees than comparable credit unions' is a claim your peers' own published schedules substantiate — verifiable by any member in minutes. The below-market position is already paid for; the only missing piece is telling members it exists."
+    },
+    {
+      "kind": "opportunity",
+      "title": "NSF / returned item — $7.00",
+      "stat": "Peer median $15.00 · 40th percentile · n=5",
+      "body": "The industry retreat from NSF fees is the most visible fee story of the decade, and you are already on the right side of it at less than half the peer median. This is a limited-time marketing asset: as more peers cut or eliminate the fee, the differentiation shrinks. Claiming the position now — in member communications and comparison contexts — captures value that waiting forfeits."
+    },
+    {
+      "kind": "risk",
+      "title": "Stop payment — $22.00",
+      "stat": "Peer median $15.00 · peer max $22.00 · n=3",
+      "body": "Only three peers publish this fee, so the evidence is directional — but you hold the top of that small set, $7 over the median, on a service members request in moments of stress. On an otherwise below-market schedule this is the one line that invites a question. A move toward $15 would cost little and make the schedule's story unqualified; holding at $22 merely warrants a conscious decision."
+    }
+  ],
+  "context_narrative": "<p>Two currents define the fee landscape your schedule competes in. First, the retreat from NSF and penalty pricing: the largest institutions have eliminated returned-item fees under regulatory and reputational pressure, and the movement has spread across the industry — a shift your own $7 NSF fee anticipates rather than follows. Second, published fee schedules have become marketing documents in practice: public, scraped, and compared, which means a below-market schedule is only an advantage to the extent members and prospects can find out about it.</p><p>Large community credit unions occupy the exposed middle of that landscape: big enough to appear in every comparison and fee survey, without the brand gravity that lets money-center banks price premiums quietly. For most institutions in that position the work is defensive — retiring conspicuous outliers. Your position inverts it: with one modest exception, the schedule already wins the comparison, so the highest-leverage move is offense — putting the fee story in front of members and prospects while the differentiation is still wide.</p>"
+}

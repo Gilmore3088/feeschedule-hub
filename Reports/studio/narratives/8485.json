@@ -1,0 +1,52 @@
+{
+  "contact_email": "hello@bankfeeindex.com",
+  "total_institutions": "1,183",
+  "findings": [
+    {
+      "stat": "$5 vs $35",
+      "stat_label": "card replacement vs peer median",
+      "headline": "Your card replacement fee is $30 below market — and invisible.",
+      "body": "At $5.00 against a $35.00 median across 23 comparable credit unions (17th percentile), card replacement is your single largest gap in either direction — and it favors your members. This is the kind of everyday, relatable fee that prospective members actually compare. Today it is an unclaimed marketing asset."
+    },
+    {
+      "stat": "$5 vs $2",
+      "stat_label": "OD protection transfer vs median",
+      "headline": "Your small exception fees sit at the top of the cohort.",
+      "body": "The overdraft-protection transfer ($5 vs a $2 median) is flagged as an extreme outlier at the 100th percentile, and the non-network ATM fee ($4.50 vs a $3.00 median) also tops its cohort. Both comparison sets are small — three publishing peers each — and your OD transfer matches the $5 national median, so the dollars are modest. But these are the fees members hit most often, and topping the local range on both sends the wrong signal."
+    },
+    {
+      "stat": "$3.50 vs $5",
+      "stat_label": "monthly maintenance vs peer median",
+      "headline": "Core account pricing is at or below market almost everywhere.",
+      "body": "Monthly maintenance ($3.50 vs $5.00, 17th percentile), overdraft ($20 vs $24.50 median), stop payment ($20 vs $25 median), and outgoing domestic wires ($20 vs $25, 29th percentile) all run at or below the cohort. The headline fees members worry about are competitively priced; the exceptions are confined to small-dollar convenience lines."
+    }
+  ],
+  "exec_narrative": "Net position: First Federal Credit Union prices its core schedule at or below the market of 41 comparable credit unions — maintenance, overdraft, stop payment, and wires all sit at or under the median, and card replacement runs $30 below it. The exposure is confined to small-dollar convenience fees: an overdraft-protection transfer flagged as an extreme outlier and a non-network ATM fee at the top of its range, both against thin comparison sets. The asymmetry is the story — the below-market lines earn no credit while the two small outliers are the only lines a fee comparison will flag. The three findings above are the agenda for a one-hour pricing conversation.",
+  "callouts": [
+    {
+      "kind": "risk",
+      "title": "OD protection transfer — $5.00",
+      "stat": "Peer median $2.00 · 100th percentile · n=3 · flagged: extreme outlier (>2x median)",
+      "body": "Three publishing peers make a thin cohort, and $5 matches the national median — so this is not indefensible. But members who enroll in overdraft protection are doing exactly what credit unions ask of them, and charging 2.5x the local median for the transfer undercuts that message. At these dollar amounts, moving to the $2 median costs little and removes the only extreme-outlier flag on your schedule."
+    },
+    {
+      "kind": "risk",
+      "title": "Non-network ATM — $4.50",
+      "stat": "Peer median $3.00 · 100th percentile · n=3 · national median $1.00",
+      "body": "This is the top of a small local range and 4.5x the national median on the fee members encounter most frequently in daily life. ATM charges are the classic comparison-site line item; a mid-sized credit union carrying the highest posted fee in its cohort should have a deliberate reason, such as network reimbursements elsewhere in the account, and should say so."
+    },
+    {
+      "kind": "opportunity",
+      "title": "Card replacement — $5.00 vs a $35.00 median",
+      "stat": "Peer median $35.00 · P25 $17.50 · 17th percentile · n=23",
+      "body": "Against your most reliable comparison set, you charge one-seventh the median to replace a card — a fee every member understands and many will eventually pay. Competitors' own published schedules substantiate the claim. If deliberate, put it in member acquisition materials; if not, it is a documented choice waiting to be made either way."
+    },
+    {
+      "kind": "opportunity",
+      "title": "Core pricing — at or below market, unmarketed",
+      "stat": "Monthly maintenance $3.50 vs $5.00 (P17) · Overdraft $20 vs $24.50 median · Stop payment $20 vs $25 median",
+      "body": "The fees that drive account-opening decisions — maintenance and overdraft — both run below the cohort median. Combined with the card replacement gap, First Federal has a genuinely member-friendly pricing story on the lines that matter most. It appears nowhere in the market's view of you unless you publish it."
+    }
+  ],
+  "context_narrative": "<p>Two currents define the fee landscape your schedule competes in. First, the industry-wide retreat from penalty and junk fees: NSF and overdraft charges are being cut or capped under regulatory and reputational pressure, and schedules are increasingly judged by their small print — the convenience and exception fees — rather than the headline lines alone. Second, published fee schedules have become public documents: scraped, compared, and surfaced to prospective members, which converts every top-of-range line into a small reputational bet and every below-market line into an unclaimed asset.</p><p>Mid-sized credit unions occupy the exposed middle: large enough to appear in regional fee comparisons, without the brand gravity that lets the largest institutions price convenience fees quietly. In that position, First Federal's profile is favorable but unfinished — the core schedule already undercuts the market, so the highest-leverage moves are surgical: retire or justify the two small top-of-cohort exception fees, and actively advertise the maintenance, overdraft, and card-replacement pricing that peers' own published schedules prove is below market.</p>"
+}
