@@ -27,7 +27,8 @@ export async function getPublicStats(): Promise<PublicStats> {
     const validCodes = [...VALID_US_CODES];
     const [row] = await sql<PublicStats[]>`
       SELECT
-        COUNT(ef.id) as total_observations,
+        COUNT(DISTINCT (ef.institution_id, ef.fee_name, ef.amount,
+          COALESCE(ef.frequency, ''), COALESCE(ef.variant_type, ''))) as total_observations,
         COUNT(DISTINCT ct.id) as total_institutions,
         COUNT(DISTINCT ef.fee_category) as total_categories,
         COUNT(DISTINCT ct.state_code) as total_states

@@ -6,10 +6,12 @@ Status as measured 2026-08-15 (dig). Records live at GoDaddy for bankfeeindex.co
 `v=spf1 include:spf.protection.outlook.com -all`, and both DKIM CNAMEs
 (selector1/selector2._domainkey → …NETORGFT20495808.onmicrosoft.com) are live on
 authoritative NS (verified via dig against ns69/ns70.domaincontrol.com).
-**REMAINING: enable DKIM signing in the Microsoft Defender portal**
-(security.microsoft.com → Email authentication settings → DKIM →
-bankfeeindex.com → enable; if it errors "CNAME not found", DNS cache — retry
-within the hour). Then run the Gmail "Show original" test: SPF/DKIM/DMARC all PASS.
+**DKIM ENABLED 2026-08-16 ~00:15 — Defender shows Status: Valid, Toggle: Enabled.**
+(Note: tenant required Microsoft's NEW CNAME targets `…r-v1.dkim.mail.microsoft`,
+not the legacy `onmicrosoft.com` pattern — the Defender error dialog supplies the
+exact values.) Email auth chain complete: SPF ✓ DKIM ✓ DMARC ✓.
+Final proof (user): send test mail from hello@bankfeeindex.com to Gmail →
+"Show original" → expect SPF/DKIM/DMARC all PASS.
 Fix 2 (feeinsight.com alias domain) still open.
 
 ## Current state (verified)

@@ -495,6 +495,28 @@ export async function runHamiltonPublish(
     }
 
     const priorPublishedFee = dryRun ? null : await selectPriorPublishedFee(db, row);
+    // Content-level dedupe: re-verification mints a new fee_verified_id, so the
+    // lineage guard alone lets identical fee lines pile up in the catalog.
+    if (
+      priorPublishedFee &&
+      normalizedAmount(priorPublishedFee.amount) === normalizedAmount(row.amount)
+    ) {
+      results.push({
+        feeVerifiedId: Number(row.fee_verified_id),
+        institutionId: Number(row.institution_id),
+        feeName: row.fee_name,
+        amount: normalizedAmount(row.amount),
+        canonicalFeeKey: row.canonical_fee_key,
+        status: "skipped",
+        reason: "Identical fee already published",
+        feePublishedId: null,
+        previousFeePublishedId: Number(priorPublishedFee.fee_published_id),
+        previousAmount: normalizedAmount(priorPublishedFee.amount),
+        amountDelta: null,
+        movementDirection: null,
+      });
+      continue;
+    }
     const feePublishedId = dryRun
       ? null
       : await insertPublishedFee(db, { runId: options.runId, batchId, row });

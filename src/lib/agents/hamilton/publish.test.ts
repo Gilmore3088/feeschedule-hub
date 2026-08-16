@@ -134,6 +134,28 @@ describe("Hamilton agentic publish", () => {
     expect(callsJson).toContain(":5");
   });
 
+  it("skips re-verified rows whose content is already live in the catalog", async () => {
+    const db = createDbMock([verifiedFee], [{ ...priorPublishedFee, amount: "35.00" }]);
+
+    const result = await runHamiltonPublish({
+      runId: 107,
+      db: asPublishDb(db),
+    });
+
+    expect(result.publishedFees).toBe(0);
+    expect(result.skippedFees).toBe(1);
+    expect(result.results[0]).toMatchObject({
+      status: "skipped",
+      reason: "Identical fee already published",
+      feePublishedId: null,
+      previousFeePublishedId: 601,
+      previousAmount: 35,
+    });
+
+    const insertSql = db.mock.calls.map((call) => templateText(call[0])).join("\n");
+    expect(insertSql).not.toContain("INSERT INTO published_fee_records");
+  });
+
   it("keeps dry runs read-only while still reporting publishable rows", async () => {
     const db = createDbMock([verifiedFee]);
 
