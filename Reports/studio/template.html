@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Competitive Fee Position Report</title>
+<style>
+  /* Brand system: mirrors src/lib/report-templates/base/styles.ts (Hamilton reports).
+     Palette: warm black on cream, terracotta accent, Newsreader serif + Inter sans. */
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap');
+  :root {
+    --text:#1A1815; --text2:#7A7062; --muted:#A09788; --bg:#FDFBF8;
+    --section:#F5EFE6; --accent:#C44B2E; --accent-light:#FDF0ED;
+    --border:#E8DFD1; --border-light:#F0E8DC; --dark2:#2D2A26; --dark3:#3D3830;
+    --good:#16a34a; --good-soft:#eaf6ef;
+    --serif:"Newsreader","Georgia","Times New Roman",serif;
+    --sans:"Inter","Helvetica Neue",system-ui,-apple-system,sans-serif;
+  }
+  * { box-sizing:border-box; margin:0; }
+  html,body { background:var(--bg); color:var(--text);
+    font-family:var(--sans); font-size:10.5pt; line-height:1.6; }
+  @page { size: Letter; margin: 0.85in 0.9in; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+
+  .kicker { font-family:var(--sans); font-size:8pt; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.15em; color:var(--accent); margin-bottom:8pt; }
+  h2 { font-family:var(--serif); font-size:19pt; font-weight:600; letter-spacing:-0.01em;
+    color:var(--text); line-height:1.25; margin-bottom:4pt; }
+  h3 { font-family:var(--serif); font-size:13pt; font-weight:600; color:var(--text); }
+  .rule { border:none; border-top:3pt solid var(--accent); margin:10pt 0 16pt; width:42pt; }
+  p { margin:8pt 0; }
+  .muted{color:var(--muted);} .small{font-size:8.5pt;}
+
+  /* Cover — Hamilton report-cover language */
+  .cover { display:flex; flex-direction:column; height:9in; }
+  .cover .brand { font-family:var(--sans); font-size:9pt; letter-spacing:0.15em;
+    text-transform:uppercase; color:var(--accent); font-weight:700; }
+  .cover .title { margin-top:2.1in; }
+  .cover h1 { font-family:var(--serif); font-size:30pt; font-weight:600;
+    line-height:1.15; letter-spacing:-0.02em; color:var(--text); }
+  .cover .inst { font-family:var(--serif); font-size:16pt; font-style:italic;
+    font-weight:400; color:var(--text2); margin-top:12pt; }
+  .cover .instname { color:var(--accent); font-style:normal; font-weight:600; }
+  .cover .metaline { margin-top:auto; padding-top:14pt; border-top:1pt solid var(--border);
+    display:flex; justify-content:space-between; font-family:var(--sans); font-size:8pt;
+    color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; }
+
+  /* Numbered findings — Hamilton .finding language */
+  .finding { display:flex; gap:14pt; margin:15pt 0; page-break-inside:avoid; }
+  .finding .num { font-family:var(--serif); font-size:21pt; font-weight:600;
+    color:var(--accent); min-width:82pt; line-height:1.1; }
+  .finding .num small { font-family:var(--sans); font-size:8pt; display:block;
+    color:var(--muted); font-weight:400; margin-top:3pt; line-height:1.4; }
+  .finding p { margin:0; font-size:10pt; line-height:1.6; }
+  .finding b { font-weight:700; }
+
+  /* Tables — Hamilton report-table language */
+  table { width:100%; border-collapse:collapse; font-family:var(--sans);
+    font-size:8.3pt; font-variant-numeric:tabular-nums; }
+  tr { page-break-inside:avoid; }
+  thead tr { border-bottom:1pt solid var(--border); }
+  th { text-align:left; font-size:7.2pt; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--muted); font-weight:600; padding:4pt 5pt; }
+  td { padding:4pt 5pt; border-bottom:0.5pt solid var(--border-light);
+    vertical-align:middle; color:var(--text); }
+  td.r, th.r { text-align:right; }
+  tbody tr:last-child td { border-bottom:none; }
+
+  /* Percentile bars — Hamilton h-bar language */
+  .bar-wrap { background:var(--border); height:6pt; width:110pt; border-radius:4pt; }
+  .bar { background:var(--muted); height:6pt; border-radius:4pt; }
+  .bar.hi { background:var(--accent); }
+  .bar.lo { background:var(--good); }
+  .tag { font-family:var(--sans); font-size:6.8pt; font-weight:700; padding:1pt 6pt;
+    border-radius:8pt; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
+  .tag.outlier { background:var(--accent-light); color:var(--accent); }
+  .tag.waived { background:var(--good-soft); color:var(--good); }
+  .tag.gap { background:var(--section); color:var(--muted); }
+
+  /* Callouts — Hamilton key-finding language */
+  .callout { background:var(--accent-light); border-left:3pt solid var(--accent);
+    border-radius:0 4pt 4pt 0; padding:9pt 13pt; margin:9pt 0; page-break-inside:avoid; }
+  .callout.opportunity { background:var(--good-soft); border-left-color:var(--good); }
+  .callout h3 { font-size:11pt; margin-bottom:3pt; }
+  .callout .stat { font-family:var(--sans); font-variant-numeric:tabular-nums;
+    color:var(--text2); font-size:8pt; margin-bottom:5pt; }
+  .callout p { margin:0; font-size:9.5pt; line-height:1.55; }
+
+  .pagefoot { margin-top:14pt; padding-top:8pt; border-top:0.5pt solid var(--border-light);
+    font-family:var(--sans); font-size:7.5pt; color:var(--muted); font-style:italic;
+    display:flex; justify-content:space-between;
+    page-break-inside:avoid; page-break-before:avoid; }
+
+  /* Narrative body — Hamilton report-narrative */
+  .narrative { font-size:10pt; line-height:1.7; }
+  .narrative p { margin:0 0 10pt; }
+
+  /* Back page */
+  .back { padding-top:2in; }
+  .back .cta { background:var(--section); border-left:3pt solid var(--accent);
+    border-radius:0 6pt 6pt 0; padding:16pt 20pt; margin-top:20pt; }
+  .back h2 { font-size:21pt; }
+</style>
+</head>
+<body>
+
+<!-- 1. COVER -->
+<div class="page cover">
+  <div class="brand">Bank Fee Index</div>
+  <div class="title">
+    <div class="kicker">Competitive Intelligence Series</div>
+    <h1>Competitive Fee<br>Position Report</h1>
+    <div class="inst">Prepared for <span class="instname">{{INSTITUTION_NAME}}</span></div>
+    <p class="muted small" style="margin-top:8pt">{{CITY_STATE}} · {{CHARTER_LABEL}} · {{TIER_LABEL}}</p>
+  </div>
+  <div class="metaline">
+    <span>Prepared {{PULL_DATE}}</span>
+    <span>Peer cohort: {{COHORT_LABEL}} ({{COHORT_SIZE}} institutions)</span>
+    <span>bankfeeindex.com</span>
+  </div>
+</div>
+
+<!-- 2. EXECUTIVE SUMMARY -->
+<div class="page">
+  <div class="kicker">Executive Summary</div>
+  <h2>Three things your fee schedule says about you</h2>
+  <hr class="rule">
+  {{EXEC_FINDINGS}}
+  <p class="narrative" style="margin-top:14pt">{{EXEC_NARRATIVE}}</p>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+</div>
+
+<!-- 3. POSITION MAP -->
+<div class="page">
+  <div class="kicker">Competitive Position</div>
+  <h2>Your fees vs. {{COHORT_SIZE}} peer institutions</h2>
+  <hr class="rule">
+  <p class="small muted">Peer cohort: {{COHORT_LABEL}}. Percentile = share of peers charging
+  the same or less; higher percentile means you charge more than most peers. Bars in
+  terracotta above the 80th percentile, green at or below the 20th.</p>
+  <table style="margin-top:10pt">
+    <thead><tr>
+      <th>Fee</th><th class="r">You</th><th class="r">Peer P25</th><th class="r">Median</th>
+      <th class="r">P75</th><th class="r">National</th><th>Percentile</th><th></th>
+    </tr></thead>
+    <tbody>
+      {{POSITION_ROWS}}
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+</div>
+
+<!-- 4. CALLOUTS -->
+<div class="page">
+  <div class="kicker">What Stands Out</div>
+  <h2>Where you diverge from your market</h2>
+  <hr class="rule">
+  {{CALLOUTS}}
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+</div>
+
+<!-- 5. PEER TABLE -->
+<div class="page">
+  <div class="kicker">The Named Comparison</div>
+  <h2>How specific peers price the headline fees</h2>
+  <hr class="rule">
+  <p class="small muted">All figures from each institution's published fee schedule
+  (public documents), extracted and verified by the Bank Fee Index pipeline.</p>
+  <table style="margin-top:10pt">
+    <thead><tr><th>Institution</th>{{PEER_HEAD}}</tr></thead>
+    <tbody>
+      <tr style="background:var(--accent-light);font-weight:600"><td>{{INSTITUTION_NAME}} (you)</td>{{PEER_SELF_ROW}}</tr>
+      {{PEER_ROWS}}
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+</div>
+
+<!-- 6. CONTEXT + METHODOLOGY -->
+<div class="page">
+  <div class="kicker">Market Context</div>
+  <h2>The bigger picture</h2>
+  <hr class="rule">
+  <div class="narrative">{{CONTEXT_NARRATIVE}}</div>
+  <h3 style="margin-top:20pt">Methodology &amp; data provenance</h3>
+  <p class="small muted" style="margin-top:6pt">
+    Fee data is drawn exclusively from institutions' published fee schedules — public
+    documents — collected and verified through the Bank Fee Index agentic pipeline
+    (discovery, extraction, independent verification, publication). Peer cohort:
+    {{COHORT_LABEL}} — {{COHORT_SIZE}} institutions with published data. Percentiles are
+    computed within-cohort per fee category; a category is flagged an outlier when it
+    exceeds 2× the peer median (extreme) or P75 + 1.5×IQR (statistical). Data pulled
+    {{PULL_DATE}}. Figures reflect the lowest published consumer-facing amount per
+    category and may not capture account-specific waivers.
+  </p>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+</div>
+
+<!-- 7. BACK -->
+<div class="page back">
+  <div class="brand" style="font-family:var(--sans);font-size:9pt;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);font-weight:700">Bank Fee Index</div>
+  <h2 style="margin-top:14pt">This report is yours, with our compliments.</h2>
+  <p class="muted" style="max-width:5in">It was produced from live, verified fee data —
+  the same index tracking {{TOTAL_INSTITUTIONS}} institutions nationwide.</p>
+  <div class="cta">
+    <p style="margin:0"><b>Want this refreshed quarterly?</b> Or a deeper dive — custom
+    competitor sets, board-ready deck, pricing-change modeling?<br>
+    Reply to the email this arrived with, or write
+    <b>{{CONTACT_EMAIL}}</b>.</p>
+  </div>
+</div>
+
+</body>
+</html>
