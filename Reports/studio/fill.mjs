@@ -66,6 +66,19 @@ const callouts = narr.callouts.map((c) =>
      <h3>${esc(c.title)}</h3><div class="stat">${esc(c.stat)}</div><p>${esc(c.body)}</p>
    </div>`).join("\n");
 
+// Some registry names arrive fully uppercase (e.g. "FIDELITY BANK"); title-case those
+// for display, preserving short acronym tokens (FCU, FSB, N.A.) and lowercase connectives.
+const SMALL_WORDS = new Set(["of", "the", "and", "for", "in", "at", "on"]);
+const ACRONYMS = new Set(["fcu", "cu", "fsb", "na", "n.a.", "usa", "us", "ny", "la"]);
+function displayName(name) {
+  if (!name || name !== name.toUpperCase() || !/[A-Z]{3}/.test(name)) return name;
+  return name.toLowerCase().split(" ").map((w, i) => {
+    if (ACRONYMS.has(w) || (!/[aeiouy]/.test(w) && /[a-z]/.test(w))) return w.toUpperCase();
+    if (i > 0 && SMALL_WORDS.has(w)) return w;
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }).join(" ");
+}
+
 // Peer table: pick 5 headline categories with best coverage
 const HEADLINE = ["monthly_maintenance", "overdraft", "nsf", "stop_payment", "wire_domestic_outgoing"];
 const peerHead = HEADLINE.map((k) => `<th class="r">${DISPLAY[k]}</th>`).join("");
@@ -74,7 +87,7 @@ const selfRow = HEADLINE.map((k) => {
   return `<td class="r">${money(f?.their_value)}</td>`;
 }).join("");
 const peerRows = (pack.peers ?? []).map((p) =>
-  `<tr><td>${esc(p.institution_name)} <span class="small muted">(${esc(p.city)}, ${esc(p.state_code)})</span></td>` +
+  `<tr><td>${esc(displayName(p.institution_name))} <span class="small muted">(${esc(p.city)}, ${esc(p.state_code)})</span></td>` +
   HEADLINE.map((k) => `<td class="r">${money(p.fees?.[k])}</td>`).join("") + `</tr>`).join("\n");
 
 // Appendix: complete published schedule

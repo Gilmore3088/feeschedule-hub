@@ -234,7 +234,7 @@
 <div class="bleed cover">
   <div class="spine">
     <div class="mark"></div>
-    <div class="vert"><b>Bank Fee Index</b> &nbsp;·&nbsp; Competitive Intelligence Series</div>
+    <div class="vert"><b>FeeInsight</b> &nbsp;·&nbsp; Bank Fee Index Series</div>
   </div>
   <div class="body">
     <div class="topline"><span><b>Competitive Fee Position</b> &nbsp;·&nbsp; Report</span><span>{{PULL_DATE}}</span></div>
@@ -251,7 +251,7 @@
       <div><div class="lbl">Peer cohort</div><div class="val">{{COHORT_LABEL}}</div></div>
       <div><div class="lbl">Benchmarked against</div>
         <div class="big">{{COHORT_SIZE}}<small>peer institutions with published fee schedules</small></div></div>
-      <div><div class="lbl">Source</div><div class="val mono">bankfeeindex.com</div></div>
+      <div><div class="lbl">Source</div><div class="val mono">feeinsight.com</div></div>
     </div>
   </div>
 </div>
@@ -266,7 +266,7 @@
     {{EXEC_FINDINGS}}
   </div>
   <p class="narrative drop">{{EXEC_NARRATIVE}}</p>
-  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>FeeInsight</span></div>
 </div>
 
 <!-- 3. POSITION MAP -->
@@ -275,9 +275,11 @@
   <div class="kicker">The position map</div>
   <h2>Your fees vs. {{COHORT_SIZE}} peer institutions</h2>
   <hr class="rule">
-  <p class="lede">Peer cohort: {{COHORT_LABEL}}. Percentile = share of peers charging the same
-  or less; the tick marks the median. Terracotta bars sit above the 80th percentile,
-  green at or below the 20th.</p>
+  <p class="lede">Peer cohort: {{COHORT_LABEL}} — {{COHORT_SIZE}} institutions with published
+  fee schedules. Not every peer publishes every fee, so each category compares against the
+  peers that publish that line (per-category n noted in § 03). Percentile = share of peers
+  charging the same or less; the tick marks the median. Terracotta bars sit above the 80th
+  percentile, green at or below the 20th.</p>
   <table class="position" style="margin-top:12pt">
     <thead><tr>
       <th>Fee</th><th class="r">You</th><th class="r">Peer P25</th><th class="r">Median</th>
@@ -287,7 +289,7 @@
       {{POSITION_ROWS}}
     </tbody>
   </table>
-  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>FeeInsight</span></div>
 </div>
 
 <!-- 4. CALLOUTS -->
@@ -299,7 +301,7 @@
   <div class="callouts">
     {{CALLOUTS}}
   </div>
-  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>FeeInsight</span></div>
 </div>
 
 <!-- 4b. REVENUE LENS (Call Report data) -->
@@ -325,7 +327,7 @@
   <p class="footnote">Financial figures as filed ({{FIN_LATEST_DATE}} snapshot; revenue from
   {{FIN_YEAR_DATE}} full-year filing). Cohort medians computed across {{FIN_COHORT_N}}
   same-charter, same-tier institutions' latest full-year filings.</p>
-  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>FeeInsight</span></div>
 </div>
 
 <!-- 5. PEER TABLE -->
@@ -343,7 +345,7 @@
       {{PEER_ROWS}}
     </tbody>
   </table>
-  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>FeeInsight</span></div>
 </div>
 
 <!-- 6. CONTEXT + METHODOLOGY -->
@@ -372,7 +374,7 @@
       {{SOURCE_LIST}}
     </ul>
   </div>
-  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>FeeInsight</span></div>
 </div>
 
 <!-- 7. APPENDIX: FULL SCHEDULE -->
@@ -390,14 +392,14 @@
       {{ALL_FEES_ROWS}}
     </tbody>
   </table>
-  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>Bank Fee Index</span></div>
+  <div class="pagefoot"><span>Competitive Fee Position — {{INSTITUTION_NAME}}</span><span>FeeInsight</span></div>
 </div>
 
 <!-- 8. BACK -->
 <div class="bleed back">
-  <div class="brandline"><span><b>Bank Fee Index</b> &nbsp;·&nbsp; Competitive Intelligence Series</span><span>{{PULL_DATE}}</span></div>
+  <div class="brandline"><span><b>FeeInsight</b> &nbsp;·&nbsp; Bank Fee Index Series</span><span>{{PULL_DATE}}</span></div>
   <h2>This report is yours,<br><em>with our compliments.</em></h2>
-  <p class="sub">It was produced from live, verified fee data — the same index tracking
+  <p class="sub">It was produced from source-verified fee data — the same index tracking
   {{TOTAL_INSTITUTIONS}} institutions nationwide.</p>
   <div class="cta">
     <div>
@@ -408,7 +410,7 @@
     <div>
       <p>Reply to the email this arrived with, or write</p>
       <span class="mail">{{CONTACT_EMAIL}}</span>
-      <p style="margin-top:8pt">bankfeeindex.com</p>
+      <p style="margin-top:8pt">feeinsight.com</p>
     </div>
   </div>
   <div class="colophon"><span>Prepared for {{INSTITUTION_NAME}}</span><span>Set in Newsreader &amp; IBM Plex</span></div>
