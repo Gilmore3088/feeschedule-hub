@@ -1,0 +1,43 @@
+# Studio Matrix — the 25 report institutions
+
+Selected 2026-08-15 from the 30 coverage-viable institutions (≥9 of 15 featured
+categories in `published_fee_catalog`; see `coverage.sql`). Districts 1 (Boston),
+3 (Philadelphia), 8 (St. Louis) have no viable institutions yet — matrix covers the
+9 districts where data is rich. All institutions are community-tier: the exact
+segment that lacks analytics staff and cares most about local fee position.
+
+Dropped from the 30: Academic FCU, O&R Utilities FCU, New Covenant Dominion FCU
+(NY district-2 overweight / closed-membership), F R B FCU (Fed Board employees —
+closed membership), Angelina Savings (district-11 overweight, lowest coverage).
+
+Status flow: selected → pulled → written → rendered → reviewed → SENT
+
+| # | ID | Institution | Charter | Tier | Dist | Loc | Cov | Status |
+|---|----|-------------|---------|------|------|-----|-----|--------|
+| 1 | 860 | Bank of the Pacific | bank | comm_large | 12 | Aberdeen WA | 14/15 | **PILOT** — rendered, awaiting review |
+| 2 | 4802 | Georgia Heritage FCU | cu | comm_small | 6 | Savannah GA | 13/15 | selected |
+| 3 | 2813 | Riverside Bank of Dublin | bank | comm_small | 4 | Dublin OH | 12/15 | selected |
+| 4 | 8485 | First Federal CU | cu | comm_mid | 11 | Chandler AZ | 12/15 | selected |
+| 5 | 8434 | Bay Cities FCU | cu | comm_small | 12 | Hayward CA | 12/15 | selected |
+| 6 | 1422 | PB&T Bank | bank | comm_mid | 10 | Pueblo CO | 12/15 | selected |
+| 7 | 2033 | Community Bank of Santa Maria | bank | comm_mid | 12 | Santa Maria CA | 12/15 | selected |
+| 8 | 303 | HomeTrust Bank | bank | comm_large | 5 | Asheville NC | 12/15 | selected |
+| 9 | 4401 | Tampa Bay FCU | cu | comm_mid | 6 | Tampa FL | 12/15 | selected |
+| 10 | 200 | Burke & Herbert Bank | bank | comm_large | 5 | Alexandria VA | 11/15 | selected |
+| 11 | 201 | Hanmi Bank | bank | comm_large | 12 | Los Angeles CA | 11/15 | selected |
+| 12 | 684 | Lawrence Bank | bank | comm_large | 6 | Nashville TN | 11/15 | selected |
+| 13 | 1675 | Redwood Capital Bank | bank | comm_mid | 12 | Eureka CA | 11/15 | selected |
+| 14 | 6217 | Lockport Schools & Community FCU | cu | comm_small | 2 | Lockport NY | 11/15 | selected |
+| 15 | 7349 | DFCU Financial FCU | cu | comm_large | 7 | Dearborn MI | 11/15 | selected |
+| 16 | 2466 | Gateway Bank | bank | comm_mid | 9 | Mendota Hts MN | 10/15 | selected |
+| 17 | 5759 | Coopers Cave FCU | cu | comm_small | 2 | Glens Falls NY | 10/15 | selected |
+| 18 | 6400 | Brockport FCU | cu | comm_small | 2 | Brockport NY | 10/15 | selected |
+| 19 | 7192 | Redwood FCU | cu | comm_large | 12 | Santa Rosa CA | 10/15 | selected |
+| 20 | 1391 | First Bank | bank | comm_mid | 11 | Burkburnett TX | 9/15 | selected |
+| 21 | 2050 | Kentland Bank | bank | comm_mid | 7 | Kentland IN | 9/15 | selected |
+| 22 | 8595 | Union Square FCU | cu | comm_mid | 11 | Wichita Falls TX | 9/15 | selected |
+| 23 | 6185 | Peoples FCU | cu | comm_small | 4 | Nitro WV | 9/15 | selected |
+| 24 | 203 | Forbright Bank | bank | comm_large | 5 | Potomac MD | 9/15 | selected |
+| 25 | 8101 | Emblem FCU | cu | comm_mid | 6 | Gadsden AL | 9/15 | selected |
+
+Spread: 13 banks / 12 CUs · districts 2,4,5,6,7,9,10,11,12 · tiers small/mid/large.

@@ -1,0 +1,52 @@
+{
+  "contact_email": "hello@bankfeeindex.com",
+  "total_institutions": "1,183",
+  "findings": [
+    {
+      "stat": "$33 vs $20",
+      "stat_label": "stop payment vs peer median",
+      "headline": "Your penalty fees carry a top-quartile premium.",
+      "body": "Stop payments ($33 vs a $20 median, 83rd percentile) and NSF ($33 vs a $25 median, 85th percentile) both clear the 75th-percentile mark of $30 across 66 comparable credit unions. These are the two most scrutinized lines on any fee schedule, and yours sit near the top of the cohort on both."
+    },
+    {
+      "stat": "$15 vs $5.50",
+      "stat_label": "minimum balance fee vs peers",
+      "headline": "Your minimum balance fee is an extreme outlier.",
+      "body": "At $15.00, your minimum balance fee is 2.7x the $5.50 median — the 83rd percentile and flagged as an extreme outlier. The comparison set is thin (six peers publish this fee), but the gap is not: only one peer charges more, and the national median is $5. A recurring balance fee lands hardest on the members with the least cushion."
+    },
+    {
+      "stat": "$0 vs $3.50",
+      "stat_label": "monthly maintenance vs peer median",
+      "headline": "You waive and undercut fees peers charge — and tell no one.",
+      "body": "Monthly maintenance is waived outright against a $3.50 peer median. Outgoing domestic wires ($10 vs $20, 9th percentile), card replacement ($10 vs $25), and deposited item returns ($10 vs $20) all run at half the peer median or less. That is a genuinely member-friendly service stack with no marketing attached to it."
+    }
+  ],
+  "exec_narrative": "Net position: Georgia Heritage Federal Credit Union runs a split schedule. Service and account fees are waived or priced well below the market of 182 comparable credit unions — free maintenance, half-of-median wires and card replacement — while the penalty stack (NSF and stop payment, both $33) sits in the top quartile and the minimum balance fee is flagged as an extreme outlier at nearly three times the peer median. One gap to close: no overdraft fee could be verified from the published schedule, which leaves your most scrutinized line invisible to comparison. The three findings above are the agenda for a one-hour pricing conversation.",
+  "callouts": [
+    {
+      "kind": "risk",
+      "title": "Stop payment — $33.00",
+      "stat": "Peer median $20.00 · P75 $30.00 · 83rd percentile · n=66",
+      "body": "At $13 over the median across a large, reliable comparison set, this is your widest verified dollar gap. Stop payments are a member-initiated protective action; pricing them at the top of the cohort works against the relationship story a community credit union runs on. This line deserves an explicit decision — hold with a rationale, or move toward the $20 median."
+    },
+    {
+      "kind": "risk",
+      "title": "NSF / returned item — $33.00",
+      "stat": "Peer median $25.00 · P25 $20.00 · 85th percentile · n=66",
+      "body": "The industry retreat from NSF fees has reached the credit union cohort: the median is $25 and a quarter of peers charge $20 or less. At $33 you are above the 75th percentile on the single most examined fee in the industry. Whether the answer is a cut, a cap, or a documented rationale, defaulting to the current number is the weakest of the options."
+    },
+    {
+      "kind": "risk",
+      "title": "Minimum balance — $15.00",
+      "stat": "Peer median $5.50 · 83rd percentile · n=6 · flagged: extreme outlier (>2x median)",
+      "body": "Only six comparable credit unions publish this fee, so treat the percentile gently — but $15 against a $5.50 median and a $5 national median is a wide gap by any measure. Recurring balance fees compound monthly and fall on lower-balance members, which makes this a fairness question as much as a pricing one."
+    },
+    {
+      "kind": "opportunity",
+      "title": "Service fees — waived or half-price, marketed nowhere",
+      "stat": "Monthly maintenance $0 vs $3.50 median (P21) · Outgoing wire $10 vs $20 (P9) · Card replacement $10 vs $25 (P38)",
+      "body": "Free checking maintenance and service fees at half the peer median are exactly the claims prospective members compare on — and your competitors' own published schedules substantiate them. If deliberate, this belongs in member acquisition messaging. If not deliberate, it is margin available without touching a single penalty fee."
+    }
+  ],
+  "context_narrative": "<p>Two currents define the fee landscape your schedule competes in. First, the retreat from penalty fees: NSF charges are being cut or eliminated across the industry under regulatory and reputational pressure, and the shift is visible in your own cohort, where a quarter of 66 comparable credit unions now charge $20 or less and the median has settled at $25 — well below your posted $33. Second, published fee schedules have become public documents: scraped, compared, and surfaced to prospective members, which converts every outlier line into a small reputational bet.</p><p>Small community credit unions compete on exactly one asset the large institutions cannot replicate: the member relationship. That makes a top-quartile penalty stack a strategic contradiction, not just a pricing choice — the fees that bite hardest land on the members the relationship model exists to serve. The good news is the fix is surgical: Georgia Heritage already waives or undercuts most service fees. Aligning the three penalty and balance lines with that posture — and then saying so publicly — turns the fee schedule from a liability into the marketing document it should be.</p>"
+}
