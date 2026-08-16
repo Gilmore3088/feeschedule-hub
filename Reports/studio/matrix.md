@@ -17,7 +17,7 @@ Status flow: selected → pulled → written → rendered → reviewed → SENT
 | 1 | 860 | Bank of the Pacific | bank | comm_large | 12 | Aberdeen WA | 14/15 | **PILOT** — DRAFT READY — review + send |
 | 2 | 4802 | Georgia Heritage FCU | cu | comm_small | 6 | Savannah GA | 13/15 | DRAFT READY — review + send |
 | 3 | 2813 | Riverside Bank of Dublin | bank | comm_small | 4 | Dublin OH | 12/15 | DRAFT READY — review + send |
-| 4 | 8485 | First Federal CU | cu | comm_mid | 11 | Chandler AZ | 12/15 | **HOLD** — real-world match is "First Credit Union" (Chandler AZ); verify name before send |
+| 4 | 8485 | First Credit Union (name corrected) | cu | comm_mid | 11 | Chandler AZ | 12/15 | DRAFT READY — review + send |
 | 5 | 8434 | Bay Cities FCU | cu | comm_small | 12 | Hayward CA | 12/15 | DRAFT READY — review + send |
 | 6 | 1422 | PB&T Bank | bank | comm_mid | 10 | Pueblo CO | 12/15 | DRAFT READY — review + send |
 | 7 | 2033 | Community Bank of Santa Maria | bank | comm_mid | 12 | Santa Maria CA | 12/15 | DRAFT READY — review + send |
