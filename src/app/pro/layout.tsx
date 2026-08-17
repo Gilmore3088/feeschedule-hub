@@ -6,11 +6,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
-import { SITE_TITLE_TEMPLATE, pageTitle } from "@/lib/constants";
+import { SITE_TITLE_TEMPLATE } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: {
-    default: pageTitle("Hamilton"),
+    default: "Hamilton",
     template: SITE_TITLE_TEMPLATE,
   },
 };

@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
-import { pageTitle } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
@@ -19,7 +18,7 @@ import { getHamiltonArtifactInstitutionId } from "@/lib/hamilton/artifact-contex
 
 export const metadata: Metadata = {
   title: {
-    default: pageTitle("Hamilton"),
+    default: "Hamilton",
     template: "%s | Hamilton",
   },
 };
