@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { getDataFreshness, getPublicStats } from "@/lib/data-store/core";
 import { sql } from "@/lib/data-store/connection";
+import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
+import { US_STATES_ONLY } from "@/lib/us-states";
 
 /**
  * Single source of truth for every public-facing headline number.
@@ -16,9 +18,10 @@ export interface PublicStatsSummary {
   /** Verified fee observations. */
   observations: number;
   observationsLabel: string;
-  /** Fee categories with verified data. */
+  /** Canonical taxonomy fee categories that have verified data (raw catalog labels outside the taxonomy are not counted). */
   categories: number;
   categoriesLabel: string;
+  /** U.S. states (50) with at least one verified fee; DC and territories are excluded from this figure. */
   states: number;
   statesLabel: string;
   /** Absolute date, e.g. "Aug 12, 2026", or null when unknown. */
@@ -45,6 +48,31 @@ export function formatFreshness(value: string | Date | null | undefined): string
   return date ? `Data refreshed ${date}` : "Data refresh pending";
 }
 
+const CANONICAL_CATEGORIES = new Set(Object.values(FEE_FAMILIES).flat());
+
+async function countCanonicalCategoriesWithData(): Promise<number> {
+  try {
+    const rows = await sql<{ fee_category: string }[]>`
+      SELECT DISTINCT fee_category FROM published_fee_catalog
+      WHERE review_status = 'approved' AND fee_category IS NOT NULL`;
+    return rows.filter((r) => CANONICAL_CATEGORIES.has(r.fee_category)).length;
+  } catch {
+    return 0;
+  }
+}
+
+async function countStatesWithVerifiedFees(): Promise<number> {
+  try {
+    const rows = await sql<{ state_code: string }[]>`
+      SELECT DISTINCT ct.state_code FROM institution_sources ct
+      JOIN published_fee_catalog ef ON ef.institution_id = ct.id
+      WHERE ef.review_status = 'approved' AND ct.state_code IS NOT NULL`;
+    return rows.filter((r) => US_STATES_ONLY.has(r.state_code)).length;
+  } catch {
+    return 0;
+  }
+}
+
 async function countMonitoredInstitutions(): Promise<number> {
   try {
     const [row] = await sql<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM institution_sources`;
@@ -55,10 +83,12 @@ async function countMonitoredInstitutions(): Promise<number> {
 }
 
 export const getPublicStatsSummary = cache(async (): Promise<PublicStatsSummary> => {
-  const [stats, freshness, monitored] = await Promise.all([
+  const [stats, freshness, monitored, categories, states] = await Promise.all([
     getPublicStats(),
     getDataFreshness().catch(() => null),
     countMonitoredInstitutions(),
+    countCanonicalCategoriesWithData(),
+    countStatesWithVerifiedFees(),
   ]);
   const refreshedOn = formatAbsoluteDate(freshness?.last_fee_extracted_at ?? freshness?.last_crawl_at ?? null);
   return {
@@ -68,10 +98,10 @@ export const getPublicStatsSummary = cache(async (): Promise<PublicStatsSummary>
     monitoredLabel: formatCount(monitored),
     observations: stats.total_observations,
     observationsLabel: formatCount(stats.total_observations),
-    categories: stats.total_categories,
-    categoriesLabel: formatCount(stats.total_categories),
-    states: stats.total_states,
-    statesLabel: formatCount(stats.total_states),
+    categories,
+    categoriesLabel: formatCount(categories),
+    states,
+    statesLabel: formatCount(states),
     refreshedOn,
     freshnessLabel: refreshedOn ? `Data refreshed ${refreshedOn}` : "Data refresh pending",
   };
