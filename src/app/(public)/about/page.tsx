@@ -7,7 +7,7 @@ import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Bank Fee Index is the definitive source for US bank and credit union fee data. Learn about our methodology, data sources, and mission.",
+    "Fee Insight builds the Bank Fee Index, the definitive source for US bank and credit union fee data. Learn about our methodology, data sources, and mission.",
 };
 
 export default async function AboutPage() {
@@ -33,13 +33,14 @@ export default async function AboutPage() {
         className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
         style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
       >
-        About Bank Fee Index
+        About Fee Insight
       </h1>
 
       <div className="mt-8 space-y-6 text-[15px] leading-relaxed text-[#5A5347]">
         <p>
-          Bank Fee Index is the definitive source for US bank and credit union
-          fee intelligence. We track, benchmark, and analyze fee schedules
+          Fee Insight is an independent banking fee intelligence company. Our
+          flagship product, the Bank Fee Index, is the definitive source for US
+          bank and credit union fee data: we track, benchmark, and analyze fee schedules
           from financial institutions across all 50 states and 12 Federal
           Reserve districts.
         </p>

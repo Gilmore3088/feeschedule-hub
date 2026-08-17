@@ -21,7 +21,7 @@ import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { DistributionChart } from "@/components/public/distribution-chart";
 import { STATE_NAMES } from "@/lib/us-states";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
@@ -421,7 +421,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             dateModified: freshness.last_crawl_at ?? undefined,
             publisher: {
               "@type": "Organization",
-              name: "Bank Fee Index",
+              name: SITE_NAME,
               url: SITE_URL,
             },
           }).replace(/</g, "\\u003c"),

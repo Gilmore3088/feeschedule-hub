@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "Bank Fee Index privacy policy. How we collect, use, and protect your data.",
+  description: "Fee Insight privacy policy. How we collect, use, and protect your data.",
 };
 
 export default function PrivacyPage() {
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
           </p>
           <p className="mt-3">
             <strong>Usage data.</strong> We collect information about how you use
-            Bank Fee Index, including pages visited, features used, and Hamilton analysis
+            Fee Insight, including pages visited, features used, and Hamilton analysis
             queries. This helps us improve the product and understand usage patterns.
           </p>
           <p className="mt-3">
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
             How We Use Your Information
           </h2>
           <ul className="list-disc pl-6 space-y-1.5">
-            <li>Provide and maintain the Bank Fee Index platform</li>
+            <li>Provide and maintain the Fee Insight platform and the Bank Fee Index</li>
             <li>Personalize fee benchmarks based on your institution profile</li>
             <li>Process subscription payments and manage your account</li>
             <li>Send service-related communications (billing, security, product updates)</li>
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
             Data We Publish
           </h2>
           <p>
-            Bank Fee Index aggregates and publishes fee schedule data from
+            Fee Insight aggregates and publishes fee schedule data from
             publicly available sources. All fee data displayed on our platform
             is derived from institutions&apos; own published disclosures and
             regulatory filings. We do not publish any data that is not already

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "Bank Fee Index terms of service. Subscription terms, data usage, and acceptable use.",
+  description: "Fee Insight terms of service. Subscription terms, data usage, and acceptable use.",
 };
 
 export default function TermsPage() {
@@ -32,7 +32,8 @@ export default function TermsPage() {
             1. Acceptance of Terms
           </h2>
           <p>
-            By accessing or using Bank Fee Index (&ldquo;the Service&rdquo;),
+            By accessing or using Fee Insight, including the Bank Fee Index and
+            Hamilton (together, &ldquo;the Service&rdquo;),
             you agree to be bound by these Terms of Service. If you are using
             the Service on behalf of an organization, you represent that you
             have authority to bind that organization to these terms.
@@ -45,7 +46,7 @@ export default function TermsPage() {
             2. Description of Service
           </h2>
           <p>
-            Bank Fee Index provides fee schedule data, benchmarking tools, and
+            Fee Insight provides fee schedule data, benchmarking tools, and
             analytical capabilities for US bank and credit union fees. The
             Service includes free public access to select data and premium
             subscription tiers with additional features.
@@ -126,7 +127,7 @@ export default function TermsPage() {
             7. Data Accuracy
           </h2>
           <p>
-            Bank Fee Index strives to provide accurate and timely fee data.
+            Fee Insight strives to provide accurate and timely fee data.
             However, fee schedules change frequently and our data reflects a
             point-in-time snapshot. We do not guarantee the accuracy,
             completeness, or currency of any data. Users should verify fee
@@ -142,7 +143,7 @@ export default function TermsPage() {
           </h2>
           <p>
             The Service provides informational data and analytical tools. Nothing
-            on Bank Fee Index constitutes financial, legal, or professional
+            on Fee Insight constitutes financial, legal, or professional
             advice. We do not recommend any particular financial institution
             or product.
           </p>
@@ -169,7 +170,7 @@ export default function TermsPage() {
             10. Limitation of Liability
           </h2>
           <p>
-            To the maximum extent permitted by law, Bank Fee Index shall not be
+            To the maximum extent permitted by law, Fee Insight shall not be
             liable for any indirect, incidental, special, consequential, or
             punitive damages arising from your use of the Service. Our total
             liability shall not exceed the amount you paid for the Service in

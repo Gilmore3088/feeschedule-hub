@@ -1,6 +1,6 @@
 import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextResponse } from "next/server";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const spec = {
   openapi: "3.0.3",
@@ -10,7 +10,7 @@ const spec = {
     description:
       "Programmatic access to bank and credit union fee benchmarking data covering 49 fee categories across thousands of U.S. financial institutions. Data sourced from published fee schedules, FDIC, and NCUA registries. Unauthenticated JSON reads are supported with free-tier rate limits; API keys are manually issued and are not self-serve from Account yet.",
     contact: {
-      name: "Bank Fee Index",
+      name: SITE_NAME,
       email: "hello@bankfeeindex.com",
       url: "https://feeinsight.com/api-docs",
     },

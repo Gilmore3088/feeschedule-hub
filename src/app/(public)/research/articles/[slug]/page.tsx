@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getArticleBySlug, incrementViewCount, getPublishedArticles } from "@/lib/data-store/articles";
 import { ensureResearchTables } from "@/lib/research/history";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
+import { SITE_NAME } from "@/lib/constants";
 
 export async function generateMetadata({
   params,
@@ -172,9 +173,9 @@ export default async function ArticlePage({
             "@type": "Article",
             headline: article.title,
             description: article.subtitle || "",
-            author: { "@type": "Organization", name: "Bank Fee Index" },
+            author: { "@type": "Organization", name: SITE_NAME },
             datePublished: article.published_at,
-            publisher: { "@type": "Organization", name: "Bank Fee Index" },
+            publisher: { "@type": "Organization", name: SITE_NAME },
           }).replace(/</g, "\\u003c"),
         }}
       />

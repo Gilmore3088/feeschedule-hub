@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const METHODOLOGY_URL = `${SITE_URL}/methodology`;
 
@@ -13,12 +13,12 @@ const jsonLdData = {
   datePublished: "2026-04-06T00:00:00Z",
   author: {
     "@type": "Organization",
-    name: "Bank Fee Index",
+    name: SITE_NAME,
     url: SITE_URL,
   },
   publisher: {
     "@type": "Organization",
-    name: "Bank Fee Index",
+    name: SITE_NAME,
     url: SITE_URL,
   },
 };
@@ -35,10 +35,10 @@ export const metadata: Metadata = {
     description:
       "A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across 4,000+ financial institutions.",
     url: METHODOLOGY_URL,
-    siteName: "Bank Fee Index",
+    siteName: SITE_NAME,
     type: "article",
     publishedTime: "2026-04-06T00:00:00Z",
-    authors: ["Bank Fee Index"],
+    authors: [SITE_NAME],
   },
   twitter: {
     card: "summary_large_image",
@@ -146,7 +146,7 @@ export default function MethodologyPage() {
 
         {/* Footer */}
         <div style={{ marginTop: "64px", paddingTop: "24px", borderTop: "1px solid #E8DFD1", fontSize: "12px", color: "#A09788" }}>
-          <p>Bank Fee Index is independently operated. Our data collection methodology is designed to comply with the terms of service of the financial institutions we monitor. We collect only publicly disclosed fee information.</p>
+          <p>Fee Insight is independently operated. Our data collection methodology is designed to comply with the terms of service of the financial institutions we monitor. We collect only publicly disclosed fee information.</p>
           <p style={{ marginTop: "8px" }}>Questions about our methodology: hello@bankfeeindex.com</p>
         </div>
 

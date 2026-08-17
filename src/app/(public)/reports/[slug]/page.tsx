@@ -13,7 +13,7 @@ import { notFound } from "next/navigation";
 import { getSql } from "@/lib/data-store/connection";
 import type { ReportType } from "@/lib/report-engine/types";
 import { EmailGate } from "./email-gate";
-import { SITE_URL } from "@/lib/constants";
+import { RESEARCH_IMPRINT, SITE_NAME, SITE_URL } from "@/lib/constants";
 
 export const revalidate = 3600;
 
@@ -104,12 +104,12 @@ export async function generateMetadata({
     },
     openGraph: {
       title: report.title,
-      description: `${typeLabel} — Bank Fee Index Research`,
+      description: `${typeLabel} — ${RESEARCH_IMPRINT}`,
       url: `${SITE_URL}/reports/${slug}`,
-      siteName: "Bank Fee Index",
+      siteName: SITE_NAME,
       type: "article",
       publishedTime: report.published_at,
-      authors: ["Bank Fee Index"],
+      authors: [RESEARCH_IMPRINT],
     },
   };
 }

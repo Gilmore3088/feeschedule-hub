@@ -13,7 +13,7 @@ import {
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
@@ -397,7 +397,7 @@ export default async function NationalFeeIndexPage() {
             url: `${SITE_URL}/research/national-fee-index`,
             creator: {
               "@type": "Organization",
-              name: "Bank Fee Index",
+              name: SITE_NAME,
             },
           }).replace(/</g, "\\u003c"),
         }}

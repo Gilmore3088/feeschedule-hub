@@ -3,7 +3,7 @@ import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with Bank Fee Index for enterprise licensing, custom reports, or general inquiries.",
+  description: "Get in touch with Fee Insight for enterprise licensing, custom reports, or general inquiries.",
 };
 
 export default function ContactPage({

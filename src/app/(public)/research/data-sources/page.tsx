@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { getDataCoverageSummary } from "@/lib/data-store/financial";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Data Sources & Coverage — Methodology",
@@ -21,7 +21,7 @@ const DATA_SOURCES = [
   {
     name: "Fee Schedule Extractions",
     description: "Bank and credit union fee observations extracted from published PDFs and web pages with source lineage and review gates.",
-    agency: "Bank Fee Index",
+    agency: SITE_NAME,
     cadence: "Weekly",
     key: null as string | null,
   },
