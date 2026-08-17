@@ -92,7 +92,7 @@ export function InstitutionSearchBar({
       <div className="relative">
         <Search
           aria-hidden="true"
-          className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 ${isDark ? "text-[#7A7062]" : "text-[#A69D90]"}`}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-[#7A7062]"
           strokeWidth={1.75}
         />
         <input
@@ -106,7 +106,7 @@ export function InstitutionSearchBar({
           className={
             isDark
               ? "w-full rounded-md border border-[#3D3830] bg-[#2D2A26] pl-10 pr-4 py-3 text-sm text-[#F5EFE6] placeholder:text-[#7A7062] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#C44B2E]"
-              : "w-full rounded-md border border-[#D5CBBF] bg-[#FFFDF9] pl-10 pr-4 py-3 text-sm text-[#1A1815] placeholder:text-[#A69D90] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#C44B2E]"
+              : "w-full rounded-md border border-[#D5CBBF] bg-[#FFFDF9] pl-10 pr-4 py-3 text-sm text-[#1A1815] placeholder:text-[#7A7062] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#C44B2E]"
           }
         />
         {loading && (
@@ -132,7 +132,7 @@ export function InstitutionSearchBar({
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#7A7062]">
                 {[r.city, r.state_code].filter(Boolean).join(", ")}
                 {r.charter_type && (
-                  <span className="text-[#A69D90]">
+                  <span className="text-[#7A7062]">
                     {r.charter_type === "bank" ? "Bank" : "Credit Union"}
                   </span>
                 )}
@@ -143,12 +143,12 @@ export function InstitutionSearchBar({
                 )}
                 {(r.published_fee_count ?? 0) === 0 && (r.provisional_fee_count ?? 0) > 0 && (
                   <span className="rounded-sm border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#9A5A00]">
-                    {r.provisional_fee_count} provisional fees
+                    {r.provisional_fee_count} fees under review
                   </span>
                 )}
-                {(r.published_fee_count ?? 0) === 0 && (r.provisional_fee_count ?? 0) === 0 && (r.fee_publication_label || r.quality_label) && (
-                  <span className="rounded-sm border border-[#E8DFD1] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#A69D90]">
-                    {r.fee_publication_label ?? r.quality_label}
+                {(r.published_fee_count ?? 0) === 0 && (r.provisional_fee_count ?? 0) === 0 && (
+                  <span className="rounded-sm border border-[#E0D7C9] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#7A7062]">
+                    {r.fee_publication_status === "under_review" ? "Under review" : "No published schedule found"}
                   </span>
                 )}
               </div>

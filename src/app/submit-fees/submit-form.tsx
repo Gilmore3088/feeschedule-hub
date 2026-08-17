@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { FileText, Plus, Trash2 } from "lucide-react";
+import { FileText } from "lucide-react";
+import { PRODUCT_NAME } from "@/lib/constants";
 import { submitFees, searchInstitutions } from "./actions";
+import { SubmitSuccessCard } from "./submit-success";
+import { FeeRowsEditor, type FeeRow } from "./fee-rows-editor";
 
 const FEE_CATEGORIES = [
   { value: "monthly_maintenance", label: "Monthly Maintenance" },
@@ -14,13 +17,6 @@ const FEE_CATEGORIES = [
 
 const DEFAULT_FEE_NAMES = new Set<string>(FEE_CATEGORIES.map((category) => category.label));
 
-const FREQUENCIES = [
-  { value: "monthly", label: "Monthly" },
-  { value: "per_occurrence", label: "Per occurrence" },
-  { value: "annual", label: "Annual" },
-  { value: "one_time", label: "One time" },
-] as const;
-
 const SUBMITTER_ROLES = [
   { value: "consumer", label: "Consumer" },
   { value: "institution_employee", label: "Institution employee" },
@@ -28,19 +24,14 @@ const SUBMITTER_ROLES = [
   { value: "other", label: "Other" },
 ] as const;
 
-interface FeeRow {
-  fee_category: string;
-  fee_name: string;
-  amount: string;
-  frequency: string;
-}
-
 interface SubmitFormProps {
   initialInstitutionId?: number | null;
   initialInstitutionName?: string;
   initialSourceUrl?: string;
   initialSubmitterRole?: string;
   initialNotes?: string;
+  claimFlow?: boolean;
+  profileHref?: string | null;
 }
 
 const EMPTY_FEE: FeeRow = {
@@ -65,6 +56,8 @@ export function SubmitForm({
   initialSourceUrl = "",
   initialSubmitterRole = "consumer",
   initialNotes = "",
+  claimFlow = false,
+  profileHref = null,
 }: SubmitFormProps) {
   const [institutionId, setInstitutionId] = useState<number | null>(initialInstitutionId);
   const [institutionName, setInstitutionName] = useState(initialInstitutionName);
@@ -75,6 +68,8 @@ export function SubmitForm({
       : "consumer",
   );
   const [notes, setNotes] = useState(initialNotes);
+  const [contactEmail, setContactEmail] = useState("");
+  const [submittedWithEmail, setSubmittedWithEmail] = useState(false);
   const [fees, setFees] = useState<FeeRow[]>(defaultFeeRows);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -141,6 +136,7 @@ export function SubmitForm({
       source_url: sourceUrl,
       submitter_role: submitterRole,
       notes,
+      contact_email: contactEmail.trim() || null,
       fees: validFees,
     });
 
@@ -148,14 +144,27 @@ export function SubmitForm({
     setSubmitting(false);
 
     if (res.success) {
+      setSubmittedWithEmail(Boolean(contactEmail.trim()));
       setFees(defaultFeeRows());
       setSourceUrl("");
       setNotes("");
+      setContactEmail("");
     }
   }
 
+  if (result?.success) {
+    return (
+      <SubmitSuccessCard
+        claimFlow={claimFlow}
+        profileHref={profileHref}
+        contactEmailProvided={submittedWithEmail}
+        onSubmitAnother={() => setResult(null)}
+      />
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="min-w-0 overflow-hidden border border-[#E8DFD1] bg-white p-5">
+    <form onSubmit={handleSubmit} className="min-w-0 overflow-hidden border border-[#E0D7C9] bg-white p-5">
       <div className="space-y-5">
         <div className="relative">
           <label htmlFor="institution-name" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
@@ -173,17 +182,17 @@ export function SubmitForm({
           />
           {institutionId && (
             <p className="mt-1 text-xs text-[#7A7062]">
-              Matched institution ID {institutionId}
+              Matched to an institution in the {PRODUCT_NAME}
             </p>
           )}
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-[#E8DFD1] bg-white shadow-lg">
+            <div className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-[#E0D7C9] bg-white shadow-lg">
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion.id}
                   type="button"
                   onMouseDown={() => selectInstitution(suggestion)}
-                  className="w-full border-b border-[#F0E8DD] px-3 py-2 text-left text-sm last:border-0 hover:bg-[#FAF7F2]"
+                  className="w-full border-b border-[#F0EBE3] px-3 py-2 text-left text-sm last:border-0 hover:bg-[#FAF7F2]"
                 >
                   <span className="font-medium text-[#1A1815]">{suggestion.name}</span>
                   {suggestion.state && (
@@ -197,7 +206,7 @@ export function SubmitForm({
 
         <div>
           <label htmlFor="source-url" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
-            Official Source URL
+            Link to the published fee schedule
           </label>
           <div className="mt-1 flex min-w-0 gap-2">
             <FileText className="mt-2.5 h-4 w-4 shrink-0 text-[#C44B2E]" />
@@ -219,7 +228,7 @@ export function SubmitForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="submitter-role" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
-              Submitter Role
+              Your role
             </label>
             <select
               id="submitter-role"
@@ -250,83 +259,33 @@ export function SubmitForm({
         </div>
 
         <div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
-                Optional Fee Rows
-              </p>
-              <p className="mt-1 text-xs text-[#7A7062]">
-                Leave amounts blank to submit the source only.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={addFeeRow}
-            className="inline-flex items-center gap-1 rounded-md border border-[#D5CBBF] px-2 py-1 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add row
-            </button>
-          </div>
-
-          <div className="mt-3 min-w-0 space-y-2 overflow-hidden">
-            {fees.map((fee, i) => (
-              <div
-                key={i}
-                className="fi-row-interaction grid min-w-0 gap-2 border border-[#E8DFD1] bg-[#FFFDF9] p-3 sm:grid-cols-[minmax(0,1fr)_110px_150px_32px]"
-              >
-                <input
-                  type="text"
-                  value={fee.fee_name}
-                  onChange={(e) => updateFee(i, "fee_name", e.target.value)}
-                  aria-label="Fee name"
-                  className="min-w-0 rounded border border-[#D5CBBF] px-2 py-1.5 text-sm outline-none focus:border-[#C44B2E]"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={fee.amount}
-                  onChange={(e) => updateFee(i, "amount", e.target.value)}
-                  placeholder="Amount"
-                  aria-label="Amount"
-                  className="min-w-0 rounded border border-[#D5CBBF] px-2 py-1.5 text-sm tabular-nums outline-none focus:border-[#C44B2E] sm:text-right"
-                />
-                <select
-                  value={fee.frequency}
-                  onChange={(e) => updateFee(i, "frequency", e.target.value)}
-                  aria-label="Frequency"
-                  className="min-w-0 rounded border border-[#D5CBBF] px-2 py-1.5 text-sm outline-none focus:border-[#C44B2E]"
-                >
-                  {FREQUENCIES.map((frequency) => (
-                    <option key={frequency.value} value={frequency.value}>
-                      {frequency.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => removeFeeRow(i)}
-                  aria-label="Remove fee row"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#D5CBBF] text-[#7A7062] hover:border-[#C44B2E] hover:text-[#C44B2E]"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
+          <label htmlFor="contact-email" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+            Work email <span className="font-normal normal-case tracking-normal">(optional)</span>
+          </label>
+          <input
+            id="contact-email"
+            type="email"
+            autoComplete="email"
+            value={contactEmail}
+            onChange={(e) => setContactEmail(e.target.value)}
+            placeholder="you@yourinstitution.com"
+            className="mt-1 w-full min-w-0 rounded-md border border-[#D5CBBF] px-3 py-2 text-sm outline-none transition-colors focus:border-[#C44B2E]"
+          />
+          <p className="mt-1 text-xs text-[#7A7062]">We&apos;ll tell you when it&apos;s reviewed.</p>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-[#E8DFD1] pt-5 sm:flex-row sm:items-center">
+        <FeeRowsEditor fees={fees} onUpdate={updateFee} onAdd={addFeeRow} onRemove={removeFeeRow} />
+
+        <div className="flex flex-col gap-3 border-t border-[#E0D7C9] pt-5 sm:flex-row sm:items-center">
           <button
             type="submit"
             disabled={submitting}
             className="inline-flex items-center justify-center rounded-md bg-[#1A1815] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2C2822] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? "Submitting..." : "Submit source"}
+            {submitting ? "Sending…" : "Send for review"}
           </button>
-          {result && (
-            <span className={`text-sm ${result.success ? "text-emerald-700" : "text-red-700"}`}>
+          {result && !result.success && (
+            <span className="text-sm text-red-700" role="alert">
               {result.message}
             </span>
           )}

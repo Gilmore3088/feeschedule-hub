@@ -6,6 +6,8 @@ import { headers } from "next/headers";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 5; // max submissions per window per IP
+const CONTACT_EMAIL_MAX_LENGTH = 254;
+const CONTACT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const recentSubmissions = new Map<string, number[]>();
 
 interface SubmitFeeInput {
@@ -14,6 +16,8 @@ interface SubmitFeeInput {
   source_url: string;
   submitter_role?: string | null;
   notes?: string | null;
+  /** Optional work email; stored in notes and event metadata until a dedicated column exists. */
+  contact_email?: string | null;
   fees: {
     fee_name: string;
     fee_category: string;
@@ -84,6 +88,17 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
     return { success: false, message: "Invalid source URL" };
   }
 
+  const contactEmail = input.contact_email?.trim() || null;
+  if (
+    contactEmail &&
+    (contactEmail.length > CONTACT_EMAIL_MAX_LENGTH || !CONTACT_EMAIL_PATTERN.test(contactEmail))
+  ) {
+    return { success: false, message: "Please enter a valid work email or leave it blank." };
+  }
+  const reviewerNotes = [input.notes?.trim() || null, contactEmail ? `Contact email: ${contactEmail}` : null]
+    .filter(Boolean)
+    .join(" | ") || null;
+
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(ip)) {
@@ -130,7 +145,7 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
             VALUES (${targetId}, ${input.institution_name.trim()}, ${fee.fee_name.trim()},
                     ${fee.fee_category || null}, ${fee.amount}, ${fee.frequency || "per_occurrence"},
                     ${input.source_url.trim()}, ${ip}, ${input.submitter_role || null},
-                    ${input.notes || null}, ${fee.submission_kind})
+                    ${reviewerNotes}, ${fee.submission_kind})
             RETURNING id
           `;
         } else {
@@ -149,11 +164,12 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
             INSERT INTO community_fee_submission_events
               (submission_id, event_type, new_status, notes, metadata)
             VALUES
-              (${submissionId}, 'submitted', 'pending', ${input.notes || null},
+              (${submissionId}, 'submitted', 'pending', ${reviewerNotes},
                ${sql.json({
                  institution_id: targetId,
                  submission_kind: fee.submission_kind,
                  submitter_role: input.submitter_role || null,
+                 contact_email: contactEmail,
                })})
           `;
         }
@@ -166,8 +182,8 @@ export async function submitFees(input: SubmitFeeInput): Promise<SubmitResult> {
       success: true,
       message:
         normalizedFees.length === 1 && normalizedFees[0].fee_category === "source_intake"
-          ? "Submitted the official source for review. Thank you!"
-          : `Submitted ${normalizedFees.length} fee(s) for review. Thank you!`,
+          ? "Thanks — your source is in review."
+          : `Thanks — ${normalizedFees.length} fee(s) are in review.`,
       count: normalizedFees.length,
     };
   } catch (e) {

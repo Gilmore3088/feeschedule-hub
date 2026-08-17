@@ -57,3 +57,22 @@ export function timeAgo(dateString: string): string {
 export function formatPct(value: number): string {
   return `${(value * 100).toFixed(0)}%`;
 }
+
+const FEE_AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Public fee amount: thousands separators, two decimals, ".00" dropped for whole dollars.
+ * Returns null when the amount is missing or not finite so callers can choose a placeholder.
+ */
+export function formatFeeAmount(amount: number | string | null | undefined): string | null {
+  if (amount === null || amount === undefined) return null;
+  const value = typeof amount === "number" ? amount : Number(amount);
+  if (!Number.isFinite(value)) return null;
+  const formatted = FEE_AMOUNT_FORMAT.format(value);
+  return formatted.endsWith(".00") ? formatted.slice(0, -3) : formatted;
+}

@@ -24,3 +24,42 @@ export function buildInstitutionProfileLinks({
     scenarioHref: `/pro/simulate?instId=${instId}`,
   };
 }
+
+export interface PublicInstitutionProfileLinkParams extends InstitutionProfileLinkParams {
+  /** Logged-in viewers keep the direct Pro routes; anonymous viewers are sent to /subscribe. */
+  isAuthenticated: boolean;
+}
+
+export interface PublicInstitutionProfileLinks {
+  /** Free correction path: `/submit-fees?institution=<id>`. */
+  correctSourceHref: string;
+  /** Free institution-employee claim path: `/submit-fees?institution=<id>&claim=1`. */
+  claimHref: string;
+  /** Competitive Fee Position report offer. */
+  reportOfferHref: string;
+  analyzeHref: string;
+  briefHref: string;
+  scenarioHref: string;
+}
+
+/**
+ * Links for the public institution profile. Pro actions route anonymous
+ * viewers to `/subscribe?from=<profile path>` instead of the login wall.
+ */
+export function buildPublicInstitutionProfileLinks({
+  institutionId,
+  isAuthenticated,
+}: PublicInstitutionProfileLinkParams): PublicInstitutionProfileLinks {
+  const instId = String(institutionId);
+  const profilePath = `/institution/${instId}`;
+  const subscribeHref = `/subscribe?from=${encodeURIComponent(profilePath)}`;
+  const gate = (proHref: string) => (isAuthenticated ? proHref : subscribeHref);
+  return {
+    correctSourceHref: `/submit-fees?institution=${instId}`,
+    claimHref: `/submit-fees?institution=${instId}&claim=1`,
+    reportOfferHref: "/for-institutions#report",
+    analyzeHref: gate(`/pro/analyze?instId=${instId}&intent=institution`),
+    briefHref: gate(`/pro/reports?instId=${instId}&intent=competitive-brief`),
+    scenarioHref: gate(`/pro/simulate?instId=${instId}`),
+  };
+}

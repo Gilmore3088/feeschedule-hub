@@ -56,6 +56,13 @@ function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
 
+/** "12 verified · 740 monitored" */
+function formatStateCounts(summary: InstitutionStateDirectorySummary | undefined): string {
+  const verified = summary?.verified_institution_count ?? 0;
+  const monitored = summary?.institution_count ?? 0;
+  return `${formatCount(verified)} verified · ${formatCount(monitored)} monitored`;
+}
+
 export function StateDirectoryMap({
   summaries,
   selectedStateCode = "",
@@ -67,8 +74,8 @@ export function StateDirectoryMap({
     () => new Map(summaries.map((summary) => [summary.state_code, summary])),
     [summaries],
   );
-  const maxInstitutions = Math.max(
-    ...summaries.map((summary) => summary.institution_count),
+  const maxVerified = Math.max(
+    ...summaries.map((summary) => summary.verified_institution_count),
     1,
   );
   const selectedSummary = selectedStateCode
@@ -78,7 +85,11 @@ export function StateDirectoryMap({
   const focusSummary = hoveredSummary ?? selectedSummary;
   const topStates = [...summaries]
     .filter((summary) => STATE_NAMES[summary.state_code])
-    .sort((a, b) => b.institution_count - a.institution_count)
+    .sort(
+      (a, b) =>
+        b.verified_institution_count - a.verified_institution_count ||
+        b.institution_count - a.institution_count,
+    )
     .slice(0, 10);
 
   return (
@@ -87,11 +98,11 @@ export function StateDirectoryMap({
         <div className="min-w-0">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
-                Browse by geography
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+                Browse by state
               </p>
               <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#1A1815]">
-                Choose a state to view institutions.
+                Choose a state to see its banks and credit unions.
               </h2>
             </div>
             {selectedStateCode && (
@@ -104,7 +115,7 @@ export function StateDirectoryMap({
             )}
           </div>
 
-          <div className="hidden border border-[#E8DFD1] bg-[#FFFDF9] p-3 sm:block">
+          <div className="hidden border border-[#E0D7C9] bg-[#FFFDF9] p-3 sm:block">
             <svg
               viewBox="0 0 960 600"
               className="h-auto w-full"
@@ -119,14 +130,14 @@ export function StateDirectoryMap({
                   <Link
                     key={state.id}
                     href={buildHref({ stateCode: state.id, query, charterType })}
-                    aria-label={`${state.name}: ${formatCount(summary?.institution_count ?? 0)} institutions`}
+                    aria-label={`${state.name}: ${formatStateCounts(summary)}`}
                     prefetch={false}
                   >
                     <path
                       d={state.d}
                       fill={getFill({
-                        value: summary?.institution_count ?? 0,
-                        max: maxInstitutions,
+                        value: summary?.verified_institution_count ?? 0,
+                        max: maxVerified,
                         active,
                         hovered,
                       })}
@@ -136,21 +147,21 @@ export function StateDirectoryMap({
                       onMouseEnter={() => setHoveredState(state.id)}
                       onMouseLeave={() => setHoveredState(null)}
                     >
-                      <title>{`${state.name}: ${formatCount(summary?.institution_count ?? 0)} institutions`}</title>
+                      <title>{`${state.name}: ${formatStateCounts(summary)}`}</title>
                     </path>
                   </Link>
                 );
               })}
             </svg>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#E8DFD1] pt-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[#A69D90]">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#E0D7C9] pt-3 text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A7062]">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 bg-[#F8DDD6]" />
-                Lower count
+                Fewer verified
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 bg-[#C44B2E]" />
-                Higher count
+                More verified
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 bg-[#1A1815]" />
@@ -185,13 +196,13 @@ export function StateDirectoryMap({
                     key={summary.state_code}
                     href={buildHref({ stateCode: summary.state_code, query, charterType })}
                     prefetch={false}
-                    className="flex min-h-12 items-center justify-between border border-[#E8DFD1] bg-[#FFFDF9] px-3 text-sm text-[#1A1815] transition-colors hover:border-[#C44B2E]"
+                    className="flex min-h-12 items-center justify-between border border-[#E0D7C9] bg-[#FFFDF9] px-3 text-sm text-[#1A1815] transition-colors hover:border-[#C44B2E]"
                   >
                     <span className="font-semibold">
                       {STATE_NAMES[summary.state_code] ?? summary.state_code}
                     </span>
-                    <span className="flex items-center gap-2 text-xs tabular-nums opacity-80">
-                      {formatCount(summary.institution_count)}
+                    <span className="flex items-center gap-2 text-xs tabular-nums text-[#5A5347]">
+                      {formatStateCounts(summary)}
                       <ArrowRight className="h-3.5 w-3.5" />
                     </span>
                   </Link>
@@ -201,57 +212,53 @@ export function StateDirectoryMap({
           </div>
         </div>
 
-        <aside className="border-y border-[#E8DFD1] py-4 lg:border-l lg:border-y-0 lg:pl-5 lg:py-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
-            State snapshot
+        <aside className="hidden border-y border-[#E0D7C9] py-4 lg:block lg:border-l lg:border-y-0 lg:py-1 lg:pl-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+            {focusSummary ? "Selected state" : "Most verified"}
           </p>
-          <h3 className="mt-2 break-words text-xl font-semibold tracking-tight text-[#1A1815]">
-            {focusSummary
-              ? STATE_NAMES[focusSummary.state_code] ?? focusSummary.state_code
-              : "Select a state"}
-          </h3>
-          <p className="mt-2 text-sm leading-relaxed text-[#5A5347]">
-            {focusSummary
-              ? "Open the state list to compare profiles, fee evidence status, and source coverage."
-              : "The directory starts with geography so users do not have to scan thousands of institutions at once."}
-          </p>
-
           {focusSummary ? (
-            <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <SnapshotMetric label="Institutions" value={formatCount(focusSummary.institution_count)} />
-              <SnapshotMetric label="Verified" value={formatCount(focusSummary.verified_institution_count)} />
-              <SnapshotMetric label="Provisional" value={formatCount(focusSummary.provisional_institution_count)} />
-              <SnapshotMetric label="Source needed" value={formatCount(focusSummary.source_needed_institution_count)} />
-            </div>
+            <>
+              <h3 className="mt-2 break-words text-xl font-semibold tracking-tight text-[#1A1815]">
+                {STATE_NAMES[focusSummary.state_code] ?? focusSummary.state_code}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#5A5347]">
+                {formatStateCounts(focusSummary)}
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <SnapshotMetric label="Verified" value={formatCount(focusSummary.verified_institution_count)} />
+                <SnapshotMetric label="Under review" value={formatCount(focusSummary.provisional_institution_count + focusSummary.under_review_institution_count)} />
+                <SnapshotMetric label="No schedule found" value={formatCount(focusSummary.source_needed_institution_count)} />
+                <SnapshotMetric label="Monitored" value={formatCount(focusSummary.institution_count)} />
+              </div>
+              {focusSummary.state_code !== selectedStateCode && (
+                <Link
+                  href={buildHref({ stateCode: focusSummary.state_code, query, charterType })}
+                  prefetch={false}
+                  className="mt-5 inline-flex min-h-9 items-center gap-2 rounded-md bg-[#C44B2E] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#A93D25]"
+                >
+                  View {STATE_NAMES[focusSummary.state_code] ?? focusSummary.state_code}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
+            </>
           ) : (
-            <div className="mt-5 space-y-2">
+            <div className="mt-3 space-y-2">
               {topStates.slice(0, 5).map((summary) => (
                 <Link
                   key={summary.state_code}
                   href={buildHref({ stateCode: summary.state_code, query, charterType })}
                   prefetch={false}
-                  className="group flex items-center justify-between border-b border-[#E8DFD1] py-2 text-sm"
+                  className="group flex items-center justify-between gap-3 border-b border-[#E0D7C9] py-2 text-sm"
                 >
                   <span className="font-medium text-[#1A1815] group-hover:text-[#C44B2E]">
                     {STATE_NAMES[summary.state_code] ?? summary.state_code}
                   </span>
-                  <span className="text-xs tabular-nums text-[#7A7062]">
-                    {formatCount(summary.institution_count)}
+                  <span className="text-right text-xs tabular-nums text-[#7A7062]">
+                    {formatStateCounts(summary)}
                   </span>
                 </Link>
               ))}
             </div>
-          )}
-
-          {focusSummary && focusSummary.state_code !== selectedStateCode && (
-            <Link
-              href={buildHref({ stateCode: focusSummary.state_code, query, charterType })}
-              prefetch={false}
-              className="mt-5 inline-flex min-h-9 items-center gap-2 rounded-md bg-[#C44B2E] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#A93D25]"
-            >
-              View {STATE_NAMES[focusSummary.state_code] ?? focusSummary.state_code}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
           )}
         </aside>
       </div>
@@ -262,7 +269,7 @@ export function StateDirectoryMap({
 function SnapshotMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A69D90]">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
         {label}
       </p>
       <p className="mt-1 text-lg font-semibold tabular-nums text-[#1A1815]">
