@@ -76,7 +76,7 @@ export default async function GuidePage({ params }: PageProps) {
       />
 
       {/* ── Breadcrumb — sticky on mobile ── */}
-      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-8 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+      <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-8 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
         <Link href="/" className="hover:text-[#1A1815] transition-colors">
           Home
         </Link>
@@ -108,7 +108,7 @@ export default async function GuidePage({ params }: PageProps) {
           {guide.description}
         </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#A09788]">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#7A7062]">
           <span>
             Data from{" "}
             <span className="font-medium text-[#5A5347] tabular-nums">
@@ -138,7 +138,7 @@ export default async function GuidePage({ params }: PageProps) {
               className="group relative rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-5 py-4 transition-all duration-400 hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline overflow-hidden"
             >
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C44B2E]/0 to-transparent group-hover:via-[#C44B2E]/30 transition-all duration-700" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] group-hover:text-[#C44B2E]/70 transition-colors">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] group-hover:text-[#C44B2E]/70 transition-colors">
                 {getDisplayName(fee.fee_category)}
               </p>
               <p
@@ -148,11 +148,11 @@ export default async function GuidePage({ params }: PageProps) {
                 }}
               >
                 {formatAmount(fee.median_amount)}
-                <span className="ml-2 text-[11px] font-sans font-normal text-[#A09788]">
+                <span className="ml-2 text-[11px] font-sans font-normal text-[#7A7062]">
                   median
                 </span>
               </p>
-              <p className="mt-1 text-[11px] tabular-nums text-[#A09788]">
+              <p className="mt-1 text-[11px] tabular-nums text-[#7A7062]">
                 {formatAmount(fee.min_amount)} &ndash;{" "}
                 {formatAmount(fee.max_amount)}
                 <span className="mx-1.5 text-[#D4C9BA]">&middot;</span>
@@ -274,7 +274,7 @@ export default async function GuidePage({ params }: PageProps) {
                     <span className="text-[13px] font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
                       {getDisplayName(fee.fee_category)} Deep Dive
                     </span>
-                    <span className="block text-[11px] text-[#A09788]">
+                    <span className="block text-[11px] text-[#7A7062]">
                       Distribution, breakdowns by charter, state, tier
                     </span>
                   </div>
@@ -293,7 +293,7 @@ export default async function GuidePage({ params }: PageProps) {
                   <span className="text-[13px] font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
                     National Fee Index
                   </span>
-                  <span className="block text-[11px] text-[#A09788]">
+                  <span className="block text-[11px] text-[#7A7062]">
                     All 49 fee categories benchmarked
                   </span>
                 </div>
@@ -311,7 +311,7 @@ export default async function GuidePage({ params }: PageProps) {
                   <span className="text-[13px] font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
                     State & District Reports
                   </span>
-                  <span className="block text-[11px] text-[#A09788]">
+                  <span className="block text-[11px] text-[#7A7062]">
                     Fee analysis by geography
                   </span>
                 </div>
@@ -381,9 +381,9 @@ export default async function GuidePage({ params }: PageProps) {
                       >
                         {formatAmount(fee.median_amount)}
                       </span>
-                      <span className="text-[10px] text-[#A09788]">median</span>
+                      <span className="text-[10px] text-[#7A7062]">median</span>
                     </div>
-                    <div className="mt-1 text-[11px] tabular-nums text-[#A09788]">
+                    <div className="mt-1 text-[11px] tabular-nums text-[#7A7062]">
                       P25: {formatAmount(fee.p25_amount)} &middot; P75:{" "}
                       {formatAmount(fee.p75_amount)}
                     </div>
@@ -426,7 +426,7 @@ export default async function GuidePage({ params }: PageProps) {
                     className="flex items-center justify-between text-[12px]"
                   >
                     <span className="text-[#5A5347] truncate mr-2">
-                      <span className="text-[#A09788] tabular-nums mr-1">
+                      <span className="text-[#7A7062] tabular-nums mr-1">
                         {i + 1}.
                       </span>
                       {f.institution_name}
@@ -453,7 +453,7 @@ export default async function GuidePage({ params }: PageProps) {
                     className="flex items-center justify-between text-[12px]"
                   >
                     <span className="text-[#5A5347] truncate mr-2">
-                      <span className="text-[#A09788] tabular-nums mr-1">
+                      <span className="text-[#7A7062] tabular-nums mr-1">
                         {i + 1}.
                       </span>
                       {f.institution_name}
@@ -469,7 +469,7 @@ export default async function GuidePage({ params }: PageProps) {
 
           {/* Quick nav */}
           <div className="rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
               In This Guide
             </p>
             <nav className="mt-3 space-y-2">

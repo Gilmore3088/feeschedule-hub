@@ -65,7 +65,7 @@ export default async function ArticlePage({
           <div className="mb-8">
             <Link
               href="/research"
-              className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788] hover:text-[#1A1815] transition-colors"
+              className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062] hover:text-[#1A1815] transition-colors"
             >
               &larr; Research
             </Link>
@@ -78,7 +78,7 @@ export default async function ArticlePage({
             {article.subtitle && (
               <p className="mt-2 text-[15px] text-[#7A7062]">{article.subtitle}</p>
             )}
-            <div className="mt-3 flex items-center gap-3 text-[12px] text-[#A09788]">
+            <div className="mt-3 flex items-center gap-3 text-[12px] text-[#7A7062]">
               <span>{article.author}</span>
               {publishedDate && (
                 <>
@@ -120,7 +120,7 @@ export default async function ArticlePage({
           <div className="sticky top-24 space-y-5">
             {relatedArticles.length > 0 && (
               <div className="rounded-xl border border-[#E8DFD1]/80 px-4 py-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062] mb-3">
                   Related Research
                 </p>
                 <ul className="space-y-2">
@@ -132,7 +132,7 @@ export default async function ArticlePage({
                       >
                         {ra.title}
                       </Link>
-                      <span className="text-[10px] text-[#A09788] capitalize">{ra.category}</span>
+                      <span className="text-[10px] text-[#7A7062] capitalize">{ra.category}</span>
                     </li>
                   ))}
                 </ul>
@@ -140,7 +140,7 @@ export default async function ArticlePage({
             )}
 
             <div className="rounded-xl border border-[#E8DFD1]/80 px-4 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062] mb-3">
                 Explore
               </p>
               <ul className="space-y-1.5">

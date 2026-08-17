@@ -1,11 +1,11 @@
 import type { FeePublicationStatus } from "@/lib/institution-quality";
-import { PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
+import { PRODUCT_NAME, REPORT_OFFER, SITE_NAME } from "@/lib/constants";
 
 /** One name, one price, one turnaround — matches the plan's report offer. */
 export const COMPETITIVE_FEE_POSITION_REPORT = {
-  name: "Competitive Fee Position report",
-  price: "$300",
-  turnaround: "48 hours",
+  name: REPORT_OFFER.name,
+  price: REPORT_OFFER.priceLabel,
+  turnaround: REPORT_OFFER.turnaround.replace(/^delivered in /, ""),
 } as const;
 
 /** Auto-generated narrative and score bullets are hidden below this many verified fees. */

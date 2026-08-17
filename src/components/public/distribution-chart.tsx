@@ -54,7 +54,7 @@ export function DistributionChart({
 }: DistributionChartProps) {
   if (amounts.length < 3) {
     return (
-      <p className="text-sm text-[#A09788] py-8 text-center">
+      <p className="text-sm text-[#7A7062] py-8 text-center">
         Not enough data to show distribution
       </p>
     );

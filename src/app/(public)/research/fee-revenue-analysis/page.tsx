@@ -84,7 +84,7 @@ export default async function FeeRevenueAnalysisPage() {
       {/* Summary cards */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
             Institutions Analyzed
           </p>
           <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
@@ -92,7 +92,7 @@ export default async function FeeRevenueAnalysisPage() {
           </p>
         </div>
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
             Avg Fee Amount
           </p>
           <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
@@ -100,7 +100,7 @@ export default async function FeeRevenueAnalysisPage() {
           </p>
         </div>
         <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
             Avg Service Charge Income
           </p>
           <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
@@ -127,19 +127,19 @@ export default async function FeeRevenueAnalysisPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Charter Type
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Institutions
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Avg Fee
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Avg Service Charges
                   </th>
-                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] sm:table-cell">
                     Fee/Assets (bps)
                   </th>
                 </tr>
@@ -191,19 +191,19 @@ export default async function FeeRevenueAnalysisPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Asset Tier
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Institutions
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Avg Fee
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Avg Service Charges
                   </th>
-                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] sm:table-cell">
                     Fee/Assets (bps)
                   </th>
                 </tr>
@@ -255,22 +255,22 @@ export default async function FeeRevenueAnalysisPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                   Institution
                 </th>
-                <th className="hidden px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                <th className="hidden px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] sm:table-cell">
                   Type
                 </th>
-                <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                   Avg Fee
                 </th>
-                <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                   Service Charges
                 </th>
-                <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] md:table-cell">
+                <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] md:table-cell">
                   Total Assets
                 </th>
-                <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                   Ratio (bps)
                 </th>
               </tr>
@@ -292,7 +292,7 @@ export default async function FeeRevenueAnalysisPage() {
                       >
                         {row.institution_name}
                       </Link>
-                      <span className="ml-1 text-[11px] text-[#A09788]">
+                      <span className="ml-1 text-[11px] text-[#7A7062]">
                         {row.state_code}
                       </span>
                     </td>
@@ -320,7 +320,7 @@ export default async function FeeRevenueAnalysisPage() {
 
       {/* Methodology */}
       <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#A09788]">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#7A7062]">
           Methodology
         </h2>
         <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">

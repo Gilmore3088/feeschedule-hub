@@ -108,7 +108,7 @@ export function BriefStatusPoller({ jobId }: Props) {
 
   return (
     <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-5 space-y-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062]">
         Generation Progress
       </p>
 

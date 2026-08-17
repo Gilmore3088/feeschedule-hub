@@ -2,7 +2,7 @@
  * Hamilton Navigation — Single source of truth.
  * Top nav labels, left rail structure, CTA hierarchy, and label constants.
  *
- * Label set: My Bank | Peer Compare | Scenarios | Reports & Briefs | Watchlist | Admin.
+ * Label set: Analyze | Benchmark | Scenario | Report | Monitor | Admin (the five Fee Insight Pro workspace modes).
  * URLs are unchanged from the prior label set (Home/Analyze/Simulate/Reports/Monitor)
  * to preserve bookmarks, internal links, and SEO. URL canonicalization is a
  * separate follow-up.
@@ -12,17 +12,18 @@
  * History:
  *   - D-16 (Phase 38) locked labels to Home | Analyze | Simulate | Reports | Monitor.
  *   - 2026-04-17 UX audit H-4 superseded D-16 with job-oriented labels (Option A).
+ *   - 2026-08-17 executive-panel audit F8: one list of five mode names across public copy and the workspace.
  */
 
 /** Base path for Hamilton screens. Change here if route group structure changes in Phase 40. */
 export const HAMILTON_BASE = "/pro" as const;
 
 export const HAMILTON_NAV = [
-  { label: "My Bank",          href: `${HAMILTON_BASE}/hamilton`  },
-  { label: "Peer Compare",     href: `${HAMILTON_BASE}/analyze`   },
-  { label: "Scenarios",        href: `${HAMILTON_BASE}/simulate`  },
-  { label: "Reports & Briefs", href: `${HAMILTON_BASE}/reports`   },
-  { label: "Watchlist",        href: `${HAMILTON_BASE}/monitor`   },
+  { label: "Analyze",          href: `${HAMILTON_BASE}/hamilton`  },
+  { label: "Benchmark",     href: `${HAMILTON_BASE}/analyze`   },
+  { label: "Scenario",        href: `${HAMILTON_BASE}/simulate`  },
+  { label: "Report", href: `${HAMILTON_BASE}/reports`   },
+  { label: "Monitor",        href: `${HAMILTON_BASE}/monitor`   },
   { label: "Admin",            href: "/admin"                     },
 ] as const;
 
@@ -33,21 +34,21 @@ export const LEFT_RAIL_CONFIG: Record<HamiltonScreen, {
   primaryAction: string;
   sections: string[];
 }> = {
-  "My Bank":          { primaryAction: "Simulate Change",          sections: ["Saved Analyses", "Recent Work"] },
-  "Peer Compare":     { primaryAction: "Simulate a Change",        sections: ["Saved Analyses", "Recent Work", "Pinned Institutions"] },
-  "Scenarios":        { primaryAction: "Generate Board Summary",   sections: ["Scenarios", "Saved Analyses"] },
-  "Reports & Briefs": { primaryAction: "Generate Brief",           sections: ["Your Reports", "Templates"] },
-  "Watchlist":        { primaryAction: "Review Pricing",           sections: ["Watchlist", "Signal Feed"] },
-  "Admin":            { primaryAction: "",                         sections: [] },
+  "Analyze":   { primaryAction: "Simulate Change",          sections: ["Saved Analyses", "Recent Work"] },
+  "Benchmark": { primaryAction: "Simulate a Change",        sections: ["Saved Analyses", "Recent Work", "Pinned Institutions"] },
+  "Scenario":  { primaryAction: "Generate Board Summary",   sections: ["Scenarios", "Saved Analyses"] },
+  "Report":    { primaryAction: "Generate Brief",           sections: ["Your Reports", "Templates"] },
+  "Monitor":   { primaryAction: "Review Pricing",           sections: ["Watchlist", "Signal Feed"] },
+  "Admin":     { primaryAction: "",                         sections: [] },
 } as const;
 
 export const PRIMARY_ACTION_HREF: Record<HamiltonScreen, string> = {
-  "My Bank": "/pro/simulate",
-  "Peer Compare": "/pro/simulate",
-  "Scenarios": "/pro/reports",
-  "Reports & Briefs": "/pro/reports",
-  "Watchlist": "/pro/analyze",
-  "Admin": "/admin",
+  "Analyze":   "/pro/simulate",
+  "Benchmark": "/pro/simulate",
+  "Scenario":  "/pro/reports",
+  "Report":    "/pro/reports",
+  "Monitor":   "/pro/analyze",
+  "Admin":     "/admin",
 } as const;
 
 export function getPrimaryActionHref(screen: HamiltonScreen): string {
@@ -59,11 +60,11 @@ export const CTA_HIERARCHY: Record<Exclude<HamiltonScreen, "Admin">, {
   primary: string;
   secondary: string[];
 }> = {
-  "My Bank":          { primary: "Simulate Change",                 secondary: [] },
-  "Peer Compare":     { primary: "Simulate a Change",               secondary: ["Show Peer Distribution", "View Risk Drivers"] },
-  "Scenarios":        { primary: "Generate Board Scenario Summary", secondary: [] },
-  "Reports & Briefs": { primary: "Generate Brief",                  secondary: [] },
-  "Watchlist":        { primary: "Review Pricing",                  secondary: ["Run Scenario"] },
+  "Analyze":   { primary: "Simulate Change",                 secondary: [] },
+  "Benchmark": { primary: "Simulate a Change",               secondary: ["Show Peer Distribution", "View Risk Drivers"] },
+  "Scenario":  { primary: "Generate Board Scenario Summary", secondary: [] },
+  "Report":    { primary: "Generate Brief",                  secondary: [] },
+  "Monitor":   { primary: "Review Pricing",                  secondary: ["Run Scenario"] },
 } as const;
 
 /** Analysis Focus tabs — used inside Analyze screen (per 02-navigation doc) */

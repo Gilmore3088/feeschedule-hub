@@ -65,7 +65,7 @@ export default async function AboutPage() {
               <p className="text-[20px] font-bold tabular-nums text-[#1A1815]">
                 {stat.value}
               </p>
-              <p className="mt-0.5 text-[11px] text-[#A09788]">{stat.label}</p>
+              <p className="mt-0.5 text-[11px] text-[#7A7062]">{stat.label}</p>
             </div>
           ))}
         </div>

@@ -58,7 +58,7 @@ function ParamRow({
           </span>
         )}
       </td>
-      <td className="py-2 pr-3 align-top text-[12px] text-[#A09788]">{type}</td>
+      <td className="py-2 pr-3 align-top text-[12px] text-[#7A7062]">{type}</td>
       <td className="py-2 align-top text-[13px] text-[#7A7062]">{description}</td>
     </tr>
   );
@@ -68,7 +68,7 @@ function CodeBlock({ children, title }: { children: string; title?: string }) {
   return (
     <div className="mt-3">
       {title && (
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
           {title}
         </p>
       )}
@@ -83,7 +83,7 @@ function ResponseField({ name, type, note }: { name: string; type: string; note?
   return (
     <div className="flex items-baseline gap-2 text-[13px]">
       <code className="text-[12px] text-[#5A5347]">{name}</code>
-      <span className="text-[11px] text-[#A09788]">{type}</span>
+      <span className="text-[11px] text-[#7A7062]">{type}</span>
       {note && <span className="text-[#7A7062]">-- {note}</span>}
     </div>
   );
@@ -125,7 +125,7 @@ function Endpoint({
       {/* Parameters */}
       {params.length > 0 && (
         <div className="mt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
             Parameters
           </p>
           <table className="mt-2 w-full text-left">
@@ -144,7 +144,7 @@ function Endpoint({
       {/* Response */}
       {responseFields && responseFields.length > 0 && (
         <div className="mt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
             Response fields
           </p>
           <div className="mt-2 space-y-1">{responseFields.map((f) => <ResponseField key={f.name} {...f} />)}</div>
@@ -179,7 +179,7 @@ function TierCard({
           : "border-[#E8DFD1]/80 bg-white"
       }`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
         {name}
       </p>
       <p className="mt-1 text-2xl font-bold text-[#1A1815]">{price}</p>
@@ -255,7 +255,7 @@ export default function ApiDocsPage() {
 
       {/* Base URL */}
       <div className="mt-6 rounded-lg border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
           Base URL
         </p>
         <code className="mt-1 block text-[14px] font-medium text-[#1A1815]">
@@ -299,9 +299,9 @@ export default function ApiDocsPage() {
           <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="bg-[#FAF7F2]">
-                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">Tier</th>
-                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">Monthly limit</th>
-                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">Burst rate</th>
+                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">Tier</th>
+                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">Monthly limit</th>
+                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">Burst rate</th>
               </tr>
             </thead>
             <tbody className="text-[#5A5347]">
@@ -667,7 +667,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
 
       {/* OpenAPI link */}
       <div className="mt-8 rounded-xl border border-[#E8DFD1] bg-white px-6 py-5 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A09788]">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
           Machine-readable specification
         </p>
         <p className="mt-2 text-[14px] text-[#5A5347]">

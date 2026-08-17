@@ -241,7 +241,7 @@ export default async function AccountPage({
           <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
                   Plan
                 </span>
                 <span className="text-[14px] font-medium text-[#1A1815]">Seat License</span>
@@ -269,7 +269,7 @@ export default async function AccountPage({
                 </svg>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
                   Your State Insight
                 </p>
                 <p className="mt-1 text-[14px] text-[#1A1815]">
@@ -290,7 +290,7 @@ export default async function AccountPage({
                       : null
                   }
                 </p>
-                <p className="mt-1 text-[11px] text-[#A09788]">
+                <p className="mt-1 text-[11px] text-[#7A7062]">
                   {VERIFIED_BENCHMARK_POLICY}; provisional rows are excluded from this benchmark.
                 </p>
               </div>
@@ -307,7 +307,7 @@ export default async function AccountPage({
           <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
                   Hamilton Context
                 </p>
                 <p className="mt-1 text-[15px] font-semibold text-[#1A1815] truncate">
@@ -319,7 +319,7 @@ export default async function AccountPage({
                     : "Set an institution once and Hamilton will carry it through Analyze, Reports, Scenarios, and Monitor."}
                 </p>
                 {selectedInstitution && (
-                  <p className="mt-1 text-[11px] text-[#A09788]">
+                  <p className="mt-1 text-[11px] text-[#7A7062]">
                     Verified benchmark scores use approved rows only; provisional evidence stays labeled for directional analysis.
                   </p>
                 )}
@@ -351,7 +351,7 @@ export default async function AccountPage({
           <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
                   Institution Authority
                 </p>
                 <h2
@@ -406,7 +406,7 @@ export default async function AccountPage({
 
             {claimHistory.length > 0 && (
               <div className="mt-5">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
                   Claim History
                 </p>
                 <div className="divide-y divide-[#E8DFD1] overflow-hidden rounded-lg border border-[#E8DFD1]">
@@ -436,7 +436,7 @@ export default async function AccountPage({
         {/* ── Quick Actions ── */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
               Quick Actions
             </span>
             <span className="h-px flex-1 bg-[#E8DFD1]" />
@@ -456,7 +456,7 @@ export default async function AccountPage({
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
-                  className={`h-6 w-6 mb-3 ${action.premium && !isPro ? "text-[#A09788]" : "text-[#C44B2E]"}`}
+                  className={`h-6 w-6 mb-3 ${action.premium && !isPro ? "text-[#7A7062]" : "text-[#C44B2E]"}`}
                   stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
@@ -469,7 +469,7 @@ export default async function AccountPage({
                   {action.label}
                   {action.premium && !isPro && <PremiumBadge />}
                 </div>
-                <div className="text-[12px] text-[#A09788] mt-1">{action.description}</div>
+                <div className="text-[12px] text-[#7A7062] mt-1">{action.description}</div>
               </a>
             ))}
           </div>
@@ -481,7 +481,7 @@ export default async function AccountPage({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
                     API and Exports
                   </span>
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-600 uppercase">
@@ -509,13 +509,13 @@ export default async function AccountPage({
             </div>
             <div className="mt-4 grid gap-2 text-[12px] text-[#7A7062] sm:grid-cols-3">
               <div className="rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-2">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#A09788]">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
                   API Docs
                 </span>
                 Public REST reference and OpenAPI schema.
               </div>
               <div className="rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-2">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#A09788]">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
                   CSV Export
                 </span>
                 Seat License export of verified-only fee medians.

@@ -36,7 +36,7 @@ function deriveScreen(pathname: string): HamiltonScreen {
       return item.label as HamiltonScreen;
     }
   }
-  return "Watchlist";
+  return "Monitor";
 }
 
 /**
@@ -63,7 +63,7 @@ export function HamiltonLeftRail({
     activeInstitutionId,
   );
 
-  const isSimulateScreen = currentScreen === "Scenarios";
+  const isSimulateScreen = currentScreen === "Scenario";
   const withCurrentContext = (href: string) =>
     hrefWithInstitutionContext(href, activeInstitutionId);
   const hrefForSavedAnalysis = (analysis: SavedAnalysis) =>

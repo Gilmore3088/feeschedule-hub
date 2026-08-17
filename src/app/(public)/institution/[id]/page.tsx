@@ -54,12 +54,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!inst) return { title: "Institution Not Found" };
 
   const fees = Number(inst.fee_count ?? 0) > 0 ? await getVisibleFeesForPage(instId) : [];
-  const headline = pickHeadlineFees(fees.filter(isVerifiedFee));
+  const verifiedFees = fees.filter(isVerifiedFee);
+  const headline = pickHeadlineFees(verifiedFees);
   const city = toTitleCase(inst.city);
   const place = [city, inst.state_code].filter(Boolean).join(", ");
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
 
   return {
+    // Thin profiles (no verified fees yet) stay reachable but out of the index.
+    robots: verifiedFees.length === 0 ? { index: false, follow: true } : undefined,
     title: buildProfileTitle(inst.institution_name, headline),
     description: `Published fees for ${inst.institution_name}${place ? ` (${place})` : ""}, verified against its own fee schedule, with peer benchmarks from ${SITE_NAME}.`,
     keywords: [

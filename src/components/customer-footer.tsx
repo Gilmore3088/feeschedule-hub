@@ -38,9 +38,6 @@ export function CustomerFooter() {
               for consumers and banking teams.
             </p>
             <div className="mt-4">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062] mb-2">
-                Stay informed
-              </p>
               <EmailSignup />
             </div>
           </div>

@@ -159,7 +159,7 @@ export default async function DataSourcesPage() {
       </p>
 
       {/* Summary strip */}
-      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#A09788]">
+      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#7A7062]">
         <span>
           <span className="font-semibold tabular-nums text-[#5A5347]">
             {DATA_SOURCES.length}
@@ -219,11 +219,11 @@ export default async function DataSourcesPage() {
                 {source.description}
               </p>
               <div className="mt-3 flex items-center justify-between text-[11px]">
-                <span className="text-[#A09788]">{source.agency}</span>
+                <span className="text-[#7A7062]">{source.agency}</span>
                 {count !== null && (
                   <span
                     className={`font-semibold tabular-nums ${
-                      count > 0 ? "text-emerald-600" : "text-[#A09788]"
+                      count > 0 ? "text-emerald-600" : "text-[#7A7062]"
                     }`}
                   >
                     {count > 0 ? formatCount(count) : "Not populated"}
@@ -237,7 +237,7 @@ export default async function DataSourcesPage() {
 
       {/* Refresh schedule */}
       <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#A09788]">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#7A7062]">
           Automated Refresh Schedule
         </h2>
         <div className="mt-3 grid gap-2 text-[13px] text-[#7A7062]">

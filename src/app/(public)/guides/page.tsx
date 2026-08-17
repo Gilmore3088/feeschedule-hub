@@ -8,7 +8,7 @@ import {
   getStats,
   getDataFreshness,
 } from "@/lib/data-store";
-import { getDisplayName } from "@/lib/fee-taxonomy";
+import { getDisplayName, FAMILY_COLORS as TAXONOMY_FAMILY_COLORS } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
@@ -40,17 +40,25 @@ const FAMILY_LABELS: Record<string, string> = {
   "safe-deposit-fees": "Branch Services",
 };
 
-const FAMILY_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  "Overdraft & NSF": { bg: "bg-[#C44B2E]/8", text: "text-[#C44B2E]", dot: "bg-[#C44B2E]" },
-  "ATM & Card": { bg: "bg-amber-500/8", text: "text-amber-700", dot: "bg-amber-500" },
-  "Wire Transfers": { bg: "bg-violet-500/8", text: "text-violet-700", dot: "bg-violet-500" },
-  "Account Fees": { bg: "bg-emerald-500/8", text: "text-emerald-700", dot: "bg-emerald-500" },
-  "International": { bg: "bg-sky-500/8", text: "text-sky-700", dot: "bg-sky-500" },
-  "Check Services": { bg: "bg-rose-400/8", text: "text-rose-600", dot: "bg-rose-400" },
-  "Digital Banking": { bg: "bg-indigo-500/8", text: "text-indigo-700", dot: "bg-indigo-500" },
-  "Account Lifecycle": { bg: "bg-orange-500/8", text: "text-orange-700", dot: "bg-orange-500" },
-  "Branch Services": { bg: "bg-teal-500/8", text: "text-teal-700", dot: "bg-teal-500" },
+// Guide families map onto the taxonomy's warm palette (one system, no stock Tailwind hues).
+const GUIDE_FAMILY_TO_TAXONOMY: Record<string, string> = {
+  "Overdraft & NSF": "Overdraft & NSF",
+  "ATM & Card": "ATM & Card",
+  "Wire Transfers": "Wire Transfers",
+  "Account Fees": "Account Maintenance",
+  "International": "Cash & Deposit",
+  "Check Services": "Check Services",
+  "Digital Banking": "Digital & Electronic",
+  "Account Lifecycle": "Account Services",
+  "Branch Services": "Lending Fees",
 };
+
+const FAMILY_COLORS: Record<string, { bg: string; text: string; dot: string }> = Object.fromEntries(
+  Object.entries(GUIDE_FAMILY_TO_TAXONOMY).map(([guideFamily, taxonomyFamily]) => {
+    const palette = TAXONOMY_FAMILY_COLORS[taxonomyFamily] ?? TAXONOMY_FAMILY_COLORS["Account Maintenance"];
+    return [guideFamily, { bg: palette.bg, text: palette.text, dot: palette.dot }];
+  }),
+);
 
 function GuideCard({
   guide,
@@ -84,7 +92,7 @@ function GuideCard({
             {family}
           </span>
           {topFee && featured && (
-            <span className="text-[11px] font-medium text-[#A09788] tabular-nums">
+            <span className="text-[11px] font-medium text-[#7A7062] tabular-nums">
               median
             </span>
           )}
@@ -118,7 +126,7 @@ function GuideCard({
               >
                 {formatAmount(topFee.median_amount)}
               </span>
-              <span className="text-[11px] text-[#A09788]">
+              <span className="text-[11px] text-[#7A7062]">
                 {getDisplayName(topFee.fee_category)}
               </span>
             </div>
@@ -130,7 +138,7 @@ function GuideCard({
                     key={fee.fee_category}
                     className="flex items-center justify-between"
                   >
-                    <span className="text-[11px] text-[#A09788]">
+                    <span className="text-[11px] text-[#7A7062]">
                       {getDisplayName(fee.fee_category)}
                     </span>
                     <div className="flex items-center gap-2">
@@ -154,7 +162,7 @@ function GuideCard({
             >
               {formatAmount(topFee.median_amount)}
             </span>
-            <span className="text-[10px] text-[#A09788]">median</span>
+            <span className="text-[10px] text-[#7A7062]">median</span>
           </div>
         )}
 
@@ -224,7 +232,7 @@ export default async function GuidesIndexPage() {
           institutions.
         </p>
 
-        <div className="mt-4 flex items-center gap-4 text-[12px] text-[#A09788]">
+        <div className="mt-4 flex items-center gap-4 text-[12px] text-[#7A7062]">
           <span className="tabular-nums">
             {totalObservations.toLocaleString()} fee observations
           </span>
@@ -260,7 +268,7 @@ export default async function GuidesIndexPage() {
               More Fee Guides
             </h2>
             <span className="h-px flex-1 bg-[#E8DFD1]" />
-            <span className="text-[11px] text-[#A09788] tabular-nums">
+            <span className="text-[11px] text-[#7A7062] tabular-nums">
               {secondaryGuides.length} guides
             </span>
           </div>
@@ -282,7 +290,7 @@ export default async function GuidesIndexPage() {
       <div className="mt-16 rounded-xl border border-[#E8DFD1] bg-white/50 backdrop-blur-sm px-7 py-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="h-px w-6 bg-[#C44B2E]/30" />
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
             Explore More
           </h2>
         </div>
@@ -302,7 +310,7 @@ export default async function GuidesIndexPage() {
               <span className="text-[13px] font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
                 {item.label}
               </span>
-              <span className="block mt-0.5 text-[11px] text-[#A09788]">
+              <span className="block mt-0.5 text-[11px] text-[#7A7062]">
                 {item.desc}
               </span>
             </Link>

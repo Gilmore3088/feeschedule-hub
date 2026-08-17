@@ -160,7 +160,7 @@ export default async function FeeCatalogPage({
           <div className="flex items-center gap-2">
             {colors && (
               <span
-                className={`w-1 h-5 rounded-full flex-shrink-0 ${colors.border.replace("border-l-", "bg-")}`}
+                className={`w-1 h-5 rounded-full flex-shrink-0 ${colors.dot}`}
               />
             )}
             <div>
@@ -277,7 +277,7 @@ export default async function FeeCatalogPage({
             <div className="flex-1 h-2 bg-gray-100 dark:bg-white/[0.06] rounded-full overflow-hidden relative">
               <div
                 className={`absolute h-full rounded-full opacity-60 ${
-                  colors ? colors.border.replace("border-l-", "bg-") : "bg-gray-400"
+                  colors ? colors.dot : "bg-gray-400"
                 }`}
                 style={{ left: `${barLeft}%`, width: `${barWidth}%` }}
               />

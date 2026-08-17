@@ -78,7 +78,7 @@ function ActionCell({ report }: { report: ReportRow }) {
     );
   }
   return (
-    <span className="text-sm text-[#A09788]">Generating...</span>
+    <span className="text-sm text-[#7A7062]">Generating...</span>
   );
 }
 
@@ -126,16 +126,16 @@ export function ReportHistoryList({ reports }: ReportHistoryListProps) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#A09788]">
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
               Report Type
             </th>
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#A09788]">
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
               Date
             </th>
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#A09788]">
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
               Status
             </th>
-            <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[#A09788]">
+            <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
               Action
             </th>
           </tr>

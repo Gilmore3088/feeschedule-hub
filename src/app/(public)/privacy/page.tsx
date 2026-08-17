@@ -21,7 +21,7 @@ export default function PrivacyPage() {
       >
         Privacy Policy
       </h1>
-      <p className="mt-2 text-[13px] text-[#A09788]">
+      <p className="mt-2 text-[13px] text-[#7A7062]">
         Last updated: March 2026
       </p>
 
@@ -161,7 +161,7 @@ export default function PrivacyPage() {
         </section>
 
         <div className="pt-4 border-t border-[#E8DFD1]">
-          <p className="text-[13px] text-[#A09788]">
+          <p className="text-[13px] text-[#7A7062]">
             Questions about this policy? Contact us at{" "}
             <a href="mailto:hello@bankfeeindex.com" className="text-[#C44B2E] hover:underline">
               hello@bankfeeindex.com

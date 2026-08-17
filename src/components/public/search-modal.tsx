@@ -179,7 +179,7 @@ export function SearchModal() {
           {/* Search input */}
           <div className="flex items-center gap-3 border-b border-[#E8DFD1] px-4 py-3">
             <svg
-              className="h-5 w-5 text-[#A09788] shrink-0"
+              className="h-5 w-5 text-[#7A7062] shrink-0"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -204,7 +204,7 @@ export function SearchModal() {
             {loading && (
               <div className="h-4 w-4 border-2 border-[#E8DFD1] border-t-[#C44B2E] rounded-full animate-spin shrink-0" />
             )}
-            <kbd className="hidden sm:inline-flex h-5 items-center rounded bg-[#E8DFD1]/50 px-1.5 text-[10px] font-medium text-[#A09788]">
+            <kbd className="hidden sm:inline-flex h-5 items-center rounded bg-[#E8DFD1]/50 px-1.5 text-[10px] font-medium text-[#7A7062]">
               ESC
             </kbd>
           </div>
@@ -214,7 +214,7 @@ export function SearchModal() {
             <div className="max-h-[50vh] overflow-y-auto py-2" role="listbox">
               {institutions.length > 0 && (
                 <div>
-                  <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Institutions
                   </p>
                   {institutions.map((item, i) => {
@@ -232,7 +232,7 @@ export function SearchModal() {
                         }`}
                       >
                         <div className="text-[13px] font-medium">{item.label}</div>
-                        <div className="text-[11px] text-[#A09788] mt-0.5">{item.sublabel}</div>
+                        <div className="text-[11px] text-[#7A7062] mt-0.5">{item.sublabel}</div>
                       </button>
                     );
                   })}
@@ -241,7 +241,7 @@ export function SearchModal() {
 
               {categories.length > 0 && (
                 <div>
-                  <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mt-1">
+                  <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mt-1">
                     Fee Categories
                   </p>
                   {categories.map((item) => {
@@ -259,7 +259,7 @@ export function SearchModal() {
                         }`}
                       >
                         <div className="text-[13px] font-medium">{item.label}</div>
-                        <div className="text-[11px] text-[#A09788] mt-0.5">{item.sublabel}</div>
+                        <div className="text-[11px] text-[#7A7062] mt-0.5">{item.sublabel}</div>
                       </button>
                     );
                   })}
@@ -268,7 +268,7 @@ export function SearchModal() {
 
               {guides.length > 0 && (
                 <div>
-                  <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mt-1">
+                  <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mt-1">
                     Guides
                   </p>
                   {guides.map((item) => {
@@ -286,7 +286,7 @@ export function SearchModal() {
                         }`}
                       >
                         <div className="text-[13px] font-medium">{item.label}</div>
-                        <div className="text-[11px] text-[#A09788] mt-0.5">{item.sublabel}</div>
+                        <div className="text-[11px] text-[#7A7062] mt-0.5">{item.sublabel}</div>
                       </button>
                     );
                   })}
@@ -303,7 +303,7 @@ export function SearchModal() {
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between border-t border-[#E8DFD1] px-4 py-2 text-[10px] text-[#A09788]">
+          <div className="flex items-center justify-between border-t border-[#E8DFD1] px-4 py-2 text-[10px] text-[#7A7062]">
             <span>Search institutions, fees, or guides</span>
             <div className="hidden sm:flex items-center gap-1.5">
               <kbd className="inline-flex h-4 items-center rounded bg-[#E8DFD1]/50 px-1 text-[9px]">&uarr;&darr;</kbd>

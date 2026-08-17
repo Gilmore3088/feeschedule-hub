@@ -81,7 +81,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
     return (
       <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider">
+          <div className="text-[10px] font-semibold text-[#7A7062] uppercase tracking-wider">
             Organization Profile
           </div>
           <button
@@ -101,7 +101,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-[#A69D90]">
+          <p className="text-sm text-[#7A7062]">
             Add your organization details to get personalized fee intelligence.
           </p>
         )}
@@ -114,7 +114,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
-      <div className="text-[10px] font-semibold text-[#A69D90] uppercase tracking-wider mb-3">
+      <div className="text-[10px] font-semibold text-[#7A7062] uppercase tracking-wider mb-3">
         Organization Profile
       </div>
       <div className="space-y-3">

@@ -1,10 +1,10 @@
 import { CheckCircle2 } from "lucide-react";
-import { CONTACT_EMAIL } from "@/lib/constants";
+import { CONTACT_EMAIL, REPORT_OFFER } from "@/lib/constants";
 import { RequestReportForm } from "./request-report-form";
 
-export const REPORT_NAME = "Competitive Fee Position Report";
-export const REPORT_PRICE_LABEL = "$300";
-export const REPORT_TURNAROUND = "delivered in 48 hours";
+export const REPORT_NAME = REPORT_OFFER.name;
+export const REPORT_PRICE_LABEL = REPORT_OFFER.priceLabel;
+export const REPORT_TURNAROUND = REPORT_OFFER.turnaround;
 
 const REPORT_CONTENTS = [
   "15 headline fees benchmarked against your true peer cohort (charter, asset tier, district)",

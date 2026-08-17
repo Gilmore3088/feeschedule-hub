@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 function DeltaPill({ delta }: { delta: number }) {
   if (Math.abs(delta) < 0.5) {
-    return <span className="text-[11px] text-[#A09788]">-</span>;
+    return <span className="text-[11px] text-[#7A7062]">-</span>;
   }
   const isBelow = delta < 0;
   return (
@@ -114,7 +114,7 @@ export default async function StateReportPage({ params }: PageProps) {
       />
 
       {/* Breadcrumb — sticky on mobile */}
-      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+      <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
         <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
         <span className="text-[#D4C9BA]">/</span>
         <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
@@ -163,7 +163,7 @@ export default async function StateReportPage({ params }: PageProps) {
             key={card.label}
             className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3"
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
               {card.label}
             </p>
             <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
@@ -187,13 +187,13 @@ export default async function StateReportPage({ params }: PageProps) {
             <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Charter
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Institutions
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Fee Observations
                   </th>
                 </tr>
@@ -240,19 +240,19 @@ export default async function StateReportPage({ params }: PageProps) {
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Fee Category
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     {stateName} Median
                   </th>
-                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] sm:table-cell">
+                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] sm:table-cell">
                     National Median
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Delta
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
                     Institutions
                   </th>
                 </tr>
@@ -281,7 +281,7 @@ export default async function StateReportPage({ params }: PageProps) {
                       {row.delta !== null ? (
                         <DeltaPill delta={row.delta} />
                       ) : (
-                        <span className="text-[11px] text-[#A09788]">-</span>
+                        <span className="text-[11px] text-[#7A7062]">-</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
@@ -295,7 +295,7 @@ export default async function StateReportPage({ params }: PageProps) {
                     <tr>
                       <td
                         colSpan={5}
-                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]"
+                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]"
                       >
                         Extended Categories
                       </td>
@@ -323,7 +323,7 @@ export default async function StateReportPage({ params }: PageProps) {
                           {row.delta !== null ? (
                             <DeltaPill delta={row.delta} />
                           ) : (
-                            <span className="text-[11px] text-[#A09788]">-</span>
+                            <span className="text-[11px] text-[#7A7062]">-</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
@@ -349,7 +349,7 @@ export default async function StateReportPage({ params }: PageProps) {
 
       {/* Methodology */}
       <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
-        <h2 className="font-[Newsreader] text-xs font-semibold uppercase tracking-wider text-[#A09788]">
+        <h2 className="font-[Newsreader] text-xs font-semibold uppercase tracking-wider text-[#7A7062]">
           Methodology
         </h2>
         <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">

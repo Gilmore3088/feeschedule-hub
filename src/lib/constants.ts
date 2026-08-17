@@ -14,3 +14,13 @@ export const SITE_TITLE_TEMPLATE = `%s | ${SITE_NAME}`;
 export function pageTitle(section: string): string {
   return `${section} | ${SITE_NAME}`;
 }
+
+// The one commissioned product: one name, one price, one turnaround, everywhere.
+export const REPORT_OFFER = {
+  name: "Competitive Fee Position Report",
+  priceUsd: 300,
+  priceLabel: "$300",
+  turnaround: "delivered in 48 hours",
+  refreshLabel: "$300 per quarterly refresh",
+} as const;
+export const REPORT_OFFER_LINE = `${REPORT_OFFER.name} — ${REPORT_OFFER.priceLabel}, ${REPORT_OFFER.turnaround}`;

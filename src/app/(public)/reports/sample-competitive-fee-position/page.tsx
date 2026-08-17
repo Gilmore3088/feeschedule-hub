@@ -8,11 +8,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TrackLink } from "@/components/track-link";
 import { ReportFrame } from "@/components/public/report-frame";
-import { CONTACT_EMAIL, RESEARCH_IMPRINT, SITE_NAME, SITE_URL } from "@/lib/constants";
+import { CONTACT_EMAIL, RESEARCH_IMPRINT, SITE_NAME, SITE_URL, REPORT_OFFER_LINE } from "@/lib/constants";
 import { prepareReportForEmbed, readSampleReportHtml } from "@/lib/hosted-reports";
 
 const SAMPLE_PATH = "/reports/sample-competitive-fee-position";
-const REPORT_OFFER = "Competitive Fee Position Report — $300, delivered in 48 hours";
+const REPORT_OFFER = REPORT_OFFER_LINE;
 const REQUEST_HREF = "/for-institutions#report";
 
 export const metadata: Metadata = {

@@ -48,7 +48,7 @@ export default async function DistrictsPage() {
       />
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-6">
+      <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-6">
         <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
         <span className="text-[#D4C9BA]">/</span>
         <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
@@ -108,19 +108,19 @@ export default async function DistrictsPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <p className="text-[10px] text-[#A09788]">Institutions</p>
+                  <p className="text-[10px] text-[#7A7062]">Institutions</p>
                   <p className="text-[14px] font-semibold tabular-nums text-[#5A5347]">
                     {m.institution_count.toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#A09788]">Fees</p>
+                  <p className="text-[10px] text-[#7A7062]">Fees</p>
                   <p className="text-[14px] font-semibold tabular-nums text-[#5A5347]">
                     {m.total_fees.toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#A09788]">Coverage</p>
+                  <p className="text-[10px] text-[#7A7062]">Coverage</p>
                   <p className="text-[14px] font-semibold tabular-nums text-[#5A5347]">
                     {coveragePct}%
                   </p>
@@ -133,7 +133,7 @@ export default async function DistrictsPage() {
 
       {/* Methodology */}
       <section className="mt-12 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-6 py-5">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
           About This Data
         </h2>
         <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">

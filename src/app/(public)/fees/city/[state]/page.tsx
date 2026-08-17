@@ -54,7 +54,7 @@ export default async function StateCityDirectory({ params }: PageProps) {
       />
 
       <div className="max-w-4xl mx-auto px-6 py-14">
-        <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-6">
+        <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-6">
           <Link href="/fees" className="hover:text-[#1A1815] transition-colors">Fees</Link>
           <span className="text-[#D4C9BA]">/</span>
           <span className="text-[#5A5347]">{stateName}</span>
@@ -87,9 +87,9 @@ export default async function StateCityDirectory({ params }: PageProps) {
               <table className="w-full min-w-[520px] text-sm">
                 <thead>
                   <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">City</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Total Institutions</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">With Fee Data</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">City</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Total Institutions</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">With Fee Data</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8DFD1]/40">

@@ -1,3 +1,4 @@
+import { REPORT_OFFER } from "@/lib/constants";
 import type { PublicStatsSummary } from "@/lib/public-stats";
 
 export type ProPlan = "monthly" | "annual";
@@ -5,7 +6,7 @@ export type ProPlan = "monthly" | "annual";
 /** Billed prices in USD. Display strings are derived, never hand-typed. */
 export const MONTHLY_PRICE_USD = 499.99;
 export const ANNUAL_PRICE_USD = 5000;
-export const REPORT_PRICE_USD = 300;
+export const REPORT_PRICE_USD = REPORT_OFFER.priceUsd;
 const MONTHS_PER_YEAR = 12;
 
 const WHOLE_DOLLARS = new Intl.NumberFormat("en-US", {

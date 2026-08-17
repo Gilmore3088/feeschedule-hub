@@ -29,3 +29,11 @@ describe("brand constants", () => {
     expect(pageTitle("Pricing")).toBe("Pricing | Fee Insight");
   });
 });
+
+describe("report offer", () => {
+  it("has one name, price and turnaround", async () => {
+    const { REPORT_OFFER, REPORT_OFFER_LINE } = await import("./constants");
+    expect(REPORT_OFFER.priceLabel).toBe(`$${REPORT_OFFER.priceUsd}`);
+    expect(REPORT_OFFER_LINE).toBe("Competitive Fee Position Report — $300, delivered in 48 hours");
+  });
+});

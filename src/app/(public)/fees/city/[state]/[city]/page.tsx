@@ -103,7 +103,7 @@ export default async function CityFeePage({ params }: PageProps) {
 
       <div className="max-w-5xl mx-auto px-6 py-14">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-6">
+        <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-6">
           <Link href="/fees" className="hover:text-[#1A1815] transition-colors">Fees</Link>
           <span className="text-[#D4C9BA]">/</span>
           <Link href={`/fees/city/${stateCode.toLowerCase()}`} className="hover:text-[#1A1815] transition-colors">{stateName}</Link>
@@ -134,7 +134,7 @@ export default async function CityFeePage({ params }: PageProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
           {spotlightAverages.map((s) => (
             <div key={s.category} className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-1.5">{s.displayName}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">{s.displayName}</p>
               <p
                 className="text-[22px] font-light tabular-nums text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
@@ -146,7 +146,7 @@ export default async function CityFeePage({ params }: PageProps) {
                   {s.delta > 0 ? "+" : ""}{s.delta.toFixed(1)}% vs national
                 </p>
               )}
-              <p className="text-[10px] text-[#A09788] mt-0.5">
+              <p className="text-[10px] text-[#7A7062] mt-0.5">
                 {s.institutionCount} institution{s.institutionCount !== 1 ? "s" : ""} reporting
               </p>
             </div>
@@ -167,14 +167,14 @@ export default async function CityFeePage({ params }: PageProps) {
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Institution</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Type</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Assets</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Overdraft</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Monthly Fee</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">NSF</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">ATM</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Fees</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Institution</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Type</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Assets</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Overdraft</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Monthly Fee</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">NSF</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">ATM</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Fees</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8DFD1]/40">
@@ -231,11 +231,11 @@ export default async function CityFeePage({ params }: PageProps) {
               <table className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Fee Category</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">{cityName} Avg</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">National</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Difference</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">Reporting</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Fee Category</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">{cityName} Avg</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">National</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Difference</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Reporting</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8DFD1]/40">

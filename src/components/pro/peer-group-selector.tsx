@@ -98,7 +98,7 @@ export function PeerGroupSelector() {
       <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-5 space-y-5">
         {/* Charter */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
             Charter Type
           </p>
           <div className="flex flex-wrap gap-2">
@@ -121,7 +121,7 @@ export function PeerGroupSelector() {
 
         {/* Asset Tier */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
             Asset Tier
           </p>
           <div className="flex flex-wrap gap-2">
@@ -140,7 +140,7 @@ export function PeerGroupSelector() {
 
         {/* Fed District */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
             Fed District
           </p>
           <div className="flex flex-wrap gap-2">
@@ -160,12 +160,12 @@ export function PeerGroupSelector() {
 
       {/* Peer Group Preview Card */}
       <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-5 space-y-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062]">
           Peer Group Preview
         </p>
 
         {previewLoading && !preview && (
-          <p className="text-sm text-[#A09788]">Loading peer group data...</p>
+          <p className="text-sm text-[#7A7062]">Loading peer group data...</p>
         )}
 
         {preview && (
@@ -181,19 +181,19 @@ export function PeerGroupSelector() {
                 >
                   {preview.institution_count.toLocaleString()}
                 </span>
-                <span className="ml-1.5 text-xs text-[#A09788]">institutions</span>
+                <span className="ml-1.5 text-xs text-[#7A7062]">institutions</span>
               </div>
               <div>
                 <span className="text-lg font-semibold tabular-nums text-[#1A1815]">
                   {preview.observation_count.toLocaleString()}
                 </span>
-                <span className="ml-1.5 text-xs text-[#A09788]">observations</span>
+                <span className="ml-1.5 text-xs text-[#7A7062]">observations</span>
               </div>
               <div>
                 <span className="text-lg font-semibold tabular-nums text-[#1A1815]">
                   {preview.category_count.toLocaleString()}
                 </span>
-                <span className="ml-1.5 text-xs text-[#A09788]">fee categories</span>
+                <span className="ml-1.5 text-xs text-[#7A7062]">fee categories</span>
               </div>
             </div>
 

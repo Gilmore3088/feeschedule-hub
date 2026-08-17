@@ -142,7 +142,7 @@ export function ProMobileNav({ user }: ProMobileNavProps) {
 
           {/* Footer */}
           <div className="absolute bottom-0 left-0 right-0 px-6 py-4 border-t border-[#E8DFD1]">
-            <div className="flex items-center gap-2 text-[#A09788]">
+            <div className="flex items-center gap-2 text-[#7A7062]">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"

@@ -138,7 +138,7 @@ export function InstitutionHistogram({
 
   return (
     <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 px-4 py-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
         {categoryName}
       </p>
       <p className="mt-0.5 text-[10px] text-[#5A5347]">

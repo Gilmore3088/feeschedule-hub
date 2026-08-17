@@ -77,7 +77,7 @@ export default async function ResearchHubPage() {
       <div className="relative">
         <div className="flex items-center gap-2">
           <span className="h-px w-8 bg-[#C44B2E]/40" />
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#A09788]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#7A7062]">
             Research Terminal
           </p>
         </div>
@@ -94,7 +94,7 @@ export default async function ResearchHubPage() {
         </p>
 
         {/* Authority strip */}
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#A09788]">
+        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#7A7062]">
           <span>
             <span className="font-semibold tabular-nums text-[#5A5347]">
               {summary.observationsLabel}
@@ -130,7 +130,7 @@ export default async function ResearchHubPage() {
             href="/guides"
             className="group rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5 transition-all hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline"
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
               I&apos;m a Consumer
             </p>
             <p className="mt-1 text-[13px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
@@ -144,7 +144,7 @@ export default async function ResearchHubPage() {
             href="/research/national-fee-index"
             className="group rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5 transition-all hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline"
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
               I&apos;m a Researcher
             </p>
             <p className="mt-1 text-[13px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
@@ -158,7 +158,7 @@ export default async function ResearchHubPage() {
             href="/subscribe"
             className="group rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm px-4 py-3.5 transition-all hover:border-[#C44B2E]/20 hover:shadow-md hover:shadow-[#C44B2E]/5 no-underline"
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
               I&apos;m a Professional
             </p>
             <p className="mt-1 text-[13px] font-semibold text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
@@ -260,14 +260,14 @@ export default async function ResearchHubPage() {
             >
               Analysis Previews
             </h2>
-            <p className="mt-1 text-[13px] text-[#A09788]">
+            <p className="mt-1 text-[13px] text-[#7A7062]">
               Top states by institution coverage and key fee benchmarks.
             </p>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {/* Top states bar chart */}
               <div className="rounded-xl border border-[#E8DFD1]/80 px-5 py-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062]">
                   Institutions by State (Top 5)
                 </p>
                 <div className="mt-3 space-y-2">
@@ -295,7 +295,7 @@ export default async function ResearchHubPage() {
 
               {/* Spotlight fee comparison */}
               <div className="rounded-xl border border-[#E8DFD1]/80 px-5 py-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788]">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062]">
                   National Fee Medians
                 </p>
                 <div className="mt-3 space-y-2">
@@ -334,7 +334,7 @@ export default async function ResearchHubPage() {
                 >
                   State Fee Reports
                 </h2>
-                <p className="mt-1 text-[13px] text-[#A09788]">
+                <p className="mt-1 text-[13px] text-[#7A7062]">
                   {stateLabel} &middot;{" "}
                   {totalStateFees.toLocaleString()} fees extracted
                 </p>
@@ -344,7 +344,7 @@ export default async function ResearchHubPage() {
             {/* Interactive map */}
             <div className="mt-4 rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-4">
               <UsStateMap statesData={statesData} />
-              <p className="mt-2 text-center text-[11px] text-[#A09788]">
+              <p className="mt-2 text-center text-[11px] text-[#7A7062]">
                 Click a state to view its fee report
               </p>
             </div>
@@ -360,7 +360,7 @@ export default async function ResearchHubPage() {
                   <span className="font-medium text-[#5A5347] hover:text-[#C44B2E] truncate">
                     {STATE_NAMES[s.state_code] ?? s.state_code}
                   </span>
-                  <span className="ml-1 tabular-nums text-[#A09788] shrink-0">
+                  <span className="ml-1 tabular-nums text-[#7A7062] shrink-0">
                     {s.institution_count}
                   </span>
                 </Link>
@@ -376,7 +376,7 @@ export default async function ResearchHubPage() {
             >
               Federal Reserve District Reports
             </h2>
-            <p className="mt-1 text-[13px] text-[#A09788]">
+            <p className="mt-1 text-[13px] text-[#7A7062]">
               Fee analysis across all 12 Federal Reserve districts with
               economic context from the Beige Book.
             </p>
@@ -400,19 +400,19 @@ export default async function ResearchHubPage() {
                     </div>
                     <div className="mt-2.5 grid grid-cols-3 gap-2">
                       <div>
-                        <p className="text-[10px] text-[#A09788]">Institutions</p>
+                        <p className="text-[10px] text-[#7A7062]">Institutions</p>
                         <p className="text-[13px] font-semibold tabular-nums text-[#5A5347]">
                           {d.institution_count.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#A09788]">Fees</p>
+                        <p className="text-[10px] text-[#7A7062]">Fees</p>
                         <p className="text-[13px] font-semibold tabular-nums text-[#5A5347]">
                           {d.total_fees.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#A09788]">Coverage</p>
+                        <p className="text-[10px] text-[#7A7062]">Coverage</p>
                         <p className="text-[13px] font-semibold tabular-nums text-[#5A5347]">
                           {Math.round(d.fee_url_pct * 100)}%
                         </p>
@@ -437,7 +437,7 @@ export default async function ResearchHubPage() {
             >
               Original Research
             </h2>
-            <p className="mt-1 text-[13px] text-[#A09788]">
+            <p className="mt-1 text-[13px] text-[#7A7062]">
               In-depth studies and analysis on US bank fee structures.
             </p>
 
@@ -448,7 +448,7 @@ export default async function ResearchHubPage() {
               >
                 <div className="flex items-start gap-3">
                   <svg
-                    className="mt-0.5 h-5 w-5 shrink-0 text-[#A09788] group-hover:text-[#C44B2E] transition-colors"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-[#7A7062] group-hover:text-[#C44B2E] transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     strokeWidth={1.5}
@@ -481,7 +481,7 @@ export default async function ResearchHubPage() {
               >
                 <div className="flex items-start gap-3">
                   <svg
-                    className="mt-0.5 h-5 w-5 shrink-0 text-[#A09788] group-hover:text-[#C44B2E] transition-colors"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-[#7A7062] group-hover:text-[#C44B2E] transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     strokeWidth={1.5}
@@ -514,7 +514,7 @@ export default async function ResearchHubPage() {
               >
                 <div className="flex items-start gap-3">
                   <svg
-                    className="mt-0.5 h-5 w-5 shrink-0 text-[#A09788] group-hover:text-[#C44B2E] transition-colors"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-[#7A7062] group-hover:text-[#C44B2E] transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     strokeWidth={1.5}
@@ -554,7 +554,7 @@ export default async function ResearchHubPage() {
               </h2>
               <div className="mt-4 grid gap-6 sm:grid-cols-2">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
                     Primary Sources
                   </p>
                   <ul className="space-y-1.5 text-[13px] text-[#7A7062]">
@@ -577,7 +577,7 @@ export default async function ResearchHubPage() {
                   </ul>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
                     Coverage
                   </p>
                   <ul className="space-y-1.5 text-[13px] text-[#7A7062]">
@@ -609,7 +609,7 @@ export default async function ResearchHubPage() {
           <div className="sticky top-24 space-y-5">
             {/* Navigation */}
             <nav className="rounded-xl border border-[#E8DFD1]/80 px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-3">
                 Research
               </p>
               <ul className="space-y-1.5">
@@ -635,20 +635,20 @@ export default async function ResearchHubPage() {
 
             {/* Quick Stats */}
             <div className="rounded-xl border border-[#E8DFD1]/80 px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-3">
                 Quick Stats
               </p>
               <div className="space-y-3">
                 {spotlightFees.slice(0, 4).map((fee) => (
                   <div key={fee.fee_category}>
-                    <p className="text-[11px] text-[#A09788]">
+                    <p className="text-[11px] text-[#7A7062]">
                       {getDisplayName(fee.fee_category)}
                     </p>
                     <p className="text-sm font-bold tabular-nums text-[#1A1815]">
                       {formatAmount(fee.median_amount)}
                     </p>
                     {fee.p25_amount != null && fee.p75_amount != null && (
-                      <p className="text-[10px] tabular-nums text-[#A09788]">
+                      <p className="text-[10px] tabular-nums text-[#7A7062]">
                         P25 {formatAmount(fee.p25_amount)} &middot; P75{" "}
                         {formatAmount(fee.p75_amount)}
                       </p>
@@ -660,7 +660,7 @@ export default async function ResearchHubPage() {
 
             {/* Explore links */}
             <div className="rounded-xl border border-[#E8DFD1]/80 px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A09788] mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-3">
                 Explore
               </p>
               <ul className="space-y-1.5">

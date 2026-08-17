@@ -39,7 +39,7 @@ function PendingInviteCard({ invitation }: { invitation: InstitutionWorkspaceInv
           <p className="mt-1 text-xs text-[#7A7062]">
             {[locationLabel(invitation), roleLabel(invitation.role)].filter(Boolean).join(" · ")}
           </p>
-          <p className="mt-1 text-xs text-[#A09788]">
+          <p className="mt-1 text-xs text-[#7A7062]">
             Invited by {invitation.invitedByDisplayName ?? invitation.invitedByEmail ?? "a workspace owner"}
           </p>
         </div>

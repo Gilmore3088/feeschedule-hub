@@ -27,7 +27,7 @@ export default function NotFound() {
           href="/fees"
           className="rounded-full bg-[#C44B2E] px-5 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-[#C44B2E]/15 hover:shadow-md hover:shadow-[#C44B2E]/25 transition-all no-underline"
         >
-          Browse Fee Index
+          Browse the Bank Fee Index
         </Link>
         <Link
           href="/institutions"
@@ -47,7 +47,7 @@ export default function NotFound() {
           <Link
             key={item.href}
             href={item.href}
-            className="text-[#A09788] hover:text-[#C44B2E] transition-colors"
+            className="text-[#7A7062] hover:text-[#C44B2E] transition-colors"
           >
             {item.label}
           </Link>

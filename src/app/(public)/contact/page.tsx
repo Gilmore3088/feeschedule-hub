@@ -36,7 +36,7 @@ export default function ContactPage({
       </div>
 
       <div className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-6 py-5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788] mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062] mb-2">
           Prefer email?
         </p>
         <p className="text-[13px] text-[#7A7062]">

@@ -241,7 +241,7 @@ export async function searchInstitutions(params: {
      LEFT JOIN raw_unverified_counts ruc ON ruc.institution_id = ct.id
      LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
      ${where}
-     ORDER BY ct.institution_name ASC
+     ORDER BY (COALESCE(cc.published_fee_count, 0) > 0) DESC, ct.institution_name ASC
      LIMIT $${limitParam} OFFSET $${offsetParam}`,
     [...queryParams, pageSize, offset]
   );

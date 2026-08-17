@@ -10,6 +10,7 @@ describe("formatAmount", () => {
   it("renders Postgres numeric strings as dollar amounts", () => {
     expect(formatAmount("35.00")).toBe("$35.00");
     expect(formatAmount("0.35")).toBe("$0.35");
+    expect(formatAmount(5000)).toBe("$5,000.00");
   });
 
   it("renders invalid or missing amounts as unavailable", () => {

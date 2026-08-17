@@ -27,14 +27,14 @@ describe("HAMILTON_NAV", () => {
     expect(HAMILTON_NAV).toHaveLength(6);
   });
 
-  it("has exact labels in order: My Bank, Peer Compare, Scenarios, Reports & Briefs, Watchlist, Admin", () => {
+  it("has exact labels in order: Analyze, Benchmark, Scenario, Report, Monitor, Admin", () => {
     const labels = HAMILTON_NAV.map((item) => item.label);
     expect(labels).toEqual([
-      "My Bank",
-      "Peer Compare",
-      "Scenarios",
-      "Reports & Briefs",
-      "Watchlist",
+      "Analyze",
+      "Benchmark",
+      "Scenario",
+      "Report",
+      "Monitor",
       "Admin",
     ]);
   });
@@ -77,11 +77,11 @@ describe("LEFT_RAIL_CONFIG", () => {
   });
 
   it("routes primary actions to the matching Hamilton workflow", () => {
-    expect(getPrimaryActionHref("My Bank")).toBe("/pro/simulate");
-    expect(getPrimaryActionHref("Peer Compare")).toBe("/pro/simulate");
-    expect(getPrimaryActionHref("Scenarios")).toBe("/pro/reports");
-    expect(getPrimaryActionHref("Reports & Briefs")).toBe("/pro/reports");
-    expect(getPrimaryActionHref("Watchlist")).toBe("/pro/analyze");
+    expect(getPrimaryActionHref("Analyze")).toBe("/pro/simulate");
+    expect(getPrimaryActionHref("Benchmark")).toBe("/pro/simulate");
+    expect(getPrimaryActionHref("Scenario")).toBe("/pro/reports");
+    expect(getPrimaryActionHref("Report")).toBe("/pro/reports");
+    expect(getPrimaryActionHref("Monitor")).toBe("/pro/analyze");
     expect(getPrimaryActionHref("Admin")).toBe("/admin");
     expect(Object.keys(PRIMARY_ACTION_HREF).sort()).toEqual(
       HAMILTON_NAV.map((item) => item.label).sort(),
@@ -90,13 +90,13 @@ describe("LEFT_RAIL_CONFIG", () => {
 });
 
 describe("CTA_HIERARCHY", () => {
-  it("has entries for non-Admin screens (My Bank, Peer Compare, Scenarios, Reports & Briefs, Watchlist)", () => {
+  it("has entries for non-Admin screens (Analyze, Benchmark, Scenario, Report, Monitor)", () => {
     const expectedKeys = [
-      "My Bank",
-      "Peer Compare",
-      "Scenarios",
-      "Reports & Briefs",
-      "Watchlist",
+      "Analyze",
+      "Benchmark",
+      "Scenario",
+      "Report",
+      "Monitor",
     ];
     for (const key of expectedKeys) {
       expect(CTA_HIERARCHY).toHaveProperty(key);
@@ -105,15 +105,15 @@ describe("CTA_HIERARCHY", () => {
   });
 
   it("Peer Compare primary CTA is 'Simulate a Change'", () => {
-    expect(CTA_HIERARCHY["Peer Compare"].primary).toBe("Simulate a Change");
+    expect(CTA_HIERARCHY["Benchmark"].primary).toBe("Simulate a Change");
   });
 
   it("Scenarios primary CTA is 'Generate Board Scenario Summary'", () => {
-    expect(CTA_HIERARCHY["Scenarios"].primary).toBe("Generate Board Scenario Summary");
+    expect(CTA_HIERARCHY["Scenario"].primary).toBe("Generate Board Scenario Summary");
   });
 
   it("Reports & Briefs primary CTA is 'Generate Brief'", () => {
-    expect(CTA_HIERARCHY["Reports & Briefs"].primary).toBe("Generate Brief");
+    expect(CTA_HIERARCHY["Report"].primary).toBe("Generate Brief");
   });
 
   it("each entry has primary string and secondary array", () => {
