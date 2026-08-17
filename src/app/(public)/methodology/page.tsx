@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { getPublicStatsSummary } from "@/lib/public-stats";
 import { RESEARCH_IMPRINT, SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const METHODOLOGY_URL = `${SITE_URL}/methodology`;
 
-const jsonLdData = {
+const buildJsonLd = (institutions: string) => ({
   "@context": "https://schema.org",
   "@type": "Article",
   headline: "How Bank Fee Index Works",
   description:
-    "A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across 4,000+ financial institutions.",
+    `A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across ${institutions} financial institutions.`,
   url: METHODOLOGY_URL,
   datePublished: "2026-04-06T00:00:00Z",
   author: {
@@ -21,19 +22,22 @@ const jsonLdData = {
     name: SITE_NAME,
     url: SITE_URL,
   },
-};
+});
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const summary = await getPublicStatsSummary();
+  const institutions = summary.institutionsLabel;
+  return {
   title: "Methodology — How Bank Fee Index Works",
   description:
-    "Bank Fee Index collects fee schedules from 4,000+ banks and credit unions using visible agent runs, deterministic extraction, and statistical validation. Learn how our data is collected, categorized, and verified.",
+    `Bank Fee Index collects published fee schedules from ${institutions} banks and credit unions using automated collection, deterministic extraction, and statistical validation. Learn how our data is collected, categorized, and verified.`,
   alternates: {
     canonical: METHODOLOGY_URL,
   },
   openGraph: {
     title: "Methodology — How Bank Fee Index Works",
     description:
-      "A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across 4,000+ financial institutions.",
+      `A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across ${institutions} financial institutions.`,
     url: METHODOLOGY_URL,
     siteName: SITE_NAME,
     type: "article",
@@ -44,11 +48,15 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Methodology — How Bank Fee Index Works",
     description:
-      "A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across 4,000+ financial institutions.",
+      `A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across ${institutions} financial institutions.`,
   },
-};
+  };
+}
 
-export default function MethodologyPage() {
+export default async function MethodologyPage() {
+  const summary = await getPublicStatsSummary();
+  const institutions = summary.institutionsLabel;
+  const jsonLdData = buildJsonLd(institutions);
   return (
     <main>
       <script
@@ -66,7 +74,7 @@ export default function MethodologyPage() {
             How Bank Fee Index Works
           </h1>
           <p style={{ fontSize: "16px", color: "#5A5347", lineHeight: 1.6, maxWidth: "600px" }}>
-            A transparent account of how we collect, classify, and verify fee data across 4,000+ financial institutions — and what that means for the accuracy of our benchmarks.
+            A transparent account of how we collect, classify, and verify fee data across {institutions} financial institutions — and what that means for the accuracy of our benchmarks.
           </p>
           <p style={{ fontSize: "12px", color: "#A09788", marginTop: "16px" }}>
             {RESEARCH_IMPRINT} &mdash; Updated {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
@@ -78,9 +86,9 @@ export default function MethodologyPage() {
           label="Data Sources"
           title="We start with every regulated U.S. bank and credit union"
           body={[
-            "Bank Fee Index draws its institution universe from two authoritative federal databases: the FDIC's BankFind Suite (which tracks every FDIC-insured bank, thrift, and savings institution) and the NCUA's Research & Data portal (which covers all federally chartered credit unions). Together, these sources provide accurate legal names, charter classifications, asset sizes, physical locations, and primary website URLs for approximately 4,800 active institutions.",
+            `Bank Fee Index draws its institution universe from two authoritative federal databases: the FDIC's BankFind Suite (which tracks every FDIC-insured bank, thrift, and savings institution) and the NCUA's Research & Data portal (which covers all federally chartered credit unions). Together, these sources provide accurate legal names, charter classifications, asset sizes, physical locations, and primary website URLs for roughly ${summary.monitoredLabel} active institutions.`,
             "We do not use purchased data lists, scraped directories, or self-reported feeds. Every institution in our index is traceable to a federal regulator record with a published institution ID. This is the foundation of our data quality commitment: our institution universe is authoritative before the first fee is collected.",
-            "As of the most recent index update, Bank Fee Index actively tracks 4,000+ institutions across all 50 states, Washington D.C., and U.S. territories. Coverage is skewed toward institutions with assets above $100 million, where fee schedules are most consistently published online. Institutions below $50 million in assets are included where fee schedules are publicly discoverable.",
+            `As of the most recent index update, ${institutions} institutions have verified fee schedules in the Bank Fee Index, across all 50 states, Washington D.C., and U.S. territories. Coverage is skewed toward institutions with assets above $100 million, where fee schedules are most consistently published online. Institutions below $50 million in assets are included where fee schedules are publicly discoverable.`,
           ]}
         />
 

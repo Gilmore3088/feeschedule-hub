@@ -4,8 +4,6 @@ import Link from "next/link";
 import {
   getStatesWithFeeData,
   getDistrictMetrics,
-  getStats,
-  getDataFreshness,
   getFeeCategorySummaries,
 } from "@/lib/data-store";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
@@ -15,6 +13,7 @@ import { getDisplayName } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
+import { getPublicStatsSummary } from "@/lib/public-stats";
 
 export const metadata: Metadata = {
   title: "Research - Bank & Credit Union Fee Analysis",
@@ -40,17 +39,10 @@ const DISTRICT_ACCENTS: Record<number, string> = {
 export default async function ResearchHubPage() {
   const statesData = await getStatesWithFeeData();
   const districtMetrics = await getDistrictMetrics();
-  const stats = await getStats();
-  const freshness = await getDataFreshness();
+  const summary = await getPublicStatsSummary();
   const summaries = await getFeeCategorySummaries();
 
-  const totalObservations = summaries.reduce((a, s) => a + s.total_observations, 0);
-  const updateDate = freshness.last_crawl_at
-    ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
-    : null;
+  const updateDate = summary.refreshedOn;
 
   // Separate states from territories for accurate display
   const stateCount = statesData.filter((s) => US_STATES_ONLY.has(s.state_code)).length;
@@ -105,16 +97,16 @@ export default async function ResearchHubPage() {
         <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#A09788]">
           <span>
             <span className="font-semibold tabular-nums text-[#5A5347]">
-              {totalObservations.toLocaleString()}
+              {summary.observationsLabel}
             </span>{" "}
-            fee observations
+            verified fees
           </span>
           <span className="hidden sm:inline text-[#D4C9BA]">|</span>
           <span>
             <span className="font-semibold tabular-nums text-[#5A5347]">
-              {stats.total_institutions.toLocaleString()}
+              {summary.institutionsLabel}
             </span>{" "}
-            institutions
+            institutions with verified fees
           </span>
           <span className="hidden sm:inline text-[#D4C9BA]">|</span>
           <span>
@@ -232,10 +224,10 @@ export default async function ResearchHubPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[#C44B2E]/60">
-                    Observations
+                    Verified fees
                   </p>
                   <p className="mt-0.5 text-lg font-bold tabular-nums text-[#1A1815]">
-                    {totalObservations.toLocaleString()}
+                    {summary.observationsLabel}
                   </p>
                 </div>
                 <div>

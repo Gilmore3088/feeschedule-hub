@@ -6,6 +6,7 @@ import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-r
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/constants";
+import { getPublicStatsSummary } from "@/lib/public-stats";
 
 export const metadata: Metadata = {
   title: "Create Account",
@@ -19,6 +20,7 @@ export default async function RegisterPage({
 }) {
   const user = await getCurrentUser();
   const params = await searchParams;
+  const summary = await getPublicStatsSummary();
   const destination = sanitizeInternalRedirect(params.from, "/account");
 
   if (user) redirect(resolvePostLoginRedirect(destination, user.role));
@@ -72,10 +74,9 @@ export default async function RegisterPage({
           {/* Feature list */}
           <ul className="space-y-4">
             {[
-              "Search 1,100+ tracked institutions",
-              "49 fee categories",
-              "Plain-language guides",
-              "3 Hamilton analysis queries/day",
+              `Look up published fees for ${summary.institutionsLabel} banks and credit unions`,
+              `${summary.categoriesLabel} fee categories, every figure traced to a source`,
+              "Plain-language consumer guides",
             ].map((feature) => (
               <li key={feature} className="flex items-start gap-3">
                 <svg

@@ -9,6 +9,7 @@ import { SearchModal } from "@/components/public/search-modal";
 import { getPendingWorkspaceInvitationsForEmail } from "@/lib/hamilton/institution-membership";
 import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
+import { getPublicStatsSummary, type PublicStatsSummary } from "@/lib/public-stats";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -19,8 +20,8 @@ export const metadata: Metadata = {
 const MONTHLY_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "";
 const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID || "";
 
-const FEATURES = [
-  "Full dataset: all 49 fee categories, 1,100+ institutions",
+const featureList = (summary: PublicStatsSummary) => [
+  `Full dataset: ${summary.categoriesLabel} fee categories, ${summary.institutionsLabel} institutions with verified fees`,
   "Peer comparison by charter type, asset tier, Fed district",
   "National and regional fee index with percentiles",
   "CSV and bulk data exports",
@@ -38,6 +39,8 @@ export default async function SubscribePage({
 }) {
   const user = await getCurrentUser();
   const params = await searchParams;
+  const summary = await getPublicStatsSummary();
+  const FEATURES = featureList(summary);
   const returnTo = params.from
     ? sanitizeInternalRedirect(params.from, "/account/welcome")
     : null;

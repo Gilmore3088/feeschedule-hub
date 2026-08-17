@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatAbsoluteDate } from "@/lib/public-stats";
 import { GUIDES } from "@/lib/guides";
 import {
   getFeeCategorySummaries,
@@ -184,12 +185,7 @@ export default async function GuidesIndexPage() {
     (a, s) => a + s.total_observations,
     0
   );
-  const updateDate = freshness.last_crawl_at
-    ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
-    : null;
+  const updateDate = formatAbsoluteDate(freshness.last_crawl_at);
 
   const primaryGuides = GUIDES.filter((g) => PRIMARY_SLUGS.has(g.slug));
   const secondaryGuides = GUIDES.filter((g) => !PRIMARY_SLUGS.has(g.slug));

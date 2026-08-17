@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPublicStatsSummary } from "@/lib/public-stats";
 
 interface UpgradeGateProps {
   message?: string;
@@ -10,11 +11,12 @@ interface UpgradeGateProps {
  * Shown when a free user encounters a premium-only feature.
  * `compact` renders inline (for table rows). Default renders a card.
  */
-export function UpgradeGate({
+export async function UpgradeGate({
   message,
   compact = false,
   count,
 }: UpgradeGateProps) {
+  const summary = await getPublicStatsSummary();
   if (compact) {
     return (
       <div className="text-center py-6 px-4 border-t border-[#E8DFD1] bg-gradient-to-r from-[#FAF7F2] to-white">
@@ -48,11 +50,11 @@ export function UpgradeGate({
       </h3>
       <p className="text-sm text-[#7A7062] mb-4">
         {count
-          ? `${count} more categories with peer filters, signed-in CSV exports, Hamilton analysis, and managed data options.`
-          : "Unlock all 49 fee categories, peer benchmarks by charter/tier/district, data exports, and Hamilton workflows."}
+          ? `${count} more fee categories, peer benchmarks by charter, size and district, CSV exports, and the Hamilton workspace.`
+          : `Unlock all ${summary.categoriesLabel} fee categories, peer benchmarks by charter, size and district, CSV exports, and the Hamilton workspace.`}
       </p>
-      <div className="text-[11px] text-[#A09788] mt-2 mb-4">
-        Based on 13,000+ verified fee observations from 1,100+ institutions
+      <div className="text-[12px] text-[#7A7062] mt-2 mb-4">
+        Based on {summary.observationsLabel} verified fees from {summary.institutionsLabel} institutions
       </div>
       <Link
         href="/subscribe"

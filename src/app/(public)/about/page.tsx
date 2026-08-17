@@ -1,24 +1,16 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPublicStats, getDataFreshness } from "@/lib/data-store";
-import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
+import { getPublicStatsSummary } from "@/lib/public-stats";
 
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Fee Insight builds the Bank Fee Index, the definitive source for US bank and credit union fee data. Learn about our methodology, data sources, and mission.",
+    "Fee Insight builds the Bank Fee Index, source-verified fee data for US banks and credit unions. Learn about our methodology, data sources, and mission.",
 };
 
 export default async function AboutPage() {
-  const stats = await getPublicStats();
-  const freshness = await getDataFreshness();
-  const lastUpdated = freshness.last_crawl_at
-    ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
-    : null;
+  const summary = await getPublicStatsSummary();
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-14">
@@ -39,7 +31,7 @@ export default async function AboutPage() {
       <div className="mt-8 space-y-6 text-[15px] leading-relaxed text-[#5A5347]">
         <p>
           Fee Insight is an independent banking fee intelligence company. Our
-          flagship product, the Bank Fee Index, is the definitive source for US
+          flagship product, the Bank Fee Index, is a source-verified record of US
           bank and credit union fee data: we track, benchmark, and analyze fee schedules
           from financial institutions across all 50 states and 12 Federal
           Reserve districts.
@@ -61,10 +53,10 @@ export default async function AboutPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { value: stats.total_institutions.toLocaleString(), label: "Institutions" },
-            { value: stats.total_observations.toLocaleString(), label: "Fee observations" },
-            { value: String(TAXONOMY_COUNT), label: "Fee categories" },
-            { value: String(stats.total_states), label: "States & territories" },
+            { value: summary.institutionsLabel, label: "Institutions with verified fees" },
+            { value: summary.observationsLabel, label: "Verified fees" },
+            { value: summary.categoriesLabel, label: "Fee categories" },
+            { value: summary.statesLabel, label: "States & territories" },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -88,7 +80,7 @@ export default async function AboutPage() {
         <p>
           We collect fee schedule data from publicly available sources including
           institution websites, regulatory filings, and official disclosures.
-          Each fee is extracted, categorized into our {TAXONOMY_COUNT}-category
+          Each fee is extracted, categorized into our standard
           taxonomy, and validated through automated quality checks and manual
           review.
         </p>
@@ -116,11 +108,7 @@ export default async function AboutPage() {
           <li>FRED economic indicators for macro benchmarking</li>
         </ul>
 
-        {lastUpdated && (
-          <p className="text-[13px] text-[#A09788]">
-            Data last updated {lastUpdated}.
-          </p>
-        )}
+        <p className="text-[13px] text-[#7A7062]">{summary.freshnessLabel}.</p>
 
         <h2
           className="text-[18px] font-medium text-[#1A1815] pt-4"

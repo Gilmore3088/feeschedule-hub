@@ -1,22 +1,18 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  getFeeCategorySummaries,
-  getStats,
-  getDataFreshness,
-} from "@/lib/data-store";
+import { getFeeCategorySummaries } from "@/lib/data-store";
 import {
   getDisplayName,
   getFeeFamily,
   getFeeTier,
   FEE_FAMILIES,
   FAMILY_COLORS,
-  TAXONOMY_COUNT,
 } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
+import { getPublicStatsSummary } from "@/lib/public-stats";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessAllCategories } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
@@ -25,7 +21,7 @@ import { getSpotlightCategories } from "@/lib/fee-taxonomy";
 export const metadata: Metadata = {
   title: "Fee Index - All 49 Bank Fee Categories",
   description:
-    "Compare bank and credit union fees across 49 categories. National medians, ranges, and institution counts for overdraft, NSF, ATM, wire transfer, and more.",
+    "Compare bank and credit union fees by category. National medians, ranges, and institution counts for overdraft, NSF, ATM, wire transfer, and more.",
 };
 
 const TIER_LABELS: Record<string, string> = {
@@ -46,8 +42,7 @@ export default async function FeeCatalogPage() {
     : allSummaries.filter((s) => spotlightCats.has(s.fee_category));
   const gatedCount = allSummaries.length - summaries.length;
 
-  const stats = await getStats();
-  const freshness = await getDataFreshness();
+  const summary = await getPublicStatsSummary();
 
   const byFamily = new Map<string, typeof summaries>();
   for (const s of summaries) {
@@ -96,29 +91,18 @@ export default async function FeeCatalogPage() {
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#A09788]">
           <span>
             <span className="font-medium text-[#5A5347] tabular-nums">
-              {freshness.total_observations.toLocaleString()}
+              {summary.observationsLabel}
             </span>{" "}
-            fee observations across{" "}
+            verified fees from{" "}
             <span className="font-medium text-[#5A5347] tabular-nums">
-              {stats.total_institutions.toLocaleString()}
+              {summary.institutionsLabel}
             </span>{" "}
             institutions
           </span>
           <span className="h-3 w-px bg-[#D4C9BA]" />
-          <span>{TAXONOMY_COUNT} fee categories</span>
-          {freshness.last_crawl_at && (
-            <>
-              <span className="h-3 w-px bg-[#D4C9BA]" />
-              <span>
-                Updated{" "}
-                {new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-            </>
-          )}
+          <span>{summary.categoriesLabel} fee categories</span>
+          <span className="h-3 w-px bg-[#D4C9BA]" />
+          <span>{summary.freshnessLabel}</span>
         </div>
 
         <div className="mt-1.5 text-[11px] text-[#A09788]/70">
@@ -464,7 +448,7 @@ export default async function FeeCatalogPage() {
             "@type": "Dataset",
             name: "Bank Fee Index - Complete Fee Catalog",
             description:
-              "National benchmarking data across 49 bank and credit union fee categories.",
+              "National benchmarking data across bank and credit union fee categories.",
             url: `${SITE_URL}/fees`,
           }).replace(/</g, "\\u003c"),
         }}

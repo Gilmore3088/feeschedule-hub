@@ -18,7 +18,7 @@ Brand hierarchy is settled and out of scope: Fee Insight (company/site) → Bank
 - Hamilton canonical sentence: "Hamilton is the Fee Insight Pro workspace: benchmark, scenario,
   report and monitor your fee position against a verified peer set." Never "our AI analyst" as a headline.
 - Public status vocabulary: **Verified / Under review / No published schedule found.** "Rows" → "fees".
-- One numbers source: `getPublicStats()` + `getDataFreshness()` via a shared `public-stats` helper;
+- One numbers source: `getPublicStats()` + `getDataFreshness()` via a shared `public-stats` helper (all figures queried live; no constants);
   no hand-typed counts on any public surface. One freshness format: "Data refreshed Aug 12, 2026".
 - Free tier is the public Bank Fee Index lookup; remove any promised Hamilton quota.
 - Contrast: #7A7062 minimum for text ≤14px; #A09788-family reserved for rules/disabled.

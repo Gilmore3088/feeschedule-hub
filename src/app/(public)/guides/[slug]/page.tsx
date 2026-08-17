@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatAbsoluteDate } from "@/lib/public-stats";
 import { notFound } from "next/navigation";
 import { GUIDES, getGuide } from "@/lib/guides";
 import {
@@ -120,11 +121,7 @@ export default async function GuidePage({ params }: PageProps) {
               <span className="h-3 w-px bg-[#D4C9BA]" />
               <span>
                 Updated{" "}
-                {new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatAbsoluteDate(freshness.last_crawl_at)}
               </span>
             </>
           )}

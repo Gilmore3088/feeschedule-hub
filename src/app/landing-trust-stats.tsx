@@ -1,26 +1,14 @@
 import Link from "next/link";
 import type { PublicStats, DataFreshness } from "@/lib/data-store/core";
+import { formatFreshness } from "@/lib/public-stats";
 
 interface LandingTrustStatsProps {
   stats: PublicStats;
   freshness: DataFreshness;
 }
 
-function formatRelativeRefresh(iso: string | null): string {
-  if (!iso) return "recently";
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const hours = Math.max(0, Math.floor((now - then) / 3_600_000));
-  if (hours < 1) return "in the last hour";
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
-}
-
 export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) {
-  const refreshedRelative = formatRelativeRefresh(freshness.last_crawl_at);
+  const freshnessLabel = formatFreshness(freshness.last_fee_extracted_at ?? freshness.last_crawl_at);
   // Palette: warm-*/terra tokens from globals.css @theme. Works in any route,
   // no .consumer-brand wrapper required (older slate-* utilities still work
   // via the wrapper for compatibility with older surfaces).
@@ -86,7 +74,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
               <span className="absolute inset-0 rounded-full bg-terra/40 live-pulse" />
               <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-terra" />
             </span>
-            Last refresh: <span className="text-warm-900 font-medium">{refreshedRelative}</span>
+            <span className="text-warm-900 font-medium">{freshnessLabel}</span>
             {" · "}
             <Link
               href="/methodology"
