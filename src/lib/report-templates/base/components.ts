@@ -7,6 +7,7 @@
  */
 
 import { PALETTE } from "./styles";
+import { RESEARCH_IMPRINT, SITE_NAME } from "@/lib/constants";
 
 function escapeHtml(s: string): string {
   return s
@@ -34,11 +35,11 @@ export function coverPage(props: CoverPageProps): string {
   return `
 <div class="report-cover">
   <div class="report-cover-inner">
-    <div class="report-cover-label">${escapeHtml(props.series ?? "Bank Fee Index Research")}</div>
+    <div class="report-cover-label">${escapeHtml(props.series ?? RESEARCH_IMPRINT)}</div>
     <h1 class="report-cover-title">${escapeHtml(props.title)}</h1>
     <div class="report-cover-subtitle">${escapeHtml(props.subtitle)}</div>
     <div class="report-cover-meta">
-      <span>Bank Fee Index</span>
+      <span>${SITE_NAME}</span>
       <span>${escapeHtml(props.report_date)}</span>
       ${props.confidentiality ? `<span>${escapeHtml(props.confidentiality)}</span>` : ""}
     </div>

@@ -1,4 +1,5 @@
 import { sql } from "./connection";
+import { RESEARCH_IMPRINT } from "@/lib/constants";
 
 export interface Article {
   id: number;
@@ -89,7 +90,7 @@ export async function createArticle(data: {
       ${data.content},
       ${data.category},
       ${data.tags ? JSON.stringify(data.tags) : null},
-      ${data.author ?? "Bank Fee Index"},
+      ${data.author ?? RESEARCH_IMPRINT},
       ${data.generated_by ?? null},
       ${data.conversation_id ?? null}
     )

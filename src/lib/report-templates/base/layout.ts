@@ -6,10 +6,11 @@
  */
 
 import { REPORT_CSS } from "./styles";
+import { HAMILTON_ATTRIBUTION } from "@/lib/constants";
 
 export interface ReportMetadata {
   title: string;
-  author?: string;  // Defaults to "Bank Fee Index — Hamilton"
+  author?: string;  // Defaults to HAMILTON_ATTRIBUTION
   date: string;
 }
 
@@ -30,7 +31,7 @@ function escapeHtml(s: string): string {
  * @param meta - Report title, author, and date for <head> metadata
  */
 export function wrapReport(body: string, meta: ReportMetadata): string {
-  const author = meta.author ?? "Bank Fee Index \u2014 Hamilton";
+  const author = meta.author ?? HAMILTON_ATTRIBUTION;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

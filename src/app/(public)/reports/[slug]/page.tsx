@@ -94,7 +94,7 @@ export async function generateMetadata({
   }
 
   const typeLabel = humanType(report.report_type);
-  const description = `${typeLabel} published ${formatDate(report.published_at)} by Bank Fee Index Research.`;
+  const description = `${typeLabel} published ${formatDate(report.published_at)} by ${RESEARCH_IMPRINT}.`;
 
   return {
     title: `${report.title}`,
@@ -174,7 +174,7 @@ export default async function ReportPage({
           </h1>
 
           <p style={{ fontSize: "13px", color: "#A09788" }}>
-            Bank Fee Index Research &middot; Published {formatDate(report.published_at)}
+            {RESEARCH_IMPRINT} &middot; Published {formatDate(report.published_at)}
           </p>
         </div>
 
@@ -248,7 +248,7 @@ export default async function ReportPage({
         {/* Methodology link */}
         <div style={{ marginTop: "64px", paddingTop: "24px", borderTop: "1px solid #E8DFD1", fontSize: "12px", color: "#A09788" }}>
           <p>
-            Data collected and verified by Bank Fee Index.{" "}
+            Data collected and verified by the Bank Fee Index.{" "}
             <a href="/methodology" style={{ color: "#5A5347", textDecoration: "underline" }}>
               Read our methodology
             </a>

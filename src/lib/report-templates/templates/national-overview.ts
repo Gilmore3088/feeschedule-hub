@@ -24,6 +24,7 @@ import {
   pageBreak,
 } from "../index";
 import type { NationalOverviewData, GenerateSectionOutput } from "../../hamilton/types";
+import { HAMILTON_ATTRIBUTION, SITE_DOMAIN, SITE_NAME } from "@/lib/constants";
 
 export interface NationalOverviewReportInput {
   data: NationalOverviewData;
@@ -116,7 +117,7 @@ export function renderNationalOverviewReport(input: NationalOverviewReportInput)
     `National median computed from all non-rejected fee observations in the Bank Fee Index.`,
     `Maturity: "strong" = 10+ approved observations; "provisional" = 10+ total observations; "insufficient" = below threshold.`,
     `Data includes approved, staged, and pending observations.`,
-    `Bank Fee Index — bankfeeindex.com — Generated ${data.report_date}`,
+    `${SITE_NAME} — ${SITE_DOMAIN} — Generated ${data.report_date}`,
   ].join(" ");
 
   const body = [
@@ -132,7 +133,7 @@ export function renderNationalOverviewReport(input: NationalOverviewReportInput)
 
   return wrapReport(body, {
     title: "National Fee Index",
-    author: "Bank Fee Index — Hamilton",
+    author: HAMILTON_ATTRIBUTION,
     date: data.report_date,
   });
 }

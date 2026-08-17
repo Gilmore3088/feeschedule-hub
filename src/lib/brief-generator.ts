@@ -1,6 +1,7 @@
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import type { IndexEntry } from "@/lib/data-store/fee-index";
+import { SITE_DOMAIN, SITE_NAME } from "@/lib/constants";
 
 interface BriefOptions {
   title: string;
@@ -90,7 +91,7 @@ export function generatePeerBrief(opts: BriefOptions): string {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${escapeHtml(title)} - Bank Fee Index</title>
+<title>${escapeHtml(title)} - ${SITE_NAME}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -225,7 +226,7 @@ export function generatePeerBrief(opts: BriefOptions): string {
 <div class="header">
   <h1>${escapeHtml(title)}</h1>
   <div class="subtitle">${escapeHtml(subtitle)}</div>
-  <div class="meta">Bank Fee Index &mdash; ${escapeHtml(now)}</div>
+  <div class="meta">${SITE_NAME} &mdash; ${escapeHtml(now)}</div>
 </div>
 
 <div class="summary">
@@ -297,7 +298,7 @@ ${extended.length > 0 ? `
 </div>
 
 <div class="footer">
-  Bank Fee Index &mdash; bankfeeindex.com &mdash; Generated ${escapeHtml(now)}
+  ${SITE_NAME} &mdash; ${SITE_DOMAIN} &mdash; Generated ${escapeHtml(now)}
 </div>
 
 </body>

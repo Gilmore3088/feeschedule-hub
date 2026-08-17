@@ -2,6 +2,7 @@ import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/data-store/connection";
 import { getDisplayName } from "@/lib/fee-taxonomy";
+import { SITE_DOMAIN, SITE_NAME } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -653,7 +654,7 @@ function generateHtml(
     <!-- Header -->
     <div class="header">
       <div class="brand">
-        <span class="brand-name">Bank Fee Index</span>
+        <span class="brand-name">${SITE_NAME}</span>
         <span class="brand-date">Report generated ${generatedAt}</span>
       </div>
       <div class="report-type">MSA Market Report</div>
@@ -734,8 +735,8 @@ function generateHtml(
         </p>
       </div>
       <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-        <span class="footer-brand">Bank Fee Index</span>
-        <span class="footer-text">bankfeeindex.com &middot; ${generatedAt}</span>
+        <span class="footer-brand">${SITE_NAME}</span>
+        <span class="footer-text">${SITE_DOMAIN} &middot; ${generatedAt}</span>
       </div>
       <p class="footer-text" style="margin-top: 8px;">
         This report is for informational purposes only. Fee data is sourced from

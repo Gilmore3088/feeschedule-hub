@@ -11,6 +11,7 @@ import { FDIC_TIER_LABELS, DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 import { getInstitutionById } from "@/lib/data-store";
 import { getFeePublicationStatusLabel } from "@/lib/institution-quality";
+import { SITE_DOMAIN, SITE_NAME } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -771,7 +772,7 @@ function generateHtml(
     <!-- Header -->
     <div class="header">
       <div class="brand">
-        <span class="brand-name">Bank Fee Index</span>
+        <span class="brand-name">${SITE_NAME}</span>
         <span class="brand-date">Report generated ${generatedAt}</span>
       </div>
       <h1 class="inst-name">${escapeHtml(inst.institution_name)}</h1>
@@ -842,8 +843,8 @@ function generateHtml(
         </p>
       </div>
       <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-        <span class="footer-brand">Bank Fee Index</span>
-        <span class="footer-text">bankfeeindex.com &middot; ${generatedAt}</span>
+        <span class="footer-brand">${SITE_NAME}</span>
+        <span class="footer-text">${SITE_DOMAIN} &middot; ${generatedAt}</span>
       </div>
       <p class="footer-text" style="margin-top: 8px;">
         This report is for informational purposes only. Fee data is sourced from

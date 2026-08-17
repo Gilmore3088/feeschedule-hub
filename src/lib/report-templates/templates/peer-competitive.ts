@@ -24,6 +24,7 @@ import {
   pageBreak,
 } from "../index";
 import type { PeerCompetitiveData, GenerateSectionOutput } from "../../hamilton/types";
+import { HAMILTON_ATTRIBUTION, SITE_DOMAIN, SITE_NAME } from "@/lib/constants";
 
 export interface PeerCompetitiveReportInput {
   data: PeerCompetitiveData;
@@ -132,7 +133,7 @@ export function renderPeerCompetitiveReport(input: PeerCompetitiveReportInput): 
     `National median includes all tracked institutions regardless of segment.`,
     `Delta represents the percentage difference between peer and national medians.`,
     `Data includes approved, staged, and pending observations with maturity classification.`,
-    `Bank Fee Index — bankfeeindex.com — Generated ${data.report_date}`,
+    `${SITE_NAME} — ${SITE_DOMAIN} — Generated ${data.report_date}`,
   ].join(" ");
 
   const body = [cover, execSummary, break1, featuredSection, extendedSection, footnote(methodologyText)]
@@ -141,7 +142,7 @@ export function renderPeerCompetitiveReport(input: PeerCompetitiveReportInput): 
 
   return wrapReport(body, {
     title: data.title,
-    author: "Bank Fee Index — Hamilton",
+    author: HAMILTON_ATTRIBUTION,
     date: data.report_date,
   });
 }

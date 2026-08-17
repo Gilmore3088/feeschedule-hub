@@ -15,7 +15,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "Research Reports",
   description:
-    "Browse published bank fee research reports from Bank Fee Index. National indexes, state analysis, peer benchmarks, and monthly pulse reports.",
+    "Browse published bank fee research reports from Fee Insight Research. National indexes, state analysis, peer benchmarks, and monthly pulse reports.",
 };
 
 // Human-readable labels for report types
@@ -143,7 +143,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             Research Reports
           </h1>
           <p style={{ fontSize: "16px", color: "#5A5347", lineHeight: 1.6, maxWidth: "560px" }}>
-            Published analysis from Bank Fee Index Research — national indexes, state benchmarks, peer comparisons, and monthly fee intelligence.
+            Published analysis from Fee Insight Research — national indexes, state benchmarks, peer comparisons, and monthly fee intelligence.
           </p>
         </div>
 

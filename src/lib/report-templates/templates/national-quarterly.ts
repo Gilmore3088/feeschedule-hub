@@ -39,6 +39,7 @@ import {
 } from "../index";
 
 import type { DerivedAnalytics, NationalQuarterlyPayload } from "@/lib/report-assemblers/national-quarterly";
+import { HAMILTON_ATTRIBUTION, SITE_DOMAIN, SITE_NAME } from "@/lib/constants";
 
 // ─── Input Type ────────────────────────────────────────────────────────────────
 
@@ -544,7 +545,7 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
     "Charter split computed from charter_type field on institution_sources.",
     "IQR spread = (P75 - P25) / Median. Categories with median below $0.50 excluded from spread analysis.",
     "Revenue data sourced from FDIC Call Reports and NCUA 5300 filings.",
-    `Bank Fee Index \u2014 bankfeeindex.com \u2014 Generated ${data.report_date}`,
+    `${SITE_NAME} — ${SITE_DOMAIN} — Generated ${data.report_date}`,
   ].join(" ");
 
   const methodology = [
@@ -593,7 +594,7 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
 
   return wrapReport(body, {
     title: "The Death of Fee-Based Differentiation",
-    author: "Bank Fee Index \u2014 Hamilton",
+    author: HAMILTON_ATTRIBUTION,
     date: data.report_date,
   });
 }

@@ -25,6 +25,7 @@ import {
 } from "../index";
 import type { MonthlyPulsePayload, PulseMover } from "../../report-assemblers/monthly-pulse";
 import type { GenerateSectionOutput } from "../../hamilton/types";
+import { HAMILTON_ATTRIBUTION, SITE_DOMAIN, SITE_NAME } from "@/lib/constants";
 
 // ─── Input Type ────────────────────────────────────────────────────────────────
 
@@ -132,7 +133,7 @@ export function renderMonthlyPulseReport(input: MonthlyPulseReportInput): string
     "Movement computed by comparing current median to prior cached index snapshot.",
     "Categories shown only when change exceeds \u00b15% threshold.",
     "Medians from all non-rejected fee observations in the Bank Fee Index pipeline.",
-    `Bank Fee Index \u2014 bankfeeindex.com \u2014 Generated ${data.report_date}`,
+    `${SITE_NAME} — ${SITE_DOMAIN} — Generated ${data.report_date}`,
   ].join(" ");
 
   const body = [
@@ -149,7 +150,7 @@ export function renderMonthlyPulseReport(input: MonthlyPulseReportInput): string
 
   return wrapReport(body, {
     title: `Monthly Fee Pulse \u2014 ${data.period_label}`,
-    author: "Bank Fee Index \u2014 Hamilton",
+    author: HAMILTON_ATTRIBUTION,
     date: data.report_date,
   });
 }
