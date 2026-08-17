@@ -16,7 +16,7 @@ import {
   DISPLAY_NAMES,
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
-import { formatAmount } from "@/lib/format";
+import { formatFeeAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { DistributionChart } from "@/components/public/distribution-chart";
@@ -29,6 +29,12 @@ import { UpgradeGate } from "@/components/upgrade-gate";
 interface PageProps {
   params: Promise<{ category: string }>;
 }
+
+const EYEBROW = "text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]";
+const SERIF = { fontFamily: "var(--font-newsreader), Georgia, serif" };
+
+/** Thousands-separated dollars ("$5,000", "$2.50"); "-" when unavailable. */
+const money = (value: number | null | undefined) => formatFeeAmount(value) ?? "-";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { category } = await params;
@@ -68,14 +74,15 @@ function WarmTable({
 }) {
   return (
     <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm">
-      <div className="overflow-x-auto">
+      <div className="table-scroll">
         <table className={`w-full text-left text-sm ${minWidth}`}>
           <thead>
             <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
               {headers.map((h, i) => (
                 <th
                   key={h}
-                  className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] ${i > 0 ? "text-right" : ""}`}
+                  scope="col"
+                  className={`px-4 py-2.5 ${EYEBROW} ${i > 0 ? "text-right" : ""}`}
                 >
                   {h}
                 </th>
@@ -126,7 +133,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       />
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-[12px] text-[#A09788] mb-6">
+      <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-6">
         <Link href="/" className="hover:text-[#1A1815] transition-colors">
           Home
         </Link>
@@ -154,7 +161,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
 
       <h1
         className="mt-3 text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
-        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        style={SERIF}
       >
         {name} Fee
       </h1>
@@ -169,24 +176,24 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       {/* Stat cards */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Median", value: formatAmount(stats.median) },
-          { label: "25th Percentile", value: formatAmount(stats.p25) },
-          { label: "75th Percentile", value: formatAmount(stats.p75) },
+          { label: "Median", value: money(stats.median) },
+          { label: "25th Percentile", value: money(stats.p25) },
+          { label: "75th Percentile", value: money(stats.p75) },
           {
             label: "Range",
-            value: `${formatAmount(stats.min)} - ${formatAmount(stats.max)}`,
+            value: `${money(stats.min)} \u2013 ${money(stats.max)}`,
           },
         ].map((s) => (
           <div
             key={s.label}
             className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3.5"
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788]">
+            <p className={EYEBROW}>
               {s.label}
             </p>
             <p
               className="mt-1 text-[22px] font-light tabular-nums text-[#1A1815]"
-              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+              style={SERIF}
             >
               {s.value}
             </p>
@@ -198,7 +205,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       <section className="mt-10">
         <h2
           className="text-[16px] font-medium text-[#1A1815]"
-          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          style={SERIF}
         >
           Fee Distribution
         </h2>
@@ -222,7 +229,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         <section className="mt-10">
           <h2
             className="text-[16px] font-medium text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            style={SERIF}
           >
             Bank vs. Credit Union
           </h2>
@@ -236,11 +243,11 @@ export default async function FeeCategoryPage({ params }: PageProps) {
                   {row.dimension_value}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                  {formatAmount(row.median_amount)}
+                  {money(row.median_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                  {formatAmount(row.min_amount)} &ndash;{" "}
-                  {formatAmount(row.max_amount)}
+                  {money(row.min_amount)} &ndash;{" "}
+                  {money(row.max_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                   {row.count.toLocaleString()}
@@ -256,7 +263,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         <section className="mt-10">
           <h2
             className="text-[16px] font-medium text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            style={SERIF}
           >
             By Asset Tier
           </h2>
@@ -270,11 +277,11 @@ export default async function FeeCategoryPage({ params }: PageProps) {
                   {FDIC_TIER_LABELS[row.dimension_value] ?? row.dimension_value}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                  {formatAmount(row.median_amount)}
+                  {money(row.median_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                  {formatAmount(row.min_amount)} &ndash;{" "}
-                  {formatAmount(row.max_amount)}
+                  {money(row.min_amount)} &ndash;{" "}
+                  {money(row.max_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                   {row.count.toLocaleString()}
@@ -290,7 +297,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         <section className="mt-10">
           <h2
             className="text-[16px] font-medium text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            style={SERIF}
           >
             By Federal Reserve District
           </h2>
@@ -308,16 +315,16 @@ export default async function FeeCategoryPage({ params }: PageProps) {
                 >
                   <td className="px-4 py-2.5 font-medium text-[#1A1815]">
                     {distName}{" "}
-                    <span className="text-[#A09788]">
+                    <span className="text-[#7A7062]">
                       ({row.dimension_value})
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                    {formatAmount(row.median_amount)}
+                    {money(row.median_amount)}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                    {formatAmount(row.min_amount)} &ndash;{" "}
-                    {formatAmount(row.max_amount)}
+                    {money(row.min_amount)} &ndash;{" "}
+                    {money(row.max_amount)}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                     {row.count.toLocaleString()}
@@ -334,10 +341,10 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         <section className="mt-10">
           <h2
             className="text-[16px] font-medium text-[#1A1815]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+            style={SERIF}
           >
             By State
-            <span className="ml-2 text-[12px] font-normal text-[#A09788]">
+            <span className="ml-2 text-[12px] font-normal text-[#7A7062]">
               Top {detail.by_state.length} by observation count
             </span>
           </h2>
@@ -349,15 +356,15 @@ export default async function FeeCategoryPage({ params }: PageProps) {
               >
                 <td className="px-4 py-2.5 font-medium text-[#1A1815]">
                   {STATE_NAMES[row.dimension_value] ?? row.dimension_value}
-                  <span className="ml-1.5 text-[#A09788]">
+                  <span className="ml-1.5 text-[#7A7062]">
                     ({row.dimension_value})
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
-                  {formatAmount(row.median_amount)}
+                  {money(row.median_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
-                  {formatAmount(row.avg_amount)}
+                  {money(row.avg_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
                   {row.count.toLocaleString()}
@@ -374,7 +381,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
           <div className="flex items-center gap-3 mb-4">
             <h2
               className="text-[16px] font-medium text-[#1A1815]"
-              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+              style={SERIF}
             >
               Related Fees in {family}
             </h2>
@@ -396,7 +403,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
 
       {/* Methodology */}
       <section className="mt-12 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 p-6">
-        <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A09788]">
+        <h3 className={EYEBROW}>
           Methodology
         </h3>
         <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">
@@ -416,7 +423,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             "@context": "https://schema.org",
             "@type": "Article",
             headline: `${name} Fee - National Benchmarks`,
-            description: `National ${name.toLowerCase()} fee: median ${formatAmount(stats.median)}, based on ${amounts.length} observations.`,
+            description: `National ${name.toLowerCase()} fee: median ${money(stats.median)}, based on ${amounts.length} observations.`,
             url: `${SITE_URL}/fees/${category}`,
             dateModified: freshness.last_crawl_at ?? undefined,
             publisher: {

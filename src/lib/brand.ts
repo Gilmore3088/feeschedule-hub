@@ -9,7 +9,8 @@ export interface BrandConfig {
   logoSvg: string;
 }
 
-const FEE_INSIGHT_LOGO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M3 17l4-8 4 5 4-10 6 13"/></svg>`;
+/** The one Fee Insight mark: three terracotta bars (same geometry as customer-nav). */
+const FEE_INSIGHT_LOGO = `<svg viewBox="0 0 24 24" fill="none" stroke="#C44B2E" stroke-width="1.5" width="28" height="28" aria-hidden="true"><rect x="4" y="13" width="4" height="8" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="18" rx="1"/></svg>`;
 
 const DEFAULT_BRAND_ID = "fee-insight";
 
@@ -18,8 +19,8 @@ export const BRANDS: Record<string, BrandConfig> = {
     name: SITE_NAME,
     tagline: `Home of the ${PRODUCT_NAME}`,
     url: SITE_DOMAIN,
-    primaryColor: "#0f172a",
-    accentColor: "#f59e0b",
+    primaryColor: "#1A1815",
+    accentColor: "#C44B2E",
     logoSvg: FEE_INSIGHT_LOGO,
   },
 };

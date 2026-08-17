@@ -431,16 +431,87 @@ export const CANONICAL_KEY_MAP: Record<string, string> = {
 /** Total number of entries in CANONICAL_KEY_MAP (for cross-language sync assertions). */
 export const CANONICAL_KEY_COUNT = Object.keys(CANONICAL_KEY_MAP).length;
 
-export const FAMILY_COLORS: Record<string, { border: string; bg: string; text: string }> = {
-  "Account Maintenance": { border: "border-l-blue-500", bg: "bg-blue-50", text: "text-blue-700" },
-  "Overdraft & NSF": { border: "border-l-red-500", bg: "bg-red-50", text: "text-red-700" },
-  "ATM & Card": { border: "border-l-amber-500", bg: "bg-amber-50", text: "text-amber-700" },
-  "Wire Transfers": { border: "border-l-purple-500", bg: "bg-purple-50", text: "text-purple-700" },
-  "Check Services": { border: "border-l-slate-500", bg: "bg-slate-50", text: "text-slate-700" },
-  "Digital & Electronic": { border: "border-l-cyan-500", bg: "bg-cyan-50", text: "text-cyan-700" },
-  "Cash & Deposit": { border: "border-l-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700" },
-  "Account Services": { border: "border-l-indigo-500", bg: "bg-indigo-50", text: "text-indigo-700" },
-  "Lending Fees": { border: "border-l-orange-500", bg: "bg-orange-50", text: "text-orange-700" },
+/**
+ * Warm-family palette for fee families. One hue per family, all on the Fee
+ * Insight parchment scale (no stock Tailwind blue/red/amber). Every text color
+ * measures at least 7:1 on its own tint and on #FAF7F2, so chips and labels
+ * stay legible at 11-13px.
+ */
+export interface FamilyColors {
+  /** Left-edge accent on cards (`border-l-*`). */
+  border: string;
+  /** Tint background for chips. */
+  bg: string;
+  /** Text on the tint (and on parchment). */
+  text: string;
+  /** Solid swatch/dot in the family hue (`bg-*`), for legends and section markers. */
+  dot: string;
+}
+
+export const FAMILY_COLORS: Record<string, FamilyColors> = {
+  // terracotta
+  "Account Maintenance": {
+    border: "border-l-[#C44B2E]",
+    dot: "bg-[#C44B2E]",
+    bg: "bg-[#FDF0ED]",
+    text: "text-[#8E2A17]",
+  },
+  // wine
+  "Overdraft & NSF": {
+    border: "border-l-[#8C3A52]",
+    dot: "bg-[#8C3A52]",
+    bg: "bg-[#F7ECEF]",
+    text: "text-[#6E2238]",
+  },
+  // ochre
+  "ATM & Card": {
+    border: "border-l-[#B8860B]",
+    dot: "bg-[#B8860B]",
+    bg: "bg-[#FBF3E1]",
+    text: "text-[#6E4A0C]",
+  },
+  // plum
+  "Wire Transfers": {
+    border: "border-l-[#7B6491]",
+    dot: "bg-[#7B6491]",
+    bg: "bg-[#F1ECF3]",
+    text: "text-[#4E3A66]",
+  },
+  // slate-brown
+  "Check Services": {
+    border: "border-l-[#7A6E5E]",
+    dot: "bg-[#7A6E5E]",
+    bg: "bg-[#F0ECE6]",
+    text: "text-[#4A4238]",
+  },
+  // teal-grey
+  "Digital & Electronic": {
+    border: "border-l-[#4F8078]",
+    dot: "bg-[#4F8078]",
+    bg: "bg-[#E9F0EF]",
+    text: "text-[#23514B]",
+  },
+  // olive
+  "Cash & Deposit": {
+    border: "border-l-[#7A8A2E]",
+    dot: "bg-[#7A8A2E]",
+    bg: "bg-[#EFF1E4]",
+    text: "text-[#46521A]",
+  },
+  // sand
+  "Account Services": {
+    border: "border-l-[#A38B57]",
+    dot: "bg-[#A38B57]",
+    bg: "bg-[#F5EEDD]",
+    text: "text-[#5C4A24]",
+  },
+  // clay
+  "Lending Fees": {
+    border: "border-l-[#B5623A]",
+    dot: "bg-[#B5623A]",
+    bg: "bg-[#F8EBE3]",
+    text: "text-[#7A3A1A]",
+  },
 };
 
 export function getDisplayName(category: string): string {
@@ -455,7 +526,7 @@ export function getFeeFamily(category: string): string | null {
 }
 
 export function getFamilyColor(family: string) {
-  return FAMILY_COLORS[family] ?? { border: "border-l-gray-400", bg: "bg-gray-50", text: "text-gray-700" };
+  return FAMILY_COLORS[family] ?? { border: "border-l-[#A09788]", dot: "bg-[#A09788]", bg: "bg-[#F5EFE6]", text: "text-[#5A5347]" };
 }
 
 // --- Fee Tier System ---

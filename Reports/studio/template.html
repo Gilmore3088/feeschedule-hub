@@ -68,8 +68,8 @@
     text-transform:uppercase; color:var(--cream); white-space:nowrap; font-weight:500; }
   .cover .spine .vert b { color:#F9D5C8; font-weight:600; }
   .cover .spine .mark { position:absolute; left:50%; top:0.85in; transform:translateX(-50%);
-    width:22pt; height:22pt; border:1.5pt solid var(--cream); border-radius:50%; }
-  .cover .spine .mark::after { content:""; position:absolute; inset:5pt; background:var(--cream); border-radius:50%; }
+    width:22pt; height:22pt; }
+  .cover .spine .mark svg { display:block; width:22pt; height:22pt; }
   .cover .body { position:relative; padding:0.85in 0.85in 0.8in 0.75in; display:flex; flex-direction:column; }
   .cover .topline { display:flex; justify-content:space-between; font-family:var(--mono);
     font-size:7.2pt; letter-spacing:0.16em; text-transform:uppercase; color:var(--text2);
@@ -233,7 +233,7 @@
 <!-- 1. COVER -->
 <div class="bleed cover">
   <div class="spine">
-    <div class="mark"></div>
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#FDFBF8" stroke-width="1.5" aria-hidden="true"><rect x="4" y="13" width="4" height="8" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="18" rx="1"/></svg></div>
     <div class="vert"><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</div>
   </div>
   <div class="body">

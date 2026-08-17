@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "National fee benchmarking for banks and credit unions.",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0f172a",
+    background_color: "#FAF7F2",
+    theme_color: "#FAF7F2",
     icons: [
       {
         src: "/icon",

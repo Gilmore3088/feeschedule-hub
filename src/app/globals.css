@@ -63,15 +63,15 @@
   --color-warm-200: #EDE5D8;  /* divider tint */
   --color-warm-300: #E0D7C9;  /* border / muted bg */
   --color-warm-400: #C4B89F;  /* mid neutral, rare */
-  --color-warm-500: #A09788;  /* eyebrow color, faint label */
-  --color-warm-600: #7A7062;  /* secondary text */
+  --color-warm-500: #A09788;  /* rules / dividers / disabled / decorative marks — NOT text */
+  --color-warm-600: #7A7062;  /* muted text; minimum for text at or below 14px; eyebrows */
   --color-warm-700: #5A5347;  /* body / dark label */
   --color-warm-800: #3D3830;  /* heading */
   --color-warm-900: #1A1815;  /* near-black headline */
 
   /* dark context — for the institutional dark column */
   --color-warm-ink-50:  #F5EFE6;  /* light text on dark */
-  --color-warm-ink-300: #A09788;  /* mid-muted text on dark */
+  --color-warm-ink-300: #A09788;  /* mid-muted text on dark surfaces only (never on parchment) */
   --color-warm-ink-500: #7A7062;  /* secondary text on dark */
   --color-warm-ink-700: #3D3830;  /* border on dark */
   --color-warm-ink-800: #2D2A26;  /* card bg on dark */
@@ -116,7 +116,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #C44B2E; /* terracotta focus ring */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -164,7 +164,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: #D16A52; /* lighter terracotta on dark */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -283,7 +283,7 @@
 
 /* ─── Focus indicators ─── */
 *:focus-visible {
-  outline: 2px solid oklch(0.55 0.2 260);
+  outline: 2px solid #C44B2E; /* terracotta, brand focus ring */
   outline-offset: 2px;
   border-radius: 3px;
 }
@@ -853,7 +853,7 @@
 .consumer-brand .text-slate-700 { color: #3D3830; }
 .consumer-brand .text-slate-600 { color: #5A5347; }
 .consumer-brand .text-slate-500 { color: #7A7062; }
-.consumer-brand .text-slate-400 { color: #A09788; }
+.consumer-brand .text-slate-400 { color: #7A7062; } /* lifted from #A09788: text floor for <=14px */
 .consumer-brand .text-slate-300 { color: #B0A89C; }
 
 /* ── Accent swap: amber/blue → terracotta ── */
@@ -935,9 +935,9 @@
   font-family: var(--font-newsreader), Georgia, serif;
 }
 
-/* ── Table headers: warm tint ── */
+/* ── Table headers: warm tint (#7A7062 minimum — header text is <=14px) ── */
 .consumer-brand thead tr { border-color: #F0E8DC; }
-.consumer-brand thead th { color: #A09788; }
+.consumer-brand thead th { color: #7A7062; }
 
 /* ── Table cells: more padding ── */
 .consumer-brand td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
@@ -963,7 +963,7 @@
 
 /* ── Analyst Hub prose styles ── */
 .prose-hub table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0; }
-.prose-hub th { text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #A09788; border-bottom: 1px solid #E8DFD1; }
+.prose-hub th { text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #7A7062; border-bottom: 1px solid #E8DFD1; }
 .prose-hub td { padding: 5px 10px; color: #1A1815; border-bottom: 1px solid rgba(232, 223, 209, 0.4); }
 .prose-hub tr:hover td { background: rgba(250, 247, 242, 0.6); }
 .prose-hub strong { font-weight: 600; color: #1A1815; }
@@ -983,6 +983,42 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
 /* ── Scrollbar hide utility ── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Table scroll: wrap wide tables so mobile can pan. A right-edge fade
+   (mask, same technique as .admin-nav-inline) signals the overflow.
+   Browsers with scroll-driven animations only show the fade while there is
+   content left to scroll; older browsers get a static fade on small screens. ── */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #E0D7C9 transparent;
+}
+.table-scroll > table { min-width: 100%; }
+@supports (animation-timeline: scroll()) {
+  .table-scroll {
+    animation: table-scroll-fade linear both;
+    animation-timeline: scroll(self inline);
+  }
+  @keyframes table-scroll-fade {
+    from {
+      -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+      mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+    }
+    to {
+      -webkit-mask-image: linear-gradient(to right, black 100%, black 100%);
+      mask-image: linear-gradient(to right, black 100%, black 100%);
+    }
+  }
+}
+@supports not (animation-timeline: scroll()) {
+  @media (max-width: 640px) {
+    .table-scroll {
+      -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+      mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+    }
+  }
+}
 
 /* ── Mobile admin nav: fade mask indicates horizontal overflow ── */
 .admin-nav-inline {

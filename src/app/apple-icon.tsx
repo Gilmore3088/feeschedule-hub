@@ -3,6 +3,10 @@ import { ImageResponse } from "next/og";
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
+const PARCHMENT = "#FAF7F2";
+const TERRACOTTA = "#C44B2E";
+
+/** Apple touch icon: the three-bars mark on parchment with generous padding. */
 export default function AppleIcon() {
   return new ImageResponse(
     (
@@ -13,40 +17,24 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+          background: PARCHMENT,
           borderRadius: 36,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 2,
-          }}
+        <svg
+          viewBox="0 0 24 24"
+          width={116}
+          height={116}
+          fill="none"
+          stroke={TERRACOTTA}
+          strokeWidth={1.5}
         >
-          <span
-            style={{
-              fontSize: 72,
-              fontWeight: 800,
-              color: "#f8fafc",
-              letterSpacing: -3,
-              lineHeight: 1,
-            }}
-          >
-            FI
-          </span>
-          <div
-            style={{
-              width: 80,
-              height: 3,
-              background: "#3b82f6",
-              borderRadius: 2,
-            }}
-          />
-        </div>
+          <rect x="4" y="13" width="4" height="8" rx="1" />
+          <rect x="10" y="8" width="4" height="13" rx="1" />
+          <rect x="16" y="3" width="4" height="18" rx="1" />
+        </svg>
       </div>
     ),
-    { ...size }
+    { ...size },
   );
 }

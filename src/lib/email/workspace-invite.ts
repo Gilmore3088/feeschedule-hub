@@ -92,24 +92,26 @@ export async function sendWorkspaceInviteEmail(
     "The invitation attaches after the invited account has an active Pro subscription.",
   ].join("\n");
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #1f2933; line-height: 1.5; max-width: 560px;">
-      <p style="margin: 0 0 16px;">${escapeHtml(preview)}</p>
-      <p style="margin: 0 0 16px;">
-        <strong>Institution:</strong> ${escapeHtml(institutionName)}<br />
-        <strong>Role:</strong> ${escapeHtml(invitation.role)}
-      </p>
-      <p style="margin: 0 0 20px;">
-        Accept the invitation by signing in or registering with ${escapeHtml(invitation.email)}.
-        If the account is not Pro yet, the invitation will attach after Pro activation.
-      </p>
-      <p style="margin: 0 0 20px;">
-        <a href="${escapeHtml(inviteUrl)}" style="background: #0f172a; color: #ffffff; padding: 10px 14px; text-decoration: none; border-radius: 6px; display: inline-block;">
-          Open workspace invite
-        </a>
-      </p>
-      <p style="margin: 0; color: #667085; font-size: 13px;">
-        Fee Insight Hamilton workspace access is institution-scoped and can be revoked by the workspace owner.
-      </p>
+    <div style="background: #FAF7F2; padding: 32px 16px; font-family: Georgia, 'Times New Roman', serif; color: #1A1815; line-height: 1.55;">
+      <div style="max-width: 560px; margin: 0 auto; background: #FDFBF8; border: 1px solid #E0D7C9; border-radius: 8px; padding: 28px 28px 24px;">
+        <p style="margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-size: 20px; font-weight: 500; letter-spacing: -0.01em; color: #1A1815;">${escapeHtml(preview)}</p>
+        <p style="margin: 0 0 16px; font-size: 15px; color: #1A1815;">
+          <strong style="color: #5A5347; font-weight: 600;">Institution:</strong> ${escapeHtml(institutionName)}<br />
+          <strong style="color: #5A5347; font-weight: 600;">Role:</strong> ${escapeHtml(invitation.role)}
+        </p>
+        <p style="margin: 0 0 22px; font-size: 15px; color: #5A5347;">
+          Accept the invitation by signing in or registering with ${escapeHtml(invitation.email)}.
+          If the account is not Pro yet, the invitation will attach after Pro activation.
+        </p>
+        <p style="margin: 0 0 22px;">
+          <a href="${escapeHtml(inviteUrl)}" style="background: #C44B2E; color: #ffffff; padding: 11px 18px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Open workspace invite
+          </a>
+        </p>
+        <p style="margin: 0; padding-top: 16px; border-top: 1px solid #E0D7C9; color: #7A7062; font-size: 13px;">
+          Fee Insight Hamilton workspace access is institution-scoped and can be revoked by the workspace owner.
+        </p>
+      </div>
     </div>
   `;
 

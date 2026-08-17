@@ -2,7 +2,7 @@ import type { ElementType, ReactNode } from "react";
 
 /**
  * Eyebrow — section labels in the editorial style used across Fee Insight
- * marketing surfaces (small uppercase serif, wide tracking, warm muted color).
+ * marketing surfaces (11px uppercase serif, 0.12em tracking, #7A7062).
  *
  * Semantics: defaults to `<span>` (decorative). Pass `as="h2"` (or `h3`/`h4`)
  * when the eyebrow IS the section's heading — so screen readers still get
@@ -19,21 +19,23 @@ interface EyebrowProps {
   as?: ElementType;
   /** Color tone. `default` for most labels, `accent` (terracotta) for branded callouts. */
   tone?: Tone;
-  /** Tracking / size variant. `wide` is the 0.2em tracking 10px default; `tight` is 0.1em 12px for slightly larger labels. */
+  /** Tracking / size variant. `wide` is the 11px / 0.12em default; `tight` is 12px / 0.1em for slightly larger labels. */
   size?: "wide" | "tight";
   className?: string;
   children: ReactNode;
 }
 
+/* warm-500 (#A09788) is reserved for rules and disabled states — eyebrows are
+   text at or below 14px, so #7A7062 (warm-600) is the floor for every tone. */
 const TONE: Record<Tone, string> = {
-  default: "text-warm-500",
+  default: "text-warm-600",
   subtle: "text-warm-600",
   accent: "text-terra",
   dark: "text-warm-700",
 };
 
 const SIZE: Record<NonNullable<EyebrowProps["size"]>, string> = {
-  wide: "text-[10px] font-bold uppercase tracking-[0.2em]",
+  wide: "text-[11px] font-bold uppercase tracking-[0.12em]",
   tight: "text-[12px] font-bold uppercase tracking-[0.1em]",
 };
 
